@@ -478,9 +478,11 @@ jobs:
             const limitedStalled = stalledPrs.slice(0, Math.min(maxPrs, maxDispatches));
             const hasWork = limitedConflicts.length > 0 || limitedFailing.length > 0 || limitedStalled.length > 0;
 
-            core.setOutput('conflict_prs', JSON.stringify(limitedConflicts));
-            core.setOutput('failing_prs', JSON.stringify(limitedFailing));
-            core.setOutput('stalled_prs', JSON.stringify(limitedStalled));
+            // Output only PR numbers to avoid GitHub Actions secret masking.
+            // Matrix jobs fetch full details at runtime.
+            core.setOutput('conflict_prs', JSON.stringify(limitedConflicts.map(p => ({number: p.number}))));
+            core.setOutput('failing_prs', JSON.stringify(limitedFailing.map(p => ({number: p.number}))));
+            core.setOutput('stalled_prs', JSON.stringify(limitedStalled.map(p => ({number: p.number}))));
             core.setOutput('stalled_scan_count', String(stalledPrs.length));
             core.setOutput('healthy_count', String(healthyCount));
             core.setOutput('total_open', String(prs.length));
@@ -568,10 +570,30 @@ jobs:
             echo "source=github-token" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Fetch PR details
+        id: pr_details
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.auth.outputs.token }}
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ matrix.pr.number }},
+            });
+            const headRef = pr.head.ref;
+            let agentType = 'codex';
+            if (headRef.startsWith('claude/')) agentType = 'claude';
+            core.setOutput('head_ref', headRef);
+            core.setOutput('base_ref', pr.base.ref);
+            core.setOutput('head_sha', pr.head.sha);
+            core.setOutput('agent_type', agentType);
+            core.setOutput('title', pr.title);
+
       - name: Checkout PR branch
         uses: actions/checkout@v6
         with:
-          ref: ${{ matrix.pr.head_ref }}
+          ref: ${{ steps.pr_details.outputs.head_ref }}
           fetch-depth: 0
           token: ${{ steps.auth.outputs.token }}
 
@@ -600,8 +622,8 @@ jobs:
       - name: Attempt auto-merge
         id: merge
         env:
-          BASE_REF: ${{ matrix.pr.base_ref }}
-          HEAD_REF: ${{ matrix.pr.head_ref }}
+          BASE_REF: ${{ steps.pr_details.outputs.base_ref }}
+          HEAD_REF: ${{ steps.pr_details.outputs.head_ref }}
           PR_NUMBER: ${{ matrix.pr.number }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
@@ -708,9 +730,9 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.auth.outputs.token }}
           PR_NUMBER: ${{ matrix.pr.number }}
-          HEAD_REF: ${{ matrix.pr.head_ref }}
-          BASE_REF: ${{ matrix.pr.base_ref }}
-          AGENT_TYPE: ${{ matrix.pr.agent_type }}
+          HEAD_REF: ${{ steps.pr_details.outputs.head_ref }}
+          BASE_REF: ${{ steps.pr_details.outputs.base_ref }}
+          AGENT_TYPE: ${{ steps.pr_details.outputs.agent_type }}
           CONFLICT_FILES: ${{ steps.merge.outputs.conflict_files }}
         run: |
           set -euo pipefail
@@ -737,9 +759,9 @@ jobs:
         uses: actions/github-script@v8
         env:
           PR_NUM: ${{ matrix.pr.number }}
-          HEAD_REF_VAL: ${{ matrix.pr.head_ref }}
-          BASE_REF_VAL: ${{ matrix.pr.base_ref }}
-          AGENT_TYPE_VAL: ${{ matrix.pr.agent_type }}
+          HEAD_REF_VAL: ${{ steps.pr_details.outputs.head_ref }}
+          BASE_REF_VAL: ${{ steps.pr_details.outputs.base_ref }}
+          AGENT_TYPE_VAL: ${{ steps.pr_details.outputs.agent_type }}
           CONFLICT_FILES_VAL: ${{ steps.merge.outputs.conflict_files }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
@@ -787,7 +809,7 @@ jobs:
           RESULT: ${{ steps.merge.outputs.result }}
           REASON: ${{ steps.merge.outputs.reason }}
           NEEDS_AGENT: ${{ steps.merge.outputs.needs_agent }}
-          AGENT_TYPE: ${{ matrix.pr.agent_type }}
+          AGENT_TYPE: ${{ steps.pr_details.outputs.agent_type }}
         run: |
           {
             echo "### PR #$PR_NUMBER"
@@ -843,11 +865,31 @@ jobs:
             echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Fetch PR details
+        id: pr_details
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.auth.outputs.token }}
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ matrix.pr.number }},
+            });
+            const headRef = pr.head.ref;
+            let agentType = 'codex';
+            if (headRef.startsWith('claude/')) agentType = 'claude';
+            core.setOutput('head_ref', headRef);
+            core.setOutput('base_ref', pr.base.ref);
+            core.setOutput('head_sha', pr.head.sha);
+            core.setOutput('agent_type', agentType);
+            core.setOutput('title', pr.title);
+
       - name: Dispatch keepalive loop for failing checks
         env:
           GH_TOKEN: ${{ steps.auth.outputs.token }}
           PR_NUMBER: ${{ matrix.pr.number }}
-          AGENT_TYPE: ${{ matrix.pr.agent_type }}
+          AGENT_TYPE: ${{ steps.pr_details.outputs.agent_type }}
         run: |
           set -euo pipefail
 
@@ -868,7 +910,7 @@ jobs:
         if: always()
         env:
           PR_NUMBER: ${{ matrix.pr.number }}
-          AGENT_TYPE: ${{ matrix.pr.agent_type }}
+          AGENT_TYPE: ${{ steps.pr_details.outputs.agent_type }}
         run: |
           {
             echo "### PR #$PR_NUMBER — Autofix Dispatched"
@@ -934,12 +976,55 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
+      - name: Fetch PR details
+        id: pr_details
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.auth.outputs.token }}
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ matrix.pr.number }},
+            });
+            const headRef = pr.head.ref;
+            let agentType = 'codex';
+            if (headRef.startsWith('claude/')) agentType = 'claude';
+            // Detect blocking labels from current PR state
+            const BLOCKING_LABELS = ['agent:needs-attention', 'agent:rate-limited'];
+            const labels = (pr.labels || []).map(l => l.name);
+            const blockingLabels = labels.filter(l => BLOCKING_LABELS.includes(l));
+            // Parse task checkboxes from status summary
+            const body = pr.body || '';
+            const startMarker = '<!-- auto-status-summary:start -->';
+            const endMarker = '<!-- auto-status-summary:end -->';
+            const startIdx = body.indexOf(startMarker);
+            const endIdx = body.indexOf(endMarker);
+            let unchecked = 0, total = 0;
+            if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+              const section = body.slice(startIdx + startMarker.length, endIdx);
+              const cbRe = /^\s*[-*+]\s*\[([ xX])\]/gm;
+              let m;
+              while ((m = cbRe.exec(section)) !== null) {
+                total++;
+                if (m[1] === ' ') unchecked++;
+              }
+            }
+            core.setOutput('head_ref', headRef);
+            core.setOutput('base_ref', pr.base.ref);
+            core.setOutput('head_sha', pr.head.sha);
+            core.setOutput('agent_type', agentType);
+            core.setOutput('title', pr.title);
+            core.setOutput('blocking_labels', blockingLabels.join(','));
+            core.setOutput('unchecked', String(unchecked));
+            core.setOutput('total', String(total));
+
       - name: Nudge stalled PR
         id: nudge
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ matrix.pr.number }}
-          BLOCKING_LABELS: ${{ join(matrix.pr.blocking_labels, ',') }}
+          BLOCKING_LABELS: ${{ steps.pr_details.outputs.blocking_labels }}
           DRY_RUN: ${{ inputs.dry_run }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
@@ -1032,9 +1117,9 @@ jobs:
         env:
           PR_NUMBER: ${{ matrix.pr.number }}
           RESULT: ${{ steps.nudge.outputs.result }}
-          BLOCKING: ${{ join(matrix.pr.blocking_labels, ', ') }}
-          UNCHECKED: ${{ matrix.pr.unchecked }}
-          TOTAL: ${{ matrix.pr.total }}
+          BLOCKING: ${{ steps.pr_details.outputs.blocking_labels }}
+          UNCHECKED: ${{ steps.pr_details.outputs.unchecked }}
+          TOTAL: ${{ steps.pr_details.outputs.total }}
         run: |
           {
             echo "### PR #$PR_NUMBER — Stall Nudge"
