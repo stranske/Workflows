@@ -280,8 +280,10 @@ jobs:
               let mergeableState = pr.mergeable_state;
               let mergeable = pr.mergeable;
 
+              core.info(`PR #${pr.number}: mergeable=${mergeable} (${typeof mergeable}), state=${mergeableState} (${typeof mergeableState})`);
+
               // If unknown, fetch individually to trigger computation
-              if (mergeable === null || mergeableState === 'unknown') {
+              if (mergeable == null || !mergeableState || mergeableState === 'unknown') {
                 await new Promise(r => setTimeout(r, 1000));
                 const { data: fresh } = await withRetry((client) =>
                   client.rest.pulls.get({
