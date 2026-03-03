@@ -19,6 +19,11 @@
 #
 # Consumer repos call this via a thin wrapper: agents-pr-health.yml
 #
+# Architecture: scan → artifact upload (JSON files) → single jobs that
+# loop (download artifact, iterate).  This avoids GitHub Actions' secret
+# masking which silently suppresses job outputs containing substrings
+# that match any repository secret.
+#
 # Required secrets:
 #   - WORKFLOWS_APP_ID / WORKFLOWS_APP_PRIVATE_KEY (preferred)
 #   - ACTIONS_BOT_PAT or SERVICE_BOT_PAT (fallback)
@@ -170,9 +175,8 @@ jobs:
     if: needs.gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     outputs:
-      conflict_prs: ${{ steps.categorise.outputs.conflict_prs }}
-      failing_prs: ${{ steps.categorise.outputs.failing_prs }}
-      stalled_prs: ${{ steps.categorise.outputs.stalled_prs }}
+      conflict_count: ${{ steps.categorise.outputs.conflict_count }}
+      failing_count: ${{ steps.categorise.outputs.failing_count }}
       stalled_scan_count: ${{ steps.categorise.outputs.stalled_scan_count }}
       healthy_count: ${{ steps.categorise.outputs.healthy_count }}
       total_open: ${{ steps.categorise.outputs.total_open }}
@@ -346,7 +350,7 @@ jobs:
             // max_agent_dispatches (cost guard for agent invocations).
             // Conflicts that need agents count toward the dispatch cap;
             // simple auto-merges are free so we keep all of those in the
-            // list and let the matrix step handle them.
+            // list and let the loop step handle them.
             const limitedConflicts = conflictPrs.slice(0, Math.min(maxPrs, maxDispatches));
             const limitedFailing = failingPrs.slice(0, Math.min(maxPrs, maxDispatches));
 
@@ -478,17 +482,17 @@ jobs:
             const limitedStalled = stalledPrs.slice(0, Math.min(maxPrs, maxDispatches));
             const hasWork = limitedConflicts.length > 0 || limitedFailing.length > 0 || limitedStalled.length > 0;
 
-            // Write PR-number arrays using heredoc/delimiter format to bypass
-            // core.setOutput secret masking that suppresses short numbers
-            // matching secret substrings.
+            // Write PR data to files for artifact upload.
+            // Avoid job outputs for structured data — GitHub Actions' secret masking
+            // suppresses any output value containing substrings matching secrets.
             const fs = require('fs');
-            const outputFile = process.env.GITHUB_OUTPUT;
-            const conflictJson = JSON.stringify(limitedConflicts.map(p => ({number: p.number})));
-            const failingJson = JSON.stringify(limitedFailing.map(p => ({number: p.number})));
-            const stalledJson = JSON.stringify(limitedStalled.map(p => ({number: p.number})));
-            fs.appendFileSync(outputFile, `conflict_prs<<HEALTH_SCAN_DELIMITER\n${conflictJson}\nHEALTH_SCAN_DELIMITER\n`);
-            fs.appendFileSync(outputFile, `failing_prs<<HEALTH_SCAN_DELIMITER\n${failingJson}\nHEALTH_SCAN_DELIMITER\n`);
-            fs.appendFileSync(outputFile, `stalled_prs<<HEALTH_SCAN_DELIMITER\n${stalledJson}\nHEALTH_SCAN_DELIMITER\n`);
+            fs.writeFileSync('/tmp/conflict_prs.json', JSON.stringify(limitedConflicts));
+            fs.writeFileSync('/tmp/failing_prs.json', JSON.stringify(limitedFailing));
+            fs.writeFileSync('/tmp/stalled_prs.json', JSON.stringify(limitedStalled));
+
+            // Only scalar counts as outputs (safe from masking)
+            core.setOutput('conflict_count', String(limitedConflicts.length));
+            core.setOutput('failing_count', String(limitedFailing.length));
             core.setOutput('stalled_scan_count', String(stalledPrs.length));
             core.setOutput('healthy_count', String(healthyCount));
             core.setOutput('total_open', String(prs.length));
@@ -528,22 +532,28 @@ jobs:
             core.summary.addRaw(summary);
             await core.summary.write();
 
+      - name: Upload scan data
+        if: steps.categorise.outputs.has_work == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-health-scan-${{ github.run_id }}
+          path: |
+            /tmp/conflict_prs.json
+            /tmp/failing_prs.json
+            /tmp/stalled_prs.json
+          retention-days: 1
+
   # -----------------------------------------------------------------------
   # 2. Resolve merge conflicts
   # -----------------------------------------------------------------------
   resolve-conflicts:
-    name: 'Resolve #${{ matrix.pr.number }}'
+    name: Resolve conflicts
     needs: scan
     if: >-
       needs.scan.outputs.has_work == 'true'
-      && fromJSON(needs.scan.outputs.conflict_prs)[0] != null
+      && needs.scan.outputs.conflict_count != '0'
       && inputs.skip_conflict_resolution != 'true'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix:
-        pr: ${{ fromJSON(needs.scan.outputs.conflict_prs) }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -555,294 +565,119 @@ jobs:
 
       - name: Select authentication token
         id: auth
+        run: |
+          set -euo pipefail
+          if [ -n "${APP_TOKEN:-}" ]; then
+            echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
+          elif [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            echo "token=$ACTIONS_BOT_PAT" >> "$GITHUB_OUTPUT"
+          elif [ -n "${SERVICE_BOT_PAT:-}" ]; then
+            echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
+          fi
         env:
           APP_TOKEN: ${{ steps.app_token.outputs.token }}
           ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
           GITHUB_TOKEN_FALLBACK: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          if [ -n "${APP_TOKEN:-}" ]; then
-            echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
-            echo "source=app-token" >> "$GITHUB_OUTPUT"
-          elif [ -n "${ACTIONS_BOT_PAT:-}" ]; then
-            echo "token=$ACTIONS_BOT_PAT" >> "$GITHUB_OUTPUT"
-            echo "source=actions-bot-pat" >> "$GITHUB_OUTPUT"
-          elif [ -n "${SERVICE_BOT_PAT:-}" ]; then
-            echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
-            echo "source=service-bot-pat" >> "$GITHUB_OUTPUT"
-          else
-            echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
-            echo "source=github-token" >> "$GITHUB_OUTPUT"
-          fi
 
-      - name: Fetch PR details
-        id: pr_details
-        uses: actions/github-script@v8
+      - name: Download scan data
+        uses: actions/download-artifact@v4
         with:
-          github-token: ${{ steps.auth.outputs.token }}
-          script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: ${{ matrix.pr.number }},
-            });
-            const headRef = pr.head.ref;
-            let agentType = 'codex';
-            if (headRef.startsWith('claude/')) agentType = 'claude';
-            core.setOutput('head_ref', headRef);
-            core.setOutput('base_ref', pr.base.ref);
-            core.setOutput('head_sha', pr.head.sha);
-            core.setOutput('agent_type', agentType);
-            core.setOutput('title', pr.title);
-
-      - name: Checkout PR branch
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ steps.pr_details.outputs.head_ref }}
-          fetch-depth: 0
-          token: ${{ steps.auth.outputs.token }}
+          name: pr-health-scan-${{ github.run_id }}
+          path: /tmp/scan-data
 
       - name: Checkout Workflows helpers
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           sparse-checkout: |
-            .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
-          path: .workflows-lib
 
-      - name: Setup API client
-        uses: ./.workflows-lib/.github/actions/setup-api-client
-        with:
-          secrets: ${{ toJSON(secrets) }}
-          github_token: ${{ github.token }}
-
-      - name: Configure git
-        run: |
-          git config user.name "stranske automation"
-          git config user.email "stranske-automation-bot@users.noreply.github.com"
-
-      - name: Attempt auto-merge
-        id: merge
-        env:
-          BASE_REF: ${{ steps.pr_details.outputs.base_ref }}
-          HEAD_REF: ${{ steps.pr_details.outputs.head_ref }}
-          PR_NUMBER: ${{ matrix.pr.number }}
-          DRY_RUN: ${{ inputs.dry_run }}
-        run: |
-          set -euo pipefail
-
-          result="unknown"
-          reason=""
-
-          git fetch origin "$BASE_REF"
-
-          # Check if merge is actually needed
-          base_sha=$(git rev-parse origin/"$BASE_REF")
-          merge_base=$(git merge-base HEAD origin/"$BASE_REF" 2>/dev/null || echo "")
-          if [ "$merge_base" = "$base_sha" ]; then
-            echo "PR #$PR_NUMBER is already up to date"
-            result="success"
-            reason="already-up-to-date"
-            echo "result=$result" >> "$GITHUB_OUTPUT"
-            echo "reason=$reason" >> "$GITHUB_OUTPUT"
-            echo "needs_agent=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Attempt merge
-          if git merge origin/"$BASE_REF" --no-edit 2>/dev/null; then
-            if [ "$DRY_RUN" = "true" ]; then
-              echo "DRY RUN: Would push clean merge for PR #$PR_NUMBER"
-              git reset --hard HEAD~1
-              result="dry-run"
-              reason="clean-merge-available"
-            else
-              git push origin HEAD:refs/heads/"$HEAD_REF"
-              result="success"
-              reason="clean-merge"
-            fi
-            echo "result=$result" >> "$GITHUB_OUTPUT"
-            echo "reason=$reason" >> "$GITHUB_OUTPUT"
-            echo "needs_agent=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Merge failed — check if all conflicts are in lock files
-          conflict_files=$(git diff --name-only --diff-filter=U 2>/dev/null || echo "")
-          if [ -z "$conflict_files" ]; then
-            git merge --abort || true
-            result="failure"
-            reason="merge-conflict-unknown"
-            echo "result=$result" >> "$GITHUB_OUTPUT"
-            echo "reason=$reason" >> "$GITHUB_OUTPUT"
-            echo "needs_agent=true" >> "$GITHUB_OUTPUT"
-            echo "conflict_files=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "Conflicting files:"
-          echo "$conflict_files"
-
-          lockfile_pattern='(\.lock$|lock\.json$|package-lock\.json$|yarn\.lock$|poetry\.lock$|'
-          lockfile_pattern+='Gemfile\.lock$|requirements.*\.lock$)'
-          non_lock_conflicts=$(echo "$conflict_files" | grep -vE "$lockfile_pattern" || true)
-
-          if [ -z "$non_lock_conflicts" ]; then
-            echo "All conflicts in lock files — auto-resolving..."
-            for file in $conflict_files; do
-              git checkout --theirs "$file" 2>/dev/null || true
-              git add "$file" 2>/dev/null || true
-            done
-            if git commit --no-edit 2>/dev/null; then
-              if [ "$DRY_RUN" = "true" ]; then
-                echo "DRY RUN: Would push lock-file resolution for PR #$PR_NUMBER"
-                result="dry-run"
-                reason="lock-file-auto-resolved"
-              else
-                git push origin HEAD:refs/heads/"$HEAD_REF"
-                result="success"
-                reason="lock-file-auto-resolved"
-              fi
-            else
-              result="failure"
-              reason="lock-file-commit-failed"
-            fi
-            git merge --abort 2>/dev/null || true
-            echo "result=$result" >> "$GITHUB_OUTPUT"
-            echo "reason=$reason" >> "$GITHUB_OUTPUT"
-            echo "needs_agent=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Non-trivial conflicts — need agent intervention
-          git merge --abort || true
-          result="needs-agent"
-          reason="non-trivial-conflicts"
-          echo "result=$result" >> "$GITHUB_OUTPUT"
-          echo "reason=$reason" >> "$GITHUB_OUTPUT"
-          echo "needs_agent=true" >> "$GITHUB_OUTPUT"
-          # Encode conflict files for the agent prompt
-          encoded_files=$(echo "$conflict_files" | tr '\n' ',' | sed 's/,$//')
-          echo "conflict_files=$encoded_files" >> "$GITHUB_OUTPUT"
-
-      - name: Dispatch agent for complex conflicts
-        if: >-
-          steps.merge.outputs.needs_agent == 'true'
-          && inputs.dry_run != 'true'
-        env:
-          GH_TOKEN: ${{ steps.auth.outputs.token }}
-          PR_NUMBER: ${{ matrix.pr.number }}
-          HEAD_REF: ${{ steps.pr_details.outputs.head_ref }}
-          BASE_REF: ${{ steps.pr_details.outputs.base_ref }}
-          AGENT_TYPE: ${{ steps.pr_details.outputs.agent_type }}
-          CONFLICT_FILES: ${{ steps.merge.outputs.conflict_files }}
-        run: |
-          set -euo pipefail
-
-          echo "Dispatching agent to resolve conflicts on PR #$PR_NUMBER..."
-          echo "Agent type (from branch prefix): $AGENT_TYPE"
-          echo "Conflicting files: $CONFLICT_FILES"
-
-          # Dispatch via keepalive loop — it handles routing to the
-          # correct agent runner (codex vs claude) based on the PR's
-          # branch prefix and labels via agent_registry.js.
-          gh workflow run agents-keepalive-loop.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            -f pr_number="$PR_NUMBER" \
-            -f force_retry=true
-
-          echo "Dispatched keepalive loop for PR #$PR_NUMBER"
-
-      - name: Dispatch conflict event (fallback)
-        if: >-
-          steps.merge.outputs.needs_agent == 'true'
-          && inputs.dry_run != 'true'
-        continue-on-error: true
+      - name: Resolve each conflict
         uses: actions/github-script@v8
         env:
-          PR_NUM: ${{ matrix.pr.number }}
-          HEAD_REF_VAL: ${{ steps.pr_details.outputs.head_ref }}
-          BASE_REF_VAL: ${{ steps.pr_details.outputs.base_ref }}
-          AGENT_TYPE_VAL: ${{ steps.pr_details.outputs.agent_type }}
-          CONFLICT_FILES_VAL: ${{ steps.merge.outputs.conflict_files }}
+          DRY_RUN: ${{ inputs.dry_run }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
             const fs = require('fs');
-            const retryPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
-            const { createTokenAwareRetry } = fs.existsSync(retryPath)
-              ? require(retryPath)
-              : require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
-              github, core, task: 'pr-health-dispatch',
-            });
-            // Fetch head SHA at runtime to avoid it appearing in job
-            // outputs, which triggers GitHub Actions secret masking.
-            const { data: prData } = await withRetry((client) =>
-              client.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: parseInt(process.env.PR_NUM, 10),
-              })
-            );
-            const headSha = prData.head.sha;
-            // Backup trigger via repository_dispatch — avoids expression
-            // interpolation inside JS strings (injection risk).
-            await withRetry((client) =>
-              client.rest.repos.createDispatchEvent({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                event_type: 'pr_health_conflict',
-                client_payload: {
-                  pr_number: parseInt(process.env.PR_NUM, 10),
-                  head_ref: process.env.HEAD_REF_VAL,
-                  base_ref: process.env.BASE_REF_VAL,
-                  head_sha: headSha,
-                  agent_type: process.env.AGENT_TYPE_VAL,
-                  conflict_files: process.env.CONFLICT_FILES_VAL,
-                },
-              })
-            );
+            const conflicts = JSON.parse(fs.readFileSync('/tmp/scan-data/conflict_prs.json', 'utf8'));
 
-      - name: Generate step summary
-        if: always()
-        env:
-          PR_NUMBER: ${{ matrix.pr.number }}
-          RESULT: ${{ steps.merge.outputs.result }}
-          REASON: ${{ steps.merge.outputs.reason }}
-          NEEDS_AGENT: ${{ steps.merge.outputs.needs_agent }}
-          AGENT_TYPE: ${{ steps.pr_details.outputs.agent_type }}
-        run: |
-          {
-            echo "### PR #$PR_NUMBER"
-            echo "| Field | Value |"
-            echo "|-------|-------|"
-            echo "| Result | **$RESULT** |"
-            echo "| Reason | \`$REASON\` |"
-            echo "| Agent dispatched | $NEEDS_AGENT (type: $AGENT_TYPE) |"
-          } >> "$GITHUB_STEP_SUMMARY"
+            if (conflicts.length === 0) {
+              core.info('No conflicts to resolve');
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const dryRun = process.env.DRY_RUN === 'true';
+
+            for (const pr of conflicts) {
+              core.info(`\n--- Processing PR #${pr.number} (${pr.head_ref}) ---`);
+
+              try {
+                // Try auto-merge (update branch)
+                try {
+                  await github.rest.pulls.updateBranch({
+                    owner, repo,
+                    pull_number: pr.number,
+                  });
+                  core.info(`PR #${pr.number}: Auto-merge succeeded`);
+                  continue;
+                } catch (mergeErr) {
+                  core.info(`PR #${pr.number}: Auto-merge failed — ${mergeErr.message}`);
+                }
+
+                // Auto-merge failed — dispatch agent if not dry run
+                if (dryRun) {
+                  core.info(`PR #${pr.number}: [DRY RUN] Would dispatch ${pr.agent_type} agent`);
+                  continue;
+                }
+
+                // Get current head SHA for the dispatch
+                const { data: prData } = await github.rest.pulls.get({
+                  owner, repo, pull_number: pr.number,
+                });
+
+                core.info(`PR #${pr.number}: Dispatching ${pr.agent_type} agent for conflict resolution`);
+
+                await github.rest.repos.createDispatchEvent({
+                  owner, repo,
+                  event_type: `${pr.agent_type}-agent-fix`,
+                  client_payload: {
+                    pr_number: pr.number,
+                    head_ref: pr.head_ref,
+                    base_ref: pr.base_ref,
+                    head_sha: prData.head.sha,
+                    issue_type: 'merge-conflict',
+                    agent_type: pr.agent_type,
+                  },
+                });
+                core.info(`PR #${pr.number}: Agent dispatched`);
+
+              } catch (err) {
+                core.warning(`PR #${pr.number}: Failed — ${err.message}`);
+              }
+            }
+
+            core.info(`\nProcessed ${conflicts.length} conflicting PRs`);
 
   # -----------------------------------------------------------------------
   # 3. Re-dispatch autofix for failing checks
   # -----------------------------------------------------------------------
   fix-checks:
-    name: 'Autofix #${{ matrix.pr.number }}'
+    name: Fix failing checks
     needs: scan
     if: >-
       needs.scan.outputs.has_work == 'true'
-      && fromJSON(needs.scan.outputs.failing_prs)[0] != null
+      && needs.scan.outputs.failing_count != '0'
       && inputs.skip_check_fix != 'true'
       && inputs.dry_run != 'true'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        pr: ${{ fromJSON(needs.scan.outputs.failing_prs) }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -854,11 +689,6 @@ jobs:
 
       - name: Select authentication token
         id: auth
-        env:
-          APP_TOKEN: ${{ steps.app_token.outputs.token }}
-          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
-          SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
-          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ -n "${APP_TOKEN:-}" ]; then
@@ -870,74 +700,71 @@ jobs:
           else
             echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
+          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
 
-      - name: Fetch PR details
-        id: pr_details
+      - name: Download scan data
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-health-scan-${{ github.run_id }}
+          path: /tmp/scan-data
+
+      - name: Fix each failing PR
         uses: actions/github-script@v8
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: ${{ matrix.pr.number }},
-            });
-            const headRef = pr.head.ref;
-            let agentType = 'codex';
-            if (headRef.startsWith('claude/')) agentType = 'claude';
-            core.setOutput('head_ref', headRef);
-            core.setOutput('base_ref', pr.base.ref);
-            core.setOutput('head_sha', pr.head.sha);
-            core.setOutput('agent_type', agentType);
-            core.setOutput('title', pr.title);
+            const fs = require('fs');
+            const failing = JSON.parse(fs.readFileSync('/tmp/scan-data/failing_prs.json', 'utf8'));
 
-      - name: Dispatch keepalive loop for failing checks
-        env:
-          GH_TOKEN: ${{ steps.auth.outputs.token }}
-          PR_NUMBER: ${{ matrix.pr.number }}
-          AGENT_TYPE: ${{ steps.pr_details.outputs.agent_type }}
-        run: |
-          set -euo pipefail
+            if (failing.length === 0) {
+              core.info('No failing PRs to fix');
+              return;
+            }
 
-          echo "Dispatching keepalive for PR #$PR_NUMBER (agent: $AGENT_TYPE)..."
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
 
-          # Use keepalive loop which handles agent routing and can
-          # trigger autofix internally.  We do NOT dispatch
-          # agents-autofix-loop.yml directly because it requires
-          # gate_run_id (a required input we cannot supply here).
-          gh workflow run agents-keepalive-loop.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            -f pr_number="$PR_NUMBER" \
-            -f force_retry=true
+            for (const pr of failing) {
+              core.info(`\n--- Processing PR #${pr.number} (${pr.head_ref}) ---`);
 
-          echo "Dispatched keepalive loop for PR #$PR_NUMBER"
+              try {
+                // Use keepalive loop which handles agent routing and can
+                // trigger autofix internally.  We do NOT dispatch
+                // agents-autofix-loop.yml directly because it requires
+                // gate_run_id (a required input we cannot supply here).
+                await github.rest.actions.createWorkflowDispatch({
+                  owner, repo,
+                  workflow_id: 'agents-keepalive-loop.yml',
+                  ref: pr.head_ref,
+                  inputs: {
+                    pr_number: String(pr.number),
+                    force_retry: 'true',
+                  },
+                });
+                core.info(`PR #${pr.number}: Dispatched keepalive loop (agent: ${pr.agent_type})`);
 
-      - name: Generate step summary
-        if: always()
-        env:
-          PR_NUMBER: ${{ matrix.pr.number }}
-          AGENT_TYPE: ${{ steps.pr_details.outputs.agent_type }}
-        run: |
-          {
-            echo "### PR #$PR_NUMBER — Autofix Dispatched"
-            echo "Agent: **$AGENT_TYPE**"
-          } >> "$GITHUB_STEP_SUMMARY"
+              } catch (err) {
+                core.warning(`PR #${pr.number}: Failed to dispatch — ${err.message}`);
+              }
+            }
+
+            core.info(`\nProcessed ${failing.length} failing PRs`);
 
   # -----------------------------------------------------------------------
   # 4. Nudge stalled PRs (add agent:retry, remove blocking labels)
   # -----------------------------------------------------------------------
   nudge-stalled:
-    name: 'Nudge #${{ matrix.pr.number }}'
+    name: Nudge stalled PRs
     needs: scan
     if: >-
-      fromJSON(needs.scan.outputs.stalled_prs)[0] != null
+      needs.scan.outputs.has_work == 'true'
+      && needs.scan.outputs.stalled_scan_count != '0'
       && inputs.skip_stall_nudge != 'true'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix:
-        pr: ${{ fromJSON(needs.scan.outputs.stalled_prs) }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -949,11 +776,6 @@ jobs:
 
       - name: Select authentication token
         id: auth
-        env:
-          APP_TOKEN: ${{ steps.app_token.outputs.token }}
-          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
-          SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
-          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ -n "${APP_TOKEN:-}" ]; then
@@ -965,177 +787,132 @@ jobs:
           else
             echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
+          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
+
+      - name: Download scan data
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-health-scan-${{ github.run_id }}
+          path: /tmp/scan-data
 
       - name: Checkout Workflows helpers
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           sparse-checkout: |
-            .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
-      - name: Setup API client
-        uses: ./.github/actions/setup-api-client
-        with:
-          secrets: ${{ toJSON(secrets) }}
-          github_token: ${{ github.token }}
-
-      - name: Fetch PR details
-        id: pr_details
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ steps.auth.outputs.token }}
-          script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: ${{ matrix.pr.number }},
-            });
-            const headRef = pr.head.ref;
-            let agentType = 'codex';
-            if (headRef.startsWith('claude/')) agentType = 'claude';
-            // Detect blocking labels from current PR state
-            const BLOCKING_LABELS = ['agent:needs-attention', 'agent:rate-limited'];
-            const labels = (pr.labels || []).map(l => l.name);
-            const blockingLabels = labels.filter(l => BLOCKING_LABELS.includes(l));
-            // Parse task checkboxes from status summary
-            const body = pr.body || '';
-            const startMarker = '<!-- auto-status-summary:start -->';
-            const endMarker = '<!-- auto-status-summary:end -->';
-            const startIdx = body.indexOf(startMarker);
-            const endIdx = body.indexOf(endMarker);
-            let unchecked = 0, total = 0;
-            if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-              const section = body.slice(startIdx + startMarker.length, endIdx);
-              const cbRe = /^\s*[-*+]\s*\[([ xX])\]/gm;
-              let m;
-              while ((m = cbRe.exec(section)) !== null) {
-                total++;
-                if (m[1] === ' ') unchecked++;
-              }
-            }
-            core.setOutput('head_ref', headRef);
-            core.setOutput('base_ref', pr.base.ref);
-            core.setOutput('head_sha', pr.head.sha);
-            core.setOutput('agent_type', agentType);
-            core.setOutput('title', pr.title);
-            core.setOutput('blocking_labels', blockingLabels.join(','));
-            core.setOutput('unchecked', String(unchecked));
-            core.setOutput('total', String(total));
-
-      - name: Nudge stalled PR
-        id: nudge
+      - name: Nudge each stalled PR
         uses: actions/github-script@v8
         env:
-          PR_NUMBER: ${{ matrix.pr.number }}
-          BLOCKING_LABELS: ${{ steps.pr_details.outputs.blocking_labels }}
           DRY_RUN: ${{ inputs.dry_run }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
+            const fs = require('fs');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { withRetry } = await createTokenAwareRetry({
               github, core, task: 'pr-health-nudge',
               capabilities: ['issues:write'],
             });
 
+            const stalled = JSON.parse(fs.readFileSync('/tmp/scan-data/stalled_prs.json', 'utf8'));
+
+            if (stalled.length === 0) {
+              core.info('No stalled PRs to nudge');
+              return;
+            }
+
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const prNumber = parseInt(process.env.PR_NUMBER, 10);
-            const blockingLabels = (process.env.BLOCKING_LABELS || '').split(',').filter(Boolean);
             const dryRun = process.env.DRY_RUN === 'true';
             const PAUSE_LABELS = ['agents:pause', 'agents:paused'];
 
-            core.info(`Nudging PR #${prNumber} — blocking labels: ${blockingLabels.join(', ')}`);
+            for (const pr of stalled) {
+              core.info(`\n--- Nudging PR #${pr.number} (${pr.head_ref}) ---`);
+              core.info(`Blocking labels: ${(pr.blocking_labels || []).join(', ')}`);
+              core.info(`Tasks: ${pr.checked}/${pr.total} checked, ${pr.unchecked} unchecked`);
 
-            // Re-fetch current labels to guard against race conditions
-            // (PR may have been paused between scan and this job).
-            const { data: currentLabels } = await withRetry((client) =>
-              client.rest.issues.listLabelsOnIssue({
-                owner, repo, issue_number: prNumber, per_page: 100,
-              })
-            );
-            const currentNames = currentLabels.map(l => l.name);
-            if (currentNames.some(l => PAUSE_LABELS.includes(l))) {
-              core.info(`PR #${prNumber} is now paused — skipping nudge`);
-              core.setOutput('result', 'skipped-paused');
-              return;
-            }
-
-            if (dryRun) {
-              core.info('DRY RUN: Would add agent:retry and remove blocking labels');
-              core.setOutput('result', 'dry-run');
-              return;
-            }
-
-            // Ensure agent:retry triggers a fresh labeled event.
-            // If the label is already present, addLabels is a no-op and
-            // no pull_request:labeled event fires.  Remove first (404-safe),
-            // then re-add so the event always fires.
-            try {
-              await withRetry((client) =>
-                client.rest.issues.removeLabel({
-                  owner, repo, issue_number: prNumber,
-                  name: 'agent:retry',
-                })
-              );
-              core.info('Removed existing agent:retry label');
-            } catch (error) {
-              if (error.status === 404) {
-                core.info('agent:retry not present — will add fresh');
-              } else {
-                throw error;
-              }
-            }
-            await withRetry((client) =>
-              client.rest.issues.addLabels({
-                owner, repo, issue_number: prNumber,
-                labels: ['agent:retry'],
-              })
-            );
-            core.info('Added label: agent:retry');
-
-            // Remove each blocking label (404-safe — label may already be gone)
-            for (const label of blockingLabels) {
               try {
-                await withRetry((client) =>
-                  client.rest.issues.removeLabel({
-                    owner, repo, issue_number: prNumber,
-                    name: label,
+                // Re-fetch current labels to guard against race conditions
+                // (PR may have been paused between scan and this job).
+                const { data: currentLabels } = await withRetry((client) =>
+                  client.rest.issues.listLabelsOnIssue({
+                    owner, repo, issue_number: pr.number, per_page: 100,
                   })
                 );
-                core.info(`Removed label: ${label}`);
-              } catch (error) {
-                if (error.status === 404) {
-                  core.info(`Label already absent: ${label}`);
-                } else {
-                  throw error;
+                const currentNames = currentLabels.map(l => l.name);
+                if (currentNames.some(l => PAUSE_LABELS.includes(l))) {
+                  core.info(`PR #${pr.number} is now paused — skipping nudge`);
+                  continue;
                 }
+
+                if (dryRun) {
+                  core.info(`PR #${pr.number}: [DRY RUN] Would add agent:retry and remove blocking labels`);
+                  continue;
+                }
+
+                // Ensure agent:retry triggers a fresh labeled event.
+                // If the label is already present, addLabels is a no-op and
+                // no pull_request:labeled event fires.  Remove first (404-safe),
+                // then re-add so the event always fires.
+                try {
+                  await withRetry((client) =>
+                    client.rest.issues.removeLabel({
+                      owner, repo, issue_number: pr.number,
+                      name: 'agent:retry',
+                    })
+                  );
+                  core.info(`PR #${pr.number}: Removed existing agent:retry label`);
+                } catch (error) {
+                  if (error.status === 404) {
+                    core.info(`PR #${pr.number}: agent:retry not present — will add fresh`);
+                  } else {
+                    throw error;
+                  }
+                }
+                await withRetry((client) =>
+                  client.rest.issues.addLabels({
+                    owner, repo, issue_number: pr.number,
+                    labels: ['agent:retry'],
+                  })
+                );
+                core.info(`PR #${pr.number}: Added label: agent:retry`);
+
+                // Remove each blocking label (404-safe — label may already be gone)
+                const blockingLabels = pr.blocking_labels || [];
+                for (const label of blockingLabels) {
+                  try {
+                    await withRetry((client) =>
+                      client.rest.issues.removeLabel({
+                        owner, repo, issue_number: pr.number,
+                        name: label,
+                      })
+                    );
+                    core.info(`PR #${pr.number}: Removed label: ${label}`);
+                  } catch (error) {
+                    if (error.status === 404) {
+                      core.info(`PR #${pr.number}: Label already absent: ${label}`);
+                    } else {
+                      throw error;
+                    }
+                  }
+                }
+
+                core.info(`PR #${pr.number}: Nudged successfully`);
+
+              } catch (err) {
+                core.warning(`PR #${pr.number}: Failed — ${err.message}`);
               }
             }
 
-            core.setOutput('result', 'nudged');
-
-      - name: Generate step summary
-        if: always()
-        env:
-          PR_NUMBER: ${{ matrix.pr.number }}
-          RESULT: ${{ steps.nudge.outputs.result }}
-          BLOCKING: ${{ steps.pr_details.outputs.blocking_labels }}
-          UNCHECKED: ${{ steps.pr_details.outputs.unchecked }}
-          TOTAL: ${{ steps.pr_details.outputs.total }}
-        run: |
-          {
-            echo "### PR #$PR_NUMBER — Stall Nudge"
-            echo "| Field | Value |"
-            echo "|-------|-------|"
-            echo "| Result | **${RESULT:-pending}** |"
-            echo "| Incomplete tasks | $UNCHECKED / $TOTAL |"
-            echo "| Blocking labels removed | $BLOCKING |"
-            echo "| Label added | \`agent:retry\` |"
-          } >> "$GITHUB_STEP_SUMMARY"
+            core.info(`\nProcessed ${stalled.length} stalled PRs`);
 
   # -----------------------------------------------------------------------
   # 5. Summary
@@ -1149,8 +926,8 @@ jobs:
       - name: Summarise
         env:
           TOTAL: ${{ needs.scan.outputs.total_open }}
-          CONFLICTS: ${{ needs.scan.outputs.conflict_prs }}
-          FAILING: ${{ needs.scan.outputs.failing_prs }}
+          CONFLICTS: ${{ needs.scan.outputs.conflict_count }}
+          FAILING: ${{ needs.scan.outputs.failing_count }}
           STALLED_COUNT: ${{ needs.scan.outputs.stalled_scan_count }}
           HEALTHY: ${{ needs.scan.outputs.healthy_count }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -1160,8 +937,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          conflict_count=$(echo "$CONFLICTS" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
-          failing_count=$(echo "$FAILING" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
+          conflict_count="$CONFLICTS"
+          failing_count="$FAILING"
           {
             echo "## PR Health Summary"
             echo ""
