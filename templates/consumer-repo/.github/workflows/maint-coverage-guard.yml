@@ -186,7 +186,7 @@ jobs:
 
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: gate-coverage-trend
@@ -196,7 +196,7 @@ jobs:
 
       - name: Download coverage payload artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: gate-coverage
