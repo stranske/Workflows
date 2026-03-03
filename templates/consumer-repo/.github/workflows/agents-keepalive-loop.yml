@@ -383,7 +383,7 @@ jobs:
           steps.evaluate.outputs.action == 'run' ||
           steps.evaluate.outputs.action == 'fix' ||
           steps.evaluate.outputs.action == 'conflict'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
           path: /tmp/keepalive-artifacts/task-appendix.txt
@@ -952,7 +952,7 @@ jobs:
           echo "$metrics_json" >> keepalive-metrics.ndjson
 
       - name: Upload keepalive metrics artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: keepalive-metrics
           path: keepalive-metrics.ndjson
