@@ -160,7 +160,7 @@ jobs:
           python scripts/aggregate_agent_metrics.py
 
       - name: Upload weekly summary
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: agent-weekly-metrics
           path: agent-weekly-metrics.md
