@@ -31,7 +31,7 @@ on:
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-version: '3.11'
 ```
@@ -46,21 +46,21 @@ Choose the reference that matches your stability needs:
 
 | Reference | When to use it | Behavior |
 |-----------|----------------|----------|
-| **Floating major tag (`@v1`)** | Default for most teams that want immediate security/bug fixes. | Automatically tracks the latest commit on `main` (not a release); maintained by `Maint 73 Refresh Reusable Tags` after every merge. Provides immediate fix propagation but may include unreleased changes. |
-| **Pinned release (`@v1.0.0`)** | When you need fully reproducible builds or prefer to upgrade on your own schedule. | Locked to a specific release until you update the tag. Recommended for production stability. |
-| **Branch reference (`@main`)** | Only when testing unreleased changes or developing new features. | Can include breaking changes; not guaranteed stable. |
+| **Default branch (`@main`)** | Current first-party consumer default. | Tracks the latest reusable workflow behavior used by the synced consumer templates. |
+| **Pinned commit SHA** | When you need fully reproducible builds or a controlled rollout. | Locked to a specific revision until you update it. |
+| **Other refs** | Only when intentionally testing or managing a separate distribution strategy. | Includes release tags or feature branches. |
 
 Example with both floating and pinned tags:
 
 ```yaml
 jobs:
-  ci-floating:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+  ci-default:
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-version: '3.11'
 
   ci-pinned:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1.0.0
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@abc123def4567890
     with:
       python-version: '3.11'
 ```
@@ -76,7 +76,7 @@ Call workflows directly from this library. Changes propagate automatically.
 ```yaml
 jobs:
   python-ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-version: '3.11'
     secrets: inherit
@@ -97,7 +97,7 @@ Copy templates from `/templates/` and customize for your project.
 
 ```bash
 # Copy template to your repo
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/ci-basic.yml \
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/ci-basic.yml \
   -o .github/workflows/ci.yml
 ```
 
@@ -118,7 +118,7 @@ Use reusable workflows for standard CI, templates for custom needs.
 jobs:
   # Standard CI via reusable workflow
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
 
   # Custom job specific to your project
   integration-tests:
@@ -161,13 +161,13 @@ Orchestrator chaining example:
 ```yaml
 jobs:
   orchestrator-init:
-    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-init.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-init.yml@main
     id: init
 
   orchestrator-main:
     needs: orchestrator-init
     if: needs.init.outputs.has_work == 'true' && needs.init.outputs.rate_limit_safe == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-main.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-main.yml@main
     with:
       init_success: ${{ needs.init.result }}
       enable_keepalive: ${{ needs.init.outputs.enable_keepalive }}
@@ -183,7 +183,7 @@ Agent readiness example (posting the Markdown table):
 ```yaml
 jobs:
   agents-readiness:
-    uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main
     id: readiness
     with:
       enable_readiness: 'true'
@@ -222,7 +222,7 @@ on: [push, pull_request]
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-version: '3.11'
       run-tests: true
@@ -349,7 +349,7 @@ Enable coverage tracking with automatic issue creation when coverage drops:
 ```yaml
 jobs:
   python-ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       coverage-min: "80"           # Minimum threshold
       enable-soft-gate: true       # Enable trend tracking & hotspot reporting
@@ -510,7 +510,7 @@ permissions:
 
 **Fix:** Use full path with `@ref`:
 ```yaml
-uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
 ```
 
 ### Jobs Not Running
@@ -557,12 +557,12 @@ permissions:
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
 
 # CORRECT - let the reusable workflow handle permissions
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
 ```
 
 ---
@@ -578,12 +578,12 @@ Copy all workflow templates from `/templates/consumer-repo/.github/workflows/` t
 ```bash
 # Clone templates
 mkdir -p .github/workflows
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/ci.yml -o .github/workflows/ci.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/autofix-versions.env -o .github/workflows/autofix-versions.env
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-issue-intake.yml -o .github/workflows/agents-issue-intake.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-orchestrator.yml -o .github/workflows/agents-orchestrator.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-pr-meta.yml -o .github/workflows/agents-pr-meta.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/autofix.yml -o .github/workflows/autofix.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/ci.yml -o .github/workflows/ci.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix-versions.env -o .github/workflows/autofix-versions.env
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-issue-intake.yml -o .github/workflows/agents-issue-intake.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-orchestrator.yml -o .github/workflows/agents-orchestrator.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-pr-meta.yml -o .github/workflows/agents-pr-meta.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix.yml -o .github/workflows/autofix.yml
 
 # Use /main/ only when intentionally testing unreleased changes.
 ```

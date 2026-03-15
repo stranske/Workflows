@@ -16,7 +16,7 @@ on:
 
 jobs:
   python-ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-version: "3.11"
 ```
@@ -27,10 +27,10 @@ jobs:
 
 | Workflow | Description | Usage |
 |----------|-------------|-------|
-| `reusable-10-ci-python.yml` | Python CI (test, lint, type check) | `uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1` |
-| `reusable-12-ci-docker.yml` | Docker build and smoke test | `uses: stranske/Workflows/.github/workflows/reusable-12-ci-docker.yml@v1` |
-| `reusable-18-autofix.yml` | Automated code formatting | `uses: stranske/Workflows/.github/workflows/reusable-18-autofix.yml@v1` |
-| `reusable-16-agents.yml` | Agent orchestration | `uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@v1` |
+| `reusable-10-ci-python.yml` | Python CI (test, lint, type check) | `uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main` |
+| `reusable-12-ci-docker.yml` | Docker build and smoke test | `uses: stranske/Workflows/.github/workflows/reusable-12-ci-docker.yml@main` |
+| `reusable-18-autofix.yml` | Automated code formatting | `uses: stranske/Workflows/.github/workflows/reusable-18-autofix.yml@main` |
+| `reusable-16-agents.yml` | Agent orchestration | `uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main` |
 
 ### Composite Actions
 
@@ -73,17 +73,16 @@ Some workflows require secrets to be passed:
 ```yaml
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 ```
 
 ## Versioning
 
-- Use `@v1` for the current stable major line
-- Use `@v1.0.0` (or newer) for fully pinned releases
-- Use `@<commit-sha>` for specific commits
-- Use `@main` only when you intentionally need unreleased changes
+- Use `@main` for the current first-party consumer default
+- Use `@<commit-sha>` for reproducible pinned integrations
+- Use alternate refs only when you intentionally need a separate distribution or test surface
 
 ## Examples
 

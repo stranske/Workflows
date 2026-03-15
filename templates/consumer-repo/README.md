@@ -140,12 +140,12 @@ Agent workflows require additional configuration files:
 
 ## Security & Workflow Pinning
 
-These templates should prefer stable version tags for workflow references (for example, `@v1`).
-Use `@main` only when intentionally testing unreleased changes.
+These templates currently standardize on `@main` for first-party consumers.
+Use an exact commit SHA when you need stricter reproducibility or a controlled rollout.
 
 **For third-party or security-sensitive deployments:**
 - Pin to a specific commit SHA: `@abc123def456...`
-- Or use version tags when available: `@v1` (points to latest v1.x release)
+- Or pin to a specific commit SHA for strict reproducibility
 
 ## Required Secrets
 
