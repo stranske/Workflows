@@ -1132,7 +1132,7 @@ jobs:
           steps.update-summary.outputs.rate_limit_hit == 'true' &&
           env.KEEPALIVE_APP_ID != '' &&
           env.KEEPALIVE_APP_PRIVATE_KEY != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         continue-on-error: true
         env:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID }}
