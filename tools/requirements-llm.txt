@@ -6,7 +6,7 @@
 #   change is required when bumping this file.
 # - Use strict X.Y.Z pins to keep workflow installs reproducible.
 langchain==1.2.10
-langchain-core==1.2.17
+langchain-core==1.2.20
 langchain-community==0.4.1
 langchain-openai==1.1.10
 langchain-anthropic==1.3.4
