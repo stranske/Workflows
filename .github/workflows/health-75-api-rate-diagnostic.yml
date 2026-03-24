@@ -457,7 +457,7 @@ jobs:
       - name: Mint GitHub App token
         id: app_token
         if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ env.WORKFLOWS_APP_ID }}
           private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
@@ -588,7 +588,7 @@ jobs:
       - name: Mint KEEPALIVE_APP token
         id: keepalive_app_token
         if: ${{ env.KEEPALIVE_APP_ID != '' && env.KEEPALIVE_APP_PRIVATE_KEY != '' }}
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
           app-id: ${{ env.KEEPALIVE_APP_ID }}
@@ -719,7 +719,7 @@ jobs:
       - name: Mint GH_APP token
         id: gh_app_token
         if: ${{ env.GH_APP_ID != '' && env.GH_APP_PRIVATE_KEY != '' }}
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
           app-id: ${{ env.GH_APP_ID }}
@@ -2083,7 +2083,7 @@ jobs:
           WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
           WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
         if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ env.WORKFLOWS_APP_ID }}
           private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
