@@ -22,7 +22,6 @@ the workflow is the source of truth.
 ### Repos with Custom Configurations
 
 Some repos cannot use the template `pr-00-gate.yml` because:
-- **trip-planner**: No `pyproject.toml`, uses `requirements.txt` + pytest
 - **Manager-Database**: Uses `docker compose`, `pre-commit`, custom test setup
 
 For these repos:
@@ -163,19 +162,12 @@ Custom Gate repos are a special-case skip: their `pr-00-gate.yml` stays local.
 
 ### Reusable Workflow Versioning
 
-Consumer repos call reusable workflows via a floating tag (currently `v1`).
-`Maint 73 Refresh Reusable Tags` automatically advances those tags to the
-current `main` SHA after every merge, so consumers always execute the latest
-reusable workflow logic without manual version bumps.
-
-**Version Strategy Change**: This differs from the older behavior documented in
-`docs/INTEGRATION_GUIDE.md`, where `@v1` was documented as floating to the latest
-`v1.x` release maintained by the release workflow (`maint-61`). Consumer repos now
-use a **main-HEAD tracking** strategy for immediate fix propagation. For repos that
-need extra stability, pin to a specific commit SHA instead of the floating `v1` tag.
+First-party consumer repos currently call reusable workflows via `@main`.
+That is the active standard reflected in the consumer templates and integration
+guide. For repos that need extra stability, pin to a specific commit SHA instead
+of following the first-party default.
 
 If a reusable workflow fix must ship immediately, trigger:
-- `Maint 73 Refresh Reusable Tags` (updates `v1`; replaces deprecated `maint-61`)
 - `Maint 68 Sync Consumer Repos` only if template files changed
 
 ### Manual Sync Trigger

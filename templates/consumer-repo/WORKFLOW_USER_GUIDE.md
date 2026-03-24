@@ -754,17 +754,17 @@ The Workflows repository includes maintenance workflows that handle sync, update
 
 ---
 
-### `maint-61-create-floating-v1-tag.yml` - Update Floating Tag
-**Purpose:** Updates `v1` tag to latest `v1.x.x` release
+### `maint-73-refresh-reusable-tags.yml` - Legacy Tag Refresh Notice
+**Purpose:** Historical maintenance workflow for floating-tag management
 
 **Trigger:** After new release created
 
 **What It Does:**
-- Finds latest v1 series release
-- Updates `v1` tag to point to it
-- Enables consumers to use `@v1` for latest
+- Records that first-party consumers now standardize on `@main`
+- Leaves any historical floating-tag maintenance to explicit migration work
+- Does not change the current first-party consumer default
 
-**Use When:** After any v1.x.x release
+**Use When:** Only when you are auditing historical versioning behavior
 
 ---
 

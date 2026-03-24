@@ -16,7 +16,7 @@ Breaking changes are any change that can alter a consumer’s behavior without t
 
 We support at least two major versions at any given time:
 
-- **Current major (v1.x)** – Actively maintained with fixes and backward-compatible enhancements. Floating tag `@v1` tracks the latest commit on `main` (updated automatically by `Maint 73 Refresh Reusable Tags` after every merge) for immediate fix propagation to consumer repos.
+- **Current major (v1.x)** – Actively maintained with fixes and backward-compatible enhancements. First-party consumer templates currently track this line via `@main`.
 - **Previous major** – Remains supported for a minimum of 12 months after a new major is released. Only critical fixes and security updates are provided.
 - **Older majors** – Enter end-of-life (EOL) after the 12-month overlap window.
 
@@ -45,6 +45,6 @@ Consumers are notified of breaking changes and deprecations via:
 
 ## Recommended consumption strategy
 
-- Use the floating major tag (e.g., `@v1`) for automatic backward-compatible fixes.
-- Pin to a specific release (e.g., `@v1.0.0`) when you need reproducibility; monitor changelog warnings before upgrading.
+- Use `@main` when you want the current first-party consumer behavior.
+- Pin to a specific commit SHA when you need reproducibility; monitor changelog warnings before upgrading.
 - Start migration while a deprecated feature still emits warnings to avoid surprises when the next major release arrives.

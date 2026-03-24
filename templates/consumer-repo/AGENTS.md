@@ -1,4 +1,4 @@
-# CLAUDE.md - Consumer Repository Context
+# AGENTS.md - Consumer Repository Context
 
 > Read this before changing workflows, prompts, or synced automation files.
 
@@ -82,6 +82,6 @@ If yes:
 - `stranske/Workflows/docs/keepalive/Agents.md`
 - `stranske/Travel-Plan-Permission` as a reference consumer
 
-## Claude-Specific Note
+## Agent-Specific Note
 
-Keep this file materially aligned with `AGENTS.md`. Differences between the two should only be agent-specific execution notes, not different repository rules.
+This file is the agent-generic contract. Keep it materially aligned with `CLAUDE.md`; differences between the two should only be agent-specific execution notes, not different repository rules.

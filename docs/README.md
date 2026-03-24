@@ -66,7 +66,7 @@ Examples in `examples/` should:
 
 1. Use the appropriate template from [templates/](templates/)
 2. Keep examples runnable and aligned with the current workflow interfaces
-3. Prefer stable references (`@v1`) in consumer-facing examples; reserve `@main` for intentional unreleased testing
+3. Use the current first-party consumer standard (`@main`) in consumer-facing examples unless you are explicitly documenting a pinned-SHA or alternate-ref strategy
 4. Cross-link related docs and update this README if you add a new top-level category
 
 ## See Also

@@ -123,7 +123,7 @@ jobs:
       - name: Generate GitHub App token
         if: steps.check.outputs.skip != 'true'
         id: app_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}

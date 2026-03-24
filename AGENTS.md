@@ -1,4 +1,4 @@
-# CLAUDE.md - Workflows Repository Context
+# AGENTS.md - Workflows Repository Context
 
 > Read this before changing workflows, templates, or consumer sync behavior.
 
@@ -53,6 +53,6 @@ Start with the current docs instead of inferring behavior from old comments:
 4. Run the relevant validation for the changed surface.
 5. If consumer templates changed, trigger sync and use the merge workflow for resulting sync PRs.
 
-## Claude-Specific Note
+## Agent-Specific Note
 
-Keep this file materially aligned with `AGENTS.md`. Differences between the two should only be agent-specific execution notes, not different repository rules.
+This file is the agent-generic contract. Keep it materially aligned with `CLAUDE.md`; differences between the two should only be agent-specific execution notes, not different repository rules.

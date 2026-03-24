@@ -46,7 +46,6 @@ on:
       - 'docs/CI_SYSTEM_GUIDE.md'
       - 'docs/LABELS.md'
       - 'docs/CODEX_TOKEN_REFRESH.md'
-      - 'CLAUDE.md'
       - '.gitattributes'
   workflow_dispatch:
     inputs:
@@ -404,7 +403,7 @@ jobs:
           force = os.environ.get('FORCE', 'false') == 'true'
 
           # Repos with custom Gate workflows
-          custom_gate_repos = ['stranske/trip-planner', 'stranske/Manager-Database']
+          custom_gate_repos = ['stranske/Manager-Database']
 
           changes = []
           skipped = []

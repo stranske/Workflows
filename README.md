@@ -143,24 +143,24 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  python-floating:
-    # Floating tag for backward-compatible updates
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+  python-standard:
+    # Current first-party consumer default
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-version: "3.11"
 
   python-pinned:
-    # Pin to an exact release for reproducible builds
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1.0.0
+    # Pin to an exact commit for reproducible builds
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@abc123def4567890
     with:
       python-version: "3.11"
 ```
 
 #### Versioning strategy
 
-- **Floating major (`@v1`)** – recommended default. Receives backward-compatible fixes automatically while staying on the same major version. The floating tag is refreshed by the release pipeline and a dedicated maintenance workflow.
-- **Pinned release (`@v1.0.0`)** – choose this when you need strict reproducibility and plan upgrades yourself.
-- **Branch (`@main`)** – only for testing upcoming changes; may include breaking behavior.
+- **`@main`** – current first-party consumer default. Consumer templates and first-party repos track the latest reusable workflow behavior directly.
+- **Pinned commit SHA** – use this when you need strict reproducibility or a controlled rollout.
+- **Alternative refs** – use release tags or feature branches only when you are intentionally testing or managing a separate distribution strategy.
 
 ### Local Development
 

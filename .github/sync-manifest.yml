@@ -565,6 +565,10 @@ docs:
     target: docs/CODEX_TOKEN_REFRESH.md
     description: "Codex OAuth token refresh guide"
 
+  - source: AGENTS.md
+    target: AGENTS.md
+    description: "Context file for agents and coding assistants"
+
   - source: CLAUDE.md
     target: CLAUDE.md
     description: "Context file for Claude/AI assistants"
