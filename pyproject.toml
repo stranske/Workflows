@@ -30,15 +30,15 @@ Issues = "https://github.com/stranske/Workflows/issues"
 app = []
 dev = [
     "pre-commit==4.5.1",
-    "black==26.3.0",
-    "ruff==0.15.5",
+    "black==26.3.1",
+    "ruff==0.15.7",
     "isort==8.0.1",
     "docformatter==1.7.7",
     "mypy==1.19.1",
     "flake8==7.3.0",
     "pytest==9.0.2",
-    "pytest-cov==7.0.0",
-    "coverage==7.13.4",
+    "pytest-cov==7.1.0",
+    "coverage==7.13.5",
     "pytest-xdist==3.8.0",
 
     # Required by repo dependency checks / CI fallback checks
