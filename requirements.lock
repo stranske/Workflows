@@ -121,7 +121,7 @@ langchain-core==1.2.20
     #   langgraph
     #   langgraph-checkpoint
     #   langgraph-prebuilt
-langchain-openai==1.1.10
+langchain-openai==1.1.11
     # via -r requirements.txt
 langchain-text-splitters==1.1.1
     # via langchain-classic
