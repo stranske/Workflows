@@ -23,14 +23,20 @@ the workflow is the source of truth.
 
 Some repos cannot use the template `pr-00-gate.yml` because:
 - **Manager-Database**: Uses `docker compose`, `pre-commit`, custom test setup
+- **Trend_Model_Project**: Keeps the historical `Agents.md` filename, so syncing
+  `AGENTS.md` would create a case-only path collision on case-insensitive
+  filesystems
 
 For these repos:
 - The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
+- `Trend_Model_Project` skips the synced `AGENTS.md` file and keeps its local
+  `Agents.md`.
 - Other files listed in the sync manifest continue to sync normally.
 
 Maint 68 currently implements this by keeping an internal `custom_gate_repos` list in
 its sync script and skipping any manifest entry whose `source` contains
-`pr-00-gate` for those repos.
+`pr-00-gate` for those repos, plus a repo-specific `AGENTS.md` skip for
+`Trend_Model_Project`.
 
 ---
 

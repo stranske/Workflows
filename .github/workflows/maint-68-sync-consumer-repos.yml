@@ -404,6 +404,11 @@ jobs:
 
           # Repos with custom Gate workflows
           custom_gate_repos = ['stranske/Manager-Database']
+          repo_specific_skip_rules = {
+              ('stranske/Trend_Model_Project', 'AGENTS.md'): (
+                  'Repo keeps historical Agents.md casing to avoid case-only path conflicts'
+              ),
+          }
 
           changes = []
           skipped = []
@@ -429,6 +434,16 @@ jobs:
               """Sync a single file from template to consumer."""
               src = Path(source_path)
               dst = Path(target_path)
+              relative_target = (
+                  str(dst.relative_to(Path('consumer')))
+                  if dst.is_absolute() is False and str(dst).startswith('consumer/')
+                  else str(dst)
+              )
+
+              repo_specific_reason = repo_specific_skip_rules.get((current_repo, relative_target))
+              if repo_specific_reason:
+                  skipped.append(f"{dst.name}: {repo_specific_reason}")
+                  return False
 
               if skip_condition and skip_condition():
                   skipped.append(f"{dst.name}: {skip_condition.__doc__}")

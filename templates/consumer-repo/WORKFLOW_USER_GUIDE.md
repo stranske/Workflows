@@ -757,14 +757,14 @@ The Workflows repository includes maintenance workflows that handle sync, update
 ### `maint-73-refresh-reusable-tags.yml` - Legacy Tag Refresh Notice
 **Purpose:** Historical maintenance workflow for floating-tag management
 
-**Trigger:** After new release created
+**Trigger:** Manual dispatch only (deprecated notice workflow)
 
 **What It Does:**
 - Records that first-party consumers now standardize on `@main`
 - Leaves any historical floating-tag maintenance to explicit migration work
 - Does not change the current first-party consumer default
 
-**Use When:** Only when you are auditing historical versioning behavior
+**Use When:** Only when you need a manual reminder of the deprecated floating-tag policy during an audit or migration review
 
 ---
 
