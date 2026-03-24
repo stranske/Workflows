@@ -531,6 +531,7 @@ def extract_verification_data(comment_body: str) -> VerificationData:
     # Extract provider verdicts (from comparison reports)
     lines = comment_body.splitlines()
     in_provider_table = False
+    provider_summary_concerns: list[str] = []
     for line in lines:
         if re.search(
             r"\|\s*Provider\s*\|\s*Model\s*\|\s*Verdict\s*\|\s*Confidence",
@@ -556,11 +557,17 @@ def extract_verification_data(comment_body: str) -> VerificationData:
         verdict = cols[2]
         confidence_text = cols[3]
         confidence = _parse_confidence_value(confidence_text)
-        data.provider_verdicts[provider] = {
+        summary_text = cols[4].strip() if len(cols) >= 5 else ""
+        entry = {
             "model": model,
             "verdict": verdict.strip(),
             "confidence": confidence,
         }
+        if summary_text:
+            entry["summary"] = summary_text
+            if verdict.strip().upper() != "PASS":
+                provider_summary_concerns.append(summary_text)
+        data.provider_verdicts[provider] = entry
 
     # Extract verdicts from provider detail sections as a fallback.
     current_provider = None
@@ -664,6 +671,8 @@ def extract_verification_data(comment_body: str) -> VerificationData:
                     concern = concern.strip()
                     if concern and len(concern) > 15:
                         all_concerns.append(concern)
+
+    all_concerns.extend(provider_summary_concerns)
 
     # Deduplicate while preserving order, and filter out spurious entries
     seen: set[str] = set()
@@ -1474,6 +1483,33 @@ def _generate_without_llm(
         for concern in advisory_concerns:
             body_parts.append(f"- {concern}")
         body_parts.extend(["", "</details>"])
+
+    body_parts.extend(
+        [
+            "",
+            "## verify:compare Analysis",
+            "",
+            f"- Resolved verdict: {verdict}",
+        ]
+    )
+    for concern in blocking_concerns[:10]:
+        body_parts.append(f"- Concern: {concern}")
+    for concern in advisory_concerns[:10]:
+        body_parts.append(f"- Advisory: {concern}")
+
+    body_parts.extend(
+        [
+            "",
+            "## verify:compare Evidence",
+            "",
+        ]
+    )
+    for provider, data in verification_data.provider_verdicts.items():
+        evidence = f"- {provider}: {data.get('verdict', 'Unknown')} @ {data.get('confidence', 0)}%"
+        summary = data.get("summary")
+        if summary:
+            evidence += f" ({summary})"
+        body_parts.append(evidence)
 
     # Add background context in collapsible section
     body_parts.extend(

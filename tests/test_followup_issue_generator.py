@@ -93,6 +93,22 @@ class TestExtractVerificationData:
         assert data.provider_verdicts["openai"]["verdict"] == "Needs Work"
         assert data.provider_verdicts["openai"]["confidence"] == 60
 
+    def test_extract_provider_summary_adds_non_pass_summary_to_concerns(self):
+        """Use non-PASS provider summaries as fallback concerns."""
+        comment = """
+## Provider Comparison Report
+
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| openai | gpt-4o-mini | CONCERNS | 72% | Missing regression coverage. |
+| anthropic | claude-sonnet | PASS | 91% | Looks good. |
+"""
+        data = extract_verification_data(comment)
+
+        assert "Missing regression coverage." in data.concerns
+        assert data.provider_verdicts["openai"]["summary"] == "Missing regression coverage."
+
     def test_extract_single_verdict(self):
         """Extract verdict from single provider format."""
         comment = """
@@ -573,6 +589,33 @@ class TestGenerateFollowupIssue:
             "Re-run verification to capture verifier-context.md and verifier-diff-summary.md."
             in (followup.body)
         )
+
+    def test_generate_without_llm_restores_verify_compare_sections(self):
+        """Non-LLM output should keep analysis/evidence sections for downstream tooling."""
+        verification_data = VerificationData(
+            provider_verdicts={
+                "openai": {
+                    "verdict": "CONCERNS",
+                    "confidence": 72,
+                    "summary": "Missing regression coverage.",
+                }
+            },
+            concerns=["Missing regression coverage."],
+        )
+
+        original_issue = OriginalIssueData(number=100, title="Add caching feature")
+
+        followup = generate_followup_issue(
+            verification_data=verification_data,
+            original_issue=original_issue,
+            pr_number=200,
+            use_llm=False,
+        )
+
+        assert "## verify:compare Analysis" in followup.body
+        assert "## verify:compare Evidence" in followup.body
+        assert "Concern: Missing regression coverage." in followup.body
+        assert "openai: CONCERNS @ 72% (Missing regression coverage.)" in followup.body
 
     def test_includes_background_context(self):
         """Follow-up should include collapsible background section."""
