@@ -17,7 +17,8 @@ refresh `CODEX_AUTH_JSON` before it expires.
 1. **Initial login**: `codex login --device-auth` writes credentials to `~/.codex/auth.json`.
 2. **CI usage**: the `CODEX_AUTH_JSON` secret is a snapshot of `~/.codex/auth.json`.
 3. **Rotation**: when the CLI refreshes, it writes updated tokens back to `~/.codex/auth.json`.
-4. **CI limitation**: runners are ephemeral, so refreshed tokens are not persisted back to GitHub Secrets.
+4. **CI persistence path**: `reusable-codex-run.yml` now auto-persists refreshed auth back to `CODEX_AUTH_JSON` when a `WORKFLOWS_APP_ID/WORKFLOWS_APP_PRIVATE_KEY` token is available in the job.
+5. **Fallback limitation**: if the run has no app token, runners are still ephemeral and refreshed tokens are not persisted back to GitHub Secrets.
 
 ### Why CI Refresh Fails
 
@@ -45,8 +46,9 @@ log annotations based on the access token's `exp` claim:
 | < 2 days | ⚠️ Warning | Refresh ASAP to avoid agent downtime |
 | Expired | ❌ Error | Workflow fails fast until refreshed |
 
-**Important**: when the warning appears, refresh the secret that day. Any automatic
-refresh that happens on a runner does not update GitHub Secrets.
+**Important**: when the warning appears, ensure runs have app-token credentials so
+automatic secret persistence can occur. If app-token credentials are absent, refresh
+the secret manually that day.
 
 ---
 

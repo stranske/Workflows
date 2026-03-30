@@ -668,6 +668,8 @@ jobs:
           mkdir -p ~/.codex
           echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
           chmod 600 ~/.codex/auth.json
+          auth_sha="$(shasum -a 256 ~/.codex/auth.json | awk '{print $1}')"
+          echo "auth_sha=${auth_sha}" >> "$GITHUB_OUTPUT"
           echo "✅ Codex auth configured from CODEX_AUTH_JSON secret"
 
           # Check token expiration
@@ -1156,6 +1158,50 @@ jobs:
           except Exception as e:
               print(f"::warning::Session analysis failed: {e}")
           PYEOF
+
+      - name: Persist refreshed Codex auth secret
+        id: persist_codex_auth
+        if: always() && steps.codex_auth.outcome == 'success'
+        continue-on-error: true
+        env:
+          CODEX_HOME: ${{ runner.temp }}/.codex
+          GH_TOKEN: ${{ steps.auth_token.outputs.push_token }}
+          INITIAL_AUTH_SHA: ${{ steps.codex_auth.outputs.auth_sha }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::notice::Skipping CODEX_AUTH_JSON auto-persist: app token unavailable."
+            echo "::notice::Provide WORKFLOWS_APP_ID/WORKFLOWS_APP_PRIVATE_KEY to enable hands-off rotation."
+            echo "persisted=false" >> "$GITHUB_OUTPUT"
+            echo "reason=no-app-token" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          source_auth="$HOME/.codex/auth.json"
+          if [ -s "$CODEX_HOME/auth.json" ]; then
+            source_auth="$CODEX_HOME/auth.json"
+          fi
+
+          if [ ! -s "$source_auth" ]; then
+            echo "::warning::No auth bundle found to persist."
+            echo "persisted=false" >> "$GITHUB_OUTPUT"
+            echo "reason=missing-auth-file" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          final_sha="$(shasum -a 256 "$source_auth" | awk '{print $1}')"
+          if [ -n "${INITIAL_AUTH_SHA:-}" ] && [ "$final_sha" = "$INITIAL_AUTH_SHA" ]; then
+            echo "::notice::CODEX_AUTH_JSON unchanged; no secret update needed."
+            echo "persisted=false" >> "$GITHUB_OUTPUT"
+            echo "reason=unchanged" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          gh secret set CODEX_AUTH_JSON --repo "$GITHUB_REPOSITORY" < "$source_auth"
+          echo "::notice::Updated CODEX_AUTH_JSON from refreshed runner auth bundle."
+          echo "persisted=true" >> "$GITHUB_OUTPUT"
+          echo "reason=updated" >> "$GITHUB_OUTPUT"
 
       - name: Analyze task completion with LLM
         id: llm_analysis
