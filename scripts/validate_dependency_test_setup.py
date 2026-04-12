@@ -37,9 +37,7 @@ def check_lock_file_completeness() -> tuple[bool, list[str]]:
     workflow_path = Path(".github/workflows/dependabot-auto-lock.yml")
     if workflow_path.exists():
         workflow = workflow_path.read_text()
-        explicit_groups = [
-            group for group in optional_groups if f"--extra {group}" in workflow
-        ]
+        explicit_groups = [group for group in optional_groups if f"--extra {group}" in workflow]
         uses_dynamic_groups = (
             "optional-dependencies" in workflow
             and "tomllib" in workflow
