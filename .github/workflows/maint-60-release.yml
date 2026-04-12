@@ -30,6 +30,6 @@ jobs:
           scripts/update-floating-tag.sh v1 v1. "$GITHUB_SHA"
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
