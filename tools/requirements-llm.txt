@@ -8,7 +8,7 @@
 langchain==1.2.13
 langchain-core==1.2.20
 langchain-community==0.4.1
-langchain-openai==1.1.11
+langchain-openai==1.1.12
 langchain-anthropic==1.4.0
 pydantic==2.12.5
 requests==2.33.0
