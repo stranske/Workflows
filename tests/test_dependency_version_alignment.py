@@ -5,6 +5,9 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
+from packaging.markers import default_environment
+from packaging.requirements import Requirement
+
 _OPERATORS = ("==", ">=", "<=", "~=", "!=", ">", "<", "===")
 
 
@@ -15,6 +18,13 @@ def _split_spec(raw: str) -> str:
             name, _ = entry.split(operator, 1)
             return name.strip().split("[")[0]
     return entry.strip().split("[")[0]
+
+
+def _should_include_requirement(raw: str) -> bool:
+    requirement = Requirement(raw.strip().rstrip(","))
+    if requirement.marker is None:
+        return True
+    return requirement.marker.evaluate(default_environment())
 
 
 def _load_lock_versions(path: Path) -> dict[str, str]:
@@ -38,11 +48,13 @@ def test_all_pyproject_dependencies_are_in_lock() -> None:
 
     declared = set()
     for entry in project.get("dependencies", []):
-        declared.add(_split_spec(entry).lower())
+        if _should_include_requirement(entry):
+            declared.add(_split_spec(entry).lower())
 
     for group in project.get("optional-dependencies", {}).values():
         for entry in group:
-            declared.add(_split_spec(entry).lower())
+            if _should_include_requirement(entry):
+                declared.add(_split_spec(entry).lower())
 
     lock_versions = _load_lock_versions(Path("requirements.lock"))
 
