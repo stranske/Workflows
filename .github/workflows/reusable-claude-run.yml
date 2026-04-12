@@ -1373,7 +1373,7 @@ jobs:
       - name: Post completion checkpoint comment
         id: completion_comment
         if: steps.commit.outputs.changes-made == 'true' && inputs.pr_number != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           COMMIT_SHA: ${{ steps.commit.outputs.commit-sha }}
@@ -1430,7 +1430,7 @@ jobs:
       - name: Classify failure
         id: classify_failure
         if: always() && steps.run_claude.outputs.exit-code != '0'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
           OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
@@ -1580,7 +1580,7 @@ jobs:
         if: >-
           always() && steps.run_claude.outputs.exit-code != '0' &&
           steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}

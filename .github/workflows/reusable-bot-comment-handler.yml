@@ -137,7 +137,7 @@ jobs:
 
       - name: Detect agent from PR labels
         id: agent
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -210,7 +210,7 @@ jobs:
 
       - name: Collect unresolved bot comments
         id: collect
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -311,7 +311,7 @@ jobs:
 
       - name: Auto-dismiss review comments on ignored paths
         if: steps.collect.outputs.found == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -358,7 +358,7 @@ jobs:
 
       - name: Post summary
         if: steps.collect.outputs.found == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           COMMENTS_JSON: ${{ steps.collect.outputs.comments }}
         with:
@@ -510,7 +510,7 @@ jobs:
 
       - name: Assign agent and post context comment
         id: dispatch
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |

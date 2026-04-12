@@ -62,7 +62,7 @@ jobs:
 
       - name: Determine default branch
         id: default-branch
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |
@@ -140,7 +140,7 @@ jobs:
 
       - name: Collect repository signals
         id: collect
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
           BRANCH_PROTECTION_TOKEN: ${{ steps.branch-token.outputs.token }}
@@ -842,7 +842,7 @@ jobs:
             steps.aggregate.outputs.has_errors == 'true' ||
             steps.aggregate.outputs.has_warnings == 'true'
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           ISSUE_BODY: ${{ steps.aggregate.outputs.issue_body }}
         with:
@@ -951,7 +951,7 @@ jobs:
             steps.aggregate.outputs.has_errors != 'true' &&
             steps.aggregate.outputs.has_warnings != 'true'
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |
@@ -996,7 +996,7 @@ jobs:
 
       - name: Update repo health snapshot issue
         if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           ISSUE_BODY_PATH: repo-health-issue.md
         with:
@@ -1146,7 +1146,7 @@ jobs:
             github.event.inputs.pull_request_number != '' &&
             steps.aggregate.outputs.comment_body != ''
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ github.event.inputs.pull_request_number }}
           COMMENT_BODY: ${{ steps.aggregate.outputs.comment_body }}

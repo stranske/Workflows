@@ -83,7 +83,7 @@ jobs:
           echo "pr_body_file=/tmp/mock-pr-body.md" >> "$GITHUB_OUTPUT"
 
       - name: Test evaluateKeepaliveLoop
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const {
@@ -122,7 +122,7 @@ jobs:
             console.log('✅ Orchestration core functions verified');
 
       - name: Test state management
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |
@@ -164,7 +164,7 @@ jobs:
             console.log('✅ State management verified');
 
       - name: Test error classification
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |

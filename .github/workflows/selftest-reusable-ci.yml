@@ -78,7 +78,7 @@ jobs:
 
       - name: Check API quota
         id: check
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           # Higher threshold than orchestrator (1000) so keepalive runs first
           RATE_LIMIT_THRESHOLD: '2000'
@@ -280,7 +280,7 @@ full_soft_gate"
 
       - name: Verify matrix artifacts
         id: verify
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PYTHON_VERSIONS: ${{ env.REQUESTED_PYTHONS }}
           SCENARIO_LIST: ${{ env.SCENARIO_LIST }}
@@ -614,7 +614,7 @@ full_soft_gate"
 
       - name: Publish PR comment
         if: ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           MARKER: '<!-- selftest-reusable-comment -->'
           TABLE: ${{ env.SUMMARY_TABLE }}

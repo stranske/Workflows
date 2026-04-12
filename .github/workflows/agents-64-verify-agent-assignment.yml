@@ -80,7 +80,7 @@ jobs:
 
       - name: Inspect issue
         id: check
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
           VALID_ASSIGNEES: ${{ inputs.valid_assignees }}

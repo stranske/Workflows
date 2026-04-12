@@ -487,7 +487,7 @@ jobs:
 
       - name: Sync issues
         id: sync
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
@@ -1341,7 +1341,7 @@ jobs:
         env:
           INPUT_ISSUE: ${{ needs.normalize_inputs.outputs.issue_number }}
           DEFAULT_AGENT: ${{ needs.normalize_inputs.outputs.bridge_agent }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const manual = (process.env.INPUT_ISSUE || '').trim();

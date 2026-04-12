@@ -70,7 +70,7 @@ jobs:
 
       - name: Get repo labels
         id: get-labels
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
@@ -211,7 +211,7 @@ jobs:
         if: |
           steps.match.outputs.has_suggestions == 'true' &&
           steps.match.outputs.auto_apply_labels != '[]'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
@@ -262,7 +262,7 @@ jobs:
         if: |
           steps.match.outputs.has_suggestions == 'true' &&
           steps.match.outputs.suggested_labels != '[]'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |

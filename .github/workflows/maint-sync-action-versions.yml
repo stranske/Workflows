@@ -166,7 +166,7 @@ jobs:
 
       - name: Create PR
         if: steps.check.outputs.has_changes == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           BRANCH: ${{ steps.branch.outputs.branch }}
           CHECKOUT_VERSION: ${{ steps.extract.outputs.checkout }}

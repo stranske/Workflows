@@ -238,7 +238,7 @@ jobs:
       # Dual checkout pattern: Workflows scripts as supplement to consumer repo
       - name: Resolve Workflows default branch
         id: workflows_ref
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -360,7 +360,7 @@ jobs:
 
       - name: Ensure autofix label present
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           OPT_IN_LABEL: ${{ inputs.opt_in_label }}
@@ -409,7 +409,7 @@ jobs:
       - name: Detect clean mode
         if: steps.guard.outputs.skip != 'true'
         id: clean_mode
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_LABELS_JSON: ${{ inputs.pr_labels_json }}
         with:
@@ -969,7 +969,7 @@ jobs:
             steps.fix_results.outputs.changed == 'true' &&
             env.AUTOFIX_CAN_PUSH != 'true'
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           OPT_IN_LABEL: ${{ inputs.opt_in_label }}
@@ -1089,7 +1089,7 @@ jobs:
 
       - name: Manage autofix outcome labels
         if: steps.guard.outputs.skip != 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           AUTO_CHANGED: ${{ steps.fix_results.outputs.changed }}
           SAME_REPO: ${{ steps.same_repo.outputs.same }}
@@ -1485,7 +1485,7 @@ jobs:
             steps.build_comment.outputs.should-post == 'true' &&
             inputs.suppress_comments != true
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
         with:
@@ -1560,7 +1560,7 @@ jobs:
             steps.fix_results.outputs.changed == 'true' &&
             inputs.suppress_comments != true
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
@@ -1646,7 +1646,7 @@ jobs:
             steps.fix_results.outputs.changed == 'true' &&
             inputs.suppress_comments != true
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
@@ -1727,7 +1727,7 @@ jobs:
             steps.guard.outputs.skip != 'true' &&
             steps.same_repo.outputs.same == 'true'
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');

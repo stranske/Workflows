@@ -103,7 +103,7 @@ jobs:
         run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
       - name: Resolve PR number and check conditions
         id: resolve
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -283,7 +283,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Remove trigger label
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
 
           github-token: ${{ steps.app_token.outputs.token || github.token }}

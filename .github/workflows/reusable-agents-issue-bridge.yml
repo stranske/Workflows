@@ -109,7 +109,7 @@ jobs:
 
       - name: Resolve issue number
         id: ctx
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const issueFromEvent = context.payload.issue && context.payload.issue.number;
@@ -121,7 +121,7 @@ jobs:
       - name: Resolve agent label
         if: ${{ steps.ctx.outputs.has_issue == 'true' }}
         id: agent_label
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const issueNumber = Number('${{ steps.ctx.outputs.issue }}');
@@ -279,7 +279,7 @@ jobs:
 
       - name: Resolve base and head refs
         id: refs
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -354,7 +354,7 @@ jobs:
 
       - name: Select PR mode
         id: mode
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
@@ -405,7 +405,7 @@ jobs:
 
       - name: Resolve draft flag
         id: draft
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const val = '${{ inputs.agent_pr_draft }}' === 'true';
@@ -413,7 +413,7 @@ jobs:
 
       - name: Resolve post-agent comment flag
         id: agent_comment
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const val = '${{ inputs.post_agent_comment }}' === 'true';
@@ -422,7 +422,7 @@ jobs:
       - name: Resolve keepalive opt-in
         if: ${{ steps.ctx.outputs.has_issue == 'true' }}
         id: keepalive
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DEFAULT_BASE: ${{ steps.refs.outputs.base || '' }}
         with:
@@ -592,7 +592,7 @@ jobs:
           echo "Keepalive mode: $KEEP_MODE (source: $KEEP_SOURCE)"
 
       - name: Publish bridge summary
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const agent = (process.env.AGENT || '').trim();
@@ -692,7 +692,7 @@ jobs:
             steps.mode.outputs.mode == 'invite'
           }}
         id: invite
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
@@ -959,7 +959,7 @@ jobs:
       - name: Open or reuse PR (create mode)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
         id: pr
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
@@ -1197,7 +1197,7 @@ jobs:
 
       - name: Label PR with agent
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR: ${{ steps.pr.outputs.number }}
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
@@ -1237,7 +1237,7 @@ jobs:
 
       - name: Populate PR body context section
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         with:
@@ -1267,7 +1267,7 @@ jobs:
 
       - name: Post issue context on PR
         if: ${{ steps.ctx.outputs.has_issue == 'true' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           ISSUE_BODY: ${{ steps.pr.outputs.issue_body }}
           ISSUE_TITLE: ${{ steps.pr.outputs.issue_title }}
@@ -1495,7 +1495,7 @@ jobs:
             env.SERVICE_BOT_PAT != '' &&
             steps.agent_comment.outputs.post == 'true'
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
@@ -1546,7 +1546,7 @@ jobs:
             env.SERVICE_BOT_PAT == '' &&
             steps.agent_comment.outputs.post == 'true'
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
@@ -1596,7 +1596,7 @@ jobs:
             steps.mode.outputs.mode != 'invite' &&
             steps.agent_comment.outputs.post != 'true'
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
@@ -1655,7 +1655,7 @@ jobs:
 
       - name: Link PR on original issue (fallback)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}

@@ -47,7 +47,7 @@ jobs:
 
       - name: Resolve integration repo default branch
         id: integration_ref
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');

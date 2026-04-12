@@ -180,7 +180,7 @@ jobs:
 
       - name: Resolve Workflows default branch
         id: workflows_ref
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -212,7 +212,7 @@ jobs:
 
       - name: Resolve candidate issue
         id: pick
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
@@ -334,7 +334,7 @@ jobs:
 
       - name: Transition issue to in-progress
         if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |

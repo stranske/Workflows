@@ -85,7 +85,7 @@ jobs:
           echo "Extracted repos: ${repos}"
 
       - name: Check and merge sync PRs
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.SERVICE_BOT_PAT || secrets.CODESPACES_WORKFLOWS || github.token }}
           script: |

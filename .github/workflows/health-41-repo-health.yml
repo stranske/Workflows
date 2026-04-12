@@ -45,7 +45,7 @@ jobs:
 
       - name: Check API quota
         id: check
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           # Higher threshold than orchestrator (1000) so keepalive runs first
           RATE_LIMIT_THRESHOLD: '2000'
@@ -142,7 +142,7 @@ jobs:
 
       - name: Summarise repository health signals
         id: summarise
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             // Note: 'core' is already provided by github-script, no require needed
@@ -380,7 +380,7 @@ jobs:
             core.info('Repository health summary written to workflow run.');
 
       - name: Verify default branch protection
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DEFAULT_BRANCH: ${{ steps.summarise.outputs.default-branch }}
         with:

@@ -170,7 +170,7 @@ jobs:
 
       - name: Probe assignable actors
         id: gql
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -200,7 +200,7 @@ jobs:
             core.setOutput('actors', JSON.stringify(actors));
       - name: Create temp issue
         id: tmp
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const retryScript = './.github/scripts/github-api-with-retry.js';
@@ -229,7 +229,7 @@ jobs:
           AGENTS_REQ: ${{ inputs.readiness_agents }}
           CUSTOM_LOGINS: ${{ inputs.readiness_custom_logins }}
           REQUIRE_ALL: ${{ inputs.require_all }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const issueNumberRaw =
@@ -317,7 +317,7 @@ jobs:
             }
       - name: Close temp
         if: always()
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -385,7 +385,7 @@ jobs:
 
       - name: Run agent preflight probes
         id: agent_preflight
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PREFLIGHT_OVERRIDES: ${{ inputs.preflight_overrides_json }}
           CODEX_USER: ${{ inputs.codex_user }}
@@ -603,7 +603,7 @@ jobs:
             echo "Tokens present: SERVICE_BOT_PAT=${SERVICE_BOT_PAT:+yes}"
       - name: Attempt branch create
         if: inputs.diagnostic_attempt_branch == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -647,7 +647,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Append verify assignment results
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           STATUS: ${{ needs.verify_issue.outputs.status || '' }}
           MESSAGE: ${{ needs.verify_issue.outputs.message || '' }}
@@ -737,7 +737,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Find Ready Issues
         id: ready
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           LABEL: ${{ inputs.bootstrap_issues_label }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -1002,7 +1002,7 @@ jobs:
 
       - name: Resolve Workflows default branch
         id: workflows_ref
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             // NOTE: github-api-with-retry.js is NOT available here because the
@@ -1061,7 +1061,7 @@ jobs:
           exit 1
       - name: Verify keepalive identity
         if: ${{ env.SERVICE_BOT_PAT != '' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.service_bot_pat }}
           script: |
@@ -1109,7 +1109,7 @@ jobs:
           )"
           printf 'KEEPALIVE_TRACE=%s\n' "$trace" >> "$GITHUB_ENV"
       - name: Resume Codex on unattended checklists
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           OPTIONS_JSON: ${{ inputs.options_json }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -1138,7 +1138,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Collate job outcomes
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           ENABLE_READINESS: ${{ inputs.enable_readiness }}
           ENABLE_PREFLIGHT: ${{ inputs.enable_preflight }}

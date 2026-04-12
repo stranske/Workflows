@@ -42,7 +42,7 @@ jobs:
 
       - name: Check API quota
         id: check
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           # Higher threshold than orchestrator (1000) so keepalive runs first
           RATE_LIMIT_THRESHOLD: '2000'
@@ -108,7 +108,7 @@ jobs:
 
       - name: Locate latest Gate workflow run
         id: discover
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

@@ -52,7 +52,7 @@ jobs:
 
       - name: Resolve PR context
         id: context
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: >-
             ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || github.token }}

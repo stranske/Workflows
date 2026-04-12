@@ -136,7 +136,7 @@ jobs:
 
       - name: Check GitHub API rate limit
         id: check
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           RATE_LIMIT_THRESHOLD: '1000'
         with:
@@ -213,7 +213,7 @@ jobs:
 
       - name: Count agent issues
         id: precheck
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           INPUT_KEEPALIVE_ENABLED: ${{ inputs.keepalive_enabled }}
           INPUT_PR_NUMBER: ${{ inputs.pr_number }}
@@ -378,7 +378,7 @@ jobs:
       - name: Probe keepalive token identity
         if: steps.select.outcome == 'success' && steps.select.outputs.token != 'APP_TOKEN'
         id: probe_token_identity
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: >-
             ${{
@@ -480,7 +480,7 @@ jobs:
       keepalive_pr: ${{ steps.resolve.outputs.keepalive_pr }}
     steps:
       - name: Confirm default-branch execution context
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const ref = context.ref || '';
@@ -512,7 +512,7 @@ jobs:
 
       - name: Resolve workflow_run checkout source
         id: checkout_source
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const checkoutSourcePath = './helpers/.github/scripts/checkout_source.js';
@@ -538,7 +538,7 @@ jobs:
 
       - name: Resolve dispatch parameters
         id: resolve
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PARAMS_JSON: ${{ inputs.params_json }}
           WORKFLOW_DRY_RUN: ${{ inputs.dry_run }}

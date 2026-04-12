@@ -112,7 +112,7 @@ jobs:
 
       - name: Resolve Workflows default branch
         id: workflows_ref
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -161,7 +161,7 @@ jobs:
 
       - name: Wait for CI workflows to complete
         id: wait_ci
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           CI_WAIT_TIMEOUT_MS: ${{ inputs.ci_wait_timeout_ms }}
@@ -348,7 +348,7 @@ jobs:
 
       - name: Build verifier context
         id: context
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           VERIFIER_PR_NUMBER: ${{ inputs.pr_number }}
@@ -374,7 +374,7 @@ jobs:
       - name: Resolve agent key from PR labels
         id: agent
         if: steps.context.outputs.should_run == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1048,7 +1048,7 @@ jobs:
         id: failure_issue
         # Disabled: use agents-verify-to-issue-v2.yml with verify:create-issue label instead
         if: ${{ github.run_id == 0 }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
           RUN_URL: >-

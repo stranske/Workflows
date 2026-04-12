@@ -105,7 +105,7 @@ jobs:
 
       - name: Check trigger conditions
         id: check
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');

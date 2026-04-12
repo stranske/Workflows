@@ -44,7 +44,7 @@ jobs:
 
       - name: Check for existing open issue
         id: existing
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |
@@ -153,7 +153,7 @@ jobs:
 
       - name: Create expiration warning issue
         if: steps.check.outputs.status == 'expiring-soon' || steps.check.outputs.status == 'expired'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |

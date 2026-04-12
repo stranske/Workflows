@@ -137,7 +137,7 @@ jobs:
 
       - name: Resolve Workflows default branch
         id: workflows_ref
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const payloadDefault = context.payload?.repository?.default_branch;
@@ -214,7 +214,7 @@ jobs:
 
       - name: Evaluate keepalive pre-gate
         id: pre_gate
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           COMMENT_ID: ${{ inputs.comment_id }}
@@ -246,7 +246,7 @@ jobs:
 
       - name: Evaluate keepalive comment
         id: detect
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           ALLOWED_LOGINS: ${{ inputs.allowed_keepalive_logins }}
           KEEPALIVE_MARKER: ${{ inputs.keepalive_marker }}
@@ -320,7 +320,7 @@ jobs:
           install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
 
       - name: Run orchestrator
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
         with:
@@ -398,7 +398,7 @@ jobs:
 
       - name: Evaluate keepalive gate
         id: gate
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
         with:
@@ -434,7 +434,7 @@ jobs:
       - name: Detect keepalive from activation
         id: detect
         if: steps.gate.outputs.ok == 'true' && steps.gate.outputs.activation_comment != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           ALLOWED_LOGINS: ${{ inputs.allowed_keepalive_logins }}
           KEEPALIVE_MARKER: ${{ inputs.keepalive_marker }}
@@ -457,7 +457,7 @@ jobs:
 
       - name: Run orchestrator from gate
         if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           SERVICE_BOT_PAT: ${{ secrets.service_bot_pat || '' }}
           ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
@@ -554,7 +554,7 @@ jobs:
           install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
 
       - name: Upsert PR body sections
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           DRY_RUN: ${{ inputs.dry_run }}

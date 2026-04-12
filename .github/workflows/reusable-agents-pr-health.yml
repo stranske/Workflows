@@ -231,7 +231,7 @@ jobs:
 
       - name: Categorise PRs
         id: categorise
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           MAX_PRS: ${{ inputs.max_prs }}
           MAX_DISPATCHES: ${{ inputs.max_agent_dispatches }}
@@ -598,7 +598,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Resolve each conflict
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DRY_RUN: ${{ inputs.dry_run }}
         with:
@@ -713,7 +713,7 @@ jobs:
           path: /tmp/scan-data
 
       - name: Fix each failing PR
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -809,7 +809,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Nudge each stalled PR
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DRY_RUN: ${{ inputs.dry_run }}
         with:

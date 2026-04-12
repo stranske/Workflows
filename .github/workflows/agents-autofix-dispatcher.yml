@@ -42,7 +42,7 @@ jobs:
           github_token: ${{ steps.app_token.outputs.token || github.token }}
 
       - name: Dispatch autofix workflow
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |

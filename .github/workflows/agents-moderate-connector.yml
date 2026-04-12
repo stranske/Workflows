@@ -45,7 +45,7 @@ jobs:
 
       - name: Evaluate comment for moderation
         id: evaluate
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -236,7 +236,7 @@ jobs:
 
       - name: Delete connector comment
         if: steps.evaluate.outputs.delete == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           COMMENT_ID: ${{ steps.evaluate.outputs.comment_id }}
         with:

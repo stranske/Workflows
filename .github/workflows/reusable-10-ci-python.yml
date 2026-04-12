@@ -2376,7 +2376,7 @@ jobs:
           PY
 
       - name: Summarize workflow jobs
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
 
           github-token: ${{ steps.app_token.outputs.token || github.token }}

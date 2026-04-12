@@ -44,7 +44,7 @@ jobs:
 
       - name: Parse labels-core.yml
         id: parse
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |
@@ -85,7 +85,7 @@ jobs:
           echo "Target repos: $json_array"
 
       - name: Sync labels to repos
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           LABELS_JSON: ${{ steps.parse.outputs.labels }}
           REPOS_JSON: ${{ steps.repos.outputs.repos }}

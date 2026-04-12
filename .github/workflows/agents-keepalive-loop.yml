@@ -93,7 +93,7 @@ jobs:
           github.event_name == 'pull_request' &&
           github.event.action == 'labeled' &&
           github.event.label.name == 'agent:retry'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -161,7 +161,7 @@ jobs:
         run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
       - name: Security gate - prompt injection guard
         id: security_gate
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -224,7 +224,7 @@ jobs:
 
       - name: Evaluate keepalive state
         id: evaluate
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: >-
@@ -505,7 +505,7 @@ jobs:
 
 
       - name: Update summary with running status
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -636,7 +636,7 @@ jobs:
 
       - name: Get recent commits
         id: commits
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -679,7 +679,7 @@ jobs:
 
       - name: Extract acceptance criteria
         id: criteria
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -779,7 +779,7 @@ jobs:
 
       - name: Post review feedback to PR
         if: steps.review_guard.outputs.should_post_review == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           REVIEW_FEEDBACK: ${{ steps.review.outputs.feedback }}
         with:
@@ -963,7 +963,7 @@ jobs:
         if: |
           needs.run-codex.outputs.changes-made == 'true' ||
           needs.run-claude.outputs.changes-made == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           LLM_COMPLETED_TASKS: >-
             ${{
@@ -1041,7 +1041,7 @@ jobs:
 
       - name: Update summary comment
         id: update-summary
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           AGENT_SUMMARY: >-
             ${{
@@ -1149,7 +1149,7 @@ jobs:
           failure() &&
           steps.update-summary.outputs.rate_limit_hit == 'true' &&
           steps.keepalive_app_token.outputs.token != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.keepalive_app_token.outputs.token }}
           script: |

@@ -150,7 +150,7 @@ jobs:
 
       - name: Check and fix pr_body.md
         if: steps.check.outputs.skip != 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DRY_RUN: ${{ inputs.dry_run || 'true' }}
           REPO_FULL: ${{ matrix.repo }}

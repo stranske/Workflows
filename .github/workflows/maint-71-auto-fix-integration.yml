@@ -138,7 +138,7 @@ jobs:
       - name: Resolve integration repo default branch
         if: steps.check_status.outputs.should_fix == 'true' && steps.integration_token.outputs.token_available == 'true'
         id: integration_ref
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');

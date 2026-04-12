@@ -228,7 +228,7 @@ jobs:
             (env.RUN_VERSION_CHECK != 'false' && steps.compare-versions.outputs.drift == 'true') ||
             (env.RUN_INPUT_CHECK != 'false' && steps.compare-inputs.outputs.drift == 'true')
           }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
