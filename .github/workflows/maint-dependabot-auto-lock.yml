@@ -1,11 +1,13 @@
 name: Dependabot Auto-Lock
-# Automatically regenerate requirements.lock when dependabot updates pyproject.toml
-# This ensures the lock file stays in sync with dependency updates
+# Automatically regenerate requirements.lock when dependabot updates any
+# declared lock input file so the checked-in lock stays in sync.
 
 on:
   pull_request:
     paths:
       - 'pyproject.toml'
+      - 'requirements.txt'
+      - 'tools/requirements-llm.txt'
     branches:
       - 'dependabot/**'
 
