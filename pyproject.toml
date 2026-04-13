@@ -31,22 +31,23 @@ app = []
 dev = [
     "pre-commit==4.5.1",
     "black==26.3.1",
-    "ruff==0.15.7",
+    "ruff==0.15.10",
     "isort==8.0.1",
     "docformatter==1.7.7",
-    "mypy==1.19.1",
+    "mypy==1.20.0",
     "flake8==7.3.0",
-    "pytest==9.0.2",
+    "pytest==9.0.3",
     "pytest-cov==7.1.0",
     "coverage==7.13.5",
     "pytest-xdist==3.8.0",
+    "packaging>=26.0",
 
     # Required by repo dependency checks / CI fallback checks
     "hypothesis>=6.0.0",
     "pandas",
     "numpy<3.0",
     "pydantic>=2.0.0",
-    "requests>=2.31.0",
+    "requests>=2.33.1",
     "jsonschema>=4.0.0",
     "PyYAML>=6.0.0",
 
@@ -58,10 +59,10 @@ dev = [
 # Install with: pip install -e ".[langchain]"
 # Versions auto-updated by scripts/update_langchain_versions.py
 langchain = [
-    "langchain>=1.2,<1.3",
+    "langchain>=1.2.15,<1.3",
     "langchain-core>=1.2,<1.3",
     "langchain-community>=0.4,<0.5",
-    "langchain-openai>=1.1,<1.2",
+    "langchain-openai>=1.1.12,<1.2",
     "langchain-anthropic>=0.3,<1.5",
     "faiss-cpu>=1.8,<2.0; python_version < \"3.12\"",  # Vector store for dedup workflow
 ]
