@@ -122,7 +122,7 @@ langchain-community==0.4.1
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
-langchain-core==1.2.20
+langchain-core==1.2.28
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
@@ -135,7 +135,7 @@ langchain-core==1.2.20
     #   langgraph
     #   langgraph-checkpoint
     #   langgraph-prebuilt
-langchain-openai==1.1.11
+langchain-openai==1.1.12
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
@@ -197,7 +197,7 @@ packaging==26.0
     #   langsmith
     #   marshmallow
     #   pytest
-pandas==3.0.1
+pandas==3.0.2
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
@@ -275,7 +275,7 @@ referencing==0.37.0
     #   jsonschema-specifications
 regex==2026.2.28
     # via tiktoken
-requests==2.33.0
+requests==2.33.1
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
