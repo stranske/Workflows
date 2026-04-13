@@ -1,6 +1,6 @@
 # Core runtime dependencies
 requests==2.33.1
-pytest==9.0.2
+pytest==9.0.3
 pyyaml==6.0.3
 pydantic==2.12.5
 numpy==2.4.4
