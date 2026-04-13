@@ -975,6 +975,7 @@ jobs:
             const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
             const { buildIssueContext } = require('./.github/scripts/issue_context_utils.js');
             const agent = (process.env.AGENT || '').trim();
+            const agentKey = agent.toLowerCase();
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
