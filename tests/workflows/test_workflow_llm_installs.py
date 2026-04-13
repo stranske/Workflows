@@ -182,6 +182,30 @@ def test_reusable_agents_verifier_pip_cache_is_configured() -> None:
     _assert_pip_cache(workflow, ".workflows-lib/tools/requirements-llm.txt", VERIFIER.name)
 
 
+def test_reusable_codex_run_persists_refreshed_auth_bundle_with_app_token() -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    step = _find_step_by_name(workflow, "Persist refreshed Codex auth secret")
+
+    assert step.get("id") == "persist_codex_auth"
+    assert "steps.codex_auth.outcome == 'success'" in str(step.get("if", ""))
+    assert step.get("continue-on-error") is True
+
+    env = step.get("env") or {}
+    assert env.get("GH_TOKEN") == "${{ steps.auth_token.outputs.push_token }}"
+    assert env.get("INITIAL_AUTH_SHA") == "${{ steps.codex_auth.outputs.auth_sha }}"
+
+    run_script = str(step.get("run", ""))
+    required_snippets = [
+        'echo "reason=no-app-token" >> "$GITHUB_OUTPUT"',
+        'echo "reason=missing-auth-file" >> "$GITHUB_OUTPUT"',
+        'echo "reason=unchanged" >> "$GITHUB_OUTPUT"',
+        'gh secret set CODEX_AUTH_JSON --repo "$GITHUB_REPOSITORY" < "$source_auth"',
+        'echo "reason=updated" >> "$GITHUB_OUTPUT"',
+    ]
+    missing = [snippet for snippet in required_snippets if snippet not in run_script]
+    assert not missing, f"Persist step missing required snippets: {missing}"
+
+
 def test_workflow_llm_needs_human_comment_documents_blocker() -> None:
     text = _load_text(NEEDS_HUMAN_COMMENT)
     required_phrases = [
