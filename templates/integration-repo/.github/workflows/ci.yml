@@ -95,11 +95,41 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Checkout retry helpers (Workflows)
+        if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          path: workflows
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+        uses: ./workflows/.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       - name: Open issue in Workflows repo
+        if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
         uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
+            const { createTokenAwareRetry } = require(
+              './workflows/.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'integration-failure-report',
+            });
             const title = `🔴 Integration CI failed (run ${context.runNumber})`;
             const body = [
               `## Integration Test Failure`,
@@ -120,31 +150,36 @@ jobs:
             ].join('\n');
 
             // Check for existing open issue to avoid duplicates
-            const { data: issues } = await github.rest.issues.listForRepo({
+            const { data: issues } = await withRetry(() => github.rest.issues.listForRepo({
               owner: 'stranske',
               repo: 'Workflows',
               state: 'open',
               labels: 'integration-failure',
               per_page: 5
-            });
+            }));
 
             if (issues.length > 0) {
               // Add comment to existing issue
-              await github.rest.issues.createComment({
+              await withRetry(() => github.rest.issues.createComment({
                 owner: 'stranske',
                 repo: 'Workflows',
                 issue_number: issues[0].number,
                 body: `Another failure detected:\n\n${body}`
-              });
+              }));
               console.log(`Added comment to existing issue #${issues[0].number}`);
             } else {
               // Create new issue
-              const { data: issue } = await github.rest.issues.create({
+              const { data: issue } = await withRetry(() => github.rest.issues.create({
                 owner: 'stranske',
                 repo: 'Workflows',
                 title,
                 body,
                 labels: ['integration-failure', 'bug']
-              });
+              }));
               console.log(`Created issue #${issue.number}`);
             }
+
+      - name: Skip failure notification (missing token)
+        if: ${{ secrets.ACTIONS_BOT_PAT == '' }}
+        run: |
+          echo "::warning::ACTIONS_BOT_PAT not available, skipping failure notification"
