@@ -198,6 +198,16 @@ def test_issue_bridge_keepalive_dispatch_disabled():
     ), "Issue bridge should document that keepalive dispatch is disabled"
 
 
+def test_issue_bridge_create_mode_normalizes_agent_key_for_assignees():
+    text = (WORKFLOWS_DIR / "reusable-agents-issue-bridge.yml").read_text(encoding="utf-8")
+    assert (
+        "const agentKey = agent.toLowerCase();" in text
+    ), "Issue bridge create-mode PR step must define agentKey before agent registry lookups"
+    assert (
+        "const cfg = getAgentConfig(agentKey || 'codex');" in text
+    ), "Issue bridge assignee selection must continue using the normalized agentKey"
+
+
 def test_keepalive_job_present():
     reusable = WORKFLOWS_DIR / "reusable-16-agents.yml"
     text = reusable.read_text(encoding="utf-8")
