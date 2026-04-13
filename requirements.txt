@@ -3,7 +3,7 @@ requests==2.33.0
 pytest==9.0.2
 pyyaml==6.0.3
 pydantic==2.12.5
-numpy==2.4.3
+numpy==2.4.4
 pandas==3.0.2
 tomlkit==0.14.0
 
