@@ -5,7 +5,7 @@
 #   workflow automation can upgrade independently; no consumer dependency
 #   change is required when bumping this file.
 # - Use strict X.Y.Z pins to keep workflow installs reproducible.
-langchain==1.2.13
+langchain==1.2.15
 langchain-core==1.2.28
 langchain-community==0.4.1
 langchain-openai==1.1.12
