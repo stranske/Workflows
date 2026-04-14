@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -107,6 +108,24 @@ def test_ensure_pyproject_apply_updates_version() -> None:
 
     assert "mypy" in mismatches
     assert '"mypy==3.0",' in updated
+
+
+def test_ensure_pyproject_apply_preserves_valid_toml_when_rewriting_mypy() -> None:
+    env_versions = {cfg.env_key: "4.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+    content_versions = env_versions | {"MYPY_VERSION": "1.0"}
+    content = (
+        "[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n"
+        "[project.optional-dependencies]\n"
+        f"dev = [\n{_make_pyproject_content(content_versions)}]\n"
+    )
+
+    updated, _ = sync_tool_versions.ensure_pyproject(
+        content, sync_tool_versions.TOOL_CONFIGS, env_versions, True
+    )
+
+    assert ",," not in updated
+    parsed = tomllib.loads(updated)
+    assert "mypy==4.0" in parsed["project"]["optional-dependencies"]["dev"]
 
 
 def test_ensure_pyproject_apply_updates_multiple_entries() -> None:
