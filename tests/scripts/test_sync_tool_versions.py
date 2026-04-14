@@ -114,7 +114,7 @@ def test_ensure_pyproject_apply_preserves_valid_toml_when_rewriting_mypy() -> No
     env_versions = {cfg.env_key: "4.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
     content_versions = env_versions | {"MYPY_VERSION": "1.0"}
     content = (
-        "[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n"
+        '[project]\nname = "demo"\nversion = "0.1.0"\n\n'
         "[project.optional-dependencies]\n"
         f"dev = [\n{_make_pyproject_content(content_versions)}]\n"
     )
