@@ -511,11 +511,6 @@ jobs:
           tools_installed=()
           tools_skipped=()
 
-          has_lock_file=false
-          if [ -f requirements.lock ]; then
-            has_lock_file=true
-          fi
-
           if [ "$install_project_deps" = "true" ]; then
             if [ -f requirements.lock ]; then
               specs+=('-r' 'requirements.lock')
@@ -821,11 +816,6 @@ jobs:
           specs=()
           tools_installed=()
           tools_skipped=()
-
-          has_lock_file=false
-          if [ -f requirements.lock ]; then
-            has_lock_file=true
-          fi
 
           if [ "$install_project_deps" = "true" ]; then
             if [ -f requirements.lock ]; then

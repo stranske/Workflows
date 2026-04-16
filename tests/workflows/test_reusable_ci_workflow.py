@@ -120,9 +120,12 @@ def test_workflow_requires_exact_test_tool_pins() -> None:
     assert 'coverage_spec="coverage"' not in run_block
     assert 'pytest_xdist_spec="pytest-xdist"' not in run_block
     assert "installing latest tool versions" not in run_block
-    assert run_block.count(
-        'echo "Error: ${autofix_env} is required; refusing to install unpinned tooling." >&2'
-    ) == 4
+    assert (
+        run_block.count(
+            'echo "Error: ${autofix_env} is required; refusing to install unpinned tooling." >&2'
+        )
+        == 4
+    )
     assert run_block.count('require_exact_pin "pytest" "$pytest_spec"') == 4
     assert run_block.count('require_exact_pin "pytest-xdist" "$pytest_xdist_spec"') == 4
     assert run_block.count('require_exact_pin "pytest-cov" "$pytest_cov_spec"') == 4
