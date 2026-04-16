@@ -533,10 +533,10 @@ jobs:
           isort_spec="isort"
           ruff_spec="ruff"
           mypy_spec="mypy"
-          pytest_spec="pytest"
-          pytest_cov_spec="pytest-cov"
-          coverage_spec="coverage"
-          pytest_xdist_spec="pytest-xdist"
+          pytest_spec=""
+          pytest_cov_spec=""
+          coverage_spec=""
+          pytest_xdist_spec=""
           # Do not install heavyweight "baseline" test deps implicitly.
           # Repos should declare their own runtime/test dependencies.
 
@@ -554,6 +554,14 @@ jobs:
           }
 
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+          require_exact_pin() {
+            local tool=$1
+            local spec=${2:-}
+            if [ -z "$spec" ] || [ "${spec#*==}" = "$spec" ]; then
+              echo "Error: ${tool} must be pinned in ${autofix_env}; refusing to install unpinned tooling." >&2
+              exit 1
+            fi
+          }
           # Always honor tool pins when present. Lock files typically only capture runtime deps.
           if [ -f "$autofix_env" ]; then
             # shellcheck source=.github/workflows/autofix-versions.env
@@ -565,10 +573,18 @@ jobs:
             mypy_spec=$(resolve_spec "mypy" "${MYPY_VERSION:-}" "")
             pytest_spec=$(resolve_spec "pytest" "${PYTEST_VERSION:-}" "")
             pytest_cov_spec=$(resolve_spec "pytest-cov" "${PYTEST_COV_VERSION:-}" "")
-            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.2")
-            pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "3.6.1")
-          elif [ "$has_lock_file" = "false" ]; then
-            echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
+            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "")
+            pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "")
+          else
+            echo "Error: ${autofix_env} is required; refusing to install unpinned tooling." >&2
+            exit 1
+          fi
+
+          require_exact_pin "pytest" "$pytest_spec"
+          require_exact_pin "pytest-xdist" "$pytest_xdist_spec"
+          if [ "$coverage_enabled" = "true" ]; then
+            require_exact_pin "pytest-cov" "$pytest_cov_spec"
+            require_exact_pin "coverage" "$coverage_spec"
           fi
 
           # Always install dev tools - lock files only contain runtime deps, not dev tools
@@ -828,10 +844,10 @@ jobs:
           isort_spec="isort"
           ruff_spec="ruff"
           mypy_spec="mypy"
-          pytest_spec="pytest"
-          pytest_cov_spec="pytest-cov"
-          coverage_spec="coverage"
-          pytest_xdist_spec="pytest-xdist"
+          pytest_spec=""
+          pytest_cov_spec=""
+          coverage_spec=""
+          pytest_xdist_spec=""
           # Do not install heavyweight "baseline" test deps implicitly.
           # Repos should declare their own runtime/test dependencies.
 
@@ -849,6 +865,14 @@ jobs:
           }
 
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+          require_exact_pin() {
+            local tool=$1
+            local spec=${2:-}
+            if [ -z "$spec" ] || [ "${spec#*==}" = "$spec" ]; then
+              echo "Error: ${tool} must be pinned in ${autofix_env}; refusing to install unpinned tooling." >&2
+              exit 1
+            fi
+          }
           # Always honor tool pins when present. Lock files typically only capture runtime deps.
           if [ -f "$autofix_env" ]; then
             # shellcheck source=.github/workflows/autofix-versions.env
@@ -860,10 +884,18 @@ jobs:
             mypy_spec=$(resolve_spec "mypy" "${MYPY_VERSION:-}" "")
             pytest_spec=$(resolve_spec "pytest" "${PYTEST_VERSION:-}" "")
             pytest_cov_spec=$(resolve_spec "pytest-cov" "${PYTEST_COV_VERSION:-}" "")
-            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.2")
-            pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "3.6.1")
-          elif [ "$has_lock_file" = "false" ]; then
-            echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
+            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "")
+            pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "")
+          else
+            echo "Error: ${autofix_env} is required; refusing to install unpinned tooling." >&2
+            exit 1
+          fi
+
+          require_exact_pin "pytest" "$pytest_spec"
+          require_exact_pin "pytest-xdist" "$pytest_xdist_spec"
+          if [ "$coverage_enabled" = "true" ]; then
+            require_exact_pin "pytest-cov" "$pytest_cov_spec"
+            require_exact_pin "coverage" "$coverage_spec"
           fi
 
           # Always install dev tools - lock files only contain runtime deps, not dev tools
@@ -1132,10 +1164,10 @@ jobs:
           isort_spec="isort"
           ruff_spec="ruff"
           mypy_spec="mypy"
-          pytest_spec="pytest"
-          pytest_cov_spec="pytest-cov"
-          coverage_spec="coverage"
-          pytest_xdist_spec="pytest-xdist"
+          pytest_spec=""
+          pytest_cov_spec=""
+          coverage_spec=""
+          pytest_xdist_spec=""
           # Do not install heavyweight "baseline" test deps implicitly.
           # Repos should declare their own runtime/test dependencies.
 
@@ -1153,6 +1185,14 @@ jobs:
           }
 
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+          require_exact_pin() {
+            local tool=$1
+            local spec=${2:-}
+            if [ -z "$spec" ] || [ "${spec#*==}" = "$spec" ]; then
+              echo "Error: ${tool} must be pinned in ${autofix_env}; refusing to install unpinned tooling." >&2
+              exit 1
+            fi
+          }
           # Always honor tool pins when present. Lock files typically only capture runtime deps.
           if [ -f "$autofix_env" ]; then
             # shellcheck source=.github/workflows/autofix-versions.env
@@ -1164,10 +1204,18 @@ jobs:
             mypy_spec=$(resolve_spec "mypy" "${MYPY_VERSION:-}" "")
             pytest_spec=$(resolve_spec "pytest" "${PYTEST_VERSION:-}" "")
             pytest_cov_spec=$(resolve_spec "pytest-cov" "${PYTEST_COV_VERSION:-}" "")
-            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.2")
-            pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "3.6.1")
-          elif [ "$has_lock_file" = "false" ]; then
-            echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
+            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "")
+            pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "")
+          else
+            echo "Error: ${autofix_env} is required; refusing to install unpinned tooling." >&2
+            exit 1
+          fi
+
+          require_exact_pin "pytest" "$pytest_spec"
+          require_exact_pin "pytest-xdist" "$pytest_xdist_spec"
+          if [ "$coverage_enabled" = "true" ]; then
+            require_exact_pin "pytest-cov" "$pytest_cov_spec"
+            require_exact_pin "coverage" "$coverage_spec"
           fi
 
           # Always install dev tools - lock files only contain runtime deps, not dev tools
@@ -1477,10 +1525,10 @@ jobs:
           isort_spec="isort"
           ruff_spec="ruff"
           mypy_spec="mypy"
-          pytest_spec="pytest"
-          pytest_cov_spec="pytest-cov"
-          coverage_spec="coverage"
-          pytest_xdist_spec="pytest-xdist"
+          pytest_spec=""
+          pytest_cov_spec=""
+          coverage_spec=""
+          pytest_xdist_spec=""
           # Do not install heavyweight "baseline" test deps implicitly.
           # Repos should declare their own runtime/test dependencies.
 
@@ -1498,6 +1546,14 @@ jobs:
           }
 
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+          require_exact_pin() {
+            local tool=$1
+            local spec=${2:-}
+            if [ -z "$spec" ] || [ "${spec#*==}" = "$spec" ]; then
+              echo "Error: ${tool} must be pinned in ${autofix_env}; refusing to install unpinned tooling." >&2
+              exit 1
+            fi
+          }
           # Always honor tool pins when present. Lock files typically only capture runtime deps.
           if [ -f "$autofix_env" ]; then
             # shellcheck source=.github/workflows/autofix-versions.env
@@ -1509,10 +1565,18 @@ jobs:
             mypy_spec=$(resolve_spec "mypy" "${MYPY_VERSION:-}" "")
             pytest_spec=$(resolve_spec "pytest" "${PYTEST_VERSION:-}" "")
             pytest_cov_spec=$(resolve_spec "pytest-cov" "${PYTEST_COV_VERSION:-}" "")
-            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.2")
-            pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "3.6.1")
-          elif [ "$has_lock_file" = "false" ]; then
-            echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
+            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "")
+            pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "")
+          else
+            echo "Error: ${autofix_env} is required; refusing to install unpinned tooling." >&2
+            exit 1
+          fi
+
+          require_exact_pin "pytest" "$pytest_spec"
+          require_exact_pin "pytest-xdist" "$pytest_xdist_spec"
+          if [ "$coverage_enabled" = "true" ]; then
+            require_exact_pin "pytest-cov" "$pytest_cov_spec"
+            require_exact_pin "coverage" "$coverage_spec"
           fi
 
           # Always install dev tools - lock files only contain runtime deps, not dev tools

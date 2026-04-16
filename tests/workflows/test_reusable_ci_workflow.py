@@ -112,6 +112,23 @@ def test_workflow_uses_shared_mypy_pin_helper() -> None:
     assert 'python "${GITHUB_WORKSPACE}/tools/resolve_mypy_pin.py"' in run_block
 
 
+def test_workflow_requires_exact_test_tool_pins() -> None:
+    run_block = WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    assert 'pytest_spec="pytest"' not in run_block
+    assert 'pytest_cov_spec="pytest-cov"' not in run_block
+    assert 'coverage_spec="coverage"' not in run_block
+    assert 'pytest_xdist_spec="pytest-xdist"' not in run_block
+    assert "installing latest tool versions" not in run_block
+    assert run_block.count(
+        'echo "Error: ${autofix_env} is required; refusing to install unpinned tooling." >&2'
+    ) == 4
+    assert run_block.count('require_exact_pin "pytest" "$pytest_spec"') == 4
+    assert run_block.count('require_exact_pin "pytest-xdist" "$pytest_xdist_spec"') == 4
+    assert run_block.count('require_exact_pin "pytest-cov" "$pytest_cov_spec"') == 4
+    assert run_block.count('require_exact_pin "coverage" "$coverage_spec"') == 4
+
+
 def test_working_directory_propagates_to_steps() -> None:
     workflow = _load_workflow()
     job = workflow["jobs"]["tests"]
