@@ -1137,9 +1137,7 @@ jobs:
           tools_installed=()
           tools_skipped=()
 
-          has_lock_file=false
           if [ -f requirements.lock ]; then
-            has_lock_file=true
             specs+=('-r' 'requirements.lock')
           fi
 
@@ -1498,9 +1496,7 @@ jobs:
           tools_installed=()
           tools_skipped=()
 
-          has_lock_file=false
           if [ -f requirements.lock ]; then
-            has_lock_file=true
             specs+=('-r' 'requirements.lock')
           fi
 
