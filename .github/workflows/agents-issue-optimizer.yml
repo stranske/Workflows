@@ -124,7 +124,7 @@ jobs:
         if: steps.check.outputs.should_run == 'true'
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install dependencies
         if: steps.check.outputs.should_run == 'true'

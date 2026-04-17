@@ -48,7 +48,7 @@ on:
       python_versions:
         description: >-
           JSON array of Python versions forwarded to the reusable CI executor.
-          Leave empty to exercise the default 3.11 matrix or select dual-runtime
+          Leave empty to exercise the default 3.12 runtime or select dual-runtime
           from the mode input.
         required: false
         default: ''
@@ -144,8 +144,8 @@ jobs:
             inputs.python_versions) ||
           (github.event_name == 'workflow_dispatch' &&
             inputs.mode == 'dual-runtime' &&
-            '["3.11","3.12"]') ||
-          '["3.11"]'
+            '["3.12","3.13"]') ||
+          '["3.12"]'
         }}
       artifact-prefix: 'sf-${{ matrix.name }}-'
       enable-metrics: ${{ matrix.enable-metrics }}
@@ -224,8 +224,8 @@ full_soft_gate"
             inputs.python_versions) ||
           (github.event_name == 'workflow_dispatch' &&
             inputs.mode == 'dual-runtime' &&
-            '["3.11","3.12"]') ||
-          '["3.11"]'
+            '["3.12","3.13"]') ||
+          '["3.12"]'
         }}
       RUN_REASON: >-
         ${{

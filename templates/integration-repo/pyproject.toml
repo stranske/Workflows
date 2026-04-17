@@ -2,7 +2,7 @@
 name = "workflows-integration"
 version = "0.1.0"
 description = "Integration test consumer for stranske/Workflows reusable CI"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 readme = "README.md"
 authors = [{name = "Workflows Integration"}]
 
@@ -32,4 +32,4 @@ testpaths = ["tests"]
 
 [tool.black]
 line-length = 100
-target-version = ["py311", "py312"]
+target-version = ["py312", "py313"]

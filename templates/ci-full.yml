@@ -34,7 +34,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install package
         run: pip install -e .
@@ -60,7 +60,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install tools
         run: pip install black ruff isort
@@ -83,7 +83,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: pip
           cache-dependency-path: pyproject.toml
 
@@ -101,7 +101,7 @@ jobs:
       fail-fast: false
       matrix:
         # CUSTOMIZE: Python versions to test
-        python-version: ['3.11', '3.12']
+        python-version: ['3.12', '3.13']
     steps:
       - uses: actions/checkout@v6
 

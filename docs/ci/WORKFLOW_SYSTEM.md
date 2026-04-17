@@ -192,7 +192,7 @@ explain why a particular status appears in the Checks tab.
 #### Gate (`pr-00-gate.yml`)
 
 - **When it runs.** Every pull request, plus manual dispatch for rehearsals.
-- **What it enforces.** Detects docs-only diffs, orchestrates Python 3.11/3.12
+- **What it enforces.** Detects docs-only diffs, orchestrates Python 3.12/3.13
   CI and the Docker smoke test, publishes coverage bundles, and produces the
   single required status context (**Gate / gate**).
 - **Merge impact.** Required on every PR; branch protection blocks merges until
@@ -644,7 +644,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Error checking, linting, and testing topology
 - **Reusable Python CI** – `reusable-10-ci-python.yml` fans out ruff, mypy, and
-  pytest across the interpreter matrix. It reads `python_version = "3.11"` from
+  pytest across the interpreter matrix. It reads `python_version = "3.12"` from
   `pyproject.toml` and pins the mypy leg accordingly.
 - **Reusable Docker CI** – `reusable-12-ci-docker.yml` builds the container
   image and exercises the smoke tests Gate otherwise short-circuits for
@@ -686,7 +686,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | --- | --- | --- | --- | --- |
 | **Gate** (`pr-00-gate.yml`, PR checks bucket) | `pull_request`, `workflow_dispatch` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after Gate finishes | Maintain the consolidated PR comment + status, upload Gate summary artifacts, and apply `autofix:clean` when the failure is cosmetic-only. | ⚪ Informational | [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml) |
-| **PR 11 - Minimal invariant CI** (`pr-11-ci-smoke.yml`, PR checks bucket) | `push` (`main`), `pull_request` (`main`), `workflow_dispatch` | Fast YAML + scripts syntax sanity check on Python 3.11 for early warning on workflow/script regressions. | ⚪ Automatic on push/PR | [Minimal invariant CI runs](https://github.com/stranske/Workflows/actions/workflows/pr-11-ci-smoke.yml) |
+| **PR 11 - Minimal invariant CI** (`pr-11-ci-smoke.yml`, PR checks bucket) | `push` (`main`), `pull_request` (`main`), `workflow_dispatch` | Fast YAML + scripts syntax sanity check on Python 3.12 for early warning on workflow/script regressions. | ⚪ Automatic on push/PR | [Minimal invariant CI runs](https://github.com/stranske/Workflows/actions/workflows/pr-11-ci-smoke.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Workflows/actions/workflows/maint-47-disable-legacy-workflows.yml) |
 | **Maint 50 Tool Version Check** (`maint-50-tool-version-check.yml`, maintenance bucket) | `schedule` (Mondays 8:00 AM UTC), `workflow_dispatch` | Check PyPI for new versions of CI/autofix tools and create/update an issue when updates are available. | ⚪ Scheduled | [Maint 50 version checks](https://github.com/stranske/Workflows/actions/workflows/maint-50-tool-version-check.yml) |
 | **Maint 51 Dependency Refresh** (`maint-51-dependency-refresh.yml`, maintenance bucket) | `schedule` (1st & 15th at 04:00 UTC), `workflow_dispatch` | Regenerate `requirements.lock` with `uv pip compile`, verify tool-pin alignment, and open a refresh PR when dependency updates are detected (supports dry-run previews). | ⚪ Scheduled | [Maint 51 dependency refresh](https://github.com/stranske/Workflows/actions/workflows/maint-51-dependency-refresh.yml) |

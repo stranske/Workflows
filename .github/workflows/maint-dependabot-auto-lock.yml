@@ -34,7 +34,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install uv
         run: pip install uv
@@ -51,7 +51,7 @@ jobs:
           pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
           extras = sorted(pyproject.get("project", {}).get("optional-dependencies", {}))
 
-          args = ["pyproject.toml"]
+          args = ["--python-version", "3.12", "pyproject.toml"]
           for extra in extras:
               args.extend(["--extra", extra])
 

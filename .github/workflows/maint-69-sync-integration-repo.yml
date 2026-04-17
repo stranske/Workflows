@@ -71,7 +71,7 @@ jobs:
         if: steps.token.outputs.token_available == 'true'
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install uv
         if: steps.token.outputs.token_available == 'true'
@@ -122,7 +122,7 @@ jobs:
           # Regenerate requirements.lock to match updated autofix-versions.env
           if [ -f "pyproject.toml" ]; then
             echo "🔄 Regenerating requirements.lock with updated tool versions..."
-            uv pip compile --upgrade pyproject.toml \
+            uv pip compile --python-version 3.12 --upgrade pyproject.toml \
               --extra test --extra dev --universal \
               --output-file requirements.lock
             echo "✅ Updated requirements.lock"

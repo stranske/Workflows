@@ -225,7 +225,7 @@ jobs:
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Cache pip (LLM requirements)
         if: steps.check_enabled.outputs.enabled == 'true'

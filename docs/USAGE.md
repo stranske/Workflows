@@ -18,7 +18,7 @@ jobs:
   python-ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: "3.11"
+      python-version: "3.12"
 ```
 
 ## Available Workflows
@@ -44,7 +44,7 @@ steps:
       
   - uses: stranske/Workflows/.github/actions/python-ci-setup@v1
     with:
-      python-version: "3.11"
+      python-version: "3.12"
 ```
 
 ## Workflow Inputs
@@ -53,7 +53,7 @@ steps:
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `python-version` | No | `"3.11"` | Python version to use |
+| `python-version` | No | `"3.12"` | Python version to use |
 | `run-tests` | No | `true` | Run pytest |
 | `run-lint` | No | `true` | Run ruff linting |
 | `run-typecheck` | No | `true` | Run mypy type checking |

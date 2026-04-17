@@ -20,7 +20,7 @@ def _matrix_candidates(python_versions: str, python_version: str) -> list[str]:
     elif fallback:
         chosen = f"[{json.dumps(fallback)}]"
     else:
-        chosen = '["3.11"]'
+        chosen = '["3.12"]'
     return json.loads(chosen)
 
 
@@ -34,10 +34,10 @@ def _normalize_expr(value: str) -> str:
 
 
 def test_matrix_expression_supports_arrays_and_singletons() -> None:
-    assert _matrix_candidates('["3.11", "3.12"]', "3.10") == ["3.11", "3.12"]
-    assert _matrix_candidates("3.12", "3.11") == ["3.12"]
-    assert _matrix_candidates("", "3.11") == ["3.11"]
-    assert _matrix_candidates("[]", "") == ["3.11"]
+    assert _matrix_candidates('["3.12", "3.13"]', "3.11") == ["3.12", "3.13"]
+    assert _matrix_candidates("3.13", "3.12") == ["3.13"]
+    assert _matrix_candidates("", "3.12") == ["3.12"]
+    assert _matrix_candidates("[]", "") == ["3.12"]
 
 
 def test_workflow_inputs_include_python_version_defaults() -> None:
@@ -52,14 +52,14 @@ def test_workflow_inputs_include_python_version_defaults() -> None:
 
     # workflow_call inputs remain complete
     assert call_inputs.get("working-directory", {}).get("default") == "."
-    assert call_inputs.get("python-version", {}).get("default") == "3.11"
+    assert call_inputs.get("python-version", {}).get("default") == "3.12"
     assert call_inputs.get("python-versions", {}).get("default") == "[]"
-    assert call_inputs.get("primary-python-version", {}).get("default") == "3.11"
+    assert call_inputs.get("primary-python-version", {}).get("default") == "3.12"
     assert call_inputs.get("pytest_args", {}).get("default") == ""
 
     # workflow_dispatch has reduced inputs (10-input limit) but python-versions remains
     assert dispatch_inputs.get("working-directory", {}).get("default") == "."
-    assert dispatch_inputs.get("python-versions", {}).get("default") == '["3.11"]'
+    assert dispatch_inputs.get("python-versions", {}).get("default") == '["3.12", "3.13"]'
     # python-version was removed from workflow_dispatch to meet GitHub's 10-input limit
     assert "python-version" not in dispatch_inputs
     assert "pytest_args" not in dispatch_inputs

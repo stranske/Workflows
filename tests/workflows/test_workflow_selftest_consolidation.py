@@ -267,8 +267,8 @@ def test_selftest_runner_jobs_contract() -> None:
         "inputs.mode == 'dual-runtime'" in python_versions_expr
     ), "Scenario job should enable dual-runtime mode when requested."
     assert (
-        "'[\"3.11\"]'" in python_versions_expr
-    ), "Scenario job should fall back to the default 3.11 matrix."
+        "'[\"3.12\"]'" in python_versions_expr
+    ), "Scenario job should fall back to the default 3.12 runtime."
 
     strategy = scenario.get("strategy", {})
     assert (
@@ -348,8 +348,8 @@ def test_selftest_runner_jobs_contract() -> None:
         "inputs.mode == 'dual-runtime'" in aggregate_python
     ), "Aggregate job should forward dual-runtime requests."
     assert (
-        "'[\"3.11\"]'" in aggregate_python
-    ), "Aggregate job should fall back to the default 3.11 matrix."
+        "'[\"3.12\"]'" in aggregate_python
+    ), "Aggregate job should fall back to the default 3.12 runtime."
     assert env.get("RUN_REASON"), "Aggregate job should capture the run reason for summaries."
     assert (
         env.get("TRIGGER_EVENT") == "${{ github.event_name }}"

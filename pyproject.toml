@@ -7,7 +7,7 @@ name = "workflows"
 version = "0.1.0"
 description = "Reusable GitHub Actions workflows and automation infrastructure"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "MIT"
 authors = [
     {name = "Workflow Contributors"}
@@ -18,8 +18,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Build Tools",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 [project.urls]
@@ -64,7 +64,7 @@ langchain = [
     "langchain-community>=0.4,<0.5",
     "langchain-openai>=1.1.12,<1.2",
     "langchain-anthropic>=0.3,<1.5",
-    "faiss-cpu>=1.8,<2.0; python_version < \"3.12\"",  # Vector store for dedup workflow
+    "faiss-cpu>=1.13.2,<2.0",  # Vector store for dedup workflow
 ]
 
 [tool.setuptools]
@@ -74,7 +74,7 @@ packages = []
 
 [tool.black]
 line-length = 100
-target-version = ["py311", "py312"]
+target-version = ["py312", "py313"]
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -102,7 +102,7 @@ skip_glob = ["archive/*", ".extraction/*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 exclude = []
 
 [tool.ruff.lint]
@@ -144,7 +144,7 @@ exclude = [
 ]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

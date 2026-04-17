@@ -13,4 +13,4 @@ langchain-core==1.2.28
 langchain-community==0.4.1
 langchain-openai==1.1.12
 langchain-anthropic==1.4.0
-faiss-cpu==1.13.2; python_version < "3.12"
+faiss-cpu==1.13.2

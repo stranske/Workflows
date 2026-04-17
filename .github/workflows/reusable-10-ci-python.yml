@@ -11,7 +11,7 @@ on:
       python-version:
         description: Primary Python version to use when `python-versions` is not provided.
         required: false
-        default: '3.11'
+        default: '3.12'
         type: string
       python-versions:
         description: JSON array of Python versions to execute. Takes precedence when non-empty.
@@ -21,7 +21,7 @@ on:
       primary-python-version:
         description: Preferred Python runtime that should publish soft-gate artifacts when enabled.
         required: false
-        default: '3.11'
+        default: '3.12'
         type: string
       marker:
         description: Deprecated alias for `pytest_markers`. Use `pytest_markers` instead.
@@ -155,7 +155,7 @@ on:
       python-versions:
         description: JSON array of Python versions to execute.
         required: false
-        default: '["3.11"]'
+        default: '["3.12", "3.13"]'
       pytest_markers:
         description: Optional pytest marker expression.
         required: false
@@ -2095,7 +2095,7 @@ jobs:
             elif python_version_fallback:
               primary = python_version_fallback
             else:
-              primary = "3.11"
+              primary = "3.12"
 
           output_path = os.environ.get("GITHUB_ENV")
           if not output_path:

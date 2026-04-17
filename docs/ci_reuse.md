@@ -9,7 +9,7 @@ retired and now live only in git history, with verification notes captured in
 
 | Reusable Workflow | File | Purpose |
 | ------------------ | ---- | ------- |
-| Reusable CI | `.github/workflows/reusable-10-ci-python.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.11/3.12. |
+| Reusable CI | `.github/workflows/reusable-10-ci-python.yml` | Primary Python quality gate (lint, types, pytest, coverage). Used by Gate for Python 3.12/3.13. |
 | Reusable Docker Smoke | `.github/workflows/reusable-12-ci-docker.yml` | Docker build + smoke test harness consumed by Gate and downstream callers. |
 | Autofix | `.github/workflows/reusable-18-autofix.yml` | Formatting / lint autofix composite invoked by the Gate summary job. |
 | Agents Toolkit | `.github/workflows/reusable-16-agents.yml` | Readiness, Codex bootstrap, diagnostics, verification, keepalive, and watchdog routines dispatched exclusively through the orchestrator. |
@@ -24,8 +24,8 @@ jobs:
     name: python ci
     uses: ./.github/workflows/reusable-10-ci-python.yml
     with:
-      python-versions: '["3.11", "3.12"]'
-      primary-python-version: '3.11'
+      python-versions: '["3.12", "3.13"]'
+      primary-python-version: '3.12'
       marker: "not quarantine and not slow"
       artifact-prefix: 'gate-'
 ```

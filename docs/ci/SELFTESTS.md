@@ -12,7 +12,7 @@ The repository exposes a single canonical self-test workflow named **Selftest: R
 Manual runs support three presentation modes:
 - `summary` (default) – write the condensed matrix table to the run summary.
 - `comment` – post the same table as a pull-request comment (requires `post_to: pr-number` and a PR ID).
-- `dual-runtime` – shorthand that requests both Python 3.11 and 3.12 without editing the JSON input.
+- `dual-runtime` – shorthand that requests both Python 3.12 and 3.13 without editing the JSON input.
 
 ## Scenario Matrix
 
@@ -29,7 +29,7 @@ The workflow executes six scenarios with `strategy.fail-fast: false` so failures
 
 ## Runtime and History Controls
 
-- **Python versions** – leave blank to run only 3.11. Provide a JSON array (for example `['3.11','3.12']`) or choose the `dual-runtime` mode to exercise both interpreters.
+- **Python versions** – leave blank to run only 3.12. Provide a JSON array (for example `['3.12','3.13']`) or choose the `dual-runtime` mode to exercise both interpreters.
 - **History toggle** – set the `enable_history` input to `true` when launching manually if you want the workflow to download the generated `selftest-report` artifact automatically.
 - **Run reason** – optionally describe why the self-test was dispatched; this string is echoed back in both the run summary and any PR comment the workflow posts.
 
