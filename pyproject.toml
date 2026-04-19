@@ -31,7 +31,7 @@ app = []
 dev = [
     "pre-commit==4.5.1",
     "black==26.3.1",
-    "ruff==0.15.10",
+    "ruff==0.15.11",
     "isort==8.0.1",
     "docformatter==1.7.7",
     "mypy==1.20.1",
