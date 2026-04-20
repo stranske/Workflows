@@ -340,7 +340,9 @@ def test_get_llm_client_defaults_to_expected_models(monkeypatch: pytest.MonkeyPa
 
     def fake_build_chat_client(*, model: str | None = None, provider: str | None = None):
         calls.append((model, provider))
-        return SimpleNamespace(client=object(), model=model or "fallback", provider=provider or "auto")
+        return SimpleNamespace(
+            client=object(), model=model or "fallback", provider=provider or "auto"
+        )
 
     fake_module = ModuleType("tools.langchain_client")
     fake_module.build_chat_client = fake_build_chat_client
