@@ -110,6 +110,25 @@ class TestExtractVerificationData:
         assert "Missing regression coverage." in data.concerns
         assert data.provider_verdicts["openai"]["summary"] == "Missing regression coverage."
 
+    def test_extract_non_pass_without_summary_marks_missing_concerns(self):
+        """Non-PASS provider verdicts without summaries still produce a deterministic task."""
+        comment = """
+## Provider Comparison Report
+
+### Provider Summary
+| Provider | Model | Verdict | Confidence |
+| --- | --- | --- | --- |
+| openai | gpt-4o-mini | CONCERNS | 72% |
+| anthropic | claude-sonnet | PASS | 91% |
+"""
+        data = extract_verification_data(comment)
+
+        assert data.missing_concerns is True
+        assert data.concerns == [
+            "Verification output did not include extractable concerns; "
+            "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+        ]
+
     def test_extract_single_verdict(self):
         """Extract verdict from single provider format."""
         comment = """

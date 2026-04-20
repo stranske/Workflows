@@ -147,8 +147,8 @@ function sortJobs(jobCoverages) {
     return entries;
   }
   let preferred = null;
-  if (jobCoverages.has('coverage-3.11')) {
-    preferred = 'coverage-3.11';
+  if (jobCoverages.has('coverage-3.12')) {
+    preferred = 'coverage-3.12';
   } else {
     preferred = entries
       .map(([name]) => name)

@@ -17,8 +17,8 @@ def test_find_or_create_issue_updates_existing(monkeypatch: pytest.MonkeyPatch) 
         calls.append((args, kwargs))
         if args[:3] == ["gh", "issue", "list"]:
             stdout = json.dumps([{"number": 123, "title": "coverage breach"}])
-            return SimpleNamespace(stdout=stdout)
-        return SimpleNamespace(stdout="")
+            return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr("subprocess.run", fake_run)
 
@@ -40,8 +40,8 @@ def test_find_or_create_issue_creates_new(monkeypatch: pytest.MonkeyPatch) -> No
     def fake_run(args, **kwargs):
         calls.append((args, kwargs))
         if args[:3] == ["gh", "issue", "list"]:
-            return SimpleNamespace(stdout="")
-        return SimpleNamespace(stdout="")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr("subprocess.run", fake_run)
 
@@ -64,7 +64,7 @@ def test_main_invokes_issue_management_when_below_baseline(
     baseline_path = tmp_path / "baseline.json"
     coverage_path = tmp_path / "coverage.json"
     _write_json(trend_path, {"current": 64.0, "baseline": 70.0})
-    _write_json(baseline_path, {"coverage": 70.0})
+    _write_json(baseline_path, {"line": 70.0})
     _write_json(
         coverage_path,
         {"files": {"src/app.py": {"summary": {"percent_covered": 64.0, "missing_lines": 3}}}},
@@ -103,14 +103,19 @@ def test_main_skips_issue_management_when_at_or_above_baseline(
     trend_path = tmp_path / "trend.json"
     baseline_path = tmp_path / "baseline.json"
     _write_json(trend_path, {"current": 72.0, "baseline": 70.0})
-    _write_json(baseline_path, {"coverage": 70.0})
+    _write_json(baseline_path, {"line": 70.0})
 
-    calls = []
+    create_calls = []
+    close_calls = []
 
     def fake_issue(*args, **kwargs):
-        calls.append((args, kwargs))
+        create_calls.append((args, kwargs))
+
+    def fake_close(*args, **kwargs):
+        close_calls.append((args, kwargs))
 
     monkeypatch.setattr(coverage_guard, "_find_or_create_issue", fake_issue)
+    monkeypatch.setattr(coverage_guard, "_close_existing_issue", fake_close)
 
     exit_code = coverage_guard.main(
         [
@@ -124,7 +129,8 @@ def test_main_skips_issue_management_when_at_or_above_baseline(
     )
 
     assert exit_code == 0
-    assert not calls
+    assert not create_calls
+    assert close_calls
 
 
 def test_main_uses_trend_baseline_when_baseline_missing(
@@ -164,7 +170,7 @@ def test_main_dry_run_prints_issue_body(tmp_path: Path, capsys: pytest.CaptureFi
     trend_path = tmp_path / "trend.json"
     baseline_path = tmp_path / "baseline.json"
     _write_json(trend_path, {"current": 60.0, "baseline": 70.0})
-    _write_json(baseline_path, {"coverage": 70.0})
+    _write_json(baseline_path, {"line": 70.0})
 
     exit_code = coverage_guard.main(
         [
@@ -188,10 +194,13 @@ def test_main_dry_run_prints_issue_body(tmp_path: Path, capsys: pytest.CaptureFi
 def test_load_json_handles_missing_and_invalid(tmp_path: Path) -> None:
     missing = tmp_path / "missing.json"
     invalid = tmp_path / "invalid.json"
+    non_dict = tmp_path / "list.json"
     invalid.write_text("{not-json}", encoding="utf-8")
+    non_dict.write_text("[]", encoding="utf-8")
 
     assert coverage_guard._load_json(missing) == {}
     assert coverage_guard._load_json(invalid) == {}
+    assert coverage_guard._load_json(non_dict) == {}
 
 
 def test_get_hotspots_sorts_and_limits() -> None:
@@ -207,6 +216,35 @@ def test_get_hotspots_sorts_and_limits() -> None:
 
     assert [spot["file"] for spot in hotspots] == ["src/low.py", "src/mid.py"]
     assert hotspots[0]["missing_lines"] == 9
+
+
+def test_get_hotspots_handles_unexpected_payloads() -> None:
+    assert coverage_guard._get_hotspots({"files": []}) == []
+    assert coverage_guard._get_hotspots({"files": {"bad.py": []}}) == []
+
+
+def test_main_skips_when_trend_payload_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = []
+
+    def fake_issue(*args, **kwargs):
+        calls.append((args, kwargs))
+
+    monkeypatch.setattr(coverage_guard, "_find_or_create_issue", fake_issue)
+    monkeypatch.setattr(coverage_guard, "_close_existing_issue", fake_issue)
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--coverage-path",
+            str(tmp_path / "coverage.json"),
+        ]
+    )
+
+    assert exit_code == 0
+    assert not calls
 
 
 def test_format_issue_body_includes_hotspots() -> None:

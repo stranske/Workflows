@@ -17,20 +17,57 @@ from typing import Any
 def _load_json(path: Path) -> dict[str, Any]:
     """Load JSON from a file, returning empty dict on error."""
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _to_float(value: Any, default: float = 0.0) -> float:
+    """Return a finite float for numeric-ish values."""
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
+
+
+def _to_int(value: Any, default: int = 0) -> int:
+    """Return an integer for numeric-ish values."""
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(float(value))
+        except ValueError:
+            return default
+    return default
 
 
 def _get_hotspots(coverage_data: dict[str, Any], limit: int = 15) -> list[dict[str, Any]]:
     """Extract files with lowest coverage from coverage.json."""
     files = coverage_data.get("files", {})
+    if not isinstance(files, dict):
+        return []
     hotspots = []
 
     for filepath, data in files.items():
+        if not isinstance(data, dict):
+            continue
         summary = data.get("summary", {})
-        percent = summary.get("percent_covered", 0.0)
-        missing = summary.get("missing_lines", 0)
+        if not isinstance(summary, dict):
+            continue
+        percent = _to_float(summary.get("percent_covered"))
+        missing = _to_int(summary.get("missing_lines"))
         hotspots.append(
             {
                 "file": filepath,
@@ -98,11 +135,10 @@ _This issue is automatically updated by the coverage guard workflow._
     return body
 
 
-def _find_or_create_issue(repo: str, title: str, body: str, labels: list[str]) -> None:
-    """Find existing issue or create a new one using gh CLI."""
+def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
+    """Find an existing issue by title using gh CLI."""
     import subprocess
 
-    # Search for existing issue
     search_result = subprocess.run(
         [
             "gh",
@@ -110,10 +146,12 @@ def _find_or_create_issue(repo: str, title: str, body: str, labels: list[str]) -
             "list",
             "--repo",
             repo,
+            "--state",
+            "all",
             "--search",
             f'"{title}" in:title',
             "--json",
-            "number,title",
+            "number,title,state",
             "--limit",
             "1",
         ],
@@ -121,11 +159,30 @@ def _find_or_create_issue(repo: str, title: str, body: str, labels: list[str]) -
         text=True,
     )
 
-    existing_issues = json.loads(search_result.stdout) if search_result.stdout.strip() else []
+    if search_result.returncode != 0:
+        error_message = search_result.stderr.strip() or "unknown gh error"
+        print(f"Failed to search for existing issues: {error_message}", file=sys.stderr)
+        raise RuntimeError("gh issue list failed")
 
-    if existing_issues:
-        # Update existing issue
-        issue_number = existing_issues[0]["number"]
+    try:
+        existing_issues = json.loads(search_result.stdout) if search_result.stdout.strip() else []
+    except json.JSONDecodeError as exc:
+        print("Failed to parse gh issue list output as JSON.", file=sys.stderr)
+        if search_result.stderr.strip():
+            print(search_result.stderr.strip(), file=sys.stderr)
+        raise RuntimeError("gh issue list returned invalid JSON") from exc
+
+    return existing_issues[0] if existing_issues else None
+
+
+def _find_or_create_issue(repo: str, title: str, body: str, labels: list[str]) -> None:
+    """Find existing issue or create a new one using gh CLI."""
+    import subprocess
+
+    existing_issue = _find_existing_issue(repo, title)
+
+    if existing_issue:
+        issue_number = existing_issue["number"]
         subprocess.run(
             ["gh", "issue", "edit", str(issue_number), "--repo", repo, "--body", body],
             check=True,
@@ -155,6 +212,39 @@ def _find_or_create_issue(repo: str, title: str, body: str, labels: list[str]) -
         print(f"Created new issue: {title}")
 
 
+def _close_existing_issue(repo: str, title: str, body: str) -> None:
+    """Close the existing baseline breach issue after coverage recovers."""
+    import subprocess
+
+    existing_issue = _find_existing_issue(repo, title)
+    if not existing_issue:
+        print("Coverage recovered; no existing breach issue found")
+        return
+
+    issue_number = existing_issue["number"]
+    subprocess.run(
+        ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", body],
+        check=True,
+    )
+    if str(existing_issue.get("state", "")).upper() != "CLOSED":
+        subprocess.run(
+            [
+                "gh",
+                "issue",
+                "close",
+                str(issue_number),
+                "--repo",
+                repo,
+                "--reason",
+                "completed",
+            ],
+            check=True,
+        )
+        print(f"Closed recovered issue #{issue_number}")
+    else:
+        print(f"Updated already closed issue #{issue_number}")
+
+
 def main(args: list[str] | None = None) -> int:
     """Main entry point for coverage guard."""
     parser = argparse.ArgumentParser(description="Coverage guard - maintain baseline breach issues")
@@ -182,9 +272,13 @@ def main(args: list[str] | None = None) -> int:
     if parsed.baseline_path and parsed.baseline_path.exists():
         baseline_data = _load_json(parsed.baseline_path)
 
+    if not trend_data:
+        print("No coverage trend payload found; skipping coverage guard update")
+        return 0
+
     # Extract values
-    current = trend_data.get("current", 0.0)
-    baseline = baseline_data.get("coverage", trend_data.get("baseline", 70.0))
+    current = _to_float(trend_data.get("current"))
+    baseline = _to_float(baseline_data.get("line"), _to_float(trend_data.get("baseline"), 70.0))
     delta = current - baseline
 
     # Get hotspots
@@ -209,7 +303,8 @@ def main(args: list[str] | None = None) -> int:
             labels=["coverage", "automated"],
         )
     else:
-        print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no issue needed")
+        print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no open issue needed")
+        _close_existing_issue(parsed.repo, parsed.issue_title, body)
 
     return 0
 

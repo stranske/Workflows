@@ -26,11 +26,11 @@ test('computes coverage stats and writes files', async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-test-'));
   process.chdir(tempDir);
   try {
-    const summaryDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'coverage-3.11');
+    const summaryDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'coverage-3.12');
     fs.mkdirSync(summaryDir, { recursive: true });
     fs.writeFileSync(path.join(summaryDir, 'coverage.json'), JSON.stringify({ totals: { percent_covered: 91.234 } }));
 
-    const secondDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'runtimes', '3.12');
+    const secondDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'runtimes', '3.13');
     fs.mkdirSync(secondDir, { recursive: true });
     fs.writeFileSync(path.join(secondDir, 'coverage.xml'), '<coverage line-rate="0.845"/>');
 
@@ -45,6 +45,8 @@ test('computes coverage stats and writes files', async () => {
     const result = await computeCoverageStats({ core: null });
     assert.ok(result.stats.avg_latest >= 0);
     assert.equal(result.stats.job_coverages.length, 2);
+    assert.equal(result.stats.diff_reference, '3.12');
+    assert.equal(result.stats.job_coverages[0].name, 'coverage-3.12');
     assert.ok(fs.existsSync(path.join(tempDir, 'coverage-stats.json')));
     assert.ok(fs.existsSync(path.join(tempDir, 'coverage-delta-output.json')));
   } finally {

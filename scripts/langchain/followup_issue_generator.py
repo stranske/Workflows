@@ -755,7 +755,7 @@ def _should_add_missing_concerns_note(
             verdicts.append(verdict)
     if not verdicts:
         return True
-    return any(verdict == "unknown" for verdict in verdicts)
+    return any(not verdict.startswith("pass") for verdict in verdicts)
 
 
 def extract_original_issue_data(
