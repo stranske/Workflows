@@ -501,6 +501,8 @@ class VerificationData:
 
     provider_verdicts: dict[str, dict[str, Any]] = field(default_factory=dict)
     concerns: list[str] = field(default_factory=list)
+    non_pass_output: list[str] = field(default_factory=list)
+    non_pass_findings: list[str] = field(default_factory=list)
     low_scores: dict[str, int] = field(default_factory=dict)
     iteration_count: int = 0
     tasks_attempted: int = 0
@@ -746,7 +748,29 @@ def extract_verification_data(comment_body: str) -> VerificationData:
         for match in problem_pattern.finditer(issues_text):
             data.structural_issues.append(match.group(1).strip())
 
+    _refresh_non_pass_evidence(data)
     return data
+
+
+def _refresh_non_pass_evidence(data: VerificationData) -> None:
+    """Rebuild non-PASS evidence from final provider verdicts."""
+
+    data.non_pass_output = []
+    data.non_pass_findings = []
+    for provider, payload in data.provider_verdicts.items():
+        verdict = str(payload.get("verdict", "") or "").strip()
+        if verdict.upper() == "PASS":
+            continue
+        model = str(payload.get("model", "") or "").strip()
+        confidence = int(float(payload.get("confidence", 0) or 0))
+        data.non_pass_output.append(
+            f"Provider={provider}; Model={model}; Verdict={verdict}; Confidence={confidence}%"
+        )
+        summary = str(payload.get("summary", "") or "").strip()
+        if summary:
+            data.non_pass_findings.append(
+                f"Provider={provider}; Verdict={verdict}; Difference={summary}"
+            )
 
 
 def _should_add_missing_concerns_note(
@@ -1139,6 +1163,88 @@ def _append_advisory_notes(body: str, advisory_concerns: list[str]) -> str:
     return body.rstrip() + "\n" + "\n".join(notes_lines) + "\n"
 
 
+def _format_code_change_decision(verification_data: VerificationData) -> str:
+    policy_result = _resolve_verdict_policy(verification_data)
+    blocking_concerns, advisory_concerns = _split_concerns(verification_data.concerns)
+    requires_code_change = policy_result.verdict.lower() in {"fail", "error"} or bool(
+        blocking_concerns
+    )
+    if (
+        policy_result.verdict_kind == "concerns"
+        and policy_result.split_verdict
+        and not policy_result.needs_human
+    ):
+        requires_code_change = False
+    if policy_result.verdict.lower() == "concerns" and advisory_concerns and not blocking_concerns:
+        requires_code_change = False
+
+    rationale = policy_result.needs_human_reason
+    if not rationale:
+        if (
+            policy_result.verdict_kind == "concerns"
+            and policy_result.split_verdict
+            and not policy_result.needs_human
+        ):
+            rationale = (
+                "low-confidence and contradicted by high-confidence PASS provider(s); "
+                "no code follow-up is required."
+            )
+        elif requires_code_change:
+            rationale = (
+                "Difference describes a functional defect or regression signal that should be "
+                "resolved in code."
+            )
+        else:
+            rationale = (
+                "Difference appears advisory or contradicted by higher-confidence PASS "
+                "provider evidence; no code follow-up is required."
+            )
+
+    answer = "yes" if requires_code_change else "no"
+    return f"non-PASS output requires code changes: **{answer}**; technical rationale: {rationale}"
+
+
+def generate_disposition_comment(
+    verification_data: VerificationData,
+    pr_number: int,
+    source_url: str | None = None,
+) -> str:
+    """Generate a durable issue/PR disposition comment for non-PASS verification output."""
+
+    body_parts = [
+        "## verify:compare Disposition",
+        "",
+        f"Source: verify:compare non-PASS output from PR #{pr_number}",
+    ]
+    if source_url:
+        body_parts.append(f"Source link: {source_url}")
+
+    body_parts.extend(["", "### Evidence", ""])
+    if verification_data.non_pass_output:
+        max_non_pass_output = 10
+        for output in verification_data.non_pass_output[:max_non_pass_output]:
+            body_parts.append(f"- `{output}`")
+        remaining_non_pass_output = len(verification_data.non_pass_output) - max_non_pass_output
+        if remaining_non_pass_output > 0:
+            body_parts.append(f"- ... plus {remaining_non_pass_output} more evidence entries")
+    else:
+        body_parts.append("- No structured non-PASS provider output was extracted.")
+
+    if verification_data.non_pass_findings:
+        body_parts.extend(["", "### Findings", ""])
+        for finding in verification_data.non_pass_findings:
+            body_parts.append(f"- {finding}")
+
+    body_parts.extend(["", "### Decision", "", _format_code_change_decision(verification_data)])
+    return "\n".join(body_parts)
+
+
+def generate_issue_disposition_link_comment(disposition_url: str) -> str:
+    """Generate a short issue comment linking to the durable disposition evidence."""
+
+    return f"Disposition documentation for verify:compare is recorded here: {disposition_url}"
+
+
 def generate_followup_issue(
     verification_data: VerificationData,
     original_issue: OriginalIssueData,
@@ -1501,10 +1607,13 @@ def _generate_without_llm(
             f"- Resolved verdict: {verdict}",
         ]
     )
+    for finding in verification_data.non_pass_findings[:10]:
+        body_parts.append(f"- {finding}")
     for concern in blocking_concerns[:10]:
         body_parts.append(f"- Concern: {concern}")
     for concern in advisory_concerns[:10]:
         body_parts.append(f"- Advisory: {concern}")
+    body_parts.append(f"- {_format_code_change_decision(verification_data)}")
 
     body_parts.extend(
         [
@@ -1513,6 +1622,12 @@ def _generate_without_llm(
             "",
         ]
     )
+    max_non_pass_output = 10
+    for output in verification_data.non_pass_output[:max_non_pass_output]:
+        body_parts.append(f"- `{output}`")
+    remaining_non_pass_output = len(verification_data.non_pass_output) - max_non_pass_output
+    if remaining_non_pass_output > 0:
+        body_parts.append(f"- ... plus {remaining_non_pass_output} more evidence entries")
     for provider, data in verification_data.provider_verdicts.items():
         evidence = f"- {provider}: {data.get('verdict', 'Unknown')} @ {data.get('confidence', 0)}%"
         summary = data.get("summary")
