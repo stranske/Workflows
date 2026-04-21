@@ -178,16 +178,16 @@ function sortJobs(jobCoverages, preferredRuntime = process.env.COVERAGE_REFERENC
   if (preferredName && jobCoverages.has(preferredName)) {
     preferred = preferredName;
   } else {
-    preferred = entries
+    const runtimeCoverageNames = entries
       .map(([name]) => name)
       .filter(name => /^coverage-\d+(?:\.\d+)*$/.test(name))
-      .sort(compareNaturalNames)
-      .pop();
+      .sort(compareNaturalNames);
+    preferred = runtimeCoverageNames[runtimeCoverageNames.length - 1];
     if (!preferred) {
-      preferred = entries
+      const coverageNames = entries
         .map(([name]) => name)
-        .sort(compareNaturalNames)
-        .pop();
+        .sort(compareNaturalNames);
+      preferred = coverageNames[coverageNames.length - 1];
     }
   }
   return entries.sort((a, b) => {
