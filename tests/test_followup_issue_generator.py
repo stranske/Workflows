@@ -210,6 +210,21 @@ Verdict: **Unknown** @0%
         ]
         assert data.missing_concerns is True
 
+    def test_extract_missing_concerns_for_error_verdict(self):
+        """Add a default concern when verifier crashes report an error verdict."""
+        comment = """
+## PR Verification Report
+
+Verdict: **Error** @0%
+"""
+        data = extract_verification_data(comment)
+
+        assert data.concerns == [
+            "Verification output did not include extractable concerns; "
+            "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+        ]
+        assert data.missing_concerns is True
+
     def test_extract_low_scores(self):
         """Extract scores below 7/10."""
         comment = """

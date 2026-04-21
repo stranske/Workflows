@@ -133,6 +133,14 @@ function runtimeFrom(label) {
   return label.startsWith(prefix) ? label.slice(prefix.length) : label;
 }
 
+function coverageNameForRuntime(runtime) {
+  const value = String(runtime || '').trim();
+  if (!value) {
+    return null;
+  }
+  return value.startsWith('coverage-') ? value : `coverage-${value}`;
+}
+
 function naturalSortKey(name) {
   const runtime = runtimeFrom(name);
   const parts = runtime.split(/(\d+)/);
@@ -141,35 +149,45 @@ function naturalSortKey(name) {
     .map(part => (part.match(/^\d+$/) ? [0, Number.parseInt(part, 10)] : [1, part]));
 }
 
-function sortJobs(jobCoverages) {
+function compareNaturalNames(a, b) {
+  const aKey = naturalSortKey(a);
+  const bKey = naturalSortKey(b);
+  for (let i = 0; i < Math.max(aKey.length, bKey.length); i += 1) {
+    const aPart = aKey[i] || [2, ''];
+    const bPart = bKey[i] || [2, ''];
+    if (aPart[0] !== bPart[0]) {
+      return aPart[0] - bPart[0];
+    }
+    if (aPart[1] < bPart[1]) {
+      return -1;
+    }
+    if (aPart[1] > bPart[1]) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+function sortJobs(jobCoverages, preferredRuntime = process.env.COVERAGE_REFERENCE_RUNTIME) {
   const entries = Array.from(jobCoverages.entries());
   if (!entries.length) {
     return entries;
   }
   let preferred = null;
-  if (jobCoverages.has('coverage-3.12')) {
-    preferred = 'coverage-3.12';
+  const preferredName = coverageNameForRuntime(preferredRuntime);
+  if (preferredName && jobCoverages.has(preferredName)) {
+    preferred = preferredName;
   } else {
     preferred = entries
       .map(([name]) => name)
-      .sort((a, b) => {
-        const aKey = naturalSortKey(a);
-        const bKey = naturalSortKey(b);
-        for (let i = 0; i < Math.max(aKey.length, bKey.length); i += 1) {
-          const aPart = aKey[i] || [2, ''];
-          const bPart = bKey[i] || [2, ''];
-          if (aPart[0] !== bPart[0]) {
-            return aPart[0] - bPart[0];
-          }
-          if (aPart[1] < bPart[1]) {
-            return -1;
-          }
-          if (aPart[1] > bPart[1]) {
-            return 1;
-          }
-        }
-        return 0;
-      })[0];
+      .filter(name => /^coverage-\d+(?:\.\d+)*$/.test(name))
+      .sort(compareNaturalNames)
+      .pop();
+    if (!preferred) {
+      preferred = entries
+        .map(([name]) => name)
+        .sort(compareNaturalNames)[0];
+    }
   }
   return entries.sort((a, b) => {
     if (preferred && a[0] === preferred) {
@@ -178,22 +196,7 @@ function sortJobs(jobCoverages) {
     if (preferred && b[0] === preferred) {
       return 1;
     }
-    const aKey = naturalSortKey(a[0]);
-    const bKey = naturalSortKey(b[0]);
-    for (let i = 0; i < Math.max(aKey.length, bKey.length); i += 1) {
-      const aPart = aKey[i] || [2, ''];
-      const bPart = bKey[i] || [2, ''];
-      if (aPart[0] !== bPart[0]) {
-        return aPart[0] - bPart[0];
-      }
-      if (aPart[1] < bPart[1]) {
-        return -1;
-      }
-      if (aPart[1] > bPart[1]) {
-        return 1;
-      }
-    }
-    return 0;
+    return compareNaturalNames(a[0], b[0]);
   });
 }
 
