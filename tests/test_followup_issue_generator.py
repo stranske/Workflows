@@ -13,7 +13,9 @@ from scripts.langchain.followup_issue_generator import (
     VerificationData,
     extract_original_issue_data,
     extract_verification_data,
+    generate_disposition_comment,
     generate_followup_issue,
+    generate_issue_disposition_link_comment,
 )
 
 
@@ -57,6 +59,104 @@ class TestExtractVerificationData:
         assert data.provider_verdicts["openai"]["confidence"] == 72
         assert "anthropic" in data.provider_verdicts
         assert data.provider_verdicts["anthropic"]["confidence"] == 92
+        assert data.non_pass_output == [
+            "Provider=openai; Model=gpt-5.2; Verdict=CONCERNS; Confidence=72%"
+        ]
+        assert data.non_pass_findings == [
+            "Provider=openai; Verdict=CONCERNS; Difference=Needs follow-up."
+        ]
+
+    def test_generate_disposition_comment_includes_evidence_decision_and_rationale(self):
+        comment = """
+## Provider Comparison Report
+
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| openai | gpt-5 | FAIL | 60% | Regression in parsing |
+"""
+        verification_data = extract_verification_data(comment)
+
+        disposition = generate_disposition_comment(verification_data, pr_number=49)
+
+        assert "## verify:compare Disposition" in disposition
+        assert "Source: verify:compare non-PASS output from PR #49" in disposition
+        assert "`Provider=openai; Model=gpt-5; Verdict=FAIL; Confidence=60%`" in disposition
+        assert "non-PASS output requires code changes: **yes**" in disposition
+        assert "technical rationale: Difference describes a functional defect" in disposition
+
+    def test_generate_disposition_comment_includes_source_link_when_provided(self):
+        comment = """
+## Provider Comparison Report
+
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| openai | gpt-5 | CONCERNS | 74% | Missing edge case |
+"""
+        verification_data = extract_verification_data(comment)
+
+        disposition = generate_disposition_comment(
+            verification_data,
+            pr_number=49,
+            source_url="https://github.com/stranske/Workflows/pull/49#issuecomment-123",
+        )
+
+        assert "Source: verify:compare non-PASS output from PR #49" in disposition
+        assert (
+            "Source link: https://github.com/stranske/Workflows/pull/49#issuecomment-123"
+            in disposition
+        )
+
+    def test_generate_issue_disposition_link_comment_includes_url(self):
+        body = generate_issue_disposition_link_comment(
+            disposition_url="https://github.com/stranske/Workflows/pull/49#issuecomment-123"
+        )
+
+        assert "Disposition documentation for verify:compare is recorded here" in body
+        assert "https://github.com/stranske/Workflows/pull/49#issuecomment-123" in body
+
+    def test_non_pass_evidence_backfills_from_provider_detail_sections(self):
+        comment = """
+## Provider Comparison Report
+
+#### openai
+- **Verdict:** FAIL
+- **Confidence:** 61%
+"""
+
+        data = extract_verification_data(comment)
+
+        assert data.non_pass_output == ["Provider=openai; Model=; Verdict=FAIL; Confidence=61%"]
+
+    def test_generate_followup_issue_caps_non_pass_output_entries(self):
+        verification_data = VerificationData(
+            provider_verdicts={
+                f"provider-{index}": {
+                    "model": f"model-{index}",
+                    "verdict": "FAIL",
+                    "confidence": 50,
+                    "summary": f"Regression {index}",
+                }
+                for index in range(12)
+            },
+            concerns=["Regression in parser behavior"],
+        )
+        followup_issue_generator._refresh_non_pass_evidence(verification_data)
+        original_issue = OriginalIssueData(title="Issue title", number=92)
+
+        followup = generate_followup_issue(
+            verification_data,
+            original_issue,
+            pr_number=49,
+            use_llm=False,
+        )
+
+        assert "Provider=provider-9; Model=model-9; Verdict=FAIL; Confidence=50%" in followup.body
+        assert "Provider=provider-10; Model=model-10; Verdict=FAIL; Confidence=50%" not in (
+            followup.body
+        )
+        assert "... plus 2 more evidence entries" in followup.body
 
     def test_extract_provider_verdicts_comparison_report_summary(self):
         """Extract verdicts from Provider Comparison Report format."""

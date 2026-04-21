@@ -40,13 +40,13 @@ dev = [
     "pytest-cov==7.1.0",
     "coverage==7.13.5",
     "pytest-xdist==3.8.0",
-    "packaging>=26.0",
+    "packaging>=26.1",
 
     # Required by repo dependency checks / CI fallback checks
     "hypothesis>=6.0.0",
     "pandas",
     "numpy<3.0",
-    "pydantic>=2.0.0",
+    "pydantic>=2.13.2",
     "requests>=2.33.1",
     "jsonschema>=4.0.0",
     "PyYAML>=6.0.0",
