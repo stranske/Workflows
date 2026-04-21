@@ -1179,9 +1179,16 @@ def _append_advisory_notes(body: str, advisory_concerns: list[str]) -> str:
 def _format_code_change_decision(verification_data: VerificationData) -> str:
     policy_result = _resolve_verdict_policy(verification_data)
     blocking_concerns, advisory_concerns = _split_concerns(verification_data.concerns)
+    missing_concerns_only = verification_data.missing_concerns and all(
+        concern == MISSING_CONCERNS_MESSAGE for concern in verification_data.concerns
+    )
+    if missing_concerns_only:
+        blocking_concerns = []
     requires_code_change = policy_result.verdict.lower() in {"fail", "error"} or bool(
         blocking_concerns
     )
+    if missing_concerns_only:
+        requires_code_change = False
     if (
         policy_result.verdict_kind == "concerns"
         and policy_result.split_verdict
@@ -1201,6 +1208,12 @@ def _format_code_change_decision(verification_data: VerificationData) -> str:
             rationale = (
                 "low-confidence and contradicted by high-confidence PASS provider(s); "
                 "no code follow-up is required."
+            )
+        elif missing_concerns_only:
+            rationale = (
+                "verification output did not include extractable blocking concerns; "
+                "rerun verification with complete context before deciding whether code "
+                "changes are required."
             )
         elif requires_code_change:
             rationale = (

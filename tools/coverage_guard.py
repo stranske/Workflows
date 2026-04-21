@@ -267,6 +267,13 @@ def _find_existing_issue(
             if issue.get("title") == title:
                 return issue
 
+    if label_args:
+        print(
+            "No exact labeled coverage issue match found; retrying title-only search",
+            file=sys.stderr,
+        )
+        return _find_existing_issue(repo, title, labels=[])
+
     return None
 
 
@@ -306,12 +313,13 @@ def _find_or_create_issue(repo: str, title: str, body: str, labels: list[str]) -
             *label_args,
         ]
         try:
-            subprocess.run(create_command, check=True)
-        except subprocess.CalledProcessError:
+            subprocess.run(create_command, check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as exc:
             if not label_args:
                 raise
+            details = exc.stderr.strip() or exc.stdout.strip() or str(exc)
             print(
-                "Failed to create coverage issue with labels; retrying without labels",
+                f"Failed to create coverage issue with labels; retrying without labels: {details}",
                 file=sys.stderr,
             )
             subprocess.run(
@@ -331,9 +339,14 @@ def _find_or_create_issue(repo: str, title: str, body: str, labels: list[str]) -
         print(f"Created new issue: {title}")
 
 
-def _close_existing_issue(repo: str, title: str, body: str) -> None:
+def _close_existing_issue(
+    repo: str,
+    title: str,
+    body: str,
+    labels: list[str] | None = None,
+) -> None:
     """Close the existing baseline breach issue after coverage recovers."""
-    existing_issue = _find_existing_issue(repo, title)
+    existing_issue = _find_existing_issue(repo, title, labels=labels)
     if not existing_issue:
         print("Coverage recovered; no existing breach issue found")
         return
@@ -493,10 +506,15 @@ def main(args: list[str] | None = None) -> int:
     if current is None:
         print("Coverage trend payload has no finite current value; skipping coverage guard update")
         return 0
-    baseline = _to_float(
-        baseline_data.get("line", baseline_data.get("coverage")),
-        _to_float(trend_data.get("baseline"), 70.0),
-    )
+    baseline = _parse_finite_float(baseline_data.get("line", baseline_data.get("coverage")))
+    if baseline is None:
+        baseline = _parse_finite_float(trend_data.get("baseline"))
+    if baseline is None:
+        print(
+            "Coverage trend payload has no explicit finite baseline; "
+            "skipping coverage guard issue update"
+        )
+        return 0
     delta = current - baseline
     configured_recovery_window = max(
         1,
@@ -561,6 +579,7 @@ def main(args: list[str] | None = None) -> int:
                 parsed.repo,
                 parsed.issue_title,
                 _format_recovery_body(current, baseline, delta, parsed.run_url),
+                labels=issue_labels,
             )
         except (RuntimeError, subprocess.CalledProcessError) as exc:
             print(f"Failed to close recovered coverage issue: {exc}", file=sys.stderr)

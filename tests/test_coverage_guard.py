@@ -132,7 +132,34 @@ def test_find_existing_issue_requires_exact_title(monkeypatch: pytest.MonkeyPatc
     assert all(args[args.index("--limit") + 1] == "200" for args in calls)
 
 
-def test_find_existing_issue_scopes_search_by_labels(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_find_existing_issue_falls_back_to_title_only_when_label_search_misses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        if "--label" in args:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        stdout = json.dumps([{"number": 123, "title": "[coverage] baseline breach"}])
+        return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    issue = coverage_guard._find_existing_issue(
+        "octo/repo",
+        "[coverage] baseline breach",
+        labels=["coverage", "automated"],
+    )
+
+    assert issue == {"number": 123, "title": "[coverage] baseline breach"}
+    assert any("--label" in args for args in calls)
+    assert any("--label" not in args for args in calls)
+
+
+def test_find_existing_issue_returns_none_after_label_and_title_search_miss(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls = []
 
     def fake_run(args, **kwargs):
@@ -149,8 +176,8 @@ def test_find_existing_issue_scopes_search_by_labels(monkeypatch: pytest.MonkeyP
         )
         is None
     )
-    assert all("--label" in args for args in calls)
-    assert all(args.count("--label") == 2 for args in calls)
+    assert any("--label" in args for args in calls)
+    assert any("--label" not in args for args in calls)
 
 
 def test_find_existing_issue_retries_title_only_when_label_search_fails(
@@ -306,7 +333,7 @@ def test_main_leaves_issue_open_until_recovery_window_satisfied(
     monkeypatch.setattr(
         coverage_guard,
         "_close_existing_issue",
-        lambda *args: close_calls.append(args),
+        lambda *args, **kwargs: close_calls.append((args, kwargs)),
     )
 
     exit_code = coverage_guard.main(
@@ -343,7 +370,7 @@ def test_main_uses_embedded_history_when_history_file_missing(
     monkeypatch.setattr(
         coverage_guard,
         "_close_existing_issue",
-        lambda *args: close_calls.append(args),
+        lambda *args, **kwargs: close_calls.append((args, kwargs)),
     )
 
     exit_code = coverage_guard.main(
@@ -383,7 +410,7 @@ def test_main_uses_history_file_for_recovery_window(
     monkeypatch.setattr(
         coverage_guard,
         "_close_existing_issue",
-        lambda *args: close_calls.append(args),
+        lambda *args, **kwargs: close_calls.append((args, kwargs)),
     )
 
     exit_code = coverage_guard.main(
@@ -473,6 +500,40 @@ def test_main_uses_trend_baseline_when_baseline_missing(
 
     assert exit_code == 0
     assert calls
+
+
+def test_main_skips_when_baseline_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "missing-baseline.json"
+    _write_json(trend_path, {"current": 60.0})
+
+    calls = []
+    monkeypatch.setattr(
+        coverage_guard,
+        "_find_or_create_issue",
+        lambda *args, **kwargs: calls.append(args),
+    )
+    monkeypatch.setattr(
+        coverage_guard,
+        "_close_existing_issue",
+        lambda *args, **kwargs: calls.append(args),
+    )
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert not calls
 
 
 def test_main_accepts_legacy_coverage_baseline_key(
@@ -673,7 +734,7 @@ def test_close_existing_issue_skips_already_closed(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(
         coverage_guard,
         "_find_existing_issue",
-        lambda repo, title: {"number": 123, "state": "CLOSED"},
+        lambda repo, title, labels=None: {"number": 123, "state": "CLOSED"},
     )
     monkeypatch.setattr(
         "subprocess.run",

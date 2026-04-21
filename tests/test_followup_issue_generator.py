@@ -811,6 +811,10 @@ class TestGenerateFollowupIssue:
             in (followup.body)
         )
 
+        decision = followup_issue_generator._format_code_change_decision(verification_data)
+        assert "non-PASS output requires code changes: **no**" in decision
+        assert "rerun verification with complete context" in decision
+
     def test_generate_without_llm_restores_verify_compare_sections(self):
         """Non-LLM output should keep analysis/evidence sections for downstream tooling."""
         verification_data = VerificationData(
