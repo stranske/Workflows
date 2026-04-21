@@ -98,6 +98,7 @@ extend-exclude = '''
 profile = "black"
 line_length = 100
 known_first_party = []
+known_third_party = ["scripts", "tools"]
 skip_glob = ["archive/*", ".extraction/*"]
 
 [tool.ruff]

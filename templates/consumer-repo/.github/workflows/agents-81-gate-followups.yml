@@ -88,7 +88,7 @@ jobs:
         run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
       - name: Security gate - prompt injection guard
         id: security_gate
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -144,7 +144,7 @@ jobs:
 
       - name: Evaluate keepalive state
         id: evaluate
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
@@ -224,10 +224,16 @@ jobs:
           echo "CLAUDE_CODE_OAUTH_TOKEN present: $HAS_CLAUDE_OAUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
-          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_CLAUDE_AUTH" = "true" ] || [ "$HAS_CLAUDE_OAUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
+          if [ "$HAS_CODEX_AUTH" = "true" ] || \
+            [ "$HAS_CLAUDE_AUTH" = "true" ] || \
+            [ "$HAS_CLAUDE_OAUTH" = "true" ] || \
+            [ "$HAS_APP_ID" = "true" ]; then
             echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::No agent auth found. Set CLAUDE_CODE_OAUTH_TOKEN (preferred), CODEX_AUTH_JSON, CLAUDE_AUTH_JSON, or KEEPALIVE/WORKFLOWS_APP."
+            message="::error::No agent auth found. Configure one of: CODEX_AUTH_JSON,"
+            message="$message CLAUDE_AUTH_JSON, CLAUDE_CODE_OAUTH_TOKEN, or app credentials"
+            message="$message via KEEPALIVE_APP_ID/PRIVATE_KEY or WORKFLOWS_APP_ID/PRIVATE_KEY."
+            echo "$message"
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
@@ -265,7 +271,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Update summary with running status
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -434,7 +440,7 @@ jobs:
           echo "$metrics_json" >> keepalive-metrics.ndjson
 
       - name: Upload keepalive metrics artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: keepalive-metrics
           path: keepalive-metrics.ndjson
@@ -445,7 +451,7 @@ jobs:
         if: |
           needs.run-codex.outputs.changes-made == 'true' ||
           needs.run-claude.outputs.changes-made == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           LLM_COMPLETED_TASKS: >-
             ${{
@@ -522,7 +528,7 @@ jobs:
             core.setOutput('commit_tasks_count', result.sources?.commit || 0);
 
       - name: Update summary comment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           AGENT_SUMMARY: >-
             ${{
@@ -646,7 +652,7 @@ jobs:
 
       - name: Security gate - prompt injection guard
         id: security_gate
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
@@ -707,7 +713,7 @@ jobs:
 
       - name: Evaluate workflow_run
         id: evaluate
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
@@ -794,8 +800,14 @@ jobs:
                   .map((label) => (label?.name || '').toLowerCase())
                   .filter(Boolean)
               : [];
-            const nonRoutingAgentLabels = new Set(['agent:rate-limited', 'agent:needs-attention', 'agent:retry']);
-            const hasAgentLabel = labels.some(l => l.startsWith('agent:') && !nonRoutingAgentLabels.has(l));
+            const nonRoutingAgentLabels = new Set([
+              'agent:rate-limited',
+              'agent:needs-attention',
+              'agent:retry',
+            ]);
+            const hasAgentLabel = labels.some(
+              l => l.startsWith('agent:') && !nonRoutingAgentLabels.has(l)
+            );
             const routingLabelObjects = Array.isArray(prData.labels)
               ? prData.labels.filter((label) => {
                   const normalized = (label?.name || '').toLowerCase();
@@ -1035,7 +1047,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Add needs-human label and comment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
@@ -1106,7 +1118,7 @@ jobs:
 
       - name: Collect metrics
         id: collect
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
@@ -1271,7 +1283,7 @@ jobs:
           PY
 
       - name: Upload metrics artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: agents-autofix-metrics
           path: autofix-metrics.ndjson

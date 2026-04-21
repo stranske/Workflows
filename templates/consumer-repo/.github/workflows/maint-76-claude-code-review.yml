@@ -42,7 +42,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - id: resolve
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -188,7 +188,7 @@ jobs:
       - name: Run Claude Code Review
         id: claude
         continue-on-error: true
-        uses: anthropics/claude-code-action@220272d38887a1caed373da96a9ffdb0919c26cc # v1
+        uses: anthropics/claude-code-action@5d5c10a4f389689f992ea10bb14dcb6fcc83146d # v1.0.102
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: '*'

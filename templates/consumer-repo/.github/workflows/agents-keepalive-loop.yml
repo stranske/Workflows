@@ -74,7 +74,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20
 
@@ -93,7 +93,7 @@ jobs:
           github.event_name == 'pull_request' &&
           github.event.action == 'labeled' &&
           github.event.label.name == 'agent:retry'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -161,7 +161,7 @@ jobs:
         run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
       - name: Security gate - prompt injection guard
         id: security_gate
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -224,7 +224,7 @@ jobs:
 
       - name: Evaluate keepalive state
         id: evaluate
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: >-
@@ -383,7 +383,7 @@ jobs:
           steps.evaluate.outputs.action == 'run' ||
           steps.evaluate.outputs.action == 'fix' ||
           steps.evaluate.outputs.action == 'conflict'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
           path: /tmp/keepalive-artifacts/task-appendix.txt
@@ -439,7 +439,9 @@ jobs:
               fi
               ;;
             *)
-              if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_CLAUDE_AUTH" = "true" ] || [ "$HAS_CLAUDE_OAUTH" = "true" ]; then
+              if [ "$HAS_CODEX_AUTH" = "true" ] || \
+                [ "$HAS_CLAUDE_AUTH" = "true" ] || \
+                [ "$HAS_CLAUDE_OAUTH" = "true" ]; then
                 agent_auth_ok=true
               fi
               ;;
@@ -450,13 +452,19 @@ jobs:
           if [ "$agent_auth_ok" != "true" ]; then
             case "$AGENT_TYPE" in
               claude)
-                missing_msg="Missing credentials for agent 'claude'. Set CLAUDE_CODE_OAUTH_TOKEN (preferred), CLAUDE_AUTH_JSON, or configure KEEPALIVE/WORKFLOWS_APP credentials."
+                missing_msg="Missing credentials for agent 'claude'."
+                missing_msg="$missing_msg Set CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_AUTH_JSON,"
+                missing_msg="$missing_msg or configure KEEPALIVE/WORKFLOWS_APP credentials."
                 ;;
               codex)
-                missing_msg="Missing credentials for agent 'codex'. Set CODEX_AUTH_JSON, or configure KEEPALIVE/WORKFLOWS_APP credentials."
+                missing_msg="Missing credentials for agent 'codex'."
+                missing_msg="$missing_msg Set CODEX_AUTH_JSON,"
+                missing_msg="$missing_msg or configure KEEPALIVE/WORKFLOWS_APP credentials."
                 ;;
               *)
-                missing_msg="Missing credentials for agent '${AGENT_TYPE}'. Configure that agent's credentials or KEEPALIVE/WORKFLOWS_APP credentials."
+                missing_msg="Missing credentials for agent '${AGENT_TYPE}'."
+                missing_msg="$missing_msg Configure that agent's credentials,"
+                missing_msg="$missing_msg or KEEPALIVE/WORKFLOWS_APP credentials."
                 ;;
             esac
             echo "::error::$missing_msg"
@@ -492,7 +500,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20
 
@@ -505,7 +513,7 @@ jobs:
 
 
       - name: Update summary with running status
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -614,7 +622,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20
 
@@ -636,7 +644,7 @@ jobs:
 
       - name: Get recent commits
         id: commits
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -679,7 +687,7 @@ jobs:
 
       - name: Extract acceptance criteria
         id: criteria
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -779,7 +787,7 @@ jobs:
 
       - name: Post review feedback to PR
         if: steps.review_guard.outputs.should_post_review == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           REVIEW_FEEDBACK: ${{ steps.review.outputs.feedback }}
         with:
@@ -952,7 +960,7 @@ jobs:
           echo "$metrics_json" >> keepalive-metrics.ndjson
 
       - name: Upload keepalive metrics artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: keepalive-metrics
           path: keepalive-metrics.ndjson
@@ -963,7 +971,7 @@ jobs:
         if: |
           needs.run-codex.outputs.changes-made == 'true' ||
           needs.run-claude.outputs.changes-made == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           LLM_COMPLETED_TASKS: >-
             ${{
@@ -1041,7 +1049,7 @@ jobs:
 
       - name: Update summary comment
         id: update-summary
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           AGENT_SUMMARY: >-
             ${{
@@ -1132,7 +1140,7 @@ jobs:
           steps.update-summary.outputs.rate_limit_hit == 'true' &&
           env.KEEPALIVE_APP_ID != '' &&
           env.KEEPALIVE_APP_PRIVATE_KEY != ''
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         continue-on-error: true
         env:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID }}
@@ -1149,7 +1157,7 @@ jobs:
           failure() &&
           steps.update-summary.outputs.rate_limit_hit == 'true' &&
           steps.keepalive_app_token.outputs.token != ''
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ steps.keepalive_app_token.outputs.token }}
           script: |

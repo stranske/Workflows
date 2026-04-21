@@ -74,7 +74,7 @@ jobs:
     steps:
       - name: Resolve handler inputs
         id: resolve
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const eventName = context.eventName;
@@ -230,7 +230,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Remove trigger label
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -261,7 +261,7 @@ jobs:
     steps:
       - name: Check PR is merged
         id: check-merged
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -298,7 +298,7 @@ jobs:
       - name: Collect verification and original issue data
         id: collect
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -411,7 +411,7 @@ jobs:
       - name: Fallback to simple extraction
         id: fallback
         if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -442,7 +442,7 @@ jobs:
 
       - name: Create issue
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -475,7 +475,7 @@ jobs:
 
       - name: Remove trigger label
         if: always()
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');

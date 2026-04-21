@@ -210,6 +210,43 @@ def test_main_leaves_issue_open_until_recovery_window_satisfied(
     assert not close_calls
 
 
+def test_main_uses_embedded_history_when_history_file_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    _write_json(
+        trend_path,
+        {
+            "current": 72.0,
+            "baseline": 70.0,
+            "history": [{"current": 71.0}, {"current": 72.0}],
+        },
+    )
+    _write_json(baseline_path, {"line": 70.0, "recovery_window": 2})
+
+    close_calls = []
+    monkeypatch.setattr(
+        coverage_guard,
+        "_close_existing_issue",
+        lambda *args: close_calls.append(args),
+    )
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert close_calls
+
+
 def test_main_uses_history_file_for_recovery_window(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -250,6 +287,18 @@ def test_main_uses_history_file_for_recovery_window(
 
     assert exit_code == 0
     assert close_calls
+
+
+def test_recovery_window_counts_same_coverage_from_distinct_runs() -> None:
+    trend_data = {"current": 72.0, "run_id": "run-2"}
+    history_records = [{"current": 72.0, "run_id": "run-1"}]
+
+    assert coverage_guard._recovery_window_satisfied(
+        trend_data,
+        baseline=70.0,
+        recovery_window=2,
+        history_records=history_records,
+    )
 
 
 def test_main_uses_trend_baseline_when_baseline_missing(

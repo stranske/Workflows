@@ -65,7 +65,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -96,7 +96,7 @@ jobs:
 
       - name: Security gate - prompt injection guard
         id: security_gate
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
@@ -202,7 +202,7 @@ jobs:
 
       - name: Evaluate gate run
         id: evaluate
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
@@ -648,7 +648,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -665,7 +665,7 @@ jobs:
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
       - name: Add needs-human label and comment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
@@ -737,7 +737,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -764,7 +764,7 @@ jobs:
 
       - name: Collect metrics
         id: collect
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
@@ -930,7 +930,7 @@ jobs:
           PY
 
       - name: Upload metrics artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: agents-autofix-metrics
           path: autofix-metrics.ndjson

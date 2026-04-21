@@ -326,9 +326,9 @@ def _recovery_window_satisfied(
     if not isinstance(history, list):
         history = []
     records = [record for record in history if isinstance(record, dict)]
-    latest_history_current = _parse_finite_float(records[-1].get("current")) if records else None
-    trend_current = _parse_finite_float(trend_data.get("current"))
-    if latest_history_current != trend_current:
+    latest_key = _coverage_record_key(records[-1]) if records else None
+    trend_key = _coverage_record_key(trend_data)
+    if latest_key != trend_key:
         records.append(trend_data)
     if len(records) < recovery_window:
         return False
@@ -338,6 +338,15 @@ def _recovery_window_satisfied(
         if current is None or current < baseline:
             return False
     return True
+
+
+def _coverage_record_key(record: dict[str, Any]) -> tuple[str, str | float | None]:
+    """Return a stable identity for a coverage sample."""
+    for key in ("run_id", "run_url", "workflow_run_id", "head_sha", "sha", "timestamp", "date"):
+        value = record.get(key)
+        if value not in (None, ""):
+            return (key, str(value))
+    return ("current", _parse_finite_float(record.get("current")))
 
 
 def main(args: list[str] | None = None) -> int:
@@ -394,7 +403,7 @@ def main(args: list[str] | None = None) -> int:
     if parsed.baseline_path and parsed.baseline_path.exists():
         baseline_data = _load_json(parsed.baseline_path)
 
-    history_records = []
+    history_records = None
     if parsed.history_path and parsed.history_path.exists():
         history_records = _load_ndjson(parsed.history_path)
 
@@ -412,14 +421,19 @@ def main(args: list[str] | None = None) -> int:
         _to_float(trend_data.get("baseline"), 70.0),
     )
     delta = current - baseline
-    configured_recovery_window = _to_int(
-        parsed.recovery_window
-        if parsed.recovery_window is not None
-        else baseline_data.get(
-            "recovery_window",
-            baseline_data.get("recovery_runs", baseline_data.get("recovery_days")),
-        ),
+    configured_recovery_window = max(
         1,
+        _to_int(
+            (
+                parsed.recovery_window
+                if parsed.recovery_window is not None
+                else baseline_data.get(
+                    "recovery_window",
+                    baseline_data.get("recovery_runs", baseline_data.get("recovery_days")),
+                )
+            ),
+            1,
+        ),
     )
 
     # Get hotspots
