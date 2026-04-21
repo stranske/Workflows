@@ -102,7 +102,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -111,7 +111,7 @@ jobs:
 
       - name: Check if auto-pilot is enabled
         id: check_enabled
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
@@ -144,13 +144,13 @@ jobs:
 
       - name: Checkout repository
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
 
       - name: Set up Node
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '20'
 
@@ -164,7 +164,7 @@ jobs:
       - name: Resolve Workflows default branch
         if: steps.check_enabled.outputs.enabled == 'true'
         id: workflows_ref
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -187,7 +187,7 @@ jobs:
 
       - name: Checkout Workflows scripts
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           repository: stranske/Workflows
@@ -223,13 +223,13 @@ jobs:
       - name: Set up Python
         id: setup-python
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: '3.12'
 
       - name: Cache pip (LLM requirements)
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: |
             ~/.cache/pip
@@ -256,7 +256,7 @@ jobs:
       - name: Determine context
         if: steps.check_enabled.outputs.enabled == 'true'
         id: context
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
@@ -437,7 +437,7 @@ jobs:
       - name: Check step count
         if: steps.context.outputs.should_continue == 'true'
         id: cycles
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -478,7 +478,7 @@ jobs:
 
       - name: Stop if exceeded
         if: steps.cycles.outputs.exceeded == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -1171,7 +1171,7 @@ jobs:
 
       - name: Guard - Require optimizer output before apply
         if: steps.next.outputs.next_step == 'apply'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -1540,7 +1540,7 @@ jobs:
       - name: Complexity pre-check
         if: steps.next.outputs.next_step == 'capability-check'
         id: complexity_check
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -1645,7 +1645,7 @@ jobs:
         if: |
           steps.next.outputs.next_step == 'capability-check' &&
           steps.complexity_check.outputs.too_complex == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           COMPLEXITY_SCORE: ${{ steps.complexity_check.outputs.score }}
@@ -1696,7 +1696,7 @@ jobs:
           steps.next.outputs.next_step == 'capability-check' &&
           steps.complexity_check.outputs.too_complex != 'true'
         id: capability_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -2017,7 +2017,7 @@ jobs:
       - name: Execute step - Verify
         if: steps.next.outputs.next_step == 'verify'
         id: verify_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -2154,7 +2154,7 @@ jobs:
       - name: Execute step - Create PR
         if: steps.next.outputs.next_step == 'create-pr'
         id: create_pr_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           ISSUE_TITLE: ${{ steps.context.outputs.issue_title }}
@@ -2862,7 +2862,7 @@ jobs:
       - name: Report - Monitoring PR
         if: steps.next.outputs.next_step == 'monitor-pr'
         id: monitor_pr_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -3021,7 +3021,7 @@ jobs:
       - name: Execute step - Check Completion & Trigger Merge
         if: steps.next.outputs.next_step == 'check-completion'
         id: completion_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           PR_NUMBER: ${{ steps.context.outputs.linked_pr }}
@@ -3155,7 +3155,7 @@ jobs:
       # ── Upload auto-pilot metrics for weekly aggregation ───────────
       - name: Upload auto-pilot metrics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         continue-on-error: true
         with:
           name: autopilot-metrics-${{ github.run_id }}-${{ github.run_attempt }}
@@ -3178,7 +3178,7 @@ jobs:
             fromJSON('["format","optimize","apply","capability-check","create-pr","monitor-pr"]'),
             steps.next.outputs.next_step
           )
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           CURRENT_STEP: ${{ steps.next.outputs.next_step }}
@@ -3285,7 +3285,7 @@ jobs:
 
       - name: Report - Done
         if: steps.next.outputs.next_step == 'done'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:

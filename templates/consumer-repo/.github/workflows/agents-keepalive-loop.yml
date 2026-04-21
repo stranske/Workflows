@@ -71,10 +71,10 @@ jobs:
       force_retry: ${{ steps.evaluate.outputs.force_retry }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 20
 
@@ -93,7 +93,7 @@ jobs:
           github.event_name == 'pull_request' &&
           github.event.action == 'labeled' &&
           github.event.label.name == 'agent:retry'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -161,7 +161,7 @@ jobs:
         run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
       - name: Security gate - prompt injection guard
         id: security_gate
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -224,7 +224,7 @@ jobs:
 
       - name: Evaluate keepalive state
         id: evaluate
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: >-
@@ -383,7 +383,7 @@ jobs:
           steps.evaluate.outputs.action == 'run' ||
           steps.evaluate.outputs.action == 'fix' ||
           steps.evaluate.outputs.action == 'conflict'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
           path: /tmp/keepalive-artifacts/task-appendix.txt
@@ -497,10 +497,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 20
 
@@ -513,7 +513,7 @@ jobs:
 
 
       - name: Update summary with running status
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -619,10 +619,10 @@ jobs:
       feedback: ${{ steps.review.outputs.feedback }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 20
 
@@ -635,7 +635,7 @@ jobs:
 
 
       - name: Setup Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: '3.12'
 
@@ -644,7 +644,7 @@ jobs:
 
       - name: Get recent commits
         id: commits
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -687,7 +687,7 @@ jobs:
 
       - name: Extract acceptance criteria
         id: criteria
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -787,7 +787,7 @@ jobs:
 
       - name: Post review feedback to PR
         if: steps.review_guard.outputs.should_post_review == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           REVIEW_FEEDBACK: ${{ steps.review.outputs.feedback }}
         with:
@@ -882,7 +882,7 @@ jobs:
       }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -960,7 +960,7 @@ jobs:
           echo "$metrics_json" >> keepalive-metrics.ndjson
 
       - name: Upload keepalive metrics artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: keepalive-metrics
           path: keepalive-metrics.ndjson
@@ -971,7 +971,7 @@ jobs:
         if: |
           needs.run-codex.outputs.changes-made == 'true' ||
           needs.run-claude.outputs.changes-made == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           LLM_COMPLETED_TASKS: >-
             ${{
@@ -1049,7 +1049,7 @@ jobs:
 
       - name: Update summary comment
         id: update-summary
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           AGENT_SUMMARY: >-
             ${{
@@ -1140,7 +1140,7 @@ jobs:
           steps.update-summary.outputs.rate_limit_hit == 'true' &&
           env.KEEPALIVE_APP_ID != '' &&
           env.KEEPALIVE_APP_PRIVATE_KEY != ''
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         continue-on-error: true
         env:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID }}
@@ -1157,7 +1157,7 @@ jobs:
           failure() &&
           steps.update-summary.outputs.rate_limit_hit == 'true' &&
           steps.keepalive_app_token.outputs.token != ''
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ steps.keepalive_app_token.outputs.token }}
           script: |

@@ -26,7 +26,7 @@ jobs:
       reason: ${{ steps.resolve.outputs.reason }}
     steps:
       - name: Checkout (for API wrappers)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -42,7 +42,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - id: resolve
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const fs = require('fs');
@@ -113,7 +113,7 @@ jobs:
       workflow_unchanged: ${{ steps.workflow-integrity.outputs.workflow_unchanged }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
@@ -181,14 +181,14 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 1
 
       - name: Run Claude Code Review
         id: claude
         continue-on-error: true
-        uses: anthropics/claude-code-action@5d5c10a4f389689f992ea10bb14dcb6fcc83146d
+        uses: anthropics/claude-code-action@5d5c10a4f389689f992ea10bb14dcb6fcc83146d # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: '*'

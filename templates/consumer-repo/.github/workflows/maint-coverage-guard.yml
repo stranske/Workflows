@@ -26,14 +26,14 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
 
       - name: Checkout retry helpers
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
@@ -52,7 +52,7 @@ jobs:
 
       - name: Check API quota
         id: check
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           # Higher threshold than orchestrator (1000) so keepalive runs first
           RATE_LIMIT_THRESHOLD: '2000'
@@ -108,7 +108,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -116,10 +116,10 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Checkout retry helpers
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
@@ -130,7 +130,7 @@ jobs:
 
       - name: Locate latest Gate workflow run
         id: discover
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -186,7 +186,7 @@ jobs:
 
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         continue-on-error: true
         with:
           name: gate-coverage-trend
@@ -196,7 +196,7 @@ jobs:
 
       - name: Download coverage trend history artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         continue-on-error: true
         with:
           name: gate-coverage-trend-history
@@ -206,7 +206,7 @@ jobs:
 
       - name: Download coverage payload artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         continue-on-error: true
         with:
           name: gate-coverage

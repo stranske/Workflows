@@ -194,10 +194,31 @@ Closing the coverage baseline breach issue.{source_line}
 """
 
 
-def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
+def _normalize_labels(labels: list[str] | None) -> list[str]:
+    """Return non-empty labels with stable order and duplicates removed."""
+    normalized = []
+    seen = set()
+    for label in labels or []:
+        value = label.strip()
+        if not value or value in seen:
+            continue
+        normalized.append(value)
+        seen.add(value)
+    return normalized
+
+
+def _find_existing_issue(
+    repo: str,
+    title: str,
+    labels: list[str] | None = None,
+) -> dict[str, Any] | None:
     """Find an existing issue by title using gh CLI."""
     escaped_title = title.replace("\\", "\\\\").replace('"', '\\"')
     search_query = f'"{escaped_title}" in:title'
+    normalized_labels = _normalize_labels(labels)
+    label_args = []
+    for label in normalized_labels:
+        label_args.extend(["--label", label])
     for state in ("open", "all"):
         search_result = subprocess.run(
             [
@@ -210,6 +231,7 @@ def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
                 state,
                 "--search",
                 search_query,
+                *label_args,
                 "--json",
                 "number,title,state",
                 "--limit",
@@ -221,6 +243,13 @@ def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
 
         if search_result.returncode != 0:
             error_message = search_result.stderr.strip() or "unknown gh error"
+            if label_args:
+                print(
+                    "Failed to search for labeled existing issues; retrying title-only search: "
+                    f"{error_message}",
+                    file=sys.stderr,
+                )
+                return _find_existing_issue(repo, title, labels=[])
             print(f"Failed to search for existing issues: {error_message}", file=sys.stderr)
             raise RuntimeError("gh issue list failed")
 
@@ -243,7 +272,8 @@ def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
 
 def _find_or_create_issue(repo: str, title: str, body: str, labels: list[str]) -> None:
     """Find existing issue or create a new one using gh CLI."""
-    existing_issue = _find_existing_issue(repo, title)
+    labels = _normalize_labels(labels)
+    existing_issue = _find_existing_issue(repo, title, labels=labels)
 
     if existing_issue:
         issue_number = existing_issue["number"]
@@ -263,21 +293,41 @@ def _find_or_create_issue(repo: str, title: str, body: str, labels: list[str]) -
         for label in labels:
             label_args.extend(["--label", label])
 
-        subprocess.run(
-            [
-                "gh",
-                "issue",
-                "create",
-                "--repo",
-                repo,
-                "--title",
-                title,
-                "--body",
-                body,
-                *label_args,
-            ],
-            check=True,
-        )
+        create_command = [
+            "gh",
+            "issue",
+            "create",
+            "--repo",
+            repo,
+            "--title",
+            title,
+            "--body",
+            body,
+            *label_args,
+        ]
+        try:
+            subprocess.run(create_command, check=True)
+        except subprocess.CalledProcessError:
+            if not label_args:
+                raise
+            print(
+                "Failed to create coverage issue with labels; retrying without labels",
+                file=sys.stderr,
+            )
+            subprocess.run(
+                [
+                    "gh",
+                    "issue",
+                    "create",
+                    "--repo",
+                    repo,
+                    "--title",
+                    title,
+                    "--body",
+                    body,
+                ],
+                check=True,
+            )
         print(f"Created new issue: {title}")
 
 
@@ -313,6 +363,23 @@ def _close_existing_issue(repo: str, title: str, body: str) -> None:
     print(f"Closed recovered issue #{issue_number}")
 
 
+def _coverage_value_for_recovery(record: dict[str, Any]) -> float | None:
+    """Return the best available coverage value for recovery-window checks."""
+    for key in (
+        "current",
+        "line",
+        "lines",
+        "worst_job_coverage",
+        "avg_coverage",
+        "coverage",
+        "percent_covered",
+    ):
+        value = _parse_finite_float(record.get(key))
+        if value is not None:
+            return value
+    return None
+
+
 def _recovery_window_satisfied(
     trend_data: dict[str, Any],
     baseline: float,
@@ -334,7 +401,7 @@ def _recovery_window_satisfied(
         return False
     recent = records[-recovery_window:]
     for record in recent:
-        current = _parse_finite_float(record.get("current"))
+        current = _coverage_value_for_recovery(record)
         if current is None or current < baseline:
             return False
     return True
@@ -346,7 +413,7 @@ def _coverage_record_key(record: dict[str, Any]) -> tuple[str, str | float | Non
         value = record.get(key)
         if value not in (None, ""):
             return (key, str(value))
-    return ("current", _parse_finite_float(record.get("current")))
+    return ("coverage", _coverage_value_for_recovery(record))
 
 
 def main(args: list[str] | None = None) -> int:
@@ -379,6 +446,16 @@ def main(args: list[str] | None = None) -> int:
     )
     parser.add_argument("--run-url", default="", help="URL to the workflow run")
     parser.add_argument("--issue-title", default="[coverage] baseline breach", help="Issue title")
+    parser.add_argument(
+        "--issue-label",
+        action="append",
+        dest="issue_labels",
+        default=None,
+        help=(
+            "Label to apply to coverage breach issues. Repeat for multiple labels; "
+            "pass an empty value to disable default labels."
+        ),
+    )
     parser.add_argument(
         "--recovery-window",
         type=int,
@@ -435,6 +512,11 @@ def main(args: list[str] | None = None) -> int:
             1,
         ),
     )
+    issue_labels = (
+        _normalize_labels(parsed.issue_labels)
+        if parsed.issue_labels is not None
+        else ["coverage", "automated"]
+    )
 
     # Get hotspots
     hotspots = _get_hotspots(coverage_data)
@@ -456,7 +538,7 @@ def main(args: list[str] | None = None) -> int:
                 repo=parsed.repo,
                 title=parsed.issue_title,
                 body=body,
-                labels=["coverage", "automated"],
+                labels=issue_labels,
             )
         except (RuntimeError, subprocess.CalledProcessError) as exc:
             print(f"Failed to create or update coverage issue: {exc}", file=sys.stderr)

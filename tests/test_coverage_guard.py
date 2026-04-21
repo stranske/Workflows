@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -79,7 +80,37 @@ def test_find_or_create_issue_creates_new(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert any(call[0][:3] == ["gh", "issue", "list"] for call in calls)
     assert any(call[0][:3] == ["gh", "issue", "create"] for call in calls)
+    create_call = next(call[0] for call in calls if call[0][:3] == ["gh", "issue", "create"])
+    assert create_call.count("--label") == 2
     assert not any(call[0][:3] == ["gh", "issue", "edit"] for call in calls)
+
+
+def test_find_or_create_issue_retries_without_missing_labels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        if args[:3] == ["gh", "issue", "list"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if args[:3] == ["gh", "issue", "create"] and "--label" in args:
+            raise subprocess.CalledProcessError(1, args, stderr="could not resolve label")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    coverage_guard._find_or_create_issue(
+        repo="octo/repo",
+        title="[coverage] baseline breach",
+        body="body",
+        labels=["coverage", "automated"],
+    )
+
+    create_calls = [call[0] for call in calls if call[0][:3] == ["gh", "issue", "create"]]
+    assert len(create_calls) == 2
+    assert "--label" in create_calls[0]
+    assert "--label" not in create_calls[1]
 
 
 def test_find_existing_issue_requires_exact_title(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -99,6 +130,52 @@ def test_find_existing_issue_requires_exact_title(monkeypatch: pytest.MonkeyPatc
 
     assert coverage_guard._find_existing_issue("octo/repo", "[coverage] baseline breach") is None
     assert all(args[args.index("--limit") + 1] == "200" for args in calls)
+
+
+def test_find_existing_issue_scopes_search_by_labels(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    assert (
+        coverage_guard._find_existing_issue(
+            "octo/repo",
+            "[coverage] baseline breach",
+            labels=["coverage", "automated"],
+        )
+        is None
+    )
+    assert all("--label" in args for args in calls)
+    assert all(args.count("--label") == 2 for args in calls)
+
+
+def test_find_existing_issue_retries_title_only_when_label_search_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        if "--label" in args:
+            return SimpleNamespace(returncode=1, stdout="", stderr="could not resolve label")
+        stdout = json.dumps([{"number": 123, "title": "[coverage] baseline breach"}])
+        return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    issue = coverage_guard._find_existing_issue(
+        "octo/repo",
+        "[coverage] baseline breach",
+        labels=["coverage"],
+    )
+
+    assert issue == {"number": 123, "title": "[coverage] baseline breach"}
+    assert any("--label" in args for args in calls)
+    assert any("--label" not in args for args in calls)
 
 
 def test_main_invokes_issue_management_when_below_baseline(
@@ -139,6 +216,39 @@ def test_main_invokes_issue_management_when_below_baseline(
     assert exit_code == 0
     assert calls
     assert calls[0][0] == "octo/repo"
+    assert calls[0][3] == ["coverage", "automated"]
+
+
+def test_main_accepts_issue_label_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    _write_json(trend_path, {"current": 64.0, "baseline": 70.0})
+    _write_json(baseline_path, {"line": 70.0})
+
+    calls = []
+
+    def fake_issue(repo, title, body, labels):
+        calls.append((repo, title, body, labels))
+
+    monkeypatch.setattr(coverage_guard, "_find_or_create_issue", fake_issue)
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--issue-label",
+            "coverage",
+            "--issue-label",
+            "ci",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls[0][3] == ["coverage", "ci"]
 
 
 def test_main_skips_issue_management_when_at_or_above_baseline(
@@ -298,6 +408,33 @@ def test_recovery_window_counts_same_coverage_from_distinct_runs() -> None:
     history_records = [{"current": 72.0, "run_id": "run-1"}]
 
     assert coverage_guard._recovery_window_satisfied(
+        trend_data,
+        baseline=70.0,
+        recovery_window=2,
+        history_records=history_records,
+    )
+
+
+def test_recovery_window_accepts_aggregate_history_records() -> None:
+    trend_data = {"current": 72.0, "run_id": "run-3"}
+    history_records = [
+        {"avg_coverage": 74.0, "run_id": "run-1"},
+        {"worst_job_coverage": 71.0, "run_id": "run-2"},
+    ]
+
+    assert coverage_guard._recovery_window_satisfied(
+        trend_data,
+        baseline=70.0,
+        recovery_window=3,
+        history_records=history_records,
+    )
+
+
+def test_recovery_window_uses_worst_job_before_average() -> None:
+    trend_data = {"current": 72.0, "run_id": "run-2"}
+    history_records = [{"avg_coverage": 80.0, "worst_job_coverage": 69.0, "run_id": "run-1"}]
+
+    assert not coverage_guard._recovery_window_satisfied(
         trend_data,
         baseline=70.0,
         recovery_window=2,

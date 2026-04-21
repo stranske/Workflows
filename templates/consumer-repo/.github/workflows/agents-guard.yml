@@ -33,7 +33,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -42,7 +42,7 @@ jobs:
 
       - name: Checkout base ref for safety validation
         if: github.event_name == 'pull_request_target'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout-cone-mode: false
@@ -81,14 +81,14 @@ jobs:
         if: >-
           github.event_name == 'pull_request_target' &&
           steps.api_client_base.outputs.available != 'true'
-        uses: "stranske/Workflows/.github/actions/setup-api-client@6deed4d3937adab2370b4ddf96046ed295efe68f"
+        uses: "stranske/Workflows/.github/actions/setup-api-client@6deed4d3937adab2370b4ddf96046ed295efe68f" # v1
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
       - name: Verify pull_request_target safety invariants
         if: github.event_name == 'pull_request_target'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const path = require('path');
@@ -104,7 +104,7 @@ jobs:
 
       - name: Checkout PR head for pull_request event
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
@@ -137,13 +137,13 @@ jobs:
 
       - name: Setup API client (Workflows fallback)
         if: github.event_name == 'pull_request' && steps.api_client_head.outputs.available != 'true'
-        uses: "stranske/Workflows/.github/actions/setup-api-client@6deed4d3937adab2370b4ddf96046ed295efe68f"
+        uses: "stranske/Workflows/.github/actions/setup-api-client@6deed4d3937adab2370b4ddf96046ed295efe68f" # v1
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
       - name: Evaluate protected file changes
         id: evaluate
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const fs = require('fs');
@@ -404,7 +404,7 @@ jobs:
 
       - name: Post guard failure comment
         if: steps.evaluate.outputs.blocked == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           COMMENT_BODY_B64: ${{ steps.evaluate.outputs.comment_body_b64 }}
           COMMENT_MARKER: ${{ steps.evaluate.outputs.marker }}
@@ -553,7 +553,7 @@ jobs:
 
       - name: Report agents guard commit status
         if: always()
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           BLOCKED: ${{ steps.evaluate.outputs.blocked || 'false' }}
           SUMMARY: ${{ steps.evaluate.outputs.summary }}
