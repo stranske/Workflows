@@ -55,7 +55,7 @@ index 4bf74ae..ce5a333 100644
 @@ -32,14 +31,14 @@ def test_main_without_github_output(monkeypatch: pytest.MonkeyPatch) -> None:
      """Test script works locally without GITHUB_OUTPUT."""
      monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
-     monkeypatch.setenv("MATRIX_PYTHON_VERSION", "3.11")
+     monkeypatch.setenv("MATRIX_PYTHON_VERSION", "3.12")
 -    
 +
      from tools.resolve_mypy_pin import main
@@ -69,10 +69,10 @@ index 4bf74ae..ce5a333 100644
 -    
 +
      assert result == 0
-     assert "python-version=3.11" in captured_output.getvalue()
+     assert "python-version=3.12" in captured_output.getvalue()
  
 @@ -48,14 +47,14 @@ def test_main_defaults_to_311(monkeypatch: pytest.MonkeyPatch) -> None:
-     """Test script uses 3.11 as default when MATRIX_PYTHON_VERSION not set."""
+     """Test script uses 3.12 as default when MATRIX_PYTHON_VERSION not set."""
      monkeypatch.delenv("MATRIX_PYTHON_VERSION", raising=False)
      monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
 -    
@@ -88,7 +88,7 @@ index 4bf74ae..ce5a333 100644
 -    
 +
      assert result == 0
-     assert "python-version=3.11" in captured_output.getvalue()
+     assert "python-version=3.12" in captured_output.getvalue()
  
 @@ -65,11 +64,11 @@ def test_main_with_custom_version(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
      output_file = tmp_path / "output.txt"
@@ -151,13 +151,13 @@ index 36c8496..cae0dcb 100644
      assert "✅" in result.stdout
  
 @@ -39,6 +40,6 @@ def test_resolve_mypy_pin_as_script() -> None:
-         env={"MATRIX_PYTHON_VERSION": "3.11"},
+         env={"MATRIX_PYTHON_VERSION": "3.12"},
          cwd=Path(__file__).parent.parent,
      )
 -    
 +
      assert result.returncode == 0
-     assert "python-version=3.11" in result.stdout
+     assert "python-version=3.12" in result.stdout
 diff --git a/tests/test_sync_test_dependencies.py b/tests/test_sync_test_dependencies.py
 index c7bd2b6..8272c9f 100644
 --- a/tests/test_sync_test_dependencies.py

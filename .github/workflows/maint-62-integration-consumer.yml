@@ -23,7 +23,7 @@ jobs:
       matrix:
         include:
           - name: basic
-            python-versions: '["3.11"]'
+            python-versions: '["3.12"]'
             coverage: false
             format-check: false
             lint: false
@@ -35,7 +35,7 @@ jobs:
             baseline-coverage: '0'
             coverage-alert-drop: '0'
           - name: full
-            python-versions: '["3.11","3.12"]'
+            python-versions: '["3.12","3.13"]'
             coverage: true
             format-check: true
             lint: true
@@ -47,7 +47,7 @@ jobs:
             baseline-coverage: '80'
             coverage-alert-drop: '2'
           - name: monorepo
-            python-versions: '["3.11"]'
+            python-versions: '["3.12"]'
             coverage: true
             format-check: true
             lint: true

@@ -72,7 +72,7 @@ ls: cannot access '.github/workflows/agents-capability-check.yml': No such file 
    - Removed self-checkout step (was checking out Workflows into subdirectory)
    - Changed `PYTHONPATH: ${{ github.workspace }}/workflows-repo` → `${{ github.workspace }}`
    - Removed `cd workflows-repo` commands
-   - Changed Python 3.12 → 3.11 (repo standard)
+   - Changed Python 3.12 → 3.12 (repo standard)
 
 **Status:** ✅ Fixed in PR #694
 

@@ -18,8 +18,8 @@ jobs:
     name: Python CI
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-versions: '["3.11", "3.12"]'
-      primary-python-version: '3.11'
+      python-versions: '["3.12", "3.13"]'
+      primary-python-version: '3.12'
       coverage-min: '70'
       enable-soft-gate: true
       # Optional: set this if your project lives in a subdirectory

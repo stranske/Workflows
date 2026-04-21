@@ -300,7 +300,7 @@ full_soft_gate"
             const runId = context.runId;
 
             function parsePythonVersions(raw) {
-              const fallback = ['3.11'];
+              const fallback = ['3.12'];
               if (!raw || !raw.trim()) {
                 return fallback;
               }
@@ -515,8 +515,8 @@ full_soft_gate"
             inputs.python_versions) ||
           (github.event_name == 'workflow_dispatch' &&
             inputs.mode == 'dual-runtime' &&
-            '["3.11","3.12"]') ||
-          '["3.11"]'
+            '["3.12","3.13"]') ||
+          '["3.12"]'
         }}
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)

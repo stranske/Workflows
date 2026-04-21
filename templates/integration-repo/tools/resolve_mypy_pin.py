@@ -13,7 +13,7 @@ import sys
 
 def main() -> int:
     # Get the current matrix Python version from environment
-    matrix_version = os.environ.get("MATRIX_PYTHON_VERSION", "3.11")
+    matrix_version = os.environ.get("MATRIX_PYTHON_VERSION", "3.12")
 
     # Write to GITHUB_OUTPUT
     github_output = os.environ.get("GITHUB_OUTPUT")

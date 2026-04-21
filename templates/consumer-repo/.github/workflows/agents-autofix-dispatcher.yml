@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Mint GitHub App token
         id: app_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -42,7 +42,7 @@ jobs:
           github_token: ${{ steps.app_token.outputs.token || github.token }}
 
       - name: Dispatch autofix workflow
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
@@ -71,19 +71,26 @@ jobs:
             const ref = `refs/heads/${defaultBranch}`;
             try {
               await withRetry((client) =>
-                client.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
-                  owner,
-                  repo,
-                  workflow_id: 'agents-autofix-loop.yml',
-                  ref,
-                  inputs: {
-                    gate_run_id: gateRunId,
-                    pr_number: String(prNumber),
-                    head_sha: headSha,
-                  },
-                })
+                client.request(
+                  'POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches',
+                  {
+                    owner,
+                    repo,
+                    workflow_id: 'agents-autofix-loop.yml',
+                    ref,
+                    inputs: {
+                      gate_run_id: gateRunId,
+                      pr_number: String(prNumber),
+                      head_sha: headSha,
+                    },
+                  }
+                )
               );
-              core.info(`Triggered agents-autofix-loop for PR #${prNumber} (Gate run ${gateRunId}).`);
+              const shaNote = headSha ? `, headSha=${headSha}` : '';
+              const trace = `gateRunId=${gateRunId}${shaNote}`;
+              core.info(
+                `Triggered agents-autofix-loop for PR #${prNumber} (${trace}).`
+              );
             } catch (error) {
               core.setFailed(`Failed to dispatch autofix workflow: ${error.message}`);
             }

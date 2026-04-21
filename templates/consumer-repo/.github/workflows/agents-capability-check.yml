@@ -36,7 +36,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -44,7 +44,7 @@ jobs:
 
       - name: Extract issue content
         id: extract
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const issue = context.payload.issue;
@@ -112,7 +112,7 @@ jobs:
 
       - name: Add needs-human label if blocked
         if: steps.check.outputs.recommendation == 'BLOCKED'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -154,7 +154,7 @@ jobs:
 
       - name: Post capability report
         if: steps.check.outputs.check_failed != 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           RESULT_JSON: ${{ steps.check.outputs.result_json }}
           RECOMMENDATION: ${{ steps.check.outputs.recommendation }}

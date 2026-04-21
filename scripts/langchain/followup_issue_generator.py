@@ -76,6 +76,14 @@ MISSING_CONCERNS_MESSAGE = (
     "Verification output did not include extractable concerns; "
     "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
 )
+MISSING_CONCERNS_VERDICTS = {
+    "unknown",
+    "concerns",
+    "error",
+    "fail",
+    "needs work",
+    "not ready",
+}
 
 LOGGER = logging.getLogger(__name__)
 
@@ -755,7 +763,7 @@ def _should_add_missing_concerns_note(
             verdicts.append(verdict)
     if not verdicts:
         return True
-    return any(verdict == "unknown" for verdict in verdicts)
+    return any(verdict in MISSING_CONCERNS_VERDICTS for verdict in verdicts)
 
 
 def extract_original_issue_data(

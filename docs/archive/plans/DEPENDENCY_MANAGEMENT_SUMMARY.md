@@ -35,7 +35,7 @@ The test suite had 30 tests skipping due to missing external dependencies (19 fo
 - Clear distinction between required and optional dependencies
 
 **Test Categories:**
-- `test_python_version()` - Enforces Python 3.11+
+- `test_python_version()` - Enforces Python 3.12+
 - `test_required_packages_importable()` - Validates core packages
 - `test_optional_packages_documented()` - Documents optional package availability
 - `test_node_available()` - Checks Node.js for JavaScript tests
@@ -60,7 +60,7 @@ The test suite had 30 tests skipping due to missing external dependencies (19 fo
 
 **Features:**
 - Color-coded output (green ✓, red ✗, yellow ○)
-- Checks Python version (>=3.11)
+- Checks Python version (>=3.12)
 - Validates all required Python packages
 - Checks optional Python packages
 - Validates external CLI tools (node, npm, uv, coverage)
@@ -72,7 +72,7 @@ The test suite had 30 tests skipping due to missing external dependencies (19 fo
 === Test Dependencies Check ===
 
 Checking Python version...
-✓ Python 3.11.14 (>=3.11 required)
+✓ Python 3.12.14 (>=3.12 required)
 
 Checking required Python packages...
 ✓ pytest
@@ -226,7 +226,7 @@ Created comprehensive 400+ line guide covering:
 ### Required Python Packages
 **Behavior:** Tests fail if missing, CI build fails
 
-- Python 3.11+
+- Python 3.12+
 - pytest >= 8.0
 - coverage >= 7.0
 - hypothesis >= 6.0

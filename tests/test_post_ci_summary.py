@@ -10,8 +10,8 @@ def _write_json(path: Path, payload: object) -> None:
 
 def _sample_runs(states: dict[str, str | None] | None = None) -> list[dict[str, object]]:
     job_states = states or {
-        "Core Tests (3.11)": "success",
         "Core Tests (3.12)": "success",
+        "Core Tests (3.13)": "success",
         "Docker Smoke": "success",
         "Gate": "success",
     }
@@ -37,16 +37,16 @@ def test_load_required_groups_derives_from_runs() -> None:
     groups = post_ci_summary._load_required_groups(None, runs)
 
     labels = [group["label"] for group in groups]
-    assert labels == ["Core Tests (3.11)", "Core Tests (3.12)", "Docker Smoke", "Gate"]
-    assert groups[0]["patterns"] == [r"^Core\ Tests\ \(3\.11\)$"]
+    assert labels == ["Core Tests (3.12)", "Core Tests (3.13)", "Docker Smoke", "Gate"]
+    assert groups[0]["patterns"] == [r"^Core\ Tests\ \(3\.12\)$"]
     assert groups[3]["patterns"] == [r"^Gate$"]
 
 
 def test_collect_category_states_marks_docs_only_fast_pass() -> None:
     runs = _sample_runs(
         {
-            "Core Tests (3.11)": "skipped",
             "Core Tests (3.12)": "skipped",
+            "Core Tests (3.13)": "skipped",
             "Docker Smoke": "skipped",
         }
     )
@@ -147,7 +147,7 @@ def test_main_writes_github_output(tmp_path: Path, monkeypatch) -> None:
 
 def test_collect_triage_block_from_artifacts(tmp_path: Path) -> None:
     artifacts_root = tmp_path / "gate_artifacts"
-    runtime_dir = artifacts_root / "downloads" / "coverage" / "runtimes" / "3.11"
+    runtime_dir = artifacts_root / "downloads" / "coverage" / "runtimes" / "3.12"
     runtime_dir.mkdir(parents=True)
 
     summary_payload = {

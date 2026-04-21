@@ -19,7 +19,7 @@ body:
     attributes:
       label: Environment
       description: Python version, OS, commit hash
-      placeholder: "Python 3.11, macOS 14.5, commit abc123"
+      placeholder: "Python 3.12, macOS 14.5, commit abc123"
     validations:
       required: true
   - type: textarea

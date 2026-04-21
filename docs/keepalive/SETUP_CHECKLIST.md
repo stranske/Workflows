@@ -370,7 +370,7 @@ jobs:
     if: github.event_name == 'pull_request'
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
-      python-versions: '["3.11", "3.12", "3.13"]'
+      python-versions: '["3.12", "3.13"]'
       primary-python-version: "3.13"
       coverage-min: "80"
     secrets: inherit
@@ -404,7 +404,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
-      python-versions: '["3.11", "3.12", "3.13"]'
+      python-versions: '["3.12", "3.13"]'
       primary-python-version: "3.13"
       coverage-min: "80"
     secrets: inherit
@@ -451,7 +451,7 @@ name = "my-project"
 version = "0.1.0"
 description = "My project description"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
@@ -467,7 +467,7 @@ testpaths = ["tests"]
 addopts = "-v --cov=src --cov-report=term-missing"
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 88
 src = ["src", "tests"]
 
@@ -475,7 +475,7 @@ src = ["src", "tests"]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

@@ -21,7 +21,7 @@ Before starting, ensure you have:
 - [ ] A GitHub PAT for the service bot account (for SERVICE_BOT_PAT)
 - [ ] Admin access to create repository secrets and variables
 - [ ] Claude Code login/session available if you want Claude-run workflows
-- [ ] Python 3.11+ installed locally for testing
+- [ ] Python 3.12+ installed locally for testing
 
 ---
 
@@ -694,7 +694,7 @@ For Python projects, ensure:
 - [ ] `pyproject.toml` exists with dependencies
 - [ ] `src/` directory structure follows package conventions
 - [ ] `tests/` directory exists with `conftest.py`
-- [ ] `.python-version` file specifies Python version (e.g., `3.11`)
+- [ ] `.python-version` file specifies Python version (e.g., `3.12`)
 
 ---
 
