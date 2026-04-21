@@ -196,7 +196,8 @@ Closing the coverage baseline breach issue.{source_line}
 
 def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
     """Find an existing issue by title using gh CLI."""
-    search_query = f"{title.replace(chr(34), ' ')} in:title"
+    escaped_title = title.replace("\\", "\\\\").replace('"', '\\"')
+    search_query = f'"{escaped_title}" in:title'
     for state in ("open", "all"):
         search_result = subprocess.run(
             [
@@ -212,7 +213,7 @@ def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
                 "--json",
                 "number,title,state",
                 "--limit",
-                "1",
+                "20",
             ],
             capture_output=True,
             text=True,
@@ -233,8 +234,9 @@ def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
                 print(search_result.stderr.strip(), file=sys.stderr)
             raise RuntimeError("gh issue list returned invalid JSON") from exc
 
-        if existing_issues:
-            return existing_issues[0]
+        for issue in existing_issues:
+            if issue.get("title") == title:
+                return issue
 
     return None
 

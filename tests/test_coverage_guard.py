@@ -16,7 +16,7 @@ def test_find_or_create_issue_updates_existing(monkeypatch: pytest.MonkeyPatch) 
     def fake_run(args, **kwargs):
         calls.append((args, kwargs))
         if args[:3] == ["gh", "issue", "list"]:
-            stdout = json.dumps([{"number": 123, "title": "coverage breach"}])
+            stdout = json.dumps([{"number": 123, "title": "[coverage] baseline breach"}])
             return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -40,7 +40,9 @@ def test_find_or_create_issue_reopens_closed_existing(monkeypatch: pytest.Monkey
     def fake_run(args, **kwargs):
         calls.append((args, kwargs))
         if args[:3] == ["gh", "issue", "list"]:
-            stdout = json.dumps([{"number": 123, "title": "coverage breach", "state": "CLOSED"}])
+            stdout = json.dumps(
+                [{"number": 123, "title": "[coverage] baseline breach", "state": "CLOSED"}]
+            )
             return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -78,6 +80,21 @@ def test_find_or_create_issue_creates_new(monkeypatch: pytest.MonkeyPatch) -> No
     assert any(call[0][:3] == ["gh", "issue", "list"] for call in calls)
     assert any(call[0][:3] == ["gh", "issue", "create"] for call in calls)
     assert not any(call[0][:3] == ["gh", "issue", "edit"] for call in calls)
+
+
+def test_find_existing_issue_requires_exact_title(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(args, **kwargs):
+        stdout = json.dumps(
+            [
+                {"number": 123, "title": "coverage baseline breach", "state": "OPEN"},
+                {"number": 456, "title": "[coverage] baseline breach details", "state": "OPEN"},
+            ]
+        )
+        return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    assert coverage_guard._find_existing_issue("octo/repo", "[coverage] baseline breach") is None
 
 
 def test_main_invokes_issue_management_when_below_baseline(
