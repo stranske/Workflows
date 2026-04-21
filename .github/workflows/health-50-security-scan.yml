@@ -11,24 +11,6 @@ on:
 permissions:
   contents: read
 
-env:
-  CODEQL_TOKEN: >-
-    ${{
-      secrets.CODESPACES_WORKFLOWS ||
-      secrets.ACTIONS_BOT_PAT ||
-      secrets.SERVICE_BOT_PAT ||
-      secrets.AGENTS_AUTOMATION_PAT ||
-      github.token
-    }}
-  CODEQL_TOKEN_SOURCE: >-
-    ${{
-      secrets.CODESPACES_WORKFLOWS && 'codespaces-workflows-pat' ||
-      secrets.ACTIONS_BOT_PAT && 'actions-bot-pat' ||
-      secrets.SERVICE_BOT_PAT && 'service-bot-pat' ||
-      secrets.AGENTS_AUTOMATION_PAT && 'agents-automation-pat' ||
-      'installation'
-    }}
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -50,12 +32,9 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: python
-          token: ${{ env.CODEQL_TOKEN }}
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v4
-        with:
-          token: ${{ env.CODEQL_TOKEN }}
 
       - name: Perform CodeQL Analysis
         id: codeql_analyze
@@ -65,7 +44,6 @@ jobs:
         continue-on-error: true
         with:
           category: "/language:python"
-          token: ${{ env.CODEQL_TOKEN }}
 
       - name: Report CodeQL status
         if: always()

@@ -2,7 +2,7 @@
 
 This repository provides a reusable GitHub Actions workflow that layers three progressive phases on top of a minimal test + coverage gate. All advanced features are opt‑in so existing callers remain unaffected until they enable them.
 
-> **Note (Issue #2656):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.11/3.12 alongside the Docker smoke reusable. The former matrix wrapper (`reusable-90-ci-python.yml`) was retired during the CI consolidation; downstream consumers should invoke `reusable-10-ci-python.yml` directly or dispatch `selftest-reusable-ci.yml` when they need a matrix verification sweep. Historical notes about the removed wrapper live in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
+> **Note (Issue #2656):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.12/3.13 alongside the Docker smoke reusable. The former matrix wrapper (`reusable-90-ci-python.yml`) was retired during the CI consolidation; downstream consumers should invoke `reusable-10-ci-python.yml` directly or dispatch `selftest-reusable-ci.yml` when they need a matrix verification sweep. Historical notes about the removed wrapper live in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
 
 ### Overview
 
@@ -17,7 +17,7 @@ This repository provides a reusable GitHub Actions workflow that layers three pr
 
 Core:
 ```
-python-versions              JSON list of Python versions (default ["3.11"]) 
+python-versions              JSON list of Python versions (default ["3.12"])
 coverage-min                 Minimum coverage percentage to pass (default 70)
 run-mypy                     'true'/'false' toggle to run mypy job (default true)
 ```
@@ -115,7 +115,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
-      python-versions: '["3.11", "3.12"]'
+      python-versions: '["3.12", "3.13"]'
       coverage-min: '72'
       enable-metrics: 'true'
       enable-history: 'true'
@@ -141,7 +141,7 @@ jobs:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       working-directory: packages/my-package
-      python-versions: '["3.11"]'
+      python-versions: '["3.12"]'
       coverage-min: '80'
 ```
 

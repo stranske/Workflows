@@ -34,7 +34,7 @@ def _normalize_expr(value: str) -> str:
 
 
 def test_matrix_expression_supports_arrays_and_singletons() -> None:
-    assert _matrix_candidates('["3.12", "3.13"]', "3.11") == ["3.12", "3.13"]
+    assert _matrix_candidates('["3.12", "3.13"]', "3.12") == ["3.12", "3.13"]
     assert _matrix_candidates("3.13", "3.12") == ["3.13"]
     assert _matrix_candidates("", "3.12") == ["3.12"]
     assert _matrix_candidates("[]", "") == ["3.12"]

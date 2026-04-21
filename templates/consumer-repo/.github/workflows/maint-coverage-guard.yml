@@ -26,7 +26,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -52,7 +52,7 @@ jobs:
 
       - name: Check API quota
         id: check
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           # Higher threshold than orchestrator (1000) so keepalive runs first
           RATE_LIMIT_THRESHOLD: '2000'
@@ -108,7 +108,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -130,7 +130,7 @@ jobs:
 
       - name: Locate latest Gate workflow run
         id: discover
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -186,7 +186,7 @@ jobs:
 
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         continue-on-error: true
         with:
           name: gate-coverage-trend
@@ -194,9 +194,19 @@ jobs:
           path: coverage_artifacts/trend
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download coverage trend history artifact
+        if: ${{ steps.discover.outputs.run_id }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        continue-on-error: true
+        with:
+          name: gate-coverage-trend-history
+          run-id: ${{ steps.discover.outputs.run_id }}
+          path: coverage_artifacts/history
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download coverage payload artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         continue-on-error: true
         with:
           name: gate-coverage
@@ -214,6 +224,7 @@ jobs:
           # Try multiple possible artifact paths (workflow uses different naming)
           TREND_PATH=""
           COVERAGE_PATH=""
+          HISTORY_PATH=""
 
           # Check for trend artifact
           for candidate in \
@@ -225,9 +236,21 @@ jobs:
             fi
           done
 
+          # Check for trend history artifact
+          for candidate in \
+            "coverage_artifacts/history/coverage-trend-history.ndjson" \
+            "coverage_artifacts/trend/coverage-trend-history.ndjson" \
+            "coverage_artifacts/coverage-trend-history.ndjson"; do
+            if [ -f "$candidate" ]; then
+              HISTORY_PATH="$candidate"
+              break
+            fi
+          done
+
           # Check for coverage json
           for candidate in \
-            "coverage_artifacts/payload/artifacts/coverage/runtimes/3.11/coverage.json" \
+            "coverage_artifacts/payload/artifacts/coverage/runtimes/3.12/coverage.json" \
+            "coverage_artifacts/payload/artifacts/coverage/runtimes/3.13/coverage.json" \
             "coverage_artifacts/payload/coverage.json" \
             "coverage_artifacts/coverage.json"; do
             if [ -f "$candidate" ]; then
@@ -248,6 +271,10 @@ jobs:
 
           if [ -n "$COVERAGE_PATH" ]; then
             ARGS+=(--coverage-path "$COVERAGE_PATH")
+          fi
+
+          if [ -n "$HISTORY_PATH" ]; then
+            ARGS+=(--history-path "$HISTORY_PATH")
           fi
 
           if [ -f "config/coverage-baseline.json" ]; then

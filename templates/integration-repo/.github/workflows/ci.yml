@@ -34,10 +34,10 @@ jobs:
 
   # Configuration 2: Full coverage - all features enabled
   full-coverage:
-    name: Full coverage (3.11, 3.12)
+    name: Full coverage (3.12, 3.12)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.11", "3.12"]'
+      python-versions: '["3.12", "3.13"]'
       coverage: true
       lint: true
       format_check: true
@@ -54,10 +54,10 @@ jobs:
 
   # Configuration 3: Typecheck only - focused mypy validation
   typecheck-only:
-    name: Typecheck only (3.11)
+    name: Typecheck only (3.12)
     uses: __WORKFLOW_REF__
     with:
-      python-versions: '["3.11"]'
+      python-versions: '["3.12"]'
       coverage: false
       lint: false
       format_check: false

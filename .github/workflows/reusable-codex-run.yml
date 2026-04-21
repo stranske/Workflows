@@ -57,6 +57,11 @@ on:
         required: false
         default: '0.101.0'
         type: string
+      codex_model:
+        description: 'Codex model ID to pass to codex exec.'
+        required: false
+        default: 'gpt-5.3-codex'
+        type: string
       codex_args:
         description: 'Optional Codex CLI arguments (string or JSON array).'
         required: false
@@ -873,6 +878,7 @@ jobs:
           PROMPT_FILE="${{ steps.prompt.outputs.file }}"
           # Use PR-specific output filename to avoid merge conflicts
           PR_NUM="${{ inputs.pr_number }}"
+          CODEX_MODEL="${{ inputs.codex_model }}"
           if [ -n "${PR_NUM}" ]; then
             OUTPUT_FILE="codex-output-${PR_NUM}.md"
             SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
@@ -939,6 +945,7 @@ jobs:
 
           echo "Running Codex CLI directly with ChatGPT auth..."
           echo "Prompt file: $PROMPT_FILE"
+          echo "Model: $CODEX_MODEL"
           echo "Sandbox: $SANDBOX"
           if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
             echo "Extra args: provided (${#EXTRA_ARGS[@]} arg(s))"
@@ -1033,6 +1040,7 @@ jobs:
             --json
             --skip-git-repo-check
             --sandbox "$SANDBOX"
+            --model "$CODEX_MODEL"
             --output-last-message "$OUTPUT_FILE"
           )
           if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then

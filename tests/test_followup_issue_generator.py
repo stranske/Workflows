@@ -110,6 +110,25 @@ class TestExtractVerificationData:
         assert "Missing regression coverage." in data.concerns
         assert data.provider_verdicts["openai"]["summary"] == "Missing regression coverage."
 
+    def test_extract_non_pass_without_summary_marks_missing_concerns(self):
+        """Non-PASS provider verdicts without summaries still produce a deterministic task."""
+        comment = """
+## Provider Comparison Report
+
+### Provider Summary
+| Provider | Model | Verdict | Confidence |
+| --- | --- | --- | --- |
+| openai | gpt-4o-mini | CONCERNS | 72% |
+| anthropic | claude-sonnet | PASS | 91% |
+"""
+        data = extract_verification_data(comment)
+
+        assert data.missing_concerns is True
+        assert data.concerns == [
+            "Verification output did not include extractable concerns; "
+            "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+        ]
+
     def test_extract_single_verdict(self):
         """Extract verdict from single provider format."""
         comment = """
@@ -182,6 +201,21 @@ Concerns:
 ## PR Verification Report
 
 Verdict: **Unknown** @0%
+"""
+        data = extract_verification_data(comment)
+
+        assert data.concerns == [
+            "Verification output did not include extractable concerns; "
+            "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+        ]
+        assert data.missing_concerns is True
+
+    def test_extract_missing_concerns_for_error_verdict(self):
+        """Add a default concern when verifier crashes report an error verdict."""
+        comment = """
+## PR Verification Report
+
+Verdict: **Error** @0%
 """
         data = extract_verification_data(comment)
 
@@ -340,7 +374,9 @@ def test_get_llm_client_defaults_to_expected_models(monkeypatch: pytest.MonkeyPa
 
     def fake_build_chat_client(*, model: str | None = None, provider: str | None = None):
         calls.append((model, provider))
-        return SimpleNamespace(client=object(), model=model or "fallback", provider=provider or "auto")
+        return SimpleNamespace(
+            client=object(), model=model or "fallback", provider=provider or "auto"
+        )
 
     fake_module = ModuleType("tools.langchain_client")
     fake_module.build_chat_client = fake_build_chat_client

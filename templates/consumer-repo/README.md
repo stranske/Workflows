@@ -196,7 +196,7 @@ The keepalive system uses PR labels for routing and control:
 ### Agent Selection
 | Label | Agent | Workflow |
 |-------|-------|----------|
-| `agent:codex` | Codex CLI (gpt-5.2-codex) | `reusable-codex-run.yml` |
+| `agent:codex` | Codex CLI (gpt-5.3-codex) | `reusable-codex-run.yml` |
 
 Other `agent:*` labels may be reserved for future expansion, but only `agent:codex` is currently supported by the templates.
 

@@ -173,7 +173,7 @@ Different hooks apply to different file types:
 
 #### Hook Dependencies
 
-- **Python 3.11+** - Required for Black, Ruff
+- **Python 3.12+** - Required for Black, Ruff
 - **Bash** - Required for dev_check.sh, validate_fast.sh
 - **Git** - Obviously required for hooks
 

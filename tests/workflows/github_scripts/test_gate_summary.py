@@ -60,7 +60,7 @@ def test_doc_only_summary_state() -> None:
 
 
 def test_active_summary_reads_artifacts(tmp_path: Path) -> None:
-    write_summary(tmp_path, "3.11")
+    write_summary(tmp_path, "3.12")
 
     context = gate_summary.SummaryContext(
         doc_only=False,
@@ -112,7 +112,7 @@ def test_summary_state_reflects_python_outcome(
 
 
 def test_cosmetic_failure_detected(tmp_path: Path) -> None:
-    write_summary(tmp_path, "3.11", format_outcome="failure")
+    write_summary(tmp_path, "3.12", format_outcome="failure")
     context = gate_summary.SummaryContext(
         doc_only=False,
         run_core=True,
@@ -133,7 +133,7 @@ def test_cosmetic_failure_detected(tmp_path: Path) -> None:
 
 
 def test_cosmetic_failure_rejects_other_failures(tmp_path: Path) -> None:
-    write_summary(tmp_path, "3.11", tests="failure")
+    write_summary(tmp_path, "3.12", tests="failure")
     context = gate_summary.SummaryContext(
         doc_only=False,
         run_core=True,
@@ -153,8 +153,8 @@ def test_cosmetic_failure_rejects_other_failures(tmp_path: Path) -> None:
 
 
 def test_cosmetic_failure_reports_all_allowed_checks(tmp_path: Path) -> None:
-    write_summary(tmp_path, "3.11", format_outcome="failure")
-    write_summary(tmp_path, "3.12", lint="failure")
+    write_summary(tmp_path, "3.12", format_outcome="failure")
+    write_summary(tmp_path, "3.13", lint="failure")
 
     context = gate_summary.SummaryContext(
         doc_only=False,
@@ -277,7 +277,7 @@ def test_doc_only_lines_defaults_reason() -> None:
 
 
 def test_summarize_handles_skipped_python_when_core_runs(tmp_path: Path) -> None:
-    write_summary(tmp_path, "3.11")
+    write_summary(tmp_path, "3.12")
     context = gate_summary.SummaryContext(
         doc_only=False,
         run_core=True,

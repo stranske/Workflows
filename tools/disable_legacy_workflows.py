@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+from scripts.api_client import GITHUB_API
 
 WORKFLOW_DIR = Path(".github/workflows")
 
@@ -114,7 +115,7 @@ def disable_legacy_workflows(
 ) -> dict[str, list[str]]:
     allowlist = CANONICAL_WORKFLOW_FILES | _normalize_allowlist(extra_allow)
     workflows = _list_all_workflows(
-        f"https://api.github.com/repos/{repository}/actions/workflows",
+        f"{GITHUB_API}/repos/{repository}/actions/workflows",
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -130,7 +131,7 @@ def disable_legacy_workflows(
             if not dry_run:
                 _http_request(
                     "PUT",
-                    f"https://api.github.com/repos/{repository}/actions/workflows/{workflow.get('id')}/disable",
+                    f"{GITHUB_API}/repos/{repository}/actions/workflows/{workflow.get('id')}/disable",
                     headers={"Authorization": f"Bearer {token}"},
                 )
             summary["disabled"].append(name)

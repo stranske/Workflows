@@ -207,6 +207,9 @@ scripts:
   - source: tools/coverage_trend.py
     description: "Generates coverage trend summaries - required by reusable CI workflow"
 
+  - source: tools/coverage_guard.py
+    description: "Checks coverage guard artifacts - required by maint-coverage-guard.yml"
+
   # Scripts directory - CI helpers used by reusable-10-ci-python.yml
   - source: scripts/coverage_history_append.py
     description: "Appends coverage data to history file - required by reusable CI workflow"
