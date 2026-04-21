@@ -1671,9 +1671,7 @@ def _generate_without_llm(
 
     for provider, data in verification_data.provider_verdicts.items():
         confidence = _coerce_confidence_percent(data.get("confidence", 0))
-        body_parts.append(
-            f"- **{provider}**: {data.get('verdict', 'Unknown')} @ {confidence}%"
-        )
+        body_parts.append(f"- **{provider}**: {data.get('verdict', 'Unknown')} @ {confidence}%")
 
     if verification_data.structural_issues:
         body_parts.extend(
