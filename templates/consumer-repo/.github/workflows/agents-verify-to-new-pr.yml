@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: Check PR is merged
         id: check-merged
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           github-token: ${{ github.token }}
           script: |
@@ -70,7 +70,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: stranske/Workflows
           token: ${{ steps.select-token.outputs.token }}
@@ -94,7 +94,7 @@ jobs:
 
       - name: Set up Python
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -106,7 +106,7 @@ jobs:
       - name: Collect verification and original issue data
         id: collect
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
@@ -251,7 +251,7 @@ jobs:
       - name: Check chain depth limit
         id: chain-check
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           CHAIN_DEPTH: ${{ steps.collect.outputs.chain_depth }}
           MAX_CHAIN_DEPTH: '2'
@@ -392,7 +392,7 @@ jobs:
           steps.check-merged.outputs.merged == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           LINKED_ISSUE: ${{ steps.collect.outputs.original_issue_number }}
           NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}
@@ -508,7 +508,7 @@ jobs:
           steps.check-merged.outputs.merged == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           FOLLOW_UP_DEPTH: ${{ steps.chain-check.outputs.next_depth }}
           EXTRACTED_VERDICT: ${{ steps.extract-verdict.outputs.verdict }}
@@ -680,7 +680,7 @@ jobs:
           steps.check-merged.outputs.merged == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           ISSUE_TITLE: >-
             ${{ steps.generate.outputs.issue_title ||
@@ -775,7 +775,7 @@ jobs:
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true' &&
           steps.create-issue.outputs.issue_number != ''
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
@@ -812,7 +812,7 @@ jobs:
           steps.check-merged.outputs.merged == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
@@ -854,7 +854,7 @@ jobs:
 
       - name: Remove trigger label
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         continue-on-error: true
         with:
           github-token: ${{ steps.select-token.outputs.token }}

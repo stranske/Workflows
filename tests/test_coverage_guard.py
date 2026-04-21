@@ -83,7 +83,10 @@ def test_find_or_create_issue_creates_new(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_find_existing_issue_requires_exact_title(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+
     def fake_run(args, **kwargs):
+        calls.append(args)
         stdout = json.dumps(
             [
                 {"number": 123, "title": "coverage baseline breach", "state": "OPEN"},
@@ -95,6 +98,7 @@ def test_find_existing_issue_requires_exact_title(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr("subprocess.run", fake_run)
 
     assert coverage_guard._find_existing_issue("octo/repo", "[coverage] baseline breach") is None
+    assert all(args[args.index("--limit") + 1] == "200" for args in calls)
 
 
 def test_main_invokes_issue_management_when_below_baseline(

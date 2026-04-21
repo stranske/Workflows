@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -38,7 +38,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: "3.12"
 
@@ -48,7 +48,7 @@ jobs:
 
       - name: Get open issues
         id: get-issues
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -195,7 +195,7 @@ jobs:
 
       - name: Post duplicate warning
         if: steps.check.outputs.has_duplicates == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');

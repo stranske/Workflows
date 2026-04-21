@@ -213,7 +213,7 @@ def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
                 "--json",
                 "number,title,state",
                 "--limit",
-                "20",
+                "200",
             ],
             capture_output=True,
             text=True,

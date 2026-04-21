@@ -65,7 +65,7 @@ jobs:
       should_run: ${{ steps.resolve.outputs.should_run }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -81,7 +81,7 @@ jobs:
 
       - name: Resolve PR number and check conditions
         id: resolve
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -198,7 +198,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -213,7 +213,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Dismiss ignored-path bot reviews
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           BOT_AUTHORS: >-
             Copilot,copilot[bot],github-actions[bot],
@@ -374,7 +374,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -389,7 +389,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Remove trigger label
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
