@@ -194,6 +194,16 @@ jobs:
           path: coverage_artifacts/trend
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download coverage trend history artifact
+        if: ${{ steps.discover.outputs.run_id }}
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
+        continue-on-error: true
+        with:
+          name: gate-coverage-trend-history
+          run-id: ${{ steps.discover.outputs.run_id }}
+          path: coverage_artifacts/history
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download coverage payload artifact
         if: ${{ steps.discover.outputs.run_id }}
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
@@ -214,6 +224,7 @@ jobs:
           # Try multiple possible artifact paths (workflow uses different naming)
           TREND_PATH=""
           COVERAGE_PATH=""
+          HISTORY_PATH=""
 
           # Check for trend artifact
           for candidate in \
@@ -221,6 +232,17 @@ jobs:
             "coverage_artifacts/coverage-trend.json"; do
             if [ -f "$candidate" ]; then
               TREND_PATH="$candidate"
+              break
+            fi
+          done
+
+          # Check for trend history artifact
+          for candidate in \
+            "coverage_artifacts/history/coverage-trend-history.ndjson" \
+            "coverage_artifacts/trend/coverage-trend-history.ndjson" \
+            "coverage_artifacts/coverage-trend-history.ndjson"; do
+            if [ -f "$candidate" ]; then
+              HISTORY_PATH="$candidate"
               break
             fi
           done
@@ -249,6 +271,10 @@ jobs:
 
           if [ -n "$COVERAGE_PATH" ]; then
             ARGS+=(--coverage-path "$COVERAGE_PATH")
+          fi
+
+          if [ -n "$HISTORY_PATH" ]; then
+            ARGS+=(--history-path "$HISTORY_PATH")
           fi
 
           if [ -f "config/coverage-baseline.json" ]; then

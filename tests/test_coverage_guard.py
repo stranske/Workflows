@@ -193,6 +193,48 @@ def test_main_leaves_issue_open_until_recovery_window_satisfied(
     assert not close_calls
 
 
+def test_main_uses_history_file_for_recovery_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    history_path = tmp_path / "coverage-trend-history.ndjson"
+    _write_json(trend_path, {"current": 72.0, "baseline": 70.0})
+    _write_json(baseline_path, {"line": 70.0, "recovery_days": 2})
+    history_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"current": 71.0}),
+                json.dumps({"current": 72.0}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    close_calls = []
+    monkeypatch.setattr(
+        coverage_guard,
+        "_close_existing_issue",
+        lambda *args: close_calls.append(args),
+    )
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(history_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert close_calls
+
+
 def test_main_uses_trend_baseline_when_baseline_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -320,9 +362,7 @@ def test_get_hotspots_handles_unexpected_payloads() -> None:
     assert coverage_guard._get_hotspots({"files": []}) == []
     assert coverage_guard._get_hotspots({"files": {"bad.py": []}}) == []
     assert (
-        coverage_guard._get_hotspots(
-            {"files": {"bad.py": {"summary": {"percent_covered": "nan"}}}}
-        )
+        coverage_guard._get_hotspots({"files": {"bad.py": {"summary": {"percent_covered": "nan"}}}})
         == []
     )
 

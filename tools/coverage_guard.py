@@ -18,6 +18,7 @@ from typing import Any
 DEFAULT_TREND_PATH = Path("coverage-trend.json")
 DEFAULT_COVERAGE_PATH = Path("coverage.json")
 DEFAULT_BASELINE_PATH = Path("config/coverage-baseline.json")
+DEFAULT_HISTORY_PATH = Path("coverage-trend-history.ndjson")
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -27,6 +28,25 @@ def _load_json(path: Path) -> dict[str, Any]:
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _load_ndjson(path: Path) -> list[dict[str, Any]]:
+    """Load newline-delimited JSON records from a file."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return []
+    records = []
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            records.append(payload)
+    return records
 
 
 def _to_float(value: Any, default: float = 0.0) -> float:
@@ -140,7 +160,9 @@ These files have the lowest coverage and are candidates for additional tests:
         body += "| _(no files with low coverage)_ | - | - |\n"
 
     source_section = (
-        f"\n### Source\n\n[Gate Workflow Run]({run_url})\n" if run_url else "\n### Source\n\nRun URL unavailable.\n"
+        f"\n### Source\n\n[Gate Workflow Run]({run_url})\n"
+        if run_url
+        else "\n### Source\n\nRun URL unavailable.\n"
     )
 
     body += f"""
@@ -202,7 +224,9 @@ def _find_existing_issue(repo: str, title: str) -> dict[str, Any] | None:
             raise RuntimeError("gh issue list failed")
 
         try:
-            existing_issues = json.loads(search_result.stdout) if search_result.stdout.strip() else []
+            existing_issues = (
+                json.loads(search_result.stdout) if search_result.stdout.strip() else []
+            )
         except json.JSONDecodeError as exc:
             print("Failed to parse gh issue list output as JSON.", file=sys.stderr)
             if search_result.stderr.strip():
@@ -288,18 +312,26 @@ def _close_existing_issue(repo: str, title: str, body: str) -> None:
 
 
 def _recovery_window_satisfied(
-    trend_data: dict[str, Any], baseline: float, recovery_window: int
+    trend_data: dict[str, Any],
+    baseline: float,
+    recovery_window: int,
+    history_records: list[dict[str, Any]] | None = None,
 ) -> bool:
     """Return whether recent coverage samples satisfy the configured recovery window."""
     if recovery_window <= 1:
         return True
-    history = trend_data.get("history")
-    if not isinstance(history, list) or len(history) < recovery_window:
+    history = history_records if history_records is not None else trend_data.get("history")
+    if not isinstance(history, list):
+        history = []
+    records = [record for record in history if isinstance(record, dict)]
+    latest_history_current = _parse_finite_float(records[-1].get("current")) if records else None
+    trend_current = _parse_finite_float(trend_data.get("current"))
+    if latest_history_current != trend_current:
+        records.append(trend_data)
+    if len(records) < recovery_window:
         return False
-    recent = history[-recovery_window:]
+    recent = records[-recovery_window:]
     for record in recent:
-        if not isinstance(record, dict):
-            return False
         current = _parse_finite_float(record.get("current"))
         if current is None or current < baseline:
             return False
@@ -328,6 +360,12 @@ def main(args: list[str] | None = None) -> int:
         default=DEFAULT_BASELINE_PATH,
         help="Path to coverage-baseline.json",
     )
+    parser.add_argument(
+        "--history-path",
+        type=Path,
+        default=DEFAULT_HISTORY_PATH,
+        help="Path to coverage-trend-history.ndjson",
+    )
     parser.add_argument("--run-url", default="", help="URL to the workflow run")
     parser.add_argument("--issue-title", default="[coverage] baseline breach", help="Issue title")
     parser.add_argument(
@@ -354,6 +392,10 @@ def main(args: list[str] | None = None) -> int:
     if parsed.baseline_path and parsed.baseline_path.exists():
         baseline_data = _load_json(parsed.baseline_path)
 
+    history_records = []
+    if parsed.history_path and parsed.history_path.exists():
+        history_records = _load_ndjson(parsed.history_path)
+
     if not trend_data:
         print("No coverage trend payload found; skipping coverage guard update")
         return 0
@@ -371,7 +413,10 @@ def main(args: list[str] | None = None) -> int:
     configured_recovery_window = _to_int(
         parsed.recovery_window
         if parsed.recovery_window is not None
-        else baseline_data.get("recovery_window", baseline_data.get("recovery_runs")),
+        else baseline_data.get(
+            "recovery_window",
+            baseline_data.get("recovery_runs", baseline_data.get("recovery_days")),
+        ),
         1,
     )
 
@@ -402,7 +447,12 @@ def main(args: list[str] | None = None) -> int:
             return 1
     else:
         print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no open issue needed")
-        if not _recovery_window_satisfied(trend_data, baseline, configured_recovery_window):
+        if not _recovery_window_satisfied(
+            trend_data,
+            baseline,
+            configured_recovery_window,
+            history_records,
+        ):
             print(
                 "Coverage recovered, but configured recovery window is not satisfied; "
                 "leaving any breach issue open"
