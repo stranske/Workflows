@@ -186,7 +186,8 @@ function sortJobs(jobCoverages, preferredRuntime = process.env.COVERAGE_REFERENC
     if (!preferred) {
       preferred = entries
         .map(([name]) => name)
-        .sort(compareNaturalNames)[0];
+        .sort(compareNaturalNames)
+        .pop();
     }
   }
   return entries.sort((a, b) => {

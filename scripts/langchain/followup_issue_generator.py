@@ -1628,9 +1628,9 @@ def _generate_without_llm(
     )
     for finding in verification_data.non_pass_findings[:NON_PASS_DETAIL_LIMIT]:
         body_parts.append(f"- {finding}")
-    for concern in blocking_concerns[:10]:
+    for concern in blocking_concerns[:NON_PASS_DETAIL_LIMIT]:
         body_parts.append(f"- Concern: {concern}")
-    for concern in advisory_concerns[:10]:
+    for concern in advisory_concerns[:NON_PASS_DETAIL_LIMIT]:
         body_parts.append(f"- Advisory: {concern}")
     body_parts.append(f"- {_format_code_change_decision(verification_data)}")
 
@@ -1641,14 +1641,15 @@ def _generate_without_llm(
             "",
         ]
     )
-    max_non_pass_output = 10
+    max_non_pass_output = NON_PASS_DETAIL_LIMIT
     for output in verification_data.non_pass_output[:max_non_pass_output]:
         body_parts.append(f"- `{output}`")
     remaining_non_pass_output = len(verification_data.non_pass_output) - max_non_pass_output
     if remaining_non_pass_output > 0:
         body_parts.append(f"- ... plus {remaining_non_pass_output} more evidence entries")
     for provider, data in verification_data.provider_verdicts.items():
-        evidence = f"- {provider}: {data.get('verdict', 'Unknown')} @ {data.get('confidence', 0)}%"
+        confidence = _coerce_confidence_percent(data.get("confidence", 0))
+        evidence = f"- {provider}: {data.get('verdict', 'Unknown')} @ {confidence}%"
         summary = data.get("summary")
         if summary:
             evidence += f" ({summary})"

@@ -838,6 +838,29 @@ class TestGenerateFollowupIssue:
         assert "Concern: Missing regression coverage." in followup.body
         assert "openai: CONCERNS @ 72% (Missing regression coverage.)" in followup.body
 
+    def test_generate_without_llm_normalizes_provider_evidence_confidence(self):
+        """Fractional provider confidences should render as percentages."""
+        verification_data = VerificationData(
+            provider_verdicts={
+                "openai": {
+                    "verdict": "CONCERNS",
+                    "confidence": 0.92,
+                    "summary": "Missing regression coverage.",
+                }
+            },
+            concerns=["Missing regression coverage."],
+        )
+        original_issue = OriginalIssueData(number=100, title="Add caching feature")
+
+        followup = generate_followup_issue(
+            verification_data=verification_data,
+            original_issue=original_issue,
+            pr_number=200,
+            use_llm=False,
+        )
+
+        assert "openai: CONCERNS @ 92%" in followup.body
+
     def test_includes_background_context(self):
         """Follow-up should include collapsible background section."""
         verification_data = VerificationData(
