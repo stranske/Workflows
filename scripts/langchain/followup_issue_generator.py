@@ -84,6 +84,7 @@ MISSING_CONCERNS_VERDICTS = {
     "needs work",
     "not ready",
 }
+NON_PASS_DETAIL_LIMIT = 10
 
 LOGGER = logging.getLogger(__name__)
 
@@ -182,15 +183,27 @@ def _parse_confidence_value(text: str) -> int:
     """Parse confidence text into an integer percent."""
     if not text:
         return 0
+    percent_match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+    if percent_match:
+        return int(round(float(percent_match.group(1))))
     match = re.search(r"\d+(?:\.\d+)?", text)
     if not match:
         return 0
     value = float(match.group(0))
-    if "%" in text:
-        return int(round(value))
     if value <= 1:
         return int(round(value * 100))
     return int(round(value))
+
+
+def _coerce_confidence_percent(value: Any) -> int:
+    """Coerce stored confidence into a percent without rescaling integer percentages."""
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if 0 < value < 1:
+            return int(round(value * 100))
+        return int(round(value))
+    return _parse_confidence_value(str(value or "0"))
 
 
 ADVISORY_PATTERNS = [
@@ -762,7 +775,7 @@ def _refresh_non_pass_evidence(data: VerificationData) -> None:
         if verdict.upper() == "PASS":
             continue
         model = str(payload.get("model", "") or "").strip()
-        confidence = int(float(payload.get("confidence", 0) or 0))
+        confidence = _coerce_confidence_percent(payload.get("confidence", 0))
         data.non_pass_output.append(
             f"Provider={provider}; Model={model}; Verdict={verdict}; Confidence={confidence}%"
         )
@@ -1221,7 +1234,7 @@ def generate_disposition_comment(
 
     body_parts.extend(["", "### Evidence", ""])
     if verification_data.non_pass_output:
-        max_non_pass_output = 10
+        max_non_pass_output = NON_PASS_DETAIL_LIMIT
         for output in verification_data.non_pass_output[:max_non_pass_output]:
             body_parts.append(f"- `{output}`")
         remaining_non_pass_output = len(verification_data.non_pass_output) - max_non_pass_output
@@ -1232,8 +1245,14 @@ def generate_disposition_comment(
 
     if verification_data.non_pass_findings:
         body_parts.extend(["", "### Findings", ""])
-        for finding in verification_data.non_pass_findings:
+        max_non_pass_findings = NON_PASS_DETAIL_LIMIT
+        for finding in verification_data.non_pass_findings[:max_non_pass_findings]:
             body_parts.append(f"- {finding}")
+        remaining_non_pass_findings = (
+            len(verification_data.non_pass_findings) - max_non_pass_findings
+        )
+        if remaining_non_pass_findings > 0:
+            body_parts.append(f"- ... plus {remaining_non_pass_findings} more findings")
 
     body_parts.extend(["", "### Decision", "", _format_code_change_decision(verification_data)])
     return "\n".join(body_parts)
@@ -1607,7 +1626,7 @@ def _generate_without_llm(
             f"- Resolved verdict: {verdict}",
         ]
     )
-    for finding in verification_data.non_pass_findings[:10]:
+    for finding in verification_data.non_pass_findings[:NON_PASS_DETAIL_LIMIT]:
         body_parts.append(f"- {finding}")
     for concern in blocking_concerns[:10]:
         body_parts.append(f"- Concern: {concern}")

@@ -66,6 +66,24 @@ class TestExtractVerificationData:
             "Provider=openai; Verdict=CONCERNS; Difference=Needs follow-up."
         ]
 
+    def test_extract_provider_verdicts_prefers_percent_confidence(self):
+        """Parse percent-bearing confidence when mixed numeric formats appear."""
+        comment = """
+## Provider Comparison Report
+
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| openai | gpt-5 | FAIL | 0.61 (61%) | Regression |
+"""
+
+        data = extract_verification_data(comment)
+
+        assert data.provider_verdicts["openai"]["confidence"] == 61
+        assert data.non_pass_output == [
+            "Provider=openai; Model=gpt-5; Verdict=FAIL; Confidence=61%"
+        ]
+
     def test_generate_disposition_comment_includes_evidence_decision_and_rationale(self):
         comment = """
 ## Provider Comparison Report
@@ -128,6 +146,46 @@ class TestExtractVerificationData:
         data = extract_verification_data(comment)
 
         assert data.non_pass_output == ["Provider=openai; Model=; Verdict=FAIL; Confidence=61%"]
+
+    def test_non_pass_evidence_handles_unknown_confidence(self):
+        data = VerificationData(
+            provider_verdicts={
+                "openai": {"model": "gpt-5", "verdict": "FAIL", "confidence": "Unknown"}
+            }
+        )
+
+        followup_issue_generator._refresh_non_pass_evidence(data)
+
+        assert data.non_pass_output == ["Provider=openai; Model=gpt-5; Verdict=FAIL; Confidence=0%"]
+
+    def test_non_pass_evidence_keeps_integer_confidence_percent(self):
+        data = VerificationData(
+            provider_verdicts={"openai": {"model": "gpt-5", "verdict": "FAIL", "confidence": 1}}
+        )
+
+        followup_issue_generator._refresh_non_pass_evidence(data)
+
+        assert data.non_pass_output == ["Provider=openai; Model=gpt-5; Verdict=FAIL; Confidence=1%"]
+
+    def test_generate_disposition_comment_caps_findings(self):
+        verification_data = VerificationData(
+            provider_verdicts={
+                f"provider-{index}": {
+                    "model": f"model-{index}",
+                    "verdict": "FAIL",
+                    "confidence": 50,
+                    "summary": f"Regression {index}",
+                }
+                for index in range(12)
+            }
+        )
+        followup_issue_generator._refresh_non_pass_evidence(verification_data)
+
+        disposition = generate_disposition_comment(verification_data, pr_number=49)
+
+        assert "Provider=provider-9; Verdict=FAIL; Difference=Regression 9" in disposition
+        assert "Provider=provider-10; Verdict=FAIL; Difference=Regression 10" not in disposition
+        assert "... plus 2 more findings" in disposition
 
     def test_generate_followup_issue_caps_non_pass_output_entries(self):
         verification_data = VerificationData(
