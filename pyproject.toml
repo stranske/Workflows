@@ -48,7 +48,7 @@ dev = [
     "numpy<3.0",
     "pydantic>=2.13.2",
     "requests>=2.33.1",
-    "jsonschema>=4.0.0",
+    "jsonschema>=4.26.0",
     "PyYAML>=6.0.0",
 
     # Used by scripts/sync_test_dependencies.py to edit pyproject.toml
