@@ -33,7 +33,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: '3.11'
+      python-version: '3.12'
 ```
 
 2. **Commit and push** - CI will run on your next PR!
@@ -57,12 +57,12 @@ jobs:
   ci-default:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: '3.11'
+      python-version: '3.12'
 
   ci-pinned:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@abc123def4567890
     with:
-      python-version: '3.11'
+      python-version: '3.12'
 ```
 
 ---
@@ -78,7 +78,7 @@ jobs:
   python-ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: '3.11'
+      python-version: '3.12'
     secrets: inherit
 ```
 
@@ -224,7 +224,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: '3.11'
+      python-version: '3.12'
       run-tests: true
       check-types: true
       coverage-threshold: 80
@@ -426,7 +426,7 @@ jobs:
   test:
     strategy:
       matrix:
-        python-version: ['3.10', '3.11', '3.12']
+        python-version: ['3.12', '3.13']
     steps:
       - uses: actions/setup-python@v5
         with:
@@ -794,7 +794,7 @@ The `evaluate` job outputs these new fields:
 **Scenario 1: Tests Failing**
 ```
 Gate Status: failure
-Failed Jobs: [test (3.11), test (3.12)]
+Failed Jobs: [test (3.12), test (3.12)]
 Classification: test failure
 Action: fix
 Reason: fix-test

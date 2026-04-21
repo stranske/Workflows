@@ -92,7 +92,7 @@ jobs:
       - name: Mint GitHub App token (preferred)
         id: app_token
         if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         with:
           app-id: ${{ env.WORKFLOWS_APP_ID }}
           private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
@@ -180,7 +180,7 @@ jobs:
 
       - name: Resolve Workflows default branch
         id: workflows_ref
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -212,7 +212,7 @@ jobs:
 
       - name: Resolve candidate issue
         id: pick
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
@@ -334,7 +334,7 @@ jobs:
 
       - name: Transition issue to in-progress
         if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |

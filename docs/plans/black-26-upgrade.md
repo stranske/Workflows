@@ -11,7 +11,7 @@ Bring every registered consumer repository up to the same formatter pin that the
 | --- | --- | --- | --- | --- |
 | Travel-Plan-Permission | `../Travel-Plan-Permission` | ✅ `black>=26.1.0` (`pyproject.toml` line 32) & lockfile pin | `rg "black" pyproject.toml requirements.lock` | Already aligned; use as verification baseline after automation runs. |
 | Template | `../Template` | ✅ `black==26.1.0` in dev extras + `[tool.black]` (pyproject lines 26/92) | `rg "black" pyproject.toml requirements-dev.lock` | Added pin + config via Template commit (local changes ready to push). |
-| Counter_Risk | `../Counter_Risk` | ⚠️ `black==24.10.0` across `pyproject.toml`, `requirements.lock`, `requirements-dev.lock` | `rg "black"` | Upgrade blocker; recent rollbacks (see `agents/autofix_pr104_*` notes) need a follow-up fix after verifying Python 3.11 compatibility. |
+| Counter_Risk | `../Counter_Risk` | ⚠️ `black==24.10.0` across `pyproject.toml`, `requirements.lock`, `requirements-dev.lock` | `rg "black"` | Upgrade blocker; recent rollbacks (see `agents/autofix_pr104_*` notes) need a follow-up fix after verifying Python 3.12 compatibility. |
 | trip-planner | `../trip-planner` | 🚫 no formatter dependency or config | `pyproject.toml` only lists ruff/mypy/pytest | Need to add `black==26.1.0` dev extra and wire into CI scripts; also ensure `scripts/check_test_dependencies.sh` installs it. |
 | Manager-Database | `../Manager-Database` | ✅ `black==26.1.0` (`pyproject.toml` line 33, `requirements.lock`) | `rg "black" pyproject.toml requirements.lock` | No change required besides verifying once automation lands. |
 | Portable-Alpha-Extension-Model | `../Portable-Alpha-Extension-Model` | ⚠️ Mixed: `requirements.lock` pin 26.1.0 but `requirements-dev.txt` still 24.4.2 | `rg "black" requirements-dev.txt requirements.lock` | Need to update dev requirements + Makefile bootstrap to 26.1.0 so local workflows stop flipping the version. |
@@ -27,7 +27,7 @@ Bring every registered consumer repository up to the same formatter pin that the
 
 2. **Define repo-specific upgrade steps**
    - **Template:** add `"black==26.1.0"` to `[project.optional-dependencies.dev]` and ensure `.github/workflows/pr-00-gate.yml` calls `black --check .`.
-   - **Counter_Risk:** reproduce the Python 3.11 install error cited in `agents/autofix_pr104_*`, then bump pins + rerun `scripts/sync_dev_dependencies.py --check`. We may need to patch any legacy import incompatibilities before repinning.
+   - **Counter_Risk:** reproduce the Python 3.12 install error cited in `agents/autofix_pr104_*`, then bump pins + rerun `scripts/sync_dev_dependencies.py --check`. We may need to patch any legacy import incompatibilities before repinning.
    - **trip-planner & Collab-Admin:** create `requirements-dev.txt` (if absent) with Black 26, update CI to install it, and add a `[tool.black]` section with the shared settings (line length 100).
    - **Portable-Alpha-Extension-Model:** align `requirements-dev.txt`, Makefile bootstrap, and any docs that still instruct developers to install `black==24.4.2`.
 

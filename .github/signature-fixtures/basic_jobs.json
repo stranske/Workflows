@@ -1,7 +1,7 @@
 [
   {
-    "name": "core tests (3.11)",
-    "step": "Reusable CI (3.11)",
+    "name": "core tests (3.12)",
+    "step": "Reusable CI (3.12)",
     "stack": "StackToken:ci-311"
   },
   {

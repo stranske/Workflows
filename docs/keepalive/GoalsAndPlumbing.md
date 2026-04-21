@@ -139,7 +139,7 @@ The keepalive loop routes to different agent workflows based on the `agent:*` la
 
 | Label | Agent | Workflow |
 |-------|-------|----------|
-| `agent:codex` | Codex CLI (gpt-5.2-codex) | `reusable-codex-run.yml` |
+| `agent:codex` | Codex CLI (gpt-5.3-codex) | `reusable-codex-run.yml` |
 
 Only `agent:codex` is currently implemented in this repository. Other `agent:*` labels may be reserved for future expansion.
 

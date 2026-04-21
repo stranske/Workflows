@@ -17,12 +17,17 @@ except ImportError:
     sys.exit(1)
 
 
+LINE_LENGTH_EXEMPTIONS = ("stranske/Workflows/.github/actions/setup-api-client@",)
+
+
 def check_line_length(file_path: Path, max_length: int = 100) -> list[tuple[int, str]]:
     """Check for lines that exceed maximum length (may cause wrapping issues)."""
     issues = []
     with open(file_path, encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
-            if len(line.rstrip()) > max_length:
+            if len(line.rstrip()) > max_length and not any(
+                exemption in line for exemption in LINE_LENGTH_EXEMPTIONS
+            ):
                 issues.append((line_num, f"Line exceeds {max_length} characters"))
     return issues
 

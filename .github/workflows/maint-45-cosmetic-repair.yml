@@ -9,7 +9,7 @@ on:
         required: false
       python-version:
         description: Python version to use for pytest
-        default: '3.11'
+        default: '3.12'
         required: false
       dry-run:
         description: Run the repair helper in dry-run mode without creating commits

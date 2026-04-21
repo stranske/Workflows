@@ -162,7 +162,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@v1
     with:
-      python-versions: '["3.11", "3.12"]'
+      python-versions: '["3.12", "3.13"]'
       package-name: my-package
       coverage-min: '80'
 ```

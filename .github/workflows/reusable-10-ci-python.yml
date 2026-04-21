@@ -278,17 +278,17 @@ jobs:
             except json.JSONDecodeError:
               fail(
                 'python-versions must be a valid JSON array of strings '
-                '(example: ["3.11", "3.12"]).'
+                '(example: ["3.12", "3.13"]).'
               )
             if not isinstance(python_versions, list):
-              fail('python-versions must be a JSON array (example: ["3.11", "3.12"]).')
+              fail('python-versions must be a JSON array (example: ["3.12", "3.13"]).')
             if not python_versions:
-              fail('python-versions must include at least one version (example: ["3.11", "3.12"]).')
+              fail('python-versions must include at least one version (example: ["3.12", "3.13"]).')
             for version in python_versions:
               if not isinstance(version, str) or not version.strip():
                 fail(
                   'python-versions entries must be non-empty strings '
-                  '(example: ["3.11", "3.12"]).'
+                  '(example: ["3.12", "3.13"]).'
                 )
 
           validate_number(
@@ -424,7 +424,7 @@ jobs:
             ${{
               inputs['primary-python-version']
               || inputs['python-version']
-              || '3.11'
+              || '3.12'
             }}
 
       - name: Set up Node.js
@@ -448,7 +448,7 @@ jobs:
             ${{ format(
             'uv-{0}-{1}-{2}-{3}',
             runner.os,
-            inputs['primary-python-version'] || inputs['python-version'] || '3.11',
+            inputs['primary-python-version'] || inputs['python-version'] || '3.12',
             hashFiles(format('{0}/requirements.lock', inputs['working-directory'] || '.')),
             hashFiles(format('{0}/pyproject.toml', inputs['working-directory'] || '.'))
             ) }}
@@ -471,7 +471,7 @@ jobs:
             ${{
               inputs['primary-python-version']
               || inputs['python-version']
-              || '3.11'
+              || '3.12'
             }}
         run: |
           set -euo pipefail
@@ -730,7 +730,7 @@ jobs:
             ${{
               inputs['primary-python-version']
               || inputs['python-version']
-              || '3.11'
+              || '3.12'
             }}
 
       - name: Set up Node.js
@@ -754,7 +754,7 @@ jobs:
             ${{ format(
             'uv-{0}-{1}-{2}-{3}',
             runner.os,
-            inputs['primary-python-version'] || inputs['python-version'] || '3.11',
+            inputs['primary-python-version'] || inputs['python-version'] || '3.12',
             hashFiles(format('{0}/requirements.lock', inputs['working-directory'] || '.')),
             hashFiles(format('{0}/pyproject.toml', inputs['working-directory'] || '.'))
             ) }}
@@ -777,7 +777,7 @@ jobs:
             ${{
               inputs['primary-python-version']
               || inputs['python-version']
-              || '3.11'
+              || '3.12'
             }}
         run: |
           set -euo pipefail
@@ -1036,7 +1036,7 @@ jobs:
             ${{
               inputs['primary-python-version']
               || inputs['python-version']
-              || '3.11'
+              || '3.12'
             }}
         run: |
           set -euo pipefail
@@ -1051,7 +1051,7 @@ jobs:
               steps.mypy-pin.outputs.python-version
               || inputs['primary-python-version']
               || inputs['python-version']
-              || '3.11'
+              || '3.12'
             }}
 
       - name: Set up Node.js
@@ -1098,7 +1098,7 @@ jobs:
               steps.mypy-pin.outputs.python-version
               || inputs['primary-python-version']
               || inputs['python-version']
-              || '3.11'
+              || '3.12'
             }}
         run: |
           set -euo pipefail
@@ -1368,7 +1368,7 @@ jobs:
               )
               && format('[{0}]', toJson(inputs['python-version']))
             )
-            || '["3.11"]'
+            || '["3.12"]'
           ) }}
     defaults:
       run:

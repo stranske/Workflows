@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -31,7 +31,7 @@ MAX_REPAIR_ATTEMPTS = 1
 
 
 @dataclass(frozen=True)
-class StructuredOutputResult(Generic[T]):
+class StructuredOutputResult[T: BaseModel]:
     payload: T | None
     raw_content: str | None
     error_stage: str | None
@@ -95,7 +95,7 @@ def clamp_repair_attempts(max_repair_attempts: int) -> int:
     )
 
 
-def _invoke_repair_loop(
+def _invoke_repair_loop[T: BaseModel](
     *,
     repair: Callable[[str, str, str], str | None] | None,
     attempts: int,
@@ -154,7 +154,7 @@ def _invoke_repair_loop(
     )
 
 
-def invoke_repair_loop(
+def invoke_repair_loop[T: BaseModel](
     *,
     repair: Callable[[str, str, str], str | None] | None,
     attempts: int,
@@ -171,7 +171,7 @@ def invoke_repair_loop(
     )
 
 
-def parse_structured_output(
+def parse_structured_output[T: BaseModel](
     content: str,
     model: type[T],
     *,

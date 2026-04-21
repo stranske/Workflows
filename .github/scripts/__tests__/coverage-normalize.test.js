@@ -24,13 +24,14 @@ test('parses coverage xml and json payloads', () => {
 test('computes coverage stats and writes files', async () => {
   const cwd = process.cwd();
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-test-'));
+  const previousReferenceRuntime = process.env.COVERAGE_REFERENCE_RUNTIME;
   process.chdir(tempDir);
   try {
-    const summaryDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'coverage-3.11');
+    const summaryDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'coverage-3.12');
     fs.mkdirSync(summaryDir, { recursive: true });
     fs.writeFileSync(path.join(summaryDir, 'coverage.json'), JSON.stringify({ totals: { percent_covered: 91.234 } }));
 
-    const secondDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'runtimes', '3.12');
+    const secondDir = path.join(tempDir, 'summary_artifacts', 'coverage-runtimes', 'runtimes', '3.13');
     fs.mkdirSync(secondDir, { recursive: true });
     fs.writeFileSync(path.join(secondDir, 'coverage.xml'), '<coverage line-rate="0.845"/>');
 
@@ -42,12 +43,30 @@ test('computes coverage stats and writes files', async () => {
     const deltaPath = path.join(tempDir, 'summary_artifacts', 'coverage-delta.json');
     fs.writeFileSync(deltaPath, JSON.stringify({ delta: 1 }));
 
+    delete process.env.COVERAGE_REFERENCE_RUNTIME;
     const result = await computeCoverageStats({ core: null });
     assert.ok(result.stats.avg_latest >= 0);
     assert.equal(result.stats.job_coverages.length, 2);
+    assert.equal(result.stats.diff_reference, '3.13');
+    assert.equal(result.stats.job_coverages[0].name, 'coverage-3.13');
+
+    process.env.COVERAGE_REFERENCE_RUNTIME = '3.12';
+    const primaryRuntime = await computeCoverageStats({ core: null });
+    assert.equal(primaryRuntime.stats.diff_reference, '3.12');
+    assert.equal(primaryRuntime.stats.job_coverages[0].name, 'coverage-3.12');
+
+    process.env.COVERAGE_REFERENCE_RUNTIME = '3.13';
+    const overridden = await computeCoverageStats({ core: null });
+    assert.equal(overridden.stats.diff_reference, '3.13');
+    assert.equal(overridden.stats.job_coverages[0].name, 'coverage-3.13');
     assert.ok(fs.existsSync(path.join(tempDir, 'coverage-stats.json')));
     assert.ok(fs.existsSync(path.join(tempDir, 'coverage-delta-output.json')));
   } finally {
+    if (previousReferenceRuntime === undefined) {
+      delete process.env.COVERAGE_REFERENCE_RUNTIME;
+    } else {
+      process.env.COVERAGE_REFERENCE_RUNTIME = previousReferenceRuntime;
+    }
     process.chdir(cwd);
     fs.rmSync(tempDir, { recursive: true, force: true });
   }

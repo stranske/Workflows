@@ -103,7 +103,7 @@ These workflows are designed to be called by other workflows and are not expecte
 
 **Error**: Artifact naming mismatch between expected and actual coverage artifacts
 
-**Root Cause**: The selftest is detecting drift between expected artifact names (`sf-*-coverage-3.11`) and actual (`sf-*-coverage-3.11-1`). This appears to be a test configuration issue.
+**Root Cause**: The selftest is detecting drift between expected artifact names (`sf-*-coverage-3.12`) and actual (`sf-*-coverage-3.12-1`). This appears to be a test configuration issue.
 
 **Recommendation**: Fix the artifact naming expectations or update the reusable workflow to match.
 
@@ -156,7 +156,7 @@ These workflows are designed to be called by other workflows and are not expecte
 ```yaml
 - uses: actions/setup-python@v5
   with:
-    python-version: '3.11'
+    python-version: '3.12'
     cache: pip
     cache-dependency-path: pyproject.toml
 ```

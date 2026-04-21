@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: Check PR is merged
         id: check-merged
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ github.token }}
           script: |
@@ -103,7 +103,7 @@ jobs:
       - name: Collect verification and original issue data
         id: collect
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
@@ -230,7 +230,7 @@ jobs:
       - name: Fallback to simple extraction
         id: fallback
         if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
@@ -313,7 +313,7 @@ jobs:
       - name: Create follow-up issue
         id: create-issue
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_TITLE: >-
             ${{ steps.generate.outputs.issue_title ||
@@ -374,7 +374,7 @@ jobs:
 
       - name: Comment on original PR
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
@@ -417,7 +417,7 @@ jobs:
 
       - name: Remove trigger label
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         continue-on-error: true
         with:
           github-token: ${{ steps.select-token.outputs.token }}
