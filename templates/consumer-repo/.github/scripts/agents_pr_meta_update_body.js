@@ -895,6 +895,26 @@ function selectLatestWorkflows(runs) {
   return latest;
 }
 
+const SELF_OBSERVING_WORKFLOW_NAMES = new Set([
+  'agents pr meta manager',
+]);
+
+function isSelfObservingWorkflowRun(run) {
+  const name = String(run?.name || '').trim().toLowerCase();
+  return Boolean(name && SELF_OBSERVING_WORKFLOW_NAMES.has(name));
+}
+
+function filterWorkflowRunsForStatus(workflowRuns) {
+  const filtered = new Map();
+  for (const [key, run] of workflowRuns || new Map()) {
+    if (isSelfObservingWorkflowRun(run)) {
+      continue;
+    }
+    filtered.set(key, run);
+  }
+  return filtered;
+}
+
 function fallbackChecklist(message) {
   return `- [ ] ${message}`;
 }
@@ -926,6 +946,7 @@ function buildPreamble(sections) {
 function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core, agentType, owner, repo}) {
   const statusLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
   const isCliAgent = Boolean(agentType && String(agentType).trim());
+  const statusWorkflowRuns = filterWorkflowRunsForStatus(workflowRuns);
 
   const existingBlock = extractBlock(existingBody || '', 'auto-status-summary');
   const existingStates = parseCheckboxStates(existingBlock);
@@ -980,7 +1001,7 @@ function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, wo
   if (!isCliAgent) {
     statusLines.push(`**Head SHA:** ${headSha}`);
 
-    const latestRuns = Array.from(workflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const latestRuns = Array.from(statusWorkflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     let latestLine = '—';
     if (latestRuns.length > 0) {
       const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
@@ -992,7 +1013,7 @@ function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, wo
 
     const requiredParts = [];
     for (const name of requiredChecks) {
-      const run = Array.from(workflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
+      const run = Array.from(statusWorkflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
       if (!run) {
         requiredParts.push(`${name}: ⏸️ not started`);
       } else {
@@ -1004,7 +1025,7 @@ function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, wo
     statusLines.push('');
 
     const table = ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|'];
-    const runs = Array.from(workflowRuns.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const runs = Array.from(statusWorkflowRuns.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     if (runs.length === 0) {
       table.push('| _(no workflow runs yet for this commit)_ | — | — |');
@@ -1388,6 +1409,7 @@ module.exports = {
   upsertCompletionAuthorWarning,
   stripPrTemplateContent,
   upsertBlock,
+  filterWorkflowRunsForStatus,
   buildContextBlock,
   buildPreamble,
   buildStatusBlock,
