@@ -425,6 +425,40 @@ test('keeps selector JSON out of auth input counts for mismatch enforcement', ()
   assert.equal(report.auth_artifact_input_mismatch, true);
 });
 
+test('continues collecting auth files when artifact entries race or become unreadable', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bot-auth-coverage-'));
+  const artifactDir = path.join(dir, 'bot-comment-auth-coverage-wrapper-3');
+  const missingArtifactDir = path.join(dir, 'bot-comment-auth-coverage-wrapper-missing');
+  fs.mkdirSync(artifactDir);
+  fs.writeFileSync(
+    path.join(artifactDir, 'wrapper.json'),
+    JSON.stringify(record('agents-bot-comment-handler-wrapper', 'client-id', 3)),
+    'utf8'
+  );
+  const originalReaddirSync = fs.readdirSync;
+  const originalStatSync = fs.statSync;
+  fs.readdirSync = function readdirSyncWithRace(current, ...args) {
+    const entries = originalReaddirSync.call(this, current, ...args);
+    return current === dir ? [...entries, path.basename(missingArtifactDir)] : entries;
+  };
+  fs.statSync = function statSyncWithRace(current, ...args) {
+    if (current === missingArtifactDir) {
+      const error = new Error('entry disappeared');
+      error.code = 'ENOENT';
+      throw error;
+    }
+    return originalStatSync.call(this, current, ...args);
+  };
+  try {
+    const files = collectJsonFiles(dir);
+    assert.equal(files.length, 1);
+    assert.ok(files[0].endsWith('wrapper.json'));
+  } finally {
+    fs.readdirSync = originalReaddirSync;
+    fs.statSync = originalStatSync;
+  }
+});
+
 test('identifies only bot-comment auth coverage candidate files', () => {
   assert.equal(
     isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-wrapper-1/wrapper.json'),

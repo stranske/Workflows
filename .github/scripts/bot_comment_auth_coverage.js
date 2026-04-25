@@ -544,9 +544,21 @@ function collectJsonFiles(rootDir) {
   const stack = [rootDir];
   while (stack.length > 0) {
     const current = stack.pop();
-    const stat = fs.statSync(current);
+    if (!current || !fs.existsSync(current)) continue;
+    let stat;
+    try {
+      stat = fs.statSync(current);
+    } catch (_error) {
+      continue;
+    }
     if (stat.isDirectory()) {
-      for (const entry of fs.readdirSync(current)) {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(current);
+      } catch (_error) {
+        continue;
+      }
+      for (const entry of entries) {
         stack.push(path.join(current, entry));
       }
     } else if (stat.isFile() && isPotentialAuthCoverageFile(current)) {
