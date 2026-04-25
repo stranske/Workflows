@@ -192,6 +192,22 @@ def test_probe_targets_samples_each_manifest_section(tmp_path, monkeypatch) -> N
     ]
 
 
+def test_probe_targets_keeps_section_coverage_limit(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    for index in range(18):
+        probe_file = tmp_path / "templates" / "consumer-repo" / f"section-{index}.txt"
+        probe_file.parent.mkdir(parents=True, exist_ok=True)
+        probe_file.write_text(f"section {index}\n", encoding="utf-8")
+
+    manifest = {f"section_{index}": [{"source": f"section-{index}.txt"}] for index in range(18)}
+
+    targets = check_consumer_sync_drift.probe_targets(manifest, list(manifest))
+
+    assert len(targets) == 16
+    assert targets[0] == "section-0.txt"
+    assert targets[-1] == "section-15.txt"
+
+
 def test_write_report_json_creates_parent_directory(tmp_path) -> None:
     output = tmp_path / "artifacts" / "consumer-sync-drift-report.json"
     report = check_consumer_sync_drift.build_report(
@@ -246,6 +262,13 @@ def test_join_remote_path_normalizes_manifest_directory_targets() -> None:
             "/action.yml",
         )
         == ".github/actions/setup-api-client/action.yml"
+    )
+
+
+def test_git_blob_hash_matches_git_object_hash() -> None:
+    assert (
+        check_consumer_sync_drift.git_blob_hash(b"hello\n")
+        == "ce013625030ba8dba906f756967f9e9ca394464a"
     )
 
 
@@ -355,3 +378,86 @@ def test_repo_access_error_allows_readable_repo() -> None:
             return Response()
 
     assert check_consumer_sync_drift.repo_access_error(Session(), "owner/repo") is None
+
+
+def test_fetch_remote_tree_uses_default_branch_tree() -> None:
+    class Response:
+        def __init__(self, status_code: int, payload: dict[str, object]) -> None:
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self) -> dict[str, object]:
+            return self._payload
+
+    class Session:
+        requested_urls: list[str] = []
+
+        def get(self, url: str) -> Response:
+            self.requested_urls.append(url)
+            if url.endswith("/repos/owner/repo"):
+                return Response(200, {"default_branch": "trunk"})
+            if url.endswith("/repos/owner/repo/git/trees/trunk?recursive=1"):
+                return Response(
+                    200,
+                    {
+                        "tree": [
+                            {"path": ".github/workflows/a.yml", "type": "blob", "sha": "abc"},
+                            {"path": ".github/workflows", "type": "tree", "sha": "def"},
+                        ],
+                        "truncated": False,
+                    },
+                )
+            return Response(404, {})
+
+    session = Session()
+
+    tree, error = check_consumer_sync_drift.fetch_remote_tree(session, "owner/repo")
+
+    assert error is None
+    assert tree == {
+        ".github/workflows/a.yml": {
+            "path": ".github/workflows/a.yml",
+            "type": "blob",
+            "sha": "abc",
+        },
+        ".github/workflows": {"path": ".github/workflows", "type": "tree", "sha": "def"},
+    }
+    assert session.requested_urls == [
+        "https://api.github.com/repos/owner/repo",
+        "https://api.github.com/repos/owner/repo/git/trees/trunk?recursive=1",
+    ]
+
+
+def test_fetch_remote_tree_reports_truncated_tree() -> None:
+    class Response:
+        status_code = 200
+
+        def json(self) -> dict[str, object]:
+            return {"default_branch": "main", "tree": [], "truncated": True}
+
+    class Session:
+        def get(self, _url: str) -> Response:
+            return Response()
+
+    tree, error = check_consumer_sync_drift.fetch_remote_tree(Session(), "owner/repo")
+
+    assert tree is None
+    assert error == "owner/repo: repository tree fetch was truncated"
+
+
+def test_fetch_remote_tree_reports_rate_limit_reason() -> None:
+    class Response:
+        status_code = 403
+        headers = {"x-ratelimit-remaining": "0"}
+
+        def json(self) -> dict[str, str]:
+            return {"message": "API rate limit exceeded"}
+
+    class Session:
+        def get(self, _url: str) -> Response:
+            return Response()
+
+    tree, error = check_consumer_sync_drift.fetch_remote_tree(Session(), "owner/repo")
+
+    assert tree is None
+    assert error == "owner/repo: repository access preflight failed (rate_limited)"

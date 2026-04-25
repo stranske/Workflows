@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
 import os
@@ -102,8 +101,10 @@ def local_path_for(source: str, section: str | None = None) -> Path | None:
     return None
 
 
-def file_hash(content: bytes) -> str:
-    return hashlib.sha256(content).hexdigest()
+def git_blob_hash(content: bytes) -> str:
+    """Return the Git object SHA for file content without fetching the remote blob."""
+    header = f"blob {len(content)}\0".encode()
+    return hashlib.sha1(header + content).hexdigest()
 
 
 def sorted_items(values: set[str]) -> list[str]:
@@ -520,6 +521,42 @@ def repo_access_error(session: requests.Session, repo: str) -> str | None:
     return f"{repo}: repository access preflight failed (HTTP {response.status_code})"
 
 
+def fetch_remote_tree(
+    session: requests.Session, repo: str
+) -> tuple[dict[str, dict[str, object]] | None, str | None]:
+    """Fetch a repo's default-branch tree once so file comparisons are cheap."""
+    repo_response = session.get(f"https://api.github.com/repos/{repo}")
+    if repo_response.status_code >= 400:
+        return (
+            None,
+            f"{repo}: repository access preflight failed ({response_failure_reason(repo_response)})",
+        )
+
+    repo_data = repo_response.json()
+    default_branch = str(repo_data.get("default_branch") or "main")
+    tree_response = session.get(
+        f"https://api.github.com/repos/{repo}/git/trees/{default_branch}?recursive=1"
+    )
+    if tree_response.status_code >= 400:
+        return (
+            None,
+            f"{repo}: repository tree fetch failed ({response_failure_reason(tree_response)})",
+        )
+
+    tree_data = tree_response.json()
+    if tree_data.get("truncated"):
+        return None, f"{repo}: repository tree fetch was truncated"
+
+    entries: dict[str, dict[str, object]] = {}
+    for item in tree_data.get("tree", []) or []:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        if isinstance(path, str) and path:
+            entries[path] = item
+    return entries, None
+
+
 def main() -> int:
     args = parse_args()
     repos = resolve_repos(args.repos)
@@ -612,43 +649,24 @@ def main() -> int:
     errors: set[str] = set()
     obsolete: set[str] = set()
 
-    accessible_repos: list[str] = []
+    remote_trees: dict[str, dict[str, dict[str, object]]] = {}
     for repo in repos:
-        access_error = repo_access_error(session, repo)
-        if access_error:
-            errors.add(access_error)
+        remote_tree, tree_error = fetch_remote_tree(session, repo)
+        if tree_error:
+            errors.add(tree_error)
         else:
-            accessible_repos.append(repo)
-
-    repo_content_error_counts: dict[str, int] = {}
-    skipped_content_repos: set[str] = set()
+            remote_trees[repo] = remote_tree or {}
 
     def _check_file(local_file: Path, remote_target: str, repo: str) -> None:
         """Compare a single local file against its remote counterpart."""
-        if repo in skipped_content_repos:
-            return
-        local_digest = file_hash(local_file.read_bytes())
-        url = f"https://api.github.com/repos/{repo}/contents/{remote_target}"
-        response = session.get(url)
-        if response.status_code == 404:
+        remote_entry = remote_trees.get(repo, {}).get(remote_target)
+        if remote_entry is None:
             missing.add(f"{repo}: {remote_target}")
             return
-        if response.status_code >= 400:
-            record_content_error(
-                errors=errors,
-                repo_error_counts=repo_content_error_counts,
-                skipped_repos=skipped_content_repos,
-                repo=repo,
-                target=remote_target,
-                status_code=response.status_code,
-            )
+        if remote_entry.get("type") != "blob" or not remote_entry.get("sha"):
+            errors.add(f"{repo}: {remote_target} (unexpected remote tree entry)")
             return
-        data = response.json()
-        if data.get("encoding") != "base64" or "content" not in data:
-            errors.add(f"{repo}: {remote_target} (unexpected content encoding)")
-            return
-        remote_content = base64.b64decode(data["content"])
-        if file_hash(remote_content) != local_digest:
+        if str(remote_entry["sha"]) != git_blob_hash(local_file.read_bytes()):
             drift.add(f"{repo}: {remote_target}")
 
     for section in sections:
@@ -665,9 +683,7 @@ def main() -> int:
                 errors.add(f"{section}: missing local file for {source}")
                 continue
 
-            for repo in accessible_repos:
-                if repo in skipped_content_repos:
-                    continue
+            for repo in remote_trees:
                 if is_directory or local_path.is_dir():
                     # Recursively compare all files within the directory
                     for child in sorted(local_path.rglob("*")):
@@ -682,24 +698,9 @@ def main() -> int:
         target = entry.get("target")
         if not target:
             continue
-        for repo in accessible_repos:
-            if repo in skipped_content_repos:
-                continue
-            url = f"https://api.github.com/repos/{repo}/contents/{target}"
-            response = session.get(url)
-            if response.status_code == 404:
-                continue
-            if response.status_code >= 400:
-                record_content_error(
-                    errors=errors,
-                    repo_error_counts=repo_content_error_counts,
-                    skipped_repos=skipped_content_repos,
-                    repo=repo,
-                    target=target,
-                    status_code=response.status_code,
-                )
-                continue
-            obsolete.add(f"{repo}: {target}")
+        for repo, remote_tree in remote_trees.items():
+            if target in remote_tree:
+                obsolete.add(f"{repo}: {target}")
 
     report = build_report(
         repos=repos,
