@@ -93,8 +93,11 @@ on:
       service_bot_pat:
         description: 'PAT for service bot (comments, labels)'
         required: false
+      gh_app_client_id:
+        description: 'GitHub App client ID for authentication'
+        required: false
       gh_app_id:
-        description: 'GitHub App ID for authentication'
+        description: 'Legacy GitHub App ID for authentication'
         required: false
       gh_app_private_key:
         description: 'GitHub App private key'
@@ -121,10 +124,37 @@ jobs:
       agent: ${{ steps.agent.outputs.agent }}
       agent_workflow: ${{ steps.agent.outputs.workflow }}
     steps:
-      - name: Generate token (if App configured)
-        id: token
-        uses: actions/create-github-app-token@v3
+      - name: Detect App credentials
+        id: app-creds
+        env:
+          GH_APP_CLIENT_ID: ${{ secrets.gh_app_client_id }}
+          GH_APP_ID: ${{ secrets.gh_app_id }}
+          GH_APP_PRIVATE_KEY: ${{ secrets.gh_app_private_key }}
+        run: |
+          if [ -n "${GH_APP_CLIENT_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            echo "use_client=true" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            echo "use_client=false" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_client=false" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+          fi
 
+      - name: Generate token (if App client ID configured)
+        id: token-client
+        if: steps.app-creds.outputs.use_client == 'true'
+        uses: actions/create-github-app-token@v3
+        continue-on-error: true
+        with:
+          client-id: ${{ secrets.gh_app_client_id }}
+          private-key: ${{ secrets.gh_app_private_key }}
+
+      - name: Generate token (if legacy App ID configured)
+        id: token-legacy
+        if: steps.app-creds.outputs.use_legacy == 'true'
+        uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.gh_app_id }}
@@ -133,7 +163,7 @@ jobs:
       - name: Resolve token
         id: auth
         env:
-          TOKEN_OUTPUT: ${{ steps.token.outputs.token }}
+          TOKEN_OUTPUT: ${{ steps.token-client.outputs.token || steps.token-legacy.outputs.token }}
           SERVICE_PAT: ${{ secrets.service_bot_pat }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -557,8 +587,36 @@ jobs:
     outputs:
       triggered: ${{ steps.dispatch.outputs.triggered }}
     steps:
-      - name: Generate token (if App configured)
-        id: token
+      - name: Detect App credentials
+        id: app-creds
+        env:
+          GH_APP_CLIENT_ID: ${{ secrets.gh_app_client_id }}
+          GH_APP_ID: ${{ secrets.gh_app_id }}
+          GH_APP_PRIVATE_KEY: ${{ secrets.gh_app_private_key }}
+        run: |
+          if [ -n "${GH_APP_CLIENT_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            echo "use_client=true" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            echo "use_client=false" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_client=false" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate token (if App client ID configured)
+        id: token-client
+        if: steps.app-creds.outputs.use_client == 'true'
+        uses: actions/create-github-app-token@v3
+        continue-on-error: true
+        with:
+          client-id: ${{ secrets.gh_app_client_id }}
+          private-key: ${{ secrets.gh_app_private_key }}
+
+      - name: Generate token (if legacy App ID configured)
+        id: token-legacy
+        if: steps.app-creds.outputs.use_legacy == 'true'
         uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
@@ -568,7 +626,7 @@ jobs:
       - name: Resolve token
         id: auth
         env:
-          TOKEN_OUTPUT: ${{ steps.token.outputs.token }}
+          TOKEN_OUTPUT: ${{ steps.token-client.outputs.token || steps.token-legacy.outputs.token }}
           SERVICE_PAT: ${{ secrets.service_bot_pat }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |

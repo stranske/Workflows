@@ -2,6 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
+const Module = require('node:module');
 
 const {
   autoDismissReviewComments,
@@ -12,6 +13,38 @@ const {
 } = require('../bot-comment-dismiss');
 
 describe('bot-comment-dismiss', () => {
+  it('falls back when minimatch is unavailable in sparse workflow checkouts', () => {
+    const scriptPath = require.resolve('../bot-comment-dismiss');
+    const cached = require.cache[scriptPath];
+    const originalLoad = Module._load;
+    delete require.cache[scriptPath];
+    Module._load = function patchedLoad(request, parent, isMain) {
+      if (request === 'minimatch') {
+        throw new Error('Cannot find module minimatch');
+      }
+      return originalLoad.call(this, request, parent, isMain);
+    };
+    try {
+      const isolated = require('../bot-comment-dismiss');
+      assert.deepStrictEqual(
+        isolated.collectDismissable(
+          [{ id: 1, path: '.agents/issue-1-ledger.yml', user: { login: 'copilot[bot]' } }],
+          {
+            ignoredPaths: ['.agents/'],
+            botAuthors: ['copilot[bot]'],
+          }
+        ),
+        [{ id: 1, path: '.agents/issue-1-ledger.yml', author: 'copilot[bot]' }]
+      );
+    } finally {
+      Module._load = originalLoad;
+      delete require.cache[scriptPath];
+      if (cached) {
+        require.cache[scriptPath] = cached;
+      }
+    }
+  });
+
   it('collects bot comments in ignored paths', () => {
     const comments = [
       { id: 1, path: '.agents/issue-1-ledger.yml', user: { login: 'copilot[bot]' } },

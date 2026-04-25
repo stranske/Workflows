@@ -15,10 +15,46 @@
  *   await autoDismissReviewComments({ github, withRetry, ... });
  */
 
-const { minimatch } = require('minimatch');
+let minimatch;
+try {
+  ({ minimatch } = require('minimatch'));
+} catch (_) {
+  minimatch = fallbackMinimatch;
+}
 
 const DEFAULT_IGNORED_PATTERNS = ['.agents/**'];
 const DEFAULT_MAX_AGE_SECONDS = 30;
+
+function escapeRegExp(value) {
+  return String(value).replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+}
+
+function fallbackGlobToRegExp(pattern) {
+  let expression = '^';
+  const text = String(pattern || '');
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === '*') {
+      if (next === '*') {
+        expression += '.*';
+        index += 1;
+      } else {
+        expression += '[^/]*';
+      }
+    } else if (char === '?') {
+      expression += '[^/]';
+    } else {
+      expression += escapeRegExp(char);
+    }
+  }
+  expression += '$';
+  return new RegExp(expression);
+}
+
+function fallbackMinimatch(filename, pattern) {
+  return fallbackGlobToRegExp(pattern).test(filename);
+}
 
 function parseCsv(value) {
   if (!value) {

@@ -63,6 +63,39 @@ def test_reusable_bot_comment_handler_uploads_terminal_disposition_artifact() ->
     assert upload_with.get("retention-days") == 14
 
 
+def test_reusable_bot_comment_handler_prefers_app_client_id() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
+    workflow_call_secrets = (workflow.get("on") or workflow.get(True))["workflow_call"]["secrets"]
+    collect_steps = workflow["jobs"]["collect"]["steps"]
+    detect_step = next(
+        step for step in collect_steps if step.get("name") == "Detect App credentials"
+    )
+    client_step = next(
+        step
+        for step in collect_steps
+        if step.get("name") == "Generate token (if App client ID configured)"
+    )
+    legacy_step = next(
+        step
+        for step in collect_steps
+        if step.get("name") == "Generate token (if legacy App ID configured)"
+    )
+    resolve_step = next(step for step in collect_steps if step.get("name") == "Resolve token")
+
+    assert "gh_app_client_id" in workflow_call_secrets
+    assert detect_step["env"]["GH_APP_CLIENT_ID"] == "${{ secrets.gh_app_client_id }}"
+    assert detect_step["env"]["GH_APP_PRIVATE_KEY"] == "${{ secrets.gh_app_private_key }}"
+    assert client_step.get("if") == "steps.app-creds.outputs.use_client == 'true'"
+    assert "client-id" in client_step.get("with", {})
+    assert "app-id" not in client_step.get("with", {})
+    assert legacy_step.get("if") == "steps.app-creds.outputs.use_legacy == 'true'"
+    assert "app-id" in legacy_step.get("with", {})
+    assert (
+        "steps.token-client.outputs.token || steps.token-legacy.outputs.token"
+        in resolve_step["env"]["TOKEN_OUTPUT"]
+    )
+
+
 def test_template_bot_comment_handler_passes_agents_ignore() -> None:
     workflow = _load_yaml(
         ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml"
