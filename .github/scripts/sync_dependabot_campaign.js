@@ -414,7 +414,8 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     }
   }
 
-  const items = pruneItems(nextItems, options.maxRetainedItems || DEFAULT_MAX_RETAINED_ITEMS);
+  const items = pruneItems(nextItems, options.maxRetainedItems || DEFAULT_MAX_RETAINED_ITEMS)
+    .map(annotateLocalCodexQueueState);
   return {
     schema: CAMPAIGN_SCHEMA,
     updated_at: now,
@@ -472,6 +473,14 @@ function localCodexQueueStateCounts(items = []) {
     counts[state] = (counts[state] || 0) + 1;
     return counts;
   }, {});
+}
+
+function annotateLocalCodexQueueState(item = {}) {
+  return {
+    ...item,
+    local_codex_queue_state: localCodexQueueState(item),
+    local_codex_actionable: isActionableLocalCodexItem(item),
+  };
 }
 
 function buildStats(items, discoveredItems, options = {}) {

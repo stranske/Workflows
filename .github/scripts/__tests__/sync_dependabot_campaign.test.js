@@ -196,6 +196,8 @@ test('buildQueueItem marks old sync branches as superseded by the current templa
 
   assert.equal(item.source_sync.status, 'superseded');
   assert.equal(item.source_sync.pr_sync_hash, 'oldhash123456');
+  assert.equal(state.items[0].local_codex_queue_state, 'superseded-sync-candidate');
+  assert.equal(state.items[0].local_codex_actionable, false);
   assert.equal(state.stats.items_needing_local_codex, 0);
   assert.equal(state.stats.items_actionable_local_codex, 0);
   assert.equal(state.stats.items_superseded_sync_candidates, 1);
@@ -350,6 +352,8 @@ test('mergeCampaignState flags repeated source-fixed review signatures without h
   const body = formatCampaignBody(state);
 
   assert.equal(repeatedItem.status, 'needs-local-codex');
+  assert.equal(repeatedItem.local_codex_queue_state, 'source-fixed-candidate');
+  assert.equal(repeatedItem.local_codex_actionable, false);
   assert.equal(repeatedItem.source_fixed_candidate.matching_item_id, finished.id);
   assert.equal(repeatedItem.source_fixed_candidate.finished_at, '2026-04-21T05:30:00Z');
   assert.equal(state.source_review_history.length, 1);
