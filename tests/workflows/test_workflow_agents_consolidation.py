@@ -264,8 +264,16 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             "TERMINAL_DISPOSITION_HARD_BLOCK_APPROVED" in text
         ), "Terminal coverage hard blocking must require an explicit approval flag"
         assert (
-            "terminal_coverage_status=$?" in text and 'exit "$terminal_coverage_status"' in text
-        ), "Terminal coverage must append/upload reports before honoring hard-block failure"
+            "terminal_coverage_status=$?" in text
+            and "TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS=${terminal_coverage_status}" in text
+            and "Honor terminal coverage hard-block" in text
+        ), "Terminal coverage must post/upload reports before honoring hard-block failure"
+        assert text.index("Upload weekly summary") < text.index(
+            "Honor terminal coverage hard-block"
+        ), "Terminal coverage hard-block failure must wait for artifact upload"
+        assert text.index("Post summary to tracking issue") < text.index(
+            "Honor terminal coverage hard-block"
+        ), "Terminal coverage hard-block failure must wait for tracking issue posting"
 
 
 def test_terminal_disposition_records_include_artifact_identity():

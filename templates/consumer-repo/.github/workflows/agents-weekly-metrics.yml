@@ -169,7 +169,7 @@ jobs:
               } >> agent-weekly-metrics.md
             fi
           fi
-          exit "$terminal_coverage_status"
+          echo "TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS=${terminal_coverage_status}" >> "$GITHUB_ENV"
 
       - name: Upload weekly summary
         if: ${{ always() }}
@@ -233,3 +233,7 @@ jobs:
             }
 
             core.setOutput('issue_number', target.number);
+
+      - name: Honor terminal coverage hard-block
+        if: ${{ always() }}
+        run: exit "${TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS:-0}"

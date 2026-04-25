@@ -95,17 +95,19 @@ SYNC: action=<update-branch|create-pr|escalate|skip> head_changed=<true|false> t
 
 ## 6A) Terminal Disposition Coverage Preflight
 
-Weekly metrics MUST run a warning-only `workflows-terminal-disposition-coverage/v1`
-preflight after downloading agent metrics artifacts. The preflight consumes
+Weekly metrics MUST run a `workflows-terminal-disposition-coverage/v1` preflight
+after downloading agent metrics artifacts. The preflight consumes
 `workflows-terminal-disposition/v1` records from verifier and review-thread
 handlers and writes both JSON and Markdown reports into the weekly metrics
 artifact.
 
-The preflight is deliberately non-blocking. Missing `review-thread:<PR>` source
-coverage is reported as `status=warning`, not as a failed check, because local
-automation remains optional and direct remote/manual work must stay valid. This
-gives operators enough data to decide whether a future review-thread hard block
-would be reliable before any blocking policy is enabled.
+The preflight defaults to `mode=warning-only` and is deliberately non-blocking.
+Missing `review-thread:<PR>` source coverage is reported as `status=warning`,
+not as a failed check, because local automation remains optional and direct
+remote/manual work must stay valid. Hard blocking is only valid when the
+machine-readable enforcement policy records `requested_mode=hard-block`,
+`hard_block_approved=true`, and no policy blocker such as
+`hard-block-approval-required`.
 
 Weekly metrics SHOULD pass the machine-readable
 `workflows-weekly-metrics-artifact-selection/v1` selector report into the
@@ -116,7 +118,15 @@ failure, download failure, or a real absence of terminal artifacts.
 Required report fields:
 
 - `schema=workflows-terminal-disposition-coverage/v1`
-- `mode=warning-only`
+- `mode` / `enforcement.mode`: `warning-only` by default; `hard-block` only
+  when explicitly approved
+- `coverage_status`: the observed terminal coverage result before enforcement
+- `enforcement.requested_mode`
+- `enforcement.hard_block_approved`
+- `enforcement.hard_block_active`
+- `enforcement.should_fail`
+- `enforcement.policy_blockers[]`
+- `policy.schema=workflows-terminal-disposition-enforcement-policy/v1`
 - `terminal_record_count`
 - `expected_source_count`
 - `covered_source_count`
