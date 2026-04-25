@@ -12,11 +12,11 @@ const AUTH_ARTIFACT_FAMILIES = new Set([
 const AUTH_ARTIFACT_FILE_CONTRACTS = {
   'wrapper.json': {
     family: 'bot-comment-auth-coverage-wrapper',
-    artifact_dir_pattern: /^bot-comment-auth-coverage-wrapper-\d+$/,
+    artifact_dir_pattern: /^bot-comment-auth-coverage-wrapper-.+$/,
   },
   'reusable.json': {
     family: 'bot-comment-auth-coverage-reusable',
-    artifact_dir_pattern: /^bot-comment-auth-coverage-reusable-\d+$/,
+    artifact_dir_pattern: /^bot-comment-auth-coverage-reusable-.+$/,
   },
 };
 
