@@ -124,6 +124,78 @@ function parseExpectedMode(value, fallback) {
   return { expected_mode: normalized, invalid_expected_mode: '' };
 }
 
+function parseCsvList(value) {
+  if (Array.isArray(value)) {
+    return value.map(cleanString).filter(Boolean);
+  }
+  return cleanString(value)
+    .split(',')
+    .map(cleanString)
+    .filter(Boolean);
+}
+
+function summarizeOrganicEvidence(records = [], options = {}) {
+  const requiredEvents = parseCsvList(
+    options.required_organic_events ??
+      options.requiredOrganicEvents ??
+      process.env.BOT_COMMENT_AUTH_REQUIRED_ORGANIC_EVENTS
+  );
+  const requiredComponents = parseCsvList(
+    options.organic_components ??
+      options.organicComponents ??
+      process.env.BOT_COMMENT_AUTH_ORGANIC_COMPONENTS
+  );
+  const expectedMode = normalizeAuthMode(
+    options.organic_expected_mode ??
+      options.organicExpectedMode ??
+      process.env.BOT_COMMENT_AUTH_ORGANIC_EXPECTED_MODE
+  );
+  const components = requiredComponents.length > 0
+    ? requiredComponents
+    : Object.keys(COMPONENT_POLICIES);
+  const eventCounts = Object.create(null);
+  const latestByComponentEvent = Object.create(null);
+
+  for (const record of records) {
+    if (!record.component || !record.event_name) continue;
+    eventCounts[record.component] ||= {};
+    eventCounts[record.component][record.event_name] =
+      (eventCounts[record.component][record.event_name] || 0) + 1;
+    const key = `${record.component}:${record.event_name}`;
+    const existing = latestByComponentEvent[key];
+    if (!existing || compareRecords(record, existing) < 0) {
+      latestByComponentEvent[key] = record;
+    }
+  }
+
+  const blockers = [];
+  for (const component of components) {
+    for (const eventName of requiredEvents) {
+      const latest = latestByComponentEvent[`${component}:${eventName}`];
+      if (!latest) {
+        blockers.push(`missing-organic-${component}-${eventName}`);
+        continue;
+      }
+      if (latest.fallback_warning_active || latest.auth_mode === 'legacy-app-id') {
+        blockers.push(`legacy-organic-${component}-${eventName}`);
+      }
+      if (expectedMode !== 'unknown' && latest.auth_mode !== expectedMode) {
+        blockers.push(`expected-${expectedMode}-organic-${component}-${eventName}`);
+      }
+    }
+  }
+
+  return {
+    schema: 'workflows-bot-comment-auth-organic-evidence/v1',
+    required_events: requiredEvents,
+    required_components: components,
+    expected_mode: expectedMode === 'unknown' ? '' : expectedMode,
+    event_counts: eventCounts,
+    blockers,
+    status: blockers.length > 0 ? 'warning' : 'pass',
+  };
+}
+
 function componentPolicy(component, options = {}) {
   const base = COMPONENT_POLICIES[component] || {
     expected_mode: '',
@@ -235,6 +307,7 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
     .filter(isAuthCoverageRecord)
     .map((record) => normalizeRecord(record, record.source_path || ''))
     .sort(compareRecords);
+  const organicEvidence = summarizeOrganicEvidence(authRecords, options);
   const byComponent = new Map();
 
   for (const record of authRecords) {
@@ -288,6 +361,7 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
   if (parseErrors > 0) blockers.push('parse-errors');
   if (artifactSelectionWarning) blockers.push('artifact-selection-warning');
   if (authArtifactInputMismatch) blockers.push('selected-auth-artifacts-without-input-files');
+  blockers.push(...organicEvidence.blockers);
 
   let coverageStatus = 'pass';
   if (authRecords.length === 0) {
@@ -323,6 +397,7 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
     parse_errors: parseErrors,
     auth_artifact_input_mismatch: authArtifactInputMismatch,
     artifact_selection: artifactSelection,
+    organic_evidence: organicEvidence,
     components: componentSummaries,
   };
 }
@@ -346,6 +421,10 @@ function formatBotCommentAuthCoverageMarkdown(report) {
     if (report.artifact_selection.error_message) {
       lines.push(`- Artifact selector error: ${report.artifact_selection.error_message}`);
     }
+  }
+  if (report.organic_evidence?.required_events?.length > 0) {
+    lines.push(`- Required organic events: ${report.organic_evidence.required_events.join(', ')}`);
+    lines.push(`- Organic evidence status: ${report.organic_evidence.status}`);
   }
   if (report.enforcement.blockers.length > 0) {
     lines.push(`- Blockers: ${report.enforcement.blockers.join(', ')}`);
@@ -494,6 +573,7 @@ module.exports = {
   isPotentialAuthCoverageFile,
   normalizeArtifactSelectionSummary,
   normalizePolicy,
+  summarizeOrganicEvidence,
   readArtifactSelectionReport,
   readJsonRecords,
   summarizeBotCommentAuthCoverage,

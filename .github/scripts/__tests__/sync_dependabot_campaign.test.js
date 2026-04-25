@@ -10,6 +10,7 @@ const {
   findCampaignIssue,
   formatCampaignBody,
   formatCampaignMarker,
+  formatCampaignRunSummaryMarkdown,
   formatDryRunSummary,
   isDependabotPullRequest,
   isSyncPullRequest,
@@ -18,6 +19,7 @@ const {
   parseCampaignMarker,
   replaceCampaignMarker,
   verboseDryRunLoggingEnabled,
+  validateCampaignState,
 } = require('../sync_dependabot_campaign.js');
 
 test('formats and parses campaign marker', () => {
@@ -404,6 +406,63 @@ test('dry-run summary avoids logging generated issue body by default', () => {
   assert.equal(verboseDryRunLoggingEnabled({ ACTIONS_STEP_DEBUG: 'true' }), true);
   assert.equal(verboseDryRunLoggingEnabled({ RUNNER_DEBUG: '1' }), true);
   assert.equal(verboseDryRunLoggingEnabled({ SYNC_DEPENDABOT_CAMPAIGN_DEBUG_BODY: 'true' }), true);
+});
+
+test('formats campaign run summary as compact artifact markdown', () => {
+  const state = mergeCampaignState(
+    {},
+    [
+      {
+        id: 'sync-review-comments:stranske/App#22:abc',
+        status: 'needs-local-codex',
+        kind: 'sync-review-comments',
+        classification: 'sync',
+        repo: 'stranske/App',
+        pr_number: 22,
+        review_thread_count: 2,
+        review_threads: [],
+      },
+    ],
+    '2026-04-21T05:52:00Z',
+    { runId: 12345, reposRequested: 3, reposChecked: 2, reposFailed: 1, syncPrsOpen: 1 },
+  );
+  state.errors = [{ repo: 'stranske/Broken', error: 'GraphQL rate limit boundary hit' }];
+
+  const summary = formatCampaignRunSummaryMarkdown(state, {
+    html_url: 'https://github.com/stranske/Workflows/issues/99',
+  });
+
+  assert.match(summary, /Sync\/Dependabot Campaign Run/);
+  assert.match(summary, /Run ID: 12345/);
+  assert.match(summary, /Campaign issue: https:\/\/github.com\/stranske\/Workflows\/issues\/99/);
+  assert.match(summary, /Repos checked: 2\/3/);
+  assert.match(summary, /Items needing local Codex: 1/);
+  assert.match(summary, /State validation: pass/);
+  assert.match(summary, /stranske\/Broken: GraphQL rate limit boundary hit/);
+});
+
+test('validates campaign item stats against retained queue state', () => {
+  const state = {
+    schema: 'sync-dependabot-campaign/v1',
+    stats: {
+      items_needing_local_codex: 2,
+      items_claimed: 0,
+      items_finished: 0,
+      items_blocked: 0,
+      status_counts: { 'needs-local-codex': 2 },
+    },
+    items: [
+      { id: 'one', status: 'needs-local-codex' },
+      { id: 'two', status: 'local-codex-finished' },
+    ],
+  };
+
+  const validation = validateCampaignState(state);
+
+  assert.equal(validation.status, 'warning');
+  assert.ok(validation.blockers.includes('stats-mismatch-items_needing_local_codex'));
+  assert.ok(validation.blockers.includes('stats-mismatch-items_finished'));
+  assert.ok(validation.blockers.includes('status-count-mismatch-local-codex-finished'));
 });
 
 test('formatCampaignBody remains below GitHub issue body limit for large queues', () => {

@@ -339,6 +339,54 @@ function buildStats(items, discoveredItems, options = {}) {
   };
 }
 
+function deriveItemStats(items = []) {
+  const statusCounts = cleanArray(items).reduce((counts, item) => {
+    counts[item.status] = (counts[item.status] || 0) + 1;
+    return counts;
+  }, {});
+  return {
+    items_needing_local_codex: statusCounts['needs-local-codex'] || 0,
+    items_claimed: statusCounts['local-codex-claimed'] || 0,
+    items_finished: statusCounts['local-codex-finished'] || 0,
+    items_blocked: statusCounts.blocked || 0,
+    status_counts: statusCounts,
+  };
+}
+
+function validateCampaignState(state = {}) {
+  const stats = state.stats || {};
+  const derived = deriveItemStats(state.items);
+  const blockers = [];
+  const fields = [
+    'items_needing_local_codex',
+    'items_claimed',
+    'items_finished',
+    'items_blocked',
+  ];
+  for (const field of fields) {
+    if (Number(stats[field] || 0) !== Number(derived[field] || 0)) {
+      blockers.push(`stats-mismatch-${field}`);
+    }
+  }
+
+  const observedStatuses = new Set([
+    ...Object.keys(stats.status_counts || {}),
+    ...Object.keys(derived.status_counts || {}),
+  ]);
+  for (const status of observedStatuses) {
+    if (Number(stats.status_counts?.[status] || 0) !== Number(derived.status_counts?.[status] || 0)) {
+      blockers.push(`status-count-mismatch-${status}`);
+    }
+  }
+
+  return {
+    schema: 'sync-dependabot-campaign-validation/v1',
+    status: blockers.length > 0 ? 'warning' : 'pass',
+    blockers,
+    derived_item_stats: derived,
+  };
+}
+
 function formatCampaignMarker(state) {
   const safeJson = JSON.stringify(compactStateForMarker(state)).replace(/--/g, '\\u002d\\u002d');
   return `<!-- ${CAMPAIGN_MARKER} ${safeJson} -->`;
@@ -351,6 +399,7 @@ function compactStateForMarker(state = {}) {
     run_id: cleanString(state.run_id),
     controller: cleanString(state.controller),
     stats: state.stats || {},
+    validation: state.validation || null,
     items: cleanArray(state.items).map((item) => ({
       id: cleanString(item.id),
       status: cleanString(item.status),
@@ -863,6 +912,43 @@ function formatDryRunSummary(state = {}) {
   ].join(' ');
 }
 
+function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
+  const stats = state.stats || {};
+  const errors = cleanArray(state.errors);
+  const validation = state.validation || validateCampaignState(state);
+  const lines = [
+    '## Sync/Dependabot Campaign Run',
+    '',
+    `- Schema: ${state.schema || CAMPAIGN_SCHEMA}`,
+    `- Updated: ${cleanString(state.updated_at) || '-'}`,
+    `- Run ID: ${cleanString(state.run_id) || '-'}`,
+    `- Controller: ${cleanString(state.controller) || 'maint-82-sync-dependabot-campaign'}`,
+    `- Campaign issue: ${cleanString(issue?.html_url) || '-'}`,
+    `- Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
+    `- Repos failed: ${stats.repos_failed || 0}`,
+    `- Open sync PRs: ${stats.sync_prs_open || 0}`,
+    `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
+    `- Active review threads queued: ${stats.active_review_threads || 0}`,
+    `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
+    `- Items claimed: ${stats.items_claimed || 0}`,
+    `- Items blocked: ${stats.items_blocked || 0}`,
+    `- State validation: ${validation.status}`,
+  ];
+
+  if (validation.blockers?.length > 0) {
+    lines.push(`- Validation blockers: ${validation.blockers.join(', ')}`);
+  }
+
+  if (errors.length > 0) {
+    lines.push('', '### Scan Errors', '');
+    for (const error of errors.slice(0, 10)) {
+      lines.push(`- ${cleanString(error.repo) || '-'}: ${truncate(error.error, 180)}`);
+    }
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
 async function runCampaign({
   github,
   context,
@@ -929,6 +1015,7 @@ async function runCampaign({
   if (errors.length) {
     state.errors = errors.slice(0, 20);
   }
+  state.validation = validateCampaignState(state);
 
   const body = formatCampaignBody(state);
   const needsLocalCodex = Number(state.stats.items_needing_local_codex || 0) > 0;
@@ -998,6 +1085,7 @@ module.exports = {
   findCampaignIssue,
   formatCampaignBody,
   formatCampaignMarker,
+  formatCampaignRunSummaryMarkdown,
   formatDryRunSummary,
   isDependabotPullRequest,
   isSyncPullRequest,
@@ -1006,5 +1094,6 @@ module.exports = {
   parseCampaignMarker,
   replaceCampaignMarker,
   runCampaign,
+  validateCampaignState,
   verboseDryRunLoggingEnabled,
 };

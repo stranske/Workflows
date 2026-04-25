@@ -79,8 +79,10 @@ jobs:
           github-token: ${{ env.CAMPAIGN_TOKEN }}
           script: |
             const {
+              formatCampaignRunSummaryMarkdown,
               runCampaign,
             } = require('./.github/scripts/sync_dependabot_campaign.js');
+            const fs = require('fs');
 
             const registeredRepos = '${{ steps.registered.outputs.repos }}'
               .split(',')
@@ -103,6 +105,14 @@ jobs:
             });
 
             const stats = result.state.stats || {};
+            fs.writeFileSync(
+              'sync-dependabot-campaign-state.json',
+              `${JSON.stringify(result.state, null, 2)}\n`
+            );
+            fs.writeFileSync(
+              'sync-dependabot-campaign-summary.md',
+              formatCampaignRunSummaryMarkdown(result.state, result.issue)
+            );
             await core.summary
               .addHeading('Sync/Dependabot Campaign')
               .addList([
@@ -114,6 +124,17 @@ jobs:
                 `Campaign issue: ${result.issue?.html_url || '(dry run)'}`,
               ])
               .write();
+
+      - name: Upload campaign state
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: sync-dependabot-campaign-state-${{ github.run_id }}
+          path: |
+            sync-dependabot-campaign-state.json
+            sync-dependabot-campaign-summary.md
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Log watcher signal
         if: steps.campaign.outputs.needs_local_codex == 'true'

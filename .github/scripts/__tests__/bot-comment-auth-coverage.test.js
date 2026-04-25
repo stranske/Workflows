@@ -14,6 +14,7 @@ const {
   readArtifactSelectionReport,
   readJsonRecords,
   summarizeBotCommentAuthCoverage,
+  summarizeOrganicEvidence,
 } = require('../bot_comment_auth_coverage.js');
 
 function record(component, authMode, runId, extra = {}) {
@@ -294,4 +295,54 @@ test('normalizes bot auth coverage enforcement policy', () => {
     hard_block_approved: true,
     policy_blockers: [],
   });
+});
+
+test('warns when required organic bot auth evidence is missing', () => {
+  const report = summarizeBotCommentAuthCoverage(
+    [
+      record('agents-bot-comment-handler-wrapper', 'client-id', 301),
+      record('reusable-bot-comment-handler', 'client-id', 301),
+    ],
+    {
+      required_organic_events: 'pull_request,workflow_run',
+      organic_components: 'agents-bot-comment-handler-wrapper,reusable-bot-comment-handler',
+      organic_expected_mode: 'client-id',
+    }
+  );
+
+  assert.equal(report.status, 'warning');
+  assert.equal(report.organic_evidence.status, 'warning');
+  assert.ok(
+    report.enforcement.blockers.includes(
+      'missing-organic-agents-bot-comment-handler-wrapper-pull_request'
+    )
+  );
+  assert.ok(
+    report.enforcement.blockers.includes(
+      'missing-organic-reusable-bot-comment-handler-workflow_run'
+    )
+  );
+});
+
+test('passes required organic bot auth evidence when real triggers use client-id', () => {
+  const records = [
+    record('agents-bot-comment-handler-wrapper', 'client-id', 401, { event_name: 'pull_request' }),
+    record('reusable-bot-comment-handler', 'client-id', 401, { event_name: 'pull_request' }),
+    record('agents-bot-comment-handler-wrapper', 'client-id', 402, { event_name: 'workflow_run' }),
+    record('reusable-bot-comment-handler', 'client-id', 402, { event_name: 'workflow_run' }),
+  ];
+
+  const organic = summarizeOrganicEvidence(records, {
+    required_organic_events: ['pull_request', 'workflow_run'],
+    organic_expected_mode: 'client-id',
+  });
+  const report = summarizeBotCommentAuthCoverage(records, {
+    required_organic_events: ['pull_request', 'workflow_run'],
+    organic_expected_mode: 'client-id',
+  });
+
+  assert.equal(organic.status, 'pass');
+  assert.equal(organic.event_counts['agents-bot-comment-handler-wrapper'].pull_request, 1);
+  assert.equal(report.status, 'pass');
+  assert.deepEqual(report.enforcement.blockers, []);
 });

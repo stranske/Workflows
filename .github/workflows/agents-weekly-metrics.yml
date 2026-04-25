@@ -172,6 +172,9 @@ jobs:
           BOT_COMMENT_REUSABLE_EXPECTED_AUTH_MODE: >-
             ${{ vars.BOT_COMMENT_REUSABLE_EXPECTED_AUTH_MODE }}
           BOT_COMMENT_REUSABLE_ALLOWED_AUTH_MODES: ${{ vars.BOT_COMMENT_REUSABLE_ALLOWED_AUTH_MODES || 'client-id,none' }}
+          BOT_COMMENT_AUTH_REQUIRED_ORGANIC_EVENTS: ${{ vars.BOT_COMMENT_AUTH_REQUIRED_ORGANIC_EVENTS || 'pull_request,workflow_run' }}
+          BOT_COMMENT_AUTH_ORGANIC_COMPONENTS: ${{ vars.BOT_COMMENT_AUTH_ORGANIC_COMPONENTS || 'agents-bot-comment-handler-wrapper,reusable-bot-comment-handler' }}
+          BOT_COMMENT_AUTH_ORGANIC_EXPECTED_MODE: ${{ vars.BOT_COMMENT_AUTH_ORGANIC_EXPECTED_MODE || 'client-id' }}
         run: |
           set +e
           node .github/scripts/bot_comment_auth_coverage.js
