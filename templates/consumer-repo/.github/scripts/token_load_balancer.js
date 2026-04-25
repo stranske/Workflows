@@ -20,6 +20,10 @@
  *   const token = await getOptimalToken({ github, core, capabilities: ['cross-repo'] });
  */
 
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
 function requireOrImport(moduleName) {
   try {
     return Promise.resolve(require(moduleName));
@@ -53,6 +57,8 @@ const tokenRegistry = {
   // Threshold below which we consider a token "critical" (5%)
   criticalThreshold: 0.05,
 };
+
+const invalidAuthWarningMemory = new Set();
 
 /**
  * Token capabilities - what each token type can do
@@ -463,6 +469,122 @@ async function refreshAllRateLimits({ github, core }) {
   return results;
 }
 
+function getInvalidAuthWarningCachePath() {
+  const configured =
+    process.env.TOKEN_INVALID_AUTH_WARNING_CACHE ||
+    process.env.GITHUB_TOKEN_INVALID_AUTH_WARNING_CACHE ||
+    '';
+  if (configured.trim()) {
+    return path.resolve(configured.trim());
+  }
+
+  const tempRoot = process.env.RUNNER_TEMP || os.tmpdir();
+  return path.join(tempRoot, 'github-token-invalid-auth-warnings.json');
+}
+
+function readInvalidAuthWarningCache(cachePath, core) {
+  if (!cachePath || !fs.existsSync(cachePath)) {
+    return new Set();
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    if (Array.isArray(parsed)) {
+      return new Set(parsed.filter(Boolean));
+    }
+    if (Array.isArray(parsed?.tokens)) {
+      return new Set(parsed.tokens.filter(Boolean));
+    }
+  } catch (error) {
+    core?.debug?.(`Ignoring invalid token warning cache ${cachePath}: ${error.message}`);
+  }
+
+  return new Set();
+}
+
+function sleepSync(ms) {
+  const signal = new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(signal, 0, 0, ms);
+}
+
+function withInvalidAuthWarningCacheLock(cachePath, core, fn) {
+  if (!cachePath) {
+    return fn();
+  }
+
+  const lockPath = `${cachePath}.lock`;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    let lockFd = null;
+    try {
+      fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+      lockFd = fs.openSync(lockPath, 'wx');
+      try {
+        return fn();
+      } finally {
+        fs.closeSync(lockFd);
+        fs.rmSync(lockPath, { force: true });
+      }
+    } catch (error) {
+      if (lockFd !== null) {
+        try {
+          fs.closeSync(lockFd);
+        } catch {
+          // Ignore cleanup failures; the warning cache is best effort.
+        }
+      }
+      if (error?.code !== 'EEXIST') {
+        throw error;
+      }
+      sleepSync(25);
+    }
+  }
+
+  core?.debug?.(`Invalid token warning cache lock timed out for ${cachePath}; writing best effort.`);
+  return fn();
+}
+
+function writeInvalidAuthWarningCache(cachePath, warnedTokens, core) {
+  if (!cachePath) {
+    return;
+  }
+
+  try {
+    withInvalidAuthWarningCacheLock(cachePath, core, () => {
+      const mergedTokens = new Set([
+        ...readInvalidAuthWarningCache(cachePath, core),
+        ...warnedTokens,
+      ]);
+      fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+      const tempPath = `${cachePath}.${process.pid}.tmp`;
+      fs.writeFileSync(
+        tempPath,
+        `${JSON.stringify({ tokens: Array.from(mergedTokens).sort() }, null, 2)}\n`
+      );
+      fs.renameSync(tempPath, cachePath);
+    });
+  } catch (error) {
+    core?.debug?.(`Unable to update invalid token warning cache ${cachePath}: ${error.message}`);
+  }
+}
+
+function shouldWarnInvalidAuth(tokenId, core) {
+  if (invalidAuthWarningMemory.has(tokenId)) {
+    return false;
+  }
+
+  const cachePath = getInvalidAuthWarningCachePath();
+  const warnedTokens = readInvalidAuthWarningCache(cachePath, core);
+  if (warnedTokens.has(tokenId)) {
+    invalidAuthWarningMemory.add(tokenId);
+    return false;
+  }
+
+  warnedTokens.add(tokenId);
+  invalidAuthWarningMemory.add(tokenId);
+  writeInvalidAuthWarningCache(cachePath, warnedTokens, core);
+  return true;
+}
+
 /**
  * Check rate limit for a specific token.
  * @param {object} params
@@ -526,10 +648,16 @@ async function checkTokenRateLimit({ tokenInfo, github, core, Octokit }) {
       throw error;
     }
 
-    core?.warning?.(
-      `Token ${tokenInfo.id} has invalid credentials (HTTP 401). ` +
-      `It will be skipped until the backing secret is corrected.`
-    );
+    if (shouldWarnInvalidAuth(tokenInfo.id, core)) {
+      core?.warning?.(
+        `Token ${tokenInfo.id} has invalid credentials (HTTP 401). ` +
+        `It will be skipped until the backing secret is corrected.`
+      );
+    } else {
+      core?.debug?.(
+        `Token ${tokenInfo.id} still has invalid credentials; repeated warning suppressed.`
+      );
+    }
 
     return {
       limit: 5000,
@@ -924,6 +1052,8 @@ module.exports = {
   getTimeUntilReset,
   shouldDefer,
   requireOrImport,
+  shouldWarnInvalidAuth,
+  getInvalidAuthWarningCachePath,
   TOKEN_CAPABILITIES,
   TOKEN_SPECIALIZATIONS,
   tokenRegistry, // Export for testing/debugging
