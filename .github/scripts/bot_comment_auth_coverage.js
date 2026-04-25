@@ -196,8 +196,11 @@ function summarizeOrganicEvidence(records = [], options = {}) {
         blockers.push(`missing-organic-${component}-${eventName}`);
         continue;
       }
-      if (latest.fallback_warning_active || latest.auth_mode === 'legacy-app-id') {
-        blockers.push(`legacy-organic-${component}-${eventName}`);
+      if (latest.fallback_warning_active) {
+        blockers.push(`legacy-organic-${component}-${eventName}-fallback-active`);
+      }
+      if (latest.auth_mode === 'legacy-app-id') {
+        blockers.push(`legacy-organic-${component}-${eventName}-auth-mode`);
       }
       if (expectedMode !== 'unknown' && latest.auth_mode !== expectedMode) {
         blockers.push(`expected-${expectedMode}-organic-${component}-${eventName}`);
@@ -370,8 +373,11 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
       if (!componentPolicyConfig.allowed_modes.includes(latest.auth_mode)) {
         blockers.push(`disallowed-${component}-auth-mode`);
       }
-      if (latest.fallback_warning_active || latest.auth_mode === 'legacy-app-id') {
+      if (latest.fallback_warning_active) {
         blockers.push(`legacy-${component}-fallback-active`);
+      }
+      if (latest.auth_mode === 'legacy-app-id') {
+        blockers.push(`legacy-${component}-auth-mode`);
       }
       if (
         componentPolicyConfig.expected_mode &&

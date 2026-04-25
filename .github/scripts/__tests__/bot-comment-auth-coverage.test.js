@@ -103,9 +103,31 @@ test('warns while the canonical wrapper still uses the legacy App ID fallback', 
   assert.deepEqual(report.components[0].blockers, [
     'disallowed-agents-bot-comment-handler-wrapper-auth-mode',
     'legacy-agents-bot-comment-handler-wrapper-fallback-active',
+    'legacy-agents-bot-comment-handler-wrapper-auth-mode',
     'expected-client-id-agents-bot-comment-handler-wrapper',
   ]);
   assert.equal(report.enforcement.should_fail, false);
+});
+
+test('reports legacy auth mode separately from fallback warning state', () => {
+  const report = summarizeBotCommentAuthCoverage([
+    record('agents-bot-comment-handler-wrapper', 'legacy-app-id', 107, {
+      fallback_warning_active: false,
+    }),
+    record('reusable-bot-comment-handler', 'none', 107),
+  ]);
+
+  assert.equal(report.status, 'warning');
+  assert.deepEqual(report.components[0].blockers, [
+    'disallowed-agents-bot-comment-handler-wrapper-auth-mode',
+    'legacy-agents-bot-comment-handler-wrapper-auth-mode',
+    'expected-client-id-agents-bot-comment-handler-wrapper',
+  ]);
+  assert.ok(
+    !report.components[0].blockers.includes(
+      'legacy-agents-bot-comment-handler-wrapper-fallback-active'
+    )
+  );
 });
 
 test('normalizes string boolean auth fields without false fallback warnings', () => {
