@@ -443,6 +443,24 @@ function isSupersededSyncCandidate(item = {}) {
   return item.classification === 'sync' && cleanString(item.source_sync?.status) === 'superseded';
 }
 
+function resultSummaryFor(item = {}) {
+  return cleanString(item.result_summary || item.result?.summary);
+}
+
+function hasUnpublishedSourceResult(item = {}) {
+  if (item.status !== 'local-codex-finished') {
+    return false;
+  }
+  const summary = resultSummaryFor(item).toLowerCase();
+  return /\b(did not|didn't|not)\s+(commit|push|commit or push|push or commit)\b/.test(summary) ||
+    /\bwithout\s+(committing|pushing)\b/.test(summary) ||
+    /\b(not committed|not pushed|unpushed|uncommitted)\b/.test(summary);
+}
+
+function localCodexResultState(item = {}) {
+  return hasUnpublishedSourceResult(item) ? 'unpublished-source-work' : '';
+}
+
 function isActionableLocalCodexItem(item = {}) {
   return item.status === 'needs-local-codex' &&
     !isSourceFixedCandidate(item) &&
@@ -476,10 +494,12 @@ function localCodexQueueStateCounts(items = []) {
 }
 
 function annotateLocalCodexQueueState(item = {}) {
+  const resultState = localCodexResultState(item);
   return {
     ...item,
     local_codex_queue_state: localCodexQueueState(item),
     local_codex_actionable: isActionableLocalCodexItem(item),
+    ...(resultState ? { local_codex_result_state: resultState } : {}),
   };
 }
 
@@ -493,6 +513,7 @@ function buildStats(items, discoveredItems, options = {}) {
     .filter((item) => isSupersededSyncCandidate(item) && !isSourceFixedCandidate(item))
     .length;
   const actionableLocalCodexCount = items.filter(isActionableLocalCodexItem).length;
+  const unpublishedSourceResultCount = items.filter(hasUnpublishedSourceResult).length;
   return {
     repos_requested: Number(options.reposRequested || 0),
     repos_checked: Number(options.reposChecked || 0),
@@ -511,6 +532,7 @@ function buildStats(items, discoveredItems, options = {}) {
     items_claimed: statusCounts['local-codex-claimed'] || 0,
     items_finished: statusCounts['local-codex-finished'] || 0,
     items_blocked: statusCounts.blocked || 0,
+    items_unpublished_source_results: unpublishedSourceResultCount,
     status_counts: statusCounts,
     local_codex_queue_state_counts: localCodexQueueStateCounts(items),
   };
@@ -527,6 +549,7 @@ function deriveItemStats(items = []) {
     .filter((item) => isSupersededSyncCandidate(item) && !isSourceFixedCandidate(item))
     .length;
   const actionableLocalCodexCount = queueItems.filter(isActionableLocalCodexItem).length;
+  const unpublishedSourceResultCount = queueItems.filter(hasUnpublishedSourceResult).length;
   return {
     items_needing_local_codex: actionableLocalCodexCount,
     items_actionable_local_codex: actionableLocalCodexCount,
@@ -535,6 +558,7 @@ function deriveItemStats(items = []) {
     items_claimed: statusCounts['local-codex-claimed'] || 0,
     items_finished: statusCounts['local-codex-finished'] || 0,
     items_blocked: statusCounts.blocked || 0,
+    items_unpublished_source_results: unpublishedSourceResultCount,
     status_counts: statusCounts,
     local_codex_queue_state_counts: localCodexQueueStateCounts(queueItems),
   };
@@ -552,6 +576,7 @@ function validateCampaignState(state = {}) {
     'items_claimed',
     'items_finished',
     'items_blocked',
+    'items_unpublished_source_results',
   ];
   for (const field of fields) {
     if (Number(stats[field] || 0) !== Number(derived[field] || 0)) {
@@ -685,6 +710,9 @@ function compactQueueItemForMarker(item = {}) {
     compact.local_codex_queue_state = queueState;
     compact.local_codex_actionable = false;
   }
+  if (item.local_codex_result_state) {
+    compact.local_codex_result_state = cleanString(item.local_codex_result_state);
+  }
   return compact;
 }
 
@@ -744,6 +772,7 @@ function formatCampaignBody(state) {
     `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     '',
     '## Local Queue',
     '',
@@ -796,6 +825,9 @@ function formatItemDetails(items = []) {
       );
     }
     lines.push(`- Attempts: ${item.attempts || 0}`);
+    if (item.local_codex_result_state) {
+      lines.push(`- Local result state: ${item.local_codex_result_state}`);
+    }
     if (item.source_fixed_candidate) {
       const candidate = item.source_fixed_candidate;
       lines.push(
@@ -835,6 +867,9 @@ function formatSourceFixedCandidateDetails(items = []) {
     if (candidate.result_summary) {
       lines.push(`- Prior source-fix summary: ${truncate(candidate.result_summary, 180)}`);
     }
+    if (item.local_codex_result_state) {
+      lines.push(`- Local result state: ${item.local_codex_result_state}`);
+    }
     for (const thread of cleanArray(item.review_threads).slice(0, 2)) {
       const location = `${thread.path || '-'}${thread.line ? `:${thread.line}` : ''}`;
       lines.push(`  - ${markdownLink(location, thread.url)} (${thread.author || 'bot'}): ${truncate(thread.body_preview, 120)}`);
@@ -861,6 +896,9 @@ function formatSupersededSyncCandidateDetails(items = []) {
       `- Source sync state: ${item.source_sync.status || 'unknown'} ` +
         `(PR ${item.source_sync.pr_sync_hash || '-'} / current ${item.source_sync.current_sync_hash || '-'})`
     );
+    if (item.local_codex_result_state) {
+      lines.push(`- Local result state: ${item.local_codex_result_state}`);
+    }
     for (const thread of cleanArray(item.review_threads).slice(0, 2)) {
       const location = `${thread.path || '-'}${thread.line ? `:${thread.line}` : ''}`;
       lines.push(`  - ${markdownLink(location, thread.url)} (${thread.author || 'bot'}): ${truncate(thread.body_preview, 120)}`);
@@ -899,6 +937,7 @@ function formatCompactCampaignBody(state) {
     `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     '',
     '| Status | PR | Threads |',
     '| --- | --- | ---: |',
@@ -1240,6 +1279,7 @@ function formatDryRunSummary(state = {}) {
     `sync_prs_open=${stats.sync_prs_open || 0}`,
     `dependabot_prs_open=${stats.dependabot_prs_open || 0}`,
     `items_needing_local_codex=${stats.items_needing_local_codex || 0}`,
+    `items_unpublished_source_results=${stats.items_unpublished_source_results || 0}`,
   ].join(' ');
 }
 
@@ -1264,6 +1304,7 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Items claimed: ${stats.items_claimed || 0}`,
     `- Items blocked: ${stats.items_blocked || 0}`,
     `- State validation: ${validation.status}`,
@@ -1403,6 +1444,7 @@ async function runCampaign({
     core.setOutput('items_actionable_local_codex', String(state.stats.items_actionable_local_codex || 0));
     core.setOutput('items_source_fixed_candidates', String(state.stats.items_source_fixed_candidates || 0));
     core.setOutput('items_superseded_sync_candidates', String(state.stats.items_superseded_sync_candidates || 0));
+    core.setOutput('items_unpublished_source_results', String(state.stats.items_unpublished_source_results || 0));
     core.setOutput('campaign_issue_url', campaignIssue?.html_url || '');
   }
 

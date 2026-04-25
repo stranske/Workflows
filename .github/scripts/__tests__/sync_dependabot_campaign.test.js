@@ -375,6 +375,58 @@ test('mergeCampaignState flags repeated source-fixed review signatures without h
   assert.match(body, /Prior source-fix match:/);
 });
 
+test('mergeCampaignState marks finished local results without published source changes', () => {
+  const now = '2026-04-21T06:52:00Z';
+  const state = mergeCampaignState(
+    {
+      items: [
+        {
+          id: 'sync-review-comments:stranske/TPP#902:finished',
+          status: 'local-codex-finished',
+          kind: 'sync-review-comments',
+          classification: 'sync',
+          repo: 'stranske/TPP',
+          pr_number: 902,
+          pr_title: 'chore: sync workflow templates',
+          pr_url: 'https://github.com/stranske/TPP/pull/902',
+          source_repo: 'stranske/Workflows',
+          source_sync: {
+            schema: 'sync-dependabot-campaign-source-sync/v1',
+            current_sync_hash: 'current',
+            pr_sync_hash: 'old',
+            status: 'superseded',
+          },
+          result: {
+            exit_code: 0,
+            summary: 'Implemented locally but did not commit or push because the worktree was dirty.',
+          },
+          finished_at: now,
+          updated_at: now,
+        },
+      ],
+    },
+    [],
+    now,
+    { reposRequested: 1, reposChecked: 1 },
+  );
+
+  const item = state.items[0];
+  const marker = parseCampaignMarker(formatCampaignMarker(state));
+  const body = formatCampaignBody(state);
+  const runSummary = formatCampaignRunSummaryMarkdown(state, {
+    html_url: 'https://github.com/stranske/Workflows/issues/1836',
+  });
+
+  assert.equal(item.local_codex_result_state, 'unpublished-source-work');
+  assert.equal(state.stats.items_unpublished_source_results, 1);
+  assert.equal(marker.stats.items_unpublished_source_results, 1);
+  assert.equal(marker.items[0].local_codex_result_state, 'unpublished-source-work');
+  assert.equal(validateCampaignState(state).status, 'pass');
+  assert.match(body, /Finished local results without published source changes: 1/);
+  assert.match(body, /Local result state: unpublished-source-work/);
+  assert.match(runSummary, /Finished local results without published source changes: 1/);
+});
+
 test('mergeCampaignState matches source-fixed candidates from compact retained history', () => {
   const now = '2026-04-21T06:52:00Z';
   const repeated = buildQueueItem({

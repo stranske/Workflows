@@ -140,6 +140,7 @@ jobs:
                 `Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
                 `Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
                 `Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+                `Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
                 `Campaign issue: ${result.issue?.html_url || '(dry run)'}`,
               ])
               .write();

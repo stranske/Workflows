@@ -125,6 +125,7 @@ def _safe_int(value: Any) -> int | None:
 
 def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
     stop_reasons = Counter()
+    actions = Counter()
     gate_results = Counter()
     iterations: list[int] = []
     prs: set[int] = set()
@@ -133,6 +134,9 @@ def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
         stop_reason = entry.get("stop_reason")
         if stop_reason:
             stop_reasons[str(stop_reason)] += 1
+        action = entry.get("action")
+        if action:
+            actions[str(action)] += 1
         gate = entry.get("gate_conclusion") or entry.get("gate_result")
         if gate:
             gate_results[str(gate)] += 1
@@ -142,7 +146,15 @@ def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
         pr_number = _safe_int(entry.get("pr_number") or entry.get("pr"))
         if pr_number is not None:
             prs.add(pr_number)
-        if stop_reason == "tasks-complete":
+        tasks_total = _safe_int(entry.get("tasks_total"))
+        entry_tasks_complete = _safe_int(entry.get("tasks_complete"))
+        derived_complete = (
+            tasks_total is not None
+            and tasks_total > 0
+            and entry_tasks_complete is not None
+            and entry_tasks_complete >= tasks_total
+        )
+        if stop_reason == "tasks-complete" or derived_complete:
             tasks_complete += 1
     avg_iterations = sum(iterations) / len(iterations) if iterations else 0.0
     return {
@@ -150,6 +162,7 @@ def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "prs": len(prs),
         "avg_iterations": avg_iterations,
         "stop_reasons": stop_reasons,
+        "actions": actions,
         "gate_results": gate_results,
         "tasks_complete": tasks_complete,
     }
@@ -241,8 +254,12 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
     step_durations: dict[str, list[float]] = {}
     step_successes: dict[str, int] = {}
     step_failures: dict[str, int] = {}
+    cycle_counts = Counter()
     failure_reasons = Counter()
     escalation_reasons = Counter()
+    cycle_records = 0
+    cycle_steps_attempted = 0
+    cycle_steps_completed = 0
     escalation_count = 0
     needs_human_count = 0
 
@@ -251,7 +268,7 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
         if issue_num is not None:
             issues.add(issue_num)
 
-        metric_type = entry.get("metric_type", "")
+        metric_type = str(entry.get("metric_type", "")).lower()
 
         if metric_type == "escalation":
             escalation_count += 1
@@ -259,6 +276,19 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
             escalation_reasons[str(reason)] += 1
             if "needs-human" in str(reason).lower() or "needs_human" in str(reason).lower():
                 needs_human_count += 1
+            continue
+
+        if metric_type == "cycle":
+            cycle_records += 1
+            cycle_count = _safe_int(entry.get("cycle_count"))
+            if cycle_count is not None:
+                cycle_counts[str(cycle_count)] += 1
+            steps_attempted = _safe_int(entry.get("steps_attempted"))
+            if steps_attempted is not None:
+                cycle_steps_attempted += steps_attempted
+            steps_completed = _safe_int(entry.get("steps_completed"))
+            if steps_completed is not None:
+                cycle_steps_completed += steps_completed
             continue
 
         step_name = entry.get("step_name")
@@ -292,6 +322,10 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "step_avg_duration_ms": step_avg_duration,
         "step_successes": step_successes,
         "step_failures": step_failures,
+        "cycle_records": cycle_records,
+        "cycle_counts": cycle_counts,
+        "cycle_steps_attempted": cycle_steps_attempted,
+        "cycle_steps_completed": cycle_steps_completed,
         "failure_reasons": failure_reasons,
         "escalation_count": escalation_count,
         "escalation_reasons": escalation_reasons,
@@ -367,6 +401,7 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
             f"- PRs: {keepalive['prs']}",
             f"- Avg iterations: {keepalive['avg_iterations']:.1f}",
             f"- Stop reasons: {_format_counter(keepalive['stop_reasons'])}",
+            f"- Actions: {_format_counter(keepalive['actions'])}",
             f"- Gate conclusions: {_format_counter(keepalive['gate_results'])}",
             f"- Tasks complete rate: {_format_rate(keepalive['tasks_complete'], keepalive['runs'])}",
             "",
@@ -398,6 +433,12 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
                 f"- Records: {autopilot['records']}",
                 f"- Issues: {autopilot['issues']}",
                 f"- Total step executions: {autopilot['total_steps']}",
+                f"- Cycle records: {autopilot['cycle_records']}",
+                f"- Cycle count distribution: {_format_counter(autopilot['cycle_counts'])}",
+                (
+                    "- Cycle step completion: "
+                    f"{_format_rate(autopilot['cycle_steps_completed'], autopilot['cycle_steps_attempted'])}"
+                ),
                 f"- Escalations: {autopilot['escalation_count']}",
                 f"- Needs-human escalation rate: {_format_rate(autopilot['needs_human_count'], autopilot['escalation_count'])}",
                 f"- Escalation reasons: {_format_counter(autopilot['escalation_reasons'])}",

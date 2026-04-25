@@ -60,6 +60,7 @@ def test_build_summary_formats_sections() -> None:
     assert "Avg iterations: 3.5" in summary
     assert "tasks-complete (1)" in summary
     assert "max-iterations (1)" in summary
+    assert "Actions: n/a" in summary
     assert "Fixes applied: 100.0% (1/1)" in summary
     assert "Verdicts: pass (1)" in summary
     assert "Avg acceptance criteria: 3.0" in summary
@@ -261,6 +262,7 @@ def test_summary_helpers_cover_branches() -> None:
     )
     assert keepalive["tasks_complete"] == 1
     assert keepalive["stop_reasons"]["tasks-complete"] == 1
+    assert keepalive["actions"] == Counter()
     assert keepalive["gate_results"]["failure"] == 1
     assert keepalive["gate_results"]["success"] == 1
 
@@ -378,15 +380,25 @@ def test_autopilot_metrics_summarised() -> None:
             "issue_number": 99,
             "escalation_reason": "needs-human-complexity",
         },
+        {
+            "metric_type": "cycle",
+            "issue_number": 42,
+            "cycle_count": 2,
+            "steps_attempted": 3,
+            "steps_completed": 2,
+        },
     ]
 
     summary = aggregate_agent_metrics.build_summary(entries, errors=0)
 
     assert "Auto-Pilot Pipeline" in summary
-    assert "Records: 4" in summary
-    assert "autopilot 4" in summary
+    assert "Records: 5" in summary
+    assert "autopilot 5" in summary
     assert "Issues: 2" in summary
     assert "Total step executions: 3" in summary
+    assert "Cycle records: 1" in summary
+    assert "Cycle count distribution: 2 (1)" in summary
+    assert "Cycle step completion: 66.7% (2/3)" in summary
     assert "Escalations: 1" in summary
     assert "Step Average Durations" in summary
     assert "format:" in summary
@@ -406,6 +418,58 @@ def test_autopilot_needs_human_rate_does_not_require_issue_denominator() -> None
     )
 
     assert "Needs-human escalation rate: 100.0% (1/1)" in summary
+
+
+def test_keepalive_completion_uses_task_totals_and_actions() -> None:
+    entries = [
+        {
+            "pr_number": 101,
+            "iteration": 1,
+            "action": "run",
+            "tasks_total": 3,
+            "tasks_complete": 2,
+        },
+        {
+            "pr_number": 101,
+            "iteration": 2,
+            "action": "stop",
+            "tasks_total": 3,
+            "tasks_complete": 3,
+        },
+    ]
+
+    summary = aggregate_agent_metrics.build_summary(entries, errors=0)
+
+    assert "Actions: run (1), stop (1)" in summary
+    assert "Tasks complete rate: 50.0% (1/2)" in summary
+
+
+def test_summarise_autopilot_counts_cycle_records() -> None:
+    summary = aggregate_agent_metrics._summarise_autopilot(
+        [
+            {
+                "metric_type": "cycle",
+                "issue_number": 101,
+                "cycle_count": 1,
+                "steps_attempted": 2,
+                "steps_completed": 2,
+            },
+            {
+                "metric_type": "cycle",
+                "issue_number": 101,
+                "cycle_count": 2,
+                "steps_attempted": 3,
+                "steps_completed": 1,
+            },
+        ]
+    )
+
+    assert summary["records"] == 2
+    assert summary["issues"] == 1
+    assert summary["cycle_records"] == 2
+    assert summary["cycle_counts"] == Counter({"1": 1, "2": 1})
+    assert summary["cycle_steps_attempted"] == 5
+    assert summary["cycle_steps_completed"] == 3
 
 
 def test_classify_autopilot_step_entry() -> None:
