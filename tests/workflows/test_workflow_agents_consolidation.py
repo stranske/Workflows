@@ -297,6 +297,9 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             "BOT_COMMENT_REUSABLE_EXPECTED_AUTH_MODE" in text
         ), "Bot-comment auth coverage must expose an explicit reusable expected-mode policy"
         assert (
+            "BOT_COMMENT_WRAPPER_ALLOWED_AUTH_MODES" in text
+        ), "Bot-comment auth coverage must expose wrapper allowed-mode policy"
+        assert (
             "terminal_coverage_status=$?" in text
             and "TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS=${terminal_coverage_status}" in text
             and "Honor coverage hard-blocks" in text

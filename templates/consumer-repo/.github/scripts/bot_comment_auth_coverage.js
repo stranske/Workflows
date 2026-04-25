@@ -310,9 +310,19 @@ function artifactFamilyFromSelection(artifact = {}) {
   return '';
 }
 
+function componentCoverageStatus(blockers, policy, latest) {
+  if (blockers.length === 0) return 'pass';
+  if (!latest && policy.missing_record_severity === 'no-data') return 'no-data';
+  return 'warning';
+}
+
+function isComponentMissingBlocker(blocker) {
+  return Object.keys(COMPONENT_POLICIES).some((component) => blocker === `missing-${component}`);
+}
+
 function summarizeBotCommentAuthCoverage(records = [], options = {}) {
   const policy = normalizePolicy(options);
-  const parseErrors = Number(options.parse_errors || options.parseErrors || 0);
+  const parseErrors = Number(options.parse_errors ?? options.parseErrors ?? 0);
   const artifactSelection = normalizeArtifactSelectionSummary(
     options.artifact_selection_report ?? options.artifactSelectionReport
   );
@@ -357,12 +367,6 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
         blockers.push(`expected-${componentPolicyConfig.expected_mode}-${component}`);
       }
     }
-    let status = 'pass';
-    if (blockers.length > 0) {
-      status = componentPolicyConfig.missing_record_severity === 'no-data' && !latest
-        ? 'no-data'
-        : 'warning';
-    }
     return {
       component,
       record_count: componentRecords.length,
@@ -370,7 +374,7 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
       expected_mode: componentPolicyConfig.expected_mode,
       invalid_expected_mode: componentPolicyConfig.invalid_expected_mode,
       allowed_modes: componentPolicyConfig.allowed_modes,
-      status,
+      status: componentCoverageStatus(blockers, componentPolicyConfig, latest),
       blockers,
     };
   });
@@ -388,9 +392,8 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
 
   let coverageStatus = 'pass';
   if (authRecords.length === 0) {
-    coverageStatus = parseErrors > 0 || artifactSelectionWarning || authArtifactInputMismatch
-      ? 'warning'
-      : 'no-data';
+    const nonMissingBlockers = blockers.filter((blocker) => !isComponentMissingBlocker(blocker));
+    coverageStatus = nonMissingBlockers.length > 0 ? 'warning' : 'no-data';
   } else if (blockers.length > 0) {
     coverageStatus = 'warning';
   }
@@ -494,10 +497,15 @@ function isPotentialAuthCoverageFile(file) {
   const normalized = cleanString(file).split(path.sep).join('/');
   const basename = path.basename(normalized);
   if (!normalized.endsWith('.json')) return false;
-  return normalized.includes('/bot-comment-auth-coverage-wrapper-') ||
-    normalized.includes('/bot-comment-auth-coverage-reusable-') ||
-    basename === 'wrapper.json' ||
-    basename === 'reusable.json';
+  const segments = normalized.split('/');
+  const hasWrapperArtifactDir = segments.some((segment) =>
+    segment.startsWith('bot-comment-auth-coverage-wrapper-')
+  );
+  const hasReusableArtifactDir = segments.some((segment) =>
+    segment.startsWith('bot-comment-auth-coverage-reusable-')
+  );
+  return (basename === 'wrapper.json' && hasWrapperArtifactDir) ||
+    (basename === 'reusable.json' && hasReusableArtifactDir);
 }
 
 function readJsonRecords(files = []) {
