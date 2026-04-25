@@ -45,6 +45,16 @@ def test_gate_summary_uses_post_ci_helper() -> None:
     assert "./.github/scripts/maint-post-ci.js" in contents
 
 
+def test_autofix_loop_does_not_subscribe_to_workflow_job_events() -> None:
+    data = _load_yaml("autofix.yml")
+    triggers = data.get("on") or data.get(True) or {}
+    assert "workflow_run" in triggers
+    assert "pull_request_target" in triggers
+    assert (
+        "workflow_job" not in triggers
+    ), "workflow_job events create noisy push-associated autofix runs with no correctness gain"
+
+
 def test_reusable_autofix_guard_applies_to_all_steps() -> None:
     data = _load_yaml("reusable-18-autofix.yml")
     steps = data["jobs"]["autofix"]["steps"]
