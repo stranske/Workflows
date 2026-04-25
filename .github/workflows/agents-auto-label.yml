@@ -83,10 +83,7 @@ jobs:
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
                 };
-            const paginateWithRetry = (method, params, options) =>
-              retryHelpers.paginateWithRetry.length >= 3
-                ? retryHelpers.paginateWithRetry(github, method, params, options)
-                : retryHelpers.paginateWithRetry(method, params, options);
+            const { paginateWithRetry } = retryHelpers;
 
             // Paginate to get all labels (handles repos with >100 labels)
             const labels = await paginateWithRetry(

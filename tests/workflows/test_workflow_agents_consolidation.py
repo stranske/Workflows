@@ -204,6 +204,20 @@ def test_consumer_sync_run_uploads_machine_readable_report():
     ), "Maint 68 report must distinguish sync failures from PR creation failures"
 
 
+def test_auto_label_uses_retry_paginate_with_github_client_first():
+    text = (WORKFLOWS_DIR / "agents-auto-label.yml").read_text(encoding="utf-8")
+    assert (
+        "const { paginateWithRetry } = retryHelpers;" in text
+    ), "Auto-label should call the shared pagination helper directly"
+    assert (
+        "retryHelpers.paginateWithRetry(github, method, params, options)" not in text
+    ), "Auto-label must not wrap paginateWithRetry with an arity guess"
+    assert (
+        "const labels = await paginateWithRetry(\n              github, github.rest.issues.listLabelsForRepo,"
+        in text
+    ), "Auto-label label discovery must pass the GitHub client as the first pagination argument"
+
+
 def test_consumer_sync_diff_keeps_functional_lines_in_comparison():
     text = (WORKFLOWS_DIR / "maint-68-sync-consumer-repos.yml").read_text(encoding="utf-8")
     assert (
