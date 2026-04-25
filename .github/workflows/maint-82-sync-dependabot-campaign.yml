@@ -129,7 +129,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: sync-dependabot-campaign-state-${{ github.run_id }}
+          name: sync-dependabot-campaign-state-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             sync-dependabot-campaign-state.json
             sync-dependabot-campaign-summary.md

@@ -182,6 +182,23 @@ code:
 | `BOT_COMMENT_AUTH_COVERAGE_MODE` | `warning-only` | Use `hard-block` only after explicit approval |
 | `BOT_COMMENT_AUTH_HARD_BLOCK_APPROVED` | `false` | Required confirmation before hard blocking can fail weekly metrics |
 
+The weekly summary also includes `organic_evidence` with schema
+`workflows-bot-comment-auth-organic-evidence/v1`. This warning-only contract
+counts bot-comment auth records by `event_name` and can require real
+`pull_request` and `workflow_run` evidence for the wrapper and reusable handler.
+Configure it with:
+
+- `BOT_COMMENT_AUTH_REQUIRED_ORGANIC_EVENTS` (default:
+  `pull_request,workflow_run`)
+- `BOT_COMMENT_AUTH_ORGANIC_COMPONENTS` (default:
+  `agents-bot-comment-handler-wrapper,reusable-bot-comment-handler`)
+- `BOT_COMMENT_AUTH_ORGANIC_EXPECTED_MODE` (default: `client-id`)
+
+Missing or legacy organic evidence is reported as blockers such as
+`missing-organic-<component>-<event>` or
+`legacy-organic-<component>-<event>`. These remain warning-only unless the
+overall bot-comment auth coverage hard-block policy is explicitly approved.
+
 ## Troubleshooting
 
 ### No comments found
