@@ -15,6 +15,7 @@ import yaml
 
 REPORT_SCHEMA = "workflows-consumer-sync-drift/v1"
 SUMMARY_ITEM_LIMIT = 50
+CONTENT_ERROR_THRESHOLD = 5
 
 
 def parse_args() -> argparse.Namespace:
@@ -123,6 +124,29 @@ def build_prefix_counts(items: set[str]) -> dict[str, int]:
     return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
 
 
+def record_content_error(
+    *,
+    errors: set[str],
+    repo_error_counts: dict[str, int],
+    skipped_repos: set[str],
+    repo: str,
+    target: str,
+    status_code: int,
+    threshold: int = CONTENT_ERROR_THRESHOLD,
+) -> None:
+    if repo in skipped_repos:
+        return
+    repo_error_counts[repo] = repo_error_counts.get(repo, 0) + 1
+    if repo_error_counts[repo] >= threshold:
+        errors.add(
+            f"{repo}: content comparison skipped after {threshold} HTTP errors; "
+            f"last path {target} (HTTP {status_code})"
+        )
+        skipped_repos.add(repo)
+        return
+    errors.add(f"{repo}: {target} (HTTP {status_code})")
+
+
 def build_report(
     *,
     repos: list[str],
@@ -157,7 +181,10 @@ def build_report(
             "errors": build_prefix_counts(errors),
             "obsolete": build_prefix_counts(obsolete),
         },
-        "summary_limits": {"max_items_per_section": SUMMARY_ITEM_LIMIT},
+        "summary_limits": {
+            "content_error_threshold_per_repo": CONTENT_ERROR_THRESHOLD,
+            "max_items_per_section": SUMMARY_ITEM_LIMIT,
+        },
         "drift": sorted_items(drift),
         "missing": sorted_items(missing),
         "errors": sorted_items(errors),
@@ -326,8 +353,13 @@ def main() -> int:
         else:
             accessible_repos.append(repo)
 
+    repo_content_error_counts: dict[str, int] = {}
+    skipped_content_repos: set[str] = set()
+
     def _check_file(local_file: Path, remote_target: str, repo: str) -> None:
         """Compare a single local file against its remote counterpart."""
+        if repo in skipped_content_repos:
+            return
         local_digest = file_hash(local_file.read_bytes())
         url = f"https://api.github.com/repos/{repo}/contents/{remote_target}"
         response = session.get(url)
@@ -335,7 +367,14 @@ def main() -> int:
             missing.add(f"{repo}: {remote_target}")
             return
         if response.status_code >= 400:
-            errors.add(f"{repo}: {remote_target} (HTTP {response.status_code})")
+            record_content_error(
+                errors=errors,
+                repo_error_counts=repo_content_error_counts,
+                skipped_repos=skipped_content_repos,
+                repo=repo,
+                target=remote_target,
+                status_code=response.status_code,
+            )
             return
         data = response.json()
         if data.get("encoding") != "base64" or "content" not in data:
@@ -360,6 +399,8 @@ def main() -> int:
                 continue
 
             for repo in accessible_repos:
+                if repo in skipped_content_repos:
+                    continue
                 if is_directory or local_path.is_dir():
                     # Recursively compare all files within the directory
                     for child in sorted(local_path.rglob("*")):
@@ -375,12 +416,21 @@ def main() -> int:
         if not target:
             continue
         for repo in accessible_repos:
+            if repo in skipped_content_repos:
+                continue
             url = f"https://api.github.com/repos/{repo}/contents/{target}"
             response = session.get(url)
             if response.status_code == 404:
                 continue
             if response.status_code >= 400:
-                errors.add(f"{repo}: {target} (HTTP {response.status_code})")
+                record_content_error(
+                    errors=errors,
+                    repo_error_counts=repo_content_error_counts,
+                    skipped_repos=skipped_content_repos,
+                    repo=repo,
+                    target=target,
+                    status_code=response.status_code,
+                )
                 continue
             obsolete.add(f"{repo}: {target}")
 

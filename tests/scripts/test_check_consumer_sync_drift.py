@@ -31,6 +31,7 @@ def test_build_report_returns_machine_readable_counts() -> None:
         "errors": {},
         "obsolete": {"old.yml": 1},
     }
+    assert report["summary_limits"]["content_error_threshold_per_repo"] == 5
     assert report["drift"] == ["owner/b: .github/workflows/a.yml"]
 
 
@@ -70,6 +71,32 @@ def test_write_summary_markdown_groups_and_bounds_items(tmp_path) -> None:
     assert "- owner/repo: drift=55, missing=1, errors=0, obsolete=0" in contents
     assert "- drift: .github/workflows=55" in contents
     assert "... 5 more in consumer-sync-drift-report.json" in contents
+
+
+def test_record_content_error_skips_after_threshold() -> None:
+    errors: set[str] = set()
+    counts: dict[str, int] = {}
+    skipped: set[str] = set()
+
+    for index in range(4):
+        check_consumer_sync_drift.record_content_error(
+            errors=errors,
+            repo_error_counts=counts,
+            skipped_repos=skipped,
+            repo="owner/repo",
+            target=f".github/workflows/{index}.yml",
+            status_code=403,
+            threshold=3,
+        )
+
+    assert counts == {"owner/repo": 3}
+    assert skipped == {"owner/repo"}
+    assert "owner/repo: .github/workflows/0.yml (HTTP 403)" in errors
+    assert (
+        "owner/repo: content comparison skipped after 3 HTTP errors; "
+        "last path .github/workflows/2.yml (HTTP 403)"
+    ) in errors
+    assert not any(".github/workflows/3.yml" in item for item in errors)
 
 
 def test_repo_access_error_reports_single_preflight_failure() -> None:
