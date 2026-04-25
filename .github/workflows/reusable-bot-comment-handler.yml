@@ -19,6 +19,36 @@
 name: Reusable Bot Comment Handler
 
 on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to process'
+        required: true
+        type: string
+      dry_run:
+        description: 'Preview what would be done without making changes'
+        required: false
+        type: boolean
+        default: true
+      bot_authors:
+        description: >-
+          Comma-separated list of bot login names (default includes Copilot,
+          github-actions, coderabbitai, chatgpt-codex-connector)
+        required: false
+        type: string
+        default: >-
+          Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],
+          chatgpt-codex-connector[bot]
+      skip_if_human_replied:
+        description: 'Skip comments where a human has already replied'
+        required: false
+        type: boolean
+        default: true
+      ignored_paths:
+        description: 'Comma-separated list of path prefixes to ignore in bot review comments'
+        required: false
+        type: string
+        default: '.agents/'
   workflow_call:
     inputs:
       pr_number:

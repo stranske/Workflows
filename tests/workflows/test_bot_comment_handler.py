@@ -22,6 +22,47 @@ def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     assert "chatgpt-codex-connector[bot]" in bot_authors
 
 
+def test_reusable_bot_comment_handler_has_manual_terminal_probe() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    call_inputs = triggers.get("workflow_call", {}).get("inputs", {})
+    dispatch_inputs = triggers.get("workflow_dispatch", {}).get("inputs", {})
+
+    for name in (
+        "pr_number",
+        "dry_run",
+        "bot_authors",
+        "skip_if_human_replied",
+        "ignored_paths",
+    ):
+        assert name in dispatch_inputs, f"workflow_dispatch must expose {name}"
+        assert name in call_inputs, f"workflow_call must expose {name}"
+
+    assert dispatch_inputs["pr_number"].get("required") is True
+    assert dispatch_inputs["dry_run"].get("default") is True
+    assert dispatch_inputs["ignored_paths"].get("default") == call_inputs["ignored_paths"].get(
+        "default"
+    )
+
+
+def test_reusable_bot_comment_handler_uploads_terminal_disposition_artifact() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
+    collect_steps = workflow["jobs"]["collect"]["steps"]
+    upload_step = next(
+        step
+        for step in collect_steps
+        if step.get("name") == "Upload review-thread disposition artifact"
+    )
+    upload_with = upload_step.get("with", {})
+
+    assert upload_step.get("if") == "always()"
+    assert upload_step.get("uses") == "actions/upload-artifact@v7"
+    assert upload_with.get("name") == "review-thread-terminal-disposition-${{ github.run_id }}"
+    assert "agent-metrics/review-thread-terminal-disposition.ndjson" in upload_with.get("path", "")
+    assert upload_with.get("if-no-files-found") == "ignore"
+    assert upload_with.get("retention-days") == 14
+
+
 def test_template_bot_comment_handler_passes_agents_ignore() -> None:
     workflow = _load_yaml(
         ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml"
