@@ -11,6 +11,7 @@ const {
   isPotentialAuthCoverageFile,
   normalizeArtifactSelectionSummary,
   normalizePolicy,
+  readArtifactSelectionReport,
   readJsonRecords,
   summarizeBotCommentAuthCoverage,
 } = require('../bot_comment_auth_coverage.js');
@@ -64,6 +65,28 @@ test('warns while the canonical wrapper still uses the legacy App ID fallback', 
   assert.equal(report.enforcement.should_fail, false);
 });
 
+test('normalizes string boolean auth fields without false fallback warnings', () => {
+  const report = summarizeBotCommentAuthCoverage([
+    record('agents-bot-comment-handler-wrapper', 'client-id', 102, {
+      client_id_configured: 'true',
+      legacy_app_id_configured: 'false',
+      private_key_configured: 'true',
+      fallback_warning_active: 'false',
+    }),
+    record('reusable-bot-comment-handler', 'none', 102, {
+      client_id_configured: 'false',
+      legacy_app_id_configured: 'false',
+      private_key_configured: 'false',
+      fallback_warning_active: 'false',
+    }),
+  ]);
+
+  assert.equal(report.status, 'pass');
+  assert.equal(report.components[0].latest.fallback_warning_active, false);
+  assert.equal(report.components[0].latest.legacy_app_id_configured, false);
+  assert.deepEqual(report.enforcement.blockers, []);
+});
+
 test('keeps hard blocking disabled without explicit approval', () => {
   const report = summarizeBotCommentAuthCoverage(
     [record('agents-bot-comment-handler-wrapper', 'legacy-app-id', 103)],
@@ -108,6 +131,32 @@ test('summarizes selected auth artifacts from weekly artifact selection', () => 
 
   assert.equal(summary.selected_auth_artifact_count, 1);
   assert.equal(summary.selected_auth_artifacts[0].name, 'bot-comment-auth-coverage-wrapper-42');
+});
+
+test('warns when configured artifact selection report is missing', () => {
+  const missing = readArtifactSelectionReport('/tmp/does-not-exist-bot-auth-selection.json');
+  const report = summarizeBotCommentAuthCoverage([], {
+    artifact_selection_report: missing,
+  });
+  const markdown = formatBotCommentAuthCoverageMarkdown(report);
+
+  assert.equal(report.status, 'warning');
+  assert.equal(report.artifact_selection.status, 'missing');
+  assert.match(report.artifact_selection.error_message, /not found/);
+  assert.ok(report.enforcement.blockers.includes('artifact-selection-warning'));
+  assert.match(markdown, /Artifact selector error:/);
+});
+
+test('normalizes invalid artifact selection reports as parse errors', () => {
+  const summary = normalizeArtifactSelectionSummary('not-json-object');
+
+  assert.deepEqual(summary, {
+    schema: 'workflows-weekly-metrics-artifact-selection/v1',
+    status: 'parse-error',
+    error_message: 'artifact selection report is not a JSON object',
+    selected_auth_artifact_count: 0,
+    selected_auth_artifacts: [],
+  });
 });
 
 test('reports selected auth artifacts without readable input files', () => {

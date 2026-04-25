@@ -25,8 +25,17 @@ function cleanString(value) {
 }
 
 function normalizeBoolean(value) {
+  if (typeof value === 'boolean') return value;
   const text = cleanString(value).toLowerCase();
   return ['1', 'true', 'yes', 'y', 'approved', 'approve', 'on'].includes(text);
+}
+
+function normalizeRecordBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  const text = cleanString(value).toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(text)) return true;
+  if (['0', 'false', 'no', 'n', 'off', ''].includes(text)) return false;
+  return Boolean(value);
 }
 
 function normalizeMode(value) {
@@ -79,10 +88,14 @@ function normalizeRecord(raw = {}, sourcePath = '') {
     run_attempt: cleanString(raw.run_attempt ?? raw.runAttempt),
     event_name: cleanString(raw.event_name ?? raw.eventName),
     auth_mode: normalizeAuthMode(raw.auth_mode ?? raw.authMode),
-    client_id_configured: Boolean(raw.client_id_configured ?? raw.clientIdConfigured),
-    legacy_app_id_configured: Boolean(raw.legacy_app_id_configured ?? raw.legacyAppIdConfigured),
-    private_key_configured: Boolean(raw.private_key_configured ?? raw.privateKeyConfigured),
-    fallback_warning_active: Boolean(raw.fallback_warning_active ?? raw.fallbackWarningActive),
+    client_id_configured: normalizeRecordBoolean(raw.client_id_configured ?? raw.clientIdConfigured),
+    legacy_app_id_configured: normalizeRecordBoolean(
+      raw.legacy_app_id_configured ?? raw.legacyAppIdConfigured
+    ),
+    private_key_configured: normalizeRecordBoolean(raw.private_key_configured ?? raw.privateKeyConfigured),
+    fallback_warning_active: normalizeRecordBoolean(
+      raw.fallback_warning_active ?? raw.fallbackWarningActive
+    ),
     source_path: sourcePath,
   };
 }
@@ -152,7 +165,25 @@ function compareRecords(a, b) {
 }
 
 function normalizeArtifactSelectionSummary(report) {
-  if (!report || typeof report !== 'object') return null;
+  if (!report) return null;
+  if (report.status === 'missing' || report.status === 'parse-error') {
+    return {
+      schema: cleanString(report.schema) || 'workflows-weekly-metrics-artifact-selection/v1',
+      status: report.status,
+      error_message: cleanString(report.error_message),
+      selected_auth_artifact_count: 0,
+      selected_auth_artifacts: [],
+    };
+  }
+  if (typeof report !== 'object' || Array.isArray(report)) {
+    return {
+      schema: 'workflows-weekly-metrics-artifact-selection/v1',
+      status: 'parse-error',
+      error_message: 'artifact selection report is not a JSON object',
+      selected_auth_artifact_count: 0,
+      selected_auth_artifacts: [],
+    };
+  }
   const selected = Array.isArray(report.selected_artifacts) ? report.selected_artifacts : [];
   const selectedAuthArtifacts = selected.filter((artifact) => {
     const family = cleanString(artifact.family);
@@ -163,6 +194,7 @@ function normalizeArtifactSelectionSummary(report) {
   return {
     schema: cleanString(report.schema),
     status: cleanString(report.status) || 'pass',
+    error_message: cleanString(report.error_message),
     selected_auth_artifact_count: selectedAuthArtifacts.length,
     selected_auth_artifacts: selectedAuthArtifacts.map((artifact) => ({
       id: artifact.id,
@@ -292,6 +324,9 @@ function formatBotCommentAuthCoverageMarkdown(report) {
 
   if (report.artifact_selection) {
     lines.push(`- Selected auth artifacts: ${report.artifact_selection.selected_auth_artifact_count}`);
+    if (report.artifact_selection.error_message) {
+      lines.push(`- Artifact selector error: ${report.artifact_selection.error_message}`);
+    }
   }
   if (report.enforcement.blockers.length > 0) {
     lines.push(`- Blockers: ${report.enforcement.blockers.join(', ')}`);
@@ -362,13 +397,22 @@ function readJsonRecords(files = []) {
 
 function readArtifactSelectionReport(file) {
   const selectionPath = cleanString(file);
-  if (!selectionPath || !fs.existsSync(selectionPath)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(selectionPath, 'utf8'));
-  } catch (_error) {
+  if (!selectionPath) return null;
+  if (!fs.existsSync(selectionPath)) {
     return {
       schema: 'workflows-weekly-metrics-artifact-selection/v1',
-      status: 'error',
+      status: 'missing',
+      error_message: `artifact selection report not found: ${selectionPath}`,
+      selected_artifacts: [],
+    };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(selectionPath, 'utf8'));
+  } catch (error) {
+    return {
+      schema: 'workflows-weekly-metrics-artifact-selection/v1',
+      status: 'parse-error',
+      error_message: error?.message || 'failed to parse artifact selection report',
       selected_artifacts: [],
     };
   }
