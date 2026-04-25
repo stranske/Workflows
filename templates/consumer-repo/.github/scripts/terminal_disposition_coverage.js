@@ -166,6 +166,12 @@ function formatTerminalDispositionCoverageMarkdown(report) {
   return `${lines.join('\n')}\n`;
 }
 
+function isTerminalDispositionNdjsonFile(filePath) {
+  const name = path.basename(cleanString(filePath));
+  return name === 'verifier-terminal-disposition.ndjson' ||
+    name === 'review-thread-terminal-disposition.ndjson';
+}
+
 function collectNdjsonFiles(root) {
   const files = [];
   const stack = [root];
@@ -174,7 +180,7 @@ function collectNdjsonFiles(root) {
     if (!current || !fs.existsSync(current)) continue;
     const stat = fs.statSync(current);
     if (stat.isFile()) {
-      if (current.endsWith('.ndjson')) files.push(current);
+      if (current.endsWith('.ndjson') && isTerminalDispositionNdjsonFile(current)) files.push(current);
       continue;
     }
     if (!stat.isDirectory()) continue;
@@ -279,8 +285,10 @@ if (require.main === module) {
 
 module.exports = {
   COVERAGE_SCHEMA,
+  collectNdjsonFiles,
   expectedReviewThreadSources,
   formatTerminalDispositionCoverageMarkdown,
+  isTerminalDispositionNdjsonFile,
   normalizeExpectedSource,
   readNdjsonFiles,
   summarizeTerminalDispositionCoverage,

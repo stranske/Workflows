@@ -510,6 +510,28 @@ def test_gate_workflow_uses_fork_head_for_script_tests_and_ledger():
     ), "Ledger validation checkout must use the contributor head commit"
 
 
+def test_gate_commit_status_has_workflow_token_fallback():
+    data = _load_workflow_yaml("pr-00-gate.yml")
+    summary = (data.get("jobs", {}) or {}).get("summary") or {}
+    steps = summary.get("steps") or []
+    status_step = next(
+        (step for step in steps if step.get("name") == "Report Gate commit status"),
+        None,
+    )
+    assert status_step, "Gate summary must publish the Gate / gate commit status"
+    status_with = status_step.get("with") or {}
+    assert (
+        status_with.get("github-token") == "${{ github.token }}"
+    ), "Gate status fallback must use the workflow token with statuses:write"
+    script = str(status_with.get("script") or "")
+    assert (
+        "statusResponse === null" in script
+    ), "Gate status step must detect token-balancer permission fallback"
+    assert (
+        "github.rest.repos.createCommitStatus(statusPayload)" in script
+    ), "Gate status step must retry with the workflow token when app tokens lack statuses:write"
+
+
 def test_bootstrap_step_defaults_label_when_missing():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
     assert (

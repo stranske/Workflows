@@ -836,6 +836,7 @@ jobs:
           TARGET_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
+          github-token: ${{ github.token }}
           script: |
             const retryScript = './.github/scripts/github-api-with-retry.js';
             const { createTokenAwareRetry } = require(retryScript);
@@ -855,17 +856,26 @@ jobs:
               ? `${rawDescription.slice(0, 137)}...`
               : rawDescription;
             const targetUrl = process.env.TARGET_URL;
+            const statusPayload = {
+              owner,
+              repo,
+              sha,
+              state,
+              context: 'Gate / gate',
+              description,
+              target_url: targetUrl,
+            };
 
             try {
-              await withRetry((client) => client.rest.repos.createCommitStatus({
-                owner,
-                repo,
-                sha,
-                state,
-                context: 'Gate / gate',
-                description,
-                target_url: targetUrl,
-              }));
+              const statusResponse = await withRetry((client) =>
+                client.rest.repos.createCommitStatus(statusPayload)
+              );
+              if (statusResponse === null) {
+                core.warning(
+                  'Token-balancer status update was blocked; retrying with workflow token.',
+                );
+                await github.rest.repos.createCommitStatus(statusPayload);
+              }
             } catch (error) {
               const hitRateLimit =
                 error?.status === 403 &&

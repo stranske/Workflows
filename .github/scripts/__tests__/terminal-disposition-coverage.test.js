@@ -5,8 +5,10 @@ const os = require('os');
 const path = require('path');
 
 const {
+  collectNdjsonFiles,
   expectedReviewThreadSources,
   formatTerminalDispositionCoverageMarkdown,
+  isTerminalDispositionNdjsonFile,
   normalizeExpectedSource,
   readNdjsonFiles,
   summarizeTerminalDispositionCoverage,
@@ -133,4 +135,22 @@ test('reads ndjson files and counts parse errors', () => {
 
   assert.equal(result.records.length, 1);
   assert.equal(result.parse_errors, 2);
+});
+
+test('collects only terminal disposition ndjson files from metrics artifacts', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'terminal-coverage-'));
+  const terminalDir = path.join(dir, 'review-thread-terminal-disposition-123', 'agent-metrics');
+  const keepaliveDir = path.join(dir, 'keepalive-metrics');
+  fs.mkdirSync(terminalDir, { recursive: true });
+  fs.mkdirSync(keepaliveDir, { recursive: true });
+  const reviewThreadFile = path.join(terminalDir, 'review-thread-terminal-disposition.ndjson');
+  const verifierFile = path.join(terminalDir, 'verifier-terminal-disposition.ndjson');
+  const keepaliveFile = path.join(keepaliveDir, 'keepalive.ndjson');
+  fs.writeFileSync(reviewThreadFile, '{}\n', 'utf8');
+  fs.writeFileSync(verifierFile, '{}\n', 'utf8');
+  fs.writeFileSync(keepaliveFile, '{"metric":"keepalive"}\n', 'utf8');
+
+  assert.equal(isTerminalDispositionNdjsonFile(reviewThreadFile), true);
+  assert.equal(isTerminalDispositionNdjsonFile(keepaliveFile), false);
+  assert.deepEqual(collectNdjsonFiles(dir), [reviewThreadFile, verifierFile].sort());
 });
