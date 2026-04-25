@@ -28,7 +28,7 @@ These files are internal task trackers and should never receive Copilot review c
 ## Skill: GitHub Operations
 
 ### Authentication & PAT Usage
-- **Elevated PAT**: When performing GitHub operations that require elevated permissions (pushing to protected branches, creating releases, etc.), always check if an `OWNER_PR_PAT`, `SERVICE_BOT_PAT`, or `GH_TOKEN` environment variable is available
+- **Codespaces PAT**: When performing GitHub operations that require elevated permissions (pushing to protected branches, creating releases, etc.), always check if a `CODESPACES_PAT` or `GH_TOKEN` environment variable is available
 - Use `gh auth status` to verify current authentication before operations
 - If authentication fails, remind the user they may need to set up a PAT with appropriate scopes
 - If GITHUB_TOKEN is set and blocking PAT usage: `unset GITHUB_TOKEN` first

@@ -478,7 +478,7 @@ With when rate-limited:
 | WORKFLOWS_APP | 0 | 13:30 UTC |
 | KEEPALIVE_APP | 23 | 13:45 UTC |
 | SERVICE_BOT_PAT | 0 | 13:30 UTC |
-| OWNER_PR_PAT | 1,247 | 14:00 UTC |
+| CODESPACES | 1,247 | 14:00 UTC |
 
 **Action:** Waiting for rate limits to reset. Next attempt at 13:30 UTC.
 ```
@@ -573,11 +573,11 @@ Apply setup action to less frequent workflows:
 2. **Check the "Implementation Plan" section** for current phase
 3. **Run diagnostics:**
    ```bash
-   GH_TOKEN=$OWNER_PR_PAT gh workflow run "Health 75 API Rate Diagnostic" --repo stranske/Workflows
+   GH_TOKEN=$CODESPACES gh workflow run "Health 75 API Rate Diagnostic" --repo stranske/Workflows
    ```
 4. **Check recent keepalive failures:**
    ```bash
-   GH_TOKEN=$OWNER_PR_PAT gh run list --repo stranske/Trend_Model_Project --workflow "Agents Keepalive Loop" --status failure --limit 5
+   GH_TOKEN=$CODESPACES gh run list --repo stranske/Trend_Model_Project --workflow "Agents Keepalive Loop" --status failure --limit 5
    ```
 
 ### Key Files to Know
@@ -591,7 +591,7 @@ Apply setup action to less frequent workflows:
 
 ### Don't Forget
 
-- **Use `OWNER_PR_PAT` or `SERVICE_BOT_PAT`** for cross-repo operations
+- **Use `CODESPACES` PAT** for cross-repo operations
 - **Test in BOTH** Workflows repo AND consumer repo
 - **Verify actual switching** not just "tokens available"
 

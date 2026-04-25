@@ -81,7 +81,7 @@ unset GH_TOKEN GITHUB_TOKEN
 gh auth status
 ```
 
-If there is no stored auth session, run commands with an explicit token (for example `GH_TOKEN="$OWNER_PR_PAT" ...`) and document scope limitations instead of assuming repository misconfiguration.
+If there is no stored auth session, run commands with an explicit token (for example `GH_TOKEN="$CODESPACES" ...`) and document scope limitations instead of assuming repository misconfiguration.
 
 ## Keepalive Implementations
 
