@@ -371,13 +371,17 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
   const policy = normalizePolicy(options);
   const parseErrors = Number(options.parse_errors ?? options.parseErrors ?? 0);
   const readErrors = Number(options.read_errors ?? options.readErrors ?? 0);
-  const parsedJsonRecordCount = Number(
-    options.parsed_json_record_count ?? options.parsedJsonRecordCount ?? records.length
+  const parsedJsonFileCount = Number(
+    options.parsed_json_file_count ??
+      options.parsedJsonFileCount ??
+      options.parsed_json_record_count ??
+      options.parsedJsonRecordCount ??
+      records.length
   );
   const nonAuthRecordCount = Number(
     options.non_auth_record_count ??
       options.nonAuthRecordCount ??
-      Math.max(0, parsedJsonRecordCount - records.length)
+      Math.max(0, parsedJsonFileCount - records.length)
   );
   const artifactSelection = normalizeArtifactSelectionSummary(
     options.artifact_selection_report ?? options.artifactSelectionReport
@@ -492,7 +496,7 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
     },
     input_file_count: inputFileCount,
     input_files: inputFiles,
-    scanned_record_count: parsedJsonRecordCount,
+    parsed_json_file_count: parsedJsonFileCount,
     auth_record_count: authRecords.length,
     non_auth_record_count: nonAuthRecordCount,
     parse_errors: parseErrors,
@@ -515,7 +519,7 @@ function formatBotCommentAuthCoverageMarkdown(report) {
     `- Hard block eligible: ${report.enforcement.hard_block_eligible}`,
     `- Hard block active: ${report.enforcement.hard_block_active}`,
     `- Input files: ${report.input_file_count}`,
-    `- Scanned JSON records: ${report.scanned_record_count}`,
+    `- Parsed JSON files: ${report.parsed_json_file_count}`,
     `- Auth records: ${report.auth_record_count}`,
     `- Non-auth records: ${report.non_auth_record_count}`,
     `- Parse errors: ${report.parse_errors}`,
@@ -600,7 +604,7 @@ function readJsonRecords(files = []) {
   const records = [];
   let parseErrors = 0;
   let readErrors = 0;
-  let parsedJsonRecordCount = 0;
+  let parsedJsonFileCount = 0;
   let nonAuthRecordCount = 0;
   for (const file of files) {
     let content = '';
@@ -612,7 +616,7 @@ function readJsonRecords(files = []) {
     }
     try {
       const parsed = JSON.parse(content);
-      parsedJsonRecordCount += 1;
+      parsedJsonFileCount += 1;
       if (isAuthCoverageRecord(parsed)) {
         records.push({ ...parsed, source_path: file });
       } else {
@@ -626,7 +630,7 @@ function readJsonRecords(files = []) {
     records,
     parse_errors: parseErrors,
     read_errors: readErrors,
-    parsed_json_record_count: parsedJsonRecordCount,
+    parsed_json_file_count: parsedJsonFileCount,
     non_auth_record_count: nonAuthRecordCount,
     file_count: files.length,
   };
@@ -695,7 +699,7 @@ function main() {
   const report = summarizeBotCommentAuthCoverage(readResult.records, {
     parse_errors: readResult.parse_errors,
     read_errors: readResult.read_errors,
-    parsed_json_record_count: readResult.parsed_json_record_count,
+    parsed_json_file_count: readResult.parsed_json_file_count,
     non_auth_record_count: readResult.non_auth_record_count,
     input_files: files,
     input_file_count: readResult.file_count,

@@ -405,7 +405,7 @@ test('reads only valid auth coverage JSON records from downloaded artifacts', ()
   assert.equal(result.records.length, 1);
   assert.equal(result.parse_errors, 0);
   assert.equal(result.read_errors, 0);
-  assert.equal(result.parsed_json_record_count, 1);
+  assert.equal(result.parsed_json_file_count, 1);
   assert.equal(result.non_auth_record_count, 0);
   assert.equal(result.file_count, 1);
   assert.ok(files[0].endsWith('wrapper.json'));
@@ -420,18 +420,20 @@ test('counts valid JSON with unexpected schema as non-auth records', () => {
   const files = collectJsonFiles(dir);
   const result = readJsonRecords(files);
   const report = summarizeBotCommentAuthCoverage(result.records, {
-    parsed_json_record_count: result.parsed_json_record_count,
+    parsed_json_file_count: result.parsed_json_file_count,
     non_auth_record_count: result.non_auth_record_count,
   });
   const markdown = formatBotCommentAuthCoverageMarkdown(report);
 
   assert.equal(result.records.length, 0);
-  assert.equal(result.parsed_json_record_count, 1);
+  assert.equal(result.parsed_json_file_count, 1);
   assert.equal(result.non_auth_record_count, 1);
-  assert.equal(report.scanned_record_count, 1);
+  assert.equal(report.parsed_json_file_count, 1);
   assert.equal(report.non_auth_record_count, 1);
   assert.ok(report.enforcement.blockers.includes('non-auth-records'));
   assert.match(markdown, /Non-auth records: 1/);
+  assert.match(markdown, /Parsed JSON files: 1/);
+  assert.doesNotMatch(markdown, /Scanned JSON records/);
 });
 
 test('keeps unreadable auth files separate from JSON parse errors', () => {

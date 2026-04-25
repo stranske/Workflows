@@ -40,6 +40,8 @@ test('maps metrics artifact names to stable families', () => {
     artifactFamily('bot-comment-auth-coverage-reusable-123'),
     'bot-comment-auth-coverage-reusable'
   );
+  assert.equal(artifactFamily('bot-comment-auth-coverage-wrapper-latest'), '');
+  assert.equal(artifactFamily('bot-comment-auth-coverage-reusable-run-123'), '');
   assert.equal(artifactFamily('coverage-summary'), '');
 });
 
@@ -52,16 +54,17 @@ test('selects only recent matching artifacts with a machine-readable report', ()
       artifact(4, 'autopilot-metrics-77', '2026-04-25T10:00:00Z'),
       artifact(5, 'review-thread-terminal-disposition-77', '2026-04-25T11:00:00Z'),
       artifact(6, 'agents-verifier-metrics', '2026-04-25T09:00:00Z', { expired: true }),
+      artifact(7, 'bot-comment-auth-coverage-wrapper-latest', '2026-04-25T08:00:00Z'),
     ],
     { now_ms: NOW, lookback_days: 14 }
   );
 
   assert.equal(report.schema, SELECTION_SCHEMA);
   assert.equal(report.status, 'pass');
-  assert.equal(report.scanned_count, 6);
+  assert.equal(report.scanned_count, 7);
   assert.equal(report.candidate_count, 3);
   assert.equal(report.selected_count, 3);
-  assert.equal(report.ignored_name_count, 1);
+  assert.equal(report.ignored_name_count, 2);
   assert.equal(report.ignored_old_count, 1);
   assert.equal(report.ignored_expired_count, 1);
   assert.deepEqual(report.candidate_family_counts, {
