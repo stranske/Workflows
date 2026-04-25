@@ -47,9 +47,6 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install GitHub API dependencies
-        run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
-
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:

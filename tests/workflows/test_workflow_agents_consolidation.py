@@ -278,9 +278,16 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
         assert (
             'node-version: "20"' in text
         ), "Weekly metrics must run its Node helpers on an explicit Node 20 runtime"
+        assert (
+            "Install GitHub API dependencies" not in text
+        ), "Weekly metrics must rely on setup-api-client for pinned GitHub API dependencies"
+        assert (
+            "npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app"
+            not in text
+        ), "Weekly metrics must not install floating Octokit dependencies in the repo root"
         assert text.index("Setup Node") < text.index(
-            "Install GitHub API dependencies"
-        ), "Weekly metrics must setup Node before installing API dependencies"
+            "uses: ./.github/actions/setup-api-client"
+        ), "Weekly metrics must setup Node before setup-api-client installs pinned API dependencies"
         assert text.index("Setup Node") < text.index(
             "node .github/scripts/weekly_metrics_artifacts.js"
         ), "Weekly metrics must setup Node before invoking selector helpers"
