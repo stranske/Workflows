@@ -58,6 +58,7 @@ jobs:
     outputs:
       pr_number: ${{ steps.resolve.outputs.pr_number }}
       should_run: ${{ steps.resolve.outputs.should_run }}
+      workflow_app_auth_mode: ${{ steps.workflow-app-creds.outputs.workflow_app_auth_mode }}
     steps:
       - name: Detect workflow App credentials
         id: workflow-app-creds
@@ -66,20 +67,79 @@ jobs:
           WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
           WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
         run: |
-          if [ -n "${WORKFLOWS_APP_CLIENT_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
-            echo "use_client=true" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
-            echo "workflow_app_auth_mode=client-id" >> "$GITHUB_OUTPUT"
-          elif [ -n "${WORKFLOWS_APP_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
-            echo "use_client=false" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=true" >> "$GITHUB_OUTPUT"
-            echo "workflow_app_auth_mode=legacy-app-id" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Legacy Workflows App ID fallback::Configure WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
-          else
-            echo "use_client=false" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
-            echo "workflow_app_auth_mode=none" >> "$GITHUB_OUTPUT"
+          client_id_configured=false
+          legacy_app_id_configured=false
+          private_key_configured=false
+          use_client=false
+          use_legacy=false
+          workflow_app_auth_mode=none
+          if [ -n "${WORKFLOWS_APP_CLIENT_ID}" ]; then
+            client_id_configured=true
           fi
+          if [ -n "${WORKFLOWS_APP_ID}" ]; then
+            legacy_app_id_configured=true
+          fi
+          if [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            private_key_configured=true
+          fi
+          if [ -n "${WORKFLOWS_APP_CLIENT_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            use_client=true
+            workflow_app_auth_mode=client-id
+          elif [ -n "${WORKFLOWS_APP_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            use_legacy=true
+            workflow_app_auth_mode=legacy-app-id
+            echo "::warning title=Legacy Workflows App ID fallback::Configure WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
+          fi
+          {
+            echo "client_id_configured=${client_id_configured}"
+            echo "legacy_app_id_configured=${legacy_app_id_configured}"
+            echo "private_key_configured=${private_key_configured}"
+            echo "use_client=${use_client}"
+            echo "use_legacy=${use_legacy}"
+            echo "workflow_app_auth_mode=${workflow_app_auth_mode}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write wrapper App auth coverage
+        if: always()
+        env:
+          WORKFLOW_APP_AUTH_MODE: ${{ steps.workflow-app-creds.outputs.workflow_app_auth_mode }}
+          WORKFLOW_APP_CLIENT_ID_CONFIGURED: ${{ steps.workflow-app-creds.outputs.client_id_configured }}
+          WORKFLOW_APP_LEGACY_APP_ID_CONFIGURED: ${{ steps.workflow-app-creds.outputs.legacy_app_id_configured }}
+          WORKFLOW_APP_PRIVATE_KEY_CONFIGURED: ${{ steps.workflow-app-creds.outputs.private_key_configured }}
+        run: |
+          mkdir -p bot-comment-auth-coverage
+          node <<'NODE'
+          const fs = require('fs');
+          const truthy = (value) => String(value || '').toLowerCase() === 'true';
+          const record = {
+            schema: 'workflows-bot-comment-auth-coverage/v1',
+            component: 'agents-bot-comment-handler-wrapper',
+            repository: process.env.GITHUB_REPOSITORY || '',
+            workflow: process.env.GITHUB_WORKFLOW || '',
+            run_id: process.env.GITHUB_RUN_ID || '',
+            run_attempt: process.env.GITHUB_RUN_ATTEMPT || '',
+            event_name: process.env.GITHUB_EVENT_NAME || '',
+            auth_mode: process.env.WORKFLOW_APP_AUTH_MODE || 'none',
+            client_id_configured: truthy(process.env.WORKFLOW_APP_CLIENT_ID_CONFIGURED),
+            legacy_app_id_configured: truthy(process.env.WORKFLOW_APP_LEGACY_APP_ID_CONFIGURED),
+            private_key_configured: truthy(process.env.WORKFLOW_APP_PRIVATE_KEY_CONFIGURED),
+            fallback_warning_active: process.env.WORKFLOW_APP_AUTH_MODE === 'legacy-app-id',
+            direct_jobs_covered: ['resolve', 'cleanup'],
+          };
+          fs.writeFileSync(
+            'bot-comment-auth-coverage/wrapper.json',
+            `${JSON.stringify(record, null, 2)}\n`
+          );
+          NODE
+
+      - name: Upload wrapper App auth coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bot-comment-auth-coverage-wrapper-${{ github.run_id }}
+          path: bot-comment-auth-coverage/wrapper.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Mint GitHub App Token (client ID)
         id: app_token_client
@@ -285,20 +345,37 @@ jobs:
           WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
           WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
         run: |
-          if [ -n "${WORKFLOWS_APP_CLIENT_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
-            echo "use_client=true" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
-            echo "workflow_app_auth_mode=client-id" >> "$GITHUB_OUTPUT"
-          elif [ -n "${WORKFLOWS_APP_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
-            echo "use_client=false" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=true" >> "$GITHUB_OUTPUT"
-            echo "workflow_app_auth_mode=legacy-app-id" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Legacy Workflows App ID fallback::Configure WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
-          else
-            echo "use_client=false" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
-            echo "workflow_app_auth_mode=none" >> "$GITHUB_OUTPUT"
+          client_id_configured=false
+          legacy_app_id_configured=false
+          private_key_configured=false
+          use_client=false
+          use_legacy=false
+          workflow_app_auth_mode=none
+          if [ -n "${WORKFLOWS_APP_CLIENT_ID}" ]; then
+            client_id_configured=true
           fi
+          if [ -n "${WORKFLOWS_APP_ID}" ]; then
+            legacy_app_id_configured=true
+          fi
+          if [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            private_key_configured=true
+          fi
+          if [ -n "${WORKFLOWS_APP_CLIENT_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            use_client=true
+            workflow_app_auth_mode=client-id
+          elif [ -n "${WORKFLOWS_APP_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            use_legacy=true
+            workflow_app_auth_mode=legacy-app-id
+            echo "::warning title=Legacy Workflows App ID fallback::Configure WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
+          fi
+          {
+            echo "client_id_configured=${client_id_configured}"
+            echo "legacy_app_id_configured=${legacy_app_id_configured}"
+            echo "private_key_configured=${private_key_configured}"
+            echo "use_client=${use_client}"
+            echo "use_legacy=${use_legacy}"
+            echo "workflow_app_auth_mode=${workflow_app_auth_mode}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Mint GitHub App Token (client ID)
         id: app_token_client

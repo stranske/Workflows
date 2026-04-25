@@ -149,6 +149,20 @@ internal resolve/cleanup API calls. If that secret is missing, it falls back to
 `WORKFLOWS_APP_ID` with a warning so the reusable bot-comment path remains
 observable without breaking existing installs.
 
+Each run uploads warning-only App auth coverage artifacts:
+
+- `bot-comment-auth-coverage-wrapper-<run_id>` records the canonical wrapper
+  `auth_mode` (`client-id`, `legacy-app-id`, or `none`) plus boolean secret
+  coverage for `WORKFLOWS_APP_CLIENT_ID`, `WORKFLOWS_APP_ID`, and
+  `WORKFLOWS_APP_PRIVATE_KEY`.
+- `bot-comment-auth-coverage-reusable-<run_id>` records the reusable handler
+  `auth_mode` plus boolean secret coverage for `GH_APP_CLIENT_ID`, `GH_APP_ID`,
+  and `GH_APP_PRIVATE_KEY`.
+
+Both artifacts use schema `workflows-bot-comment-auth-coverage/v1` and do not
+include secret values. A `legacy-app-id` mode means migration is still incomplete;
+do not remove the legacy fallback until active runs report `client-id` or `none`.
+
 ## Troubleshooting
 
 ### No comments found

@@ -141,8 +141,10 @@ This allows mid-execution switching rather than waiting for failure.
 |--------|----------|---------|
 | `KEEPALIVE_APP_ID` | Yes | Keepalive-loop dedicated app |
 | `KEEPALIVE_APP_PRIVATE_KEY` | Yes | Keepalive-loop dedicated app |
+| `WORKFLOWS_APP_CLIENT_ID` | Recommended | Preferred App auth for Workflows wrapper jobs |
 | `WORKFLOWS_APP_ID` | Yes | Autofix workflows |
 | `WORKFLOWS_APP_PRIVATE_KEY` | Yes | Autofix workflows |
+| `GH_APP_CLIENT_ID` | Recommended | Preferred issue/comment handling App auth |
 | `GH_APP_ID` | Recommended | Issue/comment handling |
 | `GH_APP_PRIVATE_KEY` | Recommended | Issue/comment handling |
 | `SERVICE_BOT_PAT` | **Critical** | Bot-identity comments (reserve capacity!) |

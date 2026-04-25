@@ -250,8 +250,12 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Se
 | `AGENTS_AUTOMATION_PAT` | PAT used by autofix/retry flows when available | Contact admin for token |
 | `OWNER_PR_PAT` | PAT for PR creation | Repository owner's PAT |
 | `CODEX_AUTH_JSON` | Codex CLI authentication | Export from `~/.codex/auth.json` |
+| `WORKFLOWS_APP_CLIENT_ID` | GitHub App client ID for preferred token minting | Contact admin for App client ID |
 | `WORKFLOWS_APP_ID` | GitHub App ID for token minting | Contact admin for App ID |
 | `WORKFLOWS_APP_PRIVATE_KEY` | GitHub App private key | Contact admin for private key |
+| `GH_APP_CLIENT_ID` | Bot-comment GitHub App client ID | Contact admin for App client ID |
+| `GH_APP_ID` | Bot-comment legacy GitHub App ID fallback | Contact admin for App ID |
+| `GH_APP_PRIVATE_KEY` | Bot-comment GitHub App private key | Contact admin for private key |
 | `KEEPALIVE_APP_ID` | Keepalive App ID (preferred for keepalive loop auth) | Contact admin for App ID |
 | `KEEPALIVE_APP_PRIVATE_KEY` | Keepalive App private key | Contact admin for private key |
 | `OPENAI_API_KEY` | OpenAI API key for verify/optimizer/decompose flows | Contact admin for token |
@@ -265,8 +269,12 @@ Add each secret:
 - [ ] `AGENTS_AUTOMATION_PAT` — Recommended for autofix/retry dispatches
 - [ ] `OWNER_PR_PAT` — Required for creating PRs from agent bridge
 - [ ] `CODEX_AUTH_JSON` — Required for Codex CLI to authenticate with ChatGPT
+- [ ] `WORKFLOWS_APP_CLIENT_ID` — Preferred GitHub App token minting path
 - [ ] `WORKFLOWS_APP_ID` — **Required for keepalive** - Used for GitHub App token minting
 - [ ] `WORKFLOWS_APP_PRIVATE_KEY` — **Required for keepalive** - GitHub App authentication
+- [ ] `GH_APP_CLIENT_ID` — Preferred bot-comment App auth path
+- [ ] `GH_APP_ID` — Legacy bot-comment App ID fallback
+- [ ] `GH_APP_PRIVATE_KEY` — Bot-comment App private key
 - [ ] `KEEPALIVE_APP_ID` — **Required for keepalive parity** - Explicit keepalive app alias
 - [ ] `KEEPALIVE_APP_PRIVATE_KEY` — **Required for keepalive parity** - Explicit keepalive app key
 - [ ] `OPENAI_API_KEY` — Required for verify/decompose/optimizer workflows

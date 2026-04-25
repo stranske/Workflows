@@ -161,10 +161,14 @@ Use an exact commit SHA when you need stricter reproducibility or a controlled r
 | Secret | Purpose | Alternative |
 |--------|---------|-------------|
 | `CODEX_AUTH_JSON` | ChatGPT auth for Codex CLI | Recommended for Codex |
+| `WORKFLOWS_APP_CLIENT_ID` | GitHub App client ID | Preferred with private key |
 | `WORKFLOWS_APP_ID` | GitHub App ID | Use instead of CODEX_AUTH_JSON |
 | `WORKFLOWS_APP_PRIVATE_KEY` | GitHub App private key | Required with APP_ID |
+| `GH_APP_CLIENT_ID` | Bot-comment App client ID | Preferred bot-comment auth |
+| `GH_APP_ID` | Bot-comment legacy App ID | Fallback bot-comment auth |
+| `GH_APP_PRIVATE_KEY` | Bot-comment App private key | Required with GH App IDs |
 
-**Note:** Choose either `CODEX_AUTH_JSON` (ChatGPT auth) OR the GitHub App credentials (`WORKFLOWS_APP_ID` + `WORKFLOWS_APP_PRIVATE_KEY`), not both.
+**Note:** Choose either `CODEX_AUTH_JSON` (ChatGPT auth) OR the GitHub App credentials (`WORKFLOWS_APP_CLIENT_ID` or `WORKFLOWS_APP_ID` + `WORKFLOWS_APP_PRIVATE_KEY`), not both. Prefer client ID secrets where available; legacy App ID fallbacks remain supported for existing installs.
 
 ### Legacy Secrets (for agents-orchestrator.yml)
 

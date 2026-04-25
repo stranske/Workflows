@@ -15,6 +15,7 @@
 # - comments_found: 'true' if unresolved bot comments were found
 # - comments_count: Number of unresolved bot comments found
 # - agent_triggered: 'true' if the agent was triggered to address comments
+# - app_auth_mode: 'client-id', 'legacy-app-id', or 'none' for App auth selection
 
 name: Reusable Bot Comment Handler
 
@@ -89,6 +90,9 @@ on:
       agent_triggered:
         description: 'Whether the agent was triggered to address comments'
         value: ${{ jobs.dispatch.outputs.triggered }}
+      app_auth_mode:
+        description: 'Selected App auth mode: client-id, legacy-app-id, or none'
+        value: ${{ jobs.collect.outputs.app_auth_mode }}
     secrets:
       service_bot_pat:
         description: 'PAT for service bot (comments, labels)'
@@ -123,6 +127,7 @@ jobs:
       comments_json: ${{ steps.collect.outputs.comments }}
       agent: ${{ steps.agent.outputs.agent }}
       agent_workflow: ${{ steps.agent.outputs.workflow }}
+      app_auth_mode: ${{ steps.app-creds.outputs.app_auth_mode }}
     steps:
       - name: Detect App credentials
         id: app-creds
@@ -131,20 +136,37 @@ jobs:
           GH_APP_ID: ${{ secrets.gh_app_id }}
           GH_APP_PRIVATE_KEY: ${{ secrets.gh_app_private_key }}
         run: |
-          if [ -n "${GH_APP_CLIENT_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
-            echo "use_client=true" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
-            echo "app_auth_mode=client-id" >> "$GITHUB_OUTPUT"
-          elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
-            echo "use_client=false" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=true" >> "$GITHUB_OUTPUT"
-            echo "app_auth_mode=legacy-app-id" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID and pass gh_app_client_id to avoid the deprecated app-id path."
-          else
-            echo "use_client=false" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
-            echo "app_auth_mode=none" >> "$GITHUB_OUTPUT"
+          client_id_configured=false
+          legacy_app_id_configured=false
+          private_key_configured=false
+          use_client=false
+          use_legacy=false
+          app_auth_mode=none
+          if [ -n "${GH_APP_CLIENT_ID}" ]; then
+            client_id_configured=true
           fi
+          if [ -n "${GH_APP_ID}" ]; then
+            legacy_app_id_configured=true
+          fi
+          if [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            private_key_configured=true
+          fi
+          if [ -n "${GH_APP_CLIENT_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            use_client=true
+            app_auth_mode=client-id
+          elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            use_legacy=true
+            app_auth_mode=legacy-app-id
+            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID and pass gh_app_client_id to avoid the deprecated app-id path."
+          fi
+          {
+            echo "client_id_configured=${client_id_configured}"
+            echo "legacy_app_id_configured=${legacy_app_id_configured}"
+            echo "private_key_configured=${private_key_configured}"
+            echo "use_client=${use_client}"
+            echo "use_legacy=${use_legacy}"
+            echo "app_auth_mode=${app_auth_mode}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate token (if App client ID configured)
         id: token-client
@@ -178,6 +200,47 @@ jobs:
           else
             echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Write App auth coverage
+        if: always()
+        env:
+          APP_AUTH_MODE: ${{ steps.app-creds.outputs.app_auth_mode }}
+          APP_CLIENT_ID_CONFIGURED: ${{ steps.app-creds.outputs.client_id_configured }}
+          APP_LEGACY_APP_ID_CONFIGURED: ${{ steps.app-creds.outputs.legacy_app_id_configured }}
+          APP_PRIVATE_KEY_CONFIGURED: ${{ steps.app-creds.outputs.private_key_configured }}
+        run: |
+          mkdir -p bot-comment-auth-coverage
+          node <<'NODE'
+          const fs = require('fs');
+          const truthy = (value) => String(value || '').toLowerCase() === 'true';
+          const record = {
+            schema: 'workflows-bot-comment-auth-coverage/v1',
+            component: 'reusable-bot-comment-handler',
+            repository: process.env.GITHUB_REPOSITORY || '',
+            workflow: process.env.GITHUB_WORKFLOW || '',
+            run_id: process.env.GITHUB_RUN_ID || '',
+            run_attempt: process.env.GITHUB_RUN_ATTEMPT || '',
+            event_name: process.env.GITHUB_EVENT_NAME || '',
+            auth_mode: process.env.APP_AUTH_MODE || 'none',
+            client_id_configured: truthy(process.env.APP_CLIENT_ID_CONFIGURED),
+            legacy_app_id_configured: truthy(process.env.APP_LEGACY_APP_ID_CONFIGURED),
+            private_key_configured: truthy(process.env.APP_PRIVATE_KEY_CONFIGURED),
+            fallback_warning_active: process.env.APP_AUTH_MODE === 'legacy-app-id',
+          };
+          fs.writeFileSync(
+            'bot-comment-auth-coverage/reusable.json',
+            `${JSON.stringify(record, null, 2)}\n`
+          );
+          NODE
+
+      - name: Upload App auth coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bot-comment-auth-coverage-reusable-${{ github.run_id }}
+          path: bot-comment-auth-coverage/reusable.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Checkout retry helpers
         uses: actions/checkout@v6
@@ -598,20 +661,37 @@ jobs:
           GH_APP_ID: ${{ secrets.gh_app_id }}
           GH_APP_PRIVATE_KEY: ${{ secrets.gh_app_private_key }}
         run: |
-          if [ -n "${GH_APP_CLIENT_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
-            echo "use_client=true" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
-            echo "app_auth_mode=client-id" >> "$GITHUB_OUTPUT"
-          elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
-            echo "use_client=false" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=true" >> "$GITHUB_OUTPUT"
-            echo "app_auth_mode=legacy-app-id" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID and pass gh_app_client_id to avoid the deprecated app-id path."
-          else
-            echo "use_client=false" >> "$GITHUB_OUTPUT"
-            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
-            echo "app_auth_mode=none" >> "$GITHUB_OUTPUT"
+          client_id_configured=false
+          legacy_app_id_configured=false
+          private_key_configured=false
+          use_client=false
+          use_legacy=false
+          app_auth_mode=none
+          if [ -n "${GH_APP_CLIENT_ID}" ]; then
+            client_id_configured=true
           fi
+          if [ -n "${GH_APP_ID}" ]; then
+            legacy_app_id_configured=true
+          fi
+          if [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            private_key_configured=true
+          fi
+          if [ -n "${GH_APP_CLIENT_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            use_client=true
+            app_auth_mode=client-id
+          elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
+            use_legacy=true
+            app_auth_mode=legacy-app-id
+            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID and pass gh_app_client_id to avoid the deprecated app-id path."
+          fi
+          {
+            echo "client_id_configured=${client_id_configured}"
+            echo "legacy_app_id_configured=${legacy_app_id_configured}"
+            echo "private_key_configured=${private_key_configured}"
+            echo "use_client=${use_client}"
+            echo "use_legacy=${use_legacy}"
+            echo "app_auth_mode=${app_auth_mode}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate token (if App client ID configured)
         id: token-client

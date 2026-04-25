@@ -94,11 +94,14 @@ The Workflows GitHub App provides secure, scoped authentication without personal
 
 Navigate to **Settings** → **Secrets and variables** → **Actions** → **Secrets** tab
 
-1. [ ] Get **App ID** from App settings page (numeric ID)
-2. [ ] **Generate Private Key** from App settings (downloads `.pem` file)
-3. [ ] Add secrets:
+1. [ ] Get **Client ID** from App settings page (preferred token input)
+2. [ ] Get **App ID** from App settings page (legacy fallback token input)
+3. [ ] **Generate Private Key** from App settings (downloads `.pem` file)
+4. [ ] Add secrets:
+   - Name: `WORKFLOWS_APP_CLIENT_ID`
+   - Value: The App client ID
    - Name: `WORKFLOWS_APP_ID`
-   - Value: The numeric App ID
+   - Value: The numeric App ID (legacy fallback)
    - Name: `WORKFLOWS_APP_PRIVATE_KEY`  
    - Value: Contents of the `.pem` file (entire file, including `-----BEGIN/END-----` lines)
 
