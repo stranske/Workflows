@@ -354,6 +354,16 @@ test('identifies only bot-comment auth coverage candidate files', () => {
     isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-wrapper-1/reusable.json'),
     false
   );
+  assert.equal(
+    isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-wrapper-1/nested/wrapper.json'),
+    false
+  );
+  assert.equal(
+    isPotentialAuthCoverageFile(
+      '/tmp/artifacts/bot-comment-auth-coverage-reusable-1/nested/reusable.json'
+    ),
+    false
+  );
 });
 
 test('normalizes bot auth coverage enforcement policy', () => {
@@ -417,6 +427,38 @@ test('keeps explicit zero parse errors and reports missing organic evidence as n
   assert.equal(report.parse_errors, 0);
   assert.equal(report.coverage_status, 'no-data');
   assert.equal(report.organic_evidence.status, 'no-data');
+  assert.equal(
+    report.enforcement.blockers.some((blocker) => blocker.startsWith('missing-organic-')),
+    false
+  );
+});
+
+test('passes disabled organic evidence checks without auth records', () => {
+  const noRequiredEvents = summarizeOrganicEvidence([], {
+    required_organic_events: '',
+    organic_components: 'agents-bot-comment-handler-wrapper',
+    organic_expected_mode: 'client-id',
+  });
+  const noRequiredComponents = summarizeOrganicEvidence([], {
+    required_organic_events: 'pull_request',
+    organic_components: '',
+    organic_expected_mode: 'client-id',
+  });
+  const report = summarizeBotCommentAuthCoverage([], {
+    parse_errors: 0,
+    required_organic_events: '',
+    organic_components: '',
+    organic_expected_mode: 'client-id',
+  });
+
+  assert.equal(noRequiredEvents.status, 'pass');
+  assert.deepEqual(noRequiredEvents.required_events, []);
+  assert.deepEqual(noRequiredEvents.required_components, []);
+  assert.equal(noRequiredComponents.status, 'pass');
+  assert.deepEqual(noRequiredComponents.required_events, ['pull_request']);
+  assert.deepEqual(noRequiredComponents.required_components, []);
+  assert.equal(report.organic_evidence.status, 'pass');
+  assert.deepEqual(report.organic_evidence.blockers, []);
   assert.equal(
     report.enforcement.blockers.some((blocker) => blocker.startsWith('missing-organic-')),
     false
