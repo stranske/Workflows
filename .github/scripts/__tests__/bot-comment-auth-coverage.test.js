@@ -571,6 +571,10 @@ test('identifies only bot-comment auth coverage candidate files', () => {
     false
   );
   assert.equal(
+    isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-reusable-1/wrapper.json'),
+    false
+  );
+  assert.equal(
     isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-wrapper-1/nested/wrapper.json'),
     false
   );

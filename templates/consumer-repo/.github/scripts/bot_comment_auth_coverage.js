@@ -9,14 +9,21 @@ const AUTH_ARTIFACT_FAMILIES = new Set([
   'bot-comment-auth-coverage-wrapper',
   'bot-comment-auth-coverage-reusable',
 ]);
-const AUTH_ARTIFACT_FILE_CONTRACTS = {
-  'wrapper.json': {
+const AUTH_ARTIFACT_FAMILY_CONTRACTS = {
+  'bot-comment-auth-coverage-wrapper': {
+    family: 'bot-comment-auth-coverage-wrapper',
+    filename: 'wrapper.json',
     artifact_dir_pattern: /^bot-comment-auth-coverage-wrapper-\d+(?:-\d+)?$/,
   },
-  'reusable.json': {
+  'bot-comment-auth-coverage-reusable': {
+    family: 'bot-comment-auth-coverage-reusable',
+    filename: 'reusable.json',
     artifact_dir_pattern: /^bot-comment-auth-coverage-reusable-\d+(?:-\d+)?$/,
   },
 };
+const AUTH_ARTIFACT_FILE_CONTRACTS = Object.fromEntries(
+  Object.values(AUTH_ARTIFACT_FAMILY_CONTRACTS).map((contract) => [contract.filename, contract])
+);
 
 const COMPONENT_POLICIES = {
   'agents-bot-comment-handler-wrapper': {
@@ -342,14 +349,15 @@ function normalizeArtifactSelectionSummary(report) {
 function artifactFamilyFromSelection(artifact = {}) {
   const family = cleanString(artifact.family);
   if (AUTH_ARTIFACT_FAMILIES.has(family)) return family;
-  const name = cleanString(artifact.name);
-  if (name.startsWith('bot-comment-auth-coverage-wrapper-')) {
-    return 'bot-comment-auth-coverage-wrapper';
-  }
-  if (name.startsWith('bot-comment-auth-coverage-reusable-')) {
-    return 'bot-comment-auth-coverage-reusable';
-  }
-  return '';
+  return artifactFamilyFromName(artifact.name);
+}
+
+function artifactFamilyFromName(name) {
+  const artifactName = cleanString(name);
+  const contract = Object.values(AUTH_ARTIFACT_FAMILY_CONTRACTS).find((candidate) =>
+    candidate.artifact_dir_pattern.test(artifactName)
+  );
+  return contract?.family || '';
 }
 
 function componentCoverageStatus(blockers, policy, latest) {
@@ -595,7 +603,7 @@ function isPotentialAuthCoverageFile(file) {
   const contract = AUTH_ARTIFACT_FILE_CONTRACTS[basename];
   if (!contract) return false;
   const artifactDir = path.basename(path.dirname(normalized));
-  return contract.artifact_dir_pattern.test(artifactDir);
+  return artifactFamilyFromName(artifactDir) === contract.family;
 }
 
 function readJsonRecords(files = []) {

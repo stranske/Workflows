@@ -52,6 +52,20 @@ jobs:
           repos=$(python scripts/list_registered_consumer_repos.py --separator ',')
           echo "repos=${repos}" >> "$GITHUB_OUTPUT"
 
+      - name: Compute current sync hash
+        id: hash
+        run: |
+          hash=$({
+            find templates/consumer-repo -type f -exec sha256sum {} \;
+            find tools -name "*.py" -type f -exec sha256sum {} \; 2>/dev/null || true
+            find scripts -name "*.py" -type f -exec sha256sum {} \; 2>/dev/null || true
+            find scripts -name "*.sh" -type f -exec sha256sum {} \; 2>/dev/null || true
+            find .github/scripts -type f -exec sha256sum {} \;
+            sha256sum .github/sync-manifest.yml
+          } | sort | sha256sum | cut -d' ' -f1)
+          echo "hash=${hash:0:12}" >> "$GITHUB_OUTPUT"
+          echo "Current sync hash: ${hash:0:12}"
+
       - name: Resolve inputs
         id: inputs
         env:
@@ -94,6 +108,7 @@ jobs:
               : requestedRepos.split(',').map((repo) => repo.trim()).filter(Boolean);
             const dryRun = '${{ steps.inputs.outputs.dry_run }}' === 'true';
             const maxRepos = Number('${{ steps.inputs.outputs.max_repos }}') || 0;
+            const currentSyncHash = '${{ steps.hash.outputs.hash }}';
 
             const result = await runCampaign({
               github,
@@ -102,6 +117,7 @@ jobs:
               repos,
               dryRun,
               maxRepos,
+              currentSyncHash,
             });
 
             const stats = result.state.stats || {};

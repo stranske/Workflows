@@ -161,10 +161,19 @@ function collectActiveBotThreads(reviewThreads = [], options = {}) {
     });
 }
 
-function buildQueueItem({ repoFullName, pr, threads, classification, now, defaultOwner } = {}) {
+function buildQueueItem({
+  repoFullName,
+  pr,
+  threads,
+  classification,
+  now,
+  defaultOwner,
+  currentSyncHash = '',
+} = {}) {
   const repo = cleanString(repoFullName);
   const prNumber = cleanInteger(pr?.number);
   const headSha = cleanString(pr?.head?.sha || pr?.headSha || pr?.head_sha);
+  const headRef = cleanString(pr?.head?.ref || pr?.headRefName || pr?.headRef);
   const threadIds = collectThreadIds(threads);
   const fingerprint = sha256Short(`${repo}#${prNumber}:${headSha}:${threadIds.join(',')}`, 20);
   const resolvedClassification = classification || classifyPullRequest(pr);
@@ -188,11 +197,12 @@ function buildQueueItem({ repoFullName, pr, threads, classification, now, defaul
     pr_number: prNumber,
     pr_title: cleanString(pr?.title),
     pr_url: cleanString(pr?.html_url || pr?.url),
-    head_ref: cleanString(pr?.head?.ref || pr?.headRefName || pr?.headRef),
+    head_ref: headRef,
     head_sha: headSha,
     base_ref: cleanString(pr?.base?.ref || pr?.baseRefName || pr?.baseRef),
     source_repo: sourceRepo,
     preferred_workdir: preferredWorkdir,
+    source_sync: sourceSyncStateFor(resolvedClassification, headRef, currentSyncHash),
     review_signature: reviewSignature,
     source_review_key: sourceReviewKey,
     review_thread_count: threads.length,
@@ -224,6 +234,33 @@ function collectThreadIds(threads = []) {
     .map((thread) => cleanString(thread.id))
     .filter(Boolean)
     .sort();
+}
+
+function normalizeSyncHash(value) {
+  const text = cleanString(value);
+  if (!text) return '';
+  return text.startsWith(SYNC_BRANCH_PREFIX) ? text.slice(SYNC_BRANCH_PREFIX.length) : text;
+}
+
+function sourceSyncStateFor(classification, headRef, currentSyncHash) {
+  if (classification !== 'sync') {
+    return null;
+  }
+  const cleanHeadRef = cleanString(headRef);
+  const pr_sync_hash = cleanHeadRef.startsWith(SYNC_BRANCH_PREFIX)
+    ? normalizeSyncHash(cleanHeadRef)
+    : '';
+  const current_sync_hash = normalizeSyncHash(currentSyncHash);
+  let status = 'unknown';
+  if (pr_sync_hash && current_sync_hash) {
+    status = pr_sync_hash === current_sync_hash ? 'current' : 'superseded';
+  }
+  return {
+    schema: 'sync-dependabot-campaign-source-sync/v1',
+    current_sync_hash,
+    pr_sync_hash,
+    status,
+  };
 }
 
 function reviewSignatureForThreads(threads = []) {
@@ -461,6 +498,14 @@ function compactStateForMarker(state = {}) {
       base_ref: cleanString(item.base_ref),
       source_repo: cleanString(item.source_repo),
       preferred_workdir: cleanString(item.preferred_workdir),
+      source_sync: item.source_sync
+        ? {
+            schema: cleanString(item.source_sync.schema),
+            current_sync_hash: cleanString(item.source_sync.current_sync_hash),
+            pr_sync_hash: cleanString(item.source_sync.pr_sync_hash),
+            status: cleanString(item.source_sync.status),
+          }
+        : null,
       review_signature: cleanString(item.review_signature),
       source_review_key: cleanString(item.source_review_key),
       source_fixed_candidate: item.source_fixed_candidate
@@ -591,6 +636,12 @@ function formatItemDetails(items = []) {
     lines.push(`- Source repo: ${item.source_repo || '-'}`);
     lines.push(`- Preferred local workdir: ${item.preferred_workdir || '-'}`);
     lines.push(`- Head: \`${item.head_ref || '-'}\` ${item.head_sha ? `(${item.head_sha.slice(0, 12)})` : ''}`);
+    if (item.source_sync) {
+      lines.push(
+        `- Source sync state: ${item.source_sync.status || 'unknown'} ` +
+          `(PR ${item.source_sync.pr_sync_hash || '-'} / current ${item.source_sync.current_sync_hash || '-'})`
+      );
+    }
     lines.push(`- Attempts: ${item.attempts || 0}`);
     if (item.source_fixed_candidate) {
       const candidate = item.source_fixed_candidate;
@@ -794,6 +845,7 @@ async function discoverRepoWork({
   botAuthors,
   ignoredPaths,
   withRetry = null,
+  currentSyncHash = '',
 }) {
   const { owner, repo, fullName } = repoEntry;
   const result = {
@@ -834,6 +886,7 @@ async function discoverRepoWork({
       classification,
       now,
       defaultOwner,
+      currentSyncHash,
     }));
   }
 
@@ -1025,6 +1078,7 @@ async function runCampaign({
   maxRepos = 0,
   botAuthors = DEFAULT_BOT_AUTHORS,
   ignoredPaths = DEFAULT_IGNORED_PATHS,
+  currentSyncHash = '',
   now = new Date().toISOString(),
 } = {}) {
   if (!github || !context?.repo) {
@@ -1060,6 +1114,7 @@ async function runCampaign({
         botAuthors,
         ignoredPaths,
         withRetry,
+        currentSyncHash,
       });
       discoveredItems.push(...result.items);
       syncPrsOpen += result.syncPrsOpen;

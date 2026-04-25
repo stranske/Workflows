@@ -142,15 +142,56 @@ test('buildQueueItem creates stable PR-scoped work items', () => {
         comments_count: 1,
       },
     ],
+    currentSyncHash: 'abc123',
   });
 
   assert.match(item.id, /^sync-review-comments:stranske\/TPP#850:/);
   assert.equal(item.status, 'needs-local-codex');
   assert.equal(item.source_repo, 'stranske/Workflows');
   assert.equal(item.preferred_workdir, 'Workflows');
+  assert.deepEqual(item.source_sync, {
+    schema: 'sync-dependabot-campaign-source-sync/v1',
+    current_sync_hash: 'abc123',
+    pr_sync_hash: 'abc123',
+    status: 'current',
+  });
   assert.match(item.review_signature, /^[0-9a-f]{20}$/);
   assert.match(item.source_review_key, /^stranske\/Workflows:sync:[0-9a-f]{20}$/);
   assert.equal(item.review_thread_count, 1);
+});
+
+test('buildQueueItem marks old sync branches as superseded by the current template hash', () => {
+  const item = buildQueueItem({
+    repoFullName: 'stranske/TPP',
+    defaultOwner: 'stranske',
+    now: '2026-04-21T05:52:00Z',
+    currentSyncHash: 'newhash123456',
+    pr: {
+      number: 851,
+      title: 'chore: sync workflow templates',
+      html_url: 'https://github.com/stranske/TPP/pull/851',
+      head: { ref: 'sync/workflows-oldhash123456', sha: 'abcdef123456' },
+      base: { ref: 'main' },
+    },
+    threads: [
+      {
+        id: 'thread-1',
+        path: '.github/scripts/bot_comment_auth_coverage.js',
+        line: 12,
+        url: 'https://github.test/comment-1',
+        author: 'Copilot',
+        body_preview: 'Please tighten this condition.',
+        comments_count: 1,
+      },
+    ],
+  });
+  const body = formatCampaignBody({ items: [item], stats: {}, updated_at: 'now' });
+  const markerItem = parseCampaignMarker(formatCampaignMarker({ items: [item] })).items[0];
+
+  assert.equal(item.source_sync.status, 'superseded');
+  assert.equal(item.source_sync.pr_sync_hash, 'oldhash123456');
+  assert.equal(markerItem.source_sync.status, 'superseded');
+  assert.match(body, /Source sync state: superseded/);
 });
 
 test('mergeCampaignState preserves active items when repo discovery fails', () => {
