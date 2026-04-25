@@ -109,7 +109,7 @@ function normalizeRecord(raw = {}, sourcePath = '') {
 }
 
 function isAuthCoverageRecord(record) {
-  return Boolean(record && typeof record === 'object' && record.schema === AUTH_SCHEMA);
+  return Boolean(record && typeof record === 'object' && cleanString(record.schema) === AUTH_SCHEMA);
 }
 
 function parseAllowedModes(value, fallback) {
@@ -196,7 +196,7 @@ function summarizeOrganicEvidence(records = [], options = {}) {
 
   for (const record of records) {
     if (!record.component || !record.event_name) continue;
-    eventCounts[record.component] ||= {};
+    eventCounts[record.component] = eventCounts[record.component] || {};
     eventCounts[record.component][record.event_name] =
       (eventCounts[record.component][record.event_name] || 0) + 1;
     const key = `${record.component}:${record.event_name}`;
@@ -294,20 +294,20 @@ function compareRecords(a, b) {
 
 function normalizeArtifactSelectionSummary(report) {
   if (!report) return null;
-  if (report.status === 'missing' || report.status === 'parse-error') {
-    return {
-      schema: cleanString(report.schema) || 'workflows-weekly-metrics-artifact-selection/v1',
-      status: report.status,
-      error_message: cleanString(report.error_message),
-      selected_auth_artifact_count: 0,
-      selected_auth_artifacts: [],
-    };
-  }
   if (typeof report !== 'object' || Array.isArray(report)) {
     return {
       schema: 'workflows-weekly-metrics-artifact-selection/v1',
       status: 'parse-error',
       error_message: 'artifact selection report is not a JSON object',
+      selected_auth_artifact_count: 0,
+      selected_auth_artifacts: [],
+    };
+  }
+  if (report.status === 'missing' || report.status === 'parse-error') {
+    return {
+      schema: cleanString(report.schema) || 'workflows-weekly-metrics-artifact-selection/v1',
+      status: report.status,
+      error_message: cleanString(report.error_message),
       selected_auth_artifact_count: 0,
       selected_auth_artifacts: [],
     };
@@ -346,7 +346,10 @@ function artifactFamilyFromSelection(artifact = {}) {
 
 function componentCoverageStatus(blockers, policy, latest) {
   if (blockers.length === 0) return 'pass';
-  if (!latest && policy.missing_record_severity === 'no-data') return 'no-data';
+  const onlyMissingBlockers = blockers.every((blocker) => isComponentMissingBlocker(blocker));
+  if (!latest && policy.missing_record_severity === 'no-data' && onlyMissingBlockers) {
+    return 'no-data';
+  }
   return 'warning';
 }
 
@@ -357,6 +360,15 @@ function isComponentMissingBlocker(blocker) {
 function summarizeBotCommentAuthCoverage(records = [], options = {}) {
   const policy = normalizePolicy(options);
   const parseErrors = Number(options.parse_errors ?? options.parseErrors ?? 0);
+  const readErrors = Number(options.read_errors ?? options.readErrors ?? 0);
+  const parsedJsonRecordCount = Number(
+    options.parsed_json_record_count ?? options.parsedJsonRecordCount ?? records.length
+  );
+  const nonAuthRecordCount = Number(
+    options.non_auth_record_count ??
+      options.nonAuthRecordCount ??
+      Math.max(0, parsedJsonRecordCount - records.length)
+  );
   const artifactSelection = normalizeArtifactSelectionSummary(
     options.artifact_selection_report ?? options.artifactSelectionReport
   );
@@ -411,6 +423,7 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
       expected_mode: componentPolicyConfig.expected_mode,
       invalid_expected_mode: componentPolicyConfig.invalid_expected_mode,
       allowed_modes: componentPolicyConfig.allowed_modes,
+      missing_record_severity: componentPolicyConfig.missing_record_severity,
       status: componentCoverageStatus(blockers, componentPolicyConfig, latest),
       blockers,
     };
@@ -421,8 +434,15 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
     artifactSelection.status !== 'not-configured';
   const selectedAuthArtifactCount = artifactSelection?.selected_auth_artifact_count || 0;
   const authArtifactInputMismatch = selectedAuthArtifactCount > 0 && inputFileCount === 0;
-  const blockers = componentSummaries.flatMap((summary) => summary.blockers);
+  const blockers = componentSummaries.flatMap((summary) =>
+    summary.blockers.filter(
+      (blocker) =>
+        !(summary.missing_record_severity === 'no-data' && isComponentMissingBlocker(blocker))
+    )
+  );
   if (parseErrors > 0) blockers.push('parse-errors');
+  if (readErrors > 0) blockers.push('read-errors');
+  if (nonAuthRecordCount > 0) blockers.push('non-auth-records');
   if (artifactSelectionWarning) blockers.push('artifact-selection-warning');
   if (authArtifactInputMismatch) blockers.push('selected-auth-artifacts-without-input-files');
   blockers.push(...organicEvidence.blockers);
@@ -455,9 +475,11 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
     },
     input_file_count: inputFileCount,
     input_files: inputFiles,
-    scanned_record_count: records.length,
+    scanned_record_count: parsedJsonRecordCount,
     auth_record_count: authRecords.length,
+    non_auth_record_count: nonAuthRecordCount,
     parse_errors: parseErrors,
+    read_errors: readErrors,
     auth_artifact_input_mismatch: authArtifactInputMismatch,
     artifact_selection: artifactSelection,
     organic_evidence: organicEvidence,
@@ -475,8 +497,11 @@ function formatBotCommentAuthCoverageMarkdown(report) {
     `- Mode: ${report.mode}`,
     `- Hard block active: ${report.enforcement.hard_block_active}`,
     `- Input files: ${report.input_file_count}`,
+    `- Scanned JSON records: ${report.scanned_record_count}`,
     `- Auth records: ${report.auth_record_count}`,
+    `- Non-auth records: ${report.non_auth_record_count}`,
     `- Parse errors: ${report.parse_errors}`,
+    `- Read errors: ${report.read_errors}`,
   ];
 
   if (report.artifact_selection) {
@@ -545,17 +570,37 @@ function isPotentialAuthCoverageFile(file) {
 function readJsonRecords(files = []) {
   const records = [];
   let parseErrors = 0;
+  let readErrors = 0;
+  let parsedJsonRecordCount = 0;
+  let nonAuthRecordCount = 0;
   for (const file of files) {
+    let content = '';
     try {
-      const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+      content = fs.readFileSync(file, 'utf8');
+    } catch (_error) {
+      readErrors += 1;
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(content);
+      parsedJsonRecordCount += 1;
       if (isAuthCoverageRecord(parsed)) {
         records.push({ ...parsed, source_path: file });
+      } else {
+        nonAuthRecordCount += 1;
       }
     } catch (_error) {
       parseErrors += 1;
     }
   }
-  return { records, parse_errors: parseErrors, file_count: files.length };
+  return {
+    records,
+    parse_errors: parseErrors,
+    read_errors: readErrors,
+    parsed_json_record_count: parsedJsonRecordCount,
+    non_auth_record_count: nonAuthRecordCount,
+    file_count: files.length,
+  };
 }
 
 function readArtifactSelectionReport(file) {
@@ -620,6 +665,9 @@ function main() {
   const readResult = readJsonRecords(files);
   const report = summarizeBotCommentAuthCoverage(readResult.records, {
     parse_errors: readResult.parse_errors,
+    read_errors: readResult.read_errors,
+    parsed_json_record_count: readResult.parsed_json_record_count,
+    non_auth_record_count: readResult.non_auth_record_count,
     input_files: files,
     input_file_count: readResult.file_count,
     artifact_selection_report: readArtifactSelectionReport(options.artifact_selection_report),

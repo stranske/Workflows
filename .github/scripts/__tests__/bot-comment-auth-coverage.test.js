@@ -265,6 +265,20 @@ test('normalizes invalid artifact selection reports as parse errors', () => {
   });
 });
 
+test('normalizes missing artifact selection reports after object validation', () => {
+  const summary = normalizeArtifactSelectionSummary({
+    schema: 'workflows-weekly-metrics-artifact-selection/v1',
+    status: 'missing',
+    error_message: 'not found',
+    selected_artifacts: [{ name: 'bot-comment-auth-coverage-wrapper-1' }],
+  });
+
+  assert.equal(summary.status, 'missing');
+  assert.equal(summary.error_message, 'not found');
+  assert.equal(summary.selected_auth_artifact_count, 0);
+  assert.deepEqual(summary.selected_auth_artifacts, []);
+});
+
 test('reports selected auth artifacts without readable input files', () => {
   const report = summarizeBotCommentAuthCoverage([], {
     artifact_selection_report: {
@@ -286,12 +300,47 @@ test('reports selected auth artifacts without readable input files', () => {
   assert.ok(report.enforcement.blockers.includes('selected-auth-artifacts-without-input-files'));
 });
 
+test('keeps no-data missing components out of global blockers', () => {
+  const report = summarizeBotCommentAuthCoverage([
+    record('agents-bot-comment-handler-wrapper', 'client-id', 109),
+  ]);
+  const reusable = report.components.find(
+    (component) => component.component === 'reusable-bot-comment-handler'
+  );
+
+  assert.equal(reusable.status, 'no-data');
+  assert.deepEqual(reusable.blockers, ['missing-reusable-bot-comment-handler']);
+  assert.equal(report.status, 'pass');
+  assert.deepEqual(report.enforcement.blockers, []);
+});
+
+test('warns on invalid expected mode even when component records are missing', () => {
+  const report = summarizeBotCommentAuthCoverage([], {
+    reusable_expected_mode: 'client_id',
+  });
+  const reusable = report.components.find(
+    (component) => component.component === 'reusable-bot-comment-handler'
+  );
+
+  assert.equal(reusable.status, 'warning');
+  assert.ok(reusable.blockers.includes('invalid-reusable-bot-comment-handler-expected-auth-mode'));
+  assert.ok(reusable.blockers.includes('missing-reusable-bot-comment-handler'));
+  assert.ok(
+    report.enforcement.blockers.includes('invalid-reusable-bot-comment-handler-expected-auth-mode')
+  );
+  assert.ok(!report.enforcement.blockers.includes('missing-reusable-bot-comment-handler'));
+  assert.equal(report.status, 'warning');
+});
+
 test('reads only valid auth coverage JSON records from downloaded artifacts', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bot-auth-coverage-'));
   fs.mkdirSync(path.join(dir, 'bot-comment-auth-coverage-wrapper-1'));
   fs.writeFileSync(
     path.join(dir, 'bot-comment-auth-coverage-wrapper-1', 'wrapper.json'),
-    JSON.stringify(record('agents-bot-comment-handler-wrapper', 'client-id', 1)),
+    JSON.stringify({
+      ...record('agents-bot-comment-handler-wrapper', 'client-id', 1),
+      schema: ` ${AUTH_SCHEMA} `,
+    }),
     'utf8'
   );
   fs.writeFileSync(path.join(dir, 'other.json'), '{"schema":"other"}', 'utf8');
@@ -304,8 +353,50 @@ test('reads only valid auth coverage JSON records from downloaded artifacts', ()
   assert.equal(files.length, 1);
   assert.equal(result.records.length, 1);
   assert.equal(result.parse_errors, 0);
+  assert.equal(result.read_errors, 0);
+  assert.equal(result.parsed_json_record_count, 1);
+  assert.equal(result.non_auth_record_count, 0);
   assert.equal(result.file_count, 1);
   assert.ok(files[0].endsWith('wrapper.json'));
+});
+
+test('counts valid JSON with unexpected schema as non-auth records', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bot-auth-coverage-'));
+  const artifactDir = path.join(dir, 'bot-comment-auth-coverage-wrapper-2');
+  fs.mkdirSync(artifactDir);
+  fs.writeFileSync(path.join(artifactDir, 'wrapper.json'), '{"schema":"other"}', 'utf8');
+
+  const files = collectJsonFiles(dir);
+  const result = readJsonRecords(files);
+  const report = summarizeBotCommentAuthCoverage(result.records, {
+    parsed_json_record_count: result.parsed_json_record_count,
+    non_auth_record_count: result.non_auth_record_count,
+  });
+  const markdown = formatBotCommentAuthCoverageMarkdown(report);
+
+  assert.equal(result.records.length, 0);
+  assert.equal(result.parsed_json_record_count, 1);
+  assert.equal(result.non_auth_record_count, 1);
+  assert.equal(report.scanned_record_count, 1);
+  assert.equal(report.non_auth_record_count, 1);
+  assert.ok(report.enforcement.blockers.includes('non-auth-records'));
+  assert.match(markdown, /Non-auth records: 1/);
+});
+
+test('keeps unreadable auth files separate from JSON parse errors', () => {
+  const missingFile = path.join(os.tmpdir(), `missing-auth-${process.pid}.json`);
+  const result = readJsonRecords([missingFile]);
+  const report = summarizeBotCommentAuthCoverage([], {
+    parse_errors: result.parse_errors,
+    read_errors: result.read_errors,
+  });
+  const markdown = formatBotCommentAuthCoverageMarkdown(report);
+
+  assert.equal(result.parse_errors, 0);
+  assert.equal(result.read_errors, 1);
+  assert.equal(report.read_errors, 1);
+  assert.ok(report.enforcement.blockers.includes('read-errors'));
+  assert.match(markdown, /Read errors: 1/);
 });
 
 test('keeps selector JSON out of auth input counts for mismatch enforcement', () => {
