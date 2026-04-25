@@ -66,13 +66,14 @@ function normalizeTerminalDisposition(input = {}) {
     followup_issue_url:
       input.followup_issue_url ?? input.followupIssueUrl ?? input.created_issue_url,
     needs_human: input.needs_human ?? input.needsHuman,
+    dispatch_outcome: input.dispatch_outcome ?? input.dispatchOutcome,
   };
 
   for (const [key, value] of Object.entries(optional)) {
     if (value === null || value === undefined) continue;
     const cleaned = typeof value === 'boolean' ? value : cleanString(value);
     if (cleaned === '') continue;
-    record[key] = value;
+    record[key] = typeof value === 'string' ? cleaned : value;
   }
 
   return record;

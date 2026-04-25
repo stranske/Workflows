@@ -184,14 +184,29 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
     verdicts = Counter()
     terminal_dispositions = Counter()
     terminal_sources = Counter()
+    verifier_run_keys: set[str] = set()
     prs: set[int] = set()
     issues_created = 0
     acceptance_counts: list[int] = []
-    for entry in entries:
+    terminal_records = 0
+    for index, entry in enumerate(entries):
+        is_terminal_disposition = entry.get("schema") == "workflows-terminal-disposition/v1"
+        if not is_terminal_disposition:
+            run_id = entry.get("run_id") or entry.get("workflow_run_id")
+            run_attempt = entry.get("run_attempt")
+            pr_number_for_key = _safe_int(entry.get("pr_number") or entry.get("pr"))
+            if run_id:
+                verifier_run_keys.add(f"run:{run_id}:attempt:{run_attempt or ''}")
+            elif pr_number_for_key is not None:
+                verifier_run_keys.add(f"pr:{pr_number_for_key}")
+            else:
+                verifier_run_keys.add(f"entry:{index}")
+
         verdict = entry.get("verdict")
         if verdict:
             verdicts[str(verdict)] += 1
-        if entry.get("schema") == "workflows-terminal-disposition/v1":
+        if is_terminal_disposition:
+            terminal_records += 1
             disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
             terminal_dispositions[str(disposition)] += 1
             source_type = entry.get("source_type") or "unknown"
@@ -208,11 +223,12 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
             acceptance_counts.append(acceptance)
     avg_acceptance = sum(acceptance_counts) / len(acceptance_counts) if acceptance_counts else 0.0
     return {
-        "runs": len(entries),
+        "runs": len(verifier_run_keys),
         "prs": len(prs),
         "verdicts": verdicts,
         "issues_created": issues_created,
         "avg_acceptance": avg_acceptance,
+        "terminal_records": terminal_records,
         "terminal_dispositions": terminal_dispositions,
         "terminal_sources": terminal_sources,
     }
@@ -328,7 +344,9 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
         (
             f"Records: {len(entries)} "
             f"(keepalive {keepalive['runs']}, autofix {autofix['attempts']}, "
-            f"verifier {verifier['runs']}, autopilot {autopilot['records']}, "
+            f"verifier {verifier['runs']}, "
+            f"terminal dispositions {verifier['terminal_records']}, "
+            f"autopilot {autopilot['records']}, "
             f"unknown {len(buckets['unknown'])})"
         ),
         f"Parse errors: {errors}",
@@ -363,6 +381,7 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
             f"- Verdicts: {_format_counter(verifier['verdicts'])}",
             f"- Issues created: {verifier['issues_created']}",
             f"- Avg acceptance criteria: {verifier['avg_acceptance']:.1f}",
+            f"- Terminal disposition records: {verifier['terminal_records']}",
             f"- Terminal dispositions: {_format_counter(verifier['terminal_dispositions'])}",
             f"- Terminal disposition sources: {_format_counter(verifier['terminal_sources'])}",
         ]

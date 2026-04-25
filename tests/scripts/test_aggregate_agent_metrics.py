@@ -35,6 +35,7 @@ def test_build_summary_formats_sections() -> None:
         },
         {
             "pr_number": 101,
+            "run_id": "verify-101",
             "verdict": "pass",
             "issues_created": 0,
             "acceptance_criteria_count": 3,
@@ -44,13 +45,17 @@ def test_build_summary_formats_sections() -> None:
             "source_type": "source-issue",
             "source_id": "99",
             "pr_number": 101,
+            "run_id": "verify-101",
             "disposition": "follow-up-created",
         },
     ]
 
     summary = aggregate_agent_metrics.build_summary(entries, errors=1)
 
-    assert "Records: 5 (keepalive 2, autofix 1, verifier 2, autopilot 0, unknown 0)" in summary
+    assert (
+        "Records: 5 (keepalive 2, autofix 1, verifier 1, terminal dispositions 1, "
+        "autopilot 0, unknown 0)"
+    ) in summary
     assert "Parse errors: 1" in summary
     assert "Avg iterations: 3.5" in summary
     assert "tasks-complete (1)" in summary
@@ -58,6 +63,7 @@ def test_build_summary_formats_sections() -> None:
     assert "Fixes applied: 100.0% (1/1)" in summary
     assert "Verdicts: pass (1)" in summary
     assert "Avg acceptance criteria: 3.0" in summary
+    assert "Terminal disposition records: 1" in summary
     assert "Terminal dispositions: follow-up-created (1)" in summary
     assert "Terminal disposition sources: source-issue:99 (1)" in summary
 
@@ -251,6 +257,25 @@ def test_summary_helpers_cover_branches() -> None:
     assert verifier["issues_created"] == 2
     assert verifier["verdicts"]["fail"] == 1
     assert verifier["avg_acceptance"] == 3
+    assert verifier["runs"] == 1
+
+    verifier_with_terminal = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "verdict": "pass",
+                "run_id": "123",
+                "pr_number": 303,
+            },
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "run_id": "123",
+                "pr_number": 303,
+                "disposition": "follow-up-created",
+            },
+        ]
+    )
+    assert verifier_with_terminal["runs"] == 1
+    assert verifier_with_terminal["terminal_records"] == 1
 
 
 def test_format_helpers_and_summary_range() -> None:

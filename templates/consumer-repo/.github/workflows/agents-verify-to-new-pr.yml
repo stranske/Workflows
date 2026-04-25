@@ -771,6 +771,7 @@ jobs:
             core.setOutput('issue_url', issue.data.html_url);
 
       - name: Dispatch auto-pilot continuation
+        id: dispatch-autopilot
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
@@ -864,6 +865,7 @@ jobs:
           VERDICT: ${{ steps.extract-verdict.outputs.verdict }}
           FOLLOWUP_ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           FOLLOWUP_ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
+          DISPATCH_AUTOPILOT_OUTCOME: ${{ steps.dispatch-autopilot.outcome }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ steps.select-token.outputs.token }}
@@ -879,8 +881,11 @@ jobs:
             const sourceType = sourceIssue ? 'source-issue' : 'merged-pr';
             const sourceId = sourceIssue || String(prNumber);
 
+            const followupIssue = process.env.FOLLOWUP_ISSUE_NUMBER || '';
+            const dispatchOutcome = (process.env.DISPATCH_AUTOPILOT_OUTCOME || '').trim();
+
             let disposition = 'follow-up-created';
-            let reason = 'Verification follow-up issue was created and auto-pilot was dispatched.';
+            let reason = 'Verification follow-up issue was created.';
             let needsHuman = false;
 
             if (process.env.CHAIN_EXCEEDED === 'true') {
@@ -894,6 +899,14 @@ jobs:
             } else if (!process.env.FOLLOWUP_ISSUE_NUMBER) {
               disposition = 'no-follow-up-created';
               reason = 'Workflow completed without a follow-up issue output.';
+            } else if (dispatchOutcome === 'success') {
+              reason = 'Verification follow-up issue was created and auto-pilot was dispatched.';
+            } else if (dispatchOutcome === 'failure' || dispatchOutcome === 'cancelled') {
+              reason = `Verification follow-up issue was created, but auto-pilot dispatch ${dispatchOutcome}.`;
+            } else if (dispatchOutcome === 'skipped') {
+              reason = 'Verification follow-up issue was created; auto-pilot dispatch was skipped.';
+            } else if (followupIssue) {
+              reason = 'Verification follow-up issue was created; auto-pilot dispatch status was not reported.';
             }
 
             const record = normalizeTerminalDisposition({
@@ -906,8 +919,9 @@ jobs:
               verdict: process.env.VERDICT || undefined,
               reason,
               needs_human: needsHuman,
-              followup_issue_number: process.env.FOLLOWUP_ISSUE_NUMBER || undefined,
+              followup_issue_number: followupIssue || undefined,
               followup_issue_url: process.env.FOLLOWUP_ISSUE_URL || undefined,
+              dispatch_outcome: dispatchOutcome || undefined,
               workflow: context.workflow,
               run_id: context.runId,
               run_attempt: context.runAttempt,

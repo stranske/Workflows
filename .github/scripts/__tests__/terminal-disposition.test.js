@@ -16,6 +16,8 @@ test('normalizes terminal disposition records with stable source keys', () => {
     issueNumber: '42',
     disposition: 'follow-up-created',
     followupIssueNumber: 105,
+    reason: '  Dispatch completed  ',
+    dispatchOutcome: ' success ',
     needsHuman: false,
     timestamp: '2026-04-25T00:00:00Z',
   });
@@ -28,6 +30,8 @@ test('normalizes terminal disposition records with stable source keys', () => {
   assert.equal(record.pr_number, 101);
   assert.equal(record.issue_number, 42);
   assert.equal(record.followup_issue_number, 105);
+  assert.equal(record.reason, 'Dispatch completed');
+  assert.equal(record.dispatch_outcome, 'success');
   assert.equal(record.needs_human, false);
 });
 
