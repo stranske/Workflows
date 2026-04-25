@@ -93,6 +93,30 @@ SYNC: action=<update-branch|create-pr|escalate|skip> head_changed=<true|false> t
 - Always print (even when skipping/failing).
 - Never post these to the PR; **Summary tab only**.
 
+## 6A) Terminal Disposition Coverage Preflight
+
+Weekly metrics MUST run a warning-only `workflows-terminal-disposition-coverage/v1`
+preflight after downloading agent metrics artifacts. The preflight consumes
+`workflows-terminal-disposition/v1` records from verifier and review-thread
+handlers and writes both JSON and Markdown reports into the weekly metrics
+artifact.
+
+The preflight is deliberately non-blocking. Missing `review-thread:<PR>` source
+coverage is reported as `status=warning`, not as a failed check, because local
+automation remains optional and direct remote/manual work must stay valid. This
+gives operators enough data to decide whether a future review-thread hard block
+would be reliable before any blocking policy is enabled.
+
+Required report fields:
+
+- `schema=workflows-terminal-disposition-coverage/v1`
+- `mode=warning-only`
+- `terminal_record_count`
+- `expected_source_count`
+- `covered_source_count`
+- `missing_source_count`
+- `missing_sources[]` with stable `source_key` values
+
 ---
 
 ## 7) Lane Behavior (Dispatch Contract)
@@ -229,5 +253,4 @@ A: No. Keep moderation; the observability contract reduces reliance on private l
 
 Q: Does this change run‑cap, Gate, or acceptance content?
 A: No. It only hardens the activation→dispatch hop and makes decisions auditable.
-
 
