@@ -683,6 +683,45 @@ test('buildStatusBlock includes workflow details for non-CLI agents', () => {
   assert.ok(output.includes('| Workflow / Job |'));
 });
 
+test('buildStatusBlock omits PR meta manager self status', () => {
+  const workflowRuns = new Map([
+    ['agents pr meta manager', {
+      name: 'Agents PR meta manager',
+      created_at: '2024-01-03T00:00:00Z',
+      status: 'in_progress',
+      conclusion: null,
+      html_url: 'https://example.com/meta-run',
+    }],
+    ['gate', {
+      name: 'Gate',
+      created_at: '2024-01-02T00:00:00Z',
+      status: 'completed',
+      conclusion: 'success',
+      html_url: 'https://example.com/gate-run',
+    }],
+  ]);
+
+  const output = buildStatusBlock({
+    scope: '- [ ] Scope item',
+    tasks: '- [ ] Task item',
+    acceptance: '- [ ] Acceptance item',
+    headSha: 'abc123',
+    workflowRuns,
+    requiredChecks: ['gate'],
+    existingBody: '',
+    connectorStates: new Map(),
+    core: null,
+    agentType: '',
+    owner: 'octo',
+    repo: 'demo',
+  });
+
+  assert.ok(output.includes('**Latest Runs:** ✅ success — Gate'));
+  assert.ok(output.includes('| Gate | ✅ success | [View run](https://example.com/gate-run) |'));
+  assert.ok(!output.includes('Agents PR meta manager'));
+  assert.ok(!output.includes('https://example.com/meta-run'));
+});
+
 test('buildStatusBlock inserts context between scope and tasks', () => {
   const result = buildStatusBlock({
     scope: 'Scope text',
