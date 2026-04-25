@@ -155,7 +155,9 @@ def load_registry(path: Path) -> tuple[Path, list[str], list[RepoConfig], list[P
         workspace_root = (path.parent.parent / workspace_root).resolve()
 
     excluded = [str(item).lower() for item in data.get("excluded_repo_names", [])]
-    archive_paths = [Path(item).expanduser() for item in data.get("archive_review", {}).get("paths", [])]
+    archive_paths = [
+        Path(item).expanduser() for item in data.get("archive_review", {}).get("paths", [])
+    ]
     repos: list[RepoConfig] = []
     seen: set[str] = set()
     for raw in data.get("repos", []):
@@ -324,8 +326,7 @@ def is_repo_review_session(user_text: str) -> bool:
     if not REVIEW_PROMPT_RE.search(user_text):
         return False
     return not (
-        MAINTENANCE_SESSION_RE.search(user_text)
-        and not STRICT_REVIEW_PROMPT_RE.search(user_text)
+        MAINTENANCE_SESSION_RE.search(user_text) and not STRICT_REVIEW_PROMPT_RE.search(user_text)
     )
 
 
@@ -334,10 +335,7 @@ def content_text(content: list[dict[str, Any]]) -> str:
     for item in content:
         if isinstance(item, dict):
             parts.append(
-                item.get("text")
-                or item.get("input_text")
-                or item.get("output_text")
-                or ""
+                item.get("text") or item.get("input_text") or item.get("output_text") or ""
             )
     return "\n".join(part for part in parts if part)
 
@@ -360,7 +358,9 @@ def title_from_recommendation(text: str) -> str:
     return title
 
 
-def extract_archive_candidates(text: str, source_file: Path, thread_name: str, timestamp: str) -> list[ArchiveCandidate]:
+def extract_archive_candidates(
+    text: str, source_file: Path, thread_name: str, timestamp: str
+) -> list[ArchiveCandidate]:
     candidates: list[ArchiveCandidate] = []
     seen: set[str] = set()
     for line in text.splitlines():
@@ -390,7 +390,9 @@ def extract_archive_candidates(text: str, source_file: Path, thread_name: str, t
     return candidates
 
 
-def collect_archive_candidates(archive_paths: list[Path], repos: list[RepoConfig]) -> dict[str, list[ArchiveCandidate]]:
+def collect_archive_candidates(
+    archive_paths: list[Path], repos: list[RepoConfig]
+) -> dict[str, list[ArchiveCandidate]]:
     candidates_by_repo: dict[str, list[ArchiveCandidate]] = {repo.repo: [] for repo in repos}
     for path in archive_files(archive_paths):
         timestamp = ""

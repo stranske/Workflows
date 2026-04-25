@@ -398,7 +398,7 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
                 f"- Issues: {autopilot['issues']}",
                 f"- Total step executions: {autopilot['total_steps']}",
                 f"- Escalations: {autopilot['escalation_count']}",
-                f"- Needs-human rate: {_format_rate(autopilot['needs_human_count'], autopilot['issues'] or 1)}",
+                f"- Needs-human rate: {_format_rate(autopilot['needs_human_count'], autopilot['issues'])}",
                 f"- Escalation reasons: {_format_counter(autopilot['escalation_reasons'])}",
                 f"- Failure reasons: {_format_counter(autopilot['failure_reasons'])}",
             ]
@@ -427,8 +427,10 @@ def main() -> int:
 
     files = _gather_metrics_files(metrics_paths, metrics_dir)
     if not files:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("No metrics files found to aggregate.\n", encoding="utf-8")
         print("No metrics files found to aggregate.", file=sys.stderr)
-        return 1
+        return 0
 
     entries, errors = _read_ndjson(files)
     summary = build_summary(entries, errors)

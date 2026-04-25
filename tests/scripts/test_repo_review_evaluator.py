@@ -222,9 +222,7 @@ def test_collect_archive_candidates_reads_review_sessions(tmp_path: Path) -> Non
                         "type": "event_msg",
                         "payload": {
                             "type": "agent_message",
-                            "message": (
-                                "1. Add inventory acceptance tests before implementation."
-                            ),
+                            "message": ("1. Add inventory acceptance tests before implementation."),
                         },
                     }
                 ),

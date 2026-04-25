@@ -298,14 +298,18 @@ def test_format_helpers_and_summary_range() -> None:
     assert "Range: 2025-01-01T00:00:00Z to 2025-01-02T00:00:00Z" in summary
 
 
-def test_main_returns_error_when_no_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_writes_placeholder_when_no_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("METRICS_PATHS", "")
     monkeypatch.setenv("METRICS_DIR", str(tmp_path / "missing"))
-    monkeypatch.setenv("OUTPUT_PATH", str(tmp_path / "summary.md"))
+    output_path = tmp_path / "summary.md"
+    monkeypatch.setenv("OUTPUT_PATH", str(output_path))
 
     exit_code = aggregate_agent_metrics.main()
 
-    assert exit_code == 1
+    assert exit_code == 0
+    assert output_path.read_text(encoding="utf-8") == "No metrics files found to aggregate.\n"
 
 
 def test_autopilot_metrics_summarised() -> None:
@@ -354,6 +358,20 @@ def test_autopilot_metrics_summarised() -> None:
     assert "format:" in summary
     assert "capability-check:" in summary
     assert "step-failed (1)" in summary
+
+
+def test_autopilot_needs_human_rate_is_na_without_issue_denominator() -> None:
+    summary = aggregate_agent_metrics.build_summary(
+        [
+            {
+                "metric_type": "escalation",
+                "escalation_reason": "needs-human-complexity",
+            },
+        ],
+        errors=0,
+    )
+
+    assert "Needs-human rate: n/a" in summary
 
 
 def test_classify_autopilot_step_entry() -> None:
