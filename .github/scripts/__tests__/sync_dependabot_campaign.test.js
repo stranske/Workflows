@@ -405,3 +405,40 @@ test('dry-run summary avoids logging generated issue body by default', () => {
   assert.equal(verboseDryRunLoggingEnabled({ RUNNER_DEBUG: '1' }), true);
   assert.equal(verboseDryRunLoggingEnabled({ SYNC_DEPENDABOT_CAMPAIGN_DEBUG_BODY: 'true' }), true);
 });
+
+test('formatCampaignBody remains below GitHub issue body limit for large queues', () => {
+  const items = Array.from({ length: 60 }, (_, index) => ({
+    id: `sync-review-comments:stranske/App#${index + 1}:abc${index}`,
+    status: 'needs-local-codex',
+    kind: 'sync-review-comments',
+    classification: 'sync',
+    repo: 'stranske/App',
+    pr_number: index + 1,
+    pr_title: 'chore: sync workflow templates',
+    pr_url: `https://github.com/stranske/App/pull/${index + 1}`,
+    source_repo: 'stranske/Workflows',
+    preferred_workdir: 'Workflows',
+    review_thread_count: 4,
+    review_threads: Array.from({ length: 4 }, (_, threadIndex) => ({
+      id: `thread-${index}-${threadIndex}`,
+      path: '.github/scripts/example.js',
+      line: 100 + threadIndex,
+      url: `https://github.test/thread-${index}-${threadIndex}`,
+      author: 'copilot-pull-request-reviewer',
+      body_preview: 'A'.repeat(400),
+      comments_count: 1,
+      bot_comments_count: 1,
+    })),
+  }));
+  const state = mergeCampaignState(
+    {},
+    items,
+    '2026-04-21T05:52:00Z',
+    { reposRequested: 11, reposChecked: 11, syncPrsOpen: 60 },
+  );
+
+  const body = formatCampaignBody(state);
+
+  assert.ok(body.length <= 60000, `body length ${body.length} should fit GitHub issue limit`);
+  assert.equal(parseCampaignMarker(body).items.length, 60);
+});

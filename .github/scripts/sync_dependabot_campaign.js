@@ -11,6 +11,10 @@ const LABEL_NEEDS_LOCAL_CODEX = 'campaign:needs-local-codex';
 const SYNC_BRANCH_PREFIX = 'sync/workflows-';
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_MAX_RETAINED_ITEMS = 120;
+const MAX_ISSUE_BODY_LENGTH = 60000;
+const MAX_QUEUE_ROWS = 15;
+const MAX_DETAIL_ITEMS = 10;
+const MAX_THREADS_PER_ITEM = 4;
 const DEFAULT_BOT_AUTHORS = [
   'Copilot',
   'copilot[bot]',
@@ -138,7 +142,7 @@ function normaliseReviewThread(thread = {}, options = {}) {
     url: cleanString(firstBotComment.url || firstBotComment.html_url),
     author: cleanString(firstBotComment.author?.login || firstBotComment.user?.login),
     created_at: cleanString(firstBotComment.createdAt || firstBotComment.created_at),
-    body_preview: truncate(firstBotComment.bodyText || firstBotComment.body || ''),
+    body_preview: truncate(firstBotComment.bodyText || firstBotComment.body || '', 160),
     comments_count: comments.length,
     bot_comments_count: botComments.length,
   };
@@ -185,11 +189,24 @@ function buildQueueItem({ repoFullName, pr, threads, classification, now, defaul
     review_thread_count: threads.length,
     review_comment_count: threads.reduce((sum, thread) => sum + (thread.comments_count || 0), 0),
     review_thread_ids: threadIds,
-    review_threads: threads.slice(0, 20),
+    review_threads: threads.slice(0, MAX_THREADS_PER_ITEM).map(compactReviewThread),
     first_seen_at: now,
     updated_at: now,
     attempts: 0,
     lease: null,
+  };
+}
+
+function compactReviewThread(thread = {}) {
+  return {
+    id: cleanString(thread.id),
+    path: cleanString(thread.path),
+    line: cleanInteger(thread.line),
+    url: cleanString(thread.url),
+    author: cleanString(thread.author),
+    body_preview: truncate(thread.body_preview, 120),
+    comments_count: Number(thread.comments_count || 0),
+    bot_comments_count: Number(thread.bot_comments_count || 0),
   };
 }
 
@@ -323,8 +340,65 @@ function buildStats(items, discoveredItems, options = {}) {
 }
 
 function formatCampaignMarker(state) {
-  const safeJson = JSON.stringify(state).replace(/--/g, '\\u002d\\u002d');
+  const safeJson = JSON.stringify(compactStateForMarker(state)).replace(/--/g, '\\u002d\\u002d');
   return `<!-- ${CAMPAIGN_MARKER} ${safeJson} -->`;
+}
+
+function compactStateForMarker(state = {}) {
+  return {
+    schema: state.schema || CAMPAIGN_SCHEMA,
+    updated_at: cleanString(state.updated_at),
+    run_id: cleanString(state.run_id),
+    controller: cleanString(state.controller),
+    stats: state.stats || {},
+    items: cleanArray(state.items).map((item) => ({
+      id: cleanString(item.id),
+      status: cleanString(item.status),
+      kind: cleanString(item.kind),
+      classification: cleanString(item.classification),
+      repo: cleanString(item.repo),
+      pr_number: cleanInteger(item.pr_number),
+      pr_title: truncate(item.pr_title, 80),
+      pr_url: cleanString(item.pr_url),
+      head_ref: cleanString(item.head_ref),
+      head_sha: truncate(item.head_sha, 40),
+      base_ref: cleanString(item.base_ref),
+      source_repo: cleanString(item.source_repo),
+      preferred_workdir: cleanString(item.preferred_workdir),
+      review_thread_count: Number(item.review_thread_count || 0),
+      review_comment_count: Number(item.review_comment_count || 0),
+      first_seen_at: cleanString(item.first_seen_at),
+      updated_at: cleanString(item.updated_at),
+      claimed_at: cleanString(item.claimed_at),
+      finished_at: cleanString(item.finished_at),
+      stale_at: cleanString(item.stale_at),
+      attempts: Number(item.attempts || 0),
+      lease: item.lease
+        ? {
+            owner: cleanString(item.lease.owner),
+            expires_at: cleanString(item.lease.expires_at),
+          }
+        : null,
+      result: item.result
+        ? {
+            exit_code: item.result.exit_code,
+            error: truncate(item.result.error, 160),
+            log_path: item.result.log_path,
+            last_message_path: item.result.last_message_path,
+            summary: truncate(item.result.summary, 300),
+            workdir: item.result.workdir,
+          }
+        : null,
+      review_threads: cleanArray(item.review_threads).slice(0, 1).map((thread) => ({
+        id: cleanString(thread.id),
+        path: cleanString(thread.path),
+        line: cleanInteger(thread.line),
+        url: cleanString(thread.url),
+        author: cleanString(thread.author),
+        body_preview: truncate(thread.body_preview, 80),
+      })),
+    })),
+  };
 }
 
 function parseCampaignMarker(body) {
@@ -359,7 +433,7 @@ function formatCampaignBody(state) {
   const stats = state.stats || {};
   const queueItems = cleanArray(state.items)
     .filter((item) => item.status === 'needs-local-codex' || item.status === 'local-codex-claimed')
-    .slice(0, 25);
+    .slice(0, MAX_QUEUE_ROWS);
   const rows = queueItems.length
     ? queueItems.map((item) => (
         `| ${item.status} | ${markdownLink(`${item.repo}#${item.pr_number}`, item.pr_url)} | ` +
@@ -367,7 +441,7 @@ function formatCampaignBody(state) {
       ))
     : ['| - | - | - | - | No local Codex work is queued. |'];
 
-  return [
+  const lines = [
     '# Sync/Dependabot Campaign Queue',
     '',
     'Remote GitHub Actions owns discovery for sync-generated and Dependabot PR rounds. Local Codex should only claim items from this issue when `needs-local-codex` work is queued.',
@@ -394,12 +468,17 @@ function formatCampaignBody(state) {
     '</details>',
     '',
     formatCampaignMarker(state),
-  ].join('\n');
+  ];
+  const body = lines.join('\n');
+  if (body.length <= MAX_ISSUE_BODY_LENGTH) {
+    return body;
+  }
+  return formatCompactCampaignBody(state);
 }
 
 function formatItemDetails(items = []) {
   const lines = [];
-  for (const item of cleanArray(items).slice(0, 40)) {
+  for (const item of cleanArray(items).slice(0, MAX_DETAIL_ITEMS)) {
     lines.push(`### ${item.status}: ${item.repo}#${item.pr_number}`);
     lines.push('');
     lines.push(`- Kind: ${item.kind}`);
@@ -407,13 +486,48 @@ function formatItemDetails(items = []) {
     lines.push(`- Preferred local workdir: ${item.preferred_workdir || '-'}`);
     lines.push(`- Head: \`${item.head_ref || '-'}\` ${item.head_sha ? `(${item.head_sha.slice(0, 12)})` : ''}`);
     lines.push(`- Attempts: ${item.attempts || 0}`);
-    for (const thread of cleanArray(item.review_threads).slice(0, 8)) {
+    for (const thread of cleanArray(item.review_threads).slice(0, 2)) {
       const location = `${thread.path || '-'}${thread.line ? `:${thread.line}` : ''}`;
-      lines.push(`  - ${markdownLink(location, thread.url)} (${thread.author || 'bot'}): ${truncate(thread.body_preview, 180)}`);
+      lines.push(`  - ${markdownLink(location, thread.url)} (${thread.author || 'bot'}): ${truncate(thread.body_preview, 120)}`);
     }
     lines.push('');
   }
+  const remaining = Math.max(0, cleanArray(items).length - MAX_DETAIL_ITEMS);
+  if (remaining > 0) {
+    lines.push(`Additional retained items omitted from the rendered issue body: ${remaining}.`);
+  }
   return lines.length ? lines : ['No retained queue items.'];
+}
+
+function formatCompactCampaignBody(state) {
+  const stats = state.stats || {};
+  const queueItems = cleanArray(state.items)
+    .filter((item) => item.status === 'needs-local-codex' || item.status === 'local-codex-claimed')
+    .slice(0, 10);
+  const rows = queueItems.length
+    ? queueItems.map((item) => (
+        `| ${item.status} | ${markdownLink(`${item.repo}#${item.pr_number}`, item.pr_url)} | ` +
+        `${item.review_thread_count || 0} |`
+      ))
+    : ['| - | - | - |'];
+  return [
+    '# Sync/Dependabot Campaign Queue',
+    '',
+    'Remote discovery found more review-thread work than fits in a full GitHub issue body. The marker below retains the compact machine-readable queue for the local watcher.',
+    '',
+    `- Updated: ${state.updated_at}`,
+    `- Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
+    `- Open sync PRs: ${stats.sync_prs_open || 0}`,
+    `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
+    `- Active review threads queued: ${stats.active_review_threads || 0}`,
+    `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
+    '',
+    '| Status | PR | Threads |',
+    '| --- | --- | ---: |',
+    ...rows,
+    '',
+    formatCampaignMarker(state),
+  ].join('\n');
 }
 
 function normaliseRepoEntry(entry, defaultOwner) {
