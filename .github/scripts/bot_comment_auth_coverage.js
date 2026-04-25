@@ -112,6 +112,18 @@ function parseAllowedModes(value, fallback) {
   return configured.length > 0 ? [...new Set(configured)] : fallback;
 }
 
+function parseExpectedMode(value, fallback) {
+  const raw = cleanString(value);
+  const normalized = normalizeAuthMode(raw);
+  if (!raw) {
+    return { expected_mode: fallback, invalid_expected_mode: '' };
+  }
+  if (normalized === 'unknown') {
+    return { expected_mode: fallback, invalid_expected_mode: raw };
+  }
+  return { expected_mode: normalized, invalid_expected_mode: '' };
+}
+
 function componentPolicy(component, options = {}) {
   const base = COMPONENT_POLICIES[component] || {
     expected_mode: '',
@@ -119,15 +131,13 @@ function componentPolicy(component, options = {}) {
     missing_record_severity: 'no-data',
   };
   if (component === 'agents-bot-comment-handler-wrapper') {
+    const expectedMode = parseExpectedMode(
+      options.wrapper_expected_mode ?? process.env.BOT_COMMENT_WRAPPER_EXPECTED_AUTH_MODE,
+      base.expected_mode
+    );
     return {
       ...base,
-      expected_mode: normalizeAuthMode(
-        options.wrapper_expected_mode ?? process.env.BOT_COMMENT_WRAPPER_EXPECTED_AUTH_MODE
-      ) === 'unknown'
-        ? base.expected_mode
-        : normalizeAuthMode(
-          options.wrapper_expected_mode ?? process.env.BOT_COMMENT_WRAPPER_EXPECTED_AUTH_MODE
-        ),
+      ...expectedMode,
       allowed_modes: parseAllowedModes(
         options.wrapper_allowed_modes ?? process.env.BOT_COMMENT_WRAPPER_ALLOWED_AUTH_MODES,
         base.allowed_modes
@@ -135,8 +145,13 @@ function componentPolicy(component, options = {}) {
     };
   }
   if (component === 'reusable-bot-comment-handler') {
+    const expectedMode = parseExpectedMode(
+      options.reusable_expected_mode ?? process.env.BOT_COMMENT_REUSABLE_EXPECTED_AUTH_MODE,
+      base.expected_mode
+    );
     return {
       ...base,
+      ...expectedMode,
       allowed_modes: parseAllowedModes(
         options.reusable_allowed_modes ?? process.env.BOT_COMMENT_REUSABLE_ALLOWED_AUTH_MODES,
         base.allowed_modes
@@ -233,6 +248,9 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
     const latest = componentRecords[0] || null;
     const componentPolicyConfig = componentPolicy(component, options);
     const blockers = [];
+    if (componentPolicyConfig.invalid_expected_mode) {
+      blockers.push(`invalid-${component}-expected-auth-mode`);
+    }
     if (!latest) {
       blockers.push(`missing-${component}`);
     } else {
@@ -254,6 +272,7 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
       record_count: componentRecords.length,
       latest,
       expected_mode: componentPolicyConfig.expected_mode,
+      invalid_expected_mode: componentPolicyConfig.invalid_expected_mode,
       allowed_modes: componentPolicyConfig.allowed_modes,
       status: blockers.length > 0 ? componentPolicyConfig.missing_record_severity === 'no-data' && !latest ? 'no-data' : 'warning' : 'pass',
       blockers,

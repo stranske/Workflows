@@ -169,6 +169,17 @@ canonical wrapper to reach `client-id` while allowing reusable calls to remain
 `client-id` or `none`; hard blocking remains disabled unless explicitly approved
 with repository variables.
 
+Repository variables can make the policy stricter without changing workflow
+code:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BOT_COMMENT_WRAPPER_EXPECTED_AUTH_MODE` | `client-id` | Expected canonical wrapper mode |
+| `BOT_COMMENT_REUSABLE_EXPECTED_AUTH_MODE` | empty | Optional expected reusable caller mode, usually `client-id` or `none` |
+| `BOT_COMMENT_REUSABLE_ALLOWED_AUTH_MODES` | `client-id,none` | Allowed reusable caller modes |
+| `BOT_COMMENT_AUTH_COVERAGE_MODE` | `warning-only` | Use `hard-block` only after explicit approval |
+| `BOT_COMMENT_AUTH_HARD_BLOCK_APPROVED` | `false` | Required confirmation before hard blocking can fail weekly metrics |
+
 ## Troubleshooting
 
 ### No comments found

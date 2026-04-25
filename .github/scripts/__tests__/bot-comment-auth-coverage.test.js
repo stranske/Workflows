@@ -50,6 +50,46 @@ test('summarizes wrapper client-id and reusable none as passing warning-only cov
   assert.match(markdown, /reusable-bot-comment-handler \| none/);
 });
 
+test('can require reusable caller client ID auth through policy', () => {
+  const report = summarizeBotCommentAuthCoverage(
+    [
+      record('agents-bot-comment-handler-wrapper', 'client-id', 101),
+      record('reusable-bot-comment-handler', 'none', 101),
+    ],
+    {
+      reusable_expected_mode: 'client-id',
+    }
+  );
+
+  const reusable = report.components.find(
+    (component) => component.component === 'reusable-bot-comment-handler'
+  );
+  assert.equal(reusable.expected_mode, 'client-id');
+  assert.deepEqual(reusable.blockers, ['expected-client-id-reusable-bot-comment-handler']);
+  assert.equal(report.status, 'warning');
+  assert.equal(report.enforcement.should_fail, false);
+});
+
+test('warns on invalid reusable expected auth mode policy', () => {
+  const report = summarizeBotCommentAuthCoverage(
+    [
+      record('agents-bot-comment-handler-wrapper', 'client-id', 101),
+      record('reusable-bot-comment-handler', 'none', 101),
+    ],
+    {
+      reusable_expected_mode: 'client_id',
+    }
+  );
+
+  const reusable = report.components.find(
+    (component) => component.component === 'reusable-bot-comment-handler'
+  );
+  assert.equal(reusable.expected_mode, '');
+  assert.equal(reusable.invalid_expected_mode, 'client_id');
+  assert.ok(reusable.blockers.includes('invalid-reusable-bot-comment-handler-expected-auth-mode'));
+  assert.equal(report.status, 'warning');
+});
+
 test('warns while the canonical wrapper still uses the legacy App ID fallback', () => {
   const report = summarizeBotCommentAuthCoverage([
     record('agents-bot-comment-handler-wrapper', 'legacy-app-id', 102),

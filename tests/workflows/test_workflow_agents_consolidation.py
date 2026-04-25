@@ -280,6 +280,9 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             "BOT_COMMENT_AUTH_HARD_BLOCK_APPROVED" in text
         ), "Bot-comment auth hard blocking must require an explicit approval flag"
         assert (
+            "BOT_COMMENT_REUSABLE_EXPECTED_AUTH_MODE" in text
+        ), "Bot-comment auth coverage must expose an explicit reusable expected-mode policy"
+        assert (
             "terminal_coverage_status=$?" in text
             and "TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS=${terminal_coverage_status}" in text
             and "Honor coverage hard-blocks" in text
