@@ -13,12 +13,12 @@ const AUTH_ARTIFACT_FAMILY_CONTRACTS = {
   'bot-comment-auth-coverage-wrapper': {
     family: 'bot-comment-auth-coverage-wrapper',
     filename: 'wrapper.json',
-    artifact_dir_pattern: /^bot-comment-auth-coverage-wrapper-\d+(?:-\d+)?$/,
+    artifact_dir_pattern: /^bot-comment-auth-coverage-wrapper(?:-[A-Za-z0-9][A-Za-z0-9._-]*)?$/,
   },
   'bot-comment-auth-coverage-reusable': {
     family: 'bot-comment-auth-coverage-reusable',
     filename: 'reusable.json',
-    artifact_dir_pattern: /^bot-comment-auth-coverage-reusable-\d+(?:-\d+)?$/,
+    artifact_dir_pattern: /^bot-comment-auth-coverage-reusable(?:-[A-Za-z0-9][A-Za-z0-9._-]*)?$/,
   },
 };
 const AUTH_ARTIFACT_FILE_CONTRACTS = Object.fromEntries(

@@ -48,9 +48,22 @@ test('maps metrics artifact names to stable families', () => {
     artifactFamily('bot-comment-auth-coverage-reusable-123-2'),
     'bot-comment-auth-coverage-reusable'
   );
-  assert.equal(artifactFamily('bot-comment-auth-coverage-wrapper-latest'), '');
-  assert.equal(artifactFamily('bot-comment-auth-coverage-reusable-run-123'), '');
-  assert.equal(artifactFamily('bot-comment-auth-coverage-wrapper-123-extra'), '');
+  assert.equal(
+    artifactFamily('bot-comment-auth-coverage-wrapper-latest'),
+    'bot-comment-auth-coverage-wrapper'
+  );
+  assert.equal(
+    artifactFamily('bot-comment-auth-coverage-reusable-run-123'),
+    'bot-comment-auth-coverage-reusable'
+  );
+  assert.equal(
+    artifactFamily('bot-comment-auth-coverage-wrapper-123-extra'),
+    'bot-comment-auth-coverage-wrapper'
+  );
+  assert.equal(
+    artifactFamily('bot-comment-auth-coverage-reusable'),
+    'bot-comment-auth-coverage-reusable'
+  );
   assert.equal(artifactFamily('coverage-summary'), '');
 });
 
@@ -72,26 +85,26 @@ test('selects only recent matching artifacts with a machine-readable report', ()
   assert.equal(report.schema, SELECTION_SCHEMA);
   assert.equal(report.status, 'pass');
   assert.equal(report.scanned_count, 8);
-  assert.equal(report.candidate_count, 4);
-  assert.equal(report.selected_count, 4);
-  assert.equal(report.ignored_name_count, 2);
+  assert.equal(report.candidate_count, 5);
+  assert.equal(report.selected_count, 5);
+  assert.equal(report.ignored_name_count, 1);
   assert.equal(report.ignored_old_count, 1);
   assert.equal(report.ignored_expired_count, 1);
   assert.deepEqual(report.candidate_family_counts, {
     'autopilot-metrics': 1,
-    'bot-comment-auth-coverage-wrapper': 1,
+    'bot-comment-auth-coverage-wrapper': 2,
     'keepalive-metrics': 1,
     'review-thread-terminal-disposition': 1,
   });
   assert.deepEqual(report.selected_family_counts, {
     'autopilot-metrics': 1,
-    'bot-comment-auth-coverage-wrapper': 1,
+    'bot-comment-auth-coverage-wrapper': 2,
     'keepalive-metrics': 1,
     'review-thread-terminal-disposition': 1,
   });
   assert.deepEqual(
     report.selected_artifacts.map((selected) => selected.id),
-    [5, 8, 4, 1]
+    [5, 8, 4, 7, 1]
   );
 });
 

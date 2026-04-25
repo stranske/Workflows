@@ -337,9 +337,14 @@ test('mergeCampaignState flags repeated source-fixed review signatures without h
   assert.equal(repeatedItem.source_fixed_candidate.finished_at, '2026-04-21T05:30:00Z');
   assert.equal(state.source_review_history.length, 1);
   assert.equal(state.source_review_history[0].source_review_key, finished.source_review_key);
-  assert.equal(state.stats.items_needing_local_codex, 1);
+  assert.equal(state.stats.items_needing_local_codex, 0);
+  assert.equal(state.stats.items_actionable_local_codex, 0);
+  assert.equal(state.stats.items_source_fixed_candidates, 1);
+  assert.equal(state.stats.status_counts['needs-local-codex'], 1);
   assert.equal(markerItem.source_fixed_candidate.matching_item_id, finished.id);
   assert.equal(marker.source_review_history[0].matching_item_id, finished.id);
+  assert.match(body, /No local Codex work is queued/);
+  assert.match(body, /Source-fixed candidates: 1/);
   assert.match(body, /Prior source-fix match:/);
 });
 
@@ -426,6 +431,68 @@ test('formatCampaignBody renders queue rows and marker', () => {
   assert.match(body, /Sync\/Dependabot Campaign Queue/);
   assert.match(body, /stranske\/App#10/);
   assert.equal(parseCampaignMarker(body).stats.items_needing_local_codex, 1);
+});
+
+test('formatCampaignBody keeps source-fixed candidates out of the visible local queue', () => {
+  const state = {
+    schema: 'sync-dependabot-campaign/v1',
+    updated_at: '2026-04-21T05:52:00Z',
+    stats: {
+      repos_requested: 1,
+      repos_checked: 1,
+      active_review_threads: 3,
+      items_needing_local_codex: 1,
+      items_actionable_local_codex: 1,
+      items_source_fixed_candidates: 1,
+      status_counts: { 'needs-local-codex': 2 },
+    },
+    items: [
+      {
+        id: 'sync-review-comments:stranske/App#22:abc',
+        status: 'needs-local-codex',
+        kind: 'sync-review-comments',
+        classification: 'sync',
+        repo: 'stranske/App',
+        pr_number: 22,
+        pr_title: 'source fixed already',
+        pr_url: 'https://github.com/stranske/App/pull/22',
+        source_repo: 'stranske/Workflows',
+        preferred_workdir: 'Workflows',
+        review_thread_count: 2,
+        source_fixed_candidate: {
+          matching_item_id: 'sync-review-comments:stranske/App#20:old',
+          matching_pr_url: 'https://github.com/stranske/App/pull/20',
+          finished_at: '2026-04-21T05:30:00Z',
+          result_summary: 'Handled in Workflows source.',
+        },
+        review_threads: [],
+      },
+      {
+        id: 'sync-review-comments:stranske/App#23:def',
+        status: 'needs-local-codex',
+        kind: 'sync-review-comments',
+        classification: 'sync',
+        repo: 'stranske/App',
+        pr_number: 23,
+        pr_title: 'needs source work',
+        pr_url: 'https://github.com/stranske/App/pull/23',
+        source_repo: 'stranske/Workflows',
+        preferred_workdir: 'Workflows',
+        review_thread_count: 1,
+        review_threads: [],
+      },
+    ],
+  };
+
+  const body = formatCampaignBody(state);
+
+  assert.equal(state.stats.items_needing_local_codex, 1);
+  assert.equal(state.stats.items_source_fixed_candidates, 1);
+  assert.match(body, /Items needing local Codex: 1/);
+  assert.match(body, /Source-fixed candidates: 1/);
+  assert.match(body, /\| needs-local-codex \| \[stranske\/App#23\]/);
+  assert.doesNotMatch(body, /\| needs-local-codex \| \[stranske\/App#22\]/);
+  assert.match(body, /### stranske\/App#22/);
 });
 
 test('paginateWithRetry uses the paginated GitHub API', async () => {

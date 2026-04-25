@@ -25,11 +25,11 @@ const PREFIXED_METRICS_ARTIFACTS = [
 const PATTERNED_METRICS_ARTIFACTS = [
   {
     family: 'bot-comment-auth-coverage-wrapper',
-    pattern: /^bot-comment-auth-coverage-wrapper-\d+(?:-\d+)?$/,
+    pattern: /^bot-comment-auth-coverage-wrapper(?:-[A-Za-z0-9][A-Za-z0-9._-]*)?$/,
   },
   {
     family: 'bot-comment-auth-coverage-reusable',
-    pattern: /^bot-comment-auth-coverage-reusable-\d+(?:-\d+)?$/,
+    pattern: /^bot-comment-auth-coverage-reusable(?:-[A-Za-z0-9][A-Za-z0-9._-]*)?$/,
   },
 ];
 

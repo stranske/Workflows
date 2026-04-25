@@ -572,17 +572,21 @@ test('identifies only bot-comment auth coverage candidate files', () => {
   assert.equal(isPotentialAuthCoverageFile('/tmp/artifacts/wrapper.json'), false);
   assert.equal(
     isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-wrapper-1-copy/wrapper.json'),
-    false
+    true
   );
   assert.equal(
     isPotentialAuthCoverageFile(
       '/tmp/artifacts/bot-comment-auth-coverage-wrapper-123-extra/wrapper.json'
     ),
-    false
+    true
   );
   assert.equal(
     isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-reusable-latest/reusable.json'),
-    false
+    true
+  );
+  assert.equal(
+    isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-wrapper/wrapper.json'),
+    true
   );
   assert.equal(
     isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-wrapper-1/reusable.json'),
