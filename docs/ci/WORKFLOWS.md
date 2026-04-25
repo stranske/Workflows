@@ -196,6 +196,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`maint-72-fix-pr-body-conflicts.yml`](../../.github/workflows/maint-72-fix-pr-body-conflicts.yml) removes pr_body.md from main branch and adds to .gitignore across consumer repos - prevents merge conflicts from PR description files (manual dispatch, weekly schedule).
 * [`maint-74-ledger-base-sync.yml`](../../.github/workflows/maint-74-ledger-base-sync.yml) aligns `.agents` ledger base entries to the repository default branch on a weekly schedule or manual dispatch.
 * [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) generates weekly LangSmith trace coverage dashboard - downloads metrics from autopilot artifacts, computes coverage, creates issue report (scheduled Monday 9AM UTC, manual dispatch).
+* [`maint-82-sync-dependabot-campaign.yml`](../../.github/workflows/maint-82-sync-dependabot-campaign.yml) refreshes a GitHub-visible sync/Dependabot campaign issue so local Codex only claims queued bot-review work when remote discovery finds active review threads.
 
 Together these workflows define the CI surface area referenced by Gate and the Gate summary job, keeping the automation stack observable, testable, and easier to evolve.
 
