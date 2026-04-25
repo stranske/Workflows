@@ -17,6 +17,8 @@ env:
   AUTO_APPLY_THRESHOLD: "0.90"
   # Threshold for suggesting labels (lower, for comments)
   SUGGEST_THRESHOLD: "0.75"
+  # Keep embedding queries bounded for large issue bodies.
+  AUTO_LABEL_QUERY_MAX_CHARS: "6000"
 
 concurrency:
   group: >-
@@ -26,7 +28,7 @@ concurrency:
 jobs:
   auto-label:
     runs-on: ubuntu-latest
-    # Skip if issue already has agent-related labels
+    # Skip issues already routed by agents or machine-managed campaign issues.
     if: |
       !contains(github.event.issue.labels.*.name, 'agents:auto-pilot') &&
       !contains(github.event.issue.labels.*.name, 'agents:formatted') &&
@@ -34,6 +36,7 @@ jobs:
       !contains(github.event.issue.labels.*.name, 'agent:codex') &&
       !contains(github.event.issue.labels.*.name, 'agent:claude') &&
       !contains(github.event.issue.labels.*.name, 'agent:auto') &&
+      !contains(join(github.event.issue.labels.*.name, ','), 'campaign:') &&
       !contains(github.event.issue.labels.*.name, 'automated')
 
     steps:
@@ -43,7 +46,7 @@ jobs:
         uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          client-id: ${{ secrets.WORKFLOWS_APP_CLIENT_ID || '0' }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
           owner: ${{ github.repository_owner }}
 
@@ -131,7 +134,11 @@ jobs:
           # Get issue content
           issue_title = os.environ.get('ISSUE_TITLE', '')
           issue_body = os.environ.get('ISSUE_BODY', '')
+          query_max_chars = int(os.environ.get('AUTO_LABEL_QUERY_MAX_CHARS', '6000'))
           query = f"{issue_title}\n\n{issue_body}"
+          if query_max_chars > 0 and len(query) > query_max_chars:
+              query = query[:query_max_chars]
+              print(f"Truncated issue query to {query_max_chars} characters")
 
           # Get thresholds
           auto_threshold = float(os.environ.get('AUTO_APPLY_THRESHOLD', '0.90'))

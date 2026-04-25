@@ -216,6 +216,16 @@ def test_auto_label_uses_retry_paginate_with_github_client_first():
         "const labels = await paginateWithRetry(\n              github, github.rest.issues.listLabelsForRepo,"
         in text
     ), "Auto-label label discovery must pass the GitHub client as the first pagination argument"
+    assert (
+        "!contains(join(github.event.issue.labels.*.name, ','), 'campaign:')" in text
+    ), "Auto-label must skip machine-managed campaign issues instead of embedding large campaign bodies"
+    assert (
+        "AUTO_LABEL_QUERY_MAX_CHARS" in text
+        and "Truncated issue query to {query_max_chars} characters" in text
+    ), "Auto-label must bound issue text sent to semantic label matching"
+    assert (
+        "client-id: ${{ secrets.WORKFLOWS_APP_CLIENT_ID || '0' }}" in text
+    ), "Auto-label should use the create-github-app-token v3 client-id input"
 
 
 def test_consumer_sync_diff_keeps_functional_lines_in_comparison():
