@@ -77,6 +77,7 @@ jobs:
             .github/agents/registry.yml
             .github/scripts/agent_registry.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/terminal_disposition.js
             .github/scripts/token_load_balancer.js
             scripts/langchain
             tools
@@ -414,6 +415,69 @@ jobs:
               issue_number: context.payload.pull_request.number,
               body: body
             }));
+
+      - name: Record terminal disposition
+        if: always() && steps.check-merged.outputs.merged == 'true'
+        env:
+          ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
+          ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
+          FOLLOWUP_ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
+          FOLLOWUP_ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ steps.select-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            const {
+              normalizeTerminalDisposition,
+              formatTerminalDispositionMarkdown,
+            } = require('./.github/scripts/terminal_disposition.js');
+
+            const prNumber = context.payload.pull_request.number;
+            const sourceIssue = process.env.ORIGINAL_ISSUE_NUMBER || '';
+            const sourceType = sourceIssue ? 'source-issue' : 'merged-pr';
+            const sourceId = sourceIssue || String(prNumber);
+            const followupIssue = process.env.FOLLOWUP_ISSUE_NUMBER || '';
+
+            const record = normalizeTerminalDisposition({
+              source_type: sourceType,
+              source_id: sourceId,
+              source_title: process.env.ORIGINAL_ISSUE_TITLE || context.payload.pull_request.title,
+              pr_number: prNumber,
+              issue_number: sourceIssue || undefined,
+              disposition: followupIssue ? 'follow-up-created' : 'no-follow-up-created',
+              reason: followupIssue
+                ? 'Verification follow-up issue was created.'
+                : 'Workflow completed without a follow-up issue output.',
+              followup_issue_number: followupIssue || undefined,
+              followup_issue_url: process.env.FOLLOWUP_ISSUE_URL || undefined,
+              workflow: context.workflow,
+              run_id: context.runId,
+              run_attempt: context.runAttempt,
+              actor: context.actor,
+            });
+
+            fs.mkdirSync('agent-metrics', { recursive: true });
+            fs.writeFileSync(
+              'agent-metrics/verifier-terminal-disposition.ndjson',
+              `${JSON.stringify(record)}\n`
+            );
+            const markdown = formatTerminalDispositionMarkdown([record]);
+            fs.writeFileSync('terminal-disposition-summary.md', `${markdown}\n`);
+            await core.summary
+              .addHeading('Terminal Disposition')
+              .addRaw(markdown)
+              .write();
+
+      - name: Upload terminal disposition artifact
+        if: always() && steps.check-merged.outputs.merged == 'true'
+        uses: actions/upload-artifact@65ecb0ca2d3e252f7b82842cd0489c883189f7d0 # v7
+        with:
+          name: verifier-terminal-disposition-${{ github.run_id }}
+          path: |
+            agent-metrics/verifier-terminal-disposition.ndjson
+            terminal-disposition-summary.md
+          retention-days: 14
 
       - name: Remove trigger label
         if: steps.check-merged.outputs.merged == 'true'

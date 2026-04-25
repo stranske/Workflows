@@ -76,6 +76,9 @@ def _read_ndjson(files: Iterable[Path]) -> tuple[list[dict[str, Any]], int]:
 
 
 def _classify_entry(entry: dict[str, Any]) -> str:
+    schema = entry.get("schema")
+    if schema == "workflows-terminal-disposition/v1":
+        return "verifier"
     explicit = entry.get("metric_type") or entry.get("type") or entry.get("workflow")
     if isinstance(explicit, str):
         lowered = explicit.lower()
@@ -179,6 +182,8 @@ def _summarise_autofix(entries: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
     verdicts = Counter()
+    terminal_dispositions = Counter()
+    terminal_sources = Counter()
     prs: set[int] = set()
     issues_created = 0
     acceptance_counts: list[int] = []
@@ -186,6 +191,12 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
         verdict = entry.get("verdict")
         if verdict:
             verdicts[str(verdict)] += 1
+        if entry.get("schema") == "workflows-terminal-disposition/v1":
+            disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
+            terminal_dispositions[str(disposition)] += 1
+            source_type = entry.get("source_type") or "unknown"
+            source_id = entry.get("source_id") or "unknown"
+            terminal_sources[f"{source_type}:{source_id}"] += 1
         pr_number = _safe_int(entry.get("pr_number") or entry.get("pr"))
         if pr_number is not None:
             prs.add(pr_number)
@@ -202,6 +213,8 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "verdicts": verdicts,
         "issues_created": issues_created,
         "avg_acceptance": avg_acceptance,
+        "terminal_dispositions": terminal_dispositions,
+        "terminal_sources": terminal_sources,
     }
 
 
@@ -350,6 +363,8 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
             f"- Verdicts: {_format_counter(verifier['verdicts'])}",
             f"- Issues created: {verifier['issues_created']}",
             f"- Avg acceptance criteria: {verifier['avg_acceptance']:.1f}",
+            f"- Terminal dispositions: {_format_counter(verifier['terminal_dispositions'])}",
+            f"- Terminal disposition sources: {_format_counter(verifier['terminal_sources'])}",
         ]
     )
 

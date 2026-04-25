@@ -61,7 +61,11 @@ jobs:
             'agents-autofix-metrics',
             'agents-verifier-metrics'
           ]);
-          const prefixes = ['autopilot-metrics-'];
+          const prefixes = [
+            'autopilot-metrics-',
+            'verifier-terminal-disposition-',
+            'review-thread-terminal-disposition-'
+          ];
 
           (async () => {
             const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });

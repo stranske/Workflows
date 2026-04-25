@@ -123,6 +123,7 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/agent_registry.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/terminal_disposition.js
             .github/scripts/token_load_balancer.js
             .github/scripts/bot-comment-dismiss.js
           sparse-checkout-cone-mode: false
@@ -216,12 +217,23 @@ jobs:
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const dispositionHelperPath = './.github/scripts/terminal_disposition.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
                   withRetry: (fn) => fn(),
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
+                };
+            const {
+              normalizeTerminalDisposition,
+              formatTerminalDispositionMarkdown,
+            } = fs.existsSync(dispositionHelperPath)
+              ? require(dispositionHelperPath)
+              : {
+                  normalizeTerminalDisposition: (value) => value,
+                  formatTerminalDispositionMarkdown: () =>
+                    'Terminal disposition helper unavailable.',
                 };
             const { withRetry } = retryHelpers;
             const prNumber = parseInt('${{ inputs.pr_number }}');
@@ -309,6 +321,29 @@ jobs:
               }
             }
 
+            const record = normalizeTerminalDisposition({
+              source_type: 'review-thread',
+              source_id: prNumber,
+              pr_number: prNumber,
+              disposition: found ? 'unresolved-bot-comments' : 'no-unresolved-bot-comments',
+              reason: found
+                ? 'Bot review comments remain unresolved and agent handling is eligible.'
+                : 'No unresolved bot review comments matched the handler filters.',
+              workflow: context.workflow,
+              run_id: context.runId,
+              run_attempt: context.runAttempt,
+              actor: context.actor,
+            });
+            fs.mkdirSync('agent-metrics', { recursive: true });
+            fs.writeFileSync(
+              'agent-metrics/review-thread-terminal-disposition.ndjson',
+              `${JSON.stringify(record)}\n`
+            );
+            fs.writeFileSync(
+              'terminal-disposition-summary.md',
+              `${formatTerminalDispositionMarkdown([record])}\n`
+            );
+
       - name: Auto-dismiss review comments on ignored paths
         if: steps.collect.outputs.found == 'true'
         uses: actions/github-script@v9
@@ -390,6 +425,27 @@ jobs:
             }
 
             await core.summary.addRaw(summary).write();
+
+      - name: Post terminal disposition summary
+        if: always()
+        run: |
+          if [ -f terminal-disposition-summary.md ]; then
+            {
+              echo "## Terminal Disposition"
+              cat terminal-disposition-summary.md
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload review-thread disposition artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: review-thread-terminal-disposition-${{ github.run_id }}
+          path: |
+            agent-metrics/review-thread-terminal-disposition.ndjson
+            terminal-disposition-summary.md
+          if-no-files-found: ignore
+          retention-days: 14
 
   # Generate prompt file with bot comments
   prepare:

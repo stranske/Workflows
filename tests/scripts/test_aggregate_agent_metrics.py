@@ -39,11 +39,18 @@ def test_build_summary_formats_sections() -> None:
             "issues_created": 0,
             "acceptance_criteria_count": 3,
         },
+        {
+            "schema": "workflows-terminal-disposition/v1",
+            "source_type": "source-issue",
+            "source_id": "99",
+            "pr_number": 101,
+            "disposition": "follow-up-created",
+        },
     ]
 
     summary = aggregate_agent_metrics.build_summary(entries, errors=1)
 
-    assert "Records: 4 (keepalive 2, autofix 1, verifier 1, autopilot 0, unknown 0)" in summary
+    assert "Records: 5 (keepalive 2, autofix 1, verifier 2, autopilot 0, unknown 0)" in summary
     assert "Parse errors: 1" in summary
     assert "Avg iterations: 3.5" in summary
     assert "tasks-complete (1)" in summary
@@ -51,6 +58,8 @@ def test_build_summary_formats_sections() -> None:
     assert "Fixes applied: 100.0% (1/1)" in summary
     assert "Verdicts: pass (1)" in summary
     assert "Avg acceptance criteria: 3.0" in summary
+    assert "Terminal dispositions: follow-up-created (1)" in summary
+    assert "Terminal disposition sources: source-issue:99 (1)" in summary
 
 
 def test_main_writes_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -175,6 +184,10 @@ def test_classify_entry_prefers_explicit_type() -> None:
     assert aggregate_agent_metrics._classify_entry({"metric_type": "Keepalive"}) == "keepalive"
     assert aggregate_agent_metrics._classify_entry({"workflow": "autofix"}) == "autofix"
     assert aggregate_agent_metrics._classify_entry({"type": "Verifier"}) == "verifier"
+    assert (
+        aggregate_agent_metrics._classify_entry({"schema": "workflows-terminal-disposition/v1"})
+        == "verifier"
+    )
     assert aggregate_agent_metrics._classify_entry({"iteration_count": 1}) == "keepalive"
     assert aggregate_agent_metrics._classify_entry({"trigger_reason": "pytest"}) == "autofix"
     assert aggregate_agent_metrics._classify_entry({"verdict": "pass"}) == "verifier"

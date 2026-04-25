@@ -296,6 +296,9 @@ scripts:
   - source: .github/scripts/issue_context_utils.js
     description: "Utilities for issue context extraction"
 
+  - source: .github/scripts/terminal_disposition.js
+    description: "Machine-readable terminal disposition records and source summaries"
+
   - source: .github/scripts/issue_scope_parser.js
     description: "Parses issue scope and requirements"
 
