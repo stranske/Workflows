@@ -155,6 +155,16 @@ def test_consumer_sync_drift_uploads_machine_readable_report():
     ), "Health 68 must upload the drift report as a GitHub-visible artifact"
 
 
+def test_health_40_branch_protection_sweep_skips_push_runs():
+    text = (WORKFLOWS_DIR / "health-40-sweep.yml").read_text(encoding="utf-8")
+    assert (
+        "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'" in text
+    ), "Health 40 should reserve branch-protection verification for scheduled/manual sweeps"
+    assert (
+        "needs.detect.outputs.run_branch_protection != 'false'" in text
+    ), "Manual Health 40 sweeps must keep the branch-protection opt-out"
+
+
 def test_weekly_metrics_uploads_selector_report_on_failure():
     workflow_text = (WORKFLOWS_DIR / "agents-weekly-metrics.yml").read_text(encoding="utf-8")
     template_text = Path(

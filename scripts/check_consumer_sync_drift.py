@@ -104,6 +104,15 @@ def write_report_json(path: str, report: dict[str, object]) -> None:
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def repo_access_error(session: requests.Session, repo: str) -> str | None:
+    """Return a concise access error for an unreadable repo, or None when readable."""
+    url = f"https://api.github.com/repos/{repo}"
+    response = session.get(url)
+    if response.status_code < 400:
+        return None
+    return f"{repo}: repository access preflight failed (HTTP {response.status_code})"
+
+
 def main() -> int:
     args = parse_args()
     repos = resolve_repos(args.repos)
@@ -180,6 +189,14 @@ def main() -> int:
     errors: set[str] = set()
     obsolete: set[str] = set()
 
+    accessible_repos: list[str] = []
+    for repo in repos:
+        access_error = repo_access_error(session, repo)
+        if access_error:
+            errors.add(access_error)
+        else:
+            accessible_repos.append(repo)
+
     def _check_file(local_file: Path, remote_target: str, repo: str) -> None:
         """Compare a single local file against its remote counterpart."""
         local_digest = file_hash(local_file.read_bytes())
@@ -213,7 +230,7 @@ def main() -> int:
                 errors.add(f"{section}: missing local file for {source}")
                 continue
 
-            for repo in repos:
+            for repo in accessible_repos:
                 if is_directory or local_path.is_dir():
                     # Recursively compare all files within the directory
                     for child in sorted(local_path.rglob("*")):
@@ -228,7 +245,7 @@ def main() -> int:
         target = entry.get("target")
         if not target:
             continue
-        for repo in repos:
+        for repo in accessible_repos:
             url = f"https://api.github.com/repos/{repo}/contents/{target}"
             response = session.get(url)
             if response.status_code == 404:

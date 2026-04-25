@@ -39,3 +39,33 @@ def test_write_report_json_creates_parent_directory(tmp_path) -> None:
     loaded = json.loads(output.read_text(encoding="utf-8"))
     assert loaded["schema"] == "workflows-consumer-sync-drift/v1"
     assert loaded["status"] == "pass"
+
+
+def test_repo_access_error_reports_single_preflight_failure() -> None:
+    class Response:
+        status_code = 403
+
+    class Session:
+        requested_urls: list[str] = []
+
+        def get(self, url: str) -> Response:
+            self.requested_urls.append(url)
+            return Response()
+
+    session = Session()
+
+    error = check_consumer_sync_drift.repo_access_error(session, "owner/private-repo")
+
+    assert error == "owner/private-repo: repository access preflight failed (HTTP 403)"
+    assert session.requested_urls == ["https://api.github.com/repos/owner/private-repo"]
+
+
+def test_repo_access_error_allows_readable_repo() -> None:
+    class Response:
+        status_code = 200
+
+    class Session:
+        def get(self, url: str) -> Response:
+            return Response()
+
+    assert check_consumer_sync_drift.repo_access_error(Session(), "owner/repo") is None

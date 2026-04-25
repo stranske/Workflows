@@ -94,6 +94,8 @@ jobs:
   branch-protection-verify:
     name: branch protection sweep
     needs: detect
-    if: github.event_name != 'pull_request' && needs.detect.outputs.run_branch_protection != 'false'
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      needs.detect.outputs.run_branch_protection != 'false'
     uses: ./.github/workflows/health-44-gate-branch-protection.yml
     secrets: inherit
