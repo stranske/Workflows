@@ -97,7 +97,7 @@ on:
         description: 'GitHub App client ID for authentication'
         required: false
       gh_app_id:
-        description: 'Legacy GitHub App ID for authentication'
+        description: 'Legacy GitHub App ID fallback; prefer gh_app_client_id'
         required: false
       gh_app_private_key:
         description: 'GitHub App private key'
@@ -134,12 +134,16 @@ jobs:
           if [ -n "${GH_APP_CLIENT_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
             echo "use_client=true" >> "$GITHUB_OUTPUT"
             echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+            echo "app_auth_mode=client-id" >> "$GITHUB_OUTPUT"
           elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
             echo "use_client=false" >> "$GITHUB_OUTPUT"
             echo "use_legacy=true" >> "$GITHUB_OUTPUT"
+            echo "app_auth_mode=legacy-app-id" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID and pass gh_app_client_id to avoid the deprecated app-id path."
           else
             echo "use_client=false" >> "$GITHUB_OUTPUT"
             echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+            echo "app_auth_mode=none" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate token (if App client ID configured)
@@ -597,12 +601,16 @@ jobs:
           if [ -n "${GH_APP_CLIENT_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
             echo "use_client=true" >> "$GITHUB_OUTPUT"
             echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+            echo "app_auth_mode=client-id" >> "$GITHUB_OUTPUT"
           elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
             echo "use_client=false" >> "$GITHUB_OUTPUT"
             echo "use_legacy=true" >> "$GITHUB_OUTPUT"
+            echo "app_auth_mode=legacy-app-id" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID and pass gh_app_client_id to avoid the deprecated app-id path."
           else
             echo "use_client=false" >> "$GITHUB_OUTPUT"
             echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+            echo "app_auth_mode=none" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate token (if App client ID configured)

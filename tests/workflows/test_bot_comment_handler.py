@@ -67,9 +67,12 @@ def test_reusable_bot_comment_handler_prefers_app_client_id() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
     workflow_call_secrets = (workflow.get("on") or workflow.get(True))["workflow_call"]["secrets"]
     collect_steps = workflow["jobs"]["collect"]["steps"]
-    detect_step = next(
-        step for step in collect_steps if step.get("name") == "Detect App credentials"
-    )
+    dispatch_steps = workflow["jobs"]["dispatch"]["steps"]
+    detect_steps = [
+        next(step for step in steps if step.get("name") == "Detect App credentials")
+        for steps in (collect_steps, dispatch_steps)
+    ]
+    detect_step = detect_steps[0]
     client_step = next(
         step
         for step in collect_steps
@@ -83,8 +86,17 @@ def test_reusable_bot_comment_handler_prefers_app_client_id() -> None:
     resolve_step = next(step for step in collect_steps if step.get("name") == "Resolve token")
 
     assert "gh_app_client_id" in workflow_call_secrets
+    assert "prefer gh_app_client_id" in workflow_call_secrets["gh_app_id"]["description"]
     assert detect_step["env"]["GH_APP_CLIENT_ID"] == "${{ secrets.gh_app_client_id }}"
     assert detect_step["env"]["GH_APP_PRIVATE_KEY"] == "${{ secrets.gh_app_private_key }}"
+    for detect_step in detect_steps:
+        detect_script = detect_step["run"]
+        assert detect_step["env"]["GH_APP_CLIENT_ID"] == "${{ secrets.gh_app_client_id }}"
+        assert detect_step["env"]["GH_APP_PRIVATE_KEY"] == "${{ secrets.gh_app_private_key }}"
+        assert "app_auth_mode=client-id" in detect_script
+        assert "app_auth_mode=legacy-app-id" in detect_script
+        assert "app_auth_mode=none" in detect_script
+        assert "Legacy GitHub App ID fallback" in detect_script
     assert client_step.get("if") == "steps.app-creds.outputs.use_client == 'true'"
     assert "client-id" in client_step.get("with", {})
     assert "app-id" not in client_step.get("with", {})
@@ -94,6 +106,30 @@ def test_reusable_bot_comment_handler_prefers_app_client_id() -> None:
         "steps.token-client.outputs.token || steps.token-legacy.outputs.token"
         in resolve_step["env"]["TOKEN_OUTPUT"]
     )
+
+
+def test_bot_comment_handler_callers_pass_app_client_id() -> None:
+    caller_paths = [
+        ROOT / ".github/workflows/agents-bot-comment-handler.yml",
+        ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml",
+        ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml",
+    ]
+
+    for caller_path in caller_paths:
+        workflow = _load_yaml(caller_path)
+        reusable_jobs = [
+            job
+            for job in workflow.get("jobs", {}).values()
+            if job.get("uses")
+            == "stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main"
+        ]
+        assert reusable_jobs, f"{caller_path} must call reusable-bot-comment-handler"
+
+        for job in reusable_jobs:
+            secrets = job.get("secrets", {})
+            assert secrets.get("gh_app_client_id") == "${{ secrets.GH_APP_CLIENT_ID }}"
+            assert secrets.get("gh_app_id") == "${{ secrets.GH_APP_ID }}"
+            assert secrets.get("gh_app_private_key") == "${{ secrets.GH_APP_PRIVATE_KEY }}"
 
 
 def test_template_bot_comment_handler_passes_agents_ignore() -> None:

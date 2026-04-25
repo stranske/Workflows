@@ -359,6 +359,7 @@ jobs:
       ignored_paths: '.agents/,scripts/langchain/prompts/,docs/'
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+      gh_app_client_id: ${{ secrets.GH_APP_CLIENT_ID }}
       gh_app_id: ${{ secrets.GH_APP_ID }}
       gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
 

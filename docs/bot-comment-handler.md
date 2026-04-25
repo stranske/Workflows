@@ -140,7 +140,8 @@ gh workflow run agents-bot-comment-handler.yml -f pr_number=123
 | Secret | Required | Description |
 |--------|----------|-------------|
 | `SERVICE_BOT_PAT` | No | PAT for service bot account |
-| `GH_APP_ID` | No | GitHub App ID (alternative auth) |
+| `GH_APP_CLIENT_ID` | No | GitHub App client ID (preferred App auth) |
+| `GH_APP_ID` | No | Legacy GitHub App ID fallback |
 | `GH_APP_PRIVATE_KEY` | No | GitHub App private key |
 
 ## Troubleshooting
