@@ -55,6 +55,13 @@ def test_autofix_loop_does_not_subscribe_to_workflow_job_events() -> None:
     ), "workflow_job events create noisy push-associated autofix runs with no correctness gain"
 
 
+def test_agents_autofix_loop_uses_direct_retry_helper_contract() -> None:
+    """Direct retry helper calls must close over ``github`` in github-script."""
+    contents = (WORKFLOWS / "agents-autofix-loop.yml").read_text(encoding="utf-8")
+    assert "withRetry((client)" not in contents
+    assert "github.rest.actions.getWorkflowRun" in contents
+
+
 def test_reusable_autofix_guard_applies_to_all_steps() -> None:
     data = _load_yaml("reusable-18-autofix.yml")
     steps = data["jobs"]["autofix"]["steps"]

@@ -21,6 +21,16 @@ def test_build_report_returns_machine_readable_counts() -> None:
         "errors": 0,
         "obsolete": 1,
     }
+    assert report["repo_summaries"] == {
+        "owner/a": {"drift": 0, "missing": 1, "errors": 0, "obsolete": 1},
+        "owner/b": {"drift": 1, "missing": 0, "errors": 0, "obsolete": 0},
+    }
+    assert report["path_prefix_counts"] == {
+        "drift": {".github/workflows": 1},
+        "missing": {".github/scripts": 1},
+        "errors": {},
+        "obsolete": {"old.yml": 1},
+    }
     assert report["drift"] == ["owner/b: .github/workflows/a.yml"]
 
 
@@ -39,6 +49,27 @@ def test_write_report_json_creates_parent_directory(tmp_path) -> None:
     loaded = json.loads(output.read_text(encoding="utf-8"))
     assert loaded["schema"] == "workflows-consumer-sync-drift/v1"
     assert loaded["status"] == "pass"
+
+
+def test_write_summary_markdown_groups_and_bounds_items(tmp_path) -> None:
+    output = tmp_path / "summary.md"
+    drift = {f"owner/repo: .github/workflows/{index}.yml" for index in range(55)}
+    report = check_consumer_sync_drift.build_report(
+        repos=["owner/repo"],
+        drift=drift,
+        missing={"owner/repo: scripts/langchain/formatter.py"},
+        errors=set(),
+        obsolete=set(),
+    )
+
+    check_consumer_sync_drift.write_summary_markdown(str(output), report)
+
+    contents = output.read_text(encoding="utf-8")
+    assert "### Counts" in contents
+    assert "- drift: 55" in contents
+    assert "- owner/repo: drift=55, missing=1, errors=0, obsolete=0" in contents
+    assert "- drift: .github/workflows=55" in contents
+    assert "... 5 more in consumer-sync-drift-report.json" in contents
 
 
 def test_repo_access_error_reports_single_preflight_failure() -> None:

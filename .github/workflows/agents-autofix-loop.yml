@@ -165,8 +165,8 @@ jobs:
 
             let run;
             try {
-              const response = await withRetry((client) =>
-                client.rest.actions.getWorkflowRun({
+              const response = await withRetry(() =>
+                github.rest.actions.getWorkflowRun({
                   owner,
                   repo,
                   run_id: runIdNumber,
@@ -200,8 +200,8 @@ jobs:
               return;
             }
 
-            const { data: pr } = await withRetry((client) =>
-              client.rest.pulls.get({
+            const { data: pr } = await withRetry(() =>
+              github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber,
@@ -260,8 +260,8 @@ jobs:
 
             let run;
             try {
-              const response = await withRetry((client) =>
-                client.rest.actions.getWorkflowRun({
+              const response = await withRetry(() =>
+                github.rest.actions.getWorkflowRun({
                   owner,
                   repo,
                   run_id: runIdNumber,
@@ -324,8 +324,8 @@ jobs:
 
             const prNumber = Number(manualInputs.prNumber || prInfo.number);
             outputs.pr_number = String(prNumber);
-            const pr = await withRetry((client) =>
-              client.rest.pulls.get({ owner, repo, pull_number: prNumber })
+            const pr = await withRetry(() =>
+              github.rest.pulls.get({ owner, repo, pull_number: prNumber })
             );
             const prData = pr.data;
 
@@ -451,8 +451,8 @@ jobs:
                   : 'No basic autofix (non-Python PR?) and Gate failing';
                 core.info(`🔄 Auto-escalation: ${reason}. Escalating to Codex CLI...`);
                 try {
-                  await withRetry((client) =>
-                    client.rest.issues.addLabels({
+                  await withRetry(() =>
+                    github.rest.issues.addLabels({
                       owner,
                       repo,
                       issue_number: prNumber,
@@ -717,8 +717,8 @@ jobs:
 
             const { owner, repo } = context.repo;
 
-            await withRetry((client) =>
-              client.rest.issues.addLabels({
+            await withRetry(() =>
+              github.rest.issues.addLabels({
                 owner,
                 repo,
                 issue_number: prNumber,
@@ -740,8 +740,8 @@ jobs:
               'Please investigate manually.',
             ].join('\n');
 
-            await withRetry((client) =>
-              client.rest.issues.createComment({
+            await withRetry(() =>
+              github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: prNumber,
@@ -833,8 +833,8 @@ jobs:
 
             if (prNumber) {
               try {
-                const { data: pr } = await withRetry((client) =>
-                  client.rest.pulls.get({
+                const { data: pr } = await withRetry(() =>
+                  github.rest.pulls.get({
                     owner,
                     repo,
                     pull_number: prNumber,
@@ -851,8 +851,8 @@ jobs:
                   const prLabels = pr.labels?.map((label) => label.name) || [];
                   if (prLabels.includes('autofix:escalated')) {
                     try {
-                      await withRetry((client) =>
-                        client.rest.issues.removeLabel({
+                      await withRetry(() =>
+                        github.rest.issues.removeLabel({
                           owner,
                           repo,
                           issue_number: prNumber,

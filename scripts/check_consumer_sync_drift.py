@@ -14,6 +14,7 @@ import requests
 import yaml
 
 REPORT_SCHEMA = "workflows-consumer-sync-drift/v1"
+SUMMARY_ITEM_LIMIT = 50
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,6 +69,60 @@ def sorted_items(values: set[str]) -> list[str]:
     return sorted(values)
 
 
+def split_report_item(item: str) -> tuple[str, str]:
+    repo, separator, detail = item.partition(": ")
+    if not separator:
+        return "", item
+    return repo, detail
+
+
+def path_prefix(detail: str) -> str:
+    path = detail.split(" (", 1)[0].strip()
+    parts = [part for part in path.split("/") if part]
+    if not parts:
+        return "unknown"
+    if parts[0] == ".github" and len(parts) > 1:
+        return "/".join(parts[:2])
+    if len(parts) > 1 and parts[0] in {"scripts", "tools", "docs", "templates"}:
+        return "/".join(parts[:2])
+    return parts[0]
+
+
+def build_repo_summaries(
+    *,
+    repos: list[str],
+    drift: set[str],
+    missing: set[str],
+    errors: set[str],
+    obsolete: set[str],
+) -> dict[str, dict[str, int]]:
+    summaries = {
+        repo: {"drift": 0, "missing": 0, "errors": 0, "obsolete": 0} for repo in sorted(repos)
+    }
+    for category, items in (
+        ("drift", drift),
+        ("missing", missing),
+        ("errors", errors),
+        ("obsolete", obsolete),
+    ):
+        for item in items:
+            repo, _detail = split_report_item(item)
+            if not repo:
+                continue
+            summaries.setdefault(repo, {"drift": 0, "missing": 0, "errors": 0, "obsolete": 0})
+            summaries[repo][category] += 1
+    return summaries
+
+
+def build_prefix_counts(items: set[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        _repo, detail = split_report_item(item)
+        prefix = path_prefix(detail)
+        counts[prefix] = counts.get(prefix, 0) + 1
+    return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+
+
 def build_report(
     *,
     repos: list[str],
@@ -89,11 +144,85 @@ def build_report(
         "repo_count": len(repos),
         "repos": repos,
         "counts": counts,
+        "repo_summaries": build_repo_summaries(
+            repos=repos,
+            drift=drift,
+            missing=missing,
+            errors=errors,
+            obsolete=obsolete,
+        ),
+        "path_prefix_counts": {
+            "drift": build_prefix_counts(drift),
+            "missing": build_prefix_counts(missing),
+            "errors": build_prefix_counts(errors),
+            "obsolete": build_prefix_counts(obsolete),
+        },
+        "summary_limits": {"max_items_per_section": SUMMARY_ITEM_LIMIT},
         "drift": sorted_items(drift),
         "missing": sorted_items(missing),
         "errors": sorted_items(errors),
         "obsolete": sorted_items(obsolete),
     }
+
+
+def write_summary_markdown(path: str, report: dict[str, object]) -> None:
+    if not path:
+        return
+    summary_path = Path(path)
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    counts = report.get("counts", {})
+    repos = report.get("repos", [])
+    with summary_path.open("a", encoding="utf-8") as handle:
+        handle.write("## Consumer Sync Drift Check\n")
+        handle.write(f"Checked repos: {', '.join(str(repo) for repo in repos)}\n\n")
+        handle.write("### Counts\n")
+        for category in ("drift", "missing", "errors", "obsolete"):
+            handle.write(f"- {category}: {counts.get(category, 0)}\n")
+        handle.write("\n")
+
+        repo_summaries = report.get("repo_summaries", {})
+        if isinstance(repo_summaries, dict) and repo_summaries:
+            handle.write("### Repo summary\n")
+            for repo, repo_counts in repo_summaries.items():
+                if not isinstance(repo_counts, dict):
+                    continue
+                total = sum(int(repo_counts.get(category, 0)) for category in counts)
+                if total <= 0:
+                    continue
+                details = ", ".join(
+                    f"{category}={repo_counts.get(category, 0)}" for category in counts
+                )
+                handle.write(f"- {repo}: {details}\n")
+            handle.write("\n")
+
+        path_prefix_counts = report.get("path_prefix_counts", {})
+        if isinstance(path_prefix_counts, dict) and path_prefix_counts:
+            handle.write("### Path prefixes\n")
+            for category, prefixes in path_prefix_counts.items():
+                if not isinstance(prefixes, dict) or not prefixes:
+                    continue
+                rendered = ", ".join(f"{prefix}={count}" for prefix, count in prefixes.items())
+                handle.write(f"- {category}: {rendered}\n")
+            handle.write("\n")
+
+        for title, key in (
+            ("Drift detected for", "drift"),
+            ("Missing files", "missing"),
+            ("Errors", "errors"),
+            ("Obsolete files present (should be removed)", "obsolete"),
+        ):
+            items = report.get(key, [])
+            if not isinstance(items, list) or not items:
+                if key == "drift":
+                    handle.write("✅ No drift detected.\n\n")
+                continue
+            handle.write(f"### {title}\n")
+            for item in items[:SUMMARY_ITEM_LIMIT]:
+                handle.write(f"- {item}\n")
+            remaining = len(items) - SUMMARY_ITEM_LIMIT
+            if remaining > 0:
+                handle.write(f"- ... {remaining} more in consumer-sync-drift-report.json\n")
+            handle.write("\n")
 
 
 def write_report_json(path: str, report: dict[str, object]) -> None:
@@ -263,31 +392,7 @@ def main() -> int:
         obsolete=obsolete,
     )
     write_report_json(args.report_json, report)
-
-    if args.summary:
-        summary_path = Path(args.summary)
-        summary_path.parent.mkdir(parents=True, exist_ok=True)
-        with summary_path.open("a", encoding="utf-8") as handle:
-            handle.write("## Consumer Sync Drift Check\n")
-            handle.write(f"Checked repos: {', '.join(repos)}\n\n")
-            if drift:
-                handle.write("❌ Drift detected for:\n")
-                handle.write("\n".join(f"- {item}" for item in sorted(drift)))
-                handle.write("\n\n")
-            else:
-                handle.write("✅ No drift detected.\n\n")
-            if missing:
-                handle.write("⚠️ Missing files:\n")
-                handle.write("\n".join(f"- {item}" for item in sorted(missing)))
-                handle.write("\n\n")
-            if errors:
-                handle.write("⚠️ Errors:\n")
-                handle.write("\n".join(f"- {item}" for item in sorted(errors)))
-                handle.write("\n\n")
-            if obsolete:
-                handle.write("⚠️ Obsolete files present (should be removed):\n")
-                handle.write("\n".join(f"- {item}" for item in sorted(obsolete)))
-                handle.write("\n\n")
+    write_summary_markdown(args.summary, report)
 
     if report["status"] != "pass":
         print("::warning::Consumer repo drift detected")
