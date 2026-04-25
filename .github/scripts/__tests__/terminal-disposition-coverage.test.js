@@ -9,6 +9,7 @@ const {
   expectedReviewThreadSources,
   formatTerminalDispositionCoverageMarkdown,
   isTerminalDispositionNdjsonFile,
+  normalizeEnforcementPolicy,
   normalizeArtifactSelectionSummary,
   normalizeExpectedSource,
   readArtifactSelectionReport,
@@ -88,8 +89,13 @@ test('reports missing review-thread coverage without failing the contract', () =
   assert.equal(report.status, 'warning');
   assert.deepEqual(report.enforcement, {
     mode: 'warning-only',
+    requested_mode: 'warning-only',
+    hard_block_approved: false,
     hard_block_eligible: false,
+    hard_block_active: false,
+    should_fail: false,
     blockers: ['missing-review-thread-sources'],
+    policy_blockers: [],
   });
   assert.equal(report.scanned_record_count, 3);
   assert.equal(report.terminal_record_count, 3);
@@ -101,6 +107,79 @@ test('reports missing review-thread coverage without failing the contract', () =
     report.missing_sources.map((source) => source.source_key),
     ['review-thread:102']
   );
+});
+
+test('keeps hard blocking disabled without explicit approval', () => {
+  const report = summarizeTerminalDispositionCoverage([], {
+    enforcement_mode: 'hard-block',
+  });
+
+  assert.equal(report.status, 'no-data');
+  assert.equal(report.mode, 'warning-only');
+  assert.equal(report.requested_mode, 'hard-block');
+  assert.equal(report.enforcement.hard_block_active, false);
+  assert.equal(report.enforcement.should_fail, false);
+  assert.deepEqual(report.enforcement.policy_blockers, ['hard-block-approval-required']);
+});
+
+test('fails only when hard blocking is requested and approved', () => {
+  const report = summarizeTerminalDispositionCoverage([], {
+    enforcement_mode: 'hard-block',
+    hard_block_approved: 'approved',
+  });
+  const markdown = formatTerminalDispositionCoverageMarkdown(report);
+
+  assert.equal(report.status, 'fail');
+  assert.equal(report.coverage_status, 'no-data');
+  assert.equal(report.mode, 'hard-block');
+  assert.equal(report.enforcement.hard_block_active, true);
+  assert.equal(report.enforcement.should_fail, true);
+  assert.match(markdown, /Mode: hard-block/);
+  assert.match(markdown, /Hard block active: true/);
+});
+
+test('passes approved hard blocking when coverage has no blockers', () => {
+  const report = summarizeTerminalDispositionCoverage(
+    [
+      {
+        schema: 'workflows-terminal-disposition/v1',
+        source_type: 'source-issue',
+        source_id: '7',
+        pr_number: 101,
+        disposition: 'follow-up-created',
+      },
+      {
+        schema: 'workflows-terminal-disposition/v1',
+        source_type: 'review-thread',
+        source_id: '101',
+        pr_number: 101,
+        disposition: 'no-unresolved-bot-comments',
+      },
+    ],
+    {
+      enforcement_mode: 'hard-block',
+      hard_block_approved: true,
+    }
+  );
+
+  assert.equal(report.status, 'pass');
+  assert.equal(report.mode, 'hard-block');
+  assert.equal(report.enforcement.hard_block_eligible, true);
+  assert.equal(report.enforcement.should_fail, false);
+});
+
+test('normalizes the terminal coverage enforcement policy', () => {
+  assert.deepEqual(normalizeEnforcementPolicy({ mode: 'enforce', hard_block_approved: 'yes' }), {
+    schema: 'workflows-terminal-disposition-enforcement-policy/v1',
+    requested_mode: 'hard-block',
+    effective_mode: 'hard-block',
+    default_mode: 'warning-only',
+    hard_block_approved: true,
+    policy_blockers: [],
+  });
+  assert.deepEqual(normalizeEnforcementPolicy({ mode: 'hard-block' }).policy_blockers, [
+    'hard-block-approval-required',
+  ]);
 });
 
 test('formats markdown for observed and missing sources', () => {

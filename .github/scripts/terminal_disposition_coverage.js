@@ -12,6 +12,8 @@ const TERMINAL_ARTIFACT_FAMILIES = new Set([
   'verifier-terminal-disposition',
   'review-thread-terminal-disposition',
 ]);
+const DEFAULT_ENFORCEMENT_MODE = 'warning-only';
+const HARD_BLOCK_MODE = 'hard-block';
 
 function cleanString(value) {
   if (value === null || value === undefined) return '';
@@ -23,6 +25,49 @@ function cleanInt(value) {
   if (!text) return null;
   const parsed = Number.parseInt(text, 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeBoolean(value) {
+  const text = cleanString(value).toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'approved', 'approve', 'on'].includes(text);
+}
+
+function normalizeEnforcementMode(value) {
+  const text = cleanString(value).toLowerCase();
+  if (['hard-block', 'hard_block', 'hard', 'block', 'blocking', 'enforce'].includes(text)) {
+    return HARD_BLOCK_MODE;
+  }
+  return DEFAULT_ENFORCEMENT_MODE;
+}
+
+function normalizeEnforcementPolicy(options = {}) {
+  const requestedMode = normalizeEnforcementMode(
+    options.mode ??
+      options.enforcement_mode ??
+      options.enforcementMode ??
+      process.env.TERMINAL_DISPOSITION_COVERAGE_MODE
+  );
+  const hardBlockApproved = normalizeBoolean(
+    options.hard_block_approved ??
+      options.hardBlockApproved ??
+      process.env.TERMINAL_DISPOSITION_HARD_BLOCK_APPROVED
+  );
+  const policyBlockers = [];
+  let effectiveMode = requestedMode;
+
+  if (requestedMode === HARD_BLOCK_MODE && !hardBlockApproved) {
+    effectiveMode = DEFAULT_ENFORCEMENT_MODE;
+    policyBlockers.push('hard-block-approval-required');
+  }
+
+  return {
+    schema: 'workflows-terminal-disposition-enforcement-policy/v1',
+    requested_mode: requestedMode,
+    effective_mode: effectiveMode,
+    default_mode: DEFAULT_ENFORCEMENT_MODE,
+    hard_block_approved: hardBlockApproved,
+    policy_blockers: policyBlockers,
+  };
 }
 
 function normalizeExpectedSource(input = {}) {
@@ -64,6 +109,9 @@ function expectedReviewThreadSources(records = []) {
 }
 
 function summarizeTerminalDispositionCoverage(records = [], options = {}) {
+  const policy = normalizeEnforcementPolicy(
+    options.enforcement_policy ?? options.enforcementPolicy ?? options
+  );
   const parseErrors = Number(options.parse_errors || options.parseErrors || 0);
   const artifactSelection = normalizeArtifactSelectionSummary(
     options.artifact_selection_report ?? options.artifactSelectionReport
@@ -139,14 +187,27 @@ function summarizeTerminalDispositionCoverage(records = [], options = {}) {
   if (parseErrors > 0) enforcementBlockers.push('parse-errors');
   if (artifactSelectionWarning) enforcementBlockers.push('artifact-selection-warning');
 
+  const hardBlockEligible = enforcementBlockers.length === 0;
+  const hardBlockActive = policy.effective_mode === HARD_BLOCK_MODE;
+  const shouldFail = hardBlockActive && status !== 'pass';
+  const finalStatus = shouldFail ? 'fail' : status;
+
   return {
     schema: COVERAGE_SCHEMA,
-    status,
-    mode: 'warning-only',
+    status: finalStatus,
+    coverage_status: status,
+    mode: policy.effective_mode,
+    requested_mode: policy.requested_mode,
+    policy,
     enforcement: {
-      mode: 'warning-only',
-      hard_block_eligible: enforcementBlockers.length === 0,
+      mode: policy.effective_mode,
+      requested_mode: policy.requested_mode,
+      hard_block_approved: policy.hard_block_approved,
+      hard_block_eligible: hardBlockEligible,
+      hard_block_active: hardBlockActive,
+      should_fail: shouldFail,
       blockers: enforcementBlockers,
+      policy_blockers: policy.policy_blockers,
     },
     input_file_count: inputFileCount,
     input_files: inputFiles,
@@ -240,8 +301,14 @@ function formatTerminalDispositionCoverageMarkdown(report) {
   const lines = [
     '## Terminal Disposition Coverage Preflight',
     '',
-    '- Mode: warning-only (does not block merges or automation)',
+    report.enforcement?.hard_block_active
+      ? '- Mode: hard-block (approved terminal coverage enforcement)'
+      : '- Mode: warning-only (does not block merges or automation)',
+    `- Requested mode: ${report.requested_mode || report.enforcement?.requested_mode || report.mode || DEFAULT_ENFORCEMENT_MODE}`,
     `- Status: ${report.status}`,
+    `- Coverage status: ${report.coverage_status || report.status}`,
+    `- Hard block eligible: ${report.enforcement?.hard_block_eligible ? 'true' : 'false'}`,
+    `- Hard block active: ${report.enforcement?.hard_block_active ? 'true' : 'false'}`,
     `- Input files: ${report.input_file_count || 0}`,
     `- Scanned records: ${report.scanned_record_count || 0}`,
     `- Terminal disposition records: ${report.terminal_record_count}`,
@@ -268,6 +335,11 @@ function formatTerminalDispositionCoverageMarkdown(report) {
     lines.push(
       '- Terminal artifact input mismatch: selected terminal artifacts did not yield terminal NDJSON input files'
     );
+  }
+
+  const policyBlockers = report.enforcement?.policy_blockers || [];
+  if (policyBlockers.length > 0) {
+    lines.push(`- Policy blockers: ${policyBlockers.join(', ')}`);
   }
 
   if (report.missing_sources.length > 0) {
@@ -387,6 +459,12 @@ function parseArgs(argv = process.argv.slice(2)) {
     } else if (arg === '--artifact-selection-json') {
       options.artifact_selection_json = next;
       index += 1;
+    } else if (arg === '--mode') {
+      options.enforcement_mode = next;
+      index += 1;
+    } else if (arg === '--hard-block-approved') {
+      options.hard_block_approved = next;
+      index += 1;
     }
   }
 
@@ -440,11 +518,16 @@ function main() {
     artifact_selection_report: artifactSelectionReport,
     input_file_count: inputFileCount,
     input_files: inputFiles,
+    enforcement_mode: options.enforcement_mode,
+    hard_block_approved: options.hard_block_approved,
   });
   const markdown = formatTerminalDispositionCoverageMarkdown(report);
   fs.writeFileSync(options.output_json, `${JSON.stringify(report, null, 2)}\n`);
   fs.writeFileSync(options.output_md, markdown);
   process.stdout.write(markdown);
+  if (report.enforcement.should_fail) {
+    process.exitCode = 1;
+  }
 }
 
 if (require.main === module) {
@@ -458,6 +541,8 @@ module.exports = {
   formatTerminalDispositionCoverageMarkdown,
   isTerminalDispositionNdjsonFile,
   normalizeExpectedSource,
+  normalizeEnforcementMode,
+  normalizeEnforcementPolicy,
   normalizeArtifactSelectionSummary,
   readNdjsonFiles,
   readArtifactSelectionReport,

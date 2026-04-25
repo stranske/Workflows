@@ -153,8 +153,13 @@ jobs:
           TERMINAL_DISPOSITION_ARTIFACT_SELECTION_JSON: artifacts/metric-artifacts-selection.json
           TERMINAL_DISPOSITION_COVERAGE_JSON: terminal-disposition-coverage.json
           TERMINAL_DISPOSITION_COVERAGE_MD: terminal-disposition-coverage.md
+          TERMINAL_DISPOSITION_COVERAGE_MODE: ${{ vars.TERMINAL_DISPOSITION_COVERAGE_MODE || 'warning-only' }}
+          TERMINAL_DISPOSITION_HARD_BLOCK_APPROVED: ${{ vars.TERMINAL_DISPOSITION_HARD_BLOCK_APPROVED || 'false' }}
         run: |
+          set +e
           node .github/scripts/terminal_disposition_coverage.js
+          terminal_coverage_status=$?
+          set -e
           if [ -f terminal-disposition-coverage.md ]; then
             cat terminal-disposition-coverage.md >> "$GITHUB_STEP_SUMMARY"
             if [ -f agent-weekly-metrics.md ]; then
@@ -164,6 +169,7 @@ jobs:
               } >> agent-weekly-metrics.md
             fi
           fi
+          exit "$terminal_coverage_status"
 
       - name: Upload weekly summary
         if: ${{ always() }}

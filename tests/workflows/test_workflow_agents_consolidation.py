@@ -257,6 +257,15 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
         assert (
             "TERMINAL_DISPOSITION_ARTIFACT_SELECTION_JSON" in text
         ), "Terminal coverage must receive the selector report for no-data traceability"
+        assert (
+            "TERMINAL_DISPOSITION_COVERAGE_MODE" in text
+        ), "Terminal coverage must expose an explicit enforcement mode"
+        assert (
+            "TERMINAL_DISPOSITION_HARD_BLOCK_APPROVED" in text
+        ), "Terminal coverage hard blocking must require an explicit approval flag"
+        assert (
+            "terminal_coverage_status=$?" in text and 'exit "$terminal_coverage_status"' in text
+        ), "Terminal coverage must append/upload reports before honoring hard-block failure"
 
 
 def test_terminal_disposition_records_include_artifact_identity():
