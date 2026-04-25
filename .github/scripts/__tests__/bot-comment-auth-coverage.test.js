@@ -401,6 +401,14 @@ test('CLI writes report files and prints markdown summary', () => {
   const outputJson = path.join(dir, 'summary.json');
   const outputMd = path.join(dir, 'summary.md');
   fs.mkdirSync(artifactsDir);
+  const cliEnv = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key]) =>
+        !key.startsWith('BOT_COMMENT_AUTH_') &&
+        !key.startsWith('BOT_COMMENT_WRAPPER_') &&
+        !key.startsWith('BOT_COMMENT_REUSABLE_')
+    )
+  );
 
   const result = spawnSync(
     process.execPath,
@@ -417,7 +425,7 @@ test('CLI writes report files and prints markdown summary', () => {
       '--hard-block-approved',
       'true',
     ],
-    { encoding: 'utf8' }
+    { encoding: 'utf8', env: cliEnv }
   );
 
   assert.equal(result.status, 1);
