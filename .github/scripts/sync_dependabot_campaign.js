@@ -169,6 +169,13 @@ function buildQueueItem({ repoFullName, pr, threads, classification, now, defaul
   const fingerprint = sha256Short(`${repo}#${prNumber}:${headSha}:${threadIds.join(',')}`, 20);
   const resolvedClassification = classification || classifyPullRequest(pr);
   const kind = `${resolvedClassification}-review-comments`;
+  const sourceRepo = resolvedClassification === 'sync'
+    ? `${defaultOwner || repo.split('/')[0]}/Workflows`
+    : repo;
+  const reviewSignature = reviewSignatureForThreads(threads);
+  const sourceReviewKey = reviewSignature
+    ? `${sourceRepo}:${resolvedClassification}:${reviewSignature}`
+    : '';
   const preferredWorkdir =
     resolvedClassification === 'sync' ? 'Workflows' : repo.split('/').slice(-1)[0] || '';
 
@@ -184,8 +191,10 @@ function buildQueueItem({ repoFullName, pr, threads, classification, now, defaul
     head_ref: cleanString(pr?.head?.ref || pr?.headRefName || pr?.headRef),
     head_sha: headSha,
     base_ref: cleanString(pr?.base?.ref || pr?.baseRefName || pr?.baseRef),
-    source_repo: resolvedClassification === 'sync' ? `${defaultOwner || repo.split('/')[0]}/Workflows` : repo,
+    source_repo: sourceRepo,
     preferred_workdir: preferredWorkdir,
+    review_signature: reviewSignature,
+    source_review_key: sourceReviewKey,
     review_thread_count: threads.length,
     review_comment_count: threads.reduce((sum, thread) => sum + (thread.comments_count || 0), 0),
     review_thread_ids: threadIds,
@@ -217,6 +226,34 @@ function collectThreadIds(threads = []) {
     .sort();
 }
 
+function reviewSignatureForThreads(threads = []) {
+  const entries = cleanArray(threads)
+    .map((thread) => [
+      cleanString(thread.path),
+      truncate(thread.body_preview || thread.bodyText || thread.body || '', 200),
+    ].join(':'))
+    .filter((entry) => entry !== ':')
+    .sort();
+  return entries.length ? sha256Short(entries.join('\n'), 20) : '';
+}
+
+function sourceFixedCandidateFor(discovered = {}, finishedBySourceReviewKey = new Map()) {
+  const key = cleanString(discovered.source_review_key);
+  if (!key) {
+    return null;
+  }
+  const finished = finishedBySourceReviewKey.get(key);
+  if (!finished || finished.id === discovered.id) {
+    return null;
+  }
+  return {
+    matching_item_id: cleanString(finished.id),
+    matching_pr_url: cleanString(finished.pr_url),
+    finished_at: cleanString(finished.finished_at),
+    result_summary: truncate(finished.result?.summary, 180),
+  };
+}
+
 function isLeaseExpired(item = {}, now = new Date()) {
   const expiresAt = cleanString(item.lease?.expires_at);
   if (!expiresAt) {
@@ -232,11 +269,19 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
   const previousItems = cleanArray(previousState.items);
   const previousById = new Map(previousItems.map((item) => [item.id, item]));
   const discoveredById = new Map(discoveredItems.map((item) => [item.id, item]));
+  const finishedBySourceReviewKey = new Map(
+    previousItems
+      .filter(
+        (item) => item.status === 'local-codex-finished' && cleanString(item.source_review_key)
+      )
+      .map((item) => [cleanString(item.source_review_key), item])
+  );
   const failedRepos = new Set(parseCsv(options.failedRepos));
   const nextItems = [];
 
   for (const discovered of discoveredItems) {
     const previous = previousById.get(discovered.id);
+    const sourceFixedCandidate = sourceFixedCandidateFor(discovered, finishedBySourceReviewKey);
     if (!previous) {
       nextItems.push({
         ...discovered,
@@ -245,6 +290,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
         updated_at: now,
         attempts: Number(discovered.attempts || 0),
         lease: null,
+        source_fixed_candidate: sourceFixedCandidate,
       });
       continue;
     }
@@ -270,6 +316,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
       attempts,
       lease: status === 'local-codex-claimed' ? lease : null,
       result: previous.result || null,
+      source_fixed_candidate: sourceFixedCandidate || previous.source_fixed_candidate || null,
     });
   }
 
@@ -414,6 +461,16 @@ function compactStateForMarker(state = {}) {
       base_ref: cleanString(item.base_ref),
       source_repo: cleanString(item.source_repo),
       preferred_workdir: cleanString(item.preferred_workdir),
+      review_signature: cleanString(item.review_signature),
+      source_review_key: cleanString(item.source_review_key),
+      source_fixed_candidate: item.source_fixed_candidate
+        ? {
+            matching_item_id: cleanString(item.source_fixed_candidate.matching_item_id),
+            matching_pr_url: cleanString(item.source_fixed_candidate.matching_pr_url),
+            finished_at: cleanString(item.source_fixed_candidate.finished_at),
+            result_summary: truncate(item.source_fixed_candidate.result_summary, 160),
+          }
+        : null,
       review_thread_count: Number(item.review_thread_count || 0),
       review_comment_count: Number(item.review_comment_count || 0),
       first_seen_at: cleanString(item.first_seen_at),
@@ -535,6 +592,16 @@ function formatItemDetails(items = []) {
     lines.push(`- Preferred local workdir: ${item.preferred_workdir || '-'}`);
     lines.push(`- Head: \`${item.head_ref || '-'}\` ${item.head_sha ? `(${item.head_sha.slice(0, 12)})` : ''}`);
     lines.push(`- Attempts: ${item.attempts || 0}`);
+    if (item.source_fixed_candidate) {
+      const candidate = item.source_fixed_candidate;
+      lines.push(
+        `- Prior source-fix match: ${markdownLink(candidate.matching_item_id, candidate.matching_pr_url)} ` +
+          `${candidate.finished_at ? `(${candidate.finished_at})` : ''}`
+      );
+      if (candidate.result_summary) {
+        lines.push(`- Prior source-fix summary: ${truncate(candidate.result_summary, 180)}`);
+      }
+    }
     for (const thread of cleanArray(item.review_threads).slice(0, 2)) {
       const location = `${thread.path || '-'}${thread.line ? `:${thread.line}` : ''}`;
       lines.push(`  - ${markdownLink(location, thread.url)} (${thread.author || 'bot'}): ${truncate(thread.body_preview, 120)}`);

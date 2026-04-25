@@ -9,9 +9,15 @@ const AUTH_ARTIFACT_FAMILIES = new Set([
   'bot-comment-auth-coverage-wrapper',
   'bot-comment-auth-coverage-reusable',
 ]);
-const AUTH_ARTIFACT_DIR_PATTERNS = {
-  wrapper: /^bot-comment-auth-coverage-wrapper-\d+$/,
-  reusable: /^bot-comment-auth-coverage-reusable-\d+$/,
+const AUTH_ARTIFACT_FILE_CONTRACTS = {
+  'wrapper.json': {
+    family: 'bot-comment-auth-coverage-wrapper',
+    artifact_dir_pattern: /^bot-comment-auth-coverage-wrapper-\d+$/,
+  },
+  'reusable.json': {
+    family: 'bot-comment-auth-coverage-reusable',
+    artifact_dir_pattern: /^bot-comment-auth-coverage-reusable-\d+$/,
+  },
 };
 
 const COMPONENT_POLICIES = {
@@ -584,11 +590,10 @@ function isPotentialAuthCoverageFile(file) {
   const normalized = cleanString(file).split(path.sep).join('/');
   const basename = path.basename(normalized);
   if (!normalized.endsWith('.json')) return false;
+  const contract = AUTH_ARTIFACT_FILE_CONTRACTS[basename];
+  if (!contract) return false;
   const artifactDir = path.basename(path.dirname(normalized));
-  return (
-    (basename === 'wrapper.json' && AUTH_ARTIFACT_DIR_PATTERNS.wrapper.test(artifactDir)) ||
-    (basename === 'reusable.json' && AUTH_ARTIFACT_DIR_PATTERNS.reusable.test(artifactDir))
-  );
+  return contract.artifact_dir_pattern.test(artifactDir);
 }
 
 function readJsonRecords(files = []) {

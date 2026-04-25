@@ -148,6 +148,8 @@ test('buildQueueItem creates stable PR-scoped work items', () => {
   assert.equal(item.status, 'needs-local-codex');
   assert.equal(item.source_repo, 'stranske/Workflows');
   assert.equal(item.preferred_workdir, 'Workflows');
+  assert.match(item.review_signature, /^[0-9a-f]{20}$/);
+  assert.match(item.source_review_key, /^stranske\/Workflows:sync:[0-9a-f]{20}$/);
   assert.equal(item.review_thread_count, 1);
 });
 
@@ -215,6 +217,86 @@ test('mergeCampaignState preserves claims, expires old leases, and stales missin
   assert.equal(byId.get(stalePrevious.id).status, 'stale');
   assert.equal(state.stats.items_needing_local_codex, 1);
   assert.equal(state.stats.items_claimed, 1);
+});
+
+test('mergeCampaignState flags repeated source-fixed review signatures without hiding the item', () => {
+  const now = '2026-04-21T05:52:00Z';
+  const finished = buildQueueItem({
+    repoFullName: 'stranske/TPP',
+    defaultOwner: 'stranske',
+    now: '2026-04-21T05:20:00Z',
+    pr: {
+      number: 850,
+      title: 'chore: sync workflow templates',
+      html_url: 'https://github.com/stranske/TPP/pull/850',
+      head: { ref: 'sync/workflows-old', sha: 'old-sha' },
+      base: { ref: 'main' },
+    },
+    threads: [
+      {
+        id: 'thread-old',
+        path: '.github/scripts/bot_comment_auth_coverage.js',
+        line: 12,
+        url: 'https://github.test/thread-old',
+        author: 'copilot-pull-request-reviewer',
+        body_preview: 'Please tighten this auth coverage condition.',
+        comments_count: 1,
+      },
+    ],
+  });
+  const repeated = buildQueueItem({
+    repoFullName: 'stranske/TPP',
+    defaultOwner: 'stranske',
+    now,
+    pr: {
+      number: 851,
+      title: 'chore: sync workflow templates',
+      html_url: 'https://github.com/stranske/TPP/pull/851',
+      head: { ref: 'sync/workflows-new', sha: 'new-sha' },
+      base: { ref: 'main' },
+    },
+    threads: [
+      {
+        id: 'thread-new',
+        path: '.github/scripts/bot_comment_auth_coverage.js',
+        line: 30,
+        url: 'https://github.test/thread-new',
+        author: 'copilot-pull-request-reviewer',
+        body_preview: 'Please tighten this auth coverage condition.',
+        comments_count: 1,
+      },
+    ],
+  });
+
+  const state = mergeCampaignState(
+    {
+      items: [
+        {
+          ...finished,
+          status: 'local-codex-finished',
+          finished_at: '2026-04-21T05:30:00Z',
+          result: {
+            exit_code: 0,
+            summary: 'Handled through the Workflows source path.',
+          },
+        },
+      ],
+    },
+    [repeated],
+    now,
+    { reposRequested: 1, reposChecked: 1 },
+  );
+  const repeatedItem = state.items.find((item) => item.id === repeated.id);
+  const marker = parseCampaignMarker(formatCampaignMarker(state));
+  const markerItem = marker.items.find((item) => item.id === repeated.id);
+  const body = formatCampaignBody(state);
+
+  assert.equal(repeatedItem.status, 'needs-local-codex');
+  assert.equal(repeatedItem.source_fixed_candidate.matching_item_id, finished.id);
+  assert.equal(repeatedItem.source_fixed_candidate.finished_at, '2026-04-21T05:30:00Z');
+  assert.equal(state.stats.items_needing_local_codex, 1);
+  assert.equal(markerItem.source_fixed_candidate.matching_item_id, finished.id);
+  assert.match(body, /Prior source-fix match:/);
 });
 
 test('formatCampaignBody renders queue rows and marker', () => {

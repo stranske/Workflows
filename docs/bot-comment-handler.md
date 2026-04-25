@@ -171,6 +171,17 @@ canonical wrapper to reach `client-id` while allowing reusable calls to remain
 `client-id` or `none`; hard blocking remains disabled unless explicitly approved
 with repository variables.
 
+Weekly metrics downloads each selected auth artifact into
+`artifacts/<artifact-name>/`. The auth scanner therefore accepts only:
+
+| Artifact family | Accepted file |
+|-----------------|---------------|
+| `bot-comment-auth-coverage-wrapper-<run_id>` | `wrapper.json` as a direct child |
+| `bot-comment-auth-coverage-reusable-<run_id>` | `reusable.json` as a direct child |
+
+Nested copies and loose artifact-name suffixes are ignored so unrelated JSON
+files in downloaded metrics bundles cannot become auth evidence.
+
 Repository variables can make the policy stricter without changing workflow
 code:
 
