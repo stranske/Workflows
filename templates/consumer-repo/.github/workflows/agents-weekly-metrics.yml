@@ -33,6 +33,7 @@ jobs:
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/scripts/bot_comment_auth_coverage.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/terminal_disposition.js
             .github/scripts/terminal_disposition_coverage.js
@@ -171,6 +172,32 @@ jobs:
           fi
           echo "TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS=${terminal_coverage_status}" >> "$GITHUB_ENV"
 
+      - name: Bot-comment auth coverage preflight
+        env:
+          BOT_COMMENT_AUTH_COVERAGE_DIR: artifacts
+          BOT_COMMENT_AUTH_ARTIFACT_SELECTION_JSON: artifacts/metric-artifacts-selection.json
+          BOT_COMMENT_AUTH_COVERAGE_JSON: bot-comment-auth-coverage-summary.json
+          BOT_COMMENT_AUTH_COVERAGE_MD: bot-comment-auth-coverage-summary.md
+          BOT_COMMENT_AUTH_COVERAGE_MODE: ${{ vars.BOT_COMMENT_AUTH_COVERAGE_MODE || 'warning-only' }}
+          BOT_COMMENT_AUTH_HARD_BLOCK_APPROVED: ${{ vars.BOT_COMMENT_AUTH_HARD_BLOCK_APPROVED || 'false' }}
+          BOT_COMMENT_WRAPPER_EXPECTED_AUTH_MODE: ${{ vars.BOT_COMMENT_WRAPPER_EXPECTED_AUTH_MODE || 'client-id' }}
+          BOT_COMMENT_REUSABLE_ALLOWED_AUTH_MODES: ${{ vars.BOT_COMMENT_REUSABLE_ALLOWED_AUTH_MODES || 'client-id,none' }}
+        run: |
+          set +e
+          node .github/scripts/bot_comment_auth_coverage.js
+          bot_comment_auth_status=$?
+          set -e
+          if [ -f bot-comment-auth-coverage-summary.md ]; then
+            cat bot-comment-auth-coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+            if [ -f agent-weekly-metrics.md ]; then
+              {
+                printf '\n'
+                cat bot-comment-auth-coverage-summary.md
+              } >> agent-weekly-metrics.md
+            fi
+          fi
+          echo "BOT_COMMENT_AUTH_COVERAGE_EXIT_STATUS=${bot_comment_auth_status}" >> "$GITHUB_ENV"
+
       - name: Upload weekly summary
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -182,6 +209,8 @@ jobs:
             artifacts/metric-artifacts-selection.md
             terminal-disposition-coverage.json
             terminal-disposition-coverage.md
+            bot-comment-auth-coverage-summary.json
+            bot-comment-auth-coverage-summary.md
           if-no-files-found: warn
           retention-days: 30
 
@@ -234,6 +263,11 @@ jobs:
 
             core.setOutput('issue_number', target.number);
 
-      - name: Honor terminal coverage hard-block
+      - name: Honor coverage hard-blocks
         if: ${{ always() }}
-        run: exit "${TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS:-0}"
+        run: |
+          terminal_status="${TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS:-0}"
+          bot_comment_auth_status="${BOT_COMMENT_AUTH_COVERAGE_EXIT_STATUS:-0}"
+          if [ "${terminal_status}" != "0" ] || [ "${bot_comment_auth_status}" != "0" ]; then
+            exit 1
+          fi

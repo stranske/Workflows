@@ -258,22 +258,53 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             "TERMINAL_DISPOSITION_ARTIFACT_SELECTION_JSON" in text
         ), "Terminal coverage must receive the selector report for no-data traceability"
         assert (
+            "BOT_COMMENT_AUTH_ARTIFACT_SELECTION_JSON" in text
+        ), "Bot-comment auth coverage must receive the selector report for no-data traceability"
+        assert (
+            ".github/scripts/bot_comment_auth_coverage.js" in text
+        ), "Weekly metrics must include the bot-comment auth coverage helper"
+        assert (
+            "bot-comment-auth-coverage-summary.json" in text
+            and "bot-comment-auth-coverage-summary.md" in text
+        ), "Weekly metrics must upload bot-comment auth coverage reports"
+        assert (
             "TERMINAL_DISPOSITION_COVERAGE_MODE" in text
         ), "Terminal coverage must expose an explicit enforcement mode"
+        assert (
+            "BOT_COMMENT_AUTH_COVERAGE_MODE" in text
+        ), "Bot-comment auth coverage must expose an explicit enforcement mode"
         assert (
             "TERMINAL_DISPOSITION_HARD_BLOCK_APPROVED" in text
         ), "Terminal coverage hard blocking must require an explicit approval flag"
         assert (
+            "BOT_COMMENT_AUTH_HARD_BLOCK_APPROVED" in text
+        ), "Bot-comment auth hard blocking must require an explicit approval flag"
+        assert (
             "terminal_coverage_status=$?" in text
             and "TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS=${terminal_coverage_status}" in text
-            and "Honor terminal coverage hard-block" in text
+            and "Honor coverage hard-blocks" in text
         ), "Terminal coverage must post/upload reports before honoring hard-block failure"
+        assert (
+            "bot_comment_auth_status=$?" in text
+            and "BOT_COMMENT_AUTH_COVERAGE_EXIT_STATUS=${bot_comment_auth_status}" in text
+            and "Honor coverage hard-blocks" in text
+        ), "Bot-comment auth coverage must post/upload reports before honoring hard-block failure"
+        assert (
+            'terminal_status="${TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS:-0}"' in text
+            and 'bot_comment_auth_status="${BOT_COMMENT_AUTH_COVERAGE_EXIT_STATUS:-0}"' in text
+        ), "Coverage hard-block status must be aggregated in one final step"
         assert text.index("Upload weekly summary") < text.index(
-            "Honor terminal coverage hard-block"
+            "Honor coverage hard-blocks"
         ), "Terminal coverage hard-block failure must wait for artifact upload"
+        assert text.index("Upload weekly summary") < text.index(
+            "Honor coverage hard-blocks"
+        ), "Bot-comment auth hard-block failure must wait for artifact upload"
         assert text.index("Post summary to tracking issue") < text.index(
-            "Honor terminal coverage hard-block"
+            "Honor coverage hard-blocks"
         ), "Terminal coverage hard-block failure must wait for tracking issue posting"
+        assert text.index("Post summary to tracking issue") < text.index(
+            "Honor coverage hard-blocks"
+        ), "Bot-comment auth hard-block failure must wait for tracking issue posting"
 
 
 def test_terminal_disposition_records_include_artifact_identity():

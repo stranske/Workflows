@@ -162,6 +162,12 @@ Each run uploads warning-only App auth coverage artifacts:
 Both artifacts use schema `workflows-bot-comment-auth-coverage/v1` and do not
 include secret values. A `legacy-app-id` mode means migration is still incomplete;
 do not remove the legacy fallback until active runs report `client-id` or `none`.
+Weekly metrics selects recent bot-comment auth artifacts and writes
+`bot-comment-auth-coverage-summary.json` with schema
+`workflows-bot-comment-auth-coverage-summary/v1`. The default policy expects the
+canonical wrapper to reach `client-id` while allowing reusable calls to remain
+`client-id` or `none`; hard blocking remains disabled unless explicitly approved
+with repository variables.
 
 ## Troubleshooting
 

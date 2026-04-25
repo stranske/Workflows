@@ -32,6 +32,14 @@ test('maps metrics artifact names to stable families', () => {
     artifactFamily('review-thread-terminal-disposition-123'),
     'review-thread-terminal-disposition'
   );
+  assert.equal(
+    artifactFamily('bot-comment-auth-coverage-wrapper-123'),
+    'bot-comment-auth-coverage-wrapper'
+  );
+  assert.equal(
+    artifactFamily('bot-comment-auth-coverage-reusable-123'),
+    'bot-comment-auth-coverage-reusable'
+  );
   assert.equal(artifactFamily('coverage-summary'), '');
 });
 
@@ -112,17 +120,19 @@ test('bounds selected artifacts by total and per-family limits', () => {
   assert.equal(report.ignored_total_limit_count, 1);
 });
 
-test('reserves scarce terminal artifacts before filling the total cap', () => {
+test('reserves priority telemetry artifacts before filling the total cap', () => {
   const report = selectMetricsArtifacts(
     [
       artifact(1, 'keepalive-metrics', '2026-04-25T11:59:00Z'),
       artifact(2, 'agents-autofix-metrics', '2026-04-25T11:58:00Z'),
       artifact(3, 'verifier-terminal-disposition-77', '2026-04-25T09:00:00Z'),
       artifact(4, 'review-thread-terminal-disposition-77', '2026-04-25T08:00:00Z'),
+      artifact(5, 'bot-comment-auth-coverage-wrapper-77', '2026-04-25T07:00:00Z'),
+      artifact(6, 'bot-comment-auth-coverage-reusable-77', '2026-04-25T06:00:00Z'),
     ],
     {
       now_ms: NOW,
-      max_total: 3,
+      max_total: 5,
     }
   );
 
@@ -131,11 +141,15 @@ test('reserves scarce terminal artifacts before filling the total cap', () => {
     [
       'verifier-terminal-disposition-77',
       'review-thread-terminal-disposition-77',
+      'bot-comment-auth-coverage-wrapper-77',
+      'bot-comment-auth-coverage-reusable-77',
       'keepalive-metrics',
     ]
   );
   assert.equal(report.ignored_total_limit_count, 1);
   assert.deepEqual(report.selected_family_counts, {
+    'bot-comment-auth-coverage-reusable': 1,
+    'bot-comment-auth-coverage-wrapper': 1,
     'keepalive-metrics': 1,
     'review-thread-terminal-disposition': 1,
     'verifier-terminal-disposition': 1,

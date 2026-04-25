@@ -20,11 +20,15 @@ const PREFIXED_METRICS_ARTIFACTS = [
   'issue-intake-format-metrics-',
   'verifier-terminal-disposition-',
   'review-thread-terminal-disposition-',
+  'bot-comment-auth-coverage-wrapper-',
+  'bot-comment-auth-coverage-reusable-',
 ];
 
 const PRIORITY_METRICS_FAMILIES = [
   'verifier-terminal-disposition',
   'review-thread-terminal-disposition',
+  'bot-comment-auth-coverage-wrapper',
+  'bot-comment-auth-coverage-reusable',
 ];
 
 function cleanString(value) {

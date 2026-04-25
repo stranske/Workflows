@@ -304,6 +304,9 @@ scripts:
   - source: .github/scripts/terminal_disposition_coverage.js
     description: "Warning-only terminal disposition source coverage preflight"
 
+  - source: .github/scripts/bot_comment_auth_coverage.js
+    description: "Warning-only bot-comment App auth coverage preflight"
+
   - source: .github/scripts/weekly_metrics_artifacts.js
     description: "Bounded weekly metrics artifact selection contract"
 
