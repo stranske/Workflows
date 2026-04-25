@@ -335,9 +335,67 @@ test('mergeCampaignState flags repeated source-fixed review signatures without h
   assert.equal(repeatedItem.status, 'needs-local-codex');
   assert.equal(repeatedItem.source_fixed_candidate.matching_item_id, finished.id);
   assert.equal(repeatedItem.source_fixed_candidate.finished_at, '2026-04-21T05:30:00Z');
+  assert.equal(state.source_review_history.length, 1);
+  assert.equal(state.source_review_history[0].source_review_key, finished.source_review_key);
   assert.equal(state.stats.items_needing_local_codex, 1);
   assert.equal(markerItem.source_fixed_candidate.matching_item_id, finished.id);
+  assert.equal(marker.source_review_history[0].matching_item_id, finished.id);
   assert.match(body, /Prior source-fix match:/);
+});
+
+test('mergeCampaignState matches source-fixed candidates from compact retained history', () => {
+  const now = '2026-04-21T06:52:00Z';
+  const repeated = buildQueueItem({
+    repoFullName: 'stranske/TPP',
+    defaultOwner: 'stranske',
+    now,
+    pr: {
+      number: 852,
+      title: 'chore: sync workflow templates',
+      html_url: 'https://github.com/stranske/TPP/pull/852',
+      head: { ref: 'sync/workflows-new', sha: 'new-sha' },
+      base: { ref: 'main' },
+    },
+    threads: [
+      {
+        id: 'thread-new',
+        path: '.github/scripts/bot_comment_auth_coverage.js',
+        line: 30,
+        url: 'https://github.test/thread-new',
+        author: 'copilot-pull-request-reviewer',
+        body_preview: 'Please tighten this auth coverage condition.',
+        comments_count: 1,
+      },
+    ],
+  });
+  const state = mergeCampaignState(
+    {
+      source_review_history: [
+        {
+          source_review_key: repeated.source_review_key,
+          review_signature: repeated.review_signature,
+          matching_item_id: 'sync-review-comments:stranske/TPP#850:old',
+          matching_pr_url: 'https://github.com/stranske/TPP/pull/850',
+          finished_at: '2026-04-21T05:30:00Z',
+          result_summary: 'Handled through the Workflows source path.',
+        },
+      ],
+      items: Array.from({ length: 3 }, (_value, index) => ({
+        id: `active-${index}`,
+        status: 'needs-local-codex',
+        repo: 'stranske/Other',
+        pr_number: index + 1,
+      })),
+    },
+    [repeated],
+    now,
+    { reposRequested: 1, reposChecked: 1, maxRetainedItems: 1 },
+  );
+  const repeatedItem = state.items.find((item) => item.id === repeated.id);
+
+  assert.equal(repeatedItem.source_fixed_candidate.matching_item_id, 'sync-review-comments:stranske/TPP#850:old');
+  assert.equal(state.source_review_history.length, 1);
+  assert.equal(state.items.some((item) => item.status === 'local-codex-finished'), false);
 });
 
 test('formatCampaignBody renders queue rows and marker', () => {

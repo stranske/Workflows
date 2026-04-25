@@ -11,6 +11,7 @@ const LABEL_NEEDS_LOCAL_CODEX = 'campaign:needs-local-codex';
 const SYNC_BRANCH_PREFIX = 'sync/workflows-';
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_MAX_RETAINED_ITEMS = 120;
+const DEFAULT_MAX_SOURCE_REVIEW_HISTORY = 80;
 const MAX_ISSUE_BODY_LENGTH = 60000;
 const MAX_QUEUE_ROWS = 15;
 const MAX_DETAIL_ITEMS = 10;
@@ -284,11 +285,43 @@ function sourceFixedCandidateFor(discovered = {}, finishedBySourceReviewKey = ne
     return null;
   }
   return {
-    matching_item_id: cleanString(finished.id),
-    matching_pr_url: cleanString(finished.pr_url),
+    matching_item_id: cleanString(finished.matching_item_id || finished.id),
+    matching_pr_url: cleanString(finished.matching_pr_url || finished.pr_url),
     finished_at: cleanString(finished.finished_at),
-    result_summary: truncate(finished.result?.summary, 180),
+    result_summary: truncate(finished.result_summary || finished.result?.summary, 180),
   };
+}
+
+function compactSourceReviewHistoryEntry(item = {}) {
+  const sourceReviewKey = cleanString(item.source_review_key);
+  if (!sourceReviewKey) {
+    return null;
+  }
+  return {
+    source_review_key: sourceReviewKey,
+    review_signature: cleanString(item.review_signature),
+    matching_item_id: cleanString(item.matching_item_id || item.id),
+    matching_pr_url: cleanString(item.matching_pr_url || item.pr_url),
+    finished_at: cleanString(item.finished_at),
+    result_summary: truncate(item.result_summary || item.result?.summary, 180),
+  };
+}
+
+function buildSourceReviewHistory(previousState = {}, previousItems = [], limit = DEFAULT_MAX_SOURCE_REVIEW_HISTORY) {
+  const retainedHistory = cleanArray(previousState.source_review_history)
+    .map(compactSourceReviewHistoryEntry)
+    .filter(Boolean);
+  const newlyFinished = cleanArray(previousItems)
+    .filter((item) => item.status === 'local-codex-finished')
+    .map(compactSourceReviewHistoryEntry)
+    .filter(Boolean);
+  const byKey = new Map();
+  for (const entry of [...retainedHistory, ...newlyFinished]) {
+    byKey.set(entry.source_review_key, entry);
+  }
+  return [...byKey.values()]
+    .sort((a, b) => cleanString(b.finished_at).localeCompare(cleanString(a.finished_at)))
+    .slice(0, Number(limit) || DEFAULT_MAX_SOURCE_REVIEW_HISTORY);
 }
 
 function isLeaseExpired(item = {}, now = new Date()) {
@@ -306,12 +339,13 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
   const previousItems = cleanArray(previousState.items);
   const previousById = new Map(previousItems.map((item) => [item.id, item]));
   const discoveredById = new Map(discoveredItems.map((item) => [item.id, item]));
+  const sourceReviewHistory = buildSourceReviewHistory(
+    previousState,
+    previousItems,
+    options.maxSourceReviewHistory || DEFAULT_MAX_SOURCE_REVIEW_HISTORY
+  );
   const finishedBySourceReviewKey = new Map(
-    previousItems
-      .filter(
-        (item) => item.status === 'local-codex-finished' && cleanString(item.source_review_key)
-      )
-      .map((item) => [cleanString(item.source_review_key), item])
+    sourceReviewHistory.map((item) => [cleanString(item.source_review_key), item])
   );
   const failedRepos = new Set(parseCsv(options.failedRepos));
   const nextItems = [];
@@ -387,6 +421,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     run_id: cleanString(options.runId || previousState.run_id),
     controller: 'maint-82-sync-dependabot-campaign',
     stats: buildStats(items, discoveredItems, options),
+    source_review_history: sourceReviewHistory,
     items,
   };
 }
@@ -484,6 +519,9 @@ function compactStateForMarker(state = {}) {
     controller: cleanString(state.controller),
     stats: state.stats || {},
     validation: state.validation || null,
+    source_review_history: cleanArray(state.source_review_history)
+      .map(compactSourceReviewHistoryEntry)
+      .filter(Boolean),
     items: cleanArray(state.items).map((item) => ({
       id: cleanString(item.id),
       status: cleanString(item.status),

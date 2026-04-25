@@ -144,7 +144,9 @@ def test_run_git_preserves_status_leading_columns(tmp_path: Path) -> None:
     tracked.parent.mkdir(parents=True)
     tracked.write_text("one\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(repo), "add", str(tracked)], check=True)
-    subprocess.run(["git", "-C", str(repo), "commit", "-m", "initial"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "initial"], check=True, capture_output=True
+    )
 
     tracked.write_text("two\n", encoding="utf-8")
 
