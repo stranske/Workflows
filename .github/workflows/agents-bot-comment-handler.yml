@@ -59,21 +59,53 @@ jobs:
       pr_number: ${{ steps.resolve.outputs.pr_number }}
       should_run: ${{ steps.resolve.outputs.should_run }}
     steps:
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
-      - name: Mint GitHub App Token
-        id: app_token
+      - name: Detect workflow App credentials
+        id: workflow-app-creds
+        env:
+          WORKFLOWS_APP_CLIENT_ID: ${{ secrets.WORKFLOWS_APP_CLIENT_ID }}
+          WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+          WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+        run: |
+          if [ -n "${WORKFLOWS_APP_CLIENT_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            echo "use_client=true" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+            echo "workflow_app_auth_mode=client-id" >> "$GITHUB_OUTPUT"
+          elif [ -n "${WORKFLOWS_APP_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            echo "use_client=false" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=true" >> "$GITHUB_OUTPUT"
+            echo "workflow_app_auth_mode=legacy-app-id" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Legacy Workflows App ID fallback::Configure WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
+          else
+            echo "use_client=false" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+            echo "workflow_app_auth_mode=none" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mint GitHub App Token (client ID)
+        id: app_token_client
         uses: actions/create-github-app-token@v3
+        if: steps.workflow-app-creds.outputs.use_client == 'true'
         continue-on-error: true
         with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          client-id: ${{ secrets.WORKFLOWS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Mint GitHub App Token (legacy App ID)
+        id: app_token_legacy
+        uses: actions/create-github-app-token@v3
+        if: steps.workflow-app-creds.outputs.use_legacy == 'true'
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
       - name: Checkout retry helpers
         uses: actions/checkout@v6
         with:
 
-          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token_client.outputs.token || steps.app_token_legacy.outputs.token || github.token }}
           repository: ${{ github.repository }}
           ref: >-
             ${{
@@ -246,22 +278,54 @@ jobs:
       github.event.label.name == 'autofix:bot-comments'
     runs-on: ubuntu-latest
     steps:
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
-      - name: Mint GitHub App Token
-        id: app_token
+      - name: Detect workflow App credentials
+        id: workflow-app-creds
+        env:
+          WORKFLOWS_APP_CLIENT_ID: ${{ secrets.WORKFLOWS_APP_CLIENT_ID }}
+          WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+          WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+        run: |
+          if [ -n "${WORKFLOWS_APP_CLIENT_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            echo "use_client=true" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+            echo "workflow_app_auth_mode=client-id" >> "$GITHUB_OUTPUT"
+          elif [ -n "${WORKFLOWS_APP_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
+            echo "use_client=false" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=true" >> "$GITHUB_OUTPUT"
+            echo "workflow_app_auth_mode=legacy-app-id" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Legacy Workflows App ID fallback::Configure WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
+          else
+            echo "use_client=false" >> "$GITHUB_OUTPUT"
+            echo "use_legacy=false" >> "$GITHUB_OUTPUT"
+            echo "workflow_app_auth_mode=none" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mint GitHub App Token (client ID)
+        id: app_token_client
         uses: actions/create-github-app-token@v3
+        if: steps.workflow-app-creds.outputs.use_client == 'true'
         continue-on-error: true
         with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          client-id: ${{ secrets.WORKFLOWS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token (legacy App ID)
+        id: app_token_legacy
+        uses: actions/create-github-app-token@v3
+        if: steps.workflow-app-creds.outputs.use_legacy == 'true'
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # Checkout retry helpers with the best token available.
       - name: Checkout retry helpers
         uses: actions/checkout@v6
         with:
 
-          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token_client.outputs.token || steps.app_token_legacy.outputs.token || github.token }}
           repository: ${{ github.repository }}
           ref: >-
             ${{
@@ -287,7 +351,7 @@ jobs:
         uses: actions/github-script@v9
         with:
 
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token_client.outputs.token || steps.app_token_legacy.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';

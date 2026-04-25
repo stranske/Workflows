@@ -132,6 +132,43 @@ def test_bot_comment_handler_callers_pass_app_client_id() -> None:
             assert secrets.get("gh_app_private_key") == "${{ secrets.GH_APP_PRIVATE_KEY }}"
 
 
+def test_canonical_bot_comment_handler_direct_app_tokens_prefer_client_id() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
+
+    for job_name in ("resolve", "cleanup"):
+        steps = workflow["jobs"][job_name]["steps"]
+        detect_step = next(
+            step for step in steps if step.get("name") == "Detect workflow App credentials"
+        )
+        client_step = next(
+            step for step in steps if step.get("name") == "Mint GitHub App Token (client ID)"
+        )
+        legacy_step = next(
+            step for step in steps if step.get("name") == "Mint GitHub App Token (legacy App ID)"
+        )
+        checkout_step = next(step for step in steps if step.get("uses") == "actions/checkout@v6")
+
+        assert detect_step["env"]["WORKFLOWS_APP_CLIENT_ID"] == (
+            "${{ secrets.WORKFLOWS_APP_CLIENT_ID }}"
+        )
+        assert "workflow_app_auth_mode=client-id" in detect_step["run"]
+        assert "workflow_app_auth_mode=legacy-app-id" in detect_step["run"]
+        assert "workflow_app_auth_mode=none" in detect_step["run"]
+        assert "Legacy Workflows App ID fallback" in detect_step["run"]
+        assert client_step.get("if") == "steps.workflow-app-creds.outputs.use_client == 'true'"
+        assert "client-id" in client_step.get("with", {})
+        assert "app-id" not in client_step.get("with", {})
+        assert legacy_step.get("if") == "steps.workflow-app-creds.outputs.use_legacy == 'true'"
+        assert "app-id" in legacy_step.get("with", {})
+        assert (
+            "steps.app_token_client.outputs.token || steps.app_token_legacy.outputs.token"
+            in checkout_step["with"]["token"]
+        )
+
+    serialized_workflow = yaml.safe_dump(workflow)
+    assert "steps.app_token.outputs.token" not in serialized_workflow
+
+
 def test_template_bot_comment_handler_passes_agents_ignore() -> None:
     workflow = _load_yaml(
         ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml"

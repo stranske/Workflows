@@ -144,6 +144,11 @@ gh workflow run agents-bot-comment-handler.yml -f pr_number=123
 | `GH_APP_ID` | No | Legacy GitHub App ID fallback |
 | `GH_APP_PRIVATE_KEY` | No | GitHub App private key |
 
+The canonical Workflows repo wrapper also accepts `WORKFLOWS_APP_CLIENT_ID` for its
+internal resolve/cleanup API calls. If that secret is missing, it falls back to
+`WORKFLOWS_APP_ID` with a warning so the reusable bot-comment path remains
+observable without breaking existing installs.
+
 ## Troubleshooting
 
 ### No comments found
