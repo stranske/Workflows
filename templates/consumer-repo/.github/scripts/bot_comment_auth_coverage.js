@@ -213,13 +213,16 @@ function summarizeOrganicEvidence(records = [], options = {}) {
   const latestByComponentEvent = Object.create(null);
 
   if (records.length === 0) {
+    const blockers = organicChecksDisabled
+      ? []
+      : missingOrganicEvidenceBlockers(components, requiredEvents);
     return {
       schema: 'workflows-bot-comment-auth-organic-evidence/v1',
       required_events: requiredEvents,
       required_components: components,
       expected_mode: expectedMode === 'unknown' ? '' : expectedMode,
       event_counts: eventCounts,
-      blockers: [],
+      blockers,
       status: organicChecksDisabled ? 'pass' : 'no-data',
     };
   }
@@ -265,6 +268,12 @@ function summarizeOrganicEvidence(records = [], options = {}) {
     blockers,
     status: blockers.length > 0 ? 'warning' : 'pass',
   };
+}
+
+function missingOrganicEvidenceBlockers(components = [], requiredEvents = []) {
+  return components.flatMap((component) =>
+    requiredEvents.map((eventName) => `missing-organic-${component}-${eventName}`)
+  );
 }
 
 function componentPolicy(component, options = {}) {
@@ -373,6 +382,10 @@ function isComponentMissingBlocker(blocker) {
   return Object.keys(COMPONENT_POLICIES).some((component) => blocker === `missing-${component}`);
 }
 
+function isNoDataBlocker(blocker) {
+  return isComponentMissingBlocker(blocker) || String(blocker).startsWith('missing-organic-');
+}
+
 function summarizeBotCommentAuthCoverage(records = [], options = {}) {
   const policy = normalizePolicy(options);
   const parseErrors = Number(options.parse_errors ?? options.parseErrors ?? 0);
@@ -469,8 +482,8 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
 
   let coverageStatus = 'pass';
   if (authRecords.length === 0) {
-    const nonMissingBlockers = blockers.filter((blocker) => !isComponentMissingBlocker(blocker));
-    coverageStatus = nonMissingBlockers.length > 0 ? 'warning' : 'no-data';
+    const nonNoDataBlockers = blockers.filter((blocker) => !isNoDataBlocker(blocker));
+    coverageStatus = nonNoDataBlockers.length > 0 ? 'warning' : 'no-data';
   } else if (blockers.length > 0) {
     coverageStatus = 'warning';
   }

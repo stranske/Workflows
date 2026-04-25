@@ -360,6 +360,21 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
         ), "Bot-comment auth hard-block failure must wait for tracking issue posting"
 
 
+def test_weekly_metrics_aggregate_script_is_synced_to_consumers():
+    manifest = yaml.safe_load(Path(".github/sync-manifest.yml").read_text(encoding="utf-8"))
+    manifest_sources = {entry.get("source") for entry in manifest.get("scripts", [])}
+    workflow_text = (WORKFLOWS_DIR / "agents-weekly-metrics.yml").read_text(encoding="utf-8")
+    template_workflow_text = Path(
+        "templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "scripts/aggregate_agent_metrics.py" in workflow_text
+    assert "scripts/aggregate_agent_metrics.py" in template_workflow_text
+    assert "scripts/aggregate_agent_metrics.py" in manifest_sources
+    assert Path("scripts/aggregate_agent_metrics.py").is_file()
+    assert Path("templates/consumer-repo/scripts/aggregate_agent_metrics.py").is_file()
+
+
 def test_terminal_disposition_records_include_artifact_identity():
     workflow_paths = [
         WORKFLOWS_DIR / "agents-verify-to-issue-v2.yml",

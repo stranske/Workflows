@@ -667,13 +667,16 @@ test('keeps explicit zero parse errors and reports missing organic evidence as n
   });
 
   assert.equal(organic.status, 'no-data');
-  assert.deepEqual(organic.blockers, []);
+  assert.deepEqual(organic.blockers, [
+    'missing-organic-agents-bot-comment-handler-wrapper-pull_request',
+  ]);
   assert.equal(report.parse_errors, 0);
   assert.equal(report.coverage_status, 'no-data');
   assert.equal(report.organic_evidence.status, 'no-data');
-  assert.equal(
-    report.enforcement.blockers.some((blocker) => blocker.startsWith('missing-organic-')),
-    false
+  assert.ok(
+    report.enforcement.blockers.includes(
+      'missing-organic-agents-bot-comment-handler-wrapper-pull_request'
+    )
   );
 });
 

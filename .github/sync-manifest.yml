@@ -213,6 +213,9 @@ scripts:
     description: "Checks coverage guard artifacts - required by maint-coverage-guard.yml"
 
   # Scripts directory - CI helpers used by reusable-10-ci-python.yml
+  - source: scripts/aggregate_agent_metrics.py
+    description: "Aggregates downloaded weekly agent metrics - required by agents-weekly-metrics.yml"
+
   - source: scripts/coverage_history_append.py
     description: "Appends coverage data to history file - required by reusable CI workflow"
 
