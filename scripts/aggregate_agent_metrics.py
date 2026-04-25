@@ -124,12 +124,16 @@ def _safe_int(value: Any) -> int | None:
 
 
 def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    actions = Counter()
     stop_reasons = Counter()
     gate_results = Counter()
     iterations: list[int] = []
     prs: set[int] = set()
     tasks_complete = 0
     for entry in entries:
+        action = entry.get("action")
+        if action:
+            actions[str(action)] += 1
         stop_reason = entry.get("stop_reason")
         if stop_reason:
             stop_reasons[str(stop_reason)] += 1
@@ -142,13 +146,22 @@ def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
         pr_number = _safe_int(entry.get("pr_number") or entry.get("pr"))
         if pr_number is not None:
             prs.add(pr_number)
-        if stop_reason == "tasks-complete":
+        tasks_total = _safe_int(entry.get("tasks_total"))
+        completed_tasks = _safe_int(entry.get("tasks_complete"))
+        task_counts_complete = (
+            tasks_total is not None
+            and tasks_total > 0
+            and completed_tasks is not None
+            and completed_tasks >= tasks_total
+        )
+        if stop_reason == "tasks-complete" or task_counts_complete:
             tasks_complete += 1
     avg_iterations = sum(iterations) / len(iterations) if iterations else 0.0
     return {
         "runs": len(entries),
         "prs": len(prs),
         "avg_iterations": avg_iterations,
+        "actions": actions,
         "stop_reasons": stop_reasons,
         "gate_results": gate_results,
         "tasks_complete": tasks_complete,
@@ -243,6 +256,8 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
     step_failures: dict[str, int] = {}
     failure_reasons = Counter()
     escalation_reasons = Counter()
+    cycle_counts = Counter()
+    cycle_records = 0
     escalation_count = 0
     needs_human_count = 0
 
@@ -259,6 +274,13 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
             escalation_reasons[str(reason)] += 1
             if "needs-human" in str(reason).lower() or "needs_human" in str(reason).lower():
                 needs_human_count += 1
+            continue
+
+        if metric_type == "cycle":
+            cycle_records += 1
+            cycle_count = _safe_int(entry.get("cycle_count") or entry.get("cycle"))
+            if cycle_count is not None:
+                cycle_counts[str(cycle_count)] += 1
             continue
 
         step_name = entry.get("step_name")
@@ -293,6 +315,8 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "step_successes": step_successes,
         "step_failures": step_failures,
         "failure_reasons": failure_reasons,
+        "cycle_records": cycle_records,
+        "cycle_counts": cycle_counts,
         "escalation_count": escalation_count,
         "escalation_reasons": escalation_reasons,
         "needs_human_count": needs_human_count,
@@ -366,6 +390,7 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
             f"- Runs: {keepalive['runs']}",
             f"- PRs: {keepalive['prs']}",
             f"- Avg iterations: {keepalive['avg_iterations']:.1f}",
+            f"- Actions: {_format_counter(keepalive['actions'])}",
             f"- Stop reasons: {_format_counter(keepalive['stop_reasons'])}",
             f"- Gate conclusions: {_format_counter(keepalive['gate_results'])}",
             f"- Tasks complete rate: {_format_rate(keepalive['tasks_complete'], keepalive['runs'])}",
@@ -398,6 +423,8 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
                 f"- Records: {autopilot['records']}",
                 f"- Issues: {autopilot['issues']}",
                 f"- Total step executions: {autopilot['total_steps']}",
+                f"- Cycle records: {autopilot['cycle_records']}",
+                f"- Cycle counts: {_format_counter(autopilot['cycle_counts'])}",
                 f"- Escalations: {autopilot['escalation_count']}",
                 f"- Needs-human escalation rate: {_format_rate(autopilot['needs_human_count'], autopilot['escalation_count'])}",
                 f"- Escalation reasons: {_format_counter(autopilot['escalation_reasons'])}",

@@ -58,6 +58,7 @@ def test_build_summary_formats_sections() -> None:
     ) in summary
     assert "Parse errors: 1" in summary
     assert "Avg iterations: 3.5" in summary
+    assert "Actions: n/a" in summary
     assert "tasks-complete (1)" in summary
     assert "max-iterations (1)" in summary
     assert "Fixes applied: 100.0% (1/1)" in summary
@@ -247,19 +248,30 @@ def test_summary_helpers_cover_branches() -> None:
         [
             {
                 "stop_reason": "tasks-complete",
+                "action": "stop",
                 "gate_result": "failure",
                 "iteration": "2",
                 "pr": "101",
             },
             {
                 "stop_reason": None,
+                "action": "run",
                 "gate_conclusion": "success",
                 "iteration_count": 1,
                 "pr_number": 101,
             },
+            {
+                "action": "stop",
+                "tasks_total": 3,
+                "tasks_complete": 3,
+                "iteration": 3,
+                "pr": 102,
+            },
         ]
     )
-    assert keepalive["tasks_complete"] == 1
+    assert keepalive["tasks_complete"] == 2
+    assert keepalive["actions"]["stop"] == 2
+    assert keepalive["actions"]["run"] == 1
     assert keepalive["stop_reasons"]["tasks-complete"] == 1
     assert keepalive["gate_results"]["failure"] == 1
     assert keepalive["gate_results"]["success"] == 1
@@ -378,15 +390,22 @@ def test_autopilot_metrics_summarised() -> None:
             "issue_number": 99,
             "escalation_reason": "needs-human-complexity",
         },
+        {
+            "metric_type": "cycle",
+            "issue_number": 99,
+            "cycle_count": 2,
+        },
     ]
 
     summary = aggregate_agent_metrics.build_summary(entries, errors=0)
 
     assert "Auto-Pilot Pipeline" in summary
-    assert "Records: 4" in summary
-    assert "autopilot 4" in summary
+    assert "Records: 5" in summary
+    assert "autopilot 5" in summary
     assert "Issues: 2" in summary
     assert "Total step executions: 3" in summary
+    assert "Cycle records: 1" in summary
+    assert "Cycle counts: 2 (1)" in summary
     assert "Escalations: 1" in summary
     assert "Step Average Durations" in summary
     assert "format:" in summary
