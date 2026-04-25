@@ -150,6 +150,7 @@ jobs:
       - name: Review-thread terminal coverage preflight
         env:
           TERMINAL_DISPOSITION_METRICS_DIR: artifacts
+          TERMINAL_DISPOSITION_ARTIFACT_SELECTION_JSON: artifacts/metric-artifacts-selection.json
           TERMINAL_DISPOSITION_COVERAGE_JSON: terminal-disposition-coverage.json
           TERMINAL_DISPOSITION_COVERAGE_MD: terminal-disposition-coverage.md
         run: |

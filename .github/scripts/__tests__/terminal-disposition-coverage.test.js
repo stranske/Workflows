@@ -9,7 +9,9 @@ const {
   expectedReviewThreadSources,
   formatTerminalDispositionCoverageMarkdown,
   isTerminalDispositionNdjsonFile,
+  normalizeArtifactSelectionSummary,
   normalizeExpectedSource,
+  readArtifactSelectionReport,
   readNdjsonFiles,
   summarizeTerminalDispositionCoverage,
 } = require('../terminal_disposition_coverage.js');
@@ -162,6 +164,79 @@ test('warns when terminal files contain no terminal disposition records', () => 
   assert.equal(report.non_terminal_record_count, 1);
   assert.match(markdown, /Input files: 1/);
   assert.match(markdown, /did not contain valid terminal disposition records/);
+});
+
+test('summarizes terminal artifact selector inputs in coverage report', () => {
+  const report = summarizeTerminalDispositionCoverage([], {
+    artifact_selection_report: {
+      schema: 'workflows-weekly-metrics-artifact-selection/v1',
+      status: 'pass',
+      candidate_family_counts: {
+        'keepalive-metrics': 2,
+        'verifier-terminal-disposition': 3,
+        'review-thread-terminal-disposition': 1,
+      },
+      selected_family_counts: {
+        'keepalive-metrics': 1,
+        'verifier-terminal-disposition': 2,
+      },
+      selected_artifacts: [
+        { id: 10, name: 'verifier-terminal-disposition-123', family: 'verifier-terminal-disposition' },
+        { id: 11, name: 'keepalive-metrics', family: 'keepalive-metrics' },
+      ],
+    },
+  });
+  const markdown = formatTerminalDispositionCoverageMarkdown(report);
+
+  assert.equal(report.status, 'no-data');
+  assert.deepEqual(report.artifact_selection, {
+    schema: 'workflows-weekly-metrics-artifact-selection/v1',
+    status: 'pass',
+    error_message: '',
+    candidate_terminal_artifact_count: 4,
+    selected_terminal_artifact_count: 2,
+    selected_terminal_artifacts: [
+      { id: 10, name: 'verifier-terminal-disposition-123', family: 'verifier-terminal-disposition' },
+    ],
+  });
+  assert.match(markdown, /Artifact selector status: pass/);
+  assert.match(markdown, /Terminal artifacts selected: 2/);
+  assert.match(markdown, /Terminal artifacts candidates: 4/);
+});
+
+test('warns when configured artifact selection report is missing', () => {
+  const report = summarizeTerminalDispositionCoverage([], {
+    artifact_selection_report: readArtifactSelectionReport('/tmp/does-not-exist-terminal-selection.json'),
+  });
+
+  assert.equal(report.status, 'warning');
+  assert.equal(report.artifact_selection.status, 'missing');
+  assert.match(report.artifact_selection.error_message, /not found/);
+});
+
+test('normalizes artifact selection reports without selected family counts', () => {
+  assert.deepEqual(
+    normalizeArtifactSelectionSummary({
+      status: 'pass',
+      candidate_family_counts: {
+        'review-thread-terminal-disposition': 1,
+      },
+      selected_artifacts: [
+        { id: 42, name: 'review-thread-terminal-disposition-77' },
+        { id: 43, name: 'agents-verifier-metrics' },
+      ],
+    }),
+    {
+      schema: 'workflows-weekly-metrics-artifact-selection/v1',
+      status: 'pass',
+      error_message: '',
+      candidate_terminal_artifact_count: 1,
+      selected_terminal_artifact_count: 1,
+      selected_terminal_artifacts: [
+        { id: 42, name: 'review-thread-terminal-disposition-77', family: 'review-thread-terminal-disposition' },
+      ],
+    }
+  );
 });
 
 test('collects only terminal disposition ndjson files from metrics artifacts', () => {

@@ -226,6 +226,25 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
         assert (
             "if-no-files-found: warn" in text
         ), "Weekly metrics upload must not mask the original failure when files are absent"
+        assert (
+            "TERMINAL_DISPOSITION_ARTIFACT_SELECTION_JSON" in text
+        ), "Terminal coverage must receive the selector report for no-data traceability"
+
+
+def test_terminal_disposition_records_include_artifact_identity():
+    workflow_paths = [
+        WORKFLOWS_DIR / "agents-verify-to-issue-v2.yml",
+        WORKFLOWS_DIR / "agents-verify-to-new-pr.yml",
+        WORKFLOWS_DIR / "reusable-bot-comment-handler.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-verify-to-issue-v2.yml"),
+        Path("templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml"),
+    ]
+    for path in workflow_paths:
+        text = path.read_text(encoding="utf-8")
+        assert "artifact_name:" in text, f"{path} must identify terminal disposition artifact names"
+        assert (
+            "artifact_family:" in text
+        ), f"{path} must identify terminal disposition artifact families"
 
 
 def test_issue_intake_handles_codex_events():

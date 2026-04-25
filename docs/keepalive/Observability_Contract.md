@@ -107,6 +107,12 @@ automation remains optional and direct remote/manual work must stay valid. This
 gives operators enough data to decide whether a future review-thread hard block
 would be reliable before any blocking policy is enabled.
 
+Weekly metrics SHOULD pass the machine-readable
+`workflows-weekly-metrics-artifact-selection/v1` selector report into the
+preflight. The coverage report records terminal-disposition candidate and
+selected artifact counts so `no-data` can be distinguished from selector
+failure, download failure, or a real absence of terminal artifacts.
+
 Required report fields:
 
 - `schema=workflows-terminal-disposition-coverage/v1`
@@ -116,6 +122,11 @@ Required report fields:
 - `covered_source_count`
 - `missing_source_count`
 - `missing_sources[]` with stable `source_key` values
+- `artifact_selection` with selector status plus terminal-disposition candidate
+  and selected artifact counts when a selector report is available
+- `workflows-terminal-disposition/v1` records SHOULD include `artifact_name`
+  and `artifact_family` when the emitting workflow uploads them as Actions
+  artifacts
 
 ---
 
@@ -253,4 +264,3 @@ A: No. Keep moderation; the observability contract reduces reliance on private l
 
 Q: Does this change run‑cap, Gate, or acceptance content?
 A: No. It only hardens the activation→dispatch hop and makes decisions auditable.
-

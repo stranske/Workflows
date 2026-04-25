@@ -59,6 +59,8 @@ function normalizeTerminalDisposition(input = {}) {
     workflow: input.workflow,
     run_id: input.run_id ?? input.runId,
     run_attempt: input.run_attempt ?? input.runAttempt,
+    artifact_name: input.artifact_name ?? input.artifactName,
+    artifact_family: input.artifact_family ?? input.artifactFamily,
     actor: input.actor,
     comment_url: input.comment_url ?? input.commentUrl,
     followup_issue_number:

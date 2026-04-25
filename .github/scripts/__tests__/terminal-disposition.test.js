@@ -18,6 +18,8 @@ test('normalizes terminal disposition records with stable source keys', () => {
     followupIssueNumber: 105,
     reason: '  Dispatch completed  ',
     dispatchOutcome: ' success ',
+    artifactName: 'verifier-terminal-disposition-123',
+    artifactFamily: 'verifier-terminal-disposition',
     needsHuman: false,
     timestamp: '2026-04-25T00:00:00Z',
   });
@@ -32,6 +34,8 @@ test('normalizes terminal disposition records with stable source keys', () => {
   assert.equal(record.followup_issue_number, 105);
   assert.equal(record.reason, 'Dispatch completed');
   assert.equal(record.dispatch_outcome, 'success');
+  assert.equal(record.artifact_name, 'verifier-terminal-disposition-123');
+  assert.equal(record.artifact_family, 'verifier-terminal-disposition');
   assert.equal(record.needs_human, false);
 });
 

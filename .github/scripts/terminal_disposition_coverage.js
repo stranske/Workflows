@@ -8,6 +8,10 @@ const {
 
 const COVERAGE_SCHEMA = 'workflows-terminal-disposition-coverage/v1';
 const TERMINAL_SCHEMA = 'workflows-terminal-disposition/v1';
+const TERMINAL_ARTIFACT_FAMILIES = new Set([
+  'verifier-terminal-disposition',
+  'review-thread-terminal-disposition',
+]);
 
 function cleanString(value) {
   if (value === null || value === undefined) return '';
@@ -61,6 +65,9 @@ function expectedReviewThreadSources(records = []) {
 
 function summarizeTerminalDispositionCoverage(records = [], options = {}) {
   const parseErrors = Number(options.parse_errors || options.parseErrors || 0);
+  const artifactSelection = normalizeArtifactSelectionSummary(
+    options.artifact_selection_report ?? options.artifactSelectionReport
+  );
   const terminalRecords = records
     .filter(isTerminalDispositionRecord)
     .map((record) => normalizeTerminalDisposition(record));
@@ -105,10 +112,16 @@ function summarizeTerminalDispositionCoverage(records = [], options = {}) {
     }))
     .sort((a, b) => a.source_key.localeCompare(b.source_key));
 
+  const artifactSelectionWarning = artifactSelection &&
+    artifactSelection.status !== 'pass' &&
+    artifactSelection.status !== 'not-configured';
+
   let status = 'pass';
   if (terminalRecords.length === 0) {
-    status = parseErrors > 0 || nonTerminalRecordCount > 0 ? 'warning' : 'no-data';
-  } else if (missing.length > 0 || parseErrors > 0) {
+    status = parseErrors > 0 || nonTerminalRecordCount > 0 || artifactSelectionWarning
+      ? 'warning'
+      : 'no-data';
+  } else if (missing.length > 0 || parseErrors > 0 || artifactSelectionWarning) {
     status = 'warning';
   }
 
@@ -126,9 +139,73 @@ function summarizeTerminalDispositionCoverage(records = [], options = {}) {
     covered_source_count: covered.length,
     missing_source_count: missing.length,
     parse_errors: parseErrors,
+    artifact_selection: artifactSelection,
     observed_sources: observedSources,
     expected_sources: expected,
     missing_sources: missing,
+  };
+}
+
+function artifactFamilyFromSelection(artifact = {}) {
+  const family = cleanString(artifact.family);
+  if (family) return family;
+  const name = cleanString(artifact.name);
+  if (name.startsWith('verifier-terminal-disposition-')) return 'verifier-terminal-disposition';
+  if (name.startsWith('review-thread-terminal-disposition-')) {
+    return 'review-thread-terminal-disposition';
+  }
+  return '';
+}
+
+function terminalFamilyCount(counts = {}) {
+  if (!counts || typeof counts !== 'object' || Array.isArray(counts)) return 0;
+  return [...TERMINAL_ARTIFACT_FAMILIES].reduce(
+    (total, family) => total + (Number(counts[family]) || 0),
+    0
+  );
+}
+
+function normalizeArtifactSelectionSummary(report) {
+  if (!report) return null;
+  if (report.status === 'missing' || report.status === 'parse-error') {
+    return {
+      schema: cleanString(report.schema) || 'workflows-weekly-metrics-artifact-selection/v1',
+      status: report.status,
+      error_message: cleanString(report.error_message),
+      candidate_terminal_artifact_count: 0,
+      selected_terminal_artifact_count: 0,
+      selected_terminal_artifacts: [],
+    };
+  }
+  if (typeof report !== 'object' || Array.isArray(report)) {
+    return {
+      schema: 'workflows-weekly-metrics-artifact-selection/v1',
+      status: 'parse-error',
+      error_message: 'artifact selection report is not a JSON object',
+      candidate_terminal_artifact_count: 0,
+      selected_terminal_artifact_count: 0,
+      selected_terminal_artifacts: [],
+    };
+  }
+
+  const selectedArtifacts = Array.isArray(report.selected_artifacts)
+    ? report.selected_artifacts
+      .map((artifact) => ({
+        id: artifact.id ?? artifact.artifact_id ?? artifact.artifactId ?? null,
+        name: cleanString(artifact.name),
+        family: artifactFamilyFromSelection(artifact),
+      }))
+      .filter((artifact) => TERMINAL_ARTIFACT_FAMILIES.has(artifact.family))
+    : [];
+
+  return {
+    schema: cleanString(report.schema) || 'workflows-weekly-metrics-artifact-selection/v1',
+    status: cleanString(report.status) || 'pass',
+    error_message: cleanString(report.error_message),
+    candidate_terminal_artifact_count: terminalFamilyCount(report.candidate_family_counts),
+    selected_terminal_artifact_count: terminalFamilyCount(report.selected_family_counts) ||
+      selectedArtifacts.length,
+    selected_terminal_artifacts: selectedArtifacts,
   };
 }
 
@@ -154,6 +231,18 @@ function formatTerminalDispositionCoverageMarkdown(report) {
     `- Missing review-thread sources: ${report.missing_source_count}`,
     `- Parse errors: ${report.parse_errors}`,
   ];
+
+  if (report.artifact_selection) {
+    const selection = report.artifact_selection;
+    lines.push(
+      `- Artifact selector status: ${selection.status}`,
+      `- Terminal artifacts selected: ${selection.selected_terminal_artifact_count}`,
+      `- Terminal artifacts candidates: ${selection.candidate_terminal_artifact_count}`
+    );
+    if (selection.error_message) {
+      lines.push(`- Artifact selector error: ${selection.error_message}`);
+    }
+  }
 
   if (report.missing_sources.length > 0) {
     lines.push('', '| Missing source | Reason |', '|----------------|--------|');
@@ -245,6 +334,7 @@ function readNdjsonFiles(files = []) {
 function parseArgs(argv = process.argv.slice(2)) {
   const options = {
     metrics_dir: process.env.TERMINAL_DISPOSITION_METRICS_DIR || 'artifacts',
+    artifact_selection_json: process.env.TERMINAL_DISPOSITION_ARTIFACT_SELECTION_JSON || '',
     output_json: process.env.TERMINAL_DISPOSITION_COVERAGE_JSON || 'terminal-disposition-coverage.json',
     output_md: process.env.TERMINAL_DISPOSITION_COVERAGE_MD || 'terminal-disposition-coverage.md',
     inputs: [],
@@ -268,10 +358,32 @@ function parseArgs(argv = process.argv.slice(2)) {
     } else if (arg === '--required-sources-json') {
       options.required_sources_json = next;
       index += 1;
+    } else if (arg === '--artifact-selection-json') {
+      options.artifact_selection_json = next;
+      index += 1;
     }
   }
 
   return options;
+}
+
+function readArtifactSelectionReport(filePath) {
+  const cleaned = cleanString(filePath);
+  if (!cleaned) return null;
+  if (!fs.existsSync(cleaned)) {
+    return {
+      status: 'missing',
+      error_message: `artifact selection report not found: ${cleaned}`,
+    };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(cleaned, 'utf8'));
+  } catch (error) {
+    return {
+      status: 'parse-error',
+      error_message: error?.message || 'failed to parse artifact selection report',
+    };
+  }
 }
 
 function parseExpectedSources(options = {}) {
@@ -295,9 +407,11 @@ function main() {
     file_count: inputFileCount,
   } = readNdjsonFiles(inputFiles);
   const expectedSources = parseExpectedSources(options);
+  const artifactSelectionReport = readArtifactSelectionReport(options.artifact_selection_json);
   const report = summarizeTerminalDispositionCoverage(records, {
     parse_errors: parseErrors,
     expected_sources: expectedSources,
+    artifact_selection_report: artifactSelectionReport,
     input_file_count: inputFileCount,
     input_files: inputFiles,
   });
@@ -318,6 +432,8 @@ module.exports = {
   formatTerminalDispositionCoverageMarkdown,
   isTerminalDispositionNdjsonFile,
   normalizeExpectedSource,
+  normalizeArtifactSelectionSummary,
   readNdjsonFiles,
+  readArtifactSelectionReport,
   summarizeTerminalDispositionCoverage,
 };

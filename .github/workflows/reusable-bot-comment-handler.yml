@@ -332,6 +332,8 @@ jobs:
               workflow: context.workflow,
               run_id: context.runId,
               run_attempt: context.runAttempt,
+              artifact_name: `review-thread-terminal-disposition-${context.runId}`,
+              artifact_family: 'review-thread-terminal-disposition',
               actor: context.actor,
             });
             fs.mkdirSync('agent-metrics', { recursive: true });
