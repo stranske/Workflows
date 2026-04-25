@@ -923,7 +923,7 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Updated: ${cleanString(state.updated_at) || '-'}`,
     `- Run ID: ${cleanString(state.run_id) || '-'}`,
     `- Controller: ${cleanString(state.controller) || 'maint-82-sync-dependabot-campaign'}`,
-    `- Campaign issue: ${cleanString(issue?.html_url) || '-'}`,
+    `- Campaign issue: ${cleanString(issue?.html_url || issue?.url) || '-'}`,
     `- Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
     `- Repos failed: ${stats.repos_failed || 0}`,
     `- Open sync PRs: ${stats.sync_prs_open || 0}`,
