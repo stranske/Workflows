@@ -337,6 +337,7 @@ function collectJsonFiles(rootDir) {
 function isPotentialAuthCoverageFile(file) {
   const normalized = cleanString(file).split(path.sep).join('/');
   const basename = path.basename(normalized);
+  if (!normalized.endsWith('.json')) return false;
   return normalized.includes('/bot-comment-auth-coverage-wrapper-') ||
     normalized.includes('/bot-comment-auth-coverage-reusable-') ||
     basename === 'wrapper.json' ||
