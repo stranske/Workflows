@@ -217,6 +217,18 @@ def test_consumer_sync_diff_keeps_functional_lines_in_comparison():
     ), "Maint 68 must not ignore fixed line ranges that can contain version pins"
 
 
+def test_consumer_sync_repo_exclusions_live_in_manifest():
+    workflow_text = (WORKFLOWS_DIR / "maint-68-sync-consumer-repos.yml").read_text(encoding="utf-8")
+    manifest_text = Path(".github/sync-manifest.yml").read_text(encoding="utf-8")
+    checker_text = Path("scripts/check_consumer_sync_drift.py").read_text(encoding="utf-8")
+
+    assert "skip_repos:" in manifest_text
+    assert "stranske/Trend_Model_Project" in manifest_text
+    assert "manifest_skip_reason" in workflow_text
+    assert "manifest_skip_reason" in checker_text
+    assert "repo_specific_skip_rules" not in workflow_text
+
+
 def test_health_40_branch_protection_sweep_skips_push_runs():
     text = (WORKFLOWS_DIR / "health-40-sweep.yml").read_text(encoding="utf-8")
     assert (

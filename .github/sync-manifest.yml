@@ -20,6 +20,8 @@
 #   - source: Path relative to templates/consumer-repo/ (or .github/ for reusable-only)
 #   - target: Path in consumer repo (defaults to same as source)
 #   - description: What this file does (required for documentation)
+#   - skip_repos: Optional list of repo-specific exclusions with a reason.
+#       Use only when a consumer has an intentional incompatible path or policy.
 
 version: 1
 
@@ -580,6 +582,9 @@ docs:
   - source: AGENTS.md
     target: AGENTS.md
     description: "Context file for agents and coding assistants"
+    skip_repos:
+      - repo: stranske/Trend_Model_Project
+        reason: "Repo keeps historical Agents.md casing to avoid case-only path conflicts"
 
   - source: CLAUDE.md
     target: CLAUDE.md

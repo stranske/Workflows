@@ -410,14 +410,22 @@ jobs:
 
           # Repos with custom Gate workflows
           custom_gate_repos = ['stranske/Manager-Database']
-          repo_specific_skip_rules = {
-              ('stranske/Trend_Model_Project', 'AGENTS.md'): (
-                  'Repo keeps historical Agents.md casing to avoid case-only path conflicts'
-              ),
-          }
-
           changes = []
           skipped = []
+
+          def manifest_skip_reason(item, repo):
+              """Return the manifest-declared skip reason for this repo, if any."""
+              for rule in item.get('skip_repos', []) or []:
+                  if isinstance(rule, str):
+                      if rule == repo:
+                          return 'Manifest skip for repo'
+                      continue
+                  if not isinstance(rule, dict):
+                      continue
+                  if str(rule.get('repo', '')).strip() != repo:
+                      continue
+                  return str(rule.get('reason', '')).strip() or 'Manifest skip for repo'
+              return ''
 
           def comparable_lines(path):
               """Return file lines after leading comment/blank header lines."""
@@ -440,7 +448,7 @@ jobs:
 
               return comparable_lines(src) != comparable_lines(dst)
 
-          def sync_file(source_path, target_path, description, skip_condition=None):
+          def sync_file(source_path, target_path, description, skip_condition=None, item=None):
               """Sync a single file from template to consumer."""
               src = Path(source_path)
               dst = Path(target_path)
@@ -450,9 +458,9 @@ jobs:
                   else str(dst)
               )
 
-              repo_specific_reason = repo_specific_skip_rules.get((current_repo, relative_target))
-              if repo_specific_reason:
-                  skipped.append(f"{dst.name}: {repo_specific_reason}")
+              skip_reason = manifest_skip_reason(item or {}, current_repo)
+              if skip_reason:
+                  skipped.append(f"{relative_target}: {skip_reason}")
                   return False
 
               if skip_condition and skip_condition():
@@ -471,10 +479,20 @@ jobs:
                   return True
               return False
 
-          def sync_directory(source_path, target_path, description):
+          def sync_directory(source_path, target_path, description, item=None):
               """Sync an entire directory from template to consumer."""
               src = Path(source_path)
               dst = Path(target_path)
+              relative_target = (
+                  str(dst.relative_to(Path('consumer')))
+                  if dst.is_absolute() is False and str(dst).startswith('consumer/')
+                  else str(dst)
+              )
+
+              skip_reason = manifest_skip_reason(item or {}, current_repo)
+              if skip_reason:
+                  skipped.append(f"{relative_target}: {skip_reason}")
+                  return False
 
               if not src.exists() or not src.is_dir():
                   print(f"  ⚠ Source directory missing: {src}")
@@ -536,7 +554,7 @@ jobs:
               elif 'pr-00-gate' in source and current_repo in custom_gate_repos:
                   skip_fn = skip_custom_gate
 
-              sync_file(template_src, consumer_dst, description, skip_fn)
+              sync_file(template_src, consumer_dst, description, skip_fn, item)
 
           # Process prompts
           print("Processing prompts...")
@@ -545,7 +563,7 @@ jobs:
               description = item.get('description', 'No description')
               template_src = Path('workflows/templates/consumer-repo') / source
               consumer_dst = Path('consumer') / source
-              sync_file(template_src, consumer_dst, description)
+              sync_file(template_src, consumer_dst, description, item=item)
 
           # Process scripts
           print("Processing scripts...")
@@ -557,9 +575,9 @@ jobs:
               template_src = Path('workflows') / source
               consumer_dst = Path('consumer') / source
               if is_directory:
-                  sync_directory(template_src, consumer_dst, description)
+                  sync_directory(template_src, consumer_dst, description, item)
               else:
-                  sync_file(template_src, consumer_dst, description)
+                  sync_file(template_src, consumer_dst, description, item=item)
 
           # Process codex_config
           print("Processing codex config...")
@@ -568,7 +586,7 @@ jobs:
               description = item.get('description', 'No description')
               template_src = Path('workflows/templates/consumer-repo') / source
               consumer_dst = Path('consumer') / source
-              sync_file(template_src, consumer_dst, description)
+              sync_file(template_src, consumer_dst, description, item=item)
 
           # Process copilot_config
           print("Processing copilot config...")
@@ -580,9 +598,9 @@ jobs:
               consumer_dst = Path('consumer') / source
 
               if is_directory:
-                  sync_directory(template_src, consumer_dst, description)
+                  sync_directory(template_src, consumer_dst, description, item)
               else:
-                  sync_file(template_src, consumer_dst, description)
+                  sync_file(template_src, consumer_dst, description, item=item)
 
           # Process templates (markdown templates, instructions, etc.)
           print("Processing templates...")
@@ -592,7 +610,7 @@ jobs:
               # Templates come from .github/templates/, same as scripts pattern
               template_src = Path('workflows') / source
               consumer_dst = Path('consumer') / source
-              sync_file(template_src, consumer_dst, description)
+              sync_file(template_src, consumer_dst, description, item=item)
 
           # Process actions
           print("Processing actions...")
@@ -604,9 +622,9 @@ jobs:
               consumer_dst = Path('consumer') / source
 
               if is_directory:
-                  sync_directory(template_src, consumer_dst, description)
+                  sync_directory(template_src, consumer_dst, description, item)
               else:
-                  sync_file(template_src, consumer_dst, description)
+                  sync_file(template_src, consumer_dst, description, item=item)
 
           # Process docs
           print("Processing docs...")
@@ -616,7 +634,7 @@ jobs:
               description = item.get('description', 'No description')
               template_src = Path('workflows/templates/consumer-repo') / source
               consumer_dst = Path('consumer') / target
-              sync_file(template_src, consumer_dst, description)
+              sync_file(template_src, consumer_dst, description, item=item)
 
           # Process llm_config
           print("Processing llm config...")
@@ -629,7 +647,7 @@ jobs:
               skip_fn = None
               if sync_mode == 'create_only':
                   skip_fn = lambda: consumer_dst.exists()
-              sync_file(template_src, consumer_dst, description, skip_fn)
+              sync_file(template_src, consumer_dst, description, skip_fn, item)
 
           # Process git_config
           print("Processing git config...")
@@ -638,7 +656,7 @@ jobs:
               description = item.get('description', 'No description')
               template_src = Path('workflows/templates/consumer-repo') / source
               consumer_dst = Path('consumer') / source
-              sync_file(template_src, consumer_dst, description)
+              sync_file(template_src, consumer_dst, description, item=item)
 
           # Process issue_templates
           print("Processing issue templates...")
@@ -647,7 +665,7 @@ jobs:
               description = item.get('description', 'No description')
               template_src = Path('workflows/templates/consumer-repo') / source
               consumer_dst = Path('consumer') / source
-              sync_file(template_src, consumer_dst, description)
+              sync_file(template_src, consumer_dst, description, item=item)
 
           # Process user_docs
           print("Processing user docs...")
@@ -657,7 +675,7 @@ jobs:
               description = item.get('description', 'No description')
               template_src = Path('workflows/templates/consumer-repo') / source
               consumer_dst = Path('consumer') / target
-              sync_file(template_src, consumer_dst, description)
+              sync_file(template_src, consumer_dst, description, item=item)
 
           # Process removals
           print("Processing removals...")

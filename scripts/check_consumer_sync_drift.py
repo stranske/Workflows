@@ -111,6 +111,25 @@ def sorted_items(values: set[str]) -> list[str]:
     return sorted(values)
 
 
+def manifest_skip_reason(entry: dict[str, object], repo: str) -> str:
+    """Return the manifest-declared skip reason for a repo, if any."""
+    rules = entry.get("skip_repos", [])
+    if not isinstance(rules, list):
+        return ""
+    for rule in rules:
+        if isinstance(rule, str):
+            if rule == repo:
+                return "Manifest skip for repo"
+            continue
+        if not isinstance(rule, dict):
+            continue
+        if str(rule.get("repo", "")).strip() != repo:
+            continue
+        reason = str(rule.get("reason", "")).strip()
+        return reason or "Manifest skip for repo"
+    return ""
+
+
 def token_candidates(env: dict[str, str] | None = None) -> list[dict[str, str]]:
     """Return deduplicated token candidates without exposing token values."""
     values = env if env is not None else os.environ
@@ -353,8 +372,10 @@ def build_report(
     missing: set[str],
     errors: set[str],
     obsolete: set[str],
+    skipped: set[str] | None = None,
     token_diagnostics: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    skipped = skipped or set()
     counts = {
         "drift": len(drift),
         "missing": len(missing),
@@ -403,6 +424,8 @@ def build_report(
             "content_error_threshold_per_repo": CONTENT_ERROR_THRESHOLD,
             "max_items_per_section": SUMMARY_ITEM_LIMIT,
         },
+        "skip_count": len(skipped),
+        "skipped": sorted_items(skipped),
         "drift": sorted_items(drift),
         "missing": sorted_items(missing),
         "errors": sorted_items(errors),
@@ -489,6 +512,7 @@ def write_summary_markdown(path: str, report: dict[str, object]) -> None:
             ("Missing files", "missing"),
             ("Errors", "errors"),
             ("Obsolete files present (should be removed)", "obsolete"),
+            ("Skipped by manifest policy", "skipped"),
         ):
             items = report.get(key, [])
             if not isinstance(items, list) or not items:
@@ -648,6 +672,7 @@ def main() -> int:
     missing: set[str] = set()
     errors: set[str] = set()
     obsolete: set[str] = set()
+    skipped: set[str] = set()
 
     remote_trees: dict[str, dict[str, dict[str, object]]] = {}
     for repo in repos:
@@ -684,6 +709,10 @@ def main() -> int:
                 continue
 
             for repo in remote_trees:
+                skip_reason = manifest_skip_reason(entry, repo)
+                if skip_reason:
+                    skipped.add(f"{repo}: {target} ({skip_reason})")
+                    continue
                 if is_directory or local_path.is_dir():
                     # Recursively compare all files within the directory
                     for child in sorted(local_path.rglob("*")):
@@ -708,6 +737,7 @@ def main() -> int:
         missing=missing,
         errors=errors,
         obsolete=obsolete,
+        skipped=skipped,
         token_diagnostics=token_diagnostics,
     )
     write_report_json(args.report_json, report)

@@ -74,6 +74,40 @@ def test_token_candidates_deduplicates_without_exposing_values() -> None:
     ]
 
 
+def test_manifest_skip_reason_supports_repo_specific_policy() -> None:
+    entry = {
+        "source": "AGENTS.md",
+        "skip_repos": [
+            {
+                "repo": "owner/custom",
+                "reason": "Uses historical Agents.md casing",
+            }
+        ],
+    }
+
+    assert (
+        check_consumer_sync_drift.manifest_skip_reason(entry, "owner/custom")
+        == "Uses historical Agents.md casing"
+    )
+    assert check_consumer_sync_drift.manifest_skip_reason(entry, "owner/standard") == ""
+
+
+def test_build_report_surfaces_manifest_skips_without_failing() -> None:
+    report = check_consumer_sync_drift.build_report(
+        repos=["owner/custom"],
+        drift=set(),
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        skipped={"owner/custom: AGENTS.md (Uses historical Agents.md casing)"},
+    )
+
+    assert report["status"] == "pass"
+    assert report["counts"] == {"drift": 0, "missing": 0, "errors": 0, "obsolete": 0}
+    assert report["skip_count"] == 1
+    assert report["skipped"] == ["owner/custom: AGENTS.md (Uses historical Agents.md casing)"]
+
+
 def test_select_read_token_rejects_rate_limited_candidate() -> None:
     class Response:
         def __init__(self, status_code: int, message: str = "", remaining: str = "42") -> None:
