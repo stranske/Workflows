@@ -282,8 +282,7 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             "Install GitHub API dependencies" not in text
         ), "Weekly metrics must rely on setup-api-client for pinned GitHub API dependencies"
         assert (
-            "npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app"
-            not in text
+            "npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app" not in text
         ), "Weekly metrics must not install floating Octokit dependencies in the repo root"
         assert text.index("Setup Node") < text.index(
             "uses: ./.github/actions/setup-api-client"
