@@ -302,6 +302,9 @@ scripts:
   - source: .github/scripts/terminal_disposition_coverage.js
     description: "Warning-only terminal disposition source coverage preflight"
 
+  - source: .github/scripts/weekly_metrics_artifacts.js
+    description: "Bounded weekly metrics artifact selection contract"
+
   - source: .github/scripts/issue_scope_parser.js
     description: "Parses issue scope and requirements"
 

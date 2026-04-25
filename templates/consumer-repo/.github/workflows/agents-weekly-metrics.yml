@@ -37,6 +37,7 @@ jobs:
             .github/scripts/terminal_disposition.js
             .github/scripts/terminal_disposition_coverage.js
             .github/scripts/token_load_balancer.js
+            .github/scripts/weekly_metrics_artifacts.js
             scripts/aggregate_agent_metrics.py
           sparse-checkout-cone-mode: false
 
@@ -67,49 +68,13 @@ jobs:
           # Get artifact IDs and names
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           artifact_list="artifacts/metric-artifacts.tsv"
-          node - <<'NODE' > "$artifact_list"
-          const { Octokit } = require('@octokit/rest');
-          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-          const core = { info: () => {}, warning: console.warn, debug: () => {} };
-          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-          const target = new Set([
-            'keepalive-metrics',
-            'agents-autofix-metrics',
-            'agents-verifier-metrics'
-          ]);
-          const prefixes = [
-            'autopilot-metrics-',
-            'verifier-terminal-disposition-',
-            'review-thread-terminal-disposition-'
-          ];
-
-          (async () => {
-            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
-            const { paginateWithRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'agents-weekly-metrics-artifacts',
-              capabilities: ['actions:read']
-            });
-            const artifacts = await paginateWithRetry(github.rest.actions.listArtifactsForRepo, {
-              owner,
-              repo,
-              per_page: 100
-            });
-            const lines = artifacts
-              .filter((artifact) => !artifact.expired && (
-                target.has(artifact.name) ||
-                prefixes.some((p) => artifact.name.startsWith(p))
-              ))
-              .map((artifact) => `${artifact.id}\t${artifact.name}`)
-              .join('\n');
-            process.stdout.write(lines);
-          })().catch((error) => {
-            console.error(error);
-            process.exit(1);
-          });
-          NODE
+          selection_report="artifacts/metric-artifacts-selection.json"
+          selection_markdown="artifacts/metric-artifacts-selection.md"
+          node .github/scripts/weekly_metrics_artifacts.js \
+            --output "$artifact_list" \
+            --report "$selection_report" \
+            --markdown "$selection_markdown"
+          cat "$selection_report"
           if [ ! -s "$artifact_list" ]; then
             echo "No metrics artifacts found"
           fi
@@ -170,6 +135,18 @@ jobs:
         run: |
           python scripts/aggregate_agent_metrics.py
 
+      - name: Attach artifact selection summary
+        run: |
+          if [ -f artifacts/metric-artifacts-selection.md ]; then
+            cat artifacts/metric-artifacts-selection.md >> "$GITHUB_STEP_SUMMARY"
+            if [ -f agent-weekly-metrics.md ]; then
+              {
+                printf '\n'
+                cat artifacts/metric-artifacts-selection.md
+              } >> agent-weekly-metrics.md
+            fi
+          fi
+
       - name: Review-thread terminal coverage preflight
         env:
           TERMINAL_DISPOSITION_METRICS_DIR: artifacts
@@ -193,6 +170,8 @@ jobs:
           name: agent-weekly-metrics
           path: |
             agent-weekly-metrics.md
+            artifacts/metric-artifacts-selection.json
+            artifacts/metric-artifacts-selection.md
             terminal-disposition-coverage.json
             terminal-disposition-coverage.md
           retention-days: 30
