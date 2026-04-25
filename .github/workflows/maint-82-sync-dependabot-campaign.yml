@@ -1,0 +1,121 @@
+name: Sync/Dependabot Campaign
+
+on:
+  schedule:
+    # Remote discovery runs on GitHub capacity. The local watcher only starts
+    # Codex when the campaign issue has a needs-local-codex queue item.
+    - cron: "17 */6 * * *"
+    # A focused pass after the usual weekly Dependabot update window.
+    - cron: "30 10 * * 1"
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: "Repos to inspect (comma-separated, or 'all')"
+        required: false
+        type: string
+        default: "all"
+      dry_run:
+        description: "Preview the campaign issue without updating it"
+        required: false
+        type: boolean
+        default: false
+      max_repos:
+        description: "Optional repo limit for testing; 0 means no limit"
+        required: false
+        type: string
+        default: "0"
+  repository_dispatch:
+    types: [sync-dependabot-campaign]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: sync-dependabot-campaign-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  campaign:
+    name: Refresh campaign queue
+    runs-on: ubuntu-latest
+    env:
+      CAMPAIGN_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Load registered consumer repos
+        id: registered
+        run: |
+          repos=$(python scripts/list_registered_consumer_repos.py --separator ',')
+          echo "repos=${repos}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve inputs
+        id: inputs
+        env:
+          DISPATCH_REPOS: ${{ github.event.client_payload.repos || '' }}
+          DISPATCH_DRY_RUN: ${{ github.event.client_payload.dry_run || '' }}
+          DISPATCH_MAX_REPOS: ${{ github.event.client_payload.max_repos || '' }}
+          INPUT_REPOS: ${{ inputs.repos || '' }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run || false }}
+          INPUT_MAX_REPOS: ${{ inputs.max_repos || '0' }}
+        run: |
+          repos="${DISPATCH_REPOS:-${INPUT_REPOS:-all}}"
+          dry_run="${DISPATCH_DRY_RUN:-${INPUT_DRY_RUN:-false}}"
+          max_repos="${DISPATCH_MAX_REPOS:-${INPUT_MAX_REPOS:-0}}"
+
+          {
+            echo "repos=${repos}"
+            echo "dry_run=${dry_run}"
+            echo "max_repos=${max_repos}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Refresh campaign issue
+        id: campaign
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ env.CAMPAIGN_TOKEN }}
+          script: |
+            const {
+              runCampaign,
+            } = require('./.github/scripts/sync_dependabot_campaign.js');
+
+            const registeredRepos = '${{ steps.registered.outputs.repos }}'
+              .split(',')
+              .map((repo) => repo.trim())
+              .filter(Boolean);
+            const requestedRepos = '${{ steps.inputs.outputs.repos }}';
+            const repos = !requestedRepos || requestedRepos === 'all'
+              ? registeredRepos
+              : requestedRepos.split(',').map((repo) => repo.trim()).filter(Boolean);
+            const dryRun = '${{ steps.inputs.outputs.dry_run }}' === 'true';
+            const maxRepos = Number('${{ steps.inputs.outputs.max_repos }}') || 0;
+
+            const result = await runCampaign({
+              github,
+              context,
+              core,
+              repos,
+              dryRun,
+              maxRepos,
+            });
+
+            const stats = result.state.stats || {};
+            await core.summary
+              .addHeading('Sync/Dependabot Campaign')
+              .addList([
+                `Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
+                `Open sync PRs: ${stats.sync_prs_open || 0}`,
+                `Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
+                `Active review threads queued: ${stats.active_review_threads || 0}`,
+                `Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
+                `Campaign issue: ${result.issue?.html_url || '(dry run)'}`,
+              ])
+              .write();
+
+      - name: Log watcher signal
+        if: steps.campaign.outputs.needs_local_codex == 'true'
+        run: |
+          echo "Local Codex work is queued on ${{ steps.campaign.outputs.campaign_issue_url }}"
