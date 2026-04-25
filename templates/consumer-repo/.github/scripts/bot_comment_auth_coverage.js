@@ -39,6 +39,7 @@ function normalizeRecordBoolean(value) {
   const text = cleanString(value).toLowerCase();
   if (['1', 'true', 'yes', 'y', 'on'].includes(text)) return true;
   if (['0', 'false', 'no', 'n', 'off', ''].includes(text)) return false;
+  if (typeof value === 'string') return false;
   return Boolean(value);
 }
 
@@ -455,6 +456,7 @@ function formatBotCommentAuthCoverageMarkdown(report) {
   ];
 
   if (report.artifact_selection) {
+    lines.push(`- Artifact selection status: ${report.artifact_selection.status || 'unknown'}`);
     lines.push(`- Selected auth artifacts: ${report.artifact_selection.selected_auth_artifact_count}`);
     if (report.artifact_selection.error_message) {
       lines.push(`- Artifact selector error: ${report.artifact_selection.error_message}`);

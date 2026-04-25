@@ -130,6 +130,28 @@ test('normalizes string boolean auth fields without false fallback warnings', ()
   assert.deepEqual(report.enforcement.blockers, []);
 });
 
+test('treats unrecognized string boolean fields as false', () => {
+  const report = summarizeBotCommentAuthCoverage([
+    record('agents-bot-comment-handler-wrapper', 'client-id', 106, {
+      client_id_configured: 'unknown',
+      legacy_app_id_configured: 'n/a',
+      private_key_configured: 'not reported',
+      fallback_warning_active: 'unknown',
+    }),
+    record('reusable-bot-comment-handler', 'none', 106),
+  ]);
+
+  assert.equal(report.components[0].latest.client_id_configured, false);
+  assert.equal(report.components[0].latest.legacy_app_id_configured, false);
+  assert.equal(report.components[0].latest.private_key_configured, false);
+  assert.equal(report.components[0].latest.fallback_warning_active, false);
+  assert.ok(
+    !report.components[0].blockers.includes(
+      'legacy-agents-bot-comment-handler-wrapper-fallback-active'
+    )
+  );
+});
+
 test('keeps hard blocking disabled without explicit approval', () => {
   const report = summarizeBotCommentAuthCoverage(
     [record('agents-bot-comment-handler-wrapper', 'legacy-app-id', 103)],
@@ -205,6 +227,7 @@ test('warns when configured artifact selection report is missing', () => {
   assert.equal(report.artifact_selection.status, 'missing');
   assert.match(report.artifact_selection.error_message, /not found/);
   assert.ok(report.enforcement.blockers.includes('artifact-selection-warning'));
+  assert.match(markdown, /Artifact selection status: missing/);
   assert.match(markdown, /Artifact selector error:/);
 });
 
