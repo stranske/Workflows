@@ -419,22 +419,26 @@ jobs:
           changes = []
           skipped = []
 
+          def comparable_lines(path):
+              """Return file lines after leading comment/blank header lines."""
+              lines = path.read_text().splitlines()
+              index = 0
+              while index < len(lines):
+                  stripped = lines[index].strip()
+                  if stripped == '' or stripped.startswith('#'):
+                      index += 1
+                      continue
+                  break
+              return lines[index:]
+
           def files_differ(src, dst):
-              """Compare files, ignoring header comments (first 10 lines)."""
+              """Compare files, ignoring only leading comment headers."""
               if not dst.exists():
                   return True
               if not src.exists():
                   return False
 
-              src_lines = src.read_text().splitlines()
-              dst_lines = dst.read_text().splitlines()
-
-              # For short files, compare everything
-              if len(src_lines) < 15 or len(dst_lines) < 15:
-                  return src_lines != dst_lines
-
-              # Skip header (first 10 lines) for comparison
-              return src_lines[10:] != dst_lines[10:]
+              return comparable_lines(src) != comparable_lines(dst)
 
           def sync_file(source_path, target_path, description, skip_condition=None):
               """Sync a single file from template to consumer."""

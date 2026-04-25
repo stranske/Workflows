@@ -204,6 +204,19 @@ def test_consumer_sync_run_uploads_machine_readable_report():
     ), "Maint 68 report must distinguish sync failures from PR creation failures"
 
 
+def test_consumer_sync_diff_keeps_functional_lines_in_comparison():
+    text = (WORKFLOWS_DIR / "maint-68-sync-consumer-repos.yml").read_text(encoding="utf-8")
+    assert (
+        "def comparable_lines(path):" in text
+    ), "Maint 68 must normalize only leading file headers before comparing sync targets"
+    assert (
+        "return comparable_lines(src) != comparable_lines(dst)" in text
+    ), "Maint 68 must compare functional lines after any leading comment header"
+    assert (
+        "src_lines[10:] != dst_lines[10:]" not in text
+    ), "Maint 68 must not ignore fixed line ranges that can contain version pins"
+
+
 def test_health_40_branch_protection_sweep_skips_push_runs():
     text = (WORKFLOWS_DIR / "health-40-sweep.yml").read_text(encoding="utf-8")
     assert (
