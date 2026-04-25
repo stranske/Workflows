@@ -157,6 +157,41 @@ def test_select_read_token_reports_no_usable_token() -> None:
     ]
 
 
+def test_probe_targets_samples_each_manifest_section(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    workflow = (
+        tmp_path
+        / "templates"
+        / "consumer-repo"
+        / ".github"
+        / "workflows"
+        / "agents-weekly-metrics.yml"
+    )
+    script = tmp_path / ".github" / "scripts" / "keepalive_gate.js"
+    docs = tmp_path / "templates" / "consumer-repo" / "docs" / "AGENT_ISSUE_FORMAT.md"
+    workflow.parent.mkdir(parents=True)
+    script.parent.mkdir(parents=True)
+    docs.parent.mkdir(parents=True)
+    workflow.write_text("workflow\n", encoding="utf-8")
+    script.write_text("script\n", encoding="utf-8")
+    docs.write_text("docs\n", encoding="utf-8")
+
+    manifest = {
+        "workflows": [
+            {"source": ".github/workflows/missing.yml"},
+            {"source": ".github/workflows/agents-weekly-metrics.yml"},
+        ],
+        "scripts": [{"source": ".github/scripts/keepalive_gate.js"}],
+        "docs": [{"source": "docs/AGENT_ISSUE_FORMAT.md"}],
+    }
+
+    assert check_consumer_sync_drift.probe_targets(manifest, ["workflows", "scripts", "docs"]) == [
+        ".github/workflows/agents-weekly-metrics.yml",
+        ".github/scripts/keepalive_gate.js",
+        "docs/AGENT_ISSUE_FORMAT.md",
+    ]
+
+
 def test_write_report_json_creates_parent_directory(tmp_path) -> None:
     output = tmp_path / "artifacts" / "consumer-sync-drift-report.json"
     report = check_consumer_sync_drift.build_report(

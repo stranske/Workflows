@@ -27,7 +27,7 @@ TOKEN_ENV_ORDER = (
     "GH_TOKEN",
 )
 TOKEN_PROBE_REPO_LIMIT = 3
-TOKEN_PROBE_PATH_LIMIT = 3
+TOKEN_PROBE_PATH_LIMIT = 16
 
 
 def join_remote_path(base: str, *parts: object) -> str:
@@ -165,6 +165,7 @@ def probe_targets(manifest: dict[str, object], sections: list[str]) -> list[str]
         entries = manifest.get(section, [])
         if not isinstance(entries, list):
             continue
+        section_target = ""
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
@@ -180,11 +181,14 @@ def probe_targets(manifest: dict[str, object], sections: list[str]) -> list[str]
                     (child for child in sorted(local_path.rglob("*")) if child.is_file()), None
                 )
                 if first_child:
-                    targets.append(join_remote_path(target, first_child.relative_to(local_path)))
+                    section_target = join_remote_path(target, first_child.relative_to(local_path))
             else:
-                targets.append(target)
-            if len(targets) >= TOKEN_PROBE_PATH_LIMIT:
-                return targets
+                section_target = target
+            if section_target:
+                targets.append(section_target)
+                break
+        if len(targets) >= TOKEN_PROBE_PATH_LIMIT:
+            return targets
     return targets
 
 
