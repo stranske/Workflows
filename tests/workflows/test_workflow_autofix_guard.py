@@ -62,6 +62,13 @@ def test_agents_autofix_loop_uses_direct_retry_helper_contract() -> None:
     assert "github.rest.actions.getWorkflowRun" in contents
 
 
+def test_agents_autofix_loop_skips_rate_limited_gate_lookup() -> None:
+    contents = (WORKFLOWS / "agents-autofix-loop.yml").read_text(encoding="utf-8")
+    assert "workflow-run-lookup-rate-limited" in contents
+    assert "gate run lookup rate-limited" in contents
+    assert "isRateLimitError(error)" in contents
+
+
 def test_reusable_autofix_guard_applies_to_all_steps() -> None:
     data = _load_yaml("reusable-18-autofix.yml")
     steps = data["jobs"]["autofix"]["steps"]

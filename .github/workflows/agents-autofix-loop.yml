@@ -146,6 +146,15 @@ jobs:
 
             const { evaluatePromptInjectionGuard } = require(guardPath);
             const { owner, repo } = context.repo;
+            const isRateLimitError = (error) => {
+              const status = Number(error?.status || error?.response?.status || 0);
+              const message = String(error?.message || '').toLowerCase();
+              return (
+                status === 429 ||
+                (status === 403 &&
+                  (message.includes('rate limit') || message.includes('secondary rate')))
+              );
+            };
             const manualInputs = {
               runId: (process.env.MANUAL_GATE_RUN_ID || '').trim(),
               prNumber: (process.env.MANUAL_PR_NUMBER || '').trim(),
@@ -174,6 +183,14 @@ jobs:
               );
               run = response.data;
             } catch (error) {
+              if (isRateLimitError(error)) {
+                core.warning(
+                  `Skipping prompt-injection gate: workflow_run ${manualInputs.runId} lookup was rate-limited.`
+                );
+                core.setOutput('blocked', 'false');
+                core.setOutput('reason', 'workflow-run-lookup-rate-limited');
+                return;
+              }
               core.setFailed(`Failed to load workflow_run ${manualInputs.runId}: ${error.message}`);
               return;
             }
@@ -241,6 +258,15 @@ jobs:
                 };
             const { withRetry, paginateWithRetry } = retryHelpers;
             const { owner, repo } = context.repo;
+            const isRateLimitError = (error) => {
+              const status = Number(error?.status || error?.response?.status || 0);
+              const message = String(error?.message || '').toLowerCase();
+              return (
+                status === 429 ||
+                (status === 403 &&
+                  (message.includes('rate limit') || message.includes('secondary rate')))
+              );
+            };
             const manualInputs = {
               runId: (process.env.MANUAL_GATE_RUN_ID || '').trim(),
               prNumber: (process.env.MANUAL_PR_NUMBER || '').trim(),
@@ -258,22 +284,6 @@ jobs:
               return;
             }
 
-            let run;
-            try {
-              const response = await withRetry(() =>
-                github.rest.actions.getWorkflowRun({
-                  owner,
-                  repo,
-                  run_id: runIdNumber,
-                })
-              );
-              run = response.data;
-            } catch (error) {
-              core.setFailed(
-                `Failed to load Gate run ${manualInputs.runId}: ${error.message}`
-              );
-              return;
-            }
             const outputs = {
               should_run: 'false',
               pr_number: '',
@@ -287,8 +297,8 @@ jobs:
               trigger_reason: 'unknown',
               trigger_job: '',
               trigger_step: '',
-              gate_conclusion: String(run?.conclusion || run?.status || ''),
-              gate_run_id: String(run?.id || ''),
+              gate_conclusion: '',
+              gate_run_id: String(manualInputs.runId || ''),
               has_high_privilege: 'false',
             };
 
@@ -300,7 +310,28 @@ jobs:
               }
             };
 
-            outputs.gate_run_id = String(manualInputs.runId || run?.id || '');
+            let run;
+            try {
+              const response = await withRetry(() =>
+                github.rest.actions.getWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: runIdNumber,
+                })
+              );
+              run = response.data;
+            } catch (error) {
+              if (isRateLimitError(error)) {
+                return stop('gate run lookup rate-limited', 'rate_limited');
+              }
+              core.setFailed(
+                `Failed to load Gate run ${manualInputs.runId}: ${error.message}`
+              );
+              return;
+            }
+
+            outputs.gate_conclusion = String(run?.conclusion || run?.status || '');
+            outputs.gate_run_id = String(run?.id || manualInputs.runId || '');
 
             if ((run.conclusion || '').toLowerCase() === 'success') {
               return stop('upstream Gate succeeded');
