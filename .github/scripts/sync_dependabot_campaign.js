@@ -438,8 +438,14 @@ function isSourceFixedCandidate(item = {}) {
   return Boolean(item && item.source_fixed_candidate);
 }
 
+function isSupersededSyncCandidate(item = {}) {
+  return item.classification === 'sync' && cleanString(item.source_sync?.status) === 'superseded';
+}
+
 function isActionableLocalCodexItem(item = {}) {
-  return item.status === 'needs-local-codex' && !isSourceFixedCandidate(item);
+  return item.status === 'needs-local-codex' &&
+    !isSourceFixedCandidate(item) &&
+    !isSupersededSyncCandidate(item);
 }
 
 function isVisibleQueueItem(item = {}) {
@@ -452,6 +458,9 @@ function buildStats(items, discoveredItems, options = {}) {
     return counts;
   }, {});
   const sourceFixedCandidateCount = items.filter(isSourceFixedCandidate).length;
+  const supersededSyncCandidateCount = items
+    .filter((item) => isSupersededSyncCandidate(item) && !isSourceFixedCandidate(item))
+    .length;
   const actionableLocalCodexCount = items.filter(isActionableLocalCodexItem).length;
   return {
     repos_requested: Number(options.reposRequested || 0),
@@ -467,6 +476,7 @@ function buildStats(items, discoveredItems, options = {}) {
     items_needing_local_codex: actionableLocalCodexCount,
     items_actionable_local_codex: actionableLocalCodexCount,
     items_source_fixed_candidates: sourceFixedCandidateCount,
+    items_superseded_sync_candidates: supersededSyncCandidateCount,
     items_claimed: statusCounts['local-codex-claimed'] || 0,
     items_finished: statusCounts['local-codex-finished'] || 0,
     items_blocked: statusCounts.blocked || 0,
@@ -481,11 +491,15 @@ function deriveItemStats(items = []) {
     return counts;
   }, {});
   const sourceFixedCandidateCount = queueItems.filter(isSourceFixedCandidate).length;
+  const supersededSyncCandidateCount = queueItems
+    .filter((item) => isSupersededSyncCandidate(item) && !isSourceFixedCandidate(item))
+    .length;
   const actionableLocalCodexCount = queueItems.filter(isActionableLocalCodexItem).length;
   return {
     items_needing_local_codex: actionableLocalCodexCount,
     items_actionable_local_codex: actionableLocalCodexCount,
     items_source_fixed_candidates: sourceFixedCandidateCount,
+    items_superseded_sync_candidates: supersededSyncCandidateCount,
     items_claimed: statusCounts['local-codex-claimed'] || 0,
     items_finished: statusCounts['local-codex-finished'] || 0,
     items_blocked: statusCounts.blocked || 0,
@@ -501,6 +515,7 @@ function validateCampaignState(state = {}) {
     'items_needing_local_codex',
     'items_actionable_local_codex',
     'items_source_fixed_candidates',
+    'items_superseded_sync_candidates',
     'items_claimed',
     'items_finished',
     'items_blocked',
@@ -667,6 +682,7 @@ function formatCampaignBody(state) {
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
+    `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     '',
     '## Local Queue',
     '',
@@ -686,6 +702,12 @@ function formatCampaignBody(state) {
     '',
     '</details>',
     '',
+    '<details><summary>Superseded sync candidates</summary>',
+    '',
+    ...formatSupersededSyncCandidateDetails(state.items),
+    '',
+    '</details>',
+    '',
     formatCampaignMarker(state),
   ];
   const body = lines.join('\n');
@@ -697,7 +719,8 @@ function formatCampaignBody(state) {
 
 function formatItemDetails(items = []) {
   const lines = [];
-  const detailItems = cleanArray(items).filter((item) => !isSourceFixedCandidate(item));
+  const detailItems = cleanArray(items)
+    .filter((item) => !isSourceFixedCandidate(item) && !isSupersededSyncCandidate(item));
   for (const item of detailItems.slice(0, MAX_DETAIL_ITEMS)) {
     lines.push(`### ${item.status}: ${item.repo}#${item.pr_number}`);
     lines.push('');
@@ -764,6 +787,32 @@ function formatSourceFixedCandidateDetails(items = []) {
   return lines.length ? lines : ['No source-fixed candidates retained.'];
 }
 
+function formatSupersededSyncCandidateDetails(items = []) {
+  const lines = [];
+  const candidates = cleanArray(items)
+    .filter((item) => isSupersededSyncCandidate(item) && !isSourceFixedCandidate(item));
+  for (const item of candidates.slice(0, MAX_DETAIL_ITEMS)) {
+    lines.push(`### ${item.repo}#${item.pr_number}`);
+    lines.push('');
+    lines.push(`- Status: ${item.status}`);
+    lines.push(`- Source repo: ${item.source_repo || '-'}`);
+    lines.push(
+      `- Source sync state: ${item.source_sync.status || 'unknown'} ` +
+        `(PR ${item.source_sync.pr_sync_hash || '-'} / current ${item.source_sync.current_sync_hash || '-'})`
+    );
+    for (const thread of cleanArray(item.review_threads).slice(0, 2)) {
+      const location = `${thread.path || '-'}${thread.line ? `:${thread.line}` : ''}`;
+      lines.push(`  - ${markdownLink(location, thread.url)} (${thread.author || 'bot'}): ${truncate(thread.body_preview, 120)}`);
+    }
+    lines.push('');
+  }
+  const remaining = Math.max(0, candidates.length - MAX_DETAIL_ITEMS);
+  if (remaining > 0) {
+    lines.push(`Additional superseded sync candidates omitted from the rendered issue body: ${remaining}.`);
+  }
+  return lines.length ? lines : ['No superseded sync candidates retained.'];
+}
+
 function formatCompactCampaignBody(state) {
   const stats = state.stats || {};
   const queueItems = cleanArray(state.items)
@@ -787,6 +836,7 @@ function formatCompactCampaignBody(state) {
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
+    `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     '',
     '| Status | PR | Threads |',
     '| --- | --- | ---: |',
@@ -1149,6 +1199,8 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
+    `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
+    `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     `- Items claimed: ${stats.items_claimed || 0}`,
     `- Items blocked: ${stats.items_blocked || 0}`,
     `- State validation: ${validation.status}`,

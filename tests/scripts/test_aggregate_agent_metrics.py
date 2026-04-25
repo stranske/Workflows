@@ -68,6 +68,25 @@ def test_build_summary_formats_sections() -> None:
     assert "Terminal disposition sources: source-issue:99 (1)" in summary
 
 
+def test_autopilot_needs_human_rate_uses_escalations_not_issue_ids() -> None:
+    entries = [
+        {
+            "metric_type": "escalation",
+            "escalation_reason": "needs-human-review",
+        },
+        {
+            "metric_type": "escalation",
+            "escalation_reason": "rate-limit",
+        },
+    ]
+
+    summary = aggregate_agent_metrics.build_summary(entries, errors=0)
+
+    assert "Issues: 0" in summary
+    assert "Escalations: 2" in summary
+    assert "Needs-human escalation rate: 50.0% (1/2)" in summary
+
+
 def test_main_writes_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     keepalive_path = tmp_path / "keepalive.ndjson"
     autofix_path = tmp_path / "autofix.ndjson"
@@ -177,6 +196,21 @@ def test_read_ndjson_counts_parse_errors(tmp_path: Path) -> None:
 
     assert entries == [{"key": "value"}]
     assert errors == 2
+
+
+def test_read_ndjson_streams_file_lines(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    path = tmp_path / "metrics.ndjson"
+    path.write_text('{"key": "value"}\n', encoding="utf-8")
+
+    def fail_read_text(*_args: object, **_kwargs: object) -> str:
+        raise AssertionError("read_text should not be used for metrics NDJSON")
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    entries, errors = aggregate_agent_metrics._read_ndjson([path])
+
+    assert entries == [{"key": "value"}]
+    assert errors == 0
 
 
 def test_read_ndjson_counts_unreadable_file(tmp_path: Path) -> None:
@@ -360,7 +394,7 @@ def test_autopilot_metrics_summarised() -> None:
     assert "step-failed (1)" in summary
 
 
-def test_autopilot_needs_human_rate_is_na_without_issue_denominator() -> None:
+def test_autopilot_needs_human_rate_does_not_require_issue_denominator() -> None:
     summary = aggregate_agent_metrics.build_summary(
         [
             {
@@ -371,7 +405,7 @@ def test_autopilot_needs_human_rate_is_na_without_issue_denominator() -> None:
         errors=0,
     )
 
-    assert "Needs-human rate: n/a" in summary
+    assert "Needs-human escalation rate: 100.0% (1/1)" in summary
 
 
 def test_classify_autopilot_step_entry() -> None:

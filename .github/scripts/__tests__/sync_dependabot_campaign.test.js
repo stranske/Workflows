@@ -185,12 +185,24 @@ test('buildQueueItem marks old sync branches as superseded by the current templa
       },
     ],
   });
-  const body = formatCampaignBody({ items: [item], stats: {}, updated_at: 'now' });
+  const state = mergeCampaignState(
+    {},
+    [item],
+    '2026-04-21T05:52:00Z',
+    { reposRequested: 1, reposChecked: 1 },
+  );
+  const body = formatCampaignBody(state);
   const markerItem = parseCampaignMarker(formatCampaignMarker({ items: [item] })).items[0];
 
   assert.equal(item.source_sync.status, 'superseded');
   assert.equal(item.source_sync.pr_sync_hash, 'oldhash123456');
+  assert.equal(state.stats.items_needing_local_codex, 0);
+  assert.equal(state.stats.items_actionable_local_codex, 0);
+  assert.equal(state.stats.items_superseded_sync_candidates, 1);
+  assert.equal(state.stats.status_counts['needs-local-codex'], 1);
   assert.equal(markerItem.source_sync.status, 'superseded');
+  assert.match(body, /No local Codex work is queued/);
+  assert.match(body, /Superseded sync candidates: 1/);
   assert.match(body, /Source sync state: superseded/);
 });
 
@@ -444,6 +456,7 @@ test('formatCampaignBody keeps source-fixed candidates out of the visible local 
       items_needing_local_codex: 1,
       items_actionable_local_codex: 1,
       items_source_fixed_candidates: 1,
+      items_superseded_sync_candidates: 0,
       status_counts: { 'needs-local-codex': 2 },
     },
     items: [
@@ -493,6 +506,74 @@ test('formatCampaignBody keeps source-fixed candidates out of the visible local 
   assert.match(body, /\| needs-local-codex \| \[stranske\/App#23\]/);
   assert.doesNotMatch(body, /\| needs-local-codex \| \[stranske\/App#22\]/);
   assert.match(body, /### stranske\/App#22/);
+});
+
+test('formatCampaignBody keeps superseded sync candidates out of the visible local queue', () => {
+  const state = {
+    schema: 'sync-dependabot-campaign/v1',
+    updated_at: '2026-04-21T05:52:00Z',
+    stats: {
+      repos_requested: 1,
+      repos_checked: 1,
+      active_review_threads: 2,
+      items_needing_local_codex: 1,
+      items_actionable_local_codex: 1,
+      items_source_fixed_candidates: 0,
+      items_superseded_sync_candidates: 1,
+      status_counts: { 'needs-local-codex': 2 },
+    },
+    items: [
+      {
+        id: 'sync-review-comments:stranske/App#22:abc',
+        status: 'needs-local-codex',
+        kind: 'sync-review-comments',
+        classification: 'sync',
+        repo: 'stranske/App',
+        pr_number: 22,
+        pr_title: 'old sync branch',
+        pr_url: 'https://github.com/stranske/App/pull/22',
+        source_repo: 'stranske/Workflows',
+        preferred_workdir: 'Workflows',
+        source_sync: {
+          schema: 'sync-dependabot-campaign-source-sync/v1',
+          current_sync_hash: 'newhash',
+          pr_sync_hash: 'oldhash',
+          status: 'superseded',
+        },
+        review_thread_count: 1,
+        review_threads: [],
+      },
+      {
+        id: 'sync-review-comments:stranske/App#23:def',
+        status: 'needs-local-codex',
+        kind: 'sync-review-comments',
+        classification: 'sync',
+        repo: 'stranske/App',
+        pr_number: 23,
+        pr_title: 'current sync branch',
+        pr_url: 'https://github.com/stranske/App/pull/23',
+        source_repo: 'stranske/Workflows',
+        preferred_workdir: 'Workflows',
+        source_sync: {
+          schema: 'sync-dependabot-campaign-source-sync/v1',
+          current_sync_hash: 'newhash',
+          pr_sync_hash: 'newhash',
+          status: 'current',
+        },
+        review_thread_count: 1,
+        review_threads: [],
+      },
+    ],
+  };
+
+  const body = formatCampaignBody(state);
+
+  assert.match(body, /Items needing local Codex: 1/);
+  assert.match(body, /Superseded sync candidates: 1/);
+  assert.match(body, /\| needs-local-codex \| \[stranske\/App#23\]/);
+  assert.doesNotMatch(body, /\| needs-local-codex \| \[stranske\/App#22\]/);
+  assert.match(body, /### stranske\/App#22/);
+  assert.match(body, /Source sync state: superseded/);
 });
 
 test('paginateWithRetry uses the paginated GitHub API', async () => {

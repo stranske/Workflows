@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Aggregate agent metrics NDJSON into a markdown summary."""
 
 from __future__ import annotations
@@ -55,23 +55,24 @@ def _read_ndjson(files: Iterable[Path]) -> tuple[list[dict[str, Any]], int]:
     errors = 0
     for path in files:
         try:
-            content = path.read_text(encoding="utf-8")
+            handle = path.open("r", encoding="utf-8")
         except OSError:
             errors += 1
             continue
-        for line in content.splitlines():
-            raw = line.strip()
-            if not raw:
-                continue
-            try:
-                parsed = json.loads(raw)
-            except json.JSONDecodeError:
-                errors += 1
-                continue
-            if isinstance(parsed, dict):
-                entries.append(parsed)
-            else:
-                errors += 1
+        with handle:
+            for line in handle:
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError:
+                    errors += 1
+                    continue
+                if isinstance(parsed, dict):
+                    entries.append(parsed)
+                else:
+                    errors += 1
     return entries, errors
 
 
@@ -398,7 +399,7 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
                 f"- Issues: {autopilot['issues']}",
                 f"- Total step executions: {autopilot['total_steps']}",
                 f"- Escalations: {autopilot['escalation_count']}",
-                f"- Needs-human rate: {_format_rate(autopilot['needs_human_count'], autopilot['issues'])}",
+                f"- Needs-human escalation rate: {_format_rate(autopilot['needs_human_count'], autopilot['escalation_count'])}",
                 f"- Escalation reasons: {_format_counter(autopilot['escalation_reasons'])}",
                 f"- Failure reasons: {_format_counter(autopilot['failure_reasons'])}",
             ]
