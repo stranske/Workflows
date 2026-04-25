@@ -273,6 +273,18 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             "artifacts/metric-artifacts-selection.json" in text
         ), "Weekly metrics must include selector JSON in uploaded artifacts"
         assert (
+            "uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6" in text
+        ), "Weekly metrics must pin the Node runtime setup action to the v6 commit SHA"
+        assert (
+            'node-version: "20"' in text
+        ), "Weekly metrics must run its Node helpers on an explicit Node 20 runtime"
+        assert text.index("Setup Node") < text.index(
+            "Install GitHub API dependencies"
+        ), "Weekly metrics must setup Node before installing API dependencies"
+        assert text.index("Setup Node") < text.index(
+            "node .github/scripts/weekly_metrics_artifacts.js"
+        ), "Weekly metrics must setup Node before invoking selector helpers"
+        assert (
             "if: ${{ always() }}" in text
         ), "Weekly metrics artifact upload must run after selector failures"
         assert (
