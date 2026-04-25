@@ -90,7 +90,19 @@ def remote_open_issue_count(repo: str) -> int | None:
     if shutil.which("gh") is None:
         return None
     result = subprocess.run(
-        ["gh", "issue", "list", "--repo", repo, "--state", "open", "--limit", "200", "--json", "number"],
+        [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--limit",
+            "200",
+            "--json",
+            "number",
+        ],
         check=False,
         capture_output=True,
         text=True,
@@ -199,7 +211,11 @@ def collect_repo_state(workspace_root: Path, repo: RepoConfig) -> dict[str, Any]
         for rel in ["README.md", "docs/DEVELOPMENT_PLAN.md", "docs/plans/LONG_TERM_PLAN.md"]
         if (repo_path / rel).is_file()
     ]
-    report_files = sorted((repo_path / "docs" / "reports").glob("*.md")) if (repo_path / "docs" / "reports").is_dir() else []
+    report_files = (
+        sorted((repo_path / "docs" / "reports").glob("*.md"))
+        if (repo_path / "docs" / "reports").is_dir()
+        else []
+    )
 
     decision = "not scheduled"
     if repo.status != "active":
@@ -379,7 +395,8 @@ def write_packet(output_dir: Path, states: list[dict[str, Any]], generated_on: s
                 "productive_count": len(productive),
                 "needs_human_count": len(needs_human),
                 "repos": [
-                    {key: value for key, value in state.items() if key != "drafts"} for state in states
+                    {key: value for key, value in state.items() if key != "drafts"}
+                    for state in states
                 ],
             },
             indent=2,
@@ -412,11 +429,7 @@ def main() -> None:
     generated_on = args.date or date.today().isoformat()
 
     workspace_root, _excluded, repos = load_registry(registry_path)
-    states = [
-        collect_repo_state(workspace_root, repo)
-        for repo in repos
-        if repo.status in statuses
-    ]
+    states = [collect_repo_state(workspace_root, repo) for repo in repos if repo.status in statuses]
     for state in states:
         write_repo_artifacts(output_dir, state, max_drafts=args.max_drafts_per_repo)
     write_packet(output_dir, states, generated_on)
