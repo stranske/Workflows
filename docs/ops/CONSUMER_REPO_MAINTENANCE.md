@@ -192,6 +192,10 @@ templates/manifest entries and the registered consumer repos. It runs daily and
 after template/manifest/script changes.
 
 - Files marked with `sync_mode: create_only` are excluded.
+- The uploaded `consumer-sync-drift-report` artifact uses
+  `workflows-consumer-sync-drift/v1` and includes safe
+  `token_diagnostics` (`workflows-drift-token-selection/v1`) so permission or
+  rate-limit failures are distinguishable from real file drift.
 - **Workflows-Integration-Tests** is **not** a consumer repo and is validated by
   [Health 67 Integration Sync Check](../../.github/workflows/health-67-integration-sync-check.yml).
 

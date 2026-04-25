@@ -16,6 +16,18 @@ import yaml
 REPORT_SCHEMA = "workflows-consumer-sync-drift/v1"
 SUMMARY_ITEM_LIMIT = 50
 CONTENT_ERROR_THRESHOLD = 5
+TOKEN_ENV_ORDER = (
+    "DRIFT_TOKEN",
+    "SERVICE_BOT_PAT",
+    "OWNER_PR_PAT",
+    "ACTIONS_BOT_PAT",
+    "AGENTS_AUTOMATION_PAT",
+    "CODESPACES_WORKFLOWS",
+    "GITHUB_TOKEN",
+    "GH_TOKEN",
+)
+TOKEN_PROBE_REPO_LIMIT = 3
+TOKEN_PROBE_PATH_LIMIT = 3
 
 
 def join_remote_path(base: str, *parts: object) -> str:
@@ -96,6 +108,146 @@ def file_hash(content: bytes) -> str:
 
 def sorted_items(values: set[str]) -> list[str]:
     return sorted(values)
+
+
+def token_candidates(env: dict[str, str] | None = None) -> list[dict[str, str]]:
+    """Return deduplicated token candidates without exposing token values."""
+    values = env if env is not None else os.environ
+    candidates: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for source in TOKEN_ENV_ORDER:
+        token = str(values.get(source, "")).strip()
+        if not token or token in seen:
+            continue
+        seen.add(token)
+        candidates.append({"source": source, "token": token})
+    return candidates
+
+
+def response_message(response: object) -> str:
+    try:
+        payload = response.json()  # type: ignore[attr-defined]
+    except Exception:
+        return ""
+    if isinstance(payload, dict):
+        message = payload.get("message")
+        if isinstance(message, str):
+            return message
+    return ""
+
+
+def response_failure_reason(response: object) -> str:
+    status_code = getattr(response, "status_code", "unknown")
+    headers = getattr(response, "headers", {}) or {}
+    remaining = str(headers.get("x-ratelimit-remaining", ""))
+    message = response_message(response)
+    if str(status_code) == "403" and remaining == "0":
+        return "rate_limited"
+    if message:
+        return f"HTTP {status_code}: {message}"
+    return f"HTTP {status_code}"
+
+
+def session_for_token(token: str, session_factory=requests.Session) -> requests.Session:
+    session = session_factory()
+    session.headers.update(
+        {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        }
+    )
+    return session
+
+
+def probe_targets(manifest: dict[str, object], sections: list[str]) -> list[str]:
+    targets: list[str] = []
+    for section in sections:
+        entries = manifest.get(section, [])
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            source = entry.get("source")
+            if not source or entry.get("sync_mode") == "create_only":
+                continue
+            target = str(entry.get("target", source))
+            local_path = local_path_for(str(source), section)
+            if not local_path:
+                continue
+            if entry.get("is_directory") or local_path.is_dir():
+                first_child = next(
+                    (child for child in sorted(local_path.rglob("*")) if child.is_file()), None
+                )
+                if first_child:
+                    targets.append(join_remote_path(target, first_child.relative_to(local_path)))
+            else:
+                targets.append(target)
+            if len(targets) >= TOKEN_PROBE_PATH_LIMIT:
+                return targets
+    return targets
+
+
+def select_read_token(
+    *,
+    candidates: list[dict[str, str]],
+    repos: list[str],
+    paths: list[str],
+    session_factory=requests.Session,
+) -> tuple[requests.Session | None, dict[str, object]]:
+    """Select a token that can read consumer repo contents, with safe diagnostics."""
+    diagnostics: dict[str, object] = {
+        "schema": "workflows-drift-token-selection/v1",
+        "attempted_sources": [candidate["source"] for candidate in candidates],
+        "selected_source": "",
+        "rejected": [],
+        "probe_repos": repos[:TOKEN_PROBE_REPO_LIMIT],
+        "probe_paths": paths[:TOKEN_PROBE_PATH_LIMIT],
+    }
+    rejected = diagnostics["rejected"]
+    assert isinstance(rejected, list)
+
+    if not candidates:
+        diagnostics["error"] = "no_token_candidates"
+        return None, diagnostics
+    if not repos:
+        diagnostics["error"] = "no_repos_to_probe"
+        return None, diagnostics
+
+    probe_paths = paths[:TOKEN_PROBE_PATH_LIMIT] or [""]
+    for candidate in candidates:
+        source = candidate["source"]
+        session = session_for_token(candidate["token"], session_factory=session_factory)
+        first_failure = ""
+        for repo in repos[:TOKEN_PROBE_REPO_LIMIT]:
+            repo_response = session.get(f"https://api.github.com/repos/{repo}")
+            if repo_response.status_code >= 400:
+                first_failure = (
+                    first_failure
+                    or f"repo preflight failed for {repo}: {response_failure_reason(repo_response)}"
+                )
+                continue
+            for path in probe_paths:
+                if not path:
+                    diagnostics["selected_source"] = source
+                    return session, diagnostics
+                content_response = session.get(
+                    f"https://api.github.com/repos/{repo}/contents/{path}"
+                )
+                if content_response.status_code in {200, 404}:
+                    diagnostics["selected_source"] = source
+                    diagnostics["probe_repo"] = repo
+                    diagnostics["probe_path"] = path
+                    return session, diagnostics
+                first_failure = (
+                    first_failure
+                    or f"content preflight failed for {repo}/{path}: "
+                    f"{response_failure_reason(content_response)}"
+                )
+        rejected.append({"source": source, "reason": first_failure or "no readable probe target"})
+
+    diagnostics["error"] = "no_usable_token"
+    return None, diagnostics
 
 
 def split_report_item(item: str) -> tuple[str, str]:
@@ -196,6 +348,7 @@ def build_report(
     missing: set[str],
     errors: set[str],
     obsolete: set[str],
+    token_diagnostics: dict[str, object] | None = None,
 ) -> dict[str, object]:
     counts = {
         "drift": len(drift),
@@ -213,7 +366,7 @@ def build_report(
     )
     top_repo_gaps = build_top_repo_gaps(repo_summaries)
     targeted_repos = [str(item["repo"]) for item in top_repo_gaps]
-    return {
+    report: dict[str, object] = {
         "schema": REPORT_SCHEMA,
         "status": status,
         "repo_count": len(repos),
@@ -250,6 +403,9 @@ def build_report(
         "errors": sorted_items(errors),
         "obsolete": sorted_items(obsolete),
     }
+    if token_diagnostics:
+        report["token_diagnostics"] = token_diagnostics
+    return report
 
 
 def write_summary_markdown(path: str, report: dict[str, object]) -> None:
@@ -392,8 +548,8 @@ def main() -> int:
         )
         return 1
 
-    token = os.environ.get("DRIFT_TOKEN") or os.environ.get("GITHUB_TOKEN", "")
-    if not token:
+    candidates = token_candidates()
+    if not candidates:
         print("::error::No GitHub token available for cross-repo reads")
         write_report_json(
             args.report_json,
@@ -403,6 +559,10 @@ def main() -> int:
                 missing=set(),
                 errors={"No GitHub token available for cross-repo reads"},
                 obsolete=set(),
+                token_diagnostics={
+                    "schema": "workflows-drift-token-selection/v1",
+                    "error": "no_token_candidates",
+                },
             ),
         )
         return 1
@@ -423,13 +583,25 @@ def main() -> int:
         "user_docs",
     ]
 
-    session = requests.Session()
-    session.headers.update(
-        {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-        }
+    session, token_diagnostics = select_read_token(
+        candidates=candidates,
+        repos=repos,
+        paths=probe_targets(manifest, sections),
     )
+    if session is None:
+        print("::error::No usable GitHub token available for consumer repo contents reads")
+        write_report_json(
+            args.report_json,
+            build_report(
+                repos=repos,
+                drift=set(),
+                missing=set(),
+                errors={"No usable GitHub token available for consumer repo contents reads"},
+                obsolete=set(),
+                token_diagnostics=token_diagnostics,
+            ),
+        )
+        return 1
 
     drift: set[str] = set()
     missing: set[str] = set()
@@ -531,6 +703,7 @@ def main() -> int:
         missing=missing,
         errors=errors,
         obsolete=obsolete,
+        token_diagnostics=token_diagnostics,
     )
     write_report_json(args.report_json, report)
     write_summary_markdown(args.summary, report)

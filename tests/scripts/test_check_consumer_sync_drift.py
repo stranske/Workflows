@@ -4,12 +4,18 @@ from scripts import check_consumer_sync_drift
 
 
 def test_build_report_returns_machine_readable_counts() -> None:
+    token_diagnostics = {
+        "schema": "workflows-drift-token-selection/v1",
+        "attempted_sources": ["SERVICE_BOT_PAT"],
+        "selected_source": "SERVICE_BOT_PAT",
+    }
     report = check_consumer_sync_drift.build_report(
         repos=["owner/b", "owner/a"],
         drift={"owner/b: .github/workflows/a.yml"},
         missing={"owner/a: .github/scripts/a.js"},
         errors=set(),
         obsolete={"owner/a: old.yml"},
+        token_diagnostics=token_diagnostics,
     )
 
     assert report["schema"] == "workflows-consumer-sync-drift/v1"
@@ -49,6 +55,106 @@ def test_build_report_returns_machine_readable_counts() -> None:
     }
     assert report["summary_limits"]["content_error_threshold_per_repo"] == 5
     assert report["drift"] == ["owner/b: .github/workflows/a.yml"]
+    assert report["token_diagnostics"] == token_diagnostics
+
+
+def test_token_candidates_deduplicates_without_exposing_values() -> None:
+    candidates = check_consumer_sync_drift.token_candidates(
+        {
+            "OWNER_PR_PAT": "same-token",
+            "SERVICE_BOT_PAT": "service-token",
+            "GH_TOKEN": "same-token",
+            "GITHUB_TOKEN": "same-token",
+        }
+    )
+
+    assert candidates == [
+        {"source": "SERVICE_BOT_PAT", "token": "service-token"},
+        {"source": "OWNER_PR_PAT", "token": "same-token"},
+    ]
+
+
+def test_select_read_token_rejects_rate_limited_candidate() -> None:
+    class Response:
+        def __init__(self, status_code: int, message: str = "", remaining: str = "42") -> None:
+            self.status_code = status_code
+            self.headers = {"x-ratelimit-remaining": remaining}
+            self._message = message
+
+        def json(self) -> dict[str, str]:
+            return {"message": self._message}
+
+    class Session:
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {}
+
+        def get(self, url: str) -> Response:
+            token = self.headers["Authorization"].removeprefix("Bearer ")
+            if token == "rate-limited":
+                if "/contents/" in url:
+                    return Response(403, "API rate limit exceeded", "0")
+                return Response(200)
+            if token == "service-token":
+                return Response(200)
+            return Response(403, "Resource not accessible by token")
+
+    session, diagnostics = check_consumer_sync_drift.select_read_token(
+        candidates=[
+            {"source": "OWNER_PR_PAT", "token": "rate-limited"},
+            {"source": "SERVICE_BOT_PAT", "token": "service-token"},
+        ],
+        repos=["owner/repo"],
+        paths=[".github/workflows/agents.yml"],
+        session_factory=Session,
+    )
+
+    assert session is not None
+    assert diagnostics["selected_source"] == "SERVICE_BOT_PAT"
+    assert diagnostics["rejected"] == [
+        {
+            "source": "OWNER_PR_PAT",
+            "reason": (
+                "content preflight failed for owner/repo/.github/workflows/agents.yml: "
+                "rate_limited"
+            ),
+        }
+    ]
+
+
+def test_select_read_token_reports_no_usable_token() -> None:
+    class Response:
+        status_code = 403
+        headers = {"x-ratelimit-remaining": "42"}
+
+        def json(self) -> dict[str, str]:
+            return {"message": "Resource not accessible by token"}
+
+    class Session:
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {}
+
+        def get(self, _url: str) -> Response:
+            return Response()
+
+    session, diagnostics = check_consumer_sync_drift.select_read_token(
+        candidates=[{"source": "GITHUB_TOKEN", "token": "repo-token"}],
+        repos=["owner/private"],
+        paths=[".github/workflows/agents.yml"],
+        session_factory=Session,
+    )
+
+    assert session is None
+    assert diagnostics["error"] == "no_usable_token"
+    assert diagnostics["selected_source"] == ""
+    assert diagnostics["rejected"] == [
+        {
+            "source": "GITHUB_TOKEN",
+            "reason": (
+                "repo preflight failed for owner/private: "
+                "HTTP 403: Resource not accessible by token"
+            ),
+        }
+    ]
 
 
 def test_write_report_json_creates_parent_directory(tmp_path) -> None:

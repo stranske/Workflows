@@ -159,6 +159,9 @@ def test_consumer_sync_drift_uploads_machine_readable_report():
     assert (
         "consumer-sync-drift-report" in text
     ), "Health 68 must upload the drift report as a GitHub-visible artifact"
+    assert (
+        "DRIFT_TOKEN:" not in text
+    ), "Health 68 must let the checker choose a usable exported read token at runtime"
 
 
 def test_merge_sync_prs_uploads_machine_readable_report_and_hash_input():

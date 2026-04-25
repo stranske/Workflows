@@ -56,8 +56,6 @@ jobs:
       - name: Compare consumer repos to templates
         id: compare
         env:
-          DRIFT_TOKEN: >-
-            ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || secrets.GITHUB_TOKEN }}
           CONSUMER_SYNC_DRIFT_REPORT_JSON: artifacts/consumer-sync-drift-report.json
           INPUT_REPOS: ${{ inputs.repos }}
         run: |
