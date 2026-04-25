@@ -151,6 +151,12 @@ def test_consumer_sync_drift_uploads_machine_readable_report():
         '--report-json "$CONSUMER_SYNC_DRIFT_REPORT_JSON"' in text
     ), "Health 68 must pass the drift report path into the checker"
     assert (
+        '--summary "$GITHUB_STEP_SUMMARY"' in text
+    ), "Health 68 must publish the report summary into the workflow run"
+    assert (
+        "consumer_sync_drift_issue_body.js" in text
+    ), "Health 68 issue payload must use the structured drift report"
+    assert (
         "consumer-sync-drift-report" in text
     ), "Health 68 must upload the drift report as a GitHub-visible artifact"
 

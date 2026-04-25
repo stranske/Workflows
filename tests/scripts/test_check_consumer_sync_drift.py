@@ -25,11 +25,27 @@ def test_build_report_returns_machine_readable_counts() -> None:
         "owner/a": {"drift": 0, "missing": 1, "errors": 0, "obsolete": 1},
         "owner/b": {"drift": 1, "missing": 0, "errors": 0, "obsolete": 0},
     }
+    assert report["repo_summary_count"] == 2
+    assert report["top_repo_gaps"] == [
+        {"repo": "owner/a", "total": 2, "drift": 0, "missing": 1, "errors": 0, "obsolete": 1},
+        {"repo": "owner/b", "total": 1, "drift": 1, "missing": 0, "errors": 0, "obsolete": 0},
+    ]
     assert report["path_prefix_counts"] == {
         "drift": {".github/workflows": 1},
         "missing": {".github/scripts": 1},
         "errors": {},
         "obsolete": {"old.yml": 1},
+    }
+    assert report["follow_up"] == {
+        "workflow": "maint-68-sync-consumer-repos.yml",
+        "all_repos_command": (
+            "gh workflow run maint-68-sync-consumer-repos.yml "
+            "--repo stranske/Workflows --ref main"
+        ),
+        "targeted_repos_command": (
+            "gh workflow run maint-68-sync-consumer-repos.yml "
+            "--repo stranske/Workflows --ref main -f repos=owner/a,owner/b"
+        ),
     }
     assert report["summary_limits"]["content_error_threshold_per_repo"] == 5
     assert report["drift"] == ["owner/b: .github/workflows/a.yml"]
@@ -69,8 +85,27 @@ def test_write_summary_markdown_groups_and_bounds_items(tmp_path) -> None:
     assert "### Counts" in contents
     assert "- drift: 55" in contents
     assert "- owner/repo: drift=55, missing=1, errors=0, obsolete=0" in contents
+    assert "- owner/repo: total=56, drift=55, missing=1, errors=0, obsolete=0" in contents
     assert "- drift: .github/workflows=55" in contents
+    assert "gh workflow run maint-68-sync-consumer-repos.yml" in contents
     assert "... 5 more in consumer-sync-drift-report.json" in contents
+
+
+def test_join_remote_path_normalizes_manifest_directory_targets() -> None:
+    assert (
+        check_consumer_sync_drift.join_remote_path(
+            ".github/scripts/node_modules/minimatch/",
+            "dist/commonjs/index.js",
+        )
+        == ".github/scripts/node_modules/minimatch/dist/commonjs/index.js"
+    )
+    assert (
+        check_consumer_sync_drift.join_remote_path(
+            ".github/actions/setup-api-client/",
+            "/action.yml",
+        )
+        == ".github/actions/setup-api-client/action.yml"
+    )
 
 
 def test_record_content_error_skips_after_threshold() -> None:

@@ -18,6 +18,13 @@ SUMMARY_ITEM_LIMIT = 50
 CONTENT_ERROR_THRESHOLD = 5
 
 
+def join_remote_path(base: str, *parts: object) -> str:
+    """Join manifest target fragments without creating API paths with doubled slashes."""
+    fragments = [str(base).strip("/")]
+    fragments.extend(str(part).strip("/") for part in parts if str(part))
+    return "/".join(fragment for fragment in fragments if fragment)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Check consumer repos for drift against Workflows templates and manifest entries."
@@ -124,6 +131,20 @@ def build_prefix_counts(items: set[str]) -> dict[str, int]:
     return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
 
 
+def build_top_repo_gaps(
+    repo_summaries: dict[str, dict[str, int]], limit: int = 10
+) -> list[dict[str, object]]:
+    gaps: list[dict[str, object]] = []
+    for repo, counts in repo_summaries.items():
+        total = sum(
+            int(counts.get(category, 0)) for category in ("drift", "missing", "errors", "obsolete")
+        )
+        if total <= 0:
+            continue
+        gaps.append({"repo": repo, "total": total, **counts})
+    return sorted(gaps, key=lambda item: (-int(item["total"]), str(item["repo"])))[:limit]
+
+
 def record_content_error(
     *,
     errors: set[str],
@@ -162,24 +183,42 @@ def build_report(
         "obsolete": len(obsolete),
     }
     status = "pass" if all(value == 0 for value in counts.values()) else "drift"
+    repo_summaries = build_repo_summaries(
+        repos=repos,
+        drift=drift,
+        missing=missing,
+        errors=errors,
+        obsolete=obsolete,
+    )
+    top_repo_gaps = build_top_repo_gaps(repo_summaries)
+    targeted_repos = [str(item["repo"]) for item in top_repo_gaps]
     return {
         "schema": REPORT_SCHEMA,
         "status": status,
         "repo_count": len(repos),
         "repos": repos,
         "counts": counts,
-        "repo_summaries": build_repo_summaries(
-            repos=repos,
-            drift=drift,
-            missing=missing,
-            errors=errors,
-            obsolete=obsolete,
-        ),
+        "repo_summaries": repo_summaries,
+        "repo_summary_count": len(repo_summaries),
+        "top_repo_gaps": top_repo_gaps,
         "path_prefix_counts": {
             "drift": build_prefix_counts(drift),
             "missing": build_prefix_counts(missing),
             "errors": build_prefix_counts(errors),
             "obsolete": build_prefix_counts(obsolete),
+        },
+        "follow_up": {
+            "workflow": "maint-68-sync-consumer-repos.yml",
+            "all_repos_command": (
+                "gh workflow run maint-68-sync-consumer-repos.yml "
+                "--repo stranske/Workflows --ref main"
+            ),
+            "targeted_repos_command": (
+                "gh workflow run maint-68-sync-consumer-repos.yml "
+                f"--repo stranske/Workflows --ref main -f repos={','.join(targeted_repos)}"
+                if targeted_repos
+                else ""
+            ),
         },
         "summary_limits": {
             "content_error_threshold_per_repo": CONTENT_ERROR_THRESHOLD,
@@ -222,6 +261,25 @@ def write_summary_markdown(path: str, report: dict[str, object]) -> None:
                 handle.write(f"- {repo}: {details}\n")
             handle.write("\n")
 
+        top_repo_gaps = report.get("top_repo_gaps", [])
+        if isinstance(top_repo_gaps, list) and top_repo_gaps:
+            handle.write("### Highest-impact repos\n")
+            for item in top_repo_gaps[:10]:
+                if not isinstance(item, dict):
+                    continue
+                handle.write(
+                    "- {repo}: total={total}, drift={drift}, missing={missing}, "
+                    "errors={errors}, obsolete={obsolete}\n".format(
+                        repo=item.get("repo", "unknown"),
+                        total=item.get("total", 0),
+                        drift=item.get("drift", 0),
+                        missing=item.get("missing", 0),
+                        errors=item.get("errors", 0),
+                        obsolete=item.get("obsolete", 0),
+                    )
+                )
+            handle.write("\n")
+
         path_prefix_counts = report.get("path_prefix_counts", {})
         if isinstance(path_prefix_counts, dict) and path_prefix_counts:
             handle.write("### Path prefixes\n")
@@ -231,6 +289,18 @@ def write_summary_markdown(path: str, report: dict[str, object]) -> None:
                 rendered = ", ".join(f"{prefix}={count}" for prefix, count in prefixes.items())
                 handle.write(f"- {category}: {rendered}\n")
             handle.write("\n")
+
+        follow_up = report.get("follow_up", {})
+        if isinstance(follow_up, dict):
+            all_repos_command = str(follow_up.get("all_repos_command", "")).strip()
+            targeted_repos_command = str(follow_up.get("targeted_repos_command", "")).strip()
+            if all_repos_command or targeted_repos_command:
+                handle.write("### Follow-up commands\n")
+                if all_repos_command:
+                    handle.write(f"- All repos: `{all_repos_command}`\n")
+                if targeted_repos_command:
+                    handle.write(f"- Top repos: `{targeted_repos_command}`\n")
+                handle.write("\n")
 
         for title, key in (
             ("Drift detected for", "drift"),
@@ -406,7 +476,7 @@ def main() -> int:
                     for child in sorted(local_path.rglob("*")):
                         if child.is_file():
                             rel = child.relative_to(local_path)
-                            remote_target = f"{target}/{rel}"
+                            remote_target = join_remote_path(target, rel)
                             _check_file(child, remote_target, repo)
                 else:
                     _check_file(local_path, target, repo)
