@@ -452,6 +452,28 @@ function isVisibleQueueItem(item = {}) {
   return isActionableLocalCodexItem(item) || item.status === 'local-codex-claimed';
 }
 
+function localCodexQueueState(item = {}) {
+  const status = cleanString(item.status) || 'unknown';
+  if (status === 'needs-local-codex') {
+    if (isSourceFixedCandidate(item)) return 'source-fixed-candidate';
+    if (isSupersededSyncCandidate(item)) return 'superseded-sync-candidate';
+    return 'actionable';
+  }
+  if (status === 'local-codex-claimed') return 'claimed';
+  if (status === 'local-codex-finished') return 'finished';
+  if (status === 'blocked') return 'blocked';
+  if (status === 'stale') return 'stale';
+  return status;
+}
+
+function localCodexQueueStateCounts(items = []) {
+  return cleanArray(items).reduce((counts, item) => {
+    const state = localCodexQueueState(item);
+    counts[state] = (counts[state] || 0) + 1;
+    return counts;
+  }, {});
+}
+
 function buildStats(items, discoveredItems, options = {}) {
   const statusCounts = items.reduce((counts, item) => {
     counts[item.status] = (counts[item.status] || 0) + 1;
@@ -481,6 +503,7 @@ function buildStats(items, discoveredItems, options = {}) {
     items_finished: statusCounts['local-codex-finished'] || 0,
     items_blocked: statusCounts.blocked || 0,
     status_counts: statusCounts,
+    local_codex_queue_state_counts: localCodexQueueStateCounts(items),
   };
 }
 
@@ -504,6 +527,7 @@ function deriveItemStats(items = []) {
     items_finished: statusCounts['local-codex-finished'] || 0,
     items_blocked: statusCounts.blocked || 0,
     status_counts: statusCounts,
+    local_codex_queue_state_counts: localCodexQueueStateCounts(queueItems),
   };
 }
 
@@ -536,6 +560,18 @@ function validateCampaignState(state = {}) {
     }
   }
 
+  const observedQueueStates = new Set([
+    ...Object.keys(stats.local_codex_queue_state_counts || {}),
+    ...Object.keys(derived.local_codex_queue_state_counts || {}),
+  ]);
+  for (const queueState of observedQueueStates) {
+    const actual = Number(stats.local_codex_queue_state_counts?.[queueState] || 0);
+    const expected = Number(derived.local_codex_queue_state_counts?.[queueState] || 0);
+    if (actual !== expected) {
+      blockers.push(`local-codex-queue-state-count-mismatch-${queueState}`);
+    }
+  }
+
   return {
     schema: 'sync-dependabot-campaign-validation/v1',
     status: blockers.length > 0 ? 'warning' : 'pass',
@@ -550,82 +586,97 @@ function formatCampaignMarker(state) {
 }
 
 function compactStateForMarker(state = {}) {
+  const stats = state.stats || {};
   return {
     schema: state.schema || CAMPAIGN_SCHEMA,
     updated_at: cleanString(state.updated_at),
     run_id: cleanString(state.run_id),
     controller: cleanString(state.controller),
-    stats: state.stats || {},
+    stats: {
+      ...stats,
+      local_codex_queue_state_counts:
+        stats.local_codex_queue_state_counts || localCodexQueueStateCounts(state.items),
+    },
     validation: state.validation || null,
     source_review_history: cleanArray(state.source_review_history)
       .map(compactSourceReviewHistoryEntry)
       .filter(Boolean),
-    items: cleanArray(state.items).map((item) => ({
-      id: cleanString(item.id),
-      status: cleanString(item.status),
-      kind: cleanString(item.kind),
-      classification: cleanString(item.classification),
-      repo: cleanString(item.repo),
-      pr_number: cleanInteger(item.pr_number),
-      pr_title: truncate(item.pr_title, 80),
-      pr_url: cleanString(item.pr_url),
-      head_ref: cleanString(item.head_ref),
-      head_sha: truncate(item.head_sha, 40),
-      base_ref: cleanString(item.base_ref),
-      source_repo: cleanString(item.source_repo),
-      preferred_workdir: cleanString(item.preferred_workdir),
-      source_sync: item.source_sync
-        ? {
-            schema: cleanString(item.source_sync.schema),
-            current_sync_hash: cleanString(item.source_sync.current_sync_hash),
-            pr_sync_hash: cleanString(item.source_sync.pr_sync_hash),
-            status: cleanString(item.source_sync.status),
-          }
-        : null,
-      review_signature: cleanString(item.review_signature),
-      source_review_key: cleanString(item.source_review_key),
-      source_fixed_candidate: item.source_fixed_candidate
-        ? {
-            matching_item_id: cleanString(item.source_fixed_candidate.matching_item_id),
-            matching_pr_url: cleanString(item.source_fixed_candidate.matching_pr_url),
-            finished_at: cleanString(item.source_fixed_candidate.finished_at),
-            result_summary: truncate(item.source_fixed_candidate.result_summary, 160),
-          }
-        : null,
-      review_thread_count: Number(item.review_thread_count || 0),
-      review_comment_count: Number(item.review_comment_count || 0),
-      first_seen_at: cleanString(item.first_seen_at),
-      updated_at: cleanString(item.updated_at),
-      claimed_at: cleanString(item.claimed_at),
-      finished_at: cleanString(item.finished_at),
-      stale_at: cleanString(item.stale_at),
-      attempts: Number(item.attempts || 0),
-      lease: item.lease
-        ? {
-            owner: cleanString(item.lease.owner),
-            expires_at: cleanString(item.lease.expires_at),
-          }
-        : null,
-      result: item.result
-        ? {
-            exit_code: item.result.exit_code,
-            error: truncate(item.result.error, 160),
-            log_path: item.result.log_path,
-            last_message_path: item.result.last_message_path,
-            summary: truncate(item.result.summary, 300),
-            workdir: item.result.workdir,
-          }
-        : null,
-      review_threads: cleanArray(item.review_threads).slice(0, 1).map((thread) => ({
-        id: cleanString(thread.id),
-        path: cleanString(thread.path),
-        line: cleanInteger(thread.line),
-        url: cleanString(thread.url),
-        author: cleanString(thread.author),
-        body_preview: truncate(thread.body_preview, 80),
-      })),
+    items: cleanArray(state.items).map(compactQueueItemForMarker),
+  };
+}
+
+function compactQueueItemForMarker(item = {}) {
+  const queueState = localCodexQueueState(item);
+  const compact = {
+    id: cleanString(item.id),
+    status: cleanString(item.status),
+    kind: cleanString(item.kind),
+    classification: cleanString(item.classification),
+    repo: cleanString(item.repo),
+    pr_number: cleanInteger(item.pr_number),
+    pr_title: truncate(item.pr_title, 80),
+    pr_url: cleanString(item.pr_url),
+    head_ref: cleanString(item.head_ref),
+    head_sha: truncate(item.head_sha, 40),
+    base_ref: cleanString(item.base_ref),
+    source_repo: cleanString(item.source_repo),
+    preferred_workdir: cleanString(item.preferred_workdir),
+    source_sync: item.source_sync
+      ? {
+          schema: cleanString(item.source_sync.schema),
+          current_sync_hash: cleanString(item.source_sync.current_sync_hash),
+          pr_sync_hash: cleanString(item.source_sync.pr_sync_hash),
+          status: cleanString(item.source_sync.status),
+        }
+      : null,
+    review_signature: cleanString(item.review_signature),
+    source_review_key: cleanString(item.source_review_key),
+    source_fixed_candidate: item.source_fixed_candidate
+      ? {
+          matching_item_id: cleanString(item.source_fixed_candidate.matching_item_id),
+          matching_pr_url: cleanString(item.source_fixed_candidate.matching_pr_url),
+          finished_at: cleanString(item.source_fixed_candidate.finished_at),
+          result_summary: truncate(item.source_fixed_candidate.result_summary, 160),
+        }
+      : null,
+    review_thread_count: Number(item.review_thread_count || 0),
+    review_comment_count: Number(item.review_comment_count || 0),
+    first_seen_at: cleanString(item.first_seen_at),
+    updated_at: cleanString(item.updated_at),
+    claimed_at: cleanString(item.claimed_at),
+    finished_at: cleanString(item.finished_at),
+    stale_at: cleanString(item.stale_at),
+    attempts: Number(item.attempts || 0),
+    lease: item.lease
+      ? {
+          owner: cleanString(item.lease.owner),
+          expires_at: cleanString(item.lease.expires_at),
+        }
+      : null,
+    result: item.result
+      ? {
+          exit_code: item.result.exit_code,
+          error: truncate(item.result.error, 160),
+          log_path: item.result.log_path,
+          last_message_path: item.result.last_message_path,
+          summary: truncate(item.result.summary, 300),
+          workdir: item.result.workdir,
+        }
+      : null,
+    review_threads: cleanArray(item.review_threads).slice(0, 1).map((thread) => ({
+      id: cleanString(thread.id),
+      path: cleanString(thread.path),
+      line: cleanInteger(thread.line),
+      url: cleanString(thread.url),
+      author: cleanString(thread.author),
+      body_preview: truncate(thread.body_preview, 80),
     })),
   };
+  if (queueState === 'source-fixed-candidate' || queueState === 'superseded-sync-candidate') {
+    compact.local_codex_queue_state = queueState;
+    compact.local_codex_actionable = false;
+  }
+  return compact;
 }
 
 function parseCampaignMarker(body) {
@@ -681,6 +732,7 @@ function formatCampaignBody(state) {
     `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
+    `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     '',
@@ -835,6 +887,7 @@ function formatCompactCampaignBody(state) {
     `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
+    `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     '',
@@ -1199,6 +1252,7 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
+    `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     `- Items claimed: ${stats.items_claimed || 0}`,
@@ -1337,6 +1391,9 @@ async function runCampaign({
   if (core && typeof core.setOutput === 'function') {
     core.setOutput('needs_local_codex', needsLocalCodex ? 'true' : 'false');
     core.setOutput('items_needing_local_codex', String(state.stats.items_needing_local_codex || 0));
+    core.setOutput('items_actionable_local_codex', String(state.stats.items_actionable_local_codex || 0));
+    core.setOutput('items_source_fixed_candidates', String(state.stats.items_source_fixed_candidates || 0));
+    core.setOutput('items_superseded_sync_candidates', String(state.stats.items_superseded_sync_candidates || 0));
     core.setOutput('campaign_issue_url', campaignIssue?.html_url || '');
   }
 

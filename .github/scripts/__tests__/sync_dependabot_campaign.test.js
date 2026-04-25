@@ -200,7 +200,12 @@ test('buildQueueItem marks old sync branches as superseded by the current templa
   assert.equal(state.stats.items_actionable_local_codex, 0);
   assert.equal(state.stats.items_superseded_sync_candidates, 1);
   assert.equal(state.stats.status_counts['needs-local-codex'], 1);
+  assert.deepEqual(state.stats.local_codex_queue_state_counts, {
+    'superseded-sync-candidate': 1,
+  });
   assert.equal(markerItem.source_sync.status, 'superseded');
+  assert.equal(markerItem.local_codex_queue_state, 'superseded-sync-candidate');
+  assert.equal(markerItem.local_codex_actionable, false);
   assert.match(body, /No local Codex work is queued/);
   assert.match(body, /Superseded sync candidates: 1/);
   assert.match(body, /Source sync state: superseded/);
@@ -353,7 +358,13 @@ test('mergeCampaignState flags repeated source-fixed review signatures without h
   assert.equal(state.stats.items_actionable_local_codex, 0);
   assert.equal(state.stats.items_source_fixed_candidates, 1);
   assert.equal(state.stats.status_counts['needs-local-codex'], 1);
+  assert.deepEqual(state.stats.local_codex_queue_state_counts, {
+    'source-fixed-candidate': 1,
+    finished: 1,
+  });
   assert.equal(markerItem.source_fixed_candidate.matching_item_id, finished.id);
+  assert.equal(markerItem.local_codex_queue_state, 'source-fixed-candidate');
+  assert.equal(markerItem.local_codex_actionable, false);
   assert.equal(marker.source_review_history[0].matching_item_id, finished.id);
   assert.match(body, /No local Codex work is queued/);
   assert.match(body, /Source-fixed candidates: 1/);
@@ -766,6 +777,7 @@ test('formats campaign run summary as compact artifact markdown', () => {
   assert.match(summary, /Campaign issue: https:\/\/github.com\/stranske\/Workflows\/issues\/99/);
   assert.match(summary, /Repos checked: 2\/3/);
   assert.match(summary, /Items needing local Codex: 1/);
+  assert.match(summary, /Actionable local Codex items: 1/);
   assert.match(summary, /State validation: pass/);
   assert.match(summary, /stranske\/Broken: GraphQL rate limit boundary hit/);
 });
@@ -792,6 +804,8 @@ test('validates campaign item stats against retained queue state', () => {
   assert.ok(validation.blockers.includes('stats-mismatch-items_needing_local_codex'));
   assert.ok(validation.blockers.includes('stats-mismatch-items_finished'));
   assert.ok(validation.blockers.includes('status-count-mismatch-local-codex-finished'));
+  assert.ok(validation.blockers.includes('local-codex-queue-state-count-mismatch-actionable'));
+  assert.ok(validation.blockers.includes('local-codex-queue-state-count-mismatch-finished'));
 });
 
 test('formatCampaignBody remains below GitHub issue body limit for large queues', () => {

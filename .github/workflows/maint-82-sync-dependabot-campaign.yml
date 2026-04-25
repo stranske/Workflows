@@ -137,6 +137,9 @@ jobs:
                 `Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
                 `Active review threads queued: ${stats.active_review_threads || 0}`,
                 `Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
+                `Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
+                `Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
+                `Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
                 `Campaign issue: ${result.issue?.html_url || '(dry run)'}`,
               ])
               .write();
