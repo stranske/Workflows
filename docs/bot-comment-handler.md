@@ -144,10 +144,11 @@ gh workflow run agents-bot-comment-handler.yml -f pr_number=123
 | `GH_APP_ID` | No | Legacy GitHub App ID fallback |
 | `GH_APP_PRIVATE_KEY` | No | GitHub App private key |
 
-The canonical Workflows repo wrapper also accepts `WORKFLOWS_APP_CLIENT_ID` for its
-internal resolve/cleanup API calls. If that secret is missing, it falls back to
-`WORKFLOWS_APP_ID` with a warning so the reusable bot-comment path remains
-observable without breaking existing installs.
+The canonical Workflows repo wrapper passes `WORKFLOWS_APP_CLIENT_ID`,
+`WORKFLOWS_APP_ID`, and `WORKFLOWS_APP_PRIVATE_KEY` into the reusable handler so
+the live Workflows path can prove client-ID App auth end to end. Consumer repo
+templates still use the optional `GH_APP_*` secrets and continue to fall back to
+`SERVICE_BOT_PAT` or `GITHUB_TOKEN` when App auth is not configured.
 
 Each run uploads warning-only App auth coverage artifacts:
 
@@ -156,8 +157,9 @@ Each run uploads warning-only App auth coverage artifacts:
   coverage for `WORKFLOWS_APP_CLIENT_ID`, `WORKFLOWS_APP_ID`, and
   `WORKFLOWS_APP_PRIVATE_KEY`.
 - `bot-comment-auth-coverage-reusable-<run_id>` records the reusable handler
-  `auth_mode` plus boolean secret coverage for `GH_APP_CLIENT_ID`, `GH_APP_ID`,
-  and `GH_APP_PRIVATE_KEY`.
+  `auth_mode` plus boolean secret coverage for the App credentials passed by the
+  caller. In consumer repos these are typically `GH_APP_CLIENT_ID`,
+  `GH_APP_ID`, and `GH_APP_PRIVATE_KEY`.
 
 Both artifacts use schema `workflows-bot-comment-auth-coverage/v1` and do not
 include secret values. A `legacy-app-id` mode means migration is still incomplete;

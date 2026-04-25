@@ -141,13 +141,28 @@ def test_reusable_bot_comment_handler_uploads_auth_coverage_artifact() -> None:
 
 
 def test_bot_comment_handler_callers_pass_app_client_id() -> None:
-    caller_paths = [
-        ROOT / ".github/workflows/agents-bot-comment-handler.yml",
-        ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml",
-        ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml",
-    ]
+    caller_paths = {
+        ROOT
+        / ".github/workflows/agents-bot-comment-handler.yml": {
+            "gh_app_client_id": "${{ secrets.WORKFLOWS_APP_CLIENT_ID }}",
+            "gh_app_id": "${{ secrets.WORKFLOWS_APP_ID }}",
+            "gh_app_private_key": "${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}",
+        },
+        ROOT
+        / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml": {
+            "gh_app_client_id": "${{ secrets.GH_APP_CLIENT_ID }}",
+            "gh_app_id": "${{ secrets.GH_APP_ID }}",
+            "gh_app_private_key": "${{ secrets.GH_APP_PRIVATE_KEY }}",
+        },
+        ROOT
+        / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml": {
+            "gh_app_client_id": "${{ secrets.GH_APP_CLIENT_ID }}",
+            "gh_app_id": "${{ secrets.GH_APP_ID }}",
+            "gh_app_private_key": "${{ secrets.GH_APP_PRIVATE_KEY }}",
+        },
+    }
 
-    for caller_path in caller_paths:
+    for caller_path, expected_secrets in caller_paths.items():
         workflow = _load_yaml(caller_path)
         reusable_jobs = [
             job
@@ -159,9 +174,9 @@ def test_bot_comment_handler_callers_pass_app_client_id() -> None:
 
         for job in reusable_jobs:
             secrets = job.get("secrets", {})
-            assert secrets.get("gh_app_client_id") == "${{ secrets.GH_APP_CLIENT_ID }}"
-            assert secrets.get("gh_app_id") == "${{ secrets.GH_APP_ID }}"
-            assert secrets.get("gh_app_private_key") == "${{ secrets.GH_APP_PRIVATE_KEY }}"
+            assert secrets.get("gh_app_client_id") == expected_secrets["gh_app_client_id"]
+            assert secrets.get("gh_app_id") == expected_secrets["gh_app_id"]
+            assert secrets.get("gh_app_private_key") == expected_secrets["gh_app_private_key"]
 
 
 def test_canonical_bot_comment_handler_direct_app_tokens_prefer_client_id() -> None:
