@@ -78,7 +78,7 @@ def _read_ndjson(files: Iterable[Path]) -> tuple[list[dict[str, Any]], int]:
 def _classify_entry(entry: dict[str, Any]) -> str:
     schema = entry.get("schema")
     if schema == "workflows-terminal-disposition/v1":
-        return "verifier"
+        return "terminal_disposition"
     explicit = entry.get("metric_type") or entry.get("type") or entry.get("workflow")
     if isinstance(explicit, str):
         lowered = explicit.lower()
@@ -317,6 +317,7 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
         "keepalive": [],
         "autofix": [],
         "verifier": [],
+        "terminal_disposition": [],
         "autopilot": [],
         "unknown": [],
     }
@@ -333,7 +334,7 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
 
     keepalive = _summarise_keepalive(buckets["keepalive"])
     autofix = _summarise_autofix(buckets["autofix"])
-    verifier = _summarise_verifier(buckets["verifier"])
+    verifier = _summarise_verifier(buckets["verifier"] + buckets["terminal_disposition"])
     autopilot = _summarise_autopilot(buckets["autopilot"])
 
     now = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")

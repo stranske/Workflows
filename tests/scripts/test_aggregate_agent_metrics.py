@@ -192,7 +192,7 @@ def test_classify_entry_prefers_explicit_type() -> None:
     assert aggregate_agent_metrics._classify_entry({"type": "Verifier"}) == "verifier"
     assert (
         aggregate_agent_metrics._classify_entry({"schema": "workflows-terminal-disposition/v1"})
-        == "verifier"
+        == "terminal_disposition"
     )
     assert aggregate_agent_metrics._classify_entry({"iteration_count": 1}) == "keepalive"
     assert aggregate_agent_metrics._classify_entry({"trigger_reason": "pytest"}) == "autofix"
