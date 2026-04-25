@@ -163,15 +163,16 @@ function buildQueueItem({ repoFullName, pr, threads, classification, now, defaul
   const headSha = cleanString(pr?.head?.sha || pr?.headSha || pr?.head_sha);
   const threadIds = collectThreadIds(threads);
   const fingerprint = sha256Short(`${repo}#${prNumber}:${headSha}:${threadIds.join(',')}`, 20);
-  const kind = `${classification || classifyPullRequest(pr)}-review-comments`;
+  const resolvedClassification = classification || classifyPullRequest(pr);
+  const kind = `${resolvedClassification}-review-comments`;
   const preferredWorkdir =
-    classification === 'sync' ? 'Workflows' : repo.split('/').slice(-1)[0] || '';
+    resolvedClassification === 'sync' ? 'Workflows' : repo.split('/').slice(-1)[0] || '';
 
   return {
     id: `${kind}:${repo}#${prNumber}:${fingerprint}`,
     status: 'needs-local-codex',
     kind,
-    classification: classification || classifyPullRequest(pr),
+    classification: resolvedClassification,
     repo,
     pr_number: prNumber,
     pr_title: cleanString(pr?.title),
@@ -179,7 +180,7 @@ function buildQueueItem({ repoFullName, pr, threads, classification, now, defaul
     head_ref: cleanString(pr?.head?.ref || pr?.headRefName || pr?.headRef),
     head_sha: headSha,
     base_ref: cleanString(pr?.base?.ref || pr?.baseRefName || pr?.baseRef),
-    source_repo: classification === 'sync' ? `${defaultOwner || repo.split('/')[0]}/Workflows` : repo,
+    source_repo: resolvedClassification === 'sync' ? `${defaultOwner || repo.split('/')[0]}/Workflows` : repo,
     preferred_workdir: preferredWorkdir,
     review_thread_count: threads.length,
     review_comment_count: threads.reduce((sum, thread) => sum + (thread.comments_count || 0), 0),
@@ -214,6 +215,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
   const previousItems = cleanArray(previousState.items);
   const previousById = new Map(previousItems.map((item) => [item.id, item]));
   const discoveredById = new Map(discoveredItems.map((item) => [item.id, item]));
+  const failedRepos = new Set(parseCsv(options.failedRepos));
   const nextItems = [];
 
   for (const discovered of discoveredItems) {
@@ -258,7 +260,13 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     if (discoveredById.has(previous.id)) {
       continue;
     }
-    if (ACTIVE_STATUSES.has(previous.status)) {
+    if (ACTIVE_STATUSES.has(previous.status) && failedRepos.has(previous.repo)) {
+      nextItems.push({
+        ...previous,
+        preserved_after_scan_error_at: now,
+        updated_at: now,
+      });
+    } else if (ACTIVE_STATUSES.has(previous.status)) {
       nextItems.push({
         ...previous,
         status: 'stale',
@@ -476,6 +484,24 @@ async function callWithRetry(fn, label, core, maxRetries = 3, withRetry = null, 
   throw lastError;
 }
 
+async function paginateWithRetry({ github, core, withRetry, method, params, label }) {
+  return callWithRetry(
+    (client) => {
+      const api = client || github;
+      if (!api || typeof api.paginate !== 'function') {
+        throw new Error(`${label} requires github.paginate`);
+      }
+      const endpoint = typeof method === 'function' ? method(api) : method;
+      return api.paginate(endpoint, params);
+    },
+    label,
+    core,
+    3,
+    withRetry,
+    github,
+  );
+}
+
 async function fetchReviewThreads(github, owner, repo, number, core, withRetry = null) {
   const query = `
     query($owner: String!, $repo: String!, $number: Int!, $after: String) {
@@ -547,15 +573,14 @@ async function discoverRepoWork({
     dependabotPrsOpen: 0,
   };
 
-  const response = await callWithRetry(
-    (client) => client.rest.pulls.list({ owner, repo, state: 'open', per_page: 100 }),
-    `${fullName} open pulls`,
-    core,
-    3,
-    withRetry,
+  const prs = cleanArray(await paginateWithRetry({
     github,
-  );
-  const prs = cleanArray(response.data);
+    core,
+    withRetry,
+    method: (client) => client.rest.pulls.list,
+    params: { owner, repo, state: 'open', per_page: 100 },
+    label: `${fullName} open pulls`,
+  }));
 
   for (const pr of prs) {
     const classification = classifyPullRequest(pr);
@@ -586,15 +611,15 @@ async function discoverRepoWork({
 }
 
 async function findCampaignIssue(github, owner, repo, core, withRetry = null) {
-  const response = await callWithRetry(
-    (client) => client.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 100 }),
-    `${owner}/${repo} campaign issue list`,
-    core,
-    3,
-    withRetry,
+  const issues = cleanArray(await paginateWithRetry({
     github,
-  );
-  const candidates = cleanArray(response.data).filter((issue) =>
+    core,
+    withRetry,
+    method: (client) => client.rest.issues.listForRepo,
+    params: { owner, repo, state: 'open', per_page: 100 },
+    label: `${owner}/${repo} campaign issue list`,
+  }));
+  const candidates = issues.filter((issue) =>
     !issue.pull_request && cleanString(issue.title).startsWith(CAMPAIGN_TITLE)
   );
 
@@ -612,7 +637,7 @@ async function findCampaignIssue(github, owner, repo, core, withRetry = null) {
     }
   }
 
-  return candidates[0] || null;
+  return null;
 }
 
 async function ensureLabel(github, owner, repo, name, color, description, core, withRetry = null) {
@@ -704,6 +729,26 @@ function log(core, level, message) {
   }
 }
 
+function verboseDryRunLoggingEnabled(env = process.env) {
+  return (
+    cleanString(env.ACTIONS_STEP_DEBUG).toLowerCase() === 'true' ||
+    cleanString(env.RUNNER_DEBUG) === '1' ||
+    cleanString(env.SYNC_DEPENDABOT_CAMPAIGN_DEBUG_BODY).toLowerCase() === 'true'
+  );
+}
+
+function formatDryRunSummary(state = {}) {
+  const stats = state.stats || {};
+  return [
+    '[dry-run] Campaign issue update suppressed from logs.',
+    `repos_checked=${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
+    `repos_failed=${stats.repos_failed || 0}`,
+    `sync_prs_open=${stats.sync_prs_open || 0}`,
+    `dependabot_prs_open=${stats.dependabot_prs_open || 0}`,
+    `items_needing_local_codex=${stats.items_needing_local_codex || 0}`,
+  ].join(' ');
+}
+
 async function runCampaign({
   github,
   context,
@@ -765,6 +810,7 @@ async function runCampaign({
     reposFailed: errors.length,
     syncPrsOpen,
     dependabotPrsOpen,
+    failedRepos: errors.map((error) => error.repo),
   });
   if (errors.length) {
     state.errors = errors.slice(0, 20);
@@ -774,8 +820,11 @@ async function runCampaign({
   const needsLocalCodex = Number(state.stats.items_needing_local_codex || 0) > 0;
 
   if (dryRun) {
-    log(core, 'info', '[dry-run] Campaign issue body preview:');
-    log(core, 'info', body);
+    log(core, 'info', formatDryRunSummary(state));
+    if (verboseDryRunLoggingEnabled()) {
+      log(core, 'info', '[dry-run] Campaign issue body preview:');
+      log(core, 'info', body);
+    }
   } else if (campaignIssue?.number) {
     const updated = await callWithRetry(
       (client) => client.rest.issues.update({
@@ -831,12 +880,17 @@ module.exports = {
   collectActiveBotThreads,
   buildQueueItem,
   classifyPullRequest,
+  discoverRepoWork,
+  findCampaignIssue,
   formatCampaignBody,
   formatCampaignMarker,
+  formatDryRunSummary,
   isDependabotPullRequest,
   isSyncPullRequest,
   mergeCampaignState,
+  paginateWithRetry,
   parseCampaignMarker,
   replaceCampaignMarker,
   runCampaign,
+  verboseDryRunLoggingEnabled,
 };

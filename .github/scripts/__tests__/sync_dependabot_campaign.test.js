@@ -6,13 +6,18 @@ const assert = require('node:assert/strict');
 const {
   buildQueueItem,
   collectActiveBotThreads,
+  discoverRepoWork,
+  findCampaignIssue,
   formatCampaignBody,
   formatCampaignMarker,
+  formatDryRunSummary,
   isDependabotPullRequest,
   isSyncPullRequest,
   mergeCampaignState,
+  paginateWithRetry,
   parseCampaignMarker,
   replaceCampaignMarker,
+  verboseDryRunLoggingEnabled,
 } = require('../sync_dependabot_campaign.js');
 
 test('formats and parses campaign marker', () => {
@@ -115,7 +120,6 @@ test('collectActiveBotThreads keeps active bot review threads only', () => {
 test('buildQueueItem creates stable PR-scoped work items', () => {
   const item = buildQueueItem({
     repoFullName: 'stranske/TPP',
-    classification: 'sync',
     defaultOwner: 'stranske',
     now: '2026-04-21T05:52:00Z',
     pr: {
@@ -143,6 +147,27 @@ test('buildQueueItem creates stable PR-scoped work items', () => {
   assert.equal(item.source_repo, 'stranske/Workflows');
   assert.equal(item.preferred_workdir, 'Workflows');
   assert.equal(item.review_thread_count, 1);
+});
+
+test('mergeCampaignState preserves active items when repo discovery fails', () => {
+  const active = {
+    id: 'sync-review-comments:stranske/TPP#850:abc',
+    status: 'needs-local-codex',
+    repo: 'stranske/TPP',
+    pr_number: 850,
+    updated_at: '2026-04-21T05:30:00Z',
+  };
+
+  const state = mergeCampaignState(
+    { items: [active] },
+    [],
+    '2026-04-21T05:52:00Z',
+    { reposRequested: 1, reposChecked: 0, reposFailed: 1, failedRepos: ['stranske/TPP'] },
+  );
+
+  assert.equal(state.items[0].status, 'needs-local-codex');
+  assert.equal(state.items[0].preserved_after_scan_error_at, '2026-04-21T05:52:00Z');
+  assert.equal(state.stats.items_needing_local_codex, 1);
 });
 
 test('mergeCampaignState preserves claims, expires old leases, and stales missing items', () => {
@@ -218,4 +243,165 @@ test('formatCampaignBody renders queue rows and marker', () => {
   assert.match(body, /Sync\/Dependabot Campaign Queue/);
   assert.match(body, /stranske\/App#10/);
   assert.equal(parseCampaignMarker(body).stats.items_needing_local_codex, 1);
+});
+
+test('paginateWithRetry uses the paginated GitHub API', async () => {
+  const endpoint = function listForRepo() {};
+  const github = {
+    paginate: async (method, params) => {
+      assert.equal(method, endpoint);
+      assert.deepEqual(params, { owner: 'stranske', repo: 'Workflows', per_page: 100 });
+      return [{ number: 101 }, { number: 102 }];
+    },
+  };
+
+  const items = await paginateWithRetry({
+    github,
+    core: console,
+    method: () => endpoint,
+    params: { owner: 'stranske', repo: 'Workflows', per_page: 100 },
+    label: 'test pagination',
+  });
+
+  assert.deepEqual(items.map((item) => item.number), [101, 102]);
+});
+
+test('discoverRepoWork scans paginated PR results', async () => {
+  const pullsList = function pullsList() {};
+  const calls = [];
+  const github = {
+    rest: { pulls: { list: pullsList } },
+    paginate: async (method, params) => {
+      calls.push({ method, params });
+      return [
+        {
+          number: 101,
+          title: 'human PR',
+          user: { login: 'stranske' },
+          head: { ref: 'feature/human', sha: 'human-sha' },
+        },
+        {
+          number: 102,
+          title: 'Bump package',
+          html_url: 'https://github.com/stranske/App/pull/102',
+          user: { login: 'dependabot[bot]' },
+          head: { ref: 'dependabot/npm/pkg-2', sha: 'dep-sha' },
+          base: { ref: 'main' },
+        },
+      ];
+    },
+    graphql: async (_query, variables) => {
+      assert.equal(variables.number, 102);
+      return {
+        repository: {
+          pullRequest: {
+            reviewThreads: {
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [
+                {
+                  id: 'thread-102',
+                  isResolved: false,
+                  isOutdated: false,
+                  path: 'package.json',
+                  line: 12,
+                  comments: {
+                    nodes: [
+                      {
+                        id: 'comment-102',
+                        url: 'https://github.test/comment-102',
+                        body: 'Please update the lockfile.',
+                        author: { login: 'Copilot' },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        },
+      };
+    },
+  };
+
+  const result = await discoverRepoWork({
+    github,
+    core: console,
+    repoEntry: { owner: 'stranske', repo: 'App', fullName: 'stranske/App' },
+    now: '2026-04-21T05:52:00Z',
+    defaultOwner: 'stranske',
+  });
+
+  assert.equal(calls[0].method, pullsList);
+  assert.equal(calls[0].params.per_page, 100);
+  assert.equal(result.dependabotPrsOpen, 1);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].pr_number, 102);
+});
+
+test('findCampaignIssue only returns marker-backed campaign issues', async () => {
+  const issueList = function issueList() {};
+  const markerBody = formatCampaignBody(mergeCampaignState({}, [], '2026-04-21T05:52:00Z'));
+  const github = {
+    rest: {
+      issues: {
+        listForRepo: issueList,
+        get: async ({ issue_number: issueNumber }) => ({
+          data: {
+            number: issueNumber,
+            body: issueNumber === 12 ? 'matching title without marker' : markerBody,
+            html_url: `https://github.test/issues/${issueNumber}`,
+          },
+        }),
+      },
+    },
+    paginate: async (method, params) => {
+      assert.equal(method, issueList);
+      assert.equal(params.per_page, 100);
+      return [
+        { number: 12, title: 'Sync/Dependabot campaign queue - old', pull_request: null },
+        { number: 13, title: 'Sync/Dependabot campaign queue', pull_request: null },
+      ];
+    },
+  };
+
+  const issue = await findCampaignIssue(github, 'stranske', 'Workflows', console);
+
+  assert.equal(issue.number, 13);
+});
+
+test('findCampaignIssue does not fall back to unmarked title matches', async () => {
+  const github = {
+    rest: {
+      issues: {
+        listForRepo: function issueList() {},
+        get: async ({ issue_number: issueNumber }) => ({
+          data: { number: issueNumber, body: 'no marker' },
+        }),
+      },
+    },
+    paginate: async () => [
+      { number: 12, title: 'Sync/Dependabot campaign queue', pull_request: null },
+    ],
+  };
+
+  const issue = await findCampaignIssue(github, 'stranske', 'Workflows', console);
+
+  assert.equal(issue, null);
+});
+
+test('dry-run summary avoids logging generated issue body by default', () => {
+  const state = mergeCampaignState({}, [], '2026-04-21T05:52:00Z', {
+    reposRequested: 2,
+    reposChecked: 1,
+    reposFailed: 1,
+  });
+  const summary = formatDryRunSummary(state);
+
+  assert.match(summary, /Campaign issue update suppressed/);
+  assert.match(summary, /repos_checked=1\/2/);
+  assert.doesNotMatch(summary, /sync-dependabot-campaign:v1/);
+  assert.equal(verboseDryRunLoggingEnabled({}), false);
+  assert.equal(verboseDryRunLoggingEnabled({ ACTIONS_STEP_DEBUG: 'true' }), true);
+  assert.equal(verboseDryRunLoggingEnabled({ RUNNER_DEBUG: '1' }), true);
+  assert.equal(verboseDryRunLoggingEnabled({ SYNC_DEPENDABOT_CAMPAIGN_DEBUG_BODY: 'true' }), true);
 });

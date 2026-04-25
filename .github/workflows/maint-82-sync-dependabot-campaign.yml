@@ -74,7 +74,7 @@ jobs:
 
       - name: Refresh campaign issue
         id: campaign
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ env.CAMPAIGN_TOKEN }}
           script: |
