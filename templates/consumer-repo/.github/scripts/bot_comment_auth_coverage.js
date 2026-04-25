@@ -9,6 +9,10 @@ const AUTH_ARTIFACT_FAMILIES = new Set([
   'bot-comment-auth-coverage-wrapper',
   'bot-comment-auth-coverage-reusable',
 ]);
+const AUTH_ARTIFACT_DIR_PATTERNS = {
+  wrapper: /^bot-comment-auth-coverage-wrapper-\d+$/,
+  reusable: /^bot-comment-auth-coverage-reusable-\d+$/,
+};
 
 const COMPONENT_POLICIES = {
   'agents-bot-comment-handler-wrapper': {
@@ -20,6 +24,21 @@ const COMPONENT_POLICIES = {
     expected_mode: '',
     allowed_modes: ['client-id', 'none'],
     missing_record_severity: 'no-data',
+  },
+};
+
+const COMPONENT_POLICY_OVERRIDES = {
+  'agents-bot-comment-handler-wrapper': {
+    expected_option: 'wrapper_expected_mode',
+    expected_env: 'BOT_COMMENT_WRAPPER_EXPECTED_AUTH_MODE',
+    allowed_option: 'wrapper_allowed_modes',
+    allowed_env: 'BOT_COMMENT_WRAPPER_ALLOWED_AUTH_MODES',
+  },
+  'reusable-bot-comment-handler': {
+    expected_option: 'reusable_expected_mode',
+    expected_env: 'BOT_COMMENT_REUSABLE_EXPECTED_AUTH_MODE',
+    allowed_option: 'reusable_allowed_modes',
+    allowed_env: 'BOT_COMMENT_REUSABLE_ALLOWED_AUTH_MODES',
   },
 };
 
@@ -243,35 +262,20 @@ function componentPolicy(component, options = {}) {
     allowed_modes: ['client-id', 'none'],
     missing_record_severity: 'no-data',
   };
-  if (component === 'agents-bot-comment-handler-wrapper') {
-    const expectedMode = parseExpectedMode(
-      options.wrapper_expected_mode ?? process.env.BOT_COMMENT_WRAPPER_EXPECTED_AUTH_MODE,
-      base.expected_mode
-    );
-    return {
-      ...base,
-      ...expectedMode,
-      allowed_modes: parseAllowedModes(
-        options.wrapper_allowed_modes ?? process.env.BOT_COMMENT_WRAPPER_ALLOWED_AUTH_MODES,
-        base.allowed_modes
-      ),
-    };
-  }
-  if (component === 'reusable-bot-comment-handler') {
-    const expectedMode = parseExpectedMode(
-      options.reusable_expected_mode ?? process.env.BOT_COMMENT_REUSABLE_EXPECTED_AUTH_MODE,
-      base.expected_mode
-    );
-    return {
-      ...base,
-      ...expectedMode,
-      allowed_modes: parseAllowedModes(
-        options.reusable_allowed_modes ?? process.env.BOT_COMMENT_REUSABLE_ALLOWED_AUTH_MODES,
-        base.allowed_modes
-      ),
-    };
-  }
-  return base;
+  const override = COMPONENT_POLICY_OVERRIDES[component];
+  if (!override) return base;
+  const expectedMode = parseExpectedMode(
+    options[override.expected_option] ?? process.env[override.expected_env],
+    base.expected_mode
+  );
+  return {
+    ...base,
+    ...expectedMode,
+    allowed_modes: parseAllowedModes(
+      options[override.allowed_option] ?? process.env[override.allowed_env],
+      base.allowed_modes
+    ),
+  };
 }
 
 function runSortKey(record) {
@@ -456,7 +460,7 @@ function summarizeBotCommentAuthCoverage(records = [], options = {}) {
   }
 
   const hardBlockActive = policy.effective_mode === HARD_BLOCK_MODE;
-  const shouldFail = hardBlockActive && coverageStatus !== 'pass';
+  const shouldFail = hardBlockActive && coverageStatus === 'warning';
   return {
     schema: COVERAGE_SCHEMA,
     status: shouldFail ? 'fail' : coverageStatus,
@@ -574,8 +578,8 @@ function isPotentialAuthCoverageFile(file) {
   if (!normalized.endsWith('.json')) return false;
   const artifactDir = path.basename(path.dirname(normalized));
   return (
-    (basename === 'wrapper.json' && artifactDir.startsWith('bot-comment-auth-coverage-wrapper-')) ||
-    (basename === 'reusable.json' && artifactDir.startsWith('bot-comment-auth-coverage-reusable-'))
+    (basename === 'wrapper.json' && AUTH_ARTIFACT_DIR_PATTERNS.wrapper.test(artifactDir)) ||
+    (basename === 'reusable.json' && AUTH_ARTIFACT_DIR_PATTERNS.reusable.test(artifactDir))
   );
 }
 

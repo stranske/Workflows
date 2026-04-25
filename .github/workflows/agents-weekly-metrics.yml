@@ -280,9 +280,10 @@ jobs:
           terminal_status="${TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS:-0}"
           bot_comment_auth_status="${BOT_COMMENT_AUTH_COVERAGE_EXIT_STATUS:-0}"
           if [ "${terminal_status}" != "0" ] || [ "${bot_comment_auth_status}" != "0" ]; then
-            echo "::error::Coverage hard-block triggered: " \
-              "terminal-disposition=${terminal_status}, " \
-              "bot-comment-auth=${bot_comment_auth_status}"
+            echo "::error title=Coverage hard-block failed::" \
+              "terminal-disposition-exit-status=${terminal_status}; " \
+              "bot-comment-auth-exit-status=${bot_comment_auth_status}; " \
+              "coverage reports were uploaded before this failure"
             if [ "${terminal_status}" != "0" ]; then
               echo "Failed check: Review-thread terminal coverage preflight"
             fi

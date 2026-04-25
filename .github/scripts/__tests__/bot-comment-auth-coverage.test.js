@@ -8,6 +8,7 @@ const path = require('path');
 const {
   AUTH_SCHEMA,
   collectJsonFiles,
+  componentPolicy,
   formatBotCommentAuthCoverageMarkdown,
   isPotentialAuthCoverageFile,
   normalizeArtifactSelectionSummary,
@@ -91,6 +92,22 @@ test('warns on invalid reusable expected auth mode policy', () => {
   assert.equal(reusable.invalid_expected_mode, 'client_id');
   assert.ok(reusable.blockers.includes('invalid-reusable-bot-comment-handler-expected-auth-mode'));
   assert.equal(report.status, 'warning');
+});
+
+test('normalizes component policy overrides through one contract', () => {
+  const wrapper = componentPolicy('agents-bot-comment-handler-wrapper', {
+    wrapper_expected_mode: 'client-id',
+    wrapper_allowed_modes: 'client-id,legacy-app-id',
+  });
+  const reusable = componentPolicy('reusable-bot-comment-handler', {
+    reusable_expected_mode: 'client-id',
+    reusable_allowed_modes: 'client-id',
+  });
+
+  assert.equal(wrapper.expected_mode, 'client-id');
+  assert.deepEqual(wrapper.allowed_modes, ['client-id', 'legacy-app-id']);
+  assert.equal(reusable.expected_mode, 'client-id');
+  assert.deepEqual(reusable.allowed_modes, ['client-id']);
 });
 
 test('warns while the canonical wrapper still uses the legacy App ID fallback', () => {
@@ -200,6 +217,20 @@ test('fails only when hard blocking is approved', () => {
   assert.equal(report.status, 'fail');
   assert.equal(report.enforcement.hard_block_active, true);
   assert.equal(report.enforcement.should_fail, true);
+});
+
+test('does not hard-block pure no-data telemetry', () => {
+  const report = summarizeBotCommentAuthCoverage([], {
+    mode: 'hard-block',
+    hard_block_approved: true,
+    parse_errors: 0,
+  });
+
+  assert.equal(report.coverage_status, 'no-data');
+  assert.equal(report.status, 'no-data');
+  assert.equal(report.mode, 'hard-block');
+  assert.equal(report.enforcement.hard_block_active, true);
+  assert.equal(report.enforcement.should_fail, false);
 });
 
 test('summarizes selected auth artifacts from weekly artifact selection', () => {
@@ -476,6 +507,14 @@ test('identifies only bot-comment auth coverage candidate files', () => {
   assert.equal(isPotentialAuthCoverageFile('/tmp/artifacts/run-view.json'), false);
   assert.equal(isPotentialAuthCoverageFile('/tmp/artifacts/wrapper.json'), false);
   assert.equal(
+    isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-wrapper-1-copy/wrapper.json'),
+    false
+  );
+  assert.equal(
+    isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-reusable-latest/reusable.json'),
+    false
+  );
+  assert.equal(
     isPotentialAuthCoverageFile('/tmp/artifacts/bot-comment-auth-coverage-wrapper-1/reusable.json'),
     false
   );
@@ -680,11 +719,12 @@ test('CLI writes report files and prints markdown summary', () => {
     { encoding: 'utf8', env: cliEnv }
   );
 
-  assert.equal(result.status, 1);
+  assert.equal(result.status, 0);
   assert.match(result.stdout, /^## Bot Comment App Auth Coverage/);
   assert.doesNotMatch(result.stdout, /^\{/);
   const report = JSON.parse(fs.readFileSync(outputJson, 'utf8'));
   assert.equal(report.requested_mode, 'hard-block');
-  assert.equal(report.enforcement.should_fail, true);
+  assert.equal(report.coverage_status, 'no-data');
+  assert.equal(report.enforcement.should_fail, false);
   assert.equal(fs.readFileSync(outputMd, 'utf8'), result.stdout);
 });

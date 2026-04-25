@@ -341,6 +341,11 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             'terminal_status="${TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS:-0}"' in text
             and 'bot_comment_auth_status="${BOT_COMMENT_AUTH_COVERAGE_EXIT_STATUS:-0}"' in text
         ), "Coverage hard-block status must be aggregated in one final step"
+        assert (
+            "terminal-disposition-exit-status=${terminal_status}" in text
+            and "bot-comment-auth-exit-status=${bot_comment_auth_status}" in text
+            and "coverage reports were uploaded before this failure" in text
+        ), "Coverage hard-block diagnostics must preserve both preflight exit statuses"
         assert text.index("Upload weekly summary") < text.index(
             "Honor coverage hard-blocks"
         ), "Terminal coverage hard-block failure must wait for artifact upload"
