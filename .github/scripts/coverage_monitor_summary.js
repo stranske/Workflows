@@ -140,6 +140,11 @@ function buildCoverageMonitorSummary(options = {}) {
   const terminal = summarizeReport(readJsonReport(options.terminal_report, 'terminal-disposition'));
   const botAuth = summarizeReport(readJsonReport(options.bot_auth_report, 'bot-comment-auth'));
   const monitors = [terminal, botAuth];
+  if (cleanString(options.pr_source_context_report)) {
+    monitors.push(
+      summarizeReport(readJsonReport(options.pr_source_context_report, 'pr-source-context'))
+    );
+  }
   const status = overallStatus(monitors);
   const hardBlockActive = monitors.some((monitor) => monitor.hard_block_active);
   const shouldFail = monitors.some((monitor) => monitor.should_fail);
@@ -211,6 +216,8 @@ function parseArgs(argv = process.argv.slice(2)) {
       process.env.COVERAGE_MONITOR_TERMINAL_JSON || 'terminal-disposition-coverage.json',
     bot_auth_report:
       process.env.COVERAGE_MONITOR_BOT_AUTH_JSON || 'bot-comment-auth-coverage-summary.json',
+    pr_source_context_report:
+      process.env.COVERAGE_MONITOR_PR_SOURCE_CONTEXT_JSON || 'pr-source-context-coverage.json',
     output_json:
       process.env.COVERAGE_MONITOR_SUMMARY_JSON || 'coverage-monitor-summary.json',
     output_md:
@@ -225,6 +232,9 @@ function parseArgs(argv = process.argv.slice(2)) {
       index += 1;
     } else if (arg === '--bot-auth-report') {
       options.bot_auth_report = next;
+      index += 1;
+    } else if (arg === '--pr-source-context-report') {
+      options.pr_source_context_report = next;
       index += 1;
     } else if (arg === '--output-json') {
       options.output_json = next;

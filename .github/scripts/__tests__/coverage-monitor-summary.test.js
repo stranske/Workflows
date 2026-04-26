@@ -66,6 +66,34 @@ test('builds a pass monitor contract from warning-only preflight reports', () =>
   assert.match(markdown, /terminal-disposition \| pass/);
 });
 
+test('includes PR source context coverage when configured', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
+  const terminal = writeJson(dir, 'terminal.json', report('pass'));
+  const botAuth = writeJson(dir, 'bot-auth.json', report('pass'));
+  const prSource = writeJson(
+    dir,
+    'pr-source.json',
+    report('warning', {
+      schema: 'workflows-pr-source-context-coverage/v1',
+      warning_count: 1,
+      unknown_source_context_count: 1,
+    })
+  );
+
+  const summary = buildCoverageMonitorSummary({
+    terminal_report: terminal,
+    bot_auth_report: botAuth,
+    pr_source_context_report: prSource,
+  });
+
+  assert.equal(summary.status, 'warning');
+  assert.deepEqual(
+    summary.monitors.map((monitor) => monitor.label),
+    ['terminal-disposition', 'bot-comment-auth', 'pr-source-context']
+  );
+  assert.match(formatMonitorMarkdown(summary), /pr-source-context \| warning/);
+});
+
 test('surfaces warning blockers without activating hard-block policy', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
   const terminal = writeJson(
@@ -241,6 +269,8 @@ test('parses CLI paths and writes summary artifacts without failing warning stat
     terminal,
     '--bot-auth-report',
     botAuth,
+    '--pr-source-context-report',
+    path.join(dir, 'pr-source.json'),
     '--output-json',
     outputJson,
     '--output-md',
@@ -249,6 +279,7 @@ test('parses CLI paths and writes summary artifacts without failing warning stat
 
   assert.equal(options.terminal_report, terminal);
   assert.equal(options.bot_auth_report, botAuth);
+  assert.equal(options.pr_source_context_report, path.join(dir, 'pr-source.json'));
   const result = spawnSync(
     process.execPath,
     [
@@ -257,6 +288,8 @@ test('parses CLI paths and writes summary artifacts without failing warning stat
       terminal,
       '--bot-auth-report',
       botAuth,
+      '--pr-source-context-report',
+      '',
       '--output-json',
       outputJson,
       '--output-md',

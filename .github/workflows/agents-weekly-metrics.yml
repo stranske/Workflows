@@ -317,6 +317,7 @@ jobs:
         env:
           COVERAGE_MONITOR_TERMINAL_JSON: terminal-disposition-coverage.json
           COVERAGE_MONITOR_BOT_AUTH_JSON: bot-comment-auth-coverage-summary.json
+          COVERAGE_MONITOR_PR_SOURCE_CONTEXT_JSON: pr-source-context-coverage.json
           COVERAGE_MONITOR_SUMMARY_JSON: coverage-monitor-summary.json
           COVERAGE_MONITOR_SUMMARY_MD: coverage-monitor-summary.md
         run: |
