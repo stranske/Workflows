@@ -33,6 +33,7 @@ WORKFLOWS_ONLY = {
     "health-71-sync-health-check.yml",
     "health-72-template-lint.yml",
     "health-75-api-rate-diagnostic.yml",
+    "health-76-codex-cli-freshness.yml",
     # Debug/testing workflows
     "agents-debug-issue-event.yml",
     # Internal dispatch handlers

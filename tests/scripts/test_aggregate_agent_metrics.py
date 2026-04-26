@@ -72,13 +72,26 @@ def test_build_summary_formats_sections() -> None:
                 "depth_limit_exceeded": False,
             },
         },
+        {
+            "schema": "workflows-codex-cli-freshness/v1",
+            "package": "@openai/codex",
+            "component": "agents-verifier",
+            "status": "outdated",
+            "pinned_version": "0.125.0",
+            "latest_version": "0.127.3",
+            "version_delta": {"major": 0, "minor": 2, "patch": 3},
+            "update_targets": [
+                {"path": ".github/workflows/reusable-agents-verifier.yml"},
+                {"path": "tests/workflows/test_verifier_terminal_disposition.py"},
+            ],
+        },
     ]
 
     summary = aggregate_agent_metrics.build_summary(entries, errors=1)
 
     assert (
-        "Records: 6 (keepalive 2, autofix 1, verifier 1, terminal dispositions 1, "
-        "verifier follow-up ledgers 1, autopilot 0, unknown 0)"
+        "Records: 7 (keepalive 2, autofix 1, verifier 1, terminal dispositions 1, "
+        "verifier follow-up ledgers 1, codex CLI freshness 1, autopilot 0, unknown 0)"
     ) in summary
     assert "Parse errors: 1" in summary
     assert "Avg iterations: 3.5" in summary
@@ -110,6 +123,12 @@ def test_build_summary_formats_sections() -> None:
     assert "Legacy missing verifier model metadata: n/a" in summary
     assert "Model selection reasons: default (1)" in summary
     assert "Verifier modes: checkbox (1)" in summary
+    assert "Codex CLI Freshness" in summary
+    assert "Statuses: outdated (1)" in summary
+    assert "Pinned versions: 0.125.0 (1)" in summary
+    assert "Latest versions: 0.127.3 (1)" in summary
+    assert "Outdated records: 1" in summary
+    assert "Max version delta: major 0, minor 2, patch 3" in summary
 
     contract = aggregate_agent_metrics.build_summary_contract(entries, [])
     verifier_contract = contract["summaries"]["verifier"]
@@ -119,6 +138,10 @@ def test_build_summary_formats_sections() -> None:
     assert verifier_contract["ledger_policy_actions"] == {"create-follow-up": 1}
     assert verifier_contract["ledger_policy_triggers"] == {"verifier-concerns": 1}
     assert verifier_contract["ledger_avg_chain_depth"] == 1.0
+    freshness_contract = contract["summaries"]["codex_cli_freshness"]
+    assert freshness_contract["statuses"] == {"outdated": 1}
+    assert freshness_contract["outdated_records"] == 1
+    assert freshness_contract["max_version_delta"] == {"major": 0, "minor": 2, "patch": 3}
 
 
 def test_autopilot_needs_human_rate_uses_escalations_not_issue_ids() -> None:

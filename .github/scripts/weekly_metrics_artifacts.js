@@ -12,12 +12,14 @@ const EXACT_METRICS_ARTIFACTS = new Set([
   'agents-autofix-metrics',
   'agents-verifier-metrics',
   'agents-verifier-disposition-metrics',
+  'codex-cli-freshness',
 ]);
 
 const PREFIXED_METRICS_ARTIFACTS = [
   'autopilot-metrics-',
   'issue-optimizer-metrics-',
   'issue-intake-format-metrics-',
+  'codex-cli-freshness-',
   'verifier-terminal-disposition-',
   'review-thread-terminal-disposition-',
 ];
@@ -34,6 +36,7 @@ const PATTERNED_METRICS_ARTIFACTS = [
 ];
 
 const PRIORITY_METRICS_FAMILIES = [
+  'codex-cli-freshness',
   'verifier-terminal-disposition',
   'review-thread-terminal-disposition',
   'bot-comment-auth-coverage-wrapper',

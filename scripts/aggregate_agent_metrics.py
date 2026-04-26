@@ -25,11 +25,13 @@ _EXACT_ARTIFACT_FAMILIES = {
     "agents-autofix-metrics",
     "agents-verifier-metrics",
     "agents-verifier-disposition-metrics",
+    "codex-cli-freshness",
 }
 _PREFIXED_ARTIFACT_FAMILIES = (
     "autopilot-metrics-",
     "issue-optimizer-metrics-",
     "issue-intake-format-metrics-",
+    "codex-cli-freshness-",
     "verifier-terminal-disposition-",
     "review-thread-terminal-disposition-",
 )
@@ -323,6 +325,8 @@ def _classify_entry(entry: dict[str, Any]) -> str:
         return "terminal_disposition"
     if schema == "workflows-verifier-followup-ledger/v1":
         return "verifier_followup_ledger"
+    if schema == "workflows-codex-cli-freshness/v1":
+        return "codex_cli_freshness"
     explicit = entry.get("metric_type") or entry.get("type") or entry.get("workflow")
     if isinstance(explicit, str):
         lowered = explicit.lower()
@@ -738,6 +742,54 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _summarise_codex_cli_freshness(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    statuses = Counter()
+    packages = Counter()
+    pinned_versions = Counter()
+    latest_versions = Counter()
+    max_major_delta = 0
+    max_minor_delta = 0
+    max_patch_delta = 0
+    update_targets = Counter()
+    for entry in entries:
+        status = str(entry.get("status") or "unknown")
+        statuses[status] += 1
+        package = str(entry.get("package") or "unknown")
+        packages[package] += 1
+        pinned = str(entry.get("pinned_version") or "unknown")
+        latest = str(entry.get("latest_version") or "unknown")
+        pinned_versions[pinned] += 1
+        latest_versions[latest] += 1
+        delta = entry.get("version_delta")
+        if isinstance(delta, dict):
+            max_major_delta = max(max_major_delta, _safe_int(delta.get("major")) or 0)
+            max_minor_delta = max(max_minor_delta, _safe_int(delta.get("minor")) or 0)
+            max_patch_delta = max(max_patch_delta, _safe_int(delta.get("patch")) or 0)
+        targets = entry.get("update_targets")
+        if isinstance(targets, list):
+            for target in targets:
+                if not isinstance(target, dict):
+                    continue
+                path = str(target.get("path") or "").strip()
+                if path:
+                    update_targets[path] += 1
+    return {
+        "records": len(entries),
+        "statuses": statuses,
+        "packages": packages,
+        "pinned_versions": pinned_versions,
+        "latest_versions": latest_versions,
+        "outdated_records": statuses.get("outdated", 0),
+        "latest_unavailable_records": statuses.get("latest-unavailable", 0),
+        "max_version_delta": {
+            "major": max_major_delta,
+            "minor": max_minor_delta,
+            "patch": max_patch_delta,
+        },
+        "update_targets": update_targets,
+    }
+
+
 def _format_counter(counter: Counter[str]) -> str:
     if not counter:
         return "n/a"
@@ -775,6 +827,7 @@ def _bucket_entries(entries: list[dict[str, Any]]) -> dict[str, list[dict[str, A
         "verifier": [],
         "terminal_disposition": [],
         "verifier_followup_ledger": [],
+        "codex_cli_freshness": [],
         "autopilot": [],
         "unknown": [],
     }
@@ -794,6 +847,7 @@ def _summary_metrics_contract(buckets: dict[str, list[dict[str, Any]]]) -> dict[
                 buckets["verifier_followup_ledger"],
             ),
             "autopilot": _summarise_autopilot(buckets["autopilot"]),
+            "codex_cli_freshness": _summarise_codex_cli_freshness(buckets["codex_cli_freshness"]),
             "unknown": {"records": len(buckets["unknown"])},
         }
     )
@@ -957,6 +1011,7 @@ def build_summary(
         buckets["verifier_followup_ledger"],
     )
     autopilot = _summarise_autopilot(buckets["autopilot"])
+    codex_cli_freshness = _summarise_codex_cli_freshness(buckets["codex_cli_freshness"])
 
     now = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     lines = [
@@ -969,6 +1024,7 @@ def build_summary(
             f"verifier {verifier['runs']}, "
             f"terminal dispositions {verifier['terminal_records']}, "
             f"verifier follow-up ledgers {verifier['ledger_records']}, "
+            f"codex CLI freshness {codex_cli_freshness['records']}, "
             f"autopilot {autopilot['records']}, "
             f"unknown {len(buckets['unknown'])})"
         ),
@@ -1045,6 +1101,25 @@ def build_summary(
             ),
             f"- Model selection reasons: {_format_counter(verifier['model_selection_reasons'])}",
             f"- Verifier modes: {_format_counter(verifier['verifier_modes'])}",
+            "",
+            "## Codex CLI Freshness",
+            f"- Records: {codex_cli_freshness['records']}",
+            f"- Statuses: {_format_counter(codex_cli_freshness['statuses'])}",
+            f"- Packages: {_format_counter(codex_cli_freshness['packages'])}",
+            f"- Pinned versions: {_format_counter(codex_cli_freshness['pinned_versions'])}",
+            f"- Latest versions: {_format_counter(codex_cli_freshness['latest_versions'])}",
+            f"- Outdated records: {codex_cli_freshness['outdated_records']}",
+            (
+                "- Latest unavailable records: "
+                f"{codex_cli_freshness['latest_unavailable_records']}"
+            ),
+            (
+                "- Max version delta: "
+                f"major {codex_cli_freshness['max_version_delta']['major']}, "
+                f"minor {codex_cli_freshness['max_version_delta']['minor']}, "
+                f"patch {codex_cli_freshness['max_version_delta']['patch']}"
+            ),
+            f"- Update targets: {_format_counter(codex_cli_freshness['update_targets'])}",
         ]
     )
 
