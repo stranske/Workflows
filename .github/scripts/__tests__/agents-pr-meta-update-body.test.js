@@ -384,6 +384,24 @@ test('buildPreamble preserves source issue metadata and closing reference', () =
   assert.ok(result.includes('## Summary\nSummary text'));
 });
 
+test('buildPreamble does not close active campaign issues', () => {
+  const result = buildPreamble({
+    issueNumber: 1836,
+    summary: 'Campaign source fix',
+    sourceIssue: {
+      labels: [
+        { name: 'campaign:sync-dependabot' },
+        { name: 'campaign:active' },
+      ],
+    },
+  });
+
+  assert.ok(result.includes('<!-- meta:issue:1836 -->'));
+  assert.ok(result.includes('> **Source:** Issue #1836'));
+  assert.ok(result.includes('Related to campaign issue #1836'));
+  assert.ok(!result.includes('Closes #1836'));
+});
+
 // ========== fetchConnectorCheckboxStates tests ==========
 
 test('fetchConnectorCheckboxStates extracts checked boxes from connector bot comments', async () => {
