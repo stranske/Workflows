@@ -704,6 +704,62 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.match(github.actions[0].body, /"failure":\{\}/);
 });
 
+test('updateKeepaliveLoopSummary ignores status-only checklist metrics for reconciliation', async () => {
+  const pr = {
+    number: 1234,
+    labels: [{ name: 'agent:codex' }],
+    body: [
+      '## Tasks',
+      '- [ ] Updated: 2026-04-26T12:33:27.204Z',
+      '- [ ] Repos checked: 11/11',
+      '- [ ] Open sync PRs: 439',
+      '',
+      '## Acceptance Criteria',
+      '- [ ] Acceptance criteria section missing from source issue.',
+    ].join('\n'),
+  };
+  const existingState = formatStateComment({
+    trace: 'status-only-trace',
+    iteration: 2,
+    max_iterations: 5,
+    tasks: { total: 13, unchecked: 13 },
+  });
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 91, body: existingState, html_url: 'https://example.com/91' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    inputs: {
+      prNumber: pr.number,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 13,
+      tasksUnchecked: 13,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'status-only-trace',
+      codex_changes_made: 'true',
+      codex_files_changed: 2,
+      codex_commit_sha: 'deadbeef',
+      codex_summary: 'Changed keepalive parser behavior for status metrics.',
+    },
+  });
+
+  assert.equal(github.actions.length, 2);
+  const parsedState = parseStateComment(github.actions[0].body);
+  assert.ok(parsedState);
+  assert.deepEqual(parsedState.data.tasks, { total: 0, unchecked: 0 });
+  assert.equal(parsedState.data.needs_task_reconciliation, false);
+});
+
 test('updateKeepaliveLoopSummary reuses cached PR data for labels and body', async () => {
   const pr = {
     number: 321,
