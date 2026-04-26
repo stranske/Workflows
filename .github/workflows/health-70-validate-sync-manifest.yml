@@ -18,6 +18,7 @@ on:
       - '.github/workflows/**'
       - '.github/codex/**'
       - '.github/scripts/**'
+      - 'scripts/check_workflow_action_pins.py'
       - 'templates/consumer-repo/**'
   push:
     branches: [main]
@@ -26,6 +27,7 @@ on:
       - '.github/workflows/**'
       - '.github/codex/**'
       - '.github/scripts/**'
+      - 'scripts/check_workflow_action_pins.py'
       - 'templates/consumer-repo/**'
 
 permissions:
@@ -66,6 +68,21 @@ jobs:
             --manifest ".github/sync-manifest.yml" \
             --source "sync-manifest" \
             --strict
+      - name: Validate workflow action pins
+        run: |
+          mkdir -p artifacts/workflow-action-pins
+          python scripts/check_workflow_action_pins.py \
+            .github/workflows/agents-verify-to-new-pr.yml \
+            templates/consumer-repo/.github/workflows \
+            --output-json artifacts/workflow-action-pins/workflow-action-pins.json \
+            --output-md artifacts/workflow-action-pins/workflow-action-pins.md
+      - name: Upload action pin contract
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: workflow-action-pins
+          path: artifacts/workflow-action-pins/
+          if-no-files-found: warn
       - name: Comment on PR
         if: failure() && github.event_name == 'pull_request'
         uses: actions/github-script@v9
