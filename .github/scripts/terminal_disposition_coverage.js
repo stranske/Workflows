@@ -12,6 +12,7 @@ const TERMINAL_ARTIFACT_FAMILIES = new Set([
   'verifier-terminal-disposition',
   'review-thread-terminal-disposition',
 ]);
+const DEFAULT_UNSUPPORTED_CODEX_MODELS = ['gpt-5.2-codex'];
 const DEFAULT_ENFORCEMENT_MODE = 'warning-only';
 const HARD_BLOCK_MODE = 'hard-block';
 
@@ -70,6 +71,84 @@ function normalizeEnforcementPolicy(options = {}) {
   };
 }
 
+function normalizeUnsupportedCodexModels(value) {
+  const raw = value ??
+    process.env.TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS ??
+    DEFAULT_UNSUPPORTED_CODEX_MODELS.join(',');
+  const items = Array.isArray(raw) ? raw : String(raw).split(',');
+  return [...new Set(items.map((item) => cleanString(item).toLowerCase()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function summarizeVerifierModelCompatibility(records = [], options = {}) {
+  const unsupportedModels = normalizeUnsupportedCodexModels(
+    options.unsupported_codex_models ?? options.unsupportedCodexModels
+  );
+  const unsupportedSet = new Set(unsupportedModels);
+  const selectedModels = {};
+  const modelSelectionReasons = {};
+  const unsupportedRecords = [];
+  const missingModelRecords = [];
+  let verifierRecordCount = 0;
+
+  for (const raw of records) {
+    if (!isTerminalDispositionRecord(raw)) continue;
+    const record = normalizeTerminalDisposition(raw);
+    const isVerifierRecord = record.artifact_family === 'verifier-terminal-disposition' ||
+      Boolean(record.verifier_mode) ||
+      cleanString(record.workflow).toLowerCase().includes('verifier');
+    if (!isVerifierRecord) continue;
+    verifierRecordCount += 1;
+
+    const model = cleanString(record.llm_model ?? record.model).toLowerCase();
+    const reason = cleanString(record.model_selection_reason);
+    const verifierMode = cleanString(record.verifier_mode).toLowerCase();
+    const requiresCodexModel = verifierMode !== 'evaluate';
+    if (model) selectedModels[model] = (selectedModels[model] || 0) + 1;
+    if (reason) modelSelectionReasons[reason] = (modelSelectionReasons[reason] || 0) + 1;
+    if (!model && requiresCodexModel) {
+      missingModelRecords.push({
+        source_key: record.source_key,
+        pr_number: record.pr_number || null,
+        run_id: cleanString(record.run_id),
+        disposition: record.disposition,
+        verifier_mode: verifierMode || 'unknown',
+      });
+    }
+    if (model && unsupportedSet.has(model)) {
+      unsupportedRecords.push({
+        source_key: record.source_key,
+        pr_number: record.pr_number || null,
+        run_id: cleanString(record.run_id),
+        model,
+        disposition: record.disposition,
+        model_selection_reason: reason,
+      });
+    }
+  }
+
+  return {
+    schema: 'workflows-verifier-model-compatibility/v1',
+    status: unsupportedRecords.length > 0 || missingModelRecords.length > 0 ? 'warning' : 'pass',
+    verifier_record_count: verifierRecordCount,
+    unsupported_models: unsupportedModels,
+    unsupported_record_count: unsupportedRecords.length,
+    missing_model_record_count: missingModelRecords.length,
+    selected_models: Object.fromEntries(
+      Object.entries(selectedModels).sort((a, b) => a[0].localeCompare(b[0]))
+    ),
+    model_selection_reasons: Object.fromEntries(
+      Object.entries(modelSelectionReasons).sort((a, b) => a[0].localeCompare(b[0]))
+    ),
+    unsupported_records: unsupportedRecords.sort((a, b) =>
+      `${a.source_key}:${a.run_id}`.localeCompare(`${b.source_key}:${b.run_id}`)
+    ),
+    missing_model_records: missingModelRecords.sort((a, b) =>
+      `${a.source_key}:${a.run_id}`.localeCompare(`${b.source_key}:${b.run_id}`)
+    ),
+  };
+}
+
 function normalizeExpectedSource(input = {}) {
   const sourceType = cleanString(input.source_type ?? input.sourceType) || 'review-thread';
   const prNumber = cleanInt(input.pr_number ?? input.prNumber ?? input.pr);
@@ -120,6 +199,7 @@ function summarizeTerminalDispositionCoverage(records = [], options = {}) {
   const terminalRecords = records
     .filter(isTerminalDispositionRecord)
     .map((record) => normalizeTerminalDisposition(record));
+  const verifierModelCompatibility = summarizeVerifierModelCompatibility(terminalRecords, options);
   const scannedRecordCount = records.length;
   const nonTerminalRecordCount = scannedRecordCount - terminalRecords.length;
   const inputFiles = Array.isArray(options.input_files) ? options.input_files.map(cleanString).filter(Boolean) : [];
@@ -175,7 +255,12 @@ function summarizeTerminalDispositionCoverage(records = [], options = {}) {
       terminalArtifactInputMismatch
       ? 'warning'
       : 'no-data';
-  } else if (missing.length > 0 || parseErrors > 0 || artifactSelectionWarning) {
+  } else if (
+    missing.length > 0 ||
+    parseErrors > 0 ||
+    artifactSelectionWarning ||
+    verifierModelCompatibility.status !== 'pass'
+  ) {
     status = 'warning';
   }
 
@@ -187,6 +272,9 @@ function summarizeTerminalDispositionCoverage(records = [], options = {}) {
   if (missing.length > 0) enforcementBlockers.push('missing-review-thread-sources');
   if (parseErrors > 0) enforcementBlockers.push('parse-errors');
   if (artifactSelectionWarning) enforcementBlockers.push('artifact-selection-warning');
+  if (verifierModelCompatibility.status !== 'pass') {
+    enforcementBlockers.push('unsupported-verifier-model');
+  }
 
   const hardBlockEligible = enforcementBlockers.length === 0;
   const hardBlockActive = policy.effective_mode === HARD_BLOCK_MODE;
@@ -222,6 +310,7 @@ function summarizeTerminalDispositionCoverage(records = [], options = {}) {
     parse_errors: parseErrors,
     terminal_artifact_input_mismatch: terminalArtifactInputMismatch,
     artifact_selection: artifactSelection,
+    verifier_model_compatibility: verifierModelCompatibility,
     observed_sources: observedSources,
     expected_sources: expected,
     missing_sources: missing,
@@ -405,6 +494,18 @@ function formatTerminalDispositionCoverageMarkdown(report) {
     );
   }
 
+  const modelCompatibility = report.verifier_model_compatibility;
+  if (modelCompatibility) {
+    lines.push(
+      `- Verifier model compatibility: ${modelCompatibility.status}`,
+      `- Unsupported verifier model records: ${modelCompatibility.unsupported_record_count}`,
+      `- Missing verifier model metadata records: ${modelCompatibility.missing_model_record_count}`
+    );
+    if (modelCompatibility.unsupported_models?.length > 0) {
+      lines.push(`- Unsupported verifier models: ${modelCompatibility.unsupported_models.join(', ')}`);
+    }
+  }
+
   const policyBlockers = report.enforcement?.policy_blockers || [];
   if (policyBlockers.length > 0) {
     lines.push(`- Policy blockers: ${policyBlockers.join(', ')}`);
@@ -440,6 +541,38 @@ function formatTerminalDispositionCoverageMarkdown(report) {
         'n/a';
       lines.push(
         `| ${familyStatus.family} | ${familyStatus.status} | ${familyStatus.candidate_count} | ${familyStatus.selected_count} | ${latest} |`
+      );
+    }
+  }
+
+  const unsupportedRecords = modelCompatibility?.unsupported_records || [];
+  if (unsupportedRecords.length > 0) {
+    lines.push(
+      '',
+      '| Unsupported verifier model source | Model | Disposition | PR | Run |',
+      '|-----------------------------------|-------|-------------|----|-----|'
+    );
+    for (const record of unsupportedRecords) {
+      const pr = record.pr_number ? `#${record.pr_number}` : 'n/a';
+      const run = record.run_id || 'n/a';
+      lines.push(
+        `| ${record.source_key} | ${record.model} | ${record.disposition} | ${pr} | ${run} |`
+      );
+    }
+  }
+
+  const missingModelRecords = modelCompatibility?.missing_model_records || [];
+  if (missingModelRecords.length > 0) {
+    lines.push(
+      '',
+      '| Missing verifier model source | Disposition | Mode | PR | Run |',
+      '|-------------------------------|-------------|------|----|-----|'
+    );
+    for (const record of missingModelRecords) {
+      const pr = record.pr_number ? `#${record.pr_number}` : 'n/a';
+      const run = record.run_id || 'n/a';
+      lines.push(
+        `| ${record.source_key} | ${record.disposition} | ${record.verifier_mode} | ${pr} | ${run} |`
       );
     }
   }
@@ -630,7 +763,9 @@ module.exports = {
   normalizeEnforcementPolicy,
   normalizeArtifactSelectionSummary,
   normalizeTerminalPriorityFamilyStatuses,
+  normalizeUnsupportedCodexModels,
   readNdjsonFiles,
   readArtifactSelectionReport,
+  summarizeVerifierModelCompatibility,
   summarizeTerminalDispositionCoverage,
 };

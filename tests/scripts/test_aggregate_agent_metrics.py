@@ -71,6 +71,9 @@ def test_build_summary_formats_sections() -> None:
     assert "Terminal dispositions: follow-up-created (1)" in summary
     assert "Terminal disposition sources: source-issue:99 (1)" in summary
     assert "Verifier models: gpt-5.3-codex (1)" in summary
+    assert "Unsupported verifier models: n/a" in summary
+    assert "Unsupported model dispositions: n/a" in summary
+    assert "Missing verifier model metadata: n/a" in summary
     assert "Model selection reasons: default (1)" in summary
     assert "Verifier modes: checkbox (1)" in summary
 
@@ -322,6 +325,8 @@ def test_summary_helpers_cover_branches() -> None:
     assert verifier_with_terminal["runs"] == 1
     assert verifier_with_terminal["terminal_records"] == 1
     assert verifier_with_terminal["verifier_models"]["gpt-5.3-codex"] == 1
+    assert verifier_with_terminal["unsupported_verifier_models"] == Counter()
+    assert verifier_with_terminal["missing_verifier_model_metadata"] == Counter()
     assert (
         verifier_with_terminal["model_selection_reasons"][
             "fallback-unsupported-chatgpt-codex-model"
@@ -329,6 +334,73 @@ def test_summary_helpers_cover_branches() -> None:
         == 1
     )
     assert verifier_with_terminal["verifier_modes"]["checkbox"] == 1
+
+
+def test_verifier_summary_counts_unsupported_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UNSUPPORTED_VERIFIER_MODELS", "gpt-5.2-codex,custom-bad")
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "run_id": "24948023778",
+                "pr_number": 1872,
+                "disposition": "verifier-error",
+                "llm_model": "gpt-5.2-codex",
+            },
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "run_id": "24948023779",
+                "pr_number": 1873,
+                "disposition": "verified-pass",
+                "llm_model": "gpt-5.3-codex",
+            },
+        ]
+    )
+
+    assert verifier["unsupported_verifier_models"]["gpt-5.2-codex"] == 1
+    assert verifier["unsupported_model_dispositions"]["verifier-error"] == 1
+
+    summary = aggregate_agent_metrics.build_summary(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "run_id": "24948023778",
+                "pr_number": 1872,
+                "disposition": "verifier-error",
+                "llm_model": "gpt-5.2-codex",
+            }
+        ],
+        errors=0,
+    )
+
+    assert "Unsupported verifier models: gpt-5.2-codex (1)" in summary
+    assert "Unsupported model dispositions: verifier-error (1)" in summary
+
+
+def test_verifier_summary_counts_missing_model_metadata() -> None:
+    summary = aggregate_agent_metrics.build_summary(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "run_id": "24948023778",
+                "pr_number": 1872,
+                "disposition": "verifier-error",
+            },
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "run_id": "24948023779",
+                "pr_number": 1873,
+                "disposition": "verified-pass",
+                "verifier_mode": "evaluate",
+            },
+        ],
+        errors=0,
+    )
+
+    assert "Missing verifier model metadata: verifier-error (1)" in summary
 
 
 def test_format_helpers_and_summary_range() -> None:

@@ -12,8 +12,10 @@ const {
   normalizeEnforcementPolicy,
   normalizeArtifactSelectionSummary,
   normalizeExpectedSource,
+  normalizeUnsupportedCodexModels,
   readArtifactSelectionReport,
   readNdjsonFiles,
+  summarizeVerifierModelCompatibility,
   summarizeTerminalDispositionCoverage,
 } = require('../terminal_disposition_coverage.js');
 
@@ -206,6 +208,113 @@ test('formats markdown for observed and missing sources', () => {
   assert.match(markdown, /review-thread:101/);
   assert.match(markdown, /source-issue:7/);
   assert.match(markdown, /follow-up-created \(1\)/);
+});
+
+test('warns on unsupported verifier models in terminal records', () => {
+  const records = [
+    {
+      schema: 'workflows-terminal-disposition/v1',
+      artifact_family: 'verifier-terminal-disposition',
+      source_type: 'pull-request',
+      source_id: '1872',
+      pr_number: 1872,
+      run_id: '24948023778',
+      disposition: 'verifier-error',
+      llm_model: 'gpt-5.2-codex',
+      model_selection_reason: 'input',
+      verifier_mode: 'checkbox',
+    },
+    {
+      schema: 'workflows-terminal-disposition/v1',
+      artifact_family: 'review-thread-terminal-disposition',
+      source_type: 'review-thread',
+      source_id: '1872',
+      pr_number: 1872,
+      disposition: 'no-unresolved-bot-comments',
+    },
+  ];
+  const report = summarizeTerminalDispositionCoverage(records);
+  const markdown = formatTerminalDispositionCoverageMarkdown(report);
+
+  assert.equal(report.status, 'warning');
+  assert.equal(report.verifier_model_compatibility.status, 'warning');
+  assert.equal(report.verifier_model_compatibility.unsupported_record_count, 1);
+  assert.deepEqual(report.enforcement.blockers, ['unsupported-verifier-model']);
+  assert.match(markdown, /Verifier model compatibility: warning/);
+  assert.match(markdown, /gpt-5\.2-codex/);
+  assert.match(markdown, /pull-request:1872/);
+});
+
+test('summarizes verifier model compatibility with configurable unsupported models', () => {
+  assert.deepEqual(normalizeUnsupportedCodexModels(' gpt-5.2-codex, bad-model, bad-model '), [
+    'bad-model',
+    'gpt-5.2-codex',
+  ]);
+
+  const summary = summarizeVerifierModelCompatibility(
+    [
+      {
+        schema: 'workflows-terminal-disposition/v1',
+        artifact_family: 'verifier-terminal-disposition',
+        source_type: 'pull-request',
+        source_id: '1',
+        llm_model: 'gpt-5.3-codex',
+        model_selection_reason: 'default',
+      },
+      {
+        schema: 'workflows-terminal-disposition/v1',
+        artifact_family: 'verifier-terminal-disposition',
+        source_type: 'pull-request',
+        source_id: '2',
+        llm_model: 'custom-bad',
+      },
+    ],
+    { unsupported_codex_models: ['custom-bad'] }
+  );
+
+  assert.equal(summary.status, 'warning');
+  assert.equal(summary.verifier_record_count, 2);
+  assert.deepEqual(summary.selected_models, {
+    'custom-bad': 1,
+    'gpt-5.3-codex': 1,
+  });
+  assert.deepEqual(summary.model_selection_reasons, { default: 1 });
+  assert.equal(summary.unsupported_records[0].source_key, 'pull-request:2');
+});
+
+test('warns when Codex verifier terminal records omit model metadata', () => {
+  const report = summarizeTerminalDispositionCoverage([
+    {
+      schema: 'workflows-terminal-disposition/v1',
+      artifact_family: 'verifier-terminal-disposition',
+      source_type: 'pull-request',
+      source_id: '1872',
+      pr_number: 1872,
+      run_id: '24948023778',
+      disposition: 'verifier-error',
+    },
+    {
+      schema: 'workflows-terminal-disposition/v1',
+      artifact_family: 'verifier-terminal-disposition',
+      source_type: 'pull-request',
+      source_id: '1873',
+      pr_number: 1873,
+      disposition: 'verified-pass',
+      verifier_mode: 'evaluate',
+    },
+  ]);
+  const markdown = formatTerminalDispositionCoverageMarkdown(report);
+
+  assert.equal(report.status, 'warning');
+  assert.equal(report.verifier_model_compatibility.missing_model_record_count, 1);
+  assert.deepEqual(
+    report.verifier_model_compatibility.missing_model_records.map((record) => record.source_key),
+    ['pull-request:1872']
+  );
+  assert.deepEqual(report.enforcement.blockers, ['unsupported-verifier-model']);
+  assert.match(markdown, /Missing verifier model metadata records: 1/);
+  assert.match(markdown, /pull-request:1872/);
+  assert.doesNotMatch(markdown, /\| pull-request:1873 \| verified-pass \| evaluate/);
 });
 
 test('reads ndjson files and counts parse errors', () => {
