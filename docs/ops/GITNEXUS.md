@@ -31,8 +31,10 @@ GitNexus writes repo-local `.gitnexus/` indexes, may generate
 
 - Do not commit `.gitnexus/`.
 - Do not commit `.claude/skills/gitnexus/`.
-- Keep `.gitnexus` or `.gitnexus/` ignore entries if GitNexus adds them to
-  a repo `.gitignore`.
+- Prefer global git excludes for GitNexus cache paths so local-only setup does
+  not dirty every repo worktree.
+- Do not add repo-specific `.gitignore` entries solely for GitNexus unless that
+  repo intentionally wants to track them.
 - Do not require GitNexus for CI or remote workflows.
 - Do not make correctness depend on GitNexus output.
 - Use normal `rg`, git, and repository tests as the fallback path.
@@ -44,6 +46,7 @@ Install the pinned CLI once:
 ```bash
 docs/ops/bin/gitnexus_fleet.sh install
 docs/ops/bin/gitnexus_fleet.sh check-version
+docs/ops/bin/gitnexus_fleet.sh ensure-global-ignore
 ```
 
 Use one global MCP server for Codex:
@@ -73,7 +76,7 @@ Baseline indexing intentionally leaves embeddings off and skips
 GitNexus-managed `AGENTS.md` / `CLAUDE.md` rewrites:
 
 ```bash
-docs/ops/bin/gitnexus_fleet.sh ensure-ignores all
+docs/ops/bin/gitnexus_fleet.sh ensure-global-ignore
 docs/ops/bin/gitnexus_fleet.sh index all
 docs/ops/bin/gitnexus_fleet.sh group-create
 docs/ops/bin/gitnexus_fleet.sh group-add

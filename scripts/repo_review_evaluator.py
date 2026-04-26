@@ -470,11 +470,7 @@ def build_review_execution(state: dict[str, Any]) -> dict[str, Any]:
     repo_path = Path(state["local_path"])
     tracked_files = tracked_repo_files(repo_path)
     evidence_files = [path for path in tracked_files if not is_evidence_noise_file(path)]
-    implementation_files = [
-        path
-        for path in evidence_files
-        if is_implementation_file(path)
-    ]
+    implementation_files = [path for path in evidence_files if is_implementation_file(path)]
     test_files = [path for path in evidence_files if is_test_file(path)]
     implementation_scan_files = implementation_files[:REVIEW_SCAN_FILE_LIMIT]
     test_scan_files = test_files[:REVIEW_SCAN_FILE_LIMIT]

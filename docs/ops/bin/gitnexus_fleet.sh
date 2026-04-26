@@ -12,6 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKFLOWS_ROOT="${WORKFLOWS_ROOT:-$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)}"
 CODE_ROOT="${CODE_ROOT:-$(cd "${WORKFLOWS_ROOT}/.." && pwd)}"
 GITNEXUS_BIN="${GITNEXUS_BIN:-gitnexus}"
+GITNEXUS_GLOBAL_IGNORE="${GITNEXUS_GLOBAL_IGNORE:-${HOME}/.gitignore_global}"
 
 # Canonical repos only. Workflows-steward is a temporary automation worktree
 # and must not be registered in GitNexus.
@@ -44,8 +45,8 @@ Usage: docs/ops/bin/gitnexus_fleet.sh <command> [repo-name]
 
 Commands:
   list                 Show canonical repos in the GitNexus fleet.
-  ensure-ignores [repo|all]
-                       Ensure local GitNexus cache patterns are in .gitignore.
+  ensure-global-ignore
+                       Ensure local GitNexus cache patterns are globally ignored.
   index [repo|all]     Run gitnexus analyze with local-cache defaults.
   status [repo|all]    Run gitnexus status for indexed repos.
   group-create         Create the ${GROUP_NAME} GitNexus group.
@@ -62,6 +63,8 @@ Environment:
   GITNEXUS_VERSION     GitNexus npm version. Default: ${GITNEXUS_VERSION}.
   GITNEXUS_BIN         Command prefix. Default: gitnexus.
   GITNEXUS_GROUP_NAME  Group name. Default: ${GROUP_NAME}.
+  GITNEXUS_GLOBAL_IGNORE
+                       Global excludes file. Default: ${GITNEXUS_GLOBAL_IGNORE}.
 
 Notes:
   - This script intentionally ignores Workflows-steward.
@@ -80,24 +83,24 @@ require_repo() {
   fi
 }
 
-ensure_repo_ignores() {
-  local repo="$1"
+ensure_global_ignore() {
   local ignore_file pattern
-  require_repo "${repo}"
-  ignore_file="$(repo_path "${repo}")/.gitignore"
+  ignore_file="${GITNEXUS_GLOBAL_IGNORE}"
+  mkdir -p "$(dirname "${ignore_file}")"
   touch "${ignore_file}"
   for pattern in ".gitnexus/" ".claude/skills/gitnexus/"; do
     if ! grep -Fxq "${pattern}" "${ignore_file}"; then
       printf '%s\n' "${pattern}" >> "${ignore_file}"
-      echo "Added ${pattern} to ${repo}/.gitignore"
+      echo "Added ${pattern} to ${ignore_file}"
     fi
   done
+  git config --global core.excludesfile "${ignore_file}"
+  echo "Global git excludes: ${ignore_file}"
 }
 
 index_repo() {
   local repo="$1"
   require_repo "${repo}"
-  ensure_repo_ignores "${repo}"
   echo "Indexing ${repo}"
   run_gitnexus analyze "$(repo_path "${repo}")" --skip-agents-md
 }
@@ -113,15 +116,8 @@ case "${1:-}" in
   list)
     printf '%s\n' "${FLEET_REPOS[@]}"
     ;;
-  ensure-ignores)
-    target="${2:-all}"
-    if [[ "${target}" == "all" ]]; then
-      for repo in "${FLEET_REPOS[@]}"; do
-        ensure_repo_ignores "${repo}"
-      done
-    else
-      ensure_repo_ignores "${target}"
-    fi
+  ensure-global-ignore)
+    ensure_global_ignore
     ;;
   index)
     target="${2:-all}"
