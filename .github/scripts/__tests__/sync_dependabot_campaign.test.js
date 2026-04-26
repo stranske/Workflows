@@ -189,11 +189,12 @@ test('buildQueueItem marks old sync branches as superseded by the current templa
     {},
     [item],
     '2026-04-21T05:52:00Z',
-    { reposRequested: 1, reposChecked: 1 },
+    { reposRequested: 1, reposChecked: 1, currentSyncHash: 'newhash123456' },
   );
   const body = formatCampaignBody(state);
   const marker = parseCampaignMarker(formatCampaignMarker(state));
 
+  assert.equal(state.current_sync_hash, 'newhash123456');
   assert.equal(item.source_sync.status, 'superseded');
   assert.equal(item.source_sync.pr_sync_hash, 'oldhash123456');
   assert.equal(state.items[0].status, 'local-codex-superseded-sync-candidate');
@@ -208,12 +209,17 @@ test('buildQueueItem marks old sync branches as superseded by the current templa
   assert.deepEqual(state.stats.local_codex_queue_state_counts, {
     'superseded-sync-candidate': 1,
   });
+  assert.deepEqual(state.stats.source_sync_status_counts, { superseded: 1 });
+  assert.equal(marker.current_sync_hash, 'newhash123456');
+  assert.deepEqual(marker.stats.source_sync_status_counts, { superseded: 1 });
   assert.equal(marker.stats.items_superseded_sync_candidates, 1);
   assert.equal(marker.stats.marker_items_retained, 0);
   assert.equal(marker.stats.marker_items_omitted, 1);
   assert.deepEqual(marker.items, []);
   assert.match(body, /No local Codex work is queued/);
+  assert.match(body, /Current sync hash: newhash123456/);
   assert.match(body, /Superseded sync candidates: 1/);
+  assert.match(body, /Source sync states: superseded=1/);
   assert.match(body, /Source sync state: superseded/);
 });
 
@@ -937,6 +943,7 @@ test('validates campaign item stats against retained queue state', () => {
       items_finished: 0,
       items_blocked: 0,
       status_counts: { 'needs-local-codex': 2 },
+      source_sync_status_counts: { current: 1 },
     },
     items: [
       { id: 'one', status: 'needs-local-codex' },
@@ -959,6 +966,7 @@ test('validates campaign item stats against retained queue state', () => {
   assert.ok(validation.blockers.includes('status-count-mismatch-local-codex-finished'));
   assert.ok(validation.blockers.includes('local-codex-queue-state-count-mismatch-actionable'));
   assert.ok(validation.blockers.includes('local-codex-queue-state-count-mismatch-finished'));
+  assert.ok(validation.blockers.includes('source-sync-status-count-mismatch-current'));
   assert.ok(validation.blockers.includes('item-local-codex-queue-state-annotation-mismatch'));
   assert.ok(validation.blockers.includes('item-local-codex-actionable-annotation-mismatch'));
   assert.ok(validation.blockers.includes('item-local-codex-claimable-annotation-mismatch'));
@@ -1033,7 +1041,7 @@ test('formatCampaignBody omits inactive superseded details from issue marker', (
     {},
     items,
     '2026-04-21T05:52:00Z',
-    { reposRequested: 11, reposChecked: 11, syncPrsOpen: 150 },
+    { reposRequested: 11, reposChecked: 11, syncPrsOpen: 150, currentSyncHash: 'new-sync-hash' },
   );
 
   const body = formatCampaignBody(state);
@@ -1041,6 +1049,8 @@ test('formatCampaignBody omits inactive superseded details from issue marker', (
 
   assert.ok(body.length <= 60000, `body length ${body.length} should fit GitHub issue limit`);
   assert.equal(marker.stats.items_superseded_sync_candidates, 120);
+  assert.equal(marker.current_sync_hash, 'new-sync-hash');
+  assert.deepEqual(marker.stats.source_sync_status_counts, { superseded: 120 });
   assert.equal(marker.stats.marker_items_retained, 0);
   assert.equal(marker.stats.marker_items_omitted, 120);
   assert.deepEqual(marker.items, []);

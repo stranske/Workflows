@@ -439,6 +439,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     updated_at: now,
     run_id: cleanString(options.runId || previousState.run_id),
     controller: 'maint-82-sync-dependabot-campaign',
+    current_sync_hash: normalizeSyncHash(options.currentSyncHash || previousState.current_sync_hash),
     stats: buildStats(items, discoveredItems, options),
     source_review_history: sourceReviewHistory,
     items,
@@ -527,6 +528,17 @@ function localCodexQueueStateCounts(items = []) {
   }, {});
 }
 
+function sourceSyncStatusCounts(items = []) {
+  return cleanArray(items).reduce((counts, item) => {
+    if (item.classification !== 'sync') {
+      return counts;
+    }
+    const status = cleanString(item.source_sync?.status) || 'unknown';
+    counts[status] = (counts[status] || 0) + 1;
+    return counts;
+  }, {});
+}
+
 function localCodexClaimSummary(items = []) {
   const claims = cleanArray(items)
     .filter((item) => item.status === 'local-codex-claimed')
@@ -599,6 +611,7 @@ function buildStats(items, discoveredItems, options = {}) {
     items_unpublished_source_results: unpublishedSourceResultCount,
     status_counts: statusCounts,
     local_codex_queue_state_counts: localCodexQueueStateCounts(items),
+    source_sync_status_counts: sourceSyncStatusCounts(items),
     local_codex_claims: localCodexClaimSummary(items),
   };
 }
@@ -628,6 +641,7 @@ function deriveItemStats(items = []) {
     items_unpublished_source_results: unpublishedSourceResultCount,
     status_counts: statusCounts,
     local_codex_queue_state_counts: localCodexQueueStateCounts(queueItems),
+    source_sync_status_counts: sourceSyncStatusCounts(queueItems),
     local_codex_claims: localCodexClaimSummary(queueItems),
   };
 }
@@ -672,6 +686,18 @@ function validateCampaignState(state = {}) {
     const expected = Number(derived.local_codex_queue_state_counts?.[queueState] || 0);
     if (actual !== expected) {
       blockers.push(`local-codex-queue-state-count-mismatch-${queueState}`);
+    }
+  }
+
+  const observedSourceSyncStates = new Set([
+    ...Object.keys(stats.source_sync_status_counts || {}),
+    ...Object.keys(derived.source_sync_status_counts || {}),
+  ]);
+  for (const sourceSyncState of observedSourceSyncStates) {
+    const actual = Number(stats.source_sync_status_counts?.[sourceSyncState] || 0);
+    const expected = Number(derived.source_sync_status_counts?.[sourceSyncState] || 0);
+    if (actual !== expected) {
+      blockers.push(`source-sync-status-count-mismatch-${sourceSyncState}`);
     }
   }
 
@@ -739,10 +765,13 @@ function compactStateForMarker(state = {}) {
     updated_at: cleanString(state.updated_at),
     run_id: cleanString(state.run_id),
     controller: cleanString(state.controller),
+    current_sync_hash: cleanString(state.current_sync_hash),
     stats: {
       ...stats,
       local_codex_queue_state_counts:
         stats.local_codex_queue_state_counts || localCodexQueueStateCounts(state.items),
+      source_sync_status_counts:
+        stats.source_sync_status_counts || sourceSyncStatusCounts(state.items),
       local_codex_claims:
         stats.local_codex_claims || localCodexClaimSummary(state.items),
       marker_items_retained: markerItems.length,
@@ -870,6 +899,13 @@ function markdownLink(label, url) {
   return cleanUrl ? `[${cleanLabel}](${cleanUrl})` : cleanLabel;
 }
 
+function formatSourceSyncStatusCounts(counts = {}) {
+  const parts = ['current', 'superseded', 'unknown']
+    .filter((status) => Number(counts[status] || 0) > 0)
+    .map((status) => `${status}=${Number(counts[status] || 0)}`);
+  return parts.length ? parts.join(', ') : '-';
+}
+
 function formatCampaignBody(state) {
   const stats = state.stats || {};
   const claims = stats.local_codex_claims || localCodexClaimSummary(state.items);
@@ -891,6 +927,7 @@ function formatCampaignBody(state) {
     '## Summary',
     '',
     `- Updated: ${state.updated_at}`,
+    `- Current sync hash: ${state.current_sync_hash || '-'}`,
     `- Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
     `- Open sync PRs: ${stats.sync_prs_open || 0}`,
     `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
@@ -900,6 +937,7 @@ function formatCampaignBody(state) {
     `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Source sync states: ${formatSourceSyncStatusCounts(stats.source_sync_status_counts)}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Claimed local Codex items: ${claims.count || 0}`,
     `- Next claim lease expires: ${claims.next_expires_at || '-'}`,
@@ -1060,6 +1098,7 @@ function formatCompactCampaignBody(state) {
     'Remote discovery found more review-thread work than fits in a full GitHub issue body. The marker below retains the compact machine-readable queue for the local watcher.',
     '',
     `- Updated: ${state.updated_at}`,
+    `- Current sync hash: ${state.current_sync_hash || '-'}`,
     `- Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
     `- Open sync PRs: ${stats.sync_prs_open || 0}`,
     `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
@@ -1069,6 +1108,7 @@ function formatCompactCampaignBody(state) {
     `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Source sync states: ${formatSourceSyncStatusCounts(stats.source_sync_status_counts)}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Claimed local Codex items: ${claims.count || 0}`,
     `- Next claim lease expires: ${claims.next_expires_at || '-'}`,
@@ -1437,6 +1477,7 @@ function formatDryRunSummary(state = {}) {
     '[dry-run] Campaign issue update suppressed from logs.',
     `repos_checked=${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
     `repos_failed=${stats.repos_failed || 0}`,
+    `current_sync_hash=${state.current_sync_hash || '-'}`,
     `sync_prs_open=${stats.sync_prs_open || 0}`,
     `dependabot_prs_open=${stats.dependabot_prs_open || 0}`,
     `items_needing_local_codex=${stats.items_needing_local_codex || 0}`,
@@ -1457,6 +1498,7 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Updated: ${cleanString(state.updated_at) || '-'}`,
     `- Run ID: ${cleanString(state.run_id) || '-'}`,
     `- Controller: ${cleanString(state.controller) || 'maint-82-sync-dependabot-campaign'}`,
+    `- Current sync hash: ${cleanString(state.current_sync_hash) || '-'}`,
     `- Campaign issue: ${cleanString(issue?.html_url || issue?.url) || '-'}`,
     `- Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
     `- Repos failed: ${stats.repos_failed || 0}`,
@@ -1468,6 +1510,7 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Source sync states: ${formatSourceSyncStatusCounts(stats.source_sync_status_counts)}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Items claimed: ${stats.items_claimed || 0}`,
     `- Next claim lease expires: ${claims.next_expires_at || '-'}`,
@@ -1547,6 +1590,7 @@ async function runCampaign({
 
   const state = mergeCampaignState(previousState, discoveredItems, now, {
     runId: context.runId || context.run_id,
+    currentSyncHash,
     reposRequested: repoEntries.length,
     reposChecked: limitedRepoEntries.length - errors.length,
     reposFailed: errors.length,
@@ -1606,6 +1650,7 @@ async function runCampaign({
   if (core && typeof core.setOutput === 'function') {
     const claims = state.stats.local_codex_claims || localCodexClaimSummary(state.items);
     core.setOutput('needs_local_codex', needsLocalCodex ? 'true' : 'false');
+    core.setOutput('current_sync_hash', state.current_sync_hash || '');
     core.setOutput('items_needing_local_codex', String(state.stats.items_needing_local_codex || 0));
     core.setOutput('items_actionable_local_codex', String(state.stats.items_actionable_local_codex || 0));
     core.setOutput('items_claimable_local_codex', String(state.stats.items_claimable_local_codex || 0));
