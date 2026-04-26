@@ -52,7 +52,7 @@ def query_latest_npm_version(package: str = DEFAULT_PACKAGE, timeout: int = 30) 
     try:
         with tempfile.TemporaryDirectory(prefix="codex-cli-freshness-npm-") as cache_dir:
             env = os.environ.copy()
-            env.setdefault("NPM_CONFIG_CACHE", cache_dir)
+            env["NPM_CONFIG_CACHE"] = cache_dir
             completed = subprocess.run(
                 command,
                 check=True,

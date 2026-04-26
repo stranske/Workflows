@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   DOWNLOAD_MANIFEST_SCHEMA,
   buildInitialManifest,
+  compactSelectionDetails,
   finalizeManifest,
   formatMarkdown,
   safeArtifactPathSegment,
@@ -13,6 +14,40 @@ const {
 const selection = {
   schema: 'workflows-weekly-metrics-artifact-selection/v1',
   status: 'pass',
+  candidate_count: 3,
+  candidate_family_counts: {
+    'codex-cli-freshness': 1,
+    'keepalive-metrics': 1,
+    'review-thread-terminal-disposition': 1,
+  },
+  selected_family_counts: {
+    'keepalive-metrics': 1,
+    'review-thread-terminal-disposition': 1,
+  },
+  missing_priority_families: ['bot-comment-auth-coverage-reusable'],
+  latest_candidate_by_family: {
+    'codex-cli-freshness': {
+      id: 44,
+      name: 'codex-cli-freshness-24965031474',
+      created_at: '2026-04-26T01:01:00Z',
+      updated_at: '2026-04-26T01:01:00Z',
+    },
+  },
+  priority_family_statuses: [
+    {
+      family: 'codex-cli-freshness',
+      status: 'available',
+      candidate_count: 1,
+      selected_count: 0,
+      latest_candidate: {
+        id: 44,
+        name: 'codex-cli-freshness-24965031474',
+        created_at: '2026-04-26T01:01:00Z',
+        updated_at: '2026-04-26T01:01:00Z',
+      },
+      selected_artifact: null,
+    },
+  ],
   selected_artifacts: [
     {
       id: 42,
@@ -45,6 +80,40 @@ test('builds initial download manifest from selected artifacts', () => {
     schema: 'workflows-weekly-metrics-artifact-selection/v1',
     status: 'pass',
     selected_count: 2,
+    candidate_count: 3,
+    candidate_family_counts: {
+      'codex-cli-freshness': 1,
+      'keepalive-metrics': 1,
+      'review-thread-terminal-disposition': 1,
+    },
+    selected_family_counts: {
+      'keepalive-metrics': 1,
+      'review-thread-terminal-disposition': 1,
+    },
+    missing_priority_families: ['bot-comment-auth-coverage-reusable'],
+    priority_family_statuses: [
+      {
+        family: 'codex-cli-freshness',
+        status: 'available',
+        candidate_count: 1,
+        selected_count: 0,
+        latest_candidate: {
+          id: 44,
+          name: 'codex-cli-freshness-24965031474',
+          created_at: '2026-04-26T01:01:00Z',
+          updated_at: '2026-04-26T01:01:00Z',
+        },
+        selected_artifact: null,
+      },
+    ],
+    latest_candidate_by_family: {
+      'codex-cli-freshness': {
+        id: 44,
+        name: 'codex-cli-freshness-24965031474',
+        created_at: '2026-04-26T01:01:00Z',
+        updated_at: '2026-04-26T01:01:00Z',
+      },
+    },
   });
   assert.deepEqual(manifest.stats, {
     selected_count: 2,
@@ -58,6 +127,24 @@ test('builds initial download manifest from selected artifacts', () => {
   assert.equal(manifest.artifacts[0].zip_path, 'artifacts/keepalive-metrics/42/42.zip');
   assert.equal(manifest.artifacts[0].download.status, 'pending');
   assert.equal(manifest.artifacts[0].unzip.status, 'pending');
+});
+
+test('preserves priority family state from the selector contract', () => {
+  const details = compactSelectionDetails(selection, 'artifacts/metric-artifacts-selection.json');
+
+  assert.equal(details.selected_count, 2);
+  assert.equal(details.candidate_count, 3);
+  assert.deepEqual(details.selected_family_counts, {
+    'keepalive-metrics': 1,
+    'review-thread-terminal-disposition': 1,
+  });
+  assert.deepEqual(details.latest_candidate_by_family['codex-cli-freshness'], {
+    id: 44,
+    name: 'codex-cli-freshness-24965031474',
+    created_at: '2026-04-26T01:01:00Z',
+    updated_at: '2026-04-26T01:01:00Z',
+  });
+  assert.equal(details.priority_family_statuses[0].status, 'available');
 });
 
 test('records download and unzip outcomes and finalizes warning status', () => {

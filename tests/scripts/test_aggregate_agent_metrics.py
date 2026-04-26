@@ -1014,7 +1014,28 @@ def test_main_includes_artifact_download_manifest(
             {
                 "schema": "workflows-weekly-metrics-artifact-download-manifest/v1",
                 "status": "warning",
-                "selection": {"selected_count": 2},
+                "selection": {
+                    "selected_count": 2,
+                    "selected_family_counts": {"keepalive-metrics": 1},
+                    "priority_family_statuses": [
+                        {
+                            "family": "codex-cli-freshness",
+                            "status": "selected",
+                            "candidate_count": 1,
+                            "selected_count": 1,
+                            "selected_artifact": {
+                                "id": 44,
+                                "name": "codex-cli-freshness-24965031474",
+                            },
+                        }
+                    ],
+                    "latest_candidate_by_family": {
+                        "codex-cli-freshness": {
+                            "id": 44,
+                            "name": "codex-cli-freshness-24965031474",
+                        }
+                    },
+                },
                 "stats": {
                     "selected_count": 2,
                     "download_pass_count": 1,
@@ -1059,6 +1080,11 @@ def test_main_includes_artifact_download_manifest(
     downloads = summary_json["artifact_downloads"]
     assert downloads["schema"] == "workflows-weekly-metrics-artifact-download-manifest/v1"
     assert downloads["status"] == "warning"
+    assert downloads["selection"]["priority_family_statuses"][0]["family"] == (
+        "codex-cli-freshness"
+    )
+    assert downloads["selection"]["priority_family_statuses"][0]["status"] == "selected"
+    assert downloads["selection"]["latest_candidate_by_family"]["codex-cli-freshness"]["id"] == 44
     assert downloads["stats"]["download_failed_count"] == 1
     assert downloads["failed_artifacts"] == [
         {

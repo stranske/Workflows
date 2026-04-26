@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 from scripts import check_codex_cli_freshness
@@ -38,6 +39,25 @@ def test_build_contract_reports_outdated_pin() -> None:
     assert report["status"] == "outdated"
     assert report["version_delta"] == {"major": 0, "minor": 2, "patch": 3}
     assert "@openai/codex@0.127.3" in markdown
+
+
+def test_query_latest_npm_version_uses_isolated_cache(monkeypatch) -> None:
+    captured_env = {}
+
+    def fake_run(command, **kwargs):
+        captured_env.update(kwargs["env"])
+        assert command == ["npm", "view", "@openai/codex", "version", "--silent"]
+        return subprocess.CompletedProcess(command, 0, stdout="0.126.0\n", stderr="")
+
+    monkeypatch.setenv("NPM_CONFIG_CACHE", "/bad/shared/cache")
+    monkeypatch.setattr(check_codex_cli_freshness.subprocess, "run", fake_run)
+
+    latest, error = check_codex_cli_freshness.query_latest_npm_version()
+
+    assert latest == "0.126.0"
+    assert error == ""
+    assert captured_env["NPM_CONFIG_CACHE"] != "/bad/shared/cache"
+    assert "codex-cli-freshness-npm-" in captured_env["NPM_CONFIG_CACHE"]
 
 
 def test_main_writes_machine_readable_outputs(tmp_path: Path) -> None:
