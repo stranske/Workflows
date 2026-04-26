@@ -1,3 +1,8 @@
+const ISSUE_MARKER_SCHEMA = 'consumer-sync-drift-issue/v1';
+const ISSUE_MARKER_PREFIX = '<!-- consumer-sync-drift:v1 ';
+const ISSUE_MARKER_RE = /<!-- consumer-sync-drift:v1 \{[\s\S]*?\} -->/;
+const GENERATED_BODY_RE = /^\s*## Consumer Repo Drift Detected\b/;
+
 function countsLine(report) {
   const counts = report && report.counts ? report.counts : {};
   return `drift=${counts.drift || 0}, missing=${counts.missing || 0}, errors=${counts.errors || 0}, obsolete=${counts.obsolete || 0}`;
@@ -42,6 +47,42 @@ function followUpLines(report) {
   return lines.length ? lines : ['- Run Maint 68 Sync Consumer Repos from the Workflows repo.'];
 }
 
+function limitedArray(value, limit) {
+  return Array.isArray(value) ? value.slice(0, limit) : [];
+}
+
+function compactMarkerPayload(report, options = {}) {
+  const counts = report && report.counts ? report.counts : {};
+  const followUp = report && report.follow_up ? report.follow_up : {};
+  return {
+    schema: ISSUE_MARKER_SCHEMA,
+    updated_at: options.updatedAt || new Date().toISOString(),
+    run_id: options.runId || '',
+    run_number: options.runNumber || '',
+    run_url: options.runUrl || '',
+    artifact: 'consumer-sync-drift-report',
+    status: report && report.status ? report.status : 'unknown',
+    repo_count: report && Number.isInteger(report.repo_count) ? report.repo_count : 0,
+    counts: {
+      drift: counts.drift || 0,
+      missing: counts.missing || 0,
+      errors: counts.errors || 0,
+      obsolete: counts.obsolete || 0,
+    },
+    top_repo_gaps: limitedArray(report && report.top_repo_gaps, 10),
+    path_prefix_counts: report && report.path_prefix_counts ? report.path_prefix_counts : {},
+    follow_up: {
+      workflow: followUp.workflow || 'maint-68-sync-consumer-repos.yml',
+      all_repos_command: followUp.all_repos_command || '',
+      targeted_repos_command: followUp.targeted_repos_command || '',
+    },
+  };
+}
+
+function formatIssueMarker(report, options = {}) {
+  return `${ISSUE_MARKER_PREFIX}${JSON.stringify(compactMarkerPayload(report, options))} -->`;
+}
+
 function formatIssueBody(report, options = {}) {
   const runUrl = options.runUrl || '';
   const runNumber = options.runNumber || '';
@@ -69,7 +110,22 @@ function formatIssueBody(report, options = {}) {
     '### Notes',
     '- Files marked with `sync_mode: create_only` are excluded from this check.',
     '- Workflows-Integration-Tests is validated separately by Health 67.',
+    '',
+    formatIssueMarker(report, options),
   ].join('\n');
+}
+
+function mergeIssueBody(existingBody, report, options = {}) {
+  const body = existingBody || '';
+  const nextBody = formatIssueBody(report, options);
+  const marker = formatIssueMarker(report, options);
+  if (!body.trim() || GENERATED_BODY_RE.test(body)) {
+    return nextBody;
+  }
+  if (ISSUE_MARKER_RE.test(body)) {
+    return body.replace(ISSUE_MARKER_RE, marker);
+  }
+  return `${body.trimEnd()}\n\n${marker}`;
 }
 
 function formatIssueComment(report, options = {}) {
@@ -92,8 +148,11 @@ function formatIssueComment(report, options = {}) {
 
 module.exports = {
   countsLine,
+  compactMarkerPayload,
   formatIssueBody,
   formatIssueComment,
+  formatIssueMarker,
   formatPrefixCounts,
   formatRepoGaps,
+  mergeIssueBody,
 };

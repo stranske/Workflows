@@ -87,6 +87,7 @@ jobs:
             const {
               formatIssueBody,
               formatIssueComment,
+              mergeIssueBody,
             } = require('./.github/scripts/consumer_sync_drift_issue_body.js');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -111,6 +112,7 @@ jobs:
 
             const body = formatIssueBody(report, {
               runUrl,
+              runId: process.env.GITHUB_RUN_ID,
               runNumber: process.env.GITHUB_RUN_NUMBER,
             });
 
@@ -123,12 +125,27 @@ jobs:
             }));
 
             if (issues.length > 0) {
+              const refreshedBody = mergeIssueBody(issues[0].body || '', report, {
+                runUrl,
+                runId: process.env.GITHUB_RUN_ID,
+                runNumber: process.env.GITHUB_RUN_NUMBER,
+              });
+              if (refreshedBody !== (issues[0].body || '')) {
+                await withRetry(() => github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issues[0].number,
+                  body: refreshedBody,
+                }));
+                console.log(`Refreshed drift issue body for #${issues[0].number}`);
+              }
               await withRetry(() => github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issues[0].number,
                 body: formatIssueComment(report, {
                   runUrl,
+                  runId: process.env.GITHUB_RUN_ID,
                   runNumber: process.env.GITHUB_RUN_NUMBER,
                 })
               }));
