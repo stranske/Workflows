@@ -358,7 +358,7 @@ def test_parse_error_details_escape_markdown_table_cells() -> None:
     lines = aggregate_agent_metrics._format_parse_error_details(details)
 
     assert (
-        "| family name | artifact\\|name | artifact\\|path metrics.ndjson | 1 | invalid\\|json payload |"
+        "| family name | artifact\\|name | artifact\\|path metrics.ndjson | 1 | invalid\\|json payload | 1 |"
         in lines
     )
 
@@ -378,9 +378,42 @@ def test_parse_error_contract_truncates_details() -> None:
     contract = aggregate_agent_metrics._parse_error_contract(details)
 
     assert contract["count"] == aggregate_agent_metrics._MAX_PARSE_ERROR_ROWS + 2
+    assert contract["stored_detail_count"] == aggregate_agent_metrics._MAX_PARSE_ERROR_ROWS + 2
     assert len(contract["details"]) == aggregate_agent_metrics._MAX_PARSE_ERROR_ROWS
     assert contract["details_truncated"] is True
     assert contract["omitted_count"] == 2
+
+
+def test_parse_error_contract_counts_compacted_details() -> None:
+    details = [
+        aggregate_agent_metrics.ParseErrorDetail(
+            path="metrics.ndjson",
+            artifact="artifact",
+            artifact_family="artifact",
+            line=1,
+            reason="invalid-json",
+            count=3,
+        ),
+        aggregate_agent_metrics.ParseErrorDetail(
+            path="metrics.ndjson",
+            artifact="artifact",
+            artifact_family="artifact",
+            line=None,
+            reason="invalid-json",
+            count=7,
+        ),
+    ]
+
+    contract = aggregate_agent_metrics._parse_error_contract(details)
+    lines = aggregate_agent_metrics._format_parse_error_details(details)
+
+    assert contract["count"] == 10
+    assert contract["stored_detail_count"] == 2
+    assert contract["by_artifact_family"] == {"artifact": 10}
+    assert contract["by_reason"] == {"invalid-json": 10}
+    assert contract["details_truncated"] is False
+    assert contract["omitted_count"] == 0
+    assert "| artifact | artifact | metrics.ndjson | n/a | invalid-json | 7 |" in lines
 
 
 def test_read_ndjson_preserves_artifact_name_with_id_extraction_dir(tmp_path: Path) -> None:
@@ -442,7 +475,17 @@ def test_read_ndjson_bounds_legacy_json_fallback_buffer(tmp_path: Path) -> None:
     entries, errors = aggregate_agent_metrics._read_ndjson([path])
 
     assert entries == []
-    assert len(errors) == aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES + 2
+    assert len(errors) <= aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS + 2
+    assert sum(error.count for error in errors) == (
+        aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES + 2
+    )
+    assert errors[-2].line is None
+    assert errors[-2].reason == "invalid-json"
+    assert errors[-2].count == (
+        aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES
+        + 1
+        - aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS
+    )
     assert errors[-1].line is None
     assert errors[-1].reason == "legacy-json-fallback-buffer-limit"
 

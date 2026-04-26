@@ -10,7 +10,7 @@ import re
 import sys
 from collections import Counter
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +44,7 @@ _PATTERNED_ARTIFACT_FAMILIES = (
     ),
 )
 _MAX_PARSE_ERROR_ROWS = 25
+_MAX_STORED_PARSE_ERROR_DETAILS = 250
 _MAX_LEGACY_JSON_FALLBACK_LINES = 5000
 _MAX_LEGACY_JSON_FALLBACK_BYTES = 1024 * 1024
 
@@ -55,6 +56,7 @@ class ParseErrorDetail:
     artifact_family: str
     line: int | None
     reason: str
+    count: int = 1
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -63,6 +65,7 @@ class ParseErrorDetail:
             "artifact_family": self.artifact_family,
             "line": self.line,
             "reason": self.reason,
+            "count": self.count,
         }
 
 
@@ -170,6 +173,41 @@ def _parse_error_detail(path: Path, line: int | None, reason: str) -> ParseError
     )
 
 
+def _append_parse_error_detail(
+    details: list[ParseErrorDetail],
+    detail: ParseErrorDetail,
+    *,
+    detail_limit: int = _MAX_STORED_PARSE_ERROR_DETAILS,
+) -> None:
+    if len(details) < detail_limit:
+        details.append(detail)
+        return
+
+    for index, existing in enumerate(details):
+        if (
+            existing.path == detail.path
+            and existing.artifact == detail.artifact
+            and existing.artifact_family == detail.artifact_family
+            and existing.reason == detail.reason
+            and existing.line is None
+        ):
+            details[index] = replace(existing, count=existing.count + detail.count)
+            return
+
+    details.append(replace(detail, line=None))
+
+
+def _parse_error_count(parse_error_details: list[ParseErrorDetail]) -> int:
+    return sum(detail.count for detail in parse_error_details)
+
+
+def _parse_error_counter(parse_error_details: list[ParseErrorDetail], field: str) -> Counter[str]:
+    counts: Counter[str] = Counter()
+    for detail in parse_error_details:
+        counts[str(getattr(detail, field))] += detail.count
+    return counts
+
+
 def _read_ndjson(files: Iterable[Path]) -> tuple[list[dict[str, Any]], list[ParseErrorDetail]]:
     entries: list[dict[str, Any]] = []
     errors: list[ParseErrorDetail] = []
@@ -204,15 +242,24 @@ def _read_ndjson(files: Iterable[Path]) -> tuple[list[dict[str, Any]], list[Pars
                 try:
                     parsed = json.loads(raw)
                 except json.JSONDecodeError:
-                    file_errors.append(_parse_error_detail(path, line_number, "invalid-json"))
+                    _append_parse_error_detail(
+                        file_errors,
+                        _parse_error_detail(path, line_number, "invalid-json"),
+                    )
                     continue
                 if isinstance(parsed, dict):
                     file_entries.append(_attach_metric_source(parsed, path))
                     raw_lines_for_fallback = []
                 else:
-                    file_errors.append(_parse_error_detail(path, line_number, "non-object-json"))
+                    _append_parse_error_detail(
+                        file_errors,
+                        _parse_error_detail(path, line_number, "non-object-json"),
+                    )
         if file_errors and not file_entries and raw_fallback_truncated:
-            file_errors.append(_parse_error_detail(path, None, "legacy-json-fallback-buffer-limit"))
+            _append_parse_error_detail(
+                file_errors,
+                _parse_error_detail(path, None, "legacy-json-fallback-buffer-limit"),
+            )
         if (
             file_errors
             and not file_entries
@@ -712,28 +759,31 @@ def _summary_metrics_contract(buckets: dict[str, list[dict[str, Any]]]) -> dict[
 def _format_parse_error_details(parse_error_details: list[ParseErrorDetail]) -> list[str]:
     if not parse_error_details:
         return []
-    family_counts = Counter(detail.artifact_family for detail in parse_error_details)
-    artifact_counts = Counter(detail.artifact for detail in parse_error_details)
+    family_counts = _parse_error_counter(parse_error_details, "artifact_family")
+    artifact_counts = _parse_error_counter(parse_error_details, "artifact")
     lines = [
         "",
         "## Parse Error Details",
         f"- By artifact family: {_format_counter(family_counts)}",
         f"- By artifact: {_format_counter(artifact_counts)}",
         "",
-        "| Artifact family | Artifact | File | Line | Reason |",
-        "|-----------------|----------|------|------|--------|",
+        "| Artifact family | Artifact | File | Line | Reason | Count |",
+        "|-----------------|----------|------|------|--------|-------|",
     ]
+    displayed_count = 0
     for detail in parse_error_details[:_MAX_PARSE_ERROR_ROWS]:
         line = str(detail.line) if detail.line is not None else "n/a"
+        displayed_count += detail.count
         lines.append(
             "| "
             f"{_markdown_table_cell(detail.artifact_family)} | "
             f"{_markdown_table_cell(detail.artifact)} | "
             f"{_markdown_table_cell(detail.path)} | "
             f"{_markdown_table_cell(line)} | "
-            f"{_markdown_table_cell(detail.reason)} |"
+            f"{_markdown_table_cell(detail.reason)} | "
+            f"{detail.count} |"
         )
-    remaining = len(parse_error_details) - _MAX_PARSE_ERROR_ROWS
+    remaining = _parse_error_count(parse_error_details) - displayed_count
     if remaining > 0:
         lines.append("")
         lines.append(f"- Additional parse errors omitted from table: {remaining}")
@@ -741,13 +791,16 @@ def _format_parse_error_details(parse_error_details: list[ParseErrorDetail]) -> 
 
 
 def _parse_error_contract(parse_error_details: list[ParseErrorDetail]) -> dict[str, Any]:
-    family_counts = Counter(detail.artifact_family for detail in parse_error_details)
-    artifact_counts = Counter(detail.artifact for detail in parse_error_details)
-    reason_counts = Counter(detail.reason for detail in parse_error_details)
+    family_counts = _parse_error_counter(parse_error_details, "artifact_family")
+    artifact_counts = _parse_error_counter(parse_error_details, "artifact")
+    reason_counts = _parse_error_counter(parse_error_details, "reason")
     details = [detail.as_dict() for detail in parse_error_details[:_MAX_PARSE_ERROR_ROWS]]
-    omitted_count = max(0, len(parse_error_details) - len(details))
+    detail_count = _parse_error_count(parse_error_details)
+    emitted_count = sum(detail["count"] for detail in details)
+    omitted_count = max(0, detail_count - emitted_count)
     return {
-        "count": len(parse_error_details),
+        "count": detail_count,
+        "stored_detail_count": len(parse_error_details),
         "by_artifact_family": dict(sorted(family_counts.items())),
         "by_artifact": dict(sorted(artifact_counts.items())),
         "by_reason": dict(sorted(reason_counts.items())),
@@ -1055,7 +1108,7 @@ def main() -> int:
         return 0
 
     entries, parse_error_details = _read_ndjson(files)
-    summary = build_summary(entries, len(parse_error_details), parse_error_details)
+    summary = build_summary(entries, _parse_error_count(parse_error_details), parse_error_details)
     summary_contract = build_summary_contract(entries, parse_error_details, artifact_downloads)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
