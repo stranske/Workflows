@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: 'Inspect the Workflows sync manifest entries for `pr-00-gate.yml`, `ci.yml`,
       and `dependabot.yml` and verify each is configured with `sync_mode: create_only`.'
-    status: doing
+    status: done
     started_at: '2026-04-26T23:37:44Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-04-26T23:37:56Z'
+    commit: ea7d5fe30f2f576446cbf9d41f4393fb34b03dd5
     notes: []
   - id: task-02
     title: Add or update automated tests that verify create-only skipped files are
