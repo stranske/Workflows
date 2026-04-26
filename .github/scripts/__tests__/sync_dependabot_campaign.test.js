@@ -272,11 +272,37 @@ test('mergeCampaignState preserves claims, expires old leases, and stales missin
   );
 
   const byId = new Map(state.items.map((item) => [item.id, item]));
+  const body = formatCampaignBody(state);
+  const marker = parseCampaignMarker(formatCampaignMarker(state));
+  const validation = validateCampaignState(state);
+
   assert.equal(byId.get(futureClaim.id).status, 'local-codex-claimed');
   assert.equal(byId.get(expiredClaim.id).status, 'needs-local-codex');
   assert.equal(byId.get(stalePrevious.id).status, 'stale');
   assert.equal(state.stats.items_needing_local_codex, 1);
   assert.equal(state.stats.items_claimed, 1);
+  assert.deepEqual(state.stats.local_codex_claims, {
+    count: 1,
+    leases_with_expires_at: 1,
+    missing_lease_count: 0,
+    next_expires_at: '2026-04-21T06:30:00Z',
+    items: [
+      {
+        id: futureClaim.id,
+        repo: 'stranske/TPP',
+        pr_number: 850,
+        claimed_at: '',
+        lease_owner: 'host:123',
+        lease_expires_at: '2026-04-21T06:30:00Z',
+      },
+    ],
+  });
+  assert.equal(marker.stats.local_codex_claims.next_expires_at, '2026-04-21T06:30:00Z');
+  assert.equal(marker.items[0].local_codex_queue_state, 'claimed');
+  assert.equal(marker.items[0].local_codex_actionable, false);
+  assert.equal(validation.status, 'pass');
+  assert.match(body, /Claimed local Codex items: 1/);
+  assert.match(body, /Next claim lease expires: 2026-04-21T06:30:00Z/);
 });
 
 test('mergeCampaignState flags repeated source-fixed review signatures without hiding the item', () => {
@@ -805,9 +831,21 @@ test('dry-run summary avoids logging generated issue body by default', () => {
 });
 
 test('formats campaign run summary as compact artifact markdown', () => {
+  const claimed = {
+    id: 'sync-review-comments:stranske/App#21:claimed',
+    status: 'local-codex-claimed',
+    kind: 'sync-review-comments',
+    classification: 'sync',
+    repo: 'stranske/App',
+    pr_number: 21,
+    lease: { owner: 'host:123', expires_at: '2026-04-21T06:30:00Z' },
+    review_thread_count: 1,
+    review_threads: [],
+  };
   const state = mergeCampaignState(
-    {},
+    { items: [claimed] },
     [
+      { ...claimed, status: 'needs-local-codex' },
       {
         id: 'sync-review-comments:stranske/App#22:abc',
         status: 'needs-local-codex',
@@ -834,6 +872,8 @@ test('formats campaign run summary as compact artifact markdown', () => {
   assert.match(summary, /Repos checked: 2\/3/);
   assert.match(summary, /Items needing local Codex: 1/);
   assert.match(summary, /Actionable local Codex items: 1/);
+  assert.match(summary, /Items claimed: 1/);
+  assert.match(summary, /Next claim lease expires: 2026-04-21T06:30:00Z/);
   assert.match(summary, /State validation: pass/);
   assert.match(summary, /stranske\/Broken: GraphQL rate limit boundary hit/);
 });

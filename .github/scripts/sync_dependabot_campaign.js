@@ -493,6 +493,33 @@ function localCodexQueueStateCounts(items = []) {
   }, {});
 }
 
+function localCodexClaimSummary(items = []) {
+  const claims = cleanArray(items)
+    .filter((item) => item.status === 'local-codex-claimed')
+    .map((item) => ({
+      id: cleanString(item.id),
+      repo: cleanString(item.repo),
+      pr_number: cleanInteger(item.pr_number),
+      claimed_at: cleanString(item.claimed_at),
+      lease_owner: cleanString(item.lease?.owner),
+      lease_expires_at: cleanString(item.lease?.expires_at),
+    }))
+    .sort((a, b) => {
+      const aExpires = a.lease_expires_at || '9999-12-31T23:59:59Z';
+      const bExpires = b.lease_expires_at || '9999-12-31T23:59:59Z';
+      if (aExpires !== bExpires) return aExpires.localeCompare(bExpires);
+      return a.id.localeCompare(b.id);
+    });
+  const claimsWithExpiry = claims.filter((claim) => claim.lease_expires_at);
+  return {
+    count: claims.length,
+    leases_with_expires_at: claimsWithExpiry.length,
+    missing_lease_count: claims.length - claimsWithExpiry.length,
+    next_expires_at: claimsWithExpiry[0]?.lease_expires_at || '',
+    items: claims.slice(0, MAX_QUEUE_ROWS),
+  };
+}
+
 function annotateLocalCodexQueueState(item = {}) {
   const resultState = localCodexResultState(item);
   return {
@@ -535,6 +562,7 @@ function buildStats(items, discoveredItems, options = {}) {
     items_unpublished_source_results: unpublishedSourceResultCount,
     status_counts: statusCounts,
     local_codex_queue_state_counts: localCodexQueueStateCounts(items),
+    local_codex_claims: localCodexClaimSummary(items),
   };
 }
 
@@ -561,6 +589,7 @@ function deriveItemStats(items = []) {
     items_unpublished_source_results: unpublishedSourceResultCount,
     status_counts: statusCounts,
     local_codex_queue_state_counts: localCodexQueueStateCounts(queueItems),
+    local_codex_claims: localCodexClaimSummary(queueItems),
   };
 }
 
@@ -606,6 +635,13 @@ function validateCampaignState(state = {}) {
     }
   }
 
+  if (
+    JSON.stringify(stats.local_codex_claims || localCodexClaimSummary(state.items)) !==
+    JSON.stringify(derived.local_codex_claims)
+  ) {
+    blockers.push('local-codex-claim-summary-mismatch');
+  }
+
   return {
     schema: 'sync-dependabot-campaign-validation/v1',
     status: blockers.length > 0 ? 'warning' : 'pass',
@@ -630,6 +666,8 @@ function compactStateForMarker(state = {}) {
       ...stats,
       local_codex_queue_state_counts:
         stats.local_codex_queue_state_counts || localCodexQueueStateCounts(state.items),
+      local_codex_claims:
+        stats.local_codex_claims || localCodexClaimSummary(state.items),
     },
     validation: state.validation || null,
     source_review_history: cleanArray(state.source_review_history)
@@ -706,9 +744,9 @@ function compactQueueItemForMarker(item = {}) {
       body_preview: truncate(thread.body_preview, 80),
     })),
   };
-  if (queueState === 'source-fixed-candidate' || queueState === 'superseded-sync-candidate') {
+  if (queueState !== 'actionable' && (queueState !== compact.status || compact.status === 'local-codex-claimed')) {
     compact.local_codex_queue_state = queueState;
-    compact.local_codex_actionable = false;
+    compact.local_codex_actionable = isActionableLocalCodexItem(item);
   }
   if (item.local_codex_result_state) {
     compact.local_codex_result_state = cleanString(item.local_codex_result_state);
@@ -746,6 +784,7 @@ function markdownLink(label, url) {
 
 function formatCampaignBody(state) {
   const stats = state.stats || {};
+  const claims = stats.local_codex_claims || localCodexClaimSummary(state.items);
   const queueItems = cleanArray(state.items)
     .filter(isVisibleQueueItem)
     .slice(0, MAX_QUEUE_ROWS);
@@ -773,6 +812,8 @@ function formatCampaignBody(state) {
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
+    `- Claimed local Codex items: ${claims.count || 0}`,
+    `- Next claim lease expires: ${claims.next_expires_at || '-'}`,
     '',
     '## Local Queue',
     '',
@@ -914,6 +955,7 @@ function formatSupersededSyncCandidateDetails(items = []) {
 
 function formatCompactCampaignBody(state) {
   const stats = state.stats || {};
+  const claims = stats.local_codex_claims || localCodexClaimSummary(state.items);
   const queueItems = cleanArray(state.items)
     .filter(isVisibleQueueItem)
     .slice(0, 10);
@@ -938,6 +980,8 @@ function formatCompactCampaignBody(state) {
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
+    `- Claimed local Codex items: ${claims.count || 0}`,
+    `- Next claim lease expires: ${claims.next_expires_at || '-'}`,
     '',
     '| Status | PR | Threads |',
     '| --- | --- | ---: |',
@@ -1285,6 +1329,7 @@ function formatDryRunSummary(state = {}) {
 
 function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
   const stats = state.stats || {};
+  const claims = stats.local_codex_claims || localCodexClaimSummary(state.items);
   const errors = cleanArray(state.errors);
   const validation = state.validation || validateCampaignState(state);
   const lines = [
@@ -1306,6 +1351,7 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Items claimed: ${stats.items_claimed || 0}`,
+    `- Next claim lease expires: ${claims.next_expires_at || '-'}`,
     `- Items blocked: ${stats.items_blocked || 0}`,
     `- State validation: ${validation.status}`,
   ];
@@ -1439,11 +1485,15 @@ async function runCampaign({
   }
 
   if (core && typeof core.setOutput === 'function') {
+    const claims = state.stats.local_codex_claims || localCodexClaimSummary(state.items);
     core.setOutput('needs_local_codex', needsLocalCodex ? 'true' : 'false');
     core.setOutput('items_needing_local_codex', String(state.stats.items_needing_local_codex || 0));
     core.setOutput('items_actionable_local_codex', String(state.stats.items_actionable_local_codex || 0));
     core.setOutput('items_source_fixed_candidates', String(state.stats.items_source_fixed_candidates || 0));
     core.setOutput('items_superseded_sync_candidates', String(state.stats.items_superseded_sync_candidates || 0));
+    core.setOutput('items_claimed', String(state.stats.items_claimed || 0));
+    core.setOutput('claimed_items_missing_lease', String(claims.missing_lease_count || 0));
+    core.setOutput('next_claim_lease_expires_at', claims.next_expires_at || '');
     core.setOutput('items_unpublished_source_results', String(state.stats.items_unpublished_source_results || 0));
     core.setOutput('campaign_issue_url', campaignIssue?.html_url || '');
   }
