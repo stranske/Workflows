@@ -3,6 +3,8 @@
 
 # Local workspace artifacts
 Trend_Model_Project/
+.gitnexus/
+.claude/skills/gitnexus/
 
 # Python
 __pycache__/
@@ -83,6 +85,7 @@ codex-output.md
 codex-prompt-*.md
 codex-output-*.md
 verifier-context.md
+verifier-diff-summary.md
 pr_body.md
 Issues.txt
 
@@ -94,10 +97,27 @@ pr_body.md
 # Updated by autofix workflow on every PR
 autofix_report_enriched.json
 .cosmetic-repair-summary.json
+ci/autofix/history.json
+ci/autofix/diagnostics.json
 
 # --- Metrics/History Files (MEDIUM conflict risk - append-only) ---
 # These accumulate data; prefer workflow artifacts over git commits
+keepalive_status.md
+docs/keepalive/status/
 keepalive-metrics.ndjson
+coverage-trend-history.ndjson
+metrics-history.ndjson
+metrics-retention.ndjson
+residual-trend-history.ndjson
+archives/metrics/
+
+# --- Build and coverage artifacts ---
+.autofix-venv/
+coverage.xml
+
+# --- Wrong package manager artifacts (defense-in-depth) ---
+Pipfile.lock
+poetry.lock
 
 # --- Local repo-review output (ephemeral human decision packets) ---
 docs/reports/repo-review/

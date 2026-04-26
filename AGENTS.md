@@ -45,6 +45,14 @@ Start with the current docs instead of inferring behavior from old comments:
 - Read `docs/guides/ADD_NEW_AGENT.md` before adding or changing agent support.
 - The current consumer default entry points are `agents-issue-intake.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-verifier.yml`, `autofix.yml`, `ci.yml`, and `pr-00-gate.yml`.
 
+## Optional GitNexus Context
+
+- GitNexus is an optional local MCP/indexing layer for cross-repo search and impact checks. Read `docs/ops/GITNEXUS.md` before changing its setup.
+- Use GitNexus opportunistically for workflow/template drift, reusable workflow blast-radius checks, and Workflows-vs-consumer ownership questions when the MCP server is available and indexes are fresh.
+- Treat `.gitnexus/` and `~/.gitnexus/` as local derived cache. Do not commit indexes or make CI, remote workflows, or correctness depend on GitNexus output.
+- `Template` is part of the canonical GitNexus fleet because new repos are cloned from it. `Workflows-steward` is temporary automation state and must be ignored.
+- If GitNexus is unavailable or stale, continue with normal `rg`, git, and test-based repository exploration.
+
 ## Workflow PR Checklist
 
 1. Decide whether the change belongs in a reusable workflow, a consumer template, or a consumer repo.

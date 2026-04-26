@@ -72,6 +72,13 @@ If yes:
 2. Update the sync manifest if a consumer-facing file changed
 3. Sync or manually align this repo afterward
 
+## Optional GitNexus Context
+
+- GitNexus may be available as a local MCP/indexing layer for cross-repo search and impact checks.
+- Use it opportunistically for workflow/template drift, blast-radius checks, and Workflows-vs-consumer ownership questions when indexes are fresh.
+- Treat `.gitnexus/` as local derived cache. Do not commit it, require it in CI, or make correctness depend on it.
+- If GitNexus is unavailable or stale, continue with normal `rg`, git, and repository tests.
+
 ## Useful References
 
 - `stranske/Workflows/README.md`
