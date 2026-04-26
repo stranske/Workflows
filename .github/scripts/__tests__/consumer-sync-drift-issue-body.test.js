@@ -24,6 +24,27 @@ const report = {
     all_repos_command: 'gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows --ref main',
     targeted_repos_command: 'gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows --ref main -f repos=owner/a,owner/b',
   },
+  sync_remediation: {
+    state: 'pending_sync_prs',
+    open_pr_count: 1,
+    repo_count: 1,
+    latest_open_pr: {
+      repo: 'owner/a',
+      number: 42,
+      branch: 'sync/workflows-abc123',
+      url: 'https://github.com/owner/a/pull/42',
+    },
+    stale_open_pr_count: 0,
+    open_prs: [
+      {
+        repo: 'owner/a',
+        number: 42,
+        branch: 'sync/workflows-abc123',
+        url: 'https://github.com/owner/a/pull/42',
+      },
+    ],
+    lookup_errors: [],
+  },
 };
 
 test('countsLine renders stable drift counts', () => {
@@ -42,6 +63,8 @@ test('formatIssueBody includes actionable repo, prefix, and command details', ()
   assert.match(body, /owner\/a: total=100, drift=27, missing=73/);
   assert.match(body, /\.github\/scripts=60/);
   assert.match(body, /Top repos first: `gh workflow run maint-68-sync-consumer-repos.yml/);
+  assert.match(body, /Open sync PRs/);
+  assert.match(body, /owner\/a#42: `sync\/workflows-abc123`/);
   assert.match(body, /consumer-sync-drift-report/);
   assert.match(body, /<!-- consumer-sync-drift:v1 /);
   assert.match(body, /"schema":"consumer-sync-drift-issue\/v1"/);
@@ -58,6 +81,7 @@ test('formatIssueComment stays compact for existing issue updates', () => {
   assert.match(body, /Drift still detected in \[run #124\]/);
   assert.match(body, /Counts: drift=27, missing=73, errors=0, obsolete=0/);
   assert.match(body, /Highest-impact repos:/);
+  assert.match(body, /Open sync PRs:/);
 });
 
 test('compactMarkerPayload exposes the current drift checkpoint', () => {
@@ -73,6 +97,11 @@ test('compactMarkerPayload exposes the current drift checkpoint', () => {
   assert.equal(payload.run_id, '1');
   assert.deepEqual(payload.counts, { drift: 27, missing: 73, errors: 0, obsolete: 0 });
   assert.equal(payload.top_repo_gaps.length, 2);
+  assert.equal(payload.sync_remediation.state, 'pending_sync_prs');
+  assert.equal(payload.sync_remediation.open_pr_count, 1);
+  assert.equal(payload.sync_remediation.latest_open_pr.number, 42);
+  assert.equal(payload.sync_remediation.stale_open_pr_count, 0);
+  assert.equal(payload.sync_remediation.open_prs[0].number, 42);
   assert.equal(payload.follow_up.workflow, 'maint-68-sync-consumer-repos.yml');
 });
 

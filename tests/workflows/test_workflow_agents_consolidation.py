@@ -205,6 +205,16 @@ def test_consumer_sync_run_uploads_machine_readable_report():
     assert (
         "sync_failed" in text and "create_pr_failed" in text
     ), "Maint 68 report must distinguish sync failures from PR creation failures"
+    assert (
+        "workflows-consumer-sync-pr/v1" in text
+        and "<!-- workflows-consumer-sync:v1 $sync_marker -->" in text
+    ), "Maint 68-created sync PRs must carry a machine-readable lifecycle marker"
+    assert (
+        "**Source SHA:**" in text
+        and "**Template hash:**" in text
+        and "**Sync branch:**" in text
+        and "**Consumer repo:**" in text
+    ), "Maint 68 sync PR bodies must expose source SHA, branch, hash, and repo metadata"
 
 
 def test_auto_label_uses_retry_paginate_with_github_client_first():

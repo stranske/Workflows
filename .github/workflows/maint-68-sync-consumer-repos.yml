@@ -865,6 +865,31 @@ jobs:
           git push --quiet -u origin "$branch_name"
 
           # Create PR
+          sync_marker=$(jq -nc \
+            --arg schema "workflows-consumer-sync-pr/v1" \
+            --arg consumer_repo "${{ matrix.repo }}" \
+            --arg source_repository "$GITHUB_REPOSITORY" \
+            --arg source_sha "$GITHUB_SHA" \
+            --arg template_hash "${{ needs.prepare.outputs.template_hash }}" \
+            --arg sync_branch "$branch_name" \
+            --arg manifest ".github/sync-manifest.yml" \
+            --arg lifecycle_state "opened" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --argjson changes_count "${{ steps.sync.outputs.changes_count || '0' }}" \
+            '{
+              schema: $schema,
+              consumer_repo: $consumer_repo,
+              source_repository: $source_repository,
+              source_sha: $source_sha,
+              template_hash: $template_hash,
+              sync_branch: $sync_branch,
+              manifest: $manifest,
+              lifecycle_state: $lifecycle_state,
+              run_id: $run_id,
+              run_attempt: $run_attempt,
+              changes_count: $changes_count
+            }')
           pr_body=$(cat ../sync_summary.md)
           pr_body="$pr_body
 
@@ -875,7 +900,13 @@ jobs:
           - [ ] No repo-specific customizations were overwritten
 
           **Source:** stranske/Workflows
-          **Manifest:** \`.github/sync-manifest.yml\`"
+          **Source SHA:** \`$GITHUB_SHA\`
+          **Template hash:** \`${{ needs.prepare.outputs.template_hash }}\`
+          **Sync branch:** \`$branch_name\`
+          **Consumer repo:** \`${{ matrix.repo }}\`
+          **Manifest:** \`.github/sync-manifest.yml\`
+
+          <!-- workflows-consumer-sync:v1 $sync_marker -->"
 
           pr_url=$(gh pr create \
             --head "$branch_name" \

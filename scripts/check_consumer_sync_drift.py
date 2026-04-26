@@ -15,6 +15,7 @@ import yaml
 REPORT_SCHEMA = "workflows-consumer-sync-drift/v1"
 SUMMARY_ITEM_LIMIT = 50
 CONTENT_ERROR_THRESHOLD = 5
+SYNC_BRANCH_PREFIX = "sync/workflows-"
 TOKEN_ENV_ORDER = (
     "DRIFT_TOKEN",
     "SERVICE_BOT_PAT",
@@ -341,6 +342,45 @@ def build_top_repo_gaps(
     return sorted(gaps, key=lambda item: (-int(item["total"]), str(item["repo"])))[:limit]
 
 
+def fetch_open_sync_prs(
+    session: requests.Session, repo: str
+) -> tuple[list[dict[str, object]], str | None]:
+    """Return open Workflows sync PRs for a consumer repo, or a non-fatal lookup error."""
+    response = session.get(f"https://api.github.com/repos/{repo}/pulls?state=open&per_page=50")
+    if response.status_code >= 400:
+        return [], f"{repo}: sync PR lookup failed ({response_failure_reason(response)})"
+
+    prs: list[dict[str, object]] = []
+    for item in response.json() or []:
+        if not isinstance(item, dict):
+            continue
+        head = item.get("head") if isinstance(item.get("head"), dict) else {}
+        branch = str(head.get("ref", "")).strip()
+        if not branch.startswith(SYNC_BRANCH_PREFIX):
+            continue
+        prs.append(
+            {
+                "repo": repo,
+                "number": item.get("number"),
+                "title": item.get("title", ""),
+                "url": item.get("html_url", ""),
+                "branch": branch,
+                "head_sha": head.get("sha", ""),
+                "created_at": item.get("created_at", ""),
+                "updated_at": item.get("updated_at", ""),
+            }
+        )
+    prs.sort(
+        key=lambda item: (
+            str(item.get("repo", "")),
+            str(item.get("created_at", "")),
+            int(item.get("number") or 0),
+        ),
+        reverse=True,
+    )
+    return prs, None
+
+
 def record_content_error(
     *,
     errors: set[str],
@@ -372,9 +412,13 @@ def build_report(
     errors: set[str],
     obsolete: set[str],
     skipped: set[str] | None = None,
+    open_sync_prs: list[dict[str, object]] | None = None,
+    sync_pr_lookup_errors: list[str] | None = None,
     token_diagnostics: dict[str, object] | None = None,
 ) -> dict[str, object]:
     skipped = skipped or set()
+    open_sync_prs = open_sync_prs or []
+    sync_pr_lookup_errors = sync_pr_lookup_errors or []
     counts = {
         "drift": len(drift),
         "missing": len(missing),
@@ -391,6 +435,11 @@ def build_report(
     )
     top_repo_gaps = build_top_repo_gaps(repo_summaries)
     targeted_repos = [str(item["repo"]) for item in top_repo_gaps]
+    open_sync_repo_count = len({str(item.get("repo", "")) for item in open_sync_prs if item})
+    latest_open_sync_pr = open_sync_prs[0] if open_sync_prs else None
+    remediation_state = "pass"
+    if status != "pass":
+        remediation_state = "pending_sync_prs" if open_sync_prs else "needs_sync"
     report: dict[str, object] = {
         "schema": REPORT_SCHEMA,
         "status": status,
@@ -422,6 +471,15 @@ def build_report(
         "summary_limits": {
             "content_error_threshold_per_repo": CONTENT_ERROR_THRESHOLD,
             "max_items_per_section": SUMMARY_ITEM_LIMIT,
+        },
+        "sync_remediation": {
+            "state": remediation_state,
+            "open_pr_count": len(open_sync_prs),
+            "repo_count": open_sync_repo_count,
+            "latest_open_pr": latest_open_sync_pr,
+            "stale_open_pr_count": max(0, len(open_sync_prs) - open_sync_repo_count),
+            "open_prs": open_sync_prs,
+            "lookup_errors": sync_pr_lookup_errors,
         },
         "skip_count": len(skipped),
         "skipped": sorted_items(skipped),
@@ -504,6 +562,25 @@ def write_summary_markdown(path: str, report: dict[str, object]) -> None:
                     handle.write(f"- All repos: `{all_repos_command}`\n")
                 if targeted_repos_command:
                     handle.write(f"- Top repos: `{targeted_repos_command}`\n")
+                handle.write("\n")
+
+        sync_remediation = report.get("sync_remediation", {})
+        if isinstance(sync_remediation, dict):
+            open_prs = sync_remediation.get("open_prs", [])
+            if isinstance(open_prs, list) and open_prs:
+                open_pr_limit = 10
+                handle.write("### Open sync PRs\n")
+                for item in open_prs[:open_pr_limit]:
+                    if not isinstance(item, dict):
+                        continue
+                    repo = item.get("repo", "unknown")
+                    number = item.get("number", "")
+                    branch = item.get("branch", "")
+                    url = item.get("url", "")
+                    handle.write(f"- {repo}#{number}: `{branch}` {url}\n")
+                remaining = len(open_prs) - open_pr_limit
+                if remaining > 0:
+                    handle.write(f"- ... {remaining} more in consumer-sync-drift-report.json\n")
                 handle.write("\n")
 
         for title, key in (
@@ -674,12 +751,18 @@ def main() -> int:
     skipped: set[str] = set()
 
     remote_trees: dict[str, dict[str, dict[str, object]]] = {}
+    open_sync_prs: list[dict[str, object]] = []
+    sync_pr_lookup_errors: list[str] = []
     for repo in repos:
         remote_tree, tree_error = fetch_remote_tree(session, repo)
         if tree_error:
             errors.add(tree_error)
         else:
             remote_trees[repo] = remote_tree or {}
+        repo_sync_prs, sync_pr_error = fetch_open_sync_prs(session, repo)
+        open_sync_prs.extend(repo_sync_prs)
+        if sync_pr_error:
+            sync_pr_lookup_errors.append(sync_pr_error)
 
     def _check_file(local_file: Path, remote_target: str, repo: str) -> None:
         """Compare a single local file against its remote counterpart."""
@@ -737,6 +820,8 @@ def main() -> int:
         errors=errors,
         obsolete=obsolete,
         skipped=skipped,
+        open_sync_prs=open_sync_prs,
+        sync_pr_lookup_errors=sync_pr_lookup_errors,
         token_diagnostics=token_diagnostics,
     )
     write_report_json(args.report_json, report)

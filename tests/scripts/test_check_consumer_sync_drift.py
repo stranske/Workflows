@@ -54,6 +54,15 @@ def test_build_report_returns_machine_readable_counts() -> None:
         ),
     }
     assert report["summary_limits"]["content_error_threshold_per_repo"] == 5
+    assert report["sync_remediation"] == {
+        "state": "needs_sync",
+        "open_pr_count": 0,
+        "repo_count": 0,
+        "latest_open_pr": None,
+        "stale_open_pr_count": 0,
+        "open_prs": [],
+        "lookup_errors": [],
+    }
     assert report["drift"] == ["owner/b: .github/workflows/a.yml"]
     assert report["token_diagnostics"] == token_diagnostics
 
@@ -106,6 +115,117 @@ def test_build_report_surfaces_manifest_skips_without_failing() -> None:
     assert report["counts"] == {"drift": 0, "missing": 0, "errors": 0, "obsolete": 0}
     assert report["skip_count"] == 1
     assert report["skipped"] == ["owner/custom: AGENTS.md (Uses historical Agents.md casing)"]
+    assert report["sync_remediation"]["state"] == "pass"
+
+
+def test_build_report_surfaces_pending_sync_prs() -> None:
+    report = check_consumer_sync_drift.build_report(
+        repos=["owner/repo"],
+        drift={"owner/repo: .github/workflows/a.yml"},
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        open_sync_prs=[
+            {
+                "repo": "owner/repo",
+                "number": 12,
+                "url": "https://github.com/owner/repo/pull/12",
+                "branch": "sync/workflows-abc123",
+            }
+        ],
+        sync_pr_lookup_errors=["owner/other: sync PR lookup failed (HTTP 403)"],
+    )
+
+    assert report["sync_remediation"] == {
+        "state": "pending_sync_prs",
+        "open_pr_count": 1,
+        "repo_count": 1,
+        "latest_open_pr": {
+            "repo": "owner/repo",
+            "number": 12,
+            "url": "https://github.com/owner/repo/pull/12",
+            "branch": "sync/workflows-abc123",
+        },
+        "stale_open_pr_count": 0,
+        "open_prs": [
+            {
+                "repo": "owner/repo",
+                "number": 12,
+                "url": "https://github.com/owner/repo/pull/12",
+                "branch": "sync/workflows-abc123",
+            }
+        ],
+        "lookup_errors": ["owner/other: sync PR lookup failed (HTTP 403)"],
+    }
+
+
+def test_fetch_open_sync_prs_filters_to_workflows_sync_branches() -> None:
+    class Response:
+        status_code = 200
+
+        def json(self) -> list[dict[str, object]]:
+            return [
+                {
+                    "number": 5,
+                    "title": "ordinary",
+                    "html_url": "https://github.com/owner/repo/pull/5",
+                    "head": {"ref": "feature/example", "sha": "bad"},
+                },
+                {
+                    "number": 6,
+                    "title": "sync",
+                    "html_url": "https://github.com/owner/repo/pull/6",
+                    "head": {"ref": "sync/workflows-abc123", "sha": "good"},
+                    "created_at": "2026-04-26T01:00:00Z",
+                    "updated_at": "2026-04-26T02:00:00Z",
+                },
+                {
+                    "number": 7,
+                    "title": "newer sync",
+                    "html_url": "https://github.com/owner/repo/pull/7",
+                    "head": {"ref": "sync/workflows-def456", "sha": "newer"},
+                    "created_at": "2026-04-26T03:00:00Z",
+                    "updated_at": "2026-04-26T04:00:00Z",
+                },
+            ]
+
+    class Session:
+        requested_urls: list[str] = []
+
+        def get(self, url: str) -> Response:
+            self.requested_urls.append(url)
+            return Response()
+
+    session = Session()
+
+    prs, error = check_consumer_sync_drift.fetch_open_sync_prs(session, "owner/repo")
+
+    assert error is None
+    assert session.requested_urls == [
+        "https://api.github.com/repos/owner/repo/pulls?state=open&per_page=50"
+    ]
+    assert prs == [
+        {
+            "repo": "owner/repo",
+            "number": 7,
+            "title": "newer sync",
+            "url": "https://github.com/owner/repo/pull/7",
+            "branch": "sync/workflows-def456",
+            "head_sha": "newer",
+            "created_at": "2026-04-26T03:00:00Z",
+            "updated_at": "2026-04-26T04:00:00Z",
+        },
+        {
+            "repo": "owner/repo",
+            "number": 6,
+            "title": "sync",
+            "url": "https://github.com/owner/repo/pull/6",
+            "branch": "sync/workflows-abc123",
+            "head_sha": "good",
+            "created_at": "2026-04-26T01:00:00Z",
+            "updated_at": "2026-04-26T02:00:00Z",
+        },
+    ]
 
 
 def test_select_read_token_rejects_rate_limited_candidate() -> None:
@@ -262,12 +382,22 @@ def test_write_report_json_creates_parent_directory(tmp_path) -> None:
 def test_write_summary_markdown_groups_and_bounds_items(tmp_path) -> None:
     output = tmp_path / "summary.md"
     drift = {f"owner/repo: .github/workflows/{index}.yml" for index in range(55)}
+    open_sync_prs = [
+        {
+            "repo": "owner/repo",
+            "number": index,
+            "url": f"https://github.com/owner/repo/pull/{index}",
+            "branch": f"sync/workflows-{index}",
+        }
+        for index in range(12)
+    ]
     report = check_consumer_sync_drift.build_report(
         repos=["owner/repo"],
         drift=drift,
         missing={"owner/repo: scripts/langchain/formatter.py"},
         errors=set(),
         obsolete=set(),
+        open_sync_prs=open_sync_prs,
     )
 
     check_consumer_sync_drift.write_summary_markdown(str(output), report)
@@ -279,6 +409,10 @@ def test_write_summary_markdown_groups_and_bounds_items(tmp_path) -> None:
     assert "- owner/repo: total=56, drift=55, missing=1, errors=0, obsolete=0" in contents
     assert "- drift: .github/workflows=55" in contents
     assert "gh workflow run maint-68-sync-consumer-repos.yml" in contents
+    assert "- owner/repo#0: `sync/workflows-0` https://github.com/owner/repo/pull/0" in contents
+    assert "- owner/repo#9: `sync/workflows-9` https://github.com/owner/repo/pull/9" in contents
+    assert "- owner/repo#10: `sync/workflows-10`" not in contents
+    assert "... 2 more in consumer-sync-drift-report.json" in contents
     assert "... 5 more in consumer-sync-drift-report.json" in contents
 
 

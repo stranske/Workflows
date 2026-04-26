@@ -47,6 +47,22 @@ function followUpLines(report) {
   return lines.length ? lines : ['- Run Maint 68 Sync Consumer Repos from the Workflows repo.'];
 }
 
+function formatOpenSyncPrs(report, limit = 10) {
+  const remediation = report && report.sync_remediation ? report.sync_remediation : {};
+  const prs = Array.isArray(remediation.open_prs) ? remediation.open_prs : [];
+  if (prs.length === 0) {
+    return [];
+  }
+  return prs.slice(0, limit).map((item) => {
+    const repo = item.repo || 'unknown';
+    const number = item.number || '';
+    const branch = item.branch || '';
+    const url = item.url || '';
+    const prLabel = number ? `${repo}#${number}` : repo;
+    return `- ${prLabel}: \`${branch}\`${url ? ` (${url})` : ''}`;
+  });
+}
+
 function limitedArray(value, limit) {
   return Array.isArray(value) ? value.slice(0, limit) : [];
 }
@@ -71,6 +87,23 @@ function compactMarkerPayload(report, options = {}) {
     },
     top_repo_gaps: limitedArray(report && report.top_repo_gaps, 10),
     path_prefix_counts: report && report.path_prefix_counts ? report.path_prefix_counts : {},
+    sync_remediation: report && report.sync_remediation ? {
+      state: report.sync_remediation.state || 'unknown',
+      open_pr_count: report.sync_remediation.open_pr_count || 0,
+      repo_count: report.sync_remediation.repo_count || 0,
+      latest_open_pr: report.sync_remediation.latest_open_pr || null,
+      stale_open_pr_count: report.sync_remediation.stale_open_pr_count || 0,
+      open_prs: limitedArray(report.sync_remediation.open_prs, 10),
+      lookup_errors: limitedArray(report.sync_remediation.lookup_errors, 10),
+    } : {
+      state: 'unknown',
+      open_pr_count: 0,
+      repo_count: 0,
+      latest_open_pr: null,
+      stale_open_pr_count: 0,
+      open_prs: [],
+      lookup_errors: [],
+    },
     follow_up: {
       workflow: followUp.workflow || 'maint-68-sync-consumer-repos.yml',
       all_repos_command: followUp.all_repos_command || '',
@@ -87,8 +120,9 @@ function formatIssueBody(report, options = {}) {
   const runUrl = options.runUrl || '';
   const runNumber = options.runNumber || '';
   const runLink = runUrl && runNumber ? `[Run #${runNumber}](${runUrl})` : runUrl || 'current run';
+  const openSyncPrs = formatOpenSyncPrs(report);
 
-  return [
+  const lines = [
     '## Consumer Repo Drift Detected',
     '',
     'One or more consumer repos have drifted from the Workflows templates or manifest entries.',
@@ -107,12 +141,22 @@ function formatIssueBody(report, options = {}) {
     '- Review `consumer-sync-drift-report` for exact file paths.',
     '- Close this issue when Health 68 passes.',
     '',
+  ];
+  if (openSyncPrs.length > 0) {
+    lines.push(
+      '### Open sync PRs',
+      ...openSyncPrs,
+      '',
+    );
+  }
+  lines.push(
     '### Notes',
     '- Files marked with `sync_mode: create_only` are excluded from this check.',
     '- Workflows-Integration-Tests is validated separately by Health 67.',
     '',
     formatIssueMarker(report, options),
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 function mergeIssueBody(existingBody, report, options = {}) {
@@ -132,8 +176,9 @@ function formatIssueComment(report, options = {}) {
   const runUrl = options.runUrl || '';
   const runNumber = options.runNumber || '';
   const runLink = runUrl && runNumber ? `[run #${runNumber}](${runUrl})` : runUrl || 'latest run';
+  const openSyncPrs = formatOpenSyncPrs(report, 5);
 
-  return [
+  const lines = [
     `Drift still detected in ${runLink}.`,
     '',
     `Counts: ${countsLine(report)}`,
@@ -143,12 +188,17 @@ function formatIssueComment(report, options = {}) {
     '',
     'Follow-up:',
     ...followUpLines(report),
-  ].join('\n');
+  ];
+  if (openSyncPrs.length > 0) {
+    lines.push('', 'Open sync PRs:', ...openSyncPrs);
+  }
+  return lines.join('\n');
 }
 
 module.exports = {
   countsLine,
   compactMarkerPayload,
+  formatOpenSyncPrs,
   formatIssueBody,
   formatIssueComment,
   formatIssueMarker,
