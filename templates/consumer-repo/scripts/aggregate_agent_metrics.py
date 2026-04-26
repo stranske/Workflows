@@ -179,20 +179,12 @@ def _append_parse_error_detail(
     *,
     detail_limit: int = _MAX_STORED_PARSE_ERROR_DETAILS,
 ) -> None:
+    if detail_limit <= 0:
+        return
+
     if len(details) < detail_limit:
         details.append(detail)
         return
-
-    for index, existing in enumerate(details):
-        if (
-            existing.path == detail.path
-            and existing.artifact == detail.artifact
-            and existing.artifact_family == detail.artifact_family
-            and existing.reason == detail.reason
-            and existing.line is None
-        ):
-            details[index] = replace(existing, count=existing.count + detail.count)
-            return
 
     for index, existing in enumerate(details):
         if (
@@ -204,7 +196,38 @@ def _append_parse_error_detail(
             details[index] = replace(existing, line=None, count=existing.count + detail.count)
             return
 
-    details[-1] = replace(detail, line=None, count=details[-1].count + detail.count)
+    displaced = details[-1]
+    for index, existing in enumerate(details[:-1]):
+        if (
+            existing.path == displaced.path
+            and existing.artifact == displaced.artifact
+            and existing.artifact_family == displaced.artifact_family
+            and existing.reason == displaced.reason
+        ):
+            details[index] = replace(existing, line=None, count=existing.count + displaced.count)
+            details[-1] = detail
+            return
+
+    overflow_reason = "additional-parse-errors-after-detail-limit"
+    for index, existing in enumerate(details):
+        if (
+            existing.path == "__multiple__"
+            and existing.artifact == "__multiple__"
+            and existing.artifact_family == "__multiple__"
+            and existing.reason == overflow_reason
+            and existing.line is None
+        ):
+            details[index] = replace(existing, count=existing.count + detail.count)
+            return
+
+    details[-1] = ParseErrorDetail(
+        path="__multiple__",
+        artifact="__multiple__",
+        artifact_family="__multiple__",
+        line=None,
+        reason=overflow_reason,
+        count=displaced.count + detail.count,
+    )
 
 
 def _parse_error_count(parse_error_details: list[ParseErrorDetail]) -> int:

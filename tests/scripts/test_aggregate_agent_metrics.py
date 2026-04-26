@@ -447,6 +447,32 @@ def test_append_parse_error_detail_compacts_at_storage_limit() -> None:
     assert details[0].count == 2
 
 
+def test_append_parse_error_detail_caps_stored_details() -> None:
+    details: list[aggregate_agent_metrics.ParseErrorDetail] = []
+
+    for index in range(5):
+        aggregate_agent_metrics._append_parse_error_detail(
+            details,
+            aggregate_agent_metrics.ParseErrorDetail(
+                path=f"metrics-{index}.ndjson",
+                artifact=f"artifact-{index}",
+                artifact_family=f"family-{index}",
+                line=index + 1,
+                reason="invalid-json",
+            ),
+            detail_limit=3,
+        )
+
+    contract = aggregate_agent_metrics._parse_error_contract(details)
+
+    assert len(details) == 3
+    assert contract["count"] == 5
+    assert contract["stored_detail_count"] == 3
+    assert contract["by_reason"]["additional-parse-errors-after-detail-limit"] == 3
+    assert details[-1].path == "__multiple__"
+    assert details[-1].line is None
+
+
 def test_read_ndjson_preserves_artifact_name_with_id_extraction_dir(tmp_path: Path) -> None:
     metrics_dir = (
         tmp_path
@@ -513,6 +539,8 @@ def test_read_ndjson_bounds_legacy_json_fallback_buffer(tmp_path: Path) -> None:
     compacted_invalid_json = next(
         error for error in errors if error.reason == "invalid-json" and error.line is None
     )
+    retained_invalid_count = sum(error.count for error in errors if error.reason == "invalid-json")
+    assert retained_invalid_count == aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES + 1
     assert compacted_invalid_json.count >= (
         aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES
         + 1

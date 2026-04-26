@@ -98,6 +98,38 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
+            const isRateLimitError = (error) => {
+              const status = error?.status || error?.response?.status;
+              const message = String(
+                error?.message || error?.response?.data?.message || ''
+              ).toLowerCase();
+              const remaining = Number.parseInt(
+                error?.response?.headers?.['x-ratelimit-remaining'] ||
+                  error?.headers?.['x-ratelimit-remaining'] ||
+                  '',
+                10
+              );
+              return (
+                status === 429 ||
+                (status === 403 &&
+                  (message.includes('rate limit') || message.includes('api rate limit exceeded'))) ||
+                (Number.isFinite(remaining) && remaining <= 0)
+              );
+            };
+            const skipOnRateLimit = async (label, fn) => {
+              try {
+                return await withRetry(fn, { maxRetries: 0 });
+              } catch (error) {
+                if (isRateLimitError(error)) {
+                  core.warning(
+                    `Skipped consumer drift issue ${label} because GitHub REST Core is exhausted. ` +
+                    'The drift report artifact remains available for remote and manual consumers.'
+                  );
+                  return null;
+                }
+                throw error;
+              }
+            };
             const title = '🔄 Consumer repo drift detected';
             const label = 'consumer-sync';
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}` +
@@ -116,13 +148,17 @@ jobs:
               runNumber: process.env.GITHUB_RUN_NUMBER,
             });
 
-            const { data: issues } = await withRetry(() => github.rest.issues.listForRepo({
+            const listResult = await skipOnRateLimit('lookup', () => github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: label,
               per_page: 5
             }));
+            if (!listResult) {
+              return;
+            }
+            const { data: issues } = listResult;
 
             if (issues.length > 0) {
               const refreshedBody = mergeIssueBody(issues[0].body || '', report, {
@@ -131,15 +167,18 @@ jobs:
                 runNumber: process.env.GITHUB_RUN_NUMBER,
               });
               if (refreshedBody !== (issues[0].body || '')) {
-                await withRetry(() => github.rest.issues.update({
+                const updateResult = await skipOnRateLimit('body update', () => github.rest.issues.update({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issues[0].number,
                   body: refreshedBody,
                 }));
+                if (!updateResult) {
+                  return;
+                }
                 console.log(`Refreshed drift issue body for #${issues[0].number}`);
               }
-              await withRetry(() => github.rest.issues.createComment({
+              const commentResult = await skipOnRateLimit('comment', () => github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issues[0].number,
@@ -149,14 +188,21 @@ jobs:
                   runNumber: process.env.GITHUB_RUN_NUMBER,
                 })
               }));
+              if (!commentResult) {
+                return;
+              }
               console.log(`Added comment to existing issue #${issues[0].number}`);
             } else {
-              const { data: issue } = await withRetry(() => github.rest.issues.create({
+              const createResult = await skipOnRateLimit('create', () => github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title,
                 body,
                 labels: [label, 'automation']
               }));
+              if (!createResult) {
+                return;
+              }
+              const { data: issue } = createResult;
               console.log(`Created issue #${issue.number}`);
             }
