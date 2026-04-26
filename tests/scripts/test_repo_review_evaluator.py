@@ -193,7 +193,9 @@ def test_collect_repo_state_marks_clean_active_repo_review_pending(tmp_path: Pat
     (repo_dir / "README.md").write_text("# Manager\n", encoding="utf-8")
     subprocess = evaluator.subprocess
     subprocess.run(["git", "-C", str(repo_dir), "init"], check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True
+    )
     subprocess.run(["git", "-C", str(repo_dir), "config", "user.name", "Test User"], check=True)
     subprocess.run(["git", "-C", str(repo_dir), "add", "README.md"], check=True)
     subprocess.run(
@@ -223,7 +225,9 @@ def test_issues_txt_changes_are_helper_inputs_not_review_blockers(tmp_path: Path
     (repo_dir / "Issues.txt").write_text("# helper\n", encoding="utf-8")
     subprocess = evaluator.subprocess
     subprocess.run(["git", "-C", str(repo_dir), "init"], check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True
+    )
     subprocess.run(["git", "-C", str(repo_dir), "config", "user.name", "Test User"], check=True)
     subprocess.run(["git", "-C", str(repo_dir), "add", "README.md", "Issues.txt"], check=True)
     subprocess.run(

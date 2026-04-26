@@ -16,6 +16,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     resolve_step = next(
         step for step in steps if step.get("name") == "Resolve Codex verifier model"
     )
+    install_step = next(step for step in steps if step.get("name") == "Install Codex CLI")
     run_step = next(step for step in steps if step.get("name") == "Run verifier (checkbox mode)")
     collect_step = next(step for step in steps if step.get("name") == "Collect verifier metrics")
     write_step = next(
@@ -30,6 +31,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         resolve_step.get("if")
         == "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'"
     )
+    assert 'npm install -g "@openai/codex@0.125.0"' in install_step["run"]
     assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.5"
     assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.4 gpt-5.3-codex"
     assert resolve_step["env"]["VERIFIER_MODE"] == "${{ inputs.mode }}"
