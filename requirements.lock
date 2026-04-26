@@ -228,7 +228,7 @@ propcache==0.4.1
     #   yarl
 pycodestyle==2.14.0
     # via flake8
-pydantic==2.13.2
+pydantic==2.13.3
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
