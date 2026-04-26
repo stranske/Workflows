@@ -2419,6 +2419,51 @@ test('buildTaskAppendix highlights attempted tasks and suggests next task', () =
   assert.ok(appendix.includes('- Task B'));
 });
 
+test('buildTaskAppendix does not suggest status-metric checklist items as next task', () => {
+  const { buildTaskAppendix } = require('../keepalive_loop.js');
+  const sections = {
+    tasks: [
+      '- [ ] Updated: 2026-04-26T12:33:27.204Z',
+      '- [ ] Repos checked: 11/11',
+      '- [ ] Open sync PRs: 439',
+    ].join('\n'),
+    acceptance: '- [ ] Acceptance criteria section missing from source issue.',
+  };
+  const checkboxCounts = { total: 0, checked: 0, unchecked: 0 };
+
+  const appendix = buildTaskAppendix(sections, checkboxCounts, {});
+  assert.ok(!appendix.includes('### Suggested Next Task'));
+});
+
+test('evaluateKeepaliveLoop stops with no-checklists when only status metrics/placeholders exist', async () => {
+  const pr = {
+    number: 113,
+    head: { ref: 'feature/status-metrics-only', sha: 'sha-13' },
+    labels: [{ name: 'agent:codex' }],
+    body: [
+      '## Tasks',
+      '- [ ] Updated: 2026-04-26T12:33:27.204Z',
+      '- [ ] Repos checked: 11/11',
+      '- [ ] Open sync PRs: 439',
+      '',
+      '## Acceptance Criteria',
+      '- [ ] Acceptance criteria section missing from source issue.',
+    ].join('\n'),
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ head_sha: 'sha-13', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'stop');
+  assert.equal(result.reason, 'no-checklists');
+  assert.deepEqual(result.checkboxCounts, { total: 0, checked: 0, unchecked: 0 });
+});
+
 test('markAgentRunning updates summary comment with running status', async () => {
   // Use formatStateComment to create proper state marker
   const existingStateBody = formatStateComment({

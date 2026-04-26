@@ -1178,6 +1178,79 @@ function extractChecklistItems(markdown) {
   return items;
 }
 
+const STATUS_METRIC_LABELS = new Set([
+  'updated',
+  'repos checked',
+  'open sync prs',
+  'open dependabot prs',
+  'active review threads queued',
+  'items needing local codex',
+  'actionable local codex items',
+  'claimable local codex items',
+  'source-fixed candidates',
+  'superseded sync candidates',
+  'finished local results without published source changes',
+  'claimed local codex items',
+  'next claim lease expires',
+]);
+
+function normaliseChecklistText(value) {
+  return normaliseTaskText(value)
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/[*_~]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function isStatusMetricChecklistItem(text) {
+  const normalized = normaliseChecklistText(text);
+  if (!normalized || !normalized.includes(':')) {
+    return false;
+  }
+  const [labelRaw, ...valueParts] = normalized.split(':');
+  const label = labelRaw.trim();
+  const value = valueParts.join(':').trim();
+  if (!label || !value) {
+    return false;
+  }
+  if (!STATUS_METRIC_LABELS.has(label)) {
+    return false;
+  }
+  return true;
+}
+
+function isPlaceholderChecklistItem(text) {
+  const normalized = normaliseChecklistText(text);
+  if (!normalized) {
+    return true;
+  }
+  if (normalized.includes('section missing from source issue')) {
+    return true;
+  }
+  if (/^no tasks defined\.?$/.test(normalized)) {
+    return true;
+  }
+  if (/^no acceptance criteria defined\.?$/.test(normalized)) {
+    return true;
+  }
+  return false;
+}
+
+function isActionableChecklistItemText(text) {
+  return !isStatusMetricChecklistItem(text) && !isPlaceholderChecklistItem(text);
+}
+
+function toActionableChecklistCounts(markdown) {
+  const actionable = extractChecklistItems(markdown).filter((item) => isActionableChecklistItemText(item.text));
+  const checked = actionable.filter((item) => item.checked).length;
+  const total = actionable.length;
+  return {
+    total,
+    checked,
+    unchecked: Math.max(0, total - checked),
+  };
+}
+
 /**
  * Extract file-path glob patterns from the scope section text.
  * Looks for patterns like `runtime/**`, `src/foo.py`, or backtick-quoted paths.
@@ -1345,7 +1418,9 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
 
   const attemptedTasks = normaliseAttemptedTasks(state?.attempted_tasks);
   const candidateSource = sections?.tasks || sections?.acceptance || '';
-  const taskItems = extractChecklistItems(candidateSource);
+  const taskItems = extractChecklistItems(candidateSource).filter((item) =>
+    isActionableChecklistItemText(item.text)
+  );
   const unchecked = taskItems.filter((item) => !item.checked);
   const attemptedKeys = new Set(attemptedTasks.map((entry) => entry.key));
   const suggested = unchecked.find((item) => !attemptedKeys.has(normaliseTaskKey(item.text))) || unchecked[0];
@@ -2283,7 +2358,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const combinedChecklist = [normalisedSections?.tasks, normalisedSections?.acceptance]
       .filter(Boolean)
       .join('\n');
-    const checkboxCounts = countCheckboxes(combinedChecklist);
+    const checkboxCounts = toActionableChecklistCounts(combinedChecklist);
     const tasksPresent = checkboxCounts.total > 0;
     const tasksRemaining = checkboxCounts.unchecked > 0;
 
@@ -2291,8 +2366,8 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // Tasks = what the agent works on (checkable by agent and auto-reconciliation).
     // Acceptance criteria = what must be independently verified (only verifier or agent).
     // The stop decision requires BOTH to be satisfied.
-    const taskCounts = countCheckboxes(normalisedSections?.tasks || '');
-    const acceptanceCounts = countCheckboxes(normalisedSections?.acceptance || '');
+    const taskCounts = toActionableChecklistCounts(normalisedSections?.tasks || '');
+    const acceptanceCounts = toActionableChecklistCounts(normalisedSections?.acceptance || '');
     const allTasksDone = taskCounts.total === 0 || taskCounts.unchecked === 0;
     const allCriteriaMet = acceptanceCounts.total === 0 || acceptanceCounts.unchecked === 0;
     const allComplete = tasksPresent && !tasksRemaining && allTasksDone && allCriteriaMet;
