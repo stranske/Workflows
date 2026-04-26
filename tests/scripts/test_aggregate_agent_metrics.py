@@ -475,19 +475,41 @@ def test_read_ndjson_bounds_legacy_json_fallback_buffer(tmp_path: Path) -> None:
     entries, errors = aggregate_agent_metrics._read_ndjson([path])
 
     assert entries == []
-    assert len(errors) <= aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS + 2
+    assert len(errors) <= aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS
     assert sum(error.count for error in errors) == (
         aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES + 2
     )
-    assert errors[-2].line is None
-    assert errors[-2].reason == "invalid-json"
-    assert errors[-2].count == (
+    assert errors[-1].line is None
+    assert errors[-1].reason == "detail-limit-exceeded"
+    assert errors[-1].count == (
         aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES
-        + 1
+        + 3
         - aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS
     )
-    assert errors[-1].line is None
-    assert errors[-1].reason == "legacy-json-fallback-buffer-limit"
+
+
+def test_append_parse_error_detail_caps_distinct_overflow() -> None:
+    details: list[aggregate_agent_metrics.ParseErrorDetail] = []
+    limit = 3
+
+    for index in range(8):
+        aggregate_agent_metrics._append_parse_error_detail(
+            details,
+            aggregate_agent_metrics.ParseErrorDetail(
+                path=f"metrics-{index}.ndjson",
+                artifact=f"artifact-{index}",
+                artifact_family=f"family-{index}",
+                line=index,
+                reason=f"invalid-json-{index}",
+            ),
+            detail_limit=limit,
+        )
+
+    assert len(details) == limit
+    assert sum(detail.count for detail in details) == 8
+    assert details[-1].line is None
+    assert details[-1].reason == "detail-limit-exceeded"
+    assert details[-1].count == 6
 
 
 def test_classify_entry_prefers_explicit_type() -> None:

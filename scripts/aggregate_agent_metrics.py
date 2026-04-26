@@ -47,6 +47,8 @@ _MAX_PARSE_ERROR_ROWS = 25
 _MAX_STORED_PARSE_ERROR_DETAILS = 250
 _MAX_LEGACY_JSON_FALLBACK_LINES = 5000
 _MAX_LEGACY_JSON_FALLBACK_BYTES = 1024 * 1024
+_PARSE_ERROR_DETAIL_LIMIT_REASON = "detail-limit-exceeded"
+_PARSE_ERROR_DETAIL_LIMIT_VALUE = "__multiple__"
 
 
 @dataclass(frozen=True)
@@ -179,6 +181,8 @@ def _append_parse_error_detail(
     *,
     detail_limit: int = _MAX_STORED_PARSE_ERROR_DETAILS,
 ) -> None:
+    if detail_limit <= 0:
+        return
     if len(details) < detail_limit:
         details.append(detail)
         return
@@ -194,7 +198,20 @@ def _append_parse_error_detail(
             details[index] = replace(existing, count=existing.count + detail.count)
             return
 
-    details.append(replace(detail, line=None))
+    for index, existing in enumerate(details):
+        if existing.reason == _PARSE_ERROR_DETAIL_LIMIT_REASON and existing.line is None:
+            details[index] = replace(existing, count=existing.count + detail.count)
+            return
+
+    evicted = details[-1]
+    details[-1] = ParseErrorDetail(
+        path=_PARSE_ERROR_DETAIL_LIMIT_VALUE,
+        artifact=_PARSE_ERROR_DETAIL_LIMIT_VALUE,
+        artifact_family=_PARSE_ERROR_DETAIL_LIMIT_VALUE,
+        line=None,
+        reason=_PARSE_ERROR_DETAIL_LIMIT_REASON,
+        count=evicted.count + detail.count,
+    )
 
 
 def _parse_error_count(parse_error_details: list[ParseErrorDetail]) -> int:
