@@ -94,7 +94,11 @@ def ensure_labels(repo: str, labels: list[str], prefix: list[str]) -> None:
 
 
 def add_missing_labels(
-    repo: str, issue_number: int, labels: list[str], existing_labels: list[dict[str, Any]], prefix: list[str]
+    repo: str,
+    issue_number: int,
+    labels: list[str],
+    existing_labels: list[dict[str, Any]],
+    prefix: list[str],
 ) -> None:
     existing = {label.get("name") for label in existing_labels}
     missing = [label for label in labels if label not in existing]

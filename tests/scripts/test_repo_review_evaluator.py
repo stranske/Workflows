@@ -197,7 +197,9 @@ def test_gitnexus_preflight_reports_stale_without_refresh(tmp_path: Path) -> Non
     (repo_dir / "README.md").write_text("# Demo\n", encoding="utf-8")
     subprocess = evaluator.subprocess
     subprocess.run(["git", "-C", str(repo_dir), "init"], check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True
+    )
     subprocess.run(["git", "-C", str(repo_dir), "config", "user.name", "Test User"], check=True)
     subprocess.run(["git", "-C", str(repo_dir), "add", "README.md"], check=True)
     subprocess.run(

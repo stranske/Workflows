@@ -845,7 +845,9 @@ def collect_gitnexus_map(workspace_root: Path, repo_path: Path, repo: RepoConfig
     }
 
 
-def run_gitnexus_analyze(repo_path: Path, gitnexus_bin: str, timeout: int = 180) -> tuple[bool, str]:
+def run_gitnexus_analyze(
+    repo_path: Path, gitnexus_bin: str, timeout: int = 180
+) -> tuple[bool, str]:
     try:
         result = subprocess.run(
             [gitnexus_bin, "analyze", str(repo_path), "--skip-agents-md"],
@@ -905,10 +907,10 @@ def gitnexus_preflight(
                         )
                 else:
                     refresh_status = "failed"
-                    refresh_error = refresh_output.splitlines()[-1] if refresh_output else "unknown error"
-                    warnings.append(
-                        f"{repo.repo} GitNexus refresh failed: {refresh_error}"
+                    refresh_error = (
+                        refresh_output.splitlines()[-1] if refresh_output else "unknown error"
                     )
+                    warnings.append(f"{repo.repo} GitNexus refresh failed: {refresh_error}")
         records[repo.repo] = {
             "before": before,
             "after": after,
@@ -916,7 +918,9 @@ def gitnexus_preflight(
             "refresh_error": refresh_error,
         }
     stale_after = [
-        repo for repo, record in records.items() if record["after"]["status"] in GITNEXUS_REFRESH_STATUSES
+        repo
+        for repo, record in records.items()
+        if record["after"]["status"] in GITNEXUS_REFRESH_STATUSES
     ]
     return {
         "enabled": True,
@@ -1612,7 +1616,9 @@ def dropped_candidate_indexes(
         except (TypeError, ValueError):
             continue
     if candidates is not None:
-        indexes.update(candidate_title_pattern_indexes(decision, "dropped_title_patterns", candidates))
+        indexes.update(
+            candidate_title_pattern_indexes(decision, "dropped_title_patterns", candidates)
+        )
     return indexes
 
 
@@ -1770,7 +1776,9 @@ def build_approved_issue_queue(
         if "approve" not in parts:
             continue
 
-        selected_indexes = approved_candidate_indexes(decision, len(candidates), defaults, candidates)
+        selected_indexes = approved_candidate_indexes(
+            decision, len(candidates), defaults, candidates
+        )
         missing_indexes = sorted(index for index in selected_indexes if index > len(candidates))
         if missing_indexes:
             warnings.append(
