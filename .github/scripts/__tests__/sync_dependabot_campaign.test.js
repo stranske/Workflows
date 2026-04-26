@@ -192,22 +192,27 @@ test('buildQueueItem marks old sync branches as superseded by the current templa
     { reposRequested: 1, reposChecked: 1 },
   );
   const body = formatCampaignBody(state);
-  const markerItem = parseCampaignMarker(formatCampaignMarker({ items: [item] })).items[0];
+  const markerItem = parseCampaignMarker(formatCampaignMarker(state)).items[0];
 
   assert.equal(item.source_sync.status, 'superseded');
   assert.equal(item.source_sync.pr_sync_hash, 'oldhash123456');
+  assert.equal(state.items[0].status, 'local-codex-superseded-sync-candidate');
   assert.equal(state.items[0].local_codex_queue_state, 'superseded-sync-candidate');
   assert.equal(state.items[0].local_codex_actionable, false);
+  assert.equal(state.items[0].local_codex_claimable, false);
   assert.equal(state.stats.items_needing_local_codex, 0);
   assert.equal(state.stats.items_actionable_local_codex, 0);
+  assert.equal(state.stats.items_claimable_local_codex, 0);
   assert.equal(state.stats.items_superseded_sync_candidates, 1);
-  assert.equal(state.stats.status_counts['needs-local-codex'], 1);
+  assert.equal(state.stats.status_counts['local-codex-superseded-sync-candidate'], 1);
   assert.deepEqual(state.stats.local_codex_queue_state_counts, {
     'superseded-sync-candidate': 1,
   });
+  assert.equal(markerItem.status, 'local-codex-superseded-sync-candidate');
   assert.equal(markerItem.source_sync.status, 'superseded');
   assert.equal(markerItem.local_codex_queue_state, 'superseded-sync-candidate');
   assert.equal(markerItem.local_codex_actionable, false);
+  assert.equal(markerItem.local_codex_claimable, false);
   assert.match(body, /No local Codex work is queued/);
   assert.match(body, /Superseded sync candidates: 1/);
   assert.match(body, /Source sync state: superseded/);
@@ -377,9 +382,10 @@ test('mergeCampaignState flags repeated source-fixed review signatures without h
   const markerItem = marker.items.find((item) => item.id === repeated.id);
   const body = formatCampaignBody(state);
 
-  assert.equal(repeatedItem.status, 'needs-local-codex');
+  assert.equal(repeatedItem.status, 'local-codex-source-fixed-candidate');
   assert.equal(repeatedItem.local_codex_queue_state, 'source-fixed-candidate');
   assert.equal(repeatedItem.local_codex_actionable, false);
+  assert.equal(repeatedItem.local_codex_claimable, false);
   assert.equal(repeatedItem.source_fixed_candidate.matching_item_id, finished.id);
   assert.equal(repeatedItem.source_fixed_candidate.finished_at, '2026-04-21T05:30:00Z');
   assert.equal(state.source_review_history.length, 1);
@@ -387,14 +393,16 @@ test('mergeCampaignState flags repeated source-fixed review signatures without h
   assert.equal(state.stats.items_needing_local_codex, 0);
   assert.equal(state.stats.items_actionable_local_codex, 0);
   assert.equal(state.stats.items_source_fixed_candidates, 1);
-  assert.equal(state.stats.status_counts['needs-local-codex'], 1);
+  assert.equal(state.stats.status_counts['local-codex-source-fixed-candidate'], 1);
   assert.deepEqual(state.stats.local_codex_queue_state_counts, {
     'source-fixed-candidate': 1,
     finished: 1,
   });
+  assert.equal(markerItem.status, 'local-codex-source-fixed-candidate');
   assert.equal(markerItem.source_fixed_candidate.matching_item_id, finished.id);
   assert.equal(markerItem.local_codex_queue_state, 'source-fixed-candidate');
   assert.equal(markerItem.local_codex_actionable, false);
+  assert.equal(markerItem.local_codex_claimable, false);
   assert.equal(marker.source_review_history[0].matching_item_id, finished.id);
   assert.match(body, /No local Codex work is queued/);
   assert.match(body, /Source-fixed candidates: 1/);
@@ -872,6 +880,7 @@ test('formats campaign run summary as compact artifact markdown', () => {
   assert.match(summary, /Repos checked: 2\/3/);
   assert.match(summary, /Items needing local Codex: 1/);
   assert.match(summary, /Actionable local Codex items: 1/);
+  assert.match(summary, /Claimable local Codex items: 1/);
   assert.match(summary, /Items claimed: 1/);
   assert.match(summary, /Next claim lease expires: 2026-04-21T06:30:00Z/);
   assert.match(summary, /State validation: pass/);
@@ -883,6 +892,7 @@ test('validates campaign item stats against retained queue state', () => {
     schema: 'sync-dependabot-campaign/v1',
     stats: {
       items_needing_local_codex: 2,
+      items_claimable_local_codex: 2,
       items_claimed: 0,
       items_finished: 0,
       items_blocked: 0,
@@ -890,7 +900,13 @@ test('validates campaign item stats against retained queue state', () => {
     },
     items: [
       { id: 'one', status: 'needs-local-codex' },
-      { id: 'two', status: 'local-codex-finished' },
+      {
+        id: 'two',
+        status: 'local-codex-finished',
+        local_codex_queue_state: 'claimed',
+        local_codex_actionable: true,
+        local_codex_claimable: true,
+      },
     ],
   };
 
@@ -898,10 +914,14 @@ test('validates campaign item stats against retained queue state', () => {
 
   assert.equal(validation.status, 'warning');
   assert.ok(validation.blockers.includes('stats-mismatch-items_needing_local_codex'));
+  assert.ok(validation.blockers.includes('stats-mismatch-items_claimable_local_codex'));
   assert.ok(validation.blockers.includes('stats-mismatch-items_finished'));
   assert.ok(validation.blockers.includes('status-count-mismatch-local-codex-finished'));
   assert.ok(validation.blockers.includes('local-codex-queue-state-count-mismatch-actionable'));
   assert.ok(validation.blockers.includes('local-codex-queue-state-count-mismatch-finished'));
+  assert.ok(validation.blockers.includes('item-local-codex-queue-state-annotation-mismatch'));
+  assert.ok(validation.blockers.includes('item-local-codex-actionable-annotation-mismatch'));
+  assert.ok(validation.blockers.includes('item-local-codex-claimable-annotation-mismatch'));
 });
 
 test('formatCampaignBody remains below GitHub issue body limit for large queues', () => {

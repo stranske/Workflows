@@ -138,6 +138,7 @@ jobs:
                 `Active review threads queued: ${stats.active_review_threads || 0}`,
                 `Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
                 `Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
+                `Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
                 `Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
                 `Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
                 `Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,

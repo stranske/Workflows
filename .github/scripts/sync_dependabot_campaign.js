@@ -28,6 +28,8 @@ const DEFAULT_IGNORED_PATHS = ['.agents/'];
 
 const ACTIVE_STATUSES = new Set([
   'needs-local-codex',
+  'local-codex-source-fixed-candidate',
+  'local-codex-superseded-sync-candidate',
   'local-codex-claimed',
   'retryable-error',
 ]);
@@ -354,7 +356,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     const previous = previousById.get(discovered.id);
     const sourceFixedCandidate = sourceFixedCandidateFor(discovered, finishedBySourceReviewKey);
     if (!previous) {
-      nextItems.push({
+      const item = {
         ...discovered,
         status: discovered.status || 'needs-local-codex',
         first_seen_at: discovered.first_seen_at || now,
@@ -362,6 +364,10 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
         attempts: Number(discovered.attempts || 0),
         lease: null,
         source_fixed_candidate: sourceFixedCandidate,
+      };
+      item.status = localCodexClaimableStatus(item, item.status);
+      nextItems.push({
+        ...item,
       });
       continue;
     }
@@ -369,6 +375,13 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     let status = previous.status || 'needs-local-codex';
     let lease = previous.lease || null;
     const attempts = Number(previous.attempts || 0);
+
+    if (
+      status === 'local-codex-source-fixed-candidate' ||
+      status === 'local-codex-superseded-sync-candidate'
+    ) {
+      status = 'needs-local-codex';
+    }
 
     if (status === 'local-codex-claimed' && isLeaseExpired(previous, nowDate)) {
       status = 'needs-local-codex';
@@ -378,7 +391,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
       lease = null;
     }
 
-    nextItems.push({
+    const item = {
       ...previous,
       ...discovered,
       status,
@@ -388,6 +401,10 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
       lease: status === 'local-codex-claimed' ? lease : null,
       result: previous.result || null,
       source_fixed_candidate: sourceFixedCandidate || previous.source_fixed_candidate || null,
+    };
+    item.status = localCodexClaimableStatus(item, item.status);
+    nextItems.push({
+      ...item,
     });
   }
 
@@ -467,8 +484,22 @@ function isActionableLocalCodexItem(item = {}) {
     !isSupersededSyncCandidate(item);
 }
 
+function localCodexClaimableStatus(item = {}, status = item.status) {
+  if (status !== 'needs-local-codex') {
+    return status;
+  }
+  if (isSourceFixedCandidate(item)) return 'local-codex-source-fixed-candidate';
+  if (isSupersededSyncCandidate(item)) return 'local-codex-superseded-sync-candidate';
+  return status;
+}
+
+function isClaimableLocalCodexItem(item = {}) {
+  return localCodexClaimableStatus(item) === 'needs-local-codex' &&
+    isActionableLocalCodexItem(item);
+}
+
 function isVisibleQueueItem(item = {}) {
-  return isActionableLocalCodexItem(item) || item.status === 'local-codex-claimed';
+  return isClaimableLocalCodexItem(item) || item.status === 'local-codex-claimed';
 }
 
 function localCodexQueueState(item = {}) {
@@ -478,6 +509,8 @@ function localCodexQueueState(item = {}) {
     if (isSupersededSyncCandidate(item)) return 'superseded-sync-candidate';
     return 'actionable';
   }
+  if (status === 'local-codex-source-fixed-candidate') return 'source-fixed-candidate';
+  if (status === 'local-codex-superseded-sync-candidate') return 'superseded-sync-candidate';
   if (status === 'local-codex-claimed') return 'claimed';
   if (status === 'local-codex-finished') return 'finished';
   if (status === 'blocked') return 'blocked';
@@ -526,6 +559,7 @@ function annotateLocalCodexQueueState(item = {}) {
     ...item,
     local_codex_queue_state: localCodexQueueState(item),
     local_codex_actionable: isActionableLocalCodexItem(item),
+    local_codex_claimable: isClaimableLocalCodexItem(item),
     ...(resultState ? { local_codex_result_state: resultState } : {}),
   };
 }
@@ -540,6 +574,7 @@ function buildStats(items, discoveredItems, options = {}) {
     .filter((item) => isSupersededSyncCandidate(item) && !isSourceFixedCandidate(item))
     .length;
   const actionableLocalCodexCount = items.filter(isActionableLocalCodexItem).length;
+  const claimableLocalCodexCount = items.filter(isClaimableLocalCodexItem).length;
   const unpublishedSourceResultCount = items.filter(hasUnpublishedSourceResult).length;
   return {
     repos_requested: Number(options.reposRequested || 0),
@@ -554,6 +589,7 @@ function buildStats(items, discoveredItems, options = {}) {
     ),
     items_needing_local_codex: actionableLocalCodexCount,
     items_actionable_local_codex: actionableLocalCodexCount,
+    items_claimable_local_codex: claimableLocalCodexCount,
     items_source_fixed_candidates: sourceFixedCandidateCount,
     items_superseded_sync_candidates: supersededSyncCandidateCount,
     items_claimed: statusCounts['local-codex-claimed'] || 0,
@@ -577,10 +613,12 @@ function deriveItemStats(items = []) {
     .filter((item) => isSupersededSyncCandidate(item) && !isSourceFixedCandidate(item))
     .length;
   const actionableLocalCodexCount = queueItems.filter(isActionableLocalCodexItem).length;
+  const claimableLocalCodexCount = queueItems.filter(isClaimableLocalCodexItem).length;
   const unpublishedSourceResultCount = queueItems.filter(hasUnpublishedSourceResult).length;
   return {
     items_needing_local_codex: actionableLocalCodexCount,
     items_actionable_local_codex: actionableLocalCodexCount,
+    items_claimable_local_codex: claimableLocalCodexCount,
     items_source_fixed_candidates: sourceFixedCandidateCount,
     items_superseded_sync_candidates: supersededSyncCandidateCount,
     items_claimed: statusCounts['local-codex-claimed'] || 0,
@@ -600,6 +638,7 @@ function validateCampaignState(state = {}) {
   const fields = [
     'items_needing_local_codex',
     'items_actionable_local_codex',
+    'items_claimable_local_codex',
     'items_source_fixed_candidates',
     'items_superseded_sync_candidates',
     'items_claimed',
@@ -640,6 +679,39 @@ function validateCampaignState(state = {}) {
     JSON.stringify(derived.local_codex_claims)
   ) {
     blockers.push('local-codex-claim-summary-mismatch');
+  }
+
+  let queueStateAnnotationMismatch = false;
+  let actionableAnnotationMismatch = false;
+  let claimableAnnotationMismatch = false;
+  for (const item of cleanArray(state.items)) {
+    if (
+      cleanString(item.local_codex_queue_state) &&
+      cleanString(item.local_codex_queue_state) !== localCodexQueueState(item)
+    ) {
+      queueStateAnnotationMismatch = true;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(item, 'local_codex_actionable') &&
+      Boolean(item.local_codex_actionable) !== isActionableLocalCodexItem(item)
+    ) {
+      actionableAnnotationMismatch = true;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(item, 'local_codex_claimable') &&
+      Boolean(item.local_codex_claimable) !== isClaimableLocalCodexItem(item)
+    ) {
+      claimableAnnotationMismatch = true;
+    }
+  }
+  if (queueStateAnnotationMismatch) {
+    blockers.push('item-local-codex-queue-state-annotation-mismatch');
+  }
+  if (actionableAnnotationMismatch) {
+    blockers.push('item-local-codex-actionable-annotation-mismatch');
+  }
+  if (claimableAnnotationMismatch) {
+    blockers.push('item-local-codex-claimable-annotation-mismatch');
   }
 
   return {
@@ -747,6 +819,7 @@ function compactQueueItemForMarker(item = {}) {
   if (queueState !== 'actionable' && (queueState !== compact.status || compact.status === 'local-codex-claimed')) {
     compact.local_codex_queue_state = queueState;
     compact.local_codex_actionable = isActionableLocalCodexItem(item);
+    compact.local_codex_claimable = isClaimableLocalCodexItem(item);
   }
   if (item.local_codex_result_state) {
     compact.local_codex_result_state = cleanString(item.local_codex_result_state);
@@ -809,6 +882,7 @@ function formatCampaignBody(state) {
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
     `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
+    `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
@@ -977,6 +1051,7 @@ function formatCompactCampaignBody(state) {
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
     `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
+    `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
@@ -1323,6 +1398,7 @@ function formatDryRunSummary(state = {}) {
     `sync_prs_open=${stats.sync_prs_open || 0}`,
     `dependabot_prs_open=${stats.dependabot_prs_open || 0}`,
     `items_needing_local_codex=${stats.items_needing_local_codex || 0}`,
+    `items_claimable_local_codex=${stats.items_claimable_local_codex || 0}`,
     `items_unpublished_source_results=${stats.items_unpublished_source_results || 0}`,
   ].join(' ');
 }
@@ -1347,6 +1423,7 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
     `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
+    `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
@@ -1489,6 +1566,7 @@ async function runCampaign({
     core.setOutput('needs_local_codex', needsLocalCodex ? 'true' : 'false');
     core.setOutput('items_needing_local_codex', String(state.stats.items_needing_local_codex || 0));
     core.setOutput('items_actionable_local_codex', String(state.stats.items_actionable_local_codex || 0));
+    core.setOutput('items_claimable_local_codex', String(state.stats.items_claimable_local_codex || 0));
     core.setOutput('items_source_fixed_candidates', String(state.stats.items_source_fixed_candidates || 0));
     core.setOutput('items_superseded_sync_candidates', String(state.stats.items_superseded_sync_candidates || 0));
     core.setOutput('items_claimed', String(state.stats.items_claimed || 0));
