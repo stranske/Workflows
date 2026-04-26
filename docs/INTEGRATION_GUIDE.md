@@ -573,19 +573,27 @@ For repositories that want full CI + agent automation (Codex keepalive, autofix,
 
 ### Quick Setup
 
-Copy all workflow templates from `/templates/consumer-repo/.github/workflows/` to your repository:
+Prefer the managed consumer sync workflow for registered repos. For manual
+bootstrap, copy the current default entry points from `templates/consumer-repo/`
+and keep the root agent guidance files aligned with the same template source:
 
 ```bash
-# Clone templates
+# Current default workflow surface
 mkdir -p .github/workflows
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/ci.yml -o .github/workflows/ci.yml
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix-versions.env -o .github/workflows/autofix-versions.env
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-issue-intake.yml -o .github/workflows/agents-issue-intake.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-orchestrator.yml -o .github/workflows/agents-orchestrator.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-pr-meta.yml -o .github/workflows/agents-pr-meta.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml -o .github/workflows/agents-80-pr-event-hub.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml -o .github/workflows/agents-81-gate-followups.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-verifier.yml -o .github/workflows/agents-verifier.yml
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix.yml -o .github/workflows/autofix.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/pr-00-gate.yml -o .github/workflows/pr-00-gate.yml
 
-# Use /main/ only when intentionally testing unreleased changes.
+# Root agent guidance files synced through .github/sync-manifest.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/AGENTS.md -o AGENTS.md
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/CLAUDE.md -o CLAUDE.md
+
+# Use /main/ only when intentionally tracking the live Workflows source.
 ```
 
 ### Workflow Summary
@@ -594,15 +602,19 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 |----------|---------|----------|
 | `ci.yml` | Python CI (lint, format, tests, typecheck) | push, PR |
 | `agents-issue-intake.yml` | Assigns Codex/Copilot to issues | issue labeled `agent:codex` |
-| `agents-orchestrator.yml` | Scheduled keepalive sweeps | every 30 min |
-| `agents-pr-meta.yml` | Detects keepalive comments, dispatches continuation | PR comments |
+| `agents-80-pr-event-hub.yml` | Handles PR event routing, keepalive metadata, bot comments, and verification follow-ups | PR events and comments |
+| `agents-81-gate-followups.yml` | Coordinates Gate follow-ups, keepalive continuation, and autofix recovery | Gate completion and follow-up events |
+| `agents-verifier.yml` | Runs label-driven post-merge verification | manual dispatch, `verify:*` labels |
 | `autofix.yml` | Auto-fixes lint/format issues | PR sync, `autofix` label |
+| `pr-00-gate.yml` | Required PR gate and summary status | PR |
 | `autofix-versions.env` | Pins tool versions | N/A |
+| `AGENTS.md` / `CLAUDE.md` | Repo-local agent guidance synced from Workflows | N/A |
 
 ### Consolidated Workflow Migration (Notice Period)
 
-To reduce duplicate PR context fetches, consumer repos should move to the consolidated
-event hubs. Legacy workflows remain supported through **2026-02-15**.
+To reduce duplicate PR context fetches, consumer repos should use the consolidated
+event hubs. Legacy workflow files may still exist during migrations or for
+backward compatibility, but new manual setup should prefer the current defaults.
 
 | Legacy Workflow | Replacement |
 |-----------------|-------------|
@@ -642,16 +654,23 @@ Health 67.
 
 ### What Each Workflow Does
 
-#### `agents-pr-meta.yml` (Critical for Keepalive)
+#### `agents-80-pr-event-hub.yml` (Critical for PR Events)
 
-This is the **key workflow** for Codex keepalive. When Codex completes a round of work, it posts a comment with a keepalive marker. This workflow:
+This is the current PR-event hub for Codex keepalive metadata, bot comments,
+and verification follow-ups. When Codex completes a round of work, it posts a
+comment with a keepalive marker. This workflow:
 
 1. Detects the keepalive marker in PR comments
 2. Validates the comment is from an authorized user
-3. Dispatches the orchestrator to continue work
+3. Dispatches the follow-up path that can continue work
 4. Updates PR body with status sections
 
 Without this workflow, Codex PRs will stall after the first round.
+
+#### `agents-81-gate-followups.yml`
+
+This is the current Gate follow-up hub. It coordinates keepalive continuation,
+autofix recovery, and post-Gate actions after `pr-00-gate.yml` completes.
 
 #### `autofix.yml`
 

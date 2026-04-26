@@ -139,7 +139,7 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-belt-worker.yml`](../../.github/workflows/agents-belt-worker.yml) agent-agnostic alias that delegates to `agents-72-codex-belt-worker.yml`.
 * [`agents-belt-conveyor.yml`](../../.github/workflows/agents-belt-conveyor.yml) agent-agnostic alias that delegates to `agents-73-codex-belt-conveyor.yml`.
 * [`agents-74-pr-body-writer.yml`](../../.github/workflows/agents-74-pr-body-writer.yml) synchronizes PR body sections from source issues and builds status summaries.
-* [`agents-pr-meta-v4.yml`](../../.github/workflows/agents-pr-meta-v4.yml) is the canonical PR meta manager, using external scripts to stay under GitHub workflow parser limits. (Supersedes archived v1/v2/v3 versions.)
+* [`agents-pr-meta-v4.yml`](../../.github/workflows/agents-pr-meta-v4.yml) is the Workflows-repo PR meta manager, using external scripts to stay under GitHub workflow parser limits. Consumer repos should use the current `agents-80-pr-event-hub.yml` / `agents-81-gate-followups.yml` template pair unless they are intentionally maintaining a legacy compatibility file.
 * [`agents-75-keepalive-on-gate.yml`](../../.github/workflows/agents-75-keepalive-on-gate.yml) implements the keepalive-on-gate consolidation and gate-aware keepalive behavior.
 * [`agents-bot-comment-handler.yml`](../../.github/workflows/agents-bot-comment-handler.yml) dispatches the reusable bot comment handler after Gate success, manual dispatch, or the `autofix:bot-comments` label to address bot review comments.
 * [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) includes the keepalive sweep, which the orchestrator toggles via the `keepalive_enabled` flag and repository-level `keepalive:paused` label.
