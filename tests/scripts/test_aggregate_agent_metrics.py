@@ -345,6 +345,7 @@ def test_verifier_summary_counts_unsupported_models(
         [
             {
                 "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
                 "run_id": "24948023778",
                 "pr_number": 1872,
                 "disposition": "verifier-error",
@@ -367,6 +368,7 @@ def test_verifier_summary_counts_unsupported_models(
         [
             {
                 "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
                 "run_id": "24948023778",
                 "pr_number": 1872,
                 "disposition": "verifier-error",
@@ -385,6 +387,7 @@ def test_verifier_summary_counts_missing_model_metadata() -> None:
         [
             {
                 "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
                 "run_id": "24948023778",
                 "pr_number": 1872,
                 "disposition": "verifier-error",
@@ -401,6 +404,36 @@ def test_verifier_summary_counts_missing_model_metadata() -> None:
     )
 
     assert "Missing verifier model metadata: verifier-error (1)" in summary
+
+
+def test_verifier_summary_ignores_review_thread_terminal_model_metadata() -> None:
+    summary = aggregate_agent_metrics.build_summary(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "review-thread-terminal-disposition",
+                "source_type": "review-thread",
+                "source_id": "1875",
+                "pr_number": 1875,
+                "disposition": "wrapper-skipped",
+            },
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "source_type": "pull-request",
+                "source_id": "1872",
+                "pr_number": 1872,
+                "disposition": "verifier-error",
+            },
+        ],
+        errors=0,
+    )
+
+    assert "Terminal disposition records: 2" in summary
+    assert "verifier-error (1)" in summary
+    assert "wrapper-skipped (1)" in summary
+    assert "Missing verifier model metadata: verifier-error (1)" in summary
+    assert "wrapper-skipped" not in summary.split("Missing verifier model metadata: ", 1)[1]
 
 
 def test_format_helpers_and_summary_range() -> None:

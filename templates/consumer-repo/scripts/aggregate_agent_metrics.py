@@ -131,6 +131,19 @@ def _unsupported_verifier_models() -> set[str]:
     return {item.strip().lower() for item in raw.split(",") if item.strip()}
 
 
+def _is_verifier_terminal_entry(entry: dict[str, Any]) -> bool:
+    if entry.get("schema") != "workflows-terminal-disposition/v1":
+        return False
+    artifact_family = str(entry.get("artifact_family") or "").strip().lower()
+    workflow = str(entry.get("workflow") or "").strip().lower()
+    verifier_mode = str(entry.get("verifier_mode") or "").strip().lower()
+    return (
+        artifact_family == "verifier-terminal-disposition"
+        or bool(verifier_mode)
+        or "verifier" in workflow
+    )
+
+
 def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
     stop_reasons = Counter()
     actions = Counter()
@@ -220,6 +233,7 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
     terminal_records = 0
     for index, entry in enumerate(entries):
         is_terminal_disposition = entry.get("schema") == "workflows-terminal-disposition/v1"
+        is_verifier_terminal = _is_verifier_terminal_entry(entry)
         if not is_terminal_disposition:
             run_id = entry.get("run_id") or entry.get("workflow_run_id")
             run_attempt = entry.get("run_attempt")
@@ -249,7 +263,7 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
                 unsupported_verifier_models[model_text] += 1
                 disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
                 unsupported_model_dispositions[str(disposition)] += 1
-        elif is_terminal_disposition:
+        elif is_verifier_terminal:
             verifier_mode = str(entry.get("verifier_mode") or "").strip().lower()
             if verifier_mode != "evaluate":
                 disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
