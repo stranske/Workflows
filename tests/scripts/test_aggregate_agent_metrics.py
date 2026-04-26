@@ -563,6 +563,29 @@ def test_verifier_summary_counts_unsupported_models(
     assert "Unsupported model dispositions: verifier-error (1)" in summary
 
 
+def test_verifier_summary_supports_terminal_disposition_unsupported_model_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("UNSUPPORTED_VERIFIER_MODELS", raising=False)
+    monkeypatch.setenv("TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS", "gpt-5.4")
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023780",
+                "pr_number": 1874,
+                "disposition": "verifier-error",
+                "llm_model": "GPT-5.4",
+            }
+        ]
+    )
+
+    assert verifier["unsupported_verifier_models"]["gpt-5.4"] == 1
+    assert verifier["unsupported_model_dispositions"]["verifier-error"] == 1
+
+
 def test_verifier_summary_counts_missing_model_metadata() -> None:
     summary = aggregate_agent_metrics.build_summary(
         [

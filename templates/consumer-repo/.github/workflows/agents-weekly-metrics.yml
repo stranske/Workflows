@@ -97,14 +97,22 @@ jobs:
           if [ ! -s "$artifact_list" ]; then
             echo "No metrics artifacts found"
           fi
+          sanitize_component() {
+            printf '%s' "$1" |
+              sed -E 's/[^A-Za-z0-9._-]+/_/g; s/[.][.]+/_/g; s/^_+//; s/_+$//'
+          }
           while IFS=$'\t' read -r id name; do
             echo "Downloading artifact $id ($name)"
-            artifact_dir="artifacts/$name/$id"
+            safe_name="$(sanitize_component "$name")"
+            safe_id="$(sanitize_component "$id")"
+            safe_name="${safe_name:-unknown}"
+            safe_id="${safe_id:-unknown-id}"
+            artifact_dir="artifacts/$safe_name/$safe_id"
             mkdir -p "$artifact_dir"
             # shellcheck disable=SC1009,SC1073,SC1039,SC1072
             export ARTIFACT_ID="$id"
             export ARTIFACT_DIR="$artifact_dir"
-            export ARTIFACT_ZIP="$artifact_dir/$id.zip"
+            export ARTIFACT_ZIP="$artifact_dir/$safe_id.zip"
             if ! node - <<'NODE'
           const fs = require('fs');
           const { Octokit } = require('@octokit/rest');

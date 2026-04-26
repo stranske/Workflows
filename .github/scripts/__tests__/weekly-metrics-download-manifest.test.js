@@ -6,6 +6,7 @@ const {
   buildInitialManifest,
   finalizeManifest,
   formatMarkdown,
+  safeArtifactPathComponent,
   updateArtifactResult,
 } = require('../weekly_metrics_download_manifest.js');
 
@@ -57,6 +58,30 @@ test('builds initial download manifest from selected artifacts', () => {
   assert.equal(manifest.artifacts[0].zip_path, 'artifacts/keepalive-metrics/42/42.zip');
   assert.equal(manifest.artifacts[0].download.status, 'pending');
   assert.equal(manifest.artifacts[0].unzip.status, 'pending');
+});
+
+test('sanitizes artifact filesystem paths while preserving original names', () => {
+  const manifest = buildInitialManifest({
+    ...selection,
+    selected_artifacts: [
+      {
+        id: '../44|45',
+        name: '../../keepalive\\metrics/latest',
+        family: 'keepalive-metrics',
+      },
+    ],
+  });
+
+  assert.equal(manifest.artifacts[0].name, '../../keepalive\\metrics/latest');
+  assert.equal(manifest.artifacts[0].id, '../44|45');
+  assert.equal(manifest.artifacts[0].artifact_dir, 'artifacts/keepalive_metrics_latest/44_45');
+  assert.equal(manifest.artifacts[0].zip_path, 'artifacts/keepalive_metrics_latest/44_45/44_45.zip');
+});
+
+test('normalizes unsafe artifact path components', () => {
+  assert.equal(safeArtifactPathComponent('../../bad\\name'), 'bad_name');
+  assert.equal(safeArtifactPathComponent('..'), 'unknown');
+  assert.equal(safeArtifactPathComponent('', 'fallback'), 'fallback');
 });
 
 test('records download and unzip outcomes and finalizes warning status', () => {
@@ -156,7 +181,7 @@ test('escapes markdown table cells in human-visible manifest', () => {
   });
   updateArtifactResult(manifest, {
     id: '44|45',
-    artifact_dir: 'artifacts/keepalive|metrics\nlatest/44|45',
+    artifact_dir: 'artifacts/keepalive_metrics_latest/44_45',
     download_status: 'failed',
     download_error: 'bad|download\nreason',
     unzip_status: 'skipped',
@@ -169,5 +194,5 @@ test('escapes markdown table cells in human-visible manifest', () => {
   assert.match(markdown, /keepalive\\\|metrics latest/);
   assert.match(markdown, /44\\\|45/);
   assert.match(markdown, /bad\\\|download reason/);
-  assert.match(markdown, /artifacts\/keepalive\\\|metrics latest\/44\\\|45/);
+  assert.match(markdown, /artifacts\/keepalive_metrics_latest\/44_45/);
 });

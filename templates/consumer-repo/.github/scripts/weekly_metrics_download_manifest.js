@@ -30,12 +30,24 @@ function selectedArtifactsFromSelection(selection = {}) {
   return Array.isArray(selection.selected_artifacts) ? selection.selected_artifacts : [];
 }
 
+function safeArtifactPathComponent(value, fallback = 'unknown') {
+  const safe = cleanString(value)
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/\.\.+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  if (!safe || safe === '.' || safe === '..') return fallback;
+  return safe;
+}
+
 function defaultArtifactDir(root, artifact) {
-  return path.posix.join(root, cleanString(artifact.name) || 'unknown', String(artifact.id || ''));
+  const artifactName = safeArtifactPathComponent(artifact.name, 'unknown');
+  const artifactId = safeArtifactPathComponent(artifact.id, 'unknown-id');
+  return path.posix.join(root, artifactName, artifactId);
 }
 
 function defaultZipPath(root, artifact) {
-  return path.posix.join(defaultArtifactDir(root, artifact), `${artifact.id}.zip`);
+  const artifactId = safeArtifactPathComponent(artifact.id, 'unknown-id');
+  return path.posix.join(defaultArtifactDir(root, artifact), `${artifactId}.zip`);
 }
 
 function buildInitialManifest(selection = {}, options = {}) {
@@ -306,5 +318,6 @@ module.exports = {
   buildInitialManifest,
   finalizeManifest,
   formatMarkdown,
+  safeArtifactPathComponent,
   updateArtifactResult,
 };

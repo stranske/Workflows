@@ -172,7 +172,6 @@ def _read_ndjson(files: Iterable[Path]) -> tuple[list[dict[str, Any]], list[Pars
     entries: list[dict[str, Any]] = []
     errors: list[ParseErrorDetail] = []
     for path in files:
-        source = _metric_source(path)
         try:
             handle = path.open("r", encoding="utf-8")
         except OSError:
@@ -194,13 +193,7 @@ def _read_ndjson(files: Iterable[Path]) -> tuple[list[dict[str, Any]], list[Pars
                     file_errors.append(_parse_error_detail(path, line_number, "invalid-json"))
                     continue
                 if isinstance(parsed, dict):
-                    enriched = dict(parsed)
-                    enriched.setdefault("artifact_name", source.artifact)
-                    enriched.setdefault("artifact_family", source.artifact_family)
-                    enriched.setdefault("metric_artifact", source.artifact)
-                    enriched.setdefault("metric_artifact_family", source.artifact_family)
-                    enriched.setdefault("metric_path", source.path)
-                    file_entries.append(enriched)
+                    file_entries.append(_attach_metric_source(parsed, path))
                     raw_lines_for_fallback = []
                 else:
                     file_errors.append(_parse_error_detail(path, line_number, "non-object-json"))
@@ -271,7 +264,11 @@ def _safe_int(value: Any) -> int | None:
 
 
 def _unsupported_verifier_models() -> set[str]:
-    raw = os.environ.get("UNSUPPORTED_VERIFIER_MODELS", "")
+    raw = (
+        os.environ.get("UNSUPPORTED_VERIFIER_MODELS")
+        or os.environ.get("TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS")
+        or ""
+    )
     if not raw.strip():
         return set(_DEFAULT_UNSUPPORTED_VERIFIER_MODELS)
     return {item.strip().lower() for item in raw.split(",") if item.strip()}
