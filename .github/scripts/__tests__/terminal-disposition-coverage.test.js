@@ -240,7 +240,7 @@ test('warns on unsupported verifier models in terminal records', () => {
   assert.equal(report.status, 'warning');
   assert.equal(report.verifier_model_compatibility.status, 'warning');
   assert.equal(report.verifier_model_compatibility.unsupported_record_count, 1);
-  assert.deepEqual(report.enforcement.blockers, ['unsupported-verifier-model']);
+  assert.deepEqual(report.enforcement.blockers, ['verifier-model-compatibility-issue']);
   assert.match(markdown, /Verifier model compatibility: warning/);
   assert.match(markdown, /gpt-5\.2-codex/);
   assert.match(markdown, /pull-request:1872/);
@@ -317,7 +317,7 @@ test('warns when Codex verifier terminal records omit model metadata', () => {
     report.verifier_model_compatibility.missing_model_records.map((record) => record.source_key),
     ['pull-request:1872']
   );
-  assert.deepEqual(report.enforcement.blockers, ['unsupported-verifier-model']);
+  assert.deepEqual(report.enforcement.blockers, ['verifier-model-compatibility-issue']);
   assert.match(markdown, /Missing verifier model metadata records: 1/);
   assert.match(markdown, /pull-request:1872/);
   assert.doesNotMatch(markdown, /\| pull-request:1873 \| verified-pass \| evaluate/);
@@ -341,7 +341,7 @@ test('warns when verifier terminal model metadata is missing with unknown mode',
   assert.equal(report.verifier_model_compatibility.status, 'warning');
   assert.equal(report.verifier_model_compatibility.missing_model_record_count, 1);
   assert.equal(report.verifier_model_compatibility.missing_model_records[0].verifier_mode, 'unknown');
-  assert.deepEqual(report.enforcement.blockers, ['unsupported-verifier-model']);
+  assert.deepEqual(report.enforcement.blockers, ['verifier-model-compatibility-issue']);
 });
 
 test('suppresses pre-contract verifier terminal records missing model metadata', () => {
@@ -420,7 +420,7 @@ test('still warns for post-contract verifier terminal records missing model meta
   assert.equal(report.verifier_model_compatibility.status, 'warning');
   assert.equal(report.verifier_model_compatibility.missing_model_record_count, 1);
   assert.equal(report.verifier_model_compatibility.legacy_missing_model_record_count, 0);
-  assert.deepEqual(report.enforcement.blockers, ['unsupported-verifier-model']);
+  assert.deepEqual(report.enforcement.blockers, ['verifier-model-compatibility-issue']);
 });
 
 test('reads ndjson files and counts parse errors', () => {

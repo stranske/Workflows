@@ -358,7 +358,7 @@ function summarizeTerminalDispositionCoverage(records = [], options = {}) {
   if (parseErrors > 0) enforcementBlockers.push('parse-errors');
   if (artifactSelectionWarning) enforcementBlockers.push('artifact-selection-warning');
   if (verifierModelCompatibility.status !== 'pass') {
-    enforcementBlockers.push('unsupported-verifier-model');
+    enforcementBlockers.push('verifier-model-compatibility-issue');
   }
 
   const hardBlockEligible = enforcementBlockers.length === 0;
