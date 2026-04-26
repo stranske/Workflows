@@ -9,7 +9,7 @@ set -euo pipefail
 GITNEXUS_VERSION="${GITNEXUS_VERSION:-1.6.3}"
 GROUP_NAME="${GITNEXUS_GROUP_NAME:-stranske-code}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKFLOWS_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WORKFLOWS_ROOT="${WORKFLOWS_ROOT:-$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)}"
 CODE_ROOT="${CODE_ROOT:-$(cd "${WORKFLOWS_ROOT}/.." && pwd)}"
 GITNEXUS_BIN="${GITNEXUS_BIN:-gitnexus}"
 
@@ -40,10 +40,12 @@ run_gitnexus() {
 
 usage() {
   cat <<USAGE
-Usage: scripts/gitnexus_fleet.sh <command> [repo-name]
+Usage: docs/ops/bin/gitnexus_fleet.sh <command> [repo-name]
 
 Commands:
   list                 Show canonical repos in the GitNexus fleet.
+  ensure-ignores [repo|all]
+                       Ensure local GitNexus cache patterns are in .gitignore.
   index [repo|all]     Run gitnexus analyze with local-cache defaults.
   status [repo|all]    Run gitnexus status for indexed repos.
   group-create         Create the ${GROUP_NAME} GitNexus group.
@@ -78,9 +80,24 @@ require_repo() {
   fi
 }
 
+ensure_repo_ignores() {
+  local repo="$1"
+  local ignore_file pattern
+  require_repo "${repo}"
+  ignore_file="$(repo_path "${repo}")/.gitignore"
+  touch "${ignore_file}"
+  for pattern in ".gitnexus/" ".claude/skills/gitnexus/"; do
+    if ! grep -Fxq "${pattern}" "${ignore_file}"; then
+      printf '%s\n' "${pattern}" >> "${ignore_file}"
+      echo "Added ${pattern} to ${repo}/.gitignore"
+    fi
+  done
+}
+
 index_repo() {
   local repo="$1"
   require_repo "${repo}"
+  ensure_repo_ignores "${repo}"
   echo "Indexing ${repo}"
   run_gitnexus analyze "$(repo_path "${repo}")" --skip-agents-md
 }
@@ -95,6 +112,16 @@ status_repo() {
 case "${1:-}" in
   list)
     printf '%s\n' "${FLEET_REPOS[@]}"
+    ;;
+  ensure-ignores)
+    target="${2:-all}"
+    if [[ "${target}" == "all" ]]; then
+      for repo in "${FLEET_REPOS[@]}"; do
+        ensure_repo_ignores "${repo}"
+      done
+    else
+      ensure_repo_ignores "${target}"
+    fi
     ;;
   index)
     target="${2:-all}"

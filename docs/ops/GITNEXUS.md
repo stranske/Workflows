@@ -42,8 +42,8 @@ GitNexus writes repo-local `.gitnexus/` indexes, may generate
 Install the pinned CLI once:
 
 ```bash
-scripts/gitnexus_fleet.sh install
-scripts/gitnexus_fleet.sh check-version
+docs/ops/bin/gitnexus_fleet.sh install
+docs/ops/bin/gitnexus_fleet.sh check-version
 ```
 
 Use one global MCP server for Codex:
@@ -57,7 +57,7 @@ args = ["mcp"]
 The helper prints the current snippet:
 
 ```bash
-scripts/gitnexus_fleet.sh mcp-config
+docs/ops/bin/gitnexus_fleet.sh mcp-config
 ```
 
 ## Index Freshness
@@ -73,25 +73,28 @@ Baseline indexing intentionally leaves embeddings off and skips
 GitNexus-managed `AGENTS.md` / `CLAUDE.md` rewrites:
 
 ```bash
-scripts/gitnexus_fleet.sh index all
-scripts/gitnexus_fleet.sh group-create
-scripts/gitnexus_fleet.sh group-add
-scripts/gitnexus_fleet.sh group-sync
+docs/ops/bin/gitnexus_fleet.sh ensure-ignores all
+docs/ops/bin/gitnexus_fleet.sh index all
+docs/ops/bin/gitnexus_fleet.sh group-create
+docs/ops/bin/gitnexus_fleet.sh group-add
+docs/ops/bin/gitnexus_fleet.sh group-sync
 ```
 
-Use `scripts/gitnexus_fleet.sh status all` or
-`scripts/gitnexus_fleet.sh group-status` before relying on GitNexus context.
+Use `docs/ops/bin/gitnexus_fleet.sh status all` or
+`docs/ops/bin/gitnexus_fleet.sh group-status` before relying on GitNexus
+context.
 
 ## Tool Freshness
 
 The GitNexus tool version is intentionally separate from repository dependency
-updates. Update `GITNEXUS_VERSION` in `scripts/gitnexus_fleet.sh`, then run the
-pinned global install, only after a manual smoke test on a single repo succeeds.
+updates. Update `GITNEXUS_VERSION` in `docs/ops/bin/gitnexus_fleet.sh`, then
+run the pinned global install, only after a manual smoke test on a single repo
+succeeds.
 
 Recommended upgrade flow:
 
 1. Run the current pinned version against `Template`.
-2. Test the candidate version with `GITNEXUS_VERSION=<version> scripts/gitnexus_fleet.sh install`.
+2. Test the candidate version with `GITNEXUS_VERSION=<version> docs/ops/bin/gitnexus_fleet.sh install`.
 3. Confirm `check-version`, `index Template`, `status Template`, and group commands still work.
 4. Update the pin and this document in the same Workflows change.
 
