@@ -1762,6 +1762,43 @@ test('updateKeepaliveLoopSummary uses state iteration when inputs have stale val
   assert.match(github.actions[0].body, /Iteration 2\/5/);
 });
 
+test('updateKeepaliveLoopSummary suppresses first missing-agent-label PR comment', async () => {
+  const outputs = {};
+  const github = buildGithubStub({
+    pr: {
+      number: 125,
+      labels: [{ name: 'codex' }, { name: 'codex-automation' }],
+      body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] done',
+    },
+    comments: [],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(125),
+    core: {
+      info() {},
+      setOutput(name, value) {
+        outputs[name] = value;
+      },
+    },
+    inputs: {
+      prNumber: 125,
+      action: 'wait',
+      reason: 'missing-agent-label',
+      gateConclusion: 'success',
+      tasksTotal: 2,
+      tasksUnchecked: 2,
+      keepaliveEnabled: false,
+      autofixEnabled: false,
+      iteration: 0,
+      maxIterations: 5,
+    },
+  });
+
+  assert.deepEqual(github.actions, []);
+  assert.equal(outputs.comment_suppressed, 'true');
+});
+
 test('updateKeepaliveLoopSummary does NOT count wait states as failures', async () => {
   // Wait states (gate-not-success, gate-pending, missing-agent-label) are transient
   // and should NOT increment the failure counter or trigger needs-human
