@@ -194,7 +194,17 @@ def _append_parse_error_detail(
             details[index] = replace(existing, count=existing.count + detail.count)
             return
 
-    details.append(replace(detail, line=None))
+    for index, existing in enumerate(details):
+        if (
+            existing.path == detail.path
+            and existing.artifact == detail.artifact
+            and existing.artifact_family == detail.artifact_family
+            and existing.reason == detail.reason
+        ):
+            details[index] = replace(existing, line=None, count=existing.count + detail.count)
+            return
+
+    details[-1] = replace(detail, line=None, count=details[-1].count + detail.count)
 
 
 def _parse_error_count(parse_error_details: list[ParseErrorDetail]) -> int:

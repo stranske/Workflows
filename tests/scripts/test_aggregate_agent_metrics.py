@@ -416,6 +416,37 @@ def test_parse_error_contract_counts_compacted_details() -> None:
     assert "| artifact | artifact | metrics.ndjson | n/a | invalid-json | 7 |" in lines
 
 
+def test_append_parse_error_detail_compacts_at_storage_limit() -> None:
+    details = [
+        aggregate_agent_metrics.ParseErrorDetail(
+            path="metrics.ndjson",
+            artifact="artifact",
+            artifact_family="artifact",
+            line=index,
+            reason="invalid-json",
+        )
+        for index in range(aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS)
+    ]
+
+    aggregate_agent_metrics._append_parse_error_detail(
+        details,
+        aggregate_agent_metrics.ParseErrorDetail(
+            path="metrics.ndjson",
+            artifact="artifact",
+            artifact_family="artifact",
+            line=999,
+            reason="invalid-json",
+        ),
+    )
+
+    assert len(details) == aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS
+    assert sum(detail.count for detail in details) == (
+        aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS + 1
+    )
+    assert details[0].line is None
+    assert details[0].count == 2
+
+
 def test_read_ndjson_preserves_artifact_name_with_id_extraction_dir(tmp_path: Path) -> None:
     metrics_dir = (
         tmp_path
@@ -475,13 +506,14 @@ def test_read_ndjson_bounds_legacy_json_fallback_buffer(tmp_path: Path) -> None:
     entries, errors = aggregate_agent_metrics._read_ndjson([path])
 
     assert entries == []
-    assert len(errors) <= aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS + 2
+    assert len(errors) <= aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS
     assert sum(error.count for error in errors) == (
         aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES + 2
     )
-    assert errors[-2].line is None
-    assert errors[-2].reason == "invalid-json"
-    assert errors[-2].count == (
+    compacted_invalid_json = next(
+        error for error in errors if error.reason == "invalid-json" and error.line is None
+    )
+    assert compacted_invalid_json.count >= (
         aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES
         + 1
         - aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS
