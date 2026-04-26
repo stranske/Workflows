@@ -288,6 +288,17 @@ test('summarizes verifier model compatibility with configurable unsupported mode
   assert.equal(summary.unsupported_records[0].source_key, 'pull-request:2');
 });
 
+test('accepts aggregate metrics unsupported verifier model env name', () => {
+  process.env.UNSUPPORTED_VERIFIER_MODELS = 'legacy-bad, gpt-5.2-codex';
+  delete process.env.TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS;
+
+  try {
+    assert.deepEqual(normalizeUnsupportedCodexModels(), ['gpt-5.2-codex', 'legacy-bad']);
+  } finally {
+    delete process.env.UNSUPPORTED_VERIFIER_MODELS;
+  }
+});
+
 test('warns when Codex verifier terminal records omit model metadata', () => {
   const report = summarizeTerminalDispositionCoverage(
     [

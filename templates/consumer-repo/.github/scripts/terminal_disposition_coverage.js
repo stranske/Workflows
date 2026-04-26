@@ -82,6 +82,7 @@ function normalizeEnforcementPolicy(options = {}) {
 function normalizeUnsupportedCodexModels(value) {
   const raw = value ??
     process.env.TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS ??
+    process.env.UNSUPPORTED_VERIFIER_MODELS ??
     DEFAULT_UNSUPPORTED_CODEX_MODELS.join(',');
   const items = Array.isArray(raw) ? raw : String(raw).split(',');
   return [...new Set(items.map((item) => cleanString(item).toLowerCase()).filter(Boolean))]

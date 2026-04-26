@@ -205,6 +205,28 @@ test('records outcomes against legacy manifest entries missing result objects', 
   assert.equal(manifest.stats.unzip_pass_count, 1);
 });
 
+test('finalizes legacy manifest entries into canonical result object shape', () => {
+  const manifest = buildInitialManifest(selection);
+  delete manifest.artifacts[0].download;
+  delete manifest.artifacts[0].unzip;
+
+  finalizeManifest(manifest);
+
+  assert.equal(manifest.status, 'warning');
+  assert.deepEqual(manifest.artifacts[0].download, {
+    status: 'pending',
+    bytes: null,
+    error: '',
+  });
+  assert.deepEqual(manifest.artifacts[0].unzip, {
+    status: 'pending',
+    path: 'artifacts/keepalive-metrics/42',
+    error: '',
+  });
+  assert.equal(manifest.stats.download_pass_count, 0);
+  assert.equal(manifest.stats.unzip_skipped_count, 0);
+});
+
 test('finalizes pass when every selected artifact downloads and extracts', () => {
   const manifest = buildInitialManifest(selection);
   for (const artifact of manifest.artifacts) {

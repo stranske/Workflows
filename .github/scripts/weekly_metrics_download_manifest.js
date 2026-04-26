@@ -203,6 +203,7 @@ function finalizeManifest(manifest = {}) {
   };
 
   for (const artifact of artifacts) {
+    normalizeArtifactResultShape(artifact);
     const downloadStatus = artifact.download?.status || 'pending';
     const unzipStatus = artifact.unzip?.status || 'pending';
     if (downloadStatus === 'pass') stats.download_pass_count += 1;

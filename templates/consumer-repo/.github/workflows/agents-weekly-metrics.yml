@@ -99,7 +99,7 @@ jobs:
           fi
           while IFS=$'\t' read -r id name; do
             echo "Downloading artifact $id ($name)"
-            safe_name="$(node -e 'const name = process.argv[1] || ""; const safe = name.trim().replace(/[\\\\/]+/g, "_").replace(/[^A-Za-z0-9._-]/g, "_").replace(/\.\.+/g, "_").replace(/^\.{1,2}$/, "_") || "unknown"; process.stdout.write(safe);' "$name")"
+            safe_name="$(node -e 'const { safeArtifactPathSegment } = require("./.github/scripts/weekly_metrics_download_manifest.js"); process.stdout.write(safeArtifactPathSegment(process.argv[1] || ""));' "$name")"
             artifact_dir="artifacts/$safe_name/$id"
             mkdir -p "$artifact_dir"
             # shellcheck disable=SC1009,SC1073,SC1039,SC1072
