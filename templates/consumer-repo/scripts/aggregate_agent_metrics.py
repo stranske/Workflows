@@ -506,6 +506,7 @@ def _summarise_verifier(
     terminal_sources = Counter()
     verifier_models = Counter()
     model_selection_reasons = Counter()
+    verifier_cli_versions = Counter()
     unsupported_verifier_models = Counter()
     unsupported_model_dispositions = Counter()
     missing_verifier_model_metadata = Counter()
@@ -574,6 +575,14 @@ def _summarise_verifier(
         )
         if model_selection_reason:
             model_selection_reasons[str(model_selection_reason)] += 1
+        cli_version = (
+            entry.get("codex_cli_version")
+            or entry.get("llm_cli_version")
+            or entry.get("cli_version")
+        )
+        cli_version_text = str(cli_version).strip() if cli_version is not None else ""
+        if cli_version_text:
+            verifier_cli_versions[cli_version_text.lower()] += 1
         verifier_mode = str(entry.get("verifier_mode") or "").strip().lower()
         if verifier_mode:
             verifier_modes[verifier_mode] += 1
@@ -623,6 +632,7 @@ def _summarise_verifier(
         "terminal_dispositions": terminal_dispositions,
         "terminal_sources": terminal_sources,
         "verifier_models": verifier_models,
+        "verifier_cli_versions": verifier_cli_versions,
         "unsupported_verifier_models": unsupported_verifier_models,
         "unsupported_model_dispositions": unsupported_model_dispositions,
         "missing_verifier_model_metadata": missing_verifier_model_metadata,
@@ -1019,6 +1029,7 @@ def build_summary(
                 f"{verifier['ledger_policy_depth_limit_exceeded']}"
             ),
             f"- Verifier models: {_format_counter(verifier['verifier_models'])}",
+            f"- Verifier CLI versions: {_format_counter(verifier['verifier_cli_versions'])}",
             f"- Unsupported verifier models: {_format_counter(verifier['unsupported_verifier_models'])}",
             (
                 "- Unsupported model dispositions: "
