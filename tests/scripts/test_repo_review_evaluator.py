@@ -144,7 +144,9 @@ def test_collect_repo_state_uses_profile_and_gitnexus_meta(tmp_path: Path) -> No
     (repo_dir / "README.md").write_text("# Demo\n", encoding="utf-8")
     subprocess = evaluator.subprocess
     subprocess.run(["git", "-C", str(repo_dir), "init"], check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True
+    )
     subprocess.run(["git", "-C", str(repo_dir), "config", "user.name", "Test User"], check=True)
     subprocess.run(["git", "-C", str(repo_dir), "add", "README.md"], check=True)
     subprocess.run(

@@ -1441,9 +1441,7 @@ def normalize_priority(value: Any) -> str:
 
 def decision_parts(decision: Any) -> set[str]:
     return {
-        part.strip().lower()
-        for part in re.split(r"\s*\|\s*", str(decision or ""))
-        if part.strip()
+        part.strip().lower() for part in re.split(r"\s*\|\s*", str(decision or "")) if part.strip()
     }
 
 
@@ -1505,9 +1503,7 @@ def issue_task_lines(candidate: dict[str, Any]) -> list[str]:
     return [f"Implement the approved review gap: {candidate_goal_text(candidate)}"]
 
 
-def build_agent_issue_body(
-    state: dict[str, Any], candidate: dict[str, Any], priority: str
-) -> str:
+def build_agent_issue_body(state: dict[str, Any], candidate: dict[str, Any], priority: str) -> str:
     brief = state["decision_brief"]
     design_sources = state["design_files"][:5]
     implementation_evidence = brief["implementation_evidence"][:4]
@@ -1668,9 +1664,14 @@ def build_approved_issue_queue(
                 }
             )
 
-    issues.sort(key=lambda item: (item["priority_rank"], item["repo"].lower(), item["candidate_index"]))
+    issues.sort(
+        key=lambda item: (item["priority_rank"], item["repo"].lower(), item["candidate_index"])
+    )
     deeper_review.sort(
-        key=lambda item: (PRIORITY_ORDER[normalize_priority(item["priority"])], item["repo"].lower())
+        key=lambda item: (
+            PRIORITY_ORDER[normalize_priority(item["priority"])],
+            item["repo"].lower(),
+        )
     )
     return {
         "generated_on": generated_on,
@@ -1684,7 +1685,10 @@ def build_approved_issue_queue(
 
 
 def write_approved_issue_queue(
-    output_dir: Path, states: list[dict[str, Any]], feedback_config: dict[str, Any], generated_on: str
+    output_dir: Path,
+    states: list[dict[str, Any]],
+    feedback_config: dict[str, Any],
+    generated_on: str,
 ) -> dict[str, Any]:
     queue = build_approved_issue_queue(states, feedback_config, generated_on)
     (output_dir / "approved-issue-queue.json").write_text(
@@ -2290,9 +2294,11 @@ def main() -> None:
             repo,
             archive_candidates.get(repo.repo, []),
             profiles.get(repo.repo, {}) if isinstance(profiles.get(repo.repo, {}), dict) else {},
-            feedback_decisions.get(repo.repo, {})
-            if isinstance(feedback_decisions.get(repo.repo, {}), dict)
-            else {},
+            (
+                feedback_decisions.get(repo.repo, {})
+                if isinstance(feedback_decisions.get(repo.repo, {}), dict)
+                else {}
+            ),
         )
         for repo in repos
         if repo.status in statuses
@@ -2300,9 +2306,7 @@ def main() -> None:
     for state in states:
         write_repo_artifacts(output_dir, state, max_drafts=args.max_drafts_per_repo)
     write_packet(output_dir, states, generated_on)
-    approved_queue = write_approved_issue_queue(
-        output_dir, states, feedback_config, generated_on
-    )
+    approved_queue = write_approved_issue_queue(output_dir, states, feedback_config, generated_on)
 
     print(
         json.dumps(
