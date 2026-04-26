@@ -862,6 +862,7 @@ jobs:
           ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
           ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
           CHAIN_DEPTH: ${{ steps.collect.outputs.chain_depth }}
+          MAX_CHAIN_DEPTH: '2'
           CHAIN_EXCEEDED: ${{ steps.chain-check.outputs.exceeded }}
           NEEDS_HUMAN: ${{ steps.extract-verdict.outputs.needs_human }}
           NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}
@@ -888,30 +889,48 @@ jobs:
 
             const followupIssue = process.env.FOLLOWUP_ISSUE_NUMBER || '';
             const dispatchOutcome = (process.env.DISPATCH_AUTOPILOT_OUTCOME || '').trim();
+            const chainDepth = Number.parseInt(process.env.CHAIN_DEPTH || '0', 10) || 0;
+            const maxChainDepth = Number.parseInt(process.env.MAX_CHAIN_DEPTH || '2', 10) || 2;
 
             let disposition = 'follow-up-created';
             let reason = 'Verification follow-up issue was created.';
             let needsHuman = false;
+            let policyAction = 'create-follow-up';
+            let policyTrigger = 'verifier-concerns';
+            let policyReason = 'Verifier concerns require another implementation pass.';
 
             if (process.env.CHAIN_EXCEEDED === 'true') {
               disposition = 'needs-human-depth-limit';
               reason = 'Follow-up chain depth limit was reached.';
               needsHuman = true;
+              policyAction = 'needs-human';
+              policyTrigger = 'chain-depth-limit';
+              policyReason = reason;
             } else if (process.env.NEEDS_HUMAN === 'true') {
               disposition = 'needs-human-verdict-policy';
               reason = process.env.NEEDS_HUMAN_REASON || 'Verdict policy requested human review.';
               needsHuman = true;
+              policyAction = 'needs-human';
+              policyTrigger = 'verdict-policy';
+              policyReason = reason;
             } else if (!process.env.FOLLOWUP_ISSUE_NUMBER) {
               disposition = 'no-follow-up-created';
               reason = 'Workflow completed without a follow-up issue output.';
+              policyAction = 'skip-follow-up';
+              policyTrigger = 'missing-follow-up-output';
+              policyReason = reason;
             } else if (dispatchOutcome === 'success') {
               reason = 'Verification follow-up issue was created and auto-pilot was dispatched.';
+              policyReason = reason;
             } else if (dispatchOutcome === 'failure' || dispatchOutcome === 'cancelled') {
               reason = `Verification follow-up issue was created, but auto-pilot dispatch ${dispatchOutcome}.`;
+              policyReason = reason;
             } else if (dispatchOutcome === 'skipped') {
               reason = 'Verification follow-up issue was created; auto-pilot dispatch was skipped.';
+              policyReason = reason;
             } else if (followupIssue) {
               reason = 'Verification follow-up issue was created; auto-pilot dispatch status was not reported.';
+              policyReason = reason;
             }
 
             const record = normalizeTerminalDisposition({
@@ -958,7 +977,16 @@ jobs:
               followup_issue_number: followupIssue || undefined,
               followup_issue_url: process.env.FOLLOWUP_ISSUE_URL || undefined,
               source_issue_numbers: sourceIssue ? [sourceIssue] : [],
-              chain_depth: process.env.CHAIN_DEPTH || undefined,
+              chain_depth: chainDepth,
+              followup_policy: {
+                action: policyAction,
+                trigger: policyTrigger,
+                reason: policyReason,
+                chain_depth: chainDepth,
+                max_chain_depth: maxChainDepth,
+                next_chain_depth: policyAction === 'create-follow-up' ? chainDepth + 1 : undefined,
+                depth_limit_exceeded: process.env.CHAIN_EXCEEDED === 'true',
+              },
               workflow: context.workflow,
               actor: context.actor,
               terminal_disposition_artifact: `verifier-terminal-disposition-${context.runId}`,

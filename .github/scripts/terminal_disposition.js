@@ -10,6 +10,20 @@ function cleanInt(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function cleanBool(value) {
+  if (typeof value === 'boolean') return value;
+  const text = cleanString(value).toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(text)) return true;
+  if (['false', '0', 'no', 'off'].includes(text)) return false;
+  return null;
+}
+
+function normalizeToken(value, fallback = 'unknown') {
+  const text = cleanString(value).toLowerCase().replace(/_/g, '-');
+  const normalized = text.replace(/[^a-z0-9_.:-]+/g, '-').replace(/^-+|-+$/g, '');
+  return normalized || fallback;
+}
+
 function normalizeSourceType(value) {
   const text = cleanString(value).toLowerCase();
   if (!text) return 'unknown';
@@ -62,6 +76,95 @@ function normalizeLedgerDisposition(input = {}) {
   if (['pass', 'passed'].includes(verdict)) return 'merge';
   if (['fail', 'failed', 'concerns', 'error'].includes(verdict)) return 'needs-human';
   return 'needs-human';
+}
+
+function normalizeVerifierFollowupPolicy(input = {}) {
+  const embedded = input.followup_policy ?? input.followupPolicy ?? {};
+  const policy = embedded && typeof embedded === 'object' ? embedded : {};
+  const disposition = normalizeLedgerDisposition(input);
+  const followupIssue = cleanInt(
+    input.followup_issue_number ?? input.followupIssueNumber ?? input.created_issue_number
+  );
+  const followupPr = cleanInt(input.followup_pr_number ?? input.followupPrNumber);
+  const needsHuman = cleanBool(input.needs_human ?? input.needsHuman);
+  const chainDepth = cleanInt(policy.chain_depth ?? input.chain_depth ?? input.chainDepth);
+  const maxChainDepth = cleanInt(
+    policy.max_chain_depth ??
+      policy.maxChainDepth ??
+      input.max_chain_depth ??
+      input.maxChainDepth
+  );
+  const nextChainDepth = cleanInt(
+    policy.next_chain_depth ??
+      policy.nextChainDepth ??
+      input.next_chain_depth ??
+      input.nextChainDepth
+  );
+
+  let action = normalizeToken(
+    policy.action ??
+      input.followup_policy_action ??
+      input.followupPolicyAction ??
+      input.policy_action ??
+      input.policyAction,
+    ''
+  );
+  const allowedActions = new Set([
+    'create-follow-up',
+    'needs-human',
+    'skip-follow-up',
+    'accept-risk',
+    'no-op',
+    'unknown',
+  ]);
+  if (!allowedActions.has(action)) action = '';
+  if (!action) {
+    if (needsHuman === true || disposition === 'needs-human') {
+      action = 'needs-human';
+    } else if (followupIssue !== null || followupPr !== null || disposition === 'follow-up') {
+      action = 'create-follow-up';
+    } else if (disposition === 'merge') {
+      action = 'no-op';
+    } else if (disposition === 'accept-risk') {
+      action = 'accept-risk';
+    } else {
+      action = 'skip-follow-up';
+    }
+  }
+
+  const reason = cleanString(
+    policy.reason ??
+      input.followup_policy_reason ??
+      input.followupPolicyReason ??
+      input.policy_reason ??
+      input.policyReason
+  );
+  const trigger = normalizeToken(
+    policy.trigger ??
+      input.followup_policy_trigger ??
+      input.followupPolicyTrigger ??
+      input.policy_trigger ??
+      input.policyTrigger,
+    ''
+  );
+  const depthLimitExceeded = cleanBool(
+    policy.depth_limit_exceeded ??
+      policy.depthLimitExceeded ??
+      input.depth_limit_exceeded ??
+      input.depthLimitExceeded
+  );
+
+  const record = {
+    schema: 'workflows-verifier-followup-policy/v1',
+    action,
+  };
+  if (reason) record.reason = reason;
+  if (trigger) record.trigger = trigger;
+  if (chainDepth !== null) record.chain_depth = chainDepth;
+  if (maxChainDepth !== null) record.max_chain_depth = maxChainDepth;
+  if (nextChainDepth !== null) record.next_chain_depth = nextChainDepth;
+  if (depthLimitExceeded !== null) record.depth_limit_exceeded = depthLimitExceeded;
+  return record;
 }
 
 function normalizeTerminalDisposition(input = {}) {
@@ -144,6 +247,7 @@ function normalizeVerifierFollowupLedger(input = {}) {
     verdict: cleanString(input.verdict) || 'unknown',
     disposition,
     source_issue_numbers: sourceIssueNumbers,
+    followup_policy: normalizeVerifierFollowupPolicy({ ...input, disposition }),
   };
 
   const optional = {
@@ -255,6 +359,7 @@ function formatTerminalDispositionMarkdown(records = []) {
 module.exports = {
   normalizeTerminalDisposition,
   normalizeVerifierFollowupLedger,
+  normalizeVerifierFollowupPolicy,
   normalizeLedgerDisposition,
   summarizeTerminalDispositionSources,
   formatTerminalDispositionMarkdown,

@@ -1469,6 +1469,21 @@ jobs:
             reason = 'Verifier reported a non-passing verdict without creating a follow-up issue.';
           }
 
+          let policyAction = 'skip-follow-up';
+          let policyTrigger = 'verifier-policy';
+          if (['pass', 'passed'].includes(verdict)) {
+            policyAction = 'no-op';
+            policyTrigger = 'verifier-pass';
+          } else if (followupIssueNumber || Number(metrics.issues_created || 0) > 0) {
+            policyAction = 'create-follow-up';
+            policyTrigger = 'verifier-concerns';
+          } else if (disposition === 'needs-human' || disposition === 'verifier-error') {
+            policyAction = 'needs-human';
+            policyTrigger = disposition === 'verifier-error' ? 'verifier-error' : 'verifier-concerns';
+          } else if (!shouldRun) {
+            policyTrigger = 'verifier-skipped';
+          }
+
           const sourceTargets = sourceIssueNumbers.length
             ? sourceIssueNumbers.map((issueNumber) => ({
                 source_type: 'source-issue',
@@ -1528,6 +1543,14 @@ jobs:
             followup_issue_number: followupIssueNumber || undefined,
             source_issue_numbers: sourceIssueNumbers,
             chain_depth: chainDepth,
+            followup_policy: {
+              action: policyAction,
+              trigger: policyTrigger,
+              reason,
+              chain_depth: chainDepth,
+              next_chain_depth: policyAction === 'create-follow-up' ? chainDepth + 1 : undefined,
+              depth_limit_exceeded: false,
+            },
             workflow: process.env.GITHUB_WORKFLOW || '',
             actor: process.env.GITHUB_ACTOR || '',
             terminal_disposition_artifact:

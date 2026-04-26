@@ -417,6 +417,11 @@ def _summarise_verifier(
     ledger_followup_issues: set[int] = set()
     ledger_prs: set[int] = set()
     ledger_needs_human = 0
+    ledger_chain_depths: list[int] = []
+    ledger_policy_records = 0
+    ledger_policy_actions = Counter()
+    ledger_policy_triggers = Counter()
+    ledger_policy_depth_limit_exceeded = 0
     verifier_run_keys: set[str] = set()
     prs: set[int] = set()
     issues_created = 0
@@ -491,7 +496,22 @@ def _summarise_verifier(
             ledger_followup_issues.add(followup_issue)
         if bool(entry.get("needs_human")) or disposition == "needs-human":
             ledger_needs_human += 1
+        chain_depth = _safe_int(entry.get("chain_depth"))
+        if chain_depth is not None:
+            ledger_chain_depths.append(chain_depth)
+        policy = entry.get("followup_policy")
+        if isinstance(policy, dict):
+            ledger_policy_records += 1
+            action = str(policy.get("action") or "unknown")
+            trigger = str(policy.get("trigger") or "unknown")
+            ledger_policy_actions[action] += 1
+            ledger_policy_triggers[trigger] += 1
+            if policy.get("depth_limit_exceeded") in (True, "true", "True", "1", 1):
+                ledger_policy_depth_limit_exceeded += 1
     avg_acceptance = sum(acceptance_counts) / len(acceptance_counts) if acceptance_counts else 0.0
+    avg_ledger_chain_depth = (
+        sum(ledger_chain_depths) / len(ledger_chain_depths) if ledger_chain_depths else 0.0
+    )
     return {
         "runs": len(verifier_run_keys),
         "prs": len(prs),
@@ -513,6 +533,12 @@ def _summarise_verifier(
         "ledger_prs": len(ledger_prs),
         "ledger_followup_issues": len(ledger_followup_issues),
         "ledger_needs_human": ledger_needs_human,
+        "ledger_avg_chain_depth": avg_ledger_chain_depth,
+        "ledger_max_chain_depth": max(ledger_chain_depths) if ledger_chain_depths else 0,
+        "ledger_policy_records": ledger_policy_records,
+        "ledger_policy_actions": ledger_policy_actions,
+        "ledger_policy_triggers": ledger_policy_triggers,
+        "ledger_policy_depth_limit_exceeded": ledger_policy_depth_limit_exceeded,
     }
 
 
@@ -619,6 +645,47 @@ def _format_rate(numerator: int, denominator: int) -> str:
         return "n/a"
     rate = (numerator / denominator) * 100
     return f"{rate:.1f}% ({numerator}/{denominator})"
+
+
+def _json_contract_value(value: Any) -> Any:
+    if isinstance(value, Counter):
+        return dict(sorted(value.items()))
+    if isinstance(value, dict):
+        return {str(key): _json_contract_value(item) for key, item in sorted(value.items())}
+    if isinstance(value, list):
+        return [_json_contract_value(item) for item in value]
+    return value
+
+
+def _bucket_entries(entries: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    buckets: dict[str, list[dict[str, Any]]] = {
+        "keepalive": [],
+        "autofix": [],
+        "verifier": [],
+        "terminal_disposition": [],
+        "verifier_followup_ledger": [],
+        "autopilot": [],
+        "unknown": [],
+    }
+    for entry in entries:
+        bucket = _classify_entry(entry)
+        buckets.setdefault(bucket, []).append(entry)
+    return buckets
+
+
+def _summary_metrics_contract(buckets: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    return _json_contract_value(
+        {
+            "keepalive": _summarise_keepalive(buckets["keepalive"]),
+            "autofix": _summarise_autofix(buckets["autofix"]),
+            "verifier": _summarise_verifier(
+                buckets["verifier"] + buckets["terminal_disposition"],
+                buckets["verifier_followup_ledger"],
+            ),
+            "autopilot": _summarise_autopilot(buckets["autopilot"]),
+            "unknown": {"records": len(buckets["unknown"])},
+        }
+    )
 
 
 def _format_parse_error_details(parse_error_details: list[ParseErrorDetail]) -> list[str]:
@@ -756,20 +823,10 @@ def build_summary(
     errors: int,
     parse_error_details: list[ParseErrorDetail] | None = None,
 ) -> str:
-    buckets: dict[str, list[dict[str, Any]]] = {
-        "keepalive": [],
-        "autofix": [],
-        "verifier": [],
-        "terminal_disposition": [],
-        "verifier_followup_ledger": [],
-        "autopilot": [],
-        "unknown": [],
-    }
+    buckets = _bucket_entries(entries)
     timestamps: list[_dt.datetime] = []
 
     for entry in entries:
-        bucket = _classify_entry(entry)
-        buckets.setdefault(bucket, []).append(entry)
         for key in ("timestamp", "created_at", "time", "run_started_at"):
             ts = _parse_timestamp(entry.get(key))
             if ts is not None:
@@ -842,6 +899,18 @@ def build_summary(
             f"- Verifier follow-up ledger PRs: {verifier['ledger_prs']}",
             f"- Verifier follow-up issues linked: {verifier['ledger_followup_issues']}",
             f"- Verifier follow-up needs-human records: {verifier['ledger_needs_human']}",
+            f"- Verifier follow-up avg chain depth: {verifier['ledger_avg_chain_depth']:.1f}",
+            f"- Verifier follow-up max chain depth: {verifier['ledger_max_chain_depth']}",
+            f"- Verifier follow-up policy records: {verifier['ledger_policy_records']}",
+            f"- Verifier follow-up policy actions: {_format_counter(verifier['ledger_policy_actions'])}",
+            (
+                "- Verifier follow-up policy triggers: "
+                f"{_format_counter(verifier['ledger_policy_triggers'])}"
+            ),
+            (
+                "- Verifier follow-up depth-limit records: "
+                f"{verifier['ledger_policy_depth_limit_exceeded']}"
+            ),
             f"- Verifier models: {_format_counter(verifier['verifier_models'])}",
             f"- Unsupported verifier models: {_format_counter(verifier['unsupported_verifier_models'])}",
             (
@@ -903,7 +972,10 @@ def build_summary_contract(
     parse_error_details: list[ParseErrorDetail],
     artifact_downloads: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    buckets: dict[str, int] = Counter(_classify_entry(entry) for entry in entries)
+    entry_buckets = _bucket_entries(entries)
+    buckets: dict[str, int] = Counter(
+        name for name, bucket_entries in entry_buckets.items() for _ in bucket_entries
+    )
     timestamps: list[_dt.datetime] = []
     for entry in entries:
         for key in ("timestamp", "created_at", "time", "run_started_at"):
@@ -921,6 +993,7 @@ def build_summary_contract(
         "record_buckets": dict(sorted(buckets.items())),
         "metric_sources": _metric_source_contract(entries),
         "parse_errors": _parse_error_contract(parse_error_details),
+        "summaries": _summary_metrics_contract(entry_buckets),
     }
     if artifact_downloads is not None:
         contract["artifact_downloads"] = artifact_downloads

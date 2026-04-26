@@ -60,6 +60,16 @@ def test_build_summary_formats_sections() -> None:
             "disposition": "follow-up",
             "followup_issue_number": 303,
             "needs_human": False,
+            "chain_depth": 1,
+            "followup_policy": {
+                "schema": "workflows-verifier-followup-policy/v1",
+                "action": "create-follow-up",
+                "trigger": "verifier-concerns",
+                "chain_depth": 1,
+                "max_chain_depth": 2,
+                "next_chain_depth": 2,
+                "depth_limit_exceeded": False,
+            },
         },
     ]
 
@@ -85,6 +95,12 @@ def test_build_summary_formats_sections() -> None:
     assert "Verifier follow-up ledger PRs: 1" in summary
     assert "Verifier follow-up issues linked: 1" in summary
     assert "Verifier follow-up needs-human records: 0" in summary
+    assert "Verifier follow-up avg chain depth: 1.0" in summary
+    assert "Verifier follow-up max chain depth: 1" in summary
+    assert "Verifier follow-up policy records: 1" in summary
+    assert "Verifier follow-up policy actions: create-follow-up (1)" in summary
+    assert "Verifier follow-up policy triggers: verifier-concerns (1)" in summary
+    assert "Verifier follow-up depth-limit records: 0" in summary
     assert "Verifier models: gpt-5.3-codex (1)" in summary
     assert "Unsupported verifier models: n/a" in summary
     assert "Unsupported model dispositions: n/a" in summary
@@ -92,6 +108,14 @@ def test_build_summary_formats_sections() -> None:
     assert "Legacy missing verifier model metadata: n/a" in summary
     assert "Model selection reasons: default (1)" in summary
     assert "Verifier modes: checkbox (1)" in summary
+
+    contract = aggregate_agent_metrics.build_summary_contract(entries, [])
+    verifier_contract = contract["summaries"]["verifier"]
+    assert verifier_contract["verifier_models"] == {"gpt-5.3-codex": 1}
+    assert verifier_contract["model_selection_reasons"] == {"default": 1}
+    assert verifier_contract["ledger_policy_actions"] == {"create-follow-up": 1}
+    assert verifier_contract["ledger_policy_triggers"] == {"verifier-concerns": 1}
+    assert verifier_contract["ledger_avg_chain_depth"] == 1.0
 
 
 def test_autopilot_needs_human_rate_uses_escalations_not_issue_ids() -> None:
@@ -515,6 +539,7 @@ def test_summary_helpers_cover_branches() -> None:
     assert verifier_with_terminal["runs"] == 1
     assert verifier_with_terminal["terminal_records"] == 2
     assert verifier_with_terminal["verifier_models"]["gpt-5.3-codex"] == 1
+    assert verifier_with_terminal["verifier_models"]["gpt-5.4"] == 1
     assert verifier_with_terminal["unsupported_verifier_models"] == Counter()
     assert verifier_with_terminal["missing_verifier_model_metadata"] == Counter()
     assert (
@@ -524,6 +549,31 @@ def test_summary_helpers_cover_branches() -> None:
         == 1
     )
     assert verifier_with_terminal["verifier_modes"]["checkbox"] == 2
+
+
+def test_summary_contract_exposes_runtime_verifier_model_fallback() -> None:
+    entries = [
+        {
+            "schema": "workflows-terminal-disposition/v1",
+            "artifact_family": "verifier-terminal-disposition",
+            "run_id": "24959093731",
+            "pr_number": 1899,
+            "disposition": "verified-pass",
+            "llm_model": "gpt-5.4",
+            "model_selection_reason": "runtime-fallback-model-unavailable",
+            "verifier_mode": "checkbox",
+            "timestamp": "2026-04-26T14:58:00Z",
+        }
+    ]
+
+    contract = aggregate_agent_metrics.build_summary_contract(entries, [])
+    verifier = contract["summaries"]["verifier"]
+
+    assert contract["record_buckets"] == {"terminal_disposition": 1}
+    assert verifier["terminal_records"] == 1
+    assert verifier["verifier_models"] == {"gpt-5.4": 1}
+    assert verifier["model_selection_reasons"] == {"runtime-fallback-model-unavailable": 1}
+    assert verifier["verifier_modes"] == {"checkbox": 1}
 
 
 def test_verifier_summary_counts_unsupported_models(

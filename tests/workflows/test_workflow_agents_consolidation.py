@@ -439,7 +439,13 @@ def test_verify_to_new_pr_uploads_verifier_followup_ledger() -> None:
         text = path.read_text(encoding="utf-8")
         assert "normalizeVerifierFollowupLedger" in text
         assert "verifier-followup-ledger.ndjson" in text
+        assert "followup_policy" in text
+        assert "max_chain_depth" in text
+        assert "depth_limit_exceeded" in text
         assert "workflows-verifier-followup-ledger/v1" in Path(
+            ".github/scripts/terminal_disposition.js"
+        ).read_text(encoding="utf-8")
+        assert "workflows-verifier-followup-policy/v1" in Path(
             ".github/scripts/terminal_disposition.js"
         ).read_text(encoding="utf-8")
 

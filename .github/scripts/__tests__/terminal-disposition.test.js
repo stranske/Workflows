@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   normalizeTerminalDisposition,
   normalizeVerifierFollowupLedger,
+  normalizeVerifierFollowupPolicy,
   normalizeLedgerDisposition,
   summarizeTerminalDispositionSources,
   formatTerminalDispositionMarkdown,
@@ -68,6 +69,14 @@ test('normalizes verifier follow-up ledger records with stable PR/run key', () =
     terminalDispositionArtifact: 'verifier-terminal-disposition-24950000001',
     dispatchOutcome: 'success',
     needsHuman: false,
+    followupPolicy: {
+      action: 'create-follow-up',
+      trigger: 'verifier-concerns',
+      reason: 'Verifier concerns require another implementation pass.',
+      maxChainDepth: '2',
+      nextChainDepth: '2',
+      depthLimitExceeded: false,
+    },
     timestamp: '2026-04-25T00:00:00Z',
   });
 
@@ -83,8 +92,41 @@ test('normalizes verifier follow-up ledger records with stable PR/run key', () =
   assert.equal(record.followup_issue_number, 105);
   assert.deepEqual(record.source_issue_numbers, [42, 43]);
   assert.equal(record.chain_depth, 1);
+  assert.deepEqual(record.followup_policy, {
+    schema: 'workflows-verifier-followup-policy/v1',
+    action: 'create-follow-up',
+    reason: 'Verifier concerns require another implementation pass.',
+    trigger: 'verifier-concerns',
+    chain_depth: 1,
+    max_chain_depth: 2,
+    next_chain_depth: 2,
+    depth_limit_exceeded: false,
+  });
   assert.equal(record.terminal_disposition_artifact, 'verifier-terminal-disposition-24950000001');
   assert.equal(record.needs_human, false);
+});
+
+test('normalizes verifier follow-up policy records from flat workflow fields', () => {
+  assert.deepEqual(
+    normalizeVerifierFollowupPolicy({
+      terminalState: 'needs-human-depth-limit',
+      needsHuman: 'true',
+      chainDepth: '2',
+      maxChainDepth: '2',
+      followupPolicyReason: 'Chain depth limit was reached.',
+      followupPolicyTrigger: 'chain-depth-limit',
+      depthLimitExceeded: 'true',
+    }),
+    {
+      schema: 'workflows-verifier-followup-policy/v1',
+      action: 'needs-human',
+      reason: 'Chain depth limit was reached.',
+      trigger: 'chain-depth-limit',
+      chain_depth: 2,
+      max_chain_depth: 2,
+      depth_limit_exceeded: true,
+    }
+  );
 });
 
 test('maps verifier terminal states to ledger disposition contract values', () => {
