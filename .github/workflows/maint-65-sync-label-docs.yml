@@ -33,6 +33,7 @@ jobs:
         with:
           sparse-checkout: |
             docs/LABELS.md
+            .github/workflows/maint-68-sync-consumer-repos.yml
             scripts/list_registered_consumer_repos.py
           sparse-checkout-cone-mode: false
 
