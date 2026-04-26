@@ -154,6 +154,41 @@ test('resolvePrSourceContext infers sync and dependabot sources for maintenance 
   );
 });
 
+test('resolvePrSourceContext accepts explicit sync source markers from consumer sync PRs', () => {
+  const context = resolvePrSourceContext({
+    body: [
+      '<!-- workflow-source:sync_campaign -->',
+      '<!-- workflow-source-ref:stranske/Travel-Plan-Permission#956 -->',
+      '## Sync Summary',
+      '',
+      '**Source:** stranske/Workflows',
+      '**Template hash:** `863a67ed87f7`',
+    ].join('\n'),
+    head: { ref: 'sync/workflows-863a67ed87f7' },
+    title: 'chore: sync workflow templates',
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.SYNC_CAMPAIGN);
+  assert.equal(context.sourceRef, 'stranske/Travel-Plan-Permission#956');
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
+  assert.equal(context.isExplicit, true);
+});
+
+test('resolvePrSourceContext accepts direct-pr labels without issue metadata', () => {
+  const context = resolvePrSourceContext({
+    body: '',
+    head: { ref: 'maint/manual-doc-update' },
+    title: 'docs: clarify workflow source handling',
+    labels: [{ name: 'workflow:source-direct-pr' }],
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
+});
+
 test('resolvePrSourceContext leaves unrelated PRs unknown', () => {
   const context = resolvePrSourceContext({
     body: 'No source fields here',

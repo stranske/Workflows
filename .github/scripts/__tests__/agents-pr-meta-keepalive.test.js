@@ -470,6 +470,87 @@ test('keepalive detection accepts valid non-issue source context', async () => {
   assert.ok(reactionCalls.includes('rocket'));
 });
 
+test('keepalive detection accepts sync campaign source context without linked issue', async () => {
+  const outputs = {};
+  const reactionCalls = [];
+  const scopeBlock = [
+    '<!-- codex-keepalive-round: 2 -->',
+    '<!-- codex-keepalive-marker -->',
+    '<!-- codex-keepalive-trace: trace-sync -->',
+    '@codex Continue the consumer sync follow-up.',
+  ].join('\n');
+
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return {
+            data: {
+              body: '<!-- workflow-source:sync_campaign -->\n<!-- workflow-source-ref:stranske/Travel-Plan-Permission#956 -->',
+              head: { ref: 'sync/workflows-863a67ed87f7', repo: { fork: false, owner: { login: 'stranske' } } },
+              base: { ref: 'main', repo: { owner: { login: 'stranske' } } },
+              title: 'chore: sync workflow templates',
+            },
+          };
+        },
+      },
+      issues: {
+        async listComments() {
+          return { data: [] };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment({ content }) {
+          reactionCalls.push(content);
+          return { status: 201, data: { content } };
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.issues.listComments) {
+        return [];
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  await detectKeepalive({
+    core: createCore(outputs),
+    github,
+    context: {
+      repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: {
+        comment: {
+          id: 956,
+          html_url: 'https://example.test/comment/956',
+          body: scopeBlock,
+          user: { login: 'stranske' },
+        },
+        issue: { number: 956 },
+      },
+    },
+    env: {
+      ALLOWED_LOGINS: 'stranske',
+      KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
+      GATE_OK: 'true',
+    },
+  });
+
+  assert.equal(outputs.dispatch, 'true');
+  assert.equal(outputs.reason, 'keepalive-detected');
+  assert.equal(outputs.issue, '');
+  assert.equal(outputs.source_type, 'sync_campaign');
+  assert.equal(outputs.source_ref, 'stranske/Travel-Plan-Permission#956');
+  assert.ok(reactionCalls.includes('hooray'));
+  assert.ok(reactionCalls.includes('rocket'));
+});
+
 test('detectKeepalive caches pull request lookups across invocations', async () => {
   const outputsFirst = {};
   const outputsSecond = {};

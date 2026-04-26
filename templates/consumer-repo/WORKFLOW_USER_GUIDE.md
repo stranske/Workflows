@@ -89,7 +89,7 @@ Issue: "Add user authentication"
 **What Happens:**
 - Workflows treats valid non-issue sources as intentional work instead of missing process state
 - PR metadata automation avoids repeated missing-source repair comments
-- Keepalive still requires a linked issue before it dispatches follow-up agent work
+- Keepalive can continue without a linked issue when the PR has a valid non-issue workflow source context
 
 **Common labels:**
 - `workflow:source-direct-pr`

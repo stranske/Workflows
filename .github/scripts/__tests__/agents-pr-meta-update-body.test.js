@@ -428,6 +428,21 @@ test('buildSourceContextResolvedCommentBody retires stale source repair comments
   assert.ok(result.includes('No linked GitHub issue is required'));
 });
 
+test('buildSourceContextResolvedCommentBody explains sync-campaign source context', () => {
+  const result = buildSourceContextResolvedCommentBody(956, {
+    sourceType: 'sync_campaign',
+    sourceRef: 'stranske/Travel-Plan-Permission#956',
+    lifecycle: 'consumer-sync',
+    automation: 'verify-follow-up',
+  });
+
+  assert.ok(result.includes('origin=sync_campaign'));
+  assert.ok(result.includes('ref=stranske/Travel-Plan-Permission#956'));
+  assert.ok(result.includes('lifecycle=consumer-sync'));
+  assert.ok(result.includes('automation=verify-follow-up'));
+  assert.ok(result.includes('No linked GitHub issue is required'));
+});
+
 test('resolveSourceContextRepairComment updates an existing warning once', async () => {
   const calls = { update: 0, body: '' };
   const github = {
