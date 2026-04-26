@@ -30,21 +30,33 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         resolve_step.get("if")
         == "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'"
     )
-    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.3-codex"
+    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.5"
+    assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.4 gpt-5.3-codex"
     assert resolve_step["env"]["VERIFIER_MODE"] == "${{ inputs.mode }}"
     assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]
     assert "gpt-5.2-codex" in resolve_step["run"]
+    assert 'candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"' in resolve_step["run"]
+    assert "Candidate order" in resolve_step["run"]
     assert '[ "${VERIFIER_MODE:-}" = "checkbox" ]' in resolve_step["run"]
-    assert '--model "${{ steps.codex_model.outputs.model }}"' in run_step["run"]
+    assert "CODEX_MODEL_CANDIDATES" in run_step["env"]
+    assert 'for codex_model in "${codex_models[@]}"; do' in run_step["run"]
+    assert '--model "$codex_model"' in run_step["run"]
+    assert "runtime-fallback-model-unavailable" in run_step["run"]
     assert "steps.unified_verdict.outputs.verdict" in collect_step["env"]["VERDICT"]
-    assert collect_step["env"]["CODEX_MODEL"] == "${{ steps.codex_model.outputs.model }}"
+    assert collect_step["env"]["CODEX_MODEL"] == (
+        "${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}"
+    )
     assert collect_step["env"]["CODEX_MODEL_SELECTION_REASON"] == (
-        "${{ steps.codex_model.outputs.selection_reason }}"
+        "${{ steps.codex.outputs.selection_reason || "
+        "steps.codex_model.outputs.selection_reason }}"
     )
     assert write_step.get("if") == "always()"
-    assert write_step["env"]["CODEX_MODEL"] == "${{ steps.codex_model.outputs.model }}"
+    assert write_step["env"]["CODEX_MODEL"] == (
+        "${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}"
+    )
     assert write_step["env"]["CODEX_MODEL_SELECTION_REASON"] == (
-        "${{ steps.codex_model.outputs.selection_reason }}"
+        "${{ steps.codex.outputs.selection_reason || "
+        "steps.codex_model.outputs.selection_reason }}"
     )
     assert write_step["env"]["SOURCE_ISSUE_NUMBERS_JSON"] == (
         "${{ steps.context.outputs.issue_numbers || '[]' }}"

@@ -494,7 +494,8 @@ jobs:
         id: codex_model
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         env:
-          DEFAULT_CODEX_MODEL: gpt-5.3-codex
+          DEFAULT_CODEX_MODEL: gpt-5.5
+          FALLBACK_CODEX_MODELS: gpt-5.4 gpt-5.3-codex
           REQUESTED_MODEL: ${{ inputs.model }}
           VERIFIER_MODE: ${{ inputs.mode }}
         run: |
@@ -515,17 +516,24 @@ jobs:
             reason="default"
           fi
 
+          candidates="$model"
+          if [ "$reason" = "default" ]; then
+            candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
+          fi
+
           case "$model" in
             gpt-5.2-codex)
-              echo "::warning::Codex model '$model' is not compatible with the configured ChatGPT auth; using '$DEFAULT_CODEX_MODEL'."
+              echo "::warning::Codex model '$model' is not compatible with the configured ChatGPT auth; trying '$DEFAULT_CODEX_MODEL' first."
               model="$DEFAULT_CODEX_MODEL"
               reason="fallback-unsupported-chatgpt-codex-model"
+              candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
               ;;
           esac
 
           {
             echo "model=$model"
             echo "selection_reason=$reason"
+            echo "candidates=$candidates"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -533,6 +541,7 @@ jobs:
             echo ""
             echo "- Model: \`$model\`"
             echo "- Selection reason: \`$reason\`"
+            echo "- Candidate order: \`$candidates\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run verifier (checkbox mode)
@@ -541,21 +550,75 @@ jobs:
         continue-on-error: true
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
+          CODEX_MODEL_CANDIDATES: ${{ steps.codex_model.outputs.candidates }}
+          CODEX_MODEL_SELECTION_REASON: ${{ steps.codex_model.outputs.selection_reason }}
         run: |
           set -euo pipefail
           PROMPT_FILE="${{ steps.prepare.outputs.prompt_file }}"
 
-          set +e
-          codex exec \
-            --sandbox read-only \
-            --skip-git-repo-check \
-            --model "${{ steps.codex_model.outputs.model }}" \
-            --output-last-message codex-output.md \
-            "$(cat "$PROMPT_FILE")"
-          codex_exit_code=$?
-          set -euo pipefail
+          selected_model=""
+          selected_reason="${CODEX_MODEL_SELECTION_REASON:-input}"
+          codex_exit_code=1
+          attempt=0
+          IFS=' ' read -r -a codex_models <<< "${CODEX_MODEL_CANDIDATES:-}"
+          model_count="${#codex_models[@]}"
+
+          for codex_model in "${codex_models[@]}"; do
+            attempt=$((attempt + 1))
+            rm -f codex-output.md codex-stdout.log codex-stderr.log
+            echo "Running Codex verifier with model '${codex_model}' (${attempt}/${model_count})..."
+
+            set +e
+            codex exec \
+              --sandbox read-only \
+              --skip-git-repo-check \
+              --model "$codex_model" \
+              --output-last-message codex-output.md \
+              "$(cat "$PROMPT_FILE")" \
+              > codex-stdout.log 2> codex-stderr.log
+            codex_exit_code=$?
+            set -euo pipefail
+
+            if [ -s codex-stdout.log ]; then
+              echo "=== Codex stdout (${codex_model}) ==="
+              cat codex-stdout.log
+            fi
+            if [ -s codex-stderr.log ]; then
+              echo "=== Codex stderr (${codex_model}) ===" >&2
+              cat codex-stderr.log >&2
+            fi
+
+            selected_model="$codex_model"
+            if [ "$codex_exit_code" -eq 0 ]; then
+              if [ "$attempt" -gt 1 ]; then
+                selected_reason="runtime-fallback-model-unavailable"
+              fi
+              break
+            fi
+
+            if [ "$attempt" -lt "$model_count" ] &&
+              grep -Eiq "model.*(not supported|not available|unsupported|unavailable)|not compatible" \
+                codex-stdout.log codex-stderr.log; then
+              echo "::warning::Codex model '${codex_model}' was unavailable; trying the next verifier model."
+              selected_reason="runtime-fallback-model-unavailable"
+              continue
+            fi
+
+            break
+          done
+
+          if [ -z "$selected_model" ]; then
+            selected_model="${{ steps.codex_model.outputs.model }}"
+          fi
+
+          {
+            echo "model=$selected_model"
+            echo "selection_reason=$selected_reason"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Codex verifier completed (exit code: ${codex_exit_code})"
+          echo "Codex verifier model: ${selected_model}"
+          echo "Codex verifier model selection reason: ${selected_reason}"
           if [ -f codex-output.md ]; then
             echo "=== Verifier Output ==="
             cat codex-output.md
@@ -1256,8 +1319,8 @@ jobs:
           CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
           ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
           SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
-          CODEX_MODEL: ${{ steps.codex_model.outputs.model }}
-          CODEX_MODEL_SELECTION_REASON: ${{ steps.codex_model.outputs.selection_reason }}
+          CODEX_MODEL: ${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}
+          CODEX_MODEL_SELECTION_REASON: ${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}
           VERIFIER_MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
@@ -1327,8 +1390,8 @@ jobs:
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
           SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
-          CODEX_MODEL: ${{ steps.codex_model.outputs.model }}
-          CODEX_MODEL_SELECTION_REASON: ${{ steps.codex_model.outputs.selection_reason }}
+          CODEX_MODEL: ${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}
+          CODEX_MODEL_SELECTION_REASON: ${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}
           VERIFIER_MODE: ${{ inputs.mode }}
           FINAL_VERDICT: >-
             ${{
