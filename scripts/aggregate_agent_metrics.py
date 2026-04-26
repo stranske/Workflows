@@ -271,8 +271,16 @@ def _safe_int(value: Any) -> int | None:
 
 
 def _unsupported_verifier_models() -> set[str]:
-    raw = os.environ.get("UNSUPPORTED_VERIFIER_MODELS", "")
-    if not raw.strip():
+    raw = ""
+    for env_name in (
+        "UNSUPPORTED_VERIFIER_MODELS",
+        "TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS",
+    ):
+        candidate = os.environ.get(env_name, "")
+        if candidate.strip():
+            raw = candidate
+            break
+    if not raw:
         return set(_DEFAULT_UNSUPPORTED_VERIFIER_MODELS)
     return {item.strip().lower() for item in raw.split(",") if item.strip()}
 

@@ -563,6 +563,59 @@ def test_verifier_summary_counts_unsupported_models(
     assert "Unsupported model dispositions: verifier-error (1)" in summary
 
 
+def test_verifier_summary_accepts_terminal_disposition_unsupported_model_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("UNSUPPORTED_VERIFIER_MODELS", raising=False)
+    monkeypatch.setenv("TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS", "alias-bad")
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023778",
+                "pr_number": 1872,
+                "disposition": "verifier-error",
+                "llm_model": "Alias-Bad",
+            },
+        ]
+    )
+
+    assert verifier["unsupported_verifier_models"]["alias-bad"] == 1
+
+
+def test_verifier_summary_prefers_specific_unsupported_model_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UNSUPPORTED_VERIFIER_MODELS", "primary-bad")
+    monkeypatch.setenv("TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS", "alias-bad")
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023778",
+                "pr_number": 1872,
+                "disposition": "verifier-error",
+                "llm_model": "primary-bad",
+            },
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023779",
+                "pr_number": 1873,
+                "disposition": "verifier-error",
+                "llm_model": "alias-bad",
+            },
+        ]
+    )
+
+    assert verifier["unsupported_verifier_models"]["primary-bad"] == 1
+    assert verifier["unsupported_verifier_models"]["alias-bad"] == 0
+
+
 def test_verifier_summary_counts_missing_model_metadata() -> None:
     summary = aggregate_agent_metrics.build_summary(
         [
