@@ -289,13 +289,28 @@ test('summarizes verifier model compatibility with configurable unsupported mode
 });
 
 test('accepts aggregate metrics unsupported verifier model env name', () => {
+  const originalUnsupportedVerifierModels = process.env.UNSUPPORTED_VERIFIER_MODELS;
+  const originalTerminalDispositionUnsupportedCodexModels =
+    process.env.TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS;
+
   process.env.UNSUPPORTED_VERIFIER_MODELS = 'legacy-bad, gpt-5.2-codex';
   delete process.env.TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS;
 
   try {
     assert.deepEqual(normalizeUnsupportedCodexModels(), ['gpt-5.2-codex', 'legacy-bad']);
   } finally {
-    delete process.env.UNSUPPORTED_VERIFIER_MODELS;
+    if (originalUnsupportedVerifierModels === undefined) {
+      delete process.env.UNSUPPORTED_VERIFIER_MODELS;
+    } else {
+      process.env.UNSUPPORTED_VERIFIER_MODELS = originalUnsupportedVerifierModels;
+    }
+
+    if (originalTerminalDispositionUnsupportedCodexModels === undefined) {
+      delete process.env.TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS;
+    } else {
+      process.env.TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS =
+        originalTerminalDispositionUnsupportedCodexModels;
+    }
   }
 });
 
