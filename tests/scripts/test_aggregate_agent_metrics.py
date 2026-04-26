@@ -76,9 +76,9 @@ def test_build_summary_formats_sections() -> None:
             "schema": "workflows-codex-cli-freshness/v1",
             "package": "@openai/codex",
             "component": "agents-verifier",
-            "status": "outdated",
-            "pinned_version": "0.125.0",
-            "latest_version": "0.127.3",
+            "status": " OUTDATED ",
+            "pinned_version": "@openai/codex@0.125.0",
+            "latest_version": "v0.127.3\n",
             "version_delta": {"major": 0, "minor": 2, "patch": 3},
             "update_targets": [
                 {"path": ".github/workflows/reusable-agents-verifier.yml"},
@@ -723,7 +723,7 @@ def test_summary_helpers_cover_branches() -> None:
                 "pr_number": 304,
                 "disposition": "verified-pass",
                 "llm_model": "gpt-5.4",
-                "codex_cli_version": "Codex-CLI 0.125.0",
+                "codex_cli_version": "Codex CLI v0.125.0",
                 "verifier_mode": "checkbox",
             },
         ]

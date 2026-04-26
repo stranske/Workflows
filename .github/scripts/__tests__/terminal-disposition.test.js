@@ -6,6 +6,7 @@ const {
   normalizeVerifierFollowupLedger,
   normalizeVerifierFollowupPolicy,
   normalizeLedgerDisposition,
+  normalizeCliVersion,
   summarizeTerminalDispositionSources,
   formatTerminalDispositionMarkdown,
   sourceKey,
@@ -25,7 +26,7 @@ test('normalizes terminal disposition records with stable source keys', () => {
     artifactFamily: 'verifier-terminal-disposition',
     llmModel: 'gpt-5.3-codex',
     modelSelectionReason: 'default',
-    llmCliVersion: 'codex-cli 0.125.0',
+    llmCliVersion: 'Codex CLI v0.125.0',
     verifierMode: 'checkbox',
     needsHuman: false,
     timestamp: '2026-04-25T00:00:00Z',
@@ -48,6 +49,12 @@ test('normalizes terminal disposition records with stable source keys', () => {
   assert.equal(record.llm_cli_version, 'codex-cli 0.125.0');
   assert.equal(record.verifier_mode, 'checkbox');
   assert.equal(record.needs_human, false);
+});
+
+test('normalizes Codex CLI version strings', () => {
+  assert.equal(normalizeCliVersion('Codex CLI v0.125.0\n'), 'codex-cli 0.125.0');
+  assert.equal(normalizeCliVersion('@openai/codex@0.126.1'), 'codex-cli 0.126.1');
+  assert.equal(normalizeCliVersion('custom tool 1.0.0'), 'custom tool 1.0.0');
 });
 
 test('normalizes boolean-like optional fields without stringifying them', () => {

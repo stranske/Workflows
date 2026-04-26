@@ -102,6 +102,32 @@ def _parse_timestamp(value: Any) -> _dt.datetime | None:
     return None
 
 
+def _normalize_version_text(value: Any) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    match = re.search(r"(\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?)", text)
+    return match.group(1) if match else text
+
+
+def _normalize_cli_version(value: Any) -> str:
+    text = str(value).strip() if value is not None else ""
+    if not text:
+        return ""
+    version = _normalize_version_text(text)
+    lower = text.lower().replace("_", "-")
+    if version and re.search(r"\bcodex(?:-|\s+)cli\b|\bopenai/codex\b|\bcodex\b", lower):
+        return f"codex-cli {version}".lower()
+    return lower
+
+
+def _normalize_counter_token(value: Any, fallback: str = "unknown") -> str:
+    text = str(value).strip().lower().replace("_", "-") if value is not None else ""
+    return text or fallback
+
+
 def _gather_metrics_files(metrics_paths: list[str], metrics_dir: str) -> list[Path]:
     if metrics_paths:
         return [Path(path) for path in metrics_paths if path]
@@ -586,7 +612,7 @@ def _summarise_verifier(
         )
         cli_version_text = str(cli_version).strip() if cli_version is not None else ""
         if cli_version_text:
-            verifier_cli_versions[cli_version_text.lower()] += 1
+            verifier_cli_versions[_normalize_cli_version(cli_version_text)] += 1
         verifier_mode = str(entry.get("verifier_mode") or "").strip().lower()
         if verifier_mode:
             verifier_modes[verifier_mode] += 1
@@ -752,12 +778,12 @@ def _summarise_codex_cli_freshness(entries: list[dict[str, Any]]) -> dict[str, A
     max_patch_delta = 0
     update_targets = Counter()
     for entry in entries:
-        status = str(entry.get("status") or "unknown")
+        status = _normalize_counter_token(entry.get("status"))
         statuses[status] += 1
-        package = str(entry.get("package") or "unknown")
+        package = str(entry.get("package") or "unknown").strip() or "unknown"
         packages[package] += 1
-        pinned = str(entry.get("pinned_version") or "unknown")
-        latest = str(entry.get("latest_version") or "unknown")
+        pinned = _normalize_version_text(entry.get("pinned_version")) or "unknown"
+        latest = _normalize_version_text(entry.get("latest_version")) or "unknown"
         pinned_versions[pinned] += 1
         latest_versions[latest] += 1
         delta = entry.get("version_delta")

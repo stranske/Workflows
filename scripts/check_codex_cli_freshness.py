@@ -90,6 +90,8 @@ def build_contract(
     query_error: str = "",
     generated_at: str | None = None,
 ) -> dict[str, Any]:
+    pinned_version = _version_text(pinned_version)
+    latest_version = _version_text(latest_version) if latest_version else ""
     pinned_tuple = parse_semver(pinned_version)
     latest_tuple = parse_semver(latest_version) if latest_version else None
     status = "unknown"

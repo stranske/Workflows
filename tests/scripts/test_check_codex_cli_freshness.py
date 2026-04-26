@@ -41,6 +41,19 @@ def test_build_contract_reports_outdated_pin() -> None:
     assert "@openai/codex@0.127.3" in markdown
 
 
+def test_build_contract_normalizes_version_strings() -> None:
+    report = check_codex_cli_freshness.build_contract(
+        pinned_version="@openai/codex@0.125.0",
+        latest_version="v0.127.3\n",
+        generated_at="2026-04-26T19:00:00Z",
+    )
+
+    assert report["status"] == "outdated"
+    assert report["pinned_version"] == "0.125.0"
+    assert report["latest_version"] == "0.127.3"
+    assert report["version_delta"] == {"major": 0, "minor": 2, "patch": 3}
+
+
 def test_query_latest_npm_version_uses_isolated_cache(monkeypatch) -> None:
     captured_env = {}
 

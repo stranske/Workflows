@@ -24,6 +24,18 @@ function normalizeToken(value, fallback = 'unknown') {
   return normalized || fallback;
 }
 
+function normalizeCliVersion(value) {
+  const text = cleanString(value);
+  if (!text) return '';
+  const versionMatch = text.match(/(\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?)/);
+  const version = versionMatch ? versionMatch[1] : '';
+  const lower = text.toLowerCase().replace(/_/g, '-');
+  if (version && /\bcodex(?:-|\s+)cli\b|\bopenai\/codex\b|\bcodex\b/.test(lower)) {
+    return `codex-cli ${version}`;
+  }
+  return lower;
+}
+
 function normalizeSourceType(value) {
   const text = cleanString(value).toLowerCase();
   if (!text) return 'unknown';
@@ -46,6 +58,10 @@ function normalizeOptionalValue(key, value) {
   if (key === 'needs_human' || key === 'depth_limit_exceeded') {
     const parsed = cleanBool(value);
     return parsed === null ? undefined : parsed;
+  }
+  if (key === 'llm_cli_version' || key === 'codex_cli_version' || key === 'cli_version') {
+    const normalized = normalizeCliVersion(value);
+    return normalized || undefined;
   }
   const cleaned = typeof value === 'boolean' ? value : cleanString(value);
   if (cleaned === '') return undefined;
@@ -369,6 +385,7 @@ module.exports = {
   normalizeVerifierFollowupPolicy,
   normalizeLedgerDisposition,
   normalizeOptionalValue,
+  normalizeCliVersion,
   summarizeTerminalDispositionSources,
   formatTerminalDispositionMarkdown,
   sourceKey,
