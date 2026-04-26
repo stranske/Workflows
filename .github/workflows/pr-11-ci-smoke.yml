@@ -83,3 +83,22 @@ jobs:
               raise SystemExit(f"Found {len(errors)} syntax errors in scripts")
           print(f"\nAll scripts have valid syntax")
           PY
+
+      - name: Report PR source context
+        run: |
+          node .github/scripts/pr_source_context_report.js \
+            --output-json pr-source-context.json \
+            --output-md pr-source-context.md
+          if [ -f pr-source-context.md ]; then
+            cat pr-source-context.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload PR source context report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr-source-context
+          path: |
+            pr-source-context.json
+            pr-source-context.md
+          if-no-files-found: warn

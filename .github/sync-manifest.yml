@@ -299,6 +299,9 @@ scripts:
   - source: .github/scripts/issue_pr_locator.js
     description: "Locates PRs associated with issues"
 
+  - source: .github/scripts/source_context.js
+    description: "Classifies PR workflow source context for issue, local, automation, sync, Dependabot, review follow-up, and direct GitHub work"
+
   - source: .github/scripts/issue_context_utils.js
     description: "Utilities for issue context extraction"
 
@@ -554,6 +557,9 @@ scripts:
 templates:
   - source: .github/templates/keepalive-instruction.md
     description: "Keepalive instruction template - directives for Codex on each round"
+
+  - source: .github/PULL_REQUEST_TEMPLATE.md
+    description: "Pull request template with Workflow Source fields for direct GitHub and non-issue work"
 
 # Actions required by reusable workflows
 actions:

@@ -385,6 +385,91 @@ test('keepalive detection captures instruction body without status bundle', asyn
   assert.ok(reactionCalls.includes('hooray'));
 });
 
+test('keepalive detection accepts valid non-issue source context', async () => {
+  const outputs = {};
+  const reactionCalls = [];
+  const scopeBlock = [
+    '<!-- codex-keepalive-round: 3 -->',
+    '<!-- codex-keepalive-marker -->',
+    '<!-- codex-keepalive-trace: trace-local -->',
+    '@codex Continue working on the local request.',
+  ].join('\n');
+
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return {
+            data: {
+              body: '<!-- workflow-source:local_request -->\n<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+              head: { ref: 'codex/source-context', repo: { fork: false, owner: { login: 'stranske' } } },
+              base: { ref: 'main', repo: { owner: { login: 'stranske' } } },
+              title: 'Add source context',
+            },
+          };
+        },
+      },
+      issues: {
+        async listComments() {
+          return { data: [] };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment({ content }) {
+          reactionCalls.push(content);
+          return { status: 201, data: { content } };
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.issues.listComments) {
+        return [];
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  const context = {
+    repo: { owner: 'stranske', repo: 'Workflows' },
+    payload: {
+      comment: {
+        id: 199,
+        html_url: 'https://example.test/comment/199',
+        body: scopeBlock,
+        user: { login: 'stranske' },
+      },
+      issue: { number: 4001 },
+    },
+  };
+
+  const env = {
+    ALLOWED_LOGINS: 'stranske',
+    KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
+    GATE_OK: 'true',
+  };
+
+  await detectKeepalive({
+    core: createCore(outputs),
+    github,
+    context,
+    env,
+  });
+
+  assert.equal(outputs.dispatch, 'true');
+  assert.equal(outputs.reason, 'keepalive-detected');
+  assert.equal(outputs.issue, '');
+  assert.equal(outputs.source_type, 'local_request');
+  assert.equal(outputs.source_ref, 'codex-thread-2026-04-26');
+  assert.ok(reactionCalls.includes('hooray'));
+  assert.ok(reactionCalls.includes('rocket'));
+});
+
 test('detectKeepalive caches pull request lookups across invocations', async () => {
   const outputsFirst = {};
   const outputsSecond = {};

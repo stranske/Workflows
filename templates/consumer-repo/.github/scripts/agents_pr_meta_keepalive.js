@@ -3,6 +3,10 @@
 const { createGithubApiCache } = require('./github-api-cache-client');
 const { makeTrace } = require('./keepalive_contract.js');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const {
+  formatSourceContextForLog,
+  resolvePrSourceContext,
+} = require('./source_context.js');
 
 const DEFAULT_INSTRUCTION_SIGNATURE =
   'keepalive workflow continues nudging until everything is complete';
@@ -335,6 +339,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     instruction_bytes: '0',
     agent_alias: '',
     head_sha: '',
+    source_type: '',
+    source_ref: '',
   };
 
   const setBasicOutputs = () => {
@@ -359,6 +365,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     core.setOutput('instruction_bytes', outputs.instruction_bytes || '0');
     core.setOutput('agent_alias', outputs.agent_alias || '');
     core.setOutput('head_sha', outputs.head_sha || '');
+    core.setOutput('source_type', outputs.source_type || '');
+    core.setOutput('source_ref', outputs.source_ref || '');
   };
 
   const { comment, issue } = context.payload || {};
@@ -645,6 +653,13 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   if (issueNumber) {
     outputs.issue = String(issueNumber);
   }
+  const sourceContext = resolvePrSourceContext(pull);
+  if (sourceContext.isKnown) {
+    outputs.source_type = sourceContext.sourceType;
+  }
+  if (sourceContext.sourceRef) {
+    outputs.source_ref = sourceContext.sourceRef;
+  }
 
   let reactions = [];
   try {
@@ -741,9 +756,17 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   }
 
   if (!issueNumber) {
-    outputs.reason = 'missing-issue-reference';
-    core.info('Keepalive dispatch skipped: unable to determine linked issue number.');
-    return finalise();
+    if (sourceContext.isValid && !sourceContext.requiresIssue) {
+      core.info(
+        `Keepalive dispatch continuing with non-issue workflow source context (${formatSourceContextForLog(sourceContext)}).`,
+      );
+    } else {
+      outputs.reason = 'missing-source-context';
+      core.info(
+        'Keepalive dispatch skipped: unable to determine linked issue number or another valid workflow source context.',
+      );
+      return finalise();
+    }
   }
 
   // Add agents:activated label on first human activation per GoalsAndPlumbing.md Section 1

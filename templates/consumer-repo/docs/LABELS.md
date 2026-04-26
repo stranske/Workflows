@@ -212,6 +212,30 @@ To establish a single canonical TripPlan contract and eliminate inconsistencies.
 
 ---
 
+## Workflow Source Labels
+
+These labels let direct GitHub PRs and non-issue-origin PRs integrate with
+Workflows source classification without forcing a GitHub issue.
+
+| Label | Applies to | Effect |
+|-------|------------|--------|
+| `workflow:source-issue` | Pull Requests | PR source is a GitHub issue. |
+| `workflow:source-local-request` | Pull Requests | PR source is a local Codex/user request. |
+| `workflow:source-automation` | Pull Requests | PR source is an automation or workflow run. |
+| `workflow:source-sync` | Pull Requests | PR source is a sync or maintenance campaign. |
+| `workflow:source-dependabot` | Pull Requests | PR source is Dependabot or dependency automation. |
+| `workflow:source-review-followup` | Pull Requests | PR source is review feedback follow-up. |
+| `workflow:source-direct-pr` | Pull Requests | PR was started directly on GitHub without a source issue. |
+| `workflow:no-automation` | Pull Requests | Automation should not manage the PR unless checks fail. |
+| `workflow:source-needed` | Pull Requests | Source context is missing or ambiguous. |
+
+Use these labels as a backup to the PR template's Workflow Source section. If a
+PR has no linked issue and no valid Workflow Source, the PR metadata automation
+posts one repair comment instead of repeatedly treating the PR as issue-delivery
+work.
+
+---
+
 ## Verifier Labels
 
 These labels trigger the post-merge verifier workflow on a merged PR.

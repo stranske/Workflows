@@ -15,6 +15,9 @@ const {
   upsertCompletionAuthorWarning,
   buildStatusBlock,
   buildPreamble,
+  buildSourceContextRepairCommentBody,
+  buildSourceContextResolvedCommentBody,
+  resolveSourceContextRepairComment,
   resolveAgentType,
   stripPrTemplateContent,
   augmentContextWithRelatedIssues,
@@ -400,6 +403,82 @@ test('buildPreamble does not close active campaign issues', () => {
   assert.ok(result.includes('> **Source:** Issue #1836'));
   assert.ok(result.includes('Related to campaign issue #1836'));
   assert.ok(!result.includes('Closes #1836'));
+});
+
+test('buildSourceContextRepairCommentBody explains non-issue source options', () => {
+  const result = buildSourceContextRepairCommentBody(55);
+
+  assert.ok(result.includes('<!-- missing-issue-warning -->'));
+  assert.ok(result.includes('PR #55 does not need a GitHub issue'));
+  assert.ok(result.includes('<!-- workflow-source:local_request -->'));
+  assert.ok(result.includes('workflow:source-direct-pr'));
+  assert.ok(result.includes('workflow:no-automation'));
+});
+
+test('buildSourceContextResolvedCommentBody retires stale source repair comments', () => {
+  const result = buildSourceContextResolvedCommentBody(55, {
+    sourceType: 'local_request',
+    sourceRef: 'codex-thread-2026-04-26',
+  });
+
+  assert.ok(result.includes('<!-- missing-issue-warning -->'));
+  assert.ok(result.includes('PR #55 now has valid workflow source context'));
+  assert.ok(result.includes('local_request'));
+  assert.ok(result.includes('codex-thread-2026-04-26'));
+  assert.ok(result.includes('No linked GitHub issue is required'));
+});
+
+test('resolveSourceContextRepairComment updates an existing warning once', async () => {
+  const calls = { update: 0, body: '' };
+  const github = {
+    rest: {
+      issues: {
+        updateComment: async ({ comment_id, body }) => {
+          assert.strictEqual(comment_id, 99);
+          calls.update += 1;
+          calls.body = body;
+        },
+      },
+    },
+  };
+
+  const updated = await resolveSourceContextRepairComment({
+    github,
+    owner: 'octo',
+    repo: 'demo',
+    prNumber: 55,
+    comments: [{ id: 99, body: '<!-- missing-issue-warning -->\nold warning' }],
+    sourceContext: { sourceType: 'local_request', sourceRef: 'codex-thread-2026-04-26' },
+    core: { info: () => {} },
+  });
+
+  assert.strictEqual(updated, true);
+  assert.strictEqual(calls.update, 1);
+  assert.ok(calls.body.includes('Workflow source detected'));
+});
+
+test('resolveSourceContextRepairComment skips when no warning exists', async () => {
+  const github = {
+    rest: {
+      issues: {
+        updateComment: async () => {
+          throw new Error('should not update');
+        },
+      },
+    },
+  };
+
+  const updated = await resolveSourceContextRepairComment({
+    github,
+    owner: 'octo',
+    repo: 'demo',
+    prNumber: 55,
+    comments: [],
+    sourceContext: { sourceType: 'local_request' },
+    core: { info: () => {} },
+  });
+
+  assert.strictEqual(updated, false);
 });
 
 // ========== fetchConnectorCheckboxStates tests ==========

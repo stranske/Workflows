@@ -76,7 +76,32 @@ Issue: "Add user authentication"
 
 ---
 
-### 3. End-to-End Automation (Auto-Pilot)
+### 3. Start Work Directly From a PR
+
+**Use Case:** You are opening a PR without first creating a GitHub issue
+
+**Steps:**
+1. Fill out exactly one option in the PR template's `Workflow Source` section
+2. If the PR came from an issue, include `Closes #123` or `Related to #123`
+3. If there is no issue, choose the direct, local request, automation, review follow-up, sync/maintenance, or Dependabot source
+4. Use a `workflow:source-*` label if you need to classify an existing PR from the PR list
+
+**What Happens:**
+- Workflows treats valid non-issue sources as intentional work instead of missing process state
+- PR metadata automation avoids repeated missing-source repair comments
+- Keepalive still requires a linked issue before it dispatches follow-up agent work
+
+**Common labels:**
+- `workflow:source-direct-pr`
+- `workflow:source-local-request`
+- `workflow:source-review-followup`
+- `workflow:source-sync`
+- `workflow:source-dependabot`
+- `workflow:no-automation`
+
+---
+
+### 4. End-to-End Automation (Auto-Pilot)
 
 **Use Case:** You want complete hands-off automation from issue to merged PR
 

@@ -58,6 +58,35 @@
   color: 0366d6
   description: PR was created by or for Copilot
 
+# Workflow source labels
+- name: workflow:source-issue
+  color: 0e8a16
+  description: PR source is a GitHub issue
+- name: workflow:source-local-request
+  color: 0e8a16
+  description: PR source is a local Codex or user request
+- name: workflow:source-automation
+  color: ededed
+  description: PR source is an automation or workflow run
+- name: workflow:source-sync
+  color: 1d76db
+  description: PR source is a sync or maintenance campaign
+- name: workflow:source-dependabot
+  color: 0366d6
+  description: PR source is Dependabot or dependency automation
+- name: workflow:source-review-followup
+  color: 5319e7
+  description: PR source is follow-up from review feedback
+- name: workflow:source-direct-pr
+  color: fbca04
+  description: PR was started directly on GitHub without a source issue
+- name: workflow:no-automation
+  color: b60205
+  description: Do not let workflow automation manage this PR unless checks fail
+- name: workflow:source-needed
+  color: d93f0b
+  description: Workflow source context is missing or ambiguous
+
 # Autofix labels
 - name: autofix
   color: 0366d6
