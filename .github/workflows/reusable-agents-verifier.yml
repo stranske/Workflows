@@ -484,11 +484,14 @@ jobs:
           echo "Codex auth configured"
 
       - name: Install Codex CLI
+        id: codex_cli
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         run: |
           set -euo pipefail
           npm install -g "@openai/codex@0.125.0"
-          echo "Installed Codex CLI version: $(codex --version)" >> "$GITHUB_STEP_SUMMARY"
+          codex_cli_version="$(codex --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
+          echo "version=$codex_cli_version" >> "$GITHUB_OUTPUT"
+          echo "Installed Codex CLI version: $codex_cli_version" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve Codex verifier model
         id: codex_model
@@ -1321,6 +1324,7 @@ jobs:
           SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
           CODEX_MODEL: ${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}
           CODEX_MODEL_SELECTION_REASON: ${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}
+          CODEX_CLI_VERSION: ${{ steps.codex_cli.outputs.version }}
           VERIFIER_MODE: ${{ inputs.mode }}
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
         run: |
@@ -1341,6 +1345,7 @@ jobs:
           issue_number = os.environ.get("ISSUE_NUMBER") or ""
           codex_model = os.environ.get("CODEX_MODEL") or ""
           codex_model_selection_reason = os.environ.get("CODEX_MODEL_SELECTION_REASON") or ""
+          codex_cli_version = os.environ.get("CODEX_CLI_VERSION") or ""
           verifier_mode = os.environ.get("VERIFIER_MODE") or ""
           chain_depth = int(os.environ.get("CHAIN_DEPTH") or 0)
 
@@ -1373,6 +1378,7 @@ jobs:
               "skip_reason": skip_reason,
               "codex_model": codex_model,
               "codex_model_selection_reason": codex_model_selection_reason,
+              "codex_cli_version": codex_cli_version,
               "verifier_mode": verifier_mode,
               "chain_depth": chain_depth,
               "recorded_at": datetime.now(timezone.utc).isoformat(),
@@ -1395,6 +1401,7 @@ jobs:
           SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
           CODEX_MODEL: ${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}
           CODEX_MODEL_SELECTION_REASON: ${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}
+          CODEX_CLI_VERSION: ${{ steps.codex_cli.outputs.version }}
           VERIFIER_MODE: ${{ inputs.mode }}
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
           FINAL_VERDICT: >-
@@ -1449,6 +1456,7 @@ jobs:
           const codexModel = process.env.CODEX_MODEL || metrics.codex_model || '';
           const codexModelSelectionReason =
             process.env.CODEX_MODEL_SELECTION_REASON || metrics.codex_model_selection_reason || '';
+          const codexCliVersion = process.env.CODEX_CLI_VERSION || metrics.codex_cli_version || '';
           const verifierMode = process.env.VERIFIER_MODE || metrics.verifier_mode || '';
           const chainDepth =
             Number.parseInt(process.env.CHAIN_DEPTH || metrics.chain_depth || '0', 10) || 0;
@@ -1513,6 +1521,7 @@ jobs:
             dispatch_outcome: shouldRun ? 'verifier-ran' : 'verifier-skipped',
             llm_model: codexModel || undefined,
             model_selection_reason: codexModelSelectionReason || undefined,
+            llm_cli_version: codexCliVersion || undefined,
             verifier_mode: verifierMode || undefined,
           }));
 

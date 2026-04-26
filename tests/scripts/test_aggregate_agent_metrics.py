@@ -49,6 +49,7 @@ def test_build_summary_formats_sections() -> None:
             "disposition": "follow-up-created",
             "llm_model": "gpt-5.3-codex",
             "model_selection_reason": "default",
+            "llm_cli_version": "codex-cli 0.125.0",
             "verifier_mode": "checkbox",
         },
         {
@@ -102,6 +103,7 @@ def test_build_summary_formats_sections() -> None:
     assert "Verifier follow-up policy triggers: verifier-concerns (1)" in summary
     assert "Verifier follow-up depth-limit records: 0" in summary
     assert "Verifier models: gpt-5.3-codex (1)" in summary
+    assert "Verifier CLI versions: codex-cli 0.125.0 (1)" in summary
     assert "Unsupported verifier models: n/a" in summary
     assert "Unsupported model dispositions: n/a" in summary
     assert "Missing verifier model metadata: n/a" in summary
@@ -112,6 +114,7 @@ def test_build_summary_formats_sections() -> None:
     contract = aggregate_agent_metrics.build_summary_contract(entries, [])
     verifier_contract = contract["summaries"]["verifier"]
     assert verifier_contract["verifier_models"] == {"gpt-5.3-codex": 1}
+    assert verifier_contract["verifier_cli_versions"] == {"codex-cli 0.125.0": 1}
     assert verifier_contract["model_selection_reasons"] == {"default": 1}
     assert verifier_contract["ledger_policy_actions"] == {"create-follow-up": 1}
     assert verifier_contract["ledger_policy_triggers"] == {"verifier-concerns": 1}
@@ -642,6 +645,7 @@ def test_summary_helpers_cover_branches() -> None:
                 "disposition": "follow-up-created",
                 "llm_model": "gpt-5.3-codex",
                 "model_selection_reason": "fallback-unsupported-chatgpt-codex-model",
+                "llm_cli_version": "codex-cli 0.125.0",
                 "verifier_mode": " Checkbox ",
             },
             {
@@ -650,6 +654,7 @@ def test_summary_helpers_cover_branches() -> None:
                 "pr_number": 304,
                 "disposition": "verified-pass",
                 "llm_model": "gpt-5.4",
+                "codex_cli_version": "Codex-CLI 0.125.0",
                 "verifier_mode": "checkbox",
             },
         ]
@@ -658,6 +663,7 @@ def test_summary_helpers_cover_branches() -> None:
     assert verifier_with_terminal["terminal_records"] == 2
     assert verifier_with_terminal["verifier_models"]["gpt-5.3-codex"] == 1
     assert verifier_with_terminal["verifier_models"]["gpt-5.4"] == 1
+    assert verifier_with_terminal["verifier_cli_versions"]["codex-cli 0.125.0"] == 2
     assert verifier_with_terminal["unsupported_verifier_models"] == Counter()
     assert verifier_with_terminal["missing_verifier_model_metadata"] == Counter()
     assert (
@@ -679,6 +685,7 @@ def test_summary_contract_exposes_runtime_verifier_model_fallback() -> None:
             "disposition": "verified-pass",
             "llm_model": "gpt-5.4",
             "model_selection_reason": "runtime-fallback-model-unavailable",
+            "llm_cli_version": "codex-cli 0.125.0",
             "verifier_mode": "checkbox",
             "timestamp": "2026-04-26T14:58:00Z",
         }
@@ -690,6 +697,7 @@ def test_summary_contract_exposes_runtime_verifier_model_fallback() -> None:
     assert contract["record_buckets"] == {"terminal_disposition": 1}
     assert verifier["terminal_records"] == 1
     assert verifier["verifier_models"] == {"gpt-5.4": 1}
+    assert verifier["verifier_cli_versions"] == {"codex-cli 0.125.0": 1}
     assert verifier["model_selection_reasons"] == {"runtime-fallback-model-unavailable": 1}
     assert verifier["verifier_modes"] == {"checkbox": 1}
 

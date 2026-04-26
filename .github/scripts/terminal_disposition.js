@@ -211,6 +211,7 @@ function normalizeTerminalDisposition(input = {}) {
     dispatch_outcome: input.dispatch_outcome ?? input.dispatchOutcome,
     llm_model: input.llm_model ?? input.llmModel ?? input.model,
     model_selection_reason: input.model_selection_reason ?? input.modelSelectionReason,
+    llm_cli_version: input.llm_cli_version ?? input.llmCliVersion ?? input.cli_version,
     verifier_mode: input.verifier_mode ?? input.verifierMode,
   };
 

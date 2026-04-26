@@ -1,12 +1,37 @@
+import re
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 
+MIN_CODEX_CLI_BY_MODEL = {
+    "gpt-5.5": (0, 125, 0),
+    "gpt-5.4": (0, 125, 0),
+    "gpt-5.3-codex": (0, 101, 0),
+}
+
 
 def _load_yaml(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def _parse_version_tuple(value: str) -> tuple[int, int, int]:
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", value)
+    assert match, f"Could not parse semantic version from: {value!r}"
+    return tuple(int(part) for part in match.groups())
+
+
+def _extract_codex_cli_pin(run_script: str) -> tuple[int, int, int]:
+    match = re.search(r'@openai/codex@([0-9]+\.[0-9]+\.[0-9]+)"', run_script)
+    assert match, "Install Codex CLI step must pin @openai/codex to an explicit version"
+    return _parse_version_tuple(match.group(1))
+
+
+def _model_candidates(resolve_step: dict) -> list[str]:
+    default_model = resolve_step["env"]["DEFAULT_CODEX_MODEL"]
+    fallback_models = resolve_step["env"]["FALLBACK_CODEX_MODELS"].split()
+    return [default_model, *fallback_models]
 
 
 def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
@@ -27,6 +52,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     )
 
     assert resolve_step.get("id") == "codex_model"
+    assert install_step.get("id") == "codex_cli"
     assert (
         resolve_step.get("if")
         == "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'"
@@ -52,6 +78,8 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         "${{ steps.codex.outputs.selection_reason || "
         "steps.codex_model.outputs.selection_reason }}"
     )
+    assert collect_step["env"]["CODEX_CLI_VERSION"] == "${{ steps.codex_cli.outputs.version }}"
+    assert '"codex_cli_version": codex_cli_version' in collect_step["run"]
     assert write_step.get("if") == "always()"
     assert write_step["env"]["CODEX_MODEL"] == (
         "${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}"
@@ -60,6 +88,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         "${{ steps.codex.outputs.selection_reason || "
         "steps.codex_model.outputs.selection_reason }}"
     )
+    assert write_step["env"]["CODEX_CLI_VERSION"] == "${{ steps.codex_cli.outputs.version }}"
     assert write_step["env"]["SOURCE_ISSUE_NUMBERS_JSON"] == (
         "${{ steps.context.outputs.issue_numbers || '[]' }}"
     )
@@ -73,6 +102,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert "CHAIN_DEPTH" in write_step["env"]
     assert "llm_model" in write_step["run"]
     assert "model_selection_reason" in write_step["run"]
+    assert "llm_cli_version" in write_step["run"]
     assert "source-issue" in write_step["run"]
     assert "pull-request" in write_step["run"]
     assert "verified-pass" in write_step["run"]
@@ -84,3 +114,27 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert "agent-metrics/verifier-followup-ledger.ndjson" in upload_step["with"]["path"]
     assert upload_step["with"]["if-no-files-found"] == "error"
     assert upload_step["with"]["retention-days"] == 14
+
+
+def test_reusable_verifier_codex_model_cli_compatibility_contract() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-agents-verifier.yml")
+    steps = workflow["jobs"]["verifier"]["steps"]
+    resolve_step = next(
+        step for step in steps if step.get("name") == "Resolve Codex verifier model"
+    )
+    install_step = next(step for step in steps if step.get("name") == "Install Codex CLI")
+
+    installed_cli = _extract_codex_cli_pin(install_step["run"])
+    candidates = _model_candidates(resolve_step)
+    unreviewed_models = [model for model in candidates if model not in MIN_CODEX_CLI_BY_MODEL]
+    assert not unreviewed_models, (
+        "Verifier Codex model candidates need an explicit reviewed minimum CLI mapping: "
+        + ", ".join(unreviewed_models)
+    )
+
+    for model in candidates:
+        minimum_cli = MIN_CODEX_CLI_BY_MODEL[model]
+        assert installed_cli >= minimum_cli, (
+            f"Verifier model {model} requires @openai/codex >= {minimum_cli}, "
+            f"but reusable-agents-verifier.yml installs {installed_cli}."
+        )
