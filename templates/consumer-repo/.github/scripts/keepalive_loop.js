@@ -3021,18 +3021,16 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       const liveCombined = [focusSections.tasks, focusSections.acceptance]
         .filter(Boolean)
         .join('\n');
-      const liveCounts = countCheckboxes(liveCombined);
-      if (liveCounts.total > 0) {
-        const staleTotal = tasksTotal;
-        const staleUnchecked = tasksUnchecked;
-        tasksTotal = liveCounts.total;
-        tasksUnchecked = liveCounts.unchecked;
-        if (staleTotal !== tasksTotal || staleUnchecked !== tasksUnchecked) {
-          core?.info?.(
-            `[summary] Re-counted checkboxes from live PR body: ` +
-            `total ${staleTotal}→${tasksTotal}, unchecked ${staleUnchecked}→${tasksUnchecked}`,
-          );
-        }
+      const liveCounts = toActionableChecklistCounts(liveCombined);
+      const staleTotal = tasksTotal;
+      const staleUnchecked = tasksUnchecked;
+      tasksTotal = liveCounts.total;
+      tasksUnchecked = liveCounts.unchecked;
+      if (staleTotal !== tasksTotal || staleUnchecked !== tasksUnchecked) {
+        core?.info?.(
+          `[summary] Re-counted actionable checkboxes from live PR body: ` +
+          `total ${staleTotal}→${tasksTotal}, unchecked ${staleUnchecked}→${tasksUnchecked}`,
+        );
       }
     }
 
@@ -3127,6 +3125,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       runResult === 'success' &&
       agentChangesMade === 'true' &&
       agentFilesChanged > 0 &&
+      tasksTotal > 0 &&
       tasksCompletedThisRound <= 0;
 
     if (action === 'run' || action === 'fix') {
