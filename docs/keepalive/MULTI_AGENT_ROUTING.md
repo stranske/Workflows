@@ -1,6 +1,6 @@
 # Multi-Agent Routing Architecture
 
-**Status:** Partially adopted (Codex only)  
+**Status:** Active registry-driven routing
 **Related:** `GoalsAndPlumbing.md`, `Observability_Contract.md`
 
 This document describes the multi-agent routing architecture that enables different AI agents (Codex CLI, Claude, etc.) to work on PRs through a unified keepalive loop.
@@ -14,27 +14,28 @@ The keepalive system routes work to different agents based on the `agent:*` labe
 | Label | Agent | Workflow |
 |-------|-------|----------|
 | `agent:codex` | Codex CLI (gpt-5.3-codex) | `reusable-codex-run.yml` |
-| `agent:claude` | Claude (future) | *(not implemented in this repo)* |
-| `agent:gemini` | Gemini (future) | *(not implemented in this repo)* |
+| `agent:claude` | Claude CLI | `reusable-claude-run.yml` |
+
+The authoritative list lives in `.github/agents/registry.yml`; update that registry and the matching runner workflow before adding labels to this table.
 
 ---
 
 ## How It Works
 
 ```
-PR with agent:codex label
+PR with agent:<name> label
     ↓
 Gate CI passes
     ↓
 agents-keepalive-loop.yml triggers
     ↓
 Evaluate step extracts:
-  - agentType = "codex" (from agent:codex label)
+  - agentType = "<name>" (from agent:<name> label)
   - taskAppendix = extracted Scope/Tasks/Acceptance
     ↓
-Routes to run-codex job (conditional on agentType)
+Routes through the registry-backed runner for agentType
     ↓
-Codex receives prompt + task appendix:
+The selected agent receives prompt + task appendix:
   "Your objective is to satisfy the Acceptance Criteria...
    ---
    ## PR Tasks and Acceptance Criteria
@@ -79,18 +80,17 @@ function buildTaskAppendix(sections, checkboxCounts) {
 
 The appendix is injected directly into the agent prompt so tasks are explicit, not implied.
 
-### 3. Conditional Routing (`agents-keepalive-loop.yml`)
+### 3. Registry-Backed Routing (`agents-keepalive-loop.yml`)
 
 ```yaml
-run-codex:
-  name: Keepalive next task (Codex)
-  if: needs.evaluate.outputs.agent_type == 'codex'
-  uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
+run-selected-agent:
+  # Conceptual example: the live workflow resolves runner metadata from
+  # .github/agents/registry.yml and dispatches the matching reusable runner.
+  if: needs.evaluate.outputs.agent_type != ''
   with:
     appendix: ${{ needs.evaluate.outputs.task_appendix }}
+    agent_type: ${{ needs.evaluate.outputs.agent_type }}
     ...
-
-# Note: Only `agent:codex` routing is currently implemented.
 ```
 
 ### 4. Agent-Agnostic Prompt (`keepalive_next_task.md`)
@@ -115,16 +115,14 @@ No `@codex` or agent-specific mentions—the routing determines which agent rece
 
 ---
 
-## Future Expansion (Not Implemented)
+## Adding Another Agent
 
-This repository currently supports Codex-only routing (`agent:codex`).
+The high-level work for another agent is:
 
-If multi-agent support is added later, the high-level work is:
-
-1. Add a new reusable runner workflow (parallel to `reusable-codex-run.yml`).
-2. Add a conditional job in `agents-keepalive-loop.yml` to call it.
-3. Wire the new outputs through the keepalive summary step.
-4. Document the new label and required secrets.
+1. Add a registry entry in `.github/agents/registry.yml`.
+2. Add a reusable runner workflow modeled after the Codex and Claude runners.
+3. Wire any new runner outputs through the keepalive summary step.
+4. Document the new label, required secrets, and readiness/preflight ownership.
 
 ---
 
@@ -146,16 +144,16 @@ Now, tasks are **explicitly injected** into the prompt appendix:
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [x] Add output for `final-message` from Codex action
+- [x] Add output for `final-message` from the agent action
 - [x] Add output for `files-changed`
 - [ ] Write iteration summary to GITHUB_STEP_SUMMARY  ← WORK ON THIS
-- [ ] Create new section in PR body for CLI Codex status
+- [ ] Create new section in PR body for CLI agent status
 ...
 
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [ ] CLI Codex iterations are visible in the PR body
+- [ ] CLI agent iterations are visible in the PR body
 - [ ] Each iteration shows: round number, tasks attempted, outcome
 ...
 ---

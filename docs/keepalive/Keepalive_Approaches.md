@@ -93,7 +93,7 @@ These approaches are **not interchangeable**. The CLI workflow is the current pr
 - If you see **`reusable-codex-run.yml`** and **`agents-keepalive-loop.yml`**, you are on the **Codex CLI** path.
 - If you see heavy reliance on **connector bot comments** for completion signals, you are on the **Legacy UI** path.
 
-For any new changes, use the **Codex CLI keepalive** unless explicitly maintaining legacy behavior.
+For any new changes, use the registry-driven **CLI keepalive** path unless explicitly maintaining legacy behavior.
 
 ---
 

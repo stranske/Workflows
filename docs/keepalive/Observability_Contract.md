@@ -1,10 +1,10 @@
 # Keepalive Observability Contract (Goals & Plumbing Update)
 
 **Status:** Canonical reference for keepalive behavior and on‑run observability  
-**Scope:** PR‑meta workflow(s), Orchestrator/Worker workflow, Branch‑Sync module (Codex CLI keepalive)  
+**Scope:** PR‑meta workflow(s), Orchestrator/Worker workflow, Branch‑Sync module (registry-driven CLI keepalive)
 **Non‑goals:** Changes to acceptance‑criteria content, agent prompts, or moderation policy
 
-> **Applicability:** This contract applies to the **Codex CLI keepalive** implementation. The legacy UI connector‑bot flow is documented in [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
+> **Applicability:** This contract applies to the registry-driven CLI keepalive implementation for Codex, Claude, and future agents. The legacy UI connector‑bot flow is documented in [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
 
 ---
 

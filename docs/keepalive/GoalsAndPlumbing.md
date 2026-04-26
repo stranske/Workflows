@@ -12,11 +12,12 @@
 - [5. No-Noise Policy](#5-no-noise-policy)
 - [6. Instruction Prompt Contract](#6-instruction-prompt-contract)
 - [7. Agent Routing](#7-agent-routing)
-- [8. Branch-Sync Gate](#8-branch-sync-gate)
-- [9. Orchestrator Invariants](#9-orchestrator-invariants)
-- [10. Restart & Success Conditions](#10-restart--success-conditions)
-- [11. Issue Context & Status Summary](#11-issue-context--status-summary)
-- [12. Progress Detection & Checkbox Reconciliation](#12-progress-detection--checkbox-reconciliation)
+- [8. Capacity Mode Contract](#8-capacity-mode-contract)
+- [9. Branch-Sync Gate](#9-branch-sync-gate)
+- [10. Orchestrator Invariants](#10-orchestrator-invariants)
+- [11. Restart & Success Conditions](#11-restart--success-conditions)
+- [12. Issue Context & Status Summary](#12-issue-context--status-summary)
+- [13. Progress Detection & Checkbox Reconciliation](#13-progress-detection--checkbox-reconciliation)
 - [Appendix: Operator Checklist](#appendix-operator-checklist)
 
 ---
@@ -25,14 +26,14 @@
 
 - **Purpose:** Maintain a safe, iterative loop where keepalive nudges an agent through small, verifiable increments on a PR until every acceptance criterion is complete—while guaranteeing predictable behaviour and safety rails.
 - **Scope:** Activation requirements, dispatch plumbing, throttling, branch-sync guarantees, and shutdown rules for the GitHub PR keepalive workflow.
-- **Applicability:** This contract covers the **Codex CLI keepalive** implementation. The legacy UI connector-bot flow is documented separately in [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
+- **Applicability:** This contract covers the registry-driven CLI keepalive implementation for Codex, Claude, and future agents. The legacy UI connector-bot flow is documented separately in [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
 - **Non-goals:** Guidance for automation unrelated to keepalive.
 
 ---
 
 ## Lifecycle Overview
 
-1. **PR labeled:** A PR receives an `agent:*` label (for example, `agent:codex`).
+1. **PR labeled:** A PR receives an `agent:*` label (for example, `agent:codex` or `agent:claude`).
 2. **Guarded check:** Orchestrator guardrails confirm the label, Gate success, and run-cap capacity before running the agent.
 3. **Agent execution:** The appropriate agent workflow runs with explicit task context injected into the prompt.
 4. **Timed repeats:** Subsequent Gate completions trigger re-evaluation and continue if tasks remain.
@@ -45,7 +46,7 @@
 
 Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
-1. **PR opt-in:** The PR carries an `agent:*` label (for example, `agent:codex`).
+1. **PR opt-in:** The PR carries an `agent:*` label (for example, `agent:codex` or `agent:claude`).
 2. **Gate green:** The Gate workflow for the current head SHA completed successfully.
 3. **Tasks present:** The PR body contains unchecked tasks in the Automated Status Summary.
 
@@ -113,12 +114,12 @@ Example prompt appendix:
 **Progress:** 3/10 tasks complete, 7 remaining
 
 ### Scope
-Add visibility for CLI Codex iterations in the PR body.
+Add visibility for CLI agent iterations in the PR body.
 
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [x] Add output for `final-message` from Codex action
+- [x] Add output for `final-message` from the agent action
 - [ ] Write iteration summary to GITHUB_STEP_SUMMARY
 - [ ] Create new section in PR body for CLI Codex status
 ...
@@ -126,7 +127,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [ ] CLI Codex iterations are visible in the PR body
+- [ ] CLI agent iterations are visible in the PR body
 ...
 ---
 ```
@@ -135,19 +136,36 @@ The PR is complete when ALL of these are satisfied:
 
 ## 7. Agent Routing
 
-The keepalive loop routes to different agent workflows based on the `agent:*` label:
+The keepalive loop routes to agent workflows through `.github/agents/registry.yml` and the shared `agent_registry.js` helpers. Do not hard-code provider names in new orchestration logic unless the code is inside that provider's runner workflow.
 
 | Label | Agent | Workflow |
 |-------|-------|----------|
 | `agent:codex` | Codex CLI (gpt-5.3-codex) | `reusable-codex-run.yml` |
+| `agent:claude` | Claude CLI | `reusable-claude-run.yml` |
 
-Only `agent:codex` is currently implemented in this repository. Other `agent:*` labels may be reserved for future expansion.
-
-See [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) for implementation details and how to add new agents.
+The table above is a snapshot of the current registry, not a second source of truth. See [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) and [`../guides/ADD_NEW_AGENT.md`](../guides/ADD_NEW_AGENT.md) for implementation details and how to add new agents.
 
 ---
 
-## 8. Branch-Sync Gate
+## 8. Capacity Mode Contract
+
+Capacity mode is a phased operator contract for recording whether automation can safely continue. It is not a universal hard blocker; adopt it first in workflows and workloops that already have a durable state surface such as PR comments, issue markers, run summaries, or metrics artifacts.
+
+Use these values when recording mode:
+
+| Mode | Meaning | Required state fields |
+|------|---------|-----------------------|
+| `normal` | API quota, auth, and local workspace are sufficient for the next action. | Next action and current owner. |
+| `graphql-only` | REST is constrained, but known-safe GraphQL reads or writes remain available. | Quota snapshot, blocked REST command, next GraphQL-safe action. |
+| `local-only` | Remote writes are unsafe or unavailable, but local validation can continue. | Blocked remote command, local checks to run, next remote retry condition. |
+| `blocked-on-auth` | Required token or agent credential is missing, expired, or lacks scope. | Missing credential/scope, failing command, required human action. |
+| `blocked-on-rate-reset` | API quota is exhausted or below the workflow's safety threshold. | Quota snapshot, reset time when known, next safe action after reset. |
+
+When a workflow or automation records a non-`normal` mode, include the exact command or API operation that was blocked, any relevant reset time, and the next safe action. Do not assume GraphQL writes are safe unless that workflow already has a tested GraphQL path.
+
+---
+
+## 9. Branch-Sync Gate
 
 Before the next round begins:
 
@@ -157,7 +175,7 @@ Before the next round begins:
 
 ---
 
-## 9. Orchestrator Invariants
+## 10. Orchestrator Invariants
 
 - **No self-cancellation:** Configure concurrency as `keepalive-{pr}` with `cancel-in-progress: false`.
 - **Explicit bails:** For early exits (missing preconditions, run cap reached, Gate not green), write a one-line reason to the run summary.
@@ -165,7 +183,7 @@ Before the next round begins:
 
 ---
 
-## 10. Restart & Success Conditions
+## 11. Restart & Success Conditions
 
 - Removing and re-applying the `agent:*` label restarts the workflow once the activation guardrails pass again.
 - To reset failure count: edit the keepalive summary comment and set `failure: {}` in the state marker, or remove `needs-human` label.
@@ -173,7 +191,7 @@ Before the next round begins:
 
 ---
 
-## 11. Issue Context & Status Summary
+## 12. Issue Context & Status Summary
 
 The Keepalive workflow depends on the **Automated Status Summary** block in the PR body to extract Scope, Tasks, and Acceptance Criteria.
 
@@ -183,13 +201,13 @@ The Keepalive workflow depends on the **Automated Status Summary** block in the 
 3. **Keepalive Execution:** The keepalive loop extracts tasks from the Automated Status Summary and injects them into the agent prompt via the task appendix.
 
 ### Failure Modes & Recovery
-- **Missing Link:** If the PR lacks the Issue Number, add `#<issue_number>` to the PR body.
+- **Missing Link:** If the PR lacks the issue number, add a hidden `<!-- meta:issue:<issue_number> -->` marker and a visible `Related to #<issue_number>` or `Closes #<issue_number>` line. Use `Related to` for active campaign/controller issues that must remain open.
 - **Missing Sections:** If the source Issue lacks "Scope"/"Tasks"/"Acceptance", update the source Issue text.
 - **No Tasks:** If no checkboxes are found, keepalive will stop with reason `no-checklists`.
 
 ---
 
-## 12. Progress Detection & Checkbox Reconciliation
+## 13. Progress Detection & Checkbox Reconciliation
 
 Keepalive now has two ways to detect task completion and keep PR checkboxes in sync:
 
@@ -214,7 +232,8 @@ Keepalive now has two ways to detect task completion and keep PR checkboxes in s
 |-------|------------|
 | Activation | `agent:*` label present · Gate success |
 | Repeat | Activation guardrails still true · run cap respected · failure threshold not exceeded |
-| Routing | Correct agent workflow triggered based on label |
+| Routing | Correct registry-backed agent workflow triggered based on label |
+| Capacity | Mode recorded when automation is rate-limited, auth-blocked, or local-only |
 | Prompt | Task appendix injected · Progress visible |
 | Exit | All acceptance criteria satisfied or max iterations reached |
 

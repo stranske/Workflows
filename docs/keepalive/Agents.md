@@ -38,7 +38,7 @@ Auto-pilot pipeline:
                                                       │            │
                                                       │            └─ Event-driven loop:
                                                       │               Gate pass → task appendix
-                                                      │               → Codex CLI → push → repeat
+                                                      │               → agent runner → push → repeat
                                                       └─ Creates branch + PR with issue context
 ```
 
@@ -55,7 +55,7 @@ Auto-pilot pipeline:
 
 1. **PR body is the contract**: Auto-pilot writes structured tasks into the PR body. Keepalive reads these tasks via the task appendix. If the PR body format changes, both must be updated together.
 
-2. **Labels are handoff signals**: Auto-pilot adds `agent:codex` → keepalive loop activates. Keepalive adds `needs-human` after 3 failures → auto-pilot stops dispatching agent iterations.
+2. **Labels are handoff signals**: Auto-pilot applies the selected registry-backed `agent:<name>` label (for example `agent:codex` or `agent:claude`) and keepalive activates. Keepalive adds `needs-human` after 3 failures, and auto-pilot stops dispatching agent iterations.
 
 3. **Gate is the trigger**: Keepalive is event-driven via Gate `workflow_run` completion. Auto-pilot's `monitor-pr` step watches for keepalive progress. Neither polls — both react to events.
 
@@ -72,9 +72,11 @@ Auto-pilot pipeline:
 
 4. **Verify Before Marking Complete**: Only mark task checkboxes complete after verifying the implementation works.
 
-5. **Follow-up Chain Depth**: Follow-up chains **must not** exceed depth 2 (original + 2 follow-ups). Automated enforcement is pending; until it lands, agents and workflows should apply `needs-human` instead of creating additional follow-up issues beyond this depth. See [`verify-compare-40pr-evaluation-feb-2026.md`](../analysis/verify-compare-40pr-evaluation-feb-2026.md) for current metrics (35% first-fix rate, 2.7 avg chain depth across 40 PRs).
+5. **Follow-up Chain Depth**: Follow-up chains **must not** exceed depth 2 (original + 2 follow-ups). `agents-verify-to-new-pr.yml` enforces the limit and applies `needs-human` instead of creating additional follow-up issues when the limit is reached. See [`verify-compare-40pr-evaluation-feb-2026.md`](../analysis/verify-compare-40pr-evaluation-feb-2026.md) for the evaluation baseline that motivated this guardrail.
 
-6. **`gh` token precedence during debugging**: When investigating workflow failures, `gh` will prefer `GH_TOKEN`/`GITHUB_TOKEN` env vars over stored auth. If checks/log visibility looks inconsistent, temporarily unset env tokens and retry diagnostics:
+6. **Capacity Mode**: When auth, API quota, or local workspace constraints limit the next action, record one of `normal`, `graphql-only`, `local-only`, `blocked-on-auth`, or `blocked-on-rate-reset` in the durable state surface for that workflow. Include the blocked command, quota/auth snapshot when relevant, reset time if known, and next safe action.
+
+7. **`gh` token precedence during debugging**: When investigating workflow failures, `gh` will prefer `GH_TOKEN`/`GITHUB_TOKEN` env vars over stored auth. If checks/log visibility looks inconsistent, temporarily unset env tokens and retry diagnostics:
 
 ```bash
 unset GH_TOKEN GITHUB_TOKEN
