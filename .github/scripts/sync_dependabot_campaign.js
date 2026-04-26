@@ -13,6 +13,7 @@ const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_MAX_RETAINED_ITEMS = 120;
 const DEFAULT_MAX_SOURCE_REVIEW_HISTORY = 80;
 const MAX_ISSUE_BODY_LENGTH = 60000;
+const MAX_MARKER_ITEMS = 80;
 const MAX_QUEUE_ROWS = 15;
 const MAX_DETAIL_ITEMS = 10;
 const MAX_THREADS_PER_ITEM = 4;
@@ -729,6 +730,10 @@ function formatCampaignMarker(state) {
 
 function compactStateForMarker(state = {}) {
   const stats = state.stats || {};
+  const stateItems = cleanArray(state.items);
+  const markerItems = stateItems
+    .filter(isMarkerQueueItem)
+    .slice(0, MAX_MARKER_ITEMS);
   return {
     schema: state.schema || CAMPAIGN_SCHEMA,
     updated_at: cleanString(state.updated_at),
@@ -740,13 +745,23 @@ function compactStateForMarker(state = {}) {
         stats.local_codex_queue_state_counts || localCodexQueueStateCounts(state.items),
       local_codex_claims:
         stats.local_codex_claims || localCodexClaimSummary(state.items),
+      marker_items_retained: markerItems.length,
+      marker_items_omitted: Math.max(0, stateItems.length - markerItems.length),
     },
     validation: state.validation || null,
     source_review_history: cleanArray(state.source_review_history)
       .map(compactSourceReviewHistoryEntry)
       .filter(Boolean),
-    items: cleanArray(state.items).map(compactQueueItemForMarker),
+    marker_item_filter: 'actionable-claimed-blocked-unpublished',
+    items: markerItems.map(compactQueueItemForMarker),
   };
+}
+
+function isMarkerQueueItem(item = {}) {
+  return isVisibleQueueItem(item) ||
+    item.status === 'retryable-error' ||
+    item.status === 'blocked' ||
+    hasUnpublishedSourceResult(item);
 }
 
 function compactQueueItemForMarker(item = {}) {
@@ -1263,19 +1278,43 @@ async function discoverRepoWork({
 }
 
 async function findCampaignIssue(github, owner, repo, core, withRetry = null) {
-  const issues = cleanArray(await paginateWithRetry({
+  const listIssues = async (params, label) => cleanArray(await paginateWithRetry({
     github,
     core,
     withRetry,
     method: (client) => client.rest.issues.listForRepo,
-    params: { owner, repo, state: 'open', per_page: 100 },
-    label: `${owner}/${repo} campaign issue list`,
+    params,
+    label,
   }));
-  const candidates = issues.filter((issue) =>
-    !issue.pull_request && cleanString(issue.title).startsWith(CAMPAIGN_TITLE)
+  const titleIssues = await listIssues(
+    { owner, repo, state: 'open', per_page: 100 },
+    `${owner}/${repo} campaign issue list`,
   );
+  const labeledIssues = await listIssues(
+    {
+      owner,
+      repo,
+      state: 'open',
+      labels: `${LABEL_CAMPAIGN},${LABEL_ACTIVE}`,
+      per_page: 100,
+    },
+    `${owner}/${repo} active campaign issue list`,
+  );
+  const candidatesByNumber = new Map();
+  for (const issue of [...titleIssues, ...labeledIssues]) {
+    if (issue.pull_request) {
+      continue;
+    }
+    const labelNames = labelsForPullRequest(issue);
+    const hasCampaignLabels =
+      labelNames.includes(LABEL_CAMPAIGN) && labelNames.includes(LABEL_ACTIVE);
+    const hasCampaignTitle = cleanString(issue.title).startsWith(CAMPAIGN_TITLE);
+    if (hasCampaignTitle || hasCampaignLabels) {
+      candidatesByNumber.set(issue.number, issue);
+    }
+  }
 
-  for (const issue of candidates) {
+  for (const issue of candidatesByNumber.values()) {
     const fullIssue = await callWithRetry(
       (client) => client.rest.issues.get({ owner, repo, issue_number: issue.number }),
       `${owner}/${repo}#${issue.number}`,
@@ -1284,7 +1323,10 @@ async function findCampaignIssue(github, owner, repo, core, withRetry = null) {
       withRetry,
       github,
     );
-    if (parseCampaignMarker(fullIssue.data.body)) {
+    const labelNames = labelsForPullRequest(fullIssue.data);
+    const hasCampaignLabels =
+      labelNames.includes(LABEL_CAMPAIGN) && labelNames.includes(LABEL_ACTIVE);
+    if (parseCampaignMarker(fullIssue.data.body) || hasCampaignLabels) {
       return fullIssue.data;
     }
   }

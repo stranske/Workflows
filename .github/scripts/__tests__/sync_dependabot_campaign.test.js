@@ -192,7 +192,7 @@ test('buildQueueItem marks old sync branches as superseded by the current templa
     { reposRequested: 1, reposChecked: 1 },
   );
   const body = formatCampaignBody(state);
-  const markerItem = parseCampaignMarker(formatCampaignMarker(state)).items[0];
+  const marker = parseCampaignMarker(formatCampaignMarker(state));
 
   assert.equal(item.source_sync.status, 'superseded');
   assert.equal(item.source_sync.pr_sync_hash, 'oldhash123456');
@@ -208,11 +208,10 @@ test('buildQueueItem marks old sync branches as superseded by the current templa
   assert.deepEqual(state.stats.local_codex_queue_state_counts, {
     'superseded-sync-candidate': 1,
   });
-  assert.equal(markerItem.status, 'local-codex-superseded-sync-candidate');
-  assert.equal(markerItem.source_sync.status, 'superseded');
-  assert.equal(markerItem.local_codex_queue_state, 'superseded-sync-candidate');
-  assert.equal(markerItem.local_codex_actionable, false);
-  assert.equal(markerItem.local_codex_claimable, false);
+  assert.equal(marker.stats.items_superseded_sync_candidates, 1);
+  assert.equal(marker.stats.marker_items_retained, 0);
+  assert.equal(marker.stats.marker_items_omitted, 1);
+  assert.deepEqual(marker.items, []);
   assert.match(body, /No local Codex work is queued/);
   assert.match(body, /Superseded sync candidates: 1/);
   assert.match(body, /Source sync state: superseded/);
@@ -398,11 +397,10 @@ test('mergeCampaignState flags repeated source-fixed review signatures without h
     'source-fixed-candidate': 1,
     finished: 1,
   });
-  assert.equal(markerItem.status, 'local-codex-source-fixed-candidate');
-  assert.equal(markerItem.source_fixed_candidate.matching_item_id, finished.id);
-  assert.equal(markerItem.local_codex_queue_state, 'source-fixed-candidate');
-  assert.equal(markerItem.local_codex_actionable, false);
-  assert.equal(markerItem.local_codex_claimable, false);
+  assert.equal(markerItem, undefined);
+  assert.equal(marker.stats.items_source_fixed_candidates, 1);
+  assert.equal(marker.stats.marker_items_retained, 0);
+  assert.equal(marker.stats.marker_items_omitted, 2);
   assert.equal(marker.source_review_history[0].matching_item_id, finished.id);
   assert.match(body, /No local Codex work is queued/);
   assert.match(body, /Source-fixed candidates: 1/);
@@ -821,6 +819,48 @@ test('findCampaignIssue does not fall back to unmarked title matches', async () 
   assert.equal(issue, null);
 });
 
+test('findCampaignIssue falls back to active campaign labels', async () => {
+  const markerBody = formatCampaignBody(mergeCampaignState({}, [], '2026-04-21T05:52:00Z'));
+  const github = {
+    rest: {
+      issues: {
+        listForRepo: function issueList() {},
+        get: async ({ issue_number: issueNumber }) => ({
+          data: {
+            number: issueNumber,
+            title: 'Sync/Dependabot campaign queue',
+            body: markerBody,
+            labels: [
+              { name: 'campaign:sync-dependabot' },
+              { name: 'campaign:active' },
+            ],
+          },
+        }),
+      },
+    },
+    paginate: async (method, params) => {
+      if (params.labels === 'campaign:sync-dependabot,campaign:active') {
+        return [
+          {
+            number: 1836,
+            title: 'Sync/Dependabot campaign queue',
+            pull_request: null,
+            labels: [
+              { name: 'campaign:sync-dependabot' },
+              { name: 'campaign:active' },
+            ],
+          },
+        ];
+      }
+      return [];
+    },
+  };
+
+  const issue = await findCampaignIssue(github, 'stranske', 'Workflows', console);
+
+  assert.equal(issue.number, 1836);
+});
+
 test('dry-run summary avoids logging generated issue body by default', () => {
   const state = mergeCampaignState({}, [], '2026-04-21T05:52:00Z', {
     reposRequested: 2,
@@ -959,4 +999,49 @@ test('formatCampaignBody remains below GitHub issue body limit for large queues'
 
   assert.ok(body.length <= 60000, `body length ${body.length} should fit GitHub issue limit`);
   assert.equal(parseCampaignMarker(body).items.length, 60);
+});
+
+test('formatCampaignBody omits inactive superseded details from issue marker', () => {
+  const items = Array.from({ length: 150 }, (_, index) => ({
+    id: `sync-review-comments:stranske/App#${index + 1}:abc${index}`,
+    status: 'needs-local-codex',
+    kind: 'sync-review-comments',
+    classification: 'sync',
+    repo: 'stranske/App',
+    pr_number: index + 1,
+    pr_title: 'chore: sync workflow templates',
+    pr_url: `https://github.com/stranske/App/pull/${index + 1}`,
+    source_repo: 'stranske/Workflows',
+    preferred_workdir: 'Workflows',
+    source_sync: {
+      schema: 'sync-dependabot-campaign-source-sync/v1',
+      current_sync_hash: 'new-sync-hash',
+      pr_sync_hash: 'old-sync-hash',
+      status: 'superseded',
+    },
+    review_thread_count: 4,
+    review_threads: Array.from({ length: 4 }, (_, threadIndex) => ({
+      id: `thread-${index}-${threadIndex}`,
+      path: '.github/scripts/example.js',
+      line: 100 + threadIndex,
+      url: `https://github.test/thread-${index}-${threadIndex}`,
+      author: 'copilot-pull-request-reviewer',
+      body_preview: 'A'.repeat(400),
+    })),
+  }));
+  const state = mergeCampaignState(
+    {},
+    items,
+    '2026-04-21T05:52:00Z',
+    { reposRequested: 11, reposChecked: 11, syncPrsOpen: 150 },
+  );
+
+  const body = formatCampaignBody(state);
+  const marker = parseCampaignMarker(body);
+
+  assert.ok(body.length <= 60000, `body length ${body.length} should fit GitHub issue limit`);
+  assert.equal(marker.stats.items_superseded_sync_candidates, 120);
+  assert.equal(marker.stats.marker_items_retained, 0);
+  assert.equal(marker.stats.marker_items_omitted, 120);
+  assert.deepEqual(marker.items, []);
 });
