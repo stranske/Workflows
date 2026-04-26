@@ -19,7 +19,7 @@ _DEFAULT_OUTPUT = "agent-metrics-summary.md"
 _DEFAULT_JSON_OUTPUT = "agent-metrics-summary.json"
 _DEFAULT_DOWNLOAD_MANIFEST_PATH = "artifacts/metric-artifact-download-manifest.json"
 _DEFAULT_UNSUPPORTED_VERIFIER_MODELS = {"gpt-5.2-codex"}
-_DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER = "2026-04-26T04:25:00Z"
+_DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER = ""
 _EXACT_ARTIFACT_FAMILIES = {
     "keepalive-metrics",
     "agents-autofix-metrics",
@@ -172,7 +172,6 @@ def _read_ndjson(files: Iterable[Path]) -> tuple[list[dict[str, Any]], list[Pars
     entries: list[dict[str, Any]] = []
     errors: list[ParseErrorDetail] = []
     for path in files:
-        source = _metric_source(path)
         try:
             handle = path.open("r", encoding="utf-8")
         except OSError:
@@ -194,13 +193,7 @@ def _read_ndjson(files: Iterable[Path]) -> tuple[list[dict[str, Any]], list[Pars
                     file_errors.append(_parse_error_detail(path, line_number, "invalid-json"))
                     continue
                 if isinstance(parsed, dict):
-                    enriched = dict(parsed)
-                    enriched.setdefault("artifact_name", source.artifact)
-                    enriched.setdefault("artifact_family", source.artifact_family)
-                    enriched.setdefault("metric_artifact", source.artifact)
-                    enriched.setdefault("metric_artifact_family", source.artifact_family)
-                    enriched.setdefault("metric_path", source.path)
-                    file_entries.append(enriched)
+                    file_entries.append(_attach_metric_source(parsed, path))
                     raw_lines_for_fallback = []
                 else:
                     file_errors.append(_parse_error_detail(path, line_number, "non-object-json"))
@@ -271,8 +264,16 @@ def _safe_int(value: Any) -> int | None:
 
 
 def _unsupported_verifier_models() -> set[str]:
-    raw = os.environ.get("UNSUPPORTED_VERIFIER_MODELS", "")
-    if not raw.strip():
+    raw = ""
+    for env_name in (
+        "UNSUPPORTED_VERIFIER_MODELS",
+        "TERMINAL_DISPOSITION_UNSUPPORTED_CODEX_MODELS",
+    ):
+        candidate = os.environ.get(env_name, "")
+        if candidate.strip():
+            raw = candidate
+            break
+    if not raw:
         return set(_DEFAULT_UNSUPPORTED_VERIFIER_MODELS)
     return {item.strip().lower() for item in raw.split(",") if item.strip()}
 
@@ -286,6 +287,15 @@ def _verifier_model_metadata_required_after() -> _dt.datetime | None:
     if raw.lower() in {"", "0", "false", "none", "off", "disabled"}:
         return None
     return _parse_timestamp(raw)
+
+
+def _verifier_model_metadata_required() -> bool:
+    raw = (
+        os.environ.get("TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER")
+        or os.environ.get("VERIFIER_MODEL_METADATA_REQUIRED_AFTER")
+        or _DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER
+    ).strip()
+    return raw.lower() not in {"", "0", "false", "none", "off", "disabled"}
 
 
 def _is_pre_contract_verifier_model_record(
@@ -394,6 +404,7 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
     unsupported_model_dispositions = Counter()
     missing_verifier_model_metadata = Counter()
     unsupported_models = _unsupported_verifier_models()
+    model_metadata_required = _verifier_model_metadata_required()
     model_metadata_required_after = _verifier_model_metadata_required_after()
     legacy_missing_verifier_model_metadata = Counter()
     verifier_modes = Counter()
@@ -435,9 +446,9 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
                 unsupported_verifier_models[normalized_model_text] += 1
                 disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
                 unsupported_model_dispositions[str(disposition)] += 1
-        elif is_verifier_terminal:
+        elif is_verifier_terminal and model_metadata_required:
             verifier_mode = str(entry.get("verifier_mode") or "").strip().lower()
-            if verifier_mode != "evaluate":
+            if verifier_mode and verifier_mode != "evaluate":
                 disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
                 if _is_pre_contract_verifier_model_record(entry, model_metadata_required_after):
                     legacy_missing_verifier_model_metadata[str(disposition)] += 1

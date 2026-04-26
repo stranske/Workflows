@@ -13,7 +13,7 @@ const TERMINAL_ARTIFACT_FAMILIES = new Set([
   'review-thread-terminal-disposition',
 ]);
 const DEFAULT_UNSUPPORTED_CODEX_MODELS = ['gpt-5.2-codex'];
-const DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER = '2026-04-26T04:25:00Z';
+const DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER = '';
 const DEFAULT_ENFORCEMENT_MODE = 'warning-only';
 const HARD_BLOCK_MODE = 'hard-block';
 
@@ -97,6 +97,7 @@ function normalizeVerifierModelMetadataContract(value) {
     return {
       required_after: '',
       required_after_epoch_ms: null,
+      model_metadata_required: false,
       suppress_pre_contract_missing_metadata: false,
     };
   }
@@ -104,6 +105,7 @@ function normalizeVerifierModelMetadataContract(value) {
   return {
     required_after: text,
     required_after_epoch_ms: epochMs,
+    model_metadata_required: true,
     suppress_pre_contract_missing_metadata: epochMs !== null,
   };
 }
@@ -172,10 +174,10 @@ function summarizeVerifierModelCompatibility(records = [], options = {}) {
     const model = cleanString(record.llm_model ?? record.model).toLowerCase();
     const reason = cleanString(record.model_selection_reason);
     const verifierMode = cleanString(record.verifier_mode).toLowerCase();
-    const requiresCodexModel = verifierMode !== 'evaluate';
+    const requiresCodexModel = Boolean(verifierMode) && verifierMode !== 'evaluate';
     if (model) selectedModels[model] = (selectedModels[model] || 0) + 1;
     if (reason) modelSelectionReasons[reason] = (modelSelectionReasons[reason] || 0) + 1;
-    if (!model && requiresCodexModel) {
+    if (!model && requiresCodexModel && modelMetadataContract.model_metadata_required) {
       const runId = cleanString(record.run_id);
       const metadata = artifactMetadata.get(runId);
       const missingRecord = {
@@ -357,8 +359,11 @@ function summarizeTerminalDispositionCoverage(records = [], options = {}) {
   if (missing.length > 0) enforcementBlockers.push('missing-review-thread-sources');
   if (parseErrors > 0) enforcementBlockers.push('parse-errors');
   if (artifactSelectionWarning) enforcementBlockers.push('artifact-selection-warning');
-  if (verifierModelCompatibility.status !== 'pass') {
+  if (verifierModelCompatibility.unsupported_record_count > 0) {
     enforcementBlockers.push('unsupported-verifier-model');
+  }
+  if (verifierModelCompatibility.missing_model_record_count > 0) {
+    enforcementBlockers.push('missing-verifier-model-metadata');
   }
 
   const hardBlockEligible = enforcementBlockers.length === 0;

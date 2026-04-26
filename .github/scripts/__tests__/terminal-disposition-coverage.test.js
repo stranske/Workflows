@@ -253,8 +253,9 @@ test('summarizes verifier model compatibility with configurable unsupported mode
   ]);
   assert.equal(
     normalizeVerifierModelMetadataContract().required_after,
-    '2026-04-26T04:25:00Z'
+    ''
   );
+  assert.equal(normalizeVerifierModelMetadataContract().model_metadata_required, false);
 
   const summary = summarizeVerifierModelCompatibility(
     [
@@ -288,27 +289,32 @@ test('summarizes verifier model compatibility with configurable unsupported mode
 });
 
 test('warns when Codex verifier terminal records omit model metadata', () => {
-  const report = summarizeTerminalDispositionCoverage([
+  const report = summarizeTerminalDispositionCoverage(
+    [
+      {
+        schema: 'workflows-terminal-disposition/v1',
+        artifact_family: 'verifier-terminal-disposition',
+        source_type: 'pull-request',
+        source_id: '1872',
+        pr_number: 1872,
+        run_id: '24948023778',
+        disposition: 'verifier-error',
+        verifier_mode: 'compare',
+      },
+      {
+        schema: 'workflows-terminal-disposition/v1',
+        artifact_family: 'verifier-terminal-disposition',
+        source_type: 'pull-request',
+        source_id: '1873',
+        pr_number: 1873,
+        disposition: 'verified-pass',
+        verifier_mode: 'evaluate',
+      },
+    ],
     {
-      schema: 'workflows-terminal-disposition/v1',
-      artifact_family: 'verifier-terminal-disposition',
-      source_type: 'pull-request',
-      source_id: '1872',
-      pr_number: 1872,
-      run_id: '24948023778',
-      disposition: 'verifier-error',
-      verifier_mode: 'compare',
-    },
-    {
-      schema: 'workflows-terminal-disposition/v1',
-      artifact_family: 'verifier-terminal-disposition',
-      source_type: 'pull-request',
-      source_id: '1873',
-      pr_number: 1873,
-      disposition: 'verified-pass',
-      verifier_mode: 'evaluate',
-    },
-  ]);
+      model_metadata_required_after: '2026-04-26T04:25:00Z',
+    }
+  );
   const markdown = formatTerminalDispositionCoverageMarkdown(report);
 
   assert.equal(report.status, 'warning');
@@ -317,13 +323,13 @@ test('warns when Codex verifier terminal records omit model metadata', () => {
     report.verifier_model_compatibility.missing_model_records.map((record) => record.source_key),
     ['pull-request:1872']
   );
-  assert.deepEqual(report.enforcement.blockers, ['unsupported-verifier-model']);
+  assert.deepEqual(report.enforcement.blockers, ['missing-verifier-model-metadata']);
   assert.match(markdown, /Missing verifier model metadata records: 1/);
   assert.match(markdown, /pull-request:1872/);
   assert.doesNotMatch(markdown, /\| pull-request:1873 \| verified-pass \| evaluate/);
 });
 
-test('warns when verifier terminal model metadata is missing with unknown mode', () => {
+test('does not require verifier model metadata when mode is unknown', () => {
   const report = summarizeTerminalDispositionCoverage([
     {
       schema: 'workflows-terminal-disposition/v1',
@@ -337,11 +343,10 @@ test('warns when verifier terminal model metadata is missing with unknown mode',
     },
   ]);
 
-  assert.equal(report.status, 'warning');
-  assert.equal(report.verifier_model_compatibility.status, 'warning');
-  assert.equal(report.verifier_model_compatibility.missing_model_record_count, 1);
-  assert.equal(report.verifier_model_compatibility.missing_model_records[0].verifier_mode, 'unknown');
-  assert.deepEqual(report.enforcement.blockers, ['unsupported-verifier-model']);
+  assert.equal(report.status, 'pass');
+  assert.equal(report.verifier_model_compatibility.status, 'pass');
+  assert.equal(report.verifier_model_compatibility.missing_model_record_count, 0);
+  assert.deepEqual(report.enforcement.blockers, []);
 });
 
 test('suppresses pre-contract verifier terminal records missing model metadata', () => {
@@ -359,6 +364,7 @@ test('suppresses pre-contract verifier terminal records missing model metadata',
       },
     ],
     {
+      model_metadata_required_after: '2026-04-26T04:25:00Z',
       input_file_count: 1,
       artifact_selection_report: {
         schema: 'workflows-weekly-metrics-artifact-selection/v1',
@@ -400,6 +406,7 @@ test('still warns for post-contract verifier terminal records missing model meta
       },
     ],
     {
+      model_metadata_required_after: '2026-04-26T04:25:00Z',
       input_file_count: 1,
       artifact_selection_report: {
         schema: 'workflows-weekly-metrics-artifact-selection/v1',
@@ -420,7 +427,27 @@ test('still warns for post-contract verifier terminal records missing model meta
   assert.equal(report.verifier_model_compatibility.status, 'warning');
   assert.equal(report.verifier_model_compatibility.missing_model_record_count, 1);
   assert.equal(report.verifier_model_compatibility.legacy_missing_model_record_count, 0);
-  assert.deepEqual(report.enforcement.blockers, ['unsupported-verifier-model']);
+  assert.deepEqual(report.enforcement.blockers, ['missing-verifier-model-metadata']);
+});
+
+test('leaves verifier model metadata checks disabled unless explicitly configured', () => {
+  const report = summarizeTerminalDispositionCoverage([
+    {
+      schema: 'workflows-terminal-disposition/v1',
+      artifact_family: 'verifier-terminal-disposition',
+      source_type: 'pull-request',
+      source_id: '1877',
+      pr_number: 1877,
+      disposition: 'verifier-error',
+      verifier_mode: 'compare',
+    },
+  ]);
+
+  assert.equal(report.status, 'pass');
+  assert.equal(report.verifier_model_compatibility.status, 'pass');
+  assert.equal(report.verifier_model_compatibility.model_metadata_contract.model_metadata_required, false);
+  assert.equal(report.verifier_model_compatibility.missing_model_record_count, 0);
+  assert.deepEqual(report.enforcement.blockers, []);
 });
 
 test('reads ndjson files and counts parse errors', () => {

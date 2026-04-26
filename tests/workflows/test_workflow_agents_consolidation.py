@@ -295,8 +295,9 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             and "agent-weekly-metrics.json" in text
         ), "Weekly metrics must upload a machine-readable aggregate summary"
         assert (
-            'artifact_dir="artifacts/$name/$id"' in text
-        ), "Weekly metrics must isolate same-name artifact downloads by artifact ID"
+            'artifact_dir="artifacts/$safe_name/$id"' in text
+            and "safe_name=" in text
+        ), "Weekly metrics must sanitize artifact paths and isolate downloads by artifact ID"
         assert (
             'export ARTIFACT_ZIP="$artifact_dir/$id.zip"' in text
             and 'unzip -o "$ARTIFACT_ZIP" -d "$ARTIFACT_DIR"' in text

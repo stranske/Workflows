@@ -6,6 +6,7 @@ const {
   buildInitialManifest,
   finalizeManifest,
   formatMarkdown,
+  safeArtifactPathSegment,
   updateArtifactResult,
 } = require('../weekly_metrics_download_manifest.js');
 
@@ -123,6 +124,24 @@ test('does not fall back to name when artifact id mismatches', () => {
     }),
     /Artifact is not present in manifest: missing-id/
   );
+});
+
+test('sanitizes artifact names used in extraction paths', () => {
+  const manifest = buildInitialManifest({
+    ...selection,
+    selected_artifacts: [
+      {
+        id: 44,
+        name: '../bad/name with spaces',
+        family: 'keepalive-metrics',
+      },
+    ],
+  });
+
+  assert.equal(safeArtifactPathSegment('../bad/name with spaces'), '__bad_name_with_spaces');
+  assert.equal(manifest.artifacts[0].name, '../bad/name with spaces');
+  assert.equal(manifest.artifacts[0].artifact_dir, 'artifacts/__bad_name_with_spaces/44');
+  assert.equal(manifest.artifacts[0].zip_path, 'artifacts/__bad_name_with_spaces/44/44.zip');
 });
 
 test('formats human-visible markdown without replacing the JSON contract', () => {

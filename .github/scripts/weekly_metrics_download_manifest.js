@@ -26,12 +26,21 @@ function writeJsonFile(filePath, payload) {
   fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 }
 
+function safeArtifactPathSegment(value) {
+  const sanitized = cleanString(value)
+    .replace(/[\\/]+/g, '_')
+    .replace(/[^A-Za-z0-9._-]/g, '_')
+    .replace(/\.\.+/g, '_')
+    .replace(/^\.{1,2}$/, '_');
+  return sanitized || 'unknown';
+}
+
 function selectedArtifactsFromSelection(selection = {}) {
   return Array.isArray(selection.selected_artifacts) ? selection.selected_artifacts : [];
 }
 
 function defaultArtifactDir(root, artifact) {
-  return path.posix.join(root, cleanString(artifact.name) || 'unknown', String(artifact.id || ''));
+  return path.posix.join(root, safeArtifactPathSegment(artifact.name), String(artifact.id || ''));
 }
 
 function defaultZipPath(root, artifact) {
@@ -306,5 +315,6 @@ module.exports = {
   buildInitialManifest,
   finalizeManifest,
   formatMarkdown,
+  safeArtifactPathSegment,
   updateArtifactResult,
 };
