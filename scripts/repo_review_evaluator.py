@@ -199,6 +199,15 @@ REVIEW_DIMENSIONS = (
 )
 PRIORITY_ORDER = {"high": 0, "normal": 1, "low": 2}
 GITNEXUS_REFRESH_STATUSES = {"missing", "stale"}
+GENERIC_REVIEW_SUMMARY_PHRASES = (
+    "implementation files exist, but the automated keyword pass",
+    "implementation files and repo-domain code hits were found",
+    "semantic review must verify",
+    "testing/live-readiness evidence exists, but approval still requires confirming",
+    "test and smoke/integration markers exist; review must verify",
+    "integration/state/workflow evidence was found; review must confirm",
+    "no candidate issue set was generated from current inputs",
+)
 
 
 @dataclass(frozen=True)
@@ -1499,6 +1508,29 @@ def issue_set_recommendation(state: dict[str, Any]) -> str:
     )
 
 
+def review_summary_quality_errors(brief: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for key, label in (
+        ("progress_summary", "progress summary"),
+        ("readiness_summary", "readiness summary"),
+    ):
+        value = str(brief.get(key) or "").strip()
+        if not value:
+            errors.append(f"missing {label}")
+            continue
+        normalized = value.lower()
+        for phrase in GENERIC_REVIEW_SUMMARY_PHRASES:
+            if phrase in normalized:
+                errors.append(f"{label} uses generic automated-review wording: {phrase}")
+                break
+
+    if not brief.get("review_focus"):
+        errors.append("missing repo-specific review focus")
+    if not brief.get("concerns"):
+        errors.append("missing repo-specific concerns")
+    return errors
+
+
 def build_decision_brief(state: dict[str, Any]) -> dict[str, Any]:
     implementation = execution_dimension(state, "implementation_coverage")
     testing = execution_dimension(state, "test_and_live_readiness")
@@ -1515,7 +1547,7 @@ def build_decision_brief(state: dict[str, Any]) -> dict[str, Any]:
         f"files `{gitnexus_stats.get('files', 'unknown')}`, nodes `{gitnexus_stats.get('nodes', 'unknown')}`, "
         f"processes `{gitnexus_stats.get('processes', 'unknown')}`."
     )
-    return {
+    brief = {
         "design_target": state["decision_anchor"] or "No decision anchor recorded.",
         "progress_summary": profile.get("progress_summary") or implementation["finding"],
         "readiness_summary": profile.get("readiness_summary") or readiness_summary(state),
@@ -1536,6 +1568,10 @@ def build_decision_brief(state: dict[str, Any]) -> dict[str, Any]:
             "notes: what to change before issue creation",
         ],
     }
+    quality_errors = review_summary_quality_errors(brief)
+    brief["review_quality_errors"] = quality_errors
+    brief["review_quality_status"] = "pass" if not quality_errors else "fail"
+    return brief
 
 
 def markdown_candidate_list(candidates: list[dict[str, Any]], empty: str) -> str:
@@ -1789,6 +1825,33 @@ def build_approved_issue_queue(
         if "approve" not in parts:
             continue
 
+        review_quality_errors = state["decision_brief"].get("review_quality_errors", [])
+        if review_quality_errors:
+            error_summary = "; ".join(str(error) for error in review_quality_errors[:5])
+            warnings.append(
+                f"{state['repo']} was approved but its review brief failed the quality gate: "
+                f"{error_summary}"
+            )
+            deeper_review.append(
+                {
+                    "repo": state["repo"],
+                    "priority": priority,
+                    "decision": "deeper-review",
+                    "notes": (
+                        "Approved candidates were held back because the review brief did not "
+                        f"contain a substantive repo-specific progress/readiness review: {error_summary}"
+                    ),
+                    "design_target": state["decision_brief"]["design_target"],
+                    "review_focus": state["decision_brief"]["review_focus"],
+                    "concerns": [
+                        *state["decision_brief"]["concerns"],
+                        "Complete a repo-specific design-vs-implementation review before upload.",
+                    ],
+                    "gitnexus_map": state["gitnexus_map"],
+                }
+            )
+            continue
+
         selected_indexes = approved_candidate_indexes(
             decision, len(candidates), defaults, candidates
         )
@@ -1952,6 +2015,14 @@ def write_decision_brief(repo_dir: Path, state: dict[str, Any]) -> None:
         f"# Human Decision Brief: {state['repo']}",
         "",
         "Use this brief to decide whether the current issue set should be approved, revised, deferred, dropped, or sent back for deeper review.",
+        "",
+        "## Review Quality Gate",
+        "",
+        f"- Status: `{brief['review_quality_status']}`",
+        "",
+        "Quality findings:",
+        "",
+        markdown_bullets(brief["review_quality_errors"]),
         "",
         "## Current Progress Compared With Design",
         "",
@@ -2348,10 +2419,16 @@ def write_packet(
         safe_name = state["repo"].replace("/", "__")
         brief = state["decision_brief"]
         if state["review_execution"]["status"] == "executed":
-            human_action = (
-                "review execution complete; make the semantic human decision, then "
-                "approve/edit/defer issue drafts."
-            )
+            if brief["review_quality_status"] == "pass":
+                human_action = (
+                    "review execution complete; make the semantic human decision, then "
+                    "approve/edit/defer issue drafts."
+                )
+            else:
+                human_action = (
+                    "review quality gate failed; complete a repo-specific semantic review before "
+                    "approving or uploading issue drafts."
+                )
         elif str(state["review_execution"]["status"]).startswith("blocked"):
             human_action = (
                 "resolve the blocker, rerun review execution, then queue the human decision."
@@ -2364,6 +2441,7 @@ def write_packet(
                 "",
                 f"- Review status: `{state['review_status']}`",
                 f"- Review execution status: `{state['review_execution']['status']}`",
+                f"- Review quality gate: `{brief['review_quality_status']}`",
                 f"- Automated material/blocking gaps: `{state['review_execution']['gap_count']}`",
                 f"- Dimensions needing semantic decision: `{state['review_execution']['needs_decision_count']}`",
                 f"- Issue queue status: `{state['issue_queue_status']}`",
@@ -2385,6 +2463,7 @@ def write_packet(
                 f"- Design target: {brief['design_target']}",
                 f"- Progress summary: {brief['progress_summary']}",
                 f"- GitNexus map: {brief['gitnexus_summary']}",
+                f"- Review quality findings: {', '.join(brief['review_quality_errors']) if brief['review_quality_errors'] else 'none'}",
                 "",
                 "Review focus:",
                 "",

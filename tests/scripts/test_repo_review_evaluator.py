@@ -221,6 +221,7 @@ def test_collect_repo_state_uses_profile_and_gitnexus_meta(tmp_path: Path) -> No
     assert state["gitnexus_map"]["status"] == "current"
     assert state["decision_brief"]["progress_summary"] == "Demo-specific progress."
     assert state["decision_brief"]["review_focus"] == ["Check the demo workflow."]
+    assert state["decision_brief"]["review_quality_status"] == "pass"
 
 
 def test_gitnexus_preflight_reports_stale_without_refresh(tmp_path: Path) -> None:
@@ -387,6 +388,8 @@ def test_collect_repo_state_marks_clean_active_repo_review_pending(tmp_path: Pat
     assert state["decision"] == evaluator.EXECUTED_REVIEW_STATUS
     assert state["review_execution"]["status"] == "executed"
     assert state["review_execution"]["gap_count"] >= 1
+    assert state["decision_brief"]["review_quality_status"] == "fail"
+    assert state["decision_brief"]["review_quality_errors"]
 
 
 def test_issues_txt_changes_are_helper_inputs_not_review_blockers(tmp_path: Path) -> None:
@@ -487,6 +490,7 @@ def test_write_repo_artifacts_emits_standard_design_review(tmp_path: Path) -> No
     assert "Review Execution" in execution_text
     assert "Dimension Findings" in execution_text
     brief_text = brief.read_text(encoding="utf-8")
+    assert "Review Quality Gate" in brief_text
     assert "Current Progress Compared With Design" in brief_text
     assert "Readiness For Testing Or Live Implementation" in brief_text
     assert "Candidate Issue Set" in brief_text
@@ -513,6 +517,7 @@ def test_write_packet_embeds_substantive_decision_brief(tmp_path: Path) -> None:
 
     packet = (output_dir / "human-decision-packet.md").read_text(encoding="utf-8")
     assert "Current Progress Compared With Design" in packet
+    assert "Review quality gate: `fail`" in packet
     assert "Readiness For Testing Or Live Implementation" in packet
     assert "Candidate Issue Set" in packet
     assert "Add smoke coverage" in packet
@@ -547,6 +552,8 @@ def test_approved_issue_queue_formats_agent_ready_issues_and_drops_feedback_item
         review_profile={
             "progress_summary": "TPP has implementation surfaces and needs operational proof.",
             "readiness_summary": "TPP needs LangGraph and transport smoke coverage before live confidence.",
+            "review_focus": ["Verify the LangGraph test path before upload."],
+            "concerns": ["Do not treat fallback-only tests as readiness."],
         },
     )
     feedback = {
@@ -575,6 +582,42 @@ def test_approved_issue_queue_formats_agent_ready_issues_and_drops_feedback_item
     assert queue["dropped_candidates"][0]["candidate_index"] == 2
 
 
+def test_approved_issue_queue_requires_substantive_review_brief(tmp_path: Path) -> None:
+    repo_dir = tmp_path / "Travel-Plan-Permission"
+    repo_dir.mkdir()
+    (repo_dir / "README.md").write_text("# TPP\n", encoding="utf-8")
+    (repo_dir / "Issues.txt").write_text(
+        f"""1. Keep approved repo-local work
+{VALID_ISSUE_BODY}
+""",
+        encoding="utf-8",
+    )
+    config = evaluator.RepoConfig(
+        repo="stranske/Travel-Plan-Permission",
+        local_path="Travel-Plan-Permission",
+        status="active",
+        cadence="weekly",
+        decision_anchor="approval workflow",
+    )
+    state = evaluator.collect_repo_state(tmp_path, config)
+    feedback = {
+        "generated_on": "2026-04-26",
+        "defaults": {"approved_candidates": "all"},
+        "decisions": {
+            "stranske/Travel-Plan-Permission": {
+                "decision": "approve",
+                "priority": "high",
+            }
+        },
+    }
+
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2026-04-26")
+
+    assert queue["issues"] == []
+    assert queue["deeper_review"][0]["decision"] == "deeper-review"
+    assert "review brief failed the quality gate" in queue["warnings"][0]
+
+
 def test_approved_archive_candidate_without_issue_body_is_routed_to_revision(
     tmp_path: Path,
 ) -> None:
@@ -600,6 +643,12 @@ def test_approved_archive_candidate_without_issue_body_is_routed_to_revision(
                 excerpt="Need end-to-end tests for planner turns.",
             )
         ],
+        review_profile={
+            "progress_summary": "trip-planner has planner surfaces but needs e2e proof.",
+            "readiness_summary": "Planner readiness depends on an end-to-end smoke path.",
+            "review_focus": ["Verify planner turns through a real user path."],
+            "concerns": ["Archive snippets are not complete issue bodies."],
+        },
     )
     feedback = {
         "generated_on": "2026-04-26",
