@@ -499,6 +499,52 @@ def test_append_parse_error_detail_caps_stored_details() -> None:
     assert details[-1].line is None
 
 
+def test_parse_error_detail_overflow_does_not_use_incoming_identity() -> None:
+    details = [
+        aggregate_agent_metrics.ParseErrorDetail(
+            path="first.ndjson",
+            artifact="first-artifact",
+            artifact_family="first-family",
+            line=1,
+            reason="invalid-json",
+        ),
+        aggregate_agent_metrics.ParseErrorDetail(
+            path="second.ndjson",
+            artifact="second-artifact",
+            artifact_family="second-family",
+            line=2,
+            reason="non-object-json",
+        ),
+    ]
+
+    aggregate_agent_metrics._append_parse_error_detail(
+        details,
+        aggregate_agent_metrics.ParseErrorDetail(
+            path="third.ndjson",
+            artifact="third-artifact",
+            artifact_family="third-family",
+            line=3,
+            reason="unreadable-file",
+        ),
+        detail_limit=2,
+    )
+
+    contract = aggregate_agent_metrics._parse_error_contract(details)
+
+    assert len(details) == 2
+    assert details[0].path == "first.ndjson"
+    assert details[-1].path == "__multiple__"
+    assert details[-1].artifact == "__multiple__"
+    assert details[-1].artifact_family == "__multiple__"
+    assert details[-1].reason == "additional-parse-errors-after-detail-limit"
+    assert contract["count"] == 3
+    assert contract["by_reason"] == {
+        "additional-parse-errors-after-detail-limit": 2,
+        "invalid-json": 1,
+    }
+    assert "third-artifact" not in contract["by_artifact"]
+
+
 def test_read_ndjson_preserves_artifact_name_with_id_extraction_dir(tmp_path: Path) -> None:
     metrics_dir = (
         tmp_path
