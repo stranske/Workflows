@@ -865,6 +865,29 @@ def test_verifier_summary_counts_missing_model_metadata(
     assert "Missing verifier model metadata: verifier-error (1)" in summary
 
 
+def test_verifier_summary_counts_missing_model_metadata_for_unknown_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023779",
+                "pr_number": 1874,
+                "disposition": "verifier-error",
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"]["verifier-error"] == 1
+
+
 def test_verifier_summary_suppresses_pre_contract_missing_model_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

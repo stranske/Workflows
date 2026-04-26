@@ -120,11 +120,44 @@ function findArtifact(manifest, id, name) {
   });
 }
 
+function normalizeArtifactResultShape(artifact) {
+  if (!artifact || typeof artifact !== 'object') return;
+  if (!artifact.download || typeof artifact.download !== 'object') {
+    artifact.download = {
+      status: 'pending',
+      bytes: null,
+      error: '',
+    };
+  }
+  if (!artifact.unzip || typeof artifact.unzip !== 'object') {
+    artifact.unzip = {
+      status: 'pending',
+      path: artifact.artifact_dir || '',
+      error: '',
+    };
+  }
+  artifact.download.status = normalizeStatus(
+    artifact.download.status,
+    ['pending', 'pass', 'failed', 'skipped'],
+    'pending'
+  );
+  artifact.unzip.status = normalizeStatus(
+    artifact.unzip.status,
+    ['pending', 'pass', 'failed', 'skipped'],
+    'pending'
+  );
+  if (!artifact.unzip.path) artifact.unzip.path = artifact.artifact_dir || '';
+  if (artifact.download.bytes === undefined) artifact.download.bytes = null;
+  if (artifact.download.error === undefined) artifact.download.error = '';
+  if (artifact.unzip.error === undefined) artifact.unzip.error = '';
+}
+
 function updateArtifactResult(manifest, result = {}) {
   const artifact = findArtifact(manifest, result.id, result.name);
   if (!artifact) {
     throw new Error(`Artifact is not present in manifest: ${cleanString(result.id || result.name)}`);
   }
+  normalizeArtifactResultShape(artifact);
   const artifactDir = cleanString(result.artifact_dir || result.artifactDir);
   const zipPath = cleanString(result.zip_path || result.zipPath);
   const zipBytes = Number.parseInt(cleanString(result.zip_bytes || result.zipBytes), 10);

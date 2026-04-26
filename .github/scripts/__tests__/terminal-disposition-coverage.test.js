@@ -349,6 +349,30 @@ test('does not require verifier model metadata when mode is unknown', () => {
   assert.deepEqual(report.enforcement.blockers, []);
 });
 
+test('requires verifier model metadata for post-contract records with unknown mode', () => {
+  const report = summarizeTerminalDispositionCoverage(
+    [
+      {
+        schema: 'workflows-terminal-disposition/v1',
+        artifact_family: 'verifier-terminal-disposition',
+        source_type: 'pull-request',
+        source_id: '1874',
+        pr_number: 1874,
+        run_id: '24948023779',
+        disposition: 'verifier-error',
+      },
+    ],
+    {
+      model_metadata_required_after: '2026-04-26T04:25:00Z',
+    }
+  );
+
+  assert.equal(report.status, 'warning');
+  assert.equal(report.verifier_model_compatibility.missing_model_record_count, 1);
+  assert.deepEqual(report.enforcement.blockers, ['missing-verifier-model-metadata']);
+  assert.equal(report.verifier_model_compatibility.missing_model_records[0].verifier_mode, 'unknown');
+});
+
 test('suppresses pre-contract verifier terminal records missing model metadata', () => {
   const report = summarizeTerminalDispositionCoverage(
     [

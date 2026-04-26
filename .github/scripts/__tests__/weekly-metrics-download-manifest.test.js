@@ -183,6 +183,28 @@ test('records download and unzip outcomes and finalizes warning status', () => {
   assert.equal(manifest.artifacts[1].unzip.error, 'download-failed');
 });
 
+test('records outcomes against legacy manifest entries missing result objects', () => {
+  const manifest = buildInitialManifest(selection);
+  delete manifest.artifacts[0].download;
+  delete manifest.artifacts[0].unzip;
+
+  updateArtifactResult(manifest, {
+    id: '42',
+    artifact_dir: 'artifacts/keepalive-metrics/42',
+    download_status: 'pass',
+    unzip_status: 'pass',
+  });
+  finalizeManifest(manifest);
+
+  assert.equal(manifest.status, 'warning');
+  assert.equal(manifest.artifacts[0].download.status, 'pass');
+  assert.equal(manifest.artifacts[0].download.bytes, null);
+  assert.equal(manifest.artifacts[0].unzip.status, 'pass');
+  assert.equal(manifest.artifacts[0].unzip.path, 'artifacts/keepalive-metrics/42');
+  assert.equal(manifest.stats.download_pass_count, 1);
+  assert.equal(manifest.stats.unzip_pass_count, 1);
+});
+
 test('finalizes pass when every selected artifact downloads and extracts', () => {
   const manifest = buildInitialManifest(selection);
   for (const artifact of manifest.artifacts) {

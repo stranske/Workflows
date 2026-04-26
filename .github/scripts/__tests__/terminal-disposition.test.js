@@ -50,6 +50,25 @@ test('normalizes terminal disposition records with stable source keys', () => {
   assert.equal(record.needs_human, false);
 });
 
+test('normalizes boolean-like optional fields without stringifying them', () => {
+  const terminal = normalizeTerminalDisposition({
+    sourceId: 42,
+    needsHuman: 'false',
+  });
+  const ledger = normalizeVerifierFollowupLedger({
+    prNumber: 101,
+    verificationRunId: 249,
+    needsHuman: 'true',
+    followupPolicy: {
+      depthLimitExceeded: 'false',
+    },
+  });
+
+  assert.equal(terminal.needs_human, false);
+  assert.equal(ledger.needs_human, true);
+  assert.equal(ledger.followup_policy.depth_limit_exceeded, false);
+});
+
 test('sourceKey falls back to unknown for blank values', () => {
   assert.equal(sourceKey('', ''), 'unknown:unknown');
 });
