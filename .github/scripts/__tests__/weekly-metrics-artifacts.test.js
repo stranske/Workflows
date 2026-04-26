@@ -32,6 +32,7 @@ test('maps metrics artifact names to stable families', () => {
   assert.equal(artifactFamily('keepalive-metrics'), 'keepalive-metrics');
   assert.equal(artifactFamily('codex-cli-freshness'), 'codex-cli-freshness');
   assert.equal(artifactFamily('codex-cli-freshness-123'), 'codex-cli-freshness');
+  assert.equal(artifactFamily('pr-source-context'), 'pr-source-context');
   assert.equal(artifactFamily('autopilot-metrics-42'), 'autopilot-metrics');
   assert.equal(
     artifactFamily('review-thread-terminal-disposition-123'),
@@ -84,15 +85,16 @@ test('selects only recent matching artifacts with a machine-readable report', ()
       artifact(7, 'bot-comment-auth-coverage-wrapper-latest', '2026-04-25T08:00:00Z'),
       artifact(8, 'bot-comment-auth-coverage-wrapper-77-2', '2026-04-25T08:30:00Z'),
       artifact(9, 'codex-cli-freshness-77', '2026-04-25T11:30:00Z'),
+      artifact(10, 'pr-source-context', '2026-04-25T11:45:00Z'),
     ],
     { now_ms: NOW, lookback_days: 14 }
   );
 
   assert.equal(report.schema, SELECTION_SCHEMA);
   assert.equal(report.status, 'pass');
-  assert.equal(report.scanned_count, 9);
-  assert.equal(report.candidate_count, 6);
-  assert.equal(report.selected_count, 6);
+  assert.equal(report.scanned_count, 10);
+  assert.equal(report.candidate_count, 7);
+  assert.equal(report.selected_count, 7);
   assert.equal(report.ignored_name_count, 1);
   assert.equal(report.ignored_old_count, 1);
   assert.equal(report.ignored_expired_count, 1);
@@ -101,6 +103,7 @@ test('selects only recent matching artifacts with a machine-readable report', ()
     'bot-comment-auth-coverage-wrapper': 2,
     'codex-cli-freshness': 1,
     'keepalive-metrics': 1,
+    'pr-source-context': 1,
     'review-thread-terminal-disposition': 1,
   });
   assert.deepEqual(report.missing_priority_families, [
@@ -127,6 +130,12 @@ test('selects only recent matching artifacts with a machine-readable report', ()
         name: 'review-thread-terminal-disposition-77',
         created_at: '2026-04-25T11:00:00Z',
         updated_at: '2026-04-25T11:00:00Z',
+      },
+      'pr-source-context': {
+        id: 10,
+        name: 'pr-source-context',
+        created_at: '2026-04-25T11:45:00Z',
+        updated_at: '2026-04-25T11:45:00Z',
       },
     }
   );
@@ -174,6 +183,13 @@ test('selects only recent matching artifacts with a machine-readable report', ()
         selected_count: 0,
         selected_name: '',
       },
+      {
+        family: 'pr-source-context',
+        status: 'selected',
+        candidate_count: 1,
+        selected_count: 1,
+        selected_name: 'pr-source-context',
+      },
     ]
   );
   assert.deepEqual(report.selected_family_counts, {
@@ -181,11 +197,12 @@ test('selects only recent matching artifacts with a machine-readable report', ()
     'bot-comment-auth-coverage-wrapper': 2,
     'codex-cli-freshness': 1,
     'keepalive-metrics': 1,
+    'pr-source-context': 1,
     'review-thread-terminal-disposition': 1,
   });
   assert.deepEqual(
     report.selected_artifacts.map((selected) => selected.id),
-    [9, 5, 8, 4, 7, 1]
+    [9, 5, 8, 10, 4, 7, 1]
   );
 });
 
@@ -206,6 +223,7 @@ test('builds an error report when artifact selection cannot query GitHub', () =>
     'review-thread-terminal-disposition',
     'bot-comment-auth-coverage-wrapper',
     'bot-comment-auth-coverage-reusable',
+    'pr-source-context',
   ]);
   assert.ok(report.priority_family_statuses.every((family) => family.status === 'missing'));
   assert.deepEqual(report.selected_artifacts, []);
@@ -247,6 +265,7 @@ test('reserves priority telemetry artifacts before filling the total cap', () =>
       artifact(5, 'bot-comment-auth-coverage-wrapper-77', '2026-04-25T07:00:00Z'),
       artifact(6, 'bot-comment-auth-coverage-reusable-77', '2026-04-25T06:00:00Z'),
       artifact(7, 'codex-cli-freshness-77', '2026-04-25T05:00:00Z'),
+      artifact(8, 'pr-source-context', '2026-04-25T04:00:00Z'),
     ],
     {
       now_ms: NOW,
@@ -262,15 +281,15 @@ test('reserves priority telemetry artifacts before filling the total cap', () =>
       'review-thread-terminal-disposition-77',
       'bot-comment-auth-coverage-wrapper-77',
       'bot-comment-auth-coverage-reusable-77',
-      'keepalive-metrics',
+      'pr-source-context',
     ]
   );
-  assert.equal(report.ignored_total_limit_count, 1);
+  assert.equal(report.ignored_total_limit_count, 2);
   assert.deepEqual(report.selected_family_counts, {
     'bot-comment-auth-coverage-reusable': 1,
     'bot-comment-auth-coverage-wrapper': 1,
     'codex-cli-freshness': 1,
-    'keepalive-metrics': 1,
+    'pr-source-context': 1,
     'review-thread-terminal-disposition': 1,
     'verifier-terminal-disposition': 1,
   });
@@ -288,6 +307,7 @@ test('reports priority telemetry families that are absent from the scan', () => 
     'verifier-terminal-disposition',
     'review-thread-terminal-disposition',
     'bot-comment-auth-coverage-reusable',
+    'pr-source-context',
   ]);
 });
 
@@ -372,7 +392,7 @@ test('formats a human-visible selector summary for weekly metrics', () => {
   assert.match(markdown, /Selected artifacts: 2/);
   assert.match(
     markdown,
-    /Missing priority families: codex-cli-freshness, verifier-terminal-disposition, review-thread-terminal-disposition, bot-comment-auth-coverage-wrapper, bot-comment-auth-coverage-reusable/
+    /Missing priority families: codex-cli-freshness, verifier-terminal-disposition, review-thread-terminal-disposition, bot-comment-auth-coverage-wrapper, bot-comment-auth-coverage-reusable, pr-source-context/
   );
   assert.match(markdown, /Artifact family \| Candidates \| Selected/);
   assert.match(markdown, /Priority family \| Status \| Candidates \| Selected artifact/);

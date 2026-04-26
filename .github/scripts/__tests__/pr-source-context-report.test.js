@@ -8,10 +8,35 @@ const path = require('node:path');
 
 const {
   REPORT_SCHEMA,
+  analyzeTaskList,
   buildPrSourceContextReport,
   renderMarkdown,
   writeReport,
 } = require('../pr_source_context_report.js');
+
+test('analyzeTaskList counts checkbox items outside fenced code blocks by section', () => {
+  const result = analyzeTaskList(`
+# Scope
+- [ ] wire source contract
+- [x] keep existing issue links
+
+\`\`\`
+- [ ] not a task
+\`\`\`
+
+## Verification
+1. [ ] run node tests
+`);
+
+  assert.equal(result.has_task_list, true);
+  assert.equal(result.total, 3);
+  assert.equal(result.checked, 1);
+  assert.equal(result.unchecked, 2);
+  assert.deepEqual(result.sections, [
+    { heading: 'Scope', total: 2, checked: 1, unchecked: 1 },
+    { heading: 'Verification', total: 1, checked: 0, unchecked: 1 },
+  ]);
+});
 
 test('buildPrSourceContextReport skips non-PR events without failing', () => {
   const report = buildPrSourceContextReport({
@@ -52,7 +77,31 @@ test('buildPrSourceContextReport passes source-issue PRs', () => {
   assert.equal(report.source_context.sourceType, 'github_issue');
   assert.equal(report.source_context.issueNumber, 1836);
   assert.equal(report.source_context.isExplicit, true);
+  assert.equal(report.task_list.has_task_list, false);
   assert.deepEqual(report.warnings, []);
+});
+
+test('buildPrSourceContextReport includes task-list contract for PR bodies', () => {
+  const report = buildPrSourceContextReport({
+    eventName: 'pull_request',
+    event: {
+      pull_request: {
+        number: 43,
+        title: 'Implement issue checklist',
+        body: '<!-- meta:issue:1836 -->\n## Tasks\n- [ ] first\n- [x] second',
+        head: { ref: 'codex/issue-1836' },
+        base: { ref: 'main' },
+        user: { login: 'codex' },
+        labels: [{ name: 'codex' }],
+      },
+    },
+    now: '2026-04-26T22:00:00.000Z',
+  });
+
+  assert.equal(report.task_list.has_task_list, true);
+  assert.equal(report.task_list.total, 2);
+  assert.equal(report.task_list.open_item_count, 1);
+  assert.equal(report.task_list.sections[0].heading, 'Tasks');
 });
 
 test('buildPrSourceContextReport accepts explicit local request PRs', () => {

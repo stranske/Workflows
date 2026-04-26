@@ -13,6 +13,7 @@ const EXACT_METRICS_ARTIFACTS = new Set([
   'agents-verifier-metrics',
   'agents-verifier-disposition-metrics',
   'codex-cli-freshness',
+  'pr-source-context',
 ]);
 
 const PREFIXED_METRICS_ARTIFACTS = [
@@ -41,6 +42,7 @@ const PRIORITY_METRICS_FAMILIES = [
   'review-thread-terminal-disposition',
   'bot-comment-auth-coverage-wrapper',
   'bot-comment-auth-coverage-reusable',
+  'pr-source-context',
 ];
 
 function cleanString(value) {

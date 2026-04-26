@@ -38,6 +38,70 @@ function labelNames(pull = {}) {
     : [];
 }
 
+function analyzeTaskList(body = '') {
+  const sections = new Map();
+  let currentSection = 'PR body';
+  let total = 0;
+  let checked = 0;
+  let unchecked = 0;
+  let inCodeBlock = false;
+
+  function sectionState(name) {
+    const key = cleanString(name) || 'PR body';
+    if (!sections.has(key)) {
+      sections.set(key, {
+        heading: key,
+        total: 0,
+        checked: 0,
+        unchecked: 0,
+      });
+    }
+    return sections.get(key);
+  }
+
+  for (const line of String(body || '').split(/\r?\n/)) {
+    if (/^\s*```/.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) {
+      continue;
+    }
+
+    const heading = line.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/);
+    if (heading) {
+      currentSection = cleanString(heading[1]) || currentSection;
+      continue;
+    }
+
+    const checkbox = line.match(/^\s*(?:[-*+]|\d+[.)])\s+\[( |x|X)\]\s+(.+?)\s*$/);
+    if (!checkbox) {
+      continue;
+    }
+
+    total += 1;
+    const section = sectionState(currentSection);
+    section.total += 1;
+    if (checkbox[1].toLowerCase() === 'x') {
+      checked += 1;
+      section.checked += 1;
+    } else {
+      unchecked += 1;
+      section.unchecked += 1;
+    }
+  }
+
+  return {
+    has_task_list: total > 0,
+    total,
+    checked,
+    unchecked,
+    open_item_count: unchecked,
+    completed_item_count: checked,
+    sections: Array.from(sections.values()),
+  };
+}
+
 function buildPrSourceContextReport(options = {}) {
   const event = options.event && typeof options.event === 'object' ? options.event : {};
   const pull = event.pull_request && typeof event.pull_request === 'object' ? event.pull_request : null;
@@ -68,6 +132,15 @@ function buildPrSourceContextReport(options = {}) {
       isExplicit: false,
       requiresIssue: false,
     },
+    task_list: {
+      has_task_list: false,
+      total: 0,
+      checked: 0,
+      unchecked: 0,
+      open_item_count: 0,
+      completed_item_count: 0,
+      sections: [],
+    },
     warnings: [],
   };
 
@@ -90,6 +163,7 @@ function buildPrSourceContextReport(options = {}) {
     labels: labelNames(pull),
   };
   report.source_context = context;
+  report.task_list = analyzeTaskList(pull.body || '');
 
   if (!valid) {
     report.warnings.push(
@@ -118,6 +192,7 @@ function renderMarkdown(report) {
       `- PR: #${report.pull_request.number || 'unknown'}`,
       `- Source: \`${formatSourceContextForLog(report.source_context)}\``,
       `- Explicit source marker: \`${report.source_context?.isExplicit ? 'true' : 'false'}\``,
+      `- Task list: \`${report.task_list?.total || 0}\` items, \`${report.task_list?.unchecked || 0}\` open`,
     );
   }
 
@@ -202,6 +277,7 @@ if (require.main === module) {
 
 module.exports = {
   REPORT_SCHEMA,
+  analyzeTaskList,
   buildPrSourceContextReport,
   parseArgs,
   renderMarkdown,
