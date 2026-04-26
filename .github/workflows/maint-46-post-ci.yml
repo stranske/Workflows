@@ -101,6 +101,8 @@ jobs:
             .github/scripts
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            tools/__init__.py
+            tools/ci_failure_triage.py
             tools/post_ci_summary.py
           sparse-checkout-cone-mode: false
 
