@@ -417,12 +417,20 @@ def test_summary_helpers_cover_branches() -> None:
                 "disposition": "follow-up-created",
                 "llm_model": "gpt-5.3-codex",
                 "model_selection_reason": "fallback-unsupported-chatgpt-codex-model",
+                "verifier_mode": " Checkbox ",
+            },
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "run_id": "124",
+                "pr_number": 304,
+                "disposition": "verified-pass",
+                "llm_model": "gpt-5.4",
                 "verifier_mode": "checkbox",
             },
         ]
     )
     assert verifier_with_terminal["runs"] == 1
-    assert verifier_with_terminal["terminal_records"] == 1
+    assert verifier_with_terminal["terminal_records"] == 2
     assert verifier_with_terminal["verifier_models"]["gpt-5.3-codex"] == 1
     assert verifier_with_terminal["unsupported_verifier_models"] == Counter()
     assert verifier_with_terminal["missing_verifier_model_metadata"] == Counter()
@@ -432,7 +440,7 @@ def test_summary_helpers_cover_branches() -> None:
         ]
         == 1
     )
-    assert verifier_with_terminal["verifier_modes"]["checkbox"] == 1
+    assert verifier_with_terminal["verifier_modes"]["checkbox"] == 2
 
 
 def test_verifier_summary_counts_unsupported_models(

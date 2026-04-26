@@ -59,7 +59,7 @@ function buildInitialManifest(selection = {}, options = {}) {
       download_failed_count: 0,
       unzip_pass_count: 0,
       unzip_failed_count: 0,
-      unzip_skipped_count: selected.length,
+      unzip_skipped_count: 0,
     },
     artifacts: selected.map((artifact, index) => ({
       id: artifact.id,

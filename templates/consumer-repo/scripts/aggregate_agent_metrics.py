@@ -439,9 +439,9 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
         )
         if model_selection_reason:
             model_selection_reasons[str(model_selection_reason)] += 1
-        verifier_mode = entry.get("verifier_mode")
+        verifier_mode = str(entry.get("verifier_mode") or "").strip().lower()
         if verifier_mode:
-            verifier_modes[str(verifier_mode)] += 1
+            verifier_modes[verifier_mode] += 1
         pr_number = _safe_int(entry.get("pr_number") or entry.get("pr"))
         if pr_number is not None:
             prs.add(pr_number)

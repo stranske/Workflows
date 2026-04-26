@@ -51,7 +51,7 @@ test('builds initial download manifest from selected artifacts', () => {
     download_failed_count: 0,
     unzip_pass_count: 0,
     unzip_failed_count: 0,
-    unzip_skipped_count: 2,
+    unzip_skipped_count: 0,
   });
   assert.equal(manifest.artifacts[0].artifact_dir, 'artifacts/keepalive-metrics/42');
   assert.equal(manifest.artifacts[0].zip_path, 'artifacts/keepalive-metrics/42/42.zip');

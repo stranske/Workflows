@@ -297,6 +297,7 @@ test('warns when Codex verifier terminal records omit model metadata', () => {
       pr_number: 1872,
       run_id: '24948023778',
       disposition: 'verifier-error',
+      verifier_mode: 'compare',
     },
     {
       schema: 'workflows-terminal-disposition/v1',
@@ -322,6 +323,26 @@ test('warns when Codex verifier terminal records omit model metadata', () => {
   assert.doesNotMatch(markdown, /\| pull-request:1873 \| verified-pass \| evaluate/);
 });
 
+test('does not require verifier model metadata when verifier mode is unknown', () => {
+  const report = summarizeTerminalDispositionCoverage([
+    {
+      schema: 'workflows-terminal-disposition/v1',
+      artifact_family: 'verifier-terminal-disposition',
+      source_type: 'pull-request',
+      source_id: '1874',
+      pr_number: 1874,
+      run_id: '24948023779',
+      disposition: 'verifier-error',
+      verifier_mode: '',
+    },
+  ]);
+
+  assert.equal(report.status, 'pass');
+  assert.equal(report.verifier_model_compatibility.status, 'pass');
+  assert.equal(report.verifier_model_compatibility.missing_model_record_count, 0);
+  assert.deepEqual(report.enforcement.blockers, []);
+});
+
 test('suppresses pre-contract verifier terminal records missing model metadata', () => {
   const report = summarizeTerminalDispositionCoverage(
     [
@@ -333,6 +354,7 @@ test('suppresses pre-contract verifier terminal records missing model metadata',
         pr_number: 1872,
         run_id: '24948023778',
         disposition: 'verifier-error',
+        verifier_mode: 'compare',
       },
     ],
     {
@@ -373,6 +395,7 @@ test('still warns for post-contract verifier terminal records missing model meta
         pr_number: 1877,
         run_id: '24950000000',
         disposition: 'verifier-error',
+        verifier_mode: 'compare',
       },
     ],
     {
