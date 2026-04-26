@@ -3285,6 +3285,20 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       metricsPath: resolveMetricsPath(inputs),
     });
 
+    const hasExistingLoopState = commentId > 0 || Object.keys(previousState || {}).length > 0;
+    const shouldSuppressMissingAgentComment =
+      action === 'wait' &&
+      baseReason === 'missing-agent-label' &&
+      !keepaliveEnabled &&
+      !hasExistingLoopState;
+    if (shouldSuppressMissingAgentComment) {
+      core?.info?.(
+        'No agent label and no existing keepalive state; emitted metrics only and skipped PR comments.',
+      );
+      core?.setOutput?.('comment_suppressed', 'true');
+      return;
+    }
+
     // Capitalize agent name for display
     const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
 
