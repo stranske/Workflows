@@ -40,8 +40,7 @@ def markdown_section(body: str, heading: str) -> str:
 
 def checklist_items(section_text: str) -> list[str]:
     return [
-        match.group(1).strip()
-        for match in re.finditer(r"(?m)^- \[[ xX]\]\s+(.+)$", section_text)
+        match.group(1).strip() for match in re.finditer(r"(?m)^- \[[ xX]\]\s+(.+)$", section_text)
     ]
 
 

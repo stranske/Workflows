@@ -1,5 +1,4 @@
-from scripts.repo_review_issue_quality import issue_body_quality_errors, issue_body_is_agent_ready
-
+from scripts.repo_review_issue_quality import issue_body_is_agent_ready, issue_body_quality_errors
 
 VALID_BODY = """## Why
 
