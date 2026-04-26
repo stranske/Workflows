@@ -86,7 +86,7 @@ httpx==0.28.1
     #   openai
 httpx-sse==0.4.3
     # via langchain-community
-hypothesis==6.152.1
+hypothesis==6.152.2
     # via workflows (pyproject.toml)
 identify==2.6.18
     # via pre-commit
