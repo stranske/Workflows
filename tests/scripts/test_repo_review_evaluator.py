@@ -3,6 +3,38 @@ from pathlib import Path
 
 from scripts import repo_review_evaluator as evaluator
 
+VALID_ISSUE_BODY = """## Why
+
+Travel-Plan-Permission needs CI to execute the LangGraph path so orchestration coverage cannot pass by skipping the graph.
+
+## Scope
+
+- Install the orchestration extra in one deterministic CI/test path.
+- Execute `run_policy_graph(..., prefer_langgraph=True)` against a small fixture plan.
+
+## Non-Goals
+
+- Do not expand every graph failure branch.
+- Do not require live external services.
+
+## Tasks
+
+- [ ] Inspect `tests/python/test_langgraph_ci_gate.py` and `src/travel_plan_permission/orchestration/graph.py`.
+- [ ] Add or update a pytest that imports LangGraph and runs `prefer_langgraph=True`.
+- [ ] Update the repo-local CI command so the orchestration extra is installed for this test path.
+- [ ] Document the exact local or CI command that proves LangGraph coverage.
+
+## Acceptance Criteria
+
+- [ ] The LangGraph-path test is not always skipped in the documented CI/test path.
+- [ ] A broken graph compile or invocation causes a deterministic test failure.
+- [ ] The PR notes the exact command or CI job used to prove the path.
+
+## Implementation Notes
+
+Relevant files: `pyproject.toml`, `.github/workflows/ci.yml`, `src/travel_plan_permission/orchestration/graph.py`, `tests/python/test_langgraph_ci_gate.py`.
+"""
+
 
 def test_split_issue_entries_accepts_common_heading_shapes() -> None:
     text = """1. First title
@@ -494,8 +526,8 @@ def test_approved_issue_queue_formats_agent_ready_issues_and_drops_feedback_item
     repo_dir.mkdir()
     (repo_dir / "README.md").write_text("# TPP\n", encoding="utf-8")
     (repo_dir / "Issues.txt").write_text(
-        """1. Keep approved repo-local work
-- [ ] implement approved behavior
+        f"""1. Keep approved repo-local work
+{VALID_ISSUE_BODY}
 
 2. Route workflow sync elsewhere
 - [ ] update workflow sync policy
@@ -537,8 +569,49 @@ def test_approved_issue_queue_formats_agent_ready_issues_and_drops_feedback_item
     assert [item["candidate_index"] for item in queue["issues"]] == [1]
     assert queue["issues"][0]["priority"] == "high"
     assert queue["issues"][0]["body_valid"] is True
+    assert queue["issues"][0]["body"] == VALID_ISSUE_BODY
     assert "## Acceptance Criteria" in queue["issues"][0]["body"]
+    assert "Implement the approved review gap" not in queue["issues"][0]["body"]
     assert queue["dropped_candidates"][0]["candidate_index"] == 2
+
+
+def test_approved_archive_candidate_without_issue_body_is_routed_to_revision(
+    tmp_path: Path,
+) -> None:
+    repo_dir = tmp_path / "trip-planner"
+    repo_dir.mkdir()
+    (repo_dir / "README.md").write_text("# Trip planner\n", encoding="utf-8")
+    config = evaluator.RepoConfig(
+        repo="stranske/trip-planner",
+        local_path="trip-planner",
+        status="active",
+        cadence="weekly",
+        decision_anchor="planner workflow",
+    )
+    state = evaluator.collect_repo_state(
+        tmp_path,
+        config,
+        archive_candidates=[
+            evaluator.ArchiveCandidate(
+                title="Add planner end-to-end tests",
+                source_file="archive.jsonl",
+                thread_name="Planner review",
+                timestamp="2026-04-26T00:00:00Z",
+                excerpt="Need end-to-end tests for planner turns.",
+            )
+        ],
+    )
+    feedback = {
+        "generated_on": "2026-04-26",
+        "defaults": {"approved_candidates": "all"},
+        "decisions": {"stranske/trip-planner": {"decision": "approve", "priority": "high"}},
+    }
+
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2026-04-26")
+
+    assert queue["issues"] == []
+    assert queue["deeper_review"][0]["decision"] == "revise"
+    assert "needs issue-body revision before upload" in queue["warnings"][0]
 
 
 def test_collect_archive_candidates_reads_review_sessions(tmp_path: Path) -> None:

@@ -19,6 +19,19 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.repo_review_issue_quality import (
+        ISSUE_BODY_REQUIRED_SECTIONS,
+        issue_body_is_agent_ready,
+        issue_body_quality_errors,
+    )
+except ModuleNotFoundError:  # pragma: no cover - supports direct script execution.
+    from repo_review_issue_quality import (  # type: ignore[no-redef]
+        ISSUE_BODY_REQUIRED_SECTIONS,
+        issue_body_is_agent_ready,
+        issue_body_quality_errors,
+    )
+
 VALID_STATUSES = {"active", "paused", "ignored", "needs-human"}
 PENDING_REVIEW_STATUS = "pending standardized review"
 EXECUTED_REVIEW_STATUS = "standard review executed; human decision queued"
@@ -185,14 +198,6 @@ REVIEW_DIMENSIONS = (
     },
 )
 PRIORITY_ORDER = {"high": 0, "normal": 1, "low": 2}
-ISSUE_BODY_REQUIRED_SECTIONS = (
-    "## Why",
-    "## Scope",
-    "## Non-Goals",
-    "## Tasks",
-    "## Acceptance Criteria",
-    "## Implementation Notes",
-)
 GITNEXUS_REFRESH_STATUSES = {"missing", "stale"}
 
 
@@ -1647,6 +1652,14 @@ def issue_task_lines(candidate: dict[str, Any]) -> list[str]:
 
 
 def build_agent_issue_body(state: dict[str, Any], candidate: dict[str, Any], priority: str) -> str:
+    if candidate["type"] == "local draft":
+        local_body = str(candidate.get("body", "")).strip()
+        local_lines = local_body.splitlines()
+        if local_lines and ISSUE_HEADING_RE.match(local_lines[0].strip()):
+            local_body = "\n".join(local_lines[1:]).strip()
+        if issue_body_is_agent_ready(local_body):
+            return local_body + "\n"
+
     brief = state["decision_brief"]
     design_sources = state["design_files"][:5]
     implementation_evidence = brief["implementation_evidence"][:4]
@@ -1718,7 +1731,7 @@ def build_agent_issue_body(state: dict[str, Any], candidate: dict[str, Any], pri
 
 
 def issue_body_has_required_sections(body: str) -> bool:
-    return all(section in body for section in ISSUE_BODY_REQUIRED_SECTIONS)
+    return issue_body_is_agent_ready(body)
 
 
 def build_approved_issue_queue(
@@ -1790,6 +1803,32 @@ def build_approved_issue_queue(
             if candidate["candidate_index"] in dropped_indexes:
                 continue
             body = build_agent_issue_body(state, candidate, priority)
+            quality_errors = issue_body_quality_errors(body)
+            if quality_errors:
+                error_summary = "; ".join(quality_errors[:5])
+                warnings.append(
+                    f"{state['repo']} candidate {candidate['candidate_index']} "
+                    f"was approved but needs issue-body revision before upload: {error_summary}"
+                )
+                deeper_review.append(
+                    {
+                        "repo": state["repo"],
+                        "priority": priority,
+                        "decision": "revise",
+                        "notes": (
+                            "Approved candidate did not pass the agent-ready issue-quality gate: "
+                            f"{error_summary}"
+                        ),
+                        "design_target": state["decision_brief"]["design_target"],
+                        "review_focus": state["decision_brief"]["review_focus"],
+                        "concerns": [
+                            *state["decision_brief"]["concerns"],
+                            f"Revise candidate {candidate['candidate_index']}: {candidate['title']}",
+                        ],
+                        "gitnexus_map": state["gitnexus_map"],
+                    }
+                )
+                continue
             issues.append(
                 {
                     "repo": state["repo"],
@@ -1802,7 +1841,8 @@ def build_approved_issue_queue(
                     "title": normalize_issue_title(candidate["title"]),
                     "labels": ["repo-review-approved", f"priority:{priority}"],
                     "body_format": list(ISSUE_BODY_REQUIRED_SECTIONS),
-                    "body_valid": issue_body_has_required_sections(body),
+                    "body_valid": True,
+                    "body_quality_errors": [],
                     "body": body,
                     "feedback_notes": decision.get("notes", ""),
                     "gitnexus_status": state["gitnexus_map"]["status"],
