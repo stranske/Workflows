@@ -69,6 +69,9 @@ outputs:
   available_tokens:
     description: 'Comma-separated list of available token names'
     value: ${{ steps.export-tokens.outputs.available_tokens }}
+  setup_contract:
+    description: 'Redacted machine-readable setup/auth/dependency contract JSON'
+    value: ${{ steps.export-tokens.outputs.setup_contract }}
 
 runs:
   using: composite
@@ -214,8 +217,8 @@ runs:
           CREATED_PACKAGE_JSON=true
         fi
 
-        # Check if already installed (including lru-cache, a required transitive dep
-        # of @octokit/auth-app used for GitHub App token minting).
+        # Check if already installed (including lru-cache@10.4.3, a required
+        # transitive dep of @octokit/auth-app used for GitHub App token minting).
         if [ -d "node_modules/@octokit/rest" ] && [ -d "node_modules/lru-cache" ]; then
           echo "✅ @octokit/rest already installed"
         else
@@ -360,6 +363,7 @@ runs:
         INPUT_APP_1_PRIVATE_KEY: ${{ inputs.app_1_private_key }}
         INPUT_APP_2_ID: ${{ inputs.app_2_id }}
         INPUT_APP_2_PRIVATE_KEY: ${{ inputs.app_2_private_key }}
+        INPUT_INSTALL_DIR: ${{ inputs.install_dir }}
         INPUT_VERBOSE: ${{ inputs.verbose }}
       run: |
         set -euo pipefail
@@ -489,11 +493,76 @@ runs:
         echo "token_count=${token_count}" >> "$GITHUB_OUTPUT"
         echo "available_tokens=${available_tokens}" >> "$GITHUB_OUTPUT"
 
+        install_dir="${INPUT_INSTALL_DIR:-}"
+        if [ -z "$install_dir" ]; then
+          install_dir="${GITHUB_WORKSPACE}/.github/scripts"
+        fi
+        setup_contract="$(
+          AVAILABLE_TOKENS="${available_tokens}" \
+          TOKEN_COUNT="${token_count}" \
+          INSTALL_DIR="${install_dir}" \
+          node <<'NODE'
+        const fs = require('node:fs');
+        const path = require('node:path');
+
+        const installDir = process.env.INSTALL_DIR || '';
+        const tokenNames = (process.env.AVAILABLE_TOKENS || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const tokenSet = new Set(tokenNames);
+        const appPairs = [
+          ['WORKFLOWS_APP', 'WORKFLOWS_APP_ID', 'WORKFLOWS_APP_PRIVATE_KEY'],
+          ['KEEPALIVE_APP', 'KEEPALIVE_APP_ID', 'KEEPALIVE_APP_PRIVATE_KEY'],
+          ['GH_APP', 'GH_APP_ID', 'GH_APP_PRIVATE_KEY'],
+          ['APP_1', 'APP_1_ID', 'APP_1_PRIVATE_KEY'],
+          ['APP_2', 'APP_2_ID', 'APP_2_PRIVATE_KEY'],
+        ];
+        const authModes = [];
+        if (tokenSet.has('GITHUB_TOKEN')) {
+          authModes.push({ source: 'GITHUB_TOKEN', mode: 'github-token' });
+        }
+        for (const name of tokenNames) {
+          if (name.endsWith('_PAT')) {
+            authModes.push({ source: name, mode: 'pat' });
+          }
+        }
+        for (const [source, idName, keyName] of appPairs) {
+          if (tokenSet.has(idName) && tokenSet.has(keyName)) {
+            authModes.push({
+              source,
+              mode: 'github-app',
+              credential_names: [idName, keyName],
+            });
+          }
+        }
+
+        const moduleDir = path.join(installDir, 'node_modules');
+        const hasModule = (name) => fs.existsSync(path.join(moduleDir, ...name.split('/')));
+        const contract = {
+          schema: 'workflows-api-client-setup/v1',
+          token_count: Number.parseInt(process.env.TOKEN_COUNT || '0', 10) || 0,
+          available_token_names: tokenNames,
+          auth_modes: authModes,
+          dependency_state: {
+            node_path_ready: fs.existsSync(moduleDir),
+            octokit_rest_ready: hasModule('@octokit/rest'),
+            octokit_auth_app_ready: hasModule('@octokit/auth-app'),
+            lru_cache_ready: hasModule('lru-cache'),
+          },
+        };
+        process.stdout.write(JSON.stringify(contract));
+        NODE
+        )"
+        printf 'setup_contract=%s\n' "$setup_contract" >> "$GITHUB_OUTPUT"
+
         echo ""
         echo "📊 Token Setup Summary:"
         echo "  Total tokens exported: ${token_count}"
+        echo "  Setup contract schema: workflows-api-client-setup/v1"
         if [ "${INPUT_VERBOSE}" = "true" ]; then
           echo "  Available: ${available_tokens}"
+          echo "  Setup contract: ${setup_contract}"
         fi
 
         # Warn if no tokens were exported

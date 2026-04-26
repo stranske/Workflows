@@ -62,6 +62,10 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         "${{ steps.context.outputs.issue_numbers || '[]' }}"
     )
     assert "verifier-terminal-disposition" in write_step["run"]
+    assert "normalizeVerifierFollowupLedger" in write_step["run"]
+    assert "verifier-followup-ledger.ndjson" in write_step["run"]
+    assert "concernsHash" in write_step["run"]
+    assert "CHAIN_DEPTH" in write_step["env"]
     assert "llm_model" in write_step["run"]
     assert "model_selection_reason" in write_step["run"]
     assert "source-issue" in write_step["run"]
@@ -72,5 +76,6 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert upload_step.get("uses") == "actions/upload-artifact@v7"
     assert upload_step["with"]["name"] == "verifier-terminal-disposition-${{ github.run_id }}"
     assert "agent-metrics/verifier-terminal-disposition.ndjson" in upload_step["with"]["path"]
+    assert "agent-metrics/verifier-followup-ledger.ndjson" in upload_step["with"]["path"]
     assert upload_step["with"]["if-no-files-found"] == "error"
     assert upload_step["with"]["retention-days"] == 14

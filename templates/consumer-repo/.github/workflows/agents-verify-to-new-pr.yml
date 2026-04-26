@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: Check PR is merged
         id: check-merged
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |
@@ -66,7 +66,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           token: ${{ steps.select-token.outputs.token }}
@@ -91,7 +91,7 @@ jobs:
 
       - name: Set up Python
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -103,7 +103,7 @@ jobs:
       - name: Collect verification and original issue data
         id: collect
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
@@ -248,7 +248,7 @@ jobs:
       - name: Check chain depth limit
         id: chain-check
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           CHAIN_DEPTH: ${{ steps.collect.outputs.chain_depth }}
           MAX_CHAIN_DEPTH: '2'
@@ -389,7 +389,7 @@ jobs:
           steps.check-merged.outputs.merged == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           LINKED_ISSUE: ${{ steps.collect.outputs.original_issue_number }}
           NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}
@@ -505,7 +505,7 @@ jobs:
           steps.check-merged.outputs.merged == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           FOLLOW_UP_DEPTH: ${{ steps.chain-check.outputs.next_depth }}
           EXTRACTED_VERDICT: ${{ steps.extract-verdict.outputs.verdict }}
@@ -677,7 +677,7 @@ jobs:
           steps.check-merged.outputs.merged == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_TITLE: >-
             ${{ steps.generate.outputs.issue_title ||
@@ -736,7 +736,13 @@ jobs:
               return;
             }
 
-            let agentKey = 'codex';
+            // Resolve agent from PR labels; fall back to registry default
+            let _defaultAgent = 'codex';
+            try {
+              const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
+              _defaultAgent = loadAgentRegistry('./.github/agents/registry.yml').default_agent || 'codex';
+            } catch (_) {}
+            let agentKey = _defaultAgent;
             try {
               const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
               const labels =
@@ -746,11 +752,11 @@ jobs:
               });
             } catch (err) {
               core.warning(
-                `Failed to resolve agent from PR labels; defaulting to codex: ${err.message}`
+                `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}: ${err.message}`
               );
-              agentKey = 'codex';
+              agentKey = _defaultAgent;
             }
-            const normalized = String(agentKey || 'codex').trim().toLowerCase() || 'codex';
+            const normalized = String(agentKey || _defaultAgent).trim().toLowerCase() || _defaultAgent;
             const agentLabel = `agent:${normalized}`;
             const fromLabel = `from:${normalized}`;
 
@@ -759,7 +765,7 @@ jobs:
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['follow-up', agentLabel, fromLabel, 'agents:auto-pilot']
+              labels: ['follow-up', agentLabel, fromLabel, `runner:${normalized}`, 'agents:auto-pilot']
             }));
 
             core.info(`Created issue #${issue.data.number}`);
@@ -773,7 +779,7 @@ jobs:
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true' &&
           steps.create-issue.outputs.issue_number != ''
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
@@ -803,14 +809,14 @@ jobs:
                 force_step: 'optimize'
               }
             }));
-            core.info(`Dispatched agents-auto-pilot for follow-up issue #${issueNumber}.`);
+            core.info(`Dispatched agents-auto-pilot for follow-up issue #${issueNumber}.`)
 
       - name: Comment on original PR
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
@@ -855,6 +861,7 @@ jobs:
         env:
           ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
           ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
+          CHAIN_DEPTH: ${{ steps.collect.outputs.chain_depth }}
           CHAIN_EXCEEDED: ${{ steps.chain-check.outputs.exceeded }}
           NEEDS_HUMAN: ${{ steps.extract-verdict.outputs.needs_human }}
           NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}
@@ -862,13 +869,15 @@ jobs:
           FOLLOWUP_ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           FOLLOWUP_ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
           DISPATCH_AUTOPILOT_OUTCOME: ${{ steps.dispatch-autopilot.outcome }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
             const fs = require('fs');
+            const crypto = require('crypto');
             const {
               normalizeTerminalDisposition,
+              normalizeVerifierFollowupLedger,
               formatTerminalDispositionMarkdown,
             } = require('./.github/scripts/terminal_disposition.js');
 
@@ -931,6 +940,35 @@ jobs:
               'agent-metrics/verifier-terminal-disposition.ndjson',
               `${JSON.stringify(record)}\n`
             );
+
+            let concernsHash = '';
+            try {
+              const raw = fs.readFileSync('verification_data.txt', 'utf8');
+              if (raw.trim()) {
+                concernsHash = crypto.createHash('sha256').update(raw).digest('hex');
+              }
+            } catch (_) { /* best effort */ }
+            const ledgerRecord = normalizeVerifierFollowupLedger({
+              pr_number: prNumber,
+              verification_run_id: context.runId,
+              verification_run_attempt: context.runAttempt,
+              verdict: process.env.VERDICT || undefined,
+              terminal_state: disposition,
+              concerns_hash: concernsHash || undefined,
+              followup_issue_number: followupIssue || undefined,
+              followup_issue_url: process.env.FOLLOWUP_ISSUE_URL || undefined,
+              source_issue_numbers: sourceIssue ? [sourceIssue] : [],
+              chain_depth: process.env.CHAIN_DEPTH || undefined,
+              workflow: context.workflow,
+              actor: context.actor,
+              terminal_disposition_artifact: `verifier-terminal-disposition-${context.runId}`,
+              dispatch_outcome: dispatchOutcome || undefined,
+              needs_human: needsHuman,
+            });
+            fs.writeFileSync(
+              'agent-metrics/verifier-followup-ledger.ndjson',
+              `${JSON.stringify(ledgerRecord)}\n`
+            );
             const markdown = formatTerminalDispositionMarkdown([record]);
             fs.writeFileSync('terminal-disposition-summary.md', `${markdown}\n`);
             await core.summary
@@ -940,17 +978,18 @@ jobs:
 
       - name: Upload terminal disposition artifact
         if: always() && steps.check-merged.outputs.merged == 'true'
-        uses: actions/upload-artifact@65ecb0ca2d3e252f7b82842cd0489c883189f7d0 # v7
+        uses: actions/upload-artifact@v7
         with:
           name: verifier-terminal-disposition-${{ github.run_id }}
           path: |
             agent-metrics/verifier-terminal-disposition.ndjson
+            agent-metrics/verifier-followup-ledger.ndjson
             terminal-disposition-summary.md
           retention-days: 14
 
       - name: Remove trigger label
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         continue-on-error: true
         with:
           github-token: ${{ steps.select-token.outputs.token }}

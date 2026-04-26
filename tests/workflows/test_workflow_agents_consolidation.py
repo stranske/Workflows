@@ -430,6 +430,20 @@ def test_terminal_disposition_records_include_artifact_identity():
         ), f"{path} must identify terminal disposition artifact families"
 
 
+def test_verify_to_new_pr_uploads_verifier_followup_ledger() -> None:
+    workflow_paths = [
+        WORKFLOWS_DIR / "agents-verify-to-new-pr.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml"),
+    ]
+    for path in workflow_paths:
+        text = path.read_text(encoding="utf-8")
+        assert "normalizeVerifierFollowupLedger" in text
+        assert "verifier-followup-ledger.ndjson" in text
+        assert "workflows-verifier-followup-ledger/v1" in Path(
+            ".github/scripts/terminal_disposition.js"
+        ).read_text(encoding="utf-8")
+
+
 def test_issue_intake_handles_codex_events():
     intake = WORKFLOWS_DIR / "agents-63-issue-intake.yml"
     assert intake.exists(), "agents-63-issue-intake.yml must exist"

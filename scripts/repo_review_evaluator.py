@@ -972,11 +972,7 @@ def write_packet(output_dir: Path, states: list[dict[str, Any]], generated_on: s
     review_pending = [
         state for state in active if state["review_status"] == "pending standardized review"
     ]
-    blocked = [
-        state
-        for state in active
-        if state["review_status"] != "pending standardized review"
-    ]
+    blocked = [state for state in active if state["review_status"] != "pending standardized review"]
     issue_candidate_repos = [
         state for state in active if state["issue_queue_status"] == "draft candidates present"
     ]

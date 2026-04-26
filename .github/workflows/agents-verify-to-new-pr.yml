@@ -861,6 +861,7 @@ jobs:
         env:
           ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
           ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
+          CHAIN_DEPTH: ${{ steps.collect.outputs.chain_depth }}
           CHAIN_EXCEEDED: ${{ steps.chain-check.outputs.exceeded }}
           NEEDS_HUMAN: ${{ steps.extract-verdict.outputs.needs_human }}
           NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}
@@ -873,8 +874,10 @@ jobs:
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
             const fs = require('fs');
+            const crypto = require('crypto');
             const {
               normalizeTerminalDisposition,
+              normalizeVerifierFollowupLedger,
               formatTerminalDispositionMarkdown,
             } = require('./.github/scripts/terminal_disposition.js');
 
@@ -937,6 +940,35 @@ jobs:
               'agent-metrics/verifier-terminal-disposition.ndjson',
               `${JSON.stringify(record)}\n`
             );
+
+            let concernsHash = '';
+            try {
+              const raw = fs.readFileSync('verification_data.txt', 'utf8');
+              if (raw.trim()) {
+                concernsHash = crypto.createHash('sha256').update(raw).digest('hex');
+              }
+            } catch (_) { /* best effort */ }
+            const ledgerRecord = normalizeVerifierFollowupLedger({
+              pr_number: prNumber,
+              verification_run_id: context.runId,
+              verification_run_attempt: context.runAttempt,
+              verdict: process.env.VERDICT || undefined,
+              terminal_state: disposition,
+              concerns_hash: concernsHash || undefined,
+              followup_issue_number: followupIssue || undefined,
+              followup_issue_url: process.env.FOLLOWUP_ISSUE_URL || undefined,
+              source_issue_numbers: sourceIssue ? [sourceIssue] : [],
+              chain_depth: process.env.CHAIN_DEPTH || undefined,
+              workflow: context.workflow,
+              actor: context.actor,
+              terminal_disposition_artifact: `verifier-terminal-disposition-${context.runId}`,
+              dispatch_outcome: dispatchOutcome || undefined,
+              needs_human: needsHuman,
+            });
+            fs.writeFileSync(
+              'agent-metrics/verifier-followup-ledger.ndjson',
+              `${JSON.stringify(ledgerRecord)}\n`
+            );
             const markdown = formatTerminalDispositionMarkdown([record]);
             fs.writeFileSync('terminal-disposition-summary.md', `${markdown}\n`);
             await core.summary
@@ -951,6 +983,7 @@ jobs:
           name: verifier-terminal-disposition-${{ github.run_id }}
           path: |
             agent-metrics/verifier-terminal-disposition.ndjson
+            agent-metrics/verifier-followup-ledger.ndjson
             terminal-disposition-summary.md
           retention-days: 14
 

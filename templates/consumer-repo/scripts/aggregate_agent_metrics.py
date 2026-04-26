@@ -220,6 +220,8 @@ def _classify_entry(entry: dict[str, Any]) -> str:
     schema = entry.get("schema")
     if schema == "workflows-terminal-disposition/v1":
         return "terminal_disposition"
+    if schema == "workflows-verifier-followup-ledger/v1":
+        return "verifier_followup_ledger"
     explicit = entry.get("metric_type") or entry.get("type") or entry.get("workflow")
     if isinstance(explicit, str):
         lowered = explicit.lower()
@@ -394,7 +396,10 @@ def _summarise_autofix(entries: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
+def _summarise_verifier(
+    entries: list[dict[str, Any]],
+    ledger_entries: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     verdicts = Counter()
     terminal_dispositions = Counter()
     terminal_sources = Counter()
@@ -408,6 +413,10 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
     model_metadata_required_after = _verifier_model_metadata_required_after()
     legacy_missing_verifier_model_metadata = Counter()
     verifier_modes = Counter()
+    ledger_dispositions = Counter()
+    ledger_followup_issues: set[int] = set()
+    ledger_prs: set[int] = set()
+    ledger_needs_human = 0
     verifier_run_keys: set[str] = set()
     prs: set[int] = set()
     issues_created = 0
@@ -471,6 +480,17 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
         acceptance = _safe_int(entry.get("acceptance_criteria_count"))
         if acceptance is not None:
             acceptance_counts.append(acceptance)
+    for entry in ledger_entries or []:
+        disposition = str(entry.get("disposition") or "unknown")
+        ledger_dispositions[disposition] += 1
+        pr_number = _safe_int(entry.get("pr_number") or entry.get("pr"))
+        if pr_number is not None:
+            ledger_prs.add(pr_number)
+        followup_issue = _safe_int(entry.get("followup_issue_number"))
+        if followup_issue is not None:
+            ledger_followup_issues.add(followup_issue)
+        if bool(entry.get("needs_human")) or disposition == "needs-human":
+            ledger_needs_human += 1
     avg_acceptance = sum(acceptance_counts) / len(acceptance_counts) if acceptance_counts else 0.0
     return {
         "runs": len(verifier_run_keys),
@@ -488,6 +508,11 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "legacy_missing_verifier_model_metadata": legacy_missing_verifier_model_metadata,
         "model_selection_reasons": model_selection_reasons,
         "verifier_modes": verifier_modes,
+        "ledger_records": len(ledger_entries or []),
+        "ledger_dispositions": ledger_dispositions,
+        "ledger_prs": len(ledger_prs),
+        "ledger_followup_issues": len(ledger_followup_issues),
+        "ledger_needs_human": ledger_needs_human,
     }
 
 
@@ -736,6 +761,7 @@ def build_summary(
         "autofix": [],
         "verifier": [],
         "terminal_disposition": [],
+        "verifier_followup_ledger": [],
         "autopilot": [],
         "unknown": [],
     }
@@ -752,7 +778,10 @@ def build_summary(
 
     keepalive = _summarise_keepalive(buckets["keepalive"])
     autofix = _summarise_autofix(buckets["autofix"])
-    verifier = _summarise_verifier(buckets["verifier"] + buckets["terminal_disposition"])
+    verifier = _summarise_verifier(
+        buckets["verifier"] + buckets["terminal_disposition"],
+        buckets["verifier_followup_ledger"],
+    )
     autopilot = _summarise_autopilot(buckets["autopilot"])
 
     now = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -765,6 +794,7 @@ def build_summary(
             f"(keepalive {keepalive['runs']}, autofix {autofix['attempts']}, "
             f"verifier {verifier['runs']}, "
             f"terminal dispositions {verifier['terminal_records']}, "
+            f"verifier follow-up ledgers {verifier['ledger_records']}, "
             f"autopilot {autopilot['records']}, "
             f"unknown {len(buckets['unknown'])})"
         ),
@@ -807,6 +837,11 @@ def build_summary(
             f"- Terminal disposition records: {verifier['terminal_records']}",
             f"- Terminal dispositions: {_format_counter(verifier['terminal_dispositions'])}",
             f"- Terminal disposition sources: {_format_counter(verifier['terminal_sources'])}",
+            f"- Verifier follow-up ledger records: {verifier['ledger_records']}",
+            f"- Verifier follow-up ledger dispositions: {_format_counter(verifier['ledger_dispositions'])}",
+            f"- Verifier follow-up ledger PRs: {verifier['ledger_prs']}",
+            f"- Verifier follow-up issues linked: {verifier['ledger_followup_issues']}",
+            f"- Verifier follow-up needs-human records: {verifier['ledger_needs_human']}",
             f"- Verifier models: {_format_counter(verifier['verifier_models'])}",
             f"- Unsupported verifier models: {_format_counter(verifier['unsupported_verifier_models'])}",
             (

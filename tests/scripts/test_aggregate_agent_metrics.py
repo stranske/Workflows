@@ -51,13 +51,23 @@ def test_build_summary_formats_sections() -> None:
             "model_selection_reason": "default",
             "verifier_mode": "checkbox",
         },
+        {
+            "schema": "workflows-verifier-followup-ledger/v1",
+            "metric_type": "verifier_followup_ledger",
+            "pr_number": 101,
+            "verification_run_id": "verify-101",
+            "verdict": "concerns",
+            "disposition": "follow-up",
+            "followup_issue_number": 303,
+            "needs_human": False,
+        },
     ]
 
     summary = aggregate_agent_metrics.build_summary(entries, errors=1)
 
     assert (
-        "Records: 5 (keepalive 2, autofix 1, verifier 1, terminal dispositions 1, "
-        "autopilot 0, unknown 0)"
+        "Records: 6 (keepalive 2, autofix 1, verifier 1, terminal dispositions 1, "
+        "verifier follow-up ledgers 1, autopilot 0, unknown 0)"
     ) in summary
     assert "Parse errors: 1" in summary
     assert "Avg iterations: 3.5" in summary
@@ -70,6 +80,11 @@ def test_build_summary_formats_sections() -> None:
     assert "Terminal disposition records: 1" in summary
     assert "Terminal dispositions: follow-up-created (1)" in summary
     assert "Terminal disposition sources: source-issue:99 (1)" in summary
+    assert "Verifier follow-up ledger records: 1" in summary
+    assert "Verifier follow-up ledger dispositions: follow-up (1)" in summary
+    assert "Verifier follow-up ledger PRs: 1" in summary
+    assert "Verifier follow-up issues linked: 1" in summary
+    assert "Verifier follow-up needs-human records: 0" in summary
     assert "Verifier models: gpt-5.3-codex (1)" in summary
     assert "Unsupported verifier models: n/a" in summary
     assert "Unsupported model dispositions: n/a" in summary
@@ -400,6 +415,10 @@ def test_classify_entry_prefers_explicit_type() -> None:
     assert (
         aggregate_agent_metrics._classify_entry({"schema": "workflows-terminal-disposition/v1"})
         == "terminal_disposition"
+    )
+    assert (
+        aggregate_agent_metrics._classify_entry({"schema": "workflows-verifier-followup-ledger/v1"})
+        == "verifier_followup_ledger"
     )
     assert aggregate_agent_metrics._classify_entry({"iteration_count": 1}) == "keepalive"
     assert aggregate_agent_metrics._classify_entry({"trigger_reason": "pytest"}) == "autofix"

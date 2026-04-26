@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 
 const {
   normalizeTerminalDisposition,
+  normalizeVerifierFollowupLedger,
+  normalizeLedgerDisposition,
   summarizeTerminalDispositionSources,
   formatTerminalDispositionMarkdown,
   sourceKey,
@@ -47,6 +49,50 @@ test('normalizes terminal disposition records with stable source keys', () => {
 
 test('sourceKey falls back to unknown for blank values', () => {
   assert.equal(sourceKey('', ''), 'unknown:unknown');
+});
+
+test('normalizes verifier follow-up ledger records with stable PR/run key', () => {
+  const record = normalizeVerifierFollowupLedger({
+    prNumber: '101',
+    verificationRunId: '24950000001',
+    runAttempt: '2',
+    verdict: 'CONCERNS',
+    terminalState: 'follow-up-created',
+    concernsHash: 'abc123',
+    followupIssueNumber: '105',
+    followupIssueUrl: 'https://github.example/issues/105',
+    sourceIssueNumbers: ['42', '42', 43],
+    chainDepth: '1',
+    workflow: 'Reusable Agents Verifier',
+    actor: 'github-actions[bot]',
+    terminalDispositionArtifact: 'verifier-terminal-disposition-24950000001',
+    dispatchOutcome: 'success',
+    needsHuman: false,
+    timestamp: '2026-04-25T00:00:00Z',
+  });
+
+  assert.equal(record.schema, 'workflows-verifier-followup-ledger/v1');
+  assert.equal(record.metric_type, 'verifier_followup_ledger');
+  assert.equal(record.state_key, 'pr:101:run:24950000001');
+  assert.equal(record.pr_number, 101);
+  assert.equal(record.verification_run_id, '24950000001');
+  assert.equal(record.verification_run_attempt, 2);
+  assert.equal(record.verdict, 'CONCERNS');
+  assert.equal(record.disposition, 'follow-up');
+  assert.equal(record.concerns_hash, 'abc123');
+  assert.equal(record.followup_issue_number, 105);
+  assert.deepEqual(record.source_issue_numbers, [42, 43]);
+  assert.equal(record.chain_depth, 1);
+  assert.equal(record.terminal_disposition_artifact, 'verifier-terminal-disposition-24950000001');
+  assert.equal(record.needs_human, false);
+});
+
+test('maps verifier terminal states to ledger disposition contract values', () => {
+  assert.equal(normalizeLedgerDisposition({ terminalState: 'verified-pass' }), 'merge');
+  assert.equal(normalizeLedgerDisposition({ terminalState: 'follow-up-created' }), 'follow-up');
+  assert.equal(normalizeLedgerDisposition({ terminalState: 'needs-human-depth-limit' }), 'needs-human');
+  assert.equal(normalizeLedgerDisposition({ disposition: 'accept_risk' }), 'accept-risk');
+  assert.equal(normalizeLedgerDisposition({ verdict: 'fail' }), 'needs-human');
 });
 
 test('summarizes terminal dispositions by source', () => {
