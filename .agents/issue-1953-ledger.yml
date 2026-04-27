@@ -7,11 +7,12 @@ tasks:
     title: Update the issue-sourced detection logic in `.github/scripts/source_context.js`
       to ignore bare numeric references like `#123` in PR descriptions unless they
       match the repository's explicit source-context format
-    status: doing
-    started_at: '2026-04-27T06:34:30Z'
+    status: todo
+    started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - '2026-04-27T06:34:41Z failure (run 24980153138): status=failure'
   - id: task-02
     title: Add unit tests for `.github/scripts/source_context.js` covering PR description
       inputs with bare `#123` references and asserting these are not classified as
