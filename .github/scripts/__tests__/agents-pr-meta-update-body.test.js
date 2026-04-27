@@ -564,7 +564,7 @@ test('extractExplicitIssueSyncNumbers returns only explicit issue references', (
   );
 });
 
-test('resolveNonIssueWorkflowSourceContextForBodySync honors explicit non-issue markers over heuristics', () => {
+test('resolveNonIssueWorkflowSourceContextForBodySync yields to branch-inferred issue numbers', () => {
   const branchHeuristicContext = resolveNonIssueWorkflowSourceContextForBodySync(
     {
       body: [
@@ -577,8 +577,7 @@ test('resolveNonIssueWorkflowSourceContextForBodySync honors explicit non-issue 
     123,
   );
 
-  assert.equal(branchHeuristicContext.sourceType, 'local_request');
-  assert.equal(branchHeuristicContext.sourceRef, 'codex-thread-2026-04-26');
+  assert.equal(branchHeuristicContext, null);
 
   const prReferenceContext = resolveNonIssueWorkflowSourceContextForBodySync(
     {
@@ -591,8 +590,7 @@ test('resolveNonIssueWorkflowSourceContextForBodySync honors explicit non-issue 
     123,
   );
 
-  assert.equal(prReferenceContext.sourceType, 'review_followup');
-  assert.equal(prReferenceContext.sourceRef, 'PR #123');
+  assert.equal(prReferenceContext, null);
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync yields to explicit issue references', () => {
@@ -610,7 +608,7 @@ test('resolveNonIssueWorkflowSourceContextForBodySync yields to explicit issue r
   assert.equal(context, null);
 });
 
-test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue context when explicit issue differs from heuristic', () => {
+test('resolveNonIssueWorkflowSourceContextForBodySync yields to issue numbers even when explicit issue differs', () => {
   const context = resolveNonIssueWorkflowSourceContextForBodySync(
     {
       body: [
@@ -623,8 +621,7 @@ test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue contex
     99,
   );
 
-  assert.equal(context.sourceType, 'local_request');
-  assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
+  assert.equal(context, null);
 });
 
 test('resolveSourceContextRepairComment updates an existing warning once', async () => {

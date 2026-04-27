@@ -242,6 +242,20 @@ automation: no_automation
   }), true);
 });
 
+test('resolvePrSourceContext preserves legacy human-only no-automation wording', () => {
+  const context = resolvePrSourceContext({
+    body: `
+## Workflow Source
+
+Started from:
+- [x] Human-only
+`,
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.noAutomation, true);
+});
+
 test('sourceTypeFromCheckedTemplate rejects ambiguous checked source choices', () => {
   const body = `
 ## Workflow Source

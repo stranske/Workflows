@@ -49,7 +49,7 @@ const CHECKBOX_SOURCE_PATTERNS = Object.freeze([
   [SOURCE_TYPES.DEPENDABOT, /\bdependabot\b|\bdependency\s+update\b/i],
 ]);
 
-const NO_AUTOMATION_CHECKBOX_PATTERN = /\bdo\s+not\s+automate\b/i;
+const NO_AUTOMATION_CHECKBOX_PATTERN = /\bdo\s+not\s+automate\b|\bhuman[- ]only\b/i;
 
 function cleanString(value) {
   return String(value || '').trim();
