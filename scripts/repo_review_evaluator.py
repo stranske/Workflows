@@ -1427,6 +1427,24 @@ def markdown_review_evidence_traces(traces: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def review_evidence_trace_template() -> str:
+    return "\n".join(
+        [
+            '    "review_evidence_traces": [',
+            "      {",
+            '        "candidate_title_patterns": ["^Candidate title regex$"],',
+            '        "gap": "Specific unmet design/readiness commitment.",',
+            '        "current_state": "What the current code/tests actually prove today.",',
+            '        "required_change": "What must change to close the gap.",',
+            '        "design_refs": ["README.md", "docs/design.md"],',
+            '        "implementation_refs": ["src/module.py"],',
+            '        "test_refs": ["tests/test_expected_behavior.py"]',
+            "      }",
+            "    ]",
+        ]
+    )
+
+
 def execution_dimension(state: dict[str, Any], dimension_id: str) -> dict[str, Any]:
     for dimension in state["review_execution"]["dimensions"]:
         if dimension["id"] == dimension_id:
@@ -1610,6 +1628,7 @@ def build_decision_brief(state: dict[str, Any]) -> dict[str, Any]:
         "feedback_template": [
             "decision: approve | revise | defer | drop | deeper-review",
             "priority: high | normal | low",
+            "approval prerequisite: add matching review_evidence_traces in config/repo_review_profiles.json",
             "notes: what to change before issue creation",
         ],
     }
@@ -2176,6 +2195,12 @@ def write_decision_brief(repo_dir: Path, state: dict[str, Any]) -> None:
         "",
         markdown_review_evidence_traces(brief["review_evidence_traces"]),
         "",
+        "Required profile evidence trace shape:",
+        "",
+        "```json",
+        review_evidence_trace_template(),
+        "```",
+        "",
         "Design evidence:",
         "",
         markdown_list(brief["design_evidence"]),
@@ -2308,8 +2333,9 @@ def write_repo_artifacts(output_dir: Path, state: dict[str, Any], max_drafts: in
         "",
         "- Primary goal: compare intended design to current implementation and testing readiness.",
         "- Secondary goal: turn verified gaps into issue drafts for human approval.",
-        "- Current worksheet status: pending review until a human or automation fills in evidence and findings.",
+        "- Current worksheet status: pending review until a human or automation fills in evidence traces and findings.",
         "- Completion standard: no issue should be considered ready unless the review identifies the design commitment, current evidence, missing behavior, and a test or live-smoke acceptance gate.",
+        "- Approval standard: every approved issue candidate must have a matching `review_evidence_traces` entry in `config/repo_review_profiles.json`; polished prose without that trace is not uploadable.",
         "",
         "## Current Signals",
         "",
@@ -2330,6 +2356,16 @@ def write_repo_artifacts(output_dir: Path, state: dict[str, Any], max_drafts: in
         "## Implementation Areas To Inspect",
         "",
         markdown_list(format_implementation_areas(state["implementation_areas"])),
+        "",
+        "## Required Review Evidence Trace",
+        "",
+        "For every proposed issue, add a trace record to `config/repo_review_profiles.json` that links the candidate to the underlying design-vs-implementation finding:",
+        "",
+        "```json",
+        review_evidence_trace_template(),
+        "```",
+        "",
+        "The trace must be based on files actually inspected during the review. Do not use it as a wording exercise; the uploader validates that the trace exists, and the human packet shows it for review.",
         "",
         "## Review Dimensions",
         "",
@@ -2380,6 +2416,7 @@ def write_repo_artifacts(output_dir: Path, state: dict[str, Any], max_drafts: in
             "",
             "- a specific design commitment or readiness gap;",
             "- current implementation evidence;",
+            "- a matching `review_evidence_traces` record with design, implementation, and test/readiness refs;",
             "- non-goals that prevent scaffold-only completion claims;",
             "- tasks that a coding agent can complete;",
             "- acceptance criteria with a failing test, smoke test, or documented live-verification gate.",
@@ -2534,10 +2571,11 @@ def write_packet(
         "1. Read the design sources and registry decision anchor.",
         "2. Inspect implementation areas and distinguish real behavior from scaffolds or fixtures.",
         "3. Check tests, smoke paths, persistence, integrations, and workflow handoffs.",
-        "4. Use archive-derived candidates as precedent, not as automatically approved issues.",
-        "5. Generate or approve issue drafts only for verified design/readiness gaps.",
-        "6. Route Workflows/template-sync maintenance into Workflows unless the work directly implements repo-local behavior.",
-        "7. Feed approved, formatted issues into `approved-issue-queue.json` for opener-lane automation.",
+        "4. For each proposed issue, write a `review_evidence_traces` record in `config/repo_review_profiles.json` tying the candidate to design refs, implementation refs, and test/readiness refs.",
+        "5. Use archive-derived candidates as precedent, not as automatically approved issues.",
+        "6. Generate or approve issue drafts only for verified design/readiness gaps with evidence traces.",
+        "7. Route Workflows/template-sync maintenance into Workflows unless the work directly implements repo-local behavior.",
+        "8. Feed approved, formatted, evidence-traced issues into `approved-issue-queue.json` for opener-lane automation.",
         "",
         "## Human Review Queue",
         "",
@@ -2610,6 +2648,10 @@ def write_packet(
                 "Concerns to resolve:",
                 "",
                 markdown_bullets(brief["concerns"]),
+                "",
+                "Review evidence traces:",
+                "",
+                markdown_review_evidence_traces(brief["review_evidence_traces"]),
                 "",
                 "Key implementation evidence:",
                 "",
