@@ -10,7 +10,7 @@ def _markdown_tables(lines: list[str]) -> list[list[str]]:
     current: list[str] = []
     for line in lines:
         stripped = line.strip()
-        if stripped.startswith("|") and stripped.endswith("|"):
+        if stripped.startswith("|"):
             current.append(stripped)
             continue
         if current:
@@ -25,6 +25,10 @@ def _cell_count(row: str) -> int:
     return len(row.strip().strip("|").split("|"))
 
 
+def _pipe_count(row: str) -> int:
+    return row.count("|")
+
+
 def test_labels_markdown_tables_have_consistent_column_counts() -> None:
     lines = LABELS_DOC.read_text(encoding="utf-8").splitlines()
     tables = _markdown_tables(lines)
@@ -32,9 +36,9 @@ def test_labels_markdown_tables_have_consistent_column_counts() -> None:
     assert tables, "Expected docs/LABELS.md to contain Markdown tables"
 
     for table in tables:
-        expected = _cell_count(table[0])
+        expected = _pipe_count(table[0])
         for row in table[1:]:
-            assert _cell_count(row) == expected, row
+            assert _pipe_count(row) == expected, row
 
 
 def test_reviewed_label_rows_stay_three_column_rows() -> None:
