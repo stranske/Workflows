@@ -609,6 +609,8 @@ async function createTokenAwareRetry(options = {}) {
 }
 
 module.exports = {
+  isRateLimitError,
+  isSecondaryRateLimitError,
   withRetry,
   paginateWithRetry,
   createTokenAwareRetry,
