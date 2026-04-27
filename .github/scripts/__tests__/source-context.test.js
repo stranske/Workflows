@@ -8,6 +8,7 @@ const {
   extractIssueNumberFromPull,
   normalizeSourceType,
   parseWorkflowSourceBlock,
+  hasNoAutomationWorkflowContext,
   resolvePrSourceContext,
   sourceTypeFromCheckedTemplate,
   sourceTypeFromLabels,
@@ -146,6 +147,36 @@ Started from:
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.MANUAL_REMOTE);
 });
 
+test('sourceTypeFromCheckedTemplate accepts slash-separated local request wording', () => {
+  const body = `
+## Workflow Source
+
+Started from:
+- [ ] GitHub issue: #
+- [x] Local Codex/user request
+
+Automation intent:
+- [ ] Human-only unless checks fail
+`;
+
+  assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.LOCAL_REQUEST);
+});
+
+test('sourceTypeFromCheckedTemplate ignores automation intent choices', () => {
+  const body = `
+## Workflow Source
+
+Started from:
+- [ ] GitHub issue: #
+- [x] Local Codex/user request
+
+Automation intent:
+- [x] Human-only unless checks fail
+`;
+
+  assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.LOCAL_REQUEST);
+});
+
 test('sourceTypeFromCheckedTemplate treats human-only PRs as manual remote work', () => {
   const body = `
 ## Workflow Source
@@ -159,6 +190,24 @@ Automation intent:
 `;
 
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.MANUAL_REMOTE);
+});
+
+test('resolvePrSourceContext marks no-automation sources without changing source type', () => {
+  const context = resolvePrSourceContext({
+    body: `
+## Workflow Source
+
+Started from:
+- [x] Direct PR / remote GitHub work
+
+Automation intent:
+- [x] Human-only unless checks fail
+`,
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.noAutomation, true);
+  assert.equal(hasNoAutomationWorkflowContext({ labels: [{ name: 'workflow:no-automation' }] }), true);
 });
 
 test('sourceTypeFromCheckedTemplate rejects ambiguous checked source choices', () => {

@@ -755,6 +755,15 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return finalise();
   }
 
+  if (sourceContext.noAutomation) {
+    outputs.reason = 'no-automation-source-context';
+    outputs.dispatch = 'false';
+    core.info(
+      `Keepalive dispatch skipped: PR source context opts out of automation (${formatSourceContextForLog(sourceContext)}).`,
+    );
+    return finalise();
+  }
+
   if (!issueNumber) {
     if (sourceContext.isValid && !sourceContext.requiresIssue) {
       core.info(

@@ -140,8 +140,12 @@ function optionalExistingReportPath(filePath) {
   const cleanedPath = cleanString(filePath);
   if (!cleanedPath) return '';
   if (!fs.existsSync(cleanedPath)) return '';
-  if (!fs.statSync(cleanedPath).isFile()) return '';
-  return cleanedPath;
+  try {
+    if (!fs.statSync(cleanedPath).isFile()) return '';
+    return cleanedPath;
+  } catch (_error) {
+    return '';
+  }
 }
 
 function buildCoverageMonitorSummary(options = {}) {

@@ -123,6 +123,21 @@ test('treats PR source context coverage as an optional existing file input', () 
   assert.equal(optionalExistingReportPath(` ${prSource} `), prSource);
 });
 
+test('treats stat errors as absent optional report inputs', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
+  const prSource = writeJson(dir, 'pr-source.json', report('pass'));
+  const originalStatSync = fs.statSync;
+  fs.statSync = () => {
+    throw new Error('stat failed');
+  };
+
+  try {
+    assert.equal(optionalExistingReportPath(prSource), '');
+  } finally {
+    fs.statSync = originalStatSync;
+  }
+});
+
 test('does not include PR source context coverage by default', () => {
   const options = parseArgs([]);
 

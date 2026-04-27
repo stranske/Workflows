@@ -293,6 +293,30 @@ def test_main_exposes_terminal_artifact_family_selection(
     assert artifact_selection["terminal_artifact_families"][1]["status"] == "missing"
 
 
+def test_artifact_selection_contract_ignores_malformed_missing_priority_families(
+    tmp_path: Path,
+) -> None:
+    selection_path = tmp_path / "metric-artifacts-selection.json"
+    selection_path.write_text(
+        json.dumps(
+            {
+                "schema": "workflows-weekly-metrics-artifact-selection/v1",
+                "status": "pass",
+                "candidate_count": 0,
+                "selected_count": 0,
+                "missing_priority_families": "verifier-terminal-disposition",
+                "priority_family_statuses": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    contract = aggregate_agent_metrics._read_artifact_selection_contract(selection_path)
+
+    assert contract is not None
+    assert contract["missing_priority_families"] == []
+
+
 def test_parse_timestamp_variants() -> None:
     epoch = aggregate_agent_metrics._parse_timestamp(0)
     assert epoch is not None

@@ -18,6 +18,7 @@ const {
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
   resolveExplicitNonIssueWorkflowSourceContext,
+  resolveNonIssueWorkflowSourceContextForBodySync,
   resolveSourceContextRepairComment,
   resolveAgentType,
   stripPrTemplateContent,
@@ -481,6 +482,21 @@ test('resolveExplicitNonIssueWorkflowSourceContext ignores source issue markers'
       '<!-- workflow-source-ref:#123 -->',
     ].join('\n'),
   });
+
+  assert.equal(context, null);
+});
+
+test('resolveNonIssueWorkflowSourceContextForBodySync preserves issue-sourced sync precedence', () => {
+  const context = resolveNonIssueWorkflowSourceContextForBodySync(
+    {
+      body: [
+        '<!-- meta:issue:123 -->',
+        '<!-- workflow-source:local_request -->',
+        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+      ].join('\n'),
+    },
+    123,
+  );
 
   assert.equal(context, null);
 });

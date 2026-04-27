@@ -34,18 +34,22 @@ const SOURCE_LABELS = Object.freeze({
   workflow_no_automation: SOURCE_TYPES.MANUAL_REMOTE,
 });
 
+const NO_AUTOMATION_LABELS = new Set(['workflow:no-automation', 'workflow_no_automation']);
+
 const CHECKBOX_SOURCE_PATTERNS = Object.freeze([
   [SOURCE_TYPES.GITHUB_ISSUE, /\bgithub\s+issue\b|\bsource\s+issue\b/i],
   [
     SOURCE_TYPES.MANUAL_REMOTE,
     /\bdirect\s+pr\b|\bremote\s+github\s+work\b|\bstarted\s+directly\b|\bdo\s+not\s+automate\b|\bhuman[- ]only\b/i,
   ],
-  [SOURCE_TYPES.LOCAL_REQUEST, /\blocal\s+(?:codex|user)\s+request\b|\blocal\s+request\b/i],
+  [SOURCE_TYPES.LOCAL_REQUEST, /\blocal\s+(?:codex(?:\s*\/\s*|\s+)?user|codex|user)\s+request\b|\blocal\s+request\b/i],
   [SOURCE_TYPES.AUTOMATION_RUN, /\bautomation\s+run\b|\bworkflow\s+run\b/i],
   [SOURCE_TYPES.REVIEW_FOLLOWUP, /\breview\s+follow[- ]?up\b|\bfollow[- ]?up\s+from\s+pr\b/i],
   [SOURCE_TYPES.SYNC_CAMPAIGN, /\bsync\b|\bmaintenance\s+campaign\b|\bmaintenance\b/i],
   [SOURCE_TYPES.DEPENDABOT, /\bdependabot\b|\bdependency\s+update\b/i],
 ]);
+
+const NO_AUTOMATION_CHECKBOX_PATTERN = /\bdo\s+not\s+automate\b|\bhuman[- ]only\b/i;
 
 function cleanString(value) {
   return String(value || '').trim();
@@ -104,6 +108,54 @@ function labelNames(pull = {}) {
         .map((label) => cleanString(typeof label === 'string' ? label : label?.name || ''))
         .filter(Boolean)
     : [];
+}
+
+function checkedLabels(lines) {
+  return lines
+    .map((line) => line.match(/^\s*[-*]\s+\[[xX]\]\s+(.+?)\s*$/))
+    .filter(Boolean)
+    .map((match) => match[1]);
+}
+
+function workflowSourceSectionLines(body) {
+  const lines = String(body || '').split(/\r?\n/);
+  const start = lines.findIndex((line) => /^#{1,6}\s+Workflow Source\s*$/i.test(line));
+  if (start < 0) {
+    return [];
+  }
+
+  const sectionLines = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^#{1,6}\s+\S/.test(line)) {
+      break;
+    }
+    sectionLines.push(line);
+  }
+  return sectionLines;
+}
+
+function startedFromLines(sectionLines) {
+  const start = sectionLines.findIndex((line) => /^\s*Started from:\s*$/i.test(line));
+  if (start < 0) {
+    return sectionLines;
+  }
+
+  const result = [];
+  for (const line of sectionLines.slice(start + 1)) {
+    if (/^\s*(Automation intent|Notes):\s*$/i.test(line)) {
+      break;
+    }
+    result.push(line);
+  }
+  return result;
+}
+
+function hasCheckedNoAutomationTemplate(body) {
+  const sectionLines = workflowSourceSectionLines(body);
+  if (!sectionLines.length) {
+    return false;
+  }
+  return checkedLabels(sectionLines).some((label) => NO_AUTOMATION_CHECKBOX_PATTERN.test(label));
 }
 
 function hasExplicitIssueReferencePrefix(value) {
@@ -200,26 +252,12 @@ function parseWorkflowSourceBlock(body) {
 }
 
 function sourceTypeFromCheckedTemplate(body) {
-  const lines = String(body || '').split(/\r?\n/);
-  const start = lines.findIndex((line) => /^#{1,6}\s+Workflow Source\s*$/i.test(line));
-  if (start < 0) {
+  const sectionLines = workflowSourceSectionLines(body);
+  if (!sectionLines.length) {
     return SOURCE_TYPES.UNKNOWN;
   }
-  const sectionLines = [];
-  for (const line of lines.slice(start + 1)) {
-    if (/^#{1,6}\s+\S/.test(line)) {
-      break;
-    }
-    sectionLines.push(line);
-  }
-  const text = sectionLines.join('\n');
   const checkedTypes = new Set();
-  for (const line of text.split(/\r?\n/)) {
-    const checkbox = line.match(/^\s*[-*]\s+\[[xX]\]\s+(.+?)\s*$/);
-    if (!checkbox) {
-      continue;
-    }
-    const label = checkbox[1];
+  for (const label of checkedLabels(startedFromLines(sectionLines))) {
     for (const [sourceType, pattern] of CHECKBOX_SOURCE_PATTERNS) {
       if (pattern.test(label)) {
         checkedTypes.add(sourceType);
@@ -228,6 +266,27 @@ function sourceTypeFromCheckedTemplate(body) {
     }
   }
   return checkedTypes.size === 1 ? Array.from(checkedTypes)[0] : SOURCE_TYPES.UNKNOWN;
+}
+
+function hasNoAutomationWorkflowContext(pull = {}) {
+  const body = String(pull?.body || '');
+  const markerToken = normalizeToken(parseHtmlMarker(body, 'workflow-source'));
+  const block = parseWorkflowSourceBlock(body);
+  const blockTokens = [
+    block.origin,
+    block.source,
+    block.type,
+    block.automation,
+    block.automation_intent,
+  ].map(normalizeToken);
+  const labels = labelNames(pull).map((label) => label.toLowerCase());
+
+  return (
+    markerToken === 'no_automation'
+    || blockTokens.includes('no_automation')
+    || labels.some((label) => NO_AUTOMATION_LABELS.has(label) || NO_AUTOMATION_LABELS.has(normalizeToken(label)))
+    || hasCheckedNoAutomationTemplate(body)
+  );
 }
 
 function sourceTypeFromLabels(pull = {}) {
@@ -267,6 +326,7 @@ function resolvePrSourceContext(pull = {}) {
   const body = String(pull?.body || '');
   const block = parseWorkflowSourceBlock(body);
   const issueNumber = extractIssueNumberFromPull(pull);
+  const noAutomation = hasNoAutomationWorkflowContext(pull);
 
   const markerType = normalizeSourceType(parseHtmlMarker(body, 'workflow-source'));
   const blockType = normalizeSourceType(block.origin || block.source || block.type);
@@ -305,12 +365,13 @@ function resolvePrSourceContext(pull = {}) {
         labelType !== SOURCE_TYPES.UNKNOWN
     ),
     requiresIssue: sourceType === SOURCE_TYPES.GITHUB_ISSUE,
+    noAutomation,
   };
 }
 
 function hasValidNonIssueSourceContext(pull = {}) {
   const context = resolvePrSourceContext(pull);
-  return context.isValid && !context.requiresIssue;
+  return context.isValid && !context.requiresIssue && !context.noAutomation;
 }
 
 function formatSourceContextForLog(context = {}) {
@@ -324,6 +385,9 @@ function formatSourceContextForLog(context = {}) {
   if (context.automation) {
     parts.push(`automation=${context.automation}`);
   }
+  if (context.noAutomation) {
+    parts.push('no_automation=true');
+  }
   return parts.join(' ');
 }
 
@@ -335,6 +399,7 @@ module.exports = {
   parseWorkflowSourceBlock,
   sourceTypeFromCheckedTemplate,
   sourceTypeFromLabels,
+  hasNoAutomationWorkflowContext,
   resolvePrSourceContext,
   hasValidNonIssueSourceContext,
   formatSourceContextForLog,

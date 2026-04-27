@@ -470,6 +470,89 @@ test('keepalive detection accepts valid non-issue source context', async () => {
   assert.ok(reactionCalls.includes('rocket'));
 });
 
+test('keepalive detection blocks no-automation source context', async () => {
+  const outputs = {};
+  const scopeBlock = [
+    '<!-- codex-keepalive-round: 3 -->',
+    '<!-- codex-keepalive-marker -->',
+    '<!-- codex-keepalive-trace: trace-local -->',
+    '@codex Continue working on the local request.',
+  ].join('\n');
+
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return {
+            data: {
+              body: [
+                '## Workflow Source',
+                '',
+                'Started from:',
+                '- [x] Local Codex/user request',
+                '',
+                'Automation intent:',
+                '- [x] Human-only unless checks fail',
+              ].join('\n'),
+              head: { ref: 'codex/source-context', repo: { fork: false, owner: { login: 'stranske' } } },
+              base: { ref: 'main', repo: { owner: { login: 'stranske' } } },
+              title: 'Add source context',
+            },
+          };
+        },
+      },
+      issues: {
+        async listComments() {
+          return { data: [] };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment() {
+          return { status: 201, data: { content: 'hooray' } };
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.issues.listComments) {
+        return [];
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  await detectKeepalive({
+    core: createCore(outputs),
+    github,
+    context: {
+      repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: {
+        comment: {
+          id: 200,
+          html_url: 'https://example.test/comment/200',
+          body: scopeBlock,
+          user: { login: 'stranske' },
+        },
+        issue: { number: 4002 },
+      },
+    },
+    env: {
+      ALLOWED_LOGINS: 'stranske',
+      KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
+      GATE_OK: 'true',
+    },
+  });
+
+  assert.equal(outputs.dispatch, 'false');
+  assert.equal(outputs.reason, 'no-automation-source-context');
+  assert.equal(outputs.source_type, 'local_request');
+});
+
 test('keepalive detection accepts sync campaign source context without linked issue', async () => {
   const outputs = {};
   const reactionCalls = [];

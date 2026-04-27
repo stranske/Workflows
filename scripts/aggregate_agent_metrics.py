@@ -1088,13 +1088,21 @@ def _artifact_selection_contract(selection: dict[str, Any], selection_path: Path
         for item in statuses
         if item["status"] == "missing" or item["selected_count"] <= 0
     ]
+    missing_priority_families = selection.get("missing_priority_families")
+    if isinstance(missing_priority_families, (list, tuple)):
+        missing_priority_families = [
+            str(family) for family in missing_priority_families if isinstance(family, str)
+        ]
+    else:
+        missing_priority_families = []
+
     return {
         "schema": selection.get("schema") or "unknown",
         "path": selection_path.as_posix(),
         "status": selection.get("status") or "unknown",
         "selected_count": _safe_int(selection.get("selected_count")) or 0,
         "candidate_count": _safe_int(selection.get("candidate_count")) or 0,
-        "missing_priority_families": list(selection.get("missing_priority_families") or []),
+        "missing_priority_families": missing_priority_families,
         "terminal_artifact_families": statuses,
         "missing_terminal_artifact_families": missing_terminal,
     }

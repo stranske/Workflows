@@ -1023,6 +1023,10 @@ function resolveExplicitNonIssueWorkflowSourceContext(pr = {}) {
   };
 }
 
+function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, issueNumber = null) {
+  return issueNumber ? null : resolveExplicitNonIssueWorkflowSourceContext(pr);
+}
+
 async function resolveSourceContextRepairComment({
   github,
   owner,
@@ -1356,7 +1360,9 @@ async function run({github: rawGithub, context, core, inputs}) {
     return;
   }
 
-  const explicitNonIssueSourceContext = resolveExplicitNonIssueWorkflowSourceContext(pr);
+  const issueNumber = extractIssueNumberFromPull(pr);
+  const sourceContext = resolvePrSourceContext(pr);
+  const explicitNonIssueSourceContext = resolveNonIssueWorkflowSourceContextForBodySync(pr, issueNumber);
   if (explicitNonIssueSourceContext) {
     core.info(
       `PR #${pr.number} has explicit non-issue workflow source context (${formatSourceContextForLog(explicitNonIssueSourceContext)}); skipping issue-sourced body sync.`,
@@ -1382,8 +1388,6 @@ async function run({github: rawGithub, context, core, inputs}) {
     return;
   }
 
-  const issueNumber = extractIssueNumberFromPull(pr);
-  const sourceContext = resolvePrSourceContext(pr);
   if (!issueNumber) {
     if (sourceContext.isValid && !sourceContext.requiresIssue) {
       core.info(
@@ -1452,6 +1456,25 @@ async function run({github: rawGithub, context, core, inputs}) {
       core.warning(`Failed to post warning comment: ${error.message}`);
     }
     return;
+  }
+
+  try {
+    const comments = await github.paginate(github.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number: pr.number,
+    });
+    await resolveSourceContextRepairComment({
+      github,
+      owner,
+      repo,
+      prNumber: pr.number,
+      comments,
+      sourceContext,
+      core,
+    });
+  } catch (error) {
+    core.warning(`Failed to resolve workflow source repair comment: ${error.message}`);
   }
 
   core.info(`Fetching content from issue #${issueNumber} for PR #${pr.number}`);
@@ -1629,6 +1652,7 @@ module.exports = {
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
   resolveExplicitNonIssueWorkflowSourceContext,
+  resolveNonIssueWorkflowSourceContextForBodySync,
   resolveSourceContextRepairComment,
   isCampaignIssue,
   buildStatusBlock,
