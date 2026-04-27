@@ -6,6 +6,7 @@ const DEFAULT_MAX_TOTAL = 80;
 const DEFAULT_MAX_PER_FAMILY = 20;
 const DEFAULT_MAX_SCAN_PAGES = 5;
 const DEFAULT_PER_PAGE = 100;
+const DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE = 10;
 
 const EXACT_METRICS_ARTIFACTS = new Set([
   'keepalive-metrics',
@@ -43,6 +44,37 @@ const PRIORITY_METRICS_FAMILIES = [
   'bot-comment-auth-coverage-wrapper',
   'bot-comment-auth-coverage-reusable',
   'pr-source-context',
+];
+
+const PRIORITY_WORKFLOW_ARTIFACT_SOURCES = [
+  {
+    workflow_id: 'health-76-codex-cli-freshness.yml',
+    families: ['codex-cli-freshness'],
+  },
+  {
+    workflow_id: 'reusable-agents-verifier.yml',
+    families: ['verifier-terminal-disposition'],
+  },
+  {
+    workflow_id: 'agents-verify-to-new-pr.yml',
+    families: ['verifier-terminal-disposition'],
+  },
+  {
+    workflow_id: 'agents-verify-to-issue-v2.yml',
+    families: ['verifier-terminal-disposition'],
+  },
+  {
+    workflow_id: 'agents-bot-comment-handler.yml',
+    families: ['review-thread-terminal-disposition', 'bot-comment-auth-coverage-wrapper'],
+  },
+  {
+    workflow_id: 'reusable-bot-comment-handler.yml',
+    families: ['review-thread-terminal-disposition', 'bot-comment-auth-coverage-reusable'],
+  },
+  {
+    workflow_id: 'pr-11-ci-smoke.yml',
+    families: ['pr-source-context'],
+  },
 ];
 
 function cleanString(value) {
@@ -102,6 +134,12 @@ function normalizeSelectionOptions(options = {}) {
     options.per_page ?? options.perPage ?? process.env.METRICS_ARTIFACTS_PER_PAGE,
     DEFAULT_PER_PAGE
   );
+  const priorityWorkflowRunsPerSource = parsePositiveInt(
+    options.priority_workflow_runs_per_source ??
+      options.priorityWorkflowRunsPerSource ??
+      process.env.METRICS_PRIORITY_WORKFLOW_RUNS_PER_SOURCE,
+    DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE
+  );
   const cutoffMs = nowMs - lookbackDays * 24 * 60 * 60 * 1000;
   return {
     now_ms: nowMs,
@@ -110,6 +148,7 @@ function normalizeSelectionOptions(options = {}) {
     max_per_family: maxPerFamily,
     max_scan_pages: maxScanPages,
     per_page: perPage,
+    priority_workflow_runs_per_source: priorityWorkflowRunsPerSource,
     cutoff_ms: cutoffMs,
   };
 }
@@ -296,6 +335,7 @@ function selectMetricsArtifacts(artifacts = [], options = {}) {
       max_per_family: config.max_per_family,
       max_scan_pages: config.max_scan_pages,
       per_page: config.per_page,
+      priority_workflow_runs_per_source: config.priority_workflow_runs_per_source,
       cutoff_iso: new Date(config.cutoff_ms).toISOString(),
     },
     ...stats,
@@ -331,6 +371,7 @@ function buildSelectionErrorReport(options = {}, error = {}) {
       max_per_family: config.max_per_family,
       max_scan_pages: config.max_scan_pages,
       per_page: config.per_page,
+      priority_workflow_runs_per_source: config.priority_workflow_runs_per_source,
       cutoff_iso: new Date(config.cutoff_ms).toISOString(),
     },
     scanned_count: 0,
@@ -368,6 +409,7 @@ function formatSelectionMarkdown(report) {
     `- Status: ${report.status || 'pass'}`,
     `- Lookback days: ${report.config.lookback_days}`,
     `- Scan cap: ${report.config.max_scan_pages} pages x ${report.config.per_page} artifacts`,
+    `- Priority producer scan cap: ${report.config.priority_workflow_runs_per_source} runs per source workflow`,
     `- Download cap: ${report.config.max_total} total, ${report.config.max_per_family} per family`,
     `- Scanned artifacts: ${report.scanned_count}`,
     `- Candidate artifacts: ${report.candidate_count}`,
@@ -405,6 +447,101 @@ function formatSelectionMarkdown(report) {
   return `${lines.join('\n')}\n`;
 }
 
+function dedupeArtifacts(artifacts = []) {
+  const seen = new Set();
+  const deduped = [];
+  for (const artifact of artifacts) {
+    const id = artifact?.id ?? artifact?.artifact_id ?? artifact?.artifactId;
+    const key = id
+      ? `id:${id}`
+      : `name:${cleanString(artifact?.name)}:${cleanString(artifact?.created_at ?? artifact?.createdAt)}`;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(artifact);
+  }
+  return deduped;
+}
+
+function familiesSatisfied(artifacts = [], families = [], config = normalizeSelectionOptions()) {
+  const found = new Set();
+  for (const raw of artifacts) {
+    const artifact = normalizeArtifact(raw);
+    if (!artifact.id || artifact.expired || !artifact.family || !families.includes(artifact.family)) {
+      continue;
+    }
+    if (artifact.timestamp_ms > 0 && artifact.timestamp_ms < config.cutoff_ms) {
+      continue;
+    }
+    found.add(artifact.family);
+  }
+  return families.every((family) => found.has(family));
+}
+
+function isNotFoundError(error) {
+  return Number(error?.status) === 404 || Number(error?.response?.status) === 404;
+}
+
+async function collectPriorityWorkflowArtifacts({
+  github,
+  owner,
+  repo,
+  withRetry,
+  options,
+  sources = PRIORITY_WORKFLOW_ARTIFACT_SOURCES,
+}) {
+  const config = normalizeSelectionOptions(options);
+  const artifacts = [];
+  for (const source of sources) {
+    const workflowId = cleanString(source.workflow_id ?? source.workflowId);
+    const families = (source.families || []).map(cleanString).filter(Boolean);
+    if (!workflowId || families.length === 0) continue;
+    let runsResponse;
+    try {
+      runsResponse = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+        owner,
+        repo,
+        workflow_id: workflowId,
+        per_page: config.priority_workflow_runs_per_source,
+      }));
+    } catch (error) {
+      if (isNotFoundError(error)) continue;
+      throw error;
+    }
+    const runs = runsResponse?.data?.workflow_runs || [];
+    for (const run of runs) {
+      const runTimestamp = Math.max(
+        parseDateMs(run.created_at ?? run.createdAt),
+        parseDateMs(run.updated_at ?? run.updatedAt)
+      );
+      if (runTimestamp > 0 && runTimestamp < config.cutoff_ms) {
+        continue;
+      }
+      let artifactResponse;
+      try {
+        artifactResponse = await withRetry((client) =>
+          client.rest.actions.listWorkflowRunArtifacts({
+            owner,
+            repo,
+            run_id: run.id,
+            per_page: config.per_page,
+          })
+        );
+      } catch (error) {
+        if (isNotFoundError(error)) continue;
+        throw error;
+      }
+      const matchingArtifacts = (artifactResponse?.data?.artifacts || []).filter((artifact) =>
+        families.includes(artifactFamily(artifact.name))
+      );
+      artifacts.push(...matchingArtifacts);
+      if (familiesSatisfied(artifacts, families, config)) {
+        break;
+      }
+    }
+  }
+  return dedupeArtifacts(artifacts);
+}
+
 async function collectRepoArtifacts({ github, owner, repo, withRetry, options }) {
   const artifacts = [];
   const config = normalizeSelectionOptions(options);
@@ -428,7 +565,14 @@ async function collectRepoArtifacts({ github, owner, repo, withRetry, options })
       break;
     }
   }
-  return artifacts;
+  const priorityArtifacts = await collectPriorityWorkflowArtifacts({
+    github,
+    owner,
+    repo,
+    withRetry,
+    options,
+  });
+  return dedupeArtifacts([...artifacts, ...priorityArtifacts]);
 }
 
 function parseArgs(argv = process.argv.slice(2)) {
@@ -461,6 +605,9 @@ function parseArgs(argv = process.argv.slice(2)) {
       index += 1;
     } else if (arg === '--max-scan-pages') {
       options.max_scan_pages = next;
+      index += 1;
+    } else if (arg === '--priority-workflow-runs-per-source') {
+      options.priority_workflow_runs_per_source = next;
       index += 1;
     }
   }
@@ -524,11 +671,16 @@ module.exports = {
   DEFAULT_MAX_PER_FAMILY,
   DEFAULT_MAX_SCAN_PAGES,
   DEFAULT_MAX_TOTAL,
+  DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE,
   PRIORITY_METRICS_FAMILIES,
+  PRIORITY_WORKFLOW_ARTIFACT_SOURCES,
   SELECTION_SCHEMA,
   artifactFamily,
   buildSelectionErrorReport,
+  collectPriorityWorkflowArtifacts,
   collectRepoArtifacts,
+  dedupeArtifacts,
+  familiesSatisfied,
   formatArtifactTsv,
   formatSelectionMarkdown,
   latestCandidateByFamily,

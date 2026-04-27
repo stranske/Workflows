@@ -5,7 +5,10 @@ const {
   SELECTION_SCHEMA,
   artifactFamily,
   buildSelectionErrorReport,
+  collectPriorityWorkflowArtifacts,
   collectRepoArtifacts,
+  dedupeArtifacts,
+  familiesSatisfied,
   formatArtifactTsv,
   formatSelectionMarkdown,
   latestCandidateByFamily,
@@ -389,6 +392,7 @@ test('formats a human-visible selector summary for weekly metrics', () => {
 
   assert.match(markdown, /Weekly Metrics Artifact Selection/);
   assert.match(markdown, /Scan cap: 5 pages x 100 artifacts/);
+  assert.match(markdown, /Priority producer scan cap: 10 runs per source workflow/);
   assert.match(markdown, /Selected artifacts: 2/);
   assert.match(
     markdown,
@@ -413,6 +417,136 @@ test('normalizes invalid environment-like limits to defaults', () => {
   assert.equal(options.max_total, 80);
   assert.equal(options.max_per_family, 20);
   assert.equal(options.max_scan_pages, 5);
+  assert.equal(options.priority_workflow_runs_per_source, 10);
+});
+
+test('deduplicates artifacts by stable id before selection', () => {
+  const artifacts = dedupeArtifacts([
+    artifact(1, 'codex-cli-freshness-77', '2026-04-25T11:00:00Z'),
+    artifact(1, 'codex-cli-freshness-77', '2026-04-25T11:00:00Z'),
+    artifact(null, 'bot-comment-auth-coverage-reusable-1', '2026-04-25T10:00:00Z'),
+    artifact(null, 'bot-comment-auth-coverage-reusable-1', '2026-04-25T10:00:00Z'),
+  ]);
+
+  assert.deepEqual(
+    artifacts.map((selected) => selected.name),
+    ['codex-cli-freshness-77', 'bot-comment-auth-coverage-reusable-1']
+  );
+});
+
+test('checks whether priority workflow artifacts satisfy configured families', () => {
+  const config = normalizeSelectionOptions({ now_ms: NOW, lookback_days: 14 });
+
+  assert.equal(
+    familiesSatisfied(
+      [artifact(1, 'bot-comment-auth-coverage-reusable-1', '2026-04-25T10:00:00Z')],
+      ['bot-comment-auth-coverage-reusable'],
+      config
+    ),
+    true
+  );
+  assert.equal(
+    familiesSatisfied(
+      [artifact(2, 'bot-comment-auth-coverage-reusable-old', '2026-03-25T10:00:00Z')],
+      ['bot-comment-auth-coverage-reusable'],
+      config
+    ),
+    false
+  );
+});
+
+test('collects priority artifacts from their producer workflows', async () => {
+  const calls = [];
+  const client = {
+    rest: {
+      actions: {
+        listWorkflowRuns: async (params) => {
+          calls.push(['runs', params.workflow_id, params.per_page]);
+          return {
+            data: {
+              workflow_runs: [
+                { id: 101, created_at: '2026-04-25T11:00:00Z', updated_at: '2026-04-25T11:00:00Z' },
+                { id: 102, created_at: '2026-04-25T10:00:00Z', updated_at: '2026-04-25T10:00:00Z' },
+              ],
+            },
+          };
+        },
+        listWorkflowRunArtifacts: async (params) => {
+          calls.push(['artifacts', params.run_id, params.per_page]);
+          return {
+            data: {
+              artifacts: [
+                artifact(
+                  params.run_id,
+                  params.run_id === 101
+                    ? 'bot-comment-auth-coverage-reusable-101'
+                    : 'keepalive-metrics',
+                  '2026-04-25T11:00:00Z'
+                ),
+              ],
+            },
+          };
+        },
+      },
+    },
+  };
+
+  const artifacts = await collectPriorityWorkflowArtifacts({
+    github: client,
+    owner: 'owner',
+    repo: 'repo',
+    options: {
+      now_ms: NOW,
+      priority_workflow_runs_per_source: 2,
+      per_page: 50,
+    },
+    sources: [
+      {
+        workflow_id: 'reusable-bot-comment-handler.yml',
+        families: ['bot-comment-auth-coverage-reusable'],
+      },
+    ],
+    withRetry: (fn) => fn(client),
+  });
+
+  assert.deepEqual(
+    artifacts.map((selected) => selected.name),
+    ['bot-comment-auth-coverage-reusable-101']
+  );
+  assert.deepEqual(calls, [
+    ['runs', 'reusable-bot-comment-handler.yml', 2],
+    ['artifacts', 101, 50],
+  ]);
+});
+
+test('skips missing priority producer workflows without failing selection', async () => {
+  const client = {
+    rest: {
+      actions: {
+        listWorkflowRuns: async () => {
+          const error = new Error('Not Found');
+          error.status = 404;
+          throw error;
+        },
+      },
+    },
+  };
+
+  const artifacts = await collectPriorityWorkflowArtifacts({
+    github: client,
+    owner: 'owner',
+    repo: 'repo',
+    options: { now_ms: NOW },
+    sources: [
+      {
+        workflow_id: 'health-76-codex-cli-freshness.yml',
+        families: ['codex-cli-freshness'],
+      },
+    ],
+    withRetry: (fn) => fn(client),
+  });
+
+  assert.deepEqual(artifacts, []);
 });
 
 test('collects repo artifacts within the configured scan page cap', async () => {
@@ -431,6 +565,24 @@ test('collects repo artifacts within the configured scan page cap', async () => 
             },
           };
         },
+        listWorkflowRuns: async () => ({
+          data: {
+            workflow_runs: [
+              {
+                id: 9001,
+                created_at: '2026-04-25T09:00:00Z',
+                updated_at: '2026-04-25T09:00:00Z',
+              },
+            ],
+          },
+        }),
+        listWorkflowRunArtifacts: async () => ({
+          data: {
+            artifacts: [
+              artifact(9001, 'codex-cli-freshness-9001', '2026-04-25T09:00:00Z'),
+            ],
+          },
+        }),
       },
     },
   };
@@ -447,7 +599,8 @@ test('collects repo artifacts within the configured scan page cap', async () => 
     withRetry: (fn) => fn(client),
   });
 
-  assert.equal(artifacts.length, 4);
+  assert.equal(artifacts.length, 5);
+  assert.ok(artifacts.some((candidate) => candidate.name === 'codex-cli-freshness-9001'));
   assert.deepEqual(
     calls.map((call) => call.page),
     [1, 2]
