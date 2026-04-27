@@ -421,6 +421,8 @@ test('buildSourceContextResolvedCommentBody retires stale source repair comments
   const result = buildSourceContextResolvedCommentBody(55, {
     sourceType: 'local_request',
     sourceRef: 'codex-thread-2026-04-26',
+    isValid: true,
+    requiresIssue: false,
   });
 
   assert.ok(result.includes('<!-- missing-issue-warning -->'));
@@ -430,12 +432,34 @@ test('buildSourceContextResolvedCommentBody retires stale source repair comments
   assert.ok(result.includes('No linked GitHub issue is required'));
 });
 
+test('buildSourceContextResolvedCommentBody explains linked issue source context', () => {
+  const result = buildSourceContextResolvedCommentBody(
+    55,
+    {
+      sourceType: 'github_issue',
+      issueNumber: 123,
+      sourceRef: '#123',
+      isValid: true,
+      requiresIssue: true,
+    },
+    123,
+  );
+
+  assert.ok(result.includes('<!-- missing-issue-warning -->'));
+  assert.ok(result.includes('PR #55 now has valid workflow source context'));
+  assert.ok(result.includes('origin=github_issue'));
+  assert.ok(result.includes('Linked GitHub issue #123 detected for this PR.'));
+  assert.ok(!result.includes('No linked GitHub issue is required'));
+});
+
 test('buildSourceContextResolvedCommentBody explains sync-campaign source context', () => {
   const result = buildSourceContextResolvedCommentBody(956, {
     sourceType: 'sync_campaign',
     sourceRef: 'stranske/Travel-Plan-Permission#956',
     lifecycle: 'consumer-sync',
     automation: 'verify-follow-up',
+    isValid: true,
+    requiresIssue: false,
   });
 
   assert.ok(result.includes('origin=sync_campaign'));
@@ -495,10 +519,47 @@ test('resolveNonIssueWorkflowSourceContextForBodySync preserves issue-sourced sy
         '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
       ].join('\n'),
     },
-    123,
+    {
+      sourceType: 'github_issue',
+      issueNumber: 123,
+      isValid: true,
+      requiresIssue: true,
+    },
   );
 
   assert.equal(context, null);
+});
+
+test('resolveNonIssueWorkflowSourceContextForBodySync keeps explicit non-issue source with broad incidental refs', () => {
+  const context = resolveNonIssueWorkflowSourceContextForBodySync(
+    {
+      title: 'Review follow-up from PR #123',
+      body: [
+        '<!-- workflow-source:local_request -->',
+        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+        'See PR #123 for background.',
+      ].join('\n'),
+    },
+    {
+      sourceType: 'local_request',
+      issueNumber: null,
+      sourceRef: 'codex-thread-2026-04-26',
+      isValid: true,
+      requiresIssue: false,
+    },
+  );
+
+  assert.deepEqual(context, {
+    sourceType: 'local_request',
+    issueNumber: null,
+    sourceRef: 'codex-thread-2026-04-26',
+    lifecycle: '',
+    automation: '',
+    isKnown: true,
+    isValid: true,
+    isExplicit: true,
+    requiresIssue: false,
+  });
 });
 
 test('resolveSourceContextRepairComment updates an existing warning once', async () => {
@@ -521,13 +582,56 @@ test('resolveSourceContextRepairComment updates an existing warning once', async
     repo: 'demo',
     prNumber: 55,
     comments: [{ id: 99, body: '<!-- missing-issue-warning -->\nold warning' }],
-    sourceContext: { sourceType: 'local_request', sourceRef: 'codex-thread-2026-04-26' },
+    sourceContext: {
+      sourceType: 'local_request',
+      sourceRef: 'codex-thread-2026-04-26',
+      isValid: true,
+      requiresIssue: false,
+    },
     core: { info: () => {} },
   });
 
   assert.strictEqual(updated, true);
   assert.strictEqual(calls.update, 1);
   assert.ok(calls.body.includes('Workflow source detected'));
+  assert.ok(calls.body.includes('No linked GitHub issue is required'));
+});
+
+test('resolveSourceContextRepairComment updates issue-linked warning with issue wording', async () => {
+  const calls = { update: 0, body: '' };
+  const github = {
+    rest: {
+      issues: {
+        updateComment: async ({ comment_id, body }) => {
+          assert.strictEqual(comment_id, 99);
+          calls.update += 1;
+          calls.body = body;
+        },
+      },
+    },
+  };
+
+  const updated = await resolveSourceContextRepairComment({
+    github,
+    owner: 'octo',
+    repo: 'demo',
+    prNumber: 55,
+    comments: [{ id: 99, body: '<!-- missing-issue-warning -->\nold warning' }],
+    sourceContext: {
+      sourceType: 'github_issue',
+      issueNumber: 123,
+      sourceRef: '#123',
+      isValid: true,
+      requiresIssue: true,
+    },
+    issueNumber: 123,
+    core: { info: () => {} },
+  });
+
+  assert.strictEqual(updated, true);
+  assert.strictEqual(calls.update, 1);
+  assert.ok(calls.body.includes('Linked GitHub issue #123 detected for this PR.'));
+  assert.ok(!calls.body.includes('No linked GitHub issue is required'));
 });
 
 test('resolveSourceContextRepairComment skips when no warning exists', async () => {

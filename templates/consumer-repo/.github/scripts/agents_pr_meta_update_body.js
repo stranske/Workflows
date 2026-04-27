@@ -979,14 +979,20 @@ async function createIssueCommentWithRetry({ github, owner, repo, issueNumber, b
   );
 }
 
-function buildSourceContextResolvedCommentBody(prNumber, sourceContext) {
+function buildSourceContextResolvedCommentBody(prNumber, sourceContext, issueNumber = null) {
+  const resolutionDetail = issueNumber
+    ? `Linked GitHub issue #${issueNumber} detected for this PR.`
+    : sourceContext?.isValid && !sourceContext?.requiresIssue
+      ? 'No linked GitHub issue is required for this PR.'
+      : 'Workflow source context has been resolved for this PR.';
+
   return [
     '<!-- missing-issue-warning -->',
     '### Workflow source detected',
     '',
     `PR #${prNumber} now has valid workflow source context (${formatSourceContextForLog(sourceContext)}).`,
     '',
-    'No linked GitHub issue is required for this PR.',
+    resolutionDetail,
   ].join('\n');
 }
 
@@ -1023,8 +1029,9 @@ function resolveExplicitNonIssueWorkflowSourceContext(pr = {}) {
   };
 }
 
-function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, issueNumber = null) {
-  return issueNumber ? null : resolveExplicitNonIssueWorkflowSourceContext(pr);
+function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, sourceContext = {}) {
+  const strictIssueNumber = sourceContext?.requiresIssue ? sourceContext.issueNumber : null;
+  return strictIssueNumber ? null : resolveExplicitNonIssueWorkflowSourceContext(pr);
 }
 
 async function resolveSourceContextRepairComment({
@@ -1034,6 +1041,7 @@ async function resolveSourceContextRepairComment({
   prNumber,
   comments,
   sourceContext,
+  issueNumber = null,
   core,
 }) {
   const marker = '<!-- missing-issue-warning -->';
@@ -1042,7 +1050,7 @@ async function resolveSourceContextRepairComment({
     return false;
   }
 
-  const resolvedBody = buildSourceContextResolvedCommentBody(prNumber, sourceContext);
+  const resolvedBody = buildSourceContextResolvedCommentBody(prNumber, sourceContext, issueNumber);
   if (existingWarning.body === resolvedBody) {
     core?.info?.(`Workflow source repair comment already resolved (id: ${existingWarning.id})`);
     return false;
@@ -1360,9 +1368,16 @@ async function run({github: rawGithub, context, core, inputs}) {
     return;
   }
 
-  const issueNumber = extractIssueNumberFromPull(pr);
   const sourceContext = resolvePrSourceContext(pr);
-  const explicitNonIssueSourceContext = resolveNonIssueWorkflowSourceContextForBodySync(pr, issueNumber);
+  const strictIssueNumber = sourceContext.requiresIssue ? sourceContext.issueNumber : null;
+  const broadIssueNumber = extractIssueNumberFromPull(pr);
+  if (broadIssueNumber && !strictIssueNumber) {
+    core.info(
+      `Ignoring broad issue-like reference #${broadIssueNumber} for PR #${pr.number}; strict workflow source context did not identify an issue source.`,
+    );
+  }
+  const issueNumber = strictIssueNumber;
+  const explicitNonIssueSourceContext = resolveNonIssueWorkflowSourceContextForBodySync(pr, sourceContext);
   if (explicitNonIssueSourceContext) {
     core.info(
       `PR #${pr.number} has explicit non-issue workflow source context (${formatSourceContextForLog(explicitNonIssueSourceContext)}); skipping issue-sourced body sync.`,
@@ -1471,6 +1486,7 @@ async function run({github: rawGithub, context, core, inputs}) {
       prNumber: pr.number,
       comments,
       sourceContext,
+      issueNumber,
       core,
     });
   } catch (error) {
