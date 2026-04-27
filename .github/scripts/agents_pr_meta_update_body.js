@@ -980,7 +980,11 @@ async function createIssueCommentWithRetry({ github, owner, repo, issueNumber, b
 }
 
 function buildSourceContextResolvedCommentBody(prNumber, sourceContext) {
-  const isIssueBacked = sourceContext?.requiresIssue || sourceContext?.issueNumber || sourceContext?.sourceType === SOURCE_TYPES.GITHUB_ISSUE;
+  const isIssueBacked = Boolean(
+    sourceContext?.requiresIssue
+      || sourceContext?.issueNumber
+      || sourceContext?.sourceType === SOURCE_TYPES.GITHUB_ISSUE,
+  );
   return [
     '<!-- missing-issue-warning -->',
     '### Workflow source detected',
@@ -1027,8 +1031,13 @@ function resolveExplicitNonIssueWorkflowSourceContext(pr = {}) {
 }
 
 function extractExplicitIssueSyncNumbers(pr = {}) {
-  const text = `${pr.title || ''}\n${pr.body || ''}`;
+  const body = String(pr.body || '');
+  const text = `${pr.title || ''}\n${body}`;
   const issueNumbers = new Set();
+  const metaIssueNumber = Number(parseHtmlMarker(body, 'meta:issue'));
+  if (Number.isInteger(metaIssueNumber) && metaIssueNumber > 0) {
+    issueNumbers.add(metaIssueNumber);
+  }
   const patterns = [
     /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)\s*[:#-]?\s*#([0-9]+)\b/gi,
     /\b(?:(?:relate[sd]?\s+to|refs?|references?)\s+(?:issue\s+)?|(?:source|github|linked)\s+issue\s*)[:#-]?\s*#([0-9]+)\b/gi,
