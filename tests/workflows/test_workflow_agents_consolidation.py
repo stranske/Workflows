@@ -98,9 +98,7 @@ def test_agents_orchestrator_exposes_dry_run_toggle():
 
 
 def test_orchestrator_idle_precheck_defers_on_issue_scan_rate_limit():
-    init_text = (WORKFLOWS_DIR / "reusable-70-orchestrator-init.yml").read_text(
-        encoding="utf-8"
-    )
+    init_text = (WORKFLOWS_DIR / "reusable-70-orchestrator-init.yml").read_text(encoding="utf-8")
 
     assert (
         "retryHelpers.isRateLimitError" in init_text
