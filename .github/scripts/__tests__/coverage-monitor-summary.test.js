@@ -94,6 +94,12 @@ test('includes PR source context coverage when configured', () => {
   assert.match(formatMonitorMarkdown(summary), /pr-source-context \| warning/);
 });
 
+test('omits PR source context coverage by default', () => {
+  const options = parseArgs([]);
+
+  assert.equal(options.pr_source_context_report, '');
+});
+
 test('surfaces warning blockers without activating hard-block policy', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
   const terminal = writeJson(

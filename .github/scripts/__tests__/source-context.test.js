@@ -49,6 +49,14 @@ test('extractIssueNumberFromPull keeps existing issue resolution behavior', () =
     }),
     null,
   );
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Review follow-up from PR #315. Relates to source review only.',
+      head: { ref: 'review-followup/pr-315' },
+      title: 'Address downstream review',
+    }),
+    null,
+  );
 });
 
 test('parseWorkflowSourceBlock reads source-context fields from hidden block', () => {
@@ -184,6 +192,26 @@ test('resolvePrSourceContext accepts direct-pr labels without issue metadata', (
   });
 
   assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
+});
+
+test('resolvePrSourceContext keeps review follow-up PR references out of issue source detection', () => {
+  const context = resolvePrSourceContext({
+    body: `
+## Workflow Source
+
+Started from:
+- [ ] GitHub issue: #
+- [x] Review follow-up from PR #315
+- [ ] Direct PR / remote GitHub work
+`,
+    head: { ref: 'review-followup/pr-315' },
+    title: 'fix: address downstream review comments',
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.REVIEW_FOLLOWUP);
   assert.equal(context.issueNumber, null);
   assert.equal(context.isValid, true);
   assert.equal(context.requiresIssue, false);
