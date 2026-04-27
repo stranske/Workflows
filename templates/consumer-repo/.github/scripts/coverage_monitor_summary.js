@@ -217,7 +217,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     bot_auth_report:
       process.env.COVERAGE_MONITOR_BOT_AUTH_JSON || 'bot-comment-auth-coverage-summary.json',
     pr_source_context_report:
-      process.env.COVERAGE_MONITOR_PR_SOURCE_CONTEXT_JSON || 'pr-source-context-coverage.json',
+      process.env.COVERAGE_MONITOR_PR_SOURCE_CONTEXT_JSON || '',
     output_json:
       process.env.COVERAGE_MONITOR_SUMMARY_JSON || 'coverage-monitor-summary.json',
     output_md:

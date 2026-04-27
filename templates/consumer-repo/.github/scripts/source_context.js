@@ -121,7 +121,7 @@ function extractIssueNumberFromText(text) {
       continue;
     }
     const preceding = value.slice(Math.max(0, match.index - 20), match.index);
-    if (/\b(?:run|attempt|step|job|check|version|v)\s*$/i.test(preceding)) {
+    if (/\b(?:run|attempt|step|job|check|version|v|pr|pull\s+request)\s*$/i.test(preceding)) {
       continue;
     }
     const parsed = Number.parseInt(match[1], 10);
