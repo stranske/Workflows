@@ -4,28 +4,28 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ## Quick Reference
 
-| Label | Trigger | Effect |
-|-------|---------|--------|
-| `autofix` | PR labeled | Triggers automated code fixes |
-| `autofix:clean` | PR labeled | Triggers clean-mode autofix (more aggressive) |
-| `agent:codex` | Issue labeled | Triggers Codex agent assignment |
-| `agent:codex-invite` | Issue labeled | Invites Codex agent to participate |
-| `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention |
-| `status:ready` | Issue labeled | Marks issue as ready for agent processing |
-| `agents:format` | Issue labeled | Direct issue formatting |
-| `agents:formatted` | Auto-applied | Indicates issue has been formatted |
-| `agents:optimize` | Issue labeled | Analyzes issue and posts suggestions |
-| `agents:apply-suggestions` | Issue labeled | Applies optimization suggestions |
-| `agents:auto-pilot` | Issue labeled | Runs issue-to-PR automation |
-| `agents:auto-pilot-pause` | Issue labeled | Pauses auto-pilot dispatch |
-| `agents:paused` | PR labeled | Pauses keepalive loop on PR |
-| `agents:keepalive` | PR labeled | Enables keepalive loop on PR |
-| `runner:<agent>` | Issue labeled | Selects an auto-pilot runner without triggering issue intake |
-| `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge |
-| `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge |
-| `verify:compare` | PR labeled | Runs verifier comparison mode after merge |
-| `verify:create-issue` | PR labeled | Creates follow-up issue from verification |
-| `verify:create-new-pr` | PR labeled | Creates follow-up issue and PR from verification |
+| Label | Trigger | Effect
+|-------|---------|--------
+| `autofix` | PR labeled | Triggers automated code fixes
+| `autofix:clean` | PR labeled | Triggers clean-mode autofix (more aggressive)
+| `agent:codex` | Issue labeled | Triggers Codex agent assignment
+| `agent:codex-invite` | Issue labeled | Invites Codex agent to participate
+| `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention
+| `status:ready` | Issue labeled | Marks issue as ready for agent processing
+| `agents:format` | Issue labeled | Direct issue formatting
+| `agents:formatted` | Auto-applied | Indicates issue has been formatted
+| `agents:optimize` | Issue labeled | Analyzes issue and posts suggestions
+| `agents:apply-suggestions` | Issue labeled | Applies optimization suggestions
+| `agents:auto-pilot` | Issue labeled | Runs issue-to-PR automation
+| `agents:auto-pilot-pause` | Issue labeled | Pauses auto-pilot dispatch
+| `agents:paused` | PR labeled | Pauses keepalive loop on PR
+| `agents:keepalive` | PR labeled | Enables keepalive loop on PR
+| `runner:<agent>` | Issue labeled | Selects an auto-pilot runner without triggering issue intake
+| `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge
+| `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge
+| `verify:compare` | PR labeled | Runs verifier comparison mode after merge
+| `verify:create-issue` | PR labeled | Creates follow-up issue from verification
+| `verify:create-new-pr` | PR labeled | Creates follow-up issue and PR from verification
 
 ---
 
@@ -254,17 +254,17 @@ These labels control the LangChain-powered issue formatting pipeline introduced 
 These labels let direct GitHub PRs and non-issue-origin PRs integrate with
 Workflows source classification without forcing a GitHub issue.
 
-| Label | Applies to | Effect |
-|-------|------------|--------|
-| `workflow:source-issue` | Pull Requests | PR source is a GitHub issue. |
-| `workflow:source-local-request` | Pull Requests | PR source is a local Codex/user request. |
-| `workflow:source-automation` | Pull Requests | PR source is an automation or workflow run. |
-| `workflow:source-sync` | Pull Requests | PR source is a sync or maintenance campaign. |
-| `workflow:source-dependabot` | Pull Requests | PR source is Dependabot or dependency automation. |
-| `workflow:source-review-followup` | Pull Requests | PR source is review feedback follow-up. |
-| `workflow:source-direct-pr` | Pull Requests | PR was started directly on GitHub without a source issue. |
-| `workflow:no-automation` | Pull Requests | Automation should not manage the PR unless checks fail. |
-| `workflow:source-needed` | Pull Requests | Source context is missing or ambiguous. |
+| Label | Applies to | Effect
+|-------|------------|--------
+| `workflow:source-issue` | Pull Requests | PR source is a GitHub issue.
+| `workflow:source-local-request` | Pull Requests | PR source is a local Codex/user request.
+| `workflow:source-automation` | Pull Requests | PR source is an automation or workflow run.
+| `workflow:source-sync` | Pull Requests | PR source is a sync or maintenance campaign.
+| `workflow:source-dependabot` | Pull Requests | PR source is Dependabot or dependency automation.
+| `workflow:source-review-followup` | Pull Requests | PR source is review feedback follow-up.
+| `workflow:source-direct-pr` | Pull Requests | PR was started directly on GitHub without a source issue.
+| `workflow:no-automation` | Pull Requests | Automation should not manage the PR unless checks fail.
+| `workflow:source-needed` | Pull Requests | Source context is missing or ambiguous.
 
 The Workflow Source table is validated as a three-column Markdown table so label
 rows do not introduce an extra empty column in GitHub rendering.
@@ -436,18 +436,18 @@ These labels are used for categorization but do not trigger workflows.
 
 ## Label Interaction Matrix
 
-| Existing Label | New Label Added | Result |
-|---------------|-----------------|--------|
-| (none) | `autofix` | Triggers autofix |
-| `autofix` | `autofix:clean` | May trigger clean mode |
-| (none) | `agent:codex` | Triggers agent assignment |
-| `agent:codex` | `agent:codex-invite` | Sends agent invitation |
-| `agent:codex` | `status:ready` | Agent begins processing |
-| `agent:needs-attention` | (removed) | Agent resumes processing |
-| (none) | `agents:format` | Direct formatting |
-| (none) | `agents:optimize` | Analyzes and posts suggestions |
-| `agents:optimize` | `agents:apply-suggestions` | Applies suggestions, adds `agents:formatted` |
-| `agents:formatted` | `agent:codex` | Issue ready for agent processing |
+| Existing Label | New Label Added | Result
+|---------------|-----------------|--------
+| (none) | `autofix` | Triggers autofix
+| `autofix` | `autofix:clean` | May trigger clean mode
+| (none) | `agent:codex` | Triggers agent assignment
+| `agent:codex` | `agent:codex-invite` | Sends agent invitation
+| `agent:codex` | `status:ready` | Agent begins processing
+| `agent:needs-attention` | (removed) | Agent resumes processing
+| (none) | `agents:format` | Direct formatting
+| (none) | `agents:optimize` | Analyzes and posts suggestions
+| `agents:optimize` | `agents:apply-suggestions` | Applies suggestions, adds `agents:formatted`
+| `agents:formatted` | `agent:codex` | Issue ready for agent processing
 
 ---
 

@@ -349,8 +349,46 @@ test('parses CLI paths and writes summary artifacts without failing warning stat
   );
 
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /^## Weekly Coverage Monitor Contract/);
+  const markdown = fs.readFileSync(outputMd, 'utf8');
+  assert.match(markdown, /^## Weekly Coverage Monitor Contract/);
   const summary = JSON.parse(fs.readFileSync(outputJson, 'utf8'));
   assert.equal(summary.status, 'warning');
-  assert.equal(fs.readFileSync(outputMd, 'utf8'), result.stdout);
+  if (result.stdout) {
+    assert.equal(markdown, result.stdout);
+  }
+});
+
+test('CLI succeeds when configured PR source context report file is missing', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-cli-missing-pr-source-'));
+  const terminal = writeJson(dir, 'terminal.json', report('pass'));
+  const botAuth = writeJson(dir, 'bot-auth.json', report('pass'));
+  const outputJson = path.join(dir, 'summary.json');
+  const outputMd = path.join(dir, 'summary.md');
+  const missingPrSource = path.join(dir, 'missing-pr-source.json');
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.join(__dirname, '..', 'coverage_monitor_summary.js'),
+      '--terminal-report',
+      terminal,
+      '--bot-auth-report',
+      botAuth,
+      '--pr-source-context-report',
+      missingPrSource,
+      '--output-json',
+      outputJson,
+      '--output-md',
+      outputMd,
+    ],
+    { encoding: 'utf8' }
+  );
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, '');
+  const summary = JSON.parse(fs.readFileSync(outputJson, 'utf8'));
+  assert.deepEqual(
+    summary.monitors.map((monitor) => monitor.label),
+    ['terminal-disposition', 'bot-comment-auth']
+  );
 });

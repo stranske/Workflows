@@ -101,6 +101,11 @@ test('extractIssueNumberFromPull ignores arbitrary PR number references', () => 
   }
 });
 
+test('extractIssueNumberFromPull ignores bare issue-number mentions in PR descriptions', () => {
+  assert.equal(extractIssueNumberFromPull({ body: '#123' }), null);
+  assert.equal(extractIssueNumberFromPull({ body: 'see #123' }), null);
+});
+
 test('extractIssueNumberFromPull skips PR references before later issue references', () => {
   assert.equal(
     extractIssueNumberFromPull({
@@ -114,6 +119,21 @@ test('extractIssueNumberFromPull requires explicit issue wording for body refere
   assert.equal(extractIssueNumberFromPull({ body: 'See PR #456 for context' }), null);
   assert.equal(extractIssueNumberFromPull({ body: 'Related to issue #456' }), 456);
   assert.equal(extractIssueNumberFromPull({ body: 'Closes #789' }), 789);
+});
+
+test('resolvePrSourceContext does not classify bare and PR-only mentions as issue-sourced', () => {
+  for (const body of ['#123', 'see #123', 'Review follow-up from PR #123']) {
+    const context = resolvePrSourceContext({ body, head: { ref: 'feature/no-source' }, title: 'Update docs' });
+    assert.equal(context.issueNumber, null, body);
+    assert.equal(context.requiresIssue, false, body);
+  }
+});
+
+test('resolvePrSourceContext still classifies explicit issue-sourced references', () => {
+  const context = resolvePrSourceContext({ body: 'Closes #123', head: { ref: 'feature/fix' }, title: 'Fix bug' });
+  assert.equal(context.issueNumber, 123);
+  assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
+  assert.equal(context.requiresIssue, true);
 });
 
 test('parseWorkflowSourceBlock reads source-context fields from hidden block', () => {

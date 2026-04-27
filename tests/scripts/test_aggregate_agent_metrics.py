@@ -123,6 +123,7 @@ def test_build_summary_formats_sections() -> None:
     assert "Legacy missing verifier model metadata: n/a" in summary
     assert "Model selection reasons: default (1)" in summary
     assert "Verifier modes: checkbox (1)" in summary
+    assert "Unknown verifier modes: n/a" in summary
     assert "Codex CLI Freshness" in summary
     assert "Statuses: outdated (1)" in summary
     assert "Pinned versions: 0.125.0 (1)" in summary
@@ -135,6 +136,7 @@ def test_build_summary_formats_sections() -> None:
     assert verifier_contract["verifier_models"] == {"gpt-5.3-codex": 1}
     assert verifier_contract["verifier_cli_versions"] == {"codex-cli 0.125.0": 1}
     assert verifier_contract["model_selection_reasons"] == {"default": 1}
+    assert verifier_contract["unknown_verifier_modes"] == {}
     assert verifier_contract["ledger_policy_actions"] == {"create-follow-up": 1}
     assert verifier_contract["ledger_policy_triggers"] == {"verifier-concerns": 1}
     assert verifier_contract["ledger_avg_chain_depth"] == 1.0
@@ -1066,6 +1068,64 @@ def test_verifier_summary_ignores_missing_model_metadata_for_blank_mode(
     assert verifier["missing_verifier_model_metadata"] == Counter()
 
 
+def test_verifier_summary_ignores_missing_model_metadata_for_null_equivalent_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023781",
+                "pr_number": 1876,
+                "disposition": "verifier-error",
+                "verifier_mode": "null",
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"] == Counter()
+    assert verifier["unknown_verifier_modes"] == Counter()
+
+
+def test_verifier_summary_ignores_missing_model_metadata_for_unrecognized_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023782",
+                "pr_number": 1877,
+                "disposition": "verifier-error",
+                "verifier_mode": "compare-lite",
+            },
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023783",
+                "pr_number": 1878,
+                "disposition": "verifier-error",
+                "verifier_mode": "compare-lite",
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"] == Counter()
+    assert verifier["unknown_verifier_modes"]["compare-lite"] == 2
+
+
 def test_verifier_summary_counts_missing_model_metadata_for_non_evaluate_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1178,6 +1238,7 @@ def test_verifier_summary_does_not_require_model_metadata_by_default() -> None:
     )
 
     assert "Missing verifier model metadata: n/a" in summary
+    assert "Unknown verifier modes: n/a" in summary
 
 
 def test_format_helpers_and_summary_range() -> None:
