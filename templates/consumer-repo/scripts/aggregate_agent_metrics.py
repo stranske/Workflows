@@ -456,6 +456,11 @@ def _is_verifier_terminal_entry(entry: dict[str, Any]) -> bool:
     )
 
 
+def _verifier_mode_requires_model_metadata(entry: dict[str, Any]) -> bool:
+    verifier_mode = str(entry.get("verifier_mode") or "").strip().lower()
+    return bool(verifier_mode) and verifier_mode != "evaluate"
+
+
 def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
     stop_reasons = Counter()
     actions = Counter()
@@ -592,14 +597,16 @@ def _summarise_verifier(
                 unsupported_verifier_models[normalized_model_text] += 1
                 disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
                 unsupported_model_dispositions[str(disposition)] += 1
-        elif is_verifier_terminal and model_metadata_required:
-            verifier_mode = str(entry.get("verifier_mode") or "").strip().lower()
-            if verifier_mode and verifier_mode != "evaluate":
-                disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
-                if _is_pre_contract_verifier_model_record(entry, model_metadata_required_after):
-                    legacy_missing_verifier_model_metadata[str(disposition)] += 1
-                else:
-                    missing_verifier_model_metadata[str(disposition)] += 1
+        elif (
+            is_verifier_terminal
+            and model_metadata_required
+            and _verifier_mode_requires_model_metadata(entry)
+        ):
+            disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
+            if _is_pre_contract_verifier_model_record(entry, model_metadata_required_after):
+                legacy_missing_verifier_model_metadata[str(disposition)] += 1
+            else:
+                missing_verifier_model_metadata[str(disposition)] += 1
         model_selection_reason = entry.get("codex_model_selection_reason") or entry.get(
             "model_selection_reason"
         )

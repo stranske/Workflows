@@ -263,6 +263,9 @@ Workflows source classification without forcing a GitHub issue.
 | `workflow:no-automation` | Pull Requests | Automation should not manage the PR unless checks fail. |
 | `workflow:source-needed` | Pull Requests | Source context is missing or ambiguous. |
 
+The Workflow Source table is validated as a three-column Markdown table so label
+rows do not introduce an extra empty column in GitHub rendering.
+
 Use these labels as a backup to the PR template's Workflow Source section. If a
 PR has no linked issue and no valid Workflow Source, the PR metadata automation
 posts one repair comment instead of repeatedly treating the PR as issue-delivery

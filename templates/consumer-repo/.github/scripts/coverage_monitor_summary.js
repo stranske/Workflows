@@ -136,16 +136,20 @@ function nextAction(status, monitors) {
   return 'continue-monitoring';
 }
 
+function optionalExistingReportPath(filePath) {
+  const cleanedPath = cleanString(filePath);
+  if (!cleanedPath) return '';
+  if (!fs.existsSync(cleanedPath)) return '';
+  if (!fs.statSync(cleanedPath).isFile()) return '';
+  return cleanedPath;
+}
+
 function buildCoverageMonitorSummary(options = {}) {
   const terminal = summarizeReport(readJsonReport(options.terminal_report, 'terminal-disposition'));
   const botAuth = summarizeReport(readJsonReport(options.bot_auth_report, 'bot-comment-auth'));
   const monitors = [terminal, botAuth];
-  const prSourceContextReportPath = cleanString(options.pr_source_context_report);
-  if (
-    prSourceContextReportPath &&
-    fs.existsSync(prSourceContextReportPath) &&
-    fs.statSync(prSourceContextReportPath).isFile()
-  ) {
+  const prSourceContextReportPath = optionalExistingReportPath(options.pr_source_context_report);
+  if (prSourceContextReportPath) {
     monitors.push(
       summarizeReport(readJsonReport(prSourceContextReportPath, 'pr-source-context'))
     );
@@ -271,6 +275,7 @@ module.exports = {
   buildCoverageMonitorSummary,
   formatMonitorMarkdown,
   normalizeMonitorArtifactSelection,
+  optionalExistingReportPath,
   parseArgs,
   readJsonReport,
 };

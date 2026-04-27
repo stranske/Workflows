@@ -9,6 +9,7 @@ const {
   buildCoverageMonitorSummary,
   formatMonitorMarkdown,
   normalizeMonitorArtifactSelection,
+  optionalExistingReportPath,
   parseArgs,
   readJsonReport,
   SUMMARY_SCHEMA,
@@ -110,6 +111,16 @@ test('skips PR source context coverage when configured file is absent', () => {
     summary.monitors.map((monitor) => monitor.label),
     ['terminal-disposition', 'bot-comment-auth']
   );
+});
+
+test('treats PR source context coverage as an optional existing file input', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
+  const prSource = writeJson(dir, 'pr-source.json', report('pass'));
+
+  assert.equal(optionalExistingReportPath(''), '');
+  assert.equal(optionalExistingReportPath(path.join(dir, 'missing-pr-source.json')), '');
+  assert.equal(optionalExistingReportPath(dir), '');
+  assert.equal(optionalExistingReportPath(` ${prSource} `), prSource);
 });
 
 test('does not include PR source context coverage by default', () => {
