@@ -94,6 +94,30 @@ test('includes PR source context coverage when configured', () => {
   assert.match(formatMonitorMarkdown(summary), /pr-source-context \| warning/);
 });
 
+test('skips absent PR source context report when not configured', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
+  const terminal = writeJson(dir, 'terminal.json', report('pass'));
+  const botAuth = writeJson(dir, 'bot-auth.json', report('pass'));
+
+  const summary = buildCoverageMonitorSummary({
+    terminal_report: terminal,
+    bot_auth_report: botAuth,
+    pr_source_context_report: path.join(dir, 'missing-pr-source.json'),
+  });
+
+  assert.equal(summary.status, 'pass');
+  assert.deepEqual(
+    summary.monitors.map((monitor) => monitor.label),
+    ['terminal-disposition', 'bot-comment-auth']
+  );
+});
+
+test('does not configure PR source context coverage by default', () => {
+  const options = parseArgs([]);
+
+  assert.equal(options.pr_source_context_report, '');
+});
+
 test('surfaces warning blockers without activating hard-block policy', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
   const terminal = writeJson(

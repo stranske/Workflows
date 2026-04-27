@@ -106,6 +106,20 @@ function labelNames(pull = {}) {
     : [];
 }
 
+function hasExplicitIssueReferencePrefix(value) {
+  const prefix = cleanString(value)
+    .replace(/[>_[\]()`*~]/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  if (/\b(?:pr|pull\s+request)\s*[:#-]?\s*$/i.test(prefix)) {
+    return false;
+  }
+
+  return /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|relate[sd]?\s+to|refs?|references?|issue|source\s+issue|github\s+issue)\s*[:#-]?\s*$/i.test(
+    prefix
+  );
+}
+
 function extractIssueNumberFromText(text) {
   const value = String(text || '');
   for (const match of value.matchAll(/#([0-9]+)/g)) {
@@ -122,6 +136,9 @@ function extractIssueNumberFromText(text) {
     }
     const preceding = value.slice(Math.max(0, match.index - 20), match.index);
     if (/\b(?:run|attempt|step|job|check|version|v)\s*$/i.test(preceding)) {
+      continue;
+    }
+    if (!hasExplicitIssueReferencePrefix(value.slice(Math.max(0, match.index - 80), match.index))) {
       continue;
     }
     const parsed = Number.parseInt(match[1], 10);

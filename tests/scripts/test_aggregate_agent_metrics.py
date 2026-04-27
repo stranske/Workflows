@@ -911,7 +911,7 @@ def test_verifier_summary_counts_missing_model_metadata(
     assert "Missing verifier model metadata: verifier-error (1)" in summary
 
 
-def test_verifier_summary_counts_missing_model_metadata_for_unknown_mode(
+def test_verifier_summary_ignores_missing_model_metadata_for_unknown_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
@@ -931,7 +931,7 @@ def test_verifier_summary_counts_missing_model_metadata_for_unknown_mode(
         ]
     )
 
-    assert verifier["missing_verifier_model_metadata"]["verifier-error"] == 1
+    assert verifier["missing_verifier_model_metadata"] == Counter()
 
 
 def test_verifier_summary_suppresses_pre_contract_missing_model_metadata(

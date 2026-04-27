@@ -51,6 +51,32 @@ test('extractIssueNumberFromPull keeps existing issue resolution behavior', () =
   );
 });
 
+test('extractIssueNumberFromPull ignores PR references in workflow source templates', () => {
+  const context = resolvePrSourceContext({
+    body: `
+## Workflow Source
+
+Started from:
+- [ ] GitHub issue: #
+- [x] Review follow-up from PR #315
+- [ ] Direct PR / remote GitHub work
+`,
+    head: { ref: 'review-followup/source-context' },
+    title: 'fix: address review follow-up',
+  });
+
+  assert.equal(extractIssueNumberFromPull({ body: 'Review follow-up from PR #315' }), null);
+  assert.equal(context.sourceType, SOURCE_TYPES.REVIEW_FOLLOWUP);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.requiresIssue, false);
+});
+
+test('extractIssueNumberFromPull requires explicit issue wording for body references', () => {
+  assert.equal(extractIssueNumberFromPull({ body: 'See PR #456 for context' }), null);
+  assert.equal(extractIssueNumberFromPull({ body: 'Related to issue #456' }), 456);
+  assert.equal(extractIssueNumberFromPull({ body: 'Closes #789' }), 789);
+});
+
 test('parseWorkflowSourceBlock reads source-context fields from hidden block', () => {
   const block = parseWorkflowSourceBlock(`
 <!-- workflow-source:start -->
