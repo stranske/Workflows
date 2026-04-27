@@ -1093,7 +1093,7 @@ def test_verifier_summary_ignores_missing_model_metadata_for_null_equivalent_mod
     assert verifier["unknown_verifier_modes"] == Counter()
 
 
-def test_verifier_summary_ignores_missing_model_metadata_for_unrecognized_mode(
+def test_verifier_summary_counts_missing_model_metadata_for_unrecognized_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
@@ -1122,8 +1122,33 @@ def test_verifier_summary_ignores_missing_model_metadata_for_unrecognized_mode(
         ]
     )
 
-    assert verifier["missing_verifier_model_metadata"] == Counter()
+    assert verifier["missing_verifier_model_metadata"]["verifier-error"] == 2
     assert verifier["unknown_verifier_modes"]["compare-lite"] == 2
+
+
+def test_verifier_summary_treats_false_mode_as_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023784",
+                "pr_number": 1879,
+                "disposition": "verifier-error",
+                "verifier_mode": False,
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"] == Counter()
+    assert verifier["unknown_verifier_modes"] == Counter()
 
 
 def test_verifier_summary_counts_missing_model_metadata_for_non_evaluate_mode(

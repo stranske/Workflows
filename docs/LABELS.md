@@ -263,7 +263,7 @@ Workflows source classification without forcing a GitHub issue.
 | `workflow:source-dependabot` | Pull Requests | PR source is Dependabot or dependency automation.
 | `workflow:source-review-followup` | Pull Requests | PR source is review feedback follow-up.
 | `workflow:source-direct-pr` | Pull Requests | PR was started directly on GitHub without a source issue.
-| `workflow:no-automation` | Pull Requests | Automation should not manage the PR unless checks fail.
+| `workflow:no-automation` | Pull Requests | Fully opts the PR out of automation management and automation-triggered follow-up actions.
 | `workflow:source-needed` | Pull Requests | Source context is missing or ambiguous.
 
 The Workflow Source table is validated as a three-column Markdown table so label
@@ -416,7 +416,7 @@ These labels are used for categorization but do not trigger workflows.
 
 ### `needs-formatting`
 
-**Applies to:** Issues  
+**Applies to:** Issues
 
 **Effect:** Indicates the issue needs formatting to AGENT_ISSUE_TEMPLATE structure.
 
@@ -448,6 +448,12 @@ These labels are used for categorization but do not trigger workflows.
 | (none) | `agents:optimize` | Analyzes and posts suggestions
 | `agents:optimize` | `agents:apply-suggestions` | Applies suggestions, adds `agents:formatted`
 | `agents:formatted` | `agent:codex` | Issue ready for agent processing
+| `agents:auto-pilot` | `runner:<agent>` | Auto-pilot uses the selected runner when it dispatches work
+| (none) | `agents:keepalive` | Enables keepalive monitoring for an agent PR
+| `agents:keepalive` | `agents:paused` | Pauses keepalive and agent dispatch until resumed
+| `agents:paused` | (removed) | Keepalive can resume on the next eligible event
+| Merged PR with verifier report | `verify:create-issue` | Creates a verifier follow-up issue
+| Merged PR with verifier report | `verify:create-new-pr` | Creates and bootstraps a verifier follow-up PR
 
 ---
 

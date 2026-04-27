@@ -593,6 +593,23 @@ test('resolveNonIssueWorkflowSourceContextForBodySync yields to branch-inferred 
   assert.equal(prReferenceContext, null);
 });
 
+test('resolveNonIssueWorkflowSourceContextForBodySync preserves explicit non-issue markers without issue number', () => {
+  const context = resolveNonIssueWorkflowSourceContextForBodySync(
+    {
+      body: [
+        '<!-- workflow-source:local_request -->',
+        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+      ].join('\n'),
+      head: { ref: 'codex/local-request' },
+      title: 'Follow-up',
+    },
+    null,
+  );
+
+  assert.equal(context.sourceType, 'local_request');
+  assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
+});
+
 test('resolveNonIssueWorkflowSourceContextForBodySync yields to explicit issue references', () => {
   const context = resolveNonIssueWorkflowSourceContextForBodySync(
     {

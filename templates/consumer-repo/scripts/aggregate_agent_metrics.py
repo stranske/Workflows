@@ -21,9 +21,21 @@ _DEFAULT_DOWNLOAD_MANIFEST_PATH = "artifacts/metric-artifact-download-manifest.j
 _DEFAULT_ARTIFACT_SELECTION_PATH = "artifacts/metric-artifacts-selection.json"
 _DEFAULT_UNSUPPORTED_VERIFIER_MODELS = {"gpt-5.2-codex"}
 _DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER = ""
-_NULL_EQUIVALENT_TOKENS = {"", "none", "null", "nil", "n/a", "na", "undefined", "unknown"}
+_NULL_EQUIVALENT_TOKENS = {
+    "",
+    "0",
+    "false",
+    "none",
+    "null",
+    "nil",
+    "n/a",
+    "na",
+    "off",
+    "disabled",
+    "undefined",
+    "unknown",
+}
 _KNOWN_VERIFIER_MODES = {"checkbox", "compare", "evaluate"}
-_MODEL_METADATA_REQUIRED_MODES = {"checkbox", "compare"}
 _TERMINAL_ARTIFACT_FAMILIES = (
     "review-thread-terminal-disposition",
     "verifier-terminal-disposition",
@@ -472,13 +484,9 @@ def _normalize_verifier_mode(value: Any) -> str:
     return verifier_mode
 
 
-def _is_known_verifier_mode(value: Any) -> bool:
-    return _normalize_verifier_mode(value) in _KNOWN_VERIFIER_MODES
-
-
 def _verifier_mode_requires_model_metadata(entry: dict[str, Any]) -> bool:
     verifier_mode = _normalize_verifier_mode(entry.get("verifier_mode"))
-    return verifier_mode in _MODEL_METADATA_REQUIRED_MODES
+    return bool(verifier_mode) and verifier_mode != "evaluate"
 
 
 def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
