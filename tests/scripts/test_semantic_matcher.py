@@ -2,7 +2,7 @@ import sys
 import types
 
 from scripts.langchain import semantic_matcher
-from tools.embedding_provider import FALLBACK_DIMENSIONS
+from tools.embedding_provider import FALLBACK_DIMENSIONS, LocalFallbackEmbeddingProvider
 
 
 class StubEmbeddings:
@@ -104,6 +104,16 @@ def test_get_embedding_client_uses_default_model(monkeypatch):
 
     assert info is not None
     assert info.model == semantic_matcher.DEFAULT_EMBEDDING_MODEL
+
+
+def test_embedding_adapter_is_callable_for_faiss_compatibility():
+    adapter = semantic_matcher.EmbeddingAdapter(
+        LocalFallbackEmbeddingProvider(),
+        "local-hash-bow",
+    )
+
+    assert callable(adapter)
+    assert adapter("alpha") == adapter.embed_query("alpha")
 
 
 def test_generate_embeddings_empty_texts():

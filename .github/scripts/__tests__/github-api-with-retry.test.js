@@ -5,10 +5,24 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const {
+  isRateLimitError,
+  isSecondaryRateLimitError,
   withRetry,
   paginateWithRetry,
   createTokenAwareRetry,
 } = require(path.join(__dirname, '../github-api-with-retry'));
+
+test('exports rate limit classifiers for workflow fail-open guards', () => {
+  const primary = new Error('API rate limit exceeded');
+  primary.status = 403;
+  primary.response = { headers: { 'x-ratelimit-remaining': '0' } };
+
+  const secondary = new Error('You have exceeded a secondary rate limit');
+  secondary.status = 403;
+
+  assert.equal(isRateLimitError(primary), true);
+  assert.equal(isSecondaryRateLimitError(secondary), true);
+});
 
 test('withRetry switches tokens on primary rate limit errors', async () => {
   const calls = [];

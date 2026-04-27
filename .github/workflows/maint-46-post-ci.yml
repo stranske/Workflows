@@ -123,11 +123,13 @@ jobs:
             await discoverWorkflowRuns({ github, context, core });
 
       - name: Download Gate artifacts
+        id: download_gate_artifacts
         if: >-
           ${{
             steps.gate_guard.outputs.recover == 'true' &&
             steps.discover.outputs.gate_run_id != ''
           }}
+        continue-on-error: true
         uses: actions/download-artifact@v8
         with:
           pattern: gate-*
@@ -135,6 +137,15 @@ jobs:
           path: ${{ env.ARTIFACT_ROOT }}/downloads
           run-id: ${{ steps.discover.outputs.gate_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Note Gate artifact download limitation
+        if: ${{ steps.download_gate_artifacts.outcome == 'failure' }}
+        run: |
+          echo '::warning::Gate artifact download failed; continuing with API run metadata only.'
+          {
+            echo 'Gate artifact download failed.'
+            echo 'This recovery summary omits artifact-only coverage detail.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Collect coverage payloads
         if: >-
