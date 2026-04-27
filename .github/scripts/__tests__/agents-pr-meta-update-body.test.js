@@ -446,6 +446,20 @@ test('buildSourceContextResolvedCommentBody explains sync-campaign source contex
   assert.ok(result.includes('No linked GitHub issue is required'));
 });
 
+test('buildSourceContextResolvedCommentBody explains issue-backed source context', () => {
+  const result = buildSourceContextResolvedCommentBody(123, {
+    sourceType: 'github_issue',
+    issueNumber: 456,
+    sourceRef: '#456',
+    requiresIssue: true,
+  });
+
+  assert.ok(result.includes('origin=github_issue'));
+  assert.ok(result.includes('ref=#456'));
+  assert.ok(result.includes('A linked GitHub issue is present'));
+  assert.ok(!result.includes('No linked GitHub issue is required'));
+});
+
 test('resolveExplicitNonIssueWorkflowSourceContext preserves explicit automation source despite stale issue preamble', () => {
   const context = resolveExplicitNonIssueWorkflowSourceContext({
     body: [
@@ -487,7 +501,22 @@ test('resolveExplicitNonIssueWorkflowSourceContext ignores source issue markers'
   assert.equal(context, null);
 });
 
-test('resolveNonIssueWorkflowSourceContextForBodySync preserves issue-sourced sync precedence', () => {
+test('resolveNonIssueWorkflowSourceContextForBodySync preserves explicit issue-sourced sync precedence', () => {
+  const context = resolveNonIssueWorkflowSourceContextForBodySync(
+    {
+      body: [
+        'Closes #123',
+        '<!-- workflow-source:local_request -->',
+        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+      ].join('\n'),
+    },
+    123,
+  );
+
+  assert.equal(context, null);
+});
+
+test('resolveNonIssueWorkflowSourceContextForBodySync lets explicit non-issue markers replace generated issue metadata', () => {
   const context = resolveNonIssueWorkflowSourceContextForBodySync(
     {
       body: [
@@ -499,7 +528,8 @@ test('resolveNonIssueWorkflowSourceContextForBodySync preserves issue-sourced sy
     123,
   );
 
-  assert.equal(context, null);
+  assert.equal(context.sourceType, 'local_request');
+  assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
 });
 
 test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () => {
@@ -512,7 +542,11 @@ test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () 
     false,
   );
   assert.equal(hasExplicitIssueSyncReference({ body: 'Closes #123' }), true);
-  assert.equal(hasExplicitIssueSyncReference({ body: '<!-- meta:issue:123 -->' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Related to #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'source issue #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'This issue only mentions review follow-up PR #123' }), false);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'refs in this paragraph mention PR #123' }), false);
+  assert.equal(hasExplicitIssueSyncReference({ body: '<!-- meta:issue:123 -->' }), false);
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync honors explicit non-issue markers over heuristics', () => {
