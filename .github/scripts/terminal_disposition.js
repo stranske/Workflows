@@ -31,7 +31,7 @@ function normalizeCliVersion(value) {
   const version = versionMatch ? versionMatch[1] : '';
   const lower = text.toLowerCase().replace(/_/g, '-');
   if (version && /\bcodex(?:-|\s+)cli\b|\bopenai\/codex\b|\bcodex\b/.test(lower)) {
-    return `codex-cli ${version}`;
+    return `codex-cli ${version}`.toLowerCase();
   }
   return lower;
 }

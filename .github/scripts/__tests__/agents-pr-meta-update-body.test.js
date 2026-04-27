@@ -409,7 +409,7 @@ test('buildSourceContextRepairCommentBody explains non-issue source options', ()
   const result = buildSourceContextRepairCommentBody(55);
 
   assert.ok(result.includes('<!-- missing-issue-warning -->'));
-  assert.ok(result.includes('PR #55 does not need a GitHub issue'));
+  assert.ok(result.includes('PR #55 needs either a linked GitHub issue or one valid non-issue Workflow Source'));
   assert.ok(result.includes('<!-- workflow-source:local_request -->'));
   assert.ok(result.includes('workflow:source-direct-pr'));
   assert.ok(result.includes('workflow:no-automation'));

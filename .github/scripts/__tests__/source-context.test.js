@@ -123,6 +123,19 @@ Automation intent:
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.MANUAL_REMOTE);
 });
 
+test('sourceTypeFromCheckedTemplate rejects ambiguous checked source choices', () => {
+  const body = `
+## Workflow Source
+
+Started from:
+- [x] GitHub issue: #123
+- [x] Direct PR / remote GitHub work
+- [ ] Local Codex/user request
+`;
+
+  assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.UNKNOWN);
+});
+
 test('sourceTypeFromLabels accepts workflow source labels', () => {
   const pull = {
     labels: [{ name: 'workflow:source-local-request' }],
