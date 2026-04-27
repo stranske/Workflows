@@ -1029,7 +1029,7 @@ function resolveExplicitNonIssueWorkflowSourceContext(pr = {}) {
 function hasExplicitIssueSyncReference(pr = {}) {
   const text = `${pr.title || ''}\n${pr.body || ''}`;
   const explicitClosingReference = /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)\s*[:#-]?\s*#[0-9]+\b/i;
-  const explicitIssueReference = /\b(?:relate[sd]?\s+to|references?|source\s+issue|github\s+issue|linked\s+issue)\s*[:#-]?\s*#[0-9]+\b/i;
+  const explicitIssueReference = /\b(?:(?:relate[sd]?\s+to|references?)\s+(?:issue\s+)?|(?:source|github|linked)\s+issue\s*)[:#-]?\s*#[0-9]+\b/i;
   return explicitClosingReference.test(text) || explicitIssueReference.test(text);
 }
 

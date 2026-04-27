@@ -543,6 +543,8 @@ test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () 
   );
   assert.equal(hasExplicitIssueSyncReference({ body: 'Closes #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'Related to #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Related to issue #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'References issue #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'source issue #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'This issue only mentions review follow-up PR #123' }), false);
   assert.equal(hasExplicitIssueSyncReference({ body: 'refs in this paragraph mention PR #123' }), false);
