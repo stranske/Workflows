@@ -31,6 +31,7 @@ _EXACT_ARTIFACT_FAMILIES = {
     "agents-verifier-metrics",
     "agents-verifier-disposition-metrics",
     "codex-cli-freshness",
+    "pr-source-context",
 }
 _PREFIXED_ARTIFACT_FAMILIES = (
     "autopilot-metrics-",

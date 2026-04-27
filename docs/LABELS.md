@@ -16,8 +16,11 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agents:formatted` | Auto-applied | Indicates issue has been formatted |
 | `agents:optimize` | Issue labeled | Analyzes issue and posts suggestions |
 | `agents:apply-suggestions` | Issue labeled | Applies optimization suggestions |
+| `agents:auto-pilot` | Issue labeled | Runs issue-to-PR automation |
+| `agents:auto-pilot-pause` | Issue labeled | Pauses auto-pilot dispatch |
 | `agents:paused` | PR labeled | Pauses keepalive loop on PR |
 | `agents:keepalive` | PR labeled | Enables keepalive loop on PR |
+| `runner:<agent>` | Issue labeled | Selects an auto-pilot runner without triggering issue intake |
 | `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge |
 | `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge |
 | `verify:compare` | PR labeled | Runs verifier comparison mode after merge |

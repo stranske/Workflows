@@ -720,6 +720,10 @@ def test_classify_entry_prefers_explicit_type() -> None:
     assert aggregate_agent_metrics._classify_entry({"other": "value"}) == "unknown"
 
 
+def test_artifact_family_classifies_pr_source_context() -> None:
+    assert aggregate_agent_metrics._artifact_family("pr-source-context") == "pr-source-context"
+
+
 def test_safe_number_helpers() -> None:
     assert aggregate_agent_metrics._safe_int("3") == 3
     assert aggregate_agent_metrics._safe_int("bad") is None

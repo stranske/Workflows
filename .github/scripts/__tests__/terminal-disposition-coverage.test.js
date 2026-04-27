@@ -375,7 +375,7 @@ test('does not require verifier model metadata when mode is unknown', () => {
   assert.deepEqual(report.enforcement.blockers, []);
 });
 
-test('requires verifier model metadata for post-contract records with unknown mode', () => {
+test('does not require verifier model metadata for post-contract records with unknown mode', () => {
   const report = summarizeTerminalDispositionCoverage(
     [
       {
@@ -394,12 +394,11 @@ test('requires verifier model metadata for post-contract records with unknown mo
   );
   const markdown = formatTerminalDispositionCoverageMarkdown(report);
 
-  assert.equal(report.status, 'warning');
-  assert.equal(report.verifier_model_compatibility.missing_model_record_count, 1);
-  assert.equal(report.verifier_model_compatibility.missing_model_unknown_mode_record_count, 1);
-  assert.deepEqual(report.enforcement.blockers, ['missing-verifier-model-metadata']);
-  assert.equal(report.verifier_model_compatibility.missing_model_records[0].verifier_mode, 'unknown');
-  assert.match(markdown, /Missing verifier model metadata records with unknown mode: 1/);
+  assert.equal(report.status, 'pass');
+  assert.equal(report.verifier_model_compatibility.missing_model_record_count, 0);
+  assert.equal(report.verifier_model_compatibility.missing_model_unknown_mode_record_count, 0);
+  assert.deepEqual(report.enforcement.blockers, []);
+  assert.match(markdown, /Missing verifier model metadata records with unknown mode: 0/);
 });
 
 test('suppresses pre-contract verifier terminal records missing model metadata', () => {

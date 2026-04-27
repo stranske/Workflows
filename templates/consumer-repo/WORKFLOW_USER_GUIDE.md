@@ -87,7 +87,7 @@ Issue: "Add user authentication"
 4. Use a `workflow:source-*` label if you need to classify an existing PR from the PR list
 
 **What Happens:**
-- Workflows treats valid non-issue sources as intentional work instead of missing process state
+- Workflows treat valid non-issue sources as intentional work instead of missing process state
 - PR metadata automation avoids repeated missing-source repair comments
 - Keepalive can continue without a linked issue when the PR has a valid non-issue workflow source context
 
@@ -138,7 +138,7 @@ Issue: "Add user authentication"
 ### User-Applied Labels (Triggers)
 
 | Label | Where | What It Does |
-|-------|-------|--------------||
+|-------|-------|--------------|
 | `autofix` | PR | Auto-fixes formatting/lint errors |
 | `autofix:clean` | PR | Aggressive autofix with cosmetic repairs |
 | `agent:codex` | Issue | Creates PR from issue |
@@ -159,7 +159,7 @@ Issue: "Add user authentication"
 ### Auto-Applied Labels (Status)
 
 | Label | Meaning |
-|-------|---------||
+|-------|---------|
 | `agents:formatted` | Issue has been formatted |
 | `agents:keepalive` | Keepalive is monitoring this PR |
 | `agent:needs-attention` | Human intervention required |
