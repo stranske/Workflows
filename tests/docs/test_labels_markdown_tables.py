@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 LABELS_DOC = Path("docs/LABELS.md")
 
 
@@ -44,10 +43,7 @@ def test_reviewed_label_rows_stay_three_column_rows() -> None:
         line.strip()
         for line in lines
         if line.strip().startswith("|")
-        and (
-            "`workflow:source-needed`" in line
-            or "`agents:apply-suggestions`" in line
-        )
+        and ("`workflow:source-needed`" in line or "`agents:apply-suggestions`" in line)
     ]
 
     assert reviewed_rows
