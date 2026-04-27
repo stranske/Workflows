@@ -594,7 +594,7 @@ def _summarise_verifier(
                 unsupported_model_dispositions[str(disposition)] += 1
         elif is_verifier_terminal and model_metadata_required:
             verifier_mode = str(entry.get("verifier_mode") or "").strip().lower()
-            if verifier_mode != "evaluate":
+            if verifier_mode and verifier_mode != "evaluate":
                 disposition = entry.get("disposition") or entry.get("terminal_state") or "unknown"
                 if _is_pre_contract_verifier_model_record(entry, model_metadata_required_after):
                     legacy_missing_verifier_model_metadata[str(disposition)] += 1

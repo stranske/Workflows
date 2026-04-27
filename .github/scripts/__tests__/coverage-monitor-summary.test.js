@@ -100,6 +100,24 @@ test('omits PR source context coverage by default', () => {
   assert.equal(options.pr_source_context_report, '');
 });
 
+test('omits missing optional PR source context coverage report', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
+  const terminal = writeJson(dir, 'terminal.json', report('pass'));
+  const botAuth = writeJson(dir, 'bot-auth.json', report('pass'));
+
+  const summary = buildCoverageMonitorSummary({
+    terminal_report: terminal,
+    bot_auth_report: botAuth,
+    pr_source_context_report: path.join(dir, 'not-created.json'),
+  });
+
+  assert.equal(summary.status, 'pass');
+  assert.deepEqual(
+    summary.monitors.map((monitor) => monitor.label),
+    ['terminal-disposition', 'bot-comment-auth']
+  );
+});
+
 test('surfaces warning blockers without activating hard-block policy', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
   const terminal = writeJson(

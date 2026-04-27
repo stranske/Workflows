@@ -136,14 +136,23 @@ function nextAction(status, monitors) {
   return 'continue-monitoring';
 }
 
+function existingReportPath(value) {
+  const reportPath = cleanString(value);
+  if (!reportPath) return '';
+  try {
+    return fs.existsSync(reportPath) && fs.statSync(reportPath).isFile() ? reportPath : '';
+  } catch (_error) {
+    return '';
+  }
+}
+
 function buildCoverageMonitorSummary(options = {}) {
   const terminal = summarizeReport(readJsonReport(options.terminal_report, 'terminal-disposition'));
   const botAuth = summarizeReport(readJsonReport(options.bot_auth_report, 'bot-comment-auth'));
   const monitors = [terminal, botAuth];
-  if (cleanString(options.pr_source_context_report)) {
-    monitors.push(
-      summarizeReport(readJsonReport(options.pr_source_context_report, 'pr-source-context'))
-    );
+  const prSourceContextReport = existingReportPath(options.pr_source_context_report);
+  if (prSourceContextReport) {
+    monitors.push(summarizeReport(readJsonReport(prSourceContextReport, 'pr-source-context')));
   }
   const status = overallStatus(monitors);
   const hardBlockActive = monitors.some((monitor) => monitor.hard_block_active);
