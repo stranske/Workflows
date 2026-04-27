@@ -564,7 +564,7 @@ test('extractExplicitIssueSyncNumbers returns only explicit issue references', (
   );
 });
 
-test('resolveNonIssueWorkflowSourceContextForBodySync yields to branch-inferred issue numbers', () => {
+test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue markers for heuristic issue numbers', () => {
   const branchHeuristicContext = resolveNonIssueWorkflowSourceContextForBodySync(
     {
       body: [
@@ -577,7 +577,8 @@ test('resolveNonIssueWorkflowSourceContextForBodySync yields to branch-inferred 
     123,
   );
 
-  assert.equal(branchHeuristicContext, null);
+  assert.equal(branchHeuristicContext.sourceType, 'local_request');
+  assert.equal(branchHeuristicContext.sourceRef, 'codex-thread-2026-04-26');
 
   const prReferenceContext = resolveNonIssueWorkflowSourceContextForBodySync(
     {
@@ -590,7 +591,8 @@ test('resolveNonIssueWorkflowSourceContextForBodySync yields to branch-inferred 
     123,
   );
 
-  assert.equal(prReferenceContext, null);
+  assert.equal(prReferenceContext.sourceType, 'review_followup');
+  assert.equal(prReferenceContext.sourceRef, 'PR #123');
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync preserves explicit non-issue markers without issue number', () => {
