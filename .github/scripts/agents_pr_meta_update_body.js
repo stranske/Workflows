@@ -1031,7 +1031,7 @@ function extractExplicitIssueSyncNumbers(pr = {}) {
   const issueNumbers = new Set();
   const patterns = [
     /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)\s*[:#-]?\s*#([0-9]+)\b/gi,
-    /\b(?:(?:relate[sd]?\s+to|references?)\s+(?:issue\s+)?|(?:source|github|linked)\s+issue\s*)[:#-]?\s*#([0-9]+)\b/gi,
+    /\b(?:(?:relate[sd]?\s+to|refs?|references?)\s+(?:issue\s+)?|(?:source|github|linked)\s+issue\s*)[:#-]?\s*#([0-9]+)\b/gi,
   ];
   for (const pattern of patterns) {
     for (const match of text.matchAll(pattern)) {
@@ -1488,6 +1488,13 @@ async function run({github: rawGithub, context, core, inputs}) {
     return;
   }
 
+  core.info(`Fetching content from issue #${issueNumber} for PR #${pr.number}`);
+  const issueResponse = await withRetries(
+    () => github.rest.issues.get({owner, repo, issue_number: issueNumber}),
+    {description: `issues.get #${issueNumber}`, core},
+  );
+  const issueBody = issueResponse.data.body || '';
+
   try {
     const comments = await github.paginate(github.rest.issues.listComments, {
       owner,
@@ -1506,13 +1513,6 @@ async function run({github: rawGithub, context, core, inputs}) {
   } catch (error) {
     core.warning(`Failed to resolve workflow source repair comment: ${error.message}`);
   }
-
-  core.info(`Fetching content from issue #${issueNumber} for PR #${pr.number}`);
-  const issueResponse = await withRetries(
-    () => github.rest.issues.get({owner, repo, issue_number: issueNumber}),
-    {description: `issues.get #${issueNumber}`, core},
-  );
-  const issueBody = issueResponse.data.body || '';
 
   if (!issueBody) {
     core.warning(`Issue #${issueNumber} has no body content`);

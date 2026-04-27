@@ -28,6 +28,7 @@ const {
   extractIssueRefsFromText,
   extractContextSectionWithPython,
   upsertBlock,
+  run,
 } = require('../agents_pr_meta_update_body.js');
 
 test('extractContextSectionWithPython returns trimmed stdout from python', () => {
@@ -545,6 +546,7 @@ test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () 
   assert.equal(hasExplicitIssueSyncReference({ body: 'Closes #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'Related to #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'Related to issue #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Refs #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'References issue #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'source issue #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'This issue only mentions review follow-up PR #123' }), false);
@@ -556,9 +558,9 @@ test('extractExplicitIssueSyncNumbers returns only explicit issue references', (
   assert.deepEqual(
     Array.from(extractExplicitIssueSyncNumbers({
       title: 'Review follow-up',
-      body: 'Closes #123\nReferences issue #456\nReview follow-up from PR #789',
+      body: 'Closes #123\nReferences issue #456\nRefs #234\nReview follow-up from PR #789',
     })).sort((a, b) => a - b),
-    [123, 456],
+    [123, 234, 456],
   );
 });
 
@@ -676,6 +678,73 @@ test('resolveSourceContextRepairComment skips when no warning exists', async () 
   });
 
   assert.strictEqual(updated, false);
+});
+
+test('run leaves source repair warning unresolved when issue fetch fails', async () => {
+  const calls = {
+    listComments: 0,
+    updateComment: 0,
+  };
+  const github = {
+    paginate: async () => {
+      calls.listComments += 1;
+      return [{ id: 99, body: '<!-- missing-issue-warning -->\nstale warning' }];
+    },
+    rest: {
+      pulls: {
+        get: async () => ({
+          data: {
+            number: 55,
+            state: 'open',
+            title: 'Sync body',
+            body: 'Refs #123',
+            head: { sha: 'abc123', ref: 'codex/sync-body' },
+            labels: [],
+          },
+        }),
+        update: async () => {
+          throw new Error('should not update PR body');
+        },
+      },
+      issues: {
+        get: async () => {
+          throw new Error('issue not found');
+        },
+        listComments: {},
+        updateComment: async () => {
+          calls.updateComment += 1;
+        },
+      },
+    },
+  };
+  const failures = [];
+  const core = {
+    info: () => {},
+    debug: () => {},
+    warning: () => {},
+    error: () => {},
+    setFailed: (message) => failures.push(message),
+  };
+
+  await run({
+    github,
+    context: {
+      repo: { owner: 'octo', repo: 'demo' },
+      eventName: 'pull_request',
+      payload: {
+        pull_request: {
+          number: 55,
+          head: { sha: 'abc123' },
+        },
+      },
+    },
+    core,
+    inputs: {},
+  });
+
+  assert.strictEqual(calls.listComments, 0);
+  assert.strictEqual(calls.updateComment, 0);
+  assert.match(failures[0], /issue not found/);
 });
 
 // ========== fetchConnectorCheckboxStates tests ==========
