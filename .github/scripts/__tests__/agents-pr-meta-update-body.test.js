@@ -549,6 +549,10 @@ test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () 
   assert.equal(hasExplicitIssueSyncReference({ body: 'Refs #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'References issue #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'source issue #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Issue #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: '> **Source:** Issue #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Known issue #123 blocks this PR' }), false);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'No issue #123 is linked' }), false);
   assert.equal(hasExplicitIssueSyncReference({ body: 'This issue only mentions review follow-up PR #123' }), false);
   assert.equal(hasExplicitIssueSyncReference({ body: 'refs in this paragraph mention PR #123' }), false);
   assert.equal(hasExplicitIssueSyncReference({ body: '<!-- meta:issue:123 -->' }), true);
@@ -558,9 +562,9 @@ test('extractExplicitIssueSyncNumbers returns only explicit issue references', (
   assert.deepEqual(
     Array.from(extractExplicitIssueSyncNumbers({
       title: 'Review follow-up',
-      body: 'Closes #123\nReferences issue #456\nRefs #234\nRelated to campaign issue #345\n<!-- meta:issue:567 -->\nReview follow-up from PR #789',
+      body: 'Closes #123\nReferences issue #456\nRefs #234\nRelated to campaign issue #345\n> **Source:** Issue #678\n<!-- meta:issue:567 -->\nReview follow-up from PR #789',
     })).sort((a, b) => a - b),
-    [123, 234, 345, 456, 567],
+    [123, 234, 345, 456, 567, 678],
   );
 });
 
