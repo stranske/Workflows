@@ -18,6 +18,7 @@ const {
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
   resolveExplicitNonIssueWorkflowSourceContext,
+  extractExplicitIssueSyncNumbers,
   hasExplicitIssueSyncReference,
   resolveNonIssueWorkflowSourceContextForBodySync,
   resolveSourceContextRepairComment,
@@ -551,6 +552,16 @@ test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () 
   assert.equal(hasExplicitIssueSyncReference({ body: '<!-- meta:issue:123 -->' }), false);
 });
 
+test('extractExplicitIssueSyncNumbers returns only explicit issue references', () => {
+  assert.deepEqual(
+    Array.from(extractExplicitIssueSyncNumbers({
+      title: 'Review follow-up',
+      body: 'Closes #123\nReferences issue #456\nReview follow-up from PR #789',
+    })).sort((a, b) => a - b),
+    [123, 456],
+  );
+});
+
 test('resolveNonIssueWorkflowSourceContextForBodySync honors explicit non-issue markers over heuristics', () => {
   const branchHeuristicContext = resolveNonIssueWorkflowSourceContextForBodySync(
     {
@@ -595,6 +606,23 @@ test('resolveNonIssueWorkflowSourceContextForBodySync yields to explicit issue r
   );
 
   assert.equal(context, null);
+});
+
+test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue context when explicit issue differs from heuristic', () => {
+  const context = resolveNonIssueWorkflowSourceContextForBodySync(
+    {
+      body: [
+        'Closes #123',
+        '<!-- workflow-source:local_request -->',
+        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+      ].join('\n'),
+      head: { ref: 'codex/issue-99' },
+    },
+    99,
+  );
+
+  assert.equal(context.sourceType, 'local_request');
+  assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
 });
 
 test('resolveSourceContextRepairComment updates an existing warning once', async () => {

@@ -1026,11 +1026,23 @@ function resolveExplicitNonIssueWorkflowSourceContext(pr = {}) {
   };
 }
 
-function hasExplicitIssueSyncReference(pr = {}) {
+function extractExplicitIssueSyncNumbers(pr = {}) {
   const text = `${pr.title || ''}\n${pr.body || ''}`;
-  const explicitClosingReference = /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)\s*[:#-]?\s*#[0-9]+\b/i;
-  const explicitIssueReference = /\b(?:(?:relate[sd]?\s+to|references?)\s+(?:issue\s+)?|(?:source|github|linked)\s+issue\s*)[:#-]?\s*#[0-9]+\b/i;
-  return explicitClosingReference.test(text) || explicitIssueReference.test(text);
+  const issueNumbers = new Set();
+  const patterns = [
+    /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)\s*[:#-]?\s*#([0-9]+)\b/gi,
+    /\b(?:(?:relate[sd]?\s+to|references?)\s+(?:issue\s+)?|(?:source|github|linked)\s+issue\s*)[:#-]?\s*#([0-9]+)\b/gi,
+  ];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      issueNumbers.add(Number(match[1]));
+    }
+  }
+  return issueNumbers;
+}
+
+function hasExplicitIssueSyncReference(pr = {}) {
+  return extractExplicitIssueSyncNumbers(pr).size > 0;
 }
 
 function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, issueNumber = null) {
@@ -1038,7 +1050,8 @@ function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, issueNumber = 
   if (!explicitNonIssueSourceContext) {
     return null;
   }
-  if (issueNumber && hasExplicitIssueSyncReference(pr)) {
+  const explicitIssueNumbers = extractExplicitIssueSyncNumbers(pr);
+  if (issueNumber && explicitIssueNumbers.has(Number(issueNumber))) {
     return null;
   }
   return explicitNonIssueSourceContext;
@@ -1669,6 +1682,7 @@ module.exports = {
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
   resolveExplicitNonIssueWorkflowSourceContext,
+  extractExplicitIssueSyncNumbers,
   hasExplicitIssueSyncReference,
   resolveNonIssueWorkflowSourceContextForBodySync,
   resolveSourceContextRepairComment,
