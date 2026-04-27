@@ -18,6 +18,7 @@ const {
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
   resolveExplicitNonIssueWorkflowSourceContext,
+  hasExplicitIssueSyncReference,
   resolveNonIssueWorkflowSourceContextForBodySync,
   resolveSourceContextRepairComment,
   resolveAgentType,
@@ -491,6 +492,65 @@ test('resolveNonIssueWorkflowSourceContextForBodySync preserves issue-sourced sy
     {
       body: [
         '<!-- meta:issue:123 -->',
+        '<!-- workflow-source:local_request -->',
+        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+      ].join('\n'),
+    },
+    123,
+  );
+
+  assert.equal(context, null);
+});
+
+test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () => {
+  assert.equal(
+    hasExplicitIssueSyncReference({
+      title: 'Review follow-up',
+      body: 'Review follow-up from PR #123',
+      head: { ref: 'codex/issue-123' },
+    }),
+    false,
+  );
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Closes #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: '<!-- meta:issue:123 -->' }), true);
+});
+
+test('resolveNonIssueWorkflowSourceContextForBodySync honors explicit non-issue markers over heuristics', () => {
+  const branchHeuristicContext = resolveNonIssueWorkflowSourceContextForBodySync(
+    {
+      body: [
+        '<!-- workflow-source:local_request -->',
+        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+      ].join('\n'),
+      head: { ref: 'codex/issue-123' },
+      title: 'Follow-up',
+    },
+    123,
+  );
+
+  assert.equal(branchHeuristicContext.sourceType, 'local_request');
+  assert.equal(branchHeuristicContext.sourceRef, 'codex-thread-2026-04-26');
+
+  const prReferenceContext = resolveNonIssueWorkflowSourceContextForBodySync(
+    {
+      body: [
+        'Review follow-up from PR #123',
+        '<!-- workflow-source:review_followup -->',
+        '<!-- workflow-source-ref:PR #123 -->',
+      ].join('\n'),
+    },
+    123,
+  );
+
+  assert.equal(prReferenceContext.sourceType, 'review_followup');
+  assert.equal(prReferenceContext.sourceRef, 'PR #123');
+});
+
+test('resolveNonIssueWorkflowSourceContextForBodySync yields to explicit issue references', () => {
+  const context = resolveNonIssueWorkflowSourceContextForBodySync(
+    {
+      body: [
+        'Closes #123',
         '<!-- workflow-source:local_request -->',
         '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
       ].join('\n'),

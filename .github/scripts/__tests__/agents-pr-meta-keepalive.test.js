@@ -489,7 +489,7 @@ test('keepalive detection blocks no-automation source context', async () => {
                 '## Workflow Source',
                 '',
                 'Started from:',
-                '- [x] Local Codex/user request',
+                '- [x] Do not automate',
                 '',
                 'Automation intent:',
                 '- [x] Human-only unless checks fail',
@@ -550,7 +550,7 @@ test('keepalive detection blocks no-automation source context', async () => {
 
   assert.equal(outputs.dispatch, 'false');
   assert.equal(outputs.reason, 'no-automation-source-context');
-  assert.equal(outputs.source_type, 'local_request');
+  assert.equal(outputs.source_type, 'manual_remote');
 });
 
 test('keepalive detection accepts sync campaign source context without linked issue', async () => {

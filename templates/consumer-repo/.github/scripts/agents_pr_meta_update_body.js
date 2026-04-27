@@ -1023,8 +1023,25 @@ function resolveExplicitNonIssueWorkflowSourceContext(pr = {}) {
   };
 }
 
+function hasExplicitIssueSyncReference(pr = {}) {
+  const body = String(pr.body || '');
+  if (/<!--\s*meta:issue:[0-9]+\s*-->/i.test(body)) {
+    return true;
+  }
+
+  const text = `${pr.title || ''}\n${body}`;
+  return /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing|relate[sd]?\s+to|refs?|references?|issue|source\s+issue|github\s+issue)\s*[:#-]?\s*#[0-9]+\b/i.test(text);
+}
+
 function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, issueNumber = null) {
-  return issueNumber ? null : resolveExplicitNonIssueWorkflowSourceContext(pr);
+  const explicitNonIssueSourceContext = resolveExplicitNonIssueWorkflowSourceContext(pr);
+  if (!explicitNonIssueSourceContext) {
+    return null;
+  }
+  if (issueNumber && hasExplicitIssueSyncReference(pr)) {
+    return null;
+  }
+  return explicitNonIssueSourceContext;
 }
 
 async function resolveSourceContextRepairComment({
@@ -1652,6 +1669,7 @@ module.exports = {
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
   resolveExplicitNonIssueWorkflowSourceContext,
+  hasExplicitIssueSyncReference,
   resolveNonIssueWorkflowSourceContextForBodySync,
   resolveSourceContextRepairComment,
   isCampaignIssue,

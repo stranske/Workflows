@@ -175,6 +175,9 @@ Automation intent:
 `;
 
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.LOCAL_REQUEST);
+  const context = resolvePrSourceContext({ body });
+  assert.equal(context.sourceType, SOURCE_TYPES.LOCAL_REQUEST);
+  assert.equal(context.noAutomation, false);
 });
 
 test('sourceTypeFromCheckedTemplate treats human-only PRs as manual remote work', () => {
@@ -198,7 +201,7 @@ test('resolvePrSourceContext marks no-automation sources without changing source
 ## Workflow Source
 
 Started from:
-- [x] Direct PR / remote GitHub work
+- [x] Do not automate
 
 Automation intent:
 - [x] Human-only unless checks fail

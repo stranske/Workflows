@@ -49,7 +49,7 @@ const CHECKBOX_SOURCE_PATTERNS = Object.freeze([
   [SOURCE_TYPES.DEPENDABOT, /\bdependabot\b|\bdependency\s+update\b/i],
 ]);
 
-const NO_AUTOMATION_CHECKBOX_PATTERN = /\bdo\s+not\s+automate\b|\bhuman[- ]only\b/i;
+const NO_AUTOMATION_CHECKBOX_PATTERN = /\bdo\s+not\s+automate\b/i;
 
 function cleanString(value) {
   return String(value || '').trim();
@@ -155,7 +155,7 @@ function hasCheckedNoAutomationTemplate(body) {
   if (!sectionLines.length) {
     return false;
   }
-  return checkedLabels(sectionLines).some((label) => NO_AUTOMATION_CHECKBOX_PATTERN.test(label));
+  return checkedLabels(startedFromLines(sectionLines)).some((label) => NO_AUTOMATION_CHECKBOX_PATTERN.test(label));
 }
 
 function hasExplicitIssueReferencePrefix(value) {
