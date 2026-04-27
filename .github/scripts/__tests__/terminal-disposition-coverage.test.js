@@ -395,6 +395,7 @@ test('does not require verifier model metadata for post-contract records with un
   const markdown = formatTerminalDispositionCoverageMarkdown(report);
 
   assert.equal(report.status, 'pass');
+  assert.equal(report.verifier_model_compatibility.status, 'pass');
   assert.equal(report.verifier_model_compatibility.missing_model_record_count, 0);
   assert.equal(report.verifier_model_compatibility.missing_model_unknown_mode_record_count, 0);
   assert.deepEqual(report.enforcement.blockers, []);
