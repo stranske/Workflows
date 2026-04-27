@@ -49,6 +49,22 @@ test('extractIssueNumberFromPull keeps existing issue resolution behavior', () =
     }),
     null,
   );
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Review follow-up from PR #956',
+      head: { ref: 'feature' },
+      title: 'stuff',
+    }),
+    null,
+  );
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Mentioned #77 without an issue keyword',
+      head: { ref: 'feature' },
+      title: 'stuff',
+    }),
+    null,
+  );
 });
 
 test('extractIssueNumberFromPull ignores PR references in workflow source templates', () => {
@@ -223,6 +239,25 @@ test('resolvePrSourceContext accepts direct-pr labels without issue metadata', (
   });
 
   assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
+});
+
+test('resolvePrSourceContext does not treat review PR references as source issues', () => {
+  const context = resolvePrSourceContext({
+    body: [
+      '## Workflow Source',
+      '',
+      'Started from:',
+      '- [ ] GitHub issue: #',
+      '- [x] Review follow-up from PR #956',
+    ].join('\n'),
+    head: { ref: 'review-followup/pr-956' },
+    title: 'Address review feedback',
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.REVIEW_FOLLOWUP);
   assert.equal(context.issueNumber, null);
   assert.equal(context.isValid, true);
   assert.equal(context.requiresIssue, false);

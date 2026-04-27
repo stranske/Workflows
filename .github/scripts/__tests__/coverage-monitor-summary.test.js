@@ -94,7 +94,7 @@ test('includes PR source context coverage when configured', () => {
   assert.match(formatMonitorMarkdown(summary), /pr-source-context \| warning/);
 });
 
-test('skips absent PR source context report when not configured', () => {
+test('skips PR source context coverage when configured file is absent', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
   const terminal = writeJson(dir, 'terminal.json', report('pass'));
   const botAuth = writeJson(dir, 'bot-auth.json', report('pass'));
@@ -112,7 +112,7 @@ test('skips absent PR source context report when not configured', () => {
   );
 });
 
-test('does not configure PR source context coverage by default', () => {
+test('does not include PR source context coverage by default', () => {
   const options = parseArgs([]);
 
   assert.equal(options.pr_source_context_report, '');
