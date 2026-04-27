@@ -87,7 +87,7 @@ Issue: "Add user authentication"
 4. Use a `workflow:source-*` label if you need to classify an existing PR from the PR list
 
 **What Happens:**
-- Workflows treat valid non-issue sources as intentional work instead of missing process state
+- Workflows treats valid non-issue sources as intentional work instead of missing process state
 - PR metadata automation avoids repeated missing-source repair comments
 - Keepalive can continue without a linked issue when the PR has a valid non-issue workflow source context
 

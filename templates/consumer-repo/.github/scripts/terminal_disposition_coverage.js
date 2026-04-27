@@ -179,7 +179,7 @@ function summarizeVerifierModelCompatibility(records = [], options = {}) {
     const requiresCodexModel = Boolean(verifierMode) && verifierMode !== 'evaluate';
     if (model) selectedModels[model] = (selectedModels[model] || 0) + 1;
     if (reason) modelSelectionReasons[reason] = (modelSelectionReasons[reason] || 0) + 1;
-    if (!model && requiresCodexModel && modelMetadataContract.model_metadata_required) {
+    if (!model && modelMetadataContract.model_metadata_required) {
       const runId = cleanString(record.run_id);
       const metadata = artifactMetadata.get(runId);
       const missingRecord = {
@@ -192,8 +192,9 @@ function summarizeVerifierModelCompatibility(records = [], options = {}) {
       if (metadata?.created_at) missingRecord.artifact_created_at = metadata.created_at;
       if (isPreContractVerifierModelRecord(record, metadata, modelMetadataContract)) {
         legacyMissingModelRecords.push(missingRecord);
-      } else {
-        if (!verifierMode) missingUnknownModeRecordCount += 1;
+      } else if (!verifierMode) {
+        missingUnknownModeRecordCount += 1;
+      } else if (requiresCodexModel) {
         missingModelRecords.push(missingRecord);
       }
     }
