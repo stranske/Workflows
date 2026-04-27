@@ -155,7 +155,7 @@ function hasCheckedNoAutomationTemplate(body) {
   if (!sectionLines.length) {
     return false;
   }
-  return checkedLabels(startedFromLines(sectionLines)).some((label) => NO_AUTOMATION_CHECKBOX_PATTERN.test(label));
+  return checkedLabels(sectionLines).some((label) => NO_AUTOMATION_CHECKBOX_PATTERN.test(label));
 }
 
 function hasExplicitIssueReferencePrefix(value) {

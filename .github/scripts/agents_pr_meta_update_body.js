@@ -1035,7 +1035,7 @@ function extractExplicitIssueSyncNumbers(pr = {}) {
   const issueNumbers = new Set();
   const patterns = [
     /<!--\s*meta:issue\s*:\s*([0-9]+)\s*-->/gi,
-    /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)\s*[:#-]?\s*#([0-9]+)\b/gi,
+    /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\s+(?:issue|source\s+issue|github\s+issue))?\s*[:#-]?\s*#([0-9]+)\b/gi,
     /(?:^|\n)\s*>?\s*(?:[-*]\s*)?(?:\*\*)?(?:issue|source\s+issue|github\s+issue)(?:\*\*)?\s*[:#-]?\s*#([0-9]+)\b/gi,
     /(?:^|\n)\s*>?\s*(?:[-*]\s*)?(?:\*\*)?source\s*:\s*(?:\*\*)?\s*(?:\*\*)?issue(?:\*\*)?\s*#([0-9]+)\b/gi,
     /\b(?:(?:relate[sd]?\s+to|refs?|references?)\s+(?:(?:[a-z-]+\s+)?issue\s+)?|(?:source|github|linked)\s+issue\s*)[:#-]?\s*#([0-9]+)\b/gi,
@@ -1055,7 +1055,7 @@ function hasExplicitIssueSyncReference(pr = {}) {
   return extractExplicitIssueSyncNumbers(pr).size > 0;
 }
 
-function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, issueNumber = null) {
+function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}) {
   const explicitNonIssueSourceContext = resolveExplicitNonIssueWorkflowSourceContext(pr);
   if (!explicitNonIssueSourceContext) {
     return null;
@@ -1403,12 +1403,30 @@ async function run({github: rawGithub, context, core, inputs}) {
   const sourceContext = resolvePrSourceContext(pr);
   if (sourceContext.noAutomation) {
     core.info(
-      `PR #${pr.number} has automation disabled (${formatSourceContextForLog(sourceContext)}); skipping PR body update and automation comment management.`,
+      `PR #${pr.number} has automation disabled (${formatSourceContextForLog(sourceContext)}); skipping PR body update while resolving stale workflow source repair comments.`,
     );
+    try {
+      const comments = await github.paginate(github.rest.issues.listComments, {
+        owner,
+        repo,
+        issue_number: pr.number,
+      });
+      await resolveSourceContextRepairComment({
+        github,
+        owner,
+        repo,
+        prNumber: pr.number,
+        comments,
+        sourceContext,
+        core,
+      });
+    } catch (error) {
+      core.warning(`Failed to resolve workflow source repair comment: ${error.message}`);
+    }
     return;
   }
 
-  const explicitNonIssueSourceContext = resolveNonIssueWorkflowSourceContextForBodySync(pr, issueNumber);
+  const explicitNonIssueSourceContext = resolveNonIssueWorkflowSourceContextForBodySync(pr);
   if (explicitNonIssueSourceContext) {
     core.info(
       `PR #${pr.number} has explicit non-issue workflow source context (${formatSourceContextForLog(explicitNonIssueSourceContext)}); skipping issue-sourced body sync.`,

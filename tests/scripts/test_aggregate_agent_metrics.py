@@ -1093,6 +1093,43 @@ def test_verifier_summary_ignores_missing_model_metadata_for_null_equivalent_mod
     assert verifier["unknown_verifier_modes"] == Counter()
 
 
+def test_verifier_summary_preserves_unknown_mode_sentinel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023785",
+                "pr_number": 1880,
+                "disposition": "verifier-error",
+                "verifier_mode": "unknown",
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"]["verifier-error"] == 1
+    assert verifier["unknown_verifier_modes"]["unknown"] == 1
+
+
+def test_verifier_model_metadata_required_accepts_null_equivalent_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "nil",
+    )
+
+    assert aggregate_agent_metrics._verifier_model_metadata_required() is False
+    assert aggregate_agent_metrics._verifier_model_metadata_required_after() is None
+
+
 def test_verifier_summary_counts_missing_model_metadata_for_unrecognized_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

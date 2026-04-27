@@ -504,31 +504,25 @@ test('resolveExplicitNonIssueWorkflowSourceContext ignores source issue markers'
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync preserves explicit issue-sourced sync precedence', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        'Closes #123',
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-    },
-    123,
-  );
+  const context = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      'Closes #123',
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+  });
 
   assert.equal(context, null);
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync yields to meta issue markers', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        '<!-- meta:issue:123 -->',
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-    },
-    123,
-  );
+  const context = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      '<!-- meta:issue:123 -->',
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+  });
 
   assert.equal(context, null);
 });
@@ -543,6 +537,8 @@ test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () 
     false,
   );
   assert.equal(hasExplicitIssueSyncReference({ body: 'Closes #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Fix issue #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Fixes issue #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'Related to #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'Related to issue #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'Related to campaign issue #123' }), true);
@@ -569,80 +565,65 @@ test('extractExplicitIssueSyncNumbers returns only explicit issue references', (
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue markers for heuristic issue numbers', () => {
-  const branchHeuristicContext = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-      head: { ref: 'codex/issue-123' },
-      title: 'Follow-up',
-    },
-    123,
-  );
+  const branchHeuristicContext = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+    head: { ref: 'codex/issue-123' },
+    title: 'Follow-up',
+  });
 
   assert.equal(branchHeuristicContext.sourceType, 'local_request');
   assert.equal(branchHeuristicContext.sourceRef, 'codex-thread-2026-04-26');
 
-  const prReferenceContext = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        'Review follow-up from PR #123',
-        '<!-- workflow-source:review_followup -->',
-        '<!-- workflow-source-ref:PR #123 -->',
-      ].join('\n'),
-    },
-    123,
-  );
+  const prReferenceContext = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      'Review follow-up from PR #123',
+      '<!-- workflow-source:review_followup -->',
+      '<!-- workflow-source-ref:PR #123 -->',
+    ].join('\n'),
+  });
 
   assert.equal(prReferenceContext.sourceType, 'review_followup');
   assert.equal(prReferenceContext.sourceRef, 'PR #123');
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync preserves explicit non-issue markers without issue number', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-      head: { ref: 'codex/local-request' },
-      title: 'Follow-up',
-    },
-    null,
-  );
+  const context = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+    head: { ref: 'codex/local-request' },
+    title: 'Follow-up',
+  });
 
   assert.equal(context.sourceType, 'local_request');
   assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync yields to explicit issue references', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        'Closes #123',
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-    },
-    123,
-  );
+  const context = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      'Closes #123',
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+  });
 
   assert.equal(context, null);
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync yields to issue numbers even when explicit issue differs', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        'Closes #123',
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-      head: { ref: 'codex/issue-99' },
-    },
-    99,
-  );
+  const context = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      'Closes #123',
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+    head: { ref: 'codex/issue-99' },
+  });
 
   assert.equal(context, null);
 });

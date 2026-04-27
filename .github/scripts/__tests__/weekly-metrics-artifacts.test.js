@@ -7,6 +7,7 @@ const {
   buildSelectionErrorReport,
   collectPriorityWorkflowArtifacts,
   collectRepoArtifacts,
+  defaultPriorityWorkflowArtifactSources,
   dedupeArtifacts,
   familiesSatisfied,
   formatArtifactTsv,
@@ -15,6 +16,8 @@ const {
   missingPriorityFamilies,
   normalizeSelectionOptions,
   PRIORITY_METRICS_FAMILIES,
+  PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,
+  PRIORITY_WORKFLOW_ARTIFACT_SOURCES,
   priorityFamilyStatuses,
   selectMetricsArtifacts,
 } = require('../weekly_metrics_artifacts.js');
@@ -75,6 +78,36 @@ test('maps metrics artifact names to stable families', () => {
     'bot-comment-auth-coverage-reusable'
   );
   assert.equal(artifactFamily('coverage-summary'), '');
+});
+
+test('default priority workflow sources use actual artifact producers present in this repo', () => {
+  const workflowIds = PRIORITY_WORKFLOW_ARTIFACT_SOURCES.map((source) => source.workflow_id);
+
+  assert.deepEqual(workflowIds, [
+    'health-76-codex-cli-freshness.yml',
+    'reusable-agents-verifier.yml',
+    'agents-verify-to-new-pr.yml',
+    'agents-verify-to-issue-v2.yml',
+    'agents-bot-comment-handler.yml',
+    'reusable-bot-comment-handler.yml',
+    'pr-11-ci-smoke.yml',
+  ]);
+});
+
+test('default priority workflow sources drop producer workflows missing from a consumer checkout', () => {
+  const sources = defaultPriorityWorkflowArtifactSources({
+    candidates: PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,
+    workflowsDir: 'templates/consumer-repo/.github/workflows',
+  });
+
+  assert.deepEqual(
+    sources.map((source) => source.workflow_id),
+    [
+      'agents-verify-to-new-pr.yml',
+      'agents-verify-to-issue-v2.yml',
+      'agents-bot-comment-handler.yml',
+    ]
+  );
 });
 
 test('selects only recent matching artifacts with a machine-readable report', () => {

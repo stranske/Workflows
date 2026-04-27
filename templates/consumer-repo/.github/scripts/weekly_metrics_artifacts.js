@@ -46,7 +46,7 @@ const PRIORITY_METRICS_FAMILIES = [
   'pr-source-context',
 ];
 
-const PRIORITY_WORKFLOW_ARTIFACT_SOURCES = [
+const PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES = [
   {
     workflow_id: 'health-76-codex-cli-freshness.yml',
     families: ['codex-cli-freshness'],
@@ -76,6 +76,20 @@ const PRIORITY_WORKFLOW_ARTIFACT_SOURCES = [
     families: ['pr-source-context'],
   },
 ];
+
+function workflowSourceExists(workflowId, workflowsDir = '.github/workflows') {
+  const path = require('path');
+  return fs.existsSync(path.join(process.cwd(), workflowsDir, workflowId));
+}
+
+function defaultPriorityWorkflowArtifactSources({
+  candidates = PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,
+  workflowsDir = '.github/workflows',
+} = {}) {
+  return candidates.filter((source) => workflowSourceExists(source.workflow_id, workflowsDir));
+}
+
+const PRIORITY_WORKFLOW_ARTIFACT_SOURCES = defaultPriorityWorkflowArtifactSources();
 
 function cleanString(value) {
   if (value === null || value === undefined) return '';
@@ -686,12 +700,14 @@ module.exports = {
   DEFAULT_MAX_TOTAL,
   DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE,
   PRIORITY_METRICS_FAMILIES,
+  PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,
   PRIORITY_WORKFLOW_ARTIFACT_SOURCES,
   SELECTION_SCHEMA,
   artifactFamily,
   buildSelectionErrorReport,
   collectPriorityWorkflowArtifacts,
   collectRepoArtifacts,
+  defaultPriorityWorkflowArtifactSources,
   dedupeArtifacts,
   familiesSatisfied,
   formatArtifactTsv,

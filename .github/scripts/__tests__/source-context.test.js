@@ -187,7 +187,7 @@ Automation intent:
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.LOCAL_REQUEST);
 });
 
-test('sourceTypeFromCheckedTemplate ignores automation intent choices', () => {
+test('sourceTypeFromCheckedTemplate preserves source choice while automation intent disables automation', () => {
   const body = `
 ## Workflow Source
 
@@ -202,7 +202,7 @@ Automation intent:
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.LOCAL_REQUEST);
   const context = resolvePrSourceContext({ body });
   assert.equal(context.sourceType, SOURCE_TYPES.LOCAL_REQUEST);
-  assert.equal(context.noAutomation, false);
+  assert.equal(context.noAutomation, true);
 });
 
 test('sourceTypeFromCheckedTemplate treats human-only PRs as manual remote work', () => {
