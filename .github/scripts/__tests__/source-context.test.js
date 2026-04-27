@@ -87,6 +87,28 @@ Started from:
   assert.equal(context.requiresIssue, false);
 });
 
+test('extractIssueNumberFromPull ignores arbitrary PR number references', () => {
+  for (const body of [
+    'Review follow-up from PR #123',
+    'Follow-up from PR #123',
+    'Original PR: #123',
+    'Related to PR #123',
+    'See pull request #123 for details',
+    'Source PR #123 supplied the verifier evidence',
+  ]) {
+    assert.equal(extractIssueNumberFromPull({ body }), null, body);
+  }
+});
+
+test('extractIssueNumberFromPull skips PR references before later issue references', () => {
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Review follow-up from PR #315. Source issue #1937 tracks the fix.',
+    }),
+    1937,
+  );
+});
+
 test('extractIssueNumberFromPull requires explicit issue wording for body references', () => {
   assert.equal(extractIssueNumberFromPull({ body: 'See PR #456 for context' }), null);
   assert.equal(extractIssueNumberFromPull({ body: 'Related to issue #456' }), 456);
