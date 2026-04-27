@@ -210,7 +210,7 @@ jobs:
         if: ${{ steps.gate_guard.outputs.recover == 'true' }}
         id: render
         run: |
-          python tools/post_ci_summary.py
+          python -m tools.post_ci_summary
         env:
           RUNS_JSON: ${{ steps.discover.outputs.runs }}
           HEAD_SHA: ${{ steps.discover.outputs.head_sha }}

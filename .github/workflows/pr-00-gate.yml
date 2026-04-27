@@ -582,7 +582,7 @@ jobs:
       - name: Prepare summary body
         id: summary_body
         run: |
-          python tools/post_ci_summary.py
+          python -m tools.post_ci_summary
         env:
           PYTHONPATH: ${{ github.workspace }}
           RUNS_JSON: ${{ steps.gather.outputs.runs || '[]' }}

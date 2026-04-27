@@ -16,6 +16,17 @@ def test_maint46_sparse_checkout_includes_post_ci_import_dependencies():
     assert "tools/ci_failure_triage.py" in sparse_checkout
 
 
+def test_maint46_runs_post_ci_summary_as_importable_module():
+    workflow = yaml.safe_load(
+        Path(".github/workflows/maint-46-post-ci.yml").read_text(encoding="utf-8")
+    )
+    steps = workflow["jobs"]["summary"]["steps"]
+    render = next(step for step in steps if step.get("name") == "Build summary body")
+
+    assert "python -m tools.post_ci_summary" in render["run"]
+    assert "python tools/post_ci_summary.py" not in render["run"]
+
+
 def test_maint46_gate_artifact_download_fails_open_to_metadata_summary():
     workflow = yaml.safe_load(
         Path(".github/workflows/maint-46-post-ci.yml").read_text(encoding="utf-8")

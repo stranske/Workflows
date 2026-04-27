@@ -213,6 +213,86 @@ def test_main_writes_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     monkeypatch.delenv("OUTPUT_JSON_PATH", raising=False)
 
 
+def test_main_exposes_terminal_artifact_family_selection(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    metrics_path = tmp_path / "terminal.ndjson"
+    output_path = tmp_path / "summary.md"
+    output_json_path = tmp_path / "summary.json"
+    selection_path = tmp_path / "metric-artifacts-selection.json"
+
+    _write_ndjson(
+        metrics_path,
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "review-thread-terminal-disposition",
+                "source_type": "review-thread",
+                "source_id": "1927",
+                "disposition": "wrapper-skipped",
+            }
+        ],
+    )
+    selection_path.write_text(
+        json.dumps(
+            {
+                "schema": "workflows-weekly-metrics-artifact-selection/v1",
+                "status": "pass",
+                "candidate_count": 60,
+                "selected_count": 20,
+                "missing_priority_families": ["verifier-terminal-disposition"],
+                "priority_family_statuses": [
+                    {
+                        "family": "verifier-terminal-disposition",
+                        "status": "missing",
+                        "candidate_count": 0,
+                        "selected_count": 0,
+                        "latest_candidate": None,
+                        "selected_artifact": None,
+                    },
+                    {
+                        "family": "review-thread-terminal-disposition",
+                        "status": "selected",
+                        "candidate_count": 60,
+                        "selected_count": 20,
+                        "latest_candidate": {
+                            "id": 6651095636,
+                            "name": "review-thread-terminal-disposition-24969526334",
+                        },
+                        "selected_artifact": {
+                            "id": 6651095636,
+                            "name": "review-thread-terminal-disposition-24969526334",
+                        },
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("METRICS_PATHS", str(metrics_path))
+    monkeypatch.setenv("OUTPUT_PATH", str(output_path))
+    monkeypatch.setenv("OUTPUT_JSON_PATH", str(output_json_path))
+    monkeypatch.setenv("METRICS_ARTIFACT_SELECTION_JSON", str(selection_path))
+
+    assert aggregate_agent_metrics.main() == 0
+
+    summary = output_path.read_text(encoding="utf-8")
+    assert (
+        "Terminal artifact families: review-thread-terminal-disposition: selected (20/60), "
+        "verifier-terminal-disposition: missing (0/0)"
+    ) in summary
+    assert "Missing terminal artifact families: verifier-terminal-disposition" in summary
+
+    summary_json = json.loads(output_json_path.read_text(encoding="utf-8"))
+    artifact_selection = summary_json["artifact_selection"]
+    assert artifact_selection["missing_terminal_artifact_families"] == [
+        "verifier-terminal-disposition"
+    ]
+    assert artifact_selection["terminal_artifact_families"][1]["status"] == "missing"
+
+
 def test_parse_timestamp_variants() -> None:
     epoch = aggregate_agent_metrics._parse_timestamp(0)
     assert epoch is not None

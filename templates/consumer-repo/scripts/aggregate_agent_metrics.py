@@ -18,8 +18,13 @@ _DEFAULT_METRICS_DIR = "agent-metrics"
 _DEFAULT_OUTPUT = "agent-metrics-summary.md"
 _DEFAULT_JSON_OUTPUT = "agent-metrics-summary.json"
 _DEFAULT_DOWNLOAD_MANIFEST_PATH = "artifacts/metric-artifact-download-manifest.json"
+_DEFAULT_ARTIFACT_SELECTION_PATH = "artifacts/metric-artifacts-selection.json"
 _DEFAULT_UNSUPPORTED_VERIFIER_MODELS = {"gpt-5.2-codex"}
 _DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER = ""
+_TERMINAL_ARTIFACT_FAMILIES = (
+    "review-thread-terminal-disposition",
+    "verifier-terminal-disposition",
+)
 _EXACT_ARTIFACT_FAMILIES = {
     "keepalive-metrics",
     "agents-autofix-metrics",
@@ -1022,10 +1027,142 @@ def _read_artifact_download_contract(manifest_path: Path) -> dict[str, Any] | No
     return _artifact_download_contract(manifest, manifest_path)
 
 
+def _compact_artifact_ref(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        "id": value.get("id"),
+        "name": value.get("name") or "",
+        "created_at": value.get("created_at") or "",
+        "updated_at": value.get("updated_at") or "",
+    }
+
+
+def _artifact_selection_contract(selection: dict[str, Any], selection_path: Path) -> dict[str, Any]:
+    statuses: list[dict[str, Any]] = []
+    priority_statuses = selection.get("priority_family_statuses")
+    if isinstance(priority_statuses, list):
+        for item in priority_statuses:
+            if not isinstance(item, dict):
+                continue
+            family = str(item.get("family") or "")
+            if family not in _TERMINAL_ARTIFACT_FAMILIES:
+                continue
+            statuses.append(
+                {
+                    "family": family,
+                    "status": str(item.get("status") or "unknown"),
+                    "candidate_count": _safe_int(item.get("candidate_count")) or 0,
+                    "selected_count": _safe_int(item.get("selected_count")) or 0,
+                    "latest_candidate": _compact_artifact_ref(item.get("latest_candidate")),
+                    "selected_artifact": _compact_artifact_ref(item.get("selected_artifact")),
+                }
+            )
+
+    seen = {item["family"] for item in statuses}
+    candidate_counts = selection.get("candidate_family_counts")
+    selected_counts = selection.get("selected_family_counts")
+    candidate_counts = candidate_counts if isinstance(candidate_counts, dict) else {}
+    selected_counts = selected_counts if isinstance(selected_counts, dict) else {}
+    for family in _TERMINAL_ARTIFACT_FAMILIES:
+        if family in seen:
+            continue
+        candidate_count = _safe_int(candidate_counts.get(family)) or 0
+        selected_count = _safe_int(selected_counts.get(family)) or 0
+        status = "selected" if selected_count else "missing"
+        statuses.append(
+            {
+                "family": family,
+                "status": status,
+                "candidate_count": candidate_count,
+                "selected_count": selected_count,
+                "latest_candidate": None,
+                "selected_artifact": None,
+            }
+        )
+
+    statuses.sort(key=lambda item: _TERMINAL_ARTIFACT_FAMILIES.index(item["family"]))
+    missing_terminal = [
+        item["family"]
+        for item in statuses
+        if item["status"] == "missing" or item["selected_count"] <= 0
+    ]
+    return {
+        "schema": selection.get("schema") or "unknown",
+        "path": selection_path.as_posix(),
+        "status": selection.get("status") or "unknown",
+        "selected_count": _safe_int(selection.get("selected_count")) or 0,
+        "candidate_count": _safe_int(selection.get("candidate_count")) or 0,
+        "missing_priority_families": list(selection.get("missing_priority_families") or []),
+        "terminal_artifact_families": statuses,
+        "missing_terminal_artifact_families": missing_terminal,
+    }
+
+
+def _read_artifact_selection_contract(selection_path: Path) -> dict[str, Any] | None:
+    if not selection_path.exists():
+        return None
+    try:
+        selection = json.loads(selection_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "schema": "workflows-weekly-metrics-artifact-selection/v1",
+            "path": selection_path.as_posix(),
+            "status": "error",
+            "error_message": str(exc),
+            "selected_count": 0,
+            "candidate_count": 0,
+            "missing_priority_families": [],
+            "terminal_artifact_families": [],
+            "missing_terminal_artifact_families": list(_TERMINAL_ARTIFACT_FAMILIES),
+        }
+    if not isinstance(selection, dict):
+        return {
+            "schema": "workflows-weekly-metrics-artifact-selection/v1",
+            "path": selection_path.as_posix(),
+            "status": "error",
+            "error_message": "selection-not-object",
+            "selected_count": 0,
+            "candidate_count": 0,
+            "missing_priority_families": [],
+            "terminal_artifact_families": [],
+            "missing_terminal_artifact_families": list(_TERMINAL_ARTIFACT_FAMILIES),
+        }
+    return _artifact_selection_contract(selection, selection_path)
+
+
+def _format_terminal_artifact_statuses(artifact_selection: dict[str, Any] | None) -> str:
+    if not artifact_selection:
+        return "n/a"
+    statuses = artifact_selection.get("terminal_artifact_families")
+    if not isinstance(statuses, list) or not statuses:
+        return "n/a"
+    parts = []
+    for item in statuses:
+        if not isinstance(item, dict):
+            continue
+        family = item.get("family") or "unknown"
+        status = item.get("status") or "unknown"
+        selected = item.get("selected_count") or 0
+        candidates = item.get("candidate_count") or 0
+        parts.append(f"{family}: {status} ({selected}/{candidates})")
+    return ", ".join(parts) if parts else "n/a"
+
+
+def _format_missing_terminal_artifact_families(
+    artifact_selection: dict[str, Any] | None,
+) -> str:
+    if not artifact_selection:
+        return "n/a"
+    missing = artifact_selection.get("missing_terminal_artifact_families") or []
+    return ", ".join(str(item) for item in missing) if missing else "none"
+
+
 def build_summary(
     entries: list[dict[str, Any]],
     errors: int,
     parse_error_details: list[ParseErrorDetail] | None = None,
+    artifact_selection: dict[str, Any] | None = None,
 ) -> str:
     buckets = _bucket_entries(entries)
     timestamps: list[_dt.datetime] = []
@@ -1100,6 +1237,11 @@ def build_summary(
             f"- Terminal disposition records: {verifier['terminal_records']}",
             f"- Terminal dispositions: {_format_counter(verifier['terminal_dispositions'])}",
             f"- Terminal disposition sources: {_format_counter(verifier['terminal_sources'])}",
+            f"- Terminal artifact families: {_format_terminal_artifact_statuses(artifact_selection)}",
+            (
+                "- Missing terminal artifact families: "
+                f"{_format_missing_terminal_artifact_families(artifact_selection)}"
+            ),
             f"- Verifier follow-up ledger records: {verifier['ledger_records']}",
             f"- Verifier follow-up ledger dispositions: {_format_counter(verifier['ledger_dispositions'])}",
             f"- Verifier follow-up ledger PRs: {verifier['ledger_prs']}",
@@ -1197,6 +1339,7 @@ def build_summary_contract(
     entries: list[dict[str, Any]],
     parse_error_details: list[ParseErrorDetail],
     artifact_downloads: dict[str, Any] | None = None,
+    artifact_selection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     entry_buckets = _bucket_entries(entries)
     buckets: dict[str, int] = Counter(
@@ -1223,6 +1366,8 @@ def build_summary_contract(
     }
     if artifact_downloads is not None:
         contract["artifact_downloads"] = artifact_downloads
+    if artifact_selection is not None:
+        contract["artifact_selection"] = artifact_selection
     if timestamps:
         contract["range"] = {
             "earliest": min(timestamps).isoformat().replace("+00:00", "Z"),
@@ -1241,6 +1386,10 @@ def main() -> int:
         os.environ.get("METRICS_ARTIFACT_DOWNLOAD_MANIFEST_JSON", _DEFAULT_DOWNLOAD_MANIFEST_PATH)
     )
     artifact_downloads = _read_artifact_download_contract(download_manifest_path)
+    artifact_selection_path = Path(
+        os.environ.get("METRICS_ARTIFACT_SELECTION_JSON", _DEFAULT_ARTIFACT_SELECTION_PATH)
+    )
+    artifact_selection = _read_artifact_selection_contract(artifact_selection_path)
 
     files = _gather_metrics_files(metrics_paths, metrics_dir)
     if not files:
@@ -1249,7 +1398,7 @@ def main() -> int:
         output_json_path.parent.mkdir(parents=True, exist_ok=True)
         output_json_path.write_text(
             json.dumps(
-                build_summary_contract([], [], artifact_downloads),
+                build_summary_contract([], [], artifact_downloads, artifact_selection),
                 indent=2,
                 sort_keys=True,
             )
@@ -1260,8 +1409,18 @@ def main() -> int:
         return 0
 
     entries, parse_error_details = _read_ndjson(files)
-    summary = build_summary(entries, _parse_error_count(parse_error_details), parse_error_details)
-    summary_contract = build_summary_contract(entries, parse_error_details, artifact_downloads)
+    summary = build_summary(
+        entries,
+        _parse_error_count(parse_error_details),
+        parse_error_details,
+        artifact_selection,
+    )
+    summary_contract = build_summary_contract(
+        entries,
+        parse_error_details,
+        artifact_downloads,
+        artifact_selection,
+    )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(summary, encoding="utf-8")
