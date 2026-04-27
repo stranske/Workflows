@@ -939,7 +939,7 @@ function buildSourceContextRepairCommentBody(prNumber) {
     '<!-- missing-issue-warning -->',
     '### Workflow source needed',
     '',
-    `PR #${prNumber} does not need a GitHub issue, but Workflows needs one valid source context before PR metadata automation can manage it safely.`,
+    `PR #${prNumber} needs either a linked GitHub issue or one valid non-issue Workflow Source before PR metadata automation can manage it safely.`,
     '',
     'Please do one of:',
     '',
@@ -950,6 +950,30 @@ function buildSourceContextRepairCommentBody(prNumber) {
     '',
     'Once a valid source is present, this warning will not be reposted.',
   ].join('\n');
+}
+
+async function updateIssueCommentWithRetry({ github, owner, repo, commentId, body, core }) {
+  return withRetries(
+    () => github.rest.issues.updateComment({
+      owner,
+      repo,
+      comment_id: commentId,
+      body,
+    }),
+    { description: `issues.updateComment #${commentId}`, core },
+  );
+}
+
+async function createIssueCommentWithRetry({ github, owner, repo, issueNumber, body, core }) {
+  return withRetries(
+    () => github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: issueNumber,
+      body,
+    }),
+    { description: `issues.createComment #${issueNumber}`, core },
+  );
 }
 
 function buildSourceContextResolvedCommentBody(prNumber, sourceContext) {
@@ -984,11 +1008,13 @@ async function resolveSourceContextRepairComment({
     return false;
   }
 
-  await github.rest.issues.updateComment({
+  await updateIssueCommentWithRetry({
+    github,
     owner,
     repo,
-    comment_id: existingWarning.id,
+    commentId: existingWarning.id,
     body: resolvedBody,
+    core,
   });
   core?.info?.(`Resolved workflow source repair comment (id: ${existingWarning.id})`);
   return true;
@@ -1338,22 +1364,26 @@ async function run({github: rawGithub, context, core, inputs}) {
       
       if (existingWarning) {
         if (existingWarning.body !== commentBody) {
-          await github.rest.issues.updateComment({
+          await updateIssueCommentWithRetry({
+            github,
             owner,
             repo,
-            comment_id: existingWarning.id,
+            commentId: existingWarning.id,
             body: commentBody,
+            core,
           });
           core.info(`Updated workflow source repair comment (id: ${existingWarning.id})`);
         } else {
           core.info(`Workflow source repair comment already exists (id: ${existingWarning.id})`);
         }
       } else {
-        await github.rest.issues.createComment({
+        await createIssueCommentWithRetry({
+          github,
           owner,
           repo,
-          issue_number: pr.number,
-          body: commentBody
+          issueNumber: pr.number,
+          body: commentBody,
+          core,
         });
       }
     } catch (error) {
