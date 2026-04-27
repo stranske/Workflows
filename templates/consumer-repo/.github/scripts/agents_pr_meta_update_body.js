@@ -980,7 +980,11 @@ async function createIssueCommentWithRetry({ github, owner, repo, issueNumber, b
 }
 
 function buildSourceContextResolvedCommentBody(prNumber, sourceContext) {
-  const isIssueBacked = sourceContext?.requiresIssue || sourceContext?.issueNumber || sourceContext?.sourceType === SOURCE_TYPES.GITHUB_ISSUE;
+  const isIssueBacked = Boolean(
+    sourceContext?.requiresIssue
+      || sourceContext?.issueNumber
+      || sourceContext?.sourceType === SOURCE_TYPES.GITHUB_ISSUE
+  );
   return [
     '<!-- missing-issue-warning -->',
     '### Workflow source detected',
@@ -1030,8 +1034,9 @@ function extractExplicitIssueSyncNumbers(pr = {}) {
   const text = `${pr.title || ''}\n${pr.body || ''}`;
   const issueNumbers = new Set();
   const patterns = [
+    /<!--\s*meta:issue\s*:\s*([0-9]+)\s*-->/gi,
     /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)\s*[:#-]?\s*#([0-9]+)\b/gi,
-    /\b(?:(?:relate[sd]?\s+to|refs?|references?)\s+(?:issue\s+)?|(?:source|github|linked)\s+issue\s*)[:#-]?\s*#([0-9]+)\b/gi,
+    /\b(?:(?:relate[sd]?\s+to|refs?|references?)\s+(?:(?:[a-z-]+\s+)?issue\s+)?|(?:source|github|linked)\s+issue\s*)[:#-]?\s*#([0-9]+)\b/gi,
   ];
   for (const pattern of patterns) {
     for (const match of text.matchAll(pattern)) {
@@ -1392,6 +1397,13 @@ async function run({github: rawGithub, context, core, inputs}) {
 
   const issueNumber = extractIssueNumberFromPull(pr);
   const sourceContext = resolvePrSourceContext(pr);
+  if (sourceContext.noAutomation) {
+    core.info(
+      `PR #${pr.number} has automation disabled (${formatSourceContextForLog(sourceContext)}); skipping PR body update and automation comment management.`,
+    );
+    return;
+  }
+
   const explicitNonIssueSourceContext = resolveNonIssueWorkflowSourceContextForBodySync(pr, issueNumber);
   if (explicitNonIssueSourceContext) {
     core.info(

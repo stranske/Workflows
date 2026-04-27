@@ -14,6 +14,7 @@ const {
   latestCandidateByFamily,
   missingPriorityFamilies,
   normalizeSelectionOptions,
+  PRIORITY_METRICS_FAMILIES,
   priorityFamilyStatuses,
   selectMetricsArtifacts,
 } = require('../weekly_metrics_artifacts.js');
@@ -418,6 +419,12 @@ test('normalizes invalid environment-like limits to defaults', () => {
   assert.equal(options.max_per_family, 20);
   assert.equal(options.max_scan_pages, 5);
   assert.equal(options.priority_workflow_runs_per_source, 10);
+
+  const disabledPriorityOptions = normalizeSelectionOptions({
+    now_ms: NOW,
+    priority_workflow_runs_per_source: '0',
+  });
+  assert.equal(disabledPriorityOptions.priority_workflow_runs_per_source, 0);
 });
 
 test('deduplicates artifacts by stable id before selection', () => {
@@ -519,6 +526,73 @@ test('collects priority artifacts from their producer workflows', async () => {
   ]);
 });
 
+test('collects priority artifacts until each source satisfies its own families', async () => {
+  const calls = [];
+  const client = {
+    rest: {
+      actions: {
+        listWorkflowRuns: async (params) => {
+          calls.push(['runs', params.workflow_id]);
+          return {
+            data: {
+              workflow_runs: params.workflow_id === 'source-a.yml'
+                ? [
+                    { id: 101, created_at: '2026-04-25T11:00:00Z', updated_at: '2026-04-25T11:00:00Z' },
+                  ]
+                : [
+                    { id: 201, created_at: '2026-04-25T11:00:00Z', updated_at: '2026-04-25T11:00:00Z' },
+                    { id: 202, created_at: '2026-04-25T10:00:00Z', updated_at: '2026-04-25T10:00:00Z' },
+                  ],
+            },
+          };
+        },
+        listWorkflowRunArtifacts: async (params) => {
+          calls.push(['artifacts', params.run_id]);
+          return {
+            data: {
+              artifacts: [
+                artifact(
+                  params.run_id,
+                  params.run_id === 201 ? 'keepalive-metrics' : `codex-cli-freshness-${params.run_id}`,
+                  '2026-04-25T11:00:00Z'
+                ),
+              ],
+            },
+          };
+        },
+      },
+    },
+  };
+
+  const artifacts = await collectPriorityWorkflowArtifacts({
+    github: client,
+    owner: 'owner',
+    repo: 'repo',
+    options: {
+      now_ms: NOW,
+      priority_workflow_runs_per_source: 2,
+      per_page: 50,
+    },
+    sources: [
+      { workflow_id: 'source-a.yml', families: ['codex-cli-freshness'] },
+      { workflow_id: 'source-b.yml', families: ['codex-cli-freshness'] },
+    ],
+    withRetry: (fn) => fn(client),
+  });
+
+  assert.deepEqual(
+    artifacts.map((selected) => selected.name),
+    ['codex-cli-freshness-101', 'codex-cli-freshness-202']
+  );
+  assert.deepEqual(calls, [
+    ['runs', 'source-a.yml'],
+    ['artifacts', 101],
+    ['runs', 'source-b.yml'],
+    ['artifacts', 201],
+    ['artifacts', 202],
+  ]);
+});
+
 test('skips missing priority producer workflows without failing selection', async () => {
   const client = {
     rest: {
@@ -606,4 +680,47 @@ test('collects repo artifacts within the configured scan page cap', async () => 
     [1, 2]
   );
   assert.ok(calls.every((call) => call.per_page === 2));
+});
+
+test('skips priority workflow scan when repo artifacts already satisfy priority families', async () => {
+  const calls = [];
+  const client = {
+    rest: {
+      actions: {
+        listArtifactsForRepo: async (params) => {
+          calls.push(['repo-artifacts', params.page]);
+          return {
+            data: {
+              artifacts: PRIORITY_METRICS_FAMILIES.map((family, index) =>
+                artifact(
+                  index + 1,
+                  family === 'pr-source-context' ? family : `${family}-current`,
+                  '2026-04-25T11:00:00Z'
+                )
+              ),
+            },
+          };
+        },
+        listWorkflowRuns: async () => {
+          calls.push(['runs']);
+          throw new Error('priority scan should be skipped');
+        },
+      },
+    },
+  };
+
+  const artifacts = await collectRepoArtifacts({
+    github: client,
+    owner: 'owner',
+    repo: 'repo',
+    options: {
+      now_ms: NOW,
+      max_scan_pages: 1,
+      per_page: 100,
+    },
+    withRetry: (fn) => fn(client),
+  });
+
+  assert.deepEqual(calls, [['repo-artifacts', 1]]);
+  assert.equal(artifacts.length, PRIORITY_METRICS_FAMILIES.length);
 });

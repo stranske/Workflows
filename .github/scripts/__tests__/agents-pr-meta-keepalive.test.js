@@ -472,6 +472,7 @@ test('keepalive detection accepts valid non-issue source context', async () => {
 
 test('keepalive detection blocks no-automation source context', async () => {
   const outputs = {};
+  const reactionCalls = [];
   const scopeBlock = [
     '<!-- codex-keepalive-round: 3 -->',
     '<!-- codex-keepalive-marker -->',
@@ -508,10 +509,12 @@ test('keepalive detection blocks no-automation source context', async () => {
       },
       reactions: {
         async listForIssueComment() {
-          return { data: [] };
+          reactionCalls.push('list');
+          throw new Error('no-automation PRs should not read reactions');
         },
         async createForIssueComment() {
-          return { status: 201, data: { content: 'hooray' } };
+          reactionCalls.push('create');
+          throw new Error('no-automation PRs should not write reactions');
         },
       },
     },
@@ -520,7 +523,8 @@ test('keepalive detection blocks no-automation source context', async () => {
         return [];
       }
       if (method === this.rest.reactions.listForIssueComment) {
-        return [];
+        reactionCalls.push('paginate-reactions');
+        throw new Error('no-automation PRs should not paginate reactions');
       }
       return [];
     },
@@ -551,6 +555,7 @@ test('keepalive detection blocks no-automation source context', async () => {
   assert.equal(outputs.dispatch, 'false');
   assert.equal(outputs.reason, 'no-automation-source-context');
   assert.equal(outputs.source_type, 'manual_remote');
+  assert.deepEqual(reactionCalls, []);
 });
 
 test('keepalive detection accepts sync campaign source context without linked issue', async () => {

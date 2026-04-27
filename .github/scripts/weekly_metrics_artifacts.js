@@ -87,6 +87,11 @@ function parsePositiveInt(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function parseNonNegativeInt(value, fallback) {
+  const parsed = Number.parseInt(cleanString(value), 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 function parseDateMs(value) {
   const text = cleanString(value);
   if (!text) return 0;
@@ -134,7 +139,7 @@ function normalizeSelectionOptions(options = {}) {
     options.per_page ?? options.perPage ?? process.env.METRICS_ARTIFACTS_PER_PAGE,
     DEFAULT_PER_PAGE
   );
-  const priorityWorkflowRunsPerSource = parsePositiveInt(
+  const priorityWorkflowRunsPerSource = parseNonNegativeInt(
     options.priority_workflow_runs_per_source ??
       options.priorityWorkflowRunsPerSource ??
       process.env.METRICS_PRIORITY_WORKFLOW_RUNS_PER_SOURCE,
@@ -491,10 +496,14 @@ async function collectPriorityWorkflowArtifacts({
 }) {
   const config = normalizeSelectionOptions(options);
   const artifacts = [];
+  if (config.priority_workflow_runs_per_source <= 0) {
+    return artifacts;
+  }
   for (const source of sources) {
     const workflowId = cleanString(source.workflow_id ?? source.workflowId);
     const families = (source.families || []).map(cleanString).filter(Boolean);
     if (!workflowId || families.length === 0) continue;
+    const sourceArtifacts = [];
     let runsResponse;
     try {
       runsResponse = await withRetry((client) => client.rest.actions.listWorkflowRuns({
@@ -533,8 +542,9 @@ async function collectPriorityWorkflowArtifacts({
       const matchingArtifacts = (artifactResponse?.data?.artifacts || []).filter((artifact) =>
         families.includes(artifactFamily(artifact.name))
       );
+      sourceArtifacts.push(...matchingArtifacts);
       artifacts.push(...matchingArtifacts);
-      if (familiesSatisfied(artifacts, families, config)) {
+      if (familiesSatisfied(sourceArtifacts, families, config)) {
         break;
       }
     }
@@ -564,6 +574,9 @@ async function collectRepoArtifacts({ github, owner, repo, withRetry, options })
     ) {
       break;
     }
+  }
+  if (familiesSatisfied(artifacts, PRIORITY_METRICS_FAMILIES, config)) {
+    return dedupeArtifacts(artifacts);
   }
   const priorityArtifacts = await collectPriorityWorkflowArtifacts({
     github,

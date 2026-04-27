@@ -211,6 +211,15 @@ Automation intent:
   assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
   assert.equal(context.noAutomation, true);
   assert.equal(hasNoAutomationWorkflowContext({ labels: [{ name: 'workflow:no-automation' }] }), true);
+  assert.equal(hasNoAutomationWorkflowContext({ body: '<!-- workflow-source:no_automation -->' }), true);
+  assert.equal(hasNoAutomationWorkflowContext({
+    body: `
+<!-- workflow-source:start -->
+origin: local_request
+automation: no_automation
+<!-- workflow-source:end -->
+`,
+  }), true);
 });
 
 test('sourceTypeFromCheckedTemplate rejects ambiguous checked source choices', () => {
