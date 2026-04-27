@@ -468,9 +468,9 @@ def _verifier_mode_requires_model_metadata(entry: dict[str, Any]) -> bool:
 
 
 def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    stop_reasons = Counter()
-    actions = Counter()
-    gate_results = Counter()
+    stop_reasons: Counter[str] = Counter()
+    actions: Counter[str] = Counter()
+    gate_results: Counter[str] = Counter()
     iterations: list[int] = []
     prs: set[int] = set()
     tasks_complete = 0
@@ -513,8 +513,8 @@ def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _summarise_autofix(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    triggers = Counter()
-    gate_results = Counter()
+    triggers: Counter[str] = Counter()
+    gate_results: Counter[str] = Counter()
     prs: set[int] = set()
     fixes_applied = 0
     for entry in entries:
@@ -542,28 +542,28 @@ def _summarise_verifier(
     entries: list[dict[str, Any]],
     ledger_entries: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    verdicts = Counter()
-    terminal_dispositions = Counter()
-    terminal_sources = Counter()
-    verifier_models = Counter()
-    model_selection_reasons = Counter()
-    verifier_cli_versions = Counter()
-    unsupported_verifier_models = Counter()
-    unsupported_model_dispositions = Counter()
-    missing_verifier_model_metadata = Counter()
+    verdicts: Counter[str] = Counter()
+    terminal_dispositions: Counter[str] = Counter()
+    terminal_sources: Counter[str] = Counter()
+    verifier_models: Counter[str] = Counter()
+    model_selection_reasons: Counter[str] = Counter()
+    verifier_cli_versions: Counter[str] = Counter()
+    unsupported_verifier_models: Counter[str] = Counter()
+    unsupported_model_dispositions: Counter[str] = Counter()
+    missing_verifier_model_metadata: Counter[str] = Counter()
     unsupported_models = _unsupported_verifier_models()
     model_metadata_required = _verifier_model_metadata_required()
     model_metadata_required_after = _verifier_model_metadata_required_after()
-    legacy_missing_verifier_model_metadata = Counter()
-    verifier_modes = Counter()
-    ledger_dispositions = Counter()
+    legacy_missing_verifier_model_metadata: Counter[str] = Counter()
+    verifier_modes: Counter[str] = Counter()
+    ledger_dispositions: Counter[str] = Counter()
     ledger_followup_issues: set[int] = set()
     ledger_prs: set[int] = set()
     ledger_needs_human = 0
     ledger_chain_depths: list[int] = []
     ledger_policy_records = 0
-    ledger_policy_actions = Counter()
-    ledger_policy_triggers = Counter()
+    ledger_policy_actions: Counter[str] = Counter()
+    ledger_policy_triggers: Counter[str] = Counter()
     ledger_policy_depth_limit_exceeded = 0
     verifier_run_keys: set[str] = set()
     prs: set[int] = set()
@@ -702,9 +702,9 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
     step_durations: dict[str, list[float]] = {}
     step_successes: dict[str, int] = {}
     step_failures: dict[str, int] = {}
-    cycle_counts = Counter()
-    failure_reasons = Counter()
-    escalation_reasons = Counter()
+    cycle_counts: Counter[str] = Counter()
+    failure_reasons: Counter[str] = Counter()
+    escalation_reasons: Counter[str] = Counter()
     cycle_records = 0
     cycle_steps_attempted = 0
     cycle_steps_completed = 0
@@ -782,14 +782,14 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _summarise_codex_cli_freshness(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    statuses = Counter()
-    packages = Counter()
-    pinned_versions = Counter()
-    latest_versions = Counter()
+    statuses: Counter[str] = Counter()
+    packages: Counter[str] = Counter()
+    pinned_versions: Counter[str] = Counter()
+    latest_versions: Counter[str] = Counter()
     max_major_delta = 0
     max_minor_delta = 0
     max_patch_delta = 0
-    update_targets = Counter()
+    update_targets: Counter[str] = Counter()
     for entry in entries:
         status = _normalize_counter_token(entry.get("status"))
         statuses[status] += 1
