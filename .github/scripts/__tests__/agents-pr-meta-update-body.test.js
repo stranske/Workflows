@@ -17,6 +17,7 @@ const {
   buildPreamble,
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
+  resolveExplicitNonIssueWorkflowSourceContext,
   resolveSourceContextRepairComment,
   resolveAgentType,
   stripPrTemplateContent,
@@ -441,6 +442,47 @@ test('buildSourceContextResolvedCommentBody explains sync-campaign source contex
   assert.ok(result.includes('lifecycle=consumer-sync'));
   assert.ok(result.includes('automation=verify-follow-up'));
   assert.ok(result.includes('No linked GitHub issue is required'));
+});
+
+test('resolveExplicitNonIssueWorkflowSourceContext preserves explicit automation source despite stale issue preamble', () => {
+  const context = resolveExplicitNonIssueWorkflowSourceContext({
+    body: [
+      '<!-- pr-preamble:start -->',
+      '<!-- meta:issue:1940 -->',
+      '> **Source:** Issue #1940',
+      '',
+      'Closes #1940',
+      '<!-- pr-preamble:end -->',
+      '',
+      '<!-- workflow-source:automation_run -->',
+      '<!-- workflow-source-ref:workflows-system-review-2 slice 112 -->',
+      '<!-- workflow-lifecycle:implementation_slice -->',
+      '<!-- workflow-automation:optional_local_or_remote -->',
+    ].join('\n'),
+  });
+
+  assert.deepEqual(context, {
+    sourceType: 'automation_run',
+    issueNumber: null,
+    sourceRef: 'workflows-system-review-2 slice 112',
+    lifecycle: 'implementation_slice',
+    automation: 'optional_local_or_remote',
+    isKnown: true,
+    isValid: true,
+    isExplicit: true,
+    requiresIssue: false,
+  });
+});
+
+test('resolveExplicitNonIssueWorkflowSourceContext ignores source issue markers', () => {
+  const context = resolveExplicitNonIssueWorkflowSourceContext({
+    body: [
+      '<!-- workflow-source:github_issue -->',
+      '<!-- workflow-source-ref:#123 -->',
+    ].join('\n'),
+  });
+
+  assert.equal(context, null);
 });
 
 test('resolveSourceContextRepairComment updates an existing warning once', async () => {

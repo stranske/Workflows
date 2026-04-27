@@ -17,7 +17,10 @@ const childProcess = require('child_process');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 const {
   formatSourceContextForLog,
+  normalizeSourceType,
   resolvePrSourceContext,
+  SOURCE_TYPES,
+  VALID_SOURCE_TYPES,
 } = require('./source_context.js');
 
 class RateLimitError extends Error {
@@ -987,6 +990,39 @@ function buildSourceContextResolvedCommentBody(prNumber, sourceContext) {
   ].join('\n');
 }
 
+function parseHtmlMarker(body, name) {
+  const pattern = new RegExp(`<!--\\s*${name}\\s*:\\s*([\\s\\S]*?)\\s*-->`, 'i');
+  const match = String(body || '').match(pattern);
+  return match ? String(match[1] || '').trim() : '';
+}
+
+function resolveExplicitNonIssueWorkflowSourceContext(pr = {}) {
+  const body = String(pr.body || '');
+  const sourceType = normalizeSourceType(parseHtmlMarker(body, 'workflow-source'));
+  if (
+    !VALID_SOURCE_TYPES.has(sourceType)
+    || sourceType === SOURCE_TYPES.GITHUB_ISSUE
+    || sourceType === SOURCE_TYPES.UNKNOWN
+  ) {
+    return null;
+  }
+
+  const sourceRef = parseHtmlMarker(body, 'workflow-source-ref');
+  const lifecycle = parseHtmlMarker(body, 'workflow-lifecycle');
+  const automation = parseHtmlMarker(body, 'workflow-automation');
+  return {
+    sourceType,
+    issueNumber: null,
+    sourceRef,
+    lifecycle,
+    automation,
+    isKnown: true,
+    isValid: true,
+    isExplicit: true,
+    requiresIssue: false,
+  };
+}
+
 async function resolveSourceContextRepairComment({
   github,
   owner,
@@ -1320,6 +1356,32 @@ async function run({github: rawGithub, context, core, inputs}) {
     return;
   }
 
+  const explicitNonIssueSourceContext = resolveExplicitNonIssueWorkflowSourceContext(pr);
+  if (explicitNonIssueSourceContext) {
+    core.info(
+      `PR #${pr.number} has explicit non-issue workflow source context (${formatSourceContextForLog(explicitNonIssueSourceContext)}); skipping issue-sourced body sync.`,
+    );
+    try {
+      const comments = await github.paginate(github.rest.issues.listComments, {
+        owner,
+        repo,
+        issue_number: pr.number,
+      });
+      await resolveSourceContextRepairComment({
+        github,
+        owner,
+        repo,
+        prNumber: pr.number,
+        comments,
+        sourceContext: explicitNonIssueSourceContext,
+        core,
+      });
+    } catch (error) {
+      core.warning(`Failed to resolve workflow source repair comment: ${error.message}`);
+    }
+    return;
+  }
+
   const issueNumber = extractIssueNumberFromPull(pr);
   const sourceContext = resolvePrSourceContext(pr);
   if (!issueNumber) {
@@ -1566,6 +1628,7 @@ module.exports = {
   buildPreamble,
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
+  resolveExplicitNonIssueWorkflowSourceContext,
   resolveSourceContextRepairComment,
   isCampaignIssue,
   buildStatusBlock,
