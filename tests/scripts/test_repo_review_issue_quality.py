@@ -1,4 +1,8 @@
-from scripts.repo_review_issue_quality import issue_body_is_agent_ready, issue_body_quality_errors
+from scripts.repo_review_issue_quality import (
+    issue_body_is_agent_ready,
+    issue_body_quality_errors,
+    review_evidence_trace_errors,
+)
 
 VALID_BODY = """## Why
 
@@ -72,3 +76,33 @@ def test_broad_implementation_notes_are_rejected() -> None:
     errors = issue_body_quality_errors(body)
 
     assert any("Relevant areas" in error for error in errors)
+
+
+def test_review_evidence_trace_requires_design_implementation_and_readiness_refs() -> None:
+    assert (
+        review_evidence_trace_errors(
+            {
+                "candidate_title_patterns": ["^Add smoke coverage$"],
+                "gap": "The reviewed workflow is not proved by a smoke test.",
+                "current_state": "Implementation code exists without end-to-end proof.",
+                "required_change": "Add a fixture-backed smoke and document the command.",
+                "design_refs": ["README.md"],
+                "implementation_refs": ["src/workflow.py"],
+                "test_refs": ["tests/test_workflow_smoke.py"],
+            }
+        )
+        == []
+    )
+
+    errors = review_evidence_trace_errors(
+        {
+            "gap": "The reviewed workflow is not proved by a smoke test.",
+            "current_state": "Implementation code exists without end-to-end proof.",
+            "required_change": "Add a fixture-backed smoke and document the command.",
+        }
+    )
+
+    assert "review evidence trace is missing design_refs" in errors
+    assert "review evidence trace is missing implementation_refs" in errors
+    assert "review evidence trace is missing test_refs/readiness_refs" in errors
+    assert "review evidence trace is not tied to candidate indexes or title patterns" in errors

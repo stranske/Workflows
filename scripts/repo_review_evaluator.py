@@ -24,12 +24,14 @@ try:
         ISSUE_BODY_REQUIRED_SECTIONS,
         issue_body_is_agent_ready,
         issue_body_quality_errors,
+        review_evidence_trace_errors,
     )
 except ModuleNotFoundError:  # pragma: no cover - supports direct script execution.
     from repo_review_issue_quality import (  # type: ignore[no-redef]
         ISSUE_BODY_REQUIRED_SECTIONS,
         issue_body_is_agent_ready,
         issue_body_quality_errors,
+        review_evidence_trace_errors,
     )
 
 VALID_STATUSES = {"active", "paused", "ignored", "needs-human"}
@@ -1396,6 +1398,35 @@ def markdown_bullets(items: list[str], empty: str = "None recorded.") -> str:
     return "\n".join(f"- {item}" for item in items)
 
 
+def markdown_review_evidence_traces(traces: list[dict[str, Any]]) -> str:
+    if not traces:
+        return "None recorded."
+    lines: list[str] = []
+    for index, trace in enumerate(traces, start=1):
+        design_refs = ", ".join(str(item) for item in trace.get("design_refs", [])) or "none"
+        implementation_refs = (
+            ", ".join(str(item) for item in trace.get("implementation_refs", [])) or "none"
+        )
+        test_values = trace.get("test_refs", [])
+        readiness_values = trace.get("readiness_refs", [])
+        if not isinstance(test_values, list):
+            test_values = [test_values]
+        if not isinstance(readiness_values, list):
+            readiness_values = [readiness_values]
+        test_refs = ", ".join(str(item) for item in [*test_values, *readiness_values]) or "none"
+        lines.extend(
+            [
+                f"{index}. {trace.get('gap', 'No gap recorded.')}",
+                f"   - Current state: {trace.get('current_state', 'None recorded.')}",
+                f"   - Required change: {trace.get('required_change', 'None recorded.')}",
+                f"   - Design refs: `{design_refs}`",
+                f"   - Implementation refs: `{implementation_refs}`",
+                f"   - Test/readiness refs: `{test_refs}`",
+            ]
+        )
+    return "\n".join(lines)
+
+
 def execution_dimension(state: dict[str, Any], dimension_id: str) -> dict[str, Any]:
     for dimension in state["review_execution"]["dimensions"]:
         if dimension["id"] == dimension_id:
@@ -1528,7 +1559,20 @@ def review_summary_quality_errors(brief: dict[str, Any]) -> list[str]:
         errors.append("missing repo-specific review focus")
     if not brief.get("concerns"):
         errors.append("missing repo-specific concerns")
+    traces = brief.get("review_evidence_traces") or []
+    if not traces:
+        errors.append("missing review evidence traces")
+    for index, trace in enumerate(traces, start=1):
+        for error in review_evidence_trace_errors(trace):
+            errors.append(f"review evidence trace {index}: {error}")
     return errors
+
+
+def review_evidence_traces_from_profile(profile: dict[str, Any]) -> list[dict[str, Any]]:
+    traces = profile.get("review_evidence_traces", profile.get("evidence_traces", []))
+    if not isinstance(traces, list):
+        return []
+    return [trace for trace in traces if isinstance(trace, dict)]
 
 
 def build_decision_brief(state: dict[str, Any]) -> dict[str, Any]:
@@ -1554,6 +1598,7 @@ def build_decision_brief(state: dict[str, Any]) -> dict[str, Any]:
         "issue_set_recommendation": issue_set_recommendation(state),
         "review_focus": profile.get("review_focus", []),
         "concerns": profile.get("concerns", []),
+        "review_evidence_traces": review_evidence_traces_from_profile(profile),
         "recorded_feedback": feedback,
         "gitnexus_summary": gitnexus_summary,
         "design_evidence": execution_dimension(state, "design_contract")["evidence"],
@@ -1644,6 +1689,18 @@ def approved_candidate_indexes(
     return indexes
 
 
+def parse_candidate_indexes(value: Any) -> set[int]:
+    if not isinstance(value, list):
+        value = [value] if value else []
+    indexes: set[int] = set()
+    for item in value:
+        try:
+            indexes.add(int(item))
+        except (TypeError, ValueError):
+            continue
+    return indexes
+
+
 def dropped_candidate_indexes(
     decision: dict[str, Any], candidates: list[dict[str, Any]] | None = None
 ) -> set[int]:
@@ -1661,6 +1718,54 @@ def dropped_candidate_indexes(
             candidate_title_pattern_indexes(decision, "dropped_title_patterns", candidates)
         )
     return indexes
+
+
+def evidence_trace_title_patterns(trace: dict[str, Any]) -> list[str]:
+    values: list[Any] = []
+    for key in (
+        "issue_title_pattern",
+        "issue_title_patterns",
+        "candidate_title_pattern",
+        "candidate_title_patterns",
+    ):
+        value = trace.get(key)
+        if isinstance(value, list):
+            values.extend(value)
+        elif value:
+            values.append(value)
+    return [str(value) for value in values if str(value).strip()]
+
+
+def candidate_matches_evidence_trace(candidate: dict[str, Any], trace: dict[str, Any]) -> bool:
+    candidate_index = int(candidate.get("candidate_index", 0))
+    trace_indexes = parse_candidate_indexes(trace.get("candidate_indexes", []))
+    if candidate_index in trace_indexes:
+        return True
+
+    title = str(candidate.get("title", ""))
+    candidate_titles = trace.get("candidate_titles", [])
+    if not isinstance(candidate_titles, list):
+        candidate_titles = [candidate_titles]
+    if title in {str(item) for item in candidate_titles}:
+        return True
+
+    for pattern in evidence_trace_title_patterns(trace):
+        try:
+            if re.search(pattern, title, flags=re.I):
+                return True
+        except re.error:
+            continue
+    return False
+
+
+def review_evidence_trace_for_candidate(
+    state: dict[str, Any], candidate: dict[str, Any]
+) -> dict[str, Any] | None:
+    traces = state["decision_brief"].get("review_evidence_traces", [])
+    for trace in traces:
+        if isinstance(trace, dict) and candidate_matches_evidence_trace(candidate, trace):
+            return trace
+    return None
 
 
 def open_task_lines(body: str, limit: int = 8) -> list[str]:
@@ -1865,6 +1970,31 @@ def build_approved_issue_queue(
                 continue
             if candidate["candidate_index"] in dropped_indexes:
                 continue
+            evidence_trace = review_evidence_trace_for_candidate(state, candidate)
+            if evidence_trace is None:
+                warnings.append(
+                    f"{state['repo']} candidate {candidate['candidate_index']} was approved but "
+                    "has no matching review evidence trace."
+                )
+                deeper_review.append(
+                    {
+                        "repo": state["repo"],
+                        "priority": priority,
+                        "decision": "deeper-review",
+                        "notes": (
+                            "Approved candidate was held back because no review evidence trace "
+                            f"was tied to candidate {candidate['candidate_index']}: {candidate['title']}"
+                        ),
+                        "design_target": state["decision_brief"]["design_target"],
+                        "review_focus": state["decision_brief"]["review_focus"],
+                        "concerns": [
+                            *state["decision_brief"]["concerns"],
+                            f"Add a review evidence trace for candidate {candidate['candidate_index']}: {candidate['title']}",
+                        ],
+                        "gitnexus_map": state["gitnexus_map"],
+                    }
+                )
+                continue
             body = build_agent_issue_body(state, candidate, priority)
             quality_errors = issue_body_quality_errors(body)
             if quality_errors:
@@ -1906,6 +2036,7 @@ def build_approved_issue_queue(
                     "body_format": list(ISSUE_BODY_REQUIRED_SECTIONS),
                     "body_valid": True,
                     "body_quality_errors": [],
+                    "review_evidence_trace": evidence_trace,
                     "body": body,
                     "feedback_notes": decision.get("notes", ""),
                     "gitnexus_status": state["gitnexus_map"]["status"],
@@ -1964,6 +2095,9 @@ def write_approved_issue_queue(
                 f"- Source: `{item['source']}`",
                 f"- Labels: `{', '.join(item['labels'])}`",
                 f"- Body follows required issue sections: `{item['body_valid']}`",
+                f"- Evidence gap: {item['review_evidence_trace']['gap']}",
+                f"- Evidence design refs: `{', '.join(item['review_evidence_trace'].get('design_refs', []))}`",
+                f"- Evidence implementation refs: `{', '.join(item['review_evidence_trace'].get('implementation_refs', []))}`",
                 "",
                 "```markdown",
                 item["body"].strip(),
@@ -2037,6 +2171,10 @@ def write_decision_brief(repo_dir: Path, state: dict[str, Any]) -> None:
         "Concerns to resolve:",
         "",
         markdown_bullets(brief["concerns"]),
+        "",
+        "Review evidence traces:",
+        "",
+        markdown_review_evidence_traces(brief["review_evidence_traces"]),
         "",
         "Design evidence:",
         "",

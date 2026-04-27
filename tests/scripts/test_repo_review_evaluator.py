@@ -35,6 +35,19 @@ Travel-Plan-Permission needs CI to execute the LangGraph path so orchestration c
 Relevant files: `pyproject.toml`, `.github/workflows/ci.yml`, `src/travel_plan_permission/orchestration/graph.py`, `tests/python/test_langgraph_ci_gate.py`.
 """
 
+VALID_REVIEW_TRACE = {
+    "candidate_title_patterns": [
+        "^Keep approved repo-local work$",
+        "^Add planner end-to-end tests$",
+    ],
+    "gap": "The reviewed workflow lacks executable proof for the intended path.",
+    "current_state": "Implementation paths exist, but the acceptance path is not proved by the current tests.",
+    "required_change": "Add the targeted smoke or CI gate named by the candidate issue.",
+    "design_refs": ["README.md", "docs/design.md"],
+    "implementation_refs": ["src/travel_plan_permission/orchestration/graph.py"],
+    "test_refs": ["tests/python/test_langgraph_ci_gate.py"],
+}
+
 
 def test_split_issue_entries_accepts_common_heading_shapes() -> None:
     text = """1. First title
@@ -215,6 +228,7 @@ def test_collect_repo_state_uses_profile_and_gitnexus_meta(tmp_path: Path) -> No
             "readiness_summary": "Demo-specific readiness.",
             "review_focus": ["Check the demo workflow."],
             "concerns": ["Avoid generic summaries."],
+            "review_evidence_traces": [VALID_REVIEW_TRACE],
         },
     )
 
@@ -554,6 +568,7 @@ def test_approved_issue_queue_formats_agent_ready_issues_and_drops_feedback_item
             "readiness_summary": "TPP needs LangGraph and transport smoke coverage before live confidence.",
             "review_focus": ["Verify the LangGraph test path before upload."],
             "concerns": ["Do not treat fallback-only tests as readiness."],
+            "review_evidence_traces": [VALID_REVIEW_TRACE],
         },
     )
     feedback = {
@@ -576,6 +591,7 @@ def test_approved_issue_queue_formats_agent_ready_issues_and_drops_feedback_item
     assert [item["candidate_index"] for item in queue["issues"]] == [1]
     assert queue["issues"][0]["priority"] == "high"
     assert queue["issues"][0]["body_valid"] is True
+    assert queue["issues"][0]["review_evidence_trace"]["gap"] == VALID_REVIEW_TRACE["gap"]
     assert queue["issues"][0]["body"] == VALID_ISSUE_BODY
     assert "## Acceptance Criteria" in queue["issues"][0]["body"]
     assert "Implement the approved review gap" not in queue["issues"][0]["body"]
@@ -618,6 +634,56 @@ def test_approved_issue_queue_requires_substantive_review_brief(tmp_path: Path) 
     assert "review brief failed the quality gate" in queue["warnings"][0]
 
 
+def test_approved_issue_queue_rejects_candidate_without_matching_evidence_trace(
+    tmp_path: Path,
+) -> None:
+    repo_dir = tmp_path / "Travel-Plan-Permission"
+    repo_dir.mkdir()
+    (repo_dir / "README.md").write_text("# TPP\n", encoding="utf-8")
+    (repo_dir / "Issues.txt").write_text(
+        f"""1. Keep approved repo-local work
+{VALID_ISSUE_BODY}
+""",
+        encoding="utf-8",
+    )
+    config = evaluator.RepoConfig(
+        repo="stranske/Travel-Plan-Permission",
+        local_path="Travel-Plan-Permission",
+        status="active",
+        cadence="weekly",
+        decision_anchor="approval workflow",
+    )
+    state = evaluator.collect_repo_state(
+        tmp_path,
+        config,
+        review_profile={
+            "progress_summary": "TPP has implementation surfaces and needs operational proof.",
+            "readiness_summary": "TPP needs LangGraph and transport smoke coverage before live confidence.",
+            "review_focus": ["Verify the LangGraph test path before upload."],
+            "concerns": ["Do not treat fallback-only tests as readiness."],
+            "review_evidence_traces": [
+                VALID_REVIEW_TRACE | {"candidate_title_patterns": ["^Different issue$"]}
+            ],
+        },
+    )
+    feedback = {
+        "generated_on": "2026-04-26",
+        "defaults": {"approved_candidates": "all"},
+        "decisions": {
+            "stranske/Travel-Plan-Permission": {
+                "decision": "approve",
+                "priority": "high",
+            }
+        },
+    }
+
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2026-04-26")
+
+    assert queue["issues"] == []
+    assert queue["deeper_review"][0]["decision"] == "deeper-review"
+    assert "has no matching review evidence trace" in queue["warnings"][0]
+
+
 def test_approved_archive_candidate_without_issue_body_is_routed_to_revision(
     tmp_path: Path,
 ) -> None:
@@ -648,6 +714,7 @@ def test_approved_archive_candidate_without_issue_body_is_routed_to_revision(
             "readiness_summary": "Planner readiness depends on an end-to-end smoke path.",
             "review_focus": ["Verify planner turns through a real user path."],
             "concerns": ["Archive snippets are not complete issue bodies."],
+            "review_evidence_traces": [VALID_REVIEW_TRACE],
         },
     )
     feedback = {

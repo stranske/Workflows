@@ -18,9 +18,15 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from scripts.repo_review_issue_quality import issue_body_quality_errors
+    from scripts.repo_review_issue_quality import (
+        issue_body_quality_errors,
+        review_evidence_trace_errors,
+    )
 except ModuleNotFoundError:  # pragma: no cover - supports direct script execution.
-    from repo_review_issue_quality import issue_body_quality_errors  # type: ignore[no-redef]
+    from repo_review_issue_quality import (  # type: ignore[no-redef]
+        issue_body_quality_errors,
+        review_evidence_trace_errors,
+    )
 
 LABELS = {
     "repo-review-approved": {
@@ -71,6 +77,8 @@ def validate_issue_queue(issues: list[dict[str, Any]]) -> None:
         if not title or title == "<missing title>":
             failures.append(f"issue {index} is missing title")
         for error in issue_body_quality_errors(body):
+            failures.append(f"{repo} :: {title}: {error}")
+        for error in review_evidence_trace_errors(issue.get("review_evidence_trace")):
             failures.append(f"{repo} :: {title}: {error}")
     if failures:
         joined = "\n- ".join(failures)
