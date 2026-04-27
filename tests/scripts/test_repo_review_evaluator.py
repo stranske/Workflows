@@ -499,6 +499,8 @@ def test_write_repo_artifacts_emits_standard_design_review(tmp_path: Path) -> No
     text = review.read_text(encoding="utf-8")
     assert "Standard Design Review" in text
     assert "Design Contract" in text
+    assert "Process Chain Checkpoint" in text
+    assert "earliest failed stage" in text
     assert "Required Review Evidence Trace" in text
     assert "review_evidence_traces" in text
     assert "candidate_title_patterns" in text
@@ -536,6 +538,8 @@ def test_write_packet_embeds_substantive_decision_brief(tmp_path: Path) -> None:
     packet = (output_dir / "human-decision-packet.md").read_text(encoding="utf-8")
     assert "Current Progress Compared With Design" in packet
     assert "Review quality gate: `fail`" in packet
+    assert "process-chain checkpoint" in packet
+    assert "Fix the earliest upstream cause" in packet
     assert "write a `review_evidence_traces` record" in packet
     assert "Review evidence traces:" in packet
     assert "Readiness For Testing Or Live Implementation" in packet

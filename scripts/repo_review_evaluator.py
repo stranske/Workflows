@@ -1445,6 +1445,22 @@ def review_evidence_trace_template() -> str:
     )
 
 
+def process_chain_checkpoint_lines() -> list[str]:
+    return [
+        "Before changing automation or approving issues, identify the earliest failed stage in this chain:",
+        "",
+        "1. Inputs: registry, repo status, synced local clone, remote issues, archives, GitNexus map, design docs.",
+        "2. Review instructions: the worksheet/profile prompt must require design-vs-implementation comparison, not just file discovery.",
+        "3. Evidence collection: the reviewer must inspect design, implementation, tests, integrations, and open issues.",
+        "4. Human packet: progress/readiness output must be repo-specific and decision-useful.",
+        "5. Issue drafting: every issue must be tied to a verified gap and include concrete agent-ready tasks and acceptance criteria.",
+        "6. Upload gate: only approved, formatted, evidence-traced issues can reach GitHub.",
+        "7. Coding-agent lanes: opener/closer automation should consume the prioritized issue set without repo-specific hardcoding.",
+        "",
+        "If a later stage fails, fix the earliest upstream cause that allowed the bad output, not only the visible symptom.",
+    ]
+
+
 def execution_dimension(state: dict[str, Any], dimension_id: str) -> dict[str, Any]:
     for dimension in state["review_execution"]["dimensions"]:
         if dimension["id"] == dimension_id:
@@ -2177,6 +2193,10 @@ def write_decision_brief(repo_dir: Path, state: dict[str, Any]) -> None:
         "",
         markdown_bullets(brief["review_quality_errors"]),
         "",
+        "## Process Chain Checkpoint",
+        "",
+        *process_chain_checkpoint_lines(),
+        "",
         "## Current Progress Compared With Design",
         "",
         f"- Design target: {brief['design_target']}",
@@ -2348,6 +2368,10 @@ def write_repo_artifacts(output_dir: Path, state: dict[str, Any], max_drafts: in
         f"- Nonblocking helper local changes: `{state['helper_dirty_count']}`",
         f"- Review-blocking local changes: `{state['review_blocking_dirty_count']}`",
         f"- GitNexus map status: `{state['gitnexus_map']['status']}`",
+        "",
+        "## Process Chain Checkpoint",
+        "",
+        *process_chain_checkpoint_lines(),
         "",
         "## Design Sources To Read",
         "",
@@ -2567,6 +2591,8 @@ def write_packet(
         f"- Ignored repos tracked: `{len(ignored)}`",
         "",
         "## Standard Review Process",
+        "",
+        "Before changing automation or approving issues, use the process-chain checkpoint: inputs -> review instructions -> evidence collection -> human packet -> issue drafting -> upload gate -> coding-agent lanes. Fix the earliest upstream cause of a failure, not only the visible symptom.",
         "",
         "1. Read the design sources and registry decision anchor.",
         "2. Inspect implementation areas and distinguish real behavior from scaffolds or fixtures.",
