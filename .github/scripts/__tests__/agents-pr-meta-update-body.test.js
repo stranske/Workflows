@@ -556,13 +556,14 @@ test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () 
   assert.equal(hasExplicitIssueSyncReference({ body: 'This issue only mentions review follow-up PR #123' }), false);
   assert.equal(hasExplicitIssueSyncReference({ body: 'refs in this paragraph mention PR #123' }), false);
   assert.equal(hasExplicitIssueSyncReference({ body: '<!-- meta:issue:123 -->' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Closes #0' }), false);
 });
 
 test('extractExplicitIssueSyncNumbers returns only explicit issue references', () => {
   assert.deepEqual(
     Array.from(extractExplicitIssueSyncNumbers({
       title: 'Review follow-up',
-      body: 'Closes #123\nReferences issue #456\nRefs #234\nRelated to campaign issue #345\n> **Source:** Issue #678\n<!-- meta:issue:567 -->\nReview follow-up from PR #789',
+      body: 'Closes #123\nCloses #0\nReferences issue #456\nRefs #234\nRelated to campaign issue #345\n> **Source:** Issue #678\n<!-- meta:issue:567 -->\n<!-- meta:issue:0 -->\nReview follow-up from PR #789',
     })).sort((a, b) => a - b),
     [123, 234, 345, 456, 567, 678],
   );
@@ -631,7 +632,7 @@ test('resolveNonIssueWorkflowSourceContextForBodySync yields to explicit issue r
   assert.equal(context, null);
 });
 
-test('resolveNonIssueWorkflowSourceContextForBodySync yields to issue numbers even when explicit issue differs', () => {
+test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue markers when explicit issue differs', () => {
   const context = resolveNonIssueWorkflowSourceContextForBodySync(
     {
       body: [
@@ -644,7 +645,8 @@ test('resolveNonIssueWorkflowSourceContextForBodySync yields to issue numbers ev
     99,
   );
 
-  assert.equal(context, null);
+  assert.equal(context.sourceType, 'local_request');
+  assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
 });
 
 test('resolveSourceContextRepairComment updates an existing warning once', async () => {

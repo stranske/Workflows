@@ -1060,7 +1060,8 @@ function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, issueNumber = 
   if (!explicitNonIssueSourceContext) {
     return null;
   }
-  if (hasExplicitIssueSyncReference(pr)) {
+  const explicitIssueSyncNumbers = extractExplicitIssueSyncNumbers(pr);
+  if (explicitIssueSyncNumbers.has(Number(issueNumber))) {
     return null;
   }
   return explicitNonIssueSourceContext;
