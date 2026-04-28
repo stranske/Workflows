@@ -849,6 +849,32 @@ test('extractIssueNumberFromPull treats "Task #N" as a valid issue ref', () => {
   assert.equal(extractIssueNumberFromPull(pull), 42);
 });
 
+test('extractIssueNumberFromPull ignores cross-repo consumer issue references', () => {
+  for (const body of [
+    'Addresses consumer sync review comments on Counter_Risk #502 and Travel-Plan-Permission #980.',
+    'Addresses consumer sync review comments on Counter_Risk#502 and owner/repo#980.',
+    'Portable-Alpha-Extension-Model #1710 exposed the same source-owned blocker.',
+  ]) {
+    assert.equal(extractIssueNumberFromPull({ body, head: { ref: 'feature' }, title: 'stuff' }), null, body);
+  }
+});
+
+test('extractIssueNumberFromPull still accepts explicit local issue references', () => {
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Counter_Risk #502 exposed a blocker. Source issue #1937 tracks the Workflows fix.',
+      head: { ref: 'feature' },
+      title: 'stuff',
+    }),
+    1937,
+  );
+  assert.equal(extractIssueNumberFromPull({ body: 'Fixes issue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: 'Some text\nIssue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '- Issue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '> Issue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '- **Source issue** #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+});
+
 test('extractIssueNumberFromPull skips "version #N" in body', () => {
   const pull = { body: 'Upgraded to version #4', head: { ref: 'feature' }, title: 'stuff' };
   assert.equal(extractIssueNumberFromPull(pull), null);
