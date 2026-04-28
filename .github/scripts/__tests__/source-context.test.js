@@ -126,6 +126,7 @@ test('extractIssueNumberFromPull requires explicit issue wording for body refere
   assert.equal(extractIssueNumberFromPull({ body: '> **Source:** Issue #123' }), 123);
   assert.equal(extractIssueNumberFromPull({ body: 'Known issue #123 blocks this PR' }), null);
   assert.equal(extractIssueNumberFromPull({ body: 'No issue #123 is linked' }), null);
+  assert.equal(extractIssueNumberFromPull({ body: 'No linked issue #123 is real' }), null);
 });
 
 test('extractIssueNumberFromPull requires explicit issue wording for title references', () => {
