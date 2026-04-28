@@ -189,7 +189,7 @@ const INSTRUCTION_REACTION = 'hooray';
 // Valid GitHub reactions: +1, -1, laugh, confused, heart, hooray, rocket, eyes
 const LOCK_REACTION = 'rocket';
 const EXPLICIT_ISSUE_PREFIX_PATTERN =
-  '(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|relate[sd]?\\s+to(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|refs?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|references?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|source(?:\\s*:\\s*|\\s+)issue|github\\s+issue|issue)';
+  '(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|relate[sd]?\\s+to(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|refs?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|references?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|source(?:\\s*:\\s*|\\s+)issue|github\\s+issue|linked\\s+issue|issue)';
 const EXPLICIT_ISSUE_INLINE_PREFIX_REGEX = new RegExp(
   `\\b${EXPLICIT_ISSUE_PREFIX_PATTERN}\\s*[:#-]?\\s*$`,
   'i',

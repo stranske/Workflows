@@ -533,25 +533,32 @@ async function collectPriorityWorkflowArtifacts({
       if (runTimestamp > 0 && runTimestamp < config.cutoff_ms) {
         continue;
       }
-      let artifactResponse;
-      try {
-        artifactResponse = await withRetry((client) =>
-          client.rest.actions.listWorkflowRunArtifacts({
-            owner,
-            repo,
-            run_id: run.id,
-            per_page: config.per_page,
-          })
+      for (let page = 1; page <= config.max_scan_pages; page += 1) {
+        let artifactResponse;
+        try {
+          artifactResponse = await withRetry((client) =>
+            client.rest.actions.listWorkflowRunArtifacts({
+              owner,
+              repo,
+              run_id: run.id,
+              per_page: config.per_page,
+              page,
+            })
+          );
+        } catch (error) {
+          if (isNotFoundError(error)) break;
+          throw error;
+        }
+        const pageArtifacts = artifactResponse?.data?.artifacts || [];
+        const matchingArtifacts = pageArtifacts.filter((artifact) =>
+          families.includes(artifactFamily(artifact.name))
         );
-      } catch (error) {
-        if (isNotFoundError(error)) continue;
-        throw error;
+        sourceArtifacts.push(...matchingArtifacts);
+        artifacts.push(...matchingArtifacts);
+        if (familiesSatisfied(sourceArtifacts, families, config) || pageArtifacts.length < config.per_page) {
+          break;
+        }
       }
-      const matchingArtifacts = (artifactResponse?.data?.artifacts || []).filter((artifact) =>
-        families.includes(artifactFamily(artifact.name))
-      );
-      sourceArtifacts.push(...matchingArtifacts);
-      artifacts.push(...matchingArtifacts);
       if (familiesSatisfied(sourceArtifacts, families, config)) {
         break;
       }

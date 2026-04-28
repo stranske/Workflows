@@ -835,6 +835,11 @@ test('extractIssueNumberFromPull extracts from body hash ref', () => {
   assert.equal(extractIssueNumberFromPull(pull), 123);
 });
 
+test('extractIssueNumberFromPull accepts linked issue body refs', () => {
+  const pull = { body: 'Linked issue #123', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), 123);
+});
+
 test('extractIssueNumberFromPull skips "Run #NNN" in body', () => {
   const pull = { body: 'Run #2615 timed out after 45 minutes', head: { ref: 'claude/fix-something' }, title: 'fix: pre-timeout watchdog' };
   assert.equal(extractIssueNumberFromPull(pull), null);

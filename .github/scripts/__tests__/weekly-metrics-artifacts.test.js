@@ -563,6 +563,61 @@ test('collects priority artifacts from their producer workflows', async () => {
   ]);
 });
 
+test('collects priority artifacts across paginated workflow run artifacts', async () => {
+  const calls = [];
+  const client = {
+    rest: {
+      actions: {
+        listWorkflowRuns: async () => ({
+          data: {
+            workflow_runs: [
+              { id: 101, created_at: '2026-04-25T11:00:00Z', updated_at: '2026-04-25T11:00:00Z' },
+            ],
+          },
+        }),
+        listWorkflowRunArtifacts: async (params) => {
+          calls.push(['artifacts', params.run_id, params.per_page, params.page]);
+          return {
+            data: {
+              artifacts: params.page === 1
+                ? [artifact(101, 'unrelated-artifact', '2026-04-25T11:00:00Z')]
+                : [artifact(101, 'bot-comment-auth-coverage-reusable-101', '2026-04-25T11:00:00Z')],
+            },
+          };
+        },
+      },
+    },
+  };
+
+  const artifacts = await collectPriorityWorkflowArtifacts({
+    github: client,
+    owner: 'owner',
+    repo: 'repo',
+    options: {
+      now_ms: NOW,
+      priority_workflow_runs_per_source: 1,
+      per_page: 1,
+      max_scan_pages: 2,
+    },
+    sources: [
+      {
+        workflow_id: 'reusable-bot-comment-handler.yml',
+        families: ['bot-comment-auth-coverage-reusable'],
+      },
+    ],
+    withRetry: (fn) => fn(client),
+  });
+
+  assert.deepEqual(
+    artifacts.map((selected) => selected.name),
+    ['bot-comment-auth-coverage-reusable-101']
+  );
+  assert.deepEqual(calls, [
+    ['artifacts', 101, 1, 1],
+    ['artifacts', 101, 1, 2],
+  ]);
+});
+
 test('collects priority artifacts until each source satisfies its own families', async () => {
   const calls = [];
   const client = {
