@@ -855,9 +855,9 @@ test('extractIssueNumberFromPull skips "step #N" in body', () => {
   assert.equal(extractIssueNumberFromPull(pull), null);
 });
 
-test('extractIssueNumberFromPull treats "Task #N" as a valid issue ref', () => {
+test('extractIssueNumberFromPull ignores task numbering', () => {
   const pull = { body: 'Task #42 is ready for review', head: { ref: 'feature' }, title: 'stuff' };
-  assert.equal(extractIssueNumberFromPull(pull), 42);
+  assert.equal(extractIssueNumberFromPull(pull), null);
 });
 
 test('extractIssueNumberFromPull ignores cross-repo consumer issue references', () => {

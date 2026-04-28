@@ -42,7 +42,7 @@ function buildStateComment({ commentId, headSha, trace }) {
   };
 }
 
-function makeGithubStub({ prNumber, headSha, comments }) {
+function makeGithubStub({ prNumber, headSha, comments, pull = {} }) {
   const commentsByIssue = new Map([[prNumber, comments]]);
   return {
     rest: {
@@ -53,8 +53,20 @@ function makeGithubStub({ prNumber, headSha, comments }) {
           }
           return {
             data: {
-              head: { sha: headSha, ref: 'codex/issue-1' },
-              base: { ref: 'main' },
+              body: pull.body || '',
+              title: pull.title || 'Keepalive test PR',
+              labels: pull.labels || [],
+              head: {
+                sha: headSha,
+                ref: 'codex/issue-1',
+                repo: { fork: false, owner: { login: 'stranske' } },
+                ...(pull.head || {}),
+              },
+              base: {
+                ref: 'main',
+                repo: { owner: { login: 'stranske' } },
+                ...(pull.base || {}),
+              },
             },
           };
         },
@@ -150,6 +162,49 @@ test('keepalive worker gate executes when head changed despite matching instruct
   assert.equal(result.action, 'execute');
   assert.equal(result.reason, 'head-changed');
   assert.equal(result.headSha, currentHead);
+});
+
+test('keepalive worker gate skips no-automation keepalive comments', async () => {
+  const instructionId = 200;
+  const headSha = 'abc123';
+  const instructionComment = buildInstructionComment({ id: instructionId, trace: 'trace-no-auto', createdAt: '2024-01-01T01:00:00Z' });
+  const github = makeGithubStub({
+    prNumber: 123,
+    headSha,
+    comments: [instructionComment],
+    pull: {
+      body: [
+        '## Workflow Source',
+        '',
+        'Started from:',
+        '- [x] Do not automate',
+      ].join('\n'),
+    },
+  });
+  const result = await evaluateKeepaliveWorkerGate({ core: makeCore(), github, context: baseContext, env: baseEnv });
+  assert.equal(result.action, 'skip');
+  assert.equal(result.reason, 'no-automation-source-context');
+  assert.equal(result.instructionId, String(instructionId));
+});
+
+test('keepalive worker gate skips fork-pr keepalive comments', async () => {
+  const instructionId = 200;
+  const headSha = 'abc123';
+  const instructionComment = buildInstructionComment({ id: instructionId, trace: 'trace-fork', createdAt: '2024-01-01T01:00:00Z' });
+  const github = makeGithubStub({
+    prNumber: 123,
+    headSha,
+    comments: [instructionComment],
+    pull: {
+      head: {
+        repo: { fork: true, owner: { login: 'external-contributor' } },
+      },
+    },
+  });
+  const result = await evaluateKeepaliveWorkerGate({ core: makeCore(), github, context: baseContext, env: baseEnv });
+  assert.equal(result.action, 'skip');
+  assert.equal(result.reason, 'fork-pr');
+  assert.equal(result.instructionId, String(instructionId));
 });
 
 test('keepalive worker gate executes when keepalive disabled', async () => {
