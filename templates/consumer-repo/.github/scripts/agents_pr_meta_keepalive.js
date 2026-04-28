@@ -188,6 +188,16 @@ try {
 const INSTRUCTION_REACTION = 'hooray';
 // Valid GitHub reactions: +1, -1, laugh, confused, heart, hooray, rocket, eyes
 const LOCK_REACTION = 'rocket';
+const EXPLICIT_ISSUE_PREFIX_PATTERN =
+  '(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|relate[sd]?\\s+to(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|refs?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|references?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|source(?:\\s*:\\s*|\\s+)issue|github\\s+issue|task|issue)';
+const EXPLICIT_ISSUE_INLINE_PREFIX_REGEX = new RegExp(
+  `\\b${EXPLICIT_ISSUE_PREFIX_PATTERN}\\s*[:#-]?\\s*$`,
+  'i',
+);
+const EXPLICIT_ISSUE_LINE_PREFIX_REGEX = new RegExp(
+  `(?:^|\\n)\\s*>?\\s*(?:[-*]\\s*)?(?:\\*\\*)?${EXPLICIT_ISSUE_PREFIX_PATTERN}(?:\\*\\*)?\\s*[:#-]?\\s*$`,
+  'i',
+);
 
 function normaliseLogin(login) {
   return String(login || '')
@@ -212,18 +222,42 @@ function hasExplicitIssueReferencePrefix(value) {
     .trim()
     .replace(/[>*]/g, ' ')
     .replace(/\s+/g, ' ');
-  const explicitIssuePrefix =
-    '(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|relate[sd]?\\s+to(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|refs?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|references?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|source(?:\\s*:\\s*|\\s+)issue|github\\s+issue|task|issue)';
 
   if (/\b(?:pr|pull\s+request)\s*[:#-]?\s*$/i.test(prefix)) {
     return false;
   }
 
-  if (new RegExp(`\\b${explicitIssuePrefix}\\s*[:#-]?\\s*$`, 'i').test(prefix)) {
+  if (EXPLICIT_ISSUE_INLINE_PREFIX_REGEX.test(prefix)) {
     return true;
   }
 
-  return new RegExp(`(?:^|\\n)\\s*>?\\s*(?:[-*]\\s*)?(?:\\*\\*)?${explicitIssuePrefix}(?:\\*\\*)?\\s*[:#-]?\\s*$`, 'i').test(rawPrefix);
+  return EXPLICIT_ISSUE_LINE_PREFIX_REGEX.test(rawPrefix);
+}
+
+function extractExplicitIssueNumberFromText(text) {
+  const value = String(text || '');
+  for (const match of value.matchAll(/#([0-9]+)/g)) {
+    if (!match[1]) {
+      continue;
+    }
+    const before = value.slice(Math.max(0, match.index - 200), match.index);
+    const token = before.split(/\s/).pop() || '';
+    if (token.includes('/')) {
+      continue;
+    }
+    if (match.index > 0 && /\w/.test(value[match.index - 1])) {
+      continue;
+    }
+    const preceding = value.slice(Math.max(0, match.index - 20), match.index);
+    if (/\b(?:run|attempt|step|job|check|version|v)\s*$/i.test(preceding)) {
+      continue;
+    }
+    if (!hasExplicitIssueReferencePrefix(value.slice(Math.max(0, match.index - 80), match.index))) {
+      continue;
+    }
+    return match[1];
+  }
+  return null;
 }
 
 function extractIssueNumberFromPull(pull) {
@@ -247,34 +281,14 @@ function extractIssueNumberFromPull(pull) {
   }
 
   const title = pull?.title || '';
-  const titleMatch = title.match(/#([0-9]+)/);
+  const titleMatch = extractExplicitIssueNumberFromText(title);
   if (titleMatch) {
-    candidates.push(titleMatch[1]);
+    candidates.push(titleMatch);
   }
 
-  for (const match of bodyText.matchAll(/#([0-9]+)/g)) {
-    if (!match[1]) {
-      continue;
-    }
-    // Skip cross-repo refs like owner/repo#123
-    const before = bodyText.slice(Math.max(0, match.index - 200), match.index);
-    const token = before.split(/\s/).pop() || '';
-    if (token.includes('/')) {
-      continue;
-    }
-    // Skip cross-repo shorthand like RepoName#123 or PR#123
-    if (match.index > 0 && /\w/.test(bodyText[match.index - 1])) {
-      continue;
-    }
-    // Skip non-issue refs like "Run #123", "run #123", "attempt #2"
-    const preceding = bodyText.slice(Math.max(0, match.index - 20), match.index);
-    if (/\b(?:run|attempt|step|job|check|version|v)\s*$/i.test(preceding)) {
-      continue;
-    }
-    if (!hasExplicitIssueReferencePrefix(bodyText.slice(Math.max(0, match.index - 80), match.index))) {
-      continue;
-    }
-    candidates.push(match[1]);
+  const bodyMatch = extractExplicitIssueNumberFromText(bodyText);
+  if (bodyMatch) {
+    candidates.push(bodyMatch);
   }
 
   for (const value of candidates) {

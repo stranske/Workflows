@@ -819,6 +819,17 @@ test('extractIssueNumberFromPull extracts from title', () => {
   assert.equal(extractIssueNumberFromPull(pull), 55);
 });
 
+test('extractIssueNumberFromPull ignores incidental title refs', () => {
+  assert.equal(
+    extractIssueNumberFromPull({ body: '', head: { ref: 'feature' }, title: 'bump dependency (#55)' }),
+    null,
+  );
+  assert.equal(
+    extractIssueNumberFromPull({ body: '', head: { ref: 'feature' }, title: 'sync from Counter_Risk #502' }),
+    null,
+  );
+});
+
 test('extractIssueNumberFromPull extracts from body hash ref', () => {
   const pull = { body: 'Fixes #123', head: { ref: 'feature' }, title: 'stuff' };
   assert.equal(extractIssueNumberFromPull(pull), 123);

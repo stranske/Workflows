@@ -120,10 +120,17 @@ test('extractIssueNumberFromPull requires explicit issue wording for body refere
   assert.equal(extractIssueNumberFromPull({ body: 'Related to issue #456' }), 456);
   assert.equal(extractIssueNumberFromPull({ body: 'Closes #789' }), 789);
   assert.equal(extractIssueNumberFromPull({ body: 'Issue #123' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: 'Task #124 is ready' }), 124);
   assert.equal(extractIssueNumberFromPull({ body: 'Resolve issue #123' }), 123);
   assert.equal(extractIssueNumberFromPull({ body: '> **Source:** Issue #123' }), 123);
   assert.equal(extractIssueNumberFromPull({ body: 'Known issue #123 blocks this PR' }), null);
   assert.equal(extractIssueNumberFromPull({ body: 'No issue #123 is linked' }), null);
+});
+
+test('extractIssueNumberFromPull requires explicit issue wording for title references', () => {
+  assert.equal(extractIssueNumberFromPull({ title: 'fix: resolve #55' }), 55);
+  assert.equal(extractIssueNumberFromPull({ title: 'bump dependency (#55)' }), null);
+  assert.equal(extractIssueNumberFromPull({ title: 'sync from Counter_Risk #502' }), null);
 });
 
 test('resolvePrSourceContext does not classify bare and PR-only mentions as issue-sourced', () => {
@@ -187,7 +194,7 @@ Automation intent:
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.LOCAL_REQUEST);
 });
 
-test('sourceTypeFromCheckedTemplate preserves source choice while automation intent disables automation', () => {
+test('sourceTypeFromCheckedTemplate preserves source choice without automation intent opt-out', () => {
   const body = `
 ## Workflow Source
 
@@ -202,7 +209,21 @@ Automation intent:
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.LOCAL_REQUEST);
   const context = resolvePrSourceContext({ body });
   assert.equal(context.sourceType, SOURCE_TYPES.LOCAL_REQUEST);
-  assert.equal(context.noAutomation, true);
+  assert.equal(context.noAutomation, false);
+});
+
+test('automation intent checkboxes do not disable automation without started-from source', () => {
+  const body = `
+## Workflow Source
+
+Automation intent:
+- [x] Human-only unless checks fail
+`;
+
+  const context = resolvePrSourceContext({ body });
+  assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.UNKNOWN);
+  assert.equal(context.sourceType, SOURCE_TYPES.UNKNOWN);
+  assert.equal(context.noAutomation, false);
 });
 
 test('sourceTypeFromCheckedTemplate treats human-only PRs as manual remote work', () => {
@@ -245,6 +266,22 @@ automation: no_automation
 <!-- workflow-source:end -->
 `,
   }), true);
+});
+
+test('resolvePrSourceContext normalizes explicit no-automation to a valid manual source', () => {
+  const context = resolvePrSourceContext({
+    body: `
+<!-- workflow-source:start -->
+automation: no_automation
+<!-- workflow-source:end -->
+`,
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.noAutomation, true);
+  assert.equal(context.isExplicit, true);
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
 });
 
 test('resolvePrSourceContext preserves legacy human-only no-automation wording', () => {

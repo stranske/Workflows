@@ -137,7 +137,8 @@ function workflowSourceSectionLines(body) {
 function startedFromLines(sectionLines) {
   const start = sectionLines.findIndex((line) => /^\s*Started from:\s*$/i.test(line));
   if (start < 0) {
-    return sectionLines;
+    const firstSubsection = sectionLines.findIndex((line) => /^\s*(Automation intent|Notes):\s*$/i.test(line));
+    return firstSubsection < 0 ? sectionLines : sectionLines.slice(0, firstSubsection);
   }
 
   const result = [];
@@ -155,7 +156,9 @@ function hasCheckedNoAutomationTemplate(body) {
   if (!sectionLines.length) {
     return false;
   }
-  return checkedLabels(sectionLines).some((label) => NO_AUTOMATION_CHECKBOX_PATTERN.test(label));
+  return checkedLabels(startedFromLines(sectionLines)).some((label) =>
+    NO_AUTOMATION_CHECKBOX_PATTERN.test(label)
+  );
 }
 
 function hasExplicitIssueReferencePrefix(value) {
@@ -167,7 +170,7 @@ function hasExplicitIssueReferencePrefix(value) {
     return false;
   }
 
-  return /\b(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\s+(?:issue|source\s+issue|github\s+issue))?|relate[sd]?\s+to(?:\s+(?:issue|source\s+issue|github\s+issue))?|refs?(?:\s+(?:issue|source\s+issue|github\s+issue))?|references?(?:\s+(?:issue|source\s+issue|github\s+issue))?|source(?:\s*:\s*|\s+)issue|github\s+issue)\s*[:#-]?\s*$|^\s*issue\s*[:#-]?\s*$/i.test(
+  return /\b(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\s+(?:issue|source\s+issue|github\s+issue))?|relate[sd]?\s+to(?:\s+(?:issue|source\s+issue|github\s+issue))?|refs?(?:\s+(?:issue|source\s+issue|github\s+issue))?|references?(?:\s+(?:issue|source\s+issue|github\s+issue))?|source(?:\s*:\s*|\s+)issue|github\s+issue|task)\s*[:#-]?\s*$|^\s*issue\s*[:#-]?\s*$/i.test(
     prefix
   );
 }
@@ -333,10 +336,13 @@ function resolvePrSourceContext(pull = {}) {
   const checkboxType = sourceTypeFromCheckedTemplate(body);
   const labelType = sourceTypeFromLabels(pull);
   const inferredType = inferredSourceType(pull);
-  const sourceType = issueNumber
+  const detectedSourceType = issueNumber
     ? SOURCE_TYPES.GITHUB_ISSUE
     : [markerType, blockType, checkboxType, labelType, inferredType].find((type) => type !== SOURCE_TYPES.UNKNOWN)
       || SOURCE_TYPES.UNKNOWN;
+  const sourceType = noAutomation && detectedSourceType === SOURCE_TYPES.UNKNOWN
+    ? SOURCE_TYPES.MANUAL_REMOTE
+    : detectedSourceType;
 
   const sourceRef =
     cleanString(parseHtmlMarker(body, 'workflow-source-ref')) ||
@@ -362,7 +368,8 @@ function resolvePrSourceContext(pull = {}) {
         markerType !== SOURCE_TYPES.UNKNOWN ||
         blockType !== SOURCE_TYPES.UNKNOWN ||
         checkboxType !== SOURCE_TYPES.UNKNOWN ||
-        labelType !== SOURCE_TYPES.UNKNOWN
+        labelType !== SOURCE_TYPES.UNKNOWN ||
+        noAutomation
     ),
     requiresIssue: sourceType === SOURCE_TYPES.GITHUB_ISSUE,
     noAutomation,

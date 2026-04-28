@@ -462,6 +462,16 @@ test('buildSourceContextResolvedCommentBody explains issue-backed source context
   assert.ok(!result.includes('No linked GitHub issue is required'));
 });
 
+test('buildSourceContextResolvedCommentBody does not claim missing issue is present', () => {
+  const result = buildSourceContextResolvedCommentBody(123, {
+    sourceType: 'github_issue',
+    requiresIssue: true,
+  });
+
+  assert.ok(!result.includes('A linked GitHub issue is present'));
+  assert.ok(result.includes('A linked GitHub issue is required but was not detected'));
+});
+
 test('resolveExplicitNonIssueWorkflowSourceContext preserves explicit automation source despite stale issue preamble', () => {
   const context = resolveExplicitNonIssueWorkflowSourceContext({
     body: [
@@ -679,6 +689,164 @@ test('resolveSourceContextRepairComment skips when no warning exists', async () 
   });
 
   assert.strictEqual(updated, false);
+});
+
+test('run resolves stale repair warning for valid no-automation workflow source', async () => {
+  const calls = {
+    listComments: 0,
+    updateComment: 0,
+    updateCommentBody: '',
+    issueGet: 0,
+    pullUpdate: 0,
+  };
+  const github = {
+    paginate: async () => {
+      calls.listComments += 1;
+      return [{ id: 99, body: '<!-- missing-issue-warning -->\nstale warning' }];
+    },
+    rest: {
+      pulls: {
+        get: async () => ({
+          data: {
+            number: 55,
+            state: 'open',
+            title: 'Manual workflow source',
+            body: [
+              '## Workflow Source',
+              '',
+              'Started from:',
+              '- [x] Do not automate',
+            ].join('\n'),
+            head: { sha: 'abc123', ref: 'manual/no-automation' },
+            labels: [],
+          },
+        }),
+        update: async () => {
+          calls.pullUpdate += 1;
+        },
+      },
+      issues: {
+        get: async () => {
+          calls.issueGet += 1;
+          throw new Error('should not fetch an issue');
+        },
+        listComments: {},
+        updateComment: async ({ body }) => {
+          calls.updateComment += 1;
+          calls.updateCommentBody = body;
+        },
+      },
+    },
+  };
+  const failures = [];
+  const core = {
+    info: () => {},
+    debug: () => {},
+    warning: () => {},
+    error: () => {},
+    setFailed: (message) => failures.push(message),
+  };
+
+  await run({
+    github,
+    context: {
+      repo: { owner: 'octo', repo: 'demo' },
+      eventName: 'pull_request',
+      payload: {
+        pull_request: {
+          number: 55,
+          head: { sha: 'abc123' },
+        },
+      },
+    },
+    core,
+    inputs: {},
+  });
+
+  assert.deepEqual(failures, []);
+  assert.strictEqual(calls.listComments, 1);
+  assert.strictEqual(calls.updateComment, 1);
+  assert.strictEqual(calls.issueGet, 0);
+  assert.strictEqual(calls.pullUpdate, 0);
+  assert.match(calls.updateCommentBody, /origin=manual_remote/);
+  assert.match(calls.updateCommentBody, /no_automation=true/);
+});
+
+test('run resolves stale repair warning for no-automation PRs with linked issues', async () => {
+  const calls = {
+    listComments: 0,
+    updateComment: 0,
+    updateCommentBody: '',
+    issueGet: 0,
+    pullUpdate: 0,
+  };
+  const github = {
+    paginate: async () => {
+      calls.listComments += 1;
+      return [{ id: 99, body: '<!-- missing-issue-warning -->\nstale warning' }];
+    },
+    rest: {
+      pulls: {
+        get: async () => ({
+          data: {
+            number: 55,
+            state: 'open',
+            title: 'Manual issue follow-up',
+            body: 'Closes #123',
+            head: { sha: 'abc123', ref: 'manual/no-automation' },
+            labels: [{ name: 'workflow:no-automation' }],
+          },
+        }),
+        update: async () => {
+          calls.pullUpdate += 1;
+        },
+      },
+      issues: {
+        get: async () => {
+          calls.issueGet += 1;
+          throw new Error('should not fetch an issue');
+        },
+        listComments: {},
+        updateComment: async ({ body }) => {
+          calls.updateComment += 1;
+          calls.updateCommentBody = body;
+        },
+      },
+    },
+  };
+  const failures = [];
+  const core = {
+    info: () => {},
+    debug: () => {},
+    warning: () => {},
+    error: () => {},
+    setFailed: (message) => failures.push(message),
+  };
+
+  await run({
+    github,
+    context: {
+      repo: { owner: 'octo', repo: 'demo' },
+      eventName: 'pull_request',
+      payload: {
+        pull_request: {
+          number: 55,
+          head: { sha: 'abc123' },
+        },
+      },
+    },
+    core,
+    inputs: {},
+  });
+
+  assert.deepEqual(failures, []);
+  assert.strictEqual(calls.listComments, 1);
+  assert.strictEqual(calls.updateComment, 1);
+  assert.strictEqual(calls.issueGet, 0);
+  assert.strictEqual(calls.pullUpdate, 0);
+  assert.match(calls.updateCommentBody, /origin=github_issue/);
+  assert.match(calls.updateCommentBody, /A linked GitHub issue is present/);
+  assert.match(calls.updateCommentBody, /no_automation=true/);
 });
 
 test('run leaves source repair warning unresolved when issue fetch fails', async () => {
