@@ -217,7 +217,7 @@ EXPECTED_NAMES = {
     "maint-50-tool-version-check.yml": "Maint 50 Tool Version Check",
     "maint-51-dependency-refresh.yml": "Maint 51 Dependency Refresh",
     "maint-sync-action-versions.yml": "Maint Sync Action Versions",
-    "maint-sync-env-from-pyproject.yml": "Maint - Sync versions.env from pyproject.toml",
+    "maint-sync-env-from-pyproject.yml": "Maint - Sync pyproject from versions.env",
     "maint-52-validate-workflows.yml": "Maint 52 Validate Workflows",
     "maint-52-sync-dev-versions.yml": "Maint 52 Sync Dev Versions",
     "maint-auto-update-pypi-versions.yml": "Maint Auto-Update PyPI Versions",
