@@ -462,6 +462,16 @@ test('buildSourceContextResolvedCommentBody explains issue-backed source context
   assert.ok(!result.includes('No linked GitHub issue is required'));
 });
 
+test('buildSourceContextResolvedCommentBody does not claim missing issue is present', () => {
+  const result = buildSourceContextResolvedCommentBody(123, {
+    sourceType: 'github_issue',
+    requiresIssue: true,
+  });
+
+  assert.ok(!result.includes('A linked GitHub issue is present'));
+  assert.ok(result.includes('A linked GitHub issue is required but was not detected'));
+});
+
 test('resolveExplicitNonIssueWorkflowSourceContext preserves explicit automation source despite stale issue preamble', () => {
   const context = resolveExplicitNonIssueWorkflowSourceContext({
     body: [
@@ -504,31 +514,25 @@ test('resolveExplicitNonIssueWorkflowSourceContext ignores source issue markers'
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync preserves explicit issue-sourced sync precedence', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        'Closes #123',
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-    },
-    123,
-  );
+  const context = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      'Closes #123',
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+  });
 
   assert.equal(context, null);
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync yields to meta issue markers', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        '<!-- meta:issue:123 -->',
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-    },
-    123,
-  );
+  const context = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      '<!-- meta:issue:123 -->',
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+  });
 
   assert.equal(context, null);
 });
@@ -543,6 +547,8 @@ test('hasExplicitIssueSyncReference ignores heuristic issue-number sources', () 
     false,
   );
   assert.equal(hasExplicitIssueSyncReference({ body: 'Closes #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Fix issue #123' }), true);
+  assert.equal(hasExplicitIssueSyncReference({ body: 'Fixes issue #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'Related to #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'Related to issue #123' }), true);
   assert.equal(hasExplicitIssueSyncReference({ body: 'Related to campaign issue #123' }), true);
@@ -570,64 +576,52 @@ test('extractExplicitIssueSyncNumbers returns only explicit issue references', (
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue markers for heuristic issue numbers', () => {
-  const branchHeuristicContext = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-      head: { ref: 'codex/issue-123' },
-      title: 'Follow-up',
-    },
-    123,
-  );
+  const branchHeuristicContext = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+    head: { ref: 'codex/issue-123' },
+    title: 'Follow-up',
+  });
 
   assert.equal(branchHeuristicContext.sourceType, 'local_request');
   assert.equal(branchHeuristicContext.sourceRef, 'codex-thread-2026-04-26');
 
-  const prReferenceContext = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        'Review follow-up from PR #123',
-        '<!-- workflow-source:review_followup -->',
-        '<!-- workflow-source-ref:PR #123 -->',
-      ].join('\n'),
-    },
-    123,
-  );
+  const prReferenceContext = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      'Review follow-up from PR #123',
+      '<!-- workflow-source:review_followup -->',
+      '<!-- workflow-source-ref:PR #123 -->',
+    ].join('\n'),
+  });
 
   assert.equal(prReferenceContext.sourceType, 'review_followup');
   assert.equal(prReferenceContext.sourceRef, 'PR #123');
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync preserves explicit non-issue markers without issue number', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-      head: { ref: 'codex/local-request' },
-      title: 'Follow-up',
-    },
-    null,
-  );
+  const context = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+    head: { ref: 'codex/local-request' },
+    title: 'Follow-up',
+  });
 
   assert.equal(context.sourceType, 'local_request');
   assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
 });
 
 test('resolveNonIssueWorkflowSourceContextForBodySync yields to explicit issue references', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync(
-    {
-      body: [
-        'Closes #123',
-        '<!-- workflow-source:local_request -->',
-        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-      ].join('\n'),
-    },
-    123,
-  );
+  const context = resolveNonIssueWorkflowSourceContextForBodySync({
+    body: [
+      'Closes #123',
+      '<!-- workflow-source:local_request -->',
+      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    ].join('\n'),
+  });
 
   assert.equal(context, null);
 });
@@ -700,6 +694,164 @@ test('resolveSourceContextRepairComment skips when no warning exists', async () 
   });
 
   assert.strictEqual(updated, false);
+});
+
+test('run resolves stale repair warning for valid no-automation workflow source', async () => {
+  const calls = {
+    listComments: 0,
+    updateComment: 0,
+    updateCommentBody: '',
+    issueGet: 0,
+    pullUpdate: 0,
+  };
+  const github = {
+    paginate: async () => {
+      calls.listComments += 1;
+      return [{ id: 99, body: '<!-- missing-issue-warning -->\nstale warning' }];
+    },
+    rest: {
+      pulls: {
+        get: async () => ({
+          data: {
+            number: 55,
+            state: 'open',
+            title: 'Manual workflow source',
+            body: [
+              '## Workflow Source',
+              '',
+              'Started from:',
+              '- [x] Do not automate',
+            ].join('\n'),
+            head: { sha: 'abc123', ref: 'manual/no-automation' },
+            labels: [],
+          },
+        }),
+        update: async () => {
+          calls.pullUpdate += 1;
+        },
+      },
+      issues: {
+        get: async () => {
+          calls.issueGet += 1;
+          throw new Error('should not fetch an issue');
+        },
+        listComments: {},
+        updateComment: async ({ body }) => {
+          calls.updateComment += 1;
+          calls.updateCommentBody = body;
+        },
+      },
+    },
+  };
+  const failures = [];
+  const core = {
+    info: () => {},
+    debug: () => {},
+    warning: () => {},
+    error: () => {},
+    setFailed: (message) => failures.push(message),
+  };
+
+  await run({
+    github,
+    context: {
+      repo: { owner: 'octo', repo: 'demo' },
+      eventName: 'pull_request',
+      payload: {
+        pull_request: {
+          number: 55,
+          head: { sha: 'abc123' },
+        },
+      },
+    },
+    core,
+    inputs: {},
+  });
+
+  assert.deepEqual(failures, []);
+  assert.strictEqual(calls.listComments, 1);
+  assert.strictEqual(calls.updateComment, 1);
+  assert.strictEqual(calls.issueGet, 0);
+  assert.strictEqual(calls.pullUpdate, 0);
+  assert.match(calls.updateCommentBody, /origin=manual_remote/);
+  assert.match(calls.updateCommentBody, /no_automation=true/);
+});
+
+test('run resolves stale repair warning for no-automation PRs with linked issues', async () => {
+  const calls = {
+    listComments: 0,
+    updateComment: 0,
+    updateCommentBody: '',
+    issueGet: 0,
+    pullUpdate: 0,
+  };
+  const github = {
+    paginate: async () => {
+      calls.listComments += 1;
+      return [{ id: 99, body: '<!-- missing-issue-warning -->\nstale warning' }];
+    },
+    rest: {
+      pulls: {
+        get: async () => ({
+          data: {
+            number: 55,
+            state: 'open',
+            title: 'Manual issue follow-up',
+            body: 'Closes #123',
+            head: { sha: 'abc123', ref: 'manual/no-automation' },
+            labels: [{ name: 'workflow:no-automation' }],
+          },
+        }),
+        update: async () => {
+          calls.pullUpdate += 1;
+        },
+      },
+      issues: {
+        get: async () => {
+          calls.issueGet += 1;
+          throw new Error('should not fetch an issue');
+        },
+        listComments: {},
+        updateComment: async ({ body }) => {
+          calls.updateComment += 1;
+          calls.updateCommentBody = body;
+        },
+      },
+    },
+  };
+  const failures = [];
+  const core = {
+    info: () => {},
+    debug: () => {},
+    warning: () => {},
+    error: () => {},
+    setFailed: (message) => failures.push(message),
+  };
+
+  await run({
+    github,
+    context: {
+      repo: { owner: 'octo', repo: 'demo' },
+      eventName: 'pull_request',
+      payload: {
+        pull_request: {
+          number: 55,
+          head: { sha: 'abc123' },
+        },
+      },
+    },
+    core,
+    inputs: {},
+  });
+
+  assert.deepEqual(failures, []);
+  assert.strictEqual(calls.listComments, 1);
+  assert.strictEqual(calls.updateComment, 1);
+  assert.strictEqual(calls.issueGet, 0);
+  assert.strictEqual(calls.pullUpdate, 0);
+  assert.match(calls.updateCommentBody, /origin=github_issue/);
+  assert.match(calls.updateCommentBody, /A linked GitHub issue is present/);
+  assert.match(calls.updateCommentBody, /no_automation=true/);
 });
 
 test('run leaves source repair warning unresolved when issue fetch fails', async () => {

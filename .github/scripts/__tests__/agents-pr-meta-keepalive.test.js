@@ -819,8 +819,24 @@ test('extractIssueNumberFromPull extracts from title', () => {
   assert.equal(extractIssueNumberFromPull(pull), 55);
 });
 
+test('extractIssueNumberFromPull ignores incidental title refs', () => {
+  assert.equal(
+    extractIssueNumberFromPull({ body: '', head: { ref: 'feature' }, title: 'bump dependency (#55)' }),
+    null,
+  );
+  assert.equal(
+    extractIssueNumberFromPull({ body: '', head: { ref: 'feature' }, title: 'sync from Counter_Risk #502' }),
+    null,
+  );
+});
+
 test('extractIssueNumberFromPull extracts from body hash ref', () => {
   const pull = { body: 'Fixes #123', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), 123);
+});
+
+test('extractIssueNumberFromPull accepts linked issue body refs', () => {
+  const pull = { body: 'Linked issue #123', head: { ref: 'feature' }, title: 'stuff' };
   assert.equal(extractIssueNumberFromPull(pull), 123);
 });
 
@@ -844,9 +860,35 @@ test('extractIssueNumberFromPull skips "step #N" in body', () => {
   assert.equal(extractIssueNumberFromPull(pull), null);
 });
 
-test('extractIssueNumberFromPull treats "Task #N" as a valid issue ref', () => {
+test('extractIssueNumberFromPull ignores task numbering', () => {
   const pull = { body: 'Task #42 is ready for review', head: { ref: 'feature' }, title: 'stuff' };
-  assert.equal(extractIssueNumberFromPull(pull), 42);
+  assert.equal(extractIssueNumberFromPull(pull), null);
+});
+
+test('extractIssueNumberFromPull ignores cross-repo consumer issue references', () => {
+  for (const body of [
+    'Addresses consumer sync review comments on Counter_Risk #502 and Travel-Plan-Permission #980.',
+    'Addresses consumer sync review comments on Counter_Risk#502 and owner/repo#980.',
+    'Portable-Alpha-Extension-Model #1710 exposed the same source-owned blocker.',
+  ]) {
+    assert.equal(extractIssueNumberFromPull({ body, head: { ref: 'feature' }, title: 'stuff' }), null, body);
+  }
+});
+
+test('extractIssueNumberFromPull still accepts explicit local issue references', () => {
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Counter_Risk #502 exposed a blocker. Source issue #1937 tracks the Workflows fix.',
+      head: { ref: 'feature' },
+      title: 'stuff',
+    }),
+    1937,
+  );
+  assert.equal(extractIssueNumberFromPull({ body: 'Fixes issue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: 'Some text\nIssue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '- Issue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '> Issue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '- **Source issue** #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
 });
 
 test('extractIssueNumberFromPull skips "version #N" in body', () => {

@@ -135,7 +135,12 @@ async function detectInstructionComment({ github, context, comment, prNumber, en
 
   const dispatch = normaliseLower(result.dispatch);
   const reason = normaliseLower(result.reason);
-  const isValid = dispatch === 'true' || reason === 'duplicate-keepalive' || reason === 'keepalive-detected';
+  const isValid =
+    dispatch === 'true' ||
+    reason === 'duplicate-keepalive' ||
+    reason === 'keepalive-detected' ||
+    reason === 'no-automation-source-context' ||
+    reason === 'fork-pr';
   if (!isValid) {
     return null;
   }
@@ -148,6 +153,7 @@ async function detectInstructionComment({ github, context, comment, prNumber, en
     commentIdRaw: result.comment_id || String(comment.id || ''),
     trace: normalise(result.trace || comment.trace || ''),
     round: normalise(result.round || ''),
+    reason,
     url: comment.html_url || '',
     createdAt: Number.isFinite(createdAt) ? createdAt : 0,
   };
@@ -297,7 +303,13 @@ async function evaluateKeepaliveWorkerGate({ core, github, context, env = proces
   let action = 'execute';
   let reason;
 
-  if (!latestInstruction) {
+  if (latestInstruction?.reason === 'no-automation-source-context') {
+    action = 'skip';
+    reason = 'no-automation-source-context';
+  } else if (latestInstruction?.reason === 'fork-pr') {
+    action = 'skip';
+    reason = 'fork-pr';
+  } else if (!latestInstruction) {
     reason = 'missing-instruction';
   } else if (lastProcessed.commentId === 0n || !lastProcessed.headSha || !headSha) {
     reason = 'missing-history';

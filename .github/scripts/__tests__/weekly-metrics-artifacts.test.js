@@ -7,6 +7,7 @@ const {
   buildSelectionErrorReport,
   collectPriorityWorkflowArtifacts,
   collectRepoArtifacts,
+  defaultPriorityWorkflowArtifactSources,
   dedupeArtifacts,
   familiesSatisfied,
   formatArtifactTsv,
@@ -15,6 +16,8 @@ const {
   missingPriorityFamilies,
   normalizeSelectionOptions,
   PRIORITY_METRICS_FAMILIES,
+  PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,
+  PRIORITY_WORKFLOW_ARTIFACT_SOURCES,
   priorityFamilyStatuses,
   selectMetricsArtifacts,
 } = require('../weekly_metrics_artifacts.js');
@@ -75,6 +78,40 @@ test('maps metrics artifact names to stable families', () => {
     'bot-comment-auth-coverage-reusable'
   );
   assert.equal(artifactFamily('coverage-summary'), '');
+});
+
+test('default priority workflow sources use actual artifact producers present in this repo', () => {
+  const workflowIds = PRIORITY_WORKFLOW_ARTIFACT_SOURCES.map((source) => source.workflow_id);
+
+  assert.deepEqual(workflowIds, [
+    'health-76-codex-cli-freshness.yml',
+    'reusable-agents-verifier.yml',
+    'agents-verify-to-new-pr.yml',
+    'agents-verify-to-issue-v2.yml',
+    'agents-bot-comment-handler.yml',
+    'reusable-bot-comment-handler.yml',
+    'pr-11-ci-smoke.yml',
+  ]);
+});
+
+test('default priority workflow sources do not depend on sparse-checkout workflow files', () => {
+  const sources = defaultPriorityWorkflowArtifactSources({
+    candidates: PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,
+    workflowsDir: 'path/not-present-in-sparse-checkout',
+  });
+
+  assert.deepEqual(
+    sources.map((source) => source.workflow_id),
+    [
+      'health-76-codex-cli-freshness.yml',
+      'reusable-agents-verifier.yml',
+      'agents-verify-to-new-pr.yml',
+      'agents-verify-to-issue-v2.yml',
+      'agents-bot-comment-handler.yml',
+      'reusable-bot-comment-handler.yml',
+      'pr-11-ci-smoke.yml',
+    ]
+  );
 });
 
 test('selects only recent matching artifacts with a machine-readable report', () => {
@@ -523,6 +560,61 @@ test('collects priority artifacts from their producer workflows', async () => {
   assert.deepEqual(calls, [
     ['runs', 'reusable-bot-comment-handler.yml', 2],
     ['artifacts', 101, 50],
+  ]);
+});
+
+test('collects priority artifacts across paginated workflow run artifacts', async () => {
+  const calls = [];
+  const client = {
+    rest: {
+      actions: {
+        listWorkflowRuns: async () => ({
+          data: {
+            workflow_runs: [
+              { id: 101, created_at: '2026-04-25T11:00:00Z', updated_at: '2026-04-25T11:00:00Z' },
+            ],
+          },
+        }),
+        listWorkflowRunArtifacts: async (params) => {
+          calls.push(['artifacts', params.run_id, params.per_page, params.page]);
+          return {
+            data: {
+              artifacts: params.page === 1
+                ? [artifact(101, 'unrelated-artifact', '2026-04-25T11:00:00Z')]
+                : [artifact(101, 'bot-comment-auth-coverage-reusable-101', '2026-04-25T11:00:00Z')],
+            },
+          };
+        },
+      },
+    },
+  };
+
+  const artifacts = await collectPriorityWorkflowArtifacts({
+    github: client,
+    owner: 'owner',
+    repo: 'repo',
+    options: {
+      now_ms: NOW,
+      priority_workflow_runs_per_source: 1,
+      per_page: 1,
+      max_scan_pages: 2,
+    },
+    sources: [
+      {
+        workflow_id: 'reusable-bot-comment-handler.yml',
+        families: ['bot-comment-auth-coverage-reusable'],
+      },
+    ],
+    withRetry: (fn) => fn(client),
+  });
+
+  assert.deepEqual(
+    artifacts.map((selected) => selected.name),
+    ['bot-comment-auth-coverage-reusable-101']
+  );
+  assert.deepEqual(calls, [
+    ['artifacts', 101, 1, 1],
+    ['artifacts', 101, 1, 2],
   ]);
 });
 

@@ -46,7 +46,7 @@ const PRIORITY_METRICS_FAMILIES = [
   'pr-source-context',
 ];
 
-const PRIORITY_WORKFLOW_ARTIFACT_SOURCES = [
+const PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES = [
   {
     workflow_id: 'health-76-codex-cli-freshness.yml',
     families: ['codex-cli-freshness'],
@@ -76,6 +76,14 @@ const PRIORITY_WORKFLOW_ARTIFACT_SOURCES = [
     families: ['pr-source-context'],
   },
 ];
+
+function defaultPriorityWorkflowArtifactSources({
+  candidates = PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,
+} = {}) {
+  return candidates;
+}
+
+const PRIORITY_WORKFLOW_ARTIFACT_SOURCES = defaultPriorityWorkflowArtifactSources();
 
 function cleanString(value) {
   if (value === null || value === undefined) return '';
@@ -525,25 +533,32 @@ async function collectPriorityWorkflowArtifacts({
       if (runTimestamp > 0 && runTimestamp < config.cutoff_ms) {
         continue;
       }
-      let artifactResponse;
-      try {
-        artifactResponse = await withRetry((client) =>
-          client.rest.actions.listWorkflowRunArtifacts({
-            owner,
-            repo,
-            run_id: run.id,
-            per_page: config.per_page,
-          })
+      for (let page = 1; page <= config.max_scan_pages; page += 1) {
+        let artifactResponse;
+        try {
+          artifactResponse = await withRetry((client) =>
+            client.rest.actions.listWorkflowRunArtifacts({
+              owner,
+              repo,
+              run_id: run.id,
+              per_page: config.per_page,
+              page,
+            })
+          );
+        } catch (error) {
+          if (isNotFoundError(error)) break;
+          throw error;
+        }
+        const pageArtifacts = artifactResponse?.data?.artifacts || [];
+        const matchingArtifacts = pageArtifacts.filter((artifact) =>
+          families.includes(artifactFamily(artifact.name))
         );
-      } catch (error) {
-        if (isNotFoundError(error)) continue;
-        throw error;
+        sourceArtifacts.push(...matchingArtifacts);
+        artifacts.push(...matchingArtifacts);
+        if (familiesSatisfied(sourceArtifacts, families, config) || pageArtifacts.length < config.per_page) {
+          break;
+        }
       }
-      const matchingArtifacts = (artifactResponse?.data?.artifacts || []).filter((artifact) =>
-        families.includes(artifactFamily(artifact.name))
-      );
-      sourceArtifacts.push(...matchingArtifacts);
-      artifacts.push(...matchingArtifacts);
       if (familiesSatisfied(sourceArtifacts, families, config)) {
         break;
       }
@@ -686,12 +701,14 @@ module.exports = {
   DEFAULT_MAX_TOTAL,
   DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE,
   PRIORITY_METRICS_FAMILIES,
+  PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,
   PRIORITY_WORKFLOW_ARTIFACT_SOURCES,
   SELECTION_SCHEMA,
   artifactFamily,
   buildSelectionErrorReport,
   collectPriorityWorkflowArtifacts,
   collectRepoArtifacts,
+  defaultPriorityWorkflowArtifactSources,
   dedupeArtifacts,
   familiesSatisfied,
   formatArtifactTsv,

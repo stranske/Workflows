@@ -33,7 +33,6 @@ _NULL_EQUIVALENT_TOKENS = {
     "off",
     "disabled",
     "undefined",
-    "unknown",
 }
 _KNOWN_VERIFIER_MODES = {"checkbox", "compare", "evaluate"}
 _TERMINAL_ARTIFACT_FAMILIES = (
@@ -438,7 +437,7 @@ def _verifier_model_metadata_required_after() -> _dt.datetime | None:
         or os.environ.get("VERIFIER_MODEL_METADATA_REQUIRED_AFTER")
         or _DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER
     ).strip()
-    if raw.lower() in {"", "0", "false", "none", "off", "disabled"}:
+    if raw.lower() in _NULL_EQUIVALENT_TOKENS:
         return None
     return _parse_timestamp(raw)
 
@@ -449,7 +448,7 @@ def _verifier_model_metadata_required() -> bool:
         or os.environ.get("VERIFIER_MODEL_METADATA_REQUIRED_AFTER")
         or _DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER
     ).strip()
-    return raw.lower() not in {"", "0", "false", "none", "off", "disabled"}
+    return raw.lower() not in _NULL_EQUIVALENT_TOKENS
 
 
 def _is_pre_contract_verifier_model_record(
