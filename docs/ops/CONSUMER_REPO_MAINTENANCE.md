@@ -195,6 +195,12 @@ Dependabot should not be merged when it only bumps one of those shared tool pins
 in `pyproject.toml`; route that change through the Workflows source pin update
 path instead. Runtime dependency bumps remain normal Dependabot work.
 
+Consumer alignment must not wait for unrelated PyPI freshness. The
+`maint-52-sync-dev-versions.yml` workflow reports whether newer PyPI versions
+exist, but continues syncing the canonical pins from Workflows. The
+`maint-auto-update-pypi-versions.yml` workflow owns opening source bump PRs for
+freshness updates.
+
 ### Manual Sync Trigger
 
 ```bash
