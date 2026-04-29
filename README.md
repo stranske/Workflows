@@ -5,6 +5,8 @@
 
 A reusable GitHub Actions workflow system for Python projects with integrated agent automation (Codex keepalive, autofix, CI orchestration).
 
+For a narrative of how the repo evolved through five development phases (bootstrap → v1.1.x → Feb consolidation → production quiet → re-engagement) and where it stands today, see [`docs/HISTORY.md`](docs/HISTORY.md).
+
 ## Project Status
 
 ✅ **Production Ready** - Actively used and maintained.
