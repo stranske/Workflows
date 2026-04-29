@@ -5,6 +5,10 @@ name: Maint 52 Sync Dev Versions
 # This workflow ensures all consumer repos use consistent dev tool versions
 # (ruff, mypy, pytest, etc.) by updating their pyproject.toml files.
 #
+# Freshness is reported here for visibility, but it is not a sync blocker.
+# maint-auto-update-pypi-versions.yml owns opening source PRs when newer PyPI
+# versions exist.
+#
 # If a repo has pyproject.toml but no dev dependencies, it will add them.
 #
 # Triggered:
@@ -39,9 +43,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # CRITICAL: Verify versions are current BEFORE syncing to consumer repos
+  # Report freshness before syncing, but do not block canonical pin propagation.
   verify-versions-current:
-    name: Verify versions are current
+    name: Report version freshness
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Workflows
@@ -57,16 +61,16 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Verify versions against PyPI
+      - name: Report versions against PyPI
         run: |
-          echo "🔍 Checking that all versions in autofix-versions.env are current..."
-          python scripts/update_versions_from_pypi.py --check --fail-on-outdated
+          echo "Checking autofix-versions.env freshness against PyPI..."
+          python scripts/update_versions_from_pypi.py --check
           echo ""
-          echo "✅ All versions are current - safe to sync to consumer repos!"
+          echo "Freshness report complete. maint-auto-update-pypi-versions.yml owns source bump PRs; continuing with canonical pins."
 
   prepare:
     name: Prepare version sync
-    needs: verify-versions-current  # Don't sync until we verify versions are current!
+    needs: verify-versions-current
     runs-on: ubuntu-latest
     outputs:
       repos: ${{ steps.repos.outputs.matrix }}

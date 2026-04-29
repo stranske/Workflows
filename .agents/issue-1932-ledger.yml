@@ -1,0 +1,559 @@
+version: 1
+issue: 1932
+base: main
+branch: codex/issue-1932
+tasks:
+  - id: task-01
+    title: 'Inspect the Workflows sync manifest entries for `pr-00-gate.yml`, `ci.yml`,
+      and `dependabot.yml` and verify each is configured with `sync_mode: create_only`.'
+    status: done
+    started_at: '2026-04-26T23:37:44Z'
+    finished_at: '2026-04-26T23:37:56Z'
+    commit: c0cbfd90da68e5716ad9ec9521df67260ab037f5
+    notes: []
+  - id: task-02
+    title: Add or update automated tests that verify create-only skipped files are
+      included in sync PR evidence for `pr-00-gate.yml`, `ci.yml`, and `dependabot.yml`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Create or update tests that verify pr-00-gate.yml appears
+      in sync PR evidence when configured as create_only'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Create or update tests that verify pr-00-gate.yml
+      appears in sync PR evidence when configured as create_only'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Create or update tests that verify pr-00-gate.yml
+      appears in sync PR evidence when configured as create_only'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Create or update tests that verify ci.yml appears in
+      sync PR evidence when configured as create_only'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Create or update tests that verify ci.yml
+      appears in sync PR evidence when configured as create_only'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Create or update tests that verify ci.yml
+      appears in sync PR evidence when configured as create_only'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Define scope for: Create or update tests that verify dependabot.yml appears
+      in sync PR evidence when configured as create_only'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement focused slice for: Create or update tests that verify dependabot.yml
+      appears in sync PR evidence when configured as create_only'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Validate focused slice for: Create or update tests that verify dependabot.yml
+      appears in sync PR evidence when configured as create_only'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Define scope for: Verify the sync PR evidence generation mechanism correctly
+      handles create_only files in the manifest'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Implement focused slice for: Verify the sync PR evidence generation mechanism
+      correctly handles create_only files in the manifest'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Validate focused slice for: Verify the sync PR evidence generation mechanism
+      correctly handles create_only files in the manifest'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add or update tests for `source_context.js` that verify the new classifier
+      behavior reported by the verifier.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Define scope for: Review the verifier report to identify specific classifier
+      behaviors that need test coverage (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Implement focused slice for: Review the verifier report to identify specific
+      classifier behaviors that need test coverage (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Validate focused slice for: Review the verifier report to identify specific
+      classifier behaviors that need test coverage (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Create unit tests for each distinct classification rule in source_context.js
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Define scope for: Add integration tests that verify classifier output
+      matches expected categories for sample inputs'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Implement focused slice for: Add integration tests that verify classifier
+      output matches expected categories for sample inputs'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Validate focused slice for: Add integration tests that verify classifier
+      output matches expected categories for sample inputs'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Document which verifier concerns are addressed by each new test case (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Add or update tests covering the PR metadata update path and keepalive
+      body update path affected by the source sync.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Define scope for: Add or update tests that verify PR metadata is correctly
+      updated when source context changes'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Implement focused slice for: Add or update tests that verify PR metadata
+      is correctly updated when source context changes'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Validate focused slice for: Add or update tests that verify PR metadata
+      is correctly updated when source context changes'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Define scope for: Add or update tests that verify keepalive body content
+      is correctly generated based on workflow state'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Implement focused slice for: Add or update tests that verify keepalive
+      body content is correctly generated based on workflow state'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Validate focused slice for: Add or update tests that verify keepalive
+      body content is correctly generated based on workflow state'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Define scope for: Create integration tests that verify the end-to-end
+      flow from source sync to PR metadata updates'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Implement focused slice for: Create integration tests that verify the
+      end-to-end flow from source sync to PR metadata updates'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Validate focused slice for: Create integration tests that verify the end-to-end
+      flow from source sync to PR metadata updates'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Define scope for: Create integration tests that verify the end-to-end
+      flow from workflow triggers to keepalive body updates'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Implement focused slice for: Create integration tests that verify the
+      end-to-end flow from workflow triggers to keepalive body updates'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Validate focused slice for: Create integration tests that verify the end-to-end
+      flow from workflow triggers to keepalive body updates'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: Update `WORKFLOW_USER_GUIDE.md` and any related documentation to match
+      actual non-issue workflow source and keepalive behavior, if a mismatch exists.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Define scope for: Review WORKFLOW_USER_GUIDE.md to identify any documented
+      behavior that conflicts with actual non-issue workflow source handling (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Implement focused slice for: Review WORKFLOW_USER_GUIDE.md to identify
+      any documented behavior that conflicts with actual non-issue workflow source
+      handling (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'Validate focused slice for: Review WORKFLOW_USER_GUIDE.md to identify
+      any documented behavior that conflicts with actual non-issue workflow source
+      handling (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Define scope for: Review WORKFLOW_USER_GUIDE.md to identify any documented
+      behavior that conflicts with actual keepalive behavior (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Implement focused slice for: Review WORKFLOW_USER_GUIDE.md to identify
+      any documented behavior that conflicts with actual keepalive behavior (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Validate focused slice for: Review WORKFLOW_USER_GUIDE.md to identify
+      any documented behavior that conflicts with actual keepalive behavior (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Define scope for: Update WORKFLOW_USER_GUIDE.md sections that describe
+      non-issue workflow source behavior to match implementation (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Implement focused slice for: Update WORKFLOW_USER_GUIDE.md sections that
+      describe non-issue workflow source behavior to match implementation (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Validate focused slice for: Update WORKFLOW_USER_GUIDE.md sections that
+      describe non-issue workflow source behavior to match implementation (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Define scope for: Update WORKFLOW_USER_GUIDE.md sections that describe
+      keepalive behavior to match implementation (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Implement focused slice for: Update WORKFLOW_USER_GUIDE.md sections that
+      describe keepalive behavior to match implementation (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Validate focused slice for: Update WORKFLOW_USER_GUIDE.md sections that
+      describe keepalive behavior to match implementation (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Document any intentional differences between documented (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'actual behavior with rationale (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Write a final disposition comment that links to the source files, sync
+      manifest entries, relevant tests, and Travel-Plan-Permission PR #956.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Durable sync PR evidence exists showing `pr-00-gate.yml`, `ci.yml`, and
+      `dependabot.yml` in the consumer sync manifest with `sync_mode: create_only`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: Automated tests exist for the create-only evidence path and pass in CI.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: Automated tests exist for `source_context.js` classifier behavior and the
+      related PR metadata / keepalive update paths, or the PR includes a specific
+      documented reason coverage is not applicable.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: '`WORKFLOW_USER_GUIDE.md` and related docs either match the implemented
+      non-issue workflow source and keepalive behavior or include an explicit documented
+      disposition of the mismatch.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'Travel-Plan-Permission PR #956 has a linked follow-up or disposition comment
+      with evidence before this completion debt is closed.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Inspect the Workflows sync manifest and consumer template entries for the
+      create-only files named in the verifier report.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: Add or update tests that prove create-only skipped files are surfaced in
+      sync PR evidence.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: Add or update tests for `source_context.js` and the PR metadata / keepalive
+      integrations changed by the source sync.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: Review `WORKFLOW_USER_GUIDE.md` and related docs for the keepalive/non-issue
+      source behavior described in the verifier report.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'Comment with the final verifier disposition and link back to Travel-Plan-Permission
+      PR #956.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: The PR or disposition includes durable evidence for the `create_only` files
+      the verifier called out.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: Workflows has automated coverage for the new source-context / PR metadata
+      behavior, or a specific reason why coverage is not applicable.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: Any documentation/behavior mismatch identified by the verifier is fixed
+      or explicitly dispositioned.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: 'Travel-Plan-Permission PR #956 has a linked follow-up/disposition comment
+      before related completion debt is considered closed.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: Add or update automated tests that verify create-only skipped files are
+      included in sync PR evidence for `pr-00-gate.yml`, `ci.yml`, and `dependabot.yml`.
+      (If these workflow files are in .github/workflows/ and protected, the agent
+      cannot modify them to set up test scenarios. Additionally, the agent cannot
+      guarantee specific test coverage percentages. | Clarify whether the tests should
+      mock the workflow files or use fixtures. Specify that the task is to create
+      test cases, not achieve a coverage threshold.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

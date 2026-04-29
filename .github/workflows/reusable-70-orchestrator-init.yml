@@ -234,6 +234,16 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { paginateWithRetry } = retryHelpers;
+            const isRateLimitError = retryHelpers.isRateLimitError || ((error) => {
+              const status = error?.status || error?.response?.status;
+              const rawMessage = error?.message || error?.response?.data?.message || '';
+              const message = String(rawMessage).toLowerCase();
+              const headers = error?.response?.headers || error?.headers || {};
+              const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
+              return status === 429 ||
+                (status === 403 && message.includes('rate limit')) ||
+                (Number.isFinite(remaining) && remaining <= 0);
+            });
 
             const normalise = (value) => String(value ?? '').trim();
             const toBool = (value) => {
@@ -290,19 +300,39 @@ jobs:
             }
 
             let count = 0;
-            const openIssues = await paginateWithRetry(
-              github, github.rest.issues.listForRepo,
-              { owner, repo, state: 'open', per_page: 100 }
-            );
-            for (const issue of openIssues) {
-              if (issue.pull_request) continue;
-              const labels = Array.isArray(issue.labels) ? issue.labels : [];
-              if (labels.some((label) => {
-                const name = typeof label === 'string' ? label : label?.name;
-                return typeof name === 'string' && name.startsWith('agent:');
-              })) {
-                count += 1;
-                if (count > 0 && !keepaliveRequested) break;
+            let skippedIssueScan = false;
+            let deferredByRateLimit = false;
+            if (keepaliveRequested) {
+              skippedIssueScan = true;
+              core.info(
+                'Keepalive input already proves work exists; skipping open issue scan.',
+              );
+            } else {
+              let openIssues = [];
+              try {
+                openIssues = await paginateWithRetry(
+                  github, github.rest.issues.listForRepo,
+                  { owner, repo, state: 'open', per_page: 100 }
+                );
+              } catch (error) {
+                if (!isRateLimitError(error)) {
+                  throw error;
+                }
+                deferredByRateLimit = true;
+                const message = error?.message || error;
+                core.warning('Idle precheck deferred: issue scan rate-limited.');
+                core.debug?.(`Idle precheck rate-limit detail: ${message}`);
+              }
+              for (const issue of openIssues) {
+                if (issue.pull_request) continue;
+                const labels = Array.isArray(issue.labels) ? issue.labels : [];
+                if (labels.some((label) => {
+                  const name = typeof label === 'string' ? label : label?.name;
+                  return typeof name === 'string' && name.startsWith('agent:');
+                })) {
+                  count += 1;
+                  if (count > 0) break;
+                }
               }
             }
 
@@ -311,20 +341,34 @@ jobs:
             core.setOutput('has_work', hasWork ? 'true' : 'false');
 
             summary.addHeading('Agents orchestrator idle precheck');
-            summary.addRaw(`agent:* issues detected: ${count}`).addEOL();
+            if (skippedIssueScan) {
+              summary
+                .addRaw('agent:* issue scan: skipped; keepalive was requested.')
+                .addEOL();
+            } else {
+              summary.addRaw(`agent:* issues detected: ${count}`).addEOL();
+            }
             summary.addRaw(`Duration: ${elapsed.toFixed(1)}s`).addEOL();
+            if (deferredByRateLimit) {
+              summary
+                .addRaw('Result: deferred because issue scan exhausted rate limit.')
+                .addEOL();
+            }
             if (keepaliveRequested) {
               const sources = Array.from(keepaliveSources);
                 const sourceList = sources.length ? sources.join(', ') : 'inputs';
                 summary.addRaw(`Keepalive override: requested via ${sourceList}.`).addEOL();
               if (keepaliveTrace) summary.addRaw(`Keepalive trace: \`${keepaliveTrace}\``).addEOL();
             }
-              if (!hasWork) {
+              if (!hasWork && !deferredByRateLimit) {
                 summary.addRaw('Result: idle, skipping orchestrator dispatch.').addEOL();
               }
             await summary.write();
 
-            if (!hasWork) core.info('Idle, skipping orchestrator dispatch.');
+            if (deferredByRateLimit) {
+              core.notice('Rate limit exhausted during idle precheck; deferring dispatch.');
+            }
+            else if (!hasWork) core.info('Idle, skipping orchestrator dispatch.');
             else if (keepaliveRequested) {
               const traceInfo = keepaliveTrace ? ` (trace ${keepaliveTrace})` : '';
                 const keepaliveMessage =

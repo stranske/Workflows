@@ -97,6 +97,45 @@ def test_agents_orchestrator_exposes_dry_run_toggle():
     assert "dryRun" in resolver_text, "Resolve script should compute and surface the dry_run flag"
 
 
+def test_orchestrator_idle_precheck_defers_on_issue_scan_rate_limit():
+    init_text = (WORKFLOWS_DIR / "reusable-70-orchestrator-init.yml").read_text(encoding="utf-8")
+
+    assert (
+        "retryHelpers.isRateLimitError" in init_text
+    ), "Idle precheck must use the shared GitHub API rate-limit classifier"
+    assert (
+        "deferredByRateLimit = true" in init_text
+    ), "Idle precheck must record rate-limit deferrals instead of failing"
+    assert (
+        "Rate limit exhausted during idle precheck; deferring dispatch." in init_text
+    ), "Idle precheck must emit a durable deferral notice"
+    assert (
+        "!hasWork && !deferredByRateLimit" in init_text
+    ), "Idle-only messaging must not mask a rate-limit deferral"
+
+
+def test_auto_pilot_context_and_cycle_reads_defer_on_rate_limit():
+    text = (WORKFLOWS_DIR / "agents-auto-pilot.yml").read_text(encoding="utf-8")
+
+    assert (
+        "deferForRateLimit" in text
+    ), "Auto-pilot context discovery must share a rate-limit deferral helper"
+    assert (
+        "Auto-pilot determine context deferred during" in text
+    ), "Auto-pilot must explain which context read was deferred"
+    for stage in ["issue fetch", "optimizer comment scan", "timeline scan"]:
+        assert stage in text, f"Auto-pilot must defer safely during {stage}"
+    assert (
+        "core.setOutput('reason', 'rate-limited')" in text
+    ), "Auto-pilot must expose rate-limited context deferrals as an output"
+    assert (
+        "core.setOutput('rate_limited', 'true')" in text
+    ), "Auto-pilot cycle count must expose rate-limit deferrals as an output"
+    assert (
+        "steps.cycles.outputs.rate_limited != 'true'" in text
+    ), "Auto-pilot must not choose a next step after a rate-limited cycle count"
+
+
 def test_orchestrator_bootstrap_label_delegates_fallback():
     text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (

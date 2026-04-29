@@ -89,7 +89,7 @@ Issue: "Add user authentication"
 **What Happens:**
 - Workflows treats valid non-issue sources as intentional work instead of missing process state
 - PR metadata automation avoids repeated missing-source repair comments
-- Keepalive still requires a linked issue before it dispatches follow-up agent work
+- Keepalive can continue without a linked issue when the PR has a valid non-issue workflow source context
 
 **Common labels:**
 - `workflow:source-direct-pr`
@@ -138,7 +138,7 @@ Issue: "Add user authentication"
 ### User-Applied Labels (Triggers)
 
 | Label | Where | What It Does |
-|-------|-------|--------------||
+|-------|-------|--------------|
 | `autofix` | PR | Auto-fixes formatting/lint errors |
 | `autofix:clean` | PR | Aggressive autofix with cosmetic repairs |
 | `agent:codex` | Issue | Creates PR from issue |
@@ -159,7 +159,7 @@ Issue: "Add user authentication"
 ### Auto-Applied Labels (Status)
 
 | Label | Meaning |
-|-------|---------||
+|-------|---------|
 | `agents:formatted` | Issue has been formatted |
 | `agents:keepalive` | Keepalive is monitoring this PR |
 | `agent:needs-attention` | Human intervention required |

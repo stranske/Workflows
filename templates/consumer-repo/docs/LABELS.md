@@ -4,19 +4,28 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ## Quick Reference
 
-| Label | Trigger | Effect |
-|-------|---------|--------|
-| `autofix` | PR labeled | Triggers automated code fixes |
-| `autofix:clean` | PR labeled | Triggers clean-mode autofix (more aggressive) |
-| `agent:codex` | Issue labeled | Triggers Codex agent assignment |
-| `agent:codex-invite` | Issue labeled | Invites Codex agent to participate |
-| `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention |
-| `agents:format` | Issue labeled | Formats raw issue into AGENT_ISSUE_TEMPLATE |
-| `agents:formatted` | Auto-applied | Issue has been formatted by LangChain |
-| `status:ready` | Issue labeled | Marks issue as ready for agent processing |
-| `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge |
-| `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge |
-| `verify:compare` | PR labeled | Runs verifier comparison mode after merge |
+| Label | Trigger | Effect
+|-------|---------|--------
+| `autofix` | PR labeled | Triggers automated code fixes
+| `autofix:clean` | PR labeled | Triggers clean-mode autofix (more aggressive)
+| `agent:codex` | Issue labeled | Triggers Codex agent assignment
+| `agent:codex-invite` | Issue labeled | Invites Codex agent to participate
+| `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention
+| `status:ready` | Issue labeled | Marks issue as ready for agent processing
+| `agents:format` | Issue labeled | Direct issue formatting
+| `agents:formatted` | Auto-applied | Indicates issue has been formatted
+| `agents:optimize` | Issue labeled | Analyzes issue and posts suggestions
+| `agents:apply-suggestions` | Issue labeled | Applies optimization suggestions
+| `agents:auto-pilot` | Issue labeled | Runs issue-to-PR automation
+| `agents:auto-pilot-pause` | Issue labeled | Pauses auto-pilot dispatch
+| `agents:paused` | PR labeled | Pauses keepalive loop on PR
+| `agents:keepalive` | PR labeled | Enables keepalive loop on PR
+| `runner:<agent>` | Issue labeled | Selects an auto-pilot runner without triggering issue intake
+| `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge
+| `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge
+| `verify:compare` | PR labeled | Runs verifier comparison mode after merge
+| `verify:create-issue` | PR labeled | Creates follow-up issue from verification
+| `verify:create-new-pr` | PR labeled | Creates follow-up issue and PR from verification
 
 ---
 
@@ -106,74 +115,18 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ---
 
-### `agents:format`
+### `runner:<agent>`
 
 **Applies to:** Issues
 
-**Trigger:** When applied to an issue with unstructured content
+**Trigger:** When applied to an issue that also has `agents:auto-pilot`
 
 **Effect:**
-1. Triggers the LangChain Issue Formatter workflow (`agents-issue-optimizer.yml`)
-2. Parses the raw issue body using LLM (with regex fallback)
-3. Rewrites the issue into the structured AGENT_ISSUE_TEMPLATE format:
-   - **Why** - Purpose/motivation
-   - **Scope** - Boundaries of work
-   - **Non-Goals** - Explicitly out of scope
-   - **Tasks** - Actionable checkboxes
-   - **Acceptance Criteria** - Testable success conditions
-   - **Implementation Notes** - Technical hints (if any)
-4. Preserves the original issue body in a collapsed `<details>` block
-5. Removes `agents:format` and applies `agents:formatted` on success
+1. Overrides the agent that auto-pilot will use (`runner:claude`, `runner:codex`, etc.)
+2. Auto-pilot reads this label during capability/check-pr steps and adds the matching `agent:<name>` label when it dispatches the belt
+3. Does **not** trigger the issue intake workflow by itself, so manual `agent:<name>` behavior is unaffected
 
-**Prerequisites:**
-- Issue must have non-empty body text
-- Repository must have `OPENAI_API_KEY` secret for LLM mode (optional)
-
-**Workflow:** `agents-issue-optimizer.yml` (LangChain Issue Optimizer)
-
-**Example:**
-
-Before (raw issue):
-```
-The TripPlan contract in models.py is confusing - it has different shapes in
-different places. Let's pick one canonical form and update all the converters.
-```
-
-After (formatted):
-```markdown
-## Why
-To establish a single canonical TripPlan contract and eliminate inconsistencies...
-
-## Scope
-- Review all TripPlan definitions in models.py
-- Choose canonical form
-- Update converters
-
-## Non-Goals
-- Changing the underlying data model
-- Modifying external API contracts
-
-## Tasks
-- [ ] Audit all TripPlan shapes in codebase
-- [ ] Select canonical form
-- [ ] Update converters to use canonical form
-...
-```
-
----
-
-### `agents:formatted`
-
-**Applies to:** Issues
-
-**Trigger:** Automatically applied by `agents-issue-optimizer.yml`
-
-**Effect:**
-1. Indicates the issue has been processed by the LangChain formatter
-2. Replaces the `agents:format` label
-3. No additional workflow triggers (safe terminal state)
-
-**Note:** This is a status label, not a trigger label. Do not apply manually.
+**Workflow:** `agents-auto-pilot.yml`
 
 ---
 
@@ -212,22 +165,109 @@ To establish a single canonical TripPlan contract and eliminate inconsistencies.
 
 ---
 
+## Issue Formatting Labels (LangChain Enhancement)
+
+These labels control the LangChain-powered issue formatting pipeline introduced in #484.
+
+### `agents:format`
+
+**Applies to:** Issues
+
+**Trigger:** When applied to an issue
+
+**Effect:**
+1. Automatically formats the raw issue body into the AGENT_ISSUE_TEMPLATE structure
+2. Uses LLM (GitHub Models API) with fallback to regex-based formatting
+3. Adds proper sections: Why, Scope, Non-Goals, Tasks, Acceptance Criteria, Implementation Notes
+4. Converts task items to checkboxes
+5. Replaces the issue body with formatted version
+6. Removes `agents:format` label and adds `agents:formatted`
+
+**Use Case:** Quick, one-step formatting without review. Best for issues that are already well-structured but need template compliance.
+
+**Workflow:** `agents-issue-optimizer.yml`
+
+---
+
+### `agents:formatted`
+
+**Applies to:** Issues
+
+**Trigger:** Automatically applied after formatting completes
+
+**Effect:**
+1. Indicates the issue has been formatted to AGENT_ISSUE_TEMPLATE
+2. Signals the issue is ready for agent processing
+3. Prevents re-formatting (workflows skip issues with this label)
+
+**Note:** This is a result label, not a trigger label. Do not apply manually.
+
+**Workflow:** Applied by `agents-issue-optimizer.yml`
+
+---
+
+### `agents:optimize`
+
+**Applies to:** Issues
+
+**Trigger:** When applied to an issue
+
+**Effect:**
+1. Analyzes the issue for agent compatibility and formatting quality
+2. Posts a comment with suggestions including:
+   - Tasks that are too broad (should be split)
+   - Tasks the agent cannot complete (with reasons)
+   - Subjective acceptance criteria (with objective alternatives)
+   - Missing sections or formatting issues
+3. Includes embedded JSON with structured suggestions
+4. Prompts user to add `agents:apply-suggestions` to apply changes
+
+**Use Case:** Two-step formatting with human review. Best for issues needing significant restructuring.
+
+**Workflow:** `agents-issue-optimizer.yml`
+
+---
+
+### `agents:apply-suggestions`
+
+**Applies to:** Issues
+
+**Trigger:** When applied to an issue that has received optimization suggestions
+
+**Prerequisites:**
+- Issue must have a comment with optimization suggestions (from `agents:optimize`)
+- The suggestions comment must contain valid JSON in `<!-- suggestions-json: -->` marker
+
+**Effect:**
+1. Extracts approved suggestions from the analysis comment
+2. Applies all suggestions to reformat the issue body
+3. Moves blocked tasks to "## Deferred Tasks (Requires Human)" section
+4. Removes both `agents:optimize` and `agents:apply-suggestions` labels
+5. Adds `agents:formatted` label
+
+**Workflow:** `agents-issue-optimizer.yml`
+
+---
+
 ## Workflow Source Labels
 
 These labels let direct GitHub PRs and non-issue-origin PRs integrate with
 Workflows source classification without forcing a GitHub issue.
 
-| Label | Applies to | Effect |
-|-------|------------|--------|
-| `workflow:source-issue` | Pull Requests | PR source is a GitHub issue. |
-| `workflow:source-local-request` | Pull Requests | PR source is a local Codex/user request. |
-| `workflow:source-automation` | Pull Requests | PR source is an automation or workflow run. |
-| `workflow:source-sync` | Pull Requests | PR source is a sync or maintenance campaign. |
-| `workflow:source-dependabot` | Pull Requests | PR source is Dependabot or dependency automation. |
-| `workflow:source-review-followup` | Pull Requests | PR source is review feedback follow-up. |
-| `workflow:source-direct-pr` | Pull Requests | PR was started directly on GitHub without a source issue. |
-| `workflow:no-automation` | Pull Requests | Automation should not manage the PR unless checks fail. |
-| `workflow:source-needed` | Pull Requests | Source context is missing or ambiguous. |
+| Label | Applies to | Effect
+|-------|------------|--------
+| `workflow:source-issue` | Pull Requests | PR source is a GitHub issue.
+| `workflow:source-local-request` | Pull Requests | PR source is a local Codex/user request.
+| `workflow:source-automation` | Pull Requests | PR source is an automation or workflow run.
+| `workflow:source-sync` | Pull Requests | PR source is a sync or maintenance campaign.
+| `workflow:source-dependabot` | Pull Requests | PR source is Dependabot or dependency automation.
+| `workflow:source-review-followup` | Pull Requests | PR source is review feedback follow-up.
+| `workflow:source-direct-pr` | Pull Requests | PR was started directly on GitHub without a source issue.
+| `workflow:no-automation` | Pull Requests | Fully opts the PR out of automation management and automation-triggered follow-up actions.
+| `workflow:source-needed` | Pull Requests | Source context is missing or ambiguous.
+
+The Workflow Source table is validated as a three-column Markdown table so label
+rows do not introduce an extra empty column in GitHub rendering.
 
 Use these labels as a backup to the PR template's Workflow Source section. If a
 PR has no linked issue and no valid Workflow Source, the PR metadata automation
@@ -276,6 +316,114 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 ---
 
+### `verify:create-issue`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a merged PR that has verification feedback
+
+**Prerequisites:**
+- PR must be merged
+- PR must have a verification comment (from `verify:evaluate` or `verify:compare`)
+
+**Effect:**
+1. Extracts concerns and low scores from verification feedback
+2. Creates a new follow-up issue with:
+   - Link to original PR
+   - Extracted concerns from verification
+   - Scores below 7/10
+   - Suggested tasks for addressing issues
+3. Posts comment on original PR linking to new issue
+4. Removes the `verify:create-issue` label after completion
+5. Adds `agents:optimize` label to new issue for agent formatting
+
+**Use Case:** User-triggered creation of follow-up work from verification feedback. Replaces automatic issue creation which was too aggressive.
+
+**Workflow:** `agents-verify-to-issue-v2.yml`
+
+---
+
+### `verify:create-new-pr`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a merged PR that has verification feedback
+
+**Prerequisites:**
+- PR must be merged
+- PR must already have verification context (for example from `verify:evaluate` or `verify:compare`)
+
+**Effect:**
+1. Creates a follow-up issue from verification concerns
+2. Creates and bootstraps a follow-up PR for that issue
+3. Removes `verify:create-new-pr` label after processing
+
+**Workflow:** `agents-verify-to-new-pr.yml`
+
+---
+
+## Keepalive Control Labels
+
+### `agents:paused`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a PR with active keepalive
+
+**Effect:**
+1. Pauses all keepalive activity on the PR
+2. Agent will not be dispatched until label is removed
+3. Useful for manual intervention or debugging
+
+**To Resume:** Remove the `agents:paused` label.
+
+**Workflow:** `agents-keepalive-loop.yml`
+
+---
+
+### `agents:keepalive`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a PR
+
+**Effect:**
+1. Enables the keepalive loop for the PR
+2. Agent continues working until all tasks are complete
+3. Tracks progress and updates PR status
+
+**Prerequisites:**
+- PR must have an `agent:*` label
+- Gate workflow must pass
+
+**Workflow:** `agents-keepalive-loop.yml`
+
+---
+
+## Informational Labels
+
+These labels are used for categorization but do not trigger workflows.
+
+### `follow-up`
+
+**Applies to:** Issues
+
+**Effect:** Indicates this issue was created as follow-up to another issue or PR.
+
+**Applied by:** `agents-verify-to-issue-v2.yml` workflow
+
+---
+
+### `needs-formatting`
+
+**Applies to:** Issues
+
+**Effect:** Indicates the issue needs formatting to AGENT_ISSUE_TEMPLATE structure.
+
+**Applied by:** Issue lint workflow (when enabled)
+
+---
+
 ## CI/Build Labels
 
 ### `skip-ci` (if configured)
@@ -288,17 +436,24 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 ## Label Interaction Matrix
 
-| Existing Label | New Label Added | Result |
-|---------------|-----------------|--------|
-| (none) | `autofix` | Triggers autofix |
-| `autofix` | `autofix:clean` | May trigger clean mode |
-| (none) | `agent:codex` | Triggers agent assignment |
-| `agent:codex` | `agent:codex-invite` | Sends agent invitation |
-| `agent:codex` | `status:ready` | Agent begins processing |
-| `agent:needs-attention` | (removed) | Agent resumes processing |
-| (none) | `agents:format` | Triggers LangChain formatter |
-| `agents:format` | (auto-removed) | Label replaced by `agents:formatted` |
-| `agents:formatted` | `agent:codex` | Ready for agent assignment |
+| Existing Label | New Label Added | Result
+|---------------|-----------------|--------
+| (none) | `autofix` | Triggers autofix
+| `autofix` | `autofix:clean` | May trigger clean mode
+| (none) | `agent:codex` | Triggers agent assignment
+| `agent:codex` | `agent:codex-invite` | Sends agent invitation
+| `agent:codex` | `status:ready` | Agent begins processing
+| `agent:needs-attention` | (removed) | Agent resumes processing
+| (none) | `agents:format` | Direct formatting
+| (none) | `agents:optimize` | Analyzes and posts suggestions
+| `agents:optimize` | `agents:apply-suggestions` | Applies suggestions, adds `agents:formatted`
+| `agents:formatted` | `agent:codex` | Issue ready for agent processing
+| `agents:auto-pilot` | `runner:<agent>` | Auto-pilot uses the selected runner when it dispatches work
+| (none) | `agents:keepalive` | Enables keepalive monitoring for an agent PR
+| `agents:keepalive` | `agents:paused` | Pauses keepalive and agent dispatch until resumed
+| `agents:paused` | (removed) | Keepalive can resume on the next eligible event
+| Merged PR with verifier report | `verify:create-issue` | Creates a verifier follow-up issue
+| Merged PR with verifier report | `verify:create-new-pr` | Creates and bootstraps a verifier follow-up PR
 
 ---
 

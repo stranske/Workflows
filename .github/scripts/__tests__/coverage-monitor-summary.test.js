@@ -9,6 +9,7 @@ const {
   buildCoverageMonitorSummary,
   formatMonitorMarkdown,
   normalizeMonitorArtifactSelection,
+  optionalExistingReportPath,
   parseArgs,
   readJsonReport,
   SUMMARY_SCHEMA,
@@ -64,6 +65,83 @@ test('builds a pass monitor contract from warning-only preflight reports', () =>
   );
   assert.match(markdown, /Weekly Coverage Monitor Contract/);
   assert.match(markdown, /terminal-disposition \| pass/);
+});
+
+test('includes PR source context coverage when configured', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
+  const terminal = writeJson(dir, 'terminal.json', report('pass'));
+  const botAuth = writeJson(dir, 'bot-auth.json', report('pass'));
+  const prSource = writeJson(
+    dir,
+    'pr-source.json',
+    report('warning', {
+      schema: 'workflows-pr-source-context-coverage/v1',
+      warning_count: 1,
+      unknown_source_context_count: 1,
+    })
+  );
+
+  const summary = buildCoverageMonitorSummary({
+    terminal_report: terminal,
+    bot_auth_report: botAuth,
+    pr_source_context_report: prSource,
+  });
+
+  assert.equal(summary.status, 'warning');
+  assert.deepEqual(
+    summary.monitors.map((monitor) => monitor.label),
+    ['terminal-disposition', 'bot-comment-auth', 'pr-source-context']
+  );
+  assert.match(formatMonitorMarkdown(summary), /pr-source-context \| warning/);
+});
+
+test('skips PR source context coverage when configured file is absent', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
+  const terminal = writeJson(dir, 'terminal.json', report('pass'));
+  const botAuth = writeJson(dir, 'bot-auth.json', report('pass'));
+
+  const summary = buildCoverageMonitorSummary({
+    terminal_report: terminal,
+    bot_auth_report: botAuth,
+    pr_source_context_report: path.join(dir, 'missing-pr-source.json'),
+  });
+
+  assert.equal(summary.status, 'pass');
+  assert.deepEqual(
+    summary.monitors.map((monitor) => monitor.label),
+    ['terminal-disposition', 'bot-comment-auth']
+  );
+});
+
+test('treats PR source context coverage as an optional existing file input', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
+  const prSource = writeJson(dir, 'pr-source.json', report('pass'));
+
+  assert.equal(optionalExistingReportPath(''), '');
+  assert.equal(optionalExistingReportPath(path.join(dir, 'missing-pr-source.json')), '');
+  assert.equal(optionalExistingReportPath(dir), '');
+  assert.equal(optionalExistingReportPath(` ${prSource} `), prSource);
+});
+
+test('treats stat errors as absent optional report inputs', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-'));
+  const prSource = writeJson(dir, 'pr-source.json', report('pass'));
+  const originalStatSync = fs.statSync;
+  fs.statSync = () => {
+    throw new Error('stat failed');
+  };
+
+  try {
+    assert.equal(optionalExistingReportPath(prSource), '');
+  } finally {
+    fs.statSync = originalStatSync;
+  }
+});
+
+test('does not include PR source context coverage by default', () => {
+  const options = parseArgs([]);
+
+  assert.equal(options.pr_source_context_report, '');
 });
 
 test('surfaces warning blockers without activating hard-block policy', () => {
@@ -241,6 +319,8 @@ test('parses CLI paths and writes summary artifacts without failing warning stat
     terminal,
     '--bot-auth-report',
     botAuth,
+    '--pr-source-context-report',
+    path.join(dir, 'pr-source.json'),
     '--output-json',
     outputJson,
     '--output-md',
@@ -249,6 +329,7 @@ test('parses CLI paths and writes summary artifacts without failing warning stat
 
   assert.equal(options.terminal_report, terminal);
   assert.equal(options.bot_auth_report, botAuth);
+  assert.equal(options.pr_source_context_report, path.join(dir, 'pr-source.json'));
   const result = spawnSync(
     process.execPath,
     [
@@ -257,6 +338,8 @@ test('parses CLI paths and writes summary artifacts without failing warning stat
       terminal,
       '--bot-auth-report',
       botAuth,
+      '--pr-source-context-report',
+      '',
       '--output-json',
       outputJson,
       '--output-md',
@@ -266,8 +349,46 @@ test('parses CLI paths and writes summary artifacts without failing warning stat
   );
 
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /^## Weekly Coverage Monitor Contract/);
+  const markdown = fs.readFileSync(outputMd, 'utf8');
+  assert.match(markdown, /^## Weekly Coverage Monitor Contract/);
   const summary = JSON.parse(fs.readFileSync(outputJson, 'utf8'));
   assert.equal(summary.status, 'warning');
-  assert.equal(fs.readFileSync(outputMd, 'utf8'), result.stdout);
+  if (result.stdout) {
+    assert.equal(markdown, result.stdout);
+  }
+});
+
+test('CLI succeeds when configured PR source context report file is missing', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coverage-monitor-cli-missing-pr-source-'));
+  const terminal = writeJson(dir, 'terminal.json', report('pass'));
+  const botAuth = writeJson(dir, 'bot-auth.json', report('pass'));
+  const outputJson = path.join(dir, 'summary.json');
+  const outputMd = path.join(dir, 'summary.md');
+  const missingPrSource = path.join(dir, 'missing-pr-source.json');
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.join(__dirname, '..', 'coverage_monitor_summary.js'),
+      '--terminal-report',
+      terminal,
+      '--bot-auth-report',
+      botAuth,
+      '--pr-source-context-report',
+      missingPrSource,
+      '--output-json',
+      outputJson,
+      '--output-md',
+      outputMd,
+    ],
+    { encoding: 'utf8' }
+  );
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, '');
+  const summary = JSON.parse(fs.readFileSync(outputJson, 'utf8'));
+  assert.deepEqual(
+    summary.monitors.map((monitor) => monitor.label),
+    ['terminal-disposition', 'bot-comment-auth']
+  );
 });

@@ -26,17 +26,24 @@ Some repos cannot use the template `pr-00-gate.yml` because:
 - **Trend_Model_Project**: Keeps the historical `Agents.md` filename, so syncing
   `AGENTS.md` would create a case-only path collision on case-insensitive
   filesystems
+- **trip-planner**: Installs `.github/scripts` dependencies from
+  `.github/scripts/package-lock.json` with `npm ci` and has an explicit hygiene
+  check that forbids tracked `node_modules/` anywhere in the repo.
 
 For these repos:
 - The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
 - `Trend_Model_Project` skips the synced `AGENTS.md` file and keeps its local
   `Agents.md`.
+- `trip-planner` skips the synced `.github/scripts/package.json` and vendored
+  `.github/scripts/node_modules/` entries so its lockfile-based dependency
+  policy remains intact.
 - Other files listed in the sync manifest continue to sync normally.
 
 Maint 68 currently implements this by keeping an internal `custom_gate_repos` list in
 its sync script and skipping any manifest entry whose `source` contains
 `pr-00-gate` for those repos, plus a repo-specific `AGENTS.md` skip for
-`Trend_Model_Project`.
+`Trend_Model_Project` and manifest-level package/dependency skips for
+`trip-planner`.
 
 ---
 
@@ -175,6 +182,24 @@ of following the first-party default.
 
 If a reusable workflow fix must ship immediately, trigger:
 - `Maint 68 Sync Consumer Repos` only if template files changed
+
+### Autofix Tool Version Ownership
+
+Workflows owns shared autofix/dev-tool pins in
+`.github/workflows/autofix-versions.env`. Treat that file as the source of truth
+for `ruff`, `black`, `mypy`, `pytest`, `coverage`, `isort`, and `docformatter`.
+The matching `pyproject.toml`, consumer template, integration template, and
+direct `requirements.lock` pins must move in the same Workflows PR.
+
+Dependabot should not be merged when it only bumps one of those shared tool pins
+in `pyproject.toml`; route that change through the Workflows source pin update
+path instead. Runtime dependency bumps remain normal Dependabot work.
+
+Consumer alignment must not wait for unrelated PyPI freshness. The
+`maint-52-sync-dev-versions.yml` workflow reports whether newer PyPI versions
+exist, but continues syncing the canonical pins from Workflows. The
+`maint-auto-update-pypi-versions.yml` workflow owns opening source bump PRs for
+freshness updates.
 
 ### Manual Sync Trigger
 

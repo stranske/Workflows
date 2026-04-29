@@ -123,6 +123,7 @@ def test_build_summary_formats_sections() -> None:
     assert "Legacy missing verifier model metadata: n/a" in summary
     assert "Model selection reasons: default (1)" in summary
     assert "Verifier modes: checkbox (1)" in summary
+    assert "Unknown verifier modes: n/a" in summary
     assert "Codex CLI Freshness" in summary
     assert "Statuses: outdated (1)" in summary
     assert "Pinned versions: 0.125.0 (1)" in summary
@@ -135,6 +136,7 @@ def test_build_summary_formats_sections() -> None:
     assert verifier_contract["verifier_models"] == {"gpt-5.3-codex": 1}
     assert verifier_contract["verifier_cli_versions"] == {"codex-cli 0.125.0": 1}
     assert verifier_contract["model_selection_reasons"] == {"default": 1}
+    assert verifier_contract["unknown_verifier_modes"] == {}
     assert verifier_contract["ledger_policy_actions"] == {"create-follow-up": 1}
     assert verifier_contract["ledger_policy_triggers"] == {"verifier-concerns": 1}
     assert verifier_contract["ledger_avg_chain_depth"] == 1.0
@@ -211,6 +213,110 @@ def test_main_writes_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     monkeypatch.delenv("METRICS_PATHS", raising=False)
     monkeypatch.delenv("OUTPUT_PATH", raising=False)
     monkeypatch.delenv("OUTPUT_JSON_PATH", raising=False)
+
+
+def test_main_exposes_terminal_artifact_family_selection(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    metrics_path = tmp_path / "terminal.ndjson"
+    output_path = tmp_path / "summary.md"
+    output_json_path = tmp_path / "summary.json"
+    selection_path = tmp_path / "metric-artifacts-selection.json"
+
+    _write_ndjson(
+        metrics_path,
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "review-thread-terminal-disposition",
+                "source_type": "review-thread",
+                "source_id": "1927",
+                "disposition": "wrapper-skipped",
+            }
+        ],
+    )
+    selection_path.write_text(
+        json.dumps(
+            {
+                "schema": "workflows-weekly-metrics-artifact-selection/v1",
+                "status": "pass",
+                "candidate_count": 60,
+                "selected_count": 20,
+                "missing_priority_families": ["verifier-terminal-disposition"],
+                "priority_family_statuses": [
+                    {
+                        "family": "verifier-terminal-disposition",
+                        "status": "missing",
+                        "candidate_count": 0,
+                        "selected_count": 0,
+                        "latest_candidate": None,
+                        "selected_artifact": None,
+                    },
+                    {
+                        "family": "review-thread-terminal-disposition",
+                        "status": "selected",
+                        "candidate_count": 60,
+                        "selected_count": 20,
+                        "latest_candidate": {
+                            "id": 6651095636,
+                            "name": "review-thread-terminal-disposition-24969526334",
+                        },
+                        "selected_artifact": {
+                            "id": 6651095636,
+                            "name": "review-thread-terminal-disposition-24969526334",
+                        },
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("METRICS_PATHS", str(metrics_path))
+    monkeypatch.setenv("OUTPUT_PATH", str(output_path))
+    monkeypatch.setenv("OUTPUT_JSON_PATH", str(output_json_path))
+    monkeypatch.setenv("METRICS_ARTIFACT_SELECTION_JSON", str(selection_path))
+
+    assert aggregate_agent_metrics.main() == 0
+
+    summary = output_path.read_text(encoding="utf-8")
+    assert (
+        "Terminal artifact families: review-thread-terminal-disposition: selected (20/60), "
+        "verifier-terminal-disposition: missing (0/0)"
+    ) in summary
+    assert "Missing terminal artifact families: verifier-terminal-disposition" in summary
+
+    summary_json = json.loads(output_json_path.read_text(encoding="utf-8"))
+    artifact_selection = summary_json["artifact_selection"]
+    assert artifact_selection["missing_terminal_artifact_families"] == [
+        "verifier-terminal-disposition"
+    ]
+    assert artifact_selection["terminal_artifact_families"][1]["status"] == "missing"
+
+
+def test_artifact_selection_contract_ignores_malformed_missing_priority_families(
+    tmp_path: Path,
+) -> None:
+    selection_path = tmp_path / "metric-artifacts-selection.json"
+    selection_path.write_text(
+        json.dumps(
+            {
+                "schema": "workflows-weekly-metrics-artifact-selection/v1",
+                "status": "pass",
+                "candidate_count": 0,
+                "selected_count": 0,
+                "missing_priority_families": "verifier-terminal-disposition",
+                "priority_family_statuses": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    contract = aggregate_agent_metrics._read_artifact_selection_contract(selection_path)
+
+    assert contract is not None
+    assert contract["missing_priority_families"] == []
 
 
 def test_parse_timestamp_variants() -> None:
@@ -640,6 +746,10 @@ def test_classify_entry_prefers_explicit_type() -> None:
     assert aggregate_agent_metrics._classify_entry({"other": "value"}) == "unknown"
 
 
+def test_artifact_family_classifies_pr_source_context() -> None:
+    assert aggregate_agent_metrics._artifact_family("pr-source-context") == "pr-source-context"
+
+
 def test_safe_number_helpers() -> None:
     assert aggregate_agent_metrics._safe_int("3") == 3
     assert aggregate_agent_metrics._safe_int("bad") is None
@@ -911,7 +1021,7 @@ def test_verifier_summary_counts_missing_model_metadata(
     assert "Missing verifier model metadata: verifier-error (1)" in summary
 
 
-def test_verifier_summary_counts_missing_model_metadata_for_unknown_mode(
+def test_verifier_summary_ignores_missing_model_metadata_for_unknown_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
@@ -927,6 +1037,174 @@ def test_verifier_summary_counts_missing_model_metadata_for_unknown_mode(
                 "run_id": "24948023779",
                 "pr_number": 1874,
                 "disposition": "verifier-error",
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"] == Counter()
+
+
+def test_verifier_summary_ignores_missing_model_metadata_for_blank_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023780",
+                "pr_number": 1875,
+                "disposition": "verifier-error",
+                "verifier_mode": " ",
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"] == Counter()
+
+
+def test_verifier_summary_ignores_missing_model_metadata_for_null_equivalent_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023781",
+                "pr_number": 1876,
+                "disposition": "verifier-error",
+                "verifier_mode": "null",
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"] == Counter()
+    assert verifier["unknown_verifier_modes"] == Counter()
+
+
+def test_verifier_summary_preserves_unknown_mode_sentinel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023785",
+                "pr_number": 1880,
+                "disposition": "verifier-error",
+                "verifier_mode": "unknown",
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"]["verifier-error"] == 1
+    assert verifier["unknown_verifier_modes"]["unknown"] == 1
+
+
+def test_verifier_model_metadata_required_accepts_null_equivalent_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "nil",
+    )
+
+    assert aggregate_agent_metrics._verifier_model_metadata_required() is False
+    assert aggregate_agent_metrics._verifier_model_metadata_required_after() is None
+
+
+def test_verifier_summary_counts_missing_model_metadata_for_unrecognized_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023782",
+                "pr_number": 1877,
+                "disposition": "verifier-error",
+                "verifier_mode": "compare-lite",
+            },
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023783",
+                "pr_number": 1878,
+                "disposition": "verifier-error",
+                "verifier_mode": "compare-lite",
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"]["verifier-error"] == 2
+    assert verifier["unknown_verifier_modes"]["compare-lite"] == 2
+
+
+def test_verifier_summary_treats_false_mode_as_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023784",
+                "pr_number": 1879,
+                "disposition": "verifier-error",
+                "verifier_mode": False,
+            },
+        ]
+    )
+
+    assert verifier["missing_verifier_model_metadata"] == Counter()
+    assert verifier["unknown_verifier_modes"] == Counter()
+
+
+def test_verifier_summary_counts_missing_model_metadata_for_non_evaluate_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TERMINAL_DISPOSITION_VERIFIER_MODEL_METADATA_REQUIRED_AFTER",
+        "2026-04-26T04:25:00Z",
+    )
+
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "schema": "workflows-terminal-disposition/v1",
+                "artifact_family": "verifier-terminal-disposition",
+                "run_id": "24948023779",
+                "pr_number": 1874,
+                "disposition": "verifier-error",
+                "verifier_mode": "compare",
             },
         ]
     )
@@ -1022,6 +1300,7 @@ def test_verifier_summary_does_not_require_model_metadata_by_default() -> None:
     )
 
     assert "Missing verifier model metadata: n/a" in summary
+    assert "Unknown verifier modes: n/a" in summary
 
 
 def test_format_helpers_and_summary_range() -> None:

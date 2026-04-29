@@ -85,7 +85,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 ## Coverage Guardrails & Follow-ups
 
 * Gate's `summary` job now emits the consolidated PR comment, uploads `gate-summary.md`, and publishes `gate-coverage.json` / `gate-coverage-delta.json` for downstream consumers.
-* [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) syncs dev tool versions from `pyproject.toml` to `autofix-versions.env` after Dependabot merges.
+* [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) keeps `pyproject.toml`, templates, and `requirements.lock` aligned to the canonical `autofix-versions.env` file.
 * [`maint-coverage-guard.yml`](../../.github/workflows/maint-coverage-guard.yml) periodically verifies that the latest Gate run meets baseline coverage expectations.
 * [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) wakes up after Gate completes, validates the workflow syntax with `actionlint`, downloads the Gate artifacts, renders the consolidated CI summary (including coverage deltas), and republishes the Gate commit status while saving a markdown preview for evidence capture.
 
@@ -108,7 +108,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 * [`maint-50-tool-version-check.yml`](../../.github/workflows/maint-50-tool-version-check.yml) checks PyPI weekly for new versions of CI/autofix tools (black, ruff, mypy, pytest) and creates an issue when updates are available.
 * [`maint-51-dependency-refresh.yml`](../../.github/workflows/maint-51-dependency-refresh.yml) regenerates `requirements.lock` using `uv pip compile`, validates tool-pin alignment, and opens a refresh pull request when dependency updates are detected (dry-run friendly).
 * [`maint-39-test-llm-providers.yml`](../../.github/workflows/maint-39-test-llm-providers.yml) verifies LLM provider API keys (GitHub Models, OpenAI) are configured correctly for task completion analysis.
-* [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) syncs dev tool version pins from `pyproject.toml` to `autofix-versions.env` after Dependabot updates land.
+* [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) syncs `pyproject.toml`, templates, and direct `requirements.lock` pins from the canonical `autofix-versions.env` file after source pin changes land.
 * [`maint-52-validate-workflows.yml`](../../.github/workflows/maint-52-validate-workflows.yml) dry-parses every workflow with `yq`, runs `actionlint` with the repository allowlist, and fails fast when malformed YAML or unapproved actionlint findings slip in.
 * [`maint-52-sync-dev-versions.yml`](../../.github/workflows/maint-52-sync-dev-versions.yml) syncs dev tool versions (ruff, mypy, black, isort, pytest) from `autofix-versions.env` to consumer repository `pyproject.toml` files weekly or on version changes.
 * [`maint-auto-update-pypi-versions.yml`](../../.github/workflows/maint-auto-update-pypi-versions.yml) checks PyPI daily for latest dev tool versions and creates a PR to update `autofix-versions.env` when versions are outdated.
@@ -139,7 +139,7 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-belt-worker.yml`](../../.github/workflows/agents-belt-worker.yml) agent-agnostic alias that delegates to `agents-72-codex-belt-worker.yml`.
 * [`agents-belt-conveyor.yml`](../../.github/workflows/agents-belt-conveyor.yml) agent-agnostic alias that delegates to `agents-73-codex-belt-conveyor.yml`.
 * [`agents-74-pr-body-writer.yml`](../../.github/workflows/agents-74-pr-body-writer.yml) synchronizes PR body sections from source issues and builds status summaries.
-* [`agents-pr-meta-v4.yml`](../../.github/workflows/agents-pr-meta-v4.yml) is the canonical PR meta manager, using external scripts to stay under GitHub workflow parser limits. (Supersedes archived v1/v2/v3 versions.)
+* [`agents-pr-meta-v4.yml`](../../.github/workflows/agents-pr-meta-v4.yml) is the Workflows-repo PR meta manager, using external scripts to stay under GitHub workflow parser limits. Consumer repos should use the current `agents-80-pr-event-hub.yml` / `agents-81-gate-followups.yml` template pair unless they are intentionally maintaining a legacy compatibility file.
 * [`agents-75-keepalive-on-gate.yml`](../../.github/workflows/agents-75-keepalive-on-gate.yml) implements the keepalive-on-gate consolidation and gate-aware keepalive behavior.
 * [`agents-bot-comment-handler.yml`](../../.github/workflows/agents-bot-comment-handler.yml) dispatches the reusable bot comment handler after Gate success, manual dispatch, or the `autofix:bot-comments` label to address bot review comments.
 * [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) includes the keepalive sweep, which the orchestrator toggles via the `keepalive_enabled` flag and repository-level `keepalive:paused` label.

@@ -54,6 +54,7 @@ test('normalizes terminal disposition records with stable source keys', () => {
 test('normalizes Codex CLI version strings', () => {
   assert.equal(normalizeCliVersion('Codex CLI v0.125.0\n'), 'codex-cli 0.125.0');
   assert.equal(normalizeCliVersion('@openai/codex@0.126.1'), 'codex-cli 0.126.1');
+  assert.equal(normalizeCliVersion('Codex CLI v0.127.0-BETA'), 'codex-cli 0.127.0-beta');
   assert.equal(normalizeCliVersion('custom tool 1.0.0'), 'custom tool 1.0.0');
 });
 

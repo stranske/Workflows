@@ -1,0 +1,205 @@
+version: 1
+issue: 1953
+base: main
+branch: codex/issue-1953
+tasks:
+  - id: task-01
+    title: Update the issue-sourced detection logic in `.github/scripts/source_context.js`
+      to ignore bare numeric references like `#123` in PR descriptions unless they
+      match the repository's explicit source-context format
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - '2026-04-27T06:34:41Z failure (run 24980153138): status=failure'
+  - id: task-02
+    title: Add unit tests for `.github/scripts/source_context.js` covering PR description
+      inputs with bare `#123` references and asserting these are not classified as
+      issue-sourced
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Add unit tests for `.github/scripts/source_context.js` covering PR description
+      inputs with `Review follow-up from PR #123` text and asserting these are not
+      classified as issue-sourced'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add at least one positive control test case to `.github/scripts/source_context.js`
+      that verifies valid issue-sourced patterns are still correctly identified
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add fixture test records in `scripts/aggregate_agent_metrics.py` with empty
+      string `verifier_mode` values and verify they do not increment the missing verifier
+      model metadata count
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add fixture test records in `scripts/aggregate_agent_metrics.py` with null-equivalent
+      `verifier_mode` values and verify they do not increment the missing verifier
+      model metadata count
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add fixture test records in `scripts/aggregate_agent_metrics.py` with unrecognized
+      `verifier_mode` values and verify they do not increment the missing verifier
+      model metadata count
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Update the counting logic in `scripts/aggregate_agent_metrics.py` to exclude
+      empty, null-equivalent, and unknown verifier mode values from the missing verifier
+      model metadata counter
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: If the intended metrics design requires distinguishing unrecognized verifier
+      modes, add an explicit unknown-verifier-mode counter in `scripts/aggregate_agent_metrics.py`
+      and cover it with tests
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add unit tests in `.github/scripts/coverage_monitor_summary.js` that simulate
+      a missing PR source context report and verify the coverage summary completes
+      without failing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Fix Markdown table formatting in `docs/LABELS.md` by removing the extra
+      trailing pipe from each row so all rows have the same number of pipe-delimited
+      columns as the header row
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Create a documentation file or section that lists all seven review threads
+      from Inv-Man-Intake PR #315 with their current status'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Document explicit dispositions for each unresolved review thread from
+      Inv-Man-Intake PR #315 that will not receive code changes in this follow-up'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Verify that the total count of documented dispositions plus code-fixed
+      threads from Inv-Man-Intake PR #315 equals seven'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Unit tests in `.github/scripts/source_context.js` verify that inputs containing
+      `#123`, `see #123`, and `Review follow-up from PR #123` in the PR description
+      return a result where the issue_sourced field is false (or equivalent non-issue-sourced
+      indicator), and these tests pass in CI'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Unit tests in `.github/scripts/source_context.js` include at least one
+      positive control case that returns issue_sourced as true for a valid issue-sourced
+      pattern, and this test passes in CI
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Test fixtures in `scripts/aggregate_agent_metrics.py` include records with
+      `verifier_mode` set to empty string, null-equivalent, and unrecognized values,
+      and test assertions verify these records do not increment the missing verifier
+      model metadata count
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: If `scripts/aggregate_agent_metrics.py` emits a dedicated unknown verifier
+      mode metric, fixture records with unrecognized `verifier_mode` values increment
+      that counter exactly once per record, while the missing verifier model metadata
+      counter remains unchanged for those same records, verified by passing test assertions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Unit tests in `.github/scripts/coverage_monitor_summary.js` include a test
+      case where the PR source context report file is absent, and test assertions
+      verify the script completes with exit code 0 and no exceptions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: A Markdown linter (such as markdownlint) reports zero table formatting
+      errors for `docs/LABELS.md`, or manual inspection confirms that each table row
+      has exactly N pipes where N equals the number of pipes in the corresponding
+      header row
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'A documentation file or code comment exists that lists each of the seven
+      review threads from Inv-Man-Intake PR #315 by thread ID or description, and
+      for each thread either: (a) references a specific code change in this PR that
+      addresses it, or (b) states one of the following dispositions with justification:
+      won''t fix, not applicable, deferred, or already resolved'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'The sum of code-addressed threads plus documented dispositions for Inv-Man-Intake
+      PR #315 equals exactly seven'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

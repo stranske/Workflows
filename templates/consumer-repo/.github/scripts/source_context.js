@@ -34,18 +34,22 @@ const SOURCE_LABELS = Object.freeze({
   workflow_no_automation: SOURCE_TYPES.MANUAL_REMOTE,
 });
 
+const NO_AUTOMATION_LABELS = new Set(['workflow:no-automation', 'workflow_no_automation']);
+
 const CHECKBOX_SOURCE_PATTERNS = Object.freeze([
   [SOURCE_TYPES.GITHUB_ISSUE, /\bgithub\s+issue\b|\bsource\s+issue\b/i],
   [
     SOURCE_TYPES.MANUAL_REMOTE,
     /\bdirect\s+pr\b|\bremote\s+github\s+work\b|\bstarted\s+directly\b|\bdo\s+not\s+automate\b|\bhuman[- ]only\b/i,
   ],
-  [SOURCE_TYPES.LOCAL_REQUEST, /\blocal\s+(?:codex|user)\s+request\b|\blocal\s+request\b/i],
+  [SOURCE_TYPES.LOCAL_REQUEST, /\blocal\s+(?:codex(?:\s*\/\s*|\s+)?user|codex|user)\s+request\b|\blocal\s+request\b/i],
   [SOURCE_TYPES.AUTOMATION_RUN, /\bautomation\s+run\b|\bworkflow\s+run\b/i],
   [SOURCE_TYPES.REVIEW_FOLLOWUP, /\breview\s+follow[- ]?up\b|\bfollow[- ]?up\s+from\s+pr\b/i],
   [SOURCE_TYPES.SYNC_CAMPAIGN, /\bsync\b|\bmaintenance\s+campaign\b|\bmaintenance\b/i],
   [SOURCE_TYPES.DEPENDABOT, /\bdependabot\b|\bdependency\s+update\b/i],
 ]);
+
+const NO_AUTOMATION_CHECKBOX_PATTERN = /\bdo\s+not\s+automate\b|\bhuman[- ]only\b/i;
 
 function cleanString(value) {
   return String(value || '').trim();
@@ -106,8 +110,95 @@ function labelNames(pull = {}) {
     : [];
 }
 
-function extractIssueNumberFromText(text) {
+function checkedLabels(lines) {
+  return lines
+    .map((line) => line.match(/^\s*[-*]\s+\[[xX]\]\s+(.+?)\s*$/))
+    .filter(Boolean)
+    .map((match) => match[1]);
+}
+
+function workflowSourceSectionLines(body) {
+  const lines = String(body || '').split(/\r?\n/);
+  const start = lines.findIndex((line) => /^#{1,6}\s+Workflow Source\s*$/i.test(line));
+  if (start < 0) {
+    return [];
+  }
+
+  const sectionLines = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^#{1,6}\s+\S/.test(line)) {
+      break;
+    }
+    sectionLines.push(line);
+  }
+  return sectionLines;
+}
+
+function startedFromLines(sectionLines) {
+  const start = sectionLines.findIndex((line) => /^\s*Started from:\s*$/i.test(line));
+  if (start < 0) {
+    const firstSubsection = sectionLines.findIndex((line) => /^\s*(Automation intent|Notes):\s*$/i.test(line));
+    return firstSubsection < 0 ? sectionLines : sectionLines.slice(0, firstSubsection);
+  }
+
+  const result = [];
+  for (const line of sectionLines.slice(start + 1)) {
+    if (/^\s*(Automation intent|Notes):\s*$/i.test(line)) {
+      break;
+    }
+    result.push(line);
+  }
+  return result;
+}
+
+function hasCheckedNoAutomationTemplate(body) {
+  const sectionLines = workflowSourceSectionLines(body);
+  if (!sectionLines.length) {
+    return false;
+  }
+  return checkedLabels(startedFromLines(sectionLines)).some((label) =>
+    NO_AUTOMATION_CHECKBOX_PATTERN.test(label)
+  );
+}
+
+function hasExplicitIssueReferencePrefix(value) {
+  const rawPrefix = String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[_[\]()`~]/g, ' ');
+  const prefix = rawPrefix
+    .trim()
+    .replace(/[>*]/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  if (/\b(?:pr|pull\s+request)\s*[:#-]?\s*$/i.test(prefix)) {
+    return false;
+  }
+  if (/\b(?:known|no)\s+(?:linked\s+)?issue\s*[:#-]?\s*$/i.test(prefix)) {
+    return false;
+  }
+
+  const issuePrefixPattern =
+    '(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|relate[sd]?\\s+to(?:\\s+(?:(?:[a-z-]+\\s+)?issue|source\\s+issue|github\\s+issue))?|refs?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|references?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|source(?:\\s*:\\s*|\\s+)issue|github\\s+issue|linked\\s+issue|issue)';
+  const inlinePattern = new RegExp(`\\b${issuePrefixPattern}\\s*[:#-]?\\s*$`, 'i');
+  if (inlinePattern.test(prefix)) {
+    return true;
+  }
+  const linePattern = new RegExp(
+    `(?:^|\\n)\\s*>?\\s*(?:[-*]\\s*)?(?:\\*\\*)?${issuePrefixPattern}(?:\\*\\*)?\\s*[:#-]?\\s*$`,
+    'i',
+  );
+  return linePattern.test(rawPrefix);
+}
+
+function extractIssueNumbersFromText(text) {
   const value = String(text || '');
+  const issueNumbers = new Set();
+  for (const match of value.matchAll(/<!--\s*meta:issue:([0-9]+)\s*-->/gi)) {
+    const parsed = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(parsed)) {
+      issueNumbers.add(parsed);
+    }
+  }
   for (const match of value.matchAll(/#([0-9]+)/g)) {
     if (!match[1]) {
       continue;
@@ -124,12 +215,20 @@ function extractIssueNumberFromText(text) {
     if (/\b(?:run|attempt|step|job|check|version|v)\s*$/i.test(preceding)) {
       continue;
     }
+    if (!hasExplicitIssueReferencePrefix(value.slice(Math.max(0, match.index - 80), match.index))) {
+      continue;
+    }
     const parsed = Number.parseInt(match[1], 10);
     if (!Number.isNaN(parsed)) {
-      return parsed;
+      issueNumbers.add(parsed);
     }
   }
-  return null;
+  return issueNumbers;
+}
+
+function extractIssueNumberFromText(text) {
+  const issueNumbers = extractIssueNumbersFromText(text);
+  return issueNumbers.size > 0 ? Array.from(issueNumbers)[0] : null;
 }
 
 function extractIssueNumberFromPull(pull = {}) {
@@ -183,32 +282,41 @@ function parseWorkflowSourceBlock(body) {
 }
 
 function sourceTypeFromCheckedTemplate(body) {
-  const lines = String(body || '').split(/\r?\n/);
-  const start = lines.findIndex((line) => /^#{1,6}\s+Workflow Source\s*$/i.test(line));
-  if (start < 0) {
+  const sectionLines = workflowSourceSectionLines(body);
+  if (!sectionLines.length) {
     return SOURCE_TYPES.UNKNOWN;
   }
-  const sectionLines = [];
-  for (const line of lines.slice(start + 1)) {
-    if (/^#{1,6}\s+\S/.test(line)) {
-      break;
-    }
-    sectionLines.push(line);
-  }
-  const text = sectionLines.join('\n');
-  for (const line of text.split(/\r?\n/)) {
-    const checkbox = line.match(/^\s*[-*]\s+\[[xX]\]\s+(.+?)\s*$/);
-    if (!checkbox) {
-      continue;
-    }
-    const label = checkbox[1];
+  const checkedTypes = new Set();
+  for (const label of checkedLabels(startedFromLines(sectionLines))) {
     for (const [sourceType, pattern] of CHECKBOX_SOURCE_PATTERNS) {
       if (pattern.test(label)) {
-        return sourceType;
+        checkedTypes.add(sourceType);
+        break;
       }
     }
   }
-  return SOURCE_TYPES.UNKNOWN;
+  return checkedTypes.size === 1 ? Array.from(checkedTypes)[0] : SOURCE_TYPES.UNKNOWN;
+}
+
+function hasNoAutomationWorkflowContext(pull = {}) {
+  const body = String(pull?.body || '');
+  const markerToken = normalizeToken(parseHtmlMarker(body, 'workflow-source'));
+  const block = parseWorkflowSourceBlock(body);
+  const blockTokens = [
+    block.origin,
+    block.source,
+    block.type,
+    block.automation,
+    block.automation_intent,
+  ].map(normalizeToken);
+  const labels = labelNames(pull).map((label) => label.toLowerCase());
+
+  return (
+    markerToken === 'no_automation'
+    || blockTokens.includes('no_automation')
+    || labels.some((label) => NO_AUTOMATION_LABELS.has(label) || NO_AUTOMATION_LABELS.has(normalizeToken(label)))
+    || hasCheckedNoAutomationTemplate(body)
+  );
 }
 
 function sourceTypeFromLabels(pull = {}) {
@@ -248,16 +356,20 @@ function resolvePrSourceContext(pull = {}) {
   const body = String(pull?.body || '');
   const block = parseWorkflowSourceBlock(body);
   const issueNumber = extractIssueNumberFromPull(pull);
+  const noAutomation = hasNoAutomationWorkflowContext(pull);
 
   const markerType = normalizeSourceType(parseHtmlMarker(body, 'workflow-source'));
   const blockType = normalizeSourceType(block.origin || block.source || block.type);
   const checkboxType = sourceTypeFromCheckedTemplate(body);
   const labelType = sourceTypeFromLabels(pull);
   const inferredType = inferredSourceType(pull);
-  const sourceType = issueNumber
+  const detectedSourceType = issueNumber
     ? SOURCE_TYPES.GITHUB_ISSUE
     : [markerType, blockType, checkboxType, labelType, inferredType].find((type) => type !== SOURCE_TYPES.UNKNOWN)
       || SOURCE_TYPES.UNKNOWN;
+  const sourceType = noAutomation && detectedSourceType === SOURCE_TYPES.UNKNOWN
+    ? SOURCE_TYPES.MANUAL_REMOTE
+    : detectedSourceType;
 
   const sourceRef =
     cleanString(parseHtmlMarker(body, 'workflow-source-ref')) ||
@@ -283,15 +395,17 @@ function resolvePrSourceContext(pull = {}) {
         markerType !== SOURCE_TYPES.UNKNOWN ||
         blockType !== SOURCE_TYPES.UNKNOWN ||
         checkboxType !== SOURCE_TYPES.UNKNOWN ||
-        labelType !== SOURCE_TYPES.UNKNOWN
+        labelType !== SOURCE_TYPES.UNKNOWN ||
+        noAutomation
     ),
     requiresIssue: sourceType === SOURCE_TYPES.GITHUB_ISSUE,
+    noAutomation,
   };
 }
 
 function hasValidNonIssueSourceContext(pull = {}) {
   const context = resolvePrSourceContext(pull);
-  return context.isValid && !context.requiresIssue;
+  return context.isValid && !context.requiresIssue && !context.noAutomation;
 }
 
 function formatSourceContextForLog(context = {}) {
@@ -305,6 +419,9 @@ function formatSourceContextForLog(context = {}) {
   if (context.automation) {
     parts.push(`automation=${context.automation}`);
   }
+  if (context.noAutomation) {
+    parts.push('no_automation=true');
+  }
   return parts.join(' ');
 }
 
@@ -312,10 +429,13 @@ module.exports = {
   SOURCE_TYPES,
   VALID_SOURCE_TYPES,
   normalizeSourceType,
+  extractIssueNumberFromText,
+  extractIssueNumbersFromText,
   extractIssueNumberFromPull,
   parseWorkflowSourceBlock,
   sourceTypeFromCheckedTemplate,
   sourceTypeFromLabels,
+  hasNoAutomationWorkflowContext,
   resolvePrSourceContext,
   hasValidNonIssueSourceContext,
   formatSourceContextForLog,

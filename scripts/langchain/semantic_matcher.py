@@ -63,6 +63,9 @@ class EmbeddingAdapter:
         response = self._provider.embed([text], model=self._model)
         return response.vectors[0] if response.vectors else []
 
+    def __call__(self, text: str) -> list[float]:
+        return self.embed_query(text)
+
 
 def _parse_provider_list(value: str | None) -> set[str] | None:
     if not value:

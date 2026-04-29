@@ -24,6 +24,7 @@ jobs:
             .github/scripts/bot_comment_auth_coverage.js
             .github/scripts/coverage_monitor_summary.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/pr_source_context_coverage.js
             .github/scripts/terminal_disposition.js
             .github/scripts/terminal_disposition_coverage.js
             .github/scripts/token_load_balancer.js
@@ -88,7 +89,13 @@ jobs:
           fi
           while IFS=$'\t' read -r id name; do
             echo "Downloading artifact $id ($name)"
-            safe_name="$(node -e 'const { safeArtifactPathSegment } = require("./.github/scripts/weekly_metrics_download_manifest.js"); process.stdout.write(safeArtifactPathSegment(process.argv[1] || ""));' "$name")"
+            safe_name="$(
+              node -e '
+                const { safeArtifactPathSegment } =
+                  require("./.github/scripts/weekly_metrics_download_manifest.js");
+                process.stdout.write(safeArtifactPathSegment(process.argv[1] || ""));
+              ' "$name"
+            )"
             artifact_dir="artifacts/$safe_name/$id"
             mkdir -p "$artifact_dir"
             # shellcheck disable=SC1009,SC1073,SC1039,SC1072
@@ -280,11 +287,37 @@ jobs:
           fi
           echo "BOT_COMMENT_AUTH_COVERAGE_EXIT_STATUS=${bot_comment_auth_status}" >> "$GITHUB_ENV"
 
+      - name: PR source context coverage preflight
+        env:
+          PR_SOURCE_CONTEXT_COVERAGE_DIR: artifacts
+          PR_SOURCE_CONTEXT_COVERAGE_JSON: pr-source-context-coverage.json
+          PR_SOURCE_CONTEXT_COVERAGE_MD: pr-source-context-coverage.md
+          PR_SOURCE_CONTEXT_COVERAGE_MODE: >-
+            ${{ vars.PR_SOURCE_CONTEXT_COVERAGE_MODE || 'warning-only' }}
+          PR_SOURCE_CONTEXT_HARD_BLOCK_APPROVED: >-
+            ${{ vars.PR_SOURCE_CONTEXT_HARD_BLOCK_APPROVED || 'false' }}
+        run: |
+          set +e
+          node .github/scripts/pr_source_context_coverage.js
+          pr_source_context_status=$?
+          set -e
+          if [ -f pr-source-context-coverage.md ]; then
+            cat pr-source-context-coverage.md >> "$GITHUB_STEP_SUMMARY"
+            if [ -f agent-weekly-metrics.md ]; then
+              {
+                printf '\n'
+                cat pr-source-context-coverage.md
+              } >> agent-weekly-metrics.md
+            fi
+          fi
+          echo "PR_SOURCE_CONTEXT_COVERAGE_EXIT_STATUS=${pr_source_context_status}" >> "$GITHUB_ENV"
+
       - name: Coverage monitor checkpoint
         if: ${{ always() }}
         env:
           COVERAGE_MONITOR_TERMINAL_JSON: terminal-disposition-coverage.json
           COVERAGE_MONITOR_BOT_AUTH_JSON: bot-comment-auth-coverage-summary.json
+          COVERAGE_MONITOR_PR_SOURCE_CONTEXT_JSON: pr-source-context-coverage.json
           COVERAGE_MONITOR_SUMMARY_JSON: coverage-monitor-summary.json
           COVERAGE_MONITOR_SUMMARY_MD: coverage-monitor-summary.md
         run: |
@@ -315,6 +348,8 @@ jobs:
             terminal-disposition-coverage.md
             bot-comment-auth-coverage-summary.json
             bot-comment-auth-coverage-summary.md
+            pr-source-context-coverage.json
+            pr-source-context-coverage.md
             coverage-monitor-summary.json
             coverage-monitor-summary.md
           if-no-files-found: warn
@@ -374,16 +409,23 @@ jobs:
         run: |
           terminal_status="${TERMINAL_DISPOSITION_COVERAGE_EXIT_STATUS:-0}"
           bot_comment_auth_status="${BOT_COMMENT_AUTH_COVERAGE_EXIT_STATUS:-0}"
-          if [ "${terminal_status}" != "0" ] || [ "${bot_comment_auth_status}" != "0" ]; then
+          pr_source_context_status="${PR_SOURCE_CONTEXT_COVERAGE_EXIT_STATUS:-0}"
+          if [ "${terminal_status}" != "0" ] ||
+             [ "${bot_comment_auth_status}" != "0" ] ||
+             [ "${pr_source_context_status}" != "0" ]; then
             echo "::error title=Coverage hard-block failed::" \
               "terminal-disposition-exit-status=${terminal_status}; " \
               "bot-comment-auth-exit-status=${bot_comment_auth_status}; " \
+              "pr-source-context-exit-status=${pr_source_context_status}; " \
               "coverage reports were uploaded before this failure"
             if [ "${terminal_status}" != "0" ]; then
               echo "Failed check: Review-thread terminal coverage preflight"
             fi
             if [ "${bot_comment_auth_status}" != "0" ]; then
               echo "Failed check: Bot-comment auth coverage preflight"
+            fi
+            if [ "${pr_source_context_status}" != "0" ]; then
+              echo "Failed check: PR source context coverage preflight"
             fi
             exit 1
           fi

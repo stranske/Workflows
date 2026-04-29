@@ -4,6 +4,7 @@ const { createGithubApiCache } = require('./github-api-cache-client');
 const { makeTrace } = require('./keepalive_contract.js');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 const {
+  extractIssueNumberFromPull,
   formatSourceContextForLog,
   resolvePrSourceContext,
 } = require('./source_context.js');
@@ -188,7 +189,6 @@ try {
 const INSTRUCTION_REACTION = 'hooray';
 // Valid GitHub reactions: +1, -1, laugh, confused, heart, hooray, rocket, eyes
 const LOCK_REACTION = 'rocket';
-
 function normaliseLogin(login) {
   return String(login || '')
     .trim()
@@ -202,64 +202,6 @@ function parseAllowedLogins(env) {
     .map((value) => normaliseLogin(value))
     .filter(Boolean);
   return new Set(raw);
-}
-
-function extractIssueNumberFromPull(pull) {
-  if (!pull) {
-    return null;
-  }
-
-  const candidates = [];
-
-  const bodyText = pull?.body || '';
-  const metaMatch = bodyText.match(/<!--\s*meta:issue:([0-9]+)\s*-->/i);
-  if (metaMatch) {
-    candidates.push(metaMatch[1]);
-  }
-
-  const branch = pull?.head?.ref || '';
-  // Match issue-XX, issue-#XX, or -issue-#XX patterns (handles Codex verbose branch names)
-  const branchMatch = branch.match(/issue-#?([0-9]+)/i) || branch.match(/-issue-#([0-9]+)(?:$|[^0-9])/i);
-  if (branchMatch) {
-    candidates.push(branchMatch[1]);
-  }
-
-  const title = pull?.title || '';
-  const titleMatch = title.match(/#([0-9]+)/);
-  if (titleMatch) {
-    candidates.push(titleMatch[1]);
-  }
-
-  for (const match of bodyText.matchAll(/#([0-9]+)/g)) {
-    if (!match[1]) {
-      continue;
-    }
-    // Skip cross-repo refs like owner/repo#123
-    const before = bodyText.slice(Math.max(0, match.index - 200), match.index);
-    const token = before.split(/\s/).pop() || '';
-    if (token.includes('/')) {
-      continue;
-    }
-    // Skip cross-repo shorthand like RepoName#123 or PR#123
-    if (match.index > 0 && /\w/.test(bodyText[match.index - 1])) {
-      continue;
-    }
-    // Skip non-issue refs like "Run #123", "run #123", "attempt #2"
-    const preceding = bodyText.slice(Math.max(0, match.index - 20), match.index);
-    if (/\b(?:run|attempt|step|job|check|version|v)\s*$/i.test(preceding)) {
-      continue;
-    }
-    candidates.push(match[1]);
-  }
-
-  for (const value of candidates) {
-    const parsed = Number.parseInt(value, 10);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-
-  return null;
 }
 
 async function detectKeepalive({ core, github, context, env = process.env }) {
@@ -659,6 +601,15 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   }
   if (sourceContext.sourceRef) {
     outputs.source_ref = sourceContext.sourceRef;
+  }
+
+  if (sourceContext.noAutomation) {
+    outputs.reason = 'no-automation-source-context';
+    outputs.dispatch = 'false';
+    core.info(
+      `Keepalive dispatch skipped: PR source context opts out of automation (${formatSourceContextForLog(sourceContext)}).`,
+    );
+    return finalise();
   }
 
   let reactions = [];

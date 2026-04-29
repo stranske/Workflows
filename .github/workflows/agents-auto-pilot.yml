@@ -259,9 +259,19 @@ jobs:
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
-            const { createTokenAwareRetry } = require(
-              `${scriptsPath}/.github/scripts/github-api-with-retry.js`
-            );
+            const retryHelpers = require(`${scriptsPath}/.github/scripts/github-api-with-retry.js`);
+            const { createTokenAwareRetry } = retryHelpers;
+            const isRateLimitError = retryHelpers.isRateLimitError || ((error) => {
+              const status = error?.status || error?.response?.status;
+              const message = String(
+                error?.message || error?.response?.data?.message || '',
+              ).toLowerCase();
+              const headers = error?.response?.headers || error?.headers || {};
+              const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
+              return status === 429 ||
+                (status === 403 && message.includes('rate limit')) ||
+                (Number.isFinite(remaining) && remaining <= 0);
+            });
             const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -270,6 +280,26 @@ jobs:
             });
 
             let issueNumber, issue, pr;
+            const deferForRateLimit = (stage, error) => {
+              if (!isRateLimitError(error)) {
+                return false;
+              }
+              core.warning(
+                `Auto-pilot determine context deferred during ${stage}: ${error.message}`,
+              );
+              if (issueNumber) {
+                core.setOutput('issue_number', issueNumber);
+              }
+              if (issue?.title) {
+                core.setOutput('issue_title', issue.title);
+              }
+              if (issue?.state) {
+                core.setOutput('issue_state', issue.state);
+              }
+              core.setOutput('should_continue', 'false');
+              core.setOutput('reason', 'rate-limited');
+              return true;
+            };
 
             // Get issue number from various sources (in priority order)
             if (context.eventName === 'workflow_dispatch') {
@@ -308,14 +338,19 @@ jobs:
 
             // Fetch issue if not in payload (with retry)
             if (!issue) {
-              const { data } = await withRetry(() =>
-                github.rest.issues.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber
-                })
-              );
-              issue = data;
+              try {
+                const { data } = await withRetry((client) =>
+                  client.rest.issues.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber
+                  })
+                );
+                issue = data;
+              } catch (error) {
+                if (deferForRateLimit('issue fetch', error)) return;
+                throw error;
+              }
             }
 
             const labels = issue.labels.map(l => l.name);
@@ -356,15 +391,21 @@ jobs:
             // Check for actual optimizer output (not just label)
             // Since we run optimizer inline now, this should always exist after optimize step
             // the optimizer workflow actually completed its work
-            const comments = await paginateWithRetry(
-              github.rest.issues.listComments,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                per_page: 100
-              }
-            );
+            let comments = [];
+            try {
+              comments = await paginateWithRetry(
+                github.rest.issues.listComments,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  per_page: 100
+                }
+              );
+            } catch (error) {
+              if (deferForRateLimit('optimizer comment scan', error)) return;
+              throw error;
+            }
 
             const hasOptimizerOutput = comments.some(c => {
               const body = c.body || '';
@@ -374,15 +415,21 @@ jobs:
             });
 
             // Check for linked PR (with pagination and multiple event types)
-            const timelineEvents = await paginateWithRetry(
-              github.rest.issues.listEventsForTimeline,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                per_page: 100
-              }
-            );
+            let timelineEvents = [];
+            try {
+              timelineEvents = await paginateWithRetry(
+                github.rest.issues.listEventsForTimeline,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  per_page: 100
+                }
+              );
+            } catch (error) {
+              if (deferForRateLimit('timeline scan', error)) return;
+              throw error;
+            }
 
             function matchesIssueReference(text, num) {
               if (!text) return false;
@@ -442,22 +489,44 @@ jobs:
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
-            const { paginateWithRetry } = require(
-              `${scriptsPath}/.github/scripts/github-api-with-retry.js`
-            );
+            const retryHelpers = require(`${scriptsPath}/.github/scripts/github-api-with-retry.js`);
+            const { paginateWithRetry } = retryHelpers;
+            const isRateLimitError = retryHelpers.isRateLimitError || ((error) => {
+              const status = error?.status || error?.response?.status;
+              const message = String(
+                error?.message || error?.response?.data?.message || '',
+              ).toLowerCase();
+              const headers = error?.response?.headers || error?.headers || {};
+              const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
+              return status === 429 ||
+                (status === 403 && message.includes('rate limit')) ||
+                (Number.isFinite(remaining) && remaining <= 0);
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Get all comments to count auto-pilot steps (with pagination and retry)
-            const allComments = await paginateWithRetry(
-              github,
-              github.rest.issues.listComments,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                per_page: 100
+            let allComments = [];
+            try {
+              allComments = await paginateWithRetry(
+                github,
+                github.rest.issues.listComments,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  per_page: 100
+                }
+              );
+            } catch (error) {
+              if (!isRateLimitError(error)) {
+                throw error;
               }
-            );
+              core.warning(`Auto-pilot step count deferred by rate limit: ${error.message}`);
+              core.setOutput('exceeded', 'false');
+              core.setOutput('count', '0');
+              core.setOutput('rate_limited', 'true');
+              return;
+            }
 
             const stepComments = allComments.filter(c =>
               typeof c.body === 'string' && c.body.includes('🤖 Auto-pilot step')
@@ -474,6 +543,7 @@ jobs:
 
             core.setOutput('exceeded', 'false');
             core.setOutput('count', stepCount.toString());
+            core.setOutput('rate_limited', 'false');
 
       - name: Stop if exceeded
         if: steps.cycles.outputs.exceeded == 'true'
@@ -522,7 +592,8 @@ jobs:
       - name: Determine next step
         if: |
           steps.context.outputs.should_continue == 'true' &&
-          steps.cycles.outputs.exceeded != 'true'
+          steps.cycles.outputs.exceeded != 'true' &&
+          steps.cycles.outputs.rate_limited != 'true'
         id: next
         env:
           FORCE_STEP: ${{ inputs.force_step }}
@@ -2516,14 +2587,18 @@ jobs:
                   ? ' Re-dispatched belt dispatcher.'
                   : '';
                 core.info(`Applying branch-creation backoff: waiting ${actualMinutes} minutes`);
+                const backoffBody = [
+                  `🤖 **Auto-pilot**: Backoff delay (${actualMinutes}m)`,
+                  '',
+                  `Branch not created yet. Attempt ${stallCount + 1}/${maxStallRetries}.` +
+                    redispatchNote,
+                  'Waiting before retry...',
+                ].join('\n');
                 await withRetry((client) => client.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
-                    body: `🤖 **Auto-pilot**: Backoff delay (${actualMinutes}m)
-
-                    Branch not created yet. Attempt ${stallCount + 1}/${maxStallRetries}.${redispatchNote}
-                    Waiting before retry...`
+                  body: backoffBody,
                 }));
 
                 // Sleep with exponential backoff

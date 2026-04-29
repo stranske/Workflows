@@ -470,6 +470,175 @@ test('keepalive detection accepts valid non-issue source context', async () => {
   assert.ok(reactionCalls.includes('rocket'));
 });
 
+test('keepalive detection blocks no-automation source context', async () => {
+  const outputs = {};
+  const reactionCalls = [];
+  const scopeBlock = [
+    '<!-- codex-keepalive-round: 3 -->',
+    '<!-- codex-keepalive-marker -->',
+    '<!-- codex-keepalive-trace: trace-local -->',
+    '@codex Continue working on the local request.',
+  ].join('\n');
+
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return {
+            data: {
+              body: [
+                '## Workflow Source',
+                '',
+                'Started from:',
+                '- [x] Do not automate',
+                '',
+                'Automation intent:',
+                '- [x] Human-only unless checks fail',
+              ].join('\n'),
+              head: { ref: 'codex/source-context', repo: { fork: false, owner: { login: 'stranske' } } },
+              base: { ref: 'main', repo: { owner: { login: 'stranske' } } },
+              title: 'Add source context',
+            },
+          };
+        },
+      },
+      issues: {
+        async listComments() {
+          return { data: [] };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          reactionCalls.push('list');
+          throw new Error('no-automation PRs should not read reactions');
+        },
+        async createForIssueComment() {
+          reactionCalls.push('create');
+          throw new Error('no-automation PRs should not write reactions');
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.issues.listComments) {
+        return [];
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        reactionCalls.push('paginate-reactions');
+        throw new Error('no-automation PRs should not paginate reactions');
+      }
+      return [];
+    },
+  };
+
+  await detectKeepalive({
+    core: createCore(outputs),
+    github,
+    context: {
+      repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: {
+        comment: {
+          id: 200,
+          html_url: 'https://example.test/comment/200',
+          body: scopeBlock,
+          user: { login: 'stranske' },
+        },
+        issue: { number: 4002 },
+      },
+    },
+    env: {
+      ALLOWED_LOGINS: 'stranske',
+      KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
+      GATE_OK: 'true',
+    },
+  });
+
+  assert.equal(outputs.dispatch, 'false');
+  assert.equal(outputs.reason, 'no-automation-source-context');
+  assert.equal(outputs.source_type, 'manual_remote');
+  assert.deepEqual(reactionCalls, []);
+});
+
+test('keepalive detection accepts sync campaign source context without linked issue', async () => {
+  const outputs = {};
+  const reactionCalls = [];
+  const scopeBlock = [
+    '<!-- codex-keepalive-round: 2 -->',
+    '<!-- codex-keepalive-marker -->',
+    '<!-- codex-keepalive-trace: trace-sync -->',
+    '@codex Continue the consumer sync follow-up.',
+  ].join('\n');
+
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return {
+            data: {
+              body: '<!-- workflow-source:sync_campaign -->\n<!-- workflow-source-ref:stranske/Travel-Plan-Permission#956 -->',
+              head: { ref: 'sync/workflows-863a67ed87f7', repo: { fork: false, owner: { login: 'stranske' } } },
+              base: { ref: 'main', repo: { owner: { login: 'stranske' } } },
+              title: 'chore: sync workflow templates',
+            },
+          };
+        },
+      },
+      issues: {
+        async listComments() {
+          return { data: [] };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment({ content }) {
+          reactionCalls.push(content);
+          return { status: 201, data: { content } };
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.issues.listComments) {
+        return [];
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  await detectKeepalive({
+    core: createCore(outputs),
+    github,
+    context: {
+      repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: {
+        comment: {
+          id: 956,
+          html_url: 'https://example.test/comment/956',
+          body: scopeBlock,
+          user: { login: 'stranske' },
+        },
+        issue: { number: 956 },
+      },
+    },
+    env: {
+      ALLOWED_LOGINS: 'stranske',
+      KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->',
+      GATE_OK: 'true',
+    },
+  });
+
+  assert.equal(outputs.dispatch, 'true');
+  assert.equal(outputs.reason, 'keepalive-detected');
+  assert.equal(outputs.issue, '');
+  assert.equal(outputs.source_type, 'sync_campaign');
+  assert.equal(outputs.source_ref, 'stranske/Travel-Plan-Permission#956');
+  assert.ok(reactionCalls.includes('hooray'));
+  assert.ok(reactionCalls.includes('rocket'));
+});
+
 test('detectKeepalive caches pull request lookups across invocations', async () => {
   const outputsFirst = {};
   const outputsSecond = {};
@@ -650,8 +819,24 @@ test('extractIssueNumberFromPull extracts from title', () => {
   assert.equal(extractIssueNumberFromPull(pull), 55);
 });
 
+test('extractIssueNumberFromPull ignores incidental title refs', () => {
+  assert.equal(
+    extractIssueNumberFromPull({ body: '', head: { ref: 'feature' }, title: 'bump dependency (#55)' }),
+    null,
+  );
+  assert.equal(
+    extractIssueNumberFromPull({ body: '', head: { ref: 'feature' }, title: 'sync from Counter_Risk #502' }),
+    null,
+  );
+});
+
 test('extractIssueNumberFromPull extracts from body hash ref', () => {
   const pull = { body: 'Fixes #123', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), 123);
+});
+
+test('extractIssueNumberFromPull accepts linked issue body refs', () => {
+  const pull = { body: 'Linked issue #123', head: { ref: 'feature' }, title: 'stuff' };
   assert.equal(extractIssueNumberFromPull(pull), 123);
 });
 
@@ -675,9 +860,35 @@ test('extractIssueNumberFromPull skips "step #N" in body', () => {
   assert.equal(extractIssueNumberFromPull(pull), null);
 });
 
-test('extractIssueNumberFromPull treats "Task #N" as a valid issue ref', () => {
+test('extractIssueNumberFromPull ignores task numbering', () => {
   const pull = { body: 'Task #42 is ready for review', head: { ref: 'feature' }, title: 'stuff' };
-  assert.equal(extractIssueNumberFromPull(pull), 42);
+  assert.equal(extractIssueNumberFromPull(pull), null);
+});
+
+test('extractIssueNumberFromPull ignores cross-repo consumer issue references', () => {
+  for (const body of [
+    'Addresses consumer sync review comments on Counter_Risk #502 and Travel-Plan-Permission #980.',
+    'Addresses consumer sync review comments on Counter_Risk#502 and owner/repo#980.',
+    'Portable-Alpha-Extension-Model #1710 exposed the same source-owned blocker.',
+  ]) {
+    assert.equal(extractIssueNumberFromPull({ body, head: { ref: 'feature' }, title: 'stuff' }), null, body);
+  }
+});
+
+test('extractIssueNumberFromPull still accepts explicit local issue references', () => {
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Counter_Risk #502 exposed a blocker. Source issue #1937 tracks the Workflows fix.',
+      head: { ref: 'feature' },
+      title: 'stuff',
+    }),
+    1937,
+  );
+  assert.equal(extractIssueNumberFromPull({ body: 'Fixes issue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: 'Some text\nIssue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '- Issue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '> Issue #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '- **Source issue** #123', head: { ref: 'feature' }, title: 'stuff' }), 123);
 });
 
 test('extractIssueNumberFromPull skips "version #N" in body', () => {

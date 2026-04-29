@@ -8,6 +8,7 @@ const {
   extractIssueNumberFromPull,
   normalizeSourceType,
   parseWorkflowSourceBlock,
+  hasNoAutomationWorkflowContext,
   resolvePrSourceContext,
   sourceTypeFromCheckedTemplate,
   sourceTypeFromLabels,
@@ -49,6 +50,104 @@ test('extractIssueNumberFromPull keeps existing issue resolution behavior', () =
     }),
     null,
   );
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Review follow-up from PR #956',
+      head: { ref: 'feature' },
+      title: 'stuff',
+    }),
+    null,
+  );
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Mentioned #77 without an issue keyword',
+      head: { ref: 'feature' },
+      title: 'stuff',
+    }),
+    null,
+  );
+});
+
+test('extractIssueNumberFromPull ignores PR references in workflow source templates', () => {
+  const context = resolvePrSourceContext({
+    body: `
+## Workflow Source
+
+Started from:
+- [ ] GitHub issue: #
+- [x] Review follow-up from PR #315
+- [ ] Direct PR / remote GitHub work
+`,
+    head: { ref: 'review-followup/source-context' },
+    title: 'fix: address review follow-up',
+  });
+
+  assert.equal(extractIssueNumberFromPull({ body: 'Review follow-up from PR #315' }), null);
+  assert.equal(context.sourceType, SOURCE_TYPES.REVIEW_FOLLOWUP);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.requiresIssue, false);
+});
+
+test('extractIssueNumberFromPull ignores arbitrary PR number references', () => {
+  for (const body of [
+    'Review follow-up from PR #123',
+    'Follow-up from PR #123',
+    'Original PR: #123',
+    'Related to PR #123',
+    'See pull request #123 for details',
+    'Source PR #123 supplied the verifier evidence',
+  ]) {
+    assert.equal(extractIssueNumberFromPull({ body }), null, body);
+  }
+});
+
+test('extractIssueNumberFromPull ignores bare issue-number mentions in PR descriptions', () => {
+  assert.equal(extractIssueNumberFromPull({ body: '#123' }), null);
+  assert.equal(extractIssueNumberFromPull({ body: 'see #123' }), null);
+});
+
+test('extractIssueNumberFromPull skips PR references before later issue references', () => {
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Review follow-up from PR #315. Source issue #1937 tracks the fix.',
+    }),
+    1937,
+  );
+});
+
+test('extractIssueNumberFromPull requires explicit issue wording for body references', () => {
+  assert.equal(extractIssueNumberFromPull({ body: 'See PR #456 for context' }), null);
+  assert.equal(extractIssueNumberFromPull({ body: 'Related to issue #456' }), 456);
+  assert.equal(extractIssueNumberFromPull({ body: 'Closes #789' }), 789);
+  assert.equal(extractIssueNumberFromPull({ body: 'Issue #123' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: 'Linked issue #125' }), 125);
+  assert.equal(extractIssueNumberFromPull({ body: 'Task #124 is ready' }), null);
+  assert.equal(extractIssueNumberFromPull({ body: 'Resolve issue #123' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: '> **Source:** Issue #123' }), 123);
+  assert.equal(extractIssueNumberFromPull({ body: 'Known issue #123 blocks this PR' }), null);
+  assert.equal(extractIssueNumberFromPull({ body: 'No issue #123 is linked' }), null);
+  assert.equal(extractIssueNumberFromPull({ body: 'No linked issue #123 is real' }), null);
+});
+
+test('extractIssueNumberFromPull requires explicit issue wording for title references', () => {
+  assert.equal(extractIssueNumberFromPull({ title: 'fix: resolve #55' }), 55);
+  assert.equal(extractIssueNumberFromPull({ title: 'bump dependency (#55)' }), null);
+  assert.equal(extractIssueNumberFromPull({ title: 'sync from Counter_Risk #502' }), null);
+});
+
+test('resolvePrSourceContext does not classify bare and PR-only mentions as issue-sourced', () => {
+  for (const body of ['#123', 'see #123', 'Review follow-up from PR #123']) {
+    const context = resolvePrSourceContext({ body, head: { ref: 'feature/no-source' }, title: 'Update docs' });
+    assert.equal(context.issueNumber, null, body);
+    assert.equal(context.requiresIssue, false, body);
+  }
+});
+
+test('resolvePrSourceContext still classifies explicit issue-sourced references', () => {
+  const context = resolvePrSourceContext({ body: 'Closes #123', head: { ref: 'feature/fix' }, title: 'Fix bug' });
+  assert.equal(context.issueNumber, 123);
+  assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
+  assert.equal(context.requiresIssue, true);
 });
 
 test('parseWorkflowSourceBlock reads source-context fields from hidden block', () => {
@@ -82,6 +181,53 @@ Started from:
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.MANUAL_REMOTE);
 });
 
+test('sourceTypeFromCheckedTemplate accepts slash-separated local request wording', () => {
+  const body = `
+## Workflow Source
+
+Started from:
+- [ ] GitHub issue: #
+- [x] Local Codex/user request
+
+Automation intent:
+- [ ] Human-only unless checks fail
+`;
+
+  assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.LOCAL_REQUEST);
+});
+
+test('sourceTypeFromCheckedTemplate preserves source choice without automation intent opt-out', () => {
+  const body = `
+## Workflow Source
+
+Started from:
+- [ ] GitHub issue: #
+- [x] Local Codex/user request
+
+Automation intent:
+- [x] Human-only unless checks fail
+`;
+
+  assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.LOCAL_REQUEST);
+  const context = resolvePrSourceContext({ body });
+  assert.equal(context.sourceType, SOURCE_TYPES.LOCAL_REQUEST);
+  assert.equal(context.noAutomation, false);
+});
+
+test('automation intent checkboxes do not disable automation without started-from source', () => {
+  const body = `
+## Workflow Source
+
+Automation intent:
+- [x] Human-only unless checks fail
+`;
+
+  const context = resolvePrSourceContext({ body });
+  assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.UNKNOWN);
+  assert.equal(context.sourceType, SOURCE_TYPES.UNKNOWN);
+  assert.equal(context.noAutomation, false);
+});
+
 test('sourceTypeFromCheckedTemplate treats human-only PRs as manual remote work', () => {
   const body = `
 ## Workflow Source
@@ -95,6 +241,76 @@ Automation intent:
 `;
 
   assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.MANUAL_REMOTE);
+});
+
+test('resolvePrSourceContext marks no-automation sources without changing source type', () => {
+  const context = resolvePrSourceContext({
+    body: `
+## Workflow Source
+
+Started from:
+- [x] Do not automate
+
+Automation intent:
+- [x] Human-only unless checks fail
+`,
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.noAutomation, true);
+  assert.equal(hasNoAutomationWorkflowContext({ labels: [{ name: 'workflow:no-automation' }] }), true);
+  assert.equal(hasNoAutomationWorkflowContext({ body: '<!-- workflow-source:no_automation -->' }), true);
+  assert.equal(hasNoAutomationWorkflowContext({
+    body: `
+<!-- workflow-source:start -->
+origin: local_request
+automation: no_automation
+<!-- workflow-source:end -->
+`,
+  }), true);
+});
+
+test('resolvePrSourceContext normalizes explicit no-automation to a valid manual source', () => {
+  const context = resolvePrSourceContext({
+    body: `
+<!-- workflow-source:start -->
+automation: no_automation
+<!-- workflow-source:end -->
+`,
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.noAutomation, true);
+  assert.equal(context.isExplicit, true);
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
+});
+
+test('resolvePrSourceContext preserves legacy human-only no-automation wording', () => {
+  const context = resolvePrSourceContext({
+    body: `
+## Workflow Source
+
+Started from:
+- [x] Human-only
+`,
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.noAutomation, true);
+});
+
+test('sourceTypeFromCheckedTemplate rejects ambiguous checked source choices', () => {
+  const body = `
+## Workflow Source
+
+Started from:
+- [x] GitHub issue: #123
+- [x] Direct PR / remote GitHub work
+- [ ] Local Codex/user request
+`;
+
+  assert.equal(sourceTypeFromCheckedTemplate(body), SOURCE_TYPES.UNKNOWN);
 });
 
 test('sourceTypeFromLabels accepts workflow source labels', () => {
@@ -152,6 +368,60 @@ test('resolvePrSourceContext infers sync and dependabot sources for maintenance 
     }).sourceType,
     SOURCE_TYPES.DEPENDABOT,
   );
+});
+
+test('resolvePrSourceContext accepts explicit sync source markers from consumer sync PRs', () => {
+  const context = resolvePrSourceContext({
+    body: [
+      '<!-- workflow-source:sync_campaign -->',
+      '<!-- workflow-source-ref:stranske/Travel-Plan-Permission#956 -->',
+      '## Sync Summary',
+      '',
+      '**Source:** stranske/Workflows',
+      '**Template hash:** `863a67ed87f7`',
+    ].join('\n'),
+    head: { ref: 'sync/workflows-863a67ed87f7' },
+    title: 'chore: sync workflow templates',
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.SYNC_CAMPAIGN);
+  assert.equal(context.sourceRef, 'stranske/Travel-Plan-Permission#956');
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
+  assert.equal(context.isExplicit, true);
+});
+
+test('resolvePrSourceContext accepts direct-pr labels without issue metadata', () => {
+  const context = resolvePrSourceContext({
+    body: '',
+    head: { ref: 'maint/manual-doc-update' },
+    title: 'docs: clarify workflow source handling',
+    labels: [{ name: 'workflow:source-direct-pr' }],
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.MANUAL_REMOTE);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
+});
+
+test('resolvePrSourceContext does not treat review PR references as source issues', () => {
+  const context = resolvePrSourceContext({
+    body: [
+      '## Workflow Source',
+      '',
+      'Started from:',
+      '- [ ] GitHub issue: #',
+      '- [x] Review follow-up from PR #956',
+    ].join('\n'),
+    head: { ref: 'review-followup/pr-956' },
+    title: 'Address review feedback',
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.REVIEW_FOLLOWUP);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
 });
 
 test('resolvePrSourceContext leaves unrelated PRs unknown', () => {

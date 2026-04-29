@@ -273,6 +273,9 @@ scripts:
 
   - source: .github/scripts/package.json
     description: "Node package manifest for .github scripts (vendored minimatch)"
+    skip_repos:
+      - repo: stranske/trip-planner
+        reason: "Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules"
 
   - source: .github/agents/registry.yml
     description: "Agent registry - source of truth for agent keys and runner workflow mapping"
@@ -286,14 +289,23 @@ scripts:
   - source: .github/scripts/node_modules/minimatch/
     is_directory: true
     description: "Vendored minimatch dependency for .github scripts"
+    skip_repos:
+      - repo: stranske/trip-planner
+        reason: "Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules"
 
   - source: .github/scripts/node_modules/brace-expansion/
     is_directory: true
     description: "Vendored brace-expansion dependency (transitive dep of minimatch)"
+    skip_repos:
+      - repo: stranske/trip-planner
+        reason: "Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules"
 
   - source: .github/scripts/node_modules/balanced-match/
     is_directory: true
     description: "Vendored balanced-match dependency (transitive dep of brace-expansion)"
+    skip_repos:
+      - repo: stranske/trip-planner
+        reason: "Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules"
 
   # JavaScript scripts for issue/PR handling
   - source: .github/scripts/issue_pr_locator.js

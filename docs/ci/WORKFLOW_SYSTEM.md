@@ -491,9 +491,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Gate summary job** – the `summary` job within `pr-00-gate.yml` consolidates
   CI results, uploads artifacts, and applies small, low-risk fixes (for example,
   syncing generated docs or updating the failure tracker).
-- **Maint Sync Env from Pyproject** – `.github/workflows/maint-sync-env-from-pyproject.yml`
-  syncs dev tool versions from `pyproject.toml` to `autofix-versions.env` after
-  Dependabot PRs merge, keeping the version pins in sync for downstream consumers.
+- **Maint Sync Pyproject from Env** – `.github/workflows/maint-sync-env-from-pyproject.yml`
+  keeps `pyproject.toml`, templates, and direct `requirements.lock` pins aligned
+  to the canonical `autofix-versions.env` source used by downstream consumers.
 - **Maint Coverage Guard** – `.github/workflows/maint-coverage-guard.yml`
   downloads the latest Gate coverage payload plus the trend artifact and
   compares them against `config/coverage-baseline.json`, surfacing notices when
@@ -522,10 +522,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Maint 39 Test LLM Providers** – `.github/workflows/maint-39-test-llm-providers.yml`
   is a manual workflow that verifies LLM provider API keys (GitHub Models, OpenAI)
   are configured correctly. Used to test the task completion analysis fallback chain.
-- **Maint Sync versions.env from pyproject.toml** – `.github/workflows/maint-sync-env-from-pyproject.yml`
-  syncs dev tool version pins from `pyproject.toml` into `autofix-versions.env`
-  on main-branch updates (or on manual dispatch) so Dependabot updates propagate
-  into the workflow toolchain.
+- **Maint Sync pyproject.toml from versions.env** – `.github/workflows/maint-sync-env-from-pyproject.yml`
+  syncs `pyproject.toml`, templates, and direct `requirements.lock` pins from
+  canonical `autofix-versions.env` on main-branch updates or manual dispatch.
 - **Maint 52 Validate Workflows** – `.github/workflows/maint-52-validate-workflows.yml`
   dry-parses every workflow YAML using `yq`, hydrates the shared actionlint
   allowlist, and runs `actionlint` so malformed syntax or unapproved action
@@ -693,7 +692,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Auto-label Dependabot PRs** (`maint-dependabot-auto-label.yml`, maintenance bucket) | `pull_request_target` (`opened`) | Apply the `agents:allow-change` label to Dependabot PRs so protected-workflow changes can be reviewed without manual label work. | ⚪ Automatic on PR open | [Dependabot auto-label runs](https://github.com/stranske/Workflows/actions/workflows/maint-dependabot-auto-label.yml) |
 | **Dependabot Auto-Lock** (`maint-dependabot-auto-lock.yml`, maintenance bucket) | `pull_request` (Dependabot branches, `pyproject.toml` changes) | Regenerate `requirements.lock` when Dependabot updates `pyproject.toml`, commit the updated lockfile back to the Dependabot PR branch, and keep dependency pins in sync. | ⚪ Automatic on Dependabot PRs | [Dependabot auto-lock runs](https://github.com/stranske/Workflows/actions/workflows/maint-dependabot-auto-lock.yml) |
 | **Dependabot Weekly Sweep (Consumers)** (`maint-dependabot-weekly-sweep.yml`, maintenance bucket) | `schedule` (Mondays 09:00 UTC), `workflow_dispatch` | Sweep registered consumer repos weekly to enable Dependabot auto-merge and merge eligible PRs when checks are green. | ⚪ Scheduled/manual | [Dependabot weekly sweep runs](https://github.com/stranske/Workflows/actions/workflows/maint-dependabot-weekly-sweep.yml) |
-| **Maint Sync versions.env from pyproject.toml** (`maint-sync-env-from-pyproject.yml`, maintenance bucket) | `push` (`main`, `pyproject.toml`), `workflow_dispatch` | Sync dev tool version pins from `pyproject.toml` into `autofix-versions.env` after changes land. | ⚪ Automatic on main | [Maint sync env runs](https://github.com/stranske/Workflows/actions/workflows/maint-sync-env-from-pyproject.yml) |
+| **Maint Sync pyproject.toml from versions.env** (`maint-sync-env-from-pyproject.yml`, maintenance bucket) | `push` (`main`, autofix pin/template/lock paths), `workflow_dispatch` | Sync `pyproject.toml`, templates, and direct `requirements.lock` pins from canonical `autofix-versions.env` after changes land. | ⚪ Automatic on main | [Maint sync env runs](https://github.com/stranske/Workflows/actions/workflows/maint-sync-env-from-pyproject.yml) |
 | **Maint 52 Validate Workflows** (`maint-52-validate-workflows.yml`, maintenance bucket) | `pull_request`, `push` (`main`) | Parse every workflow file with `yq`, honour the Actionlint allowlist, and fail fast when syntax errors or lint violations appear. | ⚪ Automatic on PR/main | [Maint 52 workflow validations](https://github.com/stranske/Workflows/actions/workflows/maint-52-validate-workflows.yml) |
 | **Maint 52 Sync Dev Versions** (`maint-52-sync-dev-versions.yml`, maintenance bucket) | `schedule` (Sundays 01:00 UTC), `push` (`autofix-versions.env`), `workflow_dispatch` | Sync dev tool versions from `autofix-versions.env` to consumer repository `pyproject.toml` files. | ⚪ Scheduled/manual | [Sync dev versions runs](https://github.com/stranske/Workflows/actions/workflows/maint-52-sync-dev-versions.yml) |
 | **Maint Auto-Update PyPI Versions** (`maint-auto-update-pypi-versions.yml`, maintenance bucket) | `schedule` (daily 03:00 UTC), `workflow_dispatch` | Check PyPI for latest dev tool versions and create a PR to update `autofix-versions.env` when versions are outdated. | ⚪ Scheduled | [Auto-update PyPI versions runs](https://github.com/stranske/Workflows/actions/workflows/maint-auto-update-pypi-versions.yml) |
