@@ -430,7 +430,7 @@ test('formats a human-visible selector summary for weekly metrics', () => {
 
   assert.match(markdown, /Weekly Metrics Artifact Selection/);
   assert.match(markdown, /Scan cap: 5 pages x 100 artifacts/);
-  assert.match(markdown, /Priority producer scan cap: 10 runs per source workflow/);
+  assert.match(markdown, /Priority producer scan cap: 3 runs per source workflow, 2 artifact pages per run/);
   assert.match(markdown, /Selected artifacts: 2/);
   assert.match(
     markdown,
@@ -455,7 +455,8 @@ test('normalizes invalid environment-like limits to defaults', () => {
   assert.equal(options.max_total, 80);
   assert.equal(options.max_per_family, 20);
   assert.equal(options.max_scan_pages, 5);
-  assert.equal(options.priority_workflow_runs_per_source, 10);
+  assert.equal(options.priority_workflow_runs_per_source, 3);
+  assert.equal(options.priority_workflow_artifact_pages_per_run, 2);
 
   const disabledPriorityOptions = normalizeSelectionOptions({
     now_ms: NOW,

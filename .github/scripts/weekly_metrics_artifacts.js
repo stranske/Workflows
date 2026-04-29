@@ -6,7 +6,8 @@ const DEFAULT_MAX_TOTAL = 80;
 const DEFAULT_MAX_PER_FAMILY = 20;
 const DEFAULT_MAX_SCAN_PAGES = 5;
 const DEFAULT_PER_PAGE = 100;
-const DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE = 10;
+const DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE = 3;
+const DEFAULT_PRIORITY_WORKFLOW_ARTIFACT_PAGES_PER_RUN = 2;
 
 const EXACT_METRICS_ARTIFACTS = new Set([
   'keepalive-metrics',
@@ -153,6 +154,12 @@ function normalizeSelectionOptions(options = {}) {
       process.env.METRICS_PRIORITY_WORKFLOW_RUNS_PER_SOURCE,
     DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE
   );
+  const priorityWorkflowArtifactPagesPerRun = parseNonNegativeInt(
+    options.priority_workflow_artifact_pages_per_run ??
+      options.priorityWorkflowArtifactPagesPerRun ??
+      process.env.METRICS_PRIORITY_WORKFLOW_ARTIFACT_PAGES_PER_RUN,
+    DEFAULT_PRIORITY_WORKFLOW_ARTIFACT_PAGES_PER_RUN
+  );
   const cutoffMs = nowMs - lookbackDays * 24 * 60 * 60 * 1000;
   return {
     now_ms: nowMs,
@@ -162,6 +169,7 @@ function normalizeSelectionOptions(options = {}) {
     max_scan_pages: maxScanPages,
     per_page: perPage,
     priority_workflow_runs_per_source: priorityWorkflowRunsPerSource,
+    priority_workflow_artifact_pages_per_run: priorityWorkflowArtifactPagesPerRun,
     cutoff_ms: cutoffMs,
   };
 }
@@ -349,6 +357,7 @@ function selectMetricsArtifacts(artifacts = [], options = {}) {
       max_scan_pages: config.max_scan_pages,
       per_page: config.per_page,
       priority_workflow_runs_per_source: config.priority_workflow_runs_per_source,
+      priority_workflow_artifact_pages_per_run: config.priority_workflow_artifact_pages_per_run,
       cutoff_iso: new Date(config.cutoff_ms).toISOString(),
     },
     ...stats,
@@ -385,6 +394,7 @@ function buildSelectionErrorReport(options = {}, error = {}) {
       max_scan_pages: config.max_scan_pages,
       per_page: config.per_page,
       priority_workflow_runs_per_source: config.priority_workflow_runs_per_source,
+      priority_workflow_artifact_pages_per_run: config.priority_workflow_artifact_pages_per_run,
       cutoff_iso: new Date(config.cutoff_ms).toISOString(),
     },
     scanned_count: 0,
@@ -422,7 +432,8 @@ function formatSelectionMarkdown(report) {
     `- Status: ${report.status || 'pass'}`,
     `- Lookback days: ${report.config.lookback_days}`,
     `- Scan cap: ${report.config.max_scan_pages} pages x ${report.config.per_page} artifacts`,
-    `- Priority producer scan cap: ${report.config.priority_workflow_runs_per_source} runs per source workflow`,
+    `- Priority producer scan cap: ${report.config.priority_workflow_runs_per_source} runs per source workflow, ` +
+      `${report.config.priority_workflow_artifact_pages_per_run} artifact pages per run`,
     `- Download cap: ${report.config.max_total} total, ${report.config.max_per_family} per family`,
     `- Scanned artifacts: ${report.scanned_count}`,
     `- Candidate artifacts: ${report.candidate_count}`,
@@ -533,7 +544,7 @@ async function collectPriorityWorkflowArtifacts({
       if (runTimestamp > 0 && runTimestamp < config.cutoff_ms) {
         continue;
       }
-      for (let page = 1; page <= config.max_scan_pages; page += 1) {
+      for (let page = 1; page <= config.priority_workflow_artifact_pages_per_run; page += 1) {
         let artifactResponse;
         try {
           artifactResponse = await withRetry((client) =>
@@ -562,6 +573,9 @@ async function collectPriorityWorkflowArtifacts({
       if (familiesSatisfied(sourceArtifacts, families, config)) {
         break;
       }
+    }
+    if (familiesSatisfied(artifacts, PRIORITY_METRICS_FAMILIES, config)) {
+      break;
     }
   }
   return dedupeArtifacts(artifacts);
@@ -699,6 +713,7 @@ module.exports = {
   DEFAULT_MAX_PER_FAMILY,
   DEFAULT_MAX_SCAN_PAGES,
   DEFAULT_MAX_TOTAL,
+  DEFAULT_PRIORITY_WORKFLOW_ARTIFACT_PAGES_PER_RUN,
   DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE,
   PRIORITY_METRICS_FAMILIES,
   PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,

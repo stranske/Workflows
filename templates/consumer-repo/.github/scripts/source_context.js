@@ -162,21 +162,43 @@ function hasCheckedNoAutomationTemplate(body) {
 }
 
 function hasExplicitIssueReferencePrefix(value) {
-  const prefix = cleanString(value)
-    .replace(/[>_[\]()`*~]/g, ' ')
+  const rawPrefix = String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[_[\]()`~]/g, ' ');
+  const prefix = rawPrefix
+    .trim()
+    .replace(/[>*]/g, ' ')
     .replace(/\s+/g, ' ');
 
   if (/\b(?:pr|pull\s+request)\s*[:#-]?\s*$/i.test(prefix)) {
     return false;
   }
+  if (/\b(?:known|no)\s+(?:linked\s+)?issue\s*[:#-]?\s*$/i.test(prefix)) {
+    return false;
+  }
 
-  return /\b(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\s+(?:issue|source\s+issue|github\s+issue))?|relate[sd]?\s+to(?:\s+(?:issue|source\s+issue|github\s+issue))?|refs?(?:\s+(?:issue|source\s+issue|github\s+issue))?|references?(?:\s+(?:issue|source\s+issue|github\s+issue))?|source(?:\s*:\s*|\s+)issue|github\s+issue)\s*[:#-]?\s*$|^\s*(?:issue|linked\s+issue)\s*[:#-]?\s*$/i.test(
-    prefix
+  const issuePrefixPattern =
+    '(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|relate[sd]?\\s+to(?:\\s+(?:(?:[a-z-]+\\s+)?issue|source\\s+issue|github\\s+issue))?|refs?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|references?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|source(?:\\s*:\\s*|\\s+)issue|github\\s+issue|linked\\s+issue|issue)';
+  const inlinePattern = new RegExp(`\\b${issuePrefixPattern}\\s*[:#-]?\\s*$`, 'i');
+  if (inlinePattern.test(prefix)) {
+    return true;
+  }
+  const linePattern = new RegExp(
+    `(?:^|\\n)\\s*>?\\s*(?:[-*]\\s*)?(?:\\*\\*)?${issuePrefixPattern}(?:\\*\\*)?\\s*[:#-]?\\s*$`,
+    'i',
   );
+  return linePattern.test(rawPrefix);
 }
 
-function extractIssueNumberFromText(text) {
+function extractIssueNumbersFromText(text) {
   const value = String(text || '');
+  const issueNumbers = new Set();
+  for (const match of value.matchAll(/<!--\s*meta:issue:([0-9]+)\s*-->/gi)) {
+    const parsed = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(parsed)) {
+      issueNumbers.add(parsed);
+    }
+  }
   for (const match of value.matchAll(/#([0-9]+)/g)) {
     if (!match[1]) {
       continue;
@@ -198,10 +220,15 @@ function extractIssueNumberFromText(text) {
     }
     const parsed = Number.parseInt(match[1], 10);
     if (!Number.isNaN(parsed)) {
-      return parsed;
+      issueNumbers.add(parsed);
     }
   }
-  return null;
+  return issueNumbers;
+}
+
+function extractIssueNumberFromText(text) {
+  const issueNumbers = extractIssueNumbersFromText(text);
+  return issueNumbers.size > 0 ? Array.from(issueNumbers)[0] : null;
 }
 
 function extractIssueNumberFromPull(pull = {}) {
@@ -402,6 +429,8 @@ module.exports = {
   SOURCE_TYPES,
   VALID_SOURCE_TYPES,
   normalizeSourceType,
+  extractIssueNumberFromText,
+  extractIssueNumbersFromText,
   extractIssueNumberFromPull,
   parseWorkflowSourceBlock,
   sourceTypeFromCheckedTemplate,

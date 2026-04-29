@@ -625,17 +625,21 @@ test('resolveNonIssueWorkflowSourceContextForBodySync yields to explicit issue r
   assert.equal(context, null);
 });
 
-test('resolveNonIssueWorkflowSourceContextForBodySync yields to issue numbers even when explicit issue differs', () => {
-  const context = resolveNonIssueWorkflowSourceContextForBodySync({
-    body: [
-      'Closes #123',
-      '<!-- workflow-source:local_request -->',
-      '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
-    ].join('\n'),
-    head: { ref: 'codex/issue-99' },
-  });
+test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue markers when explicit issue differs', () => {
+  const context = resolveNonIssueWorkflowSourceContextForBodySync(
+    {
+      body: [
+        'Closes #123',
+        '<!-- workflow-source:local_request -->',
+        '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+      ].join('\n'),
+      head: { ref: 'codex/issue-99' },
+    },
+    99,
+  );
 
-  assert.equal(context, null);
+  assert.equal(context.sourceType, 'local_request');
+  assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
 });
 
 test('resolveSourceContextRepairComment updates an existing warning once', async () => {
