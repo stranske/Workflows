@@ -431,6 +431,7 @@ test('formats a human-visible selector summary for weekly metrics', () => {
   assert.match(markdown, /Weekly Metrics Artifact Selection/);
   assert.match(markdown, /Scan cap: 5 pages x 100 artifacts/);
   assert.match(markdown, /Priority producer scan cap: 10 runs per source workflow/);
+  assert.match(markdown, /Priority artifact page cap: 2 pages per run/);
   assert.match(markdown, /Selected artifacts: 2/);
   assert.match(
     markdown,
@@ -456,12 +457,30 @@ test('normalizes invalid environment-like limits to defaults', () => {
   assert.equal(options.max_per_family, 20);
   assert.equal(options.max_scan_pages, 5);
   assert.equal(options.priority_workflow_runs_per_source, 10);
+  assert.equal(options.priority_workflow_artifact_pages_per_run, 2);
 
   const disabledPriorityOptions = normalizeSelectionOptions({
     now_ms: NOW,
     priority_workflow_runs_per_source: '0',
   });
   assert.equal(disabledPriorityOptions.priority_workflow_runs_per_source, 0);
+});
+
+test('normalizes priority workflow artifact page cap independently from repo scan cap', () => {
+  const options = normalizeSelectionOptions({
+    now_ms: NOW,
+    max_scan_pages: 9,
+    priority_workflow_artifact_pages_per_run: '3',
+  });
+
+  assert.equal(options.max_scan_pages, 9);
+  assert.equal(options.priority_workflow_artifact_pages_per_run, 3);
+
+  const defaulted = normalizeSelectionOptions({
+    now_ms: NOW,
+    priority_workflow_artifact_pages_per_run: '0',
+  });
+  assert.equal(defaulted.priority_workflow_artifact_pages_per_run, 2);
 });
 
 test('deduplicates artifacts by stable id before selection', () => {
@@ -597,7 +616,8 @@ test('collects priority artifacts across paginated workflow run artifacts', asyn
       now_ms: NOW,
       priority_workflow_runs_per_source: 1,
       per_page: 1,
-      max_scan_pages: 2,
+      max_scan_pages: 5,
+      priority_workflow_artifact_pages_per_run: 2,
     },
     sources: [
       {
@@ -616,6 +636,54 @@ test('collects priority artifacts across paginated workflow run artifacts', asyn
     ['artifacts', 101, 1, 1],
     ['artifacts', 101, 1, 2],
   ]);
+});
+
+test('bounds priority artifact pagination with the per-run page cap', async () => {
+  const calls = [];
+  const client = {
+    rest: {
+      actions: {
+        listWorkflowRuns: async () => ({
+          data: {
+            workflow_runs: [
+              { id: 101, created_at: '2026-04-25T11:00:00Z', updated_at: '2026-04-25T11:00:00Z' },
+            ],
+          },
+        }),
+        listWorkflowRunArtifacts: async (params) => {
+          calls.push(params.page);
+          return {
+            data: {
+              artifacts: [artifact(params.page, `unrelated-${params.page}`, '2026-04-25T11:00:00Z')],
+            },
+          };
+        },
+      },
+    },
+  };
+
+  const artifacts = await collectPriorityWorkflowArtifacts({
+    github: client,
+    owner: 'owner',
+    repo: 'repo',
+    options: {
+      now_ms: NOW,
+      priority_workflow_runs_per_source: 1,
+      per_page: 1,
+      max_scan_pages: 5,
+      priority_workflow_artifact_pages_per_run: 2,
+    },
+    sources: [
+      {
+        workflow_id: 'reusable-bot-comment-handler.yml',
+        families: ['bot-comment-auth-coverage-reusable'],
+      },
+    ],
+    withRetry: (fn) => fn(client),
+  });
+
+  assert.deepEqual(artifacts, []);
+  assert.deepEqual(calls, [1, 2]);
 });
 
 test('collects priority artifacts until each source satisfies its own families', async () => {
