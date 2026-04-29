@@ -125,6 +125,8 @@ function formatIssueBody(report, options = {}) {
   const lines = [
     '## Consumer Repo Drift Detected',
     '',
+    '> **Durable tracker** — see [`docs/ops/DURABLE_TRACKING_ISSUES.md`](https://github.com/stranske/Workflows/blob/main/docs/ops/DURABLE_TRACKING_ISSUES.md). The body below is regenerated each cycle by `health-68-consumer-sync-drift.yml`; auto-resolves on the next clean run.',
+    '',
     'One or more consumer repos have drifted from the Workflows templates or manifest entries.',
     '',
     `**Check Details:** ${runLink}`,

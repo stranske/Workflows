@@ -922,6 +922,8 @@ function formatCampaignBody(state) {
   const lines = [
     '# Sync/Dependabot Campaign Queue',
     '',
+    '> **Durable tracker** — see [`docs/ops/DURABLE_TRACKING_ISSUES.md`](https://github.com/stranske/Workflows/blob/main/docs/ops/DURABLE_TRACKING_ISSUES.md). The body below is regenerated each cycle by `maint-82-sync-dependabot-campaign.yml`; do not close as part of routine triage.',
+    '',
     'Remote GitHub Actions owns discovery for sync-generated and Dependabot PR rounds. Local Codex should only claim items from this issue when `needs-local-codex` work is queued.',
     '',
     '## Summary',
