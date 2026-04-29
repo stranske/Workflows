@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 GUIDE = Path("docs/INTEGRATION_GUIDE.md")
 
 
