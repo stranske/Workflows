@@ -1,16 +1,17 @@
 # Dependabot configuration for Workflows repo
 # 
 # ARCHITECTURE:
-# 1. Dependabot updates pyproject.toml [project.optional-dependencies].dev
-# 2. A post-merge workflow syncs pyproject.toml -> autofix-versions.env
-# 3. maint-52 syncs autofix-versions.env -> consumer repos
-#
-# This keeps the .env file (source of truth for consumers) automatically updated.
+# 1. .github/workflows/autofix-versions.env is the source of truth for shared
+#    autofix/dev-tool pins that are synced to consumers.
+# 2. maint-auto-update-pypi-versions.yml and maint-51-dependency-refresh.yml open
+#    bounded Workflows PRs that update the env file, pyproject.toml, templates,
+#    and requirements.lock together.
+# 3. Dependabot stays responsible for runtime dependency and GitHub Actions bumps.
 
 version: 2
 updates:
-  # Python dev tools - updates pyproject.toml
-  # After merge, a workflow syncs versions to autofix-versions.env
+  # Python dependencies. Shared autofix/dev-tool pins are ignored here because
+  # they must move through the Workflows canonical pin file first.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -24,20 +25,23 @@ updates:
     labels:
       - "dependencies"
       - "python"
+    ignore:
+      - dependency-name: "ruff"
+      - dependency-name: "black"
+      - dependency-name: "mypy"
+      - dependency-name: "pytest"
+      - dependency-name: "pytest-cov"
+      - dependency-name: "pytest-xdist"
+      - dependency-name: "coverage"
+      - dependency-name: "isort"
+      - dependency-name: "docformatter"
     commit-message:
       prefix: "deps"
       include: "scope"
     groups:
-      # Group dev tools together for batch review (minor/patch only)
-      dev-tools:
+      # Group test/runtime support that is not controlled by autofix-versions.env.
+      runtime-test-support:
         patterns:
-          - "ruff"
-          - "black"
-          - "mypy"
-          - "pytest*"
-          - "coverage"
-          - "isort"
-          - "docformatter"
           - "hypothesis"
         update-types:
           - "minor"

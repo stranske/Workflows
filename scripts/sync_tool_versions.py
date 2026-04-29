@@ -15,6 +15,13 @@ from re import Pattern
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
 TEMPLATE_FILE = Path("templates/consumer-repo/.github/workflows/autofix-versions.env")
+INTEGRATION_TEMPLATE_FILE = Path(
+    "templates/integration-repo/.github/workflows/autofix-versions.env"
+)
+LOCKFILE_FILE = Path("requirements.lock")
+LOCKFILE_PATTERN = re.compile(
+    r"^(?P<lead>\s*)(?P<name>[A-Za-z0-9_.-]+)==(?P<version>[^\s#]+)(?P<trail>\s*(?:#.*)?)$"
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -138,6 +145,69 @@ def ensure_pyproject(
     return updated_content, mismatches
 
 
+def ensure_template(
+    source_content: str, template_file: Path, apply: bool
+) -> tuple[dict[str, str], bool]:
+    """Ensure a template env file mirrors the canonical pin file."""
+    if not template_file.exists():
+        return {}, False
+
+    template_content = template_file.read_text(encoding="utf-8")
+    if template_content == source_content:
+        return {}, False
+
+    if apply:
+        template_file.write_text(source_content, encoding="utf-8")
+    return {str(template_file): f"{template_file} differs from source pin file"}, True
+
+
+def ensure_lockfile(
+    lockfile_file: Path,
+    configs: Iterable[ToolConfig],
+    env: dict[str, str],
+    apply: bool,
+) -> dict[str, str]:
+    """Ensure direct tool pins in requirements.lock match the canonical pin file."""
+    if not lockfile_file.exists():
+        return {}
+
+    targets = {cfg.package_name.lower(): env[cfg.env_key] for cfg in configs}
+    content = lockfile_file.read_text(encoding="utf-8")
+    lines = content.splitlines()
+    mismatches: dict[str, str] = {}
+    updated_lines: list[str] = []
+
+    for line in lines:
+        match = LOCKFILE_PATTERN.match(line)
+        if not match:
+            updated_lines.append(line)
+            continue
+
+        name = match.group("name")
+        current = match.group("version")
+        expected = targets.get(name.lower())
+        if expected and current != expected:
+            mismatches[f"requirements.lock:{name}"] = (
+                f"requirements.lock has {current}, pin file requires {expected}"
+            )
+            if apply:
+                updated_lines.append(
+                    f"{match.group('lead')}{name}=={expected}{match.group('trail')}"
+                )
+            else:
+                updated_lines.append(line)
+        else:
+            updated_lines.append(line)
+
+    if apply and mismatches:
+        updated_content = "\n".join(updated_lines)
+        if content.endswith("\n"):
+            updated_content += "\n"
+        lockfile_file.write_text(updated_content, encoding="utf-8")
+
+    return mismatches
+
+
 def main(argv: Iterable[str]) -> int:
     parser = argparse.ArgumentParser(
         description="Synchronise tool version pins with pyproject.toml",
@@ -168,19 +238,17 @@ def main(argv: Iterable[str]) -> int:
         pyproject_content, TOOL_CONFIGS, env_values, apply_changes
     )
 
-    # Check template file is in sync with source
+    source_content = PIN_FILE.read_text(encoding="utf-8")
     template_mismatches: dict[str, str] = {}
-    if TEMPLATE_FILE.exists():
-        template_content = TEMPLATE_FILE.read_text(encoding="utf-8")
-        source_content = PIN_FILE.read_text(encoding="utf-8")
-        if template_content != source_content:
-            template_mismatches["template"] = (
-                "templates/consumer-repo autofix-versions.env differs from source"
-            )
-            if apply_changes:
-                TEMPLATE_FILE.write_text(source_content, encoding="utf-8")
+    template_updates = False
+    for template_file in (TEMPLATE_FILE, INTEGRATION_TEMPLATE_FILE):
+        mismatches, updated = ensure_template(source_content, template_file, apply_changes)
+        template_mismatches.update(mismatches)
+        template_updates = template_updates or updated
 
-    all_mismatches = {**project_mismatches, **template_mismatches}
+    lockfile_mismatches = ensure_lockfile(LOCKFILE_FILE, TOOL_CONFIGS, env_values, apply_changes)
+
+    all_mismatches = {**project_mismatches, **template_mismatches, **lockfile_mismatches}
     if all_mismatches and not apply_changes:
         for package, message in all_mismatches.items():
             print(f"✗ {package}: {message}", file=sys.stderr)
@@ -194,8 +262,10 @@ def main(argv: Iterable[str]) -> int:
         if pyproject_updated != pyproject_content:
             PYPROJECT_FILE.write_text(pyproject_updated, encoding="utf-8")
             print("✓ tool pins synced to pyproject.toml")
-        if template_mismatches:
-            print("✓ template autofix-versions.env synced from source")
+        if template_updates:
+            print("✓ template autofix-versions.env files synced from source")
+        if lockfile_mismatches:
+            print("✓ requirements.lock direct tool pins synced from source")
 
     return 0
 

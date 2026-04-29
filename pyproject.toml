@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=82.0.1", "wheel>=0.46.3"]
+requires = ["setuptools>=82.0.1", "wheel>=0.47.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -29,12 +29,12 @@ Issues = "https://github.com/stranske/Workflows/issues"
 [project.optional-dependencies]
 app = []
 dev = [
-    "pre-commit==4.5.1",
+    "pre-commit==4.6.0",
     "black==26.3.1",
-    "ruff==0.15.11",
+    "ruff==0.15.12",
     "isort==8.0.1",
     "docformatter==1.7.7",
-    "mypy==1.20.1",
+    "mypy==1.20.2",
     "flake8==7.3.0",
     "pytest==9.0.3",
     "pytest-cov==7.1.0",
@@ -46,7 +46,7 @@ dev = [
     "hypothesis>=6.152.2",
     "pandas",
     "numpy<3.0",
-    "pydantic>=2.13.2",
+    "pydantic>=2.13.3",
     "requests>=2.33.1",
     "jsonschema>=4.26.0",
     "PyYAML>=6.0.0",
@@ -60,9 +60,9 @@ dev = [
 # Versions auto-updated by scripts/update_langchain_versions.py
 langchain = [
     "langchain>=1.2.15,<1.3",
-    "langchain-core>=1.3.0,<1.4",
+    "langchain-core>=1.3.2,<1.4",
     "langchain-community>=0.4,<0.5",
-    "langchain-openai>=1.1.14,<1.2",
+    "langchain-openai>=1.2.1,<1.3",
     "langchain-anthropic>=1.4.1,<1.5",
     "faiss-cpu>=1.13.2,<2.0",  # Vector store for dedup workflow
 ]

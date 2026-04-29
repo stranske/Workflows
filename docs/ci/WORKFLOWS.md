@@ -85,7 +85,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 ## Coverage Guardrails & Follow-ups
 
 * Gate's `summary` job now emits the consolidated PR comment, uploads `gate-summary.md`, and publishes `gate-coverage.json` / `gate-coverage-delta.json` for downstream consumers.
-* [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) syncs dev tool versions from `pyproject.toml` to `autofix-versions.env` after Dependabot merges.
+* [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) keeps `pyproject.toml`, templates, and `requirements.lock` aligned to the canonical `autofix-versions.env` file.
 * [`maint-coverage-guard.yml`](../../.github/workflows/maint-coverage-guard.yml) periodically verifies that the latest Gate run meets baseline coverage expectations.
 * [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) wakes up after Gate completes, validates the workflow syntax with `actionlint`, downloads the Gate artifacts, renders the consolidated CI summary (including coverage deltas), and republishes the Gate commit status while saving a markdown preview for evidence capture.
 
@@ -108,7 +108,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 * [`maint-50-tool-version-check.yml`](../../.github/workflows/maint-50-tool-version-check.yml) checks PyPI weekly for new versions of CI/autofix tools (black, ruff, mypy, pytest) and creates an issue when updates are available.
 * [`maint-51-dependency-refresh.yml`](../../.github/workflows/maint-51-dependency-refresh.yml) regenerates `requirements.lock` using `uv pip compile`, validates tool-pin alignment, and opens a refresh pull request when dependency updates are detected (dry-run friendly).
 * [`maint-39-test-llm-providers.yml`](../../.github/workflows/maint-39-test-llm-providers.yml) verifies LLM provider API keys (GitHub Models, OpenAI) are configured correctly for task completion analysis.
-* [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) syncs dev tool version pins from `pyproject.toml` to `autofix-versions.env` after Dependabot updates land.
+* [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) syncs `pyproject.toml`, templates, and direct `requirements.lock` pins from the canonical `autofix-versions.env` file after source pin changes land.
 * [`maint-52-validate-workflows.yml`](../../.github/workflows/maint-52-validate-workflows.yml) dry-parses every workflow with `yq`, runs `actionlint` with the repository allowlist, and fails fast when malformed YAML or unapproved actionlint findings slip in.
 * [`maint-52-sync-dev-versions.yml`](../../.github/workflows/maint-52-sync-dev-versions.yml) syncs dev tool versions (ruff, mypy, black, isort, pytest) from `autofix-versions.env` to consumer repository `pyproject.toml` files weekly or on version changes.
 * [`maint-auto-update-pypi-versions.yml`](../../.github/workflows/maint-auto-update-pypi-versions.yml) checks PyPI daily for latest dev tool versions and creates a PR to update `autofix-versions.env` when versions are outdated.

@@ -183,6 +183,18 @@ of following the first-party default.
 If a reusable workflow fix must ship immediately, trigger:
 - `Maint 68 Sync Consumer Repos` only if template files changed
 
+### Autofix Tool Version Ownership
+
+Workflows owns shared autofix/dev-tool pins in
+`.github/workflows/autofix-versions.env`. Treat that file as the source of truth
+for `ruff`, `black`, `mypy`, `pytest`, `coverage`, `isort`, and `docformatter`.
+The matching `pyproject.toml`, consumer template, integration template, and
+direct `requirements.lock` pins must move in the same Workflows PR.
+
+Dependabot should not be merged when it only bumps one of those shared tool pins
+in `pyproject.toml`; route that change through the Workflows source pin update
+path instead. Runtime dependency bumps remain normal Dependabot work.
+
 ### Manual Sync Trigger
 
 ```bash

@@ -13,6 +13,12 @@ def _disable_template_sync(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(
         sync_tool_versions, "TEMPLATE_FILE", tmp_path / "nonexistent" / "template.env"
     )
+    monkeypatch.setattr(
+        sync_tool_versions,
+        "INTEGRATION_TEMPLATE_FILE",
+        tmp_path / "nonexistent" / "integration-template.env",
+    )
+    monkeypatch.setattr(sync_tool_versions, "LOCKFILE_FILE", tmp_path / "nonexistent.lock")
 
 
 def _write_env_file(path: Path, versions: dict[str, str]) -> None:
@@ -332,3 +338,74 @@ def test_template_sync_apply_updates_template(
     assert "template" in captured.out
     # Template should now match source
     assert template_path.read_text() == env_path.read_text()
+
+
+def test_integration_template_sync_detects_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    integration_template = tmp_path / "integration" / "autofix-versions.env"
+    integration_template.parent.mkdir(parents=True)
+
+    env_versions = {cfg.env_key: "14.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+    _write_env_file(env_path, env_versions)
+    pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
+    integration_template.write_text("OLD_CONTENT\n", encoding="utf-8")
+
+    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
+    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
+    monkeypatch.setattr(sync_tool_versions, "INTEGRATION_TEMPLATE_FILE", integration_template)
+
+    exit_code = sync_tool_versions.main(["--check"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert str(integration_template) in captured.err
+
+
+def test_lockfile_sync_detects_direct_pin_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    lockfile_path = tmp_path / "requirements.lock"
+
+    env_versions = {cfg.env_key: "15.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+    _write_env_file(env_path, env_versions)
+    pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
+    lockfile_path.write_text("ruff==1.0\nmypy==15.0\n", encoding="utf-8")
+
+    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
+    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
+    monkeypatch.setattr(sync_tool_versions, "LOCKFILE_FILE", lockfile_path)
+
+    exit_code = sync_tool_versions.main(["--check"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "requirements.lock:ruff" in captured.err
+
+
+def test_lockfile_sync_apply_updates_direct_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    lockfile_path = tmp_path / "requirements.lock"
+
+    env_versions = {cfg.env_key: "16.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+    _write_env_file(env_path, env_versions)
+    pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
+    lockfile_path.write_text("ruff==1.0\nmypy==16.0\n", encoding="utf-8")
+
+    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
+    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
+    monkeypatch.setattr(sync_tool_versions, "LOCKFILE_FILE", lockfile_path)
+
+    exit_code = sync_tool_versions.main(["--apply"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "requirements.lock direct tool pins synced" in captured.out
+    assert "ruff==16.0" in lockfile_path.read_text(encoding="utf-8")

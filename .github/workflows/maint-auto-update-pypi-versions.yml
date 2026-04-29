@@ -76,7 +76,6 @@ jobs:
           echo "🔄 Syncing pyproject.toml + requirements.lock + templates"
           python scripts/sync_tool_versions.py --apply
           python scripts/sync_dev_dependencies.py --apply --lockfile
-          cp .github/workflows/autofix-versions.env templates/integration-repo/.github/workflows/autofix-versions.env
 
       - name: Create PR
         if: steps.check.outputs.has_updates == 'true' && inputs.dry_run != true
@@ -88,7 +87,12 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Check if there are actual changes
-          if git diff --quiet .github/workflows/autofix-versions.env; then
+          if git diff --quiet -- \
+            .github/workflows/autofix-versions.env \
+            pyproject.toml \
+            requirements.lock \
+            templates/consumer-repo/.github/workflows/autofix-versions.env \
+            templates/integration-repo/.github/workflows/autofix-versions.env; then
             echo "No changes to commit"
             exit 0
           fi

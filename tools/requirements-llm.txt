@@ -9,7 +9,7 @@
 #   release resolve a mutually compatible core version.
 langchain==1.2.15
 langchain-community==0.4.1
-langchain-openai==1.1.15
+langchain-openai==1.2.1
 langchain-anthropic==1.4.1
-pydantic==2.13.2
+pydantic==2.13.3
 requests==2.33.1
