@@ -434,6 +434,13 @@ test('runKeepaliveGate converts checklist-complete draft PRs to ready for review
   assert.equal(outputs.proceed, 'true');
   assert.equal(outputs.reason, '');
   assert.equal(github.__calls.graphql.length, 1);
+  assert.match(github.__calls.graphql[0].query, /mutation MarkDraftReadyForReview/);
+  assert.match(github.__calls.graphql[0].query, /markPullRequestReadyForReview/);
+  const braceBalance = [...github.__calls.graphql[0].query].reduce(
+    (balance, char) => balance + (char === '{' ? 1 : char === '}' ? -1 : 0),
+    0
+  );
+  assert.equal(braceBalance, 0);
   assert.equal(github.__calls.graphql[0].variables.pullRequestId, 'PR_node_17');
   assert.ok(summary.entries.some((entry) => entry.text?.includes('marked ready for review')));
   restore();
