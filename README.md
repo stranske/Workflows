@@ -13,11 +13,21 @@ For a narrative of how the repo evolved through five development phases (bootstr
 
 ### First-party Consumers
 
-- Travel-Plan-Permission
-- Template
-- trip-planner
-- Manager-Database
-- Portable-Alpha-Extension-Model
+11 repos are currently registered as first-party consumers (synced via [`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml)):
+
+- [Travel-Plan-Permission](https://github.com/stranske/Travel-Plan-Permission)
+- [Template](https://github.com/stranske/Template)
+- [trip-planner](https://github.com/stranske/trip-planner)
+- [Manager-Database](https://github.com/stranske/Manager-Database)
+- [Portable-Alpha-Extension-Model](https://github.com/stranske/Portable-Alpha-Extension-Model)
+- [Trend_Model_Project](https://github.com/stranske/Trend_Model_Project)
+- [Collab-Admin](https://github.com/stranske/Collab-Admin)
+- [Counter_Risk](https://github.com/stranske/Counter_Risk)
+- [Pension-Data](https://github.com/stranske/Pension-Data)
+- [Inv-Man-Intake](https://github.com/stranske/Inv-Man-Intake)
+- [Ready](https://github.com/stranske/Ready)
+
+[`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml) is the authoritative list — `REGISTERED_CONSUMER_REPOS` env var. The [Workflows-Integration-Tests](https://github.com/stranske/Workflows-Integration-Tests) harness validates the consumer surface separately.
 
 ## Auto-Pilot Pipeline
 
@@ -66,17 +76,7 @@ Each stage completes, then dispatches auto-pilot again with the next step name.
 
 After PR merge, applying a `verify:*` label (typically `verify:evaluate` via auto-pilot, or `verify:compare` for dual-model mode) triggers the verifier. In `compare` mode, two LLM providers (gpt-5.2 + claude-sonnet-4-5) independently evaluate the diff against acceptance criteria with unanimous PASS required. On CONCERNS or FAIL, maintainers or automation can apply the `verify:create-new-pr` label to trigger a 4-round LLM pipeline that generates a follow-up issue (analyze → tasks → acceptance criteria → format).
 
-**Current Metrics (Feb 2026, 40-PR sample across Workflows + Trend_Model_Project):**
-
-| Metric | Value | Target |
-|--------|------:|-------:|
-| First-fix rate | 35% | 60% |
-| Average chain depth | 2.7 | 1.5 |
-| Max chain depth | 6 | 3 |
-| Verifier signal quality | 75% | 85% |
-| needs-human rate | 40% | 30% |
-
-For the full evaluation and recommendations, see [`docs/analysis/verify-compare-40pr-evaluation-feb-2026.md`](docs/analysis/verify-compare-40pr-evaluation-feb-2026.md).
+**Live verifier and pipeline metrics** are surfaced through the weekly summary tracker — see [issue #1796](https://github.com/stranske/Workflows/issues/1796) (durable auto-bot tracker, posted Mondays at 06:00 UTC) and the LangSmith dashboard wired by [`maint-80-langsmith-metrics-dashboard.yml`](.github/workflows/maint-80-langsmith-metrics-dashboard.yml). The original Feb 2026 baseline (40-PR sample, first-fix 35%, avg chain depth 2.7) is preserved at [`docs/analysis/verify-compare-40pr-evaluation-feb-2026.md`](docs/analysis/verify-compare-40pr-evaluation-feb-2026.md) for historical comparison.
 
 ---
 
