@@ -69,6 +69,7 @@ function createGithub(options = {}) {
     combinedStatus = { state: 'success', statuses: [] },
     comments = [],
     graphqlError,
+    graphqlUnavailable = false,
   } = options;
   const calls = {
     labelAdds: [],
@@ -113,15 +114,17 @@ function createGithub(options = {}) {
     async paginate() {
       return comments;
     },
-    async graphql(query, variables) {
+    __calls: calls,
+  };
+  if (!graphqlUnavailable) {
+    github.graphql = async function graphql(query, variables) {
       calls.graphql.push({ query, variables });
       if (graphqlError) {
         throw graphqlError;
       }
       return { markPullRequestReadyForReview: { pullRequest: { number: pull?.number || 17, isDraft: false } } };
-    },
-    __calls: calls,
-  };
+    };
+  }
   return github;
 }
 
@@ -413,7 +416,21 @@ test('runKeepaliveGate converts checklist-complete draft PRs to ready for review
   const pr = makePullRequest({
     draft: true,
     labels: ['agents:keepalive', 'agent:codex'],
-    body: '- [x] Acceptance covered\n- [x] Tests pass',
+    body: [
+      '## Review Checklist',
+      '- [ ] CI passes with updated workflows',
+      '- [x] No repo-specific customizations were overwritten',
+      '',
+      '<!-- auto-status-summary:start -->',
+      '## Automated Status Summary',
+      '',
+      '#### Tasks',
+      '- [x] Acceptance covered',
+      '',
+      '#### Acceptance Criteria',
+      '- [x] Tests pass',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n'),
   });
   const github = createGithub({
     pull: pr,
@@ -454,7 +471,17 @@ test('runKeepaliveGate routes incomplete draft PRs to human', async () => {
   const pr = makePullRequest({
     draft: true,
     labels: ['agents:keepalive', 'agent:codex'],
-    body: '- [x] Implementation started\n- [ ] Acceptance complete',
+    body: [
+      '<!-- auto-status-summary:start -->',
+      '## Automated Status Summary',
+      '',
+      '#### Tasks',
+      '- [x] Implementation started',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] Acceptance complete',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n'),
   });
   const github = createGithub({ pull: pr });
 
@@ -472,5 +499,135 @@ test('runKeepaliveGate routes incomplete draft PRs to human', async () => {
   ]);
   assert.equal(github.__calls.commentsCreated.length, 1);
   assert.match(github.__calls.commentsCreated[0].body, /Draft PR requires human disposition/);
+  assert.match(github.__calls.commentsCreated[0].body, /remove `agents:paused` to resume keepalive/);
+  restore();
+});
+
+test('runKeepaliveGate routes draft PRs with no keepalive checklist to human with explicit reason', async () => {
+  const { core, outputs, summary } = createCore();
+  const gateStub = async () => createGateResult();
+  const { runKeepaliveGate, restore } = loadRunnerWithGate(gateStub);
+
+  const pr = makePullRequest({
+    draft: true,
+    labels: ['agents:keepalive', 'agent:codex'],
+    body: [
+      '<!-- auto-status-summary:start -->',
+      '## Automated Status Summary',
+      '',
+      '#### Scope',
+      'Draft was opened before tasks were written.',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n'),
+  });
+  const github = createGithub({ pull: pr });
+
+  await runKeepaliveGate({
+    core,
+    github,
+    context: { repo: { owner: 'octo', repo: 'demo' }, runId: 44 },
+    env: makeEnv({ KEEPALIVE_MAX_RETRIES: '5' }),
+  });
+
+  assert.equal(outputs.proceed, 'false');
+  assert.equal(outputs.reason, 'pr-draft-no-checklist');
+  assert.equal(github.__calls.graphql.length, 0);
+  assert.equal(github.__calls.commentsCreated.length, 1);
+  assert.match(github.__calls.commentsCreated[0].body, /no keepalive checklist items were found/);
+  assert.doesNotMatch(github.__calls.commentsCreated[0].body, /with 0 unchecked checklist item/);
+  assert.ok(
+    summary.entries.some((entry) =>
+      entry.text?.includes('no keepalive checklist items were found')
+    )
+  );
+  restore();
+});
+
+test('runKeepaliveGate explains draft ready conversion failures without claiming unchecked items remain', async () => {
+  const { core, outputs } = createCore();
+  const gateStub = async () => createGateResult();
+  const { runKeepaliveGate, restore } = loadRunnerWithGate(gateStub);
+
+  const pr = makePullRequest({
+    draft: true,
+    labels: ['agents:keepalive', 'agent:codex'],
+    body: [
+      '<!-- auto-status-summary:start -->',
+      '## Automated Status Summary',
+      '',
+      '#### Tasks',
+      '- [x] Implementation complete',
+      '',
+      '#### Acceptance Criteria',
+      '- [x] Verified behavior',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n'),
+  });
+  const github = createGithub({
+    pull: pr,
+    graphqlError: new Error('mutation blocked'),
+  });
+
+  await runKeepaliveGate({
+    core,
+    github,
+    context: { repo: { owner: 'octo', repo: 'demo' }, runId: 44 },
+    env: makeEnv({ KEEPALIVE_MAX_RETRIES: '5' }),
+  });
+
+  assert.equal(outputs.proceed, 'false');
+  assert.equal(outputs.reason, 'pr-draft-ready-failed');
+  assert.equal(github.__calls.graphql.length, 1);
+  assert.equal(github.__calls.commentsCreated.length, 1);
+  assert.match(github.__calls.commentsCreated[0].body, /automatic ready-for-review conversion failed/);
+  assert.doesNotMatch(github.__calls.commentsCreated[0].body, /with 0 unchecked checklist item/);
+  restore();
+});
+
+test('runKeepaliveGate distinguishes unavailable GraphQL client from missing PR node id', async () => {
+  const { core, outputs, summary } = createCore();
+  const gateStub = async () => createGateResult();
+  const { runKeepaliveGate, restore } = loadRunnerWithGate(gateStub);
+
+  const pr = makePullRequest({
+    draft: true,
+    labels: ['agents:keepalive', 'agent:codex'],
+    body: [
+      '<!-- auto-status-summary:start -->',
+      '## Automated Status Summary',
+      '',
+      '#### Tasks',
+      '- [x] Implementation complete',
+      '',
+      '#### Acceptance Criteria',
+      '- [x] Verified behavior',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n'),
+  });
+  const github = createGithub({
+    pull: pr,
+    graphqlUnavailable: true,
+  });
+
+  await runKeepaliveGate({
+    core,
+    github,
+    context: { repo: { owner: 'octo', repo: 'demo' }, runId: 44 },
+    env: makeEnv({ KEEPALIVE_MAX_RETRIES: '5' }),
+  });
+
+  assert.equal(outputs.proceed, 'false');
+  assert.equal(outputs.reason, 'pr-draft-ready-failed');
+  assert.equal(github.__calls.graphql.length, 0);
+  assert.ok(
+    summary.entries.some((entry) =>
+      entry.text?.includes('GitHub GraphQL client is unavailable')
+    )
+  );
+  assert.ok(
+    !summary.entries.some((entry) =>
+      entry.text?.includes('missing GraphQL PR node id')
+    )
+  );
   restore();
 });
