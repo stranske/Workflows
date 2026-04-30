@@ -97,18 +97,22 @@ labels. See "Codex hand-off conventions" below.
 **Exit criterion**: every workflow file has a row, all data is from the last
 90 days, the inventory passes the validation gate (script: `scripts/validate_workflow_review_inventory.py`, to be added in this phase).
 
-### Phase 2 — Pareto bucketing (orchestration + judgment)
+### Phase 2 — Pareto bucketing
 
 Apply the rubric to the inventory. Produce a tiered list:
 `docs/ops/workflow-reviews/00-tier-list.md`. Each workflow gets `Tier: A|B|C`
 with the dimension scores that drove the placement.
 
-**Codex hand-off**: minimal — Codex can draft a first cut from the inventory
-data, but the orchestrator (me) reviews every borderline placement and the
-human (you) confirms the final list before Phase 3 starts.
+**Codex hand-off**: full first cut. Codex applies the threshold table to each
+inventory row mechanically and produces a draft tier list with rubric scores
++ a "borderline" subsection listing any workflow within 25% of any threshold.
+The orchestrator reviews only the borderline subsection (mechanical placements
+don't need eyeball review); the human confirms the final Tier A list before
+Phase 3 starts.
 
 **Exit criterion**: every workflow has a tier, distribution is within
-expected ranges, you have signed off on the Tier A list explicitly.
+expected ranges, the borderline subsection has been reviewed by the
+orchestrator, you have signed off on the Tier A list explicitly.
 
 ### Phase 3 — Tier A proposals (read-only, no code changes)
 
@@ -138,27 +142,35 @@ batch review doc at `docs/ops/workflow-reviews/tier-b-batch-NN.md`.
 **Exit criterion**: every Tier B workflow has been touched at least once;
 any promotions to Tier A get added to the Phase 3 queue.
 
-### Phase 5 — Cross-workflow synthesis (orchestration + judgment)
+### Phase 5 — Cross-workflow synthesis
 
 Read all Phase 3 review docs and Phase 4 batch summaries. Identify systemic
 patterns: shared boilerplate that should become a reusable, repeated failure
 modes that should get a fleet-wide guard, parallel structures that suggest a
 common refactor.
 
-Produce `docs/ops/workflow-reviews/00-synthesis.md` listing each systemic
-pattern with the workflows it touches, the proposed systemic fix, and how
-that fix interacts with the per-workflow proposals from Phase 3 (e.g.,
-"this systemic fix supersedes the per-workflow change proposed in
-`agents-foo.md` § X").
+**Two-step hand-off** (this is the one phase where the work splits cleanly):
 
-**Codex hand-off**: limited. Codex can draft the first synthesis pass by
-clustering review-doc themes, but pattern recognition requires orchestrator
-judgment. You sign off on which systemic fixes will be implemented.
+1. **Codex** produces `docs/ops/workflow-reviews/00-theme-clusters.md`: a
+   structured clustering of recurring themes across all Phase 3 proposals
+   and Phase 4 batches. For each cluster: list the workflows it touches,
+   the specific proposal sections that reference the theme, and a
+   one-sentence shared characterization. **No judgment about what to do
+   yet** — just clustering.
+2. **Orchestrator** reads the theme clusters and produces
+   `docs/ops/workflow-reviews/00-synthesis.md`: for each cluster, decides
+   whether a systemic fix is warranted, drafts the fix, and notes how it
+   interacts with the per-workflow proposals (e.g. "this systemic fix
+   supersedes the per-workflow change proposed in `agents-foo.md` § X").
+   This is where the higher-judgment work happens.
+
+The split keeps Codex on grunt work (mechanical clustering) and leaves the
+"what's worth doing" judgment with the orchestrator.
 
 **Exit criterion**: synthesis doc captures every cross-workflow pattern
 worth acting on, every Phase 3 proposal is explicitly marked as "ship as
 proposed," "supersede with systemic fix X," or "drop, redundant after
-systemic fix X."
+systemic fix X." You sign off on which systemic fixes proceed to Phase 6.
 
 ### Phase 6 — Implementation pass (PRs land)
 
@@ -345,15 +357,41 @@ next cycle.
 
 ## Roles
 
-- **Orchestrator (Claude Code primary session)** — writes phase issue specs,
-  reviews Codex output for rubric fidelity, runs Phase 2 first-cut bucketing,
-  drafts Phase 5 synthesis, escalates judgment calls to the human
-- **Executor (Codex via `agent:codex` and `agents:auto-pilot` lanes)** —
-  data gathering for Phase 1, per-workflow proposal drafting for Phase 3,
-  batch sanity skims for Phase 4, implementation PRs for Phase 6
-- **Human (repo owner)** — confirms tier list at end of Phase 2, approves
-  systemic fixes at end of Phase 5, final merge approval on Phase 6 PRs that
-  touch CLAUDE.md / COMPATIBILITY.md contracts or that the verifier flags
+The labor model is: **Codex authors all structured artifacts; the
+orchestrator reviews them against the rubric and contributes the
+higher-judgment work that doesn't translate to a template; the human
+signs off at the gate moments.**
+
+- **Executor (Codex, via `agent:codex` issues + the local
+  `pd-workloop-resume` opener / `imi-merge-verify-closer` closer
+  automation lanes)** — produces every structured artifact:
+  - Phase 1 inventory + the validation script
+  - Phase 2 first-cut tier list with borderline subsection
+  - Phase 3 per-workflow proposal docs (one per Tier A workflow)
+  - Phase 4 batched Tier B sanity skims
+  - Phase 5 first-pass theme clusters (clustering, not synthesis)
+  - Phase 6 implementation PRs (driven by the opener/closer lanes)
+- **Orchestrator (Claude Code primary session)** — writes the phase issue
+  specs that brief Codex, reviews Codex output for rubric fidelity, reviews
+  only the Phase 2 borderline subsection (not the mechanical placements),
+  spot-checks Phase 3 proposals for data-justified impact claims, drafts the
+  Phase 5 synthesis from Codex's theme clusters, and verifies Phase 6 PRs
+  match the approved proposal or systemic fix
+- **Human (repo owner)** — confirms the Tier A list at the end of Phase 2,
+  approves the synthesis decisions at the end of Phase 5, and gives final
+  merge approval on Phase 6 PRs that touch CLAUDE.md / COMPATIBILITY.md
+  contracts or that the verifier flags
+
+### Per-phase summary of the split
+
+| Phase | Codex | Orchestrator | Human |
+|---|---|---|---|
+| 1. Inventory | Author inventory + validation script | Quality-check the artifact | Approve scope |
+| 2. Bucketing | First-cut tier list + borderline subsection | Review borderline subsection only | Confirm Tier A list |
+| 3. Tier A proposals | One full proposal doc per Tier A workflow | Spot-check rubric fidelity, escalate borderline judgment calls | Sample review |
+| 4. Tier B sanity | Batched skim docs | Review surprises and Tier-A promotions | Skim flagged items |
+| 5. Synthesis | Theme cluster doc (mechanical clustering) | Author the synthesis doc (which clusters become systemic fixes) | Approve fixes |
+| 6. Implementation | Code + PR via opener/closer lanes | Verify alignment to approved proposal/fix | Final merge on contract-touching PRs |
 
 ---
 
