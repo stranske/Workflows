@@ -14,6 +14,16 @@ const PAUSE_LABEL = 'agents:paused';
 const NEEDS_HUMAN_LABEL = 'needs-human';
 const NEEDS_ATTENTION_LABEL = 'agent:needs-attention';
 const DRAFT_DISPOSITION_MARKER = '<!-- keepalive-draft-disposition -->';
+const MARK_DRAFT_READY_FOR_REVIEW_MUTATION = `
+mutation MarkDraftReadyForReview($pullRequestId: ID!) {
+  markPullRequestReadyForReview(input: {pullRequestId: $pullRequestId}) {
+    pullRequest {
+      number
+      isDraft
+    }
+  }
+}
+`;
 
 function normaliseLabelName(label) {
   if (!label) {
@@ -112,14 +122,7 @@ async function markDraftReadyForReview({ github, pr, core, summary }) {
 
   try {
     await github.graphql(
-      `mutation($pullRequestId: ID!) {
-        markPullRequestReadyForReview(input: {pullRequestId: $pullRequestId}) {
-          pullRequest {
-            number
-            isDraft
-          }
-        }
-      }`,
+      MARK_DRAFT_READY_FOR_REVIEW_MUTATION,
       { pullRequestId: nodeId }
     );
     summary.addRaw('Draft PR had no unchecked checklist items; marked ready for review.').addEOL();
