@@ -48,7 +48,7 @@ minor gains.
 | Dimension | Threshold |
 |---|---|
 | Token cost | The workflow consumes ≥1M tokens/month (whether attributed directly via LangSmith or estimated by the heuristic). The "≥10% reduction lever available" question is a Phase 3 judgment, not a tier gate — Tier A means worth investigating for a lever, not proof a lever exists. |
-| CI time | ≥30s/run × ≥40 runs/month, **OR** ≥1m/run × ≥10 runs/month — both yield ~10–20 min/month saved as the floor |
+| CI time | ≥30s/run × ≥40 runs/month, **OR** ≥1m/run × ≥10 runs/month, **OR** total monthly CI time ≥200 min/month regardless of per-run median (covers high-volume / fast-per-run workflows where total volume is large enough that even small per-run wins matter) |
 | Code quality | ≥2 incidents traced to this workflow in the 90-day window, **OR** ≥3 closed bug issues citing it. Script LOC stays in the inventory and informs Phase 3 prioritization but does not gate tier placement on its own — most load-bearing workflows have large scripts, and absence of an exact-name-match test file is not a reliable proxy for "no test coverage." |
 | Automation gap | ≥1 human intervention/month required by this workflow, **OR** ≥1 multi-day stuck window in last 90 days traced here |
 
@@ -67,6 +67,16 @@ expected 15-25). The failure-mode phrasing was ambiguous between
 support either; the LOC+test trigger fired on every non-trivial workflow
 because exact-name-match test files are rare. The simpler dimension
 rules above replace them.
+
+The CI-time rule's third clause (`total monthly CI time ≥200 min/month
+regardless of per-run median`) was added in 2026-05-01 after Phase 2
+round 2 left the fleet's biggest single CI-time consumer
+(`agents-pr-meta-v4.yml` at 7,035 min/month) in Tier B because its
+per-run median (27s) fell below the 30s fast-path floor. The per-run
+floor exists to filter "individual runs too short to bother optimizing,"
+but that intent breaks down for high-volume workflows where even
+small per-run wins compound to large total savings. The 200-min/month
+absolute floor caps that gap.
 
 ---
 
