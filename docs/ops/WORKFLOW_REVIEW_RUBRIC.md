@@ -47,15 +47,26 @@ minor gains.
 
 | Dimension | Threshold |
 |---|---|
-| Token cost | ≥10% reduction **and** the workflow consumes ≥1M tokens/month, **OR** the change addresses a recurring failure mode (≥3 occurrences in 90 days) |
+| Token cost | The workflow consumes ≥1M tokens/month (whether attributed directly via LangSmith or estimated by the heuristic). The "≥10% reduction lever available" question is a Phase 3 judgment, not a tier gate — Tier A means worth investigating for a lever, not proof a lever exists. |
 | CI time | ≥30s/run × ≥40 runs/month, **OR** ≥1m/run × ≥10 runs/month — both yield ~10–20 min/month saved as the floor |
-| Code quality | Only intervene if there is concrete evidence of harm: ≥2 incidents traced to this workflow OR ≥3 closed bug issues citing it OR associated script LOC > 500 with no test coverage |
+| Code quality | ≥2 incidents traced to this workflow in the 90-day window, **OR** ≥3 closed bug issues citing it. Script LOC stays in the inventory and informs Phase 3 prioritization but does not gate tier placement on its own — most load-bearing workflows have large scripts, and absence of an exact-name-match test file is not a reliable proxy for "no test coverage." |
 | Automation gap | ≥1 human intervention/month required by this workflow, **OR** ≥1 multi-day stuck window in last 90 days traced here |
 
 Thresholds are deliberately strict. They are the operationalization of "skip
 minor gains." If a threshold is wrong for the fleet's context, this document
 gets updated *first* — never adjust a threshold mid-review to justify a
 particular workflow.
+
+**History note**: an earlier version of the token-cost rule included a
+"recurring failure mode (≥3 occurrences in 90 days)" trigger and the
+code-quality rule included a "script LOC > 500 with no test coverage"
+trigger. Both were dropped in 2026-04-30 after Phase 2 round 1
+mechanically applied them and produced 83 Tier A workflows (vs the
+expected 15-25). The failure-mode phrasing was ambiguous between
+"per-workflow" and "across the inventory" and the inventory data didn't
+support either; the LOC+test trigger fired on every non-trivial workflow
+because exact-name-match test files are rare. The simpler dimension
+rules above replace them.
 
 ---
 
