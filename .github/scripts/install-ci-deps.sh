@@ -19,6 +19,15 @@
 
 set -euo pipefail
 
+# Install via uv when available, otherwise fall back to pip.
+install_specs() {
+  if command -v uv >/dev/null 2>&1; then
+    uv pip install --system "$@"
+  else
+    python -m pip install --disable-pip-version-check "$@"
+  fi
+}
+
 # Convert string to boolean
 to_bool() {
   case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
@@ -206,7 +215,7 @@ install_ci_deps() {
     echo "No install targets found; skipping dependency installation."
   else
     local install_ok="true"
-    if ! uv pip install --system "${strict_specs[@]}"; then
+    if ! install_specs "${strict_specs[@]}"; then
       install_ok="false"
       echo "Strict dependency install failed; retrying with relaxed compatibility constraints." >&2
 
@@ -237,7 +246,7 @@ install_ci_deps() {
 
       if [ ${#relaxed_specs[@]} -eq 0 ]; then
         echo "No relaxed install targets available after strict install failure." >&2
-      elif uv pip install --system "${relaxed_specs[@]}"; then
+      elif install_specs "${relaxed_specs[@]}"; then
         install_ok="true"
       fi
     fi
