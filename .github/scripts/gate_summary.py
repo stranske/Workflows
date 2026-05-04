@@ -19,6 +19,7 @@ class SummaryContext:
     artifacts_root: Path
     summary_path: Path | None
     output_path: Path | None
+    python_required: bool = True
 
 
 @dataclass(slots=True)
@@ -322,8 +323,11 @@ def summarize(context: SummaryContext) -> SummaryResult:
     failure_checks: tuple[str, ...] = ()
     format_failure = False
 
-    # Python CI skipped is OK if run_core is false (doc/workflow-only changes)
-    if python_result == "cancelled":
+    # Python CI skipped is OK when path classification says no Python-relevant
+    # files changed.
+    if not context.python_required and python_result == "skipped":
+        lines.append("- Python CI skipped: no Python-code changes detected.")
+    elif python_result == "cancelled":
         state = "pending"
         description = "Python CI cancelled; waiting for rerun."
     elif python_result not in ("success", "skipped") or (
@@ -377,6 +381,7 @@ def build_context() -> SummaryContext:
     python_result = os.environ.get("PYTHON_RESULT") or "skipped"
     docker_result = os.environ.get("DOCKER_RESULT") or "skipped"
     docker_changed = _normalize(os.environ.get("DOCKER_CHANGED"), "false") == "true"
+    python_required = _normalize(os.environ.get("PYTHON_REQUIRED"), "true") == "true"
     artifacts_root = Path(os.environ.get("GATE_ARTIFACTS_ROOT", "gate_artifacts"))
     summary_path = _resolve_path("GITHUB_STEP_SUMMARY")
     output_path = _resolve_path("GITHUB_OUTPUT")
@@ -391,6 +396,7 @@ def build_context() -> SummaryContext:
         artifacts_root=artifacts_root,
         summary_path=summary_path,
         output_path=output_path,
+        python_required=python_required,
     )
 
 

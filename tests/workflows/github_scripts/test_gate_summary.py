@@ -313,6 +313,25 @@ def test_summarize_skipped_python_without_records_is_pending(tmp_path: Path) -> 
     assert "Python CI skipped; waiting for rerun." in result.description
 
 
+def test_summarize_accepts_path_classified_python_skip(tmp_path: Path) -> None:
+    context = gate_summary.SummaryContext(
+        doc_only=False,
+        run_core=True,
+        reason="",
+        python_result="skipped",
+        docker_result="skipped",
+        docker_changed=False,
+        artifacts_root=tmp_path,
+        summary_path=None,
+        output_path=None,
+        python_required=False,
+    )
+
+    result = gate_summary.summarize(context)
+    assert result.state == "success"
+    assert "no Python-code changes detected" in "\n".join(result.lines)
+
+
 def test_summarize_handles_docker_failures(tmp_path: Path) -> None:
     write_summary(tmp_path, "3.12")
     context = gate_summary.SummaryContext(
@@ -338,6 +357,7 @@ def test_build_context_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.setenv("RUN_CORE", "False")
     monkeypatch.setenv("REASON", "workflow_only")
     monkeypatch.setenv("PYTHON_RESULT", "FAILURE")
+    monkeypatch.setenv("PYTHON_REQUIRED", "FALSE")
     monkeypatch.setenv("DOCKER_RESULT", "cancelled")
     monkeypatch.setenv("DOCKER_CHANGED", "TRUE")
     artifacts_root = tmp_path / "gate_artifacts"
@@ -352,6 +372,7 @@ def test_build_context_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert context.run_core is False
     assert context.reason == "workflow_only"
     assert context.python_result == "FAILURE"
+    assert context.python_required is False
     assert context.docker_result == "cancelled"
     assert context.docker_changed is True
     assert context.artifacts_root == artifacts_root
