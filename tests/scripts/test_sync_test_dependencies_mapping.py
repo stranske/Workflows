@@ -13,7 +13,7 @@ def _load_module(module_name: str, path: Path):
     return module
 
 
-def test_pptx_maps_to_python_pptx_in_repo_script():
+def test_import_exceptions_map_to_package_names_in_repo_script():
     module = _load_module(
         "sync_test_dependencies_repo",
         Path("scripts/sync_test_dependencies.py"),
@@ -21,9 +21,10 @@ def test_pptx_maps_to_python_pptx_in_repo_script():
 
     assert module.MODULE_TO_PACKAGE["pptx"] == "python-pptx"
     assert module.MODULE_TO_PACKAGE["jwt"] == "PyJWT"
+    assert {"html", "http", "secrets"}.issubset(module.STDLIB_MODULES)
 
 
-def test_pptx_maps_to_python_pptx_in_consumer_template():
+def test_import_exceptions_map_to_package_names_in_consumer_template():
     module = _load_module(
         "sync_test_dependencies_consumer_template",
         Path("templates/consumer-repo/scripts/sync_test_dependencies.py"),

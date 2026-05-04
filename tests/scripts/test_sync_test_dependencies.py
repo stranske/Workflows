@@ -218,7 +218,7 @@ def test_find_missing_dependencies_ignores_local_and_mapped_modules(
     assert std.find_missing_dependencies() == {"pandas"}
 
 
-def test_find_missing_dependencies_ignores_stdlib_fnmatch(
+def test_find_missing_dependencies_ignores_reviewed_stdlib_and_maps_jwt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pyproject = tmp_path / "pyproject.toml"
@@ -226,7 +226,9 @@ def test_find_missing_dependencies_ignores_stdlib_fnmatch(
         "\n".join(
             [
                 "[project.optional-dependencies]",
-                "dev = []",
+                "dev = [",
+                '  "PyJWT[crypto]",',
+                "]",
             ]
         )
         + "\n",
@@ -234,12 +236,25 @@ def test_find_missing_dependencies_ignores_stdlib_fnmatch(
     )
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
-    (tests_dir / "test_sample.py").write_text("import fnmatch\n", encoding="utf-8")
+    (tests_dir / "test_reviewed_imports.py").write_text(
+        "\n".join(
+            [
+                "import fnmatch",
+                "import html",
+                "from http.server import BaseHTTPRequestHandler",
+                "import secrets",
+                "import jwt",
+                "import pandas",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
 
-    assert std.find_missing_dependencies() == set()
+    assert std.find_missing_dependencies() == {"pandas"}
 
 
 def test_detect_local_project_modules_skips_missing_source_dir(

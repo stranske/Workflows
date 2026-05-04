@@ -34,9 +34,9 @@ else:
 PYPROJECT_FILE = Path("pyproject.toml")
 DEV_EXTRA = "dev"
 
-# Stdlib modules that don't need to be installed (keep in sync with
-# tests/test_dependency_enforcement.py)
-STDLIB_MODULES = {
+# Stdlib modules that don't need to be installed. Prefer Python's runtime
+# inventory and keep a fallback for older runtimes/consumer scripts.
+_FALLBACK_STDLIB_MODULES = {
     "abc",
     "argparse",
     "ast",
@@ -75,9 +75,9 @@ STDLIB_MODULES = {
     "re",
     "runpy",
     "email",
-    "secrets",
     "shlex",
     "shutil",
+    "secrets",
     "signal",
     "sitecustomize",
     "socket",
@@ -109,8 +109,7 @@ STDLIB_MODULES = {
     "traceback",
     "pprint",
 }
-if hasattr(sys, "stdlib_module_names"):
-    STDLIB_MODULES.update(sys.stdlib_module_names)
+STDLIB_MODULES = set(getattr(sys, "stdlib_module_names", ())) | _FALLBACK_STDLIB_MODULES
 
 # Known test framework modules
 TEST_FRAMEWORK_MODULES = {
