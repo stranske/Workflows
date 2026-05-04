@@ -1,0 +1,35 @@
+categories:
+  docs-only:
+    require-all: true
+    paths:
+      - docs/**
+      - "*.md"
+      - README.md
+  python-code:
+    require-all: false
+    paths:
+      - "**/*.py"
+      - pyproject.toml
+      - requirements*.txt
+  workflow-change:
+    require-all: false
+    paths:
+      - .github/workflows/**
+      - .github/actions/**
+  security-relevant:
+    require-all: false
+    paths:
+      - scripts/**
+      - tools/**
+      - .github/workflows/**
+      - pyproject.toml
+  template-change:
+    require-all: false
+    paths:
+      - templates/**
+  test-only:
+    require-all: true
+    paths:
+      - tests/**
+      - "**/test_*.py"
+      - "**/*.test.js"

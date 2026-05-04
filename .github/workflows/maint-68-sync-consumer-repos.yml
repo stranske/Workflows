@@ -23,6 +23,8 @@ on:
       - '.github/codex/**'
       - '.github/actions/setup-api-client/**'
       - '.github/actions/export-load-balancer-tokens/**'
+      - '.github/actions/path-classifier/**'
+      - '.github/path-classification.yml'
       - '.github/copilot-instructions.md'
       - '.github/copilot-skills/**'
       - '.github/dependabot.yml'

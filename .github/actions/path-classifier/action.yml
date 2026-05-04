@@ -1,0 +1,54 @@
+name: Path Classifier
+description: Classify changed PR paths into workflow relevance categories.
+
+inputs:
+  base-ref:
+    description: Base ref or SHA to diff against. Defaults to PR base or push before SHA.
+    required: false
+  config-path:
+    description: Path classification config file.
+    required: false
+    default: .github/path-classification.yml
+  force-full:
+    description: Set true to force every category output to true.
+    required: false
+    default: 'false'
+
+outputs:
+  is-docs-only:
+    description: True when every changed path matches the docs-only category.
+    value: ${{ steps.classify.outputs.is-docs-only }}
+  is-python-code:
+    description: True when any changed path is Python-code relevant.
+    value: ${{ steps.classify.outputs.is-python-code }}
+  is-workflow-change:
+    description: True when any changed path affects GitHub workflows or actions.
+    value: ${{ steps.classify.outputs.is-workflow-change }}
+  is-security-relevant:
+    description: True when any changed path is security-scan relevant.
+    value: ${{ steps.classify.outputs.is-security-relevant }}
+  is-template-change:
+    description: True when any changed path affects consumer templates.
+    value: ${{ steps.classify.outputs.is-template-change }}
+  is-test-only:
+    description: True when every changed path matches the test-only category.
+    value: ${{ steps.classify.outputs.is-test-only }}
+  affected-consumers:
+    description: JSON list of affected consumers. Reserved for Wave 2.
+    value: ${{ steps.classify.outputs.affected-consumers }}
+  classification-rationale:
+    description: Human-readable classification rationale.
+    value: ${{ steps.classify.outputs.classification-rationale }}
+
+runs:
+  using: composite
+  steps:
+    - name: Classify changed paths
+      id: classify
+      shell: bash
+      env:
+        INPUT_BASE_REF: ${{ inputs.base-ref }}
+        INPUT_CONFIG_PATH: ${{ inputs.config-path }}
+        INPUT_FORCE_FULL: ${{ inputs.force-full }}
+        GITHUB_CONTEXT_JSON: ${{ toJSON(github) }}
+      run: node "$GITHUB_ACTION_PATH/classify.js"

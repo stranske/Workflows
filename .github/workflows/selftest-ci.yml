@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: selftest-ci-${{ github.repository }}-${{ github.ref }}
@@ -27,6 +28,12 @@ jobs:
 
       - name: Run JavaScript tests
         run: node --test .github/scripts/__tests__/*.test.js
+
+      - name: Replay path classifier against recent merged PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PATH_CLASSIFIER_REPLAY: '1'
+        run: node --test .github/scripts/__tests__/path-classifier-replay.test.js
 
   test-python:
     name: Python Tests

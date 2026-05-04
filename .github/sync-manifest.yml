@@ -567,6 +567,9 @@ templates:
   - source: .github/PULL_REQUEST_TEMPLATE.md
     description: "Pull request template with Workflow Source fields for direct GitHub and non-issue work"
 
+  - source: .github/path-classification.yml
+    description: "Path classification config used by the path-classifier composite action"
+
 # Actions required by reusable workflows
 actions:
   - source: .github/actions/setup-api-client/
@@ -576,6 +579,10 @@ actions:
   - source: .github/actions/export-load-balancer-tokens/
     is_directory: true
     description: "Export load balancer tokens action - required by reusable-10-ci-python.yml (deprecated, use setup-api-client)"
+
+  - source: .github/actions/path-classifier/
+    is_directory: true
+    description: "Classifies changed PR paths for path-aware expensive job gating"
 
 # Configuration files for LLM providers and workflows
 llm_config:
