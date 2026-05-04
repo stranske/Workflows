@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import fnmatch
 import importlib
 import json
 import re
@@ -24,6 +26,36 @@ HISTORIC_EXCLUDED_WORKFLOW_PATHS = (
 )
 
 
+def _script_imports_from(source: str) -> set[str]:
+    imports: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            imports.update(alias.name for alias in node.names if alias.name.startswith("scripts."))
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "scripts":
+                imports.update(f"scripts.{alias.name}" for alias in node.names)
+            elif node.module and node.module.startswith("scripts."):
+                imports.add(node.module)
+    return imports
+
+
+def _ruff_pattern_matches_path(pattern: str, relative_path: str) -> bool:
+    normalized_pattern = pattern.rstrip("/")
+    normalized_path = relative_path.rstrip("/")
+    path_parts = Path(normalized_path).parts
+
+    return (
+        normalized_pattern == normalized_path
+        or normalized_path.startswith(f"{normalized_pattern}/")
+        or fnmatch.fnmatchcase(normalized_path, normalized_pattern)
+        or Path(normalized_path).match(normalized_pattern)
+        or (
+            "/" not in normalized_pattern
+            and fnmatch.fnmatchcase(path_parts[-1], normalized_pattern)
+        )
+    )
+
+
 def test_issue2_excluded_autofix_tests_only_depend_on_local_scripts() -> None:
     contract = json.loads(
         (ROOT / "tests/workflows/fixtures/issue2_autofix_import_contract.json").read_text(
@@ -34,10 +66,9 @@ def test_issue2_excluded_autofix_tests_only_depend_on_local_scripts() -> None:
     expected_imports = set(contract["expected_script_imports"])
 
     observed_imports: set[str] = set()
-    pattern = re.compile(r"(?:from|import)\s+(scripts\.[a-zA-Z0-9_\.]+)")
     for relative_path in excluded_test_files:
         text = (ROOT / relative_path).read_text(encoding="utf-8")
-        observed_imports.update(pattern.findall(text))
+        observed_imports.update(_script_imports_from(text))
 
     assert observed_imports == expected_imports
 
@@ -89,7 +120,11 @@ def test_issue2_workflow_tests_are_not_excluded_from_ruff() -> None:
     assert not any(
         path == "tests/workflows" or path.startswith("tests/workflows/") for path in ruff_excludes
     )
-    assert set(ruff_excludes).isdisjoint(HISTORIC_EXCLUDED_WORKFLOW_PATHS)
+    assert not any(
+        _ruff_pattern_matches_path(pattern, historic_path)
+        for pattern in ruff_excludes
+        for historic_path in HISTORIC_EXCLUDED_WORKFLOW_PATHS
+    )
 
 
 def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
