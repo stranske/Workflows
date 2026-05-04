@@ -115,6 +115,16 @@ def test_gate_docs_only_branching_logic():
         assert snippet in helper_source, f"Docs-only helper script should define {label}"
 
 
+def test_health_44_pull_requests_do_not_use_repo_variable_fingerprints():
+    workflow = WORKFLOW_DIR / "health-44-gate-branch-protection.yml"
+    source = workflow.read_text(encoding="utf-8")
+
+    assert '"${GITHUB_EVENT_NAME}" = "pull_request"' in source
+    assert "pull-request-no-repo-variable" in source
+    assert "--storage repo-variable" in source
+    assert source.index("pull-request-no-repo-variable") < source.index("--storage repo-variable")
+
+
 def test_inventory_docs_list_all_workflows():
     docs = {
         "docs/ci/WORKFLOW_SYSTEM.md": pathlib.Path("docs/ci/WORKFLOW_SYSTEM.md").read_text(

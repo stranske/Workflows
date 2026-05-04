@@ -62,6 +62,17 @@ jobs:
               'main'
             }}
         run: |
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            {
+              echo "should_run=true"
+              echo "reason=pull-request-no-repo-variable"
+              echo "current_hash="
+              echo "prior_hash="
+            } >> "$GITHUB_OUTPUT"
+            echo '{"should_run":"true","reason":"pull-request-no-repo-variable","current_hash":"","prior_hash":""}'
+            exit 0
+          fi
+
           python - <<'PY' > /tmp/state-fingerprint-inputs.json
           import hashlib
           import json
