@@ -48,6 +48,16 @@ test('classify changes summary', () => {
   assert.equal(result3.workflowChanged, true);
 });
 
+test('classify changes tolerates non-array and mixed input', () => {
+  const single = classifyChanges('docs/README.md');
+  assert.equal(single.docOnly, true);
+  assert.equal(single.reason, 'docs_only');
+
+  const mixed = classifyChanges(['src/app.py', null, 123, false]);
+  assert.equal(mixed.docOnly, false);
+  assert.equal(mixed.reason, 'code_changes');
+});
+
 test('detectChanges handles non pull request events', async () => {
   const result = await detectChanges({
     context: { eventName: 'push' },
