@@ -34,9 +34,9 @@ else:
 PYPROJECT_FILE = Path("pyproject.toml")
 DEV_EXTRA = "dev"
 
-# Stdlib modules that don't need to be installed (keep in sync with
-# tests/test_dependency_enforcement.py)
-STDLIB_MODULES = {
+# Stdlib modules that don't need to be installed. Prefer Python's runtime
+# inventory and keep a fallback for older runtimes/consumer scripts.
+_FALLBACK_STDLIB_MODULES = {
     "abc",
     "argparse",
     "ast",
@@ -55,6 +55,8 @@ STDLIB_MODULES = {
     "gc",
     "glob",
     "hashlib",
+    "html",
+    "http",
     "importlib",
     "inspect",
     "io",
@@ -73,6 +75,7 @@ STDLIB_MODULES = {
     "runpy",
     "shlex",
     "shutil",
+    "secrets",
     "signal",
     "sitecustomize",
     "socket",
@@ -104,6 +107,7 @@ STDLIB_MODULES = {
     "traceback",
     "pprint",
 }
+STDLIB_MODULES = set(getattr(sys, "stdlib_module_names", ())) | _FALLBACK_STDLIB_MODULES
 
 # Known test framework modules
 TEST_FRAMEWORK_MODULES = {
@@ -224,6 +228,7 @@ MODULE_TO_PACKAGE = {
     "PIL": "Pillow",
     "sklearn": "scikit-learn",
     "cv2": "opencv-python",
+    "jwt": "PyJWT",
     "pre_commit": "pre-commit",
     "pptx": "python-pptx",
 }
