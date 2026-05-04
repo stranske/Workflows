@@ -593,7 +593,8 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/AGENTS.md -o AGENTS.md
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/CLAUDE.md -o CLAUDE.md
 
-# Use /main/ only when intentionally tracking the live Workflows source.
+# These examples track the live Workflows source via /main/. For reproducible
+# bootstrap, replace /main/ with a release tag or commit SHA in each URL.
 ```
 
 ### Workflow Summary

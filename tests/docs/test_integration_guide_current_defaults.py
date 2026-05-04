@@ -21,6 +21,8 @@ def test_integration_guide_quick_setup_uses_current_consumer_defaults() -> None:
     section = _quick_setup_section()
 
     expected_defaults = [
+        "ci.yml",
+        "autofix-versions.env",
         "agents-issue-intake.yml",
         "agents-80-pr-event-hub.yml",
         "agents-81-gate-followups.yml",
