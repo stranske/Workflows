@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  actions: write
 
 env:
   ENFORCE_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
@@ -30,7 +31,46 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Compute state fingerprint
+        id: fingerprint
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: >-
+            ${{
+              github.event.repository.default_branch ||
+              github.event.pull_request.base.repo.default_branch ||
+              'main'
+            }}
+        run: |
+          python - <<'PY' > /tmp/state-fingerprint-inputs.json
+          import hashlib
+          import json
+          import os
+
+          with open(".github/config/required-contexts.json", encoding="utf-8") as handle:
+              required_contexts = json.load(handle)
+          context_hash = hashlib.sha256(
+              json.dumps(required_contexts, sort_keys=True, separators=(",", ":")).encode("utf-8")
+          ).hexdigest()
+          payload = {
+              "default_branch": os.environ.get("DEFAULT_BRANCH", "main"),
+              "required_contexts_hash": context_hash,
+          }
+          print(json.dumps(payload, sort_keys=True))
+          PY
+
+          python scripts/state_fingerprint.py compare \
+            --workflow "${GITHUB_WORKFLOW}" \
+            --inputs "$(cat /tmp/state-fingerprint-inputs.json)" \
+            --storage repo-variable
+
+      - name: Report unchanged state skip
+        if: steps.fingerprint.outputs.should_run == 'false'
+        run: echo "Skipped - ${{ steps.fingerprint.outputs.reason }}"
+
       - name: Setup API client
+        if: steps.fingerprint.outputs.should_run == 'true'
         uses: ./.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
@@ -41,6 +81,7 @@ jobs:
 
       - name: Determine default branch
         id: default-branch
+        if: steps.fingerprint.outputs.should_run == 'true'
         uses: actions/github-script@v9
         with:
           script: |
@@ -98,6 +139,7 @@ jobs:
             }
 
       - name: Export default branch variable
+        if: steps.fingerprint.outputs.should_run == 'true'
         run: |
           echo "DEFAULT_BRANCH_NAME=${DEFAULT_BRANCH}" >> "$GITHUB_ENV"
         env:
@@ -105,15 +147,18 @@ jobs:
             ${{ steps.default-branch.outputs.name || github.event.repository.default_branch }}
 
       - uses: actions/setup-python@v6
+        if: steps.fingerprint.outputs.should_run == 'true'
         with:
           python-version: '3.12'
 
       - name: Install dependencies
+        if: steps.fingerprint.outputs.should_run == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install requests
 
       - name: Log enforcement configuration
+        if: steps.fingerprint.outputs.should_run == 'true'
         run: |
           if [ -z "${ENFORCE_TOKEN}" ]; then
             echo "BRANCH_PROTECTION_TOKEN is not configured; enforcement step will be skipped."
@@ -127,7 +172,10 @@ jobs:
           fi
 
       - name: Enforce gate branch protection
-        if: env.ENFORCE_TOKEN != '' && github.event_name != 'pull_request'
+        if: >-
+          steps.fingerprint.outputs.should_run == 'true' &&
+          env.ENFORCE_TOKEN != '' &&
+          github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ env.ENFORCE_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -142,7 +190,9 @@ jobs:
       - name: Verify gate branch protection is required (admin scope)
         id: verify-admin
         continue-on-error: ${{ github.event_name == 'pull_request' }}
-        if: env.ENFORCE_TOKEN != ''
+        if: >-
+          steps.fingerprint.outputs.should_run == 'true' &&
+          env.ENFORCE_TOKEN != ''
         env:
           GITHUB_TOKEN: ${{ env.ENFORCE_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -158,8 +208,9 @@ jobs:
       - name: Verify gate branch protection is required (read-only)
         continue-on-error: ${{ github.event_name == 'pull_request' }}
         if: >-
-          env.ENFORCE_TOKEN == '' ||
-          (github.event_name == 'pull_request' && steps.verify-admin.outcome != 'success')
+          steps.fingerprint.outputs.should_run == 'true' &&
+          (env.ENFORCE_TOKEN == '' ||
+          (github.event_name == 'pull_request' && steps.verify-admin.outcome != 'success'))
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -172,7 +223,7 @@ jobs:
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 
       - name: Restore previous branch protection snapshots
-        if: always()
+        if: always() && steps.fingerprint.outputs.should_run == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -181,7 +232,7 @@ jobs:
         run: python .github/scripts/restore_branch_snapshots.py
 
       - name: Record unified guard summary
-        if: always()
+        if: always() && steps.fingerprint.outputs.should_run == 'true'
         env:
           HAS_ENFORCE_TOKEN: ${{ env.ENFORCE_TOKEN != '' }}
         run: |
@@ -193,7 +244,7 @@ jobs:
             --write-json "${SNAPSHOT_DIR}/health-summary.json" \
             --write-summary "${GITHUB_STEP_SUMMARY}"
       - name: Upload branch protection snapshots
-        if: always()
+        if: always() && steps.fingerprint.outputs.should_run == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: gate-branch-protection-${{ github.run_id }}

@@ -69,6 +69,8 @@ jobs:
       rate_limit_recommendation: ${{ steps.evaluate.outputs.rate_limit_recommendation }}
       rounds_without_task_completion: ${{ steps.evaluate.outputs.rounds_without_task_completion }}
       force_retry: ${{ steps.evaluate.outputs.force_retry }}
+      fingerprint_should_run: ${{ steps.fingerprint.outputs.should_run || 'true' }}
+      fingerprint_reason: ${{ steps.fingerprint.outputs.reason }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -84,12 +86,80 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
+      - name: Compute state fingerprint
+        id: fingerprint
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: >-
+            ${{
+              github.event.workflow_run.pull_requests[0].number ||
+              github.event.pull_request.number ||
+              github.event.inputs.pr_number ||
+              ''
+            }}
+          GATE_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
+        run: |
+          if [ -z "${PR_NUMBER:-}" ]; then
+            {
+              echo "should_run=true"
+              echo "reason=no-pr-context"
+              echo "current_hash="
+              echo "prior_hash="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          python - <<'PY' > /tmp/state-fingerprint-inputs.json
+          import json
+          import os
+          import urllib.request
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GITHUB_TOKEN"]
+          pr_number = os.environ["PR_NUMBER"]
+          headers = {
+              "Accept": "application/vnd.github+json",
+              "Authorization": f"Bearer {token}",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+
+          def api(path):
+              request = urllib.request.Request(f"https://api.github.com{path}", headers=headers)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.loads(response.read().decode("utf-8"))
+
+          pr = api(f"/repos/{repo}/pulls/{pr_number}")
+          labels = api(f"/repos/{repo}/issues/{pr_number}/labels")
+          label_names = sorted(label.get("name", "") for label in labels if label.get("name"))
+          payload = {
+              "pr_number": int(pr_number),
+              "head_sha": pr.get("head", {}).get("sha", ""),
+              "gate_conclusion": os.environ.get("GATE_CONCLUSION", ""),
+              "autofix_label_state": [
+                  name for name in label_names
+                  if name.startswith("autofix") or name == "agent:retry"
+              ],
+          }
+          print(json.dumps(payload, sort_keys=True))
+          PY
+
+          python scripts/state_fingerprint.py compare \
+            --workflow "${GITHUB_WORKFLOW}" \
+            --inputs "$(cat /tmp/state-fingerprint-inputs.json)" \
+            --storage pr-comment
+
+      - name: Report unchanged state skip
+        if: steps.fingerprint.outputs.should_run == 'false'
+        run: echo "Skipped - ${{ steps.fingerprint.outputs.reason }}"
+
 
 
 
       - name: Handle agent:retry label
         id: retry_label
         if: >-
+          steps.fingerprint.outputs.should_run == 'true' &&
           github.event_name == 'pull_request' &&
           github.event.action == 'labeled' &&
           github.event.label.name == 'agent:retry'
@@ -158,9 +228,11 @@ jobs:
 
       - name: Capture timestamps
         id: timestamps
+        if: steps.fingerprint.outputs.should_run == 'true'
         run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
       - name: Security gate - prompt injection guard
         id: security_gate
+        if: steps.fingerprint.outputs.should_run == 'true'
         uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -224,6 +296,7 @@ jobs:
 
       - name: Evaluate keepalive state
         id: evaluate
+        if: steps.fingerprint.outputs.should_run == 'true'
         uses: actions/github-script@v9
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
@@ -368,9 +441,10 @@ jobs:
 
       - name: Verify task appendix artifact
         if: >
-          steps.evaluate.outputs.action == 'run' ||
+          steps.fingerprint.outputs.should_run == 'true' &&
+          (steps.evaluate.outputs.action == 'run' ||
           steps.evaluate.outputs.action == 'fix' ||
-          steps.evaluate.outputs.action == 'conflict'
+          steps.evaluate.outputs.action == 'conflict')
         run: |
           if [ ! -f /tmp/keepalive-artifacts/task-appendix.txt ]; then
             echo "ERROR: Task appendix file not created by evaluate step"
@@ -380,9 +454,10 @@ jobs:
 
       - name: Upload task appendix artifact
         if: >
-          steps.evaluate.outputs.action == 'run' ||
+          steps.fingerprint.outputs.should_run == 'true' &&
+          (steps.evaluate.outputs.action == 'run' ||
           steps.evaluate.outputs.action == 'fix' ||
-          steps.evaluate.outputs.action == 'conflict'
+          steps.evaluate.outputs.action == 'conflict')
         uses: actions/upload-artifact@v7
         with:
           name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
@@ -468,6 +543,7 @@ jobs:
   test-job:
     name: Test job creation
     needs: evaluate
+    if: needs.evaluate.outputs.fingerprint_should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - run: |

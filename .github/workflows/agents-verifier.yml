@@ -86,6 +86,8 @@ jobs:
       model2: ${{ steps.check.outputs.model2 }}
       provider: ${{ steps.check.outputs.provider }}
       pr_number: ${{ steps.check.outputs.pr_number }}
+      fingerprint_should_run: ${{ steps.fingerprint.outputs.should_run || 'true' }}
+      fingerprint_reason: ${{ steps.fingerprint.outputs.reason }}
     steps:
       - name: Checkout retry helpers
         uses: actions/checkout@v6
@@ -94,6 +96,7 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            scripts/state_fingerprint.py
           sparse-checkout-cone-mode: false
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -206,9 +209,90 @@ jobs:
             core.setOutput('provider', '');
             core.setOutput('pr_number', pr.number.toString());
 
+      - name: Compute state fingerprint
+        id: fingerprint
+        if: steps.check.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.check.outputs.pr_number }}
+        run: |
+          python - <<'PY' > /tmp/state-fingerprint-inputs.json
+          import hashlib
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GITHUB_TOKEN"]
+          pr_number = os.environ["PR_NUMBER"]
+          headers = {
+              "Accept": "application/vnd.github+json",
+              "Authorization": f"Bearer {token}",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+
+          def api(path):
+              request = urllib.request.Request(f"https://api.github.com{path}", headers=headers)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.loads(response.read().decode("utf-8"))
+
+          def paged(path):
+              results = []
+              page = 1
+              while True:
+                  separator = "&" if "?" in path else "?"
+                  batch = api(f"{path}{separator}{urllib.parse.urlencode({'per_page': 100, 'page': page})}")
+                  results.extend(batch)
+                  if len(batch) < 100:
+                      return results
+                  page += 1
+
+          pr = api(f"/repos/{repo}/pulls/{pr_number}")
+          files = paged(f"/repos/{repo}/pulls/{pr_number}/files")
+          labels = api(f"/repos/{repo}/issues/{pr_number}/labels")
+          diff_surface = [
+              {
+                  "filename": item.get("filename", ""),
+                  "status": item.get("status", ""),
+                  "sha": item.get("sha", ""),
+                  "additions": item.get("additions", 0),
+                  "deletions": item.get("deletions", 0),
+                  "changes": item.get("changes", 0),
+              }
+              for item in files
+          ]
+          diff_hash = hashlib.sha256(
+              json.dumps(diff_surface, sort_keys=True, separators=(",", ":")).encode("utf-8")
+          ).hexdigest()
+          payload = {
+              "pr_number": int(pr_number),
+              "head_sha": pr.get("head", {}).get("sha", ""),
+              "diff_hash": diff_hash,
+              "verifier_trigger_labels": sorted(
+                  label.get("name", "")
+                  for label in labels
+                  if label.get("name", "").startswith("verify:")
+              ),
+          }
+          print(json.dumps(payload, sort_keys=True))
+          PY
+
+          python scripts/state_fingerprint.py compare \
+            --workflow "${GITHUB_WORKFLOW}" \
+            --inputs "$(cat /tmp/state-fingerprint-inputs.json)" \
+            --storage pr-comment
+
+      - name: Report unchanged state skip
+        if: steps.fingerprint.outputs.should_run == 'false'
+        run: echo "Skipped - ${{ steps.fingerprint.outputs.reason }}"
+
   verifier:
     needs: check
-    if: needs.check.outputs.should_run == 'true'
+    if: >-
+      needs.check.outputs.should_run == 'true' &&
+      needs.check.outputs.fingerprint_should_run == 'true'
     uses: stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main
     with:
       # CI workflows to wait for before running verifier (Gate + PR 11 + selftest CI)
