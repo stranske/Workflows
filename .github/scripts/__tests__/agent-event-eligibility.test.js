@@ -3,7 +3,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { evaluateEligibility } = require('../../actions/agent-event-eligibility/eligibility');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const { evaluateEligibility, extractLabels } = require('../../actions/agent-event-eligibility/eligibility');
 
 const issuePayload = (overrides = {}) => ({
   action: 'labeled',
@@ -110,7 +113,28 @@ test('warning mode bypasses denied decisions', () => {
   });
 
   assert.equal(result.shouldRun, true);
+  assert.equal(result.warningModeBypassed, true);
   assert.match(result.reason, /warning mode bypassed denial/);
+});
+
+test('unlabeled events do not keep the removed label in the current set', () => {
+  const labels = extractLabels(issuePayload({
+    action: 'unlabeled',
+    label: { name: 'agent:codex' },
+    issue: { labels: [{ name: 'agents:auto-pilot' }] },
+  }));
+
+  assert.deepEqual(labels, ['agents:auto-pilot']);
+});
+
+test('event-name input default stays blank so runtime env fallback is used', () => {
+  const actionMetadata = fs.readFileSync(
+    path.join(__dirname, '../../actions/agent-event-eligibility/action.yml'),
+    'utf8',
+  );
+
+  assert.match(actionMetadata, /event-name:[\s\S]*?default: ''/);
+  assert.doesNotMatch(actionMetadata, /default: \$\{\{ github\.event_name \}\}/);
 });
 
 test('denies forbidden labels before expected label allow-list', () => {

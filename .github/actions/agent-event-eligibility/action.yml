@@ -4,7 +4,7 @@ inputs:
   event-name:
     description: GitHub event name. Defaults to github.event_name.
     required: false
-    default: ${{ github.event_name }}
+    default: ''
   expected-labels:
     description: Comma-separated label allow-list. Empty means no label gate.
     required: false

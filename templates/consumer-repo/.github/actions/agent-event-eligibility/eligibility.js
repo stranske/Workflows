@@ -36,7 +36,7 @@ function extractLabels(payload) {
   for (const item of payload?.issue?.labels || []) labels.push(labelName(item));
   for (const item of payload?.pull_request?.labels || []) labels.push(labelName(item));
   for (const item of payload?.discussion?.labels || []) labels.push(labelName(item));
-  if (payload?.label) labels.push(labelName(payload.label));
+  if (payload?.label && payload.action !== 'unlabeled') labels.push(labelName(payload.label));
   return unique(labels.map((item) => item.trim()).filter(Boolean));
 }
 
@@ -278,6 +278,7 @@ function applyMode(result, mode) {
     shouldRun: true,
     reason: `warning mode bypassed denial: ${result.reason}`,
     matchedLabel: result.matchedLabel || '',
+    warningModeBypassed: true,
   };
 }
 
@@ -388,7 +389,7 @@ function main() {
   writeOutput('reason', result.reason);
   writeOutput('matched-label', result.matchedLabel || '');
 
-  const annotation = result.shouldRun ? 'notice' : 'warning';
+  const annotation = result.warningModeBypassed || !result.shouldRun ? 'warning' : 'notice';
   console.log(`::${annotation}::agent-event-eligibility ${result.shouldRun ? 'allowed' : 'denied'}: ${result.reason}`);
 }
 
