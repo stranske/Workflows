@@ -11,7 +11,7 @@ TARGET = ROOT / "automation_multifailure.py"
 def _rewrite(text: str) -> tuple[str, bool]:
     if '" | ".join' in text or "' | '.join" in text:
         return text, False
-    replaced = text.replace('",".join', '" | ".join').replace("',' .join", '" | ".join')
+    replaced = text.replace('",".join', '" | ".join').replace("','.join", '" | ".join')
     changed = replaced != text
     return replaced, changed
 
