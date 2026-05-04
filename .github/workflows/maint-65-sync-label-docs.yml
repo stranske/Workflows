@@ -35,6 +35,7 @@ jobs:
             docs/LABELS.md
             .github/workflows/maint-68-sync-consumer-repos.yml
             scripts/list_registered_consumer_repos.py
+            scripts/sync_label_docs.py
           sparse-checkout-cone-mode: false
 
       - name: Verify source file exists
@@ -80,7 +81,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Determine repos to sync
           if [ -n "${CUSTOM_REPOS:-}" ]; then
             repos="${CUSTOM_REPOS}"
           else
@@ -88,63 +88,7 @@ jobs:
           fi
 
           echo "Syncing to repos: ${repos}"
-
-          # Process each repo
-          IFS=',' read -ra REPO_ARRAY <<< "$repos"
-          for repo in "${REPO_ARRAY[@]}"; do
-            repo=$(echo "$repo" | xargs)  # Trim whitespace
-            [ -z "$repo" ] && continue
-
-            echo "## Syncing to ${repo}"
-
-            # Create a temporary directory for the clone
-            tmpdir=$(mktemp -d)
-            trap 'rm -rf "$tmpdir"' EXIT
-
-            # Clone the target repo
-            clone_url="https://x-access-token:${SYNC_TOKEN}@github.com/${repo}.git"
-            if ! git clone --depth 1 "$clone_url" "$tmpdir" 2>/dev/null; then
-              echo "WARNING: Failed to clone ${repo} - skipping"
-              continue
-            fi
-
-            # Ensure docs directory exists
-            mkdir -p "$tmpdir/docs"
-
-            # Copy the labels file
-            cp docs/LABELS.md "$tmpdir/docs/LABELS.md"
-
-            # Check for changes
-            cd "$tmpdir"
-            if git diff --quiet docs/LABELS.md 2>/dev/null; then
-              echo "No changes needed for ${repo}"
-              cd - > /dev/null
-              continue
-            fi
-
-            # Commit and push if not dry run
-            if [ "${DRY_RUN}" = "true" ]; then
-              echo "DRY RUN: Would update docs/LABELS.md in ${repo}"
-              git diff docs/LABELS.md || true
-            else
-              git config user.name "github-actions[bot]"
-              git config user.email "github-actions[bot]@users.noreply.github.com"
-              git add docs/LABELS.md
-              git commit -m "docs: sync LABELS.md from Workflows repository"
-
-              if git push; then
-                echo "Successfully synced to ${repo}"
-              else
-                echo "WARNING: Failed to push to ${repo}"
-              fi
-            fi
-
-            cd - > /dev/null
-            rm -rf "$tmpdir"
-            trap - EXIT
-
-            echo "Processing complete for ${repo}"
-          done
+          python scripts/sync_label_docs.py --repos "${repos}" --source docs/LABELS.md
 
       - name: Summary
         run: |
