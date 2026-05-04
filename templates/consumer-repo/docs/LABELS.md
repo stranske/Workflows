@@ -339,7 +339,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Use Case:** User-triggered creation of follow-up work from verification feedback. Replaces automatic issue creation which was too aggressive.
 
-**Workflow:** `agents-verify-to-issue-v2.yml`
+**Workflow:** `agents-80-pr-event-hub.yml`
 
 ---
 
@@ -377,7 +377,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **To Resume:** Remove the `agents:paused` label.
 
-**Workflow:** `agents-keepalive-loop.yml`
+**Workflow:** `agents-81-gate-followups.yml`
 
 ---
 
@@ -396,7 +396,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 - PR must have an `agent:*` label
 - Gate workflow must pass
 
-**Workflow:** `agents-keepalive-loop.yml`
+**Workflow:** `agents-81-gate-followups.yml`
 
 ---
 
@@ -410,7 +410,7 @@ These labels are used for categorization but do not trigger workflows.
 
 **Effect:** Indicates this issue was created as follow-up to another issue or PR.
 
-**Applied by:** `agents-verify-to-issue-v2.yml` workflow
+**Applied by:** `agents-80-pr-event-hub.yml` workflow
 
 ---
 

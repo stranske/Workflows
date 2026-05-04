@@ -1,6 +1,4 @@
 # Consolidated PR event hub for consumer repos.
-# Replaces agents-pr-meta.yml, agents-bot-comment-handler.yml, and agents-verify-to-issue-v2.yml
-# when USE_CONSOLIDATED_WORKFLOWS is enabled.
 
 name: Agents PR Event Hub
 

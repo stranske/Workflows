@@ -881,7 +881,7 @@ jobs:
               per_page: 100,
             });
 
-            const workflowFile = 'agents-autofix-loop.yml';
+            const workflowFile = 'agents-81-gate-followups.yml';
             // Reduce attempts for auto-escalated PRs (they weren't agent-initiated)
             const isEscalated = labels.includes('autofix:escalated');
               const maxAttempts = isEscalated

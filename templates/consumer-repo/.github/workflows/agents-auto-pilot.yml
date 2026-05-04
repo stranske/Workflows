@@ -2742,39 +2742,40 @@ jobs:
                 ? `✅ Added labels: \`agent:${agentKey}\`, \`agents:keepalive\`, \`autofix\``
                 : '⚠️ Could not add labels (add manually)';
 
-              // Dispatch PR meta workflow to build Automated Status Summary
+              // Dispatch PR event hub to build Automated Status Summary
               // (GITHUB_TOKEN actions do not trigger workflow runs automatically)
               try {
                 await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  workflow_id: 'agents-pr-meta.yml',
+                  workflow_id: 'agents-80-pr-event-hub.yml',
                   ref: baseBranch,
                   inputs: {
                     pr_number: pr.number.toString(),
+                    handler: 'pr-meta',
                     debug: 'false'
                   }
                 }));
-                core.info(`Dispatched PR meta update for PR #${pr.number}`);
+                core.info(`Dispatched PR event hub update for PR #${pr.number}`);
               } catch (dispatchError) {
-                core.warning(`Could not dispatch PR meta update: ${dispatchError?.message}`);
+                core.warning(`Could not dispatch PR event hub update: ${dispatchError?.message}`);
               }
 
-              // Dispatch keepalive workflow since GITHUB_TOKEN labels don't trigger it
+              // Dispatch gate followups workflow since GITHUB_TOKEN labels don't trigger it
               try {
                 await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  workflow_id: 'agents-keepalive-loop.yml',
+                  workflow_id: 'agents-81-gate-followups.yml',
                   ref: baseBranch,
                   inputs: {
                     pr_number: pr.number.toString(),
                     force_retry: 'true'
                   }
                 }));
-                core.info(`Dispatched keepalive for PR #${pr.number}`);
+                core.info(`Dispatched gate followups for PR #${pr.number}`);
               } catch (dispatchError) {
-                core.warning(`Could not dispatch keepalive: ${dispatchError?.message}`);
+                core.warning(`Could not dispatch gate followups: ${dispatchError?.message}`);
               }
 
               // Add PR link comment to the issue with full URL for visibility

@@ -46,7 +46,13 @@ WORKFLOWS_ONLY = {
     "agents-63-issue-intake.yml",  # consumers have agents-issue-intake.yml
     "agents-64-verify-agent-assignment.yml",  # verification is different
     "agents-70-orchestrator.yml",  # consumers have agents-orchestrator.yml
-    "agents-pr-meta-v4.yml",  # consumers have agents-pr-meta.yml
+    "agents-pr-meta-v4.yml",  # consumers have agents-80-pr-event-hub.yml
+    # First-party workflows retained in Workflows; consumer templates use
+    # agents-80-pr-event-hub.yml and agents-81-gate-followups.yml instead.
+    "agents-autofix-loop.yml",
+    "agents-bot-comment-handler.yml",
+    "agents-keepalive-loop.yml",
+    "agents-verify-to-issue-v2.yml",
     # Reusable workflows called FROM Workflows only
     "reusable-agents-verifier.yml",
     "reusable-codex-run.yml",

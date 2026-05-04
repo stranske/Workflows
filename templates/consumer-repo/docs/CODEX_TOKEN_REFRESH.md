@@ -39,7 +39,7 @@ gh secret set CODEX_AUTH_JSON < ~/.codex/auth.json
 ### 3. Verify
 
 ```bash
-gh workflow run agents-keepalive-loop.yml
+gh workflow run agents-81-gate-followups.yml -f pr_number=<pr-number> -f force_retry=true
 # Check logs for new expiration date
 ```
 

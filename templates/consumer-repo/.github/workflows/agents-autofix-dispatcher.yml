@@ -41,18 +41,11 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ steps.app_token.outputs.token || github.token }}
 
-      - name: Dispatch autofix workflow
+      - name: Acknowledge consolidated autofix handling
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              task: 'dispatch-autofix-loop',
-            });
-
             const payload = context.payload.client_payload || {};
             const prNumber = Number(payload.pr_number);
             const gateRunId = String(payload.gate_run_id || '');
@@ -65,32 +58,8 @@ jobs:
               core.setFailed('Missing gate_run_id in payload');
               return;
             }
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const defaultBranch = context.payload.repository?.default_branch || 'main';
-            const ref = `refs/heads/${defaultBranch}`;
-            try {
-              await withRetry((client) =>
-                client.request(
-                  'POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches',
-                  {
-                    owner,
-                    repo,
-                    workflow_id: 'agents-autofix-loop.yml',
-                    ref,
-                    inputs: {
-                      gate_run_id: gateRunId,
-                      pr_number: String(prNumber),
-                      head_sha: headSha,
-                    },
-                  }
-                )
-              );
-              const shaNote = headSha ? `, headSha=${headSha}` : '';
-              const trace = `gateRunId=${gateRunId}${shaNote}`;
-              core.info(
-                `Triggered agents-autofix-loop for PR #${prNumber} (${trace}).`
-              );
-            } catch (error) {
-              core.setFailed(`Failed to dispatch autofix workflow: ${error.message}`);
-            }
+            const shaNote = headSha ? `, headSha=${headSha}` : '';
+            const trace = `gateRunId=${gateRunId}${shaNote}`;
+            core.info(
+              `Autofix for PR #${prNumber} is handled by agents-81-gate-followups via Gate workflow_run (${trace}).`
+            );

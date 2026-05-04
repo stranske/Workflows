@@ -29,26 +29,21 @@ the centralized CI and automation workflows from stranske/Workflows.
 | `agents-issue-optimizer.yml` | Formats issues using LangChain | `OPENAI_API_KEY` (optional) |
 | `agents-80-pr-event-hub.yml` | Consolidated PR event handling (pr-meta, bot comments, verify-to-issue) | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
 | `agents-81-gate-followups.yml` | Consolidated Gate follow-ups (keepalive, autofix, post-CI) | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
-| `agents-keepalive-loop.yml` | Runs Codex CLI after Gate passes | `CODEX_AUTH_JSON` or `WORKFLOWS_APP_*` |
-| `agents-pr-meta.yml` | Updates PR status summaries | `SERVICE_BOT_PAT` |
 | `agents-orchestrator.yml` | (Legacy) Scheduled keepalive sweeps | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
-| `agents-bot-comment-handler.yml` | Processes @codex commands | `SERVICE_BOT_PAT` |
 | `agents-guard.yml` | Security gate for agent workflows | None |
 | `agents-verifier.yml` | Validates agent completions | `SERVICE_BOT_PAT` |
-| `agents-autofix-loop.yml` | Autofix integration with keepalive | `SERVICE_BOT_PAT` |
 | `agents-auto-pilot.yml` | End-to-end automation orchestrator | None |
 
-**Deprecation notice (consumer repos):** `agents-pr-meta.yml`, `agents-bot-comment-handler.yml`,
-`agents-verify-to-issue-v2.yml`, `agents-keepalive-loop.yml`, and `agents-autofix-loop.yml` are
-deprecated in favor of `agents-80-pr-event-hub.yml` and `agents-81-gate-followups.yml`. Legacy
-workflows remain supported through **2026-02-15** to allow migration.
+**Deprecation notice (consumer repos):** legacy split PR metadata, bot comment,
+verify-to-issue, keepalive, and autofix template workflows were removed after
+their **2026-02-15** deadline. Use `agents-80-pr-event-hub.yml` and
+`agents-81-gate-followups.yml`.
 
 **Migration toggle:** set repository variable `USE_CONSOLIDATED_WORKFLOWS=true` to enable the
-consolidated hubs. Legacy workflows will skip when this flag is set.
+consolidated hubs.
 
 **Note:** `agents-orchestrator.yml` is legacy. New setups should use `agents-81-gate-followups.yml`
-or `agents-keepalive-loop.yml` (during the notice window) which integrates with the Gate workflow
-for more reliable triggering.
+which integrates with the Gate workflow for more reliable triggering.
 
 ## Architecture
 
@@ -90,15 +85,15 @@ The current keepalive system uses a **Gate-triggered loop** rather than schedule
 ```
 1. PR labeled with agent:codex
 2. Gate workflow completes (success/failure)
-3. agents-keepalive-loop evaluates conditions
+3. agents-81-gate-followups evaluates conditions
 4. If eligible, runs Codex CLI via reusable-codex-run.yml
 5. Codex makes changes, pushes commits
 6. Gate runs again → loop continues
 ```
 
 Key components:
-- **agents-keepalive-loop.yml**: Triggered by Gate completion, PR labels
-- **agents-pr-meta.yml**: Updates PR status summary with task progress
+- **agents-81-gate-followups.yml**: Triggered by Gate completion, PR labels
+- **agents-80-pr-event-hub.yml**: Updates PR status summary with task progress
 - **agents-guard.yml**: Security checks before agent execution
 - **agents-auto-pilot.yml**: End-to-end orchestrator (format → optimize → agent → verify)
 - **.github/codex/prompts/**: Agent instruction templates
@@ -232,7 +227,7 @@ Keepalive dispatches an agent only when **ALL** conditions are met:
 
 ### Progress Tracking
 - Agent updates checkboxes in PR body after completing tasks
-- `agents-pr-meta.yml` extracts task status and updates summary
+- `agents-80-pr-event-hub.yml` extracts task status and updates summary
 - Keepalive stops when all acceptance criteria are checked complete
 
 ### Failure Handling
@@ -259,7 +254,7 @@ with:
 ```
 
 ### Keepalive Timing
-Adjust schedule in `agents-keepalive-loop.yml`:
+Adjust schedule in `agents-81-gate-followups.yml`:
 ```yaml
 concurrency:
   group: keepalive-${{ github.event.workflow_run.pull_requests[0].number || ... }}
@@ -303,11 +298,11 @@ When using agent workflows, the recommended flow is:
 
 3. **agents-issue-intake.yml** creates a PR from the issue
 
-4. **agents-pr-meta.yml** parses issue and updates PR body with Automated Status Summary
+4. **agents-80-pr-event-hub.yml** parses issue and updates PR body with Automated Status Summary
 
 5. **Gate workflow** runs (CI checks)
 
-6. **agents-keepalive-loop.yml** triggers after Gate:
+6. **agents-81-gate-followups.yml** triggers after Gate:
    - Evaluates if eligible (checklist has unchecked items)
    - Runs Codex CLI with task context
    - Codex implements changes and pushes
@@ -327,7 +322,7 @@ When using agent workflows, the recommended flow is:
 
 **2. No Automated Status Summary**
 - Ensure issue has Scope/Tasks/Acceptance sections
-- Run `agents-pr-meta.yml` manually via workflow_dispatch
+- Run `agents-80-pr-event-hub.yml` manually via workflow_dispatch
 - Check PR description links to source issue (e.g., `#123`)
 
 **3. Codex not making changes**
@@ -338,7 +333,7 @@ When using agent workflows, the recommended flow is:
 
 **4. "Missing repo context" errors**
 - Consumer repo using old template without dual checkout
-- Update to current `agents-keepalive-loop.yml` template
+- Update to current `agents-81-gate-followups.yml` template
 - Ensure `workflows-lib` checkout step is present
 
 **5. Permission errors**
@@ -356,10 +351,10 @@ This runs workflows in preview mode without making actual changes.
 
 ## Migration from Legacy Orchestrator
 
-If migrating from `agents-orchestrator.yml` to `agents-keepalive-loop.yml`:
+If migrating from `agents-orchestrator.yml` to `agents-81-gate-followups.yml`:
 
 1. **Add Gate workflow** (`pr-00-gate.yml`) if not present
-2. **Copy new keepalive-loop** template
+2. **Copy the gate followups** template
 3. **Update concurrency groups** to use PR number
 4. **Test with dry_run** enabled
 5. **Remove orchestrator** workflow once confirmed working

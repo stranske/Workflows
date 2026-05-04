@@ -505,7 +505,7 @@ Orchestrates entire pipeline:
 1. PR must be merged
 2. PR must have verification comment (from `verify:evaluate` or `verify:compare`)
 3. Verification comment must contain concerns or low scores
-4. Check `agents-verify-to-issue-v2.yml` logs
+4. Check `agents-80-pr-event-hub.yml` logs
 
 ---
 
