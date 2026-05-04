@@ -51,6 +51,20 @@ def test_issue2_historic_excluded_set_matches_contract() -> None:
     assert tuple(contract["historically_excluded_test_files"]) == HISTORIC_EXCLUDED_WORKFLOW_PATHS
 
 
+def test_issue2_historic_excluded_files_remain_pytest_discoverable() -> None:
+    contract = json.loads(
+        (ROOT / "tests/workflows/fixtures/issue2_autofix_import_contract.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for relative_path in contract["import_contract_test_files"]:
+        path = ROOT / relative_path
+        assert path.is_file()
+        assert path.suffix == ".py"
+        assert path.name.startswith("test_")
+        assert Path(relative_path).parts[:2] == ("tests", "workflows")
+
+
 def test_issue2_autofix_stub_modules_are_importable() -> None:
     expected_modules = (
         "scripts.fix_cosmetic_aggregate",
