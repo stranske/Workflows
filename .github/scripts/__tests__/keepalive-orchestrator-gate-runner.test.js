@@ -413,7 +413,21 @@ test('runKeepaliveGate converts checklist-complete draft PRs to ready for review
   const pr = makePullRequest({
     draft: true,
     labels: ['agents:keepalive', 'agent:codex'],
-    body: '- [x] Acceptance covered\n- [x] Tests pass',
+    body: [
+      '### Review Checklist',
+      '- [ ] CI passes with updated workflows',
+      '- [ ] No repo-specific customizations were overwritten',
+      '',
+      '<!-- auto-status-summary:start -->',
+      '## Automated Status Summary',
+      '',
+      '#### Tasks',
+      '- [x] Acceptance covered',
+      '',
+      '#### Acceptance Criteria',
+      '- [x] Tests pass',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n'),
   });
   const github = createGithub({
     pull: pr,
@@ -435,6 +449,7 @@ test('runKeepaliveGate converts checklist-complete draft PRs to ready for review
   assert.equal(outputs.reason, '');
   assert.equal(github.__calls.graphql.length, 1);
   assert.equal(github.__calls.graphql[0].variables.pullRequestId, 'PR_node_17');
+  assert.equal(github.__calls.commentsCreated.length, 0);
   assert.ok(summary.entries.some((entry) => entry.text?.includes('marked ready for review')));
   restore();
 });
@@ -447,7 +462,20 @@ test('runKeepaliveGate routes incomplete draft PRs to human', async () => {
   const pr = makePullRequest({
     draft: true,
     labels: ['agents:keepalive', 'agent:codex'],
-    body: '- [x] Implementation started\n- [ ] Acceptance complete',
+    body: [
+      '### Review Checklist',
+      '- [x] CI passes with updated workflows',
+      '',
+      '<!-- auto-status-summary:start -->',
+      '## Automated Status Summary',
+      '',
+      '#### Tasks',
+      '- [x] Implementation started',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] Acceptance complete',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n'),
   });
   const github = createGithub({ pull: pr });
 
@@ -465,5 +493,35 @@ test('runKeepaliveGate routes incomplete draft PRs to human', async () => {
   ]);
   assert.equal(github.__calls.commentsCreated.length, 1);
   assert.match(github.__calls.commentsCreated[0].body, /Draft PR requires human disposition/);
+  restore();
+});
+
+test('runKeepaliveGate ignores PR-template checkboxes when deciding draft readiness', async () => {
+  const { core, outputs } = createCore();
+  const gateStub = async () => createGateResult();
+  const { runKeepaliveGate, restore } = loadRunnerWithGate(gateStub);
+
+  const pr = makePullRequest({
+    draft: true,
+    labels: ['agents:keepalive', 'agent:codex'],
+    body: [
+      '### Review Checklist',
+      '- [x] CI passes with updated workflows',
+      '- [x] No repo-specific customizations were overwritten',
+    ].join('\n'),
+  });
+  const github = createGithub({ pull: pr });
+
+  await runKeepaliveGate({
+    core,
+    github,
+    context: { repo: { owner: 'octo', repo: 'demo' }, runId: 45 },
+    env: makeEnv({ KEEPALIVE_MAX_RETRIES: '5' }),
+  });
+
+  assert.equal(outputs.proceed, 'false');
+  assert.equal(outputs.reason, 'pr-draft-needs-human');
+  assert.equal(github.__calls.graphql.length, 0);
+  assert.equal(github.__calls.commentsCreated.length, 1);
   restore();
 });

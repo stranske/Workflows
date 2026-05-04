@@ -333,9 +333,8 @@ These labels trigger the post-merge verifier workflow on a merged PR.
    - Extracted concerns from verification
    - Scores below 7/10
    - Suggested tasks for addressing issues
-3. Posts comment on original PR linking to new issue
-4. Removes the `verify:create-issue` label after completion
-5. Adds `agents:optimize` label to new issue for agent formatting
+3. Labels the follow-up issue with `agents:auto-pilot` and `from:verification`
+4. Removes the `verify:create-issue` label after processing
 
 **Use Case:** User-triggered creation of follow-up work from verification feedback. Replaces automatic issue creation which was too aggressive.
 

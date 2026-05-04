@@ -14,6 +14,8 @@ const PAUSE_LABEL = 'agents:paused';
 const NEEDS_HUMAN_LABEL = 'needs-human';
 const NEEDS_ATTENTION_LABEL = 'agent:needs-attention';
 const DRAFT_DISPOSITION_MARKER = '<!-- keepalive-draft-disposition -->';
+const TASK_SECTION_ALIASES = new Set(['tasks', 'task', 'task list', 'implementation', 'to do', 'todo', 'to-do']);
+const ACCEPTANCE_SECTION_ALIASES = new Set(['acceptance criteria', 'acceptance', 'definition of done', 'done criteria']);
 
 function normaliseLabelName(label) {
   if (!label) {
@@ -77,6 +79,65 @@ function countMarkdownCheckboxes(body) {
     }
   }
   return counts;
+}
+
+function countDraftDispositionCheckboxes(body) {
+  const normalized = String(body || '').replace(/\r\n/g, '\n');
+  const startMarker = '<!-- auto-status-summary:start -->';
+  const endMarker = '<!-- auto-status-summary:end -->';
+  const startIndex = normalized.indexOf(startMarker);
+  const endIndex = normalized.indexOf(endMarker);
+  const segment = startIndex !== -1 && endIndex !== -1 && endIndex > startIndex
+    ? normalized.slice(startIndex + startMarker.length, endIndex)
+    : normalized;
+  const lines = segment.split('\n');
+  const scopedLines = [];
+  let section = '';
+  let insideCodeBlock = false;
+
+  const normaliseHeading = (line) => {
+    const trimmed = String(line || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+    let value = trimmed.replace(/^#{1,6}\s+/, '');
+    const boldMatch = value.match(/^(?:\*\*|__)(.+?)(?:\*\*|__)\s*:?\s*$/);
+    if (boldMatch) {
+      value = boldMatch[1];
+    }
+    return value.replace(/\s*:\s*$/, '').trim().toLowerCase();
+  };
+
+  const isHeading = (line) => {
+    const trimmed = String(line || '').trim();
+    return /^#{1,6}\s+\S/.test(trimmed) || /^(?:\*\*|__)(.+?)(?:\*\*|__)\s*:?\s*$/.test(trimmed);
+  };
+
+  for (const line of lines) {
+    if (/^(`{3,}|~{3,})/.test(line.trim())) {
+      insideCodeBlock = !insideCodeBlock;
+      continue;
+    }
+    if (insideCodeBlock) {
+      continue;
+    }
+    if (isHeading(line)) {
+      const heading = normaliseHeading(line);
+      if (TASK_SECTION_ALIASES.has(heading)) {
+        section = 'tasks';
+      } else if (ACCEPTANCE_SECTION_ALIASES.has(heading)) {
+        section = 'acceptance';
+      } else if (section) {
+        section = '';
+      }
+      continue;
+    }
+    if (section === 'tasks' || section === 'acceptance') {
+      scopedLines.push(line);
+    }
+  }
+
+  return countMarkdownCheckboxes(scopedLines.join('\n'));
 }
 
 async function addLabelsIfMissing({ github, owner, repo, prNumber, labels, currentLabels, core, summary }) {
@@ -394,14 +455,15 @@ async function runKeepaliveGate({ core, github, context, env }) {
     }
     let draftRequiresHuman = false;
     if (pr.draft) {
-      const checkboxCounts = countMarkdownCheckboxes(pr.body || '');
+      const checkboxCounts = countDraftDispositionCheckboxes(pr.body || '');
       summary
         .addRaw(
-          `Pull request is draft; evaluating disposition (checked=${checkboxCounts.checked}, unchecked=${checkboxCounts.unchecked}).`
+          `Pull request is draft; evaluating keepalive checklist disposition (checked=${checkboxCounts.checked}, unchecked=${checkboxCounts.unchecked}).`
         )
         .addEOL();
 
-      const allChecklistWorkComplete = checkboxCounts.checked > 0 && checkboxCounts.unchecked === 0;
+      const totalChecklistItems = checkboxCounts.checked + checkboxCounts.unchecked;
+      const allChecklistWorkComplete = totalChecklistItems > 0 && checkboxCounts.unchecked === 0;
       if (allChecklistWorkComplete) {
         const ready = await markDraftReadyForReview({ github, pr, core, summary });
         if (ready) {

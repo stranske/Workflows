@@ -85,6 +85,25 @@ MISSING_CONCERNS_VERDICTS = {
     "not ready",
 }
 NON_PASS_DETAIL_LIMIT = 10
+REPO_LOCAL_HINTS = (
+    "staging_",
+    "migration",
+    "database",
+    "schema",
+    "table",
+    "pytest",
+    "test_database_strategy",
+)
+WORKFLOW_SYNC_HINTS = (
+    "workflows-owned scripts",
+    ".github/workflows/",
+    ".github/ template",
+    "workflow-sync",
+    "template directories",
+    "aggregate_agent_metrics.py",
+    "source_context.js",
+    "agents_pr_meta_update_body.js",
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -257,6 +276,42 @@ def _is_advisory_concern(concern: str) -> bool:
     if any(re.search(pattern, text) for pattern in BLOCKING_HINTS):
         return False
     return any(re.search(pattern, text) for pattern in ADVISORY_PATTERNS)
+
+
+def _select_followup_acceptance_criteria(
+    acceptance_criteria: list[str], blocking_concerns: list[str]
+) -> list[str]:
+    """Keep follow-up acceptance criteria aligned with the active concern surface."""
+    if not acceptance_criteria:
+        return []
+
+    concern_text = " ".join(blocking_concerns).lower()
+    acceptance_text = " ".join(acceptance_criteria).lower()
+    has_repo_local_acceptance = any(hint in acceptance_text for hint in REPO_LOCAL_HINTS)
+    has_workflow_sync_acceptance = any(hint in acceptance_text for hint in WORKFLOW_SYNC_HINTS)
+    repo_local_focus = any(hint in concern_text for hint in REPO_LOCAL_HINTS) or (
+        has_repo_local_acceptance and has_workflow_sync_acceptance
+    )
+    if not repo_local_focus:
+        return acceptance_criteria[:10]
+
+    filtered = [
+        criterion
+        for criterion in acceptance_criteria
+        if not any(hint in criterion.lower() for hint in WORKFLOW_SYNC_HINTS)
+    ]
+    return (filtered or acceptance_criteria)[:10]
+
+
+def _should_emphasize_repo_local_summary(
+    acceptance_criteria: list[str], concerns: list[str]
+) -> bool:
+    acceptance_text = " ".join(acceptance_criteria).lower()
+    concern_text = " ".join(concerns).lower()
+    has_repo_local_acceptance = any(hint in acceptance_text for hint in REPO_LOCAL_HINTS)
+    has_workflow_sync_acceptance = any(hint in acceptance_text for hint in WORKFLOW_SYNC_HINTS)
+    has_repo_local_concern = any(hint in concern_text for hint in REPO_LOCAL_HINTS)
+    return has_repo_local_concern or (has_repo_local_acceptance and has_workflow_sync_acceptance)
 
 
 def _split_concerns(concerns: list[str]) -> tuple[list[str], list[str]]:
@@ -1575,8 +1630,10 @@ def _generate_without_llm(
             task = f"Address: {task}"
         tasks.append(task)
 
-    # Use original unmet acceptance criteria
-    acceptance_criteria = original_issue.acceptance_criteria[:10]
+    # Keep acceptance criteria focused on the active implementation surface.
+    acceptance_criteria = _select_followup_acceptance_criteria(
+        original_issue.acceptance_criteria, blocking_concerns
+    )
 
     # Build body
     body_parts = [
@@ -1765,6 +1822,14 @@ def _build_why_section(
 
     if needs_human_reason:
         parts.append(needs_human_reason)
+
+    if _should_emphasize_repo_local_summary(
+        original_issue.acceptance_criteria, verification_data.concerns
+    ):
+        parts.append(
+            "The follow-up scope is repo-local: keep the PR summary centered on "
+            "migration and database-test evidence and avoid unrelated workflow-sync criteria."
+        )
 
     parts.append("This follow-up addresses the remaining gaps with improved task structure.")
 
