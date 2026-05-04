@@ -569,6 +569,10 @@ templates:
 
 # Actions required by reusable workflows
 actions:
+  - source: .github/actions/agent-event-eligibility/
+    is_directory: true
+    description: "Agent event eligibility action - early no-op gate for agent workflows"
+
   - source: .github/actions/setup-api-client/
     is_directory: true
     description: "Unified API client setup - installs @octokit deps and exports all load balancer tokens"

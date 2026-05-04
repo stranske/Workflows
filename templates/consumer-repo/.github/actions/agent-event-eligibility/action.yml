@@ -1,0 +1,56 @@
+name: Agent event eligibility
+description: Decide whether an agent workflow event warrants running before expensive setup.
+inputs:
+  event-name:
+    description: GitHub event name. Defaults to github.event_name.
+    required: false
+    default: ${{ github.event_name }}
+  expected-labels:
+    description: Comma-separated label allow-list. Empty means no label gate.
+    required: false
+    default: ''
+  forbidden-labels:
+    description: Comma-separated label block-list.
+    required: false
+    default: ''
+  expected-actors:
+    description: Comma-separated actor allow-list. Empty means no actor gate.
+    required: false
+    default: ''
+  expected-actions:
+    description: Comma-separated event action allow-list, or event names for events without an action.
+    required: false
+    default: ''
+  custom-predicate:
+    description: JMESPath-style predicate evaluated against the event payload. Must be truthy when supplied.
+    required: false
+    default: ''
+  mode:
+    description: Eligibility mode. Use enforce to skip denied events, or warning to report denials without skipping.
+    required: false
+    default: enforce
+outputs:
+  should-run:
+    description: 'true when the event passes eligibility, otherwise false'
+    value: ${{ steps.evaluate.outputs.should-run }}
+  reason:
+    description: Human-readable eligibility decision reason.
+    value: ${{ steps.evaluate.outputs.reason }}
+  matched-label:
+    description: Expected label that matched, when applicable.
+    value: ${{ steps.evaluate.outputs.matched-label }}
+runs:
+  using: composite
+  steps:
+    - id: evaluate
+      name: Evaluate event eligibility
+      shell: bash
+      env:
+        INPUT_EVENT_NAME: ${{ inputs.event-name }}
+        INPUT_EXPECTED_LABELS: ${{ inputs.expected-labels }}
+        INPUT_FORBIDDEN_LABELS: ${{ inputs.forbidden-labels }}
+        INPUT_EXPECTED_ACTORS: ${{ inputs.expected-actors }}
+        INPUT_EXPECTED_ACTIONS: ${{ inputs.expected-actions }}
+        INPUT_CUSTOM_PREDICATE: ${{ inputs.custom-predicate }}
+        INPUT_MODE: ${{ inputs.mode }}
+      run: node "$GITHUB_ACTION_PATH/eligibility.js"
