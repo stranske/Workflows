@@ -20,6 +20,7 @@ def test_pptx_maps_to_python_pptx_in_repo_script():
     )
 
     assert module.MODULE_TO_PACKAGE["pptx"] == "python-pptx"
+    assert module.MODULE_TO_PACKAGE["jwt"] == "PyJWT"
 
 
 def test_pptx_maps_to_python_pptx_in_consumer_template():
@@ -29,3 +30,22 @@ def test_pptx_maps_to_python_pptx_in_consumer_template():
     )
 
     assert module.MODULE_TO_PACKAGE["pptx"] == "python-pptx"
+    assert module.MODULE_TO_PACKAGE["jwt"] == "PyJWT"
+
+
+def test_stdlib_imports_from_sync_pr_logs_are_ignored_in_repo_script():
+    module = _load_module(
+        "sync_test_dependencies_repo_stdlib",
+        Path("scripts/sync_test_dependencies.py"),
+    )
+
+    assert {"email", "html", "http", "secrets"}.issubset(module.STDLIB_MODULES)
+
+
+def test_stdlib_imports_from_sync_pr_logs_are_ignored_in_consumer_template():
+    module = _load_module(
+        "sync_test_dependencies_consumer_template_stdlib",
+        Path("templates/consumer-repo/scripts/sync_test_dependencies.py"),
+    )
+
+    assert {"email", "html", "http", "secrets"}.issubset(module.STDLIB_MODULES)
