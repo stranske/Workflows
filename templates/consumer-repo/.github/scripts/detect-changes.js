@@ -73,7 +73,7 @@ const DOCKERFILE_SUFFIXES = ['/dockerfile', '\\dockerfile'];
 const WORKFLOW_PREFIX = '.github/workflows/';
 
 function normalizeCase(value) {
-  return (value || '').toLowerCase();
+  return String(value || '').toLowerCase();
 }
 
 function normalizeSlashes(value) {
@@ -240,7 +240,10 @@ async function listChangedFiles({ github, context }) {
 }
 
 function classifyChanges(filenames) {
-  const changedFiles = Array.from(new Set(filenames.filter(Boolean)));
+  const values = Array.isArray(filenames)
+    ? filenames
+    : (typeof filenames === 'string' ? [filenames] : []);
+  const changedFiles = Array.from(new Set(values.filter(Boolean).map(value => String(value))));
   const hasChanges = changedFiles.length > 0;
   const nonDocFiles = changedFiles.filter(filename => !isDocumentationFile(filename));
   const docOnly = hasChanges ? nonDocFiles.length === 0 : true;
