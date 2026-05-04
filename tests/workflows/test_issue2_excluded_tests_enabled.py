@@ -21,10 +21,6 @@ HISTORIC_EXCLUDED_WORKFLOW_PATHS = (
     "tests/workflows/test_autofix_repo_regressions.py",
     "tests/workflows/test_autofix_samples.py",
     "tests/workflows/test_chatgpt_topics_parser.py",
-    "tests/workflows/test_ci_probe_faults.py",
-    "tests/workflows/test_disable_legacy_workflows.py",
-    "tests/workflows/test_workflow_multi_failure.py",
-    "tests/workflows/github_scripts",
 )
 
 
@@ -34,7 +30,7 @@ def test_issue2_excluded_autofix_tests_only_depend_on_local_scripts() -> None:
             encoding="utf-8"
         )
     )
-    excluded_test_files = tuple(contract["excluded_test_files"])
+    excluded_test_files = tuple(contract["import_contract_test_files"])
     expected_imports = set(contract["expected_script_imports"])
 
     observed_imports: set[str] = set()
@@ -44,6 +40,15 @@ def test_issue2_excluded_autofix_tests_only_depend_on_local_scripts() -> None:
         observed_imports.update(pattern.findall(text))
 
     assert observed_imports == expected_imports
+
+
+def test_issue2_historic_excluded_set_matches_contract() -> None:
+    contract = json.loads(
+        (ROOT / "tests/workflows/fixtures/issue2_autofix_import_contract.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert tuple(contract["historically_excluded_test_files"]) == HISTORIC_EXCLUDED_WORKFLOW_PATHS
 
 
 def test_issue2_autofix_stub_modules_are_importable() -> None:
