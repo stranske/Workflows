@@ -48,7 +48,11 @@ def _update_constant(module, target: AutofixTarget) -> bool:
 
 def main(_args: list[str] | None = None) -> int:
     for target in TARGETS:
-        module = importlib.import_module(target.module)
+        try:
+            module = importlib.import_module(target.module)
+        except ModuleNotFoundError:
+            # Stub behavior: missing modules are treated as no-op targets.
+            continue
         _update_constant(module, target)
     return 0
 

@@ -290,6 +290,20 @@ def test_update_autofix_expectations_handles_missing_callable(
     )
 
 
+def test_update_autofix_expectations_handles_missing_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = update_autofix_expectations.AutofixTarget(
+        module="tests.nonexistent_expectation_target",
+        callable_name="compute_expected_dynamic_value",
+        constant_name="EXPECTED_DYNAMIC_VALUE",
+    )
+    monkeypatch.setattr(update_autofix_expectations, "TARGETS", (target,))
+
+    result = update_autofix_expectations.main()
+    assert result == 0
+
+
 def test_auto_type_hygiene_noop_for_typed_package(
     tmp_repo: Path,
     monkeypatch: pytest.MonkeyPatch,
