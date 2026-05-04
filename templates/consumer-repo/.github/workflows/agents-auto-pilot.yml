@@ -73,7 +73,7 @@ jobs:
       # Escape hatch: set mode: warning if false-negative skips appear post-merge.
       - name: Check event eligibility
         id: eligibility
-        uses: stranske/Workflows/.github/actions/agent-event-eligibility@aee-action
+        uses: stranske/Workflows/.github/actions/agent-event-eligibility@main
         with:
           expected-actions: workflow_dispatch,labeled,closed
           custom-predicate: >-
