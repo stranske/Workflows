@@ -31,11 +31,12 @@ jobs:
         id: classify
         uses: ./.github/actions/path-classifier
         with:
-          force-full: 'true'
+          force-full: ${{ github.event_name == 'schedule' }}
 
   codeql:
     name: CodeQL
     needs: classify
+    if: ${{ needs.classify.outputs.is_security_relevant == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read

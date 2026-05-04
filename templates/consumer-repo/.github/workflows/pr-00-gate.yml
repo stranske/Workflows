@@ -17,9 +17,24 @@ jobs:
     name: detect changed files
     runs-on: ubuntu-latest
     outputs:
-      doc_only: ${{ steps.diff.outputs.doc_only || 'false' }}
-      run_core: ${{ steps.diff.outputs.run_core || 'true' }}
-      reason: ${{ steps.diff.outputs.reason || 'code_changes' }}
+      doc_only: >-
+        ${{ github.event_name == 'pull_request' && steps.classify.outputs.is-docs-only == 'true' }}
+      run_core: >-
+        ${{
+          github.event_name == 'pull_request' &&
+          steps.classify.outputs.is-docs-only == 'true' &&
+          'false' ||
+          steps.diff.outputs.run_core ||
+          'true'
+        }}
+      reason: >-
+        ${{
+          github.event_name == 'pull_request' &&
+          steps.classify.outputs.is-docs-only == 'true' &&
+          'docs_only' ||
+          steps.diff.outputs.reason ||
+          'code_changes'
+        }}
       docker_changed: >-
         ${{ steps.diff.outputs.docker_changed || 'false' }}
       lint: ${{ steps.python_ci_toggles.outputs.lint || 'true' }}
@@ -29,7 +44,7 @@ jobs:
       cache: ${{ steps.python_ci_toggles.outputs.cache || 'true' }}
       pytest_markers: >-
         ${{ steps.python_ci_toggles.outputs.pytest_markers || 'not quarantine and not slow' }}
-      workflow_changed: ${{ steps.diff.outputs.workflow_changed || 'false' }}
+      workflow_changed: ${{ steps.classify.outputs.is-workflow-change || steps.diff.outputs.workflow_changed || 'false' }}
       is_docs_only: ${{ steps.classify.outputs.is-docs-only || 'false' }}
       is_python_code: ${{ steps.classify.outputs.is-python-code || 'true' }}
       is_workflow_change: ${{ steps.classify.outputs.is-workflow-change || 'false' }}
@@ -66,7 +81,7 @@ jobs:
         id: classify
         uses: ./.github/actions/path-classifier
         with:
-          force-full: 'true'
+          force-full: ${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Detect changes via API
         id: diff
@@ -142,7 +157,12 @@ jobs:
     needs:
       - detect
       - environment-gate
-    if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' }}
+    if: >-
+      ${{
+        needs.detect.outputs.doc_only != 'true' &&
+        needs.detect.outputs.is_python_code == 'true' &&
+        needs.detect.outputs.run_core == 'true'
+      }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
     secrets: inherit
     permissions:
