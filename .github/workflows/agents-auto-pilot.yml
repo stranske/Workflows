@@ -68,21 +68,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
-      proceed: ${{ steps.check.outputs.proceed }}
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.action == 'labeled' &&
-       github.event.label.name == 'agents:auto-pilot') ||
-      (github.event.action == 'closed' && (
-        (github.event_name == 'issues' &&
-         contains(github.event.issue.labels.*.name, 'agents:auto-pilot')) ||
-        (github.event_name == 'pull_request' &&
-         contains(github.event.pull_request.labels.*.name, 'agents:auto-pilot'))
-      ))
+      proceed: ${{ steps.eligibility.outputs.should-run }}
     steps:
-      - name: Approve pipeline entry
-        id: check
-        run: echo "proceed=true" >> "$GITHUB_OUTPUT"
+      # Escape hatch: set mode: warning if false-negative skips appear post-merge.
+      - name: Check event eligibility
+        id: eligibility
+        uses: stranske/Workflows/.github/actions/agent-event-eligibility@aee-action
+        with:
+          expected-actions: workflow_dispatch,labeled,closed
+          custom-predicate: >-
+            event_name == 'workflow_dispatch' ||
+            (action == 'labeled' && label.name == 'agents:auto-pilot') ||
+            (action == 'closed' && (
+              (issue && contains(issue.labels[].name, 'agents:auto-pilot')) ||
+              (pull_request && contains(pull_request.labels[].name, 'agents:auto-pilot'))
+            ))
 
   # ── Main auto-pilot job ──────────────────────────────────────────────
   auto-pilot:

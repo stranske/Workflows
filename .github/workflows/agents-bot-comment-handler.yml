@@ -57,11 +57,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       pr_number: ${{ steps.resolve.outputs.pr_number }}
-      should_run: ${{ steps.resolve.outputs.should_run }}
+      should_run: ${{ steps.resolve.outputs.should_run || 'false' }}
       skip_reason: ${{ steps.resolve.outputs.skip_reason }}
       workflow_app_auth_mode: ${{ steps.workflow-app-creds.outputs.workflow_app_auth_mode }}
     steps:
+      # Escape hatch: set mode: warning if false-negative skips appear post-merge.
+      - name: Check event eligibility
+        id: eligibility
+        uses: stranske/Workflows/.github/actions/agent-event-eligibility@aee-action
+        with:
+          expected-actions: workflow_dispatch,labeled,completed
+          custom-predicate: >-
+            event_name == 'workflow_dispatch' ||
+            (event_name == 'pull_request' && action == 'labeled' &&
+             label.name == 'autofix:bot-comments') ||
+            (event_name == 'workflow_run' && workflow_run.conclusion == 'success' &&
+             length(workflow_run.pull_requests) > 0)
+
       - name: Detect workflow App credentials
+        if: steps.eligibility.outputs.should-run == 'true'
         id: workflow-app-creds
         env:
           WORKFLOWS_APP_CLIENT_ID: ${{ secrets.WORKFLOWS_APP_CLIENT_ID }}
@@ -89,7 +103,8 @@ jobs:
           elif [ -n "${WORKFLOWS_APP_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
             use_legacy=true
             workflow_app_auth_mode=legacy-app-id
-            echo "::warning title=Legacy Workflows App ID fallback::Configure WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
+            echo "::warning title=Legacy Workflows App ID fallback::Configure "\
+              "WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
           fi
           {
             echo "client_id_configured=${client_id_configured}"
@@ -102,8 +117,8 @@ jobs:
 
       - name: Mint GitHub App Token (client ID)
         id: app_token_client
-        uses: actions/create-github-app-token@v3
         if: steps.workflow-app-creds.outputs.use_client == 'true'
+        uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
           client-id: ${{ secrets.WORKFLOWS_APP_CLIENT_ID }}
@@ -112,8 +127,8 @@ jobs:
 
       - name: Mint GitHub App Token (legacy App ID)
         id: app_token_legacy
-        uses: actions/create-github-app-token@v3
         if: steps.workflow-app-creds.outputs.use_legacy == 'true'
+        uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID }}
@@ -121,10 +136,16 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout retry helpers
+        if: steps.eligibility.outputs.should-run == 'true'
         uses: actions/checkout@v6
         with:
 
-          token: ${{ steps.app_token_client.outputs.token || steps.app_token_legacy.outputs.token || github.token }}
+          token: >-
+            ${{
+              steps.app_token_client.outputs.token ||
+              steps.app_token_legacy.outputs.token ||
+              github.token
+            }}
           repository: ${{ github.repository }}
           ref: >-
             ${{
@@ -140,6 +161,7 @@ jobs:
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
       - name: Setup API client
+        if: steps.eligibility.outputs.should-run == 'true'
         uses: ./.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
@@ -148,12 +170,15 @@ jobs:
 
 
       - name: Set up Node
+        if: steps.eligibility.outputs.should-run == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: '20'
       - name: Install GitHub API dependencies
+        if: steps.eligibility.outputs.should-run == 'true'
         run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
       - name: Resolve PR number and check conditions
+        if: steps.eligibility.outputs.should-run == 'true'
         id: resolve
         uses: actions/github-script@v9
         with:
@@ -302,7 +327,11 @@ jobs:
           const fallback = {
             normalizeTerminalDisposition: (value) => value,
             formatTerminalDispositionMarkdown: (records) =>
-              records.map((record) => `- ${record.source_type}:${record.source_id} ${record.disposition}`).join('\n'),
+              records
+                .map((record) =>
+                  `- ${record.source_type}:${record.source_id} ${record.disposition}`
+                )
+                .join('\n'),
           };
           const {
             normalizeTerminalDisposition,
@@ -355,9 +384,12 @@ jobs:
         if: always()
         env:
           WORKFLOW_APP_AUTH_MODE: ${{ steps.workflow-app-creds.outputs.workflow_app_auth_mode }}
-          WORKFLOW_APP_CLIENT_ID_CONFIGURED: ${{ steps.workflow-app-creds.outputs.client_id_configured }}
-          WORKFLOW_APP_LEGACY_APP_ID_CONFIGURED: ${{ steps.workflow-app-creds.outputs.legacy_app_id_configured }}
-          WORKFLOW_APP_PRIVATE_KEY_CONFIGURED: ${{ steps.workflow-app-creds.outputs.private_key_configured }}
+          WORKFLOW_APP_CLIENT_ID_CONFIGURED: >-
+            ${{ steps.workflow-app-creds.outputs.client_id_configured }}
+          WORKFLOW_APP_LEGACY_APP_ID_CONFIGURED: >-
+            ${{ steps.workflow-app-creds.outputs.legacy_app_id_configured }}
+          WORKFLOW_APP_PRIVATE_KEY_CONFIGURED: >-
+            ${{ steps.workflow-app-creds.outputs.private_key_configured }}
           RESOLVED_PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
           REUSABLE_INVOCATION_EXPECTED: ${{ steps.resolve.outputs.should_run }}
         run: |
@@ -455,7 +487,8 @@ jobs:
           elif [ -n "${WORKFLOWS_APP_ID}" ] && [ -n "${WORKFLOWS_APP_PRIVATE_KEY}" ]; then
             use_legacy=true
             workflow_app_auth_mode=legacy-app-id
-            echo "::warning title=Legacy Workflows App ID fallback::Configure WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
+            echo "::warning title=Legacy Workflows App ID fallback::Configure "\
+              "WORKFLOWS_APP_CLIENT_ID to avoid the deprecated app-id path."
           fi
           {
             echo "client_id_configured=${client_id_configured}"
@@ -491,7 +524,12 @@ jobs:
         uses: actions/checkout@v6
         with:
 
-          token: ${{ steps.app_token_client.outputs.token || steps.app_token_legacy.outputs.token || github.token }}
+          token: >-
+            ${{
+              steps.app_token_client.outputs.token ||
+              steps.app_token_legacy.outputs.token ||
+              github.token
+            }}
           repository: ${{ github.repository }}
           ref: >-
             ${{
@@ -517,7 +555,12 @@ jobs:
         uses: actions/github-script@v9
         with:
 
-          github-token: ${{ steps.app_token_client.outputs.token || steps.app_token_legacy.outputs.token || github.token }}
+          github-token: >-
+            ${{
+              steps.app_token_client.outputs.token ||
+              steps.app_token_legacy.outputs.token ||
+              github.token
+            }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';

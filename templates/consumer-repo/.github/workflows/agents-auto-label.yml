@@ -5,7 +5,7 @@ name: Auto-Label Issues
 
 on:
   issues:
-    types: [opened, edited]
+    types: [opened, reopened, labeled]
 
 permissions:
   contents: read
@@ -32,25 +32,39 @@ jobs:
       !contains(github.event.issue.labels.*.name, 'automated')
 
     steps:
+      # Escape hatch: set mode: warning if false-negative skips appear post-merge.
+      - name: Check event eligibility
+        id: eligibility
+        uses: stranske/Workflows/.github/actions/agent-event-eligibility@aee-action
+        with:
+          expected-actions: opened,reopened,labeled
+          custom-predicate: >-
+            sender.type != 'Bot' && !ends_with(sender.login, '[bot]')
+
       - name: Checkout repository
+        if: steps.eligibility.outputs.should-run == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup API client
+        if: steps.eligibility.outputs.should-run == 'true'
         uses: ./.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
       - name: Set up Python
+        if: steps.eligibility.outputs.should-run == 'true'
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
       - name: Install dependencies
+        if: steps.eligibility.outputs.should-run == 'true'
         run: |
           pip install -e ".[langchain]" --quiet
 
       - name: Get repo labels
+        if: steps.eligibility.outputs.should-run == 'true'
         id: get-labels
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
@@ -83,6 +97,7 @@ jobs:
             core.info(`Found ${labels.length} labels in repo`);
 
       - name: Match labels
+        if: steps.eligibility.outputs.should-run == 'true'
         id: match
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -185,6 +200,7 @@ jobs:
 
       - name: Apply high-confidence labels
         if: |
+          steps.eligibility.outputs.should-run == 'true' &&
           steps.match.outputs.has_suggestions == 'true' &&
           steps.match.outputs.auto_apply_labels != '[]'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -232,6 +248,7 @@ jobs:
 
       - name: Post suggestion comment
         if: |
+          steps.eligibility.outputs.should-run == 'true' &&
           steps.match.outputs.has_suggestions == 'true' &&
           steps.match.outputs.suggested_labels != '[]'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9

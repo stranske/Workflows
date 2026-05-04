@@ -69,8 +69,30 @@ jobs:
       gate_conclusion: ${{ steps.resolve.outputs.gate_conclusion }}
       dry_run: ${{ steps.resolve.outputs.dry_run }}
       debug: ${{ steps.resolve.outputs.debug }}
+      should_run: ${{ steps.eligibility.outputs.should-run || 'false' }}
     steps:
+      # Escape hatch: set mode: warning if false-negative skips appear post-merge.
+      - name: Check event eligibility
+        id: eligibility
+        uses: stranske/Workflows/.github/actions/agent-event-eligibility@aee-action
+        with:
+          expected-actions: >-
+            workflow_dispatch,created,opened,synchronize,reopened,edited,
+            labeled,completed
+          custom-predicate: >-
+            event_name == 'workflow_dispatch' ||
+            (event_name == 'issue_comment' && issue.pull_request.url && comment) ||
+            (event_name == 'pull_request' && (
+              action == 'opened' || action == 'synchronize' ||
+              action == 'reopened' || action == 'edited' ||
+              (action == 'labeled' && label.name == 'autofix:bot-comments')
+            )) ||
+            (event_name == 'pull_request_target' && action == 'labeled' &&
+             label.name == 'verify:create-issue') ||
+            (event_name == 'workflow_run' && length(workflow_run.pull_requests) > 0)
+
       - name: Resolve handler inputs
+        if: steps.eligibility.outputs.should-run == 'true'
         id: resolve
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
@@ -157,6 +179,7 @@ jobs:
     name: Fetch PR context
     needs: resolve
     if: |
+      needs.resolve.outputs.should_run == 'true' &&
       needs.resolve.outputs.pr_number != '' &&
       (needs.resolve.outputs.run_pr_meta == 'true' ||
        needs.resolve.outputs.run_bot_comments == 'true')
@@ -169,6 +192,7 @@ jobs:
     name: PR meta handler
     needs: [resolve, pr_context]
     if: |
+      needs.resolve.outputs.should_run == 'true' &&
       needs.resolve.outputs.pr_number != '' &&
       needs.resolve.outputs.run_pr_meta == 'true'
     uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
@@ -187,6 +211,7 @@ jobs:
     name: Bot comment handler
     needs: [resolve, pr_context]
     if: |
+      needs.resolve.outputs.should_run == 'true' &&
       needs.resolve.outputs.pr_number != '' &&
       needs.resolve.outputs.run_bot_comments == 'true' &&
       (
@@ -209,6 +234,7 @@ jobs:
     needs: [resolve, bot_comments]
     if: |
       always() &&
+      needs.resolve.outputs.should_run == 'true' &&
       needs.resolve.outputs.run_bot_comments == 'true' &&
       needs.resolve.outputs.event_name == 'pull_request' &&
       needs.resolve.outputs.label_name == 'autofix:bot-comments'
@@ -253,7 +279,9 @@ jobs:
   verify_to_issue:
     name: Create issue from verification (enhanced)
     needs: resolve
-    if: needs.resolve.outputs.run_verify_to_issue == 'true'
+    if: |
+      needs.resolve.outputs.should_run == 'true' &&
+      needs.resolve.outputs.run_verify_to_issue == 'true'
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: "3.12"

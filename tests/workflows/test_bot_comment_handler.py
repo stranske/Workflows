@@ -228,9 +228,10 @@ def test_canonical_bot_comment_handler_direct_app_tokens_prefer_client_id() -> N
         assert "app-id" not in client_step.get("with", {})
         assert legacy_step.get("if") == "steps.workflow-app-creds.outputs.use_legacy == 'true'"
         assert "app-id" in legacy_step.get("with", {})
+        token_expression = " ".join(str(checkout_step["with"]["token"]).split())
         assert (
             "steps.app_token_client.outputs.token || steps.app_token_legacy.outputs.token"
-            in checkout_step["with"]["token"]
+            in token_expression
         )
 
     serialized_workflow = yaml.safe_dump(workflow)

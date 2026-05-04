@@ -27,7 +27,18 @@ jobs:
     outputs:
       moderated: ${{ steps.evaluate.outputs.delete || 'false' }}
     steps:
+      # Escape hatch: set mode: warning if false-negative skips appear post-merge.
+      - name: Check event eligibility
+        id: eligibility
+        uses: stranske/Workflows/.github/actions/agent-event-eligibility@aee-action
+        with:
+          expected-actions: created
+          custom-predicate: >-
+            issue.pull_request.url && comment && comment.user &&
+            comment.user.type == 'Bot' && comment.body != ''
+
       - name: Checkout retry helpers
+        if: steps.eligibility.outputs.should-run == 'true'
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
@@ -36,6 +47,7 @@ jobs:
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
       - name: Setup API client
+        if: steps.eligibility.outputs.should-run == 'true'
         uses: ./.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
@@ -44,6 +56,7 @@ jobs:
 
 
       - name: Evaluate comment for moderation
+        if: steps.eligibility.outputs.should-run == 'true'
         id: evaluate
         uses: actions/github-script@v9
         with:

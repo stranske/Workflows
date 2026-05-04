@@ -43,8 +43,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  eligibility:
+    name: Check event eligibility
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.eligibility.outputs.should-run }}
+    steps:
+      # Escape hatch: set mode: warning if false-negative skips appear post-merge.
+      - name: Check event eligibility
+        id: eligibility
+        uses: stranske/Workflows/.github/actions/agent-event-eligibility@aee-action
+        with:
+          expected-actions: workflow_dispatch,schedule
+          custom-predicate: >-
+            repository.full_name != '' &&
+            (event_name == 'workflow_dispatch' || event_name == 'schedule')
+
   init:
     name: Initialize
+    needs: eligibility
+    if: needs.eligibility.outputs.should_run == 'true'
     permissions:
       actions: write
       contents: write
@@ -118,8 +136,10 @@ jobs:
       pull-requests: write
       issues: write
     name: Execute
-    needs: init
-    if: needs.init.outputs.has_work == 'true'
+    needs: [eligibility, init]
+    if: |
+      needs.eligibility.outputs.should_run == 'true' &&
+      needs.init.outputs.has_work == 'true'
     uses: ./.github/workflows/reusable-70-orchestrator-main.yml
     with:
       init_success: 'success'
