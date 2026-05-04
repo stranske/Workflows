@@ -1,10 +1,37 @@
 from __future__ import annotations
 
 import importlib
+import re
 import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_issue2_excluded_autofix_tests_only_depend_on_local_scripts() -> None:
+    excluded_test_files = (
+        "tests/workflows/test_autofix_full_pipeline.py",
+        "tests/workflows/test_autofix_pipeline.py",
+        "tests/workflows/test_autofix_pipeline_diverse.py",
+        "tests/workflows/test_autofix_pr_comment.py",
+    )
+    expected_imports = {
+        "scripts.auto_type_hygiene",
+        "scripts.build_autofix_pr_comment",
+        "scripts.fix_cosmetic_aggregate",
+        "scripts.fix_numpy_asserts",
+        "scripts.mypy_autofix",
+        "scripts.mypy_return_autofix",
+        "scripts.update_autofix_expectations",
+    }
+
+    observed_imports: set[str] = set()
+    pattern = re.compile(r"(?:from|import)\s+(scripts\.[a-zA-Z0-9_\.]+)")
+    for relative_path in excluded_test_files:
+        text = (ROOT / relative_path).read_text(encoding="utf-8")
+        observed_imports.update(pattern.findall(text))
+
+    assert observed_imports == expected_imports
 
 
 def test_issue2_autofix_stub_modules_are_importable() -> None:
