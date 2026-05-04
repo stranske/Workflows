@@ -5,46 +5,16 @@ on:
     types:
       - autofix_gate_failure
 
-permissions:
-  actions: write
-  contents: read
+permissions: {}
 
 jobs:
   dispatch:
     if: ${{ github.event.client_payload.pr_number && github.event.client_payload.gate_run_id }}
     runs-on: ubuntu-latest
     steps:
-      - name: Mint GitHub App token
-        id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
-        continue-on-error: true
-        with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
-          owner: ${{ github.repository_owner }}
-
-      - name: Checkout workflow helpers
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          token: ${{ steps.app_token.outputs.token || github.token }}
-          sparse-checkout: |
-            .github/actions/setup-api-client
-            .github/scripts/github-api-with-retry.js
-            .github/scripts/github-rate-limited-wrapper.js
-            .github/scripts/token_load_balancer.js
-          sparse-checkout-cone-mode: false
-          fetch-depth: 1
-
-      - name: Setup API client
-        uses: ./.github/actions/setup-api-client
-        with:
-          secrets: ${{ toJSON(secrets) }}
-          github_token: ${{ steps.app_token.outputs.token || github.token }}
-
       - name: Acknowledge consolidated autofix handling
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const payload = context.payload.client_payload || {};
             const prNumber = Number(payload.pr_number);
@@ -60,6 +30,7 @@ jobs:
             }
             const shaNote = headSha ? `, headSha=${headSha}` : '';
             const trace = `gateRunId=${gateRunId}${shaNote}`;
+            const handler = 'agents-81-gate-followups via Gate workflow_run';
             core.info(
-              `Autofix for PR #${prNumber} is handled by agents-81-gate-followups via Gate workflow_run (${trace}).`
+              `Autofix for PR #${prNumber} is handled by ${handler} (${trace}).`
             );

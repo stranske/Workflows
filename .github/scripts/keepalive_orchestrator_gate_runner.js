@@ -8,12 +8,27 @@ const {
 } = require('./keepalive_guard_utils.js');
 const { evaluateKeepaliveGate } = require('./keepalive_gate.js');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser.js');
 
 const KEEPALIVE_LABEL = 'agents:keepalive';
 const PAUSE_LABEL = 'agents:paused';
 const NEEDS_HUMAN_LABEL = 'needs-human';
 const NEEDS_ATTENTION_LABEL = 'agent:needs-attention';
+const NON_ROUTING_AGENT_LABELS = new Set([
+  NEEDS_ATTENTION_LABEL,
+  'agent:rate-limited',
+  'agent:retry',
+  'agent:auto',
+]);
 const DRAFT_DISPOSITION_MARKER = '<!-- keepalive-draft-disposition -->';
+const MARK_PULL_REQUEST_READY_FOR_REVIEW_MUTATION = `mutation MarkPullRequestReadyForReview($pullRequestId: ID!) {
+  markPullRequestReadyForReview(input: {pullRequestId: $pullRequestId}) {
+    pullRequest {
+      number
+      isDraft
+    }
+  }
+}`;
 
 function normaliseLabelName(label) {
   if (!label) {
@@ -27,7 +42,7 @@ function normaliseLabelName(label) {
 
 function isConcreteAgentLabel(label) {
   const value = String(label || '').trim().toLowerCase();
-  return /^agent:[a-z0-9_-]+$/.test(value) && value !== NEEDS_ATTENTION_LABEL && value !== 'agent:auto';
+  return /^agent:[a-z0-9_-]+$/.test(value) && !NON_ROUTING_AGENT_LABELS.has(value);
 }
 
 function inferAgentFromBranch(headRef, registry) {
@@ -79,6 +94,14 @@ function countMarkdownCheckboxes(body) {
   return counts;
 }
 
+function countDraftDispositionCheckboxes(body) {
+  const sections = parseScopeTasksAcceptanceSections(body || '');
+  const scopedChecklist = [sections?.tasks, sections?.acceptance]
+    .filter(Boolean)
+    .join('\n');
+  return countMarkdownCheckboxes(scopedChecklist);
+}
+
 async function addLabelsIfMissing({ github, owner, repo, prNumber, labels, currentLabels, core, summary }) {
   const toAdd = labels.filter((label) => label && !currentLabels.has(label.toLowerCase()));
   if (!toAdd.length) {
@@ -103,25 +126,55 @@ async function addLabelsIfMissing({ github, owner, repo, prNumber, labels, curre
   }
 }
 
+async function removeLabelsIfPresent({ github, owner, repo, prNumber, labels, currentLabels, core, summary }) {
+  const toRemove = labels.filter((label) => label && currentLabels.has(label.toLowerCase()));
+  if (!toRemove.length) {
+    return true;
+  }
+
+  let ok = true;
+  for (const label of toRemove) {
+    try {
+      await github.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: prNumber,
+        name: label,
+      });
+      currentLabels.delete(label.toLowerCase());
+    } catch (error) {
+      const status = Number(error?.status || 0);
+      if (status === 404) {
+        currentLabels.delete(label.toLowerCase());
+        continue;
+      }
+      ok = false;
+      const message = error instanceof Error ? error.message : String(error);
+      core.warning(`Unable to remove label ${label} from PR #${prNumber}: ${message}`);
+      summary.addRaw(`Failed to clear draft routing label ${label}: ${message}`).addEOL();
+    }
+  }
+
+  const removed = toRemove.filter((label) => !currentLabels.has(label.toLowerCase()));
+  if (removed.length) {
+    summary.addRaw(`Cleared draft routing label(s): ${removed.join(', ')}`).addEOL();
+  }
+  return ok;
+}
+
 async function markDraftReadyForReview({ github, pr, core, summary }) {
   const nodeId = String(pr?.node_id || '').trim();
-  if (!nodeId || typeof github.graphql !== 'function') {
+  if (!nodeId) {
     summary.addRaw('Draft PR could not be converted automatically: missing GraphQL PR node id.').addEOL();
+    return false;
+  }
+  if (typeof github.graphql !== 'function') {
+    summary.addRaw('Draft PR could not be converted automatically: GitHub GraphQL client is unavailable.').addEOL();
     return false;
   }
 
   try {
-    await github.graphql(
-      `mutation($pullRequestId: ID!) {
-        markPullRequestReadyForReview(input: {pullRequestId: $pullRequestId}) {
-          pullRequest {
-            number
-            isDraft
-          }
-        }
-      }`,
-      { pullRequestId: nodeId }
-    );
+    await github.graphql(MARK_PULL_REQUEST_READY_FOR_REVIEW_MUTATION, { pullRequestId: nodeId });
     summary.addRaw('Draft PR had no unchecked checklist items; marked ready for review.').addEOL();
     return true;
   } catch (error) {
@@ -132,40 +185,147 @@ async function markDraftReadyForReview({ github, pr, core, summary }) {
   }
 }
 
-async function routeDraftToHuman({ github, owner, repo, prNumber, currentLabels, checkboxCounts, core, summary }) {
+function createIssueCommentAccess({ github, owner, repo, prNumber }) {
+  const params = {
+    owner,
+    repo,
+    issue_number: prNumber,
+    per_page: 100,
+  };
+  let loaded = false;
+  let cachedComments = [];
+  let cachedError = null;
+
+  const commentHasMarker = (comment, marker) =>
+    String(comment?.body || '').includes(marker);
+
+  async function loadIssueComments() {
+    if (loaded) {
+      if (cachedError) {
+        throw cachedError;
+      }
+      return cachedComments;
+    }
+
+    try {
+      cachedComments = (await github.paginate(github.rest.issues.listComments, params)) || [];
+      loaded = true;
+      return cachedComments;
+    } catch (error) {
+      cachedError = error;
+      loaded = true;
+      throw error;
+    }
+  }
+
+  async function hasIssueCommentMarker(marker) {
+    if (loaded) {
+      if (cachedError) {
+        throw cachedError;
+      }
+      return cachedComments.some((comment) => commentHasMarker(comment, marker));
+    }
+
+    if (typeof github.paginate?.iterator !== 'function') {
+      return hasExistingDraftDispositionComment(await loadIssueComments());
+    }
+
+    const scannedComments = [];
+    try {
+      for await (const response of github.paginate.iterator(github.rest.issues.listComments, params)) {
+        const pageComments = Array.isArray(response?.data) ? response.data : [];
+        scannedComments.push(...pageComments);
+        if (pageComments.some((comment) => commentHasMarker(comment, marker))) {
+          return true;
+        }
+      }
+      cachedComments = scannedComments;
+      loaded = true;
+      return false;
+    } catch (error) {
+      cachedError = error;
+      loaded = true;
+      throw error;
+    }
+  }
+
+  return {
+    hasIssueCommentMarker,
+    loadIssueComments,
+  };
+}
+
+function hasExistingDraftDispositionComment(comments) {
+  return (comments || []).some((comment) =>
+    String(comment?.body || '').includes(DRAFT_DISPOSITION_MARKER)
+  );
+}
+
+function draftDispositionText(checkboxCounts, dispositionReason) {
+  const checked = Number(checkboxCounts?.checked || 0);
+  const unchecked = Number(checkboxCounts?.unchecked || 0);
+  const total = checked + unchecked;
+
+  if (total === 0 || dispositionReason === 'no-checklist') {
+    return {
+      summary: 'no keepalive checklist items were found',
+      detail:
+        'Keepalive found this PR still in draft, but no keepalive checklist items were found in the Tasks or Acceptance Criteria sections. Draft PRs must not occupy automation capacity silently.',
+      nextAction:
+        'Next human action: add or restore the keepalive checklist, disposition the draft, and rerun Gate when the PR is ready; or close/supersede the PR.',
+    };
+  }
+
+  if (unchecked === 0) {
+    return {
+      summary: 'the keepalive checklist is complete, but automatic draft conversion failed',
+      detail:
+        'Keepalive found this PR still in draft and the keepalive checklist has no unchecked items, but automatic ready-for-review conversion failed. Draft PRs must not occupy automation capacity silently.',
+      nextAction:
+        'Next human action: mark the PR ready for review manually and rerun Gate; or close/supersede the PR.',
+    };
+  }
+
+  return {
+    summary: `${unchecked} unchecked keepalive checklist item(s) remain`,
+    detail:
+      `Keepalive found this PR still in draft with ${unchecked} unchecked keepalive checklist item(s). Draft PRs must not occupy automation capacity silently.`,
+    nextAction:
+      'Next human action: finish the unchecked acceptance items, mark the PR ready for review, and rerun Gate; or close/supersede the PR.',
+  };
+}
+
+async function routeDraftToHuman({ github, owner, repo, prNumber, currentLabels, checkboxCounts, dispositionReason = '', hasDraftDispositionComment, core, summary }) {
   await addLabelsIfMissing({
     github,
     owner,
     repo,
     prNumber,
-    labels: [NEEDS_ATTENTION_LABEL, NEEDS_HUMAN_LABEL, PAUSE_LABEL],
+    labels: [NEEDS_ATTENTION_LABEL, NEEDS_HUMAN_LABEL],
     currentLabels,
     core,
     summary,
   });
 
+  const disposition = draftDispositionText(checkboxCounts, dispositionReason);
   summary
     .addRaw(
-      `Draft PR requires human disposition: checked=${checkboxCounts.checked}, unchecked=${checkboxCounts.unchecked}.`
+      `Draft PR requires human disposition: ${disposition.summary} (checked=${checkboxCounts.checked}, unchecked=${checkboxCounts.unchecked}).`
     )
     .addEOL();
 
-  let comments = [];
+  let alreadyCommented = false;
   try {
-    comments = await github.paginate(github.rest.issues.listComments, {
-      owner,
-      repo,
-      issue_number: prNumber,
-      per_page: 100,
-    });
+    alreadyCommented = await hasDraftDispositionComment();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     core.warning(`Unable to scan draft disposition comments for PR #${prNumber}: ${message}`);
+    summary
+      .addRaw(`Skipped posting draft disposition comment because existing comments could not be scanned: ${message}`)
+      .addEOL();
+    return;
   }
 
-  const alreadyCommented = (comments || []).some((comment) =>
-    String(comment?.body || '').includes(DRAFT_DISPOSITION_MARKER)
-  );
   if (alreadyCommented) {
     summary.addRaw('Draft disposition comment already exists; not posting a duplicate.').addEOL();
     return;
@@ -175,11 +335,11 @@ async function routeDraftToHuman({ github, owner, repo, prNumber, currentLabels,
     DRAFT_DISPOSITION_MARKER,
     '### Draft PR requires human disposition',
     '',
-    `Keepalive found this PR still in draft with ${checkboxCounts.unchecked} unchecked checklist item(s). Draft PRs must not occupy automation capacity silently.`,
+    disposition.detail,
     '',
-    `Applied \`${NEEDS_ATTENTION_LABEL}\`, \`${NEEDS_HUMAN_LABEL}\`, and \`${PAUSE_LABEL}\` so this is visible in automation summaries and human queues.`,
+    `Applied \`${NEEDS_ATTENTION_LABEL}\` and \`${NEEDS_HUMAN_LABEL}\` so this is visible in automation summaries and human queues without permanently pausing keepalive.`,
     '',
-    'Next human action: finish the unchecked acceptance items and mark the PR ready for review, or close/supersede the PR.',
+    disposition.nextAction,
   ].join('\n');
 
   try {
@@ -269,6 +429,8 @@ async function runKeepaliveGate({ core, github, context, env }) {
     await finaliseSkip('pr-fetch-failed', message ? `Details: ${message}` : null);
     return;
   }
+  const { hasIssueCommentMarker, loadIssueComments } = createIssueCommentAccess({ github, owner, repo, prNumber });
+  const hasDraftDispositionComment = () => hasIssueCommentMarker(DRAFT_DISPOSITION_MARKER);
 
   const preGate = await evaluateKeepaliveGate({
     core,
@@ -356,11 +518,6 @@ async function runKeepaliveGate({ core, github, context, env }) {
       labelEntries.map(normaliseLabelName).filter(Boolean)
     );
 
-    if (currentLabels.has(PAUSE_LABEL)) {
-      addReason('keepalive-paused');
-      summary.addRaw(`Keepalive paused by ${PAUSE_LABEL} label.`).addEOL();
-    }
-
     const requiredLabels = [KEEPALIVE_LABEL];
     if (agentAlias) {
       requiredLabels.push(`agent:${agentAlias}`);
@@ -394,28 +551,80 @@ async function runKeepaliveGate({ core, github, context, env }) {
     }
     let draftRequiresHuman = false;
     if (pr.draft) {
-      const checkboxCounts = countMarkdownCheckboxes(pr.body || '');
+      const checkboxCounts = countDraftDispositionCheckboxes(pr.body || '');
       summary
         .addRaw(
-          `Pull request is draft; evaluating disposition (checked=${checkboxCounts.checked}, unchecked=${checkboxCounts.unchecked}).`
+          `Pull request is draft; evaluating keepalive checklist disposition (checked=${checkboxCounts.checked}, unchecked=${checkboxCounts.unchecked}).`
         )
         .addEOL();
 
-      const allChecklistWorkComplete = checkboxCounts.checked > 0 && checkboxCounts.unchecked === 0;
+      const totalChecklistItems = checkboxCounts.checked + checkboxCounts.unchecked;
+      const allChecklistWorkComplete = totalChecklistItems > 0 && checkboxCounts.unchecked === 0;
       if (allChecklistWorkComplete) {
         const ready = await markDraftReadyForReview({ github, pr, core, summary });
         if (ready) {
           pr.draft = false;
+          await removeLabelsIfPresent({
+            github,
+            owner,
+            repo,
+            prNumber,
+            labels: [NEEDS_ATTENTION_LABEL, NEEDS_HUMAN_LABEL, PAUSE_LABEL],
+            currentLabels,
+            core,
+            summary,
+          });
         } else {
           draftRequiresHuman = true;
-          await routeDraftToHuman({ github, owner, repo, prNumber, currentLabels, checkboxCounts, core, summary });
+          await routeDraftToHuman({
+            github,
+            owner,
+            repo,
+            prNumber,
+            currentLabels,
+            checkboxCounts,
+            dispositionReason: 'ready-failed',
+            hasDraftDispositionComment,
+            core,
+            summary,
+          });
           addReason('pr-draft-ready-failed');
         }
+      } else if (totalChecklistItems === 0) {
+        draftRequiresHuman = true;
+        await routeDraftToHuman({
+          github,
+          owner,
+          repo,
+          prNumber,
+          currentLabels,
+          checkboxCounts,
+          dispositionReason: 'no-checklist',
+          hasDraftDispositionComment,
+          core,
+          summary,
+        });
+        addReason('pr-draft-no-checklist');
       } else {
         draftRequiresHuman = true;
-        await routeDraftToHuman({ github, owner, repo, prNumber, currentLabels, checkboxCounts, core, summary });
+        await routeDraftToHuman({
+          github,
+          owner,
+          repo,
+          prNumber,
+          currentLabels,
+          checkboxCounts,
+          dispositionReason: 'unchecked-items',
+          hasDraftDispositionComment,
+          core,
+          summary,
+        });
         addReason('pr-draft-needs-human');
       }
+    }
+    if (!draftRequiresHuman && currentLabels.has(PAUSE_LABEL)) {
+      addReason('keepalive-paused');
+      summary.addRaw(`Keepalive paused by ${PAUSE_LABEL} label.`).addEOL();
     }
     if (!draftRequiresHuman && headSha) {
       try {
@@ -492,7 +701,7 @@ async function runKeepaliveGate({ core, github, context, env }) {
       }
     }
 
-    if (!draftRequiresHuman && !gateRunEvaluated) {
+    if (!draftRequiresHuman && headSha && !gateRunEvaluated) {
       addReason('gate-run-missing');
     }
   }
@@ -501,13 +710,7 @@ async function runKeepaliveGate({ core, github, context, env }) {
     const maxRetries = Math.max(1, Number(env.KEEPALIVE_MAX_RETRIES || '5'));
     let skipHistory = { total: 0, highestCount: 0, nonGateCount: 0 };
     try {
-      const comments = await github.paginate(github.rest.issues.listComments, {
-        owner,
-        repo,
-        issue_number: prNumber,
-        per_page: 100,
-      });
-      skipHistory = analyseSkipComments(comments || []);
+      skipHistory = analyseSkipComments(await loadIssueComments());
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       core.warning(`Failed to scan prior keepalive skip comments: ${message}`);
