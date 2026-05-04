@@ -119,9 +119,7 @@ def test_reusable_bot_comment_handler_prefers_app_client_id() -> None:
 
 
 def test_bot_comment_handler_preserves_pr_number_on_known_pr_skips() -> None:
-    for workflow_path in (
-        ROOT / ".github/workflows/agents-bot-comment-handler.yml",
-    ):
+    for workflow_path in (ROOT / ".github/workflows/agents-bot-comment-handler.yml",):
         workflow_text = workflow_path.read_text(encoding="utf-8")
         for skip_reason in (
             "pr-fetch-failed",
@@ -329,9 +327,7 @@ def test_template_event_hub_uses_reusable_bot_comment_handler_defaults() -> None
 
 
 def test_reusable_bot_comment_handler_dismisses_ignored_reviews() -> None:
-    workflow = _load_yaml(
-        ROOT / ".github/workflows/reusable-bot-comment-handler.yml"
-    )
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
     collect_job = workflow.get("jobs", {}).get("collect", {})
     assert collect_job, "collect job is missing"
 
