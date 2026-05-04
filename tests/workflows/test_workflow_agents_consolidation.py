@@ -468,7 +468,6 @@ def test_terminal_disposition_records_include_artifact_identity():
         WORKFLOWS_DIR / "agents-verify-to-issue-v2.yml",
         WORKFLOWS_DIR / "agents-verify-to-new-pr.yml",
         WORKFLOWS_DIR / "reusable-bot-comment-handler.yml",
-        Path("templates/consumer-repo/.github/workflows/agents-verify-to-issue-v2.yml"),
         Path("templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml"),
     ]
     for path in workflow_paths:

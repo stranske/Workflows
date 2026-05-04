@@ -121,7 +121,6 @@ def test_reusable_bot_comment_handler_prefers_app_client_id() -> None:
 def test_bot_comment_handler_preserves_pr_number_on_known_pr_skips() -> None:
     for workflow_path in (
         ROOT / ".github/workflows/agents-bot-comment-handler.yml",
-        ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml",
     ):
         workflow_text = workflow_path.read_text(encoding="utf-8")
         for skip_reason in (
@@ -172,12 +171,6 @@ def test_bot_comment_handler_callers_pass_app_client_id() -> None:
         },
         ROOT
         / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml": {
-            "gh_app_client_id": "${{ secrets.GH_APP_CLIENT_ID }}",
-            "gh_app_id": "${{ secrets.GH_APP_ID }}",
-            "gh_app_private_key": "${{ secrets.GH_APP_PRIVATE_KEY }}",
-        },
-        ROOT
-        / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml": {
             "gh_app_client_id": "${{ secrets.GH_APP_CLIENT_ID }}",
             "gh_app_id": "${{ secrets.GH_APP_ID }}",
             "gh_app_private_key": "${{ secrets.GH_APP_PRIVATE_KEY }}",
@@ -273,7 +266,6 @@ def test_canonical_bot_comment_handler_uploads_wrapper_auth_coverage_artifact() 
 def test_bot_comment_handler_wrappers_emit_terminal_disposition_artifact() -> None:
     caller_paths = [
         ROOT / ".github/workflows/agents-bot-comment-handler.yml",
-        ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml",
     ]
 
     for caller_path in caller_paths:
@@ -322,29 +314,38 @@ def test_bot_comment_handler_wrappers_emit_terminal_disposition_artifact() -> No
         assert upload_step["with"]["if-no-files-found"] == "error"
 
 
-def test_template_bot_comment_handler_passes_agents_ignore() -> None:
+def test_template_event_hub_uses_reusable_bot_comment_handler_defaults() -> None:
     workflow = _load_yaml(
-        ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml"
+        ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml"
     )
-    handle_job = workflow.get("jobs", {}).get("handle", {})
-    inputs = handle_job.get("with", {})
-    ignored_paths = inputs.get("ignored_paths", "")
+    bot_comments_job = workflow.get("jobs", {}).get("bot_comments", {})
+    inputs = bot_comments_job.get("with", {})
 
-    assert ".agents/" in ignored_paths.split(",")
+    assert (
+        bot_comments_job.get("uses")
+        == "stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main"
+    )
+    assert "ignored_paths" not in inputs
 
 
-def test_template_bot_comment_handler_dismisses_ignored_reviews() -> None:
+def test_reusable_bot_comment_handler_dismisses_ignored_reviews() -> None:
     workflow = _load_yaml(
-        ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml"
+        ROOT / ".github/workflows/reusable-bot-comment-handler.yml"
     )
-    dismiss_job = workflow.get("jobs", {}).get("dismiss_ignored", {})
-    assert dismiss_job, "dismiss_ignored job is missing"
+    collect_job = workflow.get("jobs", {}).get("collect", {})
+    assert collect_job, "collect job is missing"
 
-    steps = dismiss_job.get("steps", [])
+    steps = collect_job.get("steps", [])
     github_script_steps = [
         step for step in steps if step.get("uses", "").startswith("actions/github-script")
     ]
-    assert github_script_steps, "dismiss_ignored job should run actions/github-script"
+    assert github_script_steps, "collect job should run actions/github-script"
 
-    script = github_script_steps[-1].get("with", {}).get("script", "")
-    assert "dismissReview" in script
+    dismiss_step = next(
+        step
+        for step in steps
+        if step.get("name") == "Auto-dismiss review comments on ignored paths"
+    )
+    script = dismiss_step.get("with", {}).get("script", "")
+    assert "autoDismissReviewComments" in script
+    assert "bot-comment-dismiss.js" in script

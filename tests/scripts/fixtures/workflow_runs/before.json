@@ -12,13 +12,13 @@
     },
     {
       "id": 3,
-      "name": "Agent PR Meta",
-      "path": ".github/workflows/agents-pr-meta.yml"
+      "name": "Agents PR Event Hub",
+      "path": ".github/workflows/agents-80-pr-event-hub.yml"
     },
     {
       "id": 4,
-      "name": "Agent PR Meta",
-      "path": ".github/workflows/agents-pr-meta.yml"
+      "name": "Agents PR Event Hub",
+      "path": ".github/workflows/agents-80-pr-event-hub.yml"
     },
     {
       "id": 5,
