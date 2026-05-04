@@ -24,7 +24,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: classify changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      is_docs_only: ${{ steps.classify.outputs.is-docs-only || 'false' }}
+      classification_rationale: >-
+        ${{ steps.classify.outputs.classification-rationale || 'path classifier unavailable' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: classify
+        uses: ./.github/actions/path-classifier
+        with:
+          force-full: 'true'
+
   enforce:
+    needs: classify
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

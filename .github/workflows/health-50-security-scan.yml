@@ -16,8 +16,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: classify changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      is_security_relevant: ${{ steps.classify.outputs.is-security-relevant || 'true' }}
+      classification_rationale: >-
+        ${{ steps.classify.outputs.classification-rationale || 'path classifier unavailable' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: classify
+        uses: ./.github/actions/path-classifier
+        with:
+          force-full: 'true'
+
   codeql:
     name: CodeQL
+    needs: classify
     runs-on: ubuntu-latest
     permissions:
       actions: read

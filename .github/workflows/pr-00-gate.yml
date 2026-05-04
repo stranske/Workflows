@@ -30,6 +30,15 @@ jobs:
       pytest_markers: >-
         ${{ steps.python_ci_toggles.outputs.pytest_markers || 'not quarantine and not slow' }}
       workflow_changed: ${{ steps.diff.outputs.workflow_changed || 'false' }}
+      is_docs_only: ${{ steps.classify.outputs.is-docs-only || 'false' }}
+      is_python_code: ${{ steps.classify.outputs.is-python-code || 'true' }}
+      is_workflow_change: ${{ steps.classify.outputs.is-workflow-change || 'false' }}
+      is_security_relevant: ${{ steps.classify.outputs.is-security-relevant || 'true' }}
+      is_template_change: ${{ steps.classify.outputs.is-template-change || 'false' }}
+      is_test_only: ${{ steps.classify.outputs.is-test-only || 'false' }}
+      affected_consumers: ${{ steps.classify.outputs.affected-consumers || '[]' }}
+      classification_rationale: >-
+        ${{ steps.classify.outputs.classification-rationale || 'path classifier unavailable' }}
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
@@ -49,8 +58,16 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           sparse-checkout: |
+            .github/actions/path-classifier
+            .github/path-classification.yml
             .github/scripts
           sparse-checkout-cone-mode: false
+      - name: Classify changed paths
+        id: classify
+        uses: ./.github/actions/path-classifier
+        with:
+          force-full: 'true'
+
       - name: Detect changes via API
         id: diff
         uses: actions/github-script@v9
