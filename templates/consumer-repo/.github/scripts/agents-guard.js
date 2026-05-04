@@ -32,6 +32,12 @@ const ALLOW_REMOVED_PATHS = new Set(
     // v1 verify-to-issue workflow deprecated; v2 is the active version.
     // Archived to archives/deprecated-workflows/
     '.github/workflows/agents-verify-to-issue.yml',
+    // Wave 0 cleanup removes deprecated consumer-template workflows past the
+    // 2026-02-15 deprecation deadline so sync PRs can delete stale copies.
+    '.github/workflows/agents-autofix-loop.yml',
+    '.github/workflows/agents-bot-comment-handler.yml',
+    '.github/workflows/agents-keepalive-loop.yml',
+    '.github/workflows/agents-verify-to-issue-v2.yml',
     // The verify-to-new-pr autopilot bridge was collapsed into the main workflow.
     '.github/workflows/agents-verify-to-new-pr-autopilot.yml',
   ].map((entry) => entry.toLowerCase()),
