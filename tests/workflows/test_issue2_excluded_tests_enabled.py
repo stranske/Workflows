@@ -5,7 +5,26 @@ import re
 import tomllib
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
+
+HISTORIC_EXCLUDED_WORKFLOW_PATHS = (
+    "tests/workflows/test_autofix_full_pipeline.py",
+    "tests/workflows/test_autofix_pipeline.py",
+    "tests/workflows/test_autofix_pipeline_diverse.py",
+    "tests/workflows/test_autofix_pipeline_live_docs.py",
+    "tests/workflows/test_autofix_pipeline_tools.py",
+    "tests/workflows/test_autofix_pr_comment.py",
+    "tests/workflows/test_autofix_probe_module.py",
+    "tests/workflows/test_autofix_repo_regressions.py",
+    "tests/workflows/test_autofix_samples.py",
+    "tests/workflows/test_chatgpt_topics_parser.py",
+    "tests/workflows/test_ci_probe_faults.py",
+    "tests/workflows/test_disable_legacy_workflows.py",
+    "tests/workflows/test_workflow_multi_failure.py",
+    "tests/workflows/github_scripts",
+)
 
 
 def test_issue2_excluded_autofix_tests_only_depend_on_local_scripts() -> None:
@@ -13,6 +32,7 @@ def test_issue2_excluded_autofix_tests_only_depend_on_local_scripts() -> None:
         "tests/workflows/test_autofix_full_pipeline.py",
         "tests/workflows/test_autofix_pipeline.py",
         "tests/workflows/test_autofix_pipeline_diverse.py",
+        "tests/workflows/test_autofix_pipeline_tools.py",
         "tests/workflows/test_autofix_pr_comment.py",
     )
     expected_imports = {
@@ -58,10 +78,20 @@ def test_issue2_workflow_tests_are_not_excluded_from_ruff() -> None:
     assert not any(
         path == "tests/workflows" or path.startswith("tests/workflows/") for path in ruff_excludes
     )
+    assert set(ruff_excludes).isdisjoint(HISTORIC_EXCLUDED_WORKFLOW_PATHS)
 
 
 def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
-    workflow = (ROOT / ".github/workflows/selftest-ci.yml").read_text(encoding="utf-8")
+    workflow_config = yaml.safe_load(
+        (ROOT / ".github/workflows/selftest-ci.yml").read_text(encoding="utf-8")
+    )
+    python_test_steps = [
+        step.get("run", "")
+        for step in workflow_config["jobs"]["test-python"]["steps"]
+        if step.get("name") == "Run Python tests"
+    ]
 
-    assert "python -m pytest tests/workflows/ -v" in workflow
-    assert not re.search(r"--ignore(?:=|\s+)tests/workflows/?(?:\s|$)", workflow)
+    assert python_test_steps == ["python -m pytest tests/workflows/ -v\n"]
+    assert not re.search(
+        r"--ignore(?:-glob)?(?:=|\s+)tests/workflows/?(?:\s|$)", python_test_steps[0]
+    )
