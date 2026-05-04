@@ -338,7 +338,12 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
 
 module.exports = {
   detectChanges: async function ({ github: rawGithub, context, core, files, fetchFiles } = {}) {
-    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    let github = rawGithub;
+    try {
+      github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    } catch (error) {
+      core?.warning?.(`Failed to enable rate-limit wrapper for detect-changes: ${error.message}`);
+    }
     return detectChanges({ github, context, core, files, fetchFiles });
   },
   classifyChanges,

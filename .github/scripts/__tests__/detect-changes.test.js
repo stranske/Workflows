@@ -144,3 +144,32 @@ test('detectChanges supports clients without paginate.iterator', async () => {
   assert.equal(result.outputs.reason, 'docs_only');
   assert.equal(result.outputs.workflow_changed, 'false');
 });
+
+test('detectChanges falls back to raw github when wrapper initialization fails', async () => {
+  const warnings = [];
+  const github = {};
+  Object.defineProperty(github, 'request', {
+    get() {
+      throw new Error('request getter boom');
+    },
+  });
+  github.hook = {};
+
+  const result = await detectChanges({
+    github,
+    core: {
+      warning(message) {
+        warnings.push(String(message));
+      },
+      setOutput() {},
+    },
+    context: { eventName: 'pull_request' },
+    files: ['src/app.py'],
+  });
+
+  assert.equal(result.outputs.doc_only, 'false');
+  assert.equal(result.outputs.run_core, 'true');
+  assert.equal(result.outputs.reason, 'code_changes');
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Failed to enable rate-limit wrapper for detect-changes/);
+});
