@@ -116,15 +116,25 @@ test('blocks renames of protected workflows that are not allowlisted', () => {
 });
 
 test('allows removal of allowlisted workflow paths', () => {
-  const result = evaluateGuard({
-    files: [{
-      filename: '.github/workflows/agents-75-keepalive-on-gate.yml',
-      status: 'removed',
-    }],
-  });
+  const allowlistedPaths = [
+    '.github/workflows/agents-75-keepalive-on-gate.yml',
+    '.github/workflows/agents-autofix-loop.yml',
+    '.github/workflows/agents-bot-comment-handler.yml',
+    '.github/workflows/agents-keepalive-loop.yml',
+    '.github/workflows/agents-verify-to-issue-v2.yml',
+  ];
 
-  assert.equal(result.blocked, false);
-  assert.equal(result.fatalViolations.length, 0);
+  for (const filename of allowlistedPaths) {
+    const result = evaluateGuard({
+      files: [{
+        filename,
+        status: 'removed',
+      }],
+    });
+
+    assert.equal(result.blocked, false, filename);
+    assert.equal(result.fatalViolations.length, 0, filename);
+  }
 });
 
 test('does not allow label-only bypass without codeowner approval', () => {
