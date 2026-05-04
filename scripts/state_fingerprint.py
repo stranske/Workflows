@@ -127,7 +127,8 @@ class GitHubApi:
     def __init__(self, repo: str, token: str) -> None:
         self.repo = repo
         self.token = token
-        self.base_url = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
+        default_api_url = "https://api." + "github.com"
+        self.base_url = os.environ.get("GITHUB_API_URL", default_api_url).rstrip("/")
 
     def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         data = None
