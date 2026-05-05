@@ -78,7 +78,7 @@ workflows:
     description: "Codex belt conveyor - orchestrates belt worker execution and handles completion"
 
   - source: .github/workflows/agents-autofix-dispatcher.yml
-    description: "Autofix dispatch bridge - listens for Gate repository_dispatch events and triggers the autofix loop"
+    description: "Autofix dispatch bridge - acknowledges legacy Gate repository_dispatch events; agents-81-gate-followups handles repair work"
 
   - source: .github/workflows/agents-verifier.yml
     description: "Verifier - validates agent work meets acceptance criteria"

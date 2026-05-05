@@ -1,5 +1,9 @@
 name: Agents Autofix Dispatch
 
+# Compatibility bridge for legacy Gate repository_dispatch events. Gate-driven
+# repair routing now lives in agents-81-gate-followups.yml via workflow_run, so
+# this workflow only validates and logs the old dispatch payload.
+
 on:
   repository_dispatch:
     types:
