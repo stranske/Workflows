@@ -48,6 +48,16 @@ test('classify changes summary', () => {
   assert.equal(result3.workflowChanged, true);
 });
 
+test('classify changes tolerates non-array and mixed input', () => {
+  const single = classifyChanges('docs/README.md');
+  assert.equal(single.docOnly, true);
+  assert.equal(single.reason, 'docs_only');
+
+  const mixed = classifyChanges(['src/app.py', null, 123, false]);
+  assert.equal(mixed.docOnly, false);
+  assert.equal(mixed.reason, 'code_changes');
+});
+
 test('detectChanges handles non pull request events', async () => {
   const result = await detectChanges({
     context: { eventName: 'push' },
@@ -143,4 +153,33 @@ test('detectChanges supports clients without paginate.iterator', async () => {
   assert.equal(result.outputs.run_core, 'false');
   assert.equal(result.outputs.reason, 'docs_only');
   assert.equal(result.outputs.workflow_changed, 'false');
+});
+
+test('detectChanges falls back to raw github when wrapper initialization fails', async () => {
+  const warnings = [];
+  const github = {};
+  Object.defineProperty(github, 'request', {
+    get() {
+      throw new Error('request getter boom');
+    },
+  });
+  github.hook = {};
+
+  const result = await detectChanges({
+    github,
+    core: {
+      warning(message) {
+        warnings.push(String(message));
+      },
+      setOutput() {},
+    },
+    context: { eventName: 'pull_request' },
+    files: ['src/app.py'],
+  });
+
+  assert.equal(result.outputs.doc_only, 'false');
+  assert.equal(result.outputs.run_core, 'true');
+  assert.equal(result.outputs.reason, 'code_changes');
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Failed to enable rate-limit wrapper for detect-changes/);
 });

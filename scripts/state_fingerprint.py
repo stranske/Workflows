@@ -235,13 +235,28 @@ class RepoVariableStorage:
                 f"/repos/{self.api.repo}/actions/variables/{variable_name}",
             )
         except RuntimeError as exc:
-            if " failed: 404 " in str(exc):
+            message = str(exc)
+            if " failed: 404 " in message:
+                return None
+            if " failed: 401 " in message or " failed: 403 " in message:
+                # Token can't read repo variables. Treat as "no prior fingerprint"
+                # so the caller decides should_run=true; emit a warning so the
+                # operator sees the misconfiguration in workflow logs.
+                print(
+                    f"warning: state-fingerprint storage unavailable for "
+                    f"{variable_name}: {message}",
+                    file=sys.stderr,
+                )
+                self._storage_unavailable = True
                 return None
             raise
         value = payload.get("value") if isinstance(payload, dict) else None
         return _extract_hash(value if isinstance(value, str) else None, workflow_name)
 
     def write_fingerprint(self, workflow_name: str, fingerprint_hash: str) -> None:
+        if getattr(self, "_storage_unavailable", False):
+            # Read failed with 401/403; skip write rather than failing the workflow.
+            return
         variable_name = self.variable_name or _variable_name(workflow_name)
         value = json.dumps({"hash": fingerprint_hash, "ts": _utc_now()}, sort_keys=True)
         try:
@@ -251,13 +266,21 @@ class RepoVariableStorage:
                 {"name": variable_name, "value": value},
             )
         except RuntimeError as exc:
-            if " failed: 404 " not in str(exc):
-                raise
-            self.api.request(
-                "POST",
-                f"/repos/{self.api.repo}/actions/variables",
-                {"name": variable_name, "value": value},
-            )
+            message = str(exc)
+            if " failed: 404 " in message:
+                self.api.request(
+                    "POST",
+                    f"/repos/{self.api.repo}/actions/variables",
+                    {"name": variable_name, "value": value},
+                )
+                return
+            if " failed: 401 " in message or " failed: 403 " in message:
+                print(
+                    f"warning: state-fingerprint write skipped for " f"{variable_name}: {message}",
+                    file=sys.stderr,
+                )
+                return
+            raise
 
 
 def _variable_name(workflow_name: str) -> str:

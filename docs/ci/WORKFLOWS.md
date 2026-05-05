@@ -124,6 +124,8 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 
 The agent workflows coordinate Codex and chat orchestration across topics:
 
+Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workflow. The default consumer installation is the template pair `agents-80-pr-event-hub.yml` + `agents-81-gate-followups.yml` (plus `agents-verifier.yml`, `pr-00-gate.yml`, `AGENTS.md`, and `CLAUDE.md`).
+
 * [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) is the thin dispatcher that triggers the orchestrator init and main phases. It calls [`reusable-70-orchestrator-init.yml`](../../.github/workflows/reusable-70-orchestrator-init.yml) for initialization (rate limit checks, token preflight, parameter resolution) and [`reusable-70-orchestrator-main.yml`](../../.github/workflows/reusable-70-orchestrator-main.yml) for the main keepalive and belt operations.
 * Required permissions: `actions: write`, `contents: write`, and `pull-requests: write` at the workflow root so nested branch-sync and keepalive post-work steps can request their scopes without startup failure.
 * [`agents-keepalive-loop.yml`](../../.github/workflows/agents-keepalive-loop.yml) listens for Gate completion (and the optional `agent:codex` label event) to continue keepalive work in a GitHub-native loop: it inspects PR checklists/config, gates on Gate success, dispatches `reusable-codex-run` with the keepalive prompt, updates a single summary comment, and pauses with a `needs-human` label when tasks complete, limits are reached, or repeated failures occur.

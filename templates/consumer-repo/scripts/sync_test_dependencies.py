@@ -51,6 +51,7 @@ STDLIB_MODULES = {
     "datetime",
     "decimal",
     "fractions",
+    "fnmatch",
     "functools",
     "gc",
     "glob",
