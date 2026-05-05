@@ -53,8 +53,12 @@ jobs:
       - name: Compute state fingerprint
         id: fingerprint
         env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
+          # Repo-variable storage requires a token with Variables permission.
+          # GITHUB_TOKEN can't access actions/variables even with actions: write.
+          # Prefer BRANCH_PROTECTION_TOKEN (already used downstream); fall back to
+          # GITHUB_TOKEN — the helper handles 401/403 by skipping the optimization.
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN || github.token }}
           DEFAULT_BRANCH: >-
             ${{
               github.event.repository.default_branch ||
