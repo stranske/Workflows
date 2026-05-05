@@ -53,8 +53,12 @@ jobs:
       - name: Compute state fingerprint
         id: fingerprint
         env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
+          # Repo-variable storage requires a token with Variables permission.
+          # GITHUB_TOKEN can't access actions/variables even with actions: write.
+          # Prefer BRANCH_PROTECTION_TOKEN (already used downstream); fall back to
+          # GITHUB_TOKEN — the helper handles 401/403 by skipping the optimization.
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN || github.token }}
           DEFAULT_BRANCH: >-
             ${{
               github.event.repository.default_branch ||
@@ -62,6 +66,17 @@ jobs:
               'main'
             }}
         run: |
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            {
+              echo "should_run=true"
+              echo "reason=pull-request-no-repo-variable"
+              echo "current_hash="
+              echo "prior_hash="
+            } >> "$GITHUB_OUTPUT"
+            echo '{"should_run":"true","reason":"pull-request-no-repo-variable","current_hash":"","prior_hash":""}'
+            exit 0
+          fi
+
           python - <<'PY' > /tmp/state-fingerprint-inputs.json
           import hashlib
           import json

@@ -1,0 +1,30 @@
+{
+  "historically_excluded_test_files": [
+    "tests/workflows/test_autofix_full_pipeline.py",
+    "tests/workflows/test_autofix_pipeline.py",
+    "tests/workflows/test_autofix_pipeline_diverse.py",
+    "tests/workflows/test_autofix_pipeline_live_docs.py",
+    "tests/workflows/test_autofix_pipeline_tools.py",
+    "tests/workflows/test_autofix_pr_comment.py",
+    "tests/workflows/test_autofix_probe_module.py",
+    "tests/workflows/test_autofix_repo_regressions.py",
+    "tests/workflows/test_autofix_samples.py",
+    "tests/workflows/test_chatgpt_topics_parser.py"
+  ],
+  "import_contract_test_files": [
+    "tests/workflows/test_autofix_full_pipeline.py",
+    "tests/workflows/test_autofix_pipeline.py",
+    "tests/workflows/test_autofix_pipeline_diverse.py",
+    "tests/workflows/test_autofix_pipeline_tools.py",
+    "tests/workflows/test_autofix_pr_comment.py"
+  ],
+  "expected_script_imports": [
+    "scripts.auto_type_hygiene",
+    "scripts.build_autofix_pr_comment",
+    "scripts.fix_cosmetic_aggregate",
+    "scripts.fix_numpy_asserts",
+    "scripts.mypy_autofix",
+    "scripts.mypy_return_autofix",
+    "scripts.update_autofix_expectations"
+  ]
+}

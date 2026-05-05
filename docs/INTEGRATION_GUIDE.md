@@ -593,7 +593,8 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/AGENTS.md -o AGENTS.md
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/CLAUDE.md -o CLAUDE.md
 
-# Use /main/ only when intentionally tracking the live Workflows source.
+# These examples track the live Workflows source via /main/. For reproducible
+# bootstrap, replace /main/ with a release tag or commit SHA in each URL.
 ```
 
 ### Workflow Summary
@@ -629,7 +630,7 @@ backward compatibility, but new manual setup should prefer the current defaults.
 | Secret | Purpose | Required For |
 |--------|---------|--------------|
 | `SERVICE_BOT_PAT` | Bot account for comments/labels (stranske-automation-bot) | agents, autofix |
-| `ACTIONS_BOT_PAT` | Workflow dispatch triggers | orchestrator, pr-meta |
+| `ACTIONS_BOT_PAT` | Workflow dispatch triggers | event-hub/follow-up automation (`agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`); legacy orchestrator/pr-meta only when intentionally retained |
 | `OWNER_PR_PAT` | Create PRs on behalf of user | issue-intake |
 
 ### Dual Checkout Architecture
