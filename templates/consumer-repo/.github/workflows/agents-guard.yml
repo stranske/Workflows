@@ -30,10 +30,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout eligibility action
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          sparse-checkout: .github/actions/agent-event-eligibility
+          sparse-checkout-cone-mode: false
+
       # Escape hatch: set mode: warning if false-negative skips appear post-merge.
       - name: Check event eligibility
         id: eligibility
-        uses: stranske/Workflows/.github/actions/agent-event-eligibility@main
+        uses: ./.github/actions/agent-event-eligibility
         with:
           expected-labels: >-
             agent:auto,agent:codex,agent:claude,agent:copilot,
