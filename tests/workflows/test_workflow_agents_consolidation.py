@@ -463,6 +463,51 @@ def test_keepalive_metrics_emit_compact_ndjson():
         assert "metrics_json=$(jq -cn \\" in text, f"{path} must emit one JSON object per line"
 
 
+def test_agents_guard_eligibility_does_not_require_agent_labels():
+    workflow_paths = [
+        WORKFLOWS_DIR / "agents-guard.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-guard.yml"),
+    ]
+    for path in workflow_paths:
+        text = path.read_text(encoding="utf-8")
+        assert "expected-labels:" not in text, f"{path} must guard unlabeled workflow PRs"
+        for action in ["opened", "reopened", "synchronize", "ready_for_review", "labeled", "unlabeled"]:
+            assert action in text, f"{path} must allow {action} guard events"
+
+
+def test_keepalive_reporter_watches_consolidated_followups():
+    workflow_paths = [
+        WORKFLOWS_DIR / "agents-keepalive-loop-reporter.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml"),
+    ]
+    for path in workflow_paths:
+        text = path.read_text(encoding="utf-8")
+        assert "Agents Gate Followups" in text, f"{path} must report consolidated followup runs"
+        assert (
+            "USE_CONSOLIDATED_WORKFLOWS != 'true'" not in text
+        ), f"{path} must not disable reporting when consolidated workflows are enabled"
+
+
+def test_fingerprint_payloads_include_manual_trigger_settings():
+    followups_text = Path(
+        "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"
+    ).read_text(encoding="utf-8")
+    assert '"event_name": os.environ.get("EVENT_NAME", "")' in followups_text
+    assert '"force_retry": os.environ.get("FORCE_RETRY", "").lower() == "true"' in followups_text
+    assert '"manual_retry_run"' in followups_text
+
+    workflow_paths = [
+        WORKFLOWS_DIR / "agents-verifier.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-verifier.yml"),
+    ]
+    for path in workflow_paths:
+        text = path.read_text(encoding="utf-8")
+        assert '"event_name": os.environ.get("EVENT_NAME", "")' in text
+        assert '"verifier_settings":' in text
+        for name in ["VERIFIER_MODE", "VERIFIER_MODEL", "VERIFIER_MODEL2", "VERIFIER_PROVIDER"]:
+            assert name in text, f"{path} must fingerprint {name}"
+
+
 def test_terminal_disposition_records_include_artifact_identity():
     workflow_paths = [
         WORKFLOWS_DIR / "agents-verify-to-issue-v2.yml",

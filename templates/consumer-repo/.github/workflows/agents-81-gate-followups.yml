@@ -98,6 +98,10 @@ jobs:
               ''
             }}
           GATE_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           if [ -z "${PR_NUMBER:-}" ]; then
             {
@@ -134,6 +138,8 @@ jobs:
           label_names = sorted(label.get("name", "") for label in labels if label.get("name"))
           payload = {
               "pr_number": int(pr_number),
+              "event_name": os.environ.get("EVENT_NAME", ""),
+              "force_retry": os.environ.get("FORCE_RETRY", "").lower() == "true",
               "head_sha": pr.get("head", {}).get("sha", ""),
               "gate_conclusion": os.environ.get("GATE_CONCLUSION", ""),
               "autofix_label_state": [
@@ -141,6 +147,11 @@ jobs:
                   if name.startswith("autofix") or name == "agent:retry"
               ],
           }
+          if payload["force_retry"]:
+              payload["manual_retry_run"] = {
+                  "run_id": os.environ.get("RUN_ID", ""),
+                  "run_attempt": os.environ.get("RUN_ATTEMPT", ""),
+              }
           print(json.dumps(payload, sort_keys=True))
           PY
 

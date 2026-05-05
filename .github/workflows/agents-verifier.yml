@@ -216,6 +216,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.check.outputs.pr_number }}
+          EVENT_NAME: ${{ github.event_name }}
+          VERIFIER_MODE: ${{ steps.check.outputs.mode }}
+          VERIFIER_MODEL: ${{ steps.check.outputs.model }}
+          VERIFIER_MODEL2: ${{ steps.check.outputs.model2 }}
+          VERIFIER_PROVIDER: ${{ steps.check.outputs.provider }}
         run: |
           python - <<'PY' > /tmp/state-fingerprint-inputs.json
           import hashlib
@@ -244,7 +249,8 @@ jobs:
               page = 1
               while True:
                   separator = "&" if "?" in path else "?"
-                  batch = api(f"{path}{separator}{urllib.parse.urlencode({'per_page': 100, 'page': page})}")
+                  query = urllib.parse.urlencode({"per_page": 100, "page": page})
+                  batch = api(f"{path}{separator}{query}")
                   results.extend(batch)
                   if len(batch) < 100:
                       return results
@@ -269,8 +275,15 @@ jobs:
           ).hexdigest()
           payload = {
               "pr_number": int(pr_number),
+              "event_name": os.environ.get("EVENT_NAME", ""),
               "head_sha": pr.get("head", {}).get("sha", ""),
               "diff_hash": diff_hash,
+              "verifier_settings": {
+                  "mode": os.environ.get("VERIFIER_MODE", ""),
+                  "model": os.environ.get("VERIFIER_MODEL", ""),
+                  "model2": os.environ.get("VERIFIER_MODEL2", ""),
+                  "provider": os.environ.get("VERIFIER_PROVIDER", ""),
+              },
               "verifier_trigger_labels": sorted(
                   label.get("name", "")
                   for label in labels

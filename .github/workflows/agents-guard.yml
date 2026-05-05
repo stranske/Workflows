@@ -35,10 +35,7 @@ jobs:
         id: eligibility
         uses: stranske/Workflows/.github/actions/agent-event-eligibility@main
         with:
-          expected-labels: >-
-            agent:auto,agent:codex,agent:claude,agent:copilot,
-            agents:auto-pilot,agents:keepalive
-          expected-actions: opened,synchronize,labeled
+          expected-actions: opened,reopened,synchronize,ready_for_review,labeled,unlabeled
           custom-predicate: pull_request
 
       - name: Checkout base ref for safety validation

@@ -94,6 +94,16 @@ test('force-full override enables every category output', () => {
   assert.equal(outputs['is-test-only'], 'true');
 });
 
+test('conservative fallback keeps only-category outputs disabled', () => {
+  const outputs = outputsFor(['README.md'], { conservativeFull: true });
+  assert.equal(outputs['is-docs-only'], 'false');
+  assert.equal(outputs['is-python-code'], 'true');
+  assert.equal(outputs['is-workflow-change'], 'true');
+  assert.equal(outputs['is-security-relevant'], 'true');
+  assert.equal(outputs['is-template-change'], 'true');
+  assert.equal(outputs['is-test-only'], 'false');
+});
+
 test('parses classification YAML config', () => {
   const parsed = parseClassificationConfig(`
 categories:

@@ -266,8 +266,10 @@ function classifyFiles(files, config, { forceFull = false, conservativeFull = fa
     const patterns = Array.isArray(rule.paths) ? rule.paths : [];
     const matches = changedFiles.filter((filePath) => matchesAny(filePath, patterns));
     let enabled;
-    if (forceFull || conservativeFull) {
+    if (forceFull) {
       enabled = true;
+    } else if (conservativeFull) {
+      enabled = rule.requireAll ? false : true;
     } else if (changedFiles.length === 0) {
       enabled = false;
     } else if (rule.requireAll) {
