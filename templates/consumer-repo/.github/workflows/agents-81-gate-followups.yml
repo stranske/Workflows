@@ -74,6 +74,8 @@ jobs:
       agent_routing_mode: ${{ steps.evaluate.outputs.agent_routing_mode }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
+      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'true' }}
+      dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
       fingerprint_should_run: ${{ steps.fingerprint.outputs.should_run || 'true' }}
       fingerprint_reason: ${{ steps.fingerprint.outputs.reason }}
       fingerprint_current_hash: ${{ steps.fingerprint.outputs.current_hash }}
@@ -280,13 +282,42 @@ jobs:
             // Task appendix needs special handling due to multiline content
             core.setOutput('task_appendix', result.taskAppendix || '');
 
+      - name: Check runner dispatch debounce
+        id: runner_dispatch
+        if: >
+          steps.fingerprint.outputs.should_run == 'true' &&
+          (steps.evaluate.outputs.action == 'run' ||
+          steps.evaluate.outputs.action == 'fix' ||
+          steps.evaluate.outputs.action == 'conflict')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.evaluate.outputs.head_sha }}
+          PROVIDER: ${{ steps.evaluate.outputs.agent_type || 'codex' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
+            {
+              echo "should_dispatch=true"
+              echo "reason=missing-pr-or-sha"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python -m scripts.runner_lib should-dispatch \
+            --provider "$PROVIDER" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --storage auto
+
   preflight:
     name: Verify secrets available
     needs: evaluate
     if: |
-      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
+      (needs.evaluate.outputs.action == 'run' ||
       needs.evaluate.outputs.action == 'fix' ||
-      needs.evaluate.outputs.action == 'conflict'
+      needs.evaluate.outputs.action == 'conflict')
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -343,9 +374,10 @@ jobs:
       - evaluate
       - preflight
     if: |
-      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
+      (needs.evaluate.outputs.action == 'run' ||
       needs.evaluate.outputs.action == 'fix' ||
-      needs.evaluate.outputs.action == 'conflict'
+      needs.evaluate.outputs.action == 'conflict')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -387,7 +419,9 @@ jobs:
       - preflight
       - mark-running
     # Only run for agent:codex label
-    if: needs.evaluate.outputs.agent_type == 'codex'
+    if: >-
+      needs.evaluate.outputs.agent_type == 'codex' &&
+      needs.evaluate.outputs.dispatch_should_run == 'true'
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
@@ -418,6 +452,7 @@ jobs:
       - mark-running
     if: |
       needs.evaluate.outputs.agent_type == 'claude' &&
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
       (needs.evaluate.outputs.action == 'run' ||
        needs.evaluate.outputs.action == 'fix' ||
        needs.evaluate.outputs.action == 'conflict')
@@ -434,6 +469,64 @@ jobs:
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
       iteration: ${{ needs.evaluate.outputs.iteration }}
+
+  record-keepalive-completion:
+    name: Record keepalive dispatch completion
+    needs:
+      - evaluate
+      - run-codex
+      - run-claude
+    if: >-
+      always() &&
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
+      (needs.run-codex.result != 'skipped' || needs.run-claude.result != 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout runner library
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          sparse-checkout: |
+            scripts/runner_lib
+            scripts/state_fingerprint.py
+            scripts/reference_packs.py
+          sparse-checkout-cone-mode: false
+
+      - name: Record completion
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROVIDER: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
+          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+          SUMMARY: >-
+            ${{ needs.run-codex.outputs.final-message-summary ||
+                needs.run-claude.outputs.final-message-summary || '' }}
+          EXIT_CODE: >-
+            ${{ needs.run-codex.outputs.exit-code ||
+                needs.run-claude.outputs.exit-code || '' }}
+          JOB_RESULT: >-
+            ${{ needs.run-codex.result != 'skipped' &&
+                needs.run-codex.result || needs.run-claude.result }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
+            echo "Runner completion state missing PR or SHA; skipping."
+            exit 0
+          fi
+          if [ -z "${EXIT_CODE:-}" ]; then
+            if [ "${JOB_RESULT:-}" = "success" ]; then
+              EXIT_CODE=0
+            else
+              EXIT_CODE=1
+            fi
+          fi
+          python -m scripts.runner_lib record-completion \
+            --provider "$PROVIDER" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --summary "$SUMMARY" \
+            --exit-code "$EXIT_CODE" \
+            --storage auto
 
   summary:
     name: Update keepalive summary
@@ -746,6 +839,8 @@ jobs:
       gate_run_id: ${{ steps.evaluate.outputs.gate_run_id }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
+      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'true' }}
+      dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
     steps:
       - name: Checkout (for security gate + agent registry)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -756,6 +851,9 @@ jobs:
             .github/scripts/github-rate-limited-wrapper.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            scripts/runner_lib
+            scripts/state_fingerprint.py
+            scripts/reference_packs.py
             .github/scripts/agent_registry.js
             .github/agents/registry.yml
           sparse-checkout-cone-mode: false
@@ -1110,10 +1208,35 @@ jobs:
               core.setOutput(key, value);
             }
 
+      - name: Check runner dispatch debounce
+        id: runner_dispatch
+        if: steps.evaluate.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.evaluate.outputs.head_sha }}
+          PROVIDER: ${{ steps.evaluate.outputs.agent_type || 'codex' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
+            {
+              echo "should_dispatch=true"
+              echo "reason=missing-pr-or-sha"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python -m scripts.runner_lib should-dispatch \
+            --provider "$PROVIDER" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --storage auto
+
   autofix:
     needs: prepare
     if: >-
       needs.prepare.outputs.should_run == 'true' &&
+      needs.prepare.outputs.dispatch_should_run == 'true' &&
       needs.prepare.outputs.agent_type == 'codex'
     name: Run Codex autofix
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
@@ -1132,6 +1255,7 @@ jobs:
     needs: prepare
     if: >-
       needs.prepare.outputs.should_run == 'true' &&
+      needs.prepare.outputs.dispatch_should_run == 'true' &&
       needs.prepare.outputs.agent_type == 'claude'
     name: Run Claude autofix
     uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main

@@ -21,7 +21,8 @@ from scripts.state_fingerprint import GitHubApi, _github_context
 
 MARKER_VERSION = "v1"
 MARKER_PREFIX = "runner-dispatch"
-PROVIDERS = {"codex", "claude"}
+PROVIDERS = {"autofix", "claude", "codex"}
+PROMPT_PROVIDERS = {"claude", "codex"}
 TERMINAL_STATUSES = {"completed", "error"}
 
 
@@ -185,6 +186,8 @@ def assemble_prompt(
 ) -> RunnerPrompt:
     """Assemble a provider-specific prompt from template, context, and references."""
     provider = _validate_provider(provider)
+    if provider not in PROMPT_PROVIDERS:
+        raise ValueError(f"provider does not support prompt assembly: {provider}")
     workspace = Path(str(context.get("workspace", "."))).resolve()
     base_prompt_raw = context.get("base_prompt_file") or context.get("prompt_file")
     if not base_prompt_raw:
@@ -287,6 +290,8 @@ def _parse_jsonl_output(raw_output: str) -> tuple[list[str], list[str]]:
 def parse_runner_output(provider: str, raw_output: str) -> RunnerResult:
     """Parse raw Codex/Claude output into a common result shape."""
     provider = _validate_provider(provider)
+    if provider not in PROMPT_PROVIDERS:
+        raise ValueError(f"provider does not support output parsing: {provider}")
     raw = raw_output or ""
     truncated = len(raw) > 64000 or bool(re.search(r"\btruncated\b", raw, re.IGNORECASE))
     clipped = raw[:64000] if len(raw) > 64000 else raw
@@ -608,7 +613,9 @@ def _cmd_parse(args: argparse.Namespace) -> int:
     outputs = {
         "success": "true" if result.success else "false",
         "summary": result.summary,
+        "final-message-summary": result.summary,
         "error": result.error or "",
+        "error-summary": result.error or result.summary,
         "truncated": "true" if result.truncated else "false",
         "final-message": base64.b64encode(result.final_message.encode("utf-8")).decode("ascii"),
     }
@@ -642,7 +649,17 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
         path = Path(args.raw_output_file)
         if path.is_file():
             raw = path.read_text(encoding="utf-8")
-    result = parse_runner_output(args.provider, raw or args.summary or "")
+    provider = _validate_provider(args.provider)
+    if provider in PROMPT_PROVIDERS:
+        result = parse_runner_output(provider, raw or args.summary or "")
+    else:
+        summary = args.summary or raw or "No output captured"
+        result = RunnerResult(
+            provider=provider,
+            success=args.exit_code is None or int(args.exit_code) == 0,
+            final_message=summary,
+            summary=re.sub(r"\s+", " ", summary).strip()[:500] or "No output captured",
+        )
     if args.exit_code is not None and int(args.exit_code) != 0 and result.success:
         result = dataclasses.replace(result, success=False, error=result.summary)
     record = record_completion(

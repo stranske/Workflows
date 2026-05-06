@@ -71,6 +71,8 @@ jobs:
       force_retry: ${{ steps.evaluate.outputs.force_retry }}
       fingerprint_should_run: ${{ steps.fingerprint.outputs.should_run || 'true' }}
       fingerprint_reason: ${{ steps.fingerprint.outputs.reason }}
+      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'true' }}
+      dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -449,6 +451,34 @@ jobs:
             // the job-output level, so even a step output would re-introduce
             // the "Skip output since it may contain secret" noise.
 
+      - name: Check runner dispatch debounce
+        id: runner_dispatch
+        if: >
+          steps.fingerprint.outputs.should_run == 'true' &&
+          (steps.evaluate.outputs.action == 'run' ||
+          steps.evaluate.outputs.action == 'fix' ||
+          steps.evaluate.outputs.action == 'conflict')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.evaluate.outputs.head_sha }}
+          PROVIDER: ${{ steps.evaluate.outputs.agent_type || 'codex' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
+            {
+              echo "should_dispatch=true"
+              echo "reason=missing-pr-or-sha"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python -m scripts.runner_lib should-dispatch \
+            --provider "$PROVIDER" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --storage auto
+
       - name: Verify task appendix artifact
         if: >
           steps.fingerprint.outputs.should_run == 'true' &&
@@ -478,9 +508,10 @@ jobs:
     name: Verify secrets available
     needs: evaluate
     if: |
-      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
+      (needs.evaluate.outputs.action == 'run' ||
       needs.evaluate.outputs.action == 'fix' ||
-      needs.evaluate.outputs.action == 'conflict'
+      needs.evaluate.outputs.action == 'conflict')
     runs-on: ubuntu-latest
     environment: >-
       ${{
@@ -524,7 +555,9 @@ jobs:
               fi
               ;;
             *)
-              if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_CLAUDE_AUTH" = "true" ] || [ "$HAS_CLAUDE_OAUTH" = "true" ]; then
+              if [ "$HAS_CODEX_AUTH" = "true" ] || \
+                [ "$HAS_CLAUDE_AUTH" = "true" ] || \
+                [ "$HAS_CLAUDE_OAUTH" = "true" ]; then
                 agent_auth_ok=true
               fi
               ;;
@@ -535,13 +568,17 @@ jobs:
           if [ "$agent_auth_ok" != "true" ]; then
             case "$AGENT_TYPE" in
               claude)
-                missing_msg="Missing credentials for agent 'claude'. Set CLAUDE_CODE_OAUTH_TOKEN (preferred), CLAUDE_AUTH_JSON, or configure KEEPALIVE/WORKFLOWS_APP credentials."
+                missing_msg="Missing credentials for agent 'claude'. Set "
+                missing_msg+="CLAUDE_CODE_OAUTH_TOKEN (preferred), CLAUDE_AUTH_JSON, "
+                missing_msg+="or configure KEEPALIVE/WORKFLOWS_APP credentials."
                 ;;
               codex)
-                missing_msg="Missing credentials for agent 'codex'. Set CODEX_AUTH_JSON, or configure KEEPALIVE/WORKFLOWS_APP credentials."
+                missing_msg="Missing credentials for agent 'codex'. Set CODEX_AUTH_JSON, "
+                missing_msg+="or configure KEEPALIVE/WORKFLOWS_APP credentials."
                 ;;
               *)
-                missing_msg="Missing credentials for agent '${AGENT_TYPE}'. Configure that agent's credentials or KEEPALIVE/WORKFLOWS_APP credentials."
+                missing_msg="Missing credentials for agent '${AGENT_TYPE}'. Configure "
+                missing_msg+="that agent's credentials or KEEPALIVE/WORKFLOWS_APP credentials."
                 ;;
             esac
             echo "::error::$missing_msg"
@@ -569,9 +606,10 @@ jobs:
       - evaluate
       - preflight
     if: |
-      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
+      (needs.evaluate.outputs.action == 'run' ||
       needs.evaluate.outputs.action == 'fix' ||
-      needs.evaluate.outputs.action == 'conflict'
+      needs.evaluate.outputs.action == 'conflict')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -622,6 +660,7 @@ jobs:
     # Only run for agent:codex label when action is run/fix/conflict
     if: |
       needs.evaluate.outputs.agent_type == 'codex' &&
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
       (needs.evaluate.outputs.action == 'run' ||
        needs.evaluate.outputs.action == 'fix' ||
        needs.evaluate.outputs.action == 'conflict')
@@ -654,6 +693,7 @@ jobs:
       - mark-running
     if: |
       needs.evaluate.outputs.agent_type == 'claude' &&
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
       (needs.evaluate.outputs.action == 'run' ||
        needs.evaluate.outputs.action == 'fix' ||
        needs.evaluate.outputs.action == 'conflict')
@@ -680,6 +720,64 @@ jobs:
 
   # Progress review: LLM-based check when agent is active but not completing tasks
   # This catches "productive but unfocused" patterns where agent works on tangential items
+  record-keepalive-completion:
+    name: Record keepalive dispatch completion
+    needs:
+      - evaluate
+      - run-codex
+      - run-claude
+    if: >-
+      always() &&
+      needs.evaluate.outputs.dispatch_should_run == 'true' &&
+      (needs.run-codex.result != 'skipped' || needs.run-claude.result != 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout runner library
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            scripts/runner_lib
+            scripts/state_fingerprint.py
+            scripts/reference_packs.py
+          sparse-checkout-cone-mode: false
+
+      - name: Record completion
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROVIDER: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
+          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+          SUMMARY: >-
+            ${{ needs.run-codex.outputs.final-message-summary ||
+                needs.run-claude.outputs.final-message-summary || '' }}
+          EXIT_CODE: >-
+            ${{ needs.run-codex.outputs.exit-code ||
+                needs.run-claude.outputs.exit-code || '' }}
+          JOB_RESULT: >-
+            ${{ needs.run-codex.result != 'skipped' &&
+                needs.run-codex.result || needs.run-claude.result }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
+            echo "Runner completion state missing PR or SHA; skipping."
+            exit 0
+          fi
+          if [ -z "${EXIT_CODE:-}" ]; then
+            if [ "${JOB_RESULT:-}" = "success" ]; then
+              EXIT_CODE=0
+            else
+              EXIT_CODE=1
+            fi
+          fi
+          python -m scripts.runner_lib record-completion \
+            --provider "$PROVIDER" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --summary "$SUMMARY" \
+            --exit-code "$EXIT_CODE" \
+            --storage auto
+
   progress-review:
     name: Review agent progress alignment
     needs: evaluate

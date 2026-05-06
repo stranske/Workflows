@@ -64,6 +64,9 @@ jobs:
       pr_labels_json: ${{ steps.context.outputs.pr_labels_json }}
       same_repo: ${{ steps.context.outputs.same_repo }}
       caller_actor: ${{ steps.context.outputs.caller_actor }}
+      head_sha: ${{ steps.context.outputs.head_sha }}
+      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'true' }}
+      dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
     steps:
       # Escape hatch: set mode: warning if false-negative skips appear post-merge.
       - name: Check event eligibility
@@ -87,6 +90,9 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            scripts/runner_lib
+            scripts/state_fingerprint.py
+            scripts/reference_packs.py
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
@@ -216,6 +222,7 @@ jobs:
               core.setOutput('pr_labels_json', JSON.stringify(labels));
               core.setOutput('same_repo', sameRepo ? 'true' : 'false');
               core.setOutput('caller_actor', callerActor);
+              core.setOutput('head_sha', pr.head?.sha || '');
             };
 
             // --- workflow_run trigger (after Gate/CI completes) ---
@@ -560,9 +567,38 @@ jobs:
             });
 
   # Call reusable autofix workflow
+      - name: Check runner dispatch debounce
+        id: runner_dispatch
+        if: steps.context.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: >-
+            ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT ||
+                secrets.SERVICE_BOT_PAT || github.token }}
+          GITHUB_TOKEN: >-
+            ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT ||
+                secrets.SERVICE_BOT_PAT || github.token }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
+            {
+              echo "should_dispatch=true"
+              echo "reason=missing-pr-or-sha"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python -m scripts.runner_lib should-dispatch \
+            --provider autofix \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --storage auto
+
   autofix:
     needs: resolve
-    if: needs.resolve.outputs.should_run == 'true'
+    if: >-
+      needs.resolve.outputs.should_run == 'true' &&
+      needs.resolve.outputs.dispatch_should_run == 'true'
     uses: stranske/Workflows/.github/workflows/reusable-18-autofix.yml@main
     with:
       pr_number: ${{ fromJson(needs.resolve.outputs.pr_number) }}
@@ -576,3 +612,49 @@ jobs:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+  record-autofix-dispatch:
+    name: Record autofix dispatch completion
+    needs:
+      - resolve
+      - autofix
+    if: >-
+      always() &&
+      needs.resolve.outputs.dispatch_should_run == 'true' &&
+      needs.autofix.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout runner library
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          sparse-checkout: |
+            scripts/runner_lib
+            scripts/state_fingerprint.py
+            scripts/reference_packs.py
+          sparse-checkout-cone-mode: false
+
+      - name: Record completion
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ needs.resolve.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.resolve.outputs.head_sha }}
+          JOB_RESULT: ${{ needs.autofix.result }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
+            echo "Autofix completion state missing PR or SHA; skipping."
+            exit 0
+          fi
+          if [ "${JOB_RESULT:-}" = "success" ]; then
+              EXIT_CODE=0
+            else
+              EXIT_CODE=1
+            fi
+          python -m scripts.runner_lib record-completion \
+            --provider autofix \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --summary "autofix workflow result: ${JOB_RESULT:-unknown}" \
+            --exit-code "$EXIT_CODE" \
+            --storage auto

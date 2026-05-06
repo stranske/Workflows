@@ -428,6 +428,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
+          AGENTS_AUTOMATION_PAT: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+          OWNER_PR_PAT: ${{ secrets.OWNER_PR_PAT }}
           PR_NUMBER: >-
             ${{
               inputs.pr_number ||
@@ -454,7 +458,20 @@ jobs:
           import urllib.request
 
           repo = os.environ["GITHUB_REPOSITORY"]
-          token = os.environ["GITHUB_TOKEN"]
+          token = next(
+              (
+                  os.environ.get(name, "")
+                  for name in (
+                      "AGENTS_AUTOMATION_PAT",
+                      "ACTIONS_BOT_PAT",
+                      "SERVICE_BOT_PAT",
+                      "OWNER_PR_PAT",
+                      "GITHUB_TOKEN",
+                  )
+                  if os.environ.get(name, "")
+              ),
+              "",
+          )
           pr_number = os.environ["PR_NUMBER"]
           headers = {
               "Accept": "application/vnd.github+json",

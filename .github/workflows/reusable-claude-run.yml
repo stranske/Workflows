@@ -555,58 +555,14 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
-          base="${BASE_PROMPT}"
-          if [ -n "${PR_NUMBER}" ]; then
-            output="claude-prompt-${PR_NUMBER}.md"
-          else
-            output="claude-prompt.md"
-          fi
-
-          if [ -z "$base" ] || [ ! -f "$base" ]; then
-            echo "Base prompt file not found: ${base}" >&2
-            exit 1
-          fi
-
-          if [ -f ".github/claude/AGENT_INSTRUCTIONS.md" ]; then
-            {
-              cat ".github/claude/AGENT_INSTRUCTIONS.md"
-              echo
-              echo "---"
-              echo
-              echo "## Task Prompt"
-              echo
-            } > "$output"
-            cat "$base" >> "$output"
-          else
-            cat "$base" > "$output"
-          fi
-
-          if [ "$MODE" = "keepalive" ] && [ -s "/tmp/keepalive-artifacts/task-appendix.txt" ]; then
-            echo "Streaming task appendix from artifact file"
-            {
-              echo
-              echo "## Run context"
-              cat /tmp/keepalive-artifacts/task-appendix.txt
-            } >> "$output"
-          elif [ -n "$APPENDIX" ]; then
-            echo "Using task appendix from input parameter"
-            {
-              echo
-              echo "## Run context"
-              printf '%s\n' "$APPENDIX"
-            } >> "$output"
-          fi
-
-          if [ -f ".reference/REFERENCE_PACKS.md" ]; then
-            echo "Including reference pack content in prompt"
-            {
-              echo
-              echo "## Reference Packs"
-              cat .reference/REFERENCE_PACKS.md
-            } >> "$output"
-          fi
-
-          echo "file=${output}" >> "$GITHUB_OUTPUT"
+          PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
+            python -m scripts.runner_lib assemble-prompt \
+              --provider claude \
+              --base-prompt "$BASE_PROMPT" \
+              --appendix "$APPENDIX" \
+              --mode "$MODE" \
+              --pr-number "$PR_NUMBER" \
+              --task-appendix-file /tmp/keepalive-artifacts/task-appendix.txt
 
       # Keep workspace shape identical to Codex runner so git status noise doesn't
       # confuse the agent or produce merge conflicts when multiple PRs run.
@@ -904,26 +860,12 @@ jobs:
             git log --oneline -5 2>/dev/null || true
           echo "::endgroup::"
 
-          output=""
-          if [ -f "$output_file" ]; then
-            output="$(cat "$output_file")"
-          fi
-
-          encoded="$(
-            printf '%s' "$output" | base64 -w 0 2>/dev/null || \
-            printf '%s' "$output" | base64 | tr -d '\n'
-          )"
-          summary="$(
-            printf '%s' "$output" | head -c 500 | tr '\n' ' ' | sed 's/  */ /g' || true
-          )"
-          if [ -z "$summary" ]; then
-            summary="No output captured"
-          fi
 
           echo "exit-code=$status" >> "$GITHUB_OUTPUT"
-          echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
-          echo "final-message=${encoded}" >> "$GITHUB_OUTPUT"
-          echo "final-message-summary=${summary}" >> "$GITHUB_OUTPUT"
+          PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
+            python -m scripts.runner_lib parse-output \
+              --provider claude \
+              --raw-output-file "$output_file" >/tmp/claude-runner-result.json
 
           if [ "$status" -ne 0 ]; then
             exit "$status"
