@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
+const os = require('node:os');
 
 const {
   buildCappedIssuePayload,
@@ -116,5 +117,53 @@ test('buildCappedIssuePayload removes temporary input directory', () => {
     assert.equal(fs.existsSync(tempDir), false);
   } finally {
     childProcess.execFileSync = originalExecFileSync;
+  }
+});
+
+test('buildCappedIssuePayload removes temporary directories after success', () => {
+  const originalExec = childProcess.execFileSync;
+  childProcess.execFileSync = () =>
+    JSON.stringify({
+      formatted_body: TASKS_AND_ACCEPTANCE_ONLY,
+      truncated: false,
+      estimated_tokens: 12,
+      token_budget: 4000,
+    });
+
+  try {
+    const before = new Set(
+      fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith('workflows-issue-context-'))
+    );
+    const result = buildCappedIssuePayload(COMPLETE_BODY);
+    const after = fs
+      .readdirSync(os.tmpdir())
+      .filter((name) => name.startsWith('workflows-issue-context-') && !before.has(name));
+
+    assert.equal(result.formattedBody, TASKS_AND_ACCEPTANCE_ONLY);
+    assert.deepEqual(after, []);
+  } finally {
+    childProcess.execFileSync = originalExec;
+  }
+});
+
+test('buildCappedIssuePayload removes temporary directories after fallback', () => {
+  const originalExec = childProcess.execFileSync;
+  childProcess.execFileSync = () => {
+    throw new Error('capper failed');
+  };
+
+  try {
+    const before = new Set(
+      fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith('workflows-issue-context-'))
+    );
+    const result = buildCappedIssuePayload(COMPLETE_BODY);
+    const after = fs
+      .readdirSync(os.tmpdir())
+      .filter((name) => name.startsWith('workflows-issue-context-') && !before.has(name));
+
+    assert.equal(result.formattedBody, COMPLETE_BODY);
+    assert.deepEqual(after, []);
+  } finally {
+    childProcess.execFileSync = originalExec;
   }
 });

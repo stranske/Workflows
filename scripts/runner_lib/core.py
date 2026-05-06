@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import dataclasses
 import datetime as dt
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -18,7 +20,6 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Protocol
 
-from scripts import reference_packs
 from scripts.state_fingerprint import GitHubApi, _github_context
 
 MARKER_VERSION = "v1"
@@ -95,12 +96,40 @@ def _prompt_output_name(provider: str, pr_number: str | int | None) -> str:
     return f"{provider}-prompt{suffix}.md"
 
 
+def _load_reference_packs_module() -> Any:
+    try:
+        return importlib.import_module("scripts.reference_packs")
+    except ModuleNotFoundError as exc:
+        if exc.name == "scripts.reference_packs":
+            raise RuntimeError(
+                "reference packs are not supported in this repository because "
+                "scripts/reference_packs.py was not synced"
+            ) from exc
+        raise
+
+
+def _run_git(args: list[str], env: dict[str, str] | None = None) -> None:
+    try:
+        subprocess.check_call(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+        )
+    except subprocess.CalledProcessError as exc:
+        redacted = ["<redacted>" if "x-access-token:" in part else part for part in args]
+        raise RuntimeError(
+            f"git command failed with exit code {exc.returncode}: {' '.join(redacted)}"
+        ) from exc
+
+
 def materialize_reference_packs(
     workspace: str | Path = ".",
     reference_pack_name: str | None = None,
     token: str | None = None,
 ) -> Path | None:
     """Validate and materialize configured reference packs into `.reference/`."""
+    reference_packs = _load_reference_packs_module()
     workspace_path = Path(workspace).resolve()
     snapshot = reference_packs.load_reference_packs(workspace_path)
     if not snapshot.exists:
@@ -145,28 +174,16 @@ def materialize_reference_packs(
             clone_cmd.extend(["--branch", plan.ref])
         clone_cmd.extend([clone_url, str(clone_dir)])
         try:
-            subprocess.check_call(
-                clone_cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                env=git_env,
-            )
+            _run_git(clone_cmd, env=git_env)
 
             if is_sha:
-                subprocess.check_call(
+                _run_git(
                     ["git", "-C", str(clone_dir), "fetch", "origin", plan.ref, "--depth=1"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
                     env=git_env,
                 )
-                subprocess.check_call(
-                    ["git", "-C", str(clone_dir), "checkout", plan.ref],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    env=git_env,
-                )
+                _run_git(["git", "-C", str(clone_dir), "checkout", plan.ref], env=git_env)
 
-            subprocess.check_call(
+            _run_git(
                 [
                     "git",
                     "-C",
@@ -176,14 +193,9 @@ def materialize_reference_packs(
                     "--no-cone",
                     *plan.paths,
                 ],
-                stdout=subprocess.DEVNULL,
                 env=git_env,
             )
-            subprocess.check_call(
-                ["git", "-C", str(clone_dir), "sparse-checkout", "reapply"],
-                stdout=subprocess.DEVNULL,
-                env=git_env,
-            )
+            _run_git(["git", "-C", str(clone_dir), "sparse-checkout", "reapply"], env=git_env)
 
             checkout_path = workspace_path / plan.checkout_path
             checkout_path.mkdir(parents=True, exist_ok=True)
@@ -368,17 +380,26 @@ def parse_runner_output(provider: str, raw_output: str) -> RunnerResult:
 
 def _marker_re(pr_number: int, provider: str) -> re.Pattern[str]:
     return re.compile(
-        rf"<!--\s*{MARKER_PREFIX}:{provider}:{pr_number}:{MARKER_VERSION}\s+(\{{.*?\}})\s*-->",
+        rf"<!--\s*{MARKER_PREFIX}:{provider}:{pr_number}:{MARKER_VERSION}\s+([\s\S]*?)\s*-->",
         re.DOTALL,
     )
 
 
 def _build_marker(pr_number: int, provider: str, record: dict[str, Any]) -> str:
-    payload = json.dumps(record, sort_keys=True, separators=(",", ":"))
+    payload = base64.b64encode(
+        json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
     return (
         f"Runner dispatch state for {provider} on PR #{pr_number}. Do not edit.\n\n"
-        f"<!-- {MARKER_PREFIX}:{provider}:{pr_number}:{MARKER_VERSION} {payload} -->"
+        f"<!-- {MARKER_PREFIX}:{provider}:{pr_number}:{MARKER_VERSION} base64:{payload} -->"
     )
+
+
+def _decode_record_candidate(candidate: str) -> str:
+    value = candidate.strip()
+    if value.startswith("base64:"):
+        return base64.b64decode(value.removeprefix("base64:")).decode("utf-8")
+    return value
 
 
 def _extract_record(value: str | None, pr_number: int, provider: str) -> dict[str, Any] | None:
@@ -393,8 +414,8 @@ def _extract_record(value: str | None, pr_number: int, provider: str) -> dict[st
         candidates.append(stripped)
     for candidate in candidates:
         try:
-            payload = json.loads(candidate)
-        except json.JSONDecodeError:
+            payload = json.loads(_decode_record_candidate(candidate))
+        except (binascii.Error, ValueError, json.JSONDecodeError):
             continue
         if isinstance(payload, dict) and payload.get("provider") == provider:
             return payload

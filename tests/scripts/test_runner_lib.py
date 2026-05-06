@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import subprocess
+import types
 from pathlib import Path
 from typing import Any
 
+import pytest
+import scripts.runner_lib.core as runner_core
 from scripts.runner_lib import (
     assemble_prompt,
     parse_runner_output,
@@ -195,6 +198,26 @@ def test_materialize_reference_packs_keeps_token_out_of_git_argv(
     assert all(env.get("GIT_ASKPASS_PASSWORD") == "secret-token" for _cmd, env in calls)
 
 
+def test_pr_comment_marker_round_trips_nested_result_payload() -> None:
+    result = parse_runner_output("claude", "Done")
+    record = {
+        "provider": "claude",
+        "pr_number": 42,
+        "head_sha": "aaa",
+        "status": "completed",
+        "result": {
+            "summary": result.summary,
+            "nested": {"value": "inner"},
+            "final_message": "contains --> comment closer",
+        },
+    }
+
+    marker = runner_core._build_marker(42, "claude", record)
+    parsed = runner_core._extract_record(marker, 42, "claude")
+
+    assert parsed == record
+
+
 def test_pr_comment_storage_stops_when_marker_found() -> None:
     class FakeApi:
         repo = "owner/repo"
@@ -224,3 +247,58 @@ def test_pr_comment_storage_stops_when_marker_found() -> None:
 
     assert record == {"provider": "codex", "head_sha": "abc"}
     assert len(api.paths) == 1
+
+
+def test_materialize_reference_packs_import_is_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_import(name: str) -> Any:
+        raise ModuleNotFoundError(name=name)
+
+    monkeypatch.setattr(runner_core.importlib, "import_module", fail_import)
+
+    with pytest.raises(RuntimeError, match="reference packs are not supported"):
+        runner_core.materialize_reference_packs(".")
+
+
+def test_materialize_reference_packs_does_not_put_token_in_git_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    token = "ghp_secret_token"
+    plan = types.SimpleNamespace(
+        name="baseline",
+        repo="stranske/private-reference",
+        ref="main",
+        paths=["README.md"],
+        checkout_path=".reference/baseline",
+    )
+    fake_reference_packs = types.SimpleNamespace(
+        load_reference_packs=lambda _workspace: types.SimpleNamespace(exists=True, packs=[plan]),
+        build_checkout_plan=lambda _packs: [plan],
+    )
+    calls: list[tuple[list[str], dict[str, str] | None]] = []
+
+    def fake_import(name: str) -> Any:
+        assert name == "scripts.reference_packs"
+        return fake_reference_packs
+
+    def fail_check_call(
+        args: list[str],
+        stdout: Any = None,
+        stderr: Any = None,
+        env: dict[str, str] | None = None,
+    ) -> None:
+        calls.append((args, env))
+        raise subprocess.CalledProcessError(128, args)
+
+    monkeypatch.setattr(runner_core.importlib, "import_module", fake_import)
+    monkeypatch.setattr(runner_core.subprocess, "check_call", fail_check_call)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        runner_core.materialize_reference_packs(tmp_path, token=token)
+
+    assert token not in str(exc_info.value)
+    assert calls
+    clone_cmd, clone_env = calls[0]
+    assert all(token not in part for part in clone_cmd)
+    assert clone_env is not None
+    assert clone_env["GIT_ASKPASS_PASSWORD"] == token
+    assert Path(clone_env["GIT_ASKPASS"]).exists() is False
