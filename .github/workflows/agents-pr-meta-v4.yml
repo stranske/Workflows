@@ -484,7 +484,7 @@ jobs:
                   value = body[start_index + len(start):end_index].strip()
               return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
-          pr = api(f"/repos/{repo}/pulls/{pr_number}")
+          pr = api(f"/repos/{repo}/pulls/{pr_number}", default={})
           labels = api(f"/repos/{repo}/issues/{pr_number}/labels", default=[])
           body = pr.get("body") or ""
           payload = {
