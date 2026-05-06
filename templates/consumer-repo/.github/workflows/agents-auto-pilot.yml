@@ -527,16 +527,7 @@ jobs:
         env:
           FORCE_STEP: ${{ inputs.force_step }}
         run: |
-          # Priority order of steps
-          # 1. If issue closed and has verify label → done
-          # 2. If issue closed without verify → add verify
-          # 3. If no PR → need agent assignment
-          # 4. If has PR → check PR state
-          # 5. If no format → format first
-          # 6. If no optimize label → trigger optimize
-          # 7. If optimize label but no output → wait (optimizer still running)
-          # 8. If has optimizer output but no apply → apply suggestions
-
+          SCRIPTS_PATH="${WORKFLOWS_SCRIPTS_PATH:-$GITHUB_WORKSPACE}"
           ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
           HAS_FORMAT="${{ steps.context.outputs.has_format }}"
           HAS_OPTIMIZER_OUTPUT="${{ steps.context.outputs.has_optimizer_output }}"
@@ -547,48 +538,25 @@ jobs:
 
           # Force step if specified (not 'auto')
           if [[ -n "$FORCE_STEP" && "$FORCE_STEP" != "auto" ]]; then
-            echo "next_step=$FORCE_STEP" >> "$GITHUB_OUTPUT"
-            echo "Forced step: $FORCE_STEP"
+            WORKFLOWS_SCRIPTS_PATH="$SCRIPTS_PATH" FORCE_STEP="$FORCE_STEP" node - <<'NODE'
+          const fs = require('fs');
+          const { determineNextStep } = require(
+            `${process.env.WORKFLOWS_SCRIPTS_PATH}/.github/scripts/auto_pilot_transitions.js`
+          );
+
+          const result = determineNextStep({ forceStep: process.env.FORCE_STEP });
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `next_step=${result.nextStep}\n`);
+          console.log(result.message);
+          NODE
             exit 0
           fi
 
-          # Issue closed = done or verify
-          if [[ "$ISSUE_STATE" == "closed" ]]; then
-            if [[ "$HAS_VERIFY" == "true" ]]; then
-              echo "next_step=done" >> "$GITHUB_OUTPUT"
-              echo "Issue closed with verification - auto-pilot complete"
-            else
-              echo "next_step=verify" >> "$GITHUB_OUTPUT"
-              echo "Issue closed - triggering verification"
-            fi
-            exit 0
-          fi
+          PR_STATE_FILE="$(mktemp)"
+          PR_STATE_FETCH_FAILED="false"
 
-          # No PR yet - need to go through issue prep pipeline
-          if [[ -z "$LINKED_PR" ]]; then
-            if [[ "$HAS_FORMAT" != "true" ]]; then
-              echo "next_step=format" >> "$GITHUB_OUTPUT"
-              echo "Step 1: Format issue"
-            elif [[ "$HAS_OPTIMIZER_OUTPUT" != "true" ]]; then
-              # Run optimizer inline (not via label)
-              echo "next_step=optimize" >> "$GITHUB_OUTPUT"
-              echo "Step 2: Run optimizer (inline)"
-            elif [[ "$HAS_APPLY" != "true" ]]; then
-              echo "next_step=apply" >> "$GITHUB_OUTPUT"
-              echo "Step 3: Apply suggestions"
-            elif [[ "$HAS_AGENT" != "true" ]]; then
-              echo "next_step=capability-check" >> "$GITHUB_OUTPUT"
-              echo "Step 4: Run capability check and assign agent"
-            else
-              echo "next_step=create-pr" >> "$GITHUB_OUTPUT"
-              echo "Step 5: All prep complete, checking for branch to create PR"
-            fi
-            exit 0
-          fi
-
-          # Has PR - check if it's complete and ready to merge
-          # Get PR state to see if keepalive has finished
-          if ! PR_STATE=$(LINKED_PR="$LINKED_PR" node - <<'NODE'
+          # Has PR - check if it's complete and ready to merge.
+          # The pure transition helper consumes the fetched keepalive state.
+          if [[ -n "$LINKED_PR" ]] && ! LINKED_PR="$LINKED_PR" node - <<'NODE' > "$PR_STATE_FILE"
           (async () => {
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -618,29 +586,43 @@ jobs:
             process.exit(1);
           });
           NODE
-          ); then
-            echo "⚠️ Failed to fetch PR state, defaulting to monitor-pr"
-            echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
-            exit 0
+          then
+            PR_STATE_FETCH_FAILED="true"
           fi
 
-          # Check if we got any state data
-          if [ -z "$PR_STATE" ]; then
-            echo "No keepalive state found, defaulting to monitor-pr"
-            echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          WORKFLOWS_SCRIPTS_PATH="$SCRIPTS_PATH" \
+            ISSUE_STATE="$ISSUE_STATE" \
+            HAS_FORMAT="$HAS_FORMAT" \
+            HAS_OPTIMIZER_OUTPUT="$HAS_OPTIMIZER_OUTPUT" \
+            HAS_APPLY="$HAS_APPLY" \
+            HAS_AGENT="$HAS_AGENT" \
+            LINKED_PR="$LINKED_PR" \
+            HAS_VERIFY="$HAS_VERIFY" \
+            PR_STATE_FILE="$PR_STATE_FILE" \
+            PR_STATE_FETCH_FAILED="$PR_STATE_FETCH_FAILED" \
+            node - <<'NODE'
+          const fs = require('fs');
+          const { determineNextStep } = require(
+            `${process.env.WORKFLOWS_SCRIPTS_PATH}/.github/scripts/auto_pilot_transitions.js`
+          );
 
-          # Check if keepalive marked tasks as complete
-          if echo "$PR_STATE" | grep -q '"last_action":"stop"' && \
-             echo "$PR_STATE" | grep -q '"last_reason":"tasks-complete"'; then
-            echo "next_step=check-completion" >> "$GITHUB_OUTPUT"
-            echo "Step 6.5: PR tasks complete - checking for merge"
-          else
-            echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
-            echo "PR #$LINKED_PR exists - monitoring via keepalive"
-          fi
-          exit 0
+          const keepaliveState = process.env.PR_STATE_FILE
+            ? fs.readFileSync(process.env.PR_STATE_FILE, 'utf8')
+            : '';
+          const result = determineNextStep({
+            issueState: process.env.ISSUE_STATE,
+            hasFormat: process.env.HAS_FORMAT,
+            hasOptimizerOutput: process.env.HAS_OPTIMIZER_OUTPUT,
+            hasApply: process.env.HAS_APPLY,
+            hasAgent: process.env.HAS_AGENT,
+            linkedPr: process.env.LINKED_PR,
+            hasVerify: process.env.HAS_VERIFY,
+            keepaliveState,
+            prStateFetchFailed: process.env.PR_STATE_FETCH_FAILED === 'true',
+          });
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `next_step=${result.nextStep}\n`);
+          console.log(result.message);
+          NODE
 
       - name: Metrics - Start format timer
         if: steps.next.outputs.next_step == 'format'
@@ -3204,17 +3186,11 @@ jobs:
               return;
             }
 
-            // Determine next step explicitly to avoid label race conditions
-            // Don't rely on 'auto' detection which has API cache timing issues
-            const nextStepMap = {
-              'format': 'optimize',
-              'optimize': 'apply',
-              'apply': 'capability-check',
-              'capability-check': 'auto',  // Let it detect agent/PR state
-              'create-pr': 'auto',  // Re-evaluate after branch/PR creation
-              'monitor-pr': 'auto'  // Let it check PR completion
-            };
-            const nextStep = nextStepMap[currentStep] || 'auto';
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
+            const { redispatchForceStep } = require(
+              `${scriptsPath}/.github/scripts/auto_pilot_transitions.js`
+            );
+            const nextStep = redispatchForceStep(currentStep);
 
             // For monitor-pr or create-pr, add delay to avoid tight polling loops
             // Keepalive updates and branch creation can take time; without delay

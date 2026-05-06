@@ -1,0 +1,200 @@
+{
+  "validTransitions": [
+    {
+      "name": "closed issue with verify label is done",
+      "state": "closed-verified",
+      "event": {
+        "issueState": "closed",
+        "hasVerify": true
+      },
+      "nextStep": "done"
+    },
+    {
+      "name": "closed issue without verify label triggers verify",
+      "state": "closed-needs-verify",
+      "event": {
+        "issueState": "closed",
+        "hasVerify": false
+      },
+      "nextStep": "verify"
+    },
+    {
+      "name": "open issue without formatted completion marker formats first",
+      "state": "needs-format",
+      "event": {
+        "issueState": "open",
+        "hasFormat": false
+      },
+      "nextStep": "format"
+    },
+    {
+      "name": "formatted issue without optimizer output runs optimizer",
+      "state": "needs-optimize",
+      "event": {
+        "issueState": "open",
+        "hasFormat": true,
+        "hasOptimizerOutput": false
+      },
+      "nextStep": "optimize"
+    },
+    {
+      "name": "optimizer output without apply marker applies suggestions",
+      "state": "needs-apply",
+      "event": {
+        "issueState": "open",
+        "hasFormat": true,
+        "hasOptimizerOutput": true,
+        "hasApply": false
+      },
+      "nextStep": "apply"
+    },
+    {
+      "name": "applied issue without routing agent runs capability check",
+      "state": "needs-capability-check",
+      "event": {
+        "issueState": "open",
+        "hasFormat": true,
+        "hasOptimizerOutput": true,
+        "hasApply": true,
+        "hasAgent": false
+      },
+      "nextStep": "capability-check"
+    },
+    {
+      "name": "prepared issue with routing agent creates PR",
+      "state": "needs-create-pr",
+      "event": {
+        "issueState": "open",
+        "hasFormat": true,
+        "hasOptimizerOutput": true,
+        "hasApply": true,
+        "hasAgent": true
+      },
+      "nextStep": "create-pr"
+    },
+    {
+      "name": "linked PR without complete keepalive state monitors PR",
+      "state": "pr-monitoring",
+      "event": {
+        "issueState": "open",
+        "linkedPr": "42",
+        "keepaliveState": "<!-- keepalive-state:v1 {\"last_action\":\"continue\",\"last_reason\":\"ci-pending\"} -->"
+      },
+      "nextStep": "monitor-pr"
+    },
+    {
+      "name": "linked PR with tasks-complete keepalive state checks completion",
+      "state": "pr-tasks-complete",
+      "event": {
+        "issueState": "open",
+        "linkedPr": "42",
+        "keepaliveState": "<!-- keepalive-state:v1 {\"last_action\":\"stop\",\"last_reason\":\"tasks-complete\"} -->"
+      },
+      "nextStep": "check-completion"
+    }
+  ],
+  "guardCases": [
+    {
+      "name": "old agents:format trigger label does not satisfy formatted guard",
+      "event": {
+        "issueState": "open",
+        "labels": ["agents:format", "agents:auto-pilot"],
+        "hasFormat": false,
+        "hasOptimizerOutput": true,
+        "hasApply": true,
+        "hasAgent": true
+      },
+      "state": "needs-format",
+      "nextStep": "format"
+    },
+    {
+      "name": "optimizer label alone does not satisfy optimizer output guard",
+      "event": {
+        "issueState": "open",
+        "labels": ["agents:formatted", "agents:optimize"],
+        "hasFormat": true,
+        "hasOptimizerOutput": false,
+        "hasApply": false,
+        "hasAgent": false
+      },
+      "state": "needs-optimize",
+      "nextStep": "optimize"
+    },
+    {
+      "name": "apply label before optimizer output still waits for optimizer output",
+      "event": {
+        "issueState": "open",
+        "labels": ["agents:formatted", "agents:apply-suggestions"],
+        "hasFormat": true,
+        "hasOptimizerOutput": false,
+        "hasApply": true,
+        "hasAgent": true
+      },
+      "state": "needs-optimize",
+      "nextStep": "optimize"
+    },
+    {
+      "name": "keepalive stop for non-complete reason monitors PR",
+      "event": {
+        "issueState": "open",
+        "linkedPr": 77,
+        "keepaliveState": "<!-- keepalive-state:v1 {\"last_action\":\"stop\",\"last_reason\":\"max-iterations\"} -->"
+      },
+      "state": "pr-monitoring",
+      "nextStep": "monitor-pr"
+    },
+    {
+      "name": "missing keepalive state monitors PR",
+      "event": {
+        "issueState": "open",
+        "linkedPr": 77,
+        "keepaliveState": ""
+      },
+      "state": "pr-monitoring",
+      "nextStep": "monitor-pr"
+    },
+    {
+      "name": "failed PR state fetch monitors PR",
+      "event": {
+        "issueState": "open",
+        "linkedPr": 77,
+        "keepaliveState": "<!-- keepalive-state:v1 {\"last_action\":\"stop\",\"last_reason\":\"tasks-complete\"} -->",
+        "prStateFetchFailed": true
+      },
+      "state": "pr-monitoring",
+      "nextStep": "monitor-pr"
+    }
+  ],
+  "incidentEdges": [
+    {
+      "name": "issue 1437 shape: closed formatted apply verify is done",
+      "event": {
+        "issueState": "closed",
+        "labels": ["agents:formatted", "agents:apply-suggestions", "verify:evaluate", "agents:auto-pilot"],
+        "hasVerify": true
+      },
+      "state": "closed-verified",
+      "nextStep": "done"
+    },
+    {
+      "name": "issue 1453 shape: closed formatted apply follow-up without verify triggers verify",
+      "event": {
+        "issueState": "closed",
+        "labels": ["agents:formatted", "agents:apply-suggestions", "follow-up"],
+        "hasVerify": false
+      },
+      "state": "closed-needs-verify",
+      "nextStep": "verify"
+    },
+    {
+      "name": "issue 1440 shape: closed unlabeled issue still triggers verify",
+      "event": {
+        "issueState": "closed",
+        "labels": [],
+        "hasVerify": false
+      },
+      "state": "closed-needs-verify",
+      "nextStep": "verify"
+    }
+  ]
+}

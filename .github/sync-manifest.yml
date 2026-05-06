@@ -390,6 +390,9 @@ scripts:
   - source: .github/scripts/autopilot_metrics.js
     description: "AutoPilot metrics collection and reporting"
 
+  - source: .github/scripts/auto_pilot_transitions.js
+    description: "Auto-pilot transition contract and next-step helper"
+
   - source: .github/scripts/github_api_retry.js
     description: "Retry logic for GitHub API calls"
 
