@@ -25,6 +25,13 @@ outputs:
   cache-hit:
     description: 'true when actions/cache restored the artifact path.'
     value: ${{ steps.restore.outputs.cache-hit }}
+  artifact-found:
+    description: 'true when the artifact is available from cache or run-window discovery.'
+    value: >-
+      ${{
+        steps.restore.outputs.cache-hit == 'true' ||
+        steps.discover.outputs.artifact-found == 'true'
+      }}
   artifact-path:
     description: Local path containing the restored, downloaded, or producer-created artifact data.
     value: ${{ steps.prepare.outputs.artifact-path }}
