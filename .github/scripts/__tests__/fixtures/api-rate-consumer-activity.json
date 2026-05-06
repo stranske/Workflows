@@ -1,0 +1,19 @@
+[
+  {
+    "repo": "stranske/example-a",
+    "runs_last_hour": 3,
+    "in_progress": 1,
+    "queued": 1,
+    "completed": 1,
+    "top_workflows": [
+      {
+        "name": "CI",
+        "count": 2
+      },
+      {
+        "name": "Release",
+        "count": 1
+      }
+    ]
+  }
+]
