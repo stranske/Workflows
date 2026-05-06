@@ -245,9 +245,49 @@ jobs:
             // Set outputs
             core.setOutput('has_original_issue', linkedIssueNumber ? 'true' : 'false');
 
+      - name: Validate terminal verifier artifact
+        id: terminal-artifact
+        if: steps.check-merged.outputs.merged == 'true'
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          from scripts.langchain.verifier_config import (
+              artifact_from_verification_text,
+              is_terminal_artifact,
+          )
+
+          raw = Path("verification_data.txt").read_text(encoding="utf-8")
+          artifact = artifact_from_verification_text(raw)
+          terminal = is_terminal_artifact(artifact)
+          verdict = str(artifact.get("verdict") or "")
+          reason = (
+              "terminal verifier output"
+              if terminal
+              else "verifier output is partial or missing a terminal verdict"
+          )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"terminal={str(terminal).lower()}\n")
+              handle.write(f"verdict={verdict}\n")
+              handle.write(f"reason={reason}\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("## Terminal verifier artifact gate\n\n")
+              handle.write(f"- Terminal: `{str(terminal).lower()}`\n")
+              if verdict:
+                  handle.write(f"- Verdict: `{verdict}`\n")
+              handle.write(f"- Reason: {reason}\n")
+          PY
+
       - name: Check chain depth limit
         id: chain-check
-        if: steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           CHAIN_DEPTH: ${{ steps.collect.outputs.chain_depth }}
@@ -373,6 +413,7 @@ jobs:
         id: extract-verdict
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true' &&
           steps.chain-check.outputs.exceeded != 'true'
         continue-on-error: true
         env:
@@ -387,6 +428,7 @@ jobs:
         id: verdict-needs-human
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -457,6 +499,7 @@ jobs:
         id: generate
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
         continue-on-error: true
@@ -503,6 +546,7 @@ jobs:
         if: >-
           steps.generate.outcome == 'failure' &&
           steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -675,6 +719,7 @@ jobs:
         id: create-issue
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -776,6 +821,7 @@ jobs:
         id: dispatch-autopilot
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true' &&
           steps.create-issue.outputs.issue_number != ''
@@ -814,6 +860,7 @@ jobs:
       - name: Comment on original PR
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true' &&
           steps.chain-check.outputs.exceeded != 'true' &&
           steps.extract-verdict.outputs.needs_human != 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9

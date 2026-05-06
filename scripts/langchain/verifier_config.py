@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -104,6 +105,40 @@ def is_terminal_artifact(verifier_run: Any) -> bool:
     return False
 
 
+def artifact_from_verification_text(text: str) -> dict[str, Any]:
+    """Build a verifier artifact candidate from a posted verifier report."""
+
+    raw = (text or "").strip()
+    artifact: dict[str, Any] = {"raw_present": bool(raw)}
+    if not raw:
+        return artifact
+
+    parsed = _coerce_artifact(raw)
+    if isinstance(parsed, dict):
+        return parsed
+
+    verdicts = _extract_verdicts(raw)
+    if verdicts:
+        artifact["verdict"] = (
+            "PASS" if all(verdict == "PASS" for verdict in verdicts) else "CONCERNS"
+        )
+
+    lowered = raw.lower()
+    artifact["repair_pending"] = any(
+        phrase in lowered
+        for phrase in (
+            "repair pending",
+            "schema repair pending",
+            "validation retry",
+            "pending repair",
+            "partial verifier output",
+        )
+    )
+    if "## pr verification" in lowered or "verdict:" in lowered:
+        artifact["artifact_family"] = "verifier-report"
+    return artifact
+
+
 def _coerce_artifact(value: Any) -> Any:
     if value is None:
         return None
@@ -122,6 +157,23 @@ def _coerce_artifact(value: Any) -> Any:
     if hasattr(value, "__dict__"):
         return vars(value)
     return value
+
+
+def _extract_verdicts(text: str) -> list[str]:
+    verdicts: list[str] = []
+    for match in re.finditer(r"verdict:\s*\*?\*?\s*(pass|concerns|fail|error)\b", text, re.I):
+        verdicts.append(match.group(1).upper())
+
+    for match in re.finditer(
+        r"\|\s*[^|\n]+\s*\|\s*[^|\n]*\|\s*(pass|concerns|fail|error)\s*\|", text, re.I
+    ):
+        verdicts.append(match.group(1).upper())
+
+    seen: list[str] = []
+    for verdict in verdicts:
+        if verdict not in seen:
+            seen.append(verdict)
+    return seen
 
 
 def _has_pending_repair(data: dict[str, Any]) -> bool:

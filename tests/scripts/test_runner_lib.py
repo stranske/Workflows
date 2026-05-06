@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,7 @@ from scripts.runner_lib import (
     record_completion,
     should_dispatch,
 )
+from scripts.runner_lib.core import PrCommentRunnerStorage, materialize_reference_packs
 
 
 class MemoryRunnerStorage:
@@ -112,6 +114,13 @@ def test_parse_runner_output_detects_error() -> None:
     assert result.summary == "Error: auth failed"
 
 
+def test_parse_runner_output_detects_multiline_error_annotation() -> None:
+    result = parse_runner_output("claude", "Starting work\n::error:: auth failed\n")
+
+    assert result.success is False
+    assert result.error == "::error:: auth failed"
+
+
 def test_parse_runner_output_marks_truncated_output() -> None:
     result = parse_runner_output("claude", "x" * 65000)
 
@@ -146,3 +155,72 @@ def test_record_completion_is_idempotent_for_same_key() -> None:
     assert second["status"] == "completed"
     assert second["completed_at"] == first["completed_at"]
     assert storage.records[(42, "claude")]["result"]["summary"] == "Done"
+
+
+def test_materialize_reference_packs_keeps_token_out_of_git_argv(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    (tmp_path / ".github").mkdir()
+    (tmp_path / ".github" / "reference_packs.json").write_text(
+        json.dumps(
+            {
+                "baseline": {
+                    "repo": "owner/private",
+                    "ref": "main",
+                    "paths": ["README.md"],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls: list[tuple[list[str], dict[str, str]]] = []
+
+    def fake_check_call(cmd: list[str], **kwargs: Any) -> int:
+        env = kwargs.get("env") or {}
+        calls.append((cmd, env))
+        assert "secret-token" not in " ".join(cmd)
+        if cmd[:2] == ["git", "clone"]:
+            clone_dir = Path(cmd[-1])
+            clone_dir.mkdir(parents=True)
+            (clone_dir / "README.md").write_text("reference\n", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(subprocess, "check_call", fake_check_call)
+
+    summary = materialize_reference_packs(tmp_path, token="secret-token")
+
+    assert summary == tmp_path / ".reference" / "REFERENCE_PACKS.md"
+    assert (tmp_path / ".reference" / "baseline" / "README.md").is_file()
+    assert calls
+    assert all(env.get("GIT_ASKPASS_PASSWORD") == "secret-token" for _cmd, env in calls)
+
+
+def test_pr_comment_storage_stops_when_marker_found() -> None:
+    class FakeApi:
+        repo = "owner/repo"
+
+        def __init__(self) -> None:
+            self.paths: list[str] = []
+
+        def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+            self.paths.append(path)
+            assert method == "GET"
+            assert body is None
+            return [
+                {"body": "ordinary comment", "id": 1},
+                {
+                    "body": (
+                        "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                        '{"provider":"codex","head_sha":"abc"} -->'
+                    ),
+                    "id": 2,
+                },
+            ]
+
+    api = FakeApi()
+    storage = PrCommentRunnerStorage(api)  # type: ignore[arg-type]
+
+    record = storage.read_record(42, "codex")
+
+    assert record == {"provider": "codex", "head_sha": "abc"}
+    assert len(api.paths) == 1

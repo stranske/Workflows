@@ -7,6 +7,7 @@ from scripts.langchain.verifier_config import (
     EVAL_PAIR_BUDGET_TOKENS,
     EVAL_SCHEMA_REPAIR_BUDGET_TOKENS,
     SchemaRepairPolicy,
+    artifact_from_verification_text,
     is_terminal_artifact,
 )
 
@@ -99,3 +100,38 @@ def test_is_terminal_artifact_rejects_empty_or_partial_values() -> None:
     assert not is_terminal_artifact("")
     assert not is_terminal_artifact({"summary": "still parsing"})
     assert not is_terminal_artifact({"results": [{"verdict": "PASS"}, {"summary": "partial"}]})
+
+
+def test_artifact_from_verification_text_extracts_terminal_verdict() -> None:
+    artifact = artifact_from_verification_text(
+        "## PR Verification Report\n\n**Verdict:** CONCERNS\n\n### Concerns\n- Missing test."
+    )
+
+    assert artifact["verdict"] == "CONCERNS"
+    assert is_terminal_artifact(artifact)
+
+
+def test_artifact_from_verification_text_rejects_pending_repair_report() -> None:
+    artifact = artifact_from_verification_text(
+        "## PR Verification Report\n\nSchema repair pending; validation retry queued."
+    )
+
+    assert artifact["repair_pending"] is True
+    assert not is_terminal_artifact(artifact)
+
+
+def test_artifact_from_verification_text_resolves_provider_table() -> None:
+    artifact = artifact_from_verification_text(
+        "\n".join(
+            [
+                "## PR Verification Comparison",
+                "| Provider | Model | Verdict | Confidence | Summary |",
+                "| --- | --- | --- | --- | --- |",
+                "| openai | gpt | PASS | 90% | ok |",
+                "| anthropic | claude | FAIL | 70% | gap |",
+            ]
+        )
+    )
+
+    assert artifact["verdict"] == "CONCERNS"
+    assert is_terminal_artifact(artifact)
