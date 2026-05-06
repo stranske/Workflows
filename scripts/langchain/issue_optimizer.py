@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -27,8 +28,10 @@ from scripts.langchain.structured_output import (
 
 try:
     from scripts.langchain.injection_guard import check_prompt_injection
+    from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
 except ModuleNotFoundError:
     from injection_guard import check_prompt_injection
+    from issue_pr_context import ContextOptions, build_issue_context
 
 AGENT_LIMITATIONS = [
     "Cannot modify .github/workflows/*.yml (protected)",
@@ -37,6 +40,27 @@ AGENT_LIMITATIONS = [
     "Cannot make subjective design decisions",
     "Cannot retry CI pipelines",
 ]
+
+
+def _context_token_budget() -> int:
+    raw = os.environ.get("ISSUE_PR_CONTEXT_TOKEN_BUDGET", "")
+    return int(raw) if raw.isdigit() and int(raw) > 0 else 4000
+
+
+def _context_workflow(default: str) -> str:
+    return os.environ.get("ISSUE_PR_CONTEXT_WORKFLOW") or default
+
+
+def _capped_issue_body(issue_body: str, workflow: str) -> str:
+    context = build_issue_context(
+        {"body": issue_body},
+        ContextOptions(
+            token_budget=_context_token_budget(),
+            downstream_workflow=workflow,
+        ),
+    )
+    return context["formatted_body"]
+
 
 ANALYZE_ISSUE_PROMPT = """
 Analyze this issue for agent compatibility and formatting quality.
@@ -319,7 +343,9 @@ def _build_llm_config(
     issue_or_pr = (
         str(issue_number)
         if issue_number is not None
-        else env_issue if env_issue.isdigit() else "unknown"
+        else env_issue
+        if env_issue.isdigit()
+        else "unknown"
     )
     metadata = {
         "repo": repo,
@@ -788,6 +814,8 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
             guard_reason=guard_result["reason"],
         )
 
+    issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
+
     last_error: str | None = None
     if use_llm:
         from tools.llm_provider import _is_token_limit_error
@@ -1027,6 +1055,8 @@ def apply_suggestions(
             "guard_blocked": True,
             "guard_reason": guard_result["reason"],
         }
+
+    issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
 
     if use_llm:
         from tools.llm_provider import _is_token_limit_error

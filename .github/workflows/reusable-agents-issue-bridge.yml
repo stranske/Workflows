@@ -794,8 +794,9 @@ jobs:
               .join('\n');
 
             // Build issue context for status summary
-            const contextData = buildIssueContext(issueBody || '');
+            const contextData = buildIssueContext(issueBody || '', { downstreamWorkflow: 'reusable-agents-issue-bridge' });
             const statusSummaryBlock = contextData.statusSummaryBlock || '';
+            issueBody = contextData.formattedBody || issueBody || '';
 
             // Simplified PR body suggestion - agents-pr-meta will populate issue content
             const bodySections = [metaMarker, '', instruction];
@@ -1046,7 +1047,9 @@ jobs:
               scopeBlock,
               statusSummaryBlock,
               missingSections,
-            } = buildIssueContext(issueBody || '');
+              formattedBody,
+            } = buildIssueContext(issueBody || '', { downstreamWorkflow: 'reusable-agents-issue-bridge' });
+            issueBody = formattedBody || issueBody || '';
 
             if (!pr) {
 
@@ -1316,7 +1319,8 @@ jobs:
               }
             }
 
-            const contextData = buildIssueContext(issueBody || '');
+            const contextData = buildIssueContext(issueBody || '', { downstreamWorkflow: 'reusable-agents-issue-bridge' });
+            issueBody = contextData.formattedBody || issueBody || '';
             const scopeBlock = providedScopeBlock || contextData.scopeBlock || '';
             const statusSummaryBlock = providedSummaryBlock || contextData.statusSummaryBlock || '';
             const summaryNeedsWarning = contextData.summaryNeedsWarning;

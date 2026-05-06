@@ -245,6 +245,7 @@ jobs:
           LANGCHAIN_PROVIDER: anthropic
           LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-issue-optimizer
         run: |
           echo "Running analysis on issue #${ISSUE_NUMBER}"
           python scripts/langchain/issue_optimizer.py \
@@ -442,6 +443,7 @@ jobs:
           LANGCHAIN_PROVIDER: anthropic
           LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-issue-optimizer
         run: |
           echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
 
@@ -551,6 +553,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           PYTHONPATH: ${{ github.workspace }}
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-issue-optimizer
         run: |
           echo "Formatting issue #${ISSUE_NUMBER} into AGENT_ISSUE_TEMPLATE structure"
 

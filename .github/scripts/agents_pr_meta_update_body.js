@@ -234,7 +234,13 @@ function extractContextSectionWithPython(issueBody, comments, core) {
     const output = childProcess.execFileSync(
       'python3',
       ['scripts/langchain/context_extractor.py', '--input-file', issuePath, '--comments-file', commentsPath],
-      { encoding: 'utf8' },
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ISSUE_PR_CONTEXT_WORKFLOW: 'agents-pr-meta-v4',
+        },
+      },
     );
     return String(output || '').trim();
   } catch (error) {

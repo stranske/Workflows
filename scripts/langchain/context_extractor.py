@@ -10,10 +10,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+
+try:
+    from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
+except ModuleNotFoundError:
+    from issue_pr_context import ContextOptions, build_issue_context
 
 CONTEXT_EXTRACTOR_PROMPT = """
 From this issue and related discussion, extract:
@@ -38,6 +44,27 @@ REFERENCE_REGEX = re.compile(r"https?://[^\s)>\"]+")
 ISSUE_REF_REGEX = re.compile(r"\b[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#\d+\b|(?<!\w)#\d+\b")
 LIST_ITEM_REGEX = re.compile(r"^\s*[-*+]\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\s*[-*+]\s+\[[ xX]\]\s+")
+
+
+def _context_token_budget() -> int:
+    raw = os.environ.get("ISSUE_PR_CONTEXT_TOKEN_BUDGET", "")
+    return int(raw) if raw.isdigit() and int(raw) > 0 else 4000
+
+
+def _context_workflow(default: str) -> str:
+    return os.environ.get("ISSUE_PR_CONTEXT_WORKFLOW") or default
+
+
+def _capped_issue_body(issue_body: str, workflow: str) -> str:
+    context = build_issue_context(
+        {"body": issue_body},
+        ContextOptions(
+            token_budget=_context_token_budget(),
+            downstream_workflow=workflow,
+        ),
+    )
+    return context["formatted_body"]
+
 
 DECISION_KEYWORDS = (
     "decision",
@@ -218,6 +245,7 @@ def extract_context(
     if not issue_body:
         issue_body = ""
 
+    issue_body = _capped_issue_body(issue_body, _context_workflow("context_extractor"))
     comments = comments or []
 
     if use_llm:

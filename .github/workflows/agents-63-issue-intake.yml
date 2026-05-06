@@ -1571,7 +1571,8 @@ jobs:
 
             # Format with LangChain
             echo "  📝 Calling LangChain formatter..."
-            if ! python scripts/langchain/issue_formatter.py \
+            if ! ISSUE_PR_CONTEXT_WORKFLOW=agents-63-issue-intake \
+                python scripts/langchain/issue_formatter.py \
                 --input-file "/tmp/issue_body_${issue_num}.md" \
                 --output-file "/tmp/formatted_${issue_num}.md"; then
               echo "  ❌ Formatting failed for issue #${issue_num}"

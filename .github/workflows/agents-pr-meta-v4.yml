@@ -516,6 +516,8 @@ jobs:
       - name: Update PR body
         if: steps.fingerprint.outputs.should_run == 'true'
         uses: actions/github-script@v9
+        env:
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-pr-meta-v4
         with:
           github-token: >-
             ${{

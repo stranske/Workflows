@@ -6,6 +6,7 @@ from scripts.langchain.issue_pr_context import (
     build_issue_context,
     build_pr_context,
     estimate_tokens,
+    main,
     reuse_formatted_body,
 )
 
@@ -114,3 +115,27 @@ def test_pr_context_shape_includes_labels_and_diff_when_requested() -> None:
     assert "## Pull Request Body" in context["context"]
     assert "## Pull Request Diff" in context["context"]
     assert "scripts/langchain/issue_pr_context.py" in context["context"]
+
+
+def test_cli_outputs_json_payload(tmp_path, capsys) -> None:
+    input_file = tmp_path / "issue.md"
+    input_file.write_text("## Tasks\n- [ ] Use helper", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--kind",
+            "issue",
+            "--input-file",
+            str(input_file),
+            "--token-budget",
+            "100",
+            "--downstream-workflow",
+            "agents-auto-pilot",
+            "--json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert '"kind": "issue"' in captured.out
+    assert "Use helper" in captured.out

@@ -731,6 +731,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           PYTHONPATH: ${{ github.workspace }}
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-auto-pilot
         run: |
 
           # Post progress comment
@@ -984,6 +985,7 @@ jobs:
           LANGCHAIN_PROVIDER: anthropic
           LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-auto-pilot
         run: |
 
           # Post progress comment
@@ -1338,6 +1340,7 @@ jobs:
           LANGCHAIN_PROVIDER: anthropic
           LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-auto-pilot
         run: |
 
           # Post progress comment
@@ -2845,11 +2848,15 @@ jobs:
             core.info(`Creating PR from ${branchName}`);
 
             // Fetch issue body to include in PR
+            const { buildIssueContext } = require('./.github/scripts/issue_context_utils.js');
             const { data: issue } = await withRetry((client) => client.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber
             }));
+            const issueContext = buildIssueContext(issue.body || '', {
+              downstreamWorkflow: 'agents-auto-pilot',
+            });
 
             const prTitle = `[Auto-pilot] ${issueTitle}`;
             const prBody = [
@@ -2857,7 +2864,7 @@ jobs:
               '',
               `Closes #${issueNumber}`,
               '',
-              issue.body || ''
+              issueContext.formattedBody || issue.body || ''
             ].join('\n');
 
             try {

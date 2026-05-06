@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -18,8 +19,10 @@ from typing import Any
 
 try:
     from scripts.langchain.injection_guard import check_prompt_injection
+    from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
 except ImportError:  # pragma: no cover - fallback for direct invocation
     from injection_guard import check_prompt_injection
+    from issue_pr_context import ContextOptions, build_issue_context
 
 # Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
 # ~4 chars per token, so 50k chars ≈ 12.5k tokens, leaving headroom for prompt + output
@@ -84,6 +87,26 @@ SECTION_TITLES = {
 
 LIST_ITEM_REGEX = re.compile(r"^(\s*)([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
+
+
+def _context_token_budget() -> int:
+    raw = os.environ.get("ISSUE_PR_CONTEXT_TOKEN_BUDGET", "")
+    return int(raw) if raw.isdigit() and int(raw) > 0 else 4000
+
+
+def _context_workflow(default: str) -> str:
+    return os.environ.get("ISSUE_PR_CONTEXT_WORKFLOW") or default
+
+
+def _capped_issue_body(issue_body: str, workflow: str) -> str:
+    context = build_issue_context(
+        {"body": issue_body},
+        ContextOptions(
+            token_budget=_context_token_budget(),
+            downstream_workflow=workflow,
+        ),
+    )
+    return context["formatted_body"]
 
 
 def _load_prompt() -> str:
@@ -456,6 +479,8 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
             "guard_blocked": True,
             "guard_reason": guard_result["reason"],
         }
+
+    issue_body = _capped_issue_body(issue_body, _context_workflow("issue_formatter"))
 
     # Check size before processing to avoid rate limit errors
     if len(issue_body) > MAX_ISSUE_BODY_SIZE:

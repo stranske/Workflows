@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import argparse
 import base64
 import json
 import math
 import re
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -362,3 +364,47 @@ def _branch_name(value: Any) -> str:
 
 def _text(value: Any) -> str:
     return value if isinstance(value, str) else "" if value is None else str(value)
+
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build capped issue or PR context.")
+    parser.add_argument("--kind", choices=("issue", "pr"), default="issue")
+    parser.add_argument(
+        "--input-file", required=True, help="Path containing issue or PR body text."
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Emit the full context payload as JSON."
+    )
+    parser.add_argument("--token-budget", type=int, default=DEFAULT_TOKEN_BUDGET)
+    parser.add_argument("--downstream-workflow")
+    parser.add_argument("--include-diff", action="store_true")
+    parser.add_argument("--no-labels", action="store_true")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv or sys.argv[1:])
+    from pathlib import Path
+
+    body = Path(args.input_file).read_text(encoding="utf-8")
+    options = ContextOptions(
+        token_budget=args.token_budget,
+        include_diff=args.include_diff,
+        include_labels=not args.no_labels,
+        downstream_workflow=args.downstream_workflow,
+    )
+    subject = {"body": body}
+    payload = (
+        build_pr_context(subject, options)
+        if args.kind == "pr"
+        else build_issue_context(subject, options)
+    )
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=True, sort_keys=True))
+    else:
+        print(payload["context"])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
