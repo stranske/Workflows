@@ -1,0 +1,15 @@
+1. Stabilize issue intake parser
+Labels: agent:codex, workflow
+
+Why
+ChatGPT imports should preserve section boundaries.
+
+Tasks
+- Replay this fixture through decode and parse.
+- Keep labels attached to the parsed topic.
+
+Acceptance criteria
+The parsed topic keeps title, labels, and task text.
+
+Implementation notes
+Do not require LangChain formatting for this import.

@@ -1,0 +1,44 @@
+1. Add importer fixture coverage
+Labels: agent:codex, tests
+
+Why
+The importer should handle multiple issues in one payload.
+
+Tasks
+- Add fixture files.
+
+Acceptance criteria
+The first issue is parsed.
+
+Implementation notes
+Keep this deterministic.
+
+2. Preserve decoded labels
+Labels: agent:codex, documentation
+
+Why
+Labels drive downstream issue routing.
+
+Tasks
+- Preserve label text.
+
+Acceptance criteria
+The second issue contains the documentation label.
+
+Implementation notes
+No network calls.
+
+3. Handle imported acceptance criteria
+Labels: agent:codex
+
+Why
+Acceptance criteria should survive import.
+
+Tasks
+- Parse the section.
+
+Acceptance criteria
+All three issues are emitted.
+
+Implementation notes
+Use the local parser only.
