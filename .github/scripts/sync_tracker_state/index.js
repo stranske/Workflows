@@ -162,12 +162,6 @@ function issueMatchesTracker(issue = {}, { label, titlePattern, markerPattern } 
   const hasDurableLabel = names.includes(DURABLE_TRACKER_LABEL);
   const hasTitle = patternMatches(issue.title || '', titlePattern);
   const hasMarker = issueHasMarker(issue, markerPattern);
-  if (titlePattern && hasTitle) {
-    return true;
-  }
-  if (markerPattern && hasTitle && !cleanString(issue.body)) {
-    return true;
-  }
   return (hasDurableLabel || hasRequiredLabel || hasMarker) && (hasTitle || hasMarker);
 }
 

@@ -8,6 +8,7 @@ const {
   clearStuckWindowBody,
   findOrCreateTracker,
   isConsumerOpenPr,
+  issueMatchesTracker,
   markStuckWindowBody,
   patternMatches,
   parseStuckWindow,
@@ -207,7 +208,42 @@ test('findOrCreateTracker discovers an unlabeled tracker by marker', async () =>
   );
 });
 
-test('findOrCreateTracker discovers an unlabeled tracker by title only', async () => {
+test('issueMatchesTracker rejects unlabelled title-only tracker candidates', () => {
+  const issue = {
+    number: 14,
+    title: 'Sync/Dependabot campaign queue',
+    body: 'existing queue body',
+    labels: [],
+  };
+
+  assert.equal(
+    issueMatchesTracker(issue, {
+      label: 'campaign:sync-dependabot',
+      titlePattern: /^Sync\/Dependabot campaign queue$/,
+    }),
+    false,
+  );
+});
+
+test('issueMatchesTracker rejects empty title-only candidates when a marker is required', () => {
+  const issue = {
+    number: 15,
+    title: 'Consumer repo drift detected',
+    body: '',
+    labels: [],
+  };
+
+  assert.equal(
+    issueMatchesTracker(issue, {
+      label: 'consumer-sync',
+      titlePattern: 'Consumer repo drift detected',
+      markerPattern: /consumer-sync-drift:v1/,
+    }),
+    false,
+  );
+});
+
+test('findOrCreateTracker ignores unlabelled title-only issues', async () => {
   const github = mockGithub({
     issues: [
       {
@@ -227,9 +263,9 @@ test('findOrCreateTracker discovers an unlabeled tracker by title only', async (
     titlePattern: /^Sync\/Dependabot campaign queue$/,
   });
 
-  assert.equal(tracker.number, 14);
-  assert.equal(tracker.sync_tracker_created, false);
-  assert.equal(github.calls.createdIssues.length, 0);
+  assert.equal(tracker.number, 99);
+  assert.equal(tracker.sync_tracker_created, true);
+  assert.equal(github.calls.createdIssues.length, 1);
   assert.equal(
     github.calls.issueLists.some((params) => !params.labels),
     true,
