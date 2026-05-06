@@ -1,0 +1,39 @@
+{
+  "reusableFound": {
+    "prNumber": 42,
+    "found": true,
+    "workflow": "Reusable Bot Comment Handler",
+    "runId": "9001",
+    "runAttempt": "1",
+    "artifactName": "review-thread-terminal-disposition-9001",
+    "artifactFamily": "review-thread-terminal-disposition",
+    "actor": "github-actions[bot]"
+  },
+  "reusableNoop": {
+    "prNumber": 43,
+    "found": false,
+    "workflow": "Reusable Bot Comment Handler",
+    "runId": "9002",
+    "runAttempt": "1",
+    "artifactName": "review-thread-terminal-disposition-9002",
+    "artifactFamily": "review-thread-terminal-disposition",
+    "actor": "github-actions[bot]"
+  },
+  "wrapperSuccess": {
+    "prNumber": 42,
+    "reusableExpected": true,
+    "workflow": "Agents Bot Comment Handler",
+    "runId": "9101",
+    "runAttempt": "1",
+    "actor": "github-actions[bot]"
+  },
+  "wrapperNoop": {
+    "prNumber": 44,
+    "reusableExpected": false,
+    "skipReason": "missing-agent-label",
+    "workflow": "Agents Bot Comment Handler",
+    "runId": "9102",
+    "runAttempt": "1",
+    "actor": "github-actions[bot]"
+  }
+}

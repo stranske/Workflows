@@ -249,6 +249,7 @@ jobs:
             .github/agents/registry.yml
             .github/actions/setup-api-client
             .github/scripts/agent_registry.js
+            .github/scripts/bot-comment-handler.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/terminal_disposition.js
             .github/scripts/token_load_balancer.js
@@ -295,30 +296,17 @@ jobs:
               return;
             }
 
-            const labels = pr.labels.map(l => l.name);
-            // Resolve default agent from registry; fall back to 'codex'
-            let _defaultAgent = 'codex';
-            let _defaultWorkflow = 'reusable-codex-run.yml';
-            try {
-              const { loadAgentRegistry, getRunnerWorkflow: getDefault } =
-                require('./.github/scripts/agent_registry.js');
-              _defaultAgent = loadAgentRegistry().default_agent || 'codex';
-              const dw = getDefault(_defaultAgent);
-              _defaultWorkflow = String(dw || '').split('/').pop() || _defaultWorkflow;
-            } catch (_) {}
-            let agent = _defaultAgent;
-            let workflow = _defaultWorkflow;
-
-            try {
-              const {
-                resolveAgentFromLabels,
-                getRunnerWorkflow,
-              } = require('./.github/scripts/agent_registry.js');
-              agent = resolveAgentFromLabels(pr.labels);
-              const runnerWorkflow = getRunnerWorkflow(agent);
-              workflow = String(runnerWorkflow || '').split('/').pop() || workflow;
-            } catch (error) {
-              // Fallback to legacy behavior if the helper isn't available.
+            const botHandler = require('./.github/scripts/bot-comment-handler.js');
+            let agent;
+            let workflow;
+            if (typeof botHandler.resolveBotCommentAgent === 'function') {
+              const route = botHandler.resolveBotCommentAgent(pr.labels);
+              agent = route.agent;
+              workflow = route.workflow;
+            } else {
+              const labels = pr.labels.map(l => l.name);
+              agent = 'codex';
+              workflow = 'reusable-codex-run.yml';
               const labelSet = new Set(labels.map((value) => String(value || '').toLowerCase()));
               if (labelSet.has('agent:claude')) {
                 agent = 'claude';
@@ -362,9 +350,13 @@ jobs:
                   formatTerminalDispositionMarkdown: () =>
                     'Terminal disposition helper unavailable.',
                 };
+            const botHandler = require('./.github/scripts/bot-comment-handler.js');
+            const collectUnresolvedBotComments = botHandler.collectUnresolvedBotComments;
+            const buildReviewThreadTerminalDisposition =
+              botHandler.buildReviewThreadTerminalDisposition;
             const { withRetry } = retryHelpers;
             const prNumber = parseInt('${{ inputs.pr_number }}');
-            const botAuthors = '${{ inputs.bot_authors }}'.split(',').map(s => s.trim());
+            const botAuthors = '${{ inputs.bot_authors }}';
             const skipIfHumanReplied = ${{ inputs.skip_if_human_replied }};
             const ignoredPaths = '${{ inputs.ignored_paths }}'
               .split(',')
@@ -372,7 +364,7 @@ jobs:
               .filter(Boolean);
 
             console.log(`Collecting comments for PR #${prNumber}`);
-            console.log(`Bot authors: ${botAuthors.join(', ')}`);
+            console.log(`Bot authors: ${botAuthors}`);
 
             // Get all review comments
             const { data: comments } = await withRetry(() => github.rest.pulls.listReviewComments({
@@ -382,55 +374,50 @@ jobs:
               per_page: 100
             }));
 
-            // Filter for unresolved bot comments
-            const botComments = [];
-            const processedThreads = new Set();
-
-            for (const comment of comments) {
-              // Skip if not from a known bot
-              if (!botAuthors.some(bot => comment.user.login.toLowerCase() === bot.toLowerCase())) {
-                continue;
-              }
-
-              const commentPath = comment.path || '';
-              if (ignoredPaths.some(prefix => commentPath.startsWith(prefix))) {
-                console.log(`Skipping comment ${comment.id} in ignored path ${commentPath}`);
-                continue;
-              }
-
-              // Skip resolved threads (check via GraphQL would be better, but this approximates)
-              // We'll use in_reply_to_id to track threads
-              const threadId = comment.in_reply_to_id || comment.id;
-
-              if (processedThreads.has(threadId)) {
-                continue;
-              }
-
-              // Check if human replied to this thread (check all comments in thread)
-              if (skipIfHumanReplied) {
-                const threadReplies = comments.filter(c =>
-                  (c.in_reply_to_id === comment.id || c.in_reply_to_id === threadId) &&
-                  !botAuthors.some(bot => c.user.login.toLowerCase() === bot.toLowerCase())
-                );
-                if (threadReplies.length > 0) {
-                  console.log(`Skipping comment ${comment.id} - human already replied`);
-                  processedThreads.add(threadId);
+            let botComments;
+            if (typeof collectUnresolvedBotComments === 'function') {
+              botComments = collectUnresolvedBotComments(comments, {
+                botAuthors,
+                skipIfHumanReplied,
+                ignoredPaths,
+              });
+            } else {
+              const botAuthorList = botAuthors.split(',').map(s => s.trim());
+              botComments = [];
+              const processedThreads = new Set();
+              for (const comment of comments) {
+                if (!botAuthorList.some(bot => comment.user.login.toLowerCase() === bot.toLowerCase())) {
                   continue;
                 }
+                const commentPath = comment.path || '';
+                if (ignoredPaths.some(prefix => commentPath.startsWith(prefix))) {
+                  continue;
+                }
+                const threadId = comment.in_reply_to_id || comment.id;
+                if (processedThreads.has(threadId)) {
+                  continue;
+                }
+                if (skipIfHumanReplied) {
+                  const threadReplies = comments.filter(c =>
+                    (c.in_reply_to_id === comment.id || c.in_reply_to_id === threadId) &&
+                    !botAuthorList.some(bot => c.user.login.toLowerCase() === bot.toLowerCase())
+                  );
+                  if (threadReplies.length > 0) {
+                    processedThreads.add(threadId);
+                    continue;
+                  }
+                }
+                processedThreads.add(threadId);
+                botComments.push({
+                  id: comment.id,
+                  path: comment.path,
+                  line: comment.line || comment.original_line,
+                  body: comment.body,
+                  author: comment.user.login,
+                  url: comment.html_url,
+                  diff_hunk: comment.diff_hunk
+                });
               }
-
-              processedThreads.add(threadId);
-
-              // Extract useful info
-              botComments.push({
-                id: comment.id,
-                path: comment.path,
-                line: comment.line || comment.original_line,
-                body: comment.body,
-                author: comment.user.login,
-                url: comment.html_url,
-                diff_hunk: comment.diff_hunk
-              });
             }
 
             const found = botComments.length > 0;
@@ -448,21 +435,32 @@ jobs:
               }
             }
 
-            const record = normalizeTerminalDisposition({
-              source_type: 'review-thread',
-              source_id: prNumber,
-              pr_number: prNumber,
-              disposition: found ? 'unresolved-bot-comments' : 'no-unresolved-bot-comments',
-              reason: found
-                ? 'Bot review comments remain unresolved and agent handling is eligible.'
-                : 'No unresolved bot review comments matched the handler filters.',
-              workflow: context.workflow,
-              run_id: context.runId,
-              run_attempt: context.runAttempt,
-              artifact_name: `review-thread-terminal-disposition-${context.runId}`,
-              artifact_family: 'review-thread-terminal-disposition',
-              actor: context.actor,
-            });
+            const record = typeof buildReviewThreadTerminalDisposition === 'function'
+              ? buildReviewThreadTerminalDisposition({
+                  prNumber,
+                  found,
+                  workflow: context.workflow,
+                  runId: context.runId,
+                  runAttempt: context.runAttempt,
+                  artifactName: `review-thread-terminal-disposition-${context.runId}`,
+                  artifactFamily: 'review-thread-terminal-disposition',
+                  actor: context.actor,
+                })
+              : normalizeTerminalDisposition({
+                  source_type: 'review-thread',
+                  source_id: prNumber,
+                  pr_number: prNumber,
+                  disposition: found ? 'unresolved-bot-comments' : 'no-unresolved-bot-comments',
+                  reason: found
+                    ? 'Bot review comments remain unresolved and agent handling is eligible.'
+                    : 'No unresolved bot review comments matched the handler filters.',
+                  workflow: context.workflow,
+                  run_id: context.runId,
+                  run_attempt: context.runAttempt,
+                  artifact_name: `review-thread-terminal-disposition-${context.runId}`,
+                  artifact_family: 'review-thread-terminal-disposition',
+                  actor: context.actor,
+                });
             fs.mkdirSync('agent-metrics', { recursive: true });
             fs.writeFileSync(
               'agent-metrics/review-thread-terminal-disposition.ndjson',
@@ -597,43 +595,63 @@ jobs:
 
           mkdir -p .github/codex/prompts
 
-          cat > .github/codex/prompts/fix_bot_comments_dynamic.md << 'PROMPT_HEADER'
-          # Fix Bot Review Comments
-
-          Review bots have left suggestions on this PR. Address each one:
-
-          ## Instructions
-
-          1. Read each bot comment below
-          2. Implement the suggested fix if it improves the code
-          3. If a suggestion is incorrect or doesn't apply, skip it and note why
-          4. After fixing, summarize what you addressed in your commit message
-
-          ## Bot Comments to Address
-
-          PROMPT_HEADER
-
-          # Append each comment using jq with proper escaping
-          cat > /tmp/bot_comments_filter.jq << 'JQ'
-          .[] |
-            "### \(.path):\(.line // \"N/A\")\n\n" +
-            "**From:** \(.author)\n\n" +
-            "```\n\(.body)\n```\n\n" +
-            "**Context (diff hunk):**\n" +
-            "```diff\n\(.diff_hunk)\n```\n\n" +
-            "---\n"
-          JQ
-
-          echo "${COMMENTS_JSON}" | jq -r -f /tmp/bot_comments_filter.jq \
-            >> .github/codex/prompts/fix_bot_comments_dynamic.md
-
-          cat >> .github/codex/prompts/fix_bot_comments_dynamic.md << 'PROMPT_FOOTER'
-
-          ## After Addressing Comments
-
-          - Commit your changes with message: "fix: address bot review comments"
-          - Include which suggestions you addressed vs skipped in the commit message
-          PROMPT_FOOTER
+          node <<'NODE'
+          const fs = require('fs');
+          const botHandler = require('./.github/scripts/bot-comment-handler.js');
+          const fallbackPrompt = (comments) => {
+            const lines = [
+              '# Fix Bot Review Comments',
+              '',
+              'Review bots have left suggestions on this PR. Address each one:',
+              '',
+              '## Instructions',
+              '',
+              '1. Read each bot comment below',
+              '2. Implement the suggested fix if it improves the code',
+              "3. If a suggestion is incorrect or doesn't apply, skip it and note why",
+              '4. After fixing, summarize what you addressed in your commit message',
+              '',
+              '## Bot Comments to Address',
+              '',
+            ];
+            for (const comment of comments) {
+              lines.push(
+                `### ${comment.path}:${comment.line ?? 'N/A'}`,
+                '',
+                `**From:** ${comment.author}`,
+                '',
+                '```',
+                String(comment.body ?? ''),
+                '```',
+                '',
+                '**Context (diff hunk):**',
+                '```diff',
+                String(comment.diff_hunk ?? ''),
+                '```',
+                '',
+                '---',
+                ''
+              );
+            }
+            lines.push(
+              '## After Addressing Comments',
+              '',
+              '- Commit your changes with message: "fix: address bot review comments"',
+              '- Include which suggestions you addressed vs skipped in the commit message',
+              ''
+            );
+            return lines.join('\n');
+          };
+          const buildBotCommentsPrompt =
+            typeof botHandler.buildBotCommentsPrompt === 'function'
+              ? botHandler.buildBotCommentsPrompt
+              : fallbackPrompt;
+          const comments = JSON.parse(process.env.COMMENTS_JSON || '[]');
+          fs.writeFileSync(
+            '.github/codex/prompts/fix_bot_comments_dynamic.md',
+            buildBotCommentsPrompt(comments)
+          );
+          NODE
 
           echo "ready=true" >> "$GITHUB_OUTPUT"
           echo "Generated prompt with $(echo "${COMMENTS_JSON}" | jq length) comments"
@@ -731,6 +749,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
+            .github/scripts/bot-comment-handler.js
             .github/actions/setup-api-client
             .github/scripts/github-rate-limited-wrapper.js
             .github/scripts/token_load_balancer.js
@@ -762,17 +781,17 @@ jobs:
             const agent = '${{ needs.collect.outputs.agent }}';
             const count = '${{ needs.collect.outputs.comments_count }}';
             const {owner, repo} = context.repo;
-
-            // Map agent name to assignee login
-            // Codex CLI uses chatgpt-codex-connector for assignment
-            const agentAssignees = {
+            const botHandler = require('./.github/scripts/bot-comment-handler.js');
+            const getBotCommentAssignees = botHandler.getBotCommentAssignees;
+            const buildBotCommentDispatchComment = botHandler.buildBotCommentDispatchComment;
+            const fallbackAssignees = {
               'codex': ['chatgpt-codex-connector'],
-              'claude': ['copilot'],  // Claude uses Copilot workspace
-              'gemini': ['copilot']   // Gemini uses Copilot workspace
+              'claude': ['copilot'],
+              'gemini': ['copilot']
             };
-
-            const defaultAssignees = agentAssignees['codex'] || ['chatgpt-codex-connector'];
-            const assignees = agentAssignees[agent] || defaultAssignees;
+            const assignees = typeof getBotCommentAssignees === 'function'
+              ? getBotCommentAssignees(agent)
+              : (fallbackAssignees[agent] || fallbackAssignees['codex']);
 
             // Assign the agent to the PR (this is what triggers Codex CLI properly)
             try {
@@ -791,22 +810,24 @@ jobs:
             // Use HTML marker for deduplication.
             // Update existing comment instead of creating duplicates.
             const marker = '<!-- bot-comment-handler -->';
-            const comment = [
-              marker,
-              '## 🤖 Bot Comment Handler',
-              '',
-              `- Agent: ${agent}`,
-              `- Bot comments to address: ${count}`,
-              '',
-              'The agent has been assigned to this PR to address the bot review ' +
-              'comments.',
-              '',
-              '### Instructions for agent',
-              '1. Implement suggested fixes that improve the code',
-              '2. Skip suggestions that don\'t apply (note why in your response)',
-              '',
-              'The bot comment handler workflow has prepared context in the artifacts.'
-            ].join('\n');
+            const comment = typeof buildBotCommentDispatchComment === 'function'
+              ? buildBotCommentDispatchComment({ agent, count })
+              : [
+                  marker,
+                  '## 🤖 Bot Comment Handler',
+                  '',
+                  `- Agent: ${agent}`,
+                  `- Bot comments to address: ${count}`,
+                  '',
+                  'The agent has been assigned to this PR to address the bot review ' +
+                  'comments.',
+                  '',
+                  '### Instructions for agent',
+                  '1. Implement suggested fixes that improve the code',
+                  '2. Skip suggestions that don\'t apply (note why in your response)',
+                  '',
+                  'The bot comment handler workflow has prepared context in the artifacts.'
+                ].join('\n');
 
             // Find existing bot-comment-handler comment to avoid duplicates
             const existingComments = await paginateWithRetry(

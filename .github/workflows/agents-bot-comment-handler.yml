@@ -156,6 +156,7 @@ jobs:
             }}
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/scripts/bot-comment-handler.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/terminal_disposition.js
             .github/scripts/token_load_balancer.js
@@ -324,8 +325,25 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const helperPath = './.github/scripts/terminal_disposition.js';
+          const botHandlerPath = './.github/scripts/bot-comment-handler.js';
           const fallback = {
-            normalizeTerminalDisposition: (value) => value,
+            buildWrapperTerminalDisposition: (value) => ({
+              source_type: 'review-thread',
+              source_id: value.prNumber || process.env.GITHUB_RUN_ID || 'unknown',
+              pr_number: value.prNumber,
+              disposition: value.reusableExpected ? 'reusable-invocation-expected' : 'wrapper-skipped',
+              reason: value.reusableExpected
+                ? 'Wrapper resolved an eligible PR and invoked the reusable bot-comment handler.'
+                : value.skipReason,
+              workflow: process.env.GITHUB_WORKFLOW || '',
+              run_id: process.env.GITHUB_RUN_ID || '',
+              run_attempt: process.env.GITHUB_RUN_ATTEMPT || '',
+              artifact_name: `review-thread-terminal-disposition-${process.env.GITHUB_RUN_ID || ''}`,
+              artifact_family: 'review-thread-terminal-disposition',
+              actor: process.env.GITHUB_ACTOR || '',
+              needs_human: false,
+              dispatch_outcome: value.reusableExpected ? 'reusable-expected' : 'wrapper-skipped',
+            }),
             formatTerminalDispositionMarkdown: (records) =>
               records
                 .map((record) =>
@@ -333,31 +351,20 @@ jobs:
                 )
                 .join('\n'),
           };
-          const {
-            normalizeTerminalDisposition,
-            formatTerminalDispositionMarkdown,
-          } = fs.existsSync(helperPath) ? require(helperPath) : fallback;
+          const { buildWrapperTerminalDisposition } = fs.existsSync(botHandlerPath)
+            ? require(botHandlerPath)
+            : fallback;
+          const { formatTerminalDispositionMarkdown } = fs.existsSync(helperPath)
+            ? require(helperPath)
+            : fallback;
           const reusableExpected =
             String(process.env.REUSABLE_INVOCATION_EXPECTED || '').toLowerCase() === 'true';
           const prNumber = Number.parseInt(process.env.RESOLVED_PR_NUMBER || '', 10) || null;
-          const disposition = reusableExpected ? 'reusable-invocation-expected' : 'wrapper-skipped';
-          const reason = reusableExpected
-            ? 'Wrapper resolved an eligible PR and invoked the reusable bot-comment handler.'
-            : (process.env.SKIP_REASON || 'Wrapper did not find eligible bot-comment work.');
-          const record = normalizeTerminalDisposition({
-            source_type: 'review-thread',
-            source_id: prNumber || process.env.GITHUB_RUN_ID || 'unknown',
-            pr_number: prNumber,
-            disposition,
-            reason,
-            workflow: process.env.GITHUB_WORKFLOW || '',
-            run_id: process.env.GITHUB_RUN_ID || '',
-            run_attempt: process.env.GITHUB_RUN_ATTEMPT || '',
-            artifact_name: `review-thread-terminal-disposition-${process.env.GITHUB_RUN_ID || ''}`,
-            artifact_family: 'review-thread-terminal-disposition',
-            actor: process.env.GITHUB_ACTOR || '',
-            needs_human: false,
-            dispatch_outcome: reusableExpected ? 'reusable-expected' : 'wrapper-skipped',
+          const record = buildWrapperTerminalDisposition({
+            prNumber,
+            reusableExpected,
+            skipReason: process.env.SKIP_REASON || 'Wrapper did not find eligible bot-comment work.',
+            env: process.env,
           });
           fs.writeFileSync(
             'agent-metrics/review-thread-terminal-disposition.ndjson',

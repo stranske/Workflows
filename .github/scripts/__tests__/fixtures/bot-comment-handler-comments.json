@@ -1,0 +1,57 @@
+[
+  {
+    "id": 1001,
+    "path": "src/app.js",
+    "line": 12,
+    "body": "Use a stable comparison here.",
+    "user": { "login": "Copilot" },
+    "html_url": "https://example.invalid/pull/42#discussion_r1001",
+    "diff_hunk": "@@ -10,7 +10,7 @@"
+  },
+  {
+    "id": 1002,
+    "in_reply_to_id": 1001,
+    "path": "src/app.js",
+    "line": 12,
+    "body": "I already handled this manually.",
+    "user": { "login": "octocat" },
+    "html_url": "https://example.invalid/pull/42#discussion_r1002",
+    "diff_hunk": "@@ -10,7 +10,7 @@"
+  },
+  {
+    "id": 1003,
+    "path": "docs/readme.md",
+    "line": 7,
+    "body": "Tighten this wording.",
+    "user": { "login": "coderabbitai[bot]" },
+    "html_url": "https://example.invalid/pull/42#discussion_r1003",
+    "diff_hunk": "@@ -5,7 +5,7 @@"
+  },
+  {
+    "id": 1004,
+    "path": ".agents/state.md",
+    "line": 3,
+    "body": "Generated ledger suggestion.",
+    "user": { "login": "github-actions[bot]" },
+    "html_url": "https://example.invalid/pull/42#discussion_r1004",
+    "diff_hunk": "@@ -1,5 +1,5 @@"
+  },
+  {
+    "id": 1005,
+    "path": "src/service.js",
+    "original_line": 22,
+    "body": "Guard against missing input.",
+    "user": { "login": "chatgpt-codex-connector[bot]" },
+    "html_url": "https://example.invalid/pull/42#discussion_r1005",
+    "diff_hunk": "@@ -20,7 +20,7 @@"
+  },
+  {
+    "id": 1006,
+    "path": "src/ignored-human.js",
+    "line": 18,
+    "body": "A human comment should never dispatch.",
+    "user": { "login": "maintainer" },
+    "html_url": "https://example.invalid/pull/42#discussion_r1006",
+    "diff_hunk": "@@ -15,7 +15,7 @@"
+  }
+]
