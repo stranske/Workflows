@@ -3,6 +3,15 @@ name: "Selftest: Reusables"
 on:
   schedule:
     - cron: '30 6 * * *'
+  pull_request:
+    paths:
+      - '.github/workflows/reusable-*.yml'
+      - '.github/workflows/selftest-reusable-ci.yml'
+      - 'scripts/ci_*.py'
+      - 'scripts/coverage_history_append.py'
+      - 'scripts/reusable_ci_scope.py'
+      - 'tools/coverage_trend.py'
+      - 'tools/resolve_mypy_pin.py'
   workflow_dispatch:
     inputs:
       reason:
@@ -56,6 +65,11 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
 
 jobs:
   # Rate limit gate: skip non-critical self-tests when API quota is low
@@ -128,10 +142,186 @@ jobs:
               core.warning(warning);
               core.setOutput('proceed', 'true');
             }
+
+  select-scenarios:
+    name: Select reusable CI scenarios
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.scope.outputs.matrix }}
+      scenario_list: ${{ steps.scope.outputs.scenario_list }}
+      selected_count: ${{ steps.scope.outputs.selected_count }}
+      rationale: ${{ steps.scope.outputs.rationale }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Collect changed files
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_SHA}" ]; then
+            git diff --name-only "${BASE_SHA}" HEAD > changed_files.txt
+          else
+            : > changed_files.txt
+          fi
+
+      - name: Select scenarios
+        id: scope
+        env:
+          FORCE_FULL: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          from scripts.reusable_ci_scope import SelectionOptions, describe_selection, select_scenarios
+
+          matrix = {
+              "include": [
+                  {
+                      "name": "minimal",
+                      "enable-metrics": False,
+                      "enable-history": False,
+                      "enable-classification": False,
+                      "enable-coverage-delta": False,
+                      "enable-soft-gate": False,
+                      "scope": {
+                          "paths": [
+                              ".github/workflows/reusable-10-ci-python.yml",
+                              ".github/workflows/selftest-reusable-ci.yml",
+                              "scripts/reusable_ci_scope.py",
+                              "scripts/sync_test_dependencies.py",
+                              "tools/resolve_mypy_pin.py",
+                          ],
+                      },
+                  },
+                  {
+                      "name": "metrics_only",
+                      "enable-metrics": True,
+                      "enable-history": False,
+                      "enable-classification": False,
+                      "enable-coverage-delta": False,
+                      "enable-soft-gate": False,
+                      "scope": {
+                          "paths": [
+                              ".github/workflows/reusable-10-ci-python.yml",
+                              ".github/workflows/selftest-reusable-ci.yml",
+                              "scripts/ci_metrics.py",
+                              "scripts/reusable_ci_scope.py",
+                          ],
+                      },
+                  },
+                  {
+                      "name": "metrics_history",
+                      "enable-metrics": True,
+                      "enable-history": True,
+                      "enable-classification": False,
+                      "enable-coverage-delta": False,
+                      "enable-soft-gate": False,
+                      "scope": {
+                          "paths": [
+                              ".github/workflows/reusable-10-ci-python.yml",
+                              ".github/workflows/selftest-reusable-ci.yml",
+                              "scripts/ci_history.py",
+                              "scripts/coverage_history_append.py",
+                              "scripts/reusable_ci_scope.py",
+                          ],
+                      },
+                  },
+                  {
+                      "name": "classification_only",
+                      "enable-metrics": False,
+                      "enable-history": False,
+                      "enable-classification": True,
+                      "enable-coverage-delta": False,
+                      "enable-soft-gate": False,
+                      "scope": {
+                          "paths": [
+                              ".github/workflows/reusable-10-ci-python.yml",
+                              ".github/workflows/selftest-reusable-ci.yml",
+                              "scripts/ci_history.py",
+                              "scripts/reusable_ci_scope.py",
+                          ],
+                      },
+                  },
+                  {
+                      "name": "coverage_delta",
+                      "enable-metrics": False,
+                      "enable-history": False,
+                      "enable-classification": False,
+                      "enable-coverage-delta": True,
+                      "enable-soft-gate": False,
+                      "baseline-coverage": "65",
+                      "coverage-alert-drop": "2",
+                      "scope": {
+                          "paths": [
+                              ".github/workflows/reusable-10-ci-python.yml",
+                              ".github/workflows/selftest-reusable-ci.yml",
+                              "scripts/ci_coverage_delta.py",
+                              "scripts/reusable_ci_scope.py",
+                          ],
+                      },
+                  },
+                  {
+                      "name": "full_soft_gate",
+                      "enable-metrics": True,
+                      "enable-history": True,
+                      "enable-classification": True,
+                      "enable-coverage-delta": True,
+                      "enable-soft-gate": True,
+                      "baseline-coverage": "65",
+                      "coverage-alert-drop": "2",
+                      "scope": {
+                          "paths": [
+                              ".github/workflows/reusable-10-ci-python.yml",
+                              ".github/workflows/selftest-reusable-ci.yml",
+                              "scripts/ci_*.py",
+                              "scripts/coverage_history_append.py",
+                              "scripts/reusable_ci_scope.py",
+                              "tools/coverage_trend.py",
+                          ],
+                      },
+                  },
+              ]
+          }
+          changed_files = [
+              line.strip()
+              for line in open("changed_files.txt", encoding="utf-8")
+              if line.strip()
+          ]
+          selected = select_scenarios(
+              "selftest-reusable-ci",
+              changed_files,
+              matrix,
+              SelectionOptions(force_full=(os.environ.get("FORCE_FULL") or "false") == "true"),
+          )
+          scenario_list = ",".join(str(item["name"]) for item in selected.scenarios)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(
+                  "matrix="
+                  + json.dumps(selected.matrix, separators=(",", ":"), sort_keys=True)
+                  + "\n"
+              )
+              handle.write(f"scenario_list={scenario_list}\n")
+              handle.write(f"selected_count={selected.selected_count}\n")
+              handle.write(f"rationale={describe_selection(selected, matrix)}\n")
+          print(describe_selection(selected, matrix))
+          PY
+
   scenarios:
     name: Scenario - ${{ matrix.name }}
-    needs: rate-limit-check
-    if: needs.rate-limit-check.outputs.proceed == 'true'
+    needs:
+      - rate-limit-check
+      - select-scenarios
+    if: >-
+      ${{
+        needs.rate-limit-check.outputs.proceed == 'true' &&
+        needs.select-scenarios.outputs.selected_count != '0'
+      }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
     permissions:
       contents: read
@@ -155,55 +345,18 @@ jobs:
       enable-soft-gate: ${{ matrix.enable-soft-gate }}
       baseline-coverage: ${{ matrix.baseline-coverage || '0' }}
       coverage-alert-drop: ${{ matrix.coverage-alert-drop || '1' }}
+      changed-files-json: '[]'
+      force-full: ${{ github.event_name != 'pull_request' }}
     secrets: inherit
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: minimal
-            enable-metrics: false
-            enable-history: false
-            enable-classification: false
-            enable-coverage-delta: false
-            enable-soft-gate: false
-          - name: metrics_only
-            enable-metrics: true
-            enable-history: false
-            enable-classification: false
-            enable-coverage-delta: false
-            enable-soft-gate: false
-          - name: metrics_history
-            enable-metrics: true
-            enable-history: true
-            enable-classification: false
-            enable-coverage-delta: false
-            enable-soft-gate: false
-          - name: classification_only
-            enable-metrics: false
-            enable-history: false
-            enable-classification: true
-            enable-coverage-delta: false
-            enable-soft-gate: false
-          - name: coverage_delta
-            enable-metrics: false
-            enable-history: false
-            enable-classification: false
-            enable-coverage-delta: true
-            enable-soft-gate: false
-            baseline-coverage: '65'
-            coverage-alert-drop: '2'
-          - name: full_soft_gate
-            enable-metrics: true
-            enable-history: true
-            enable-classification: true
-            enable-coverage-delta: true
-            enable-soft-gate: true
-            baseline-coverage: '65'
-            coverage-alert-drop: '2'
+      matrix: ${{ fromJson(needs.select-scenarios.outputs.matrix) }}
 
   summarize:
     name: Aggregate & Verify
-    needs: scenarios
+    needs:
+      - scenarios
+      - select-scenarios
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -214,9 +367,7 @@ jobs:
       failure_count: ${{ steps.verify.outputs.failures }}
       run_id: ${{ steps.metadata.outputs.run_id }}
     env:
-      SCENARIO_LIST: "minimal,metrics_only,metrics_history,\
-classification_only,coverage_delta,\
-full_soft_gate"
+      SCENARIO_LIST: ${{ needs.select-scenarios.outputs.scenario_list }}
       REQUESTED_PYTHONS: >-
         ${{
           (github.event_name == 'workflow_dispatch' &&

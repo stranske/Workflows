@@ -165,9 +165,10 @@ def test_selftest_runner_inputs_cover_variants() -> None:
 
     assert triggers, f"{SELFTEST_WORKFLOW_NAME} is missing trigger definitions."
     assert set(triggers) == {
+        "pull_request",
         "schedule",
         "workflow_dispatch",
-    }, "Runner must expose schedule and workflow_dispatch triggers."
+    }, "Runner must expose pull_request, schedule, and workflow_dispatch triggers."
 
     schedule_entries = triggers.get("schedule", [])
     assert (
@@ -274,8 +275,9 @@ def test_selftest_runner_jobs_contract() -> None:
     assert (
         strategy.get("fail-fast") is False
     ), "Scenario matrix must disable fail-fast to exercise every combination."
-    matrix_include = strategy.get("matrix", {}).get("include", [])
-    names = [entry.get("name") for entry in matrix_include]
+    assert (
+        strategy.get("matrix") == "${{ fromJson(needs.select-scenarios.outputs.matrix) }}"
+    ), "Scenario matrix should come from reusable-ci-scope selection."
     expected_names = [
         "minimal",
         "metrics_only",
@@ -284,34 +286,22 @@ def test_selftest_runner_jobs_contract() -> None:
         "coverage_delta",
         "full_soft_gate",
     ]
-    assert (
-        names == expected_names
-    ), "Reusable CI scenario matrix drifted; update tests if intentional."
-
-    def _entry(name: str) -> dict:
-        return next((item for item in matrix_include if item.get("name") == name), {})
-
-    coverage_delta = _entry("coverage_delta")
-    assert (
-        coverage_delta.get("baseline-coverage") == "65"
-    ), "coverage_delta scenario baseline-coverage should remain '65'."
-    assert (
-        coverage_delta.get("coverage-alert-drop") == "2"
-    ), "coverage_delta scenario coverage-alert-drop should remain '2'."
-
-    full_soft_gate = _entry("full_soft_gate")
-    assert (
-        full_soft_gate.get("baseline-coverage") == "65"
-    ), "full_soft_gate scenario baseline-coverage should remain '65'."
-    assert (
-        full_soft_gate.get("coverage-alert-drop") == "2"
-    ), "full_soft_gate scenario coverage-alert-drop should remain '2'."
+    selector = jobs.get("select-scenarios") or {}
+    assert selector, "Selftest workflow must select scenarios before matrix fan-out."
+    selector_steps = selector.get("steps", [])
+    selector_run = "\n".join(str(step.get("run", "")) for step in selector_steps)
+    for name in expected_names:
+        assert f'"name": "{name}"' in selector_run
+    assert '"baseline-coverage": "65"' in selector_run
+    assert '"coverage-alert-drop": "2"' in selector_run
+    assert "select_scenarios(" in selector_run
 
     summarize = jobs.get("summarize") or {}
     assert summarize, "Reusable CI workflow must include the aggregate job."
-    assert (
-        summarize.get("needs") == "scenarios"
-    ), "Aggregate job should depend on the matrix execution."
+    assert summarize.get("needs") == [
+        "scenarios",
+        "select-scenarios",
+    ], "Aggregate job should depend on the matrix execution."
     assert (
         summarize.get("if") == "${{ always() }}"
     ), "Aggregate job must always run to collect results."
@@ -334,8 +324,7 @@ def test_selftest_runner_jobs_contract() -> None:
 
     env = summarize.get("env", {})
     assert (
-        env.get("SCENARIO_LIST")
-        == "minimal,metrics_only,metrics_history,classification_only,coverage_delta,full_soft_gate"
+        env.get("SCENARIO_LIST") == "${{ needs.select-scenarios.outputs.scenario_list }}"
     ), "Aggregate SCENARIO_LIST should enumerate the scenario matrix."
     aggregate_python = env.get("REQUESTED_PYTHONS", "")
     assert (
@@ -557,13 +546,19 @@ def test_selftest_triggers_are_manual_only() -> None:
 
         trigger_keys = set(triggers)
 
-        unexpected = sorted(trigger_keys & disallowed_triggers)
+        allowed_for_file = set(allowed_triggers)
+        disallowed_for_file = set(disallowed_triggers)
+        if workflow_file.name == SELFTEST_WORKFLOW_NAME:
+            allowed_for_file.add("pull_request")
+            disallowed_for_file.discard("pull_request")
+
+        unexpected = sorted(trigger_keys & disallowed_for_file)
         assert not unexpected, (
             f"{workflow_file.name} exposes disallowed triggers: {unexpected}. "
             "Self-tests should not run automatically on PRs or pushes."
         )
 
-        unsupported = sorted(trigger_keys - allowed_triggers)
+        unsupported = sorted(trigger_keys - allowed_for_file)
         assert not unsupported, (
             f"{workflow_file.name} declares unsupported triggers: {unsupported}. "
             "Only workflow_dispatch, schedule, or workflow_call are permitted."
@@ -579,7 +574,7 @@ def test_selftest_triggers_are_manual_only() -> None:
             "workflow_dispatch."
         )
         assert (
-            trigger_keys <= allowed_triggers
+            trigger_keys <= allowed_for_file
         ), f"{workflow_file.name} declares unexpected trigger set: {sorted(trigger_keys)}."
 
 
@@ -651,8 +646,8 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
         scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
     ), "Scenario job must invoke reusable-10-ci-python.yml via jobs.<id>.uses"
 
-    matrix = scenario_job.get("strategy", {}).get("matrix", {}).get("include", [])
-    scenario_names = [entry.get("name") for entry in matrix]
+    matrix = scenario_job.get("strategy", {}).get("matrix", {})
+    assert matrix == "${{ fromJson(needs.select-scenarios.outputs.matrix) }}"
     expected_names = [
         "minimal",
         "metrics_only",
@@ -661,14 +656,16 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
         "coverage_delta",
         "full_soft_gate",
     ]
-    assert (
-        scenario_names == expected_names
-    ), "Self-test scenario matrix drifted; update verification docs/tests if intentional."
+    selector = jobs.get("select-scenarios") or {}
+    selector_run = "\n".join(str(step.get("run", "")) for step in selector.get("steps", []))
+    for name in expected_names:
+        assert f'"name": "{name}"' in selector_run
 
     aggregate_job = jobs.get("summarize") or {}
-    assert (
-        aggregate_job.get("needs") == "scenarios"
-    ), "Aggregate job must depend on the scenario matrix"
+    assert aggregate_job.get("needs") == [
+        "scenarios",
+        "select-scenarios",
+    ], "Aggregate job must depend on the scenario matrix"
     assert (
         aggregate_job.get("if") == "${{ always() }}"
     ), "Aggregate job should always run to summarise results"
@@ -678,10 +675,8 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     assert permissions.get("contents") == "read", "Aggregate job must read repository contents"
 
     env = aggregate_job.get("env", {})
-    aggregate_list = env.get("SCENARIO_LIST", "")
-    env_names = [name.strip() for name in aggregate_list.split(",") if name.strip()]
     assert (
-        env_names == expected_names
+        env.get("SCENARIO_LIST") == "${{ needs.select-scenarios.outputs.scenario_list }}"
     ), "Aggregate SCENARIO_LIST must stay aligned with the scenario matrix to keep summaries accurate."
 
     outputs = aggregate_job.get("outputs", {})

@@ -18,6 +18,16 @@ on:
         required: false
         default: '[]'
         type: string
+      changed-files-json:
+        description: JSON array of changed files used to scope reusable CI scenarios.
+        required: false
+        default: '[]'
+        type: string
+      force-full:
+        description: Run the full Python version matrix even when changed files are scoped.
+        required: false
+        default: false
+        type: boolean
       primary-python-version:
         description: Preferred Python runtime that should publish soft-gate artifacts when enabled.
         required: false
@@ -681,6 +691,95 @@ jobs:
             exit 1
           fi
 
+  select-scope:
+    name: select reusable CI scope
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      python_matrix: ${{ steps.scope.outputs.python_matrix }}
+      rationale: ${{ steps.scope.outputs.rationale }}
+    steps:
+      - name: Checkout Workflows helper
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          path: .workflows-lib
+          sparse-checkout: |
+            scripts/reusable_ci_scope.py
+          sparse-checkout-cone-mode: false
+
+      - name: Select Python version matrix
+        id: scope
+        env:
+          WORKFLOW_NAME: ${{ github.workflow }}
+          PYTHON_VERSIONS: ${{ inputs['python-versions'] || '' }}
+          PYTHON_VERSION: ${{ inputs['python-version'] || '3.12' }}
+          CHANGED_FILES_JSON: ${{ inputs['changed-files-json'] || '[]' }}
+          FORCE_FULL: ${{ github.event_name == 'workflow_dispatch' || inputs['force-full'] }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          sys.path.insert(0, ".workflows-lib")
+          from scripts.reusable_ci_scope import (  # noqa: E402
+              SelectionOptions,
+              describe_selection,
+              select_scenarios,
+          )
+
+          def parse_versions() -> list[str]:
+              raw = os.environ.get("PYTHON_VERSIONS", "")
+              fallback = os.environ.get("PYTHON_VERSION", "") or "3.12"
+              if raw and raw != "[]" and "[" in raw:
+                  parsed = json.loads(raw)
+                  return [str(version) for version in parsed]
+              if raw and raw != "[]":
+                  return [raw]
+              return [fallback]
+
+          changed_files = json.loads(os.environ.get("CHANGED_FILES_JSON") or "[]")
+          force_full = (os.environ.get("FORCE_FULL") or "false").lower() == "true"
+          matrix = {
+              "include": [
+                  {
+                      "python-version": version,
+                      "scope": {
+                          "paths": [
+                              ".github/workflows/reusable-10-ci-python.yml",
+                              "scripts/**",
+                              "tools/**",
+                              "src/**",
+                              "tests/**",
+                              "pyproject.toml",
+                              "requirements*.txt",
+                          ],
+                          "reason": "Python CI inputs changed",
+                      },
+                  }
+                  for version in parse_versions()
+              ]
+          }
+          selected = select_scenarios(
+              os.environ.get("WORKFLOW_NAME", "Reusable CI"),
+              changed_files,
+              matrix,
+              SelectionOptions(force_full=force_full),
+          )
+          output_path = os.environ["GITHUB_OUTPUT"]
+          with open(output_path, "a", encoding="utf-8") as handle:
+              handle.write(
+                  "python_matrix="
+                  + json.dumps(selected.matrix, separators=(",", ":"), sort_keys=True)
+                  + "\n"
+              )
+              handle.write(f"rationale={describe_selection(selected, matrix)}\n")
+          print(describe_selection(selected, matrix))
+          PY
+
   lint-ruff:
     name: lint-ruff
     needs: validate-inputs
@@ -1330,7 +1429,9 @@ jobs:
 
   tests:
     name: python ${{ matrix.python-version }}
-    needs: validate-inputs
+    needs:
+      - validate-inputs
+      - select-scope
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1339,37 +1440,7 @@ jobs:
       coverage_min_outcome: ${{ steps.finalize-tests.outputs.coverage_min_outcome || 'skipped' }}
     strategy:
       fail-fast: false
-      matrix:
-        # Callers using bracket notation must provide a valid JSON array; the
-        # matrix load will fail at runtime if the value cannot be parsed.
-        # Callers supplying a single version string must omit brackets;
-        # malformed values will be wrapped and passed through as-is.
-        python-version: >-
-          ${{ fromJson(
-            (
-              (
-                inputs['python-versions'] != '' &&
-                inputs['python-versions'] != '[]' &&
-                contains(inputs['python-versions'], '[')
-              )
-              && inputs['python-versions']
-            )
-            || (
-              (
-                inputs['python-versions'] != '' &&
-                inputs['python-versions'] != '[]' &&
-                !contains(inputs['python-versions'], '[')
-              )
-              && format('[{0}]', toJson(inputs['python-versions']))
-            )
-            || (
-              (
-                inputs['python-version'] != ''
-              )
-              && format('[{0}]', toJson(inputs['python-version']))
-            )
-            || '["3.12"]'
-          ) }}
+      matrix: ${{ fromJson(needs.select-scope.outputs.python_matrix) }}
     defaults:
       run:
         shell: bash

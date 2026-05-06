@@ -3,61 +3,155 @@ name: Maint 62 Integration Consumer
 on:
   schedule:
     - cron: '5 5 * * *'
+  pull_request:
+    paths:
+      - '.github/workflows/maint-62-integration-consumer.yml'
+      - '.github/workflows/reusable-10-ci-python.yml'
+      - 'scripts/reusable_ci_scope.py'
+      - 'templates/integration-repo/**'
   release:
     types: [published]
   workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  select-scenarios:
+    name: Select integration scenarios
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.scope.outputs.matrix }}
+      selected_count: ${{ steps.scope.outputs.selected_count }}
+      rationale: ${{ steps.scope.outputs.rationale }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Collect changed files
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_SHA}" ]; then
+            git diff --name-only "${BASE_SHA}" HEAD > changed_files.txt
+          else
+            : > changed_files.txt
+          fi
+
+      - name: Select scenarios
+        id: scope
+        env:
+          FORCE_FULL: >-
+            ${{
+              github.event_name == 'schedule' ||
+              github.event_name == 'workflow_dispatch' ||
+              github.event_name == 'release'
+            }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          from scripts.reusable_ci_scope import SelectionOptions, describe_selection, select_scenarios
+
+          common_scope = [
+              ".github/workflows/maint-62-integration-consumer.yml",
+              ".github/workflows/reusable-10-ci-python.yml",
+              "scripts/reusable_ci_scope.py",
+              "templates/integration-repo/**",
+          ]
+          matrix = {
+              "include": [
+                  {
+                      "name": "basic",
+                      "python-versions": '["3.12"]',
+                      "coverage": False,
+                      "format-check": False,
+                      "lint": False,
+                      "typecheck": False,
+                      "enable-soft-gate": False,
+                      "enable-coverage-delta": False,
+                      "enable-metrics": False,
+                      "enable-history": False,
+                      "baseline-coverage": "0",
+                      "coverage-alert-drop": "0",
+                      "scope": {"paths": common_scope},
+                  },
+                  {
+                      "name": "full",
+                      "python-versions": '["3.12","3.13"]',
+                      "coverage": True,
+                      "format-check": True,
+                      "lint": True,
+                      "typecheck": True,
+                      "enable-soft-gate": True,
+                      "enable-coverage-delta": True,
+                      "enable-metrics": True,
+                      "enable-history": True,
+                      "baseline-coverage": "80",
+                      "coverage-alert-drop": "2",
+                      "scope": {"paths": common_scope + ["scripts/ci_*.py", "tools/**"]},
+                  },
+                  {
+                      "name": "monorepo",
+                      "python-versions": '["3.12"]',
+                      "coverage": True,
+                      "format-check": True,
+                      "lint": True,
+                      "typecheck": True,
+                      "enable-soft-gate": False,
+                      "enable-coverage-delta": False,
+                      "enable-metrics": False,
+                      "enable-history": False,
+                      "baseline-coverage": "70",
+                      "coverage-alert-drop": "1",
+                      "scope": {"paths": common_scope},
+                  },
+              ]
+          }
+          changed_files = [
+              line.strip()
+              for line in open("changed_files.txt", encoding="utf-8")
+              if line.strip()
+          ]
+          selected = select_scenarios(
+              "maint-62-integration-consumer",
+              changed_files,
+              matrix,
+              SelectionOptions(force_full=(os.environ.get("FORCE_FULL") or "false") == "true"),
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(
+                  "matrix="
+                  + json.dumps(selected.matrix, separators=(",", ":"), sort_keys=True)
+                  + "\n"
+              )
+              handle.write(f"selected_count={selected.selected_count}\n")
+              handle.write(f"rationale={describe_selection(selected, matrix)}\n")
+          print(describe_selection(selected, matrix))
+          PY
+
   scenarios:
     name: Integration - ${{ matrix.name }}
+    needs: select-scenarios
+    if: ${{ needs.select-scenarios.outputs.selected_count != '0' }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
     permissions:
       contents: read
       actions: read
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: basic
-            python-versions: '["3.12"]'
-            coverage: false
-            format-check: false
-            lint: false
-            typecheck: false
-            enable-soft-gate: false
-            enable-coverage-delta: false
-            enable-metrics: false
-            enable-history: false
-            baseline-coverage: '0'
-            coverage-alert-drop: '0'
-          - name: full
-            python-versions: '["3.12","3.13"]'
-            coverage: true
-            format-check: true
-            lint: true
-            typecheck: true
-            enable-soft-gate: true
-            enable-coverage-delta: true
-            enable-metrics: true
-            enable-history: true
-            baseline-coverage: '80'
-            coverage-alert-drop: '2'
-          - name: monorepo
-            python-versions: '["3.12"]'
-            coverage: true
-            format-check: true
-            lint: true
-            typecheck: true
-            enable-soft-gate: false
-            enable-coverage-delta: false
-            enable-metrics: false
-            enable-history: false
-            baseline-coverage: '70'
-            coverage-alert-drop: '1'
+      matrix: ${{ fromJson(needs.select-scenarios.outputs.matrix) }}
     with:
       working-directory: templates/integration-repo
       python-versions: ${{ matrix['python-versions'] }}
@@ -71,12 +165,16 @@ jobs:
       enable-history: ${{ matrix['enable-history'] }}
       baseline-coverage: ${{ matrix['baseline-coverage'] }}
       coverage-alert-drop: ${{ matrix['coverage-alert-drop'] }}
+      changed-files-json: '[]'
+      force-full: ${{ github.event_name != 'pull_request' }}
       artifact-prefix: integration-${{ matrix.name }}-
     secrets: inherit
 
   report:
     name: Report integration status
-    needs: scenarios
+    needs:
+      - scenarios
+      - select-scenarios
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -86,12 +184,14 @@ jobs:
     env:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       RESULT: ${{ needs.scenarios.result }}
+      SCOPE_RATIONALE: ${{ needs.select-scenarios.outputs.rationale }}
     steps:
       - name: Summarize outcome
         run: |
           {
             echo "## Integration consumer status"
             echo "Result: ${RESULT}"
+            echo "Scope: ${SCOPE_RATIONALE}"
             echo "Run: ${RUN_URL}"
           } >> "$GITHUB_STEP_SUMMARY"
 
