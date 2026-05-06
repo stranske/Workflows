@@ -1784,23 +1784,6 @@ def _build_why_section(
     return " ".join(parts)
 
 
-WORKFLOW_SYNC_CONTEXT_MARKERS = (
-    "consumer sync",
-    "consumer-sync",
-    "consumer",
-    "consumers",
-    "from the template",
-    "maint-68",
-    "synced",
-    "sync pr",
-    "sync-generated",
-    "template sync",
-    "workflow template sync",
-    "workflow-template",
-    "workflow-owned",
-    "workflows-owned",
-)
-
 WORKFLOW_SYNC_PATH_MARKERS = (
     ".github/actions",
     ".github/scripts",
