@@ -9,6 +9,7 @@ from base64 import b64decode
 from pathlib import Path
 
 import pytest
+import yaml
 from scripts.reference_packs import (
     ReferencePackConfigError,
     build_checkout_plan,
@@ -18,6 +19,20 @@ from scripts.reference_packs import (
     read_reference_pack_config_text,
     reference_pack_config_exists,
 )
+
+
+def test_sync_manifest_ships_reference_packs_before_runner_lib() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    manifest_path = repo_root / ".github" / "sync-manifest.yml"
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+    script_sources = [entry.get("source") for entry in manifest.get("scripts", []) or []]
+
+    assert (repo_root / "scripts" / "reference_packs.py").is_file()
+    assert "scripts/reference_packs.py" in script_sources
+    assert "scripts/runner_lib/" in script_sources
+    assert script_sources.index("scripts/reference_packs.py") < script_sources.index(
+        "scripts/runner_lib/"
+    )
 
 
 def _decode_github_output_value(value: str) -> str:
