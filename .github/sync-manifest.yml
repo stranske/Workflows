@@ -475,6 +475,9 @@ scripts:
   - source: scripts/langchain/issue_formatter.py
     description: "Issue formatter - converts raw text to AGENT_ISSUE_TEMPLATE format"
 
+  - source: scripts/langchain/issue_pr_context.py
+    description: "Issue/PR context assembly helper with shared token budget caps"
+
   - source: scripts/langchain/issue_dedup.py
     description: "Issue deduplication - finds similar open issues"
 
