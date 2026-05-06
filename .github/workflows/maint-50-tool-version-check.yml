@@ -58,111 +58,32 @@ jobs:
       - name: Check latest PyPI versions
         id: latest
         run: |
-          python - <<'PY'
-          import json
-          import os
-          import urllib.request
-
-          def get_latest_version(package):
-              try:
-                  url = f"https://pypi.org/pypi/{package}/json"
-                  with urllib.request.urlopen(url, timeout=10) as response:
-                      data = json.loads(response.read())
-                      return data['info']['version']
-              except Exception as e:
-                  print(f"Warning: Could not fetch {package}: {e}")
-                  return None
-
-          packages = {
-              'black': 'black_latest',
-              'ruff': 'ruff_latest',
-              'docformatter': 'docformatter_latest',
-              'isort': 'isort_latest',
-              'mypy': 'mypy_latest',
-              'pytest': 'pytest_latest',
-              'pytest-cov': 'pytest_cov_latest',
-              'coverage': 'coverage_latest',
-          }
-
-          output = os.environ['GITHUB_OUTPUT']
-          with open(output, 'a', encoding='utf-8') as f:
-              for pkg, output_name in packages.items():
-                  version = get_latest_version(pkg)
-                  if version:
-                      f.write(f"{output_name}={version}\n")
-                      print(f"✓ {pkg}: {version}")
-                  else:
-                      f.write(f"{output_name}=unknown\n")
-                      print(f"✗ {pkg}: failed to fetch")
-          PY
+          python scripts/maint_tool_version_check.py latest
 
       - name: Compare versions and generate report
         id: compare
+        env:
+          BLACK_CURRENT: ${{ steps.current.outputs.black_current }}
+          RUFF_CURRENT: ${{ steps.current.outputs.ruff_current }}
+          DOCFORMATTER_CURRENT: ${{ steps.current.outputs.docformatter_current }}
+          ISORT_CURRENT: ${{ steps.current.outputs.isort_current }}
+          MYPY_CURRENT: ${{ steps.current.outputs.mypy_current }}
+          PYTEST_CURRENT: ${{ steps.current.outputs.pytest_current }}
+          PYTEST_COV_CURRENT: ${{ steps.current.outputs.pytest_cov_current }}
+          COVERAGE_CURRENT: ${{ steps.current.outputs.coverage_current }}
+          BLACK_LATEST: ${{ steps.latest.outputs.black_latest }}
+          RUFF_LATEST: ${{ steps.latest.outputs.ruff_latest }}
+          DOCFORMATTER_LATEST: ${{ steps.latest.outputs.docformatter_latest }}
+          ISORT_LATEST: ${{ steps.latest.outputs.isort_latest }}
+          MYPY_LATEST: ${{ steps.latest.outputs.mypy_latest }}
+          PYTEST_LATEST: ${{ steps.latest.outputs.pytest_latest }}
+          PYTEST_COV_LATEST: ${{ steps.latest.outputs.pytest_cov_latest }}
+          COVERAGE_LATEST: ${{ steps.latest.outputs.coverage_latest }}
+          WORKFLOW_URL: >-
+            ${{ github.event.repository.html_url
+            }}/actions/workflows/maint-50-tool-version-check.yml
         run: |
-          python - <<'PY'
-          import os
-
-          current = {
-              'black': '${{ steps.current.outputs.black_current }}',
-              'ruff': '${{ steps.current.outputs.ruff_current }}',
-              'docformatter': '${{ steps.current.outputs.docformatter_current }}',
-              'isort': '${{ steps.current.outputs.isort_current }}',
-              'mypy': '${{ steps.current.outputs.mypy_current }}',
-              'pytest': '${{ steps.current.outputs.pytest_current }}',
-              'pytest-cov': '${{ steps.current.outputs.pytest_cov_current }}',
-              'coverage': '${{ steps.current.outputs.coverage_current }}',
-          }
-
-          latest = {
-              'black': '${{ steps.latest.outputs.black_latest }}',
-              'ruff': '${{ steps.latest.outputs.ruff_latest }}',
-              'docformatter': '${{ steps.latest.outputs.docformatter_latest }}',
-              'isort': '${{ steps.latest.outputs.isort_latest }}',
-              'mypy': '${{ steps.latest.outputs.mypy_latest }}',
-              'pytest': '${{ steps.latest.outputs.pytest_latest }}',
-              'pytest-cov': '${{ steps.latest.outputs.pytest_cov_latest }}',
-              'coverage': '${{ steps.latest.outputs.coverage_latest }}',
-          }
-
-          updates_available = []
-          report_lines = ['## Tool Version Status\n']
-          report_lines.append('| Tool | Current | Latest | Status |')
-          report_lines.append('|------|---------|--------|--------|')
-
-          for tool in sorted(current.keys()):
-              curr_ver = current[tool]
-              latest_ver = latest[tool]
-
-              if latest_ver == 'unknown':
-                  status = '⚠️ Check failed'
-              elif curr_ver != latest_ver:
-                  status = '🆕 Update available'
-                  updates_available.append(f"- **{tool}**: {curr_ver} → {latest_ver}")
-              else:
-                  status = '✅ Current'
-
-              report_lines.append(f'| {tool} | {curr_ver} | {latest_ver} | {status} |')
-
-          report = '\n'.join(report_lines)
-
-          # Write multiline output
-          output = os.environ['GITHUB_OUTPUT']
-          with open(output, 'a', encoding='utf-8') as f:
-              f.write('report<<REPORT_EOF\n')
-              f.write(report)
-              f.write('\nREPORT_EOF\n')
-
-              if updates_available:
-                  f.write('updates<<UPDATES_EOF\n')
-                  f.write('\n'.join(updates_available))
-                  f.write('\nUPDATES_EOF\n')
-                  f.write('has_updates=true\n')
-              else:
-                  f.write('updates=\n')
-                  f.write('has_updates=false\n')
-
-          print(report)
-          PY
+          python scripts/maint_tool_version_check.py compare
 
       - name: Create or update issue
         if: steps.compare.outputs.has_updates == 'true' || github.event.inputs.force_issue == 'true'
@@ -180,44 +101,9 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-            const report = fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8')
-              .match(/report<<REPORT_EOF\n([\s\S]*?)\nREPORT_EOF/)?.[1] || '';
-            const updates = fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8')
-              .match(/updates<<UPDATES_EOF\n([\s\S]*?)\nUPDATES_EOF/)?.[1] || '';
-
-            const repoUrl = context.payload.repository.html_url;
-            const workflowUrl = repoUrl + '/actions/workflows/maint-50-tool-version-check.yml';
-            const timestamp = new Date().toISOString();
+            const body = fs.readFileSync('tool-version-issue-body.md', 'utf8');
 
             const title = '🔧 CI/Autofix Tool Updates Available';
-
-            const instructions = [
-              'source .github/workflows/autofix-versions.env',
-              'pip install "black==$BLACK_VERSION" "ruff==$RUFF_VERSION" ' +
-                '"isort==$ISORT_VERSION" "docformatter==$DOCFORMATTER_VERSION" ' +
-                '"mypy==$MYPY_VERSION" "pytest==$PYTEST_VERSION" ' +
-                '"pytest-cov==$PYTEST_COV_VERSION" "coverage==$COVERAGE_VERSION"',
-              'black --check --line-length 100 .',
-              'ruff check .',
-              'mypy src tests'
-            ].join('\n');
-            const instructionsBlock = '```bash\n' + instructions + '\n```';
-
-            const body = report + '\n\n' +
-              '### Updates Available\n\n' +
-              updates + '\n\n' +
-              '### Update Instructions\n\n' +
-              '1. Update `.github/workflows/autofix-versions.env` with the new versions\n' +
-              '2. Test locally:\n' +
-              instructionsBlock + '\n' +
-              '3. Create a PR with the version updates\n' +
-              '4. Ensure all CI checks pass before merging\n\n' +
-              '### Documentation\n\n' +
-              'See `.github/workflows/autofix-versions.env` for the version file.\n\n' +
-              '---\n' +
-              '*This issue was automatically generated by the ' +
-              '[Tool Version Check workflow](' + workflowUrl + ').*\n' +
-              '*Last checked: ' + timestamp + '*';
 
             // Search for existing open issues with this title
             const issues = await withRetry(() =>
