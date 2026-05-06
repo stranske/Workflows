@@ -13,6 +13,8 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -114,56 +116,92 @@ def materialize_reference_packs(
     reference_dir.mkdir(exist_ok=True)
 
     for plan in plans:
-        clone_dir = Path("/tmp") / f"ref-pack-{plan.name}"
-        shutil.rmtree(clone_dir, ignore_errors=True)
-        clone_url = f"https://github.com/{plan.repo}.git"
+        clone_parent = Path(tempfile.mkdtemp(prefix=f"ref-pack-{plan.name}-"))
+        clone_dir = clone_parent / "repo"
+        askpass_path = clone_parent / "git-askpass.sh"
+        git_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
         if token:
-            clone_url = f"https://x-access-token:{token}@github.com/{plan.repo}.git"
+            askpass_path.write_text(
+                "#!/bin/sh\n"
+                'case "$1" in\n'
+                "  *Username*) printf '%s\\n' \"${GIT_ASKPASS_USERNAME:-x-access-token}\" ;;\n"
+                "  *) printf '%s\\n' \"$GIT_ASKPASS_PASSWORD\" ;;\n"
+                "esac\n",
+                encoding="utf-8",
+            )
+            askpass_path.chmod(0o700)
+            git_env.update(
+                {
+                    "GIT_ASKPASS": str(askpass_path),
+                    "GIT_ASKPASS_USERNAME": "x-access-token",
+                    "GIT_ASKPASS_PASSWORD": token,
+                }
+            )
 
+        clone_url = f"https://github.com/{plan.repo}.git"
         clone_cmd = ["git", "clone", "--depth=1", "--filter=blob:none", "--sparse"]
         is_sha = bool(re.fullmatch(r"[0-9a-fA-F]{40}", plan.ref))
         if not is_sha:
             clone_cmd.extend(["--branch", plan.ref])
         clone_cmd.extend([clone_url, str(clone_dir)])
-        subprocess.check_call(clone_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        if is_sha:
+        try:
             subprocess.check_call(
-                ["git", "-C", str(clone_dir), "fetch", "origin", plan.ref, "--depth=1"],
+                clone_cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-            )
-            subprocess.check_call(
-                ["git", "-C", str(clone_dir), "checkout", plan.ref],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                env=git_env,
             )
 
-        subprocess.check_call(
-            ["git", "-C", str(clone_dir), "sparse-checkout", "set", "--no-cone", *plan.paths],
-            stdout=subprocess.DEVNULL,
-        )
-        subprocess.check_call(
-            ["git", "-C", str(clone_dir), "sparse-checkout", "reapply"],
-            stdout=subprocess.DEVNULL,
-        )
-
-        checkout_path = workspace_path / plan.checkout_path
-        checkout_path.mkdir(parents=True, exist_ok=True)
-        for rel_path in plan.paths:
-            src = clone_dir / rel_path
-            dst = checkout_path / rel_path
-            if src.is_dir():
-                shutil.copytree(src, dst, dirs_exist_ok=True)
-            elif src.is_file():
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src, dst)
-            else:
-                print(
-                    f"warning: path '{rel_path}' not found in {plan.repo}@{plan.ref}",
-                    file=sys.stderr,
+            if is_sha:
+                subprocess.check_call(
+                    ["git", "-C", str(clone_dir), "fetch", "origin", plan.ref, "--depth=1"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=git_env,
                 )
-        shutil.rmtree(clone_dir, ignore_errors=True)
+                subprocess.check_call(
+                    ["git", "-C", str(clone_dir), "checkout", plan.ref],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=git_env,
+                )
+
+            subprocess.check_call(
+                [
+                    "git",
+                    "-C",
+                    str(clone_dir),
+                    "sparse-checkout",
+                    "set",
+                    "--no-cone",
+                    *plan.paths,
+                ],
+                stdout=subprocess.DEVNULL,
+                env=git_env,
+            )
+            subprocess.check_call(
+                ["git", "-C", str(clone_dir), "sparse-checkout", "reapply"],
+                stdout=subprocess.DEVNULL,
+                env=git_env,
+            )
+
+            checkout_path = workspace_path / plan.checkout_path
+            checkout_path.mkdir(parents=True, exist_ok=True)
+            for rel_path in plan.paths:
+                src = clone_dir / rel_path
+                dst = checkout_path / rel_path
+                if src.is_dir():
+                    shutil.copytree(src, dst, dirs_exist_ok=True)
+                elif src.is_file():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dst)
+                else:
+                    print(
+                        f"warning: path '{rel_path}' not found in {plan.repo}@{plan.ref}",
+                        file=sys.stderr,
+                    )
+        finally:
+            shutil.rmtree(clone_parent, ignore_errors=True)
 
     summary_path = reference_dir / "REFERENCE_PACKS.md"
     with summary_path.open("w", encoding="utf-8") as handle:
@@ -299,8 +337,19 @@ def parse_runner_output(provider: str, raw_output: str) -> RunnerResult:
     messages, errors = _parse_jsonl_output(clipped) if provider == "codex" else ([], [])
     final_message = messages[-1] if messages else clipped.strip()
 
-    if not errors and re.search(r"(^::error::|\bTraceback\b|\bError:|\bException\b)", clipped):
-        first = next((line.strip() for line in clipped.splitlines() if line.strip()), "")
+    if not errors and re.search(
+        r"(^::error::|\bTraceback\b|\bError:|\bException\b)",
+        clipped,
+        re.MULTILINE,
+    ):
+        first = next(
+            (
+                line.strip()
+                for line in clipped.splitlines()
+                if re.search(r"^::error::|\bTraceback\b|\bError:|\bException\b", line)
+            ),
+            "",
+        )
         errors.append(first or "runner output indicates an error")
 
     if not final_message:
@@ -366,12 +415,25 @@ class PrCommentRunnerStorage:
         repo, token = _github_context()
         return cls(GitHubApi(repo, token))
 
-    def _comments(self, pr_number: int) -> list[dict[str, Any]]:
-        return self.api.paged_get(f"/repos/{self.api.repo}/issues/{pr_number}/comments")
+    def _iter_comments(self, pr_number: int) -> Iterator[dict[str, Any]]:
+        page = 1
+        while True:
+            batch = self.api.request(
+                "GET",
+                f"/repos/{self.api.repo}/issues/{pr_number}/comments?per_page=100&page={page}",
+            )
+            if not isinstance(batch, list):
+                raise RuntimeError(
+                    f"Expected list response from GitHub API comments page for PR {pr_number}"
+                )
+            yield from reversed(batch)
+            if len(batch) < 100:
+                return
+            page += 1
 
     def _find_comment(self, pr_number: int, provider: str) -> dict[str, Any] | None:
         pattern = _marker_re(pr_number, provider)
-        for comment in reversed(self._comments(pr_number)):
+        for comment in self._iter_comments(pr_number):
             body = comment.get("body")
             if isinstance(body, str) and pattern.search(body):
                 return comment

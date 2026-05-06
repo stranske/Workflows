@@ -17,8 +17,9 @@ function buildCappedIssuePayload(issueBody, options = {}) {
     return { formattedBody: body, truncated: false };
   }
 
+  let tmpDir = '';
   try {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflows-issue-context-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflows-issue-context-'));
     const inputPath = path.join(tmpDir, 'issue.md');
     fs.writeFileSync(inputPath, body, 'utf8');
     const args = [
@@ -43,6 +44,10 @@ function buildCappedIssuePayload(issueBody, options = {}) {
     };
   } catch (_error) {
     return { formattedBody: body, truncated: false };
+  } finally {
+    if (tmpDir) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   }
 }
 

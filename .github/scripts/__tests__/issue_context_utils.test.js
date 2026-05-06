@@ -1,7 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const childProcess = require('node:child_process');
+const fs = require('node:fs');
 
-const { buildIssueContext, EXPECTED_SECTIONS, ALL_SECTIONS } = require('../issue_context_utils.js');
+const {
+  buildCappedIssuePayload,
+  buildIssueContext,
+  EXPECTED_SECTIONS,
+  ALL_SECTIONS,
+} = require('../issue_context_utils.js');
 
 const COMPLETE_BODY = `
 ## Scope
@@ -84,4 +91,30 @@ test('ALL_SECTIONS includes all section names', () => {
   assert.ok(ALL_SECTIONS.includes('Scope'));
   assert.ok(ALL_SECTIONS.includes('Tasks'));
   assert.ok(ALL_SECTIONS.includes('Acceptance Criteria'));
+});
+
+test('buildCappedIssuePayload removes temporary input directory', () => {
+  const originalExecFileSync = childProcess.execFileSync;
+  let tempDir = '';
+  childProcess.execFileSync = (_command, args) => {
+    const inputPath = args[args.indexOf('--input-file') + 1];
+    tempDir = inputPath.replace(/\/issue\.md$/, '');
+    assert.ok(fs.existsSync(inputPath));
+    return JSON.stringify({
+      formatted_body: '## Tasks\n- [ ] trimmed',
+      truncated: true,
+      estimated_tokens: 3,
+      token_budget: 4,
+    });
+  };
+
+  try {
+    const result = buildCappedIssuePayload('## Tasks\n- [ ] raw');
+
+    assert.equal(result.formattedBody, '## Tasks\n- [ ] trimmed');
+    assert.equal(result.truncated, true);
+    assert.equal(fs.existsSync(tempDir), false);
+  } finally {
+    childProcess.execFileSync = originalExecFileSync;
+  }
 });
