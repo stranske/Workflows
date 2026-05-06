@@ -51,7 +51,9 @@ def _merged_inputs(fixture: dict) -> dict[str, object]:
     return merged
 
 
-def _expected_artifacts(inputs: dict[str, object], matrix: list[str], run_attempt: int = 1) -> list[str]:
+def _expected_artifacts(
+    inputs: dict[str, object], matrix: list[str], run_attempt: int = 1
+) -> list[str]:
     prefix = str(inputs.get("artifact-prefix", "gate-"))
     primary = str(inputs.get("primary-python-version", "3.12"))
     artifacts: list[str] = []
@@ -129,10 +131,13 @@ def test_default_input_contract_fixture_matches_artifacts() -> None:
     fixture = _contract_fixture("default_inputs.json")
     inputs = _merged_inputs(fixture)
 
-    assert _matrix_candidates(
-        str(inputs["python-versions"]),
-        str(inputs["python-version"]),
-    ) == fixture["matrix"]
+    assert (
+        _matrix_candidates(
+            str(inputs["python-versions"]),
+            str(inputs["python-version"]),
+        )
+        == fixture["matrix"]
+    )
     assert inputs["coverage"] is True
     assert inputs["typecheck"] is True
     assert _expected_artifacts(inputs, fixture["matrix"]) == fixture["expected_artifacts"]
