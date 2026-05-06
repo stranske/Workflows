@@ -1,0 +1,16 @@
+{
+  "inputs": {
+    "coverage": false,
+    "typecheck": false,
+    "run-mypy": false
+  },
+  "matrix": ["3.12"],
+  "expected_artifacts": [
+    "gate-coverage-3.12-1"
+  ],
+  "summary": {
+    "coverage_xml": false,
+    "coverage_json": false,
+    "pytest_junit": true
+  }
+}

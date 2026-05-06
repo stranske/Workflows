@@ -1,0 +1,12 @@
+{
+  "inputs": {},
+  "matrix": ["3.12"],
+  "expected_artifacts": [
+    "gate-coverage-3.12-1"
+  ],
+  "summary": {
+    "coverage_xml": true,
+    "coverage_json": true,
+    "pytest_junit": true
+  }
+}

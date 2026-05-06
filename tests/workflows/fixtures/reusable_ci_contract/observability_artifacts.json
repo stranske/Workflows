@@ -1,0 +1,27 @@
+{
+  "inputs": {
+    "artifact-prefix": "ci-",
+    "enable-metrics": true,
+    "enable-history": true,
+    "enable-classification": true,
+    "enable-coverage-delta": true,
+    "enable-soft-gate": true,
+    "coverage": true
+  },
+  "matrix": ["3.12"],
+  "expected_artifacts": [
+    "ci-coverage-3.12-1",
+    "ci-ci-metrics",
+    "ci-metrics-history",
+    "ci-classification",
+    "ci-coverage-delta",
+    "ci-coverage-summary",
+    "ci-coverage-trend",
+    "ci-coverage-trend-history"
+  ],
+  "summary": {
+    "coverage_xml": true,
+    "coverage_json": true,
+    "pytest_junit": true
+  }
+}

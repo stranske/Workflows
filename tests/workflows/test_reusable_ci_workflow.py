@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 WORKFLOW_PATH = Path(".github/workflows/reusable-10-ci-python.yml")
+CONTRACT_FIXTURES = Path("tests/workflows/fixtures/reusable_ci_contract")
 
 
 def _matrix_candidates(python_versions: str, python_version: str) -> list[str]:
@@ -31,6 +32,65 @@ def _load_workflow() -> dict:
 
 def _normalize_expr(value: str) -> str:
     return re.sub(r"\s+", "", value).strip()
+
+
+def _workflow_call_defaults(workflow: dict) -> dict[str, object]:
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    inputs = triggers["workflow_call"]["inputs"]
+    return {name: data.get("default") for name, data in inputs.items()}
+
+
+def _contract_fixture(name: str) -> dict:
+    return json.loads((CONTRACT_FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def _merged_inputs(fixture: dict) -> dict[str, object]:
+    workflow = _load_workflow()
+    merged = _workflow_call_defaults(workflow)
+    merged.update(fixture.get("inputs", {}))
+    return merged
+
+
+def _expected_artifacts(inputs: dict[str, object], matrix: list[str], run_attempt: int = 1) -> list[str]:
+    prefix = str(inputs.get("artifact-prefix", "gate-"))
+    primary = str(inputs.get("primary-python-version", "3.12"))
+    artifacts: list[str] = []
+    for version in matrix:
+        artifacts.append(f"{prefix}coverage-{version}-{run_attempt}")
+        if version != primary:
+            continue
+        if inputs.get("enable-metrics") is True:
+            artifacts.append(f"{prefix}ci-metrics")
+        if inputs.get("enable-history") is True:
+            artifacts.append(f"{prefix}metrics-history")
+        if inputs.get("enable-classification") is True:
+            artifacts.append(f"{prefix}classification")
+        if inputs.get("coverage") is True and inputs.get("enable-coverage-delta") is True:
+            artifacts.append(f"{prefix}coverage-delta")
+        if inputs.get("coverage") is True and inputs.get("enable-soft-gate") is True:
+            artifacts.extend(
+                [
+                    f"{prefix}coverage-summary",
+                    f"{prefix}coverage-trend",
+                    f"{prefix}coverage-trend-history",
+                ]
+            )
+    return artifacts
+
+
+def _simulated_summary(inputs: dict[str, object], fixture: dict) -> dict[str, object]:
+    artifacts = fixture["summary"]
+    return {
+        "python_version": fixture["matrix"][0],
+        "checks": {
+            "tests": {"tool": "pytest", "outcome": "success"},
+            "coverage_minimum": {
+                "tool": "threshold",
+                "outcome": "success" if inputs.get("coverage") is True else "skipped",
+            },
+        },
+        "artifacts": artifacts,
+    }
 
 
 def test_matrix_expression_supports_arrays_and_singletons() -> None:
@@ -63,6 +123,45 @@ def test_workflow_inputs_include_python_version_defaults() -> None:
     # python-version was removed from workflow_dispatch to meet GitHub's 10-input limit
     assert "python-version" not in dispatch_inputs
     assert "pytest_args" not in dispatch_inputs
+
+
+def test_default_input_contract_fixture_matches_artifacts() -> None:
+    fixture = _contract_fixture("default_inputs.json")
+    inputs = _merged_inputs(fixture)
+
+    assert _matrix_candidates(
+        str(inputs["python-versions"]),
+        str(inputs["python-version"]),
+    ) == fixture["matrix"]
+    assert inputs["coverage"] is True
+    assert inputs["typecheck"] is True
+    assert _expected_artifacts(inputs, fixture["matrix"]) == fixture["expected_artifacts"]
+
+
+def test_modified_input_contract_fixture_matches_artifacts() -> None:
+    fixture = _contract_fixture("coverage_typecheck_disabled.json")
+    inputs = _merged_inputs(fixture)
+
+    assert inputs["coverage"] is False
+    assert inputs["typecheck"] is False
+    assert inputs["run-mypy"] is False
+    assert _expected_artifacts(inputs, fixture["matrix"]) == fixture["expected_artifacts"]
+    assert _simulated_summary(inputs, fixture)["artifacts"] == {
+        "coverage_xml": False,
+        "coverage_json": False,
+        "pytest_junit": True,
+    }
+
+
+def test_observability_artifact_contract_fixture_matches_names() -> None:
+    fixture = _contract_fixture("observability_artifacts.json")
+    inputs = _merged_inputs(fixture)
+
+    assert _expected_artifacts(inputs, fixture["matrix"]) == fixture["expected_artifacts"]
+    assert _simulated_summary(inputs, fixture)["checks"]["coverage_minimum"] == {
+        "tool": "threshold",
+        "outcome": "success",
+    }
 
 
 def test_artifact_names_normalized() -> None:
