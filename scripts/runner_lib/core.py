@@ -399,9 +399,7 @@ def _compact_runner_result_payload(result_payload: dict[str, Any]) -> dict[str, 
         "truncated": bool(result_payload.get("truncated")),
     }
     if final_message:
-        compact["final_message_sha256"] = hashlib.sha256(
-            final_message.encode("utf-8")
-        ).hexdigest()
+        compact["final_message_sha256"] = hashlib.sha256(final_message.encode("utf-8")).hexdigest()
         compact["final_message_chars"] = len(final_message)
     return compact
 

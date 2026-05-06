@@ -36,14 +36,18 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 # Re-use agent invocation + state primitives from sibling scripts.
 try:
+    from scripts.repo_review_evaluator import (
+        collect_gitnexus_map,
+        load_registry,
+        run_gitnexus_analyze,
+    )
+    from scripts.repo_review_round1_schema import validate_findings
     from scripts.repo_review_round2_runner import (
         invoke_agent,
     )
-    from scripts.repo_review_round1_schema import validate_findings
     from scripts.repo_review_state import (
         begin_attempt,
         finish_attempt,
@@ -52,17 +56,17 @@ try:
         save_state,
         transition,
     )
-    from scripts.repo_review_evaluator import (
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from repo_review_evaluator import (  # type: ignore[no-redef]
+        collect_gitnexus_map,
         load_registry,
         run_gitnexus_analyze,
-        collect_gitnexus_map,
-    )
-except ModuleNotFoundError:  # pragma: no cover - direct script execution
-    from repo_review_round2_runner import (  # type: ignore[no-redef]
-        invoke_agent,
     )
     from repo_review_round1_schema import (  # type: ignore[no-redef]
         validate_findings,
+    )
+    from repo_review_round2_runner import (  # type: ignore[no-redef]
+        invoke_agent,
     )
     from repo_review_state import (  # type: ignore[no-redef]
         begin_attempt,
@@ -71,11 +75,6 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
         record_round1_finding,
         save_state,
         transition,
-    )
-    from repo_review_evaluator import (  # type: ignore[no-redef]
-        load_registry,
-        run_gitnexus_analyze,
-        collect_gitnexus_map,
     )
 
 
@@ -161,7 +160,10 @@ def sync_repo_to_origin(
     def _git(args: list[str], check: bool = False) -> subprocess.CompletedProcess:
         return subprocess.run(
             ["git", "-C", str(repo_path), *args],
-            check=check, capture_output=True, text=True, timeout=timeout,
+            check=check,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
         )
 
     notes: list[str] = []
@@ -185,11 +187,15 @@ def sync_repo_to_origin(
         # 3. Stash any dirty changes so checkout is safe.
         dirty = _git(["status", "--short"])
         if dirty.stdout.strip():
-            stash = _git([
-                "stash", "push", "-m",
-                "round1-runner sync: stash before sync to origin head",
-                "-u",  # include untracked
-            ])
+            stash = _git(
+                [
+                    "stash",
+                    "push",
+                    "-m",
+                    "round1-runner sync: stash before sync to origin head",
+                    "-u",  # include untracked
+                ]
+            )
             if stash.returncode == 0:
                 notes.append("stashed dirty changes")
 
@@ -208,9 +214,7 @@ def sync_repo_to_origin(
         if current != target:
             checkout = _git(["checkout", target])
             if checkout.returncode != 0:
-                return False, (
-                    f"checkout {target} failed: {checkout.stderr.strip()[:200]}"
-                )
+                return False, (f"checkout {target} failed: {checkout.stderr.strip()[:200]}")
             notes.append(f"checked out {target} (was {current})")
 
         # 6. Fast-forward pull.
@@ -345,10 +349,7 @@ def invoke_round1_agent(
                     spawned=False,
                 )
             # Otherwise fall through to spawn (overwrite invalid file).
-            last_error = (
-                "existing findings.json failed schema validation: "
-                + "; ".join(errors[:3])
-            )
+            last_error = "existing findings.json failed schema validation: " + "; ".join(errors[:3])
 
         ok, message = invoke_agent(
             agent,
@@ -464,7 +465,8 @@ def run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             transition(
-                state, status="round1-failed",
+                state,
+                status="round1-failed",
                 note=f"local sync failed: {message[:200]}",
             )
             save_state(output_dir, state)
@@ -488,7 +490,8 @@ def run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             transition(
-                state, status="round1-failed",
+                state,
+                status="round1-failed",
                 note=f"map refresh failed: {message[:200]}",
             )
             save_state(output_dir, state)

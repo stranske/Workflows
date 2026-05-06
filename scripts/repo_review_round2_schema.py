@@ -94,30 +94,21 @@ def validate_mark(mark: Any, index: int) -> list[str]:
 
     mark_value = mark.get("mark")
     if mark_value not in ALLOWED_MARKS:
-        errors.append(
-            f"{prefix}.mark: must be one of {sorted(ALLOWED_MARKS)} (got {mark_value!r})"
-        )
+        errors.append(f"{prefix}.mark: must be one of {sorted(ALLOWED_MARKS)} (got {mark_value!r})")
 
     reason = mark.get("reason", "")
     if not _is_nonempty_str(reason):
         errors.append(f"{prefix}.reason: must be a non-empty string")
     elif len(reason.strip()) < REASON_MIN_CHARS:
         errors.append(
-            f"{prefix}.reason: must be ≥{REASON_MIN_CHARS} chars "
-            f"(got {len(reason.strip())})"
+            f"{prefix}.reason: must be ≥{REASON_MIN_CHARS} chars " f"(got {len(reason.strip())})"
         )
 
     if mark_value == "agree-merge" and not isinstance(mark.get("merge_proposal"), dict):
-        errors.append(
-            f"{prefix}.merge_proposal: required when mark is 'agree-merge'"
-        )
+        errors.append(f"{prefix}.merge_proposal: required when mark is 'agree-merge'")
 
-    if mark_value == "disagree-revise" and not isinstance(
-        mark.get("revision_proposal"), dict
-    ):
-        errors.append(
-            f"{prefix}.revision_proposal: required when mark is 'disagree-revise'"
-        )
+    if mark_value == "disagree-revise" and not isinstance(mark.get("revision_proposal"), dict):
+        errors.append(f"{prefix}.revision_proposal: required when mark is 'disagree-revise'")
 
     if mark_value == "disagree-drop":
         # Drop reasons must cite a file ref / test ref / issue / PR.
@@ -146,7 +137,7 @@ def validate_meta_candidate(meta: Any) -> list[str]:
     errors: list[str] = []
     prefix = "meta_candidate_proposal"
     if not isinstance(meta, dict):
-        return [f"{prefix}: must be an object (use {{\"proposed\": false}} when no pattern)"]
+        return [f'{prefix}: must be an object (use {{"proposed": false}} when no pattern)']
 
     proposed = meta.get("proposed")
     if not isinstance(proposed, bool):
@@ -163,9 +154,7 @@ def validate_meta_candidate(meta: Any) -> list[str]:
 
     supporting = meta.get("supporting_candidate_indexes")
     if not isinstance(supporting, list) or len(supporting) < 2:
-        errors.append(
-            f"{prefix}.supporting_candidate_indexes: must list ≥2 anchoring candidates"
-        )
+        errors.append(f"{prefix}.supporting_candidate_indexes: must list ≥2 anchoring candidates")
     else:
         for sub_idx, item in enumerate(supporting):
             sub_prefix = f"{prefix}.supporting_candidate_indexes[{sub_idx}]"
@@ -193,9 +182,7 @@ def validate_meta_candidate(meta: Any) -> list[str]:
 
     acceptance = meta.get("acceptance_criteria")
     if not _is_str_list(acceptance, min_items=META_ACCEPTANCE_MIN):
-        errors.append(
-            f"{prefix}.acceptance_criteria: must list ≥{META_ACCEPTANCE_MIN} criteria"
-        )
+        errors.append(f"{prefix}.acceptance_criteria: must list ≥{META_ACCEPTANCE_MIN} criteria")
     else:
         joined = " ".join(str(c).lower() for c in acceptance)
         if not any(token in joined for token in META_ACCEPTANCE_TOKENS):
@@ -206,15 +193,13 @@ def validate_meta_candidate(meta: Any) -> list[str]:
 
     non_goals = meta.get("non_goals")
     if not _is_str_list(non_goals, min_items=META_NON_GOALS_MIN):
-        errors.append(
-            f"{prefix}.non_goals: must list ≥{META_NON_GOALS_MIN} non-goals"
-        )
+        errors.append(f"{prefix}.non_goals: must list ≥{META_NON_GOALS_MIN} non-goals")
     else:
         joined = " ".join(str(n).lower() for n in non_goals)
         if not any(token in joined for token in META_NON_GOAL_TOKENS):
             errors.append(
                 f"{prefix}.non_goals: must explicitly forbid bundling per-instance fixes "
-                "into a single PR (e.g., \"Do not bundle per-instance fixes into a single PR\")."
+                'into a single PR (e.g., "Do not bundle per-instance fixes into a single PR").'
             )
 
     priority = meta.get("priority")
@@ -226,9 +211,7 @@ def validate_meta_candidate(meta: Any) -> list[str]:
 
     confidence = meta.get("confidence")
     if confidence not in ALLOWED_CONFIDENCE:
-        errors.append(
-            f"{prefix}.confidence: must be one of {sorted(ALLOWED_CONFIDENCE)}"
-        )
+        errors.append(f"{prefix}.confidence: must be one of {sorted(ALLOWED_CONFIDENCE)}")
     elif confidence == "high" and isinstance(supporting, list) and len(supporting) < 4:
         errors.append(
             f"{prefix}.confidence: 'high' requires ≥4 supporting per-instance candidates "

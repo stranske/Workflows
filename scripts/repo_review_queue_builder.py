@@ -28,7 +28,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
 META_AUDIT_LABEL = "repo-review-meta-audit"
 APPROVE_DECISIONS = {"approve", "revise"}
 SKIP_DECISIONS = {"defer", "no_new_work_accept"}
@@ -74,9 +73,7 @@ def build_queue(round2_dir: Path, feedback_path: Path) -> dict[str, Any]:
     if not round2_dir.is_dir():
         raise FileNotFoundError(f"round2 dir not found: {round2_dir}")
 
-    repo_dirs = {
-        d.name.replace("__", "/"): d for d in round2_dir.iterdir() if d.is_dir()
-    }
+    repo_dirs = {d.name.replace("__", "/"): d for d in round2_dir.iterdir() if d.is_dir()}
 
     queue: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
@@ -114,20 +111,24 @@ def build_queue(round2_dir: Path, feedback_path: Path) -> dict[str, Any]:
         for i, c in enumerate(data.get("converged_candidates", []) or []):
             ok, why = is_uploadable_body(c.get("body"))
             if not ok:
-                skipped.append({
-                    "repo": repo,
-                    "candidate_index": str(i),
-                    "title": str(c.get("title", ""))[:80],
-                    "reason": why,
-                })
+                skipped.append(
+                    {
+                        "repo": repo,
+                        "candidate_index": str(i),
+                        "title": str(c.get("title", ""))[:80],
+                        "reason": why,
+                    }
+                )
                 continue
-            queue.append({
-                "repo": repo,
-                "title": c.get("title", ""),
-                "body": c.get("body", ""),
-                "labels": labels_for(c, is_meta=False),
-                "review_evidence_trace": trace_for(c),
-            })
+            queue.append(
+                {
+                    "repo": repo,
+                    "title": c.get("title", ""),
+                    "body": c.get("body", ""),
+                    "labels": labels_for(c, is_meta=False),
+                    "review_evidence_trace": trace_for(c),
+                }
+            )
 
         # meta candidate (audit-scope) — only if explicitly opted in
         if decision.get("include_meta_candidate", False):
@@ -135,20 +136,24 @@ def build_queue(round2_dir: Path, feedback_path: Path) -> dict[str, Any]:
             if meta:
                 ok, why = is_uploadable_body(meta.get("body"))
                 if ok:
-                    queue.append({
-                        "repo": repo,
-                        "title": meta.get("title", ""),
-                        "body": meta.get("body", ""),
-                        "labels": labels_for(meta, is_meta=True),
-                        "review_evidence_trace": trace_for(meta),
-                    })
+                    queue.append(
+                        {
+                            "repo": repo,
+                            "title": meta.get("title", ""),
+                            "body": meta.get("body", ""),
+                            "labels": labels_for(meta, is_meta=True),
+                            "review_evidence_trace": trace_for(meta),
+                        }
+                    )
                 else:
-                    skipped.append({
-                        "repo": repo,
-                        "candidate_index": "meta",
-                        "title": str(meta.get("title", ""))[:80],
-                        "reason": why,
-                    })
+                    skipped.append(
+                        {
+                            "repo": repo,
+                            "candidate_index": "meta",
+                            "title": str(meta.get("title", ""))[:80],
+                            "reason": why,
+                        }
+                    )
 
     return {
         "generated_on": datetime.now(tz=UTC).strftime("%Y-%m-%d"),
@@ -180,7 +185,9 @@ def parse_args() -> argparse.Namespace:
         help="path to write approved-issue-queue.json",
     )
     parser.add_argument(
-        "--quiet", action="store_true", help="only print summary line",
+        "--quiet",
+        action="store_true",
+        help="only print summary line",
     )
     return parser.parse_args()
 

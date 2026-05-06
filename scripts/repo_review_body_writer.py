@@ -39,14 +39,12 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 try:
+    from scripts.repo_review_evaluator import load_registry
     from scripts.repo_review_round2_runner import invoke_agent
     from scripts.repo_review_round2_schema import validate_converged_set
-    from scripts.repo_review_evaluator import load_registry
     from scripts.repo_review_state import (
         begin_attempt,
         finish_attempt,
@@ -54,9 +52,9 @@ try:
         save_state,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from repo_review_evaluator import load_registry  # type: ignore[no-redef]
     from repo_review_round2_runner import invoke_agent  # type: ignore[no-redef]
     from repo_review_round2_schema import validate_converged_set  # type: ignore[no-redef]
-    from repo_review_evaluator import load_registry  # type: ignore[no-redef]
     from repo_review_state import (  # type: ignore[no-redef]
         begin_attempt,
         finish_attempt,
@@ -97,11 +95,16 @@ def canonical_body_writer_prompt() -> Path:
 def verify_clean_sync(repo_path: Path) -> tuple[bool, str]:
     """Confirm `repo_path` is at origin/main or origin/phase-3 HEAD with no
     review-blocking dirty changes."""
+
     def _git(args: list[str]) -> subprocess.CompletedProcess:
         return subprocess.run(
             ["git", "-C", str(repo_path), *args],
-            check=False, capture_output=True, text=True, timeout=30,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
+
     head = _git(["rev-parse", "HEAD"]).stdout.strip()
     for branch in ("main", "phase-3"):
         ref = _git(["rev-parse", f"origin/{branch}"])
@@ -171,7 +174,7 @@ def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
         "files and line numbers from the current checkout. If a candidate's "
         "structured `design_refs` / `implementation_refs` cite files that no "
         "longer exist in current main (gap was shipped in an unpulled PR), "
-        "record `body: \"INSUFFICIENT_EVIDENCE: <reason>\"` rather than "
+        'record `body: "INSUFFICIENT_EVIDENCE: <reason>"` rather than '
         "fabricating. INSUFFICIENT_EVIDENCE is a legitimate outcome.\n\n"
         "After writing, validate:\n\n"
         f"  python scripts/repo_review_round2_schema.py --converged {cj} --expected-repo {repo}\n\n"
@@ -195,7 +198,8 @@ def run_body_writer(
     prompt = build_prompt(repo=repo, output_dir=output_dir, repo_path=repo_path)
     additional_dirs = sorted({workflows_steward_root, output_dir, repo_path})
     return invoke_agent(
-        agent, prompt,
+        agent,
+        prompt,
         cwd=workflows_steward_root,
         additional_dirs=additional_dirs,
         log_file=log_path,
@@ -268,7 +272,10 @@ def run(args: argparse.Namespace) -> int:
     except (OSError, json.JSONDecodeError) as exc:
         finish_attempt(state, attempt, succeeded=False, notes=f"cannot parse converged.json: {exc}")
         save_state(output_dir, state)
-        print(f"[body-writer] {args.repo}: cannot parse converged.json after run: {exc}", file=sys.stderr)
+        print(
+            f"[body-writer] {args.repo}: cannot parse converged.json after run: {exc}",
+            file=sys.stderr,
+        )
         return 1
 
     schema_errors = validate_converged_set(data, expected_repo=args.repo)
@@ -288,9 +295,7 @@ def run(args: argparse.Namespace) -> int:
             continue
         errors = body_quality_errors(body)
         if errors:
-            body_failures.append(
-                f"  candidate #{i} '{title}': {'; '.join(errors[:3])}"
-            )
+            body_failures.append(f"  candidate #{i} '{title}': {'; '.join(errors[:3])}")
         else:
             written_count += 1
 
@@ -320,19 +325,24 @@ def main() -> int:
     parser.add_argument("--repo", required=True, help="owner/name from the registry")
     parser.add_argument("--output-dir", required=True, help="output dir")
     parser.add_argument(
-        "--registry", default="config/repo_review_registry.json",
+        "--registry",
+        default="config/repo_review_registry.json",
         help="path to repo_review_registry.json",
     )
     parser.add_argument(
-        "--agent", default="codex",
+        "--agent",
+        default="codex",
         help="agent identifier to spawn (default: codex)",
     )
     parser.add_argument(
-        "--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS,
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT_SECONDS,
         help="hard timeout in seconds (default: 3600 = 60 min)",
     )
     parser.add_argument(
-        "--skip-sync-check", action="store_true",
+        "--skip-sync-check",
+        action="store_true",
         help="skip the local-repo-at-origin-head check (NOT recommended)",
     )
     args = parser.parse_args()

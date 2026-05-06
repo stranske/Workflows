@@ -141,8 +141,10 @@ def run_command_with_retry(
             )
     assert last_result is not None
     raise subprocess.CalledProcessError(
-        last_result.returncode, last_result.args,
-        output=last_result.stdout, stderr=last_result.stderr,
+        last_result.returncode,
+        last_result.args,
+        output=last_result.stdout,
+        stderr=last_result.stderr,
     )
 
 
@@ -263,7 +265,6 @@ DEFAULT_LABEL_COLOR = "ededed"
 DEFAULT_LABEL_DESCRIPTION = "Auto-created by repo-review upload helper."
 
 
-
 def ensure_labels(repo: str, labels: list[str], prefix: list[str]) -> None:
     """Create each label on the target repo if missing.
 
@@ -275,10 +276,13 @@ def ensure_labels(repo: str, labels: list[str], prefix: list[str]) -> None:
     already exists, so this is idempotent.
     """
     for label in labels:
-        config = LABELS.get(label, {
-            "color": DEFAULT_LABEL_COLOR,
-            "description": DEFAULT_LABEL_DESCRIPTION,
-        })
+        config = LABELS.get(
+            label,
+            {
+                "color": DEFAULT_LABEL_COLOR,
+                "description": DEFAULT_LABEL_DESCRIPTION,
+            },
+        )
         run_command(
             gh_command(
                 prefix,
@@ -409,7 +413,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("docs/reports/repo-review/approved-issue-queue.json"),
         help="Path to approved-issue-queue.json (default: the path the "
-             "coordinator's queue-builder writes)",
+        "coordinator's queue-builder writes)",
     )
     parser.add_argument(
         "--gh-prefix",
