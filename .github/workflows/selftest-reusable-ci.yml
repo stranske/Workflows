@@ -389,6 +389,7 @@ jobs:
           'nightly verification'
         }}
       TRIGGER_EVENT: ${{ github.event_name }}
+      WORKFLOW_RESULT: ${{ needs.scenarios.result }}
     steps:
       - name: Append run metadata to summary
         run: |
@@ -444,6 +445,15 @@ jobs:
               .split(',')
               .map((value) => value.trim())
               .filter(Boolean);
+            const workflowResult = process.env.WORKFLOW_RESULT || 'unknown';
+
+            function isRateLimitError(error) {
+              const message = [
+                error?.message,
+                error?.response?.data?.message,
+              ].filter(Boolean).join(' ');
+              return error?.status === 403 && /rate limit/i.test(message);
+            }
 
             function expectedArtifactsFor(scenario) {
               const prefix = (suffix) => `sf-${scenario}-${suffix}`;
@@ -476,18 +486,58 @@ jobs:
               }
             }
 
-            const artifactNames = await github.paginate(
-              github.rest.actions.listWorkflowRunArtifacts,
-              { owner, repo, run_id: runId, per_page: 100 },
-              (response) => response.data.map((artifact) => artifact.name)
-            );
-            const nameSet = new Set(artifactNames);
+            let artifactNames;
+            let jobs;
+            try {
+              artifactNames = await github.paginate(
+                github.rest.actions.listWorkflowRunArtifacts,
+                { owner, repo, run_id: runId, per_page: 100 },
+                (response) => response.data.map((artifact) => artifact.name)
+              );
 
-            const jobs = await github.paginate(
-              github.rest.actions.listJobsForWorkflowRun,
-              { owner, repo, run_id: runId, per_page: 100 },
-              (response) => response.data
-            );
+              jobs = await github.paginate(
+                github.rest.actions.listJobsForWorkflowRun,
+                { owner, repo, run_id: runId, per_page: 100 },
+                (response) => response.data
+              );
+            } catch (error) {
+              if (!isRateLimitError(error)) {
+                throw error;
+              }
+              const failures = workflowResult === 'success' ? 0 : 1;
+              const table = [
+                '| Scenario | Status | Missing | Unexpected |',
+                '|---|---|---|---|',
+                ...scenarioNames.map((scenario) =>
+                  `| ${scenario} | ⚠️ artifact API rate-limited | deferred | — |`
+                ),
+              ].join('\n');
+              core.warning(
+                'GitHub API rate limit prevented artifact verification; ' +
+                  `scenario workflow result was ${workflowResult}.`
+              );
+              core.setOutput('table', table);
+              core.setOutput('failures', String(failures));
+              fs.writeFileSync(
+                'selftest-report.json',
+                JSON.stringify({
+                  run_id: runId,
+                  python_versions: pythonVersions,
+                  scenarios: scenarioNames.map((scenario) => ({
+                    scenario,
+                    status: 'verification_deferred_rate_limited',
+                    missing: [],
+                    unexpected: [],
+                    ok: failures === 0,
+                  })),
+                  artifact_count: null,
+                  failures,
+                  verification: 'deferred_rate_limited',
+                }, null, 2),
+              );
+              return;
+            }
+            const nameSet = new Set(artifactNames);
 
             const matrixJobs = jobs.filter((job) => job.name && job.name.startsWith('Scenario - '));
             const jobStatusByScenario = Object.fromEntries(
