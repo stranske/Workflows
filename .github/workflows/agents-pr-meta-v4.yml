@@ -450,6 +450,7 @@ jobs:
           import hashlib
           import json
           import os
+          import urllib.error
           import urllib.request
 
           repo = os.environ["GITHUB_REPOSITORY"]
@@ -462,10 +463,15 @@ jobs:
           }
           api_root = (os.environ.get("GITHUB_API_URL") or "https://api." + "github.com").rstrip("/")
 
-          def api(path):
+          def api(path, default=None):
               request = urllib.request.Request(f"{api_root}{path}", headers=headers)
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  return json.loads(response.read().decode("utf-8"))
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      return json.loads(response.read().decode("utf-8"))
+              except urllib.error.HTTPError as exc:
+                  if default is not None and exc.code in (403, 404):
+                      return default
+                  raise
 
           def block_hash(body, marker):
               start = f"<!-- {marker}:start -->"
@@ -479,7 +485,7 @@ jobs:
               return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
           pr = api(f"/repos/{repo}/pulls/{pr_number}")
-          labels = api(f"/repos/{repo}/issues/{pr_number}/labels")
+          labels = api(f"/repos/{repo}/issues/{pr_number}/labels", default=[])
           body = pr.get("body") or ""
           payload = {
               "pr_number": int(pr_number),
