@@ -390,27 +390,6 @@ jobs:
         }}
       TRIGGER_EVENT: ${{ github.event_name }}
     steps:
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
-      - name: Mint GitHub App Token
-        id: app_token
-        uses: actions/create-github-app-token@v3
-        continue-on-error: true
-        with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
-          owner: ${{ github.repository_owner }}
-
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup API client
-        uses: ./.github/actions/setup-api-client
-        with:
-          secrets: ${{ toJSON(secrets) }}
-          github_token: ${{ github.token }}
-
-
-
       - name: Append run metadata to summary
         run: |
           {
@@ -438,15 +417,6 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const retryScript = './.github/scripts/github-api-with-retry.js';
-            const { createTokenAwareRetry } = require(retryScript);
-            const { paginateWithRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'selftest-verify-artifacts',
-              capabilities: ['actions:read', 'contents:read']
-            });
             const { owner, repo } = context.repo;
             const runId = context.runId;
 
@@ -506,14 +476,14 @@ jobs:
               }
             }
 
-            const artifactNames = await paginateWithRetry(
+            const artifactNames = await github.paginate(
               github.rest.actions.listWorkflowRunArtifacts,
               { owner, repo, run_id: runId, per_page: 100 },
               (response) => response.data.map((artifact) => artifact.name)
             );
             const nameSet = new Set(artifactNames);
 
-            const jobs = await paginateWithRetry(
+            const jobs = await github.paginate(
               github.rest.actions.listJobsForWorkflowRun,
               { owner, repo, run_id: runId, per_page: 100 },
               (response) => response.data
