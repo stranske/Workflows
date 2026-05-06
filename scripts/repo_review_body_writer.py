@@ -6,7 +6,7 @@ but historically wrote `body` fields inconsistently — sometimes a polished
 agent-ready issue body, sometimes nothing. The auto-constructor inside the
 evaluator falls short of the AGENT_ISSUE_FORMAT.md quality bar (generic tasks
 and acceptance criteria, no concrete file:line refs, no calibration to the
-real reference issues #468/#908).
+real reference examples 468/908).
 
 This pass invokes a focused agent per repo that:
 
@@ -14,7 +14,7 @@ This pass invokes a focused agent per repo that:
 2. Reads the converged.json for the target repo.
 3. For each `converged_candidates[*]` and (if present) `meta_candidate` whose
    `body` field is empty or missing, reads the cited files at the cited line
-   numbers, then composes a body matching #468/#908 depth.
+   numbers, then composes a body matching the 468/908 reference depth.
 4. If cited files no longer match current main (gap was fixed in an unpulled
    PR), records `body: "INSUFFICIENT_EVIDENCE: <reason>"` instead of
    fabricating — these become deeper-review items in the human packet.
