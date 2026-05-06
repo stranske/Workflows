@@ -143,6 +143,8 @@ jobs:
 
 Caller-facing outputs are available only from a subset of reusable workflows. If a workflow is not listed below it exports no `workflow_call` outputs (it still produces artifacts and step summaries).
 
+The exhaustive output reference is [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_OUTPUTS.md). It documents each exported `workflow_call` output with its type, description, and usage expression, and it also lists reusable workflows that intentionally publish artifacts or logs without job outputs. Use that page as the source of truth when wiring dependent jobs; the table below is a quick index for the most common chaining surfaces.
+
 | Workflow | Outputs (name → description) |
 |----------|-----------------------------|
 | `reusable-16-agents.yml` | `readiness_report` → JSON payload from the readiness probe; `readiness_table` → Markdown table summarizing assignable agents. |
@@ -155,6 +157,8 @@ Caller-facing outputs are available only from a subset of reusable workflows. If
 | `reusable-agents-issue-bridge.yml` | None (bridge PR creation artifacts/logs). |
 
 ### Using outputs in dependent jobs
+
+The examples below show the two main output-consumption patterns: gating a downstream reusable workflow from orchestrator initialization, and passing a Markdown output into a reporting job.
 
 Orchestrator chaining example:
 

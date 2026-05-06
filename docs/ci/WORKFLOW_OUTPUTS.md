@@ -1,8 +1,9 @@
 # Workflow Outputs Reference
 
 This page documents every `workflow_call` output exposed by the reusable workflows in this
-repository. Each output includes a type, description, and a short usage example. For workflows
-that only emit artifacts, see the "Workflows without workflow_call outputs" section.
+repository. Each output includes a type, description, and a short usage example. The catalog is
+audited against the reusable workflow declarations under `.github/workflows/reusable-*.yml`; for
+workflows that only emit artifacts, see the "Workflows without workflow_call outputs" section.
 
 ## Reference table of workflow outputs
 
