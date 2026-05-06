@@ -87,8 +87,12 @@ jobs:
             const {
               formatIssueBody,
               formatIssueComment,
-              mergeIssueBody,
             } = require('./.github/scripts/consumer_sync_drift_issue_body.js');
+            const {
+              appendTrackerComment,
+              findOrCreateTracker,
+              updateTrackerBody,
+            } = require('./.github/scripts/sync_tracker_state');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -148,61 +152,51 @@ jobs:
               runNumber: process.env.GITHUB_RUN_NUMBER,
             });
 
-            const listResult = await skipOnRateLimit('lookup', () => github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: label,
-              per_page: 5
+            const tracker = await skipOnRateLimit('tracker lookup/create', () => findOrCreateTracker({
+              github,
+              context,
+              label,
+              titlePattern: /^🔄 Consumer repo drift detected$/,
+              markerPattern: /consumer-sync-drift:v1/,
+              title,
+              body,
+              labels: ['automation'],
+              core,
+              withRetry,
             }));
-            if (!listResult) {
+            if (!tracker) {
               return;
             }
-            const { data: issues } = listResult;
 
-            if (issues.length > 0) {
-              const refreshedBody = mergeIssueBody(issues[0].body || '', report, {
-                runUrl,
-                runId: process.env.GITHUB_RUN_ID,
-                runNumber: process.env.GITHUB_RUN_NUMBER,
-              });
-              if (refreshedBody !== (issues[0].body || '')) {
-                const updateResult = await skipOnRateLimit('body update', () => github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issues[0].number,
-                  body: refreshedBody,
-                }));
-                if (!updateResult) {
-                  return;
-                }
-                console.log(`Refreshed drift issue body for #${issues[0].number}`);
+            if (tracker.sync_tracker_created) {
+              console.log(`Created issue #${tracker.number}`);
+            } else {
+              const updateResult = await skipOnRateLimit('body update', () => updateTrackerBody({
+                github,
+                context,
+                tracker,
+                newBody: body,
+                core,
+                withRetry,
+              }));
+              if (!updateResult) {
+                return;
               }
-              const commentResult = await skipOnRateLimit('comment', () => github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issues[0].number,
-                body: formatIssueComment(report, {
+              console.log(`Refreshed drift issue body for #${tracker.number}`);
+              const commentResult = await skipOnRateLimit('comment', () => appendTrackerComment({
+                github,
+                context,
+                tracker,
+                comment: formatIssueComment(report, {
                   runUrl,
                   runId: process.env.GITHUB_RUN_ID,
                   runNumber: process.env.GITHUB_RUN_NUMBER,
-                })
+                }),
+                core,
+                withRetry,
               }));
               if (!commentResult) {
                 return;
               }
-              console.log(`Added comment to existing issue #${issues[0].number}`);
-            } else {
-              const createResult = await skipOnRateLimit('create', () => github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-                labels: [label, 'automation']
-              }));
-              if (!createResult) {
-                return;
-              }
-              const { data: issue } = createResult;
-              console.log(`Created issue #${issue.number}`);
+              console.log(`Added comment to existing issue #${tracker.number}`);
             }

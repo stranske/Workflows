@@ -776,17 +776,52 @@ jobs:
             --description "Applies optimization suggestions from agents:optimize" \
             --color "0E8A16" --force || true
 
+      - name: Check for existing sync PR
+        id: open_pr
+        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ env.REPO_TOKEN }}
+          script: |
+            const { isConsumerOpenPr } = require('./workflows/.github/scripts/sync_tracker_state');
+            const branchName = 'sync/workflows-${{ needs.prepare.outputs.template_hash }}';
+            const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const exists = await isConsumerOpenPr({
+              github,
+              consumerRepo: '${{ matrix.repo }}',
+              branchPattern: new RegExp(`^${escapeRegex(branchName)}$`),
+              core,
+            });
+            core.setOutput('exists', exists ? 'true' : 'false');
+            if (exists) {
+              core.notice(`Existing sync PR is already open for ${branchName}`);
+            }
+
       - name: Create sync PR
         id: create_pr
         if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
+          EXISTING_SYNC_PR: ${{ steps.open_pr.outputs.exists || 'false' }}
         run: |
           cd consumer
 
           branch_name="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
 
-          # Check if branch/PR already exists
+          if [ "$EXISTING_SYNC_PR" = "true" ]; then
+            existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+            echo "PR #$existing_pr already exists for this sync"
+            echo "::notice::Existing PR: #$existing_pr"
+            {
+              echo "status=existing_pr"
+              echo "pr_number=$existing_pr"
+              echo "pr_url=https://github.com/${{ matrix.repo }}/pull/$existing_pr"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Race-condition backstop: another run may have opened the PR after
+          # the shared open-PR check completed.
           existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
           if [ -n "$existing_pr" ]; then
             echo "PR #$existing_pr already exists for this sync"

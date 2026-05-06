@@ -196,7 +196,7 @@ def test_consumer_sync_drift_uploads_machine_readable_report():
         "consumer_sync_drift_issue_body.js" in text
     ), "Health 68 issue payload must use the structured drift report"
     assert (
-        "mergeIssueBody" in text and "github.rest.issues.update" in text
+        "sync_tracker_state" in text and "updateTrackerBody" in text
     ), "Health 68 must refresh the GitHub-visible drift issue checkpoint"
     assert (
         "consumer-sync-drift-report" in text

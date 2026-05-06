@@ -1,6 +1,11 @@
 'use strict';
 
 const crypto = require('crypto');
+const {
+  findOrCreateTracker,
+  isConsumerOpenPr,
+  updateTrackerBody,
+} = require('./sync_tracker_state');
 
 const CAMPAIGN_SCHEMA = 'sync-dependabot-campaign/v1';
 const CAMPAIGN_MARKER = 'sync-dependabot-campaign:v1';
@@ -1281,6 +1286,17 @@ async function discoverRepoWork({
     dependabotPrsOpen: 0,
   };
 
+  const hasCampaignPr = await isConsumerOpenPr({
+    github,
+    consumerRepo: fullName,
+    branchPattern: /^(sync\/workflows-|dependabot\/)/,
+    core,
+    withRetry,
+  });
+  if (!hasCampaignPr) {
+    return result;
+  }
+
   const prs = cleanArray(await paginateWithRetry({
     github,
     core,
@@ -1320,60 +1336,17 @@ async function discoverRepoWork({
 }
 
 async function findCampaignIssue(github, owner, repo, core, withRetry = null) {
-  const listIssues = async (params, label) => cleanArray(await paginateWithRetry({
+  return findOrCreateTracker({
     github,
+    owner,
+    repo,
+    label: LABEL_CAMPAIGN,
+    titlePattern: /^Sync\/Dependabot campaign queue$/,
+    markerPattern: /sync-dependabot-campaign:v1/,
+    createIfMissing: false,
     core,
     withRetry,
-    method: (client) => client.rest.issues.listForRepo,
-    params,
-    label,
-  }));
-  const titleIssues = await listIssues(
-    { owner, repo, state: 'open', per_page: 100 },
-    `${owner}/${repo} campaign issue list`,
-  );
-  const labeledIssues = await listIssues(
-    {
-      owner,
-      repo,
-      state: 'open',
-      labels: `${LABEL_CAMPAIGN},${LABEL_ACTIVE}`,
-      per_page: 100,
-    },
-    `${owner}/${repo} active campaign issue list`,
-  );
-  const candidatesByNumber = new Map();
-  for (const issue of [...titleIssues, ...labeledIssues]) {
-    if (issue.pull_request) {
-      continue;
-    }
-    const labelNames = labelsForPullRequest(issue);
-    const hasCampaignLabels =
-      labelNames.includes(LABEL_CAMPAIGN) && labelNames.includes(LABEL_ACTIVE);
-    const hasCampaignTitle = cleanString(issue.title).startsWith(CAMPAIGN_TITLE);
-    if (hasCampaignTitle || hasCampaignLabels) {
-      candidatesByNumber.set(issue.number, issue);
-    }
-  }
-
-  for (const issue of candidatesByNumber.values()) {
-    const fullIssue = await callWithRetry(
-      (client) => client.rest.issues.get({ owner, repo, issue_number: issue.number }),
-      `${owner}/${repo}#${issue.number}`,
-      core,
-      3,
-      withRetry,
-      github,
-    );
-    const labelNames = labelsForPullRequest(fullIssue.data);
-    const hasCampaignLabels =
-      labelNames.includes(LABEL_CAMPAIGN) && labelNames.includes(LABEL_ACTIVE);
-    if (parseCampaignMarker(fullIssue.data.body) || hasCampaignLabels) {
-      return fullIssue.data;
-    }
-  }
-
-  return null;
+  });
 }
 
 async function ensureLabel(github, owner, repo, name, color, description, core, withRetry = null) {
@@ -1614,38 +1587,32 @@ async function runCampaign({
       log(core, 'info', '[dry-run] Campaign issue body preview:');
       log(core, 'info', body);
     }
-  } else if (campaignIssue?.number) {
-    const updated = await callWithRetry(
-      (client) => client.rest.issues.update({
-        owner: campaignOwner,
-        repo: campaignRepo,
-        issue_number: campaignIssue.number,
-        title: CAMPAIGN_TITLE,
-        body,
-      }),
-      `${campaignOwner}/${campaignRepo}#${campaignIssue.number} update campaign issue`,
-      core,
-      3,
-      withRetry,
-      api,
-    );
-    campaignIssue = updated.data;
-    await applyCampaignLabels(api, campaignOwner, campaignRepo, campaignIssue.number, needsLocalCodex, core, withRetry);
   } else {
-    const created = await callWithRetry(
-      (client) => client.rest.issues.create({
+    campaignIssue = await findOrCreateTracker({
+      github: api,
+      owner: campaignOwner,
+      repo: campaignRepo,
+      label: LABEL_CAMPAIGN,
+      titlePattern: /^Sync\/Dependabot campaign queue$/,
+      markerPattern: /sync-dependabot-campaign:v1/,
+      title: CAMPAIGN_TITLE,
+      body,
+      labels: [LABEL_ACTIVE],
+      core,
+      withRetry,
+    });
+    if (!campaignIssue.sync_tracker_created) {
+      campaignIssue = await updateTrackerBody({
+        github: api,
         owner: campaignOwner,
         repo: campaignRepo,
+        tracker: campaignIssue,
         title: CAMPAIGN_TITLE,
-        body,
-      }),
-      `${campaignOwner}/${campaignRepo} create campaign issue`,
-      core,
-      3,
-      withRetry,
-      api,
-    );
-    campaignIssue = created.data;
+        newBody: body,
+        core,
+        withRetry,
+      });
+    }
     await applyCampaignLabels(api, campaignOwner, campaignRepo, campaignIssue.number, needsLocalCodex, core, withRetry);
   }
 

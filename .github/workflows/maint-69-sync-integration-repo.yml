@@ -42,6 +42,7 @@ jobs:
           sparse-checkout: |
             templates/integration-repo
             .github/workflows/autofix-versions.env
+            .github/scripts/sync_tracker_state
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token
@@ -214,6 +215,37 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Clear stuck-window status
+        if: steps.token.outputs.token_available == 'true' && success()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const {
+              appendTrackerComment,
+              clearStuckWindow,
+              findOrCreateTracker,
+              parseStuckWindow,
+            } = require('./workflows/.github/scripts/sync_tracker_state');
+            const tracker = await findOrCreateTracker({
+              github,
+              context,
+              label: 'integration-sync-failure',
+              titlePattern: /^🚨 Integration-Tests Sync Failed/,
+              createIfMissing: false,
+              core,
+            });
+            if (!tracker || !parseStuckWindow(tracker.body || '')) {
+              return;
+            }
+            await clearStuckWindow({ github, context, tracker, core });
+            await appendTrackerComment({
+              github,
+              context,
+              tracker,
+              core,
+              comment: `### ✅ Integration sync recovered\n\nThe stuck-window marker was cleared by ${context.workflow} run ${context.runId}.`,
+            });
+
   # ============================================================================
   # FAILURE NOTIFICATION: Create issue when sync fails
   # ============================================================================
@@ -243,103 +275,101 @@ jobs:
             echo "summary=Sync workflow concluded with non-success status" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check for existing open issue
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          existing=$(gh issue list \
-            --repo "${{ github.repository }}" \
-            --label "integration-sync-failure,automated" \
-            --state open \
-            --json number \
-            --jq '.[0].number // empty')
-
-          if [ -n "$existing" ]; then
-            echo "existing_issue=$existing" >> "$GITHUB_OUTPUT"
-            echo "Found existing integration sync failure issue: #$existing"
-          else
-            echo "existing_issue=" >> "$GITHUB_OUTPUT"
-            echo "No existing integration sync failure issue found"
-          fi
-
-      - name: Ensure labels exist
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh label create "integration-sync-failure" \
-            --repo "${{ github.repository }}" \
-            --description "Integration-Tests sync workflow failed" \
-            --color "B60205" --force || true
-          gh label create "automated" \
-            --repo "${{ github.repository }}" \
-            --description "Automatically created issue" \
-            --color "0e8a16" --force || true
+      - name: Checkout tracker helper
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/sync_tracker_state
+          sparse-checkout-cone-mode: false
 
       - name: Create or update failure issue
+        uses: actions/github-script@v9
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EXISTING_ISSUE: ${{ steps.check.outputs.existing_issue }}
           FAILURE_REASON: ${{ steps.failure.outputs.reason }}
           FAILURE_SUMMARY: ${{ steps.failure.outputs.summary }}
           RUN_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TRIGGER_SHA: ${{ github.sha }}
           TRIGGER_REF: ${{ github.ref_name }}
-        run: |
-          issue_body="## 🚨 Integration-Tests Sync Failed
+        with:
+          script: |
+            const {
+              appendTrackerComment,
+              findOrCreateTracker,
+              markStuckWindowBody,
+              parseStuckWindow,
+              updateTrackerBody,
+            } = require('./.github/scripts/sync_tracker_state');
+            const title = '🚨 Integration-Tests Sync Failed - Action Required';
+            const now = new Date().toISOString();
+            const baseBody = `## 🚨 Integration-Tests Sync Failed
 
-          The maint-69 sync workflow failed to push template updates to \
-          \`stranske/Workflows-Integration-Tests\`.
+            > **Durable tracker** — see [\`docs/ops/DURABLE_TRACKING_ISSUES.md\`](https://github.com/stranske/Workflows/blob/main/docs/ops/DURABLE_TRACKING_ISSUES.md). The stuck-window marker below is maintained by \`maint-69-sync-integration-repo.yml\`.
 
-          ### Failure Details
-          - **Reason:** ${FAILURE_SUMMARY}
-          - **Trigger:** Push to \`${TRIGGER_REF}\` (${TRIGGER_SHA:0:7})
-          - **Run:** [View workflow run](${RUN_URL})
-          - **Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+            The maint-69 sync workflow failed to push template updates to \`stranske/Workflows-Integration-Tests\`.
 
-          ### Impact
-          \`Workflows-Integration-Tests\` is NOT receiving the latest templates,
-          autofix version pins, or scripts. Drift will accumulate until this is
-          fixed and the next push to \`templates/integration-repo/**\` or
-          \`.github/workflows/autofix-versions.env\` re-triggers the sync.
+            ### Failure Details
+            - **Reason:** ${process.env.FAILURE_SUMMARY}
+            - **Trigger:** Push to \`${process.env.TRIGGER_REF}\` (${(process.env.TRIGGER_SHA || '').slice(0, 7)})
+            - **Run:** [View workflow run](${process.env.RUN_URL})
+            - **Time:** ${now}
 
-          ### Common Causes
-          1. **Expired PAT** — \`OWNER_PR_PAT\` or \`SERVICE_BOT_PAT\` rotated /
-             expired. Push step fails with \`Authentication failed\`.
-          2. **Missing PAT** — neither secret is set; sync skipped at the
-             \`Prepare sync token\` step (\`token_available=false\`).
-          3. **Lock regeneration error** — \`uv pip compile\` fails on the
-             integration repo's \`pyproject.toml\`.
+            ### Impact
+            \`Workflows-Integration-Tests\` is NOT receiving the latest templates, autofix version pins, or scripts. Drift will accumulate until this is fixed and the next push to \`templates/integration-repo/**\` or \`.github/workflows/autofix-versions.env\` re-triggers the sync.
 
-          ### Resolution Steps
-          1. Open the [failed run](${RUN_URL}) and check the \`Commit and push\`
-             step for the actual error.
-          2. If auth failed: rotate \`OWNER_PR_PAT\` (preferred) or
-             \`SERVICE_BOT_PAT\` in repo secrets.
-          3. Re-trigger:
-             \`gh workflow run 'Maint 69 Sync Integration Repo' --repo ${{ github.repository }}\`
-          4. Close this issue once the next run succeeds.
+            ### Common Causes
+            1. **Expired PAT** — \`OWNER_PR_PAT\` or \`SERVICE_BOT_PAT\` rotated / expired. Push step fails with \`Authentication failed\`.
+            2. **Missing PAT** — neither secret is set; sync skipped at the \`Prepare sync token\` step (\`token_available=false\`).
+            3. **Lock regeneration error** — \`uv pip compile\` fails on the integration repo's \`pyproject.toml\`.
 
-          ---
-          *Automatically created by the maint-69 failure handler.*"
+            ### Resolution Steps
+            1. Open the [failed run](${process.env.RUN_URL}) and check the \`Commit and push\` step for the actual error.
+            2. If auth failed: rotate \`OWNER_PR_PAT\` (preferred) or \`SERVICE_BOT_PAT\` in repo secrets.
+            3. Re-trigger: \`gh workflow run 'Maint 69 Sync Integration Repo' --repo ${context.repo.owner}/${context.repo.repo}\`
+            4. Close this issue once the next run succeeds.
 
-          if [ -n "$EXISTING_ISSUE" ]; then
-            gh issue comment "$EXISTING_ISSUE" \
-              --repo "${{ github.repository }}" \
-              --body "### 🔄 Sync failed again
+            ---
+            *Automatically created by the maint-69 failure handler.*`;
 
-          - **Run:** [View workflow run](${RUN_URL})
-          - **Reason:** ${FAILURE_SUMMARY}
-          - **Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+            const existing = await findOrCreateTracker({
+              github,
+              context,
+              label: 'integration-sync-failure',
+              titlePattern: /^🚨 Integration-Tests Sync Failed/,
+              createIfMissing: false,
+              core,
+            });
+            const since = parseStuckWindow(existing?.body || '')?.since || now;
+            const body = markStuckWindowBody(baseBody, since, {
+              updatedAt: now,
+              reason: process.env.FAILURE_REASON,
+            });
+            const tracker = await findOrCreateTracker({
+              github,
+              context,
+              label: 'integration-sync-failure',
+              titlePattern: /^🚨 Integration-Tests Sync Failed/,
+              title,
+              body,
+              labels: ['bug'],
+              core,
+            });
+            if (tracker.sync_tracker_created) {
+              core.warning(`Created new integration sync failure tracker #${tracker.number}`);
+              return;
+            }
+            await updateTrackerBody({ github, context, tracker, newBody: body, title, core });
+            await appendTrackerComment({
+              github,
+              context,
+              tracker,
+              core,
+              comment: `### 🔄 Sync failed again
 
-          The sync workflow continues to fail. Please investigate."
-            echo "::warning::Added comment to existing issue #$EXISTING_ISSUE"
-          else
-            gh issue create \
-              --repo "${{ github.repository }}" \
-              --title "🚨 Integration-Tests Sync Failed - Action Required" \
-              --body "$issue_body" \
-              --label "integration-sync-failure,automated,bug"
-            echo "::warning::Created new integration sync failure issue"
-          fi
+            - **Run:** [View workflow run](${process.env.RUN_URL})
+            - **Reason:** ${process.env.FAILURE_SUMMARY}
+            - **Time:** ${now}
+
+            The sync workflow continues to fail. Please investigate.`,
+            });
+            core.warning(`Updated existing integration sync failure tracker #${tracker.number}`);

@@ -845,7 +845,7 @@ test('findCampaignIssue falls back to active campaign labels', async () => {
       },
     },
     paginate: async (method, params) => {
-      if (params.labels === 'campaign:sync-dependabot,campaign:active') {
+      if (!params.labels || params.labels === 'campaign:sync-dependabot,campaign:active') {
         return [
           {
             number: 1836,
