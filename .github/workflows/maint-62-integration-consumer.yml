@@ -297,6 +297,7 @@ jobs:
 
       - name: Resolve open issue on success
         if: ${{ needs.scenarios.result == 'success' }}
+        continue-on-error: true
         uses: actions/github-script@v9
         with:
           script: |
