@@ -1,0 +1,76 @@
+name: Artifact Cache
+description: Restore, discover, and cache workflow artifacts by run window.
+
+inputs:
+  cache-key-base:
+    description: Cache key prefix, for example weekly-metrics.
+    required: true
+  window-resolution:
+    description: Cache window resolution. Supported values are daily, weekly, and run.
+    required: false
+    default: weekly
+  artifact-name:
+    description: Artifact name to discover and wrap with the cache.
+    required: true
+  fail-fast:
+    description: Error when the artifact is absent instead of falling through to producer steps.
+    required: false
+    default: 'false'
+  artifact-path:
+    description: Local path to restore/download/cache. Defaults to .artifact-cache/<base>/<window>/<artifact>.
+    required: false
+    default: ''
+
+outputs:
+  cache-hit:
+    description: 'true when actions/cache restored the artifact path.'
+    value: ${{ steps.restore.outputs.cache-hit }}
+  artifact-path:
+    description: Local path containing the restored, downloaded, or producer-created artifact data.
+    value: ${{ steps.prepare.outputs.artifact-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare artifact cache key
+      id: prepare
+      shell: bash
+      env:
+        INPUT_CACHE_KEY_BASE: ${{ inputs.cache-key-base }}
+        INPUT_WINDOW_RESOLUTION: ${{ inputs.window-resolution }}
+        INPUT_ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        INPUT_ARTIFACT_PATH: ${{ inputs.artifact-path }}
+      run: node "$GITHUB_ACTION_PATH/artifact_cache.js" prepare
+
+    - name: Restore artifact cache
+      id: restore
+      uses: actions/cache@v5
+      with:
+        path: ${{ steps.prepare.outputs.artifact-path }}
+        key: ${{ steps.prepare.outputs.cache-key }}
+
+    - name: Discover artifact in run window
+      id: discover
+      if: ${{ steps.restore.outputs.cache-hit != 'true' }}
+      shell: bash
+      env:
+        INPUT_CACHE_KEY_BASE: ${{ inputs.cache-key-base }}
+        INPUT_WINDOW_RESOLUTION: ${{ inputs.window-resolution }}
+        INPUT_ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        INPUT_ARTIFACT_PATH: ${{ inputs.artifact-path }}
+        INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: node "$GITHUB_ACTION_PATH/artifact_cache.js" discover
+
+    - name: Download discovered artifact
+      if: >-
+        ${{
+          steps.restore.outputs.cache-hit != 'true' &&
+          steps.discover.outputs.artifact-found == 'true'
+        }}
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.artifact-name }}
+        run-id: ${{ steps.discover.outputs.run-id }}
+        path: ${{ steps.prepare.outputs.artifact-path }}
+        github-token: ${{ github.token }}

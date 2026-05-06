@@ -608,6 +608,10 @@ actions:
     is_directory: true
     description: "Classifies changed PR paths for path-aware expensive job gating"
 
+  - source: .github/actions/artifact-cache/
+    is_directory: true
+    description: "Restores, discovers, and caches workflow artifacts by daily, weekly, or run window"
+
 # Configuration files for LLM providers and workflows
 llm_config:
   - source: config/llm_slots.json
