@@ -78,7 +78,24 @@ def test_select_followup_acceptance_criteria_detects_workflow_file_markers() -> 
         number=46,
         tasks=[],
         acceptance_criteria=[
-            "Update .github/workflows/agents-verifier.yml from the template",
+            "Update .github/workflows from the template",
+            "The dashboard export renders for the selected account",
+        ],
+    )
+    verification_data = VerificationData(concerns=["The dashboard export failed"])
+
+    selected = _select_followup_acceptance_criteria(original_issue, verification_data)
+
+    assert selected == ["The dashboard export renders for the selected account"]
+
+
+def test_select_followup_acceptance_criteria_detects_synced_script_markers() -> None:
+    original_issue = OriginalIssueData(
+        title="Workflow script rollout",
+        number=47,
+        tasks=[],
+        acceptance_criteria=[
+            "Update .github/scripts/keepalive_loop.js from Workflows",
             "The dashboard export renders for the selected account",
         ],
     )

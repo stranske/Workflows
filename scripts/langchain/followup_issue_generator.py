@@ -1787,6 +1787,8 @@ def _build_why_section(
 WORKFLOW_SYNC_ACCEPTANCE_MARKERS = (
     "consumer sync",
     "consumer-sync",
+    ".github/scripts",
+    ".github/workflows",
     ".github/workflows/",
     "workflow file",
     "workflow files",

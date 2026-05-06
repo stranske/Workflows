@@ -256,6 +256,73 @@ jobs:
                       return results
                   page += 1
 
+          def graphql(query, variables):
+              payload = json.dumps({"query": query, "variables": variables}).encode("utf-8")
+              request = urllib.request.Request(
+                  f"{api_root}/graphql",
+                  data=payload,
+                  headers={**headers, "Content-Type": "application/json"},
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.loads(response.read().decode("utf-8"))
+
+          def text_hash(value):
+              return hashlib.sha256(
+                  str(value or "").encode("utf-8")
+              ).hexdigest()
+
+          def closing_issue_context():
+              owner, repo_name = repo.split("/", 1)
+              query = """
+              query($owner: String!, $repo: String!, $prNumber: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $prNumber) {
+                    closingIssuesReferences(first: 20) {
+                      nodes {
+                        number
+                        title
+                        body
+                        state
+                        labels(first: 100) {
+                          nodes { name }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              """
+              data = graphql(
+                  query,
+                  {"owner": owner, "repo": repo_name, "prNumber": int(pr_number)},
+              )
+              issues = (
+                  data.get("data", {})
+                  .get("repository", {})
+                  .get("pullRequest", {})
+                  .get("closingIssuesReferences", {})
+                  .get("nodes", [])
+              )
+              context = []
+              for issue in issues:
+                  if not issue:
+                      continue
+                  labels = issue.get("labels", {}).get("nodes", [])
+                  context.append(
+                      {
+                          "number": issue.get("number"),
+                          "title": issue.get("title") or "",
+                          "state": issue.get("state") or "",
+                          "body_hash": text_hash(issue.get("body") or ""),
+                          "labels": sorted(
+                              label.get("name", "")
+                              for label in labels
+                              if label.get("name")
+                          ),
+                      }
+                  )
+              return sorted(context, key=lambda item: item["number"] or 0)
+
           pr = api(f"/repos/{repo}/pulls/{pr_number}")
           files = paged(f"/repos/{repo}/pulls/{pr_number}/files")
           labels = api(f"/repos/{repo}/issues/{pr_number}/labels")
@@ -282,6 +349,9 @@ jobs:
               "model": os.environ.get("VERIFY_MODEL", ""),
               "model2": os.environ.get("VERIFY_MODEL2", ""),
               "provider": os.environ.get("VERIFY_PROVIDER", ""),
+              "pr_body_hash": text_hash(pr.get("body") or ""),
+              "pr_title": pr.get("title", ""),
+              "closing_issue_context": closing_issue_context(),
               "verifier_trigger_labels": sorted(
                   label.get("name", "")
                   for label in labels
