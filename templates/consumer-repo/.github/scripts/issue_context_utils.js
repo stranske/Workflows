@@ -37,7 +37,7 @@ function buildCappedIssuePayload(issueBody, options = {}) {
     const output = childProcess.execFileSync('python3', args, { encoding: 'utf8' });
     const payload = JSON.parse(output);
     return {
-      formattedBody: String(payload.formatted_body || body),
+      formattedBody: String(payload.formatted_body ?? body),
       truncated: Boolean(payload.truncated),
       estimatedTokens: payload.estimated_tokens,
       tokenBudget: payload.token_budget,
