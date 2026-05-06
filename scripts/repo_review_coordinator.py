@@ -44,8 +44,6 @@ from typing import Any
 try:
     from scripts.repo_review_evaluator import load_registry
     from scripts.repo_review_state import (
-        VALID_STATUSES,
-        add_pinned_problem,
         load_state,
         save_state,
         transition,
@@ -53,8 +51,6 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from repo_review_evaluator import load_registry  # type: ignore[no-redef]
     from repo_review_state import (  # type: ignore[no-redef]
-        VALID_STATUSES,
-        add_pinned_problem,
         load_state,
         save_state,
         transition,
@@ -155,9 +151,7 @@ def archive_prior_cycle(output_dir: Path) -> dict[str, Any]:
     return summary
 
 
-def prior_converged_for_skip_check(
-    output_dir: Path, repo: str
-) -> dict[str, Any] | None:
+def prior_converged_for_skip_check(output_dir: Path, repo: str) -> dict[str, Any] | None:
     """Look for a previously-archived converged.json for this repo to compare against.
 
     Convention: prior cycles' converged sets are archived under
@@ -251,9 +245,7 @@ def should_skip_cycle(
     )
 
 
-def write_skip_converged(
-    output_dir: Path, repo: str, reason: str
-) -> Path:
+def write_skip_converged(output_dir: Path, repo: str, reason: str) -> Path:
     """Synthesize a 'skip-this-cycle' converged.json so downstream evaluator
     surfaces a clear note instead of empty round-2 state."""
     safe = repo.replace("/", "__")
@@ -306,23 +298,33 @@ def run_subprocess(
     with log_path.open("w", encoding="utf-8") as fh:
         try:
             result = subprocess.run(
-                cmd, cwd=cwd, stdout=fh, stderr=subprocess.STDOUT,
-                check=False, timeout=timeout,
+                cmd,
+                cwd=cwd,
+                stdout=fh,
+                stderr=subprocess.STDOUT,
+                check=False,
+                timeout=timeout,
             )
         except subprocess.TimeoutExpired:
             duration = (datetime.now(UTC) - started).total_seconds()
             return StepResult(
-                name=name, succeeded=False, duration_seconds=duration,
+                name=name,
+                succeeded=False,
+                duration_seconds=duration,
                 notes=f"timed out after {timeout}s; log: {log_path}",
             )
     duration = (datetime.now(UTC) - started).total_seconds()
     if result.returncode != 0:
         return StepResult(
-            name=name, succeeded=False, duration_seconds=duration,
+            name=name,
+            succeeded=False,
+            duration_seconds=duration,
             notes=f"exit {result.returncode}; log: {log_path}",
         )
     return StepResult(
-        name=name, succeeded=True, duration_seconds=duration,
+        name=name,
+        succeeded=True,
+        duration_seconds=duration,
         notes=f"log: {log_path}",
     )
 
@@ -362,15 +364,23 @@ def coordinate_repo(
     r1_cmd = [
         sys.executable,
         str(workflows_steward_root / "scripts" / "repo_review_round1_runner.py"),
-        "--repo", repo,
-        "--output-dir", str(output_dir),
-        "--registry", str(registry_path),
-        "--agents", *agents,
-        "--turn-timeout", str(round1_timeout),
+        "--repo",
+        repo,
+        "--output-dir",
+        str(output_dir),
+        "--registry",
+        str(registry_path),
+        "--agents",
+        *agents,
+        "--turn-timeout",
+        str(round1_timeout),
     ]
     r1_result = run_subprocess(
-        r1_cmd, cwd=workflows_steward_root, log_path=repo_log_dir / "round1-runner.log",
-        name="round-1", timeout=round1_timeout + 1500,
+        r1_cmd,
+        cwd=workflows_steward_root,
+        log_path=repo_log_dir / "round1-runner.log",
+        name="round-1",
+        timeout=round1_timeout + 1500,
     )
     report["round1"] = {
         "succeeded": r1_result.succeeded,
@@ -389,7 +399,8 @@ def coordinate_repo(
             converged_path = write_skip_converged(output_dir, repo, reason)
             state = load_state(output_dir, repo)
             transition(
-                state, status="round2-converged",
+                state,
+                status="round2-converged",
                 note=f"skip-this-cycle gate fired: {reason}",
             )
             save_state(output_dir, state)
@@ -403,14 +414,21 @@ def coordinate_repo(
     r2_cmd = [
         sys.executable,
         str(workflows_steward_root / "scripts" / "repo_review_round2_runner.py"),
-        "--repo", repo,
-        "--output-dir", str(output_dir),
-        "--agents", *agents,
-        "--turn-timeout", str(round2_timeout),
+        "--repo",
+        repo,
+        "--output-dir",
+        str(output_dir),
+        "--agents",
+        *agents,
+        "--turn-timeout",
+        str(round2_timeout),
     ]
     r2_result = run_subprocess(
-        r2_cmd, cwd=workflows_steward_root, log_path=repo_log_dir / "round2-runner.log",
-        name="round-2", timeout=round2_timeout + 1500,
+        r2_cmd,
+        cwd=workflows_steward_root,
+        log_path=repo_log_dir / "round2-runner.log",
+        name="round-2",
+        timeout=round2_timeout + 1500,
     )
     report["round2"] = {
         "succeeded": r2_result.succeeded,
@@ -426,15 +444,23 @@ def coordinate_repo(
     bw_cmd = [
         sys.executable,
         str(workflows_steward_root / "scripts" / "repo_review_body_writer.py"),
-        "--repo", repo,
-        "--output-dir", str(output_dir),
-        "--registry", str(registry_path),
-        "--agent", "codex",  # Codex has historically produced higher-quality bodies.
-        "--timeout", str(min(round2_timeout, 60 * 60)),
+        "--repo",
+        repo,
+        "--output-dir",
+        str(output_dir),
+        "--registry",
+        str(registry_path),
+        "--agent",
+        "codex",  # Codex has historically produced higher-quality bodies.
+        "--timeout",
+        str(min(round2_timeout, 60 * 60)),
     ]
     bw_result = run_subprocess(
-        bw_cmd, cwd=workflows_steward_root, log_path=repo_log_dir / "body-writer.log",
-        name="body-writer", timeout=min(round2_timeout, 60 * 60) + 600,
+        bw_cmd,
+        cwd=workflows_steward_root,
+        log_path=repo_log_dir / "body-writer.log",
+        name="body-writer",
+        timeout=min(round2_timeout, 60 * 60) + 600,
     )
     report["body_writer"] = {
         "succeeded": bw_result.succeeded,
@@ -501,14 +527,17 @@ def run(args: argparse.Namespace) -> int:
         preflight_cmd = [
             sys.executable,
             str(workflows_steward_root / "scripts" / "repo_review_evaluator.py"),
-            "--output-dir", str(output_dir),
+            "--output-dir",
+            str(output_dir),
         ]
         if args.skip_gitnexus_preflight:
             preflight_cmd.append("--skip-gitnexus-preflight")
         preflight_result = run_subprocess(
-            preflight_cmd, cwd=workflows_steward_root,
+            preflight_cmd,
+            cwd=workflows_steward_root,
             log_path=log_dir / "preflight.log",
-            name="preflight", timeout=1200,
+            name="preflight",
+            timeout=1200,
         )
         if not preflight_result.succeeded:
             print(
@@ -543,7 +572,9 @@ def run(args: argparse.Namespace) -> int:
     queue_out = output_dir / "approved-issue-queue.json"
     if feedback_path.is_file():
         try:
-            from scripts.repo_review_queue_builder import build_queue  # type: ignore[import-not-found]
+            from scripts.repo_review_queue_builder import (
+                build_queue,  # type: ignore[import-not-found]
+            )
         except ModuleNotFoundError:
             sys.path.insert(0, str(workflows_steward_root / "scripts"))
             from repo_review_queue_builder import build_queue  # type: ignore[no-redef]
@@ -565,13 +596,16 @@ def run(args: argparse.Namespace) -> int:
     final_cmd = [
         sys.executable,
         str(workflows_steward_root / "scripts" / "repo_review_evaluator.py"),
-        "--output-dir", str(output_dir),
+        "--output-dir",
+        str(output_dir),
         "--skip-gitnexus-preflight",  # maps already refreshed by round-1
     ]
     final_result = run_subprocess(
-        final_cmd, cwd=workflows_steward_root,
+        final_cmd,
+        cwd=workflows_steward_root,
         log_path=log_dir / "final-evaluator.log",
-        name="final-evaluator", timeout=600,
+        name="final-evaluator",
+        timeout=600,
     )
 
     # 4. Summary report on stderr (cron will capture).
@@ -591,55 +625,73 @@ def run(args: argparse.Namespace) -> int:
             f"r2 {int((r2 or {}).get('duration_seconds') or 0)}s)"
         )
     print(f"[coordinator] final evaluator: {'ok' if final_result.succeeded else 'FAIL'}")
-    return 0 if all(
-        (r.get("round1") or {}).get("succeeded")
-        and (r.get("skip_gate_fired") or (r.get("round2") or {}).get("succeeded"))
-        for r in reports
-    ) else 1
+    return (
+        0
+        if all(
+            (r.get("round1") or {}).get("succeeded")
+            and (r.get("skip_gate_fired") or (r.get("round2") or {}).get("succeeded"))
+            for r in reports
+        )
+        else 1
+    )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--output-dir", required=True,
+        "--output-dir",
+        required=True,
         help="output dir, e.g. docs/reports/repo-review",
     )
     parser.add_argument(
-        "--registry", default="config/repo_review_registry.json",
+        "--registry",
+        default="config/repo_review_registry.json",
         help="path to repo_review_registry.json",
     )
     parser.add_argument(
-        "--repos", nargs="*", default=[],
+        "--repos",
+        nargs="*",
+        default=[],
         help="optional explicit repo subset (default: all active in registry)",
     )
     parser.add_argument(
-        "--agents", nargs="+", default=["codex", "claude"],
+        "--agents",
+        nargs="+",
+        default=["codex", "claude"],
         help="agent identifiers to use (default: codex claude)",
     )
     parser.add_argument(
-        "--skip-preflight", action="store_true",
+        "--skip-preflight",
+        action="store_true",
         help="skip the initial evaluator preflight (use existing inputs)",
     )
     parser.add_argument(
-        "--skip-gitnexus-preflight", action="store_true",
+        "--skip-gitnexus-preflight",
+        action="store_true",
         help="skip the GitNexus preflight inside the evaluator (round-1 still refreshes)",
     )
     parser.add_argument(
-        "--round1-timeout", type=int, default=90 * 60,
+        "--round1-timeout",
+        type=int,
+        default=90 * 60,
         help="hard timeout per round-1 agent in seconds (default: 5400)",
     )
     parser.add_argument(
-        "--round2-timeout", type=int, default=45 * 60,
+        "--round2-timeout",
+        type=int,
+        default=45 * 60,
         help="hard timeout per round-2 agent-turn in seconds (default: 2700)",
     )
     parser.add_argument(
-        "--disable-skip-gate", action="store_true",
+        "--disable-skip-gate",
+        action="store_true",
         help="run round-2 even when round-1 fingerprint matches prior cycle",
     )
     parser.add_argument(
-        "--skip-auto-archive", action="store_true",
+        "--skip-auto-archive",
+        action="store_true",
         help="do not move the prior cycle's round1/round2/queue into archive/<date>/ "
-             "before starting (useful for re-running a cycle in place)",
+        "before starting (useful for re-running a cycle in place)",
     )
     args = parser.parse_args()
     return run(args)

@@ -705,7 +705,9 @@ def build_review_execution(state: dict[str, Any]) -> dict[str, Any]:
         )
     elif findings and findings.get("deeper_review_needed"):
         issue_severity = "material"
-        issue_finding = "Round 1 requested deeper review; do not accept no-new-issues from this state."
+        issue_finding = (
+            "Round 1 requested deeper review; do not accept no-new-issues from this state."
+        )
     elif findings:
         issue_severity = "needs human decision"
         issue_finding = (
@@ -874,9 +876,7 @@ def collect_remote_progress(
     else:
         result["warnings"].append("gh issue list failed or returned non-list")
 
-    cutoff_date = (
-        datetime.now(UTC).date() - timedelta(days=merged_pr_lookback_days)
-    ).isoformat()
+    cutoff_date = (datetime.now(UTC).date() - timedelta(days=merged_pr_lookback_days)).isoformat()
     pr_payload = _gh_json(
         [
             "gh",
@@ -909,9 +909,7 @@ def collect_remote_progress(
     return result
 
 
-def load_round1_findings(
-    output_dir: Path | None, repo: str
-) -> dict[str, Any] | None:
+def load_round1_findings(output_dir: Path | None, repo: str) -> dict[str, Any] | None:
     """Load the most recent round-1 findings.json for `repo` if any exist.
 
     Looks in `<output_dir>/round1/<agent>/<repo_safe>/findings.json` across
@@ -949,9 +947,7 @@ def load_round1_findings(
     return data
 
 
-def load_round2_converged(
-    output_dir: Path | None, repo: str
-) -> dict[str, Any] | None:
+def load_round2_converged(output_dir: Path | None, repo: str) -> dict[str, Any] | None:
     """Load the round-2 converged set for `repo` if it exists.
 
     Looks at `<output_dir>/round2/<repo_safe>/converged.json`. Returns None
@@ -1152,12 +1148,15 @@ def gitnexus_preflight(
         after = before
         refresh_status = "not-needed"
         refresh_error = ""
-        needs_refresh = (
-            before["status"] in GITNEXUS_REFRESH_STATUSES
-            or before.get("needs_embeddings", False)
+        needs_refresh = before["status"] in GITNEXUS_REFRESH_STATUSES or before.get(
+            "needs_embeddings", False
         )
         if needs_refresh:
-            reason = before["status"] if before["status"] in GITNEXUS_REFRESH_STATUSES else "missing-embeddings"
+            reason = (
+                before["status"]
+                if before["status"] in GITNEXUS_REFRESH_STATUSES
+                else "missing-embeddings"
+            )
             if not refresh_stale:
                 refresh_status = "needed-not-requested"
                 warnings.append(
@@ -1579,7 +1578,6 @@ def collect_repo_state(
     # new design. It exists as template scratch for direct-on-repo work and is
     # irrelevant to weekly review evaluation. Helper-dirty classification still
     # ignores Issues.txt edits so they don't block review.
-    drafts: list[IssueDraft] = []
     design_files = collect_design_files(repo_path)
     implementation_areas = collect_implementation_areas(repo_path)
     report_files = (
@@ -1854,9 +1852,7 @@ def issue_candidate_records(
         meta = converged.get("meta_candidate")
         if isinstance(meta, dict):
             raw_candidates.append(meta)
-        return _records_from_round2_candidates(
-            raw_candidates, converged, max_items=max_items
-        )
+        return _records_from_round2_candidates(raw_candidates, converged, max_items=max_items)
 
     findings = state.get("round1_findings") or {}
     raw_candidates = findings.get("candidates") if isinstance(findings, dict) else None
@@ -2168,13 +2164,18 @@ def deadlocked_candidates_section(state: dict[str, Any]) -> list[str]:
     deadlocked = converged.get("deadlocked_candidates") or []
     if not deadlocked:
         return []
-    lines: list[str] = ["#### Deadlocked Candidates", "",
+    lines: list[str] = [
+        "#### Deadlocked Candidates",
+        "",
         "These candidates require human resolution — both agents' final-turn "
         "positions are inlined below. Approve, revise, or drop after reading both.",
-        ""]
+        "",
+    ]
     for index, item in enumerate(deadlocked, start=1):
         title = str(item.get("title") or "Untitled")
-        lines.append(f"{index}. **{title}** (source: {item.get('source_agent', '?')}, round1 #{item.get('round1_index', '?')})")
+        lines.append(
+            f"{index}. **{title}** (source: {item.get('source_agent', '?')}, round1 #{item.get('round1_index', '?')})"
+        )
         for mark in item.get("marks_history") or []:
             agent = mark.get("from_agent", "?")
             mark_type = mark.get("mark", "?")
@@ -2226,17 +2227,21 @@ def no_new_work_justifications_section(state: dict[str, Any]) -> list[str]:
     if (converged.get("converged_candidates") or []) or converged.get("meta_candidate"):
         return []
     justifications = [
-        j for j in (converged.get("no_new_work_justifications") or [])
+        j
+        for j in (converged.get("no_new_work_justifications") or [])
         if isinstance(j, dict)
         and j.get("candidate_count") == 0
         and len(str(j.get("justification") or "").strip()) >= 200
     ]
     if len(justifications) < 2:
         return []
-    lines: list[str] = ["#### No-New-Work Justifications", "",
+    lines: list[str] = [
+        "#### No-New-Work Justifications",
+        "",
         "Both agents independently reached the same conclusion. Verify the cited "
         "file/test evidence below before accepting no-new-issues for this cycle.",
-        ""]
+        "",
+    ]
     for j in justifications:
         agent = j.get("agent", "?")
         text = str(j.get("justification") or "").strip()
@@ -3488,14 +3493,14 @@ def write_packet(
                 f"- Round 2 candidates: `{len((state.get('round2_converged') or {}).get('converged_candidates') or [])}`"
                 + (
                     " (+ meta-candidate)"
-                    if isinstance((state.get('round2_converged') or {}).get('meta_candidate'), dict)
+                    if isinstance((state.get("round2_converged") or {}).get("meta_candidate"), dict)
                     else ""
                 ),
                 f"- Round 2 deadlocked: `{len((state.get('round2_converged') or {}).get('deadlocked_candidates') or [])}`",
                 f"- Round 2 meta status: `{(state.get('round2_converged') or {}).get('meta_status', 'n/a')}`"
                 + (
                     " (meta proposal deadlocked — see deadlocked_meta in converged.json)"
-                    if (state.get('round2_converged') or {}).get('deadlocked_meta')
+                    if (state.get("round2_converged") or {}).get("deadlocked_meta")
                     else ""
                 ),
                 f"- Round 2 dual no-new-work justifications: `{sum(1 for j in ((state.get('round2_converged') or {}).get('no_new_work_justifications') or []) if isinstance(j, dict) and j.get('candidate_count') == 0 and str(j.get('justification') or '').strip())}`",

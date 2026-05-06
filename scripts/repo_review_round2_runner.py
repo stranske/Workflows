@@ -42,10 +42,7 @@ import argparse
 import concurrent.futures
 import json
 import os
-import re
-import shlex
 import shutil
-import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -126,7 +123,9 @@ class CandidateKey:
 @dataclass
 class CandidateResolution:
     key: CandidateKey
-    status: str  # "converged-keep" | "converged-merge" | "converged-drop" | "pending" | "deadlocked"
+    status: (
+        str  # "converged-keep" | "converged-merge" | "converged-drop" | "pending" | "deadlocked"
+    )
     marks_history: list[dict[str, Any]] = field(default_factory=list)
     merge_proposal: dict[str, Any] | None = None
     revision_proposal: dict[str, Any] | None = None
@@ -147,13 +146,7 @@ def round1_findings_path(output_dir: Path, agent: str, repo: str) -> Path:
 
 
 def round2_turn_path(output_dir: Path, repo: str, turn: int, agent: str) -> Path:
-    return (
-        output_dir
-        / "round2"
-        / safe_repo_name(repo)
-        / f"turn-{turn}"
-        / f"{agent}.json"
-    )
+    return output_dir / "round2" / safe_repo_name(repo) / f"turn-{turn}" / f"{agent}.json"
 
 
 def round2_converged_path(output_dir: Path, repo: str) -> Path:
@@ -318,9 +311,7 @@ _HEARTBEAT_INTERVAL = int(os.environ.get("REPO_REVIEW_HEARTBEAT_INTERVAL", "60")
 _STALL_THRESHOLD = int(os.environ.get("REPO_REVIEW_STALL_THRESHOLD", "900"))  # 15 min
 
 
-def invoke_codex(
-    prompt: str, *, cwd: Path, log_file: Path, timeout: int
-) -> tuple[bool, str]:
+def invoke_codex(prompt: str, *, cwd: Path, log_file: Path, timeout: int) -> tuple[bool, str]:
     if shutil.which("codex") is None:
         return False, "codex CLI not on PATH"
     cmd = [
@@ -345,7 +336,10 @@ def invoke_codex(
     if result.succeeded:
         return True, str(log_file)
     if result.stuck:
-        return False, f"codex stuck (no log growth for >{_STALL_THRESHOLD}s; terminated): {log_file}"
+        return (
+            False,
+            f"codex stuck (no log growth for >{_STALL_THRESHOLD}s; terminated): {log_file}",
+        )
     if result.timed_out:
         return False, f"codex timed out after {timeout}s (log: {log_file})"
     return False, f"codex exited {result.returncode} ({result.note}; log: {log_file})"
@@ -381,7 +375,10 @@ def invoke_claude(
     if result.succeeded:
         return True, str(log_file)
     if result.stuck:
-        return False, f"claude stuck (no log growth for >{_STALL_THRESHOLD}s; terminated): {log_file}"
+        return (
+            False,
+            f"claude stuck (no log growth for >{_STALL_THRESHOLD}s; terminated): {log_file}",
+        )
     if result.timed_out:
         return False, f"claude timed out after {timeout}s (log: {log_file})"
     return False, f"claude exited {result.returncode} ({result.note}; log: {log_file})"
@@ -439,8 +436,7 @@ def run_one_turn(
     prior_turn_paths = sorted(
         path
         for path in (output_dir / "round2" / safe_repo_name(repo)).glob("turn-*/*.json")
-        if "turn-" in path.parts[-2]
-        and int(path.parts[-2].rsplit("-", 1)[-1]) < turn
+        if "turn-" in path.parts[-2] and int(path.parts[-2].rsplit("-", 1)[-1]) < turn
     )
 
     def task(agent_label: str) -> AgentTurnResult:
@@ -449,14 +445,16 @@ def run_one_turn(
         out_path.parent.mkdir(parents=True, exist_ok=True)
         if out_path.is_file():
             return AgentTurnResult(
-                agent=agent_label, turn=turn, output_path=out_path,
-                succeeded=True, spawned=False
+                agent=agent_label, turn=turn, output_path=out_path, succeeded=True, spawned=False
             )
         if dry_run:
             return AgentTurnResult(
-                agent=agent_label, turn=turn, output_path=out_path,
-                succeeded=False, spawned=False,
-                error="dry-run: turn output absent and agent spawn skipped"
+                agent=agent_label,
+                turn=turn,
+                output_path=out_path,
+                succeeded=False,
+                spawned=False,
+                error="dry-run: turn output absent and agent spawn skipped",
             )
         prompt = build_prompt(
             repo=repo,
@@ -481,14 +479,21 @@ def run_one_turn(
             )
             if ok and out_path.is_file():
                 return AgentTurnResult(
-                    agent=agent_label, turn=turn, output_path=out_path,
-                    succeeded=True, spawned=True,
+                    agent=agent_label,
+                    turn=turn,
+                    output_path=out_path,
+                    succeeded=True,
+                    spawned=True,
                 )
             last_error = info if not ok else f"agent did not write {out_path}"
             time.sleep(2)
         return AgentTurnResult(
-            agent=agent_label, turn=turn, output_path=out_path,
-            succeeded=False, spawned=True, error=last_error,
+            agent=agent_label,
+            turn=turn,
+            output_path=out_path,
+            succeeded=False,
+            spawned=True,
+            error=last_error,
         )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(agents)) as executor:
@@ -575,9 +580,7 @@ def compute_convergence(
 
         missing = expected_marker_agents - set(latest_per_agent.keys())
         if missing:
-            resolutions[key] = CandidateResolution(
-                key=key, status="pending", marks_history=history
-            )
+            resolutions[key] = CandidateResolution(key=key, status="pending", marks_history=history)
             continue
 
         marks = {a: entry["mark"] for a, entry in latest_per_agent.items()}
@@ -590,9 +593,7 @@ def compute_convergence(
         elif unique == {"agree-merge"}:
             # Both sides proposed merges; converged-merge with combined framing.
             merge_a = next(
-                e["merge_proposal"]
-                for e in latest_per_agent.values()
-                if e.get("merge_proposal")
+                e["merge_proposal"] for e in latest_per_agent.values() if e.get("merge_proposal")
             )
             resolutions[key] = CandidateResolution(
                 key=key,
@@ -603,11 +604,7 @@ def compute_convergence(
         elif unique <= {"agree-keep", "agree-merge"}:
             # One agent agrees-keep, the other proposes merge — accept the merge framing.
             merge_proposal = next(
-                (
-                    e["merge_proposal"]
-                    for e in latest_per_agent.values()
-                    if e.get("merge_proposal")
-                ),
+                (e["merge_proposal"] for e in latest_per_agent.values() if e.get("merge_proposal")),
                 None,
             )
             resolutions[key] = CandidateResolution(
@@ -629,9 +626,7 @@ def compute_convergence(
                 drop_reason=reason or "Both agents agreed to drop.",
             )
         else:
-            resolutions[key] = CandidateResolution(
-                key=key, status="pending", marks_history=history
-            )
+            resolutions[key] = CandidateResolution(key=key, status="pending", marks_history=history)
     return resolutions
 
 
@@ -684,19 +679,13 @@ def converge_meta(
     smaller set.
     """
     proposing = {
-        agent: meta
-        for agent, meta in meta_by_agent.items()
-        if meta.get("proposed") is True
+        agent: meta for agent, meta in meta_by_agent.items() if meta.get("proposed") is True
     }
     if not proposing:
         return None, "absent"
     if expected_marker_agents - set(meta_by_agent.keys()):
         return None, "single-side"
-    rejecting = [
-        agent
-        for agent, meta in meta_by_agent.items()
-        if meta.get("proposed") is False
-    ]
+    rejecting = [agent for agent, meta in meta_by_agent.items() if meta.get("proposed") is False]
     if proposing and rejecting:
         # Deadlocked: one (or more) agent proposed a meta-candidate; one (or
         # more) explicitly rejected. Per the protocol, surface the rejected
@@ -729,9 +718,7 @@ def converge_meta(
         accept_count = len(meta.get("acceptance_criteria", []) or [])
         return pattern_len + task_count * 30 + accept_count * 30
 
-    primary_agent, primary = max(
-        proposing.items(), key=lambda kv: proposal_score(kv[1])
-    )
+    primary_agent, primary = max(proposing.items(), key=lambda kv: proposal_score(kv[1]))
     alternative_titles = [
         {"agent": a, "title": m.get("title", "")}
         for a, m in proposing.items()
@@ -742,8 +729,7 @@ def converge_meta(
     merged["compatible_alternative_proposals"] = alternative_titles
     merged["primary_source_agent"] = primary_agent
     merged["supporting_candidate_indexes"] = [
-        {"agent": agent, "candidate_index": idx}
-        for agent, idx in sorted(union)
+        {"agent": agent, "candidate_index": idx} for agent, idx in sorted(union)
     ]
     return merged, "converged"
 
@@ -760,9 +746,7 @@ def candidate_for_resolution(
     base = round1_index.get(resolution.key)
     if base is None:
         # Should not happen — every key comes from a round-1 finding.
-        raise SystemExit(
-            f"BUG: round-1 candidate {resolution.key} missing from index"
-        )
+        raise SystemExit(f"BUG: round-1 candidate {resolution.key} missing from index")
     cand = dict(base)
     cand["scope"] = "fix"
     cand["origin"] = {
@@ -773,9 +757,7 @@ def candidate_for_resolution(
     if resolution.status == "converged-merge" and resolution.merge_proposal:
         # Apply the merge proposal on top of the base — preserves design refs
         # etc. while letting the merged framing override title/gap/etc.
-        cand.update(
-            {k: v for k, v in resolution.merge_proposal.items() if v is not None}
-        )
+        cand.update({k: v for k, v in resolution.merge_proposal.items() if v is not None})
         cand["origin"]["merged_from"] = [resolution.merge_proposal.get("source", "")]
     return cand
 
@@ -802,9 +784,7 @@ def meta_to_candidate(
         for ref in meta.get("supporting_candidate_indexes") or []:
             if not isinstance(ref, dict):
                 continue
-            key = CandidateKey(
-                str(ref.get("agent", "")), int(ref.get("candidate_index", 0))
-            )
+            key = CandidateKey(str(ref.get("agent", "")), int(ref.get("candidate_index", 0)))
             base = round1_index.get(key) or {}
             for value in base.get(field) or []:
                 value_str = str(value)
@@ -982,9 +962,7 @@ def synthesize_converged(
             mp = tout.get("meta_candidate_proposal") or {}
             if mp.get("proposed") is False:
                 rejection_reasons[tout["agent"]] = str(
-                    mp.get("rationale", "")
-                    or mp.get("reason", "")
-                    or "no rationale recorded"
+                    mp.get("rationale", "") or mp.get("reason", "") or "no rationale recorded"
                 )
         deadlocked_meta = {
             "proposed_by": proposing_agent,
@@ -1009,8 +987,7 @@ def synthesize_converged(
                 "agent": agent,
                 "path": str(path.resolve()),
                 "candidate_count": len(
-                    json.loads(path.read_text(encoding="utf-8")).get("candidates")
-                    or []
+                    json.loads(path.read_text(encoding="utf-8")).get("candidates") or []
                 ),
             }
             for agent, path in round1_paths.items()
@@ -1026,9 +1003,7 @@ def synthesize_converged(
         # Carry both forward so the human packet can show them side-by-side
         # and the human can verify the justifications match the actual repo
         # state before accepting "no new work" as the cycle outcome.
-        "no_new_work_justifications": _collect_no_new_work_justifications(
-            round1_paths
-        ),
+        "no_new_work_justifications": _collect_no_new_work_justifications(round1_paths),
         "negotiation_log": [
             str(round2_turn_path(output_dir, repo, t["turn"], t["agent"]).resolve())
             for t in turn_outputs
@@ -1047,9 +1022,7 @@ def run(args: argparse.Namespace) -> int:
     repo = args.repo
     requested_agents = tuple(a.strip() for a in args.agents.split(",") if a.strip())
     if len(requested_agents) != 2:
-        raise SystemExit(
-            "--agents must list exactly two labels (e.g. codex,claude)"
-        )
+        raise SystemExit("--agents must list exactly two labels (e.g. codex,claude)")
 
     round1_paths = resolve_negotiation_agents(output_dir, repo, requested_agents)
     expected_marker_agents = set(round1_paths.keys())
@@ -1082,9 +1055,7 @@ def run(args: argparse.Namespace) -> int:
     # converged_candidates=[] and both agents' no_new_work_justifications
     # carried forward to the human packet via deadlocked-meta-style records.
     if not candidate_keys:
-        print(
-            f"[round2] {repo}: both round-1 findings empty — skipping negotiation"
-        )
+        print(f"[round2] {repo}: both round-1 findings empty — skipping negotiation")
         fully_converged = True
         # No marks, no meta — synthesize a convergence record that carries the
         # round-1 justifications through to the human packet.
@@ -1109,11 +1080,7 @@ def run(args: argparse.Namespace) -> int:
             log_dir=log_dir,
         )
         for label, result in turn_results.items():
-            status = (
-                "succeeded"
-                if result.succeeded
-                else f"failed: {result.error}"
-            )
+            status = "succeeded" if result.succeeded else f"failed: {result.error}"
             spawned = "spawned" if result.spawned else "reused"
             print(f"[round2] {repo}: turn {turn} {label} → {status} ({spawned})")
         if not all(r.succeeded for r in turn_results.values()):
@@ -1121,8 +1088,7 @@ def run(args: argparse.Namespace) -> int:
                 f"{label}: {r.error}" for label, r in turn_results.items() if not r.succeeded
             ]
             print(
-                f"[round2] {repo}: turn {turn} aborted — "
-                + "; ".join(failures),
+                f"[round2] {repo}: turn {turn} aborted — " + "; ".join(failures),
                 file=sys.stderr,
             )
             if args.dry_run:
@@ -1144,13 +1110,9 @@ def run(args: argparse.Namespace) -> int:
             candidate_keys, marks_by_candidate, expected_marker_agents
         )
         meta_by_agent = meta_proposals(turn_outputs)
-        meta_proposal, meta_status = converge_meta(
-            meta_by_agent, expected_marker_agents
-        )
+        meta_proposal, meta_status = converge_meta(meta_by_agent, expected_marker_agents)
 
-        pending = [
-            r for r in final_resolutions.values() if r.status == "pending"
-        ]
+        pending = [r for r in final_resolutions.values() if r.status == "pending"]
         meta_pending = meta_status not in ("converged", "absent", "deadlocked", "single-side")
         if not pending and not meta_pending:
             print(
@@ -1186,9 +1148,7 @@ def run(args: argparse.Namespace) -> int:
 
     converged_path = round2_converged_path(output_dir, repo)
     converged_path.parent.mkdir(parents=True, exist_ok=True)
-    converged_path.write_text(
-        json.dumps(converged, indent=2) + "\n", encoding="utf-8"
-    )
+    converged_path.write_text(json.dumps(converged, indent=2) + "\n", encoding="utf-8")
 
     # Repo-scoped state update — never touches global state. If anything goes
     # wrong with this repo, remediation work stays inside its directory.
@@ -1196,7 +1156,9 @@ def run(args: argparse.Namespace) -> int:
         state = load_state(output_dir, repo)
         attempt = begin_attempt(state, phase="round-2", agent="runner")
         finish_attempt(
-            state, attempt, succeeded=True,
+            state,
+            attempt,
+            succeeded=True,
             notes=(
                 f"turns={turns_completed} converged={len(converged['converged_candidates'])} "
                 f"deadlocked={len(converged['deadlocked_candidates'])} "

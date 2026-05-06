@@ -20,6 +20,7 @@ progress to the human-decision-packet without re-tailing logs.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import signal
@@ -137,16 +138,24 @@ def run_with_heartbeat(
     except OSError as exc:
         log_handle.close()
         _write_sentinel(
-            sentinel_path, state="spawn_failed", pid=None,
-            started_at=started_at, last_check=time.time(),
-            last_log_mtime=None, elapsed=time.time() - started_at,
-            stall_for=None, note=f"OSError: {exc}",
+            sentinel_path,
+            state="spawn_failed",
+            pid=None,
+            started_at=started_at,
+            last_check=time.time(),
+            last_log_mtime=None,
+            elapsed=time.time() - started_at,
+            stall_for=None,
+            note=f"OSError: {exc}",
         )
         return HeartbeatResult(
-            succeeded=False, returncode=None,
+            succeeded=False,
+            returncode=None,
             elapsed_seconds=time.time() - started_at,
-            stuck=False, timed_out=False,
-            last_log_mtime=None, note=f"spawn failed: {exc}",
+            stuck=False,
+            timed_out=False,
+            last_log_mtime=None,
+            note=f"spawn failed: {exc}",
             sentinel_path=sentinel_path,
         )
 
@@ -170,7 +179,9 @@ def run_with_heartbeat(
             now = time.time()
             elapsed = now - started_at
             current_mtime = _safe_mtime(log_file)
-            if current_mtime is not None and (last_log_mtime is None or current_mtime > last_log_mtime):
+            if current_mtime is not None and (
+                last_log_mtime is None or current_mtime > last_log_mtime
+            ):
                 last_log_mtime = current_mtime
                 last_growth_time = now
             stall_for = now - last_growth_time
@@ -178,15 +189,22 @@ def run_with_heartbeat(
             if rc is not None:
                 # Process exited.
                 _write_sentinel(
-                    sentinel_path, state="exited",
-                    pid=pid, started_at=started_at, last_check=now,
-                    last_log_mtime=last_log_mtime, elapsed=elapsed,
-                    stall_for=stall_for, note=f"exited rc={rc}",
+                    sentinel_path,
+                    state="exited",
+                    pid=pid,
+                    started_at=started_at,
+                    last_check=now,
+                    last_log_mtime=last_log_mtime,
+                    elapsed=elapsed,
+                    stall_for=stall_for,
+                    note=f"exited rc={rc}",
                 )
                 return HeartbeatResult(
-                    succeeded=(rc == 0), returncode=rc,
+                    succeeded=(rc == 0),
+                    returncode=rc,
                     elapsed_seconds=elapsed,
-                    stuck=False, timed_out=False,
+                    stuck=False,
+                    timed_out=False,
                     last_log_mtime=last_log_mtime,
                     note=f"exited rc={rc}",
                     sentinel_path=sentinel_path,
@@ -213,9 +231,13 @@ def run_with_heartbeat(
                 break
 
             _write_sentinel(
-                sentinel_path, state="running",
-                pid=pid, started_at=started_at, last_check=now,
-                last_log_mtime=last_log_mtime, elapsed=elapsed,
+                sentinel_path,
+                state="running",
+                pid=pid,
+                started_at=started_at,
+                last_check=now,
+                last_log_mtime=last_log_mtime,
+                elapsed=elapsed,
                 stall_for=stall_for,
                 note=f"{label}: alive, log {'growing' if stall_for < heartbeat_interval else f'idle for {stall_for:.0f}s'}",
             )
@@ -235,21 +257,24 @@ def run_with_heartbeat(
         _write_sentinel(
             sentinel_path,
             state="stuck" if stuck else "timed_out",
-            pid=pid, started_at=started_at, last_check=time.time(),
-            last_log_mtime=last_log_mtime, elapsed=elapsed,
+            pid=pid,
+            started_at=started_at,
+            last_check=time.time(),
+            last_log_mtime=last_log_mtime,
+            elapsed=elapsed,
             stall_for=time.time() - last_growth_time,
             note=note,
         )
         return HeartbeatResult(
-            succeeded=False, returncode=proc.returncode,
+            succeeded=False,
+            returncode=proc.returncode,
             elapsed_seconds=elapsed,
-            stuck=stuck, timed_out=timed_out,
+            stuck=stuck,
+            timed_out=timed_out,
             last_log_mtime=last_log_mtime,
             note=note,
             sentinel_path=sentinel_path,
         )
     finally:
-        try:
+        with contextlib.suppress(OSError):
             log_handle.close()
-        except OSError:
-            pass

@@ -157,9 +157,7 @@ def validate_candidate(candidate: Any, index: int) -> list[str]:
 
     acceptance = candidate.get("acceptance_criteria")
     if not _is_str_list(acceptance, min_items=2):
-        errors.append(
-            f"{prefix}.acceptance_criteria: must be a list of ≥2 verifiable conditions"
-        )
+        errors.append(f"{prefix}.acceptance_criteria: must be a list of ≥2 verifiable conditions")
     else:
         joined = " ".join(str(item) for item in acceptance).lower()
         if not any(
@@ -288,18 +286,18 @@ def validate_findings(data: Any, *, expected_repo: str | None = None) -> list[st
         errors.append("deeper_review_needed: must be a boolean")
         deeper = False
 
-    if deeper:
-        if not _is_nonempty_str(data.get("deeper_review_reason")):
-            errors.append(
-                "deeper_review_reason: required when deeper_review_needed is true"
-            )
+    if deeper and not _is_nonempty_str(data.get("deeper_review_reason")):
+        errors.append("deeper_review_reason: required when deeper_review_needed is true")
 
-    if not deeper and not candidates:
-        if not _is_nonempty_str(data.get("no_new_work_justification")):
-            errors.append(
-                "no_new_work_justification: required when candidates is empty and "
-                "deeper_review_needed is false."
-            )
+    if (
+        not deeper
+        and not candidates
+        and not _is_nonempty_str(data.get("no_new_work_justification"))
+    ):
+        errors.append(
+            "no_new_work_justification: required when candidates is empty and "
+            "deeper_review_needed is false."
+        )
 
     return errors
 

@@ -32,17 +32,17 @@ from typing import Any
 STATE_SCHEMA_VERSION = "v1"
 
 VALID_STATUSES = {
-    "fresh",                       # never run
-    "round1-running",              # at least one round-1 agent in flight
-    "round1-complete",             # both round-1 findings on disk, validated
-    "round1-failed",               # one or both round-1 agents failed past retries
-    "round2-running",              # negotiation in progress
-    "round2-converged",            # converged.json written, ready for human review
-    "round2-deadlocked",           # converged.json written WITH deadlocked items
-    "round2-failed",               # negotiation aborted past retries
-    "human-review-queued",         # waiting on feedback config update
-    "approved-pending-upload",     # feedback says approve, queue items waiting
-    "uploaded",                    # remote issues created for this cycle
+    "fresh",  # never run
+    "round1-running",  # at least one round-1 agent in flight
+    "round1-complete",  # both round-1 findings on disk, validated
+    "round1-failed",  # one or both round-1 agents failed past retries
+    "round2-running",  # negotiation in progress
+    "round2-converged",  # converged.json written, ready for human review
+    "round2-deadlocked",  # converged.json written WITH deadlocked items
+    "round2-failed",  # negotiation aborted past retries
+    "human-review-queued",  # waiting on feedback config update
+    "approved-pending-upload",  # feedback says approve, queue items waiting
+    "uploaded",  # remote issues created for this cycle
 }
 
 
@@ -50,8 +50,8 @@ VALID_STATUSES = {
 class AttemptRecord:
     started_at: str
     completed_at: str = ""
-    phase: str = ""               # round-1 | round-2 | upload
-    agent: str = ""               # codex | claude | runner | uploader
+    phase: str = ""  # round-1 | round-2 | upload
+    agent: str = ""  # codex | claude | runner | uploader
     succeeded: bool = False
     notes: str = ""
 
@@ -77,6 +77,7 @@ class PinnedProblem:
 
     The coordinator surfaces these in the human packet so they're visible.
     """
+
     title: str
     first_seen: str
     last_seen: str = ""
@@ -114,9 +115,7 @@ class RepoReviewState:
             "status": self.status,
             "cycle_started_at": self.cycle_started_at,
             "cycle_updated_at": self.cycle_updated_at,
-            "last_attempt": (
-                self.last_attempt.to_dict() if self.last_attempt else None
-            ),
+            "last_attempt": (self.last_attempt.to_dict() if self.last_attempt else None),
             "attempts": [a.to_dict() for a in self.attempts],
             "pinned_problems": [p.to_dict() for p in self.pinned_problems],
             "round1_findings": self.round1_findings,
@@ -173,15 +172,9 @@ def _state_from_dict(data: dict[str, Any]) -> RepoReviewState:
     last_attempt = (
         AttemptRecord(**last_attempt_data) if isinstance(last_attempt_data, dict) else None
     )
-    attempts = [
-        AttemptRecord(**a)
-        for a in (data.get("attempts") or [])
-        if isinstance(a, dict)
-    ]
+    attempts = [AttemptRecord(**a) for a in (data.get("attempts") or []) if isinstance(a, dict)]
     pinned = [
-        PinnedProblem(**p)
-        for p in (data.get("pinned_problems") or [])
-        if isinstance(p, dict)
+        PinnedProblem(**p) for p in (data.get("pinned_problems") or []) if isinstance(p, dict)
     ]
     return RepoReviewState(
         schema_version=str(data.get("schema_version", STATE_SCHEMA_VERSION)),
@@ -231,9 +224,7 @@ def transition(state: RepoReviewState, *, status: str, note: str = "") -> None:
         state.notes = note
 
 
-def record_round1_finding(
-    state: RepoReviewState, agent: str, findings_path: Path
-) -> None:
+def record_round1_finding(state: RepoReviewState, agent: str, findings_path: Path) -> None:
     state.round1_findings[agent] = str(findings_path.resolve())
 
 
