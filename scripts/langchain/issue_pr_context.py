@@ -7,8 +7,9 @@ import base64
 import json
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 DEFAULT_TOKEN_BUDGET = 4000
 TOKEN_CHARS = 4
