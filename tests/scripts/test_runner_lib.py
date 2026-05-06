@@ -200,6 +200,31 @@ def test_record_completion_stores_compact_result_payload() -> None:
 
     assert record["result"]["summary"] == "x" * 500
     assert "final_message" not in record["result"]
+    assert len(record["result"]["final_message_sha256"]) == 64
+    assert record["result"]["final_message_chars"] == 10000
+
+
+def test_record_completion_stores_compact_marker_safe_result() -> None:
+    storage = MemoryRunnerStorage()
+    result = {
+        "provider": "claude",
+        "success": True,
+        "final_message": "full output --> with marker closer",
+        "summary": "summary --> closer",
+        "error": None,
+        "truncated": False,
+    }
+
+    record = record_completion(42, "aaa", "claude", result, storage=storage)
+
+    stored_result = storage.records[(42, "claude")]["result"]
+    assert record["result"] == stored_result
+    assert stored_result["schema"] == "runner-result-summary/v1"
+    assert stored_result["summary"] == "summary --\\u003e closer"
+    assert "final_message" not in stored_result
+    assert stored_result["final_message_chars"] == len(result["final_message"])
+    assert len(stored_result["final_message_sha256"]) == 64
+    assert "-->" not in json.dumps(stored_result)
 
 
 def test_materialize_reference_packs_keeps_token_out_of_git_argv(

@@ -411,6 +411,29 @@ def _decode_record_candidate(candidate: str) -> str:
     return value
 
 
+def _marker_safe_text(value: Any, limit: int = 1000) -> str:
+    text = str(value or "")
+    if len(text) > limit:
+        text = f"{text[:limit]}...[truncated {len(text) - limit} chars]"
+    return text.replace("-->", "--\\u003e")
+
+
+def _compact_runner_result_payload(result_payload: dict[str, Any]) -> dict[str, Any]:
+    final_message = str(result_payload.get("final_message") or "")
+    compact: dict[str, Any] = {
+        "schema": "runner-result-summary/v1",
+        "provider": str(result_payload.get("provider") or ""),
+        "success": bool(result_payload.get("success")),
+        "summary": _marker_safe_text(result_payload.get("summary")),
+        "error": _marker_safe_text(result_payload.get("error")),
+        "truncated": bool(result_payload.get("truncated")),
+    }
+    if final_message:
+        compact["final_message_sha256"] = hashlib.sha256(final_message.encode("utf-8")).hexdigest()
+        compact["final_message_chars"] = len(final_message)
+    return compact
+
+
 def _extract_record(value: str | None, pr_number: int, provider: str) -> dict[str, Any] | None:
     if not value:
         return None
@@ -695,17 +718,13 @@ def record_completion(
         dataclasses.asdict(result) if dataclasses.is_dataclass(result) else dict(result)
     )
     status = "completed" if result_payload.get("success") else "error"
+    compact_result = _compact_runner_result_payload(result_payload)
     prior = storage.read_record(pr_number, provider) or {}
     completed_at = (
         prior.get("completed_at")
         if prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES
         else _utc_now()
     )
-    compact_result = {
-        field: result_payload.get(field)
-        for field in ("provider", "success", "summary", "error", "truncated")
-        if field in result_payload
-    }
     record = {
         **prior,
         "provider": provider,

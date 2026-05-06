@@ -167,3 +167,25 @@ test('buildCappedIssuePayload removes temporary directories after fallback', () 
     childProcess.execFileSync = originalExec;
   }
 });
+
+test('buildCappedIssuePayload preserves intentionally empty formatted body', () => {
+  const originalExecFileSync = childProcess.execFileSync;
+  childProcess.execFileSync = () =>
+    JSON.stringify({
+      formatted_body: '',
+      truncated: true,
+      estimated_tokens: 0,
+      token_budget: 1,
+    });
+
+  try {
+    const result = buildCappedIssuePayload('## Tasks\n- [ ] raw');
+
+    assert.equal(result.formattedBody, '');
+    assert.equal(result.truncated, true);
+    assert.equal(result.estimatedTokens, 0);
+    assert.equal(result.tokenBudget, 1);
+  } finally {
+    childProcess.execFileSync = originalExecFileSync;
+  }
+});
