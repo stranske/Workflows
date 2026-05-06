@@ -26,8 +26,15 @@ from scripts.langchain.structured_output import (
     build_repair_callback,
     parse_structured_output,
 )
+from scripts.langchain.verifier_config import (
+    EVAL_PAIR_BUDGET_TOKENS,
+    EVAL_SCHEMA_REPAIR_BUDGET_TOKENS,
+    SchemaRepairPolicy,
+)
 
 LOGGER = logging.getLogger(__name__)
+SCHEMA_REPAIR_POLICY = SchemaRepairPolicy()
+TOKEN_CHARS = 4
 
 PR_EVALUATION_PROMPT = """
 You are reviewing a **merged** pull request to evaluate whether the code
@@ -409,6 +416,8 @@ def _get_chain_depth() -> int:
 def _prepare_prompt(context: str, diff: str | None) -> str:
     diff_block = diff.strip() if diff and diff.strip() else "(diff unavailable)"
     context_block = context.strip() if context and context.strip() else "(context unavailable)"
+    diff_block = _cap_prompt_text(diff_block, EVAL_PAIR_BUDGET_TOKENS)
+    context_block = _cap_prompt_text(context_block, EVAL_PAIR_BUDGET_TOKENS)
 
     change_type = _classify_change_type(diff)
 
@@ -435,6 +444,14 @@ def _prepare_prompt(context: str, diff: str | None) -> str:
         prompt = prompt.rstrip() + "\n\n" + CHAIN_DEPTH_ADDENDUM.format(depth=chain_depth) + "\n"
 
     return prompt.format(context=context_block, diff=diff_block)
+
+
+def _cap_prompt_text(text: str, token_budget: int) -> str:
+    max_chars = max(1, token_budget) * TOKEN_CHARS
+    if len(text) <= max_chars:
+        return text
+    marker = "\n[truncated: verifier prompt budget exceeded]"
+    return text[: max(0, max_chars - len(marker))].rstrip() + marker
 
 
 def _extract_pr_metadata(context: str) -> tuple[int | None, str | None]:
@@ -663,17 +680,25 @@ def _fallback_evaluation(
 def _parse_llm_response(
     content: str, provider: str, *, client: object | None = None
 ) -> EvaluationResult:
+    repair = _build_verifier_repair_callback(client) if client is not None else None
     parsed = parse_structured_output(
         content,
         EvaluationPayload,
-        repair=(build_repair_callback(client) if client is not None else None),
-        max_repair_attempts=1,
+        repair=repair,
+        max_repair_attempts=SCHEMA_REPAIR_POLICY.max_attempts,
     )
     if parsed.payload is None:
+        decision = SCHEMA_REPAIR_POLICY.terminal_decision(
+            repair_attempts_used=parsed.repair_attempts_used,
+            error_stage=parsed.error_stage,
+            has_payload=False,
+        )
         if parsed.error_stage == "repair_validation":
             error = f"Failed to parse JSON response after repair: {parsed.error_detail}"
         else:
             error = f"Failed to parse JSON response: {parsed.error_detail}"
+        if decision == "escalate":
+            error = f"Schema repair policy escalated verifier output: {error}"
         return EvaluationResult(
             verdict="CONCERNS",
             scores=None,
@@ -696,6 +721,19 @@ def _parse_llm_response(
         used_llm=True,
         raw_content=parsed.raw_content or content,
     )
+
+
+def _build_verifier_repair_callback(client: object):
+    repair = build_repair_callback(client)
+
+    def _repair(schema_json: str, validation_errors: str, raw_response: str) -> str | None:
+        return repair(
+            schema_json,
+            validation_errors,
+            _cap_prompt_text(raw_response, EVAL_SCHEMA_REPAIR_BUDGET_TOKENS),
+        )
+
+    return _repair
 
 
 def _is_auth_error(exc: Exception) -> bool:

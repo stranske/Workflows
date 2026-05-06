@@ -197,9 +197,49 @@ jobs:
             // Set outputs
             core.setOutput('has_original_issue', linkedIssueNumber ? 'true' : 'false');
 
+      - name: Validate terminal verifier artifact
+        id: terminal-artifact
+        if: steps.check-merged.outputs.merged == 'true'
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          from scripts.langchain.verifier_config import (
+              artifact_from_verification_text,
+              is_terminal_artifact,
+          )
+
+          raw = Path("verification_data.txt").read_text(encoding="utf-8")
+          artifact = artifact_from_verification_text(raw)
+          terminal = is_terminal_artifact(artifact)
+          verdict = str(artifact.get("verdict") or "")
+          reason = (
+              "terminal verifier output"
+              if terminal
+              else "verifier output is partial or missing a terminal verdict"
+          )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"terminal={str(terminal).lower()}\n")
+              handle.write(f"verdict={verdict}\n")
+              handle.write(f"reason={reason}\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("## Terminal verifier artifact gate\n\n")
+              handle.write(f"- Terminal: `{str(terminal).lower()}`\n")
+              if verdict:
+                  handle.write(f"- Verdict: `{verdict}`\n")
+              handle.write(f"- Reason: {reason}\n")
+          PY
+
       - name: Generate follow-up issue
         id: generate
-        if: steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
@@ -230,7 +270,10 @@ jobs:
 
       - name: Fallback to simple extraction
         id: fallback
-        if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.generate.outcome == 'failure' &&
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true'
         uses: actions/github-script@v9
         with:
           github-token: ${{ steps.select-token.outputs.token }}
@@ -313,7 +356,9 @@ jobs:
 
       - name: Create follow-up issue
         id: create-issue
-        if: steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true'
         uses: actions/github-script@v9
         env:
           ISSUE_TITLE: >-
@@ -380,7 +425,9 @@ jobs:
             core.setOutput('issue_url', issue.data.html_url);
 
       - name: Comment on original PR
-        if: steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal == 'true'
         uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
