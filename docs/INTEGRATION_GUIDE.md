@@ -141,7 +141,7 @@ jobs:
 
 ## Workflow Outputs
 
-Caller-facing outputs are available only from a subset of reusable workflows. If a workflow is not listed below it exports no `workflow_call` outputs (it still produces artifacts and step summaries).
+Caller-facing outputs are available only from a subset of reusable workflows. The quick index below highlights the most common `workflow_call` outputs and artifact-only reusable workflows; consult the exhaustive catalog before assuming an unlisted workflow has no caller-facing outputs.
 
 The exhaustive output reference is [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_OUTPUTS.md). It documents each exported `workflow_call` output with its type, description, and usage expression, and it also lists reusable workflows that intentionally publish artifacts or logs without job outputs. Use that page as the source of truth when wiring dependent jobs; the table below is a quick index for the most common chaining surfaces.
 
@@ -166,20 +166,19 @@ Orchestrator chaining example:
 jobs:
   orchestrator-init:
     uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-init.yml@main
-    id: init
 
   orchestrator-main:
     needs: orchestrator-init
-    if: needs.init.outputs.has_work == 'true' && needs.init.outputs.rate_limit_safe == 'true'
+    if: needs.orchestrator-init.outputs.has_work == 'true' && needs.orchestrator-init.outputs.rate_limit_safe == 'true'
     uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-main.yml@main
     with:
-      init_success: ${{ needs.init.result }}
-      enable_keepalive: ${{ needs.init.outputs.enable_keepalive }}
-      keepalive_pause_label: ${{ needs.init.outputs.keepalive_pause_label }}
-      keepalive_round: ${{ needs.init.outputs.keepalive_round }}
-      keepalive_pr: ${{ needs.init.outputs.keepalive_pr }}
-      options_json: ${{ needs.init.outputs.options_json }}
-      token_source: ${{ needs.init.outputs.token_source }}
+      init_success: ${{ needs.orchestrator-init.result }}
+      enable_keepalive: ${{ needs.orchestrator-init.outputs.enable_keepalive }}
+      keepalive_pause_label: ${{ needs.orchestrator-init.outputs.keepalive_pause_label }}
+      keepalive_round: ${{ needs.orchestrator-init.outputs.keepalive_round }}
+      keepalive_pr: ${{ needs.orchestrator-init.outputs.keepalive_pr }}
+      options_json: ${{ needs.orchestrator-init.outputs.options_json }}
+      token_source: ${{ needs.orchestrator-init.outputs.token_source }}
 ```
 
 Agent readiness example (posting the Markdown table):
@@ -188,20 +187,19 @@ Agent readiness example (posting the Markdown table):
 jobs:
   agents-readiness:
     uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main
-    id: readiness
     with:
       enable_readiness: 'true'
 
   comment-readiness:
-    needs: readiness
-    if: needs.readiness.outputs.readiness_table != ''
+    needs: agents-readiness
+    if: needs.agents-readiness.outputs.readiness_table != ''
     runs-on: ubuntu-latest
     steps:
       - name: Post readiness table
         uses: actions/github-script@v7
         with:
           script: |
-            const table = `## Agent Readiness\n\n${{ toJSON(needs.readiness.outputs.readiness_table) }}`;
+            const table = `## Agent Readiness\n\n${{ toJSON(needs.agents-readiness.outputs.readiness_table) }}`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
