@@ -4,11 +4,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const {
   deriveCachePlan,
   deriveWindow,
+  discoverCommand,
   parseBoolean,
   selectArtifact,
 } = require('../../actions/artifact-cache/artifact_cache');
@@ -170,6 +172,87 @@ test('returns null on cache miss so producers can fall through', () => {
   });
 
   assert.equal(artifact, null);
+});
+
+test('non-fail-fast discovery falls through when artifact listing is forbidden', async () => {
+  const outputPath = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'artifact-cache-test-')),
+    'outputs',
+  );
+  const originalFetch = global.fetch;
+  const originalEnv = { ...process.env };
+  global.fetch = async () => ({
+    ok: false,
+    status: 403,
+    statusText: 'Forbidden',
+    headers: { get: () => '' },
+  });
+  Object.assign(process.env, {
+    ARTIFACT_CACHE_NOW: '2026-05-06T12:00:00Z',
+    GITHUB_OUTPUT: outputPath,
+    GITHUB_REPOSITORY: 'owner/repo',
+    GITHUB_RUN_ID: '123',
+    GITHUB_TOKEN: 'token',
+    INPUT_ARTIFACT_NAME: 'coverage',
+    INPUT_CACHE_KEY_BASE: 'ci-artifacts',
+    INPUT_FAIL_FAST: 'false',
+    INPUT_WINDOW_RESOLUTION: 'daily',
+  });
+
+  try {
+    await discoverCommand();
+    const outputs = fs.readFileSync(outputPath, 'utf8');
+    assert.match(outputs, /artifact-found=false/);
+    assert.match(outputs, /artifact-id=/);
+    assert.match(outputs, /run-id=/);
+  } finally {
+    global.fetch = originalFetch;
+    for (const key of Object.keys(process.env)) {
+      if (!(key in originalEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, originalEnv);
+  }
+});
+
+test('fail-fast discovery errors when artifact listing is forbidden', async () => {
+  const outputPath = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'artifact-cache-test-')),
+    'outputs',
+  );
+  const originalFetch = global.fetch;
+  const originalEnv = { ...process.env };
+  global.fetch = async () => ({
+    ok: false,
+    status: 403,
+    statusText: 'Forbidden',
+    headers: { get: () => '' },
+  });
+  Object.assign(process.env, {
+    ARTIFACT_CACHE_NOW: '2026-05-06T12:00:00Z',
+    GITHUB_OUTPUT: outputPath,
+    GITHUB_REPOSITORY: 'owner/repo',
+    GITHUB_RUN_ID: '123',
+    GITHUB_TOKEN: 'token',
+    INPUT_ARTIFACT_NAME: 'coverage',
+    INPUT_CACHE_KEY_BASE: 'ci-artifacts',
+    INPUT_FAIL_FAST: 'true',
+    INPUT_WINDOW_RESOLUTION: 'daily',
+  });
+
+  try {
+    await assert.rejects(discoverCommand(), /Failed to list artifacts: 403 Forbidden/);
+    assert.equal(fs.existsSync(outputPath), false);
+  } finally {
+    global.fetch = originalFetch;
+    for (const key of Object.keys(process.env)) {
+      if (!(key in originalEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, originalEnv);
+  }
 });
 
 test('parses fail-fast boolean inputs strictly', () => {

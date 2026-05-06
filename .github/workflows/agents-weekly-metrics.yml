@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
+            .github/actions/artifact-cache
             .github/actions/setup-api-client
             .github/scripts/bot_comment_auth_coverage.js
             .github/scripts/coverage_monitor_summary.js
@@ -51,7 +52,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Restore metrics artifact cache
+        id: metrics-cache
+        uses: ./.github/actions/artifact-cache
+        with:
+          cache-key-base: weekly-metrics
+          window-resolution: weekly
+          artifact-name: agent-weekly-metrics
+          artifact-path: artifacts
+          fail-fast: 'false'
+
       - name: Download metrics artifacts
+        if: ${{ steps.metrics-cache.outputs.cache-hit != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

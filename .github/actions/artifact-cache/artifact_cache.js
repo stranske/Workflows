@@ -211,7 +211,9 @@ async function listArtifacts({
       },
     );
     if (!response.ok) {
-      throw new Error(`Failed to list artifacts: ${response.status} ${response.statusText}`);
+      const error = new Error(`Failed to list artifacts: ${response.status} ${response.statusText}`);
+      error.status = response.status;
+      throw error;
     }
     const payload = await response.json();
     const pageArtifacts = Array.isArray(payload.artifacts) ? payload.artifacts : [];
@@ -224,6 +226,14 @@ async function listArtifacts({
     page += 1;
   }
   return artifacts;
+}
+
+function writeArtifactMissOutputs() {
+  writeOutputs({
+    'artifact-found': 'false',
+    'artifact-id': '',
+    'run-id': '',
+  });
 }
 
 function writeOutputs(outputs) {
@@ -270,11 +280,24 @@ async function discoverCommand() {
   const plan = buildPlanFromEnv();
   const failFast = parseBoolean(process.env.INPUT_FAIL_FAST, false);
   const [owner, repo] = String(process.env.GITHUB_REPOSITORY || '').split('/');
-  const artifacts = await listArtifacts({
-    token: process.env.GITHUB_TOKEN,
-    owner,
-    repo,
-  });
+  let artifacts;
+  try {
+    artifacts = await listArtifacts({
+      token: process.env.GITHUB_TOKEN,
+      owner,
+      repo,
+    });
+  } catch (error) {
+    const message = `Artifact discovery failed: ${error.message || error}`;
+    if (failFast) {
+      console.error(`::error title=Artifact discovery failed::${message}`);
+      throw error;
+    }
+    console.log(`::warning::${message} Producer steps may repopulate ${plan.artifactPath}.`);
+    writeArtifactMissOutputs();
+    return;
+  }
+
   const artifact = selectArtifact(artifacts, {
     artifactName: plan.artifactName,
     window: plan.window,
@@ -293,11 +316,7 @@ async function discoverCommand() {
       throw new Error(message);
     }
     console.log(`::notice::${message} Producer steps may repopulate ${plan.artifactPath}.`);
-    writeOutputs({
-      'artifact-found': 'false',
-      'artifact-id': '',
-      'run-id': '',
-    });
+    writeArtifactMissOutputs();
     return;
   }
 
@@ -332,7 +351,9 @@ if (require.main === module) {
 module.exports = {
   deriveCachePlan,
   deriveWindow,
+  discoverCommand,
   isoWeekParts,
+  listArtifacts,
   parseBoolean,
   sanitizeSegment,
   selectArtifact,

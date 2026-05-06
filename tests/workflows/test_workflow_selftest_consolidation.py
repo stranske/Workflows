@@ -451,14 +451,36 @@ def test_selftest_runner_publish_job_contract() -> None:
     def _find_step(name: str) -> dict:
         return next((step for step in steps if step.get("name") == name), {})
 
+    cache_step = _find_step("Restore self-test report cache")
+    assert cache_step, "Artifact cache step missing from publish job."
+    assert (
+        cache_step.get("uses") == "./.github/actions/artifact-cache"
+    ), "Self-test report cache should use the shared artifact-cache action."
+    assert (
+        cache_step.get("if") == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
+    ), "Cache step must guard on enable_history input and aggregate run id."
+    cache_with = cache_step.get("with", {})
+    assert (
+        cache_with.get("cache-key-base") == "selftest-reusable-ci-report-${{ env.RUN_ID }}"
+    ), "Cache key base should stay stable for selftest report reuse."
+    assert (
+        cache_with.get("window-resolution") == "daily"
+    ), "Selftest report cache should use a daily run window."
+    assert (
+        cache_with.get("producer-run-id") == "${{ env.RUN_ID }}"
+    ), "Selftest report cache should discover artifacts from the aggregate run."
+
     download_step = _find_step("Download self-test report")
     assert download_step, "Download step missing from publish job."
     assert download_step.get("uses", "").startswith(
         "actions/download-artifact@"
     ), "Download step should use actions/download-artifact."
+    download_condition = download_step.get("if")
     assert (
-        download_step.get("if") == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
-    ), "Download step must guard on enable_history input and aggregate run id."
+        "env.ENABLE_HISTORY == 'true'" in download_condition
+        and "env.RUN_ID != ''" in download_condition
+        and "steps.selftest-report-cache.outputs.artifact-found != 'true'" in download_condition
+    ), "Download step must fall back only when artifact-cache did not find the report."
     download_with = download_step.get("with", {})
     assert (
         download_with.get("run-id") == "${{ env.RUN_ID }}"

@@ -1423,6 +1423,17 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Checkout Workflows artifact cache action
+        if: ${{ inputs.cache }}
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          path: .workflows-lib
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          sparse-checkout: |
+            .github/actions/artifact-cache
+          sparse-checkout-cone-mode: false
+
       - name: Install uv
         shell: bash
         run: |
@@ -1762,6 +1773,19 @@ jobs:
           restore-keys: |
             pytest-${{ runner.os }}-${{ matrix.python-version }}-
             pytest-${{ runner.os }}-
+      - name: Restore CI artifact cache
+        id: ci-artifact-cache
+        if: ${{ inputs.cache }}
+        uses: ./.workflows-lib/.github/actions/artifact-cache
+        with:
+          cache-key-base: ci-artifacts-${{ matrix.python-version }}
+          window-resolution: daily
+          artifact-name: >-
+            ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}-${{
+            github.run_attempt }}
+          artifact-path: ${{ env.PROJECT_ROOT }}/artifacts/coverage
+          fail-fast: 'false'
+
       - name: Pytest (unit tests with coverage)
         id: pytest
         continue-on-error: true

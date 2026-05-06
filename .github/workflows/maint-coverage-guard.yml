@@ -28,6 +28,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/actions/artifact-cache
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
@@ -102,6 +103,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
+            .github/actions/artifact-cache
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
@@ -164,33 +166,39 @@ jobs:
 
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@v8
-        continue-on-error: true
+        id: coverage-trend-cache
+        uses: ./.github/actions/artifact-cache
         with:
-          name: gate-coverage-trend
-          run-id: ${{ steps.discover.outputs.run_id }}
-          path: coverage_artifacts/trend
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key-base: gate-coverage-trend-${{ steps.discover.outputs.run_id }}
+          window-resolution: weekly
+          artifact-name: gate-coverage-trend
+          artifact-path: coverage_artifacts/trend
+          producer-run-id: ${{ steps.discover.outputs.run_id }}
+          fail-fast: 'true'
 
       - name: Download coverage trend history artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@v8
-        continue-on-error: true
+        id: coverage-trend-history-cache
+        uses: ./.github/actions/artifact-cache
         with:
-          name: gate-coverage-trend-history
-          run-id: ${{ steps.discover.outputs.run_id }}
-          path: coverage_artifacts/history
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key-base: gate-coverage-trend-history-${{ steps.discover.outputs.run_id }}
+          window-resolution: weekly
+          artifact-name: gate-coverage-trend-history
+          artifact-path: coverage_artifacts/history
+          producer-run-id: ${{ steps.discover.outputs.run_id }}
+          fail-fast: 'true'
 
       - name: Download coverage payload artifact
         if: ${{ steps.discover.outputs.run_id }}
-        uses: actions/download-artifact@v8
-        continue-on-error: true
+        id: coverage-payload-cache
+        uses: ./.github/actions/artifact-cache
         with:
-          name: gate-coverage
-          run-id: ${{ steps.discover.outputs.run_id }}
-          path: coverage_artifacts/payload
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache-key-base: gate-coverage-${{ steps.discover.outputs.run_id }}
+          window-resolution: weekly
+          artifact-name: gate-coverage
+          artifact-path: coverage_artifacts/payload
+          producer-run-id: ${{ steps.discover.outputs.run_id }}
+          fail-fast: 'true'
 
       - name: Run coverage guard
         if: ${{ steps.discover.outputs.run_id }}

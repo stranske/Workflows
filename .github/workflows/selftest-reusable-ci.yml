@@ -543,8 +543,33 @@ full_soft_gate"
               ;;
           esac
 
-      - name: Download self-test report
+      - name: Checkout artifact cache action
         if: ${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/actions/artifact-cache
+          sparse-checkout-cone-mode: false
+
+      - name: Restore self-test report cache
+        id: selftest-report-cache
+        if: ${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}
+        uses: ./.github/actions/artifact-cache
+        with:
+          cache-key-base: selftest-reusable-ci-report-${{ env.RUN_ID }}
+          window-resolution: daily
+          artifact-name: selftest-report
+          artifact-path: selftest-report
+          producer-run-id: ${{ env.RUN_ID }}
+          fail-fast: 'false'
+
+      - name: Download self-test report
+        if: >-
+          ${{
+            env.ENABLE_HISTORY == 'true' &&
+            env.RUN_ID != '' &&
+            steps.selftest-report-cache.outputs.artifact-found != 'true'
+          }}
         uses: actions/download-artifact@v8
         with:
           run-id: ${{ env.RUN_ID }}
