@@ -180,7 +180,9 @@ def materialize_reference_packs(
     return summary_path
 
 
-def assemble_prompt(reference_pack_name: str | None, context: dict[str, Any], provider: str) -> RunnerPrompt:
+def assemble_prompt(
+    reference_pack_name: str | None, context: dict[str, Any], provider: str
+) -> RunnerPrompt:
     """Assemble a provider-specific prompt from template, context, and references."""
     provider = _validate_provider(provider)
     workspace = Path(str(context.get("workspace", "."))).resolve()
@@ -540,7 +542,9 @@ def record_completion(
     provider = _validate_provider(provider)
     storage = storage or _storage_from_name("auto")
     key = _runner_key(pr_number, head_sha, provider)
-    result_payload = dataclasses.asdict(result) if dataclasses.is_dataclass(result) else dict(result)
+    result_payload = (
+        dataclasses.asdict(result) if dataclasses.is_dataclass(result) else dict(result)
+    )
     status = "completed" if result_payload.get("success") else "error"
     prior = storage.read_record(pr_number, provider) or {}
     completed_at = (
@@ -595,7 +599,11 @@ def _cmd_assemble(args: argparse.Namespace) -> int:
 
 
 def _cmd_parse(args: argparse.Namespace) -> int:
-    raw = Path(args.raw_output_file).read_text(encoding="utf-8") if args.raw_output_file else sys.stdin.read()
+    raw = (
+        Path(args.raw_output_file).read_text(encoding="utf-8")
+        if args.raw_output_file
+        else sys.stdin.read()
+    )
     result = parse_runner_output(args.provider, raw)
     outputs = {
         "success": "true" if result.success else "false",
