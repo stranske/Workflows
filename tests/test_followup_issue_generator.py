@@ -60,6 +60,27 @@ def test_select_followup_acceptance_criteria_keeps_workflow_items_for_workflow_f
     assert selected == original_issue.acceptance_criteria
 
 
+def test_select_followup_acceptance_criteria_keeps_workflow_items_for_sync_context_feedback() -> (
+    None
+):
+    original_issue = OriginalIssueData(
+        title="Mixed sync follow-up",
+        number=52,
+        tasks=[],
+        acceptance_criteria=[
+            "Workflow template sync PRs are merged across consumers",
+            "Database migrations preserve existing records",
+        ],
+    )
+    verification_data = VerificationData(
+        concerns=["Consumer sync output is not synced in generated repos"]
+    )
+
+    selected = _select_followup_acceptance_criteria(original_issue, verification_data)
+
+    assert selected == original_issue.acceptance_criteria
+
+
 def test_select_followup_acceptance_criteria_accepts_plain_list() -> None:
     criteria = [
         "Workflows-owned scripts in Pension-Data stay synced",
