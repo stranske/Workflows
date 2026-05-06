@@ -1828,6 +1828,7 @@ EXPLICIT_WORKFLOW_SYNC_ACCEPTANCE_MARKERS = (
 )
 
 WORKFLOW_SYNC_CONTEXT_MARKERS = (
+    *WORKFLOW_SYNC_ACCEPTANCE_MARKERS,
     "consumer sync",
     "consumer-sync",
     "consumer",
@@ -1836,6 +1837,9 @@ WORKFLOW_SYNC_CONTEXT_MARKERS = (
     "maint-68",
     "synced",
     "sync-generated",
+    "template syncing",
+    "workflow sync",
+    "workflows sync",
 )
 
 WORKFLOW_SYNC_REPO_LOCAL_MARKERS = (

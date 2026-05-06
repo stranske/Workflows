@@ -207,6 +207,35 @@ test('findOrCreateTracker discovers an unlabeled tracker by marker', async () =>
   );
 });
 
+test('findOrCreateTracker discovers an unlabeled tracker by title only', async () => {
+  const github = mockGithub({
+    issues: [
+      {
+        number: 14,
+        title: 'Sync/Dependabot campaign queue',
+        body: 'existing queue body',
+        labels: [],
+      },
+    ],
+  });
+
+  const tracker = await findOrCreateTracker({
+    github,
+    owner: 'stranske',
+    repo: 'Workflows',
+    label: 'campaign:sync-dependabot',
+    titlePattern: /^Sync\/Dependabot campaign queue$/,
+  });
+
+  assert.equal(tracker.number, 14);
+  assert.equal(tracker.sync_tracker_created, false);
+  assert.equal(github.calls.createdIssues.length, 0);
+  assert.equal(
+    github.calls.issueLists.some((params) => !params.labels),
+    true,
+  );
+});
+
 test('findOrCreateTracker creates a durable tracker when none is found', async () => {
   const github = mockGithub();
   const retryOptions = [];
