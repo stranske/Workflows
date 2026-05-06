@@ -286,7 +286,8 @@ def main(argv: list[str] | None = None) -> int:
         f"reference_packs_config_text={_github_output_value(snapshot.config_text or '')}",
         f"reference_packs_config_text_b64={config_text_b64}",
     ]
-    github_output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with github_output.open("a", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
     return 0
 
 

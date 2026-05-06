@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.langchain import verdict_policy
+from scripts.langchain.issue_pr_context import estimate_tokens
 from scripts.langchain.verifier_config import EVAL_FOLLOW_UP_BUDGET_TOKENS
 
 try:
@@ -1391,16 +1392,38 @@ def generate_followup_issue(
 
 
 def _budget_followup_tasks(tasks: list[str]) -> list[str]:
-    budget = max(1, EVAL_FOLLOW_UP_BUDGET_TOKENS)
+    budget = max(1, min(1000, EVAL_FOLLOW_UP_BUDGET_TOKENS // 4))
     used = 0
     selected: list[str] = []
-    for task in tasks:
-        estimated = max(1, (len(task) + TOKEN_CHARS - 1) // TOKEN_CHARS)
+    for task in tasks[:20]:
+        estimated = max(1, estimate_tokens(f"- [ ] {task}"))
+        if estimated > budget:
+            if not selected:
+                selected.append(_truncate_task_to_budget(task, budget))
+            break
         if selected and used + estimated > budget:
             break
         selected.append(task)
         used += estimated
     return selected
+
+
+def _truncate_task_to_budget(task: str, budget: int) -> str:
+    suffix = " ..."
+    if estimate_tokens(f"- [ ] {task}") <= budget:
+        return task
+    low = 0
+    high = max(0, len(task))
+    best = ""
+    while low <= high:
+        mid = (low + high) // 2
+        candidate = f"{task[:mid].rstrip()}{suffix}"
+        if estimate_tokens(f"- [ ] {candidate}") <= budget:
+            best = candidate
+            low = mid + 1
+        else:
+            high = mid - 1
+    return best or suffix.strip()
 
 
 def _generate_with_llm(

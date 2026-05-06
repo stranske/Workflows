@@ -113,6 +113,14 @@ test('auto and blank force steps are ignored', () => {
   assert.equal(normalizeForceStep(null), '');
 });
 
+test('legacy agent force step maps to implemented capability-check step', () => {
+  assert.equal(normalizeForceStep('agent'), NEXT_STEPS.CAPABILITY_CHECK);
+  assert.equal(
+    determineNextStep({ forceStep: 'agent' }).nextStep,
+    NEXT_STEPS.CAPABILITY_CHECK,
+  );
+});
+
 test('keepalive completion guard matches compact state marker currently emitted by keepalive', () => {
   assert.equal(
     isKeepaliveTasksComplete('<!-- keepalive-state:v1 {"last_action":"stop","last_reason":"tasks-complete"} -->'),

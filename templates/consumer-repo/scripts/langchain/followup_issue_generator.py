@@ -24,12 +24,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+DEFAULT_TOKEN_BUDGET = 4000
+EVAL_FOLLOW_UP_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
+TOKEN_CHARS = 4
 
 # Prompts for multi-round LLM interaction
 # NOTE: We use a reasoning model (o1/o3-mini) for ANALYZE_VERIFICATION_PROMPT
@@ -225,6 +230,64 @@ Use this exact structure:
 
 Output the complete markdown issue body.
 """.strip()
+
+
+def estimate_tokens(text: str, *, model: str | None = None) -> int:  # noqa: ARG001
+    """Estimate prompt tokens using tiktoken when present, else 4 chars/token."""
+
+    value = text or ""
+    if not value:
+        return 0
+
+    chars_estimate = math.ceil(len(value) / TOKEN_CHARS)
+    try:
+        import tiktoken  # type: ignore[import-not-found]
+    except ImportError:
+        return chars_estimate
+
+    try:
+        encoding = (
+            tiktoken.encoding_for_model(model) if model else tiktoken.get_encoding("cl100k_base")
+        )
+    except Exception:
+        encoding = tiktoken.get_encoding("cl100k_base")
+    return max(len(encoding.encode(value)), chars_estimate)
+
+
+def _budget_followup_tasks(tasks: list[str]) -> list[str]:
+    budget = max(1, min(1000, EVAL_FOLLOW_UP_BUDGET_TOKENS // 4))
+    used = 0
+    selected: list[str] = []
+    for task in tasks[:20]:
+        estimated = max(1, estimate_tokens(f"- [ ] {task}"))
+        if estimated > budget:
+            if not selected:
+                selected.append(_truncate_task_to_budget(task, budget))
+            break
+        if selected and used + estimated > budget:
+            break
+        selected.append(task)
+        used += estimated
+    return selected
+
+
+def _truncate_task_to_budget(task: str, budget: int) -> str:
+    suffix = " ..."
+    if estimate_tokens(f"- [ ] {task}") <= budget:
+        return task
+
+    low = 0
+    high = max(0, len(task))
+    best = ""
+    while low <= high:
+        mid = (low + high) // 2
+        candidate = f"{task[:mid].rstrip()}{suffix}"
+        if estimate_tokens(f"- [ ] {candidate}") <= budget:
+            best = candidate
+            low = mid + 1
+        else:
+            high = mid - 1
+    return best or suffix.strip()
 
 
 @dataclass
@@ -675,8 +738,8 @@ def _generate_with_llm(
     tasks_prompt = GENERATE_TASKS_PROMPT.format(
         analysis_json=json.dumps(analysis, indent=2),
         original_tasks="\n".join(
-            f"- [ ] {t}" for t in original_issue.tasks[:20]
-        ),  # Limit for token budget
+            f"- [ ] {t}" for t in _budget_followup_tasks(original_issue.tasks)
+        ),
     )
 
     tasks_response = _invoke_llm(tasks_prompt, standard_client)

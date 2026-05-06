@@ -360,6 +360,7 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     github_output = tmp_path / "github_output.txt"
+    github_output.write_text("existing_output=true\n", encoding="utf-8")
 
     result = subprocess.run(
         [
@@ -378,6 +379,7 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
 
     assert result.returncode == 0
     output_lines = github_output.read_text(encoding="utf-8")
+    assert output_lines.startswith("existing_output=true\n")
     assert "reference_packs_exists=true" in output_lines
     assert f"reference_packs_path={config_file}" in output_lines
     assert "reference_packs_count=1" in output_lines

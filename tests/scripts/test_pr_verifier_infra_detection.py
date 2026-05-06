@@ -6,6 +6,7 @@ import textwrap
 
 from scripts.langchain.pr_verifier import (
     INFRA_THRESHOLD,
+    _bounded_diff_for_classification,
     _classify_change_type,
     _prepare_prompt,
 )
@@ -203,3 +204,21 @@ class TestPreparePromptInfraSelection:
     def test_no_diff_uses_standard_prompt(self):
         result = _prepare_prompt("context", None)
         assert "Infrastructure Change Guidance" not in result
+
+    def test_prepare_prompt_bounds_context_and_diff_separately(self):
+        result = _prepare_prompt("context " * 5000, self._app_diff() + ("body\n" * 5000))
+        assert result.count("[truncated: verifier prompt budget exceeded]") >= 1
+
+
+def test_bounded_diff_for_classification_keeps_headers_without_full_body() -> None:
+    diff = (
+        "diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml\n"
+        "--- a/.github/workflows/ci.yml\n"
+        "+++ b/.github/workflows/ci.yml\n"
+        "@@ -1 +1 @@\n" + ("+large body\n" * 10000)
+    )
+
+    bounded = _bounded_diff_for_classification(diff)
+
+    assert ".github/workflows/ci.yml" in bounded
+    assert len(bounded) < len(diff)

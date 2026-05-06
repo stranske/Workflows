@@ -146,6 +146,22 @@ def test_should_dispatch_first_duplicate_and_sha_changed() -> None:
     assert changed.reason == "head-sha-changed"
 
 
+def test_should_dispatch_allows_stale_pending_record() -> None:
+    storage = MemoryRunnerStorage()
+    storage.records[(42, "codex")] = {
+        "provider": "codex",
+        "pr_number": 42,
+        "head_sha": "aaa",
+        "status": "pending",
+        "started_at": "2026-05-06T00:00:00Z",
+    }
+
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert decision.should_dispatch is True
+    assert decision.reason == "stale-pending"
+
+
 def test_record_completion_is_idempotent_for_same_key() -> None:
     storage = MemoryRunnerStorage()
     should_dispatch(42, "aaa", "claude", storage=storage)
@@ -218,6 +234,29 @@ def test_pr_comment_marker_round_trips_nested_result_payload() -> None:
     assert parsed == record
 
 
+def test_pr_comment_marker_rejects_invalid_base64_payload() -> None:
+    marker = (
+        "Runner dispatch state\n\n" "<!-- runner-dispatch:codex:42:v1 base64:!!!not-base64!!! -->"
+    )
+
+    assert runner_core._extract_record(marker, 42, "codex") is None
+
+
+def test_prompt_cli_rejects_non_prompt_provider() -> None:
+    parser = runner_core.build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "assemble-prompt",
+                "--provider",
+                "autofix",
+                "--base-prompt",
+                ".github/codex/prompts/task.md",
+            ]
+        )
+
+
 def test_pr_comment_storage_stops_when_marker_found() -> None:
     class FakeApi:
         repo = "owner/repo"
@@ -247,6 +286,39 @@ def test_pr_comment_storage_stops_when_marker_found() -> None:
 
     assert record == {"provider": "codex", "head_sha": "abc"}
     assert len(api.paths) == 1
+
+
+def test_pr_comment_storage_selects_newest_marker_across_pages() -> None:
+    class FakeApi:
+        repo = "owner/repo"
+
+        def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+            assert method == "GET"
+            assert body is None
+            if path.endswith("page=1"):
+                return [
+                    {
+                        "body": (
+                            "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                            '{"provider":"codex","head_sha":"old"} -->'
+                        ),
+                        "id": 1,
+                    }
+                    for _ in range(100)
+                ]
+            return [
+                {
+                    "body": (
+                        "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                        '{"provider":"codex","head_sha":"new"} -->'
+                    ),
+                    "id": 101,
+                }
+            ]
+
+    storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
+
+    assert storage.read_record(42, "codex") == {"provider": "codex", "head_sha": "new"}
 
 
 def test_materialize_reference_packs_import_is_lazy(monkeypatch: pytest.MonkeyPatch) -> None:

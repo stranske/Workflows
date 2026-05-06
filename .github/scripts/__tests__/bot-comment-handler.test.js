@@ -55,6 +55,36 @@ test('comment collection skips bot threads where a human replied by default', ()
   );
 });
 
+test('comment collection detects nested human replies in bot threads', () => {
+  const collected = collectUnresolvedBotComments([
+    {
+      id: 1,
+      user: { login: 'copilot[bot]' },
+      path: 'src/app.js',
+      line: 10,
+      body: 'Please adjust this.',
+    },
+    {
+      id: 2,
+      in_reply_to_id: 1,
+      user: { login: 'github-actions[bot]' },
+      path: 'src/app.js',
+      line: 10,
+      body: 'Bot follow-up.',
+    },
+    {
+      id: 3,
+      in_reply_to_id: 2,
+      user: { login: 'octocat' },
+      path: 'src/app.js',
+      line: 10,
+      body: 'Handled manually.',
+    },
+  ]);
+
+  assert.deepEqual(collected, []);
+});
+
 test('comment collection keeps human-replied bot threads when configured', () => {
   const collected = collectUnresolvedBotComments(commentsFixture, {
     skipIfHumanReplied: false,
@@ -131,6 +161,21 @@ test('prepare prompt fixture preserves collected review comment context', () => 
   assert.match(prompt, /### src\/service\.js:22/);
   assert.match(prompt, /Guard against missing input\./);
   assert.match(prompt, /```diff\n@@ -20,7 \+20,7 @@/);
+});
+
+test('prepare prompt uses longer fences when comment bodies contain fences', () => {
+  const prompt = buildBotCommentsPrompt([
+    {
+      path: 'src/app.js',
+      line: 10,
+      author: 'copilot[bot]',
+      body: 'Use this block:\n```js\nconst x = 1;\n```',
+      diff_hunk: '```diff\n-old\n+new\n```',
+    },
+  ]);
+
+  assert.match(prompt, /````\nUse this block:/);
+  assert.match(prompt, /````diff\n```diff/);
 });
 
 test('dispatch fixture selects the assignee and stable marker comment for Codex', () => {

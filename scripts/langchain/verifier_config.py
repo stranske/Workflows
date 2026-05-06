@@ -119,12 +119,11 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
 
     verdicts = _extract_verdicts(raw)
     if verdicts:
-        artifact["verdict"] = (
-            "PASS" if all(verdict == "PASS" for verdict in verdicts) else "CONCERNS"
-        )
+        severity = {"PASS": 0, "CONCERNS": 1, "FAIL": 2, "ERROR": 3}
+        artifact["verdict"] = max(verdicts, key=lambda verdict: severity.get(verdict, -1))
 
     lowered = raw.lower()
-    artifact["repair_pending"] = any(
+    repair_pending = any(
         phrase in lowered
         for phrase in (
             "repair pending",
@@ -136,6 +135,10 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
     )
     if "## pr verification" in lowered or "verdict:" in lowered:
         artifact["artifact_family"] = "verifier-report"
+    if repair_pending and not verdicts:
+        artifact["repair_pending"] = True
+    if artifact.get("artifact_family") == "verifier-report" and not artifact.get("verdict"):
+        artifact["verdict"] = "ERROR"
     return artifact
 
 

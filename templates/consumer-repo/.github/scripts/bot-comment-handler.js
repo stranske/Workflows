@@ -64,6 +64,26 @@ function collectUnresolvedBotComments(comments = [], options = {}) {
   const ignoredPaths = options.ignoredPaths ?? options.ignored_paths ?? '';
   const botComments = [];
   const processedThreads = new Set();
+  const byId = new Map();
+  for (const comment of Array.isArray(comments) ? comments : []) {
+    if (comment?.id !== undefined && comment?.id !== null) {
+      byId.set(comment.id, comment);
+    }
+  }
+
+  function rootThreadId(comment) {
+    let current = comment;
+    const seen = new Set();
+    while (current?.in_reply_to_id && !seen.has(current.id)) {
+      seen.add(current.id);
+      const parent = byId.get(current.in_reply_to_id);
+      if (!parent) {
+        return current.in_reply_to_id;
+      }
+      current = parent;
+    }
+    return current?.id ?? comment?.id;
+  }
 
   for (const comment of Array.isArray(comments) ? comments : []) {
     const login = comment?.user?.login;
@@ -76,17 +96,18 @@ function collectUnresolvedBotComments(comments = [], options = {}) {
       continue;
     }
 
-    const threadId = comment.in_reply_to_id || comment.id;
+    const threadId = rootThreadId(comment);
     if (processedThreads.has(threadId)) {
       continue;
     }
 
     if (skipIfHumanReplied) {
-      const threadReplies = comments.filter((candidate) => {
-        const inThread =
-          candidate?.in_reply_to_id === comment.id || candidate?.in_reply_to_id === threadId;
-        return inThread && !isBotAuthor(candidate?.user?.login, botAuthors);
-      });
+      const threadReplies = comments.filter(
+        (candidate) =>
+          rootThreadId(candidate) === threadId &&
+          candidate?.id !== comment.id &&
+          !isBotAuthor(candidate?.user?.login, botAuthors),
+      );
       if (threadReplies.length > 0) {
         processedThreads.add(threadId);
         continue;
@@ -106,6 +127,15 @@ function collectUnresolvedBotComments(comments = [], options = {}) {
   }
 
   return botComments;
+}
+
+function markdownFenceFor(text, info = '') {
+  const body = String(text ?? '');
+  let fence = '```';
+  while (body.includes(fence)) {
+    fence += '`';
+  }
+  return `${fence}${info}\n${body}\n${fence}`;
 }
 
 function legacyAgentRoute(labels, defaults = {}) {
@@ -188,14 +218,10 @@ function buildBotCommentsPrompt(comments = []) {
       '',
       `**From:** ${comment.author}`,
       '',
-      '```',
-      String(comment.body ?? ''),
-      '```',
+      markdownFenceFor(comment.body),
       '',
       '**Context (diff hunk):**',
-      '```diff',
-      String(comment.diff_hunk ?? ''),
-      '```',
+      markdownFenceFor(comment.diff_hunk, 'diff'),
       '',
       '---',
       '',

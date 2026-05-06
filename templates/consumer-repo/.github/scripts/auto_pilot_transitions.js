@@ -29,7 +29,6 @@ const FORCED_STEPS = Object.freeze([
   NEXT_STEPS.OPTIMIZE,
   NEXT_STEPS.APPLY,
   NEXT_STEPS.CAPABILITY_CHECK,
-  'agent',
   NEXT_STEPS.VERIFY,
   NEXT_STEPS.CREATE_PR,
   NEXT_STEPS.MONITOR_PR,
@@ -80,6 +79,9 @@ function normalizeForceStep(forceStep) {
   const step = normalizeText(forceStep);
   if (!step || step === 'auto') {
     return '';
+  }
+  if (step === 'agent') {
+    return NEXT_STEPS.CAPABILITY_CHECK;
   }
   if (!FORCED_STEPS.includes(step)) {
     throw new Error(`Invalid auto-pilot force step: ${step}`);

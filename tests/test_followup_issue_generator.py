@@ -41,6 +41,36 @@ def test_select_followup_acceptance_criteria_drops_workflow_sync_items() -> None
     ]
 
 
+def test_budget_followup_tasks_reserves_prompt_overhead(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(followup_issue_generator, "EVAL_FOLLOW_UP_BUDGET_TOKENS", 10)
+    monkeypatch.setattr(
+        followup_issue_generator,
+        "estimate_tokens",
+        lambda value: 1 if "first" in value else 10,
+    )
+
+    selected = followup_issue_generator._budget_followup_tasks(["first task", "second task"])
+
+    assert selected == ["first task"]
+
+
+def test_budget_followup_tasks_truncates_single_oversized_task(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(followup_issue_generator, "EVAL_FOLLOW_UP_BUDGET_TOKENS", 40)
+    monkeypatch.setattr(
+        followup_issue_generator,
+        "estimate_tokens",
+        lambda value: max(1, len(value) // 4),
+    )
+
+    selected = followup_issue_generator._budget_followup_tasks(["x" * 500])
+
+    assert len(selected) == 1
+    assert selected[0].endswith("...")
+    assert len(selected[0]) < 500
+
+
 def test_select_followup_acceptance_criteria_keeps_workflow_items_for_workflow_feedback() -> None:
     original_issue = OriginalIssueData(
         title="Mixed verifier follow-up",

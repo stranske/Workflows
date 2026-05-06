@@ -416,10 +416,11 @@ def _get_chain_depth() -> int:
 def _prepare_prompt(context: str, diff: str | None) -> str:
     diff_block = diff.strip() if diff and diff.strip() else "(diff unavailable)"
     context_block = context.strip() if context and context.strip() else "(context unavailable)"
-    diff_block = _cap_prompt_text(diff_block, EVAL_PAIR_BUDGET_TOKENS)
-    context_block = _cap_prompt_text(context_block, EVAL_PAIR_BUDGET_TOKENS)
+    block_budget = max(1, EVAL_PAIR_BUDGET_TOKENS // 2)
+    diff_block = _cap_prompt_text(diff_block, block_budget)
+    context_block = _cap_prompt_text(context_block, block_budget)
 
-    change_type = _classify_change_type(diff)
+    change_type = _classify_change_type(_bounded_diff_for_classification(diff))
 
     if change_type == "infrastructure":
         if PROMPT_PATH.is_file():
@@ -452,6 +453,20 @@ def _cap_prompt_text(text: str, token_budget: int) -> str:
         return text
     marker = "\n[truncated: verifier prompt budget exceeded]"
     return text[: max(0, max_chars - len(marker))].rstrip() + marker
+
+
+def _bounded_diff_for_classification(diff: str | None) -> str:
+    if not diff:
+        return ""
+    lines = []
+    for line in diff.splitlines():
+        if line.startswith(("diff --git ", "+++ ", "--- ")):
+            lines.append(line)
+        if len(lines) >= 500:
+            break
+    if lines:
+        return "\n".join(lines)
+    return diff[: max(1, EVAL_PAIR_BUDGET_TOKENS // 4) * TOKEN_CHARS]
 
 
 def _extract_pr_metadata(context: str) -> tuple[int | None, str | None]:

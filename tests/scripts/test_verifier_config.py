@@ -120,6 +120,25 @@ def test_artifact_from_verification_text_rejects_pending_repair_report() -> None
     assert not is_terminal_artifact(artifact)
 
 
+def test_artifact_from_verification_text_ignores_stale_repair_marker_with_verdict() -> None:
+    artifact = artifact_from_verification_text(
+        "Schema repair pending in an older run.\n\n## PR Verification Report\n\nVerdict: FAIL"
+    )
+
+    assert artifact["verdict"] == "FAIL"
+    assert artifact.get("repair_pending") is not True
+    assert is_terminal_artifact(artifact)
+
+
+def test_artifact_from_verification_text_marks_malformed_report_terminal_error() -> None:
+    artifact = artifact_from_verification_text(
+        "## PR Verification Report\n\nThe verifier output did not include a verdict."
+    )
+
+    assert artifact["verdict"] == "ERROR"
+    assert is_terminal_artifact(artifact)
+
+
 def test_artifact_from_verification_text_resolves_provider_table() -> None:
     artifact = artifact_from_verification_text(
         "\n".join(
@@ -133,5 +152,5 @@ def test_artifact_from_verification_text_resolves_provider_table() -> None:
         )
     )
 
-    assert artifact["verdict"] == "CONCERNS"
+    assert artifact["verdict"] == "FAIL"
     assert is_terminal_artifact(artifact)

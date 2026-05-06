@@ -27,6 +27,7 @@ MARKER_PREFIX = "runner-dispatch"
 PROVIDERS = {"autofix", "claude", "codex"}
 PROMPT_PROVIDERS = {"claude", "codex"}
 TERMINAL_STATUSES = {"completed", "error"}
+PENDING_STALE_AFTER_SECONDS = 30 * 60
 
 
 @dataclasses.dataclass(frozen=True)
@@ -398,7 +399,7 @@ def _build_marker(pr_number: int, provider: str, record: dict[str, Any]) -> str:
 def _decode_record_candidate(candidate: str) -> str:
     value = candidate.strip()
     if value.startswith("base64:"):
-        return base64.b64decode(value.removeprefix("base64:")).decode("utf-8")
+        return base64.b64decode(value.removeprefix("base64:"), validate=True).decode("utf-8")
     return value
 
 
@@ -437,6 +438,7 @@ class PrCommentRunnerStorage:
         return cls(GitHubApi(repo, token))
 
     def _iter_comments(self, pr_number: int) -> Iterator[dict[str, Any]]:
+        comments: list[dict[str, Any]] = []
         page = 1
         while True:
             batch = self.api.request(
@@ -447,10 +449,11 @@ class PrCommentRunnerStorage:
                 raise RuntimeError(
                     f"Expected list response from GitHub API comments page for PR {pr_number}"
                 )
-            yield from reversed(batch)
+            comments.extend(batch)
             if len(batch) < 100:
-                return
+                break
             page += 1
+        yield from reversed(comments)
 
     def _find_comment(self, pr_number: int, provider: str) -> dict[str, Any] | None:
         pattern = _marker_re(pr_number, provider)
@@ -577,6 +580,29 @@ def _storage_from_name(name: str) -> RunnerDispatchStorage:
     raise ValueError(f"unsupported storage backend: {name}")
 
 
+def _parse_timestamp(value: Any) -> dt.datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value.strip()
+    if raw.endswith("Z"):
+        raw = f"{raw[:-1]}+00:00"
+    try:
+        parsed = dt.datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=dt.UTC)
+    return parsed.astimezone(dt.UTC)
+
+
+def _pending_record_is_stale(prior: dict[str, Any], *, now: dt.datetime | None = None) -> bool:
+    started_at = _parse_timestamp(prior.get("started_at"))
+    if started_at is None:
+        return True
+    current = now or dt.datetime.now(dt.UTC)
+    return (current - started_at).total_seconds() > PENDING_STALE_AFTER_SECONDS
+
+
 def should_dispatch(
     pr_number: int,
     head_sha: str,
@@ -591,7 +617,7 @@ def should_dispatch(
 
     if prior and prior.get("head_sha") == head_sha:
         status = str(prior.get("status") or "")
-        if status in {"pending", "completed"}:
+        if status == "completed" or (status == "pending" and not _pending_record_is_stale(prior)):
             return DebounceDecision(
                 False,
                 f"duplicate-{status}",
@@ -600,7 +626,11 @@ def should_dispatch(
                 prior_head_sha=head_sha,
             )
 
-    reason = "first-dispatch" if prior is None else "head-sha-changed"
+    reason = (
+        "first-dispatch"
+        if prior is None
+        else "stale-pending" if prior.get("head_sha") == head_sha else "head-sha-changed"
+    )
     record = {
         "provider": provider,
         "pr_number": pr_number,
@@ -763,7 +793,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     assemble = subparsers.add_parser("assemble-prompt", help="assemble provider prompt")
-    assemble.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
+    assemble.add_argument("--provider", choices=sorted(PROMPT_PROVIDERS), required=True)
     assemble.add_argument("--base-prompt", required=True)
     assemble.add_argument("--workspace", default=".")
     assemble.add_argument("--appendix", default="")
@@ -776,7 +806,7 @@ def build_parser() -> argparse.ArgumentParser:
     assemble.set_defaults(func=_cmd_assemble)
 
     parse = subparsers.add_parser("parse-output", help="parse provider output")
-    parse.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
+    parse.add_argument("--provider", choices=sorted(PROMPT_PROVIDERS), required=True)
     parse.add_argument("--raw-output-file", default="")
     parse.set_defaults(func=_cmd_parse)
 
