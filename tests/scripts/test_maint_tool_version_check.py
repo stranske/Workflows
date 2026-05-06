@@ -14,8 +14,7 @@ def test_parse_tool_version_outputs_cover_common_tools() -> None:
     }
 
     assert {
-        tool: check.parse_tool_version_output(tool, output)
-        for tool, output in samples.items()
+        tool: check.parse_tool_version_output(tool, output) for tool, output in samples.items()
     } == {
         "black": "25.11.0",
         "ruff": "0.14.10",
