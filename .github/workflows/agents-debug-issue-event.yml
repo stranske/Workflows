@@ -1,13 +1,15 @@
 name: Agents Debug Issue Event
 on:
+  workflow_dispatch:
   issues:
-    types: [labeled, unlabeled, opened, reopened]
+    types: [labeled]
 
 permissions:
   contents: read
 
 jobs:
   debug_dump:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'agents:debug'
     runs-on: ubuntu-latest
     steps:
       - name: Dump GitHub Context
