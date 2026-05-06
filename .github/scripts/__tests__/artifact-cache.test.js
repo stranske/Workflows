@@ -72,32 +72,61 @@ test('selects newest matching artifact in the active window', () => {
       id: 1,
       name: 'gate-coverage',
       created_at: '2026-04-30T00:00:00Z',
-      workflow_run: { id: 100 },
+      workflow_run: { id: 100, head_branch: 'main' },
     },
     {
       id: 2,
       name: 'gate-coverage',
       created_at: '2026-05-05T00:00:00Z',
-      workflow_run: { id: 101 },
+      workflow_run: { id: 101, head_branch: 'feature' },
     },
     {
       id: 3,
       name: 'gate-coverage',
       created_at: '2026-05-06T00:00:00Z',
-      workflow_run: { id: 102 },
+      workflow_run: { id: 102, head_branch: 'main' },
     },
     {
       id: 4,
       name: 'other',
       created_at: '2026-05-07T00:00:00Z',
-      workflow_run: { id: 103 },
+      workflow_run: { id: 103, head_branch: 'main' },
     },
   ], {
     artifactName: 'gate-coverage',
     window,
+    producerBranch: 'main',
   });
 
   assert.equal(artifact.id, 3);
+});
+
+test('can scope artifact discovery to an exact producer run', () => {
+  const window = deriveWindow({
+    resolution: 'weekly',
+    now: '2026-05-06T12:00:00Z',
+  });
+  const artifact = selectArtifact([
+    {
+      id: 1,
+      name: 'gate-coverage',
+      created_at: '2026-05-06T02:00:00Z',
+      workflow_run: { id: 100, head_branch: 'main' },
+    },
+    {
+      id: 2,
+      name: 'gate-coverage',
+      created_at: '2026-05-06T03:00:00Z',
+      workflow_run: { id: 101, head_branch: 'main' },
+    },
+  ], {
+    artifactName: 'gate-coverage',
+    window,
+    producerRunId: '100',
+    producerBranch: 'main',
+  });
+
+  assert.equal(artifact.id, 1);
 });
 
 test('ignores expired artifacts and run-window mismatches', () => {
@@ -160,6 +189,8 @@ test('action metadata exposes required public inputs and outputs', () => {
   assert.match(metadata, /window-resolution:/);
   assert.match(metadata, /artifact-name:/);
   assert.match(metadata, /fail-fast:/);
+  assert.match(metadata, /producer-run-id:/);
+  assert.match(metadata, /producer-branch:/);
   assert.match(metadata, /cache-hit:/);
   assert.match(metadata, /artifact-found:/);
   assert.match(metadata, /artifact-path:/);

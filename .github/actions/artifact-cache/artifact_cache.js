@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const VALID_WINDOW_RESOLUTIONS = new Set(['daily', 'weekly', 'run']);
+const DEFAULT_GITHUB_API_URL = ['https://api', 'github', 'com'].join('.');
 
 function parseBoolean(value, defaultValue = false) {
   if (value === undefined || value === null || String(value).trim() === '') {
@@ -143,15 +144,47 @@ function artifactInWindow(artifact, window, runId = '') {
   return createdAt >= window.start && createdAt < window.end;
 }
 
-function selectArtifact(artifacts, { artifactName, window, runId = '' }) {
+function artifactRunId(artifact) {
+  return artifact?.workflow_run?.id || artifact?.workflow_run?.run_id || '';
+}
+
+function artifactHeadBranch(artifact) {
+  return artifact?.workflow_run?.head_branch || '';
+}
+
+function artifactMatchesProducer(artifact, { producerRunId = '', producerBranch = '' } = {}) {
+  const expectedRunId = String(producerRunId || '').trim();
+  if (expectedRunId && String(artifactRunId(artifact) || '') !== expectedRunId) {
+    return false;
+  }
+
+  const expectedBranch = String(producerBranch || '').trim();
+  if (expectedBranch && artifactHeadBranch(artifact) !== expectedBranch) {
+    return false;
+  }
+
+  return true;
+}
+
+function selectArtifact(
+  artifacts,
+  { artifactName, window, runId = '', producerRunId = '', producerBranch = '' },
+) {
   return [...(artifacts || [])]
     .filter((artifact) => artifact && artifact.name === artifactName)
     .filter((artifact) => !artifact.expired)
     .filter((artifact) => artifactInWindow(artifact, window, runId))
+    .filter((artifact) => artifactMatchesProducer(artifact, { producerRunId, producerBranch }))
     .sort((a, b) => artifactCreatedAt(b) - artifactCreatedAt(a))[0] || null;
 }
 
-async function listArtifacts({ token, owner, repo, fetchImpl = global.fetch }) {
+async function listArtifacts({
+  token,
+  owner,
+  repo,
+  apiUrl = process.env.GITHUB_API_URL || DEFAULT_GITHUB_API_URL,
+  fetchImpl = global.fetch,
+}) {
   if (!fetchImpl) {
     throw new Error('Global fetch is not available; use Node.js 18 or newer.');
   }
@@ -164,9 +197,10 @@ async function listArtifacts({ token, owner, repo, fetchImpl = global.fetch }) {
 
   const artifacts = [];
   let page = 1;
-  while (page <= 20) {
+  while (true) {
+    const baseUrl = String(apiUrl || DEFAULT_GITHUB_API_URL).replace(/\/+$/, '');
     const response = await fetchImpl(
-      `https://api.github.com/repos/${owner}/${repo}/actions/artifacts?per_page=100&page=${page}`,
+      `${baseUrl}/repos/${owner}/${repo}/actions/artifacts?per_page=100&page=${page}`,
       {
         headers: {
           accept: 'application/vnd.github+json',
@@ -182,7 +216,9 @@ async function listArtifacts({ token, owner, repo, fetchImpl = global.fetch }) {
     const payload = await response.json();
     const pageArtifacts = Array.isArray(payload.artifacts) ? payload.artifacts : [];
     artifacts.push(...pageArtifacts);
-    if (pageArtifacts.length < 100) {
+    const linkHeader = response.headers?.get?.('link') || '';
+    const hasNextPage = linkHeader.includes('rel="next"');
+    if (!hasNextPage && pageArtifacts.length < 100) {
       break;
     }
     page += 1;
@@ -243,6 +279,8 @@ async function discoverCommand() {
     artifactName: plan.artifactName,
     window: plan.window,
     runId: process.env.GITHUB_RUN_ID || '',
+    producerRunId: process.env.INPUT_PRODUCER_RUN_ID || '',
+    producerBranch: process.env.INPUT_PRODUCER_BRANCH || process.env.GITHUB_REF_NAME || '',
   });
 
   if (!artifact) {
@@ -263,7 +301,7 @@ async function discoverCommand() {
     return;
   }
 
-  const runId = artifact.workflow_run?.id || artifact.workflow_run?.run_id || '';
+  const runId = artifactRunId(artifact);
   writeOutputs({
     'artifact-found': 'true',
     'artifact-id': String(artifact.id || ''),

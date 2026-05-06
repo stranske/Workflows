@@ -20,6 +20,14 @@ inputs:
     description: Local path to restore/download/cache. Defaults to .artifact-cache/<base>/<window>/<artifact>.
     required: false
     default: ''
+  producer-run-id:
+    description: Optional workflow run id that must own the discovered artifact.
+    required: false
+    default: ''
+  producer-branch:
+    description: Optional branch that must own the discovered artifact. Defaults to the current ref name.
+    required: false
+    default: ''
 
 outputs:
   cache-hit:
@@ -66,6 +74,8 @@ runs:
         INPUT_ARTIFACT_NAME: ${{ inputs.artifact-name }}
         INPUT_ARTIFACT_PATH: ${{ inputs.artifact-path }}
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
+        INPUT_PRODUCER_RUN_ID: ${{ inputs.producer-run-id }}
+        INPUT_PRODUCER_BRANCH: ${{ inputs.producer-branch }}
         GITHUB_TOKEN: ${{ github.token }}
       run: node "$GITHUB_ACTION_PATH/artifact_cache.js" discover
 
