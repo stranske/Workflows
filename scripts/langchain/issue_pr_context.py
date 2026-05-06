@@ -37,15 +37,24 @@ class ContextOptions:
 
 
 def estimate_tokens(text: str, *, model: str | None = None) -> int:
-    """Estimate prompt tokens using tiktoken when available, else 4 chars/token."""
+    """Estimate prompt tokens using tiktoken when available, else 4 chars/token.
+
+    Returns ``max(tiktoken_count, chars/4)``: tiktoken's BPE encoding aggressively
+    compresses repeated patterns (e.g. 60K of the same character collapses to a
+    handful of tokens), which would let oversized inputs slip past token-budget
+    truncation. The chars/4 floor keeps the cap honest against compressible
+    inputs while preserving accurate counts on normal prose.
+    """
     value = text or ""
     if not value:
         return 0
 
+    chars_estimate = math.ceil(len(value) / TOKEN_CHARS)
+
     try:
         import tiktoken  # type: ignore[import-not-found]
     except ImportError:
-        return math.ceil(len(value) / TOKEN_CHARS)
+        return chars_estimate
 
     try:
         encoding = (
@@ -53,7 +62,7 @@ def estimate_tokens(text: str, *, model: str | None = None) -> int:
         )
     except Exception:
         encoding = tiktoken.get_encoding("cl100k_base")
-    return len(encoding.encode(value))
+    return max(len(encoding.encode(value)), chars_estimate)
 
 
 def build_issue_context(
