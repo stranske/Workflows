@@ -210,6 +210,10 @@ scripts:
   - source: scripts/state_fingerprint.py
     description: "Computes workflow state fingerprints for unchanged-state skip gates"
 
+  - source: scripts/runner_lib/
+    is_directory: true
+    description: "Shared runner prompt assembly, output parsing, and dispatch debounce helpers"
+
   - source: scripts/aggregate_agent_metrics.py
     description: "Aggregates downloaded weekly agent metrics - required by agents-weekly-metrics.yml"
     template_sync: exact
