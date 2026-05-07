@@ -145,7 +145,7 @@ Caller-facing outputs are available only from a subset of reusable workflows. Th
 
 The exhaustive output reference is [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_OUTPUTS.md). It documents each exported `workflow_call` output with its type, description, and usage expression, and it also lists reusable workflows that intentionally publish artifacts or logs without job outputs. Use that page as the source of truth when wiring dependent jobs; the table below is a quick index for the most common chaining surfaces.
 
-The exhaustive output reference is [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_OUTPUTS.md). It documents each exported `workflow_call` output with its type, description, and usage expression, and it also lists reusable workflows that intentionally publish artifacts or logs without job outputs. Use that page as the source of truth when wiring dependent jobs; the table below is a quick index for the most common chaining surfaces.
+Coverage evidence: `tests/workflows/test_reusable_workflow_outputs_doc.py` loads every `.github/workflows/reusable-*.yml` declaration, compares each `on.workflow_call.outputs` key and description against the catalog table, and verifies reusable workflows with no caller-facing outputs appear in the no-output list. That test is the audit guard for the acceptance requirement that all reusable workflow outputs are documented.
 
 | Workflow | Outputs (name → description) |
 |----------|-----------------------------|

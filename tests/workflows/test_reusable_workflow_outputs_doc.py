@@ -6,6 +6,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOC_PATH = REPO_ROOT / "docs/ci/WORKFLOW_OUTPUTS.md"
+INTEGRATION_GUIDE_PATH = REPO_ROOT / "docs/INTEGRATION_GUIDE.md"
 WORKFLOW_DIR = REPO_ROOT / ".github/workflows"
 
 REFERENCE_START = "<!-- OUTPUT-REFERENCE-START -->"
@@ -108,3 +109,15 @@ def test_reusable_workflow_outputs_documented() -> None:
     assert documented_outputs.keys().isdisjoint(
         no_output_workflows
     ), "Workflows should not appear in both output lists"
+
+
+def test_integration_guide_surfaces_output_acceptance_evidence() -> None:
+    text = INTEGRATION_GUIDE_PATH.read_text(encoding="utf-8")
+
+    assert "## Workflow Outputs" in text
+    assert "docs/ci/WORKFLOW_OUTPUTS.md" in text
+    assert "tests/workflows/test_reusable_workflow_outputs_doc.py" in text
+    assert "all reusable workflow outputs are documented" in text
+
+    assert "needs.orchestrator-init.outputs.has_work" in text
+    assert "needs.agents-readiness.outputs.readiness_table" in text

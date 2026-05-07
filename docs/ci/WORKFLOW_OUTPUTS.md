@@ -5,6 +5,11 @@ repository. Each output includes a type, description, and a short usage example.
 audited against the reusable workflow declarations under `.github/workflows/reusable-*.yml`; for
 workflows that only emit artifacts, see the "Workflows without workflow_call outputs" section.
 
+Audit guard: `tests/workflows/test_reusable_workflow_outputs_doc.py` parses every
+`.github/workflows/reusable-*.yml` file and fails when this catalog omits a declared
+`workflow_call` output, carries a stale output description, or fails to list an output-free
+reusable workflow in the no-output section.
+
 ## Reference table of workflow outputs
 
 <!-- OUTPUT-REFERENCE-START -->
