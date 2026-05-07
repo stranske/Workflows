@@ -212,7 +212,12 @@ jobs:
               is_terminal_artifact,
           )
 
-          raw = Path("verification_data.txt").read_text(encoding="utf-8")
+          verification_path = Path("verification_data.txt")
+          raw = (
+              verification_path.read_text(encoding="utf-8")
+              if verification_path.exists()
+              else ""
+          )
           artifact = artifact_from_verification_text(raw)
           terminal = is_terminal_artifact(artifact)
           verdict = str(artifact.get("verdict") or "")
@@ -385,7 +390,8 @@ jobs:
             let _defaultAgent = 'codex';
             try {
               const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
-              _defaultAgent = loadAgentRegistry('./.github/agents/registry.yml').default_agent || 'codex';
+              const registry = loadAgentRegistry('./.github/agents/registry.yml');
+              _defaultAgent = registry.default_agent || 'codex';
             } catch (_) {}
             let agentKey = _defaultAgent;
             try {
@@ -396,11 +402,13 @@ jobs:
               });
             } catch (err) {
               core.warning(
-                `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}: ${err.message}`
+                `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}: ` +
+                  err.message
               );
               agentKey = _defaultAgent;
             }
-            const normalized = String(agentKey || _defaultAgent).trim().toLowerCase() || _defaultAgent;
+            const normalized =
+              String(agentKey || _defaultAgent).trim().toLowerCase() || _defaultAgent;
             const agentLabel = `agent:${normalized}`;
             const fromLabel = `from:${normalized}`;
 

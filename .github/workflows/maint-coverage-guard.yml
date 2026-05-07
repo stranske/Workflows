@@ -90,75 +90,11 @@ jobs:
               core.setOutput('proceed', 'true');
             }
 
-  select-scope:
-    name: Select coverage guard scope
-    needs: rate-limit-check
-    if: ${{ needs.rate-limit-check.outputs.proceed == 'true' }}
-    runs-on: ubuntu-latest
-    outputs:
-      selected_count: ${{ steps.scope.outputs.selected_count }}
-      rationale: ${{ steps.scope.outputs.rationale }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: Select guard scenario
-        id: scope
-        run: |
-          python - <<'PY'
-          import os
-
-          from scripts.reusable_ci_scope import (
-              SelectionOptions,
-              describe_selection,
-              select_scenarios,
-          )
-
-          matrix = {
-              "include": [
-                  {
-                      "name": "coverage_guard",
-                      "scope": {
-                          "paths": [
-                              "**/*.py",
-                              ".github/workflows/maint-coverage-guard.yml",
-                              "config/coverage-baseline.json",
-                              "scripts/reusable_ci_scope.py",
-                          ],
-                          "reason": "coverage guard inputs changed",
-                      },
-                  }
-              ]
-          }
-          selected = select_scenarios(
-              "maint-coverage-guard",
-              [],
-              matrix,
-              SelectionOptions(force_full=True),
-          )
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
-              handle.write(f"selected_count={selected.selected_count}\n")
-              handle.write(f"rationale={describe_selection(selected, matrix)}\n")
-          print(describe_selection(selected, matrix))
-          PY
-
   guard:
     name: coverage baseline monitor
-    needs:
-      - rate-limit-check
-      - select-scope
+    needs: rate-limit-check
     if: >-
-      ${{
-        needs.rate-limit-check.outputs.proceed == 'true' &&
-        needs.select-scope.outputs.selected_count != '0'
-      }}
+      ${{ needs.rate-limit-check.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

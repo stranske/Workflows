@@ -157,7 +157,8 @@ jobs:
           elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
             use_legacy=true
             app_auth_mode=legacy-app-id
-            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID and pass gh_app_client_id to avoid the deprecated app-id path."
+            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID"
+            echo "and pass gh_app_client_id to avoid the deprecated app-id path."
           fi
           {
             echo "client_id_configured=${client_id_configured}"
@@ -386,7 +387,11 @@ jobs:
               botComments = [];
               const processedThreads = new Set();
               for (const comment of comments) {
-                if (!botAuthorList.some(bot => comment.user.login.toLowerCase() === bot.toLowerCase())) {
+                if (
+                  !botAuthorList.some(
+                    bot => comment.user.login.toLowerCase() === bot.toLowerCase()
+                  )
+                ) {
                   continue;
                 }
                 const commentPath = comment.path || '';
@@ -411,7 +416,7 @@ jobs:
                 botComments.push({
                   id: comment.id,
                   path: comment.path,
-                  line: comment.line || comment.original_line,
+                  line: comment.line ?? comment.original_line,
                   body: comment.body,
                   author: comment.user.login,
                   url: comment.html_url,
@@ -700,7 +705,8 @@ jobs:
           elif [ -n "${GH_APP_ID}" ] && [ -n "${GH_APP_PRIVATE_KEY}" ]; then
             use_legacy=true
             app_auth_mode=legacy-app-id
-            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID and pass gh_app_client_id to avoid the deprecated app-id path."
+            echo "::warning title=Legacy GitHub App ID fallback::Configure GH_APP_CLIENT_ID"
+            echo "and pass gh_app_client_id to avoid the deprecated app-id path."
           fi
           {
             echo "client_id_configured=${client_id_configured}"

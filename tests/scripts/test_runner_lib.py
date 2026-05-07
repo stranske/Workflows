@@ -289,6 +289,14 @@ def test_prompt_cli_rejects_non_prompt_provider() -> None:
         )
 
 
+def test_parse_output_cli_accepts_autofix_provider() -> None:
+    parser = runner_core.build_parser()
+
+    args = parser.parse_args(["parse-output", "--provider", "autofix"])
+
+    assert args.provider == "autofix"
+
+
 def test_pr_comment_storage_stops_when_marker_found() -> None:
     class FakeApi:
         repo = "owner/repo"
@@ -318,6 +326,26 @@ def test_pr_comment_storage_stops_when_marker_found() -> None:
 
     assert record == {"provider": "codex", "head_sha": "abc"}
     assert len(api.paths) == 1
+
+
+def test_pr_comment_storage_normalizes_direction_case() -> None:
+    class FakeApi:
+        repo = "owner/repo"
+
+        def __init__(self) -> None:
+            self.paths: list[str] = []
+
+        def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+            self.paths.append(path)
+            assert method == "GET"
+            assert body is None
+            return []
+
+    api = FakeApi()
+    storage = PrCommentRunnerStorage(api)  # type: ignore[arg-type]
+
+    assert list(storage._iter_comments(42, direction="DESC")) == []
+    assert "direction=desc" in api.paths[0]
 
 
 def test_pr_comment_storage_selects_newest_marker_from_newest_page() -> None:

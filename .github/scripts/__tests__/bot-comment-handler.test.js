@@ -85,6 +85,21 @@ test('comment collection detects nested human replies in bot threads', () => {
   assert.deepEqual(collected, []);
 });
 
+test('comment collection preserves zero line numbers', () => {
+  const collected = collectUnresolvedBotComments([
+    {
+      id: 1,
+      user: { login: 'copilot[bot]' },
+      path: 'src/generated.js',
+      line: 0,
+      original_line: 12,
+      body: 'Check the generated header.',
+    },
+  ]);
+
+  assert.equal(collected[0].line, 0);
+});
+
 test('comment collection keeps human-replied bot threads when configured', () => {
   const collected = collectUnresolvedBotComments(commentsFixture, {
     skipIfHumanReplied: false,

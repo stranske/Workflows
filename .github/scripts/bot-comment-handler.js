@@ -151,7 +151,7 @@ function collectUnresolvedBotComments(comments = [], options = {}) {
     botComments.push({
       id: comment.id,
       path: comment.path,
-      line: comment.line || comment.original_line,
+      line: comment.line ?? comment.original_line,
       body: comment.body,
       author: login,
       url: comment.html_url,

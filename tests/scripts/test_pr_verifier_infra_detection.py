@@ -7,6 +7,7 @@ import textwrap
 from scripts.langchain.pr_verifier import (
     INFRA_THRESHOLD,
     _bounded_diff_for_classification,
+    _cap_prompt_text,
     _classify_change_type,
     _prepare_prompt,
 )
@@ -222,6 +223,12 @@ def test_bounded_diff_for_classification_keeps_headers_without_full_body() -> No
 
     assert ".github/workflows/ci.yml" in bounded
     assert len(bounded) < len(diff)
+
+
+def test_cap_prompt_text_respects_tiny_budget() -> None:
+    capped = _cap_prompt_text("large prompt body", 2)
+
+    assert len(capped) <= 8
 
 
 def test_bounded_diff_for_classification_does_not_split_entire_diff() -> None:

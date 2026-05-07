@@ -454,7 +454,9 @@ def _cap_prompt_text(text: str, token_budget: int) -> str:
     if len(text) <= max_chars:
         return text
     marker = "\n[truncated: verifier prompt budget exceeded]"
-    return text[: max(0, max_chars - len(marker))].rstrip() + marker
+    if max_chars <= len(marker):
+        return marker[:max_chars]
+    return (text[: max_chars - len(marker)].rstrip() + marker)[:max_chars]
 
 
 def _bounded_diff_for_classification(diff: str | None) -> str:

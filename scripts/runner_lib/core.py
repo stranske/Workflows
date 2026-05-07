@@ -461,7 +461,7 @@ class PrCommentRunnerStorage:
 
     def _iter_comments(self, pr_number: int, *, direction: str = "asc") -> Iterator[dict[str, Any]]:
         page = 1
-        direction = "desc" if direction == "desc" else "asc"
+        direction = "desc" if direction.strip().lower() == "desc" else "asc"
         while True:
             batch = self.api.request(
                 "GET",
@@ -842,7 +842,7 @@ def build_parser() -> argparse.ArgumentParser:
     assemble.set_defaults(func=_cmd_assemble)
 
     parse = subparsers.add_parser("parse-output", help="parse provider output")
-    parse.add_argument("--provider", choices=sorted(PROMPT_PROVIDERS), required=True)
+    parse.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
     parse.add_argument("--raw-output-file", default="")
     parse.set_defaults(func=_cmd_parse)
 
