@@ -802,6 +802,15 @@ jobs:
             exit 1
           fi
 
+          if [ -z "${PROMPT_FILE:-}" ]; then
+            if [ -n "${PR_NUMBER:-}" ]; then
+              PROMPT_FILE="claude-prompt-${PR_NUMBER}.md"
+            else
+              PROMPT_FILE="claude-prompt.md"
+            fi
+            echo "::notice::Prompt output was empty; using assembled prompt fallback: ${PROMPT_FILE}"
+          fi
+
           if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
             summary="Prompt preparation failed (missing prompt file)."
             echo "exit-code=1" >> "$GITHUB_OUTPUT"
