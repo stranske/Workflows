@@ -26,6 +26,23 @@ function normalizeLogin(value) {
   return String(value ?? '').trim().toLowerCase();
 }
 
+function normalizeBoolean(value, defaultValue = false) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (value === undefined || value === null || value === '') {
+    return defaultValue;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+  return defaultValue;
+}
+
 function normalizeLabel(label) {
   if (typeof label === 'string') {
     return label.trim().toLowerCase();
@@ -67,7 +84,10 @@ function isIgnoredPath(commentPath, ignoredPathsInput) {
 
 function collectUnresolvedBotComments(comments = [], options = {}) {
   const botAuthors = resolveBotAuthorSet(options.botAuthors ?? options.bot_authors);
-  const skipIfHumanReplied = options.skipIfHumanReplied ?? options.skip_if_human_replied ?? true;
+  const skipIfHumanReplied = normalizeBoolean(
+    options.skipIfHumanReplied ?? options.skip_if_human_replied,
+    true,
+  );
   const ignoredPaths = options.ignoredPaths ?? options.ignored_paths ?? '';
   const botComments = [];
   const processedThreads = new Set();
@@ -254,6 +274,20 @@ function buildBotCommentsPrompt(comments = []) {
 
 function getBotCommentAssignees(agent) {
   const key = String(agent || DEFAULT_AGENT).trim().toLowerCase();
+  try {
+    const { getAgentConfig } = require('./agent_registry.js');
+    const config = getAgentConfig(key);
+    const candidates = [
+      config?.preflight?.assign_user,
+      ...(Array.isArray(config?.readiness_candidates) ? config.readiness_candidates : []),
+      ...(Array.isArray(config?.automation_logins) ? config.automation_logins : []),
+    ].filter(Boolean);
+    if (candidates.length) {
+      return [String(candidates[0]).trim()].filter(Boolean);
+    }
+  } catch (_) {
+    // Fall back to the legacy map when the registry is unavailable.
+  }
   return [...(DISPATCH_AGENT_ASSIGNEES[key] || DISPATCH_AGENT_ASSIGNEES[DEFAULT_AGENT])];
 }
 
@@ -287,7 +321,7 @@ function normalizeTerminalDispositionRecord(input) {
 
 function buildReviewThreadTerminalDisposition(options = {}) {
   const prNumber = options.prNumber ?? options.pr_number;
-  const found = Boolean(options.found ?? options.commentsFound ?? options.comments_found);
+  const found = normalizeBoolean(options.found ?? options.commentsFound ?? options.comments_found);
   return normalizeTerminalDispositionRecord({
     source_type: 'review-thread',
     source_id: prNumber,
@@ -307,7 +341,7 @@ function buildReviewThreadTerminalDisposition(options = {}) {
 
 function buildWrapperTerminalDisposition(options = {}) {
   const env = options.env || process.env;
-  const reusableExpected = Boolean(
+  const reusableExpected = normalizeBoolean(
     options.reusableExpected ?? options.reusable_invocation_expected,
   );
   const prNumber = Number.parseInt(String(options.prNumber ?? options.pr_number ?? ''), 10) || null;
@@ -405,6 +439,7 @@ module.exports = {
   isBotAuthor,
   isIgnoredPath,
   listCommentsWithLimit,
+  normalizeBoolean,
   parseCommaList,
   resolveBotAuthors,
   resolveBotCommentAgent,

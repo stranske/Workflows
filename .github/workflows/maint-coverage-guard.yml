@@ -9,7 +9,6 @@ permissions:
   contents: read
   actions: read
   issues: write
-  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -103,28 +102,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Collect changed files
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
-        run: |
-          set -euo pipefail
-          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_SHA}" ]; then
-            git diff --name-only "${BASE_SHA}" HEAD > changed_files.txt
-          else
-            : > changed_files.txt
-          fi
-
       - name: Select guard scenario
         id: scope
-        env:
-          FORCE_FULL: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         run: |
           python - <<'PY'
-          import json
           import os
 
-          from scripts.reusable_ci_scope import SelectionOptions, describe_selection, select_scenarios
+          from scripts.reusable_ci_scope import (
+              SelectionOptions,
+              describe_selection,
+              select_scenarios,
+          )
 
           matrix = {
               "include": [
@@ -142,16 +130,11 @@ jobs:
                   }
               ]
           }
-          changed_files = [
-              line.strip()
-              for line in open("changed_files.txt", encoding="utf-8")
-              if line.strip()
-          ]
           selected = select_scenarios(
               "maint-coverage-guard",
-              changed_files,
+              [],
               matrix,
-              SelectionOptions(force_full=(os.environ.get("FORCE_FULL") or "false") == "true"),
+              SelectionOptions(force_full=True),
           )
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
               handle.write(f"selected_count={selected.selected_count}\n")

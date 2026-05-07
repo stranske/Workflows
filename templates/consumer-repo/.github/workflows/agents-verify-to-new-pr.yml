@@ -283,6 +283,59 @@ jobs:
               handle.write(f"- Reason: {reason}\n")
           PY
 
+      - name: Apply needs-human for non-terminal verifier output
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.terminal-artifact.outputs.terminal != 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          LINKED_ISSUE: ${{ steps.collect.outputs.original_issue_number }}
+          TERMINAL_REASON: ${{ steps.terminal-artifact.outputs.reason }}
+        with:
+          github-token: ${{ steps.select-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            const retryHelperPath =
+              './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : { withRetry: (fn) => fn() };
+            const { withRetry } = retryHelpers;
+
+            const prNumber = context.payload.pull_request.number;
+            const linkedIssue = process.env.LINKED_ISSUE;
+            const reason = process.env.TERMINAL_REASON ||
+              'Verifier output is partial or missing a terminal verdict.';
+            const body = [
+              '🛑 **Verifier follow-up paused: non-terminal verifier output**',
+              '',
+              reason,
+              '',
+              'The workflow did not create a follow-up issue because the verifier artifact ' +
+                'is not complete enough to drive automation safely.',
+            ].join('\n');
+
+            await withRetry(() => github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['needs-human'],
+            }));
+            if (linkedIssue) {
+              await withRetry(() => github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: Number(linkedIssue),
+                labels: ['needs-human'],
+              }));
+            }
+            await withRetry(() => github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            }));
+
       - name: Check chain depth limit
         id: chain-check
         if: >-
@@ -785,7 +838,8 @@ jobs:
             let _defaultAgent = 'codex';
             try {
               const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
-              _defaultAgent = loadAgentRegistry('./.github/agents/registry.yml').default_agent || 'codex';
+              _defaultAgent =
+                loadAgentRegistry('./.github/agents/registry.yml').default_agent || 'codex';
             } catch (_) {}
             let agentKey = _defaultAgent;
             try {
@@ -797,11 +851,13 @@ jobs:
               });
             } catch (err) {
               core.warning(
-                `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}: ${err.message}`
+                `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}: ` +
+                  err.message
               );
               agentKey = _defaultAgent;
             }
-            const normalized = String(agentKey || _defaultAgent).trim().toLowerCase() || _defaultAgent;
+            const normalized =
+              String(agentKey || _defaultAgent).trim().toLowerCase() || _defaultAgent;
             const agentLabel = `agent:${normalized}`;
             const fromLabel = `from:${normalized}`;
 
@@ -810,7 +866,13 @@ jobs:
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['follow-up', agentLabel, fromLabel, `runner:${normalized}`, 'agents:auto-pilot']
+              labels: [
+                'follow-up',
+                agentLabel,
+                fromLabel,
+                `runner:${normalized}`,
+                'agents:auto-pilot',
+              ]
             }));
 
             core.info(`Created issue #${issue.data.number}`);
@@ -911,6 +973,8 @@ jobs:
           CHAIN_DEPTH: ${{ steps.collect.outputs.chain_depth }}
           MAX_CHAIN_DEPTH: '2'
           CHAIN_EXCEEDED: ${{ steps.chain-check.outputs.exceeded }}
+          TERMINAL_ARTIFACT: ${{ steps.terminal-artifact.outputs.terminal }}
+          TERMINAL_REASON: ${{ steps.terminal-artifact.outputs.reason }}
           NEEDS_HUMAN: ${{ steps.extract-verdict.outputs.needs_human }}
           NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}
           VERDICT: ${{ steps.extract-verdict.outputs.verdict }}
@@ -946,7 +1010,15 @@ jobs:
             let policyTrigger = 'verifier-concerns';
             let policyReason = 'Verifier concerns require another implementation pass.';
 
-            if (process.env.CHAIN_EXCEEDED === 'true') {
+            if (process.env.TERMINAL_ARTIFACT !== 'true') {
+              disposition = 'needs-human-non-terminal-verifier';
+              reason = process.env.TERMINAL_REASON ||
+                'Verifier output was partial or missing a terminal verdict.';
+              needsHuman = true;
+              policyAction = 'needs-human';
+              policyTrigger = 'non-terminal-verifier-output';
+              policyReason = reason;
+            } else if (process.env.CHAIN_EXCEEDED === 'true') {
               disposition = 'needs-human-depth-limit';
               reason = 'Follow-up chain depth limit was reached.';
               needsHuman = true;
@@ -970,13 +1042,17 @@ jobs:
               reason = 'Verification follow-up issue was created and auto-pilot was dispatched.';
               policyReason = reason;
             } else if (dispatchOutcome === 'failure' || dispatchOutcome === 'cancelled') {
-              reason = `Verification follow-up issue was created, but auto-pilot dispatch ${dispatchOutcome}.`;
+              reason =
+                'Verification follow-up issue was created, but auto-pilot dispatch ' +
+                `${dispatchOutcome}.`;
               policyReason = reason;
             } else if (dispatchOutcome === 'skipped') {
               reason = 'Verification follow-up issue was created; auto-pilot dispatch was skipped.';
               policyReason = reason;
             } else if (followupIssue) {
-              reason = 'Verification follow-up issue was created; auto-pilot dispatch status was not reported.';
+              reason =
+                'Verification follow-up issue was created; auto-pilot dispatch status was ' +
+                'not reported.';
               policyReason = reason;
             }
 

@@ -11,6 +11,7 @@ Run with:
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import logging
 import os
@@ -459,7 +460,8 @@ def _bounded_diff_for_classification(diff: str | None) -> str:
     if not diff:
         return ""
     lines = []
-    for line in diff.splitlines():
+    for line in io.StringIO(diff):
+        line = line.rstrip("\n\r")
         if line.startswith(("diff --git ", "+++ ", "--- ")):
             lines.append(line)
         if len(lines) >= 500:

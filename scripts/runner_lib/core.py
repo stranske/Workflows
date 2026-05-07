@@ -28,6 +28,14 @@ PROVIDERS = {"autofix", "claude", "codex"}
 PROMPT_PROVIDERS = {"claude", "codex"}
 TERMINAL_STATUSES = {"completed", "error"}
 PENDING_STALE_AFTER_SECONDS = 30 * 60
+TRUSTED_MARKER_AUTHORS = {
+    "chatgpt-codex-connector",
+    "chatgpt-codex-connector[bot]",
+    "github-actions[bot]",
+    "stranske",
+    "stranske-automation-bot",
+}
+TRUSTED_MARKER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -428,6 +436,20 @@ def _variable_name(pr_number: int, provider: str) -> str:
     return f"RUNNER_DISPATCH_{provider.upper()}_{pr_number}_{digest}"[:100]
 
 
+def _is_trusted_marker_comment(comment: dict[str, Any]) -> bool:
+    user = comment.get("user")
+    login = user.get("login") if isinstance(user, dict) else None
+    if isinstance(login, str) and login.strip().lower() in TRUSTED_MARKER_AUTHORS:
+        return True
+
+    association = str(comment.get("author_association") or "").upper()
+    if association in TRUSTED_MARKER_ASSOCIATIONS:
+        return True
+
+    # Unit tests and older fixture data omit author metadata.
+    return login is None and not association
+
+
 class PrCommentRunnerStorage:
     def __init__(self, api: GitHubApi) -> None:
         self.api = api
@@ -457,6 +479,8 @@ class PrCommentRunnerStorage:
         pattern = _marker_re(pr_number, provider)
         latest: dict[str, Any] | None = None
         for comment in self._iter_comments(pr_number):
+            if not _is_trusted_marker_comment(comment):
+                continue
             body = comment.get("body")
             if isinstance(body, str) and pattern.search(body):
                 latest = comment

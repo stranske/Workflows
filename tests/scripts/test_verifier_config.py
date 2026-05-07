@@ -155,3 +155,13 @@ def test_artifact_from_verification_text_resolves_provider_table() -> None:
 
     assert artifact["verdict"] == "FAIL"
     assert is_terminal_artifact(artifact)
+
+
+def test_artifact_from_verification_text_preserves_json_array_results() -> None:
+    artifact = artifact_from_verification_text(
+        '[{"provider":"openai","verdict":"PASS"},{"provider":"anthropic","verdict":"CONCERNS"}]'
+    )
+
+    assert artifact["artifact_family"] == "verifier-report"
+    assert artifact["results"][1]["verdict"] == "CONCERNS"
+    assert is_terminal_artifact(artifact)

@@ -635,8 +635,16 @@ jobs:
 
       - name: Record completion
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: >-
+            ${{ secrets.AGENTS_AUTOMATION_PAT ||
+                secrets.ACTIONS_BOT_PAT ||
+                secrets.SERVICE_BOT_PAT ||
+                github.token }}
+          GITHUB_TOKEN: >-
+            ${{ secrets.AGENTS_AUTOMATION_PAT ||
+                secrets.ACTIONS_BOT_PAT ||
+                secrets.SERVICE_BOT_PAT ||
+                github.token }}
           PR_NUMBER: ${{ needs.resolve.outputs.pr_number }}
           HEAD_SHA: ${{ needs.resolve.outputs.head_sha }}
           JOB_RESULT: ${{ needs.autofix.result }}

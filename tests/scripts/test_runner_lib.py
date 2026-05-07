@@ -353,6 +353,39 @@ def test_pr_comment_storage_selects_newest_marker_across_pages() -> None:
     assert storage.read_record(42, "codex") == {"provider": "codex", "head_sha": "new"}
 
 
+def test_pr_comment_storage_ignores_untrusted_marker_comments() -> None:
+    class FakeApi:
+        repo = "owner/repo"
+
+        def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+            assert method == "GET"
+            assert body is None
+            return [
+                {
+                    "body": (
+                        "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                        '{"provider":"codex","head_sha":"spoofed"} -->'
+                    ),
+                    "id": 1,
+                    "user": {"login": "drive-by-commenter"},
+                    "author_association": "NONE",
+                },
+                {
+                    "body": (
+                        "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                        '{"provider":"codex","head_sha":"trusted"} -->'
+                    ),
+                    "id": 2,
+                    "user": {"login": "github-actions[bot]"},
+                    "author_association": "NONE",
+                },
+            ]
+
+    storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
+
+    assert storage.read_record(42, "codex") == {"provider": "codex", "head_sha": "trusted"}
+
+
 def test_materialize_reference_packs_import_is_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
     def fail_import(name: str) -> Any:
         raise ModuleNotFoundError(name=name)

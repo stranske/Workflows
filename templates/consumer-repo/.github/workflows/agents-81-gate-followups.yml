@@ -1212,8 +1212,8 @@ jobs:
         id: runner_dispatch
         if: steps.evaluate.outputs.should_run == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ env.WRITE_TOKEN }}
+          GITHUB_TOKEN: ${{ env.WRITE_TOKEN }}
           PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
           HEAD_SHA: ${{ steps.evaluate.outputs.head_sha }}
           PROVIDER: ${{ steps.evaluate.outputs.agent_type || 'codex' }}

@@ -222,3 +222,21 @@ def test_bounded_diff_for_classification_keeps_headers_without_full_body() -> No
 
     assert ".github/workflows/ci.yml" in bounded
     assert len(bounded) < len(diff)
+
+
+def test_bounded_diff_for_classification_does_not_split_entire_diff() -> None:
+    class DiffText(str):
+        def splitlines(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise AssertionError("splitlines should not be used for classification")
+
+    diff = DiffText(
+        "diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml\n"
+        "--- a/.github/workflows/ci.yml\n"
+        "+++ b/.github/workflows/ci.yml\n"
+        "@@ -1 +1 @@\n"
+        "+body\n"
+    )
+
+    bounded = _bounded_diff_for_classification(diff)
+
+    assert ".github/workflows/ci.yml" in bounded
