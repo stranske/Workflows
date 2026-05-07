@@ -320,37 +320,43 @@ def test_pr_comment_storage_stops_when_marker_found() -> None:
     assert len(api.paths) == 1
 
 
-def test_pr_comment_storage_selects_newest_marker_across_pages() -> None:
+def test_pr_comment_storage_selects_newest_marker_from_newest_page() -> None:
     class FakeApi:
         repo = "owner/repo"
+
+        def __init__(self) -> None:
+            self.paths: list[str] = []
 
         def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
             assert method == "GET"
             assert body is None
+            self.paths.append(path)
             if path.endswith("page=1"):
+                assert "sort=created&direction=desc" in path
                 return [
                     {
                         "body": (
                             "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
-                            '{"provider":"codex","head_sha":"old"} -->'
+                            '{"provider":"codex","head_sha":"new"} -->'
                         ),
-                        "id": 1,
-                    }
-                    for _ in range(100)
+                        "id": 101,
+                    },
                 ]
             return [
                 {
                     "body": (
                         "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
-                        '{"provider":"codex","head_sha":"new"} -->'
+                        '{"provider":"codex","head_sha":"old"} -->'
                     ),
-                    "id": 101,
+                    "id": 1,
                 }
             ]
 
-    storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
+    api = FakeApi()
+    storage = PrCommentRunnerStorage(api)  # type: ignore[arg-type]
 
     assert storage.read_record(42, "codex") == {"provider": "codex", "head_sha": "new"}
+    assert len(api.paths) == 1
 
 
 def test_pr_comment_storage_ignores_untrusted_marker_comments() -> None:

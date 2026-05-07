@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -459,8 +460,15 @@ def _cap_prompt_text(text: str, token_budget: int) -> str:
 def _bounded_diff_for_classification(diff: str | None) -> str:
     if not diff:
         return ""
+    max_chars = max(1, EVAL_PAIR_BUDGET_TOKENS // 4) * TOKEN_CHARS
+    max_lines = 1000
+    scanned_chars = 0
+    scan_text = diff[:max_chars]
     lines = []
-    for line in io.StringIO(diff):
+    for index, line in enumerate(io.StringIO(scan_text)):
+        if index >= max_lines or scanned_chars >= max_chars:
+            break
+        scanned_chars += len(line)
         line = line.rstrip("\n\r")
         if line.startswith(("diff --git ", "+++ ", "--- ")):
             lines.append(line)
@@ -468,7 +476,7 @@ def _bounded_diff_for_classification(diff: str | None) -> str:
             break
     if lines:
         return "\n".join(lines)
-    return diff[: max(1, EVAL_PAIR_BUDGET_TOKENS // 4) * TOKEN_CHARS]
+    return diff[:max_chars]
 
 
 def _extract_pr_metadata(context: str) -> tuple[int | None, str | None]:
@@ -740,7 +748,7 @@ def _parse_llm_response(
     )
 
 
-def _build_verifier_repair_callback(client: object):
+def _build_verifier_repair_callback(client: object) -> Callable[[str, str, str], str | None]:
     repair = build_repair_callback(client)
 
     def _repair(schema_json: str, validation_errors: str, raw_response: str) -> str | None:
@@ -786,7 +794,7 @@ def evaluate_pr(
 
     client, provider_name = resolved
     prompt = _prepare_prompt(context, diff)
-    change_type = _classify_change_type(diff)
+    change_type = _classify_change_type(_bounded_diff_for_classification(diff))
     pr_number, _ = _extract_pr_metadata(context)
     trace_id, trace_url = None, None
     try:
@@ -859,7 +867,7 @@ def evaluate_pr(
 def evaluate_pr_multiple(
     context: str, diff: str | None = None, model1: str | None = None, model2: str | None = None
 ) -> list[EvaluationResult]:
-    change_type = _classify_change_type(diff)
+    change_type = _classify_change_type(_bounded_diff_for_classification(diff))
     runner = ComparisonRunner.from_environment(context, diff, model1, model2)
     if not runner.clients:
         result = _fallback_evaluation("LLM client unavailable (missing credentials or dependency).")

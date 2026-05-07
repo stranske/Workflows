@@ -13,8 +13,8 @@ const DEFAULT_AGENT = 'codex';
 const DEFAULT_AGENT_WORKFLOW = 'reusable-codex-run.yml';
 const DISPATCH_AGENT_ASSIGNEES = Object.freeze({
   codex: Object.freeze(['chatgpt-codex-connector']),
-  claude: Object.freeze(['copilot']),
-  gemini: Object.freeze(['copilot']),
+  claude: Object.freeze(['stranske-automation-bot']),
+  gemini: Object.freeze(['stranske-automation-bot']),
 });
 
 function parseCommaList(value) {

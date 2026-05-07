@@ -459,12 +459,14 @@ class PrCommentRunnerStorage:
         repo, token = _github_context()
         return cls(GitHubApi(repo, token))
 
-    def _iter_comments(self, pr_number: int) -> Iterator[dict[str, Any]]:
+    def _iter_comments(self, pr_number: int, *, direction: str = "asc") -> Iterator[dict[str, Any]]:
         page = 1
+        direction = "desc" if direction == "desc" else "asc"
         while True:
             batch = self.api.request(
                 "GET",
-                f"/repos/{self.api.repo}/issues/{pr_number}/comments?per_page=100&page={page}",
+                f"/repos/{self.api.repo}/issues/{pr_number}/comments"
+                f"?per_page=100&sort=created&direction={direction}&page={page}",
             )
             if not isinstance(batch, list):
                 raise RuntimeError(
@@ -477,14 +479,13 @@ class PrCommentRunnerStorage:
 
     def _find_comment(self, pr_number: int, provider: str) -> dict[str, Any] | None:
         pattern = _marker_re(pr_number, provider)
-        latest: dict[str, Any] | None = None
-        for comment in self._iter_comments(pr_number):
+        for comment in self._iter_comments(pr_number, direction="desc"):
             if not _is_trusted_marker_comment(comment):
                 continue
             body = comment.get("body")
             if isinstance(body, str) and pattern.search(body):
-                latest = comment
-        return latest
+                return comment
+        return None
 
     def read_record(self, pr_number: int, provider: str) -> dict[str, Any] | None:
         comment = self._find_comment(pr_number, provider)
@@ -632,7 +633,11 @@ def should_dispatch(
     provider: str,
     storage: RunnerDispatchStorage | None = None,
 ) -> DebounceDecision:
-    """Reserve a provider dispatch unless the same PR/head SHA was already seen."""
+    """Reserve dispatch unless the same PR/head SHA completed or is actively pending.
+
+    Error records are retried deliberately: they mean the prior runner attempt did not
+    leave a successful completion marker, so a later Gate pass may try again.
+    """
     provider = _validate_provider(provider)
     storage = storage or _storage_from_name("auto")
     key = _runner_key(pr_number, head_sha, provider)

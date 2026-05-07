@@ -399,6 +399,11 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
     assert parsed_payload["packs"][0]["name"] == "trend-streamlit"
     assert parsed_payload["checkout_plan"][0]["checkout_path"] == ".reference/trend-streamlit"
 
+    packs_json = _decode_github_output_value(line_map["reference_packs_json"])
+    parsed_packs = json.loads(packs_json)
+    assert parsed_packs[0]["name"] == "trend-streamlit"
+    assert parsed_packs[0]["repo"] == "trend/research"
+
     checkout_plan_json = _decode_github_output_value(line_map["reference_packs_checkout_plan_json"])
     checkout_plan = json.loads(checkout_plan_json)
     assert checkout_plan[0]["name"] == "trend-streamlit"

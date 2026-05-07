@@ -71,6 +71,21 @@ def test_budget_followup_tasks_truncates_single_oversized_task(
     assert len(selected[0]) < 500
 
 
+def test_budget_followup_tasks_never_returns_leading_space_suffix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(followup_issue_generator, "EVAL_FOLLOW_UP_BUDGET_TOKENS", 20)
+    monkeypatch.setattr(
+        followup_issue_generator,
+        "estimate_tokens",
+        lambda value: 1 if value == "- [ ] ..." else 100,
+    )
+
+    selected = followup_issue_generator._budget_followup_tasks(["x" * 500])
+
+    assert selected == ["..."]
+
+
 def test_select_followup_acceptance_criteria_keeps_workflow_items_for_workflow_feedback() -> None:
     original_issue = OriginalIssueData(
         title="Mixed verifier follow-up",

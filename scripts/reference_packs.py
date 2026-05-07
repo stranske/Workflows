@@ -280,7 +280,8 @@ def main(argv: list[str] | None = None) -> int:
         f"reference_packs_exists={'true' if snapshot.exists else 'false'}",
         f"reference_packs_path={snapshot.config_path}",
         f"reference_packs_count={len(snapshot.packs)}",
-        f"reference_packs_json={json.dumps([asdict(pack) for pack in snapshot.packs], separators=(',', ':'))}",
+        "reference_packs_json="
+        f"{_github_output_value(json.dumps([asdict(pack) for pack in snapshot.packs], separators=(',', ':')))}",
         f"reference_packs_payload_json={_github_output_value(canonical_payload_json)}",
         f"reference_packs_checkout_plan_json={_github_output_value(checkout_plan_json)}",
         f"reference_packs_config_text={_github_output_value(snapshot.config_text or '')}",

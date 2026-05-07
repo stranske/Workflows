@@ -120,6 +120,28 @@ def test_artifact_from_verification_text_rejects_pending_repair_report() -> None
     assert not is_terminal_artifact(artifact)
 
 
+def test_artifact_from_verification_text_preserves_pending_repair_with_verdict() -> None:
+    artifact = artifact_from_verification_text(
+        "## PR Verification Report\n\nVerdict: FAIL\n\nSchema repair pending; validation retry queued."
+    )
+
+    assert artifact["verdict"] == "FAIL"
+    assert artifact["repair_pending"] is True
+    assert not is_terminal_artifact(artifact)
+
+
+def test_artifact_from_verification_text_preserves_newer_pending_repair_after_old_verdict() -> None:
+    artifact = artifact_from_verification_text(
+        "## PR Verification Report\n\nVerdict: PASS\n\n"
+        "---\n\n"
+        "## PR Verification Report\n\nSchema repair pending; validation retry queued."
+    )
+
+    assert artifact["verdict"] == "PASS"
+    assert artifact["repair_pending"] is True
+    assert not is_terminal_artifact(artifact)
+
+
 def test_artifact_from_verification_text_ignores_stale_repair_marker_with_verdict() -> None:
     artifact = artifact_from_verification_text(
         "Schema repair pending in an older run.\n\n## PR Verification Report\n\nVerdict: FAIL"

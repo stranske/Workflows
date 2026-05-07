@@ -107,6 +107,17 @@ test('valid force steps bypass state detection', () => {
   }
 });
 
+test('linked PR with completed keepalive state advances to completion check', () => {
+  const result = determineNextStep({
+    linkedPr: '123',
+    keepaliveState: '<!-- keepalive-state:v1 {"last_action":"stop","last_reason":"tasks-complete"} -->',
+  });
+
+  assert.equal(result.currentState, STATES.PR_TASKS_COMPLETE);
+  assert.equal(result.nextStep, NEXT_STEPS.CHECK_COMPLETION);
+  assert.match(result.message, /PR tasks complete/);
+});
+
 test('auto and blank force steps are ignored', () => {
   assert.equal(normalizeForceStep('auto'), '');
   assert.equal(normalizeForceStep(''), '');

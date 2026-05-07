@@ -187,6 +187,11 @@ test('dispatch fixture selects the assignee and stable marker comment for Codex'
   assert.match(comment, /- Bot comments to address: 2/);
 });
 
+test('dispatch assignee fallbacks match registry-owned automation users', () => {
+  assert.deepEqual(getBotCommentAssignees('claude'), ['stranske-automation-bot']);
+  assert.deepEqual(getBotCommentAssignees('gemini'), ['stranske-automation-bot']);
+});
+
 test('reusable terminal-disposition fixtures cover found and no-op collect outcomes', () => {
   const found = buildReviewThreadTerminalDisposition(dispositionFixtures.reusableFound);
   const noop = buildReviewThreadTerminalDisposition(dispositionFixtures.reusableNoop);

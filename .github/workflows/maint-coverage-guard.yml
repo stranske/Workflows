@@ -92,6 +92,8 @@ jobs:
 
   select-scope:
     name: Select coverage guard scope
+    needs: rate-limit-check
+    if: ${{ needs.rate-limit-check.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
     outputs:
       selected_count: ${{ steps.scope.outputs.selected_count }}
@@ -101,6 +103,11 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
 
       - name: Select guard scenario
         id: scope

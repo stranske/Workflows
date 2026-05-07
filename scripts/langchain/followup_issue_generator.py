@@ -1407,7 +1407,7 @@ def _budget_followup_tasks(tasks: list[str]) -> list[str]:
 
 
 def _truncate_task_to_budget(task: str, budget: int) -> str:
-    suffix = " ..."
+    suffix = "..."
     if estimate_tokens(f"- [ ] {task}") <= budget:
         return task
     low = 0
