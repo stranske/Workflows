@@ -156,6 +156,126 @@ The exhaustive output reference is [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_O
 | `reusable-70-orchestrator-main.yml` | None (consumes init outputs; exports status via summaries). |
 | `reusable-agents-issue-bridge.yml` | None (bridge PR creation artifacts/logs). |
 
+### Reusable workflow output audit
+
+This guide now carries the issue #10 acceptance evidence directly. The audit covers every reusable workflow declaration under `.github/workflows/reusable-*.yml`; update the exhaustive catalog in [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_OUTPUTS.md) first, then mirror changed rows here when adding, renaming, or removing a reusable workflow output.
+
+Reusable workflows with caller-facing `workflow_call` outputs:
+
+| Workflow | Output | Type | Description | Example |
+| --- | --- | --- | --- | --- |
+| `reusable-16-agents.yml` | `readiness_report` | string (JSON) | JSON report emitted by the readiness probe when enabled. | `needs.agents.outputs.readiness_report` |
+| `reusable-16-agents.yml` | `readiness_table` | string (Markdown) | Markdown table emitted by the readiness probe when enabled. | `needs.agents.outputs.readiness_table` |
+| `reusable-20-pr-meta.yml` | `keepalive_detected` | string (boolean-like) | Whether a keepalive comment was detected. | `needs.pr_meta.outputs.keepalive_detected` |
+| `reusable-20-pr-meta.yml` | `keepalive_reason` | string | Reason for the keepalive dispatch decision. | `needs.pr_meta.outputs.keepalive_reason` |
+| `reusable-70-orchestrator-init.yml` | `rate_limit_safe` | string (boolean-like) | Whether rate limit is safe to proceed. | `needs.orchestrator-init.outputs.rate_limit_safe` |
+| `reusable-70-orchestrator-init.yml` | `has_work` | string (boolean-like) | Whether there is work to do. | `needs.orchestrator-init.outputs.has_work` |
+| `reusable-70-orchestrator-init.yml` | `token_source` | string | Which token source downstream jobs should use. | `needs.orchestrator-init.outputs.token_source` |
+| `reusable-70-orchestrator-init.yml` | `enable_readiness` | string (boolean-like) | Resolved flag for the readiness probe. | `needs.orchestrator-init.outputs.enable_readiness` |
+| `reusable-70-orchestrator-init.yml` | `readiness_agents` | string | Comma-separated agent keys for readiness. | `needs.orchestrator-init.outputs.readiness_agents` |
+| `reusable-70-orchestrator-init.yml` | `readiness_custom_logins` | string | Comma-separated custom logins for readiness. | `needs.orchestrator-init.outputs.readiness_custom_logins` |
+| `reusable-70-orchestrator-init.yml` | `require_all` | string (boolean-like) | Whether readiness should fail if any requested agent is missing. | `needs.orchestrator-init.outputs.require_all` |
+| `reusable-70-orchestrator-init.yml` | `enable_preflight` | string (boolean-like) | Resolved flag for the Codex preflight probe. | `needs.orchestrator-init.outputs.enable_preflight` |
+| `reusable-70-orchestrator-init.yml` | `codex_user` | string | Codex connector login override for preflight or bootstrap. | `needs.orchestrator-init.outputs.codex_user` |
+| `reusable-70-orchestrator-init.yml` | `codex_command_phrase` | string | Command phrase to post when triggering Codex. | `needs.orchestrator-init.outputs.codex_command_phrase` |
+| `reusable-70-orchestrator-init.yml` | `enable_diagnostic` | string (boolean-like) | Resolved flag for the bootstrap diagnostic job. | `needs.orchestrator-init.outputs.enable_diagnostic` |
+| `reusable-70-orchestrator-init.yml` | `diagnostic_attempt_branch` | string (boolean-like) | Whether the diagnostic attempts to create a branch. | `needs.orchestrator-init.outputs.diagnostic_attempt_branch` |
+| `reusable-70-orchestrator-init.yml` | `diagnostic_dry_run` | string (boolean-like) | Whether the diagnostic runs in dry-run mode. | `needs.orchestrator-init.outputs.diagnostic_dry_run` |
+| `reusable-70-orchestrator-init.yml` | `enable_verify_issue` | string (boolean-like) | Whether the issue-verification step should run. | `needs.orchestrator-init.outputs.enable_verify_issue` |
+| `reusable-70-orchestrator-init.yml` | `verify_issue_number` | string (number-like) | Issue number to verify when issue verification is enabled. | `needs.orchestrator-init.outputs.verify_issue_number` |
+| `reusable-70-orchestrator-init.yml` | `enable_watchdog` | string (boolean-like) | Resolved flag for watchdog checks. | `needs.orchestrator-init.outputs.enable_watchdog` |
+| `reusable-70-orchestrator-init.yml` | `enable_keepalive` | string (boolean-like) | Resolved flag for keepalive sweeps. | `needs.orchestrator-init.outputs.enable_keepalive` |
+| `reusable-70-orchestrator-init.yml` | `keepalive_pause_label` | string | Label name that pauses keepalive when present. | `needs.orchestrator-init.outputs.keepalive_pause_label` |
+| `reusable-70-orchestrator-init.yml` | `keepalive_max_retries` | string (number-like) | Maximum keepalive retries permitted for the run. | `needs.orchestrator-init.outputs.keepalive_max_retries` |
+| `reusable-70-orchestrator-init.yml` | `enable_bootstrap` | string (boolean-like) | Resolved flag for Codex bootstrap. | `needs.orchestrator-init.outputs.enable_bootstrap` |
+| `reusable-70-orchestrator-init.yml` | `bootstrap_issues_label` | string | Label to select issues for bootstrap. | `needs.orchestrator-init.outputs.bootstrap_issues_label` |
+| `reusable-70-orchestrator-init.yml` | `draft_pr` | string (boolean-like) | Whether bootstrap PRs should be drafts. | `needs.orchestrator-init.outputs.draft_pr` |
+| `reusable-70-orchestrator-init.yml` | `verify_issue_valid_assignees` | string | Comma-separated logins considered valid for issue verification. | `needs.orchestrator-init.outputs.verify_issue_valid_assignees` |
+| `reusable-70-orchestrator-init.yml` | `dry_run` | string (boolean-like) | Global dry-run toggle for downstream jobs. | `needs.orchestrator-init.outputs.dry_run` |
+| `reusable-70-orchestrator-init.yml` | `options_json` | string (JSON) | Resolved options JSON passed to the orchestrator. | `needs.orchestrator-init.outputs.options_json` |
+| `reusable-70-orchestrator-init.yml` | `dispatcher_force_issue` | string (number-like) | Forced issue number for the dispatcher, when set. | `needs.orchestrator-init.outputs.dispatcher_force_issue` |
+| `reusable-70-orchestrator-init.yml` | `worker_max_parallel` | string (number-like) | Maximum parallel worker runs to allow. | `needs.orchestrator-init.outputs.worker_max_parallel` |
+| `reusable-70-orchestrator-init.yml` | `conveyor_max_merges` | string (number-like) | Maximum merges the conveyor should perform. | `needs.orchestrator-init.outputs.conveyor_max_merges` |
+| `reusable-70-orchestrator-init.yml` | `keepalive_trace` | string | Keepalive trace identifier propagated to downstream runs. | `needs.orchestrator-init.outputs.keepalive_trace` |
+| `reusable-70-orchestrator-init.yml` | `keepalive_round` | string | Keepalive round identifier. | `needs.orchestrator-init.outputs.keepalive_round` |
+| `reusable-70-orchestrator-init.yml` | `keepalive_pr` | string (number-like) | Keepalive target PR number, when set. | `needs.orchestrator-init.outputs.keepalive_pr` |
+| `reusable-bot-comment-handler.yml` | `comments_found` | string (boolean-like) | Whether unresolved bot comments were found. | `needs.bot-comments.outputs.comments_found` |
+| `reusable-bot-comment-handler.yml` | `comments_count` | string (number-like) | Number of unresolved bot comments found. | `needs.bot-comments.outputs.comments_count` |
+| `reusable-bot-comment-handler.yml` | `agent_triggered` | string (boolean-like) | Whether the agent was triggered to address comments. | `needs.bot-comments.outputs.agent_triggered` |
+| `reusable-bot-comment-handler.yml` | `app_auth_mode` | string enum | Selected App auth mode: client-id, legacy-app-id, or none. | `needs.bot-comments.outputs.app_auth_mode` |
+| `reusable-pr-context.yml` | `pr_number` | string (number-like) | PR number. | `needs.pr-context.outputs.pr_number` |
+| `reusable-pr-context.yml` | `pr_title` | string | PR title. | `needs.pr-context.outputs.pr_title` |
+| `reusable-pr-context.yml` | `pr_body` | string | PR body, possibly truncated for very long bodies. | `needs.pr-context.outputs.pr_body` |
+| `reusable-pr-context.yml` | `pr_state` | string | PR state: OPEN, CLOSED, or MERGED. | `needs.pr-context.outputs.pr_state` |
+| `reusable-pr-context.yml` | `pr_is_draft` | string (boolean-like) | Whether the PR is a draft. | `needs.pr-context.outputs.pr_is_draft` |
+| `reusable-pr-context.yml` | `pr_merged` | string (boolean-like) | Whether the PR is merged. | `needs.pr-context.outputs.pr_merged` |
+| `reusable-pr-context.yml` | `pr_author` | string | PR author login. | `needs.pr-context.outputs.pr_author` |
+| `reusable-pr-context.yml` | `head_ref` | string | Head branch name. | `needs.pr-context.outputs.head_ref` |
+| `reusable-pr-context.yml` | `base_ref` | string | Base branch name. | `needs.pr-context.outputs.base_ref` |
+| `reusable-pr-context.yml` | `head_sha` | string | Head commit SHA. | `needs.pr-context.outputs.head_sha` |
+| `reusable-pr-context.yml` | `labels_json` | string (JSON array) | JSON array of label names. | `needs.pr-context.outputs.labels_json` |
+| `reusable-pr-context.yml` | `has_agent_label` | string (boolean-like) | Whether the PR has any `agent:*` label. | `needs.pr-context.outputs.has_agent_label` |
+| `reusable-pr-context.yml` | `has_keepalive_label` | string (boolean-like) | Whether the PR has the `agents:keepalive` label. | `needs.pr-context.outputs.has_keepalive_label` |
+| `reusable-pr-context.yml` | `files_count` | string (number-like) | Number of changed files. | `needs.pr-context.outputs.files_count` |
+| `reusable-pr-context.yml` | `files_json` | string (JSON array) | JSON array of changed file paths. | `needs.pr-context.outputs.files_json` |
+| `reusable-pr-context.yml` | `has_src_changes` | string (boolean-like) | Whether changes include source files. | `needs.pr-context.outputs.has_src_changes` |
+| `reusable-pr-context.yml` | `has_test_changes` | string (boolean-like) | Whether changes include test files. | `needs.pr-context.outputs.has_test_changes` |
+| `reusable-pr-context.yml` | `has_workflow_changes` | string (boolean-like) | Whether changes include `.github/workflows/`. | `needs.pr-context.outputs.has_workflow_changes` |
+| `reusable-pr-context.yml` | `ci_status` | string | Overall CI status, such as SUCCESS, FAILURE, or PENDING. | `needs.pr-context.outputs.ci_status` |
+| `reusable-pr-context.yml` | `checks_json` | string (JSON array) | JSON array of check results. | `needs.pr-context.outputs.checks_json` |
+| `reusable-pr-context.yml` | `full_context_json` | string (JSON) | Full PR context as JSON; use sparingly because it can be large. | `needs.pr-context.outputs.full_context_json` |
+| `reusable-codex-run.yml` | `final-message` | string (base64) | Full Codex output message, base64 encoded. | `needs.codex.outputs.final-message` |
+| `reusable-codex-run.yml` | `final-message-summary` | string | First 500 characters of Codex output, safe for PR comments. | `needs.codex.outputs.final-message-summary` |
+| `reusable-codex-run.yml` | `error-summary` | string | Failure summary message from Codex output or preflight errors. | `needs.codex.outputs.error-summary` |
+| `reusable-codex-run.yml` | `exit-code` | string (number-like) | Codex CLI exit code. | `needs.codex.outputs.exit-code` |
+| `reusable-codex-run.yml` | `changes-made` | string (boolean-like) | Whether Codex made file changes. | `needs.codex.outputs.changes-made` |
+| `reusable-codex-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed. | `needs.codex.outputs.commit-sha` |
+| `reusable-codex-run.yml` | `files-changed` | string (number-like) | Number of files changed by Codex. | `needs.codex.outputs.files-changed` |
+| `reusable-codex-run.yml` | `error-category` | string | Error category if failure occurred. | `needs.codex.outputs.error-category` |
+| `reusable-codex-run.yml` | `error-type` | string | Error type if failure occurred. | `needs.codex.outputs.error-type` |
+| `reusable-codex-run.yml` | `error-recovery` | string | Suggested recovery action if failure occurred. | `needs.codex.outputs.error-recovery` |
+| `reusable-codex-run.yml` | `watchdog-saved` | string (boolean-like) | Whether the pre-timeout watchdog saved uncommitted work. | `needs.codex.outputs.watchdog-saved` |
+| `reusable-codex-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed. | `needs.codex.outputs.llm-analysis-run` |
+| `reusable-codex-run.yml` | `llm-provider` | string | LLM provider used for analysis. | `needs.codex.outputs.llm-provider` |
+| `reusable-codex-run.yml` | `llm-model` | string | Specific model used for analysis. | `needs.codex.outputs.llm-model` |
+| `reusable-codex-run.yml` | `llm-confidence` | string (number-like) | Confidence level of LLM analysis. | `needs.codex.outputs.llm-confidence` |
+| `reusable-codex-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of completed task descriptions. | `needs.codex.outputs.llm-completed-tasks` |
+| `reusable-codex-run.yml` | `llm-has-completions` | string (boolean-like) | Whether any task completions were detected. | `needs.codex.outputs.llm-has-completions` |
+| `reusable-codex-run.yml` | `llm-raw-confidence` | string (number-like) | Raw confidence before BS detection adjustment. | `needs.codex.outputs.llm-raw-confidence` |
+| `reusable-codex-run.yml` | `llm-effort-score` | string (number-like) | Estimated effort score based on session activity. | `needs.codex.outputs.llm-effort-score` |
+| `reusable-codex-run.yml` | `llm-data-quality` | string | Session data quality level. | `needs.codex.outputs.llm-data-quality` |
+| `reusable-codex-run.yml` | `llm-analysis-text-length` | string (number-like) | Length of analysis text sent to LLM. | `needs.codex.outputs.llm-analysis-text-length` |
+| `reusable-codex-run.yml` | `llm-quality-warnings` | string (JSON) | JSON array of quality warnings from the BS detector. | `needs.codex.outputs.llm-quality-warnings` |
+| `reusable-claude-run.yml` | `final-message` | string (base64) | Full Claude output message, base64 encoded. | `needs.claude.outputs.final-message` |
+| `reusable-claude-run.yml` | `final-message-summary` | string | First 500 characters of Claude output, safe for PR comments. | `needs.claude.outputs.final-message-summary` |
+| `reusable-claude-run.yml` | `error-summary` | string | Failure summary message from Claude output or preflight errors. | `needs.claude.outputs.error-summary` |
+| `reusable-claude-run.yml` | `exit-code` | string (number-like) | Claude CLI exit code. | `needs.claude.outputs.exit-code` |
+| `reusable-claude-run.yml` | `changes-made` | string (boolean-like) | Whether Claude made file changes. | `needs.claude.outputs.changes-made` |
+| `reusable-claude-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed. | `needs.claude.outputs.commit-sha` |
+| `reusable-claude-run.yml` | `files-changed` | string (number-like) | Number of files changed by Claude. | `needs.claude.outputs.files-changed` |
+| `reusable-claude-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed. | `needs.claude.outputs.llm-analysis-run` |
+| `reusable-claude-run.yml` | `llm-provider` | string | LLM provider used for analysis. | `needs.claude.outputs.llm-provider` |
+| `reusable-claude-run.yml` | `llm-model` | string | Specific model used for analysis. | `needs.claude.outputs.llm-model` |
+| `reusable-claude-run.yml` | `llm-confidence` | string (number-like) | Confidence level of LLM analysis. | `needs.claude.outputs.llm-confidence` |
+| `reusable-claude-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of completed task descriptions. | `needs.claude.outputs.llm-completed-tasks` |
+| `reusable-claude-run.yml` | `llm-has-completions` | string (boolean-like) | Whether any task completions were detected. | `needs.claude.outputs.llm-has-completions` |
+| `reusable-claude-run.yml` | `error-category` | string | Error category if failure occurred. | `needs.claude.outputs.error-category` |
+| `reusable-claude-run.yml` | `error-type` | string | Error type if failure occurred. | `needs.claude.outputs.error-type` |
+| `reusable-claude-run.yml` | `error-recovery` | string | Suggested recovery action if failure occurred. | `needs.claude.outputs.error-recovery` |
+
+Reusable workflows without `workflow_call` outputs:
+
+| Workflow | Caller-facing output status |
+| --- | --- |
+| `reusable-10-ci-python.yml` | No `workflow_call` outputs; publishes coverage, metrics, logs, and summaries as artifacts/job output. |
+| `reusable-11-ci-node.yml` | No `workflow_call` outputs; publishes coverage and JUnit artifacts when enabled. |
+| `reusable-12-ci-docker.yml` | No `workflow_call` outputs; logs Docker smoke results. |
+| `reusable-18-autofix.yml` | No `workflow_call` outputs; publishes patch artifacts and summaries. |
+| `reusable-70-orchestrator-main.yml` | No `workflow_call` outputs; consumes init outputs and reports status via summaries. |
+| `reusable-agents-issue-bridge.yml` | No `workflow_call` outputs; creates bridge PR artifacts and logs. |
+| `reusable-agents-pr-health.yml` | No `workflow_call` outputs; reports health through checks and summaries. |
+| `reusable-agents-verifier.yml` | No `workflow_call` outputs; posts verifier reports and artifacts. |
+
 ### Using outputs in dependent jobs
 
 The examples below show the two main output-consumption patterns: gating a downstream reusable workflow from orchestrator initialization, and passing a Markdown output into a reporting job.
