@@ -448,7 +448,7 @@ class PrCommentRunnerStorage:
                 raise RuntimeError(
                     f"Expected list response from GitHub API comments page for PR {pr_number}"
                 )
-            yield from reversed(batch)
+            yield from batch
             if len(batch) < 100:
                 break
             page += 1
@@ -456,23 +456,10 @@ class PrCommentRunnerStorage:
     def _find_comment(self, pr_number: int, provider: str) -> dict[str, Any] | None:
         pattern = _marker_re(pr_number, provider)
         latest: dict[str, Any] | None = None
-        page = 1
-        while True:
-            batch = self.api.request(
-                "GET",
-                f"/repos/{self.api.repo}/issues/{pr_number}/comments?per_page=100&page={page}",
-            )
-            if not isinstance(batch, list):
-                raise RuntimeError(
-                    f"Expected list response from GitHub API comments page for PR {pr_number}"
-                )
-            for comment in batch:
-                body = comment.get("body")
-                if isinstance(body, str) and pattern.search(body):
-                    latest = comment
-            if len(batch) < 100:
-                break
-            page += 1
+        for comment in self._iter_comments(pr_number):
+            body = comment.get("body")
+            if isinstance(body, str) and pattern.search(body):
+                latest = comment
         return latest
 
     def read_record(self, pr_number: int, provider: str) -> dict[str, Any] | None:
@@ -686,9 +673,9 @@ def record_completion(
         else _utc_now()
     )
     compact_result = {
-        key: result_payload.get(key)
-        for key in ("provider", "success", "summary", "error", "truncated")
-        if key in result_payload
+        field: result_payload.get(field)
+        for field in ("provider", "success", "summary", "error", "truncated")
+        if field in result_payload
     }
     record = {
         **prior,
