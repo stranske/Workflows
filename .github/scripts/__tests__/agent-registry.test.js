@@ -46,6 +46,17 @@ test('loadAgentRegistry loads the repo registry file', () => {
   assert.ok(registry.agents.codex);
 });
 
+test('loadAgentRegistry accepts a registry path string', () => {
+  const registry = loadAgentRegistry(REGISTRY_PATH);
+  assert.equal(registry.default_agent, 'codex');
+  assert.ok(registry.agents.codex);
+});
+
+test('runner helpers accept a registry path string', () => {
+  assert.equal(resolveAgentFromLabels(['agent:codex'], REGISTRY_PATH), 'codex');
+  assert.equal(getRunnerWorkflow('codex', REGISTRY_PATH), '.github/workflows/reusable-codex-run.yml');
+});
+
 test('resolveAgentFromLabels returns default agent when no labels present', () => {
   const agentKey = resolveAgentFromLabels([], { registryPath: REGISTRY_PATH });
   assert.equal(agentKey, 'codex');

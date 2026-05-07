@@ -135,7 +135,15 @@ function parseRegistryYaml(text) {
   return root;
 }
 
-function loadAgentRegistry({ registryPath } = {}) {
+function normalizeRegistryOptions(options = {}) {
+  if (typeof options === 'string') {
+    return { registryPath: options };
+  }
+  return options || {};
+}
+
+function loadAgentRegistry(options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
   const path = registryPath || '.github/agents/registry.yml';
   const raw = fs.readFileSync(path, 'utf8');
   const registry = parseRegistryYaml(raw);
@@ -164,7 +172,8 @@ function normalizeLabel(label) {
   return '';
 }
 
-function resolveAgentRoutingFromLabels(labels, { registryPath } = {}) {
+function resolveAgentRoutingFromLabels(labels, options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
   const registry = loadAgentRegistry({ registryPath });
   const labelList = Array.isArray(labels) ? labels : [];
   const agentLabels = labelList
@@ -210,12 +219,14 @@ function resolveAgentRoutingFromLabels(labels, { registryPath } = {}) {
   };
 }
 
-function resolveAgentFromLabels(labels, { registryPath } = {}) {
+function resolveAgentFromLabels(labels, options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
   const routing = resolveAgentRoutingFromLabels(labels, { registryPath });
   return routing.agentKey;
 }
 
-function getAgentConfig(agentKey, { registryPath } = {}) {
+function getAgentConfig(agentKey, options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
   const registry = loadAgentRegistry({ registryPath });
   const key = String(agentKey || '').trim() || registry.default_agent;
   const config = registry.agents[key];
@@ -226,7 +237,8 @@ function getAgentConfig(agentKey, { registryPath } = {}) {
   return config;
 }
 
-function getRunnerWorkflow(agentKey, { registryPath } = {}) {
+function getRunnerWorkflow(agentKey, options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
   const config = getAgentConfig(agentKey, { registryPath });
   const workflow = String(config.runner_workflow || '').trim();
   if (!workflow) {
@@ -239,7 +251,8 @@ function getRunnerWorkflow(agentKey, { registryPath } = {}) {
  * Return all automation logins across all agents in the registry.
  * Useful for detecting bot-authored comments/commits.
  */
-function getAllAutomationLogins({ registryPath } = {}) {
+function getAllAutomationLogins(options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
   const registry = loadAgentRegistry({ registryPath });
   const logins = new Set();
   for (const config of Object.values(registry.agents)) {
@@ -258,7 +271,8 @@ function getAllAutomationLogins({ registryPath } = {}) {
  * an array of readiness_candidates from the registry.
  * Drop-in replacement for the hardcoded CANDIDATES object.
  */
-function getReadinessCandidates({ registryPath } = {}) {
+function getReadinessCandidates(options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
   const registry = loadAgentRegistry({ registryPath });
   const result = {};
   for (const [key, config] of Object.entries(registry.agents)) {
@@ -273,14 +287,16 @@ function getReadinessCandidates({ registryPath } = {}) {
  * Return the keepalive marker prefix from registry,
  * falling back to 'agent-keepalive' if not set.
  */
-function getKeepaliveMarkerPrefix({ registryPath } = {}) {
+function getKeepaliveMarkerPrefix(options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
   const registry = loadAgentRegistry({ registryPath });
   return String(
     registry.keepalive_marker_prefix || 'agent-keepalive'
   );
 }
 
-function getAgentEntries({ registryPath } = {}) {
+function getAgentEntries(options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
   const registry = loadAgentRegistry({ registryPath });
   return Object.entries(registry.agents || {}).map(([key, config]) => ({
     key,

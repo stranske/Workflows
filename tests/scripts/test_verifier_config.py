@@ -203,3 +203,10 @@ def test_artifact_from_verification_text_preserves_json_array_results() -> None:
     assert artifact["raw_present"] is True
     assert artifact["results"][1]["verdict"] == "CONCERNS"
     assert is_terminal_artifact(artifact)
+
+
+def test_artifact_from_verification_text_computes_raw_present_authoritatively() -> None:
+    artifact = artifact_from_verification_text('{"verdict":"PASS","raw_present":false}')
+
+    assert artifact["raw_present"] is True
+    assert artifact["verdict"] == "PASS"

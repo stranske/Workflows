@@ -35,8 +35,25 @@ def test_sync_manifest_ships_reference_packs_before_runner_lib() -> None:
     )
 
 
-def _decode_github_output_value(value: str) -> str:
-    return value.replace("%0D", "\r").replace("%0A", "\n").replace("%25", "%")
+def _parse_github_output(text: str) -> dict[str, str]:
+    outputs: dict[str, str] = {}
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if "<<" in line:
+            key, delimiter = line.split("<<", 1)
+            index += 1
+            value_lines: list[str] = []
+            while index < len(lines) and lines[index] != delimiter:
+                value_lines.append(lines[index])
+                index += 1
+            outputs[key] = "\n".join(value_lines)
+        elif "=" in line:
+            key, value = line.split("=", 1)
+            outputs[key] = value
+        index += 1
+    return outputs
 
 
 def test_reference_pack_config_exists_when_missing(tmp_path: Path) -> None:
@@ -383,33 +400,29 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
     assert "reference_packs_exists=true" in output_lines
     assert f"reference_packs_path={config_file}" in output_lines
     assert "reference_packs_count=1" in output_lines
-    assert "reference_packs_payload_json=" in output_lines
-    assert "reference_packs_checkout_plan_json=" in output_lines
-    assert "reference_packs_config_text=" in output_lines
+    assert "reference_packs_payload_json<<" in output_lines
+    assert "reference_packs_checkout_plan_json<<" in output_lines
+    assert "reference_packs_config_text<<" in output_lines
     assert "reference_packs_config_text_b64=" in output_lines
 
-    line_map = dict(
-        line.split("=", 1)
-        for line in output_lines.splitlines()
-        if "=" in line and line.startswith("reference_packs_")
-    )
-    payload_json = _decode_github_output_value(line_map["reference_packs_payload_json"])
+    line_map = _parse_github_output(output_lines)
+    payload_json = line_map["reference_packs_payload_json"]
     parsed_payload = json.loads(payload_json)
     assert parsed_payload["exists"] is True
     assert parsed_payload["packs"][0]["name"] == "trend-streamlit"
     assert parsed_payload["checkout_plan"][0]["checkout_path"] == ".reference/trend-streamlit"
 
-    packs_json = _decode_github_output_value(line_map["reference_packs_json"])
+    packs_json = line_map["reference_packs_json"]
     parsed_packs = json.loads(packs_json)
     assert parsed_packs[0]["name"] == "trend-streamlit"
     assert parsed_packs[0]["repo"] == "trend/research"
 
-    checkout_plan_json = _decode_github_output_value(line_map["reference_packs_checkout_plan_json"])
+    checkout_plan_json = line_map["reference_packs_checkout_plan_json"]
     checkout_plan = json.loads(checkout_plan_json)
     assert checkout_plan[0]["name"] == "trend-streamlit"
     assert checkout_plan[0]["checkout_path"] == ".reference/trend-streamlit"
 
-    config_text_direct = _decode_github_output_value(line_map["reference_packs_config_text"])
+    config_text_direct = line_map["reference_packs_config_text"]
     assert json.loads(config_text_direct)["trend-streamlit"]["repo"] == "trend/research"
 
     config_b64 = line_map["reference_packs_config_text_b64"]
@@ -439,7 +452,7 @@ def test_cli_github_output_absent_config_reports_false(tmp_path: Path) -> None:
     output_lines = github_output.read_text(encoding="utf-8")
     assert "reference_packs_exists=false" in output_lines
     assert "reference_packs_count=0" in output_lines
-    assert "reference_packs_config_text=" in output_lines
+    assert "reference_packs_config_text<<" in output_lines
     assert "reference_packs_config_text_b64=" in output_lines
 
 
@@ -474,12 +487,8 @@ def test_cli_github_output_config_text_preserves_percent_and_newline(tmp_path: P
     )
 
     assert result.returncode == 0
-    line_map = dict(
-        line.split("=", 1)
-        for line in github_output.read_text(encoding="utf-8").splitlines()
-        if "=" in line and line.startswith("reference_packs_")
-    )
-    decoded = _decode_github_output_value(line_map["reference_packs_config_text"])
+    line_map = _parse_github_output(github_output.read_text(encoding="utf-8"))
+    decoded = line_map["reference_packs_config_text"]
     assert decoded == config_text
 
 

@@ -200,8 +200,8 @@ function resolveBotCommentAgent(labels = [], options = {}) {
 
   try {
     const { loadAgentRegistry, getRunnerWorkflow } = require('./agent_registry.js');
-    defaultAgent = options.defaultAgent || loadAgentRegistry({ registryPath }).default_agent || DEFAULT_AGENT;
-    defaultWorkflow = basename(getRunnerWorkflow(defaultAgent, { registryPath })) || defaultWorkflow;
+    defaultAgent = options.defaultAgent || loadAgentRegistry(registryPath).default_agent || DEFAULT_AGENT;
+    defaultWorkflow = basename(getRunnerWorkflow(defaultAgent, registryPath)) || defaultWorkflow;
   } catch (_) {
     // Preserve the workflow's legacy default when the registry is unavailable.
   }

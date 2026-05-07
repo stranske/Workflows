@@ -115,7 +115,7 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
 
     parsed = _coerce_artifact(raw)
     if isinstance(parsed, dict):
-        return {**artifact, **parsed}
+        return {**parsed, **artifact}
     if isinstance(parsed, list):
         return {**artifact, "artifact_family": "verifier-report", "results": parsed}
 

@@ -212,9 +212,11 @@ def _snapshot_to_dict(snapshot: ReferencePackSnapshot) -> dict[str, Any]:
     }
 
 
-def _github_output_value(value: str) -> str:
-    """Escape output values to avoid multi-line output parsing issues."""
-    return value.replace("%", "%25").replace("\n", "%0A").replace("\r", "%0D")
+def _github_output_block(key: str, value: str) -> list[str]:
+    delimiter = f"__{key.upper()}_EOF__"
+    while delimiter in value:
+        delimiter = f"_{delimiter}"
+    return [f"{key}<<{delimiter}", value, delimiter]
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -280,13 +282,17 @@ def main(argv: list[str] | None = None) -> int:
         f"reference_packs_exists={'true' if snapshot.exists else 'false'}",
         f"reference_packs_path={snapshot.config_path}",
         f"reference_packs_count={len(snapshot.packs)}",
-        "reference_packs_json="
-        f"{_github_output_value(json.dumps([asdict(pack) for pack in snapshot.packs], separators=(',', ':')))}",
-        f"reference_packs_payload_json={_github_output_value(canonical_payload_json)}",
-        f"reference_packs_checkout_plan_json={_github_output_value(checkout_plan_json)}",
-        f"reference_packs_config_text={_github_output_value(snapshot.config_text or '')}",
         f"reference_packs_config_text_b64={config_text_b64}",
     ]
+    lines.extend(
+        _github_output_block(
+            "reference_packs_json",
+            json.dumps([asdict(pack) for pack in snapshot.packs], separators=(",", ":")),
+        )
+    )
+    lines.extend(_github_output_block("reference_packs_payload_json", canonical_payload_json))
+    lines.extend(_github_output_block("reference_packs_checkout_plan_json", checkout_plan_json))
+    lines.extend(_github_output_block("reference_packs_config_text", snapshot.config_text or ""))
     with github_output.open("a", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
     return 0
