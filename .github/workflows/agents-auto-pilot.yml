@@ -609,6 +609,7 @@ jobs:
 
           # Force step if specified (not 'auto')
           if [[ -n "$FORCE_STEP" && "$FORCE_STEP" != "auto" ]]; then
+            set -e
             WORKFLOWS_SCRIPTS_PATH="$SCRIPTS_PATH" FORCE_STEP="$FORCE_STEP" node - <<'NODE'
           const fs = require('fs');
           const { determineNextStep } = require(

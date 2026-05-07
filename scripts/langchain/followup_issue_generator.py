@@ -72,8 +72,6 @@ SECTION_TITLES = {
     "implementation": "Implementation Notes",
 }
 
-TOKEN_CHARS = 4
-
 LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
 MISSING_CONCERNS_MESSAGE = (

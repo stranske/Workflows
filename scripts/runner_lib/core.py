@@ -416,7 +416,7 @@ def _extract_record(value: str | None, pr_number: int, provider: str) -> dict[st
     for candidate in candidates:
         try:
             payload = json.loads(_decode_record_candidate(candidate))
-        except (binascii.Error, ValueError, json.JSONDecodeError):
+        except (binascii.Error, UnicodeDecodeError, ValueError, json.JSONDecodeError):
             continue
         if isinstance(payload, dict) and payload.get("provider") == provider:
             return payload
@@ -438,7 +438,6 @@ class PrCommentRunnerStorage:
         return cls(GitHubApi(repo, token))
 
     def _iter_comments(self, pr_number: int) -> Iterator[dict[str, Any]]:
-        comments: list[dict[str, Any]] = []
         page = 1
         while True:
             batch = self.api.request(
@@ -449,19 +448,32 @@ class PrCommentRunnerStorage:
                 raise RuntimeError(
                     f"Expected list response from GitHub API comments page for PR {pr_number}"
                 )
-            comments.extend(batch)
+            yield from reversed(batch)
             if len(batch) < 100:
                 break
             page += 1
-        yield from reversed(comments)
 
     def _find_comment(self, pr_number: int, provider: str) -> dict[str, Any] | None:
         pattern = _marker_re(pr_number, provider)
-        for comment in self._iter_comments(pr_number):
-            body = comment.get("body")
-            if isinstance(body, str) and pattern.search(body):
-                return comment
-        return None
+        latest: dict[str, Any] | None = None
+        page = 1
+        while True:
+            batch = self.api.request(
+                "GET",
+                f"/repos/{self.api.repo}/issues/{pr_number}/comments?per_page=100&page={page}",
+            )
+            if not isinstance(batch, list):
+                raise RuntimeError(
+                    f"Expected list response from GitHub API comments page for PR {pr_number}"
+                )
+            for comment in batch:
+                body = comment.get("body")
+                if isinstance(body, str) and pattern.search(body):
+                    latest = comment
+            if len(batch) < 100:
+                break
+            page += 1
+        return latest
 
     def read_record(self, pr_number: int, provider: str) -> dict[str, Any] | None:
         comment = self._find_comment(pr_number, provider)
@@ -626,11 +638,14 @@ def should_dispatch(
                 prior_head_sha=head_sha,
             )
 
-    reason = (
-        "first-dispatch"
-        if prior is None
-        else "stale-pending" if prior.get("head_sha") == head_sha else "head-sha-changed"
-    )
+    if prior is None:
+        reason = "first-dispatch"
+    elif prior.get("head_sha") != head_sha:
+        reason = "head-sha-changed"
+    elif str(prior.get("status") or "") == "pending":
+        reason = "stale-pending"
+    else:
+        reason = f"retry-{str(prior.get('status') or 'unknown')}"
     record = {
         "provider": provider,
         "pr_number": pr_number,
@@ -670,6 +685,11 @@ def record_completion(
         if prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES
         else _utc_now()
     )
+    compact_result = {
+        key: result_payload.get(key)
+        for key in ("provider", "success", "summary", "error", "truncated")
+        if key in result_payload
+    }
     record = {
         **prior,
         "provider": provider,
@@ -678,7 +698,7 @@ def record_completion(
         "key": key,
         "status": status,
         "completed_at": completed_at,
-        "result": result_payload,
+        "result": compact_result,
     }
     storage.write_record(pr_number, provider, record)
     return record

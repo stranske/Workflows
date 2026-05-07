@@ -47,8 +47,15 @@ function resolveBotAuthors(input, { defaultAuthors = DEFAULT_BOT_AUTHORS } = {})
   return configured.length ? configured : [...defaultAuthors];
 }
 
+function resolveBotAuthorSet(input, options = {}) {
+  if (input instanceof Set) {
+    return input;
+  }
+  return new Set(resolveBotAuthors(input, options).map(normalizeLogin));
+}
+
 function isBotAuthor(login, botAuthorsInput) {
-  const allowed = new Set(resolveBotAuthors(botAuthorsInput).map(normalizeLogin));
+  const allowed = resolveBotAuthorSet(botAuthorsInput);
   return allowed.has(normalizeLogin(login));
 }
 
@@ -59,12 +66,13 @@ function isIgnoredPath(commentPath, ignoredPathsInput) {
 }
 
 function collectUnresolvedBotComments(comments = [], options = {}) {
-  const botAuthors = resolveBotAuthors(options.botAuthors ?? options.bot_authors);
+  const botAuthors = resolveBotAuthorSet(options.botAuthors ?? options.bot_authors);
   const skipIfHumanReplied = options.skipIfHumanReplied ?? options.skip_if_human_replied ?? true;
   const ignoredPaths = options.ignoredPaths ?? options.ignored_paths ?? '';
   const botComments = [];
   const processedThreads = new Set();
   const byId = new Map();
+  const allComments = Array.isArray(comments) ? comments : [];
   for (const comment of Array.isArray(comments) ? comments : []) {
     if (comment?.id !== undefined && comment?.id !== null) {
       byId.set(comment.id, comment);
@@ -85,7 +93,20 @@ function collectUnresolvedBotComments(comments = [], options = {}) {
     return current?.id ?? comment?.id;
   }
 
-  for (const comment of Array.isArray(comments) ? comments : []) {
+  const humanReplyByThread = new Map();
+  if (skipIfHumanReplied) {
+    for (const comment of allComments) {
+      if (isBotAuthor(comment?.user?.login, botAuthors)) {
+        continue;
+      }
+      const threadId = rootThreadId(comment);
+      if (threadId !== comment?.id) {
+        humanReplyByThread.set(threadId, true);
+      }
+    }
+  }
+
+  for (const comment of allComments) {
     const login = comment?.user?.login;
     if (!isBotAuthor(login, botAuthors)) {
       continue;
@@ -101,17 +122,9 @@ function collectUnresolvedBotComments(comments = [], options = {}) {
       continue;
     }
 
-    if (skipIfHumanReplied) {
-      const threadReplies = comments.filter(
-        (candidate) =>
-          rootThreadId(candidate) === threadId &&
-          candidate?.id !== comment.id &&
-          !isBotAuthor(candidate?.user?.login, botAuthors),
-      );
-      if (threadReplies.length > 0) {
-        processedThreads.add(threadId);
-        continue;
-      }
+    if (humanReplyByThread.get(threadId)) {
+      processedThreads.add(threadId);
+      continue;
     }
 
     processedThreads.add(threadId);

@@ -41,6 +41,20 @@ def test_reduced_matrix_when_scope_detected() -> None:
     assert selected.total_count == 3
 
 
+def test_globstar_scope_matches_root_python_file() -> None:
+    full = {"include": [{"name": "coverage", "scope": {"paths": ["**/*.py"]}}]}
+
+    selected = reusable_ci_scope.select_scenarios(
+        "maint-coverage-guard",
+        ["main.py"],
+        full,
+        reusable_ci_scope.SelectionOptions(),
+    )
+
+    assert selected.matrix == {"include": [{"name": "coverage"}]}
+    assert selected.selected_count == 1
+
+
 def test_force_full_override_returns_full_matrix() -> None:
     full = {
         "include": [

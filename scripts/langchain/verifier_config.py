@@ -137,8 +137,6 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
         artifact["artifact_family"] = "verifier-report"
     if repair_pending and not verdicts:
         artifact["repair_pending"] = True
-    if artifact.get("artifact_family") == "verifier-report" and not artifact.get("verdict"):
-        artifact["verdict"] = "ERROR"
     return artifact
 
 
@@ -153,7 +151,7 @@ def _coerce_artifact(value: Any) -> Any:
             return json.loads(raw)
         except json.JSONDecodeError:
             return None
-    if isinstance(value, dict | list):
+    if isinstance(value, (dict, list)):
         return value
     if hasattr(value, "model_dump"):
         return value.model_dump()

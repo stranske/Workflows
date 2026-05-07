@@ -162,6 +162,21 @@ def test_should_dispatch_allows_stale_pending_record() -> None:
     assert decision.reason == "stale-pending"
 
 
+def test_should_dispatch_uses_specific_retry_reason_for_error_status() -> None:
+    storage = MemoryRunnerStorage()
+    storage.records[(42, "codex")] = {
+        "provider": "codex",
+        "pr_number": 42,
+        "head_sha": "aaa",
+        "status": "error",
+    }
+
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert decision.should_dispatch is True
+    assert decision.reason == "retry-error"
+
+
 def test_record_completion_is_idempotent_for_same_key() -> None:
     storage = MemoryRunnerStorage()
     should_dispatch(42, "aaa", "claude", storage=storage)
@@ -174,6 +189,17 @@ def test_record_completion_is_idempotent_for_same_key() -> None:
     assert second["status"] == "completed"
     assert second["completed_at"] == first["completed_at"]
     assert storage.records[(42, "claude")]["result"]["summary"] == "Done"
+
+
+def test_record_completion_stores_compact_result_payload() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    result = parse_runner_output("codex", "x" * 10000)
+
+    record = record_completion(42, "aaa", "codex", result, storage=storage)
+
+    assert record["result"]["summary"] == "x" * 500
+    assert "final_message" not in record["result"]
 
 
 def test_materialize_reference_packs_keeps_token_out_of_git_argv(
@@ -238,6 +264,12 @@ def test_pr_comment_marker_rejects_invalid_base64_payload() -> None:
     marker = (
         "Runner dispatch state\n\n" "<!-- runner-dispatch:codex:42:v1 base64:!!!not-base64!!! -->"
     )
+
+    assert runner_core._extract_record(marker, 42, "codex") is None
+
+
+def test_pr_comment_marker_rejects_invalid_utf8_payload() -> None:
+    marker = "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 base64://8= -->"
 
     assert runner_core._extract_record(marker, 42, "codex") is None
 

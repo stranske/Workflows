@@ -3,12 +3,6 @@ name: Maint Coverage Guard
 'on':
   schedule:
     - cron: '45 6 * * *'
-  pull_request:
-    paths:
-      - '**/*.py'
-      - '.github/workflows/maint-coverage-guard.yml'
-      - 'config/coverage-baseline.json'
-      - 'scripts/reusable_ci_scope.py'
   workflow_dispatch:
 
 permissions:

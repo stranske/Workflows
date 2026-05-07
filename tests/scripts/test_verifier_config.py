@@ -130,13 +130,14 @@ def test_artifact_from_verification_text_ignores_stale_repair_marker_with_verdic
     assert is_terminal_artifact(artifact)
 
 
-def test_artifact_from_verification_text_marks_malformed_report_terminal_error() -> None:
+def test_artifact_from_verification_text_rejects_malformed_report_without_verdict() -> None:
     artifact = artifact_from_verification_text(
         "## PR Verification Report\n\nThe verifier output did not include a verdict."
     )
 
-    assert artifact["verdict"] == "ERROR"
-    assert is_terminal_artifact(artifact)
+    assert artifact["artifact_family"] == "verifier-report"
+    assert "verdict" not in artifact
+    assert not is_terminal_artifact(artifact)
 
 
 def test_artifact_from_verification_text_resolves_provider_table() -> None:
