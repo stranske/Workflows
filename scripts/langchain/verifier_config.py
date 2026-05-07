@@ -115,16 +115,17 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
 
     parsed = _coerce_artifact(raw)
     if isinstance(parsed, dict):
-        return parsed
+        return {**artifact, **parsed}
     if isinstance(parsed, list):
-        return {"artifact_family": "verifier-report", "results": parsed}
+        return {**artifact, "artifact_family": "verifier-report", "results": parsed}
 
     verdicts = _extract_verdicts(raw)
     if verdicts:
         severity = {"PASS": 0, "CONCERNS": 1, "FAIL": 2, "ERROR": 3}
         artifact["verdict"] = max(verdicts, key=lambda verdict: severity.get(verdict, -1))
 
-    lowered = raw.lower()
+    latest_raw = _latest_verifier_report(raw)
+    lowered = latest_raw.lower()
     repair_pending = (
         any(
             phrase in lowered
@@ -143,6 +144,15 @@ def artifact_from_verification_text(text: str) -> dict[str, Any]:
     if repair_pending:
         artifact["repair_pending"] = True
     return artifact
+
+
+def _latest_verifier_report(raw: str) -> str:
+    lowered = raw.lower()
+    marker = "## pr verification"
+    index = lowered.rfind(marker)
+    if index == -1:
+        return raw
+    return raw[index:]
 
 
 def _coerce_artifact(value: Any) -> Any:

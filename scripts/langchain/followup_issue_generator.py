@@ -1397,7 +1397,9 @@ def _budget_followup_tasks(tasks: list[str]) -> list[str]:
         estimated = max(1, estimate_tokens(f"- [ ] {task}"))
         if estimated > budget:
             if not selected:
-                selected.append(_truncate_task_to_budget(task, budget))
+                truncated = _truncate_task_to_budget(task, budget)
+                if truncated:
+                    selected.append(truncated)
             break
         if selected and used + estimated > budget:
             break
@@ -1421,7 +1423,9 @@ def _truncate_task_to_budget(task: str, budget: int) -> str:
             low = mid + 1
         else:
             high = mid - 1
-    return best or suffix.strip()
+    if best:
+        return best
+    return suffix if estimate_tokens(f"- [ ] {suffix}") <= budget else ""
 
 
 def _generate_with_llm(

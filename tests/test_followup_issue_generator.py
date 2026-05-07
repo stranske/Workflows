@@ -86,6 +86,17 @@ def test_budget_followup_tasks_never_returns_leading_space_suffix(
     assert selected == ["..."]
 
 
+def test_budget_followup_tasks_omits_task_when_suffix_exceeds_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(followup_issue_generator, "EVAL_FOLLOW_UP_BUDGET_TOKENS", 4)
+    monkeypatch.setattr(followup_issue_generator, "estimate_tokens", lambda value: 100)
+
+    selected = followup_issue_generator._budget_followup_tasks(["x" * 500])
+
+    assert selected == []
+
+
 def test_select_followup_acceptance_criteria_keeps_workflow_items_for_workflow_feedback() -> None:
     original_issue = OriginalIssueData(
         title="Mixed verifier follow-up",

@@ -142,6 +142,20 @@ def test_artifact_from_verification_text_preserves_newer_pending_repair_after_ol
     assert not is_terminal_artifact(artifact)
 
 
+def test_artifact_from_verification_text_ignores_older_pending_repair_before_latest_verdict() -> (
+    None
+):
+    artifact = artifact_from_verification_text(
+        "## PR Verification Report\n\nSchema repair pending; validation retry queued."
+        "\n\n---\n\n"
+        "## PR Verification Report\n\nVerdict: PASS"
+    )
+
+    assert artifact["verdict"] == "PASS"
+    assert artifact.get("repair_pending") is not True
+    assert is_terminal_artifact(artifact)
+
+
 def test_artifact_from_verification_text_ignores_stale_repair_marker_with_verdict() -> None:
     artifact = artifact_from_verification_text(
         "Schema repair pending in an older run.\n\n## PR Verification Report\n\nVerdict: FAIL"
@@ -176,6 +190,7 @@ def test_artifact_from_verification_text_resolves_provider_table() -> None:
     )
 
     assert artifact["verdict"] == "FAIL"
+    assert artifact["raw_present"] is True
     assert is_terminal_artifact(artifact)
 
 
@@ -185,5 +200,6 @@ def test_artifact_from_verification_text_preserves_json_array_results() -> None:
     )
 
     assert artifact["artifact_family"] == "verifier-report"
+    assert artifact["raw_present"] is True
     assert artifact["results"][1]["verdict"] == "CONCERNS"
     assert is_terminal_artifact(artifact)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from scripts import reusable_ci_scope
 
@@ -119,3 +120,18 @@ def test_cli_outputs_matrix_and_rationale(capsys) -> None:
     assert exit_code == 0
     assert payload["matrix"] == {"include": [{"name": "tests"}]}
     assert payload["rationale"] == "running 1/2 scenarios because only `tests/` changed"
+
+
+def test_github_outputs_use_multiline_format(tmp_path: Path) -> None:
+    output_path = tmp_path / "outputs.txt"
+
+    reusable_ci_scope._write_github_outputs(
+        str(output_path),
+        {"rationale": "first line\nsecond=line%"},
+    )
+
+    assert output_path.read_text(encoding="utf-8") == (
+        "rationale<<__REUSABLE_CI_SCOPE_RATIONALE__\n"
+        "first line\nsecond=line%\n"
+        "__REUSABLE_CI_SCOPE_RATIONALE__\n"
+    )

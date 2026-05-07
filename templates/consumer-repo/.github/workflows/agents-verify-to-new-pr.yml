@@ -260,7 +260,12 @@ jobs:
               is_terminal_artifact,
           )
 
-          raw = Path("verification_data.txt").read_text(encoding="utf-8")
+          verification_path = Path("verification_data.txt")
+          raw = (
+              verification_path.read_text(encoding="utf-8")
+              if verification_path.exists()
+              else ""
+          )
           artifact = artifact_from_verification_text(raw)
           terminal = is_terminal_artifact(artifact)
           verdict = str(artifact.get("verdict") or "")

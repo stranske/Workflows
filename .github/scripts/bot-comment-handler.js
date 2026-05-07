@@ -3,7 +3,6 @@
 const DEFAULT_PER_PAGE = 100;
 const MAX_COMMENT_PAGES = 10;
 const DEFAULT_BOT_AUTHORS = Object.freeze([
-  'Copilot',
   'copilot[bot]',
   'github-actions[bot]',
   'coderabbitai[bot]',
@@ -367,17 +366,20 @@ function buildWrapperTerminalDisposition(options = {}) {
 }
 
 /**
- * List PR/issue comments with a hard pagination upper bound.
+ * List issue conversation comments with a hard pagination upper bound.
  *
  * Callers should pass a `listFn` obtained via createTokenAwareRetry
  * (from github-api-with-retry.js) so that every page request gets
  * automatic token rotation and rate-limit back-off.
+ * This helper is for `issues.listComments`, which is also used for PR
+ * conversation comments. Pull-request review comment APIs use different
+ * parameter names and should not be passed here.
  *
  * @param {object} options
  * @param {string} options.owner - Repository owner.
  * @param {string} options.repo  - Repository name.
- * @param {number} options.issueNumber - PR or issue number.
- * @param {function} options.listFn - Paginated list function (required).
+ * @param {number} options.issueNumber - Issue or PR conversation number.
+ * @param {function} options.listFn - issues.listComments-compatible function.
  * @param {number} [options.perPage=100]  - Items per page.
  * @param {number} [options.maxPages=10]  - Hard upper bound on pages fetched.
  * @returns {Promise<object[]>} Collected comments.

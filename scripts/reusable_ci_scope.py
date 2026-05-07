@@ -337,7 +337,12 @@ def _parse_matrix(args: argparse.Namespace) -> MatrixInput:
 def _write_github_outputs(path: str, outputs: dict[str, str]) -> None:
     with open(path, "a", encoding="utf-8") as handle:
         for key, value in outputs.items():
-            handle.write(f"{key}={value}\n")
+            delimiter = f"__REUSABLE_CI_SCOPE_{key.upper()}__"
+            while delimiter in value:
+                delimiter = f"_{delimiter}_"
+            handle.write(f"{key}<<{delimiter}\n")
+            handle.write(f"{value}\n")
+            handle.write(f"{delimiter}\n")
 
 
 def build_parser() -> argparse.ArgumentParser:

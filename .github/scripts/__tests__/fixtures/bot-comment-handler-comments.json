@@ -4,7 +4,7 @@
     "path": "src/app.js",
     "line": 12,
     "body": "Use a stable comparison here.",
-    "user": { "login": "Copilot" },
+    "user": { "login": "copilot[bot]" },
     "html_url": "https://example.invalid/pull/42#discussion_r1001",
     "diff_hunk": "@@ -10,7 +10,7 @@"
   },

@@ -23,7 +23,6 @@ const REGISTRY_PATH = path.resolve(__dirname, '..', '..', 'agents', 'registry.ym
 
 test('default bot author allowlist recognizes canonical review bots', () => {
   for (const login of [
-    'Copilot',
     'copilot[bot]',
     'github-actions[bot]',
     'coderabbitai[bot]',
@@ -35,6 +34,7 @@ test('default bot author allowlist recognizes canonical review bots', () => {
 
 test('default bot author allowlist rejects human users', () => {
   assert.equal(isBotAuthor('octocat', DEFAULT_BOT_AUTHORS), false);
+  assert.equal(isBotAuthor('Copilot', DEFAULT_BOT_AUTHORS), false);
 });
 
 test('custom bot author input replaces the default workflow allowlist', () => {
