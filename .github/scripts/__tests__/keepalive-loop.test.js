@@ -23,6 +23,7 @@ const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf
 const buildGithubStub = ({
   pr,
   comments = [],
+  labels = [],
   workflowRuns = [],
   workflowJobs = [],
   workflowRun = null,
@@ -63,6 +64,9 @@ const buildGithubStub = ({
         async listComments() {
           return { data: comments };
         },
+        async listLabelsOnIssue() {
+          return { data: labels.map((name) => ({ name })) };
+        },
         async updateComment({ body, comment_id: commentId }) {
           actions.push({ type: 'update', body, commentId });
           return { data: { id: commentId } };
@@ -73,6 +77,10 @@ const buildGithubStub = ({
         },
         async addLabels({ labels }) {
           actions.push({ type: 'label', labels });
+          return { data: {} };
+        },
+        async removeLabel({ name }) {
+          actions.push({ type: 'remove-label', name });
           return { data: {} };
         },
       },
@@ -2165,6 +2173,49 @@ test('updateKeepaliveLoopSummary does NOT add needs-human on tasks-complete', as
   assert.match(github.actions[0].body, /tasks-complete/);
   // Failure state should be clear
   assert.match(github.actions[0].body, /"failure":\{\}/);
+});
+
+test('updateKeepaliveLoopSummary clears stale human-blocker labels on tasks-complete', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-stale-human',
+    iteration: 3,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 2 },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 46, body: existingState, html_url: 'https://example.com/46' }],
+    labels: ['agent:needs-attention', 'needs-human', 'agent:claude', 'agents:keepalive'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(458),
+    core: buildCore(),
+    inputs: {
+      prNumber: 458,
+      action: 'stop',
+      reason: 'tasks-complete',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 0,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 3,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-stale-human',
+    },
+  });
+
+  const removedLabels = github.actions
+    .filter((action) => action.type === 'remove-label')
+    .map((action) => action.name)
+    .sort();
+  assert.deepEqual(removedLabels, ['agent:needs-attention', 'needs-human']);
+  assert.equal(
+    github.actions.some((action) => action.type === 'label' && action.labels.includes('needs-human')),
+    false,
+  );
 });
 
 test('evaluateKeepaliveLoop extracts agent type from agent:* labels', async () => {

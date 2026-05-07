@@ -23,6 +23,7 @@ try {
 
 const ATTEMPT_HISTORY_LIMIT = 20;
 const ATTEMPTED_TASK_LIMIT = 20;
+const HUMAN_BLOCKER_LABELS = ['agent:needs-attention', 'needs-human'];
 
 const TIMEOUT_VARIABLE_NAMES = [
   'WORKFLOW_TIMEOUT_DEFAULT',
@@ -63,6 +64,46 @@ try {
 
 function normalise(value) {
   return String(value ?? '').trim();
+}
+
+async function clearStaleHumanBlockerLabels({ github, owner, repo, prNumber, core }) {
+  let currentLabels = [];
+  try {
+    const { data } = await github.rest.issues.listLabelsOnIssue({
+      owner,
+      repo,
+      issue_number: prNumber,
+      per_page: 100,
+    });
+    currentLabels = (data || []).map((label) => normalise(label?.name)).filter(Boolean);
+  } catch (error) {
+    core?.warning?.(`Unable to inspect PR labels before stale human-blocker cleanup: ${error.message}`);
+    return [];
+  }
+
+  const staleLabels = HUMAN_BLOCKER_LABELS.filter((label) => currentLabels.includes(label));
+  const removed = [];
+  for (const label of staleLabels) {
+    try {
+      await github.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: prNumber,
+        name: label,
+      });
+      removed.push(label);
+    } catch (error) {
+      if (error?.status === 404) {
+        continue;
+      }
+      core?.warning?.(`Failed to remove stale ${label} label: ${error.message}`);
+    }
+  }
+
+  if (removed.length > 0) {
+    core?.info?.(`Removed stale human-blocker label(s) after successful keepalive state: ${removed.join(', ')}`);
+  }
+  return removed;
 }
 
 function resolvePromptRouting({ scenario, mode, action, reason } = {}) {
@@ -3864,6 +3905,12 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const shouldEscalate =
       ((action === 'run' || action === 'fix') && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
       (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
+    const shouldClearStaleHumanBlockers =
+      isSuccessStop ||
+      (gateConclusion === 'success' &&
+        tasksUnchecked === 0 &&
+        runResult === 'success' &&
+        (action === 'run' || action === 'fix'));
 
     const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
     const priorAttentionKey = normalise(previousAttention.key);
@@ -3917,6 +3964,16 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         });
       } catch (workLogError) {
         core?.warning?.(`[work-log] append failed: ${workLogError.message}`);
+      }
+
+      if (shouldClearStaleHumanBlockers) {
+        await clearStaleHumanBlockerLabels({
+          github,
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          prNumber,
+          core,
+        });
       }
 
       if (shouldEscalate) {
