@@ -11,5 +11,5 @@ langchain==1.2.17
 langchain-community==0.4.1
 langchain-openai==1.2.1
 langchain-anthropic==1.4.3
-pydantic==2.13.3
+pydantic==2.13.4
 requests==2.33.1

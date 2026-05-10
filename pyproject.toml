@@ -46,7 +46,7 @@ dev = [
     "hypothesis>=6.152.2",
     "pandas",
     "numpy<3.0",
-    "pydantic>=2.13.3",
+    "pydantic>=2.13.4",
     "requests>=2.33.1",
     "jsonschema>=4.26.0",
     "PyYAML>=6.0.0",
