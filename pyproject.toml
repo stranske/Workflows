@@ -52,7 +52,7 @@ dev = [
     "PyYAML>=6.0.0",
 
     # Used by scripts/sync_test_dependencies.py to edit pyproject.toml
-    "tomlkit>=0.13.0",
+    "tomlkit>=0.15.0",
 ]
 
 # LangChain integration for LLM-enhanced task analysis
