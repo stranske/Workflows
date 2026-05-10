@@ -39,7 +39,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
 DESKTOP_FILENAME = "REPO-REVIEW-ACTION-NEEDED.md"
 
 
@@ -90,7 +89,10 @@ def display_notification(title: str, subtitle: str, message: str) -> None:
     try:
         subprocess.run(
             ["osascript", "-e", script],
-            check=False, capture_output=True, text=True, timeout=10,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         print(f"[notify] osascript failed: {exc}", file=sys.stderr)
@@ -137,7 +139,8 @@ def write_desktop_reminder(
 
     skipped_note = (
         f"\n_{skipped_count} repo decision(s) skipped uploading (defer / no-new-work / sync failure)._\n"
-        if skipped_count else ""
+        if skipped_count
+        else ""
     )
 
     body = f"""# Weekly repo-review packet ready — {today}
@@ -187,23 +190,31 @@ If this file isn't deleted by next Thursday's cron run, that run will overwrite 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--output-dir", type=Path, required=True,
+        "--output-dir",
+        type=Path,
+        required=True,
         help="path to <output_dir>/ (where packet + queue live)",
     )
     parser.add_argument(
-        "--queue", type=Path, required=True,
+        "--queue",
+        type=Path,
+        required=True,
         help="path to approved-issue-queue.json",
     )
     parser.add_argument(
-        "--workflows-steward-root", type=Path, default=None,
+        "--workflows-steward-root",
+        type=Path,
+        default=None,
         help="path to Workflows-steward checkout (default: 3 parents up from --output-dir, i.e. <root>/docs/reports/repo-review/.. = <root>/docs/reports = .. = <root>/docs = .. = <root>)",
     )
     parser.add_argument(
-        "--skip-notification", action="store_true",
+        "--skip-notification",
+        action="store_true",
         help="suppress the macOS notification (still writes the desktop file)",
     )
     parser.add_argument(
-        "--skip-desktop", action="store_true",
+        "--skip-desktop",
+        action="store_true",
         help="suppress the desktop file (still shows the notification)",
     )
     args = parser.parse_args()
@@ -223,7 +234,9 @@ def main() -> int:
     summary = summarize_queue(queue)
 
     total = summary["total"]
-    by_repo_str = ", ".join(f"{r.split('/')[-1]} ({n})" for r, n in sorted(summary["by_repo"].items()))
+    by_repo_str = ", ".join(
+        f"{r.split('/')[-1]} ({n})" for r, n in sorted(summary["by_repo"].items())
+    )
 
     if not args.skip_notification:
         if total == 0:
@@ -249,9 +262,7 @@ def main() -> int:
         )
         print(f"[notify] wrote {target}")
 
-    print(
-        f"[notify] {total} issue(s) ready, {summary['skipped_count']} repo decision(s) skipped"
-    )
+    print(f"[notify] {total} issue(s) ready, {summary['skipped_count']} repo decision(s) skipped")
     return 0
 
 

@@ -45,8 +45,7 @@ def test_build_report_returns_machine_readable_counts() -> None:
     assert report["follow_up"] == {
         "workflow": "maint-68-sync-consumer-repos.yml",
         "all_repos_command": (
-            "gh workflow run maint-68-sync-consumer-repos.yml "
-            "--repo stranske/Workflows --ref main"
+            "gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows --ref main"
         ),
         "targeted_repos_command": (
             "gh workflow run maint-68-sync-consumer-repos.yml "
@@ -268,8 +267,7 @@ def test_select_read_token_rejects_rate_limited_candidate() -> None:
         {
             "source": "OWNER_PR_PAT",
             "reason": (
-                "content preflight failed for owner/repo/.github/workflows/agents.yml: "
-                "rate_limited"
+                "content preflight failed for owner/repo/.github/workflows/agents.yml: rate_limited"
             ),
         }
     ]

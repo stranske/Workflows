@@ -1319,10 +1319,7 @@ def build_summary(
             f"- Pinned versions: {_format_counter(codex_cli_freshness['pinned_versions'])}",
             f"- Latest versions: {_format_counter(codex_cli_freshness['latest_versions'])}",
             f"- Outdated records: {codex_cli_freshness['outdated_records']}",
-            (
-                "- Latest unavailable records: "
-                f"{codex_cli_freshness['latest_unavailable_records']}"
-            ),
+            (f"- Latest unavailable records: {codex_cli_freshness['latest_unavailable_records']}"),
             (
                 "- Max version delta: "
                 f"major {codex_cli_freshness['max_version_delta']['major']}, "

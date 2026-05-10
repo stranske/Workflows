@@ -75,8 +75,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         "${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}"
     )
     assert collect_step["env"]["CODEX_MODEL_SELECTION_REASON"] == (
-        "${{ steps.codex.outputs.selection_reason || "
-        "steps.codex_model.outputs.selection_reason }}"
+        "${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}"
     )
     assert collect_step["env"]["CODEX_CLI_VERSION"] == "${{ steps.codex_cli.outputs.version }}"
     assert '"codex_cli_version": codex_cli_version' in collect_step["run"]
@@ -85,8 +84,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         "${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}"
     )
     assert write_step["env"]["CODEX_MODEL_SELECTION_REASON"] == (
-        "${{ steps.codex.outputs.selection_reason || "
-        "steps.codex_model.outputs.selection_reason }}"
+        "${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}"
     )
     assert write_step["env"]["CODEX_CLI_VERSION"] == "${{ steps.codex_cli.outputs.version }}"
     assert write_step["env"]["SOURCE_ISSUE_NUMBERS_JSON"] == (

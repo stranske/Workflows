@@ -132,8 +132,7 @@ def validate_candidate(candidate: Any, index: int) -> list[str]:
             errors.append(f"{prefix}.{field}: must be a non-empty string")
         elif len(value.strip()) < GAP_FIELD_MIN_CHARS:
             errors.append(
-                f"{prefix}.{field}: must be ≥{GAP_FIELD_MIN_CHARS} chars "
-                f"(got {len(value.strip())})"
+                f"{prefix}.{field}: must be ≥{GAP_FIELD_MIN_CHARS} chars (got {len(value.strip())})"
             )
         elif _is_nonempty_str(value):
             phrase = _has_generic_phrase(value, GENERIC_GAP_PHRASES)
@@ -182,8 +181,7 @@ def validate_candidate(candidate: Any, index: int) -> list[str]:
     confidence = candidate.get("confidence")
     if confidence not in ALLOWED_CONFIDENCE:
         errors.append(
-            f"{prefix}.confidence: must be one of {sorted(ALLOWED_CONFIDENCE)} "
-            f"(got {confidence!r})"
+            f"{prefix}.confidence: must be one of {sorted(ALLOWED_CONFIDENCE)} (got {confidence!r})"
         )
 
     title_lower = str(title).lower()
@@ -211,8 +209,7 @@ def validate_findings(data: Any, *, expected_repo: str | None = None) -> list[st
     elif agent not in ALLOWED_AGENTS and not str(agent).startswith("pilot-"):
         # Allow pilot- prefix for piloting before production cron.
         errors.append(
-            f"agent: must be one of {sorted(ALLOWED_AGENTS)} or start with 'pilot-' "
-            f"(got {agent!r})"
+            f"agent: must be one of {sorted(ALLOWED_AGENTS)} or start with 'pilot-' (got {agent!r})"
         )
 
     repo = data.get("repo")

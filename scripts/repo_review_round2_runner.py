@@ -372,9 +372,7 @@ def _resolve_claude_binary() -> str | None:
     env_path = os.environ.get("CLAUDE_CODE_EXECPATH")
     if env_path and Path(env_path).is_file():
         return env_path
-    bundled_root = Path(os.path.expanduser(
-        "~/Library/Application Support/Claude/claude-code"
-    ))
+    bundled_root = Path(os.path.expanduser("~/Library/Application Support/Claude/claude-code"))
     if bundled_root.is_dir():
         # Sort versions newest-first using a tuple-of-ints key (e.g. "2.1.128"
         # → (2, 1, 128)) so 2.1.128 sorts higher than 2.1.45 (which is the
@@ -384,9 +382,11 @@ def _resolve_claude_binary() -> str | None:
                 return tuple(int(x) for x in p.name.split("."))
             except ValueError:
                 return (0,)
+
         candidates = sorted(
             (p for p in bundled_root.iterdir() if p.is_dir()),
-            key=_version_key, reverse=True,
+            key=_version_key,
+            reverse=True,
         )
         for ver_dir in candidates:
             binary = ver_dir / "claude.app" / "Contents" / "MacOS" / "claude"
@@ -414,8 +414,7 @@ def _build_claude_env() -> dict[str, str]:
 
     We allowlist neutral vars and explicitly drop USER + all CLAUDE*.
     """
-    keep = ("HOME", "PATH", "LOGNAME", "LANG", "LC_ALL", "TMPDIR", "TERM",
-            "SHELL", "TZ")
+    keep = ("HOME", "PATH", "LOGNAME", "LANG", "LC_ALL", "TMPDIR", "TERM", "SHELL", "TZ")
     return {k: v for k, v in os.environ.items() if k in keep}
 
 
@@ -424,7 +423,10 @@ def invoke_claude(
 ) -> tuple[bool, str]:
     binary = _resolve_claude_binary()
     if binary is None:
-        return False, "claude CLI not found (no CLAUDE_CODE_EXECPATH, no Claude Desktop bundle, not on PATH)"
+        return (
+            False,
+            "claude CLI not found (no CLAUDE_CODE_EXECPATH, no Claude Desktop bundle, not on PATH)",
+        )
     cmd = [
         binary,
         "-p",
@@ -1140,7 +1142,7 @@ def run(args: argparse.Namespace) -> int:
         turn_outputs = []
         final_resolutions = {}
 
-    for turn in (range(1, args.max_turns + 1) if candidate_keys else ()):
+    for turn in range(1, args.max_turns + 1) if candidate_keys else ():
         print(f"[round2] {repo}: turn {turn} starting")
         turn_results = run_one_turn(
             repo=repo,
@@ -1196,8 +1198,7 @@ def run(args: argparse.Namespace) -> int:
             fully_converged = True
             break
         print(
-            f"[round2] {repo}: after turn {turn}, "
-            f"{len(pending)} pending, meta_status={meta_status}"
+            f"[round2] {repo}: after turn {turn}, {len(pending)} pending, meta_status={meta_status}"
         )
 
     converged = synthesize_converged(

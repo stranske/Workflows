@@ -249,7 +249,7 @@ def run(args: argparse.Namespace) -> int:
 
     print(
         f"[body-writer] {args.repo}: spawning agent={args.agent} "
-        f"(timeout={args.timeout}s, log: {log_dir / f'body-writer-{args.repo.replace(chr(47), chr(95)*2)}.log'})"
+        f"(timeout={args.timeout}s, log: {log_dir / f'body-writer-{args.repo.replace(chr(47), chr(95) * 2)}.log'})"
     )
     ok, message = run_body_writer(
         repo=args.repo,

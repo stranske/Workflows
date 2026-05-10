@@ -282,7 +282,7 @@ class RepoVariableStorage:
                 return
             if " failed: 401 " in message or " failed: 403 " in message:
                 print(
-                    f"warning: state-fingerprint write skipped for " f"{variable_name}: {message}",
+                    f"warning: state-fingerprint write skipped for {variable_name}: {message}",
                     file=sys.stderr,
                 )
                 return

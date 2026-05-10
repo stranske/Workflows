@@ -261,9 +261,7 @@ def test_pr_comment_marker_round_trips_nested_result_payload() -> None:
 
 
 def test_pr_comment_marker_rejects_invalid_base64_payload() -> None:
-    marker = (
-        "Runner dispatch state\n\n" "<!-- runner-dispatch:codex:42:v1 base64:!!!not-base64!!! -->"
-    )
+    marker = "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 base64:!!!not-base64!!! -->"
 
     assert runner_core._extract_record(marker, 42, "codex") is None
 
