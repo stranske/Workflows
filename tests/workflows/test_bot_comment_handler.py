@@ -132,9 +132,9 @@ def test_bot_comment_handler_preserves_pr_number_on_known_pr_skips() -> None:
                 0,
                 skip_index,
             )
-            assert pr_output_index != -1, (
-                f"{workflow_path} must preserve pr_number for {skip_reason}"
-            )
+            assert (
+                pr_output_index != -1
+            ), f"{workflow_path} must preserve pr_number for {skip_reason}"
 
 
 def test_reusable_bot_comment_handler_uploads_auth_coverage_artifact() -> None:
@@ -161,12 +161,14 @@ def test_reusable_bot_comment_handler_uploads_auth_coverage_artifact() -> None:
 
 def test_bot_comment_handler_callers_pass_app_client_id() -> None:
     caller_paths = {
-        ROOT / ".github/workflows/agents-bot-comment-handler.yml": {
+        ROOT
+        / ".github/workflows/agents-bot-comment-handler.yml": {
             "gh_app_client_id": "${{ secrets.WORKFLOWS_APP_CLIENT_ID }}",
             "gh_app_id": "${{ secrets.WORKFLOWS_APP_ID }}",
             "gh_app_private_key": "${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}",
         },
-        ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml": {
+        ROOT
+        / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml": {
             "gh_app_client_id": "${{ secrets.GH_APP_CLIENT_ID }}",
             "gh_app_id": "${{ secrets.GH_APP_ID }}",
             "gh_app_private_key": "${{ secrets.GH_APP_PRIVATE_KEY }}",
