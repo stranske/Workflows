@@ -201,12 +201,20 @@ install_ci_deps() {
 
   strict_specs=("${specs[@]}")
 
+  local -a install_cmd
+  if command -v uv >/dev/null 2>&1; then
+    install_cmd=(uv pip install --system)
+  else
+    echo "Warning: uv not found; falling back to python -m pip install" >&2
+    install_cmd=(python -m pip install)
+  fi
+
   # Install dependencies
   if [ ${#specs[@]} -eq 0 ]; then
     echo "No install targets found; skipping dependency installation."
   else
     local install_ok="true"
-    if ! uv pip install --system "${strict_specs[@]}"; then
+    if ! "${install_cmd[@]}" "${strict_specs[@]}"; then
       install_ok="false"
       echo "Strict dependency install failed; retrying with relaxed compatibility constraints." >&2
 
@@ -237,7 +245,7 @@ install_ci_deps() {
 
       if [ ${#relaxed_specs[@]} -eq 0 ]; then
         echo "No relaxed install targets available after strict install failure." >&2
-      elif uv pip install --system "${relaxed_specs[@]}"; then
+      elif "${install_cmd[@]}" "${relaxed_specs[@]}"; then
         install_ok="true"
       fi
     fi
