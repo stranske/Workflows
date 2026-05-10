@@ -75,13 +75,17 @@ async function clearStaleHumanBlockerLabels({ github, owner, repo, prNumber, cor
       issue_number: prNumber,
       per_page: 100,
     });
-    currentLabels = (data || []).map((label) => normalise(label?.name)).filter(Boolean);
+    currentLabels = (data || [])
+      .map((label) => normalise(label?.name).toLowerCase())
+      .filter(Boolean);
   } catch (error) {
     core?.warning?.(`Unable to inspect PR labels before stale human-blocker cleanup: ${error.message}`);
     return [];
   }
 
-  const staleLabels = HUMAN_BLOCKER_LABELS.filter((label) => currentLabels.includes(label));
+  const staleLabels = HUMAN_BLOCKER_LABELS.filter((label) =>
+    currentLabels.includes(label.toLowerCase())
+  );
   const removed = [];
   for (const label of staleLabels) {
     try {

@@ -2184,7 +2184,7 @@ test('updateKeepaliveLoopSummary clears stale human-blocker labels on tasks-comp
   });
   const github = buildGithubStub({
     comments: [{ id: 46, body: existingState, html_url: 'https://example.com/46' }],
-    labels: ['agent:needs-attention', 'needs-human', 'agent:claude', 'agents:keepalive'],
+    labels: ['Agent:Needs-Attention', 'NEEDS-HUMAN', 'agent:claude', 'agents:keepalive'],
   });
 
   await updateKeepaliveLoopSummary({

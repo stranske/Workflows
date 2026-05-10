@@ -125,7 +125,8 @@ workflows:
 
   # Version pins
   - source: .github/workflows/autofix-versions.env
-    description: "Autofix tool version pins - shared dev tool versions (synced)"
+    description: "Autofix tool version pins - create-only starting point; existing repos manage pins locally"
+    sync_mode: create_only
 
   # Dependabot configuration and automation
   - source: .github/dependabot.yml
