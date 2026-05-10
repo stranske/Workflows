@@ -30,9 +30,9 @@ def _load_workflow(path: Path) -> dict:
 
 def _assert_pinned_install(text: str, expected: str, name: str, minimum: int = 1) -> None:
     count = text.count(expected)
-    assert count >= minimum, (
-        f"{name} must include `{expected}` at least {minimum} time(s); found {count}."
-    )
+    assert (
+        count >= minimum
+    ), f"{name} must include `{expected}` at least {minimum} time(s); found {count}."
 
 
 def _assert_no_floating_langchain(text: str, name: str) -> None:
@@ -356,9 +356,9 @@ def test_reusable_codex_workflow_has_reference_pack_validation_step() -> None:
     ref_idx = step_names.index("Validate and materialize reference packs")
     prompt_idx = step_names.index("Assemble prompt")
     codex_idx = step_names.index("Run Codex")
-    assert ref_idx < prompt_idx < codex_idx, (
-        "Reference pack validation must come before Assemble prompt and Run Codex"
-    )
+    assert (
+        ref_idx < prompt_idx < codex_idx
+    ), "Reference pack validation must come before Assemble prompt and Run Codex"
 
 
 def test_reusable_codex_reference_pack_step_handles_sha_refs() -> None:
@@ -369,17 +369,17 @@ def test_reusable_codex_reference_pack_step_handles_sha_refs() -> None:
     step = _find_step_by_name(workflow, "Validate and materialize reference packs")
     run_script = str(step.get("run", ""))
     # Must detect full 40-char hex SHAs (case-insensitive)
-    assert "[0-9a-fA-F]{40}" in run_script, (
-        "SHA regex must match full 40-char hex (case-insensitive)"
-    )
+    assert (
+        "[0-9a-fA-F]{40}" in run_script
+    ), "SHA regex must match full 40-char hex (case-insensitive)"
     # Must use fetch+checkout path for SHAs
-    assert "fetch" in run_script and "origin" in run_script, (
-        "SHA path must use git fetch origin <sha>"
-    )
+    assert (
+        "fetch" in run_script and "origin" in run_script
+    ), "SHA path must use git fetch origin <sha>"
     assert "--no-checkout" in run_script, "SHA path must clone with --no-checkout"
     # Must suppress stderr on clone to avoid leaking tokens
     assert "stderr=subprocess.DEVNULL" in run_script, "Clone stderr must be suppressed"
     # Must use sparse-checkout reapply (not bare git checkout)
-    assert "sparse-checkout" in run_script and "reapply" in run_script, (
-        "Must use sparse-checkout reapply instead of bare git checkout"
-    )
+    assert (
+        "sparse-checkout" in run_script and "reapply" in run_script
+    ), "Must use sparse-checkout reapply instead of bare git checkout"

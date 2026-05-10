@@ -27,16 +27,14 @@ def test_is_list_of_str_variants() -> None:
 
 
 def test_collect_string_vars_tracks_assignments() -> None:
-    module = ast.parse(
-        textwrap.dedent("""\
+    module = ast.parse(textwrap.dedent("""\
             def sample():
                 greeting = "hi"
                 alias = greeting
                 names = ["a", f"{greeting}"]
                 nums = [1]
                 first, second = ["x", "y"]
-            """)
-    )
+            """))
     func = module.body[0]
     string_vars, list_vars = mypy_return_autofix._collect_string_vars(func.body)
 
