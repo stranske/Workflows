@@ -7,7 +7,8 @@ from tools.llm_provider import OpenAIProvider
 def test_openai_provider_analyze_completion_without_quality_context():
     provider = OpenAIProvider()
     mock_client = MagicMock()
-    mock_client.invoke.return_value = SimpleNamespace(content="""
+    mock_client.invoke.return_value = SimpleNamespace(
+        content="""
 {
     "completed": ["task1"],
     "in_progress": [],
@@ -15,7 +16,8 @@ def test_openai_provider_analyze_completion_without_quality_context():
     "confidence": 0.8,
     "reasoning": "Task 1 done."
 }
-""")
+"""
+    )
     provider._get_client = MagicMock(return_value=mock_client)
 
     result = provider.analyze_completion("output", ["task1"])

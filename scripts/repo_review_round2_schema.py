@@ -101,7 +101,7 @@ def validate_mark(mark: Any, index: int) -> list[str]:
         errors.append(f"{prefix}.reason: must be a non-empty string")
     elif len(reason.strip()) < REASON_MIN_CHARS:
         errors.append(
-            f"{prefix}.reason: must be ≥{REASON_MIN_CHARS} chars " f"(got {len(reason.strip())})"
+            f"{prefix}.reason: must be ≥{REASON_MIN_CHARS} chars (got {len(reason.strip())})"
         )
 
     if mark_value == "agree-merge" and not isinstance(mark.get("merge_proposal"), dict):

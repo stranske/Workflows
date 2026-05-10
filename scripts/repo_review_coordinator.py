@@ -236,8 +236,7 @@ def should_skip_cycle(
         return False, "round-1 produced 0 candidates — handle via no-new-work path, not skip"
     if prior_fp == current_fp:
         return True, (
-            f"round-1 fingerprint matches prior cycle "
-            f"({len(current_fp)} candidate(s) unchanged)"
+            f"round-1 fingerprint matches prior cycle ({len(current_fp)} candidate(s) unchanged)"
         )
     return False, (
         f"round-1 fingerprint differs from prior cycle "

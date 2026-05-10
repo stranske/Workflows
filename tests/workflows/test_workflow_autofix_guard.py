@@ -50,9 +50,9 @@ def test_autofix_loop_does_not_subscribe_to_workflow_job_events() -> None:
     triggers = data.get("on") or data.get(True) or {}
     assert "workflow_run" in triggers
     assert "pull_request_target" in triggers
-    assert (
-        "workflow_job" not in triggers
-    ), "workflow_job events create noisy push-associated autofix runs with no correctness gain"
+    assert "workflow_job" not in triggers, (
+        "workflow_job events create noisy push-associated autofix runs with no correctness gain"
+    )
 
 
 def test_agents_autofix_loop_uses_direct_retry_helper_contract() -> None:
