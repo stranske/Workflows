@@ -172,7 +172,7 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==1.20.2
+mypy==2.0.0
     # via workflows (pyproject.toml)
 mypy-extensions==1.1.0
     # via
