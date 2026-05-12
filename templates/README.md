@@ -124,7 +124,7 @@ Consumer Repos (Travel-Plan-Permission, Template)
 |----------|-------|---------------|
 | **Thin callers** | `agents-*.yml`, `autofix.yml`, `pr-00-gate.yml` | Full sync from templates |
 | **CI config** | `ci.yml` | Repo-specific (not synced) |
-| **Version pins** | `autofix-versions.env` | Version updates synced, overrides preserved |
+| **Version pins** | `autofix-versions.env` | Synced by maint-52 with matching `pyproject.toml`/`requirements.lock` changes |
 | **Repo-specific** | `maint-*.yml`, custom workflows | Not synced |
 
 ### Required: artifact-prefix for Multi-Job Workflows

@@ -293,6 +293,21 @@ def test_consumer_sync_diff_keeps_functional_lines_in_comparison():
     ), "Maint 68 must not ignore fixed line ranges that can contain version pins"
 
 
+def test_autofix_versions_env_is_not_general_template_synced():
+    manifest = yaml.safe_load(Path(".github/sync-manifest.yml").read_text(encoding="utf-8"))
+    workflow_sources = {
+        entry.get("source") for entry in manifest.get("workflows", []) if isinstance(entry, dict)
+    }
+    assert ".github/workflows/autofix-versions.env" not in workflow_sources
+
+    version_sync_text = (WORKFLOWS_DIR / "maint-52-sync-dev-versions.yml").read_text(
+        encoding="utf-8"
+    )
+    assert ".github/workflows/autofix-versions.env" in version_sync_text
+    assert "pyproject.toml .github/workflows/autofix-versions.env" in version_sync_text
+    assert "requirements.lock" in version_sync_text
+
+
 def test_consumer_sync_repo_exclusions_live_in_manifest():
     workflow_text = (WORKFLOWS_DIR / "maint-68-sync-consumer-repos.yml").read_text(encoding="utf-8")
     manifest_text = Path(".github/sync-manifest.yml").read_text(encoding="utf-8")

@@ -197,6 +197,12 @@ for `ruff`, `black`, `mypy`, `pytest`, `coverage`, `isort`, and `docformatter`.
 The matching `pyproject.toml`, consumer template, integration template, and
 direct `requirements.lock` pins must move in the same Workflows PR.
 
+Consumer repos receive those pins through `maint-52-sync-dev-versions.yml`, not
+the general `maint-68-sync-consumer-repos.yml` template sync. Keep
+`.github/workflows/autofix-versions.env` out of `.github/sync-manifest.yml` so a
+workflow-template sync PR cannot update the env file without the matching
+`pyproject.toml` and `requirements.lock` changes.
+
 Dependabot should not be merged when it only bumps one of those shared tool pins
 in `pyproject.toml`; route that change through the Workflows source pin update
 path instead. Runtime dependency bumps remain normal Dependabot work.
