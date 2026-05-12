@@ -1,13 +1,15 @@
 # LLM workflow dependency pins (used by agents-auto-pilot.yml)
 # Rationale:
 # - These are standalone runtime pins for workflow LLM steps, not app deps.
-# - Use strict X.Y.Z pins to keep workflow installs reproducible.
-# - `langchain-core` is pinned to the resolver-confirmed compatible version
-#   for the selected `langchain` pin.
-langchain==1.2.15
-langchain-core==1.3.0
+# - These pins intentionally drift from pyproject.toml/requirements.lock so
+#   workflow automation can upgrade independently; no consumer dependency
+#   change is required when bumping this file.
+# - Use strict X.Y.Z pins for direct workflow dependencies.
+# - Do not pin `langchain-core` directly here; let the selected `langchain`
+#   release resolve a mutually compatible core version.
+langchain==1.2.18
 langchain-community==0.4.1
-langchain-openai==1.1.14
-langchain-anthropic==1.4.0
-pydantic==2.13.2
-requests==2.33.1
+langchain-openai==1.2.1
+langchain-anthropic==1.4.3
+pydantic==2.13.4
+requests==2.34.0

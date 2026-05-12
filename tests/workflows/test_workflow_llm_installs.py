@@ -124,6 +124,7 @@ def _render_prompt_with_assemble_step(
             "PR_NUMBER": pr_number,
             "MODE": mode,
             "GITHUB_OUTPUT": str(github_output),
+            "GITHUB_WORKSPACE": str(Path.cwd()),
         }
     )
 
