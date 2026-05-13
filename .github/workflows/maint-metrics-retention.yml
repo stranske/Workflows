@@ -1,0 +1,130 @@
+name: Maint Metrics Retention
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run scripts/metrics_retention.py with --dry-run"
+        required: false
+        default: "false"
+  pull_request:
+    paths:
+      - "scripts/metrics_retention.py"
+      - "config/retention-policy.json"
+      - ".github/workflows/maint-metrics-retention.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apply-retention:
+    name: Apply metrics retention policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Determine dry-run mode
+        id: mode
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            echo "dry_run=true" >> "$GITHUB_OUTPUT"
+            echo "flag=--dry-run" >> "$GITHUB_OUTPUT"
+          elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${DISPATCH_DRY_RUN}" = "true" ]; then
+            echo "dry_run=true" >> "$GITHUB_OUTPUT"
+            echo "flag=--dry-run" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run metrics retention policy
+        env:
+          DRY_RUN_FLAG: ${{ steps.mode.outputs.flag }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          python scripts/metrics_retention.py --config config/retention-policy.json ${DRY_RUN_FLAG}
+
+      - name: Summarize storage reduction
+        if: always()
+        env:
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          log_path = Path("metrics-retention.ndjson")
+          dry_run = os.environ.get("DRY_RUN", "false") == "true"
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+
+          lines: list[str] = []
+          lines.append("## Metrics retention summary")
+          lines.append("")
+          lines.append(f"- Dry-run: `{dry_run}`")
+
+          if not log_path.exists():
+              lines.append("- No retention log produced (script did not run or no metrics targets).")
+              summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+              raise SystemExit(0)
+
+          latest_summary: dict | None = None
+          for raw in log_path.read_text(encoding="utf-8").splitlines():
+              raw = raw.strip()
+              if not raw:
+                  continue
+              try:
+                  record = json.loads(raw)
+              except json.JSONDecodeError:
+                  continue
+              if record.get("record_type") == "retention_summary":
+                  latest_summary = record
+
+          if latest_summary is None:
+              lines.append("- No `retention_summary` record found in `metrics-retention.ndjson`.")
+          else:
+              reduction = latest_summary.get("reduction_percent")
+              files_processed = latest_summary.get("files_processed")
+              bytes_before = latest_summary.get("bytes_before")
+              bytes_after = latest_summary.get("bytes_after")
+              records_archived = (
+                  (latest_summary.get("records_archived_weekly") or 0)
+                  + (latest_summary.get("records_archived_monthly") or 0)
+              )
+              records_purged = latest_summary.get("records_purged")
+              lines.append(f"- Storage reduction: **{reduction}%**")
+              lines.append(f"- Files processed: {files_processed}")
+              lines.append(f"- Bytes before -> after: {bytes_before} -> {bytes_after}")
+              lines.append(f"- Records archived (weekly + monthly): {records_archived}")
+              lines.append(f"- Records purged: {records_purged}")
+
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Upload retention log artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: metrics-retention-log
+          path: metrics-retention.ndjson
+          if-no-files-found: ignore
+          retention-days: 90
