@@ -257,6 +257,7 @@ EXPECTED_NAMES = {
     "maint-72-fix-pr-body-conflicts.yml": "Maint 72 Fix PR Body Conflicts",
     "maint-61-create-floating-v1-tag.yml": "Maint 61 Create Floating v1 Tag",
     "maint-coverage-guard.yml": "Maint Coverage Guard",
+    "maint-metrics-retention.yml": "Maint Metrics Retention",
     "pr-00-gate.yml": "Gate",
     "pr-11-ci-smoke.yml": "PR 11 - Minimal invariant CI",
     "reusable-10-ci-python.yml": "Reusable CI",
