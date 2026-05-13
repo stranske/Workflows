@@ -175,9 +175,11 @@ def format_needs_human_section(backlog: dict[str, Any]) -> str:
         url = item.get("url", "")
         reason = item.get("surface_reason", "")
         labels = item.get("labels", []) or []
-        relevant = [l for l in labels if l not in {"enhancement", "feature"}][:2]
+        relevant = [label for label in labels if label not in {"enhancement", "feature"}][:2]
         label_hint = (
-            f"  _(also labeled: {', '.join(f'`{l}`' for l in relevant)})_\n" if relevant else ""
+            f"  _(also labeled: {', '.join(f'`{label}`' for label in relevant)})_\n"
+            if relevant
+            else ""
         )
         reason_line = f"  _Surface reason: {reason}_\n" if reason else ""
         lines.append(

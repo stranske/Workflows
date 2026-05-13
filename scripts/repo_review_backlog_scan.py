@@ -162,7 +162,7 @@ def looks_like_umbrella(title: str, body: str, labels: list[str]) -> tuple[bool,
     for w in UMBRELLA_TITLE_WORDS:
         if w in title_l:
             return True, f"title contains '{w}'"
-    label_set = {l.lower() for l in labels}
+    label_set = {label.lower() for label in labels}
     overlap = label_set & HUMAN_DECISION_LABELS_EXACT
     if overlap:
         return True, f"has label: {sorted(overlap)[0]}"
@@ -187,7 +187,7 @@ def decide_priority(*, labels: list[str], created_at: str | None, very_stale_day
         scope is still current; the user can promote back if needed).
       - Otherwise → normal (default for fresh declared enhancements).
     """
-    if any(l.startswith("milestone:") for l in labels):
+    if any(label.startswith("milestone:") for label in labels):
         return "priority:normal"
     age = days_since(created_at)
     if age > very_stale_days:
