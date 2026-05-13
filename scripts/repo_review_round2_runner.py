@@ -396,9 +396,11 @@ def _resolve_claude_binary() -> str | None:
     return fallback
 
 
-CLAUDE_OAUTH_TOKEN_FILE = Path(os.path.expanduser(
-    "~/.codex/automations/reviewed-repo-weekly-design-review/claude-oauth-token.txt"
-))
+CLAUDE_OAUTH_TOKEN_FILE = Path(
+    os.path.expanduser(
+        "~/.codex/automations/reviewed-repo-weekly-design-review/claude-oauth-token.txt"
+    )
+)
 
 
 def _read_claude_oauth_token() -> str | None:

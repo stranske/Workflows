@@ -7,7 +7,6 @@ from pathlib import Path
 import yaml
 from tools import langchain_client
 
-
 README = Path("README.md")
 WORKFLOWS_DOC = Path("docs/ci/WORKFLOWS.md")
 WORKFLOWS_DIR = Path(".github/workflows")

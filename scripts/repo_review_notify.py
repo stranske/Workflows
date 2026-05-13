@@ -119,11 +119,10 @@ def format_auto_labeled_section(backlog: dict[str, Any]) -> str:
         return ""
     apply_mode = backlog.get("apply_mode", False)
     note = (
-        "These were auto-labeled by the cron (the opener will pick them up "
-        "on its next pass)."
+        "These were auto-labeled by the cron (the opener will pick them up " "on its next pass)."
         if apply_mode
         else "These WOULD be auto-labeled if the cron ran with --apply (the "
-             "current run was dry-run only — the labels are NOT on the issues yet)."
+        "current run was dry-run only — the labels are NOT on the issues yet)."
     )
     header = (
         f"\n\n## Auto-labeled this week ({len(items)} item"
@@ -140,8 +139,7 @@ def format_auto_labeled_section(backlog: dict[str, Any]) -> str:
         applied = item.get("applied", False)
         applied_marker = "" if applied else " _(dry-run; not yet applied)_"
         lines.append(
-            f"- {repo}#{num} → **{prio}**{applied_marker} — _{title[:80]}_ "
-            f"({age:.0f}d stale)"
+            f"- {repo}#{num} → **{prio}**{applied_marker} — _{title[:80]}_ " f"({age:.0f}d stale)"
         )
     return header + "\n".join(lines) + "\n"
 
@@ -179,8 +177,7 @@ def format_needs_human_section(backlog: dict[str, Any]) -> str:
         labels = item.get("labels", []) or []
         relevant = [l for l in labels if l not in {"enhancement", "feature"}][:2]
         label_hint = (
-            f"  _(also labeled: {', '.join(f'`{l}`' for l in relevant)})_\n"
-            if relevant else ""
+            f"  _(also labeled: {', '.join(f'`{l}`' for l in relevant)})_\n" if relevant else ""
         )
         reason_line = f"  _Surface reason: {reason}_\n" if reason else ""
         lines.append(
@@ -190,7 +187,7 @@ def format_needs_human_section(backlog: dict[str, Any]) -> str:
             f"{reason_line}"
             f"  - Promote: `gh issue edit {num} --repo {repo} --add-label priority:normal`\n"
             f"  - Deprioritize: `gh issue edit {num} --repo {repo} --add-label priority:low`\n"
-            f"  - Close: `gh issue close {num} --repo {repo} --comment \"Out of scope; closing per backlog scan.\"`\n"
+            f'  - Close: `gh issue close {num} --repo {repo} --comment "Out of scope; closing per backlog scan."`\n'
         )
 
     return header + "\n".join(lines) + "\n"
@@ -272,7 +269,10 @@ def write_desktop_reminder(
 
     backlog_section = format_backlog_section(backlog)
 
-    next_action = "" if total == 0 else f"""
+    next_action = (
+        ""
+        if total == 0
+        else f"""
 
 ## Next action — upload the queued issues
 
@@ -293,6 +293,7 @@ def write_desktop_reminder(
        --apply
    ```
 """
+    )
 
     body = f"""# Weekly repo-review packet ready — {today}
 
@@ -346,8 +347,8 @@ def main() -> int:
         type=Path,
         default=None,
         help="path to backlog-scan.json from scripts/repo_review_backlog_scan.py "
-             "(default: <output_dir>/backlog-scan.json if present); when present, "
-             "adds a 'Backlog needing your attention' section to the desktop file",
+        "(default: <output_dir>/backlog-scan.json if present); when present, "
+        "adds a 'Backlog needing your attention' section to the desktop file",
     )
     parser.add_argument(
         "--skip-notification",
@@ -377,8 +378,7 @@ def main() -> int:
 
     # Default backlog path is alongside the queue; coordinator writes it there.
     backlog_path = (
-        args.backlog_scan if args.backlog_scan is not None
-        else output_dir / "backlog-scan.json"
+        args.backlog_scan if args.backlog_scan is not None else output_dir / "backlog-scan.json"
     )
     backlog = load_backlog_scan(backlog_path)
     auto_labeled_count = len(backlog.get("auto_labeled", []) or [])

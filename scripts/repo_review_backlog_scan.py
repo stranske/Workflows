@@ -80,7 +80,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Filtering — labels that exclude an issue from any consideration
 # ---------------------------------------------------------------------------
@@ -114,9 +113,7 @@ EXCLUDE_LABELS_EXACT = {
     "campaign:active",
     "campaign:sync-dependabot",
 }
-EXCLUDE_LABEL_PREFIXES = (
-    "campaign:",  # all campaign:* are controller-owned
-)
+EXCLUDE_LABEL_PREFIXES = ("campaign:",)  # all campaign:* are controller-owned
 
 # Include only if at least one of these labels is present.
 INCLUDE_LABELS = {"enhancement", "feature"}
@@ -136,9 +133,7 @@ HUMAN_DECISION_LABELS_EXACT = {
     "needs-triage",
     "discussion",
 }
-HUMAN_DECISION_LABEL_PREFIXES = (
-    "blocked",  # "blocked" or "blocked:waiting-on-X"
-)
+HUMAN_DECISION_LABEL_PREFIXES = ("blocked",)  # "blocked" or "blocked:waiting-on-X"
 
 # Title words that signal umbrella/epic shape.
 UMBRELLA_TITLE_WORDS = ("epic", "tracker", "umbrella", "roadmap", "rollup", "parent issue")
@@ -183,9 +178,7 @@ def looks_like_umbrella(title: str, body: str, labels: list[str]) -> tuple[bool,
     return False, ""
 
 
-def decide_priority(
-    *, labels: list[str], created_at: str | None, very_stale_days: int = 90
-) -> str:
+def decide_priority(*, labels: list[str], created_at: str | None, very_stale_days: int = 90) -> str:
     """Return `priority:normal` or `priority:low` for a leaf enhancement issue.
 
     Heuristic:
@@ -212,7 +205,8 @@ def load_registry(registry_path: Path) -> list[str]:
     data = json.loads(registry_path.read_text(encoding="utf-8"))
     repos = data.get("repos", []) or []
     return [
-        str(r.get("repo")) for r in repos
+        str(r.get("repo"))
+        for r in repos
         if isinstance(r, dict) and r.get("status") == "active" and r.get("repo")
     ]
 
@@ -226,11 +220,17 @@ def gh_list_open_issues(repo: str) -> list[dict[str, Any]]:
         print(f"[backlog-scan] gh not on PATH; skipping {repo}", file=sys.stderr)
         return []
     cmd = [
-        "gh", "issue", "list",
-        "--repo", repo,
-        "--state", "open",
-        "--limit", "500",
-        "--json", "number,title,body,labels,updatedAt,createdAt,url",
+        "gh",
+        "issue",
+        "list",
+        "--repo",
+        repo,
+        "--state",
+        "open",
+        "--limit",
+        "500",
+        "--json",
+        "number,title,body,labels,updatedAt,createdAt,url",
     ]
     try:
         result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=60)
@@ -238,7 +238,9 @@ def gh_list_open_issues(repo: str) -> list[dict[str, Any]]:
         print(f"[backlog-scan] gh timed out on {repo}", file=sys.stderr)
         return []
     if result.returncode != 0:
-        print(f"[backlog-scan] gh issue list failed on {repo}: {result.stderr[:200]}", file=sys.stderr)
+        print(
+            f"[backlog-scan] gh issue list failed on {repo}: {result.stderr[:200]}", file=sys.stderr
+        )
         return []
     try:
         return json.loads(result.stdout or "[]")
@@ -251,9 +253,14 @@ def gh_add_label(repo: str, number: int, label: str) -> tuple[bool, str]:
     if not shutil.which("gh"):
         return False, "gh not on PATH"
     cmd = [
-        "gh", "issue", "edit", str(number),
-        "--repo", repo,
-        "--add-label", label,
+        "gh",
+        "issue",
+        "edit",
+        str(number),
+        "--repo",
+        repo,
+        "--add-label",
+        label,
     ]
     try:
         result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=30)
@@ -416,24 +423,32 @@ def scan(repos: list[str], stale_days: int, apply_labels: bool) -> dict[str, Any
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--registry", type=Path, required=True,
+        "--registry",
+        type=Path,
+        required=True,
         help="path to config/repo_review_registry.json",
     )
     parser.add_argument(
-        "--out", type=Path, required=True,
+        "--out",
+        type=Path,
+        required=True,
         help="path to write backlog-scan.json",
     )
     parser.add_argument(
-        "--stale-days", type=int, default=7,
+        "--stale-days",
+        type=int,
+        default=7,
         help="surface issues NOT updated in this many days (default: 7)",
     )
     parser.add_argument(
-        "--apply", action="store_true",
+        "--apply",
+        action="store_true",
         help="actually add priority labels to auto-labelable issues. "
-             "Default is dry-run: classify and report but do not mutate GitHub.",
+        "Default is dry-run: classify and report but do not mutate GitHub.",
     )
     parser.add_argument(
-        "--quiet", action="store_true",
+        "--quiet",
+        action="store_true",
         help="suppress per-repo progress chatter",
     )
     return parser.parse_args()
@@ -465,7 +480,10 @@ def main() -> int:
     )
 
     if not args.quiet:
-        for label, items in (("Auto-labeled", result["auto_labeled"]), ("Needs human", result["needs_human"])):
+        for label, items in (
+            ("Auto-labeled", result["auto_labeled"]),
+            ("Needs human", result["needs_human"]),
+        ):
             if not items:
                 continue
             print(f"  {label}:")
@@ -476,7 +494,9 @@ def main() -> int:
                     )
                 else:
                     extra = f" — {it.get('surface_reason','?')}"
-                print(f"    - {it['repo']}#{it['number']} ({it['age_days']}d): {it['title'][:60]}{extra}")
+                print(
+                    f"    - {it['repo']}#{it['number']} ({it['age_days']}d): {it['title'][:60]}{extra}"
+                )
             if len(items) > 5:
                 print(f"    - ...and {len(items) - 5} more")
 
