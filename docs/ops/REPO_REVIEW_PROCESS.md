@@ -49,8 +49,31 @@ Every active repo review uses the same dimensions:
 Run from the Workflows repo:
 
 ```bash
-python scripts/repo_review_evaluator.py
+python scripts/repo_review_coordinator.py \
+    --output-dir docs/reports/repo-review \
+    --registry config/repo_review_registry.json
 ```
+
+The coordinator is the Phase-4 entry point. It runs the evaluator preflight,
+then for each `active` repo drives the skip-this-cycle gate, round-1 fan-out
+(Codex + Claude in parallel), round-2 negotiation, and per-repo state update,
+before a final evaluator pass renders the human-decision-packet. Pass
+`--repos <repo> [<repo> ...]` to run the full Phase-4 flow against only the
+named subset of `active` repos:
+
+```bash
+python scripts/repo_review_coordinator.py \
+    --output-dir docs/reports/repo-review \
+    --registry config/repo_review_registry.json \
+    --repos stranske/Manager-Database stranske/trip-planner
+```
+
+`python scripts/repo_review_evaluator.py` remains valid as a standalone
+preflight step: it produces the per-repo `review-inputs.md` artifacts without
+running the multi-agent round-1/round-2 negotiation. Use it when you only need
+fresh evaluator inputs (for example, regenerating evidence before a human
+review pass); use the coordinator when you need the complete weekly packet
+with converged candidates and human-decision sections.
 
 The default weekly run performs a GitNexus preflight for active repos before
 the packet is generated. It checks map freshness and refreshes stale or missing
@@ -58,6 +81,30 @@ active maps with `gitnexus analyze <repo> --skip-agents-md` when the CLI is
 available. Use `--no-refresh-stale-gitnexus` to report stale maps without
 refreshing, or `--skip-gitnexus-preflight` only when GitNexus is deliberately
 out of scope for that run.
+
+### Phase-4 Components
+
+The coordinator orchestrates five Phase-4 scripts under `scripts/`:
+
+- `repo_review_coordinator.py` — sequential per-repo orchestrator that drives
+  evaluator preflight → skip-this-cycle gate → round-1 → round-2 → body-writer
+  → final evaluator pass.
+- `repo_review_round1_runner.py` — round-1 fan-out runner that refreshes the
+  GitNexus map and spawns Codex + Claude in parallel for the initial design-vs-
+  implementation pass.
+- `repo_review_round2_runner.py` — round-2 negotiation runner that coordinates
+  per-turn agent calls, validates schema, and synthesizes `converged.json`.
+  Protocol details: [`REPO_REVIEW_ROUND2_PROTOCOL.md`](REPO_REVIEW_ROUND2_PROTOCOL.md).
+- `repo_review_heartbeat.py` — heartbeat-aware subprocess runner that polls
+  agent log mtime and terminates stuck agents before the wall timeout so the
+  retry budget can fire on a fresh process.
+- `repo_review_body_writer.py` — body-writer pass that converts round-2
+  converged candidates into `AGENT_ISSUE_FORMAT.md`-compliant issue bodies
+  with concrete file:line refs, tasks, and acceptance criteria.
+
+Round-1 schema and round-2 protocol references:
+[`REPO_REVIEW_ROUND1_SCHEMA.md`](REPO_REVIEW_ROUND1_SCHEMA.md) and
+[`REPO_REVIEW_ROUND2_PROTOCOL.md`](REPO_REVIEW_ROUND2_PROTOCOL.md).
 
 Outputs are written to `docs/reports/repo-review/`:
 
