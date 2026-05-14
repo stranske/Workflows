@@ -38,8 +38,8 @@ make it through review by hiding behind an allowlist tweak.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import pytest
 import yaml
@@ -145,7 +145,9 @@ def test_at_least_one_workflow_file_is_discovered() -> None:
     )
 
 
-@pytest.mark.parametrize("workflow_path", list(_iter_workflow_files()), ids=lambda p: str(p.relative_to(ROOT)))
+@pytest.mark.parametrize(
+    "workflow_path", list(_iter_workflow_files()), ids=lambda p: str(p.relative_to(ROOT))
+)
 def test_workflow_only_uses_valid_on_triggers(workflow_path: Path) -> None:
     """Every event listed under ``on:`` must be a real workflow trigger.
 
