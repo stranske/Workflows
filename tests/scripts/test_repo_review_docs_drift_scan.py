@@ -22,6 +22,7 @@ from scripts.repo_review_docs_drift_scan import (
     load_active_repos,
     load_docs_config,
     parse_drift_response,
+    resolve_repo_root,
     resolve_workspace_root,
     scan,
     scan_doc,
@@ -273,6 +274,33 @@ def test_resolve_workspace_root_honors_registry_contract(tmp_path: Path):
     registry = config / "repo_review_registry.json"
     registry.write_text(json.dumps({"workspace_root": "..", "repos": []}), encoding="utf-8")
     assert resolve_workspace_root(registry) == workspace.resolve()
+
+
+def test_resolve_repo_root_prefers_workspace_local_path(tmp_path: Path):
+    workspace = tmp_path / "workspace"
+    repo_dir = workspace / "Workflows-steward"
+    repo_dir.mkdir(parents=True)
+    resolved = resolve_repo_root(
+        workspace_root=workspace,
+        local_path="Workflows-steward",
+        repo="stranske/Workflows",
+        cwd=tmp_path / "Workflows",
+    )
+    assert resolved == repo_dir.resolve()
+
+
+def test_resolve_repo_root_falls_back_to_matching_cwd_repo_slug(tmp_path: Path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True)
+    cwd_repo = tmp_path / "Workflows"
+    cwd_repo.mkdir(parents=True)
+    resolved = resolve_repo_root(
+        workspace_root=workspace,
+        local_path="Workflows-steward",
+        repo="stranske/Workflows",
+        cwd=cwd_repo,
+    )
+    assert resolved == cwd_repo.resolve()
 
 
 def test_parse_args_defaults_docs_config(monkeypatch: pytest.MonkeyPatch):
