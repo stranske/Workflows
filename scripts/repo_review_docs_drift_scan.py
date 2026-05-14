@@ -404,6 +404,12 @@ def scan_doc(
     """
     gitnexus = is_gitnexus_stale(repo_root)
     result = DocResult(repo=repo, doc_path=doc_path, gitnexus_status=gitnexus)
+    if gitnexus in {"missing", "stale"}:
+        print(
+            f"[docs-drift-scan] {repo} {doc_path}: GitNexus map {gitnexus}; "
+            "skipping behavioral check and using rg-only verification",
+            flush=True,
+        )
     if not (repo_root / doc_path).is_file():
         result.error = f"doc not found at {doc_path}"
         return result

@@ -221,6 +221,33 @@ def test_gitnexus_status_malformed_falls_back_to_missing(tmp_path: Path):
     assert is_gitnexus_stale(tmp_path) == "missing"
 
 
+def test_scan_doc_logs_gitnexus_skip_for_coordinator_log(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "README.md").write_text("dummy\n", encoding="utf-8")
+
+    def fake_invoker(*, prompt: str, cwd: Path, timeout: int, log_file: Path):
+        return True, '{"instances": []}'
+
+    result = scan_doc(
+        repo="stranske/Workflows",
+        doc_path="README.md",
+        doc_focus="model versions",
+        repo_root=repo_root,
+        log_dir=tmp_path / "logs",
+        timeout=10,
+        invoker=fake_invoker,
+    )
+
+    assert result.error is None
+    assert result.gitnexus_status == "missing"
+    captured = capsys.readouterr()
+    assert "skipping behavioral check" in captured.out
+    assert "README.md" in captured.out
+
+
 # ---------------------------------------------------------------------------
 # Prompt construction
 # ---------------------------------------------------------------------------
