@@ -13,7 +13,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; do not combine with concrete `agent:<name>` labels
 | `agent:retry` | PR labeled | Requests one re-dispatch of the matching keepalive runner
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
-| `agent:codex-invite` | Issue labeled (with `agent:codex`) | Overrides PR mode to `invite` for `agent:codex` only when the issue bridge allows issue-label mode selection (`force_mode: false`); requires the base `agent:codex` label
+| ~~`agent:codex-invite`~~ | *(deprecated)* | No workflow, script, or tool references this label by name; the generic `agent:<name>-invite` mechanism in `reusable-agents-issue-bridge.yml` still works but this specific label is unmaintained — see detail section below
 | `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention
 | `status:ready` | Issue labeled | Marks issue as ready for agent processing
 | `agents:format` | Issue labeled | Direct issue formatting
@@ -184,7 +184,9 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ---
 
-### `agent:codex-invite`
+### ~~`agent:codex-invite`~~ *(deprecated)*
+
+> **Deprecated.** `grep -rn codex-invite .github/ scripts/ tools/` returns no matches. The label is not referenced by name in any active workflow, script, or tool. The underlying `-invite` suffix mechanism in `reusable-agents-issue-bridge.yml` remains functional for any `agent:<name>-invite` label, but `agent:codex-invite` specifically is unmaintained. Do not apply this label; use `force_mode: false` at the workflow call site instead if you need invite-mode control.
 
 **Applies to:** Issues (must be paired with `agent:codex`)
 
