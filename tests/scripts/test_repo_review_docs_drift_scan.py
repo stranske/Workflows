@@ -25,6 +25,7 @@ from scripts.repo_review_docs_drift_scan import (
     scan,
     scan_doc,
 )
+import scripts.repo_review_docs_drift_scan as drift_scan
 
 FIXTURE_PATH = (
     Path(__file__).parent / "fixtures" / "repo_review_docs_drift_scan" / "seeded_responses.json"
@@ -272,6 +273,15 @@ def test_resolve_workspace_root_honors_registry_contract(tmp_path: Path):
     registry = config / "repo_review_registry.json"
     registry.write_text(json.dumps({"workspace_root": "..", "repos": []}), encoding="utf-8")
     assert resolve_workspace_root(registry) == workspace.resolve()
+
+
+def test_parse_args_defaults_docs_config(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["repo_review_docs_drift_scan.py", "--registry", "config/r.json", "--out", "/tmp/o.json"],
+    )
+    args = drift_scan.parse_args()
+    assert args.docs_config == Path("config/source_of_truth_docs.yml")
 
 
 # ---------------------------------------------------------------------------

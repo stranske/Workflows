@@ -582,7 +582,12 @@ def scan(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--registry", type=Path, required=True)
-    parser.add_argument("--docs-config", type=Path, required=True)
+    parser.add_argument(
+        "--docs-config",
+        type=Path,
+        default=Path("config/source_of_truth_docs.yml"),
+        help="path to source-of-truth docs config (default: config/source_of_truth_docs.yml)",
+    )
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument(
         "--workspace-root",
