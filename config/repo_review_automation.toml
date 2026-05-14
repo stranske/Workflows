@@ -1,0 +1,157 @@
+# Weekly repo-review automation configuration.
+#
+# This file documents the cron automation that drives the weekly
+# design-vs-implementation review cycle. The automation is named
+# "reviewed-repo-weekly-design-review" and is invoked by the macOS
+# launchd job / cron via the claude CLI with the coordinator script below.
+#
+# To run manually (skip archiving and evaluator preflight):
+#   python scripts/repo_review_coordinator.py \
+#       --output-dir docs/reports/repo-review \
+#       --registry config/repo_review_registry.json \
+#       --skip-preflight --skip-auto-archive
+#
+# Token path (populated by the token-refresh automation):
+#   ~/.codex/automations/reviewed-repo-weekly-design-review/claude-oauth-token.txt
+
+[automation]
+name = "reviewed-repo-weekly-design-review"
+schedule = "0 9 * * 1"  # Mondays 09:00 local time
+entry_point = "scripts/repo_review_coordinator.py"
+output_dir = "docs/reports/repo-review"
+registry = "config/repo_review_registry.json"
+
+[automation.timeouts]
+round1_per_agent_seconds = 5400   # 90 min
+round2_per_turn_seconds = 2700    # 45 min
+backlog_scan_seconds = 300
+docs_drift_scan_seconds = 1800    # ~5-10 min across 9 repos
+notify_seconds = 60
+
+# ---------------------------------------------------------------------------
+# Operational notes
+#
+# Each note documents one coordinator step: what it does, why it exists,
+# where its output lives, and what to do if it fails.
+# ---------------------------------------------------------------------------
+
+[operational_notes.preflight]
+step = "1. Evaluator preflight"
+description = """
+Runs repo_review_evaluator.py to produce per-repo review-inputs.md,
+remote-progress.md, and archive-progress.md. These are the inputs round-1
+reviewer agents read. The preflight also refreshes stale GitNexus maps for
+active repos (unless --skip-gitnexus-preflight is passed).
+"""
+output = "docs/reports/repo-review/repos/<owner>__<repo>/{review-inputs,remote-progress,archive-progress}.md"
+if_skipped = "--skip-preflight uses whatever inputs are already on disk; safe for re-runs."
+
+[operational_notes.per_repo_rounds]
+step = "2. Per-repo round-1 + round-2 + body-writer"
+description = """
+For each active repo, sequentially:
+  a. Round-1: two independent reviewer agents (codex + claude) each produce
+     findings.json with a ranked candidate set.
+  b. Skip-this-cycle gate: if round-1 fingerprint matches the prior cycle's
+     converged set, skip round-2 and write a stub converged.json.
+  c. Round-2: negotiation + synthesis → converged.json.
+  d. Body-writer: converts structured candidates into AGENT_ISSUE_FORMAT.md-
+     compliant issue bodies. Uses claude (not codex) to avoid macOS sandbox
+     nesting on apply_patch (empirically verified 2026-05-07).
+Sequential execution is intentional: "1 repo per hour" rate-limit-conservative
+cadence. No global state file — each repo's state lives in state.json.
+"""
+output = "docs/reports/repo-review/round2/<owner>__<repo>/converged.json"
+if_failed = "round1=FAIL aborts that repo; round2=FAIL is surfaced in the summary but does not block other repos."
+
+[operational_notes.queue_builder]
+step = "3. Queue builder"
+description = """
+Reads converged.json files and config/repo_review_feedback.json to produce
+the approved-issue-queue.json. Pure data assembly — no subprocess. Repos
+that deadlocked or were skipped are handled by the builder's per-repo
+decision routing. The cron does NOT auto-upload; the human reviews the
+packet and runs upload_repo_review_issues.py --apply.
+"""
+output = "docs/reports/repo-review/approved-issue-queue.json"
+if_failed = "Non-fatal. Logged to stderr; cycle continues without a queue file."
+
+[operational_notes.final_evaluator]
+step = "4. Final evaluator pass"
+description = """
+Second run of repo_review_evaluator.py to refresh the human-decision-packet.md
+and the per-repo decision briefs using the converged.json outputs. Skips the
+GitNexus preflight (maps already refreshed by round-1 runner).
+"""
+output = "docs/reports/repo-review/human-decision-packet.md"
+if_failed = "Logged to coordinator/final-evaluator.log. The packet from the prior step is still on disk."
+
+[operational_notes.backlog_scan]
+step = "5. Backlog scan"
+description = """
+Scans all active repos for enhancement/feature issues that lack a priority:*
+label. The scan auto-labels eligible issues with priority:normal (or
+priority:low if the issue was created >90 days ago with no milestone).
+Umbrella/epic/blocked items are surfaced for human decision rather than
+auto-labeled. Without this safety net, manually-created enhancement issues
+with no priority label sit invisible indefinitely — the Inv-Man-Intake
+#25/#26/#27 case from 2026-05-07 confirmed the failure mode.
+
+Runs with --apply so labels are actually written during the cron. The
+notify step renders the auto-labeled and needs-human lists in the desktop
+reminder.
+"""
+output = "docs/reports/repo-review/backlog-scan.json"
+log = "docs/reports/repo-review/logs/coordinator/backlog-scan.log"
+expected_runtime = "~30 s across 9 repos (GitHub API rate-limited)"
+if_failed = "Non-fatal. Logged to backlog-scan.log. The desktop reminder omits the backlog section."
+
+[operational_notes.docs_drift_scan]
+step = "5b. Docs-drift scan"
+description = """
+Scans source-of-truth operational docs (README.md, AGENTS.md, CLAUDE.md,
+docs/ops/*, docs/ci/*, docs/keepalive/*, etc.) for drift against the current
+implementation. The doc list per repo is defined in
+config/source_of_truth_docs.yml.
+
+For each (repo, doc) pair the scanner spawns a focused claude invocation that
+reads the doc plus the relevant implementation files (verified via rg queries)
+and classifies each load-bearing claim as:
+  stale          — was true once; no longer reflects current implementation.
+  contradictory  — disagrees with another source-of-truth doc or implementation.
+  accurate-no-drift — verified against current implementation.
+
+GitNexus integration is graceful: when .gitnexus/meta.json is missing or
+marked stale the scanner instructs claude to skip behavioral call-graph checks
+(logged at INFO: "skipping behavioral check") and rely on rg for existence
+checks only. This is not a failure — it is recorded per-doc.
+
+The 2026-05-13 cycle confirmed the need: three drift instances were found
+ad-hoc (README.md model versions stale, docs/ci/WORKFLOWS.md autofix
+self-contradiction, docs/ops/REPO_REVIEW_PROCESS.md pre-Phase-4 entry
+point). Without a recurring scan these accumulate undetected.
+
+The notify step renders a "Doc drift detected" section in the desktop
+reminder, grouped by repo, with one bundled gh issue create snippet per
+affected repo (NOT one per doc).
+"""
+output = "docs/reports/repo-review/docs-drift-scan.json"
+log = "docs/reports/repo-review/logs/coordinator/docs-drift-scan.log"
+expected_runtime = "~5-10 min across 9 repos (LLM calls per doc; ~14 docs for Workflows, fewer for others)"
+if_failed = "Non-fatal. Logged to docs-drift-scan.log. The desktop reminder omits the doc-drift section."
+config = "config/source_of_truth_docs.yml"
+
+[operational_notes.notify]
+step = "6. Notify"
+description = """
+Surfaces the cycle outcome to the human reviewer via:
+  a. macOS osascript notification: one-line summary, lands in Notification
+     Center.
+  b. Desktop file at ~/Desktop/REPO-REVIEW-ACTION-NEEDED.md: persistent
+     until the human deletes it. Includes upload queue, backlog-scan results,
+     and doc-drift results. The human reviews this file and runs
+     upload_repo_review_issues.py --apply for approved issues.
+"""
+output = "~/Desktop/REPO-REVIEW-ACTION-NEEDED.md"
+log = "docs/reports/repo-review/logs/coordinator/notify.log"
+if_failed = "Non-fatal. Logged to notify.log. The desktop file may be absent or stale."
