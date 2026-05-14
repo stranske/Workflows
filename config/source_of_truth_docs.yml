@@ -20,6 +20,90 @@
 # (doc, claim) pair. See scripts/repo_review_docs_drift_scan.py.
 
 repos:
+  stranske/Collab-Admin:
+    local_path: Collab-Admin
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/Counter_Risk:
+    local_path: Counter_Risk
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/Inv-Man-Intake:
+    local_path: Inv-Man-Intake
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/Manager-Database:
+    local_path: Manager-Database
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/Pension-Data:
+    local_path: Pension-Data
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/Portable-Alpha-Extension-Model:
+    local_path: Portable-Alpha-Extension-Model
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/Template:
+    local_path: Template
+    docs:
+      - path: README.md
+        focus: template contract and consumer defaults
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/Travel-Plan-Permission:
+    local_path: Travel-Plan-Permission
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/Trend_Model_Project:
+    local_path: Trend_Model_Project
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/tim-bot:
+    local_path: tim-bot
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/trip-planner:
+    local_path: trip-planner
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+  stranske/Workflows-Integration-Tests:
+    local_path: Workflows-Integration-Tests
+    docs:
+      - path: README.md
+        focus: integration-test scope and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
   stranske/Workflows:
     local_path: Workflows-steward
     docs:
@@ -27,8 +111,6 @@ repos:
         focus: pipeline overview, model versions, entry-point commands
       - path: AGENTS.md
         focus: agent identifiers and routing labels
-      - path: CLAUDE.md
-        focus: workspace orientation and reading list
       - path: docs/INTEGRATION_GUIDE.md
         focus: consumer integration commands, version policy
       - path: docs/ops/REPO_REVIEW_PROCESS.md
