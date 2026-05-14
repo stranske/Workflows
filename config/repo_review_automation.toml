@@ -109,6 +109,8 @@ if_failed = "Non-fatal. Logged to backlog-scan.log. The desktop reminder omits t
 [operational_notes.docs_drift_scan]
 step = "5b. Docs-drift scan"
 description = """
+Runs immediately after step 5 (backlog-scan) and before step 6 (notify).
+
 Scans source-of-truth operational docs (README.md, AGENTS.md, CLAUDE.md,
 docs/ops/*, docs/ci/*, docs/keepalive/*, etc.) for drift against the current
 implementation. The doc list per repo is defined in
