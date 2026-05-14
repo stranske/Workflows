@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 import pytest
+import scripts.repo_review_docs_drift_scan as drift_scan
 from scripts.repo_review_docs_drift_scan import (
     DriftInstance,
     aggregate,
@@ -25,7 +26,6 @@ from scripts.repo_review_docs_drift_scan import (
     scan,
     scan_doc,
 )
-import scripts.repo_review_docs_drift_scan as drift_scan
 
 FIXTURE_PATH = (
     Path(__file__).parent / "fixtures" / "repo_review_docs_drift_scan" / "seeded_responses.json"
