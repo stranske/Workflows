@@ -634,3 +634,46 @@ def test_notify_headline_reflects_docs_drift(tmp_path: Path, monkeypatch: pytest
     rendered = path.read_text(encoding="utf-8")
     assert "doc-drift item" in rendered
     assert "Clean week" not in rendered
+
+
+def test_notify_headline_uses_by_repo_fallback_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from scripts.repo_review_notify import write_desktop_reminder
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    path = write_desktop_reminder(
+        queue_summary={
+            "total": 0,
+            "by_repo": {},
+            "skipped_count": 0,
+            "issue_titles": [],
+        },
+        backlog={"auto_labeled": [], "needs_human": []},
+        docs_drift={
+            # Intentionally omit total_drift_instances/total_errors to ensure
+            # notifier derives counts from by_repo buckets.
+            "by_repo": [
+                {
+                    "repo": "stranske/X",
+                    "drift_instances": [
+                        {
+                            "doc_path": "README.md",
+                            "claim": "c",
+                            "authoritative_source": "s",
+                            "classification": "stale",
+                        }
+                    ],
+                    "accurate_instances": [],
+                    "errors": [],
+                }
+            ],
+        },
+        packet_path=tmp_path / "packet.md",
+        queue_path=tmp_path / "queue.json",
+        output_dir=tmp_path / "out",
+        workflows_steward_root=tmp_path / "Workflows-steward",
+    )
+    rendered = path.read_text(encoding="utf-8")
+    assert "Doc drift detected" in rendered
+    assert "Clean week" not in rendered

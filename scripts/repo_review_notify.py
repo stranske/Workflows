@@ -284,6 +284,21 @@ def format_docs_drift_section(drift: dict[str, Any]) -> str:
     return "".join(parts)
 
 
+def summarize_docs_drift(docs_drift: dict[str, Any]) -> tuple[int, int]:
+    """Return (drift_count, error_count) with a by_repo fallback.
+
+    Older/malformed payloads may omit aggregate counters; derive them from
+    by_repo so reminder headline logic still reflects real scan output.
+    """
+    drift_count = int((docs_drift or {}).get("total_drift_instances", 0) or 0)
+    error_count = int((docs_drift or {}).get("total_errors", 0) or 0)
+    if drift_count == 0 and error_count == 0:
+        by_repo = (docs_drift or {}).get("by_repo") or []
+        drift_count = sum(len(bucket.get("drift_instances") or []) for bucket in by_repo)
+        error_count = sum(len(bucket.get("errors") or []) for bucket in by_repo)
+    return drift_count, error_count
+
+
 def write_desktop_reminder(
     *,
     queue_summary: dict[str, Any],
@@ -312,8 +327,7 @@ def write_desktop_reminder(
     auto_labeled_count = len(backlog.get("auto_labeled", []) or [])
     needs_human_count = len(backlog.get("needs_human", []) or [])
     backlog_count = auto_labeled_count + needs_human_count
-    docs_drift_count = int((docs_drift or {}).get("total_drift_instances", 0) or 0)
-    docs_drift_error_count = int((docs_drift or {}).get("total_errors", 0) or 0)
+    docs_drift_count, docs_drift_error_count = summarize_docs_drift(docs_drift)
     docs_drift_signal_count = docs_drift_count + docs_drift_error_count
 
     if total == 0 and backlog_count == 0 and docs_drift_signal_count == 0:
