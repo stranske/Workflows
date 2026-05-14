@@ -24,9 +24,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from scripts import repo_review_body_writer as body_writer
-
 
 # ---------------------------------------------------------------------------
 # body_quality_errors
@@ -248,9 +246,9 @@ def test_verify_clean_sync_accepts_origin_phase_3(fake_repo: Path) -> None:
 def test_each_generic_boilerplate_phrase_is_flagged(phrase: str) -> None:
     body = CLEAN_BODY + f"\n\nNote: {phrase}.\n"
     errors = body_writer.body_quality_errors(body)
-    assert any(repr(phrase) in e or phrase in e for e in errors), (
-        f"phrase {phrase!r} should be flagged by body_quality_errors"
-    )
+    assert any(
+        repr(phrase) in e or phrase in e for e in errors
+    ), f"phrase {phrase!r} should be flagged by body_quality_errors"
 
 
 # ---------------------------------------------------------------------------
