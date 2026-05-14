@@ -3,11 +3,16 @@
 #
 # Triggers:
 # - Gate/CI/Python CI workflow completes with failure (lint/format issues detected)
-# - Lint job fails early (workflow_job completed)
 # - PR labeled with 'autofix' or 'autofix:clean' (manual trigger)
 #
 # Note: push trigger removed — it caused "This isn't working right now" errors
-# because GitHub Actions can't resolve the reusable workflow reference on push events
+# because GitHub Actions can't resolve the reusable workflow reference on push events.
+#
+# Note: workflow_job removed 2026-05-14 — `workflow_job` is a webhook event
+# (delivered to webhook subscribers), NOT a valid `on:` trigger for workflows.
+# Adding it via PR #1528 caused every push to every consumer repo to record a
+# failed Autofix run with "This run likely failed because of a workflow file
+# issue" — for ~3 months until detected during 2026-05-14 verification.
 #
 # Copy this file to: .github/workflows/autofix.yml
 #
@@ -18,8 +23,6 @@ name: Autofix
 on:
   workflow_run:
     workflows: ["Gate", "CI", "Python CI"]
-    types: [completed]
-  workflow_job:
     types: [completed]
   pull_request_target:
     types:
@@ -40,11 +43,6 @@ concurrency:
         github.event.workflow_run.pull_requests &&
         github.event.workflow_run.pull_requests[0] &&
         github.event.workflow_run.pull_requests[0].number
-      )
-      || (
-        github.event.workflow_job.pull_requests &&
-        github.event.workflow_job.pull_requests[0] &&
-        github.event.workflow_job.pull_requests[0].number
       )
       || github.run_id
     }}
@@ -78,9 +76,7 @@ jobs:
             (event_name == 'pull_request_target' && action == 'labeled' &&
              (label.name == 'autofix' || label.name == 'autofix:clean')) ||
             (event_name == 'workflow_run' && workflow_run.conclusion == 'failure' &&
-             length(workflow_run.pull_requests) > 0) ||
-            (event_name == 'workflow_job' && workflow_job.conclusion == 'failure' &&
-             length(workflow_job.pull_requests) > 0)
+             length(workflow_run.pull_requests) > 0)
 
       - name: Checkout for API helpers
         if: steps.eligibility.outputs.should-run == 'true'
@@ -361,121 +357,6 @@ jobs:
                 pr,
                 sameRepo,
                 callerActor: run.actor?.login || context.actor,
-              });
-              return;
-            }
-
-            // --- workflow_job trigger (early lint failure) ---
-            if (context.eventName === 'workflow_job') {
-              const workflowJob = context.payload.workflow_job;
-              if (!workflowJob) {
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              const workflowName = String(workflowJob.workflow_name || '').trim();
-              const jobName = String(workflowJob.name || '').toLowerCase();
-              const conclusion = String(workflowJob.conclusion || '').toLowerCase();
-
-              // Only respond to failing lint jobs in the workflows we care about.
-              const relevantJob =
-                jobName.includes('lint-format') || jobName.includes('lint-ruff');
-              if (!relevantJob) {
-                core.info(
-                  `workflow_job '${workflowJob.name}' is not a lint-format/lint-ruff job.`
-                );
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              const allowedWorkflows = new Set(['Gate', 'CI', 'Python CI']);
-              if (workflowName && !allowedWorkflows.has(workflowName)) {
-                core.info(
-                  `workflow_job is from workflow '${workflowName}', not Gate/CI/Python CI; ` +
-                  'skipping.'
-                );
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              if (conclusion !== 'failure') {
-                core.info(
-                  `workflow_job '${workflowJob.name}' concluded '${workflowJob.conclusion}' ` +
-                  '— no autofix needed'
-                );
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              const prs = workflowJob.pull_requests || [];
-              if (!prs.length) {
-                core.info('workflow_job event has no associated PR; skipping.');
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              const prNumber = prs[0].number;
-              const triggerHeadSha = String(workflowJob.head_sha || '');
-              const { owner, repo } = context.repo;
-              const { data: pr } = await withRetry((client) =>
-                client.rest.pulls.get({ owner, repo, pull_number: prNumber })
-              );
-
-              if (pr.state !== 'open') {
-                core.info(`PR #${prNumber} is ${pr.state}`);
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              if (pr.draft) {
-                core.info('PR is draft.');
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              const sameRepo =
-                pr.head.repo !== null &&
-                pr.head.repo.full_name === pr.base.repo?.full_name;
-              if (!sameRepo) {
-                core.info('Fork PR — not supported.');
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              const headSha = pr.head?.sha;
-              if (!headSha) {
-                core.info('PR head SHA missing; skipping autofix.');
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              if (triggerHeadSha && triggerHeadSha !== headSha) {
-                core.info(
-                  `workflow_job head_sha ${triggerHeadSha} does not match PR head ${headSha}; ` +
-                  'skipping stale event.'
-                );
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              const files = await listFilesOrNullOnRateLimit({ owner, repo, prNumber });
-              const hasPython =
-                files === null
-                  ? true
-                  : files.some(
-                      (file) =>
-                        file.filename.endsWith('.py') || file.filename.endsWith('.pyi')
-                    );
-              if (!hasPython) {
-                core.info('No Python files changed.');
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
-              setOutputs({
-                pr,
-                sameRepo,
-                callerActor: context.payload.sender?.login || context.actor,
               });
               return;
             }
