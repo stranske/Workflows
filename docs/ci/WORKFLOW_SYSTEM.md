@@ -502,7 +502,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   runs `scripts/metrics_retention.py` nightly (02:00 UTC) with
   `config/retention-policy.json`, uploads `metrics-retention.ndjson` as an
   artifact, and writes the storage reduction percentage to the step summary.
-  Pull-request triggers activate `--dry-run` mode automatically.
+  Pull-request triggers activate `--dry-run` mode automatically. Fresh checkouts
+  with no metrics logs produce a successful zero-file no-op summary.
   - Coverage reports intentionally exclude CLI-only entry points (for example,
     `if __name__ == "__main__"` blocks marked with `# pragma: no cover`).
 - **Maint 46 Post CI** – `.github/workflows/maint-46-post-ci.yml` is a recovery

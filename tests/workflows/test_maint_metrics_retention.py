@@ -33,6 +33,11 @@ def test_workflow_has_required_triggers() -> None:
 
 def test_workflow_invokes_retention_script_with_dry_run_branch() -> None:
     text = WORKFLOW_PATH.read_text(encoding="utf-8")
+    data = _load_workflow()
+    triggers = data.get(True) or data.get("on")
+    dry_run_input = triggers["workflow_dispatch"]["inputs"]["dry_run"]
+    assert dry_run_input["type"] == "boolean"
+    assert dry_run_input["default"] is False
     assert "scripts/metrics_retention.py" in text, "workflow must invoke the retention script"
     assert (
         "--config config/retention-policy.json" in text

@@ -8,7 +8,8 @@ on:
       dry_run:
         description: "Run scripts/metrics_retention.py with --dry-run"
         required: false
-        default: "false"
+        type: boolean
+        default: false
   pull_request:
     paths:
       - "scripts/metrics_retention.py"

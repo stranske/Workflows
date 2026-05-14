@@ -87,7 +87,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 * Gate's `summary` job now emits the consolidated PR comment, uploads `gate-summary.md`, and publishes `gate-coverage.json` / `gate-coverage-delta.json` for downstream consumers.
 * [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) keeps `pyproject.toml`, templates, and `requirements.lock` aligned to the canonical `autofix-versions.env` file.
 * [`maint-coverage-guard.yml`](../../.github/workflows/maint-coverage-guard.yml) periodically verifies that the latest Gate run meets baseline coverage expectations.
-* [`maint-metrics-retention.yml`](../../.github/workflows/maint-metrics-retention.yml) runs `scripts/metrics_retention.py` nightly (02:00 UTC) to enforce the retention policy in `config/retention-policy.json`, uploads `metrics-retention.ndjson` as an artifact, and surfaces the storage reduction percentage in the step summary.
+* [`maint-metrics-retention.yml`](../../.github/workflows/maint-metrics-retention.yml) runs `scripts/metrics_retention.py` nightly (02:00 UTC) to enforce the retention policy in `config/retention-policy.json`, uploads `metrics-retention.ndjson` as an artifact, and surfaces the storage reduction percentage in the step summary. When no metrics logs are present, the run succeeds with a zero-file no-op summary.
 * [`maint-46-post-ci.yml`](../../.github/workflows/maint-46-post-ci.yml) wakes up after Gate completes, validates the workflow syntax with `actionlint`, downloads the Gate artifacts, renders the consolidated CI summary (including coverage deltas), and republishes the Gate commit status while saving a markdown preview for evidence capture.
 
 ## Autofix & Maintenance

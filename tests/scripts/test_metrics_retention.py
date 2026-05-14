@@ -190,3 +190,63 @@ def test_main_defaults_include_agents_dir(tmp_path: Path, monkeypatch) -> None:
     )
 
     assert exit_code == 0
+    log_records = [json.loads(line) for line in _load_lines(log_path)]
+    assert log_records[-1]["record_type"] == "retention_summary"
+    assert log_records[-1]["dry_run"] is True
+    assert log_records[-1]["files_processed"] == 1
+
+
+def test_main_no_metrics_files_writes_noop_summary(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "retention-policy.json"
+    log_path = tmp_path / "metrics-retention.ndjson"
+    config_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "retention": {
+                    "daily": {"keep_days": 1},
+                    "weekly": {"keep_weeks": 1},
+                    "monthly": {"keep_months": 1},
+                },
+                "archive": {"enabled": False, "storage_dir": str(tmp_path / "archives")},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = metrics_retention.main(
+        [
+            "--config",
+            str(config_path),
+            "--log-path",
+            str(log_path),
+            "--dry-run",
+        ]
+    )
+
+    assert exit_code == 0
+    log_records = [json.loads(line) for line in _load_lines(log_path)]
+    assert log_records == [
+        {
+            "bytes_after": 0,
+            "bytes_archived": 0,
+            "bytes_before": 0,
+            "component": "metrics_retention",
+            "dry_run": True,
+            "files_processed": 0,
+            "met_reduction_target": None,
+            "min_reduction_percent": None,
+            "parse_errors": 0,
+            "record_type": "retention_summary",
+            "records_archived_monthly": 0,
+            "records_archived_weekly": 0,
+            "records_kept": 0,
+            "records_purged": 0,
+            "records_skipped": 0,
+            "records_total": 0,
+            "reduction_percent": 0.0,
+            "schema_version": 1,
+            "timestamp": log_records[0]["timestamp"],
+        }
+    ]

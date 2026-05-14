@@ -323,8 +323,6 @@ def _build_log_record(
 
 
 def _append_log(log_path: Path, payload: dict[str, Any], *, dry_run: bool) -> None:
-    if dry_run:
-        return
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(payload, sort_keys=True) + "\n")
@@ -466,9 +464,6 @@ def main(argv: list[str]) -> int:
         log_path,
         include_defaults=include_defaults,
     )
-    if not targets:
-        print("metrics_retention: no metrics files found.", file=sys.stderr)
-        return 1
 
     summary = {
         "files_processed": 0,
@@ -483,6 +478,22 @@ def main(argv: list[str]) -> int:
         "bytes_after": 0,
         "bytes_archived": 0,
     }
+
+    if not targets:
+        summary_payload = {
+            "timestamp": now.isoformat().replace("+00:00", "Z"),
+            "schema_version": 1,
+            "component": "metrics_retention",
+            "record_type": "retention_summary",
+            "dry_run": args.dry_run,
+            "reduction_percent": 0.0,
+            "min_reduction_percent": args.min_reduction_percent,
+            "met_reduction_target": None,
+            **summary,
+        }
+        _append_log(log_path, summary_payload, dry_run=args.dry_run)
+        print("metrics_retention: no metrics files found; wrote no-op summary.")
+        return 0
 
     for path in targets:
         stats = apply_retention_to_file(path, policy, now=now, dry_run=args.dry_run)

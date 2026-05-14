@@ -302,7 +302,8 @@ The nightly schedule is implemented by `.github/workflows/maint-metrics-retentio
 `scripts/metrics_retention.py` at 02:00 UTC, supports `workflow_dispatch` (with an optional `dry_run` input) for manual
 runs, and runs in `--dry-run` mode on `pull_request` triggers that touch the script, the policy config, or the workflow
 file itself. The retention log is uploaded as the `metrics-retention-log` artifact and the storage reduction percentage
-is surfaced in the workflow step summary.
+is surfaced in the workflow step summary. Fresh checkouts with no metrics logs are treated as successful no-op runs:
+the script writes a zero-file `retention_summary` record so pull-request validation still produces durable evidence.
 
 ## Security Considerations
 
