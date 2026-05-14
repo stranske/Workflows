@@ -689,9 +689,7 @@ def test_notify_headline_uses_by_repo_fallback_counts(
     assert "Clean week" not in rendered
 
 
-def test_notify_falls_back_when_desktop_unwritable(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
+def test_notify_falls_back_when_desktop_unwritable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     from scripts import repo_review_notify
 
     monkeypatch.setenv("HOME", str(tmp_path))
