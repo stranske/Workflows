@@ -677,7 +677,7 @@ def run(args: argparse.Namespace) -> int:
             cwd=workflows_steward_root,
             log_path=log_dir / "docs-drift-scan.log",
             name="docs-drift-scan",
-            timeout=1800,  # ~5-10 min across 9 repos with claude LLM calls per doc
+            timeout=300,  # same timeout pattern as backlog-scan
         )
         if not docs_drift_result.succeeded:
             print(
