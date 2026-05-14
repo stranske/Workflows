@@ -645,7 +645,7 @@ def run(args: argparse.Namespace) -> int:
         cwd=workflows_steward_root,
         log_path=log_dir / "backlog-scan.log",
         name="backlog-scan",
-        timeout=300,  # 9 repos × ~30s of gh API time
+        timeout=300,  # 9 repos x roughly 30s of GitHub API time
     )
     if not backlog_result.succeeded:
         print(
@@ -669,6 +669,8 @@ def run(args: argparse.Namespace) -> int:
             str(docs_drift_config),
             "--out",
             str(docs_drift_path),
+            "--workspace-root",
+            str(workspace_root),
         ]
         docs_drift_result = run_subprocess(
             docs_drift_cmd,

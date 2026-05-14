@@ -21,6 +21,7 @@ from scripts.repo_review_docs_drift_scan import (
     load_active_repos,
     load_docs_config,
     parse_drift_response,
+    resolve_workspace_root,
     scan,
     scan_doc,
 )
@@ -156,6 +157,19 @@ def test_parse_drift_response_malformed_json():
     assert err.startswith("JSON decode failed")
 
 
+def test_parse_drift_response_uses_first_valid_instances_object():
+    raw = (
+        'Ignore this diagnostic object: {"note": "not payload"}\n'
+        'Actual payload: {"instances": [{"claim": "c", '
+        '"authoritative_source": "s", "classification": "stale"}]}\n'
+        "Trailing brace text {not-json}"
+    )
+    instances, err = parse_drift_response(raw, doc_path="x.md")
+    assert err is None
+    assert len(instances) == 1
+    assert instances[0].classification == "stale"
+
+
 # ---------------------------------------------------------------------------
 # Seeded-fixture classifier verification (acceptance-criteria check)
 # ---------------------------------------------------------------------------
@@ -273,6 +287,16 @@ def test_load_active_repos_filters_inactive(tmp_path: Path):
         encoding="utf-8",
     )
     assert load_active_repos(reg) == {"stranske/A", "stranske/C"}
+
+
+def test_resolve_workspace_root_honors_registry_contract(tmp_path: Path):
+    workspace = tmp_path / "workspace"
+    steward = workspace / "Workflows-steward"
+    config = steward / "config"
+    config.mkdir(parents=True)
+    registry = config / "repo_review_registry.json"
+    registry.write_text(json.dumps({"workspace_root": "..", "repos": []}), encoding="utf-8")
+    assert resolve_workspace_root(registry) == workspace.resolve()
 
 
 # ---------------------------------------------------------------------------
@@ -450,6 +474,36 @@ repos:
     assert summary["by_repo"][0]["repo"] == "stranske/Workflows"
 
 
+def test_scan_records_malformed_doc_entry_without_aborting(tmp_path: Path):
+    workspace, registry = _make_fixture_workspace(tmp_path)
+    cfg_path = tmp_path / "cfg.yml"
+    cfg_path.write_text(
+        """
+repos:
+  stranske/Workflows:
+    local_path: Workflows-steward
+    docs:
+      - README.md
+      - path: README.md
+        focus: x
+""",
+        encoding="utf-8",
+    )
+    summary = scan(
+        docs_config=load_docs_config(cfg_path),
+        active_repos=load_active_repos(registry),
+        workspace_root=workspace,
+        repo_subset=None,
+        log_dir=tmp_path / "logs",
+        timeout=10,
+        invoker=lambda **kw: (True, '{"instances": []}'),
+    )
+    bucket = summary["by_repo"][0]
+    assert summary["total_docs_scanned"] == 2
+    assert summary["total_errors"] == 1
+    assert bucket["errors"][0]["doc_path"] == "<config.docs[0]>"
+
+
 def test_scan_doc_records_missing_file(tmp_path: Path):
     (tmp_path / "Workflows-steward").mkdir()
     res = scan_doc(
@@ -550,3 +604,44 @@ def test_notify_emits_empty_string_when_no_drift_no_errors():
         ]
     }
     assert format_docs_drift_section(drift) == ""
+
+
+def test_notify_headline_reflects_docs_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from scripts.repo_review_notify import write_desktop_reminder
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    path = write_desktop_reminder(
+        queue_summary={
+            "total": 0,
+            "by_repo": {},
+            "skipped_count": 0,
+            "issue_titles": [],
+        },
+        backlog={"auto_labeled": [], "needs_human": []},
+        docs_drift={
+            "total_drift_instances": 1,
+            "total_errors": 0,
+            "by_repo": [
+                {
+                    "repo": "stranske/X",
+                    "drift_instances": [
+                        {
+                            "doc_path": "README.md",
+                            "claim": "c",
+                            "authoritative_source": "s",
+                            "classification": "stale",
+                        }
+                    ],
+                    "accurate_instances": [],
+                    "errors": [],
+                }
+            ],
+        },
+        packet_path=tmp_path / "packet.md",
+        queue_path=tmp_path / "queue.json",
+        output_dir=tmp_path / "out",
+        workflows_steward_root=tmp_path / "Workflows-steward",
+    )
+    rendered = path.read_text(encoding="utf-8")
+    assert "doc-drift item" in rendered
+    assert "Clean week" not in rendered

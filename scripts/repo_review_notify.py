@@ -312,15 +312,26 @@ def write_desktop_reminder(
     auto_labeled_count = len(backlog.get("auto_labeled", []) or [])
     needs_human_count = len(backlog.get("needs_human", []) or [])
     backlog_count = auto_labeled_count + needs_human_count
+    docs_drift_count = int((docs_drift or {}).get("total_drift_instances", 0) or 0)
+    docs_drift_error_count = int((docs_drift or {}).get("total_errors", 0) or 0)
+    docs_drift_signal_count = docs_drift_count + docs_drift_error_count
 
-    if total == 0 and backlog_count == 0:
+    if total == 0 and backlog_count == 0 and docs_drift_signal_count == 0:
         headline = (
             "## ✓ Clean week — no action required\n\n"
             "No fresh design-vs-implementation gaps, no unaddressed "
             "enhancement issues across the fleet. The system will run "
             "again next Wednesday."
         )
-    elif total == 0 and needs_human_count == 0:
+    elif total == 0 and backlog_count == 0:
+        headline = (
+            f"## {docs_drift_signal_count} doc-drift item"
+            f"{'s' if docs_drift_signal_count != 1 else ''} need review\n\n"
+            "No fresh design-vs-implementation gaps or backlog decisions, "
+            "but the docs-drift scan found remediation work or scan errors. "
+            "See the doc-drift section below."
+        )
+    elif total == 0 and needs_human_count == 0 and docs_drift_signal_count == 0:
         headline = (
             f"## ✓ Clean week ({auto_labeled_count} backlog item"
             f"{'s' if auto_labeled_count != 1 else ''} auto-labeled)\n\n"
@@ -330,13 +341,22 @@ def write_desktop_reminder(
             "priority — no action required from you, see the FYI section below."
         )
     elif total == 0:
+        detail_parts = []
+        if needs_human_count:
+            detail_parts.append(
+                f"{needs_human_count} backlog item" f"{'s' if needs_human_count != 1 else ''}"
+            )
+        if docs_drift_signal_count:
+            detail_parts.append(
+                f"{docs_drift_signal_count} doc-drift item"
+                f"{'s' if docs_drift_signal_count != 1 else ''}"
+            )
+        detail = " and ".join(detail_parts)
         headline = (
-            f"## {needs_human_count} backlog item"
-            f"{'s' if needs_human_count != 1 else ''} need your decision\n\n"
+            f"## {detail} need your decision\n\n"
             "No fresh design-vs-implementation gaps this week, but the cron "
-            f"found {needs_human_count} stale issue"
-            f"{'s' if needs_human_count != 1 else ''} (umbrella/epic-shaped or "
-            "blocked) that it couldn't safely auto-label. See the section below."
+            "found items that need review before the queue is clean. See the "
+            "backlog and doc-drift sections below."
         )
     else:
         repo_lines = "\n".join(f"- **{r}**: {n}" for r, n in sorted(by_repo.items()))

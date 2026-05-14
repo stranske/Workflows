@@ -53,7 +53,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -69,8 +68,6 @@ VALID_CLASSIFICATIONS = ("stale", "contradictory", "accurate-no-drift")
 DRIFT_CLASSIFICATIONS = ("stale", "contradictory")
 
 DEFAULT_PER_DOC_TIMEOUT = 600
-_HEARTBEAT_INTERVAL = 60
-_STALL_THRESHOLD = 900
 
 CLAUDE_OAUTH_TOKEN_FILE = Path(
     os.path.expanduser(
@@ -125,6 +122,15 @@ def load_active_repos(registry_path: Path) -> set[str]:
     }
 
 
+def resolve_workspace_root(registry_path: Path) -> Path:
+    """Resolve the registry's workspace_root using the evaluator contract."""
+    data = json.loads(registry_path.read_text(encoding="utf-8"))
+    workspace_root = Path(data.get("workspace_root", "."))
+    if not workspace_root.is_absolute():
+        workspace_root = (registry_path.resolve().parent.parent / workspace_root).resolve()
+    return workspace_root
+
+
 # ---------------------------------------------------------------------------
 # GitNexus staleness
 # ---------------------------------------------------------------------------
@@ -155,9 +161,6 @@ def is_gitnexus_stale(repo_root: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-_JSON_OBJECT_RE = re.compile(r"\{[\s\S]*\}")
-
-
 def parse_drift_response(raw_text: str, *, doc_path: str) -> tuple[list[DriftInstance], str | None]:
     """Extract the drift-instance list from a claude response.
 
@@ -168,13 +171,24 @@ def parse_drift_response(raw_text: str, *, doc_path: str) -> tuple[list[DriftIns
     """
     if not raw_text or not raw_text.strip():
         return [], "empty response"
-    match = _JSON_OBJECT_RE.search(raw_text)
-    if not match:
+    decoder = json.JSONDecoder()
+    payload: Any | None = None
+    last_error: json.JSONDecodeError | None = None
+    for start, char in enumerate(raw_text):
+        if char != "{":
+            continue
+        try:
+            candidate, _end = decoder.raw_decode(raw_text[start:])
+        except json.JSONDecodeError as exc:
+            last_error = exc
+            continue
+        if isinstance(candidate, dict) and "instances" in candidate:
+            payload = candidate
+            break
+    if payload is None:
+        if last_error:
+            return [], f"JSON decode failed: {last_error.msg}"
         return [], "no JSON object found in response"
-    try:
-        payload = json.loads(match.group(0))
-    except json.JSONDecodeError as exc:
-        return [], f"JSON decode failed: {exc.msg}"
     if not isinstance(payload, dict):
         return [], "JSON root is not an object"
 
@@ -520,7 +534,19 @@ def scan(
                 )
             )
             continue
-        for doc_entry in repo_config.get("docs") or []:
+        for index, doc_entry in enumerate(repo_config.get("docs") or []):
+            if not isinstance(doc_entry, dict):
+                doc_results.append(
+                    DocResult(
+                        repo=repo,
+                        doc_path=f"<config.docs[{index}]>",
+                        error=(
+                            "docs config entry must be a mapping, "
+                            f"got {type(doc_entry).__name__}"
+                        ),
+                    )
+                )
+                continue
             doc_path = str(doc_entry.get("path") or "")
             doc_focus = str(doc_entry.get("focus") or "")
             if not doc_path:
@@ -579,11 +605,14 @@ def main() -> int:
         print(f"[docs-drift-scan] cannot load registry: {exc}", file=sys.stderr)
         return 2
 
-    workspace_root = (
-        args.workspace_root.resolve()
-        if args.workspace_root
-        else args.registry.resolve().parent.parent
-    )
+    if args.workspace_root:
+        workspace_root = args.workspace_root.resolve()
+    else:
+        try:
+            workspace_root = resolve_workspace_root(args.registry)
+        except (FileNotFoundError, json.JSONDecodeError) as exc:
+            print(f"[docs-drift-scan] cannot resolve workspace root: {exc}", file=sys.stderr)
+            return 2
     log_dir = args.out.parent / "logs" / "coordinator"
     log_dir.mkdir(parents=True, exist_ok=True)
 
