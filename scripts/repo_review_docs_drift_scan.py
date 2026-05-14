@@ -237,17 +237,18 @@ def build_doc_prompt(
         "fresh": (
             "GitNexus map is FRESH for this repo. You MAY call "
             "`gitnexus context <symbol>` or `gitnexus impact <path>` for "
-            "behavioral claims about call paths."
+            "behavioral claims about call paths. Keep using `rg` for "
+            "command/identifier/filename existence checks."
         ),
         "stale": (
-            "GitNexus map is STALE. SKIP behavioral call-graph checks "
-            "gracefully -- rely on `rg` for pattern/identifier existence "
-            "checks only. Note skipped checks in your reasoning but do not "
-            "fail the doc."
+            "GitNexus map is STALE (`.gitnexus/meta.json` reports stale). "
+            "SKIP behavioral call-graph checks gracefully; do not fail the "
+            "doc because of this. Use `rg` for command/identifier/filename "
+            "existence checks only."
         ),
         "missing": (
             "No GitNexus map present. SKIP behavioral call-graph checks. "
-            "Use `rg` for pattern/identifier existence checks only."
+            "Use `rg` for command/identifier/filename existence checks only."
         ),
     }[gitnexus_status]
     return f"""You are auditing a source-of-truth operational doc for drift against current implementation.
@@ -260,8 +261,10 @@ FOCUS: {doc_focus}
 
 Process:
 1. Read the doc at `{doc_path}`.
-2. For each load-bearing operational claim (commands, file paths, identifiers, labels, workflow filenames, model identifiers, expected outputs), verify it against the CURRENT implementation in this repo. Use `rg` to confirm strings/identifiers/filenames still exist as cited; cross-reference against the file(s) the claim cites or implies.
-3. Classify each verified claim as one of:
+2. For each load-bearing operational claim (commands, file paths, identifiers, labels, workflow filenames, model identifiers, expected outputs), verify it against the CURRENT implementation in this repo.
+3. Use `rg` for all command/identifier/filename existence checks; cross-reference against the file(s) the claim cites or implies.
+4. For behavioral claims about call paths, use `gitnexus context`/`gitnexus impact` only when the map is fresh. If `.gitnexus/meta.json` is stale or missing, skip behavioral checks gracefully (non-fatal) and continue with `rg`-based verification.
+5. Classify each verified claim as one of:
    - `stale`: the claim was true once but no longer reflects current implementation (e.g. command renamed, file moved, identifier deprecated).
    - `contradictory`: the claim disagrees with another source-of-truth doc or with current implementation in a way that is actively misleading.
    - `accurate-no-drift`: the claim is verified against current implementation.
