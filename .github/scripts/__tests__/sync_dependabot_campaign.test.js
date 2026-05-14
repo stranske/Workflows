@@ -784,6 +784,10 @@ test('findCampaignIssue only returns marker-backed campaign issues', async () =>
         get: async ({ issue_number: issueNumber }) => ({
           data: {
             number: issueNumber,
+            title:
+              issueNumber === 12
+                ? 'Sync/Dependabot campaign queue - old'
+                : 'Sync/Dependabot campaign queue',
             body: issueNumber === 12 ? 'matching title without marker' : markerBody,
             html_url: `https://github.test/issues/${issueNumber}`,
           },
@@ -794,8 +798,18 @@ test('findCampaignIssue only returns marker-backed campaign issues', async () =>
       assert.equal(method, issueList);
       assert.equal(params.per_page, 100);
       return [
-        { number: 12, title: 'Sync/Dependabot campaign queue - old', pull_request: null },
-        { number: 13, title: 'Sync/Dependabot campaign queue', pull_request: null },
+        {
+          number: 12,
+          title: 'Sync/Dependabot campaign queue - old',
+          labels: [{ name: 'campaign:sync-dependabot' }],
+          pull_request: null,
+        },
+        {
+          number: 13,
+          title: 'Sync/Dependabot campaign queue',
+          labels: [{ name: 'campaign:sync-dependabot' }],
+          pull_request: null,
+        },
       ];
     },
   };

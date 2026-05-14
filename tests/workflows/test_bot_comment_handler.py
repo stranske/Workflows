@@ -272,7 +272,7 @@ def test_bot_comment_handler_wrappers_emit_terminal_disposition_artifact() -> No
         resolve_job = workflow["jobs"]["resolve"]
         resolve_steps = resolve_job["steps"]
         checkout_step = next(
-            step for step in resolve_steps if step.get("uses", "").startswith("actions/checkout")
+            step for step in resolve_steps if step.get("name") == "Checkout retry helpers"
         )
         resolve_step = next(
             step
