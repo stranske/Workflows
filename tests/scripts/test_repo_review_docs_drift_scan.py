@@ -198,6 +198,36 @@ def test_scan_doc_logs_gitnexus_skip_for_coordinator_log(
     assert "README.md" in captured.out
 
 
+def test_scan_doc_logs_gitnexus_skip_when_meta_stale(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "README.md").write_text("dummy\n", encoding="utf-8")
+    gitnexus_dir = repo_root / ".gitnexus"
+    gitnexus_dir.mkdir()
+    (gitnexus_dir / "meta.json").write_text(json.dumps({"stale": True}), encoding="utf-8")
+
+    def fake_invoker(*, prompt: str, cwd: Path, timeout: int, log_file: Path):
+        return True, '{"instances": []}'
+
+    result = scan_doc(
+        repo="stranske/Workflows",
+        doc_path="README.md",
+        doc_focus="model versions",
+        repo_root=repo_root,
+        log_dir=tmp_path / "logs",
+        timeout=10,
+        invoker=fake_invoker,
+    )
+
+    assert result.error is None
+    assert result.gitnexus_status == "stale"
+    captured = capsys.readouterr()
+    assert "skipping behavioral check" in captured.out
+    assert "GitNexus map stale" in captured.out
+
+
 # ---------------------------------------------------------------------------
 # Prompt construction
 # ---------------------------------------------------------------------------
