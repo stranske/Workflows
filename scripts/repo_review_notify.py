@@ -316,8 +316,12 @@ def write_desktop_reminder(
     that fell between the opener and the design-vs-impl review).
     """
     desktop = Path(os.path.expanduser("~/Desktop"))
-    desktop.mkdir(parents=True, exist_ok=True)
     target = desktop / DESKTOP_FILENAME
+    try:
+        desktop.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        target = output_dir / DESKTOP_FILENAME
 
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
     total = queue_summary["total"]

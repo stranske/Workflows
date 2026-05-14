@@ -687,3 +687,34 @@ def test_notify_headline_uses_by_repo_fallback_counts(
     rendered = path.read_text(encoding="utf-8")
     assert "Doc drift detected" in rendered
     assert "Clean week" not in rendered
+
+
+def test_notify_falls_back_when_desktop_unwritable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from scripts import repo_review_notify
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    original_mkdir = repo_review_notify.Path.mkdir
+
+    def _mkdir_with_desktop_failure(self: Path, *args: object, **kwargs: object) -> None:
+        if str(self).endswith("/Desktop"):
+            raise PermissionError("desktop blocked")
+        return original_mkdir(self, *args, **kwargs)
+
+    monkeypatch.setattr(repo_review_notify.Path, "mkdir", _mkdir_with_desktop_failure)
+
+    out_dir = tmp_path / "out"
+    path = repo_review_notify.write_desktop_reminder(
+        queue_summary={"total": 0, "by_repo": {}, "skipped_count": 0, "issue_titles": []},
+        backlog={"auto_labeled": [], "needs_human": []},
+        docs_drift={},
+        packet_path=tmp_path / "packet.md",
+        queue_path=tmp_path / "queue.json",
+        output_dir=out_dir,
+        workflows_steward_root=tmp_path / "Workflows-steward",
+    )
+
+    assert path == out_dir / repo_review_notify.DESKTOP_FILENAME
+    assert path.exists()
