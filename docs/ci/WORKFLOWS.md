@@ -17,6 +17,8 @@ flowchart LR
     agents70 --> agentsBelt["Agents 71–73 Codex Belt\n.agents-71/72/73-*.yml"]
 ```
 
+Diagram labels that start with `.` are shorthand for files under `.github/workflows/`.
+
 - **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before its inline `summary` job publishes the commit status and PR comment. The **Gate summary job** keeps that follow-up comment updated with the latest artifacts.
 - **Autofix path:** When Gate reports a failure, it dispatches `autofix_gate_failure`; [agents-autofix-dispatcher.yml](../../.github/workflows/agents-autofix-dispatcher.yml) receives that event and routes eligible PRs into [agents-autofix-loop.yml](../../.github/workflows/agents-autofix-loop.yml), while [Reusable 18 Autofix](../../.github/workflows/reusable-18-autofix.yml) remains a direct-call helper for hygiene-fix or patch-artifact callers. The diagram edge from Gate to Autofix Dispatch represents this repository dispatch hop, not a direct call into reusable autofix.
 - **Agents control plane:** Successful Gate runs dispatch the [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml), which coordinates the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) hand-off (dispatcher → worker → conveyor) and runs the built-in keepalive sweep unless the repository-level `keepalive:paused` label or `keepalive_enabled` flag disables it. The orchestrator summary exposes whether the pause label was detected and records the exact label name through the `keepalive_pause_label` output so downstream jobs can echo the control state.
