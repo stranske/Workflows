@@ -10,10 +10,10 @@ This document describes all labels that trigger automated workflows or affect CI
 | `autofix:clean` | PR labeled | Triggers clean-mode autofix (more aggressive)
 | `agent:codex` | Issue or PR labeled | Routes the issue or PR to the Codex agent
 | `agent:claude` | Issue or PR labeled | Routes the issue or PR to the Claude Code agent
-| `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy
+| `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; do not combine with concrete `agent:<name>` labels
 | `agent:retry` | PR labeled | Requests one re-dispatch of the matching keepalive runner
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
-| `agent:codex-invite` | (deprecated) | Documented historically; no workflow consumes it
+| `agent:codex-invite` | Issue labeled | Requests invite mode for the matching agent bridge
 | `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention
 | `status:ready` | Issue labeled | Marks issue as ready for agent processing
 | `agents:format` | Issue labeled | Direct issue formatting
@@ -107,7 +107,7 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Effect:**
 1. Routes the issue or PR to the Claude Code agent, the parallel surface to `agent:codex`
-2. On issues, drives the same intake path as `agent:codex` (issue is claimed, branch and draft PR created on dispatch)
+2. On issues, drives the same intake path as `agent:codex`; issue-triggered runs use invite mode and post human instructions rather than creating a branch/PR directly
 3. On PRs, keepalive dispatches work via `reusable-claude-run.yml` per `.github/agents/registry.yml`
 4. Branch prefix `claude/issue-<number>` is used for agent work (see `.github/agents/registry.yml`)
 
@@ -130,13 +130,14 @@ This document describes all labels that trigger automated workflows or affect CI
 **Effect:**
 1. Delegates routing to the auto-delegation policy in `.github/scripts/agent_delegation_policy.js`
 2. The policy switches between Codex and Claude based on stall/effectiveness signals
-3. Used to recover from capacity-stuck PRs: pair `agent:auto` with the existing concrete `agent:<name>` label to trigger switchover when the delegation policy detects a stall (3 rounds with 0 commits + 0 tasks + no gate-pass)
-4. Does not by itself select a runner; a concrete `agent:codex` or `agent:claude` is added by the policy when it dispatches
+3. Used to recover from capacity-stuck PRs by replacing the concrete `agent:<name>` label with `agent:auto`; the registry rejects `agent:auto` when it is co-present with a concrete agent label
+4. Selects a runner through the delegation policy without mutating labels; if no current agent is recorded, the policy chooses the default available agent or the first available alternative
 
 **Prerequisites:**
-- A concrete `agent:codex` or `agent:claude` label should also be present so the delegation policy has a current state to evaluate
+- Do not combine `agent:auto` with `agent:codex`, `agent:claude`, or another concrete routing label; exactly one routing mode must be present
+- Existing delegation state improves switch decisions, but the initial-selection path can choose an agent without a concrete label
 
-**Lifecycle:** Applied manually or by orchestrator/closer when a PR is capacity-stuck. The delegation policy reads it on keepalive ticks and either keeps the current routing or switches.
+**Lifecycle:** Applied manually or by orchestrator/closer when a PR is capacity-stuck. The delegation policy reads it on keepalive ticks and either keeps the current runner choice or switches the runner decision for that dispatch.
 
 **Workflow:** `agents-auto-label.yml`, `reusable-pr-context.yml`, `agents-capability-check.yml`, `agents-guard.yml`; policy implementation is `.github/scripts/agent_delegation_policy.js`.
 
@@ -171,25 +172,30 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Effect:**
 1. Marks the PR as currently backed off due to API/runner rate limits
-2. Used in combination with the matching `agent:<name>` label to flag a capacity-stuck PR (auto-delegation can switch agents when paired with `agent:auto`)
-3. Removed by `agents-keepalive-loop.yml` when a successful retry is observed (alongside `agent:retry`)
+2. Used with the matching concrete `agent:<name>` label to flag backoff for the current route; switch to `agent:auto` only after removing the concrete routing label
+3. Removed by `agents-keepalive-loop.yml` during the `agent:retry` labeled run, before keepalive evaluation
 
 **Prerequisites:**
 - Applied automatically; no manual action required
 
-**Lifecycle:** Applied by `agents-auto-pilot.yml` when a dispatch hits a rate limit. Consumed and cleaned by `agents-keepalive-loop.yml` when the next successful run completes. Does not by itself trigger a runner.
+**Lifecycle:** Applied by `agents-auto-pilot.yml` when a dispatch hits a rate limit. Cleaned by the retry-label handler in `agents-keepalive-loop.yml` when `agent:retry` is processed. Does not by itself trigger a runner.
 
 **Workflow:** Applied by `agents-auto-pilot.yml`; consumed/cleaned by `agents-keepalive-loop.yml`.
 
 ---
 
-### `agent:codex-invite` (deprecated)
+### `agent:codex-invite`
 
 **Applies to:** Issues
 
-**Status:** Deprecated. As of this revision, `grep -rn codex-invite .github/ scripts/ tools/` returns no matches; no workflow, script, or tool consumes this label. The historical entry is retained for context; do not apply this label.
+**Status:** Supported invite-mode override for `agent:codex`. The issue-intake and reusable issue-bridge workflows parse `agent:<name>-invite` labels and require a matching base agent label.
 
-**Historical effect:** Documented in earlier versions as a way to invite the Codex agent to participate alongside `agent:codex`. The active surface for this is now the `agent:codex` / `agent:claude` / `agent:auto` triad and the auto-delegation policy.
+**Effect:** Keeps the issue-triggered bridge in invite mode for Codex, posting instructions for a human/agent handoff instead of creating a PR directly. This is useful when the issue should request participation without immediately materializing a branch.
+
+**Prerequisites:**
+- Issue also has `agent:codex`; invite-only labels without the matching base agent fail resolution
+
+**Workflow:** `agents-63-issue-intake.yml`, `reusable-agents-issue-bridge.yml`.
 
 ---
 
@@ -521,12 +527,12 @@ These labels are used for categorization but do not trigger workflows.
 | (none) | `agent:codex` | Triggers agent assignment (Codex runner)
 | (none) | `agent:claude` | Triggers agent assignment (Claude runner)
 | (none) | `agent:auto` | Delegates routing to `agent_delegation_policy.js`
-| `agent:codex` | `agent:auto` | Enables auto-delegation; policy may switch to `agent:claude` on stall
-| `agent:claude` | `agent:auto` | Enables auto-delegation; policy may switch to `agent:codex` on stall
+| `agent:codex` | `agent:auto` | Invalid mixed routing; remove `agent:codex` before using `agent:auto`
+| `agent:claude` | `agent:auto` | Invalid mixed routing; remove `agent:claude` before using `agent:auto`
 | `agent:<name>` + `agents:keepalive` | `agent:retry` | Forces one re-dispatch; keepalive removes the label at the top of its run
 | `agent:retry` | (removed by `agents-keepalive-loop.yml`) | Co-removes any stale `agent:rate-limited`
-| `agent:rate-limited` | (removed by `agents-keepalive-loop.yml`) | Cleared when next successful keepalive run completes
-| `agent:codex` | `agent:codex-invite` | Deprecated; no workflow consumes this transition
+| `agent:rate-limited` | `agent:retry` | Retry-label handler removes stale `agent:rate-limited` before keepalive evaluation
+| `agent:codex` | `agent:codex-invite` | Issue bridge uses invite mode for Codex handoff instructions
 | `agent:codex` | `status:ready` | Agent begins processing
 | `agent:needs-attention` | (removed) | Agent resumes processing
 | (none) | `agents:format` | Direct formatting
