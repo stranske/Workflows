@@ -13,7 +13,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; do not combine with concrete `agent:<name>` labels
 | `agent:retry` | PR labeled | Requests one re-dispatch of the matching keepalive runner
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
-| `agent:codex-invite` | Issue labeled | Requests invite mode for the matching agent bridge
+| `agent:codex-invite` | Issue labeled | (**Deprecated** — no workflow references this label; see detail section) |
 | `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention
 | `status:ready` | Issue labeled | Marks issue as ready for agent processing
 | `agents:format` | Issue labeled | Direct issue formatting
@@ -188,14 +188,9 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Applies to:** Issues
 
-**Status:** Supported invite-mode override for `agent:codex`. The issue-intake and reusable issue-bridge workflows parse `agent:<name>-invite` labels and require a matching base agent label.
+**Status:** **Deprecated.** `grep -rn codex-invite .github/ scripts/ tools/` returns no matches on `main`. No workflow, script, or tool currently references this label. It was an invite-mode override for `agent:codex` that kept the issue-triggered bridge in invite mode, but the feature is no longer wired in any active workflow. Do not apply this label; it has no effect.
 
-**Effect:** Keeps the issue-triggered bridge in invite mode for Codex, posting instructions for a human/agent handoff instead of creating a PR directly. This is useful when the issue should request participation without immediately materializing a branch.
-
-**Prerequisites:**
-- Issue also has `agent:codex`; invite-only labels without the matching base agent fail resolution
-
-**Workflow:** `agents-63-issue-intake.yml`, `reusable-agents-issue-bridge.yml`.
+**If invite-mode behaviour is needed:** Use the base `agent:codex` or `agent:claude` label and configure the intake workflow directly.
 
 ---
 
@@ -532,7 +527,7 @@ These labels are used for categorization but do not trigger workflows.
 | `agent:<name>` + `agents:keepalive` | `agent:retry` | Forces one re-dispatch; keepalive removes the label at the top of its run
 | `agent:retry` | (removed by `agents-keepalive-loop.yml`) | Co-removes any stale `agent:rate-limited`
 | `agent:rate-limited` | `agent:retry` | Retry-label handler removes stale `agent:rate-limited` before keepalive evaluation
-| `agent:codex` | `agent:codex-invite` | Issue bridge uses invite mode for Codex handoff instructions
+| `agent:codex` | `agent:codex-invite` | (**Deprecated**) No longer active; label has no effect |
 | `agent:codex` | `status:ready` | Agent begins processing
 | `agent:needs-attention` | (removed) | Agent resumes processing
 | (none) | `agents:format` | Direct formatting
