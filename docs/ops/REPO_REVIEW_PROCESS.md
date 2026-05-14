@@ -57,7 +57,7 @@ python scripts/repo_review_coordinator.py \
 The coordinator is the Phase-4 entry point. It runs the evaluator preflight,
 then for each `active` repo drives the skip-this-cycle gate, round-1 fan-out
 (Codex + Claude in parallel), round-2 negotiation, and per-repo state update,
-before a final evaluator pass renders the human-decision-packet. Pass
+before a final evaluator pass renders `human-decision-packet.md`. Pass
 `--repos <repo> [<repo> ...]` to run the full Phase-4 flow against only the
 named subset of `active` repos:
 
@@ -90,8 +90,8 @@ The coordinator orchestrates five Phase-4 scripts under `scripts/`:
   evaluator preflight → skip-this-cycle gate → round-1 → round-2 → body-writer
   → final evaluator pass.
 - `repo_review_round1_runner.py` — round-1 fan-out runner that refreshes the
-  GitNexus map and spawns Codex + Claude in parallel for the initial design-vs-
-  implementation pass.
+  GitNexus map and spawns Codex + Claude in parallel for the initial
+  design-vs-implementation pass.
 - `repo_review_round2_runner.py` — round-2 negotiation runner that coordinates
   per-turn agent calls, validates schema, and synthesizes `converged.json`.
   Protocol details: [`REPO_REVIEW_ROUND2_PROTOCOL.md`](REPO_REVIEW_ROUND2_PROTOCOL.md).
