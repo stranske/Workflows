@@ -1,0 +1,87 @@
+{
+  "README.md": {
+    "doc_path": "README.md",
+    "instances": [
+      {
+        "claim": "README cites claude-3-5-sonnet-20241022 as the default model",
+        "authoritative_source": "tools/langchain_client.py:96-98 _default_slots()",
+        "classification": "stale"
+      },
+      {
+        "claim": "Pipeline orchestration overview accurately summarizes phase ordering",
+        "authoritative_source": "scripts/repo_review_coordinator.py:1-30 module docstring",
+        "classification": "accurate-no-drift"
+      }
+    ]
+  },
+  "docs/ci/WORKFLOWS.md": {
+    "doc_path": "docs/ci/WORKFLOWS.md",
+    "instances": [
+      {
+        "claim": "Autofix is documented as both ON for all PRs and as gated by autofix label",
+        "authoritative_source": "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml",
+        "classification": "contradictory"
+      }
+    ]
+  },
+  "docs/ops/REPO_REVIEW_PROCESS.md": {
+    "doc_path": "docs/ops/REPO_REVIEW_PROCESS.md",
+    "instances": [
+      {
+        "claim": "Weekly Run section cites repo_review_evaluator.py as the entry point",
+        "authoritative_source": "scripts/repo_review_coordinator.py is the Phase-4 entry point",
+        "classification": "stale"
+      }
+    ]
+  },
+  "docs/AGENTS_POLICY.md": {
+    "doc_path": "docs/AGENTS_POLICY.md",
+    "instances": [
+      {
+        "claim": "Protected workflow inventory matches .github/workflows/",
+        "authoritative_source": ".github/workflows/ listing",
+        "classification": "accurate-no-drift"
+      }
+    ]
+  },
+  "docs/LABELS.md": {
+    "doc_path": "docs/LABELS.md",
+    "instances": [
+      {
+        "claim": "Priority label taxonomy remains documented correctly",
+        "authoritative_source": "docs/LABELS.md",
+        "classification": "accurate-no-drift"
+      }
+    ]
+  },
+  "docs/WORKFLOW_GUIDE.md": {
+    "doc_path": "docs/WORKFLOW_GUIDE.md",
+    "instances": [
+      {
+        "claim": "Workflow inventory location points to docs/ci/WORKFLOWS.md",
+        "authoritative_source": "docs/ci/WORKFLOWS.md",
+        "classification": "accurate-no-drift"
+      }
+    ]
+  },
+  "docs/MODEL_MANAGEMENT.md": {
+    "doc_path": "docs/MODEL_MANAGEMENT.md",
+    "instances": [
+      {
+        "claim": "Model registry workflow references config/model_registry.json",
+        "authoritative_source": "config/model_registry.json",
+        "classification": "accurate-no-drift"
+      }
+    ]
+  },
+  "docs/keepalive/Agents.md": {
+    "doc_path": "docs/keepalive/Agents.md",
+    "instances": [
+      {
+        "claim": "Keepalive roles and handoff expectations are still current",
+        "authoritative_source": "docs/keepalive/GoalsAndPlumbing.md",
+        "classification": "accurate-no-drift"
+      }
+    ]
+  }
+}

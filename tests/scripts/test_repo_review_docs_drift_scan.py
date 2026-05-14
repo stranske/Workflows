@@ -26,64 +26,12 @@ from scripts.repo_review_docs_drift_scan import (
     scan_doc,
 )
 
-# ---------------------------------------------------------------------------
-# Seeded fixtures -- the three drift instances confirmed during 2026-05-13.
-# ---------------------------------------------------------------------------
-
+FIXTURE_PATH = (
+    Path(__file__).parent / "fixtures" / "repo_review_docs_drift_scan" / "seeded_responses.json"
+)
 SEEDED_FIXTURE_RESPONSES: dict[str, str] = {
-    "README.md": json.dumps(
-        {
-            "doc_path": "README.md",
-            "instances": [
-                {
-                    "claim": "README cites claude-3-5-sonnet-20241022 as the default model",
-                    "authoritative_source": "tools/langchain_client.py:96-98 _default_slots()",
-                    "classification": "stale",
-                },
-                {
-                    "claim": "Pipeline orchestration overview accurately summarizes phase ordering",
-                    "authoritative_source": "scripts/repo_review_coordinator.py:1-30 module docstring",
-                    "classification": "accurate-no-drift",
-                },
-            ],
-        }
-    ),
-    "docs/ci/WORKFLOWS.md": json.dumps(
-        {
-            "doc_path": "docs/ci/WORKFLOWS.md",
-            "instances": [
-                {
-                    "claim": "Autofix is documented as both ON for all PRs and as gated by autofix label",
-                    "authoritative_source": "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml",
-                    "classification": "contradictory",
-                }
-            ],
-        }
-    ),
-    "docs/ops/REPO_REVIEW_PROCESS.md": json.dumps(
-        {
-            "doc_path": "docs/ops/REPO_REVIEW_PROCESS.md",
-            "instances": [
-                {
-                    "claim": "Weekly Run section cites repo_review_evaluator.py as the entry point",
-                    "authoritative_source": "scripts/repo_review_coordinator.py is the Phase-4 entry point",
-                    "classification": "stale",
-                }
-            ],
-        }
-    ),
-    "docs/AGENTS_POLICY.md": json.dumps(
-        {
-            "doc_path": "docs/AGENTS_POLICY.md",
-            "instances": [
-                {
-                    "claim": "Protected workflow inventory matches .github/workflows/",
-                    "authoritative_source": ".github/workflows/ listing",
-                    "classification": "accurate-no-drift",
-                }
-            ],
-        }
-    ),
+    key: json.dumps(value)
+    for key, value in json.loads(FIXTURE_PATH.read_text(encoding="utf-8")).items()
 }
 
 
@@ -397,6 +345,12 @@ def _make_fixture_workspace(tmp_path: Path) -> tuple[Path, Path]:
     (ci_dir / "WORKFLOWS.md").write_text("dummy WORKFLOWS\n", encoding="utf-8")
     (ops_dir / "REPO_REVIEW_PROCESS.md").write_text("dummy process\n", encoding="utf-8")
     (docs_dir / "AGENTS_POLICY.md").write_text("dummy policy\n", encoding="utf-8")
+    (docs_dir / "LABELS.md").write_text("dummy labels\n", encoding="utf-8")
+    (docs_dir / "WORKFLOW_GUIDE.md").write_text("dummy workflow guide\n", encoding="utf-8")
+    (docs_dir / "MODEL_MANAGEMENT.md").write_text("dummy model management\n", encoding="utf-8")
+    keepalive_dir = docs_dir / "keepalive"
+    keepalive_dir.mkdir(parents=True, exist_ok=True)
+    (keepalive_dir / "Agents.md").write_text("dummy keepalive agents\n", encoding="utf-8")
     registry = steward / "config" / "repo_review_registry.json"
     registry.parent.mkdir(parents=True, exist_ok=True)
     registry.write_text(
@@ -422,6 +376,14 @@ repos:
         focus: Phase-4 entry point
       - path: docs/AGENTS_POLICY.md
         focus: protected workflows
+      - path: docs/LABELS.md
+        focus: label contract
+      - path: docs/WORKFLOW_GUIDE.md
+        focus: workflow inventory links
+      - path: docs/MODEL_MANAGEMENT.md
+        focus: model registry references
+      - path: docs/keepalive/Agents.md
+        focus: keepalive role contracts
 """,
         encoding="utf-8",
     )
@@ -457,9 +419,9 @@ def test_scan_end_to_end_with_seeded_fixtures(tmp_path: Path):
     )
 
     # Acceptance criteria: at least the 3 known drifts plus clean baselines.
-    assert summary["total_docs_scanned"] == 4
+    assert summary["total_docs_scanned"] == 8
     assert summary["total_drift_instances"] == 3, summary
-    assert summary["total_accurate_instances"] >= 2, summary
+    assert summary["total_accurate_instances"] >= 5, summary
     bucket = summary["by_repo"][0]
     drift_docs = sorted({i["doc_path"] for i in bucket["drift_instances"]})
     assert drift_docs == [
