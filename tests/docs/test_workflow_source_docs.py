@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -49,5 +50,9 @@ def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
     assert "agents-autofix-dispatcher.yml" in doc
     assert "agents-autofix-loop.yml" in doc
     assert 'gate --> autofix["Reusable 18 Autofix' not in doc
+    assert not re.search(
+        r'gate\s*-->\s*autofix\["Reusable 18 Autofix',
+        doc,
+    )
     assert 'gate --> autofixDispatch["Autofix Dispatch' in doc
     assert 'autofixDispatch --> autofixLoop["Agents Autofix Loop' in doc
