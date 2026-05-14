@@ -10,10 +10,14 @@ Agents 70 (orchestrator).
 
 - `.github/workflows/agents-63-issue-intake.yml`
 - `.github/workflows/agents-70-orchestrator.yml`
+- `.github/workflows/agents-guard.yml`
 
-These are the only active Agents entry points. Former consumer wrappers
-(`agents-61-consumer-compat.yml`, `agents-62-consumer.yml`) must not be
-reintroduced; the orchestrator surface replaced them entirely.
+The first two workflows are the only active Agents entry points. The guard
+workflow is co-protected because it enforces the protected-workflow policy in
+CI; losing or renaming it would remove the automated safety net. Former
+consumer wrappers (`agents-61-consumer-compat.yml`,
+`agents-62-consumer.yml`) must not be reintroduced; the orchestrator surface
+replaced them entirely.
 
 ## Protection layers
 
@@ -57,6 +61,8 @@ reintroduced; the orchestrator surface replaced them entirely.
    includes the files above. The `Health 45 Agents Guard` status check is marked as
    required.
 - The repository ruleset shows the three workflows in its “Protected file
-  patterns” section with **Block deletion** and **Block rename** enabled.
+  patterns section (`agents-63-issue-intake.yml`,
+  `agents-70-orchestrator.yml`, and `agents-guard.yml`) with
+  **Block deletion** and **Block rename** enabled.
 - A maintainer can describe the override procedure without referencing this
   document (spot check during ops reviews).
