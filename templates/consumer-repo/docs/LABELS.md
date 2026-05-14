@@ -8,8 +8,12 @@ This document describes all labels that trigger automated workflows or affect CI
 |-------|---------|--------
 | `autofix` | PR labeled | Triggers automated code fixes
 | `autofix:clean` | PR labeled | Triggers clean-mode autofix (more aggressive)
-| `agent:codex` | Issue labeled | Triggers Codex agent assignment
-| `agent:codex-invite` | Issue labeled | Invites Codex agent to participate
+| `agent:codex` | Issue or PR labeled | Routes the issue or PR to the Codex agent
+| `agent:claude` | Issue or PR labeled | Routes the issue or PR to the Claude Code agent
+| `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; do not combine with concrete `agent:<name>` labels
+| `agent:retry` | PR labeled | Requests one re-dispatch of the matching keepalive runner
+| `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
+| `agent:codex-invite` | Deprecated/no-op | Retained only for legacy compatibility; replace with current routing labels
 | `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention
 | `status:ready` | Issue labeled | Marks issue as ready for agent processing
 | `agents:format` | Issue labeled | Direct issue formatting
@@ -76,42 +80,126 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ### `agent:codex`
 
-**Applies to:** Issues
+**Applies to:** Issues and Pull Requests
 
-**Trigger:** When applied to an issue
+**Trigger:** When applied to an issue or PR
 
-**Effect:** 
+**Effect:**
 1. Activates the Codex agent assignment workflow
 2. Validates that a valid agent assignee is present
 3. If validated, enables automated code generation for the issue
 4. Creates a `codex/issue-<number>` branch for agent work
-5. Opens a draft PR linked to the issue
+5. On PRs, routes keepalive dispatch to `reusable-codex-run.yml` per `.github/agents/registry.yml`
 
 **Prerequisites:**
 - Issue must have a valid agent assignee (configured in repository settings)
 - Issue should have clear requirements in the description
 
-**Workflow:** `agents-issue-intake.yml` (Issue Intake)
+**Workflow:** `agents-63-issue-intake.yml` (Agents 63 Issue Intake); on PRs, `agents-keepalive-loop.yml` routes work via `.github/agents/registry.yml`.
+
+---
+
+### `agent:claude`
+
+**Applies to:** Issues and Pull Requests
+
+**Trigger:** When applied to an issue or PR
+
+**Effect:**
+1. Routes the issue or PR to the Claude Code agent, the parallel surface to `agent:codex`
+2. On issues, drives the same intake path as `agent:codex`; issue-triggered runs use invite mode and post human instructions rather than creating a branch/PR directly
+3. On PRs, keepalive dispatches work via `reusable-claude-run.yml` per `.github/agents/registry.yml`
+4. Branch prefix `claude/issue-<number>` is used for agent work (see `.github/agents/registry.yml`)
+
+**Prerequisites:**
+- Repository has a valid `CLAUDE_CODE_OAUTH_TOKEN` or `CLAUDE_AUTH_JSON` secret (per `.github/agents/registry.yml`)
+- Issue or PR should have clear requirements
+
+**Lifecycle:** Applied at issue claim / PR creation by an opener that already has Claude capacity. Removed when work completes (PR merged or issue closed). Co-applied with `agents:keepalive` on the PR so keepalive is enabled.
+
+**Workflow:** `agents-bot-comment-handler.yml`, `agents-auto-label.yml`, `agents-keepalive-loop.yml`, `agents-guard.yml`, `reusable-pr-context.yml`; runner is `reusable-claude-run.yml` per `.github/agents/registry.yml`.
+
+---
+
+### `agent:auto`
+
+**Applies to:** Issues and Pull Requests
+
+**Trigger:** When applied to an issue or PR
+
+**Effect:**
+1. Delegates routing to the auto-delegation policy in `.github/scripts/agent_delegation_policy.js`
+2. The policy switches between Codex and Claude based on stall/effectiveness signals
+3. Used to recover from capacity-stuck PRs by replacing the concrete `agent:<name>` label with `agent:auto`; the registry rejects `agent:auto` when it is co-present with a concrete agent label
+4. Selects a runner through the delegation policy without mutating labels; if no current agent is recorded, the policy chooses the default available agent or the first available alternative
+
+**Prerequisites:**
+- Do not combine `agent:auto` with `agent:codex`, `agent:claude`, or another concrete routing label; exactly one routing mode must be present
+- Existing delegation state improves switch decisions, but the initial-selection path can choose an agent without a concrete label
+
+**Lifecycle:** Applied manually or by orchestrator/closer when a PR is capacity-stuck. The delegation policy reads it on keepalive ticks and either keeps the current runner choice or switches the runner decision for that dispatch.
+
+**Workflow:** `agents-auto-label.yml`, `reusable-pr-context.yml`, `agents-capability-check.yml`, `agents-guard.yml`; policy implementation is `.github/scripts/agent_delegation_policy.js`.
+
+---
+
+### `agent:retry`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to (or re-applied to) a PR
+
+**Effect:**
+1. Signals keepalive to force a re-dispatch of the matching runner on its next tick
+2. Removed by `agents-keepalive-loop.yml` at the top of the resulting run so the label is reusable
+3. Co-removed: any stale `agent:rate-limited` label is also removed at the same time
+
+**Prerequisites:**
+- PR has a concrete `agent:codex` or `agent:claude` label so a runner can be re-dispatched
+- PR has `agents:keepalive`
+
+**Lifecycle:** Applied by `agents-auto-pilot.yml` on dispatch failure handling, by openers/closers during quick recovery, or manually to force one keepalive re-run. Consumed and cleaned by `agents-keepalive-loop.yml`.
+
+**Workflow:** Applied by `agents-auto-pilot.yml`; consumed/cleaned by `agents-keepalive-loop.yml`.
+
+---
+
+### `agent:rate-limited`
+
+**Applies to:** Pull Requests
+
+**Trigger:** Auto-applied by workflows during rate-limit backoff
+
+**Effect:**
+1. Marks the PR as currently backed off due to API/runner rate limits
+2. Used with the matching concrete `agent:<name>` label to flag backoff for the current route; switch to `agent:auto` only after removing the concrete routing label
+3. Removed by `agents-keepalive-loop.yml` during the `agent:retry` labeled run, before keepalive evaluation
+
+**Prerequisites:**
+- Applied automatically; no manual action required
+
+**Lifecycle:** Applied by `agents-auto-pilot.yml` when a dispatch hits a rate limit. Cleaned by the retry-label handler in `agents-keepalive-loop.yml` when `agent:retry` is processed. Does not by itself trigger a runner.
+
+**Workflow:** Applied by `agents-auto-pilot.yml`; consumed/cleaned by `agents-keepalive-loop.yml`.
 
 ---
 
 ### `agent:codex-invite`
 
+> **Deprecated.** `grep -rn codex-invite .github/ scripts/ tools/` returns no matches. The label is not referenced by name in any active workflow, script, or tool. Do not apply this label; use `agent:codex` for manual intake or `agents:auto-pilot` with `runner:codex` for auto-pilot routing.
+
 **Applies to:** Issues
 
-**Trigger:** When applied to an issue that already has `agent:codex`
+**Trigger:** Deprecated; no active workflow trigger
 
 **Effect:**
-1. Sends an invitation for the Codex agent to participate
-2. Requires the base `agent:codex` label to be present
+1. Retained only as a legacy compatibility label from the earlier invite-based bridge design.
+2. Does not provide a supported standalone Codex invite path in consumer repositories.
+3. May be rejected or ignored by current intake and preflight logic.
 
-**Prerequisites:**
-- Issue must already have `agent:codex` label
-- Issue must have valid agent assignee
+**Prerequisites:** Replace old uses with `agent:codex` or `agents:auto-pilot` plus `runner:codex`.
 
-**Note:** Adding this label without `agent:codex` will result in an error.
-
-**Workflow:** `agents-issue-intake.yml` (Issue Intake)
+**Workflow:** None as an active trigger; use `agents-63-issue-intake.yml` with `agent:codex` or `agents-auto-pilot.yml` with `runner:codex`.
 
 ---
 
@@ -339,7 +427,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Use Case:** User-triggered creation of follow-up work from verification feedback. Replaces automatic issue creation which was too aggressive.
 
-**Workflow:** `agents-80-pr-event-hub.yml`
+**Workflow:** `agents-verify-to-issue-v2.yml`
 
 ---
 
@@ -377,7 +465,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **To Resume:** Remove the `agents:paused` label.
 
-**Workflow:** `agents-81-gate-followups.yml`
+**Workflow:** `agents-keepalive-loop.yml`
 
 ---
 
@@ -396,7 +484,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 - PR must have an `agent:*` label
 - Gate workflow must pass
 
-**Workflow:** `agents-81-gate-followups.yml`
+**Workflow:** `agents-keepalive-loop.yml`
 
 ---
 
@@ -410,7 +498,7 @@ These labels are used for categorization but do not trigger workflows.
 
 **Effect:** Indicates this issue was created as follow-up to another issue or PR.
 
-**Applied by:** `agents-80-pr-event-hub.yml` workflow
+**Applied by:** `agents-verify-to-issue-v2.yml` workflow
 
 ---
 
@@ -440,8 +528,15 @@ These labels are used for categorization but do not trigger workflows.
 |---------------|-----------------|--------
 | (none) | `autofix` | Triggers autofix
 | `autofix` | `autofix:clean` | May trigger clean mode
-| (none) | `agent:codex` | Triggers agent assignment
-| `agent:codex` | `agent:codex-invite` | Sends agent invitation
+| (none) | `agent:codex` | Triggers agent assignment (Codex runner)
+| (none) | `agent:claude` | Triggers agent assignment (Claude runner)
+| (none) | `agent:auto` | Delegates routing to `agent_delegation_policy.js`
+| `agent:codex` | `agent:auto` | Invalid mixed routing; remove `agent:codex` before using `agent:auto`
+| `agent:claude` | `agent:auto` | Invalid mixed routing; remove `agent:claude` before using `agent:auto`
+| `agent:<name>` + `agents:keepalive` | `agent:retry` | Forces one re-dispatch; keepalive removes the label at the top of its run
+| `agent:retry` | (removed by `agents-keepalive-loop.yml`) | Co-removes any stale `agent:rate-limited`
+| `agent:rate-limited` | `agent:retry` | Retry-label handler removes stale `agent:rate-limited` before keepalive evaluation
+| `agent:codex` | `agent:codex-invite` | Deprecated compatibility label; replace with current routing labels
 | `agent:codex` | `status:ready` | Agent begins processing
 | `agent:needs-attention` | (removed) | Agent resumes processing
 | (none) | `agents:format` | Direct formatting
@@ -498,5 +593,7 @@ To add new label-triggered functionality:
 
 ---
 
-*Last updated: January 5, 2026*
+*Last updated: May 13, 2026*
+
+> **Source of truth.** This file is the canonical label inventory for the Workflows system. It is synced to every supported consumer repository via `.github/sync-manifest.yml` (`docs/LABELS.md` → `docs/LABELS.md`); changes here propagate on the next scheduled sync.
 *Source of truth: Workflows repository*
