@@ -653,6 +653,41 @@ def run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
 
+    # 5b. Docs-drift scan: classify load-bearing claims in source-of-truth
+    #     operational docs (README/AGENTS/CLAUDE/docs/ops/...) for drift vs
+    #     current implementation. Issue #2090. Same non-fatal pattern as
+    #     backlog-scan -- failures are logged but don't abort the cycle.
+    docs_drift_path = output_dir / "docs-drift-scan.json"
+    docs_drift_config = workflows_steward_root / "config" / "source_of_truth_docs.yml"
+    if docs_drift_config.is_file():
+        docs_drift_cmd = [
+            sys.executable,
+            str(workflows_steward_root / "scripts" / "repo_review_docs_drift_scan.py"),
+            "--registry",
+            str(registry_path),
+            "--docs-config",
+            str(docs_drift_config),
+            "--out",
+            str(docs_drift_path),
+        ]
+        docs_drift_result = run_subprocess(
+            docs_drift_cmd,
+            cwd=workflows_steward_root,
+            log_path=log_dir / "docs-drift-scan.log",
+            name="docs-drift-scan",
+            timeout=1800,  # ~5-10 min across 9 repos with claude LLM calls per doc
+        )
+        if not docs_drift_result.succeeded:
+            print(
+                f"[coordinator] docs-drift-scan FAILED (non-fatal): {docs_drift_result.notes}",
+                file=sys.stderr,
+            )
+    else:
+        print(
+            f"[coordinator] docs-drift-scan: skipping -- config not found at {docs_drift_config}",
+            file=sys.stderr,
+        )
+
     # 6. Surface the cycle outcome to the human reviewer (macOS notification +
     #    persistent desktop file). The cron does NOT auto-upload; humans must
     #    review the packet and run upload_repo_review_issues.py --apply. The
@@ -667,6 +702,8 @@ def run(args: argparse.Namespace) -> int:
         str(output_dir / "approved-issue-queue.json"),
         "--backlog-scan",
         str(backlog_scan_path),
+        "--docs-drift-scan",
+        str(docs_drift_path),
         "--workflows-steward-root",
         str(workflows_steward_root),
     ]

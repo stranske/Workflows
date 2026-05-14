@@ -1,0 +1,53 @@
+# Source-of-truth docs that the weekly doc-drift scanner classifies for drift
+# against current implementation. Issue #2090.
+#
+# Scope: docs cited from CLAUDE.md / AGENTS.md / README.md as authoritative
+# operational entry points. Design proposals, archives, and historical
+# analysis docs are intentionally NOT listed -- those are append-only
+# narrative, not load-bearing operational documentation.
+#
+# Schema:
+#   repos:
+#     <owner>/<repo>:
+#       local_path: <path under workspace_root, matches repo_review_registry.json>
+#       docs:
+#         - path: <relative path within the repo>
+#           focus: short label for the kind of drift to watch for
+#         ...
+#
+# The scanner reads each doc, asks claude to compare load-bearing claims
+# against the current implementation, and emits one drift record per
+# (doc, claim) pair. See scripts/repo_review_docs_drift_scan.py.
+
+repos:
+  stranske/Workflows:
+    local_path: Workflows-steward
+    docs:
+      - path: README.md
+        focus: pipeline overview, model versions, entry-point commands
+      - path: AGENTS.md
+        focus: agent identifiers and routing labels
+      - path: CLAUDE.md
+        focus: workspace orientation and reading list
+      - path: docs/INTEGRATION_GUIDE.md
+        focus: consumer integration commands, version policy
+      - path: docs/ops/REPO_REVIEW_PROCESS.md
+        focus: weekly run command, Phase-4 entry point, queue lifecycle
+      - path: docs/ops/REPO_REVIEW_ROUND1_SCHEMA.md
+        focus: round-1 output schema and required fields
+      - path: docs/ops/REPO_REVIEW_ROUND2_PROTOCOL.md
+        focus: round-2 negotiation protocol and converged.json shape
+      - path: docs/keepalive/GoalsAndPlumbing.md
+        focus: keepalive contract, label gates, activation guardrails
+      - path: docs/keepalive/Agents.md
+        focus: multi-agent routing labels and runner mapping
+      - path: docs/AGENTS_POLICY.md
+        focus: protection layers and protected workflow inventory
+      - path: docs/LABELS.md
+        focus: canonical label inventory and trigger semantics
+      - path: docs/ci/WORKFLOWS.md
+        focus: CI workflow inventory, autofix contract
+      - path: docs/MODEL_MANAGEMENT.md
+        focus: model identifiers in current use, refresh cadence
+      - path: docs/WORKFLOW_GUIDE.md
+        focus: workflow authoring guidance and reusable-workflow references
