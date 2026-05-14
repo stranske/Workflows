@@ -177,7 +177,12 @@ def test_run_orders_docs_drift_between_backlog_and_notify(tmp_path: Path, monkey
     monkeypatch.setattr(
         coordinator,
         "load_registry",
-        lambda _path: (tmp_path, [], [SimpleNamespace(repo="stranske/Example", status="active")], []),
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", status="active")],
+            [],
+        ),
     )
     monkeypatch.setattr(
         coordinator,
@@ -216,7 +221,13 @@ def test_run_orders_docs_drift_between_backlog_and_notify(tmp_path: Path, monkey
 
     assert rc == 0
     call_names = [name for name, _timeout in calls]
-    assert call_names == ["preflight", "final-evaluator", "backlog-scan", "docs-drift-scan", "notify"]
+    assert call_names == [
+        "preflight",
+        "final-evaluator",
+        "backlog-scan",
+        "docs-drift-scan",
+        "notify",
+    ]
     assert dict(calls)["docs-drift-scan"] == dict(calls)["backlog-scan"] == 300
 
 
@@ -230,7 +241,12 @@ def test_run_keeps_docs_drift_failure_non_fatal(tmp_path: Path, monkeypatch) -> 
     monkeypatch.setattr(
         coordinator,
         "load_registry",
-        lambda _path: (tmp_path, [], [SimpleNamespace(repo="stranske/Example", status="active")], []),
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", status="active")],
+            [],
+        ),
     )
     monkeypatch.setattr(
         coordinator,
@@ -248,7 +264,9 @@ def test_run_keeps_docs_drift_failure_non_fatal(tmp_path: Path, monkeypatch) -> 
     def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
         calls.append(name)
         if name == "docs-drift-scan":
-            return coordinator.StepResult(name=name, succeeded=False, duration_seconds=0.01, notes="exit 1")
+            return coordinator.StepResult(
+                name=name, succeeded=False, duration_seconds=0.01, notes="exit 1"
+            )
         return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
 
     monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
