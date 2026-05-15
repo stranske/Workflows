@@ -16,7 +16,7 @@ const {
   updateTrackerBody,
 } = require('../sync_tracker_state');
 
-function mockGithub({ issues = [], pulls = [] } = {}) {
+function mockGithub({ issues = [], issueDetails = null, pulls = [] } = {}) {
   const calls = {
     createdIssues: [],
     issueLists: [],
@@ -51,7 +51,7 @@ function mockGithub({ issues = [], pulls = [] } = {}) {
       issues: {
         listForRepo: async () => ({ data: issues }),
         get: async ({ issue_number }) => ({
-          data: issues.find((issue) => issue.number === issue_number),
+          data: (issueDetails || issues).find((issue) => issue.number === issue_number),
         }),
         create: async (params) => {
           calls.createdIssues.push(params);
@@ -208,7 +208,7 @@ test('findOrCreateTracker discovers an unlabeled tracker by marker', async () =>
   );
 });
 
-test('issueMatchesTracker rejects unlabelled title-only tracker candidates', () => {
+test('issueMatchesTracker rejects unlabelled title-only issues', () => {
   const issue = {
     number: 14,
     title: 'Sync/Dependabot campaign queue',
@@ -225,7 +225,7 @@ test('issueMatchesTracker rejects unlabelled title-only tracker candidates', () 
   );
 });
 
-test('issueMatchesTracker rejects empty title-only candidates when a marker is required', () => {
+test('issueMatchesTracker allows bodyless title candidates only for preliminary marker lookups', () => {
   const issue = {
     number: 15,
     title: 'Consumer repo drift detected',
@@ -238,18 +238,73 @@ test('issueMatchesTracker rejects empty title-only candidates when a marker is r
       label: 'consumer-sync',
       titlePattern: 'Consumer repo drift detected',
       markerPattern: /consumer-sync-drift:v1/,
+      allowBodylessTitleCandidate: true,
+    }),
+    true,
+  );
+  assert.equal(
+    issueMatchesTracker(issue, {
+      label: 'consumer-sync',
+      titlePattern: 'Consumer repo drift detected',
+      markerPattern: /consumer-sync-drift:v1/,
+    }),
+    false,
+  );
+  assert.equal(
+    issueMatchesTracker(issue, {
+      label: 'consumer-sync',
+      markerPattern: /consumer-sync-drift:v1/,
+      allowBodylessTitleCandidate: true,
     }),
     false,
   );
 });
 
-test('findOrCreateTracker ignores unlabelled title-only issues', async () => {
+test('findOrCreateTracker fetches bodyless marker candidates before matching', async () => {
   const github = mockGithub({
     issues: [
       {
         number: 14,
+        title: 'Consumer repo drift detected',
+        body: '',
+        labels: [],
+      },
+    ],
+    issueDetails: [
+      {
+        number: 14,
+        title: 'Consumer repo drift detected',
+        body: '<!-- consumer-sync-drift:v1 {"schema":"consumer-sync-drift-issue/v1"} -->',
+        labels: [],
+      },
+    ],
+  });
+
+  const tracker = await findOrCreateTracker({
+    github,
+    owner: 'stranske',
+    repo: 'Workflows',
+    label: 'consumer-sync',
+    titlePattern: 'Consumer repo drift detected',
+    markerPattern: /consumer-sync-drift:v1/,
+  });
+
+  assert.equal(tracker.number, 14);
+  assert.equal(tracker.sync_tracker_created, false);
+  assert.equal(github.calls.createdIssues.length, 0);
+  assert.equal(
+    github.calls.issueLists.some((params) => !params.labels),
+    true,
+  );
+});
+
+test('findOrCreateTracker does not reuse unrelated title-only issues', async () => {
+  const github = mockGithub({
+    issues: [
+      {
+        number: 16,
         title: 'Sync/Dependabot campaign queue',
-        body: 'existing queue body',
+        body: 'unrelated discussion',
         labels: [],
       },
     ],
@@ -261,15 +316,13 @@ test('findOrCreateTracker ignores unlabelled title-only issues', async () => {
     repo: 'Workflows',
     label: 'campaign:sync-dependabot',
     titlePattern: /^Sync\/Dependabot campaign queue$/,
+    title: 'Sync/Dependabot campaign queue',
+    body: 'new body',
   });
 
   assert.equal(tracker.number, 99);
   assert.equal(tracker.sync_tracker_created, true);
   assert.equal(github.calls.createdIssues.length, 1);
-  assert.equal(
-    github.calls.issueLists.some((params) => !params.labels),
-    true,
-  );
 });
 
 test('findOrCreateTracker creates a durable tracker when none is found', async () => {

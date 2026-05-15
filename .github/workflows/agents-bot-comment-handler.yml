@@ -64,6 +64,7 @@ jobs:
       - name: Checkout eligibility action
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
           sparse-checkout: .github/actions/agent-event-eligibility
           sparse-checkout-cone-mode: false
 
@@ -337,14 +338,18 @@ jobs:
               source_type: 'review-thread',
               source_id: value.prNumber || process.env.GITHUB_RUN_ID || 'unknown',
               pr_number: value.prNumber,
-              disposition: value.reusableExpected ? 'reusable-invocation-expected' : 'wrapper-skipped',
+              disposition: value.reusableExpected
+                ? 'reusable-invocation-expected'
+                : 'wrapper-skipped',
               reason: value.reusableExpected
                 ? 'Wrapper resolved an eligible PR and invoked the reusable bot-comment handler.'
                 : value.skipReason,
               workflow: process.env.GITHUB_WORKFLOW || '',
               run_id: process.env.GITHUB_RUN_ID || '',
               run_attempt: process.env.GITHUB_RUN_ATTEMPT || '',
-              artifact_name: `review-thread-terminal-disposition-${process.env.GITHUB_RUN_ID || ''}`,
+              artifact_name: `review-thread-terminal-disposition-${
+                process.env.GITHUB_RUN_ID || ''
+              }`,
               artifact_family: 'review-thread-terminal-disposition',
               actor: process.env.GITHUB_ACTOR || '',
               needs_human: false,
@@ -369,7 +374,8 @@ jobs:
           const record = buildWrapperTerminalDisposition({
             prNumber,
             reusableExpected,
-            skipReason: process.env.SKIP_REASON || 'Wrapper did not find eligible bot-comment work.',
+            skipReason:
+              process.env.SKIP_REASON || 'Wrapper did not find eligible bot-comment work.',
             env: process.env,
           });
           fs.writeFileSync(

@@ -227,6 +227,25 @@ def test_record_completion_stores_compact_marker_safe_result() -> None:
     assert "-->" not in json.dumps(stored_result)
 
 
+def test_record_completion_preserves_falsy_result_text() -> None:
+    storage = MemoryRunnerStorage()
+    result = {
+        "provider": "claude",
+        "success": False,
+        "final_message": False,
+        "summary": 0,
+        "error": False,
+        "truncated": False,
+    }
+
+    record = record_completion(42, "aaa", "claude", result, storage=storage)
+
+    assert record["result"]["summary"] == "0"
+    assert record["result"]["error"] == "False"
+    assert record["result"]["final_message_chars"] == len("False")
+    assert len(record["result"]["final_message_sha256"]) == 64
+
+
 def test_materialize_reference_packs_keeps_token_out_of_git_argv(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

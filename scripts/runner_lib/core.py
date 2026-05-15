@@ -412,14 +412,15 @@ def _decode_record_candidate(candidate: str) -> str:
 
 
 def _marker_safe_text(value: Any, limit: int = 1000) -> str:
-    text = str(value or "")
+    text = "" if value is None else str(value)
     if len(text) > limit:
         text = f"{text[:limit]}...[truncated {len(text) - limit} chars]"
     return text.replace("-->", "--\\u003e")
 
 
 def _compact_runner_result_payload(result_payload: dict[str, Any]) -> dict[str, Any]:
-    final_message = str(result_payload.get("final_message") or "")
+    final_message_value = result_payload.get("final_message")
+    final_message = "" if final_message_value is None else str(final_message_value)
     compact: dict[str, Any] = {
         "schema": "runner-result-summary/v1",
         "provider": str(result_payload.get("provider") or ""),
