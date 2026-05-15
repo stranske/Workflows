@@ -137,15 +137,19 @@ class TaskFate:
     result: str | None  # None only for dropped
     reason: str | None = None  # Why dropped/improved/unprocessed
     warnings: list[str] = field(default_factory=list)
+    original_index: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "original": self.original,
             "outcome": self.outcome.value,
             "result": self.result,
             "reason": self.reason,
             "warnings": self.warnings,
         }
+        if self.original_index is not None:
+            payload["original_index"] = self.original_index
+        return payload
 
 
 @dataclass
@@ -241,20 +245,22 @@ def triage_tasks(tasks: list[str]) -> dict[str, list[Any]]:
         Dictionary with "clean" (list[str]) and "flagged" (list[dict]) keys
     """
     clean: list[str] = []
+    clean_items: list[dict[str, Any]] = []
     flagged: list[dict[str, Any]] = []
 
-    for task in tasks:
+    for index, task in enumerate(tasks):
         if not task or not task.strip():
             continue
 
         warnings = [name for name, check in WARNING_SIGNALS.items() if check(task)]
 
         if warnings:
-            flagged.append({"task": task, "warnings": warnings})
+            flagged.append({"task": task, "warnings": warnings, "index": index})
         else:
             clean.append(task)
+            clean_items.append({"task": task, "index": index})
 
-    return {"clean": clean, "flagged": flagged}
+    return {"clean": clean, "flagged": flagged, "clean_items": clean_items}
 
 
 # ---------------------------------------------------------------------------
@@ -305,14 +311,12 @@ def _parse_refinement_response(response: str, flagged: list[dict[str, Any]]) -> 
     fates: list[TaskFate] = []
     response_lines = [line.strip() for line in response.splitlines() if line.strip()]
 
-    # Track which flagged items we've processed
-    processed_indices: set[int] = set()
-
     # Try to match response lines to flagged items in order
     line_idx = 0
-    for item_idx, item in enumerate(flagged):
+    for item in flagged:
         task = item["task"]
         warnings = item.get("warnings", [])
+        original_index = item.get("index")
 
         # Look for a matching response line
         fate: TaskFate | None = None
@@ -332,6 +336,7 @@ def _parse_refinement_response(response: str, flagged: list[dict[str, Any]]) -> 
                         result=task,  # Keep original text
                         reason="LLM confirmed valid",
                         warnings=warnings,
+                        original_index=original_index,
                     )
                 elif action == "IMPROVE":
                     fate = TaskFate(
@@ -340,6 +345,7 @@ def _parse_refinement_response(response: str, flagged: list[dict[str, Any]]) -> 
                         result=content,
                         reason="LLM improved for actionability",
                         warnings=warnings,
+                        original_index=original_index,
                     )
                 elif action == "DROP":
                     fate = TaskFate(
@@ -348,10 +354,10 @@ def _parse_refinement_response(response: str, flagged: list[dict[str, Any]]) -> 
                         result=None,
                         reason=content,
                         warnings=warnings,
+                        original_index=original_index,
                     )
 
                 line_idx += 1
-                processed_indices.add(item_idx)
                 break
             else:
                 # Skip non-matching lines
@@ -365,6 +371,7 @@ def _parse_refinement_response(response: str, flagged: list[dict[str, Any]]) -> 
                 result=task,
                 reason="LLM did not respond; keeping original",
                 warnings=warnings,
+                original_index=original_index,
             )
 
         fates.append(fate)
@@ -511,6 +518,7 @@ def merge_with_audit(
     refined: list[str],
     fates: list[TaskFate],
     original_count: int,
+    clean_items: list[dict[str, Any]] | None = None,
 ) -> tuple[list[str], str]:
     """
     Merge clean and refined tasks, returning audit summary.
@@ -520,11 +528,22 @@ def merge_with_audit(
         refined: Tasks from LLM refinement
         fates: TaskFate objects from refinement
         original_count: Original number of input tasks
+        clean_items: Optional clean task records with original indexes
 
     Returns:
         Tuple of (final_tasks, audit_summary)
     """
-    final = clean + refined
+    final: list[str]
+    if clean_items is not None and all(fate.original_index is not None for fate in fates):
+        output_by_index: dict[int, str] = {
+            int(item["index"]): str(item["task"]) for item in clean_items
+        }
+        for fate in fates:
+            if fate.result is not None and fate.original_index is not None:
+                output_by_index[int(fate.original_index)] = fate.result
+        final = [output_by_index[index] for index in sorted(output_by_index)]
+    else:
+        final = [*clean, *refined]
 
     # Count outcomes
     dropped = [f for f in fates if f.outcome == TaskOutcome.DROPPED]
@@ -617,6 +636,7 @@ def validate_tasks(
                 result=item["task"],
                 reason="LLM disabled; keeping original",
                 warnings=item.get("warnings", []),
+                original_index=item.get("index"),
             )
             for item in flagged
         ]
@@ -625,7 +645,13 @@ def validate_tasks(
         trace = TraceInfo()
 
     # Merge and audit
-    final_tasks, audit = merge_with_audit(clean, refined, fates, original_count)
+    final_tasks, audit = merge_with_audit(
+        clean,
+        refined,
+        fates,
+        original_count,
+        triage_result.get("clean_items"),
+    )
 
     return ValidationResult(
         tasks=final_tasks,

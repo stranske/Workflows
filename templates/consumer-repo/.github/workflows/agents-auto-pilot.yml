@@ -804,7 +804,7 @@ jobs:
 
           # Check for guard_blocked before proceeding
           python -c "
-          import json, sys
+          import json, os, sys
           with open('/tmp/format_result.json') as f:
               result = json.load(f)
           if result.get('guard_blocked'):
@@ -2342,17 +2342,22 @@ jobs:
               workflowIds,
               prNumber,
               inputs,
+              inputsByWorkflow = {},
               description
             }) => {
               const failures = [];
               for (const workflowId of workflowIds) {
                 try {
+                  const workflowInputs = {
+                    ...inputs,
+                    ...(inputsByWorkflow[workflowId] || {})
+                  };
                   await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     workflow_id: workflowId,
                     ref: baseBranch,
-                    inputs
+                    inputs: workflowInputs
                   }));
                   core.info(`Dispatched ${description} via ${workflowId} for PR #${prNumber}`);
                   return workflowId;
@@ -2998,6 +3003,11 @@ jobs:
                 inputs: {
                   pr_number: pr.number.toString(),
                   debug: 'false'
+                },
+                inputsByWorkflow: {
+                  'agents-80-pr-event-hub.yml': {
+                    handler: 'pr-meta'
+                  }
                 }
               });
 

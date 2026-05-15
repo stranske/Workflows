@@ -136,6 +136,20 @@ def test_auto_pilot_context_and_cycle_reads_defer_on_rate_limit():
     ), "Auto-pilot must not choose a next step after a rate-limited cycle count"
 
 
+def test_auto_pilot_dispatches_pr_event_hub_pr_meta_only():
+    workflow_paths = [
+        WORKFLOWS_DIR / "agents-auto-pilot.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-auto-pilot.yml"),
+    ]
+
+    for workflow_path in workflow_paths:
+        text = workflow_path.read_text(encoding="utf-8")
+        assert "import json, os, sys" in text
+        assert "inputsByWorkflow" in text
+        assert "'agents-80-pr-event-hub.yml': {" in text
+        assert "handler: 'pr-meta'" in text
+
+
 def test_orchestrator_bootstrap_label_delegates_fallback():
     text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
     assert (

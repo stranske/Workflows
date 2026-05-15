@@ -144,9 +144,9 @@ class TestParseRefinementResponse:
 
     def test_parse_multiple_responses(self) -> None:
         flagged = [
-            {"task": "Fix", "warnings": ["too_short"]},
-            {"task": "### Header", "warnings": ["is_header"]},
-            {"task": "Ensure quality", "warnings": ["subjective_language"]},
+            {"task": "Fix", "warnings": ["too_short"], "index": 0},
+            {"task": "### Header", "warnings": ["is_header"], "index": 1},
+            {"task": "Ensure quality", "warnings": ["subjective_language"], "index": 2},
         ]
         response = """- IMPROVE: Fix the authentication bug in login.py
 - DROP: Section header
@@ -157,6 +157,7 @@ class TestParseRefinementResponse:
         assert fates[0].outcome == TaskOutcome.IMPROVED
         assert fates[1].outcome == TaskOutcome.DROPPED
         assert fates[2].outcome == TaskOutcome.IMPROVED
+        assert [fate.original_index for fate in fates] == [0, 1, 2]
 
     def test_fallback_to_original_on_missing_response(self) -> None:
         flagged = [
@@ -211,6 +212,24 @@ class TestAuditAndMerge:
         assert "3 input" in audit
         assert "3 output" in audit
 
+    def test_merge_with_audit_preserves_original_order(self) -> None:
+        clean = ["Task A", "Task C"]
+        clean_items = [{"task": "Task A", "index": 0}, {"task": "Task C", "index": 2}]
+        refined = ["Task B improved"]
+        fates = [
+            TaskFate(
+                original="Task B",
+                outcome=TaskOutcome.IMPROVED,
+                result="Task B improved",
+                reason="improved",
+                original_index=1,
+            )
+        ]
+
+        final, audit = merge_with_audit(clean, refined, fates, 3, clean_items)
+        assert final == ["Task A", "Task B improved", "Task C"]
+        assert "3 output" in audit
+
     def test_merge_with_audit_with_drops(self) -> None:
         clean = ["Task A"]
         refined = []  # Nothing from refinement kept
@@ -259,6 +278,18 @@ class TestValidateTasks:
         result = validate_tasks(tasks, use_llm=False)
         assert len(result.tasks) == 2
         assert "All clean" in result.audit_summary
+
+    def test_mixed_tasks_preserve_order_without_llm(self) -> None:
+        tasks = [
+            "Create scripts/metrics.py with timing functions",
+            "Fix",
+            "Add unit tests for metrics collection",
+            "### Validation",
+        ]
+
+        result = validate_tasks(tasks, use_llm=False)
+
+        assert result.tasks == tasks
 
     def test_flagged_tasks_without_llm(self) -> None:
         tasks = [
