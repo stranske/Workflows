@@ -73,15 +73,9 @@ jobs:
               echo "current_hash="
               echo "prior_hash="
             } >> "$GITHUB_OUTPUT"
-            python - <<'PY'
-            import json
-            print(json.dumps({
-              "should_run": "true",
-              "reason": "pull-request-no-repo-variable",
-              "current_hash": "",
-              "prior_hash": "",
-            }, separators=(",", ":")))
-            PY
+            printf '%s%s\n' \
+              '{"should_run":"true","reason":"pull-request-no-repo-variable",' \
+              '"current_hash":"","prior_hash":""}'
             exit 0
           fi
 
