@@ -6,15 +6,32 @@ Run with:
     python scripts/langchain/issue_optimizer.py --input-file issue.md --json
 """
 
+# ruff: noqa: I001
+
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+from scripts.langchain.structured_output import (
+    DEFAULT_REPAIR_PROMPT,
+    build_repair_callback,
+    parse_structured_output,
+)
+
+try:
+    from scripts.langchain.injection_guard import check_prompt_injection
+    from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
+except ModuleNotFoundError:
+    from injection_guard import check_prompt_injection
+    from issue_pr_context import ContextOptions, build_issue_context
 
 AGENT_LIMITATIONS = [
     "Cannot modify .github/workflows/*.yml (protected)",
@@ -23,6 +40,27 @@ AGENT_LIMITATIONS = [
     "Cannot make subjective design decisions",
     "Cannot retry CI pipelines",
 ]
+
+
+def _context_token_budget() -> int:
+    raw = os.environ.get("ISSUE_PR_CONTEXT_TOKEN_BUDGET", "")
+    return int(raw) if raw.isdigit() and int(raw) > 0 else 4000
+
+
+def _context_workflow(default: str) -> str:
+    return os.environ.get("ISSUE_PR_CONTEXT_WORKFLOW") or default
+
+
+def _capped_issue_body(issue_body: str, workflow: str) -> str:
+    context = build_issue_context(
+        {"body": issue_body},
+        ContextOptions(
+            token_budget=_context_token_budget(),
+            downstream_workflow=workflow,
+        ),
+    )
+    return context["formatted_body"]
+
 
 ANALYZE_ISSUE_PROMPT = """
 Analyze this issue for agent compatibility and formatting quality.
@@ -40,9 +78,25 @@ Identify:
 AGENT_LIMITATIONS:
 {agent_limitations}
 
+CRITICAL rules for split_suggestions:
+- Each item MUST be a complete, independently understandable sentence
+- Each item MUST start with an action verb (Create, Add, Update, Fix, Implement, Define, Test)
+- Do NOT split a sentence at commas into fragments
+- Do NOT return single words or noun phrases as sub-tasks
+- BAD: ["methods", "input/output types", "metadata contract"]
+- GOOD: [
+    "Define the EmbeddingProvider interface methods",
+    "Define input/output types",
+    "Define metadata contract"
+  ]
+
 Output JSON with this shape:
 {{
-  "task_splitting": [{{"task": "...", "reason": "...", "split_suggestions": ["..."]}}],
+  "task_splitting": [{{
+    "task": "...",
+    "reason": "...",
+    "split_suggestions": ["Complete actionable sub-task description"]
+  }}],
   "blocked_tasks": [{{"task": "...", "reason": "...", "suggested_action": "..."}}],
   "objective_criteria": [{{"criterion": "...", "issue": "...", "suggestion": "..."}}],
   "missing_sections": ["Scope", "Implementation Notes"],
@@ -68,6 +122,8 @@ following AGENT_ISSUE_TEMPLATE structure. Move blocked tasks to
 a "## Deferred Tasks (Requires Human)" section.
 """.strip()
 
+ISSUE_OPTIMIZER_REPAIR_PROMPT = DEFAULT_REPAIR_PROMPT
+
 SECTION_ALIASES = {
     "why": ["why", "motivation", "summary"],
     "scope": ["scope", "context", "background"],
@@ -86,11 +142,11 @@ SECTION_TITLES = {
     "implementation": "Implementation Notes",
 }
 
-LIST_ITEM_REGEX = re.compile(r"^\s*[-*+]\s+(.*)$")
+LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[[ xX]\]\s*(.*)$")
 
 SUBJECTIVE_CRITERIA = ("clean", "nice", "good", "fast", "better", "intuitive", "polished")
-SUGGESTIONS_MARKER_PREFIX = "Updated WORKFLOW_OUTPUTS.md suggestions-json:"
+SUGGESTIONS_MARKER_PREFIX = "suggestions-json:"
 
 
 @dataclass
@@ -102,9 +158,13 @@ class IssueOptimizationResult:
     formatting_issues: list[str]
     overall_notes: str | None
     provider_used: str | None = None
+    guard_blocked: bool = False
+    guard_reason: str = ""
+    langsmith_trace_id: str | None = None
+    langsmith_trace_url: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "task_splitting": self.task_splitting,
             "blocked_tasks": self.blocked_tasks,
             "objective_criteria": self.objective_criteria,
@@ -113,6 +173,24 @@ class IssueOptimizationResult:
             "overall_notes": self.overall_notes or "",
             "provider_used": self.provider_used,
         }
+        if self.guard_blocked:
+            payload["guard_blocked"] = True
+            payload["guard_reason"] = self.guard_reason
+        if self.langsmith_trace_id:
+            payload["langsmith_trace_id"] = self.langsmith_trace_id
+        if self.langsmith_trace_url:
+            payload["langsmith_trace_url"] = self.langsmith_trace_url
+        return payload
+
+
+class IssueOptimizationPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    task_splitting: list[dict[str, Any]] = Field(default_factory=list)
+    blocked_tasks: list[dict[str, Any]] = Field(default_factory=list)
+    objective_criteria: list[dict[str, Any]] = Field(default_factory=list)
+    missing_sections: list[str] = Field(default_factory=list)
+    formatting_issues: list[str] = Field(default_factory=list)
+    overall_notes: str | None = None
 
 
 def _format_list_section(title: str, items: list[str]) -> list[str]:
@@ -240,6 +318,85 @@ def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
     return resolved.client, resolved.provider
 
 
+def _build_llm_config(
+    *,
+    operation: str,
+    issue_number: int | None = None,
+) -> dict[str, object]:
+    """Build LangSmith metadata/tags for LLM call."""
+    import os
+
+    try:
+        from tools.llm_provider import build_langsmith_metadata
+
+        return build_langsmith_metadata(
+            operation=operation,
+            issue_number=issue_number,
+        )
+    except ImportError:
+        pass
+
+    # Inline fallback when tools.llm_provider is unavailable
+    repo = os.environ.get("GITHUB_REPOSITORY", "unknown")
+    run_id = os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
+    env_issue = os.environ.get("ISSUE_NUMBER", "")
+    issue_or_pr = (
+        str(issue_number)
+        if issue_number is not None
+        else env_issue if env_issue.isdigit() else "unknown"
+    )
+    metadata = {
+        "repo": repo,
+        "run_id": run_id,
+        "issue_or_pr_number": issue_or_pr,
+        "operation": operation,
+        "issue_number": str(issue_number) if issue_number is not None else None,
+    }
+    tags = [
+        "workflows-agents",
+        f"operation:{operation}",
+        f"repo:{repo}",
+        f"issue_or_pr:{issue_or_pr}",
+        f"run_id:{run_id}",
+    ]
+    return {"metadata": metadata, "tags": tags}
+
+
+def _invoke_llm_with_trace(
+    chain: object,
+    inputs: dict[str, Any],
+    *,
+    operation: str,
+    issue_number: int | None = None,
+) -> tuple[object, str | None, str | None]:
+    """Invoke LLM chain and extract trace information.
+
+    Returns:
+        Tuple of (response, trace_id, trace_url)
+    """
+    config = _build_llm_config(operation=operation, issue_number=issue_number)
+
+    try:
+        response = chain.invoke(inputs, config=config)
+    except TypeError:
+        # Fallback if config not supported
+        response = chain.invoke(inputs)
+
+    # Extract trace ID from response if available
+    trace_id = None
+    trace_url = None
+    try:
+        from tools.llm_provider import derive_langsmith_trace_url, extract_trace_id
+
+        trace_id = extract_trace_id(response)
+        if trace_id:
+            trace_url = derive_langsmith_trace_url(trace_id)
+    except ImportError:
+        pass
+
+    return response, trace_id, trace_url
+
+
 def _normalize_heading(text: str) -> str:
     cleaned = re.sub(r"[#*_:]+", " ", text).strip().lower()
     cleaned = re.sub(r"\s+", " ", cleaned)
@@ -258,13 +415,25 @@ def _resolve_section(label: str) -> str | None:
 def _parse_sections(body: str) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
     current: str | None = None
+    in_code_block = False
     for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+        if in_code_block:
+            if current:
+                sections[current].append(line)
+            continue
         heading_match = re.match(r"^\s*#{1,6}\s+(.*)$", line)
         if heading_match:
             section_key = _resolve_section(heading_match.group(1))
             if section_key:
                 current = section_key
                 continue
+        section_key = _resolve_section(stripped)
+        if section_key and stripped:
+            current = section_key
+            continue
         if current:
             sections[current].append(line)
     return sections
@@ -275,7 +444,7 @@ def _strip_checkbox(line: str) -> str:
     match = LIST_ITEM_REGEX.match(stripped)
     if not match:
         return stripped
-    content = match.group(1).strip()
+    content = match.group(2).strip()  # Group 2 is the content after list marker
     checkbox = CHECKBOX_REGEX.match(content)
     if checkbox:
         return checkbox.group(1).strip()
@@ -284,10 +453,17 @@ def _strip_checkbox(line: str) -> str:
 
 def _parse_checklist(lines: list[str]) -> list[str]:
     items: list[str] = []
+    in_code_block = False
     for line in lines:
-        if not line.strip():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
             continue
-        if LIST_ITEM_REGEX.match(line.strip()):
+        if in_code_block:
+            continue
+        if not stripped:
+            continue
+        if LIST_ITEM_REGEX.match(stripped):
             value = _strip_checkbox(line)
             if value:
                 items.append(value)
@@ -387,7 +563,7 @@ def _extract_json_payload(text: str) -> str | None:
 def _extract_suggestions_json(comment_body: str) -> dict[str, Any] | None:
     if not comment_body:
         return None
-    marker = "suggestions-json:"
+    marker = SUGGESTIONS_MARKER_PREFIX
     start = comment_body.find(marker)
     if start == -1:
         return None
@@ -409,7 +585,11 @@ def _formatted_output_valid(text: str) -> bool:
 
 
 def _deduplicate_task_lines(formatted: str) -> str:
-    """Remove duplicate task lines from the formatted output."""
+    """Remove duplicate task lines from the formatted output.
+
+    Scans '## Tasks' through the next '## ' heading, deduplicates
+    checkbox lines by normalized text, and returns the cleaned body.
+    """
     lines = formatted.splitlines()
     try:
         header_idx = next(i for i, line in enumerate(lines) if line.strip() == "## Tasks")
@@ -446,7 +626,10 @@ def _deduplicate_task_lines(formatted: str) -> str:
 
 
 def _section_duplication_ratio(formatted: str) -> float:
-    """Return the fraction of section headings that appear more than once."""
+    """Return the fraction of section headings that appear more than once.
+
+    A ratio > 0 indicates the formatter doubled one or more sections.
+    """
     headings = re.findall(r"^##\s+(.+)$", formatted, re.MULTILINE)
     if not headings:
         return 0.0
@@ -457,7 +640,7 @@ def _section_duplication_ratio(formatted: str) -> float:
 
 
 def _strip_task_marker(text: str) -> str:
-    cleaned = re.sub(r"^\s*[-*+]\s*", "", text)
+    cleaned = re.sub(r"^\s*([-*+]|\d+[.)]|[A-Za-z][.)])\s*", "", text)
     cleaned = re.sub(r"^\s*\[[ xX]\]\s*", "", cleaned)
     return cleaned.strip()
 
@@ -490,11 +673,14 @@ def _is_large_task(task: str) -> bool:
         return True
     if any(sep in lowered for sep in (" and ", " + ", " & ", " then ", "; ")):
         return True
-    return bool(re.search(r"\s\+\s", lowered) or ", " in task or "/" in task)
+    return bool(re.search(r"\s\+\s", lowered) or ", " in task or " / " in task)
 
 
 def _detect_task_splitting(tasks: list[str], *, use_llm: bool = False) -> list[dict[str, Any]]:
-    from scripts.langchain import task_decomposer
+    try:
+        from scripts.langchain import task_decomposer
+    except ModuleNotFoundError:
+        import task_decomposer
 
     results: list[dict[str, Any]] = []
     for task in tasks:
@@ -520,7 +706,10 @@ def _ensure_task_decomposition(
     if not task_splitting:
         return task_splitting
 
-    from scripts.langchain import task_decomposer
+    try:
+        from scripts.langchain import task_decomposer
+    except ModuleNotFoundError:
+        import task_decomposer
 
     updated: list[dict[str, Any]] = []
     for entry in task_splitting:
@@ -571,29 +760,61 @@ def _normalize_result(
 
 
 def _process_llm_response(
-    response: Any, provider: str, use_llm: bool
-) -> IssueOptimizationResult | None:
-    """Process LLM response and return normalized result, or None if processing fails."""
+    response: Any,
+    provider: str,
+    use_llm: bool,
+    *,
+    client: object | None = None,
+    trace_id: str | None = None,
+    trace_url: str | None = None,
+) -> tuple[IssueOptimizationResult | None, str | None]:
+    """Process LLM response and return (result, error)."""
     content = getattr(response, "content", None) or str(response)
-    payload = _extract_json_payload(content)
-    if payload:
-        try:
-            data = json.loads(payload)
-        except json.JSONDecodeError:
-            return None
-        if isinstance(data, dict):
-            result = _normalize_result(data, provider)
-            result.task_splitting = _ensure_task_decomposition(
-                result.task_splitting, use_llm=use_llm
-            )
-            return result
-    return None
+    parsed = parse_structured_output(
+        content,
+        IssueOptimizationPayload,
+        repair=(
+            build_repair_callback(client, template=ISSUE_OPTIMIZER_REPAIR_PROMPT)
+            if client is not None
+            else None
+        ),
+        max_repair_attempts=1,
+    )
+    if parsed.payload is None:
+        if parsed.error_stage == "repair_unavailable":
+            return None, "LLM output failed validation and could not be repaired."
+        if parsed.error_stage == "repair_validation":
+            return None, f"LLM repair failed validation: {parsed.error_detail}"
+        return None, f"LLM output failed validation: {parsed.error_detail}"
+
+    result = _normalize_result(parsed.payload.model_dump(), provider)
+    result.task_splitting = _ensure_task_decomposition(result.task_splitting, use_llm=use_llm)
+    result.langsmith_trace_id = trace_id
+    result.langsmith_trace_url = trace_url
+    return result, None
 
 
 def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimizationResult:
     if not issue_body:
         issue_body = ""
 
+    guard_result = check_prompt_injection(issue_body)
+    if guard_result["blocked"]:
+        return IssueOptimizationResult(
+            task_splitting=[],
+            blocked_tasks=[],
+            objective_criteria=[],
+            missing_sections=[],
+            formatting_issues=[],
+            overall_notes="",
+            provider_used=None,
+            guard_blocked=True,
+            guard_reason=guard_result["reason"],
+        )
+
+    issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
+
+    last_error: str | None = None
     if use_llm:
         from tools.llm_provider import _is_token_limit_error
 
@@ -609,17 +830,37 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client  # type: ignore[operator]
                 try:
-                    response = chain.invoke(
+                    import os
+
+                    issue_num = None
+                    env_issue = os.environ.get("ISSUE_NUMBER", "")
+                    if env_issue.isdigit():
+                        issue_num = int(env_issue)
+
+                    response, trace_id, trace_url = _invoke_llm_with_trace(
+                        chain,
                         {
                             "issue_body": issue_body,
                             "agent_limitations": "\n".join(
                                 f"- {item}" for item in AGENT_LIMITATIONS
                             ),
-                        }
+                        },
+                        operation="analyze_issue",
+                        issue_number=issue_num,
                     )
-                    result = _process_llm_response(response, provider, use_llm)
+                    result, error = _process_llm_response(
+                        response,
+                        provider,
+                        use_llm,
+                        client=client,
+                        trace_id=trace_id,
+                        trace_url=trace_url,
+                    )
                     if result:
                         return result
+                    if error:
+                        last_error = error
+                        print(error, file=sys.stderr)
                 except Exception as e:
                     # If GitHub Models hit token limit, retry with OpenAI API
                     if _is_token_limit_error(e) and provider == "github-models":
@@ -632,16 +873,24 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                             openai_client, openai_provider = openai_client_info
                             openai_chain = template | openai_client  # type: ignore[operator]
                             try:
-                                response = openai_chain.invoke(
+                                response, trace_id, trace_url = _invoke_llm_with_trace(
+                                    openai_chain,
                                     {
                                         "issue_body": issue_body,
                                         "agent_limitations": "\n".join(
                                             f"- {item}" for item in AGENT_LIMITATIONS
                                         ),
-                                    }
+                                    },
+                                    operation="analyze_issue",
+                                    issue_number=issue_num,
                                 )
-                                result = _process_llm_response(
-                                    response, openai_provider, use_llm=use_llm
+                                result, error = _process_llm_response(
+                                    response,
+                                    openai_provider,
+                                    use_llm=use_llm,
+                                    client=openai_client,
+                                    trace_id=trace_id,
+                                    trace_url=trace_url,
                                 )
                                 if result is not None:
                                     print(
@@ -649,9 +898,14 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                                         file=sys.stderr,
                                     )
                                     return result
+                                if error:
+                                    last_error = error
+                                    print(error, file=sys.stderr)
                             except Exception as openai_error:
+                                err_type = type(openai_error).__name__
                                 print(
-                                    f"OpenAI API also failed ({type(openai_error).__name__}: {openai_error}), using fallback",
+                                    f"OpenAI API also failed "
+                                    f"({err_type}: {openai_error}), using fallback",
                                     file=sys.stderr,
                                 )
                         else:
@@ -667,6 +921,10 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                         )
 
     result = _fallback_analysis(issue_body)
+    if last_error:
+        note = result.overall_notes or ""
+        detail = f"LLM structured output failed: {last_error}"
+        result.overall_notes = f"{note} {detail}".strip()
     result.task_splitting = _ensure_task_decomposition(result.task_splitting, use_llm=False)
     return result
 
@@ -707,12 +965,19 @@ def _append_deferred_tasks(formatted_body: str, suggestions: dict[str, Any]) -> 
     return "\n".join(parts).strip()
 
 
-def _apply_task_decomposition(formatted_body: str, suggestions: dict[str, Any]) -> str:
+def _apply_task_decomposition(formatted_body: str | None, suggestions: dict[str, Any]) -> str:
+    # Guard against None input (can happen when issue body is too large)
+    if formatted_body is None:
+        return ""
+
     raw_entries = suggestions.get("task_splitting")
     if not isinstance(raw_entries, list) or not raw_entries:
         return formatted_body
 
-    from scripts.langchain import task_decomposer
+    try:
+        from scripts.langchain import task_decomposer
+    except ModuleNotFoundError:
+        import task_decomposer
 
     decomposition_map: dict[str, list[str]] = {}
     for entry in raw_entries:
@@ -779,6 +1044,18 @@ def apply_suggestions(
     if not issue_body:
         issue_body = ""
 
+    guard_result = check_prompt_injection(issue_body)
+    if guard_result["blocked"]:
+        return {
+            "formatted_body": issue_body,
+            "provider_used": None,
+            "used_llm": False,
+            "guard_blocked": True,
+            "guard_reason": guard_result["reason"],
+        }
+
+    issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
+
     if use_llm:
         from tools.llm_provider import _is_token_limit_error
 
@@ -794,13 +1071,23 @@ def apply_suggestions(
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client  # type: ignore[operator]
                 try:
-                    response = chain.invoke(
+                    import os
+
+                    issue_num = None
+                    env_issue = os.environ.get("ISSUE_NUMBER", "")
+                    if env_issue.isdigit():
+                        issue_num = int(env_issue)
+
+                    response, trace_id, trace_url = _invoke_llm_with_trace(
+                        chain,
                         {
                             "original_body": issue_body,
                             "suggestions_json": json.dumps(
                                 suggestions, ensure_ascii=True, indent=2
                             ),
-                        }
+                        },
+                        operation="apply_suggestions",
+                        issue_number=issue_num,
                     )
                     content = getattr(response, "content", None) or str(response)
                     formatted = content.strip()
@@ -808,20 +1095,26 @@ def apply_suggestions(
                         formatted = _deduplicate_task_lines(formatted)
                         if _section_duplication_ratio(formatted) > 0:
                             print(
-                                "LLM output has duplicated sections, " "falling back",
+                                "LLM output has duplicated sections, falling back",
                                 file=sys.stderr,
                             )
                         else:
-                            return {
+                            result = {
                                 "formatted_body": formatted,
                                 "provider_used": provider,
                                 "used_llm": True,
                             }
+                            if trace_id:
+                                result["langsmith_trace_id"] = trace_id
+                            if trace_url:
+                                result["langsmith_trace_url"] = trace_url
+                            return result
                 except Exception as e:
                     # If GitHub Models hit token limit, retry with OpenAI API
                     if _is_token_limit_error(e) and provider == "github-models":
                         print(
-                            "GitHub Models token limit hit in apply_suggestions, retrying with OpenAI API...",
+                            "GitHub Models token limit hit in apply_suggestions, "
+                            "retrying with OpenAI API...",
                             file=sys.stderr,
                         )
                         openai_client_info = _get_llm_client(force_openai=True)
@@ -829,13 +1122,16 @@ def apply_suggestions(
                             openai_client, openai_provider = openai_client_info
                             openai_chain = template | openai_client  # type: ignore[operator]
                             try:
-                                response = openai_chain.invoke(
+                                response, trace_id, trace_url = _invoke_llm_with_trace(
+                                    openai_chain,
                                     {
                                         "original_body": issue_body,
                                         "suggestions_json": json.dumps(
                                             suggestions, ensure_ascii=True, indent=2
                                         ),
-                                    }
+                                    },
+                                    operation="apply_suggestions",
+                                    issue_number=issue_num,
                                 )
                                 content = getattr(response, "content", None) or str(response)
                                 formatted = content.strip()
@@ -843,23 +1139,29 @@ def apply_suggestions(
                                     formatted = _deduplicate_task_lines(formatted)
                                     if _section_duplication_ratio(formatted) > 0:
                                         print(
-                                            "OpenAI output has duplicated "
-                                            "sections, falling back",
+                                            "OpenAI output has duplicated sections, falling back",
                                             file=sys.stderr,
                                         )
                                     else:
                                         print(
-                                            "Successfully applied suggestions " "with OpenAI API",
+                                            "Successfully applied suggestions with OpenAI API",
                                             file=sys.stderr,
                                         )
-                                        return {
+                                        result = {
                                             "formatted_body": formatted,
                                             "provider_used": openai_provider,
                                             "used_llm": True,
                                         }
+                                        if trace_id:
+                                            result["langsmith_trace_id"] = trace_id
+                                        if trace_url:
+                                            result["langsmith_trace_url"] = trace_url
+                                        return result
                             except Exception as openai_error:
+                                err_type = type(openai_error).__name__
                                 print(
-                                    f"OpenAI API also failed ({type(openai_error).__name__}: {openai_error}), using fallback",
+                                    f"OpenAI API also failed "
+                                    f"({err_type}: {openai_error}), using fallback",
                                     file=sys.stderr,
                                 )
                         else:
@@ -874,7 +1176,10 @@ def apply_suggestions(
                             file=sys.stderr,
                         )
 
-    from scripts.langchain import issue_formatter
+    try:
+        from scripts.langchain import issue_formatter
+    except ModuleNotFoundError:
+        import issue_formatter
 
     fallback = issue_formatter.format_issue_body(issue_body, use_llm=False)
     formatted = _apply_task_decomposition(fallback["formatted_body"], suggestions)
@@ -959,6 +1264,13 @@ def main() -> None:
                 "provider_used": result.get("provider_used"),
                 "used_llm": result.get("used_llm", False),
             }
+            if result.get("guard_blocked"):
+                payload["guard_blocked"] = True
+                payload["guard_reason"] = result.get("guard_reason") or ""
+            if result.get("langsmith_trace_id"):
+                payload["langsmith_trace_id"] = result["langsmith_trace_id"]
+            if result.get("langsmith_trace_url"):
+                payload["langsmith_trace_url"] = result["langsmith_trace_url"]
             print(json.dumps(payload, ensure_ascii=True))
         else:
             print(result["formatted_body"])

@@ -1368,7 +1368,47 @@ jobs:
                   if re.match(r"^\s*[-*]\s+\[[ xX]\]", line):
                       checks_run += 1
 
+          langsmith_traces = []
+          evaluation_json = Path("evaluation.json")
+          comparison_json = Path("comparison.json")
+          if evaluation_json.is_file():
+              try:
+                  data = json.loads(evaluation_json.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  data = {}
+              trace_id = data.get("langsmith_trace_id")
+              trace_url = data.get("langsmith_trace_url")
+              if trace_id or trace_url:
+                  langsmith_traces.append(
+                      {
+                          "operation": "evaluation",
+                          "provider": data.get("provider") or "",
+                          "trace_id": trace_id or "",
+                          "trace_url": trace_url or "",
+                      }
+                  )
+          if comparison_json.is_file():
+              try:
+                  data = json.loads(comparison_json.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  data = {}
+              for index, result in enumerate(data.get("results", [])):
+                  if not isinstance(result, dict):
+                      continue
+                  trace_id = result.get("langsmith_trace_id")
+                  trace_url = result.get("langsmith_trace_url")
+                  if trace_id or trace_url:
+                      langsmith_traces.append(
+                          {
+                              "operation": "comparison",
+                              "provider": result.get("provider") or f"provider-{index}",
+                              "trace_id": trace_id or "",
+                              "trace_url": trace_url or "",
+                          }
+                      )
+
           metrics = {
+              "metric_type": "evaluation",
               "pr_number": pr_number,
               "verdict": verdict,
               "issues_created": issues_created,
@@ -1383,6 +1423,10 @@ jobs:
               "chain_depth": chain_depth,
               "recorded_at": datetime.now(timezone.utc).isoformat(),
           }
+          if langsmith_traces:
+              metrics["langsmith_trace_id"] = langsmith_traces[0].get("trace_id", "")
+              metrics["langsmith_trace_url"] = langsmith_traces[0].get("trace_url", "")
+              metrics["langsmith_traces"] = langsmith_traces
 
           print(json.dumps(metrics, indent=2))
           with open(os.environ["GITHUB_OUTPUT"], "a") as fp:

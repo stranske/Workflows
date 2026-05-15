@@ -35,6 +35,15 @@ def load_metrics(metrics_path: Path) -> list[dict[str, Any]]:
     return metrics
 
 
+def _metric_has_trace(metric: dict[str, Any]) -> bool:
+    if metric.get("langsmith_trace_id"):
+        return True
+    traces = metric.get("langsmith_traces")
+    return isinstance(traces, list) and any(
+        isinstance(item, dict) and item.get("trace_id") for item in traces
+    )
+
+
 def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
     """Compute trace coverage and groupings."""
     total_metrics = len(metrics)
@@ -48,7 +57,7 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
         }
 
     # Count metrics with trace IDs
-    with_traces = [m for m in metrics if m.get("langsmith_trace_id")]
+    with_traces = [m for m in metrics if _metric_has_trace(m)]
     total_with_traces = len(with_traces)
     trace_coverage_pct = (total_with_traces / total_metrics) * 100
 
@@ -57,7 +66,7 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
     for metric in metrics:
         operation = metric.get("metric_type", "unknown")
         by_operation[operation]["total"] += 1
-        if metric.get("langsmith_trace_id"):
+        if _metric_has_trace(metric):
             by_operation[operation]["with_trace"] += 1
 
     # Calculate coverage per operation
@@ -75,7 +84,7 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
     for metric in metrics:
         step = metric.get("step_name", "unknown")
         by_step[step]["total"] += 1
-        if metric.get("langsmith_trace_id"):
+        if _metric_has_trace(metric):
             by_step[step]["with_trace"] += 1
 
     step_summary = {}
@@ -135,13 +144,21 @@ def main() -> None:
         description="Aggregate LangSmith trace metrics from NDJSON logs"
     )
     parser.add_argument(
+        "metrics_path",
+        type=Path,
+        nargs="?",
+        help="Path to NDJSON metrics file (legacy positional form)",
+    )
+    parser.add_argument(
         "--metrics-file",
         type=Path,
-        required=True,
+        required=False,
         help="Path to NDJSON metrics file",
     )
     parser.add_argument(
         "--output-format",
+        "--format",
+        dest="output_format",
         choices=["json", "markdown"],
         default="json",
         help="Output format (default: json)",
@@ -153,9 +170,12 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+    metrics_file = args.metrics_file or args.metrics_path
+    if metrics_file is None:
+        parser.error("one of --metrics-file or metrics_path is required")
 
     # Load and aggregate metrics
-    metrics = load_metrics(args.metrics_file)
+    metrics = load_metrics(metrics_file)
     summary = aggregate_traces(metrics)
 
     # Format output

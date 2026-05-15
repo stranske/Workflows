@@ -720,6 +720,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          LANGCHAIN_TRACING_V2: "true"
+          LANGCHAIN_PROJECT: workflows-agents
           PYTHONPATH: ${{ github.workspace }}
           ISSUE_PR_CONTEXT_WORKFLOW: agents-auto-pilot
         run: |
@@ -940,6 +943,8 @@ jobs:
           AUTOPILOT_STEP_NAME: format
           AUTOPILOT_ERROR_CATEGORY: metrics-collector
           AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+          LANGSMITH_TRACE_ID: ""
+          LANGSMITH_TRACE_URL: ""
         run: |
           success="${{ steps.format_step.outcome == 'success' }}"
           failure_reason="none"
@@ -972,6 +977,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          LANGCHAIN_TRACING_V2: "true"
+          LANGCHAIN_PROJECT: workflows-agents
           LANGCHAIN_PROVIDER: anthropic
           LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
@@ -1061,6 +1069,27 @@ jobs:
                   f.write(reason)
               sys.exit(0)
           "
+
+          python - <<'PY'
+          import json
+          import os
+
+          try:
+              with open('/tmp/suggestions.json', encoding='utf-8') as handle:
+                  data = json.load(handle)
+          except Exception:
+              data = {}
+
+          env_path = os.environ.get('GITHUB_ENV')
+          if env_path:
+              trace_id = str(data.get('langsmith_trace_id') or '').strip()
+              trace_url = str(data.get('langsmith_trace_url') or '').strip()
+              with open(env_path, 'a', encoding='utf-8') as env_file:
+                  if trace_id:
+                      env_file.write(f"AUTOPILOT_OPTIMIZE_LANGSMITH_TRACE_ID={trace_id}\n")
+                  if trace_url:
+                      env_file.write(f"AUTOPILOT_OPTIMIZE_LANGSMITH_TRACE_URL={trace_url}\n")
+          PY
 
           # If guard blocked, apply needs-human + pause labels and stop
           if [ -f /tmp/guard_blocked ]; then
@@ -1217,6 +1246,8 @@ jobs:
           AUTOPILOT_ERROR_CATEGORY: metrics-collector
           AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
         run: |
+          export LANGSMITH_TRACE_ID="${AUTOPILOT_OPTIMIZE_LANGSMITH_TRACE_ID:-}"
+          export LANGSMITH_TRACE_URL="${AUTOPILOT_OPTIMIZE_LANGSMITH_TRACE_URL:-}"
           success="${{ steps.optimize_step.outcome == 'success' }}"
           failure_reason="none"
           if [ "$success" != "true" ]; then
@@ -1327,6 +1358,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          LANGCHAIN_TRACING_V2: "true"
+          LANGCHAIN_PROJECT: workflows-agents
           LANGCHAIN_PROVIDER: anthropic
           LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
@@ -1406,6 +1440,7 @@ jobs:
           # Extract and apply suggestions
           python -c "
           import json
+          import os
           import sys
           import re
           sys.path.insert(0, 'scripts/langchain')
@@ -1432,6 +1467,16 @@ jobs:
 
           # Apply suggestions
           result = apply_suggestions(issue_body, suggestions, use_llm=True)
+
+          env_path = os.environ.get('GITHUB_ENV')
+          if env_path:
+              trace_id = str(result.get('langsmith_trace_id') or '').strip()
+              trace_url = str(result.get('langsmith_trace_url') or '').strip()
+              with open(env_path, 'a', encoding='utf-8') as env_file:
+                  if trace_id:
+                      env_file.write(f'AUTOPILOT_APPLY_LANGSMITH_TRACE_ID={trace_id}\n')
+                  if trace_url:
+                      env_file.write(f'AUTOPILOT_APPLY_LANGSMITH_TRACE_URL={trace_url}\n')
 
           # Check for guard_blocked
           if result.get('guard_blocked'):
@@ -1574,6 +1619,8 @@ jobs:
           AUTOPILOT_ERROR_CATEGORY: metrics-collector
           AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
         run: |
+          export LANGSMITH_TRACE_ID="${AUTOPILOT_APPLY_LANGSMITH_TRACE_ID:-}"
+          export LANGSMITH_TRACE_URL="${AUTOPILOT_APPLY_LANGSMITH_TRACE_URL:-}"
           success="${{ steps.apply_step.outcome == 'success' }}"
           failure_reason="none"
           if [ "$success" != "true" ]; then

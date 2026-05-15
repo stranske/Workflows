@@ -1267,6 +1267,10 @@ def main() -> None:
             if result.get("guard_blocked"):
                 payload["guard_blocked"] = True
                 payload["guard_reason"] = result.get("guard_reason") or ""
+            if result.get("langsmith_trace_id"):
+                payload["langsmith_trace_id"] = result["langsmith_trace_id"]
+            if result.get("langsmith_trace_url"):
+                payload["langsmith_trace_url"] = result["langsmith_trace_url"]
             print(json.dumps(payload, ensure_ascii=True))
         else:
             print(result["formatted_body"])

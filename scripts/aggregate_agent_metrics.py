@@ -416,6 +416,15 @@ def _safe_int(value: Any) -> int | None:
         return None
 
 
+def _langsmith_trace_count(entry: dict[str, Any]) -> int:
+    count = 1 if entry.get("langsmith_trace_id") else 0
+    traces = entry.get("langsmith_traces")
+    if isinstance(traces, list):
+        list_count = sum(1 for item in traces if isinstance(item, dict) and item.get("trace_id"))
+        return max(count, list_count)
+    return count
+
+
 def _unsupported_verifier_models() -> set[str]:
     raw = ""
     for env_name in (
@@ -592,6 +601,8 @@ def _summarise_verifier(
     issues_created = 0
     acceptance_counts: list[int] = []
     terminal_records = 0
+    langsmith_trace_records = 0
+    langsmith_trace_count = 0
     for index, entry in enumerate(entries):
         is_terminal_disposition = entry.get("schema") == "workflows-terminal-disposition/v1"
         is_verifier_terminal = _is_verifier_terminal_entry(entry)
@@ -662,6 +673,10 @@ def _summarise_verifier(
         acceptance = _safe_int(entry.get("acceptance_criteria_count"))
         if acceptance is not None:
             acceptance_counts.append(acceptance)
+        trace_count = _langsmith_trace_count(entry)
+        if trace_count:
+            langsmith_trace_records += 1
+            langsmith_trace_count += trace_count
     for entry in ledger_entries or []:
         disposition = str(entry.get("disposition") or "unknown")
         ledger_dispositions[disposition] += 1
@@ -695,6 +710,8 @@ def _summarise_verifier(
         "verdicts": verdicts,
         "issues_created": issues_created,
         "avg_acceptance": avg_acceptance,
+        "langsmith_trace_records": langsmith_trace_records,
+        "langsmith_trace_count": langsmith_trace_count,
         "terminal_records": terminal_records,
         "terminal_dispositions": terminal_dispositions,
         "terminal_sources": terminal_sources,
@@ -735,8 +752,15 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
     cycle_steps_completed = 0
     escalation_count = 0
     needs_human_count = 0
+    langsmith_trace_records = 0
+    langsmith_trace_count = 0
 
     for entry in entries:
+        trace_count = _langsmith_trace_count(entry)
+        if trace_count:
+            langsmith_trace_records += 1
+            langsmith_trace_count += trace_count
+
         issue_num = _safe_int(entry.get("issue_number") or entry.get("issue"))
         if issue_num is not None:
             issues.add(issue_num)
@@ -803,6 +827,8 @@ def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "escalation_count": escalation_count,
         "escalation_reasons": escalation_reasons,
         "needs_human_count": needs_human_count,
+        "langsmith_trace_records": langsmith_trace_records,
+        "langsmith_trace_count": langsmith_trace_count,
     }
 
 
@@ -1268,6 +1294,11 @@ def build_summary(
             f"- Verdicts: {_format_counter(verifier['verdicts'])}",
             f"- Issues created: {verifier['issues_created']}",
             f"- Avg acceptance criteria: {verifier['avg_acceptance']:.1f}",
+            (
+                "- LangSmith trace coverage: "
+                f"{_format_rate(verifier['langsmith_trace_records'], verifier['runs'])}"
+                f" ({verifier['langsmith_trace_count']} traces)"
+            ),
             f"- Terminal disposition records: {verifier['terminal_records']}",
             f"- Terminal dispositions: {_format_counter(verifier['terminal_dispositions'])}",
             f"- Terminal disposition sources: {_format_counter(verifier['terminal_sources'])}",
@@ -1342,6 +1373,11 @@ def build_summary(
                 f"- Records: {autopilot['records']}",
                 f"- Issues: {autopilot['issues']}",
                 f"- Total step executions: {autopilot['total_steps']}",
+                (
+                    "- LangSmith trace coverage: "
+                    f"{_format_rate(autopilot['langsmith_trace_records'], autopilot['records'])}"
+                    f" ({autopilot['langsmith_trace_count']} traces)"
+                ),
                 f"- Cycle records: {autopilot['cycle_records']}",
                 f"- Cycle count distribution: {_format_counter(autopilot['cycle_counts'])}",
                 (

@@ -53,39 +53,46 @@ jobs:
           echo "📊 Downloading metrics artifacts from last $DAYS_BACK days..."
           echo "Cutoff date: $CUTOFF_DATE"
 
-          # Get workflow runs from autopilot workflow
-          WORKFLOW_PATH="agents-auto-pilot.yml"
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "/repos/${{ github.repository }}/actions/workflows/$WORKFLOW_PATH/runs" \
-            -f per_page=100 -f status=completed \
-            --jq ".workflow_runs[] | select(.created_at >= \"$CUTOFF_DATE\") | .id" \
-            > .metrics-tmp/run_ids.txt || echo "No runs found"
+          # Get workflow runs from metric-producing workflows.
+          : > .metrics-tmp/run_ids.txt
+          for WORKFLOW_PATH in agents-auto-pilot.yml reusable-agents-verifier.yml; do
+            gh api --method GET \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${{ github.repository }}/actions/workflows/$WORKFLOW_PATH/runs" \
+              -F per_page=100 -F status=completed \
+              --jq ".workflow_runs[] | select(.created_at >= \"$CUTOFF_DATE\") | .id" \
+              >> .metrics-tmp/run_ids.txt || true
+          done
+          sort -u .metrics-tmp/run_ids.txt -o .metrics-tmp/run_ids.txt
 
           # Download artifacts from each run
           COUNT=0
           while IFS= read -r run_id; do
+            if [ -z "$run_id" ]; then
+              continue
+            fi
             echo "Checking run $run_id for metrics artifacts..."
 
             # List artifacts for this run
-            gh api \
+            gh api --method GET \
               -H "Accept: application/vnd.github+json" \
               "/repos/${{ github.repository }}/actions/runs/$run_id/artifacts" \
               --jq '.artifacts[] |
-                select(.name | startswith("autopilot-metrics-")) |
-                {name: .name, id: .id}' \
+                select((.name | startswith("autopilot-metrics-")) or .name == "agents-verifier-metrics") |
+                [.name, .id] | @tsv' \
               > ".metrics-tmp/artifacts_${run_id}.json" || continue
 
             # Download each artifact
-            while IFS= read -r artifact; do
-              artifact_name=$(echo "$artifact" | jq -r '.name')
-              artifact_id=$(echo "$artifact" | jq -r '.id')
+            while IFS=$'\t' read -r artifact_name artifact_id; do
+              if [ -z "$artifact_name" ] || [ -z "$artifact_id" ]; then
+                continue
+              fi
 
               echo "  Downloading artifact: $artifact_name (ID: $artifact_id)"
 
               # Download artifact zip
-              gh api \
+              gh api --method GET \
                 -H "Accept: application/vnd.github+json" \
                 "/repos/${{ github.repository }}/actions/artifacts/$artifact_id/zip" \
                 > ".metrics-tmp/${artifact_name}.zip" || continue
@@ -121,14 +128,14 @@ jobs:
 
           # Generate markdown report
           python scripts/aggregate_metrics.py \
-            .metrics-tmp/combined-metrics.ndjson \
-            --format markdown \
+            --metrics-file .metrics-tmp/combined-metrics.ndjson \
+            --output-format markdown \
             > .metrics-tmp/report.md
 
           # Generate JSON summary
           python scripts/aggregate_metrics.py \
-            .metrics-tmp/combined-metrics.ndjson \
-            --format json \
+            --metrics-file .metrics-tmp/combined-metrics.ndjson \
+            --output-format json \
             > .metrics-tmp/summary.json
 
           echo "✅ Generated metrics report"

@@ -97,6 +97,31 @@ def test_aggregate_traces_with_traces() -> None:
     }
 
 
+def test_aggregate_traces_with_trace_lists() -> None:
+    """Test aggregation with compare-mode trace lists."""
+    metrics = [
+        {
+            "metric_type": "evaluation",
+            "langsmith_traces": [
+                {"provider": "openai", "trace_id": "trace-1"},
+                {"provider": "anthropic", "trace_id": "trace-2"},
+            ],
+        },
+        {"metric_type": "evaluation", "langsmith_traces": []},
+    ]
+
+    summary = aggregate_traces(metrics)
+
+    assert summary["total_metrics"] == 2
+    assert summary["total_with_traces"] == 1
+    assert summary["trace_coverage_pct"] == 50.0
+    assert summary["by_operation"]["evaluation"] == {
+        "total": 2,
+        "with_trace": 1,
+        "coverage_pct": 50.0,
+    }
+
+
 def test_aggregate_traces_autopilot_steps() -> None:
     """Test grouping by autopilot step_name."""
     metrics = [
