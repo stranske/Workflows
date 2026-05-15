@@ -60,9 +60,11 @@ def estimate_tokens(text: str, *, model: str | None = None) -> int:
         encoding = (
             tiktoken.encoding_for_model(model) if model else tiktoken.get_encoding("cl100k_base")
         )
+        return max(len(encoding.encode(value)), chars_estimate)
     except Exception:
-        encoding = tiktoken.get_encoding("cl100k_base")
-    return max(len(encoding.encode(value)), chars_estimate)
+        # tiktoken may need to download encoding metadata on first use; fall back
+        # to the chars-based estimate when network access is unavailable.
+        return chars_estimate
 
 
 def build_issue_context(
