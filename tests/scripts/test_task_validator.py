@@ -237,6 +237,20 @@ class TestValidateTasks:
         assert result.tasks == []
         assert "No tasks" in result.audit_summary
 
+    def test_blank_tasks_filtered_before_audit(self) -> None:
+        tasks = ["", "  ", "Create scripts/metrics.py with timing helpers"]
+        result = validate_tasks(tasks, use_llm=False)
+
+        assert result.tasks == ["Create scripts/metrics.py with timing helpers"]
+        assert "1 input" in result.audit_summary
+        assert "1 output" in result.audit_summary
+
+    def test_all_blank_tasks_are_empty(self) -> None:
+        result = validate_tasks(["", "  "], use_llm=False)
+
+        assert result.tasks == []
+        assert "No tasks" in result.audit_summary
+
     def test_all_clean_tasks(self) -> None:
         tasks = [
             "Create scripts/metrics.py with timing functions",

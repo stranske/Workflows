@@ -2338,6 +2338,38 @@ jobs:
             let issueLabels = [];
             let branchPrefix = 'codex/issue-';
 
+            const dispatchFirstAvailableWorkflow = async ({
+              workflowIds,
+              prNumber,
+              inputs,
+              description
+            }) => {
+              const failures = [];
+              for (const workflowId of workflowIds) {
+                try {
+                  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    workflow_id: workflowId,
+                    ref: baseBranch,
+                    inputs
+                  }));
+                  core.info(`Dispatched ${description} via ${workflowId} for PR #${prNumber}`);
+                  return workflowId;
+                } catch (dispatchError) {
+                  const status = dispatchError?.status;
+                  const message = dispatchError?.message || String(dispatchError);
+                  failures.push(`${workflowId}: ${message}`);
+                  if (status !== 404) {
+                    break;
+                  }
+                  core.info(`Workflow ${workflowId} not found; trying fallback`);
+                }
+              }
+              core.warning(`Could not dispatch ${description}: ${failures.join('; ')}`);
+              return null;
+            };
+
             const toLabelName = (label) => {
               if (!label) return '';
               if (typeof label === 'string') return label;
@@ -2959,38 +2991,26 @@ jobs:
 
               // Dispatch PR meta workflow to build Automated Status Summary
               // (GITHUB_TOKEN actions do not trigger workflow runs automatically)
-              try {
-                await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  workflow_id: 'agents-pr-meta.yml',
-                  ref: baseBranch,
-                  inputs: {
-                    pr_number: pr.number.toString(),
-                    debug: 'false'
-                  }
-                }));
-                core.info(`Dispatched PR meta update for PR #${pr.number}`);
-              } catch (dispatchError) {
-                core.warning(`Could not dispatch PR meta update: ${dispatchError?.message}`);
-              }
+              await dispatchFirstAvailableWorkflow({
+                workflowIds: ['agents-80-pr-event-hub.yml', 'agents-pr-meta-v4.yml'],
+                prNumber: pr.number,
+                description: 'PR meta update',
+                inputs: {
+                  pr_number: pr.number.toString(),
+                  debug: 'false'
+                }
+              });
 
               // Dispatch keepalive workflow since GITHUB_TOKEN labels don't trigger it
-              try {
-                await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  workflow_id: 'agents-keepalive-loop.yml',
-                  ref: baseBranch,
-                  inputs: {
-                    pr_number: pr.number.toString(),
-                    force_retry: 'true'
-                  }
-                }));
-                core.info(`Dispatched keepalive for PR #${pr.number}`);
-              } catch (dispatchError) {
-                core.warning(`Could not dispatch keepalive: ${dispatchError?.message}`);
-              }
+              await dispatchFirstAvailableWorkflow({
+                workflowIds: ['agents-81-gate-followups.yml', 'agents-keepalive-loop.yml'],
+                prNumber: pr.number,
+                description: 'keepalive follow-up',
+                inputs: {
+                  pr_number: pr.number.toString(),
+                  force_retry: 'true'
+                }
+              });
 
               // Add PR link comment to the issue with full URL for visibility
               // Use GITHUB_SERVER_URL for GHES/AE compatibility instead of hardcoding github.com

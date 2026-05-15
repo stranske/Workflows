@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -68,6 +69,27 @@ def extract_trace_info(response: Any) -> TraceInfo:
         return TraceInfo()
 
 
+def _invoke_accepts_config(invoke: Any) -> bool:
+    try:
+        signature = inspect.signature(invoke)
+    except (TypeError, ValueError):
+        return True
+
+    for param in signature.parameters.values():
+        if param.name == "config" or param.kind == inspect.Parameter.VAR_KEYWORD:
+            return True
+    return False
+
+
+def _is_unsupported_config_error(exc: TypeError) -> bool:
+    message = str(exc)
+    return "config" in message and (
+        "unexpected keyword argument" in message
+        or "got an unexpected keyword" in message
+        or "positional-only" in message
+    )
+
+
 def invoke_with_trace(
     runnable: Any,
     payload: Any,
@@ -88,13 +110,16 @@ def invoke_with_trace(
         pr_number=pr_number,
         issue_number=issue_number,
     )
-    try:
-        response = runnable.invoke(payload, config=config)
-    except Exception as first_exc:
+    invoke = runnable.invoke
+    if _invoke_accepts_config(invoke):
         try:
-            response = runnable.invoke(payload)
-        except Exception as fallback_exc:
-            raise first_exc from fallback_exc
+            response = invoke(payload, config=config)
+        except TypeError as exc:
+            if not _is_unsupported_config_error(exc):
+                raise
+            response = invoke(payload)
+    else:
+        response = invoke(payload)
     trace = extract_trace_info(response)
     if trace.trace_url:
         LOGGER.info("LangSmith trace: %s", trace.trace_url)

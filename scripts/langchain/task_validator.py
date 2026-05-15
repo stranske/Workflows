@@ -579,6 +579,8 @@ def validate_tasks(
     Returns:
         ValidationResult with final tasks and full audit trail
     """
+    tasks = [task for task in tasks if task and task.strip()]
+
     if not tasks:
         return ValidationResult(
             tasks=[],

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from scripts.langchain.trace_utils import invoke_with_trace
 
 
@@ -26,6 +27,24 @@ class _LegacyRunnable:
     def invoke(self, payload):
         self.calls += 1
         return _Response()
+
+
+class _ProviderFailureRunnable:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def invoke(self, payload, *, config=None):
+        self.calls += 1
+        raise RuntimeError("provider failed")
+
+
+class _ProviderTypeErrorRunnable:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def invoke(self, payload, *, config=None):
+        self.calls += 1
+        raise TypeError("provider payload type failed")
 
 
 def test_invoke_with_trace_passes_standard_metadata(monkeypatch):
@@ -59,3 +78,23 @@ def test_invoke_with_trace_retries_legacy_runnable_without_config(monkeypatch):
 
     assert runnable.calls == 1
     assert trace.trace_id == "trace-123"
+
+
+def test_invoke_with_trace_does_not_retry_provider_failures(monkeypatch):
+    monkeypatch.setenv("LANGSMITH_API_KEY", "test-key")
+    runnable = _ProviderFailureRunnable()
+
+    with pytest.raises(RuntimeError, match="provider failed"):
+        invoke_with_trace(runnable, "prompt", operation="failure_unit_test")
+
+    assert runnable.calls == 1
+
+
+def test_invoke_with_trace_does_not_retry_unrelated_type_errors(monkeypatch):
+    monkeypatch.setenv("LANGSMITH_API_KEY", "test-key")
+    runnable = _ProviderTypeErrorRunnable()
+
+    with pytest.raises(TypeError, match="provider payload type failed"):
+        invoke_with_trace(runnable, "prompt", operation="type_error_unit_test")
+
+    assert runnable.calls == 1
