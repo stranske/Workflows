@@ -73,7 +73,15 @@ jobs:
               echo "current_hash="
               echo "prior_hash="
             } >> "$GITHUB_OUTPUT"
-            echo '{"should_run":"true","reason":"pull-request-no-repo-variable","current_hash":"","prior_hash":""}'
+            python - <<'PY'
+            import json
+            print(json.dumps({
+              "should_run": "true",
+              "reason": "pull-request-no-repo-variable",
+              "current_hash": "",
+              "prior_hash": "",
+            }, separators=(",", ":")))
+            PY
             exit 0
           fi
 
@@ -263,7 +271,16 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           TARGET_REPO: ${{ github.repository }}
           TARGET_RUN_ID: ${{ github.run_id }}
-        run: python .github/scripts/restore_branch_snapshots.py
+        run: |
+          if timeout 5m python .github/scripts/restore_branch_snapshots.py; then
+            exit 0
+          fi
+          status=$?
+          if [ "${status}" -eq 124 ]; then
+            echo "[summary] Snapshot restore timed out; continuing without previous snapshots"
+            exit 0
+          fi
+          exit "${status}"
 
       - name: Record unified guard summary
         if: always() && steps.fingerprint.outputs.should_run == 'true'
