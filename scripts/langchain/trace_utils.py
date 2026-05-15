@@ -82,12 +82,30 @@ def _invoke_accepts_config(invoke: Any) -> bool:
 
 
 def _is_unsupported_config_error(exc: TypeError) -> bool:
-    message = str(exc)
-    return "config" in message and (
-        "unexpected keyword argument" in message
-        or "got an unexpected keyword" in message
-        or "positional-only" in message
+    message = str(exc).lower()
+    no_keyword_support = (
+        "takes no keyword argument" in message
+        or "takes no keyword arguments" in message
+        or "does not take keyword argument" in message
+        or "does not take keyword arguments" in message
+        or "doesn't take keyword argument" in message
+        or "doesn't take keyword arguments" in message
     )
+    unsupported_config_message = no_keyword_support or (
+        "config" in message
+        and (
+            "unexpected keyword argument" in message
+            or "got an unexpected keyword" in message
+            or "positional-only" in message
+        )
+    )
+    return unsupported_config_message and _is_direct_call_type_error(exc)
+
+
+def _is_direct_call_type_error(exc: TypeError) -> bool:
+    """Return true when Python rejected the call before entering invoke()."""
+
+    return exc.__traceback__ is not None and exc.__traceback__.tb_next is None
 
 
 def invoke_with_trace(

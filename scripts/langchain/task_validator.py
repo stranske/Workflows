@@ -242,7 +242,9 @@ def triage_tasks(tasks: list[str]) -> dict[str, list[Any]]:
         tasks: List of task strings to triage
 
     Returns:
-        Dictionary with "clean" (list[str]) and "flagged" (list[dict]) keys
+        Dictionary with "clean" (list[str]), "clean_items" (list[dict] with
+        task/index pairs), and "flagged" (list[dict] with task, warnings, and
+        index) keys
     """
     clean: list[str] = []
     clean_items: list[dict[str, Any]] = []
