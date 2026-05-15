@@ -92,14 +92,18 @@ jobs:
               echo "  Downloading artifact: $artifact_name (ID: $artifact_id)"
 
               # Download artifact zip
+              zip_path=".metrics-tmp/${run_id}_${artifact_id}_${artifact_name}.zip"
               gh api --method GET \
                 -H "Accept: application/vnd.github+json" \
                 "/repos/${{ github.repository }}/actions/artifacts/$artifact_id/zip" \
-                > ".metrics-tmp/${artifact_name}.zip" || continue
+                > "$zip_path" || continue
 
-              # Extract NDJSON from zip
-              unzip -q -o ".metrics-tmp/${artifact_name}.zip" -d ".metrics-tmp/" || continue
-              rm ".metrics-tmp/${artifact_name}.zip"
+              # Extract NDJSON from each artifact into a unique directory so
+              # fixed artifact filenames from multiple runs do not overwrite.
+              artifact_dir=".metrics-tmp/extracted/${run_id}_${artifact_id}"
+              mkdir -p "$artifact_dir"
+              unzip -q -o "$zip_path" -d "$artifact_dir" || continue
+              rm "$zip_path"
 
               COUNT=$((COUNT + 1))
             done < ".metrics-tmp/artifacts_${run_id}.json"

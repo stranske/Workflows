@@ -165,6 +165,56 @@ def test_autopilot_needs_human_rate_uses_escalations_not_issue_ids() -> None:
     assert "Needs-human escalation rate: 50.0% (1/2)" in summary
 
 
+def test_langsmith_trace_counts_cover_single_ids_and_trace_lists() -> None:
+    entries = [
+        {
+            "metric_type": "verifier",
+            "run_id": "verify-1",
+            "verdict": "pass",
+            "langsmith_trace_id": "verifier-trace-1",
+        },
+        {
+            "metric_type": "verifier",
+            "run_id": "verify-2",
+            "verdict": "concerns",
+            "langsmith_traces": [
+                {"trace_id": "verifier-trace-2"},
+                {"trace_id": "verifier-trace-3"},
+            ],
+        },
+        {
+            "metric_type": "step",
+            "issue_number": 11,
+            "step_name": "optimize",
+            "success": True,
+            "duration_ms": 100,
+            "langsmith_trace_id": "autopilot-trace-1",
+        },
+        {
+            "metric_type": "step",
+            "issue_number": 11,
+            "step_name": "apply",
+            "success": True,
+            "duration_ms": 200,
+            "langsmith_traces": [
+                {"trace_id": "autopilot-trace-2"},
+                {"trace_id": "autopilot-trace-3"},
+            ],
+        },
+    ]
+
+    summary = aggregate_agent_metrics.build_summary(entries, errors=0)
+
+    assert "LangSmith trace coverage: 100.0% (2/2) (3 traces)" in summary
+    assert summary.count("LangSmith trace coverage: 100.0% (2/2) (3 traces)") == 2
+
+    contract = aggregate_agent_metrics.build_summary_contract(entries, [])
+    assert contract["summaries"]["verifier"]["langsmith_trace_records"] == 2
+    assert contract["summaries"]["verifier"]["langsmith_trace_count"] == 3
+    assert contract["summaries"]["autopilot"]["langsmith_trace_records"] == 2
+    assert contract["summaries"]["autopilot"]["langsmith_trace_count"] == 3
+
+
 def test_main_writes_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     keepalive_path = tmp_path / "keepalive.ndjson"
     autofix_path = tmp_path / "autofix.ndjson"
