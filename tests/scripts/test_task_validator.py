@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from scripts.langchain import task_validator as task_validator_module
 from scripts.langchain.task_validator import (
     TaskFate,
     TaskOutcome,
@@ -322,6 +323,23 @@ class TestValidateTasks:
         assert fates == []
         assert provider is None
         assert trace.available is False
+
+    def test_no_llm_refinement_preserves_task_order(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            task_validator_module,
+            "_get_llm_client",
+            lambda force_openai=False: None,
+        )
+        tasks = [
+            "Create scripts/metrics.py with timing functions",
+            "Fix",
+            "Add unit tests for metrics collection",
+        ]
+
+        result = validate_tasks(tasks, use_llm=True)
+
+        assert result.tasks == tasks
+        assert result.fates[0].original_index == 1
 
 
 class TestTaskFateSerialization:

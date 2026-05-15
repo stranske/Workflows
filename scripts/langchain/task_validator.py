@@ -421,6 +421,7 @@ def refine_flagged_tasks(
                 result=item["task"],
                 reason="No LLM available; keeping original",
                 warnings=item.get("warnings", []),
+                original_index=item.get("index"),
             )
             for item in flagged
         ]
@@ -440,6 +441,7 @@ def refine_flagged_tasks(
                 result=item["task"],
                 reason="LangChain unavailable; keeping original",
                 warnings=item.get("warnings", []),
+                original_index=item.get("index"),
             )
             for item in flagged
         ]
