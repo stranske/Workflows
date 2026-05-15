@@ -275,6 +275,31 @@ test('issueMatchesTracker preserves label-only tracker matching', () => {
   );
 });
 
+test('issueMatchesTracker preserves true title-only tracker matching', () => {
+  assert.equal(
+    issueMatchesTracker({
+      number: 19,
+      title: 'Integration-Tests Sync Failed - Action Required',
+      body: 'existing tracker body',
+      labels: [],
+    }, {
+      titlePattern: /^Integration-Tests Sync Failed/,
+    }),
+    true,
+  );
+  assert.equal(
+    issueMatchesTracker({
+      number: 20,
+      title: 'Other issue',
+      body: 'existing tracker body',
+      labels: [],
+    }, {
+      titlePattern: /^Integration-Tests Sync Failed/,
+    }),
+    false,
+  );
+});
+
 test('issueMatchesTracker allows bodyless title candidates only for preliminary marker lookups', () => {
   const issue = {
     number: 15,

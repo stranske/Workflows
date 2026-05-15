@@ -180,6 +180,9 @@ function issueMatchesTracker(
   if (!hasTitleConstraint && hasMarkerConstraint) {
     return hasMarker;
   }
+  if (hasTitleConstraint && requiredLabels.length === 0 && !hasMarkerConstraint) {
+    return hasTitle;
+  }
   if (!hasTitleConstraint) {
     return hasLabelGate;
   }
