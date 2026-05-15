@@ -225,6 +225,56 @@ test('issueMatchesTracker rejects unlabelled title-only issues', () => {
   );
 });
 
+test('issueMatchesTracker preserves label-only tracker matching', () => {
+  assert.equal(
+    issueMatchesTracker({
+      number: 15,
+      title: 'Any title',
+      body: 'existing tracker body',
+      labels: [{ name: 'campaign:sync-dependabot' }],
+    }, {
+      label: 'campaign:sync-dependabot',
+    }),
+    true,
+  );
+  assert.equal(
+    issueMatchesTracker({
+      number: 16,
+      title: 'Any title',
+      body: '',
+      labels: [],
+    }, {
+      markerPattern: /sync-dependabot-campaign:v1/,
+      allowBodylessTitleCandidate: true,
+    }),
+    false,
+  );
+  assert.equal(
+    issueMatchesTracker({
+      number: 17,
+      title: 'Any title',
+      body: '',
+      labels: [{ name: 'campaign:sync-dependabot' }],
+    }, {
+      label: 'campaign:sync-dependabot',
+      markerPattern: /sync-dependabot-campaign:v1/,
+    }),
+    false,
+  );
+  assert.equal(
+    issueMatchesTracker({
+      number: 18,
+      title: 'Any title',
+      body: '<!-- sync-dependabot-campaign:v1 {} -->',
+      labels: [{ name: 'campaign:sync-dependabot' }],
+    }, {
+      label: 'campaign:sync-dependabot',
+      markerPattern: /sync-dependabot-campaign:v1/,
+    }),
+    true,
+  );
+});
+
 test('issueMatchesTracker allows bodyless title candidates only for preliminary marker lookups', () => {
   const issue = {
     number: 15,

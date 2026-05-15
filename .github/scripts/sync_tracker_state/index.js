@@ -160,20 +160,30 @@ function issueMatchesTracker(
   }
   const names = labelNames(issue);
   const requiredLabels = unique([label]).filter(Boolean);
-  const hasRequiredLabel = requiredLabels.length === 0 ||
+  const hasRequiredLabel = requiredLabels.length > 0 &&
     requiredLabels.some((name) => names.includes(name));
   const hasDurableLabel = names.includes(DURABLE_TRACKER_LABEL);
-  const hasTitle = Boolean(titlePattern) && patternMatches(issue.title || '', titlePattern);
+  const hasTitleConstraint = Boolean(titlePattern);
+  const hasMarkerConstraint = Boolean(markerPattern);
+  const hasTitle = hasTitleConstraint ? patternMatches(issue.title || '', titlePattern) : true;
   const hasMarker = issueHasMarker(issue, markerPattern);
+  const hasLabelGate = hasDurableLabel || hasRequiredLabel;
   if (
     allowBodylessTitleCandidate &&
+    hasTitleConstraint &&
     markerPattern &&
     hasTitle &&
     !cleanString(issue.body)
   ) {
     return true;
   }
-  return (hasDurableLabel || hasRequiredLabel || hasMarker) && (hasTitle || hasMarker);
+  if (!hasTitleConstraint && hasMarkerConstraint) {
+    return hasMarker;
+  }
+  if (!hasTitleConstraint) {
+    return hasLabelGate;
+  }
+  return (hasLabelGate || hasMarker) && (hasTitle || hasMarker);
 }
 
 async function ensureLabels({
