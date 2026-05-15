@@ -827,7 +827,7 @@ function main() {
   const markdownSummary = formatBotCommentAuthCoverageMarkdown(report);
   fs.writeFileSync(options.output, `${JSON.stringify(report, null, 2)}\n`);
   fs.writeFileSync(options.markdown, markdownSummary);
-  process.stdout.write(markdownSummary);
+  fs.writeFileSync(process.stdout.fd, markdownSummary);
   return report.status === 'fail' ? 1 : 0;
 }
 

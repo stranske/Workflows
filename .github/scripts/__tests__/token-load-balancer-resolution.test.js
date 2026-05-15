@@ -67,7 +67,7 @@ module.exports = { Octokit };
     }
   });
   const rateLimit = balancer.tokenRegistry.tokens.get('TEST_TOKEN').rateLimit;
-  process.stdout.write(JSON.stringify({ errors, rateLimit }));
+  process.stdout.write(JSON.stringify({ errors, rateLimit }) + '\\n');
 })().catch((error) => {
   console.error(error);
   process.exit(1);
@@ -163,7 +163,7 @@ test('invalid credential warnings are cached across node processes', () => {
   const cache = fs.existsSync(cachePath)
     ? JSON.parse(fs.readFileSync(cachePath, 'utf8'))
     : null;
-  process.stdout.write(JSON.stringify({ warnings, debug, cache, rateLimit }));
+  process.stdout.write(JSON.stringify({ warnings, debug, cache, rateLimit }) + '\\n');
 })().catch((error) => {
   console.error(error);
   process.exit(1);
