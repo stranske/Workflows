@@ -11,10 +11,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
 from typing import Any
+
+try:
+    from scripts.langchain.injection_guard import check_prompt_injection
+    from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
+    from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
+except ImportError:  # pragma: no cover - fallback for direct invocation
+    from injection_guard import check_prompt_injection
+    from issue_pr_context import ContextOptions, build_issue_context
+    from trace_utils import TraceInfo, invoke_with_trace
+
+# Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
+# ~4 chars per token, so 50k chars ≈ 12.5k tokens, leaving headroom for prompt + output
+MAX_ISSUE_BODY_SIZE = 50000
 
 ISSUE_FORMATTER_PROMPT = """
 You are a formatting assistant. Convert the raw GitHub issue body into the
@@ -73,8 +87,28 @@ SECTION_TITLES = {
     "implementation": "Implementation Notes",
 }
 
-LIST_ITEM_REGEX = re.compile(r"^(\s*)([-*+]|\d+[.)])\s+(.*)$")
+LIST_ITEM_REGEX = re.compile(r"^(\s*)([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
+
+
+def _context_token_budget() -> int:
+    raw = os.environ.get("ISSUE_PR_CONTEXT_TOKEN_BUDGET", "")
+    return int(raw) if raw.isdigit() and int(raw) > 0 else 4000
+
+
+def _context_workflow(default: str) -> str:
+    return os.environ.get("ISSUE_PR_CONTEXT_WORKFLOW") or default
+
+
+def _capped_issue_body(issue_body: str, workflow: str) -> str:
+    context = build_issue_context(
+        {"body": issue_body},
+        ContextOptions(
+            token_budget=_context_token_budget(),
+            downstream_workflow=workflow,
+        ),
+    )
+    return context["formatted_body"]
 
 
 def _load_prompt() -> str:
@@ -91,10 +125,11 @@ def _load_prompt() -> str:
 
 
 def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
-    """Get LLM client using slot order (OpenAI, Claude, GitHub Models).
+    """Get LLM client, trying GitHub Models first (cheaper), then OpenAI.
 
     Args:
-        force_openai: If True, force OpenAI for retry after GitHub Models 401 error.
+        force_openai: If True, skip GitHub Models and use OpenAI directly.
+                      Use this for retry after GitHub Models 401 error.
     """
     try:
         from tools.langchain_client import build_chat_client
@@ -155,10 +190,10 @@ def _normalize_checklist_lines(lines: list[str]) -> list[str]:
         stripped = raw.strip()
         if stripped.startswith("```"):
             in_fence = not in_fence
-            cleaned.append(raw)
             continue
         if in_fence:
-            cleaned.append(raw)
+            continue
+        if stripped in {"---", "<details>", "</details>"}:
             continue
         if not stripped:
             continue
@@ -182,7 +217,47 @@ def _parse_sections(body: str) -> tuple[dict[str, list[str]], list[str]]:
     sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
     preamble: list[str] = []
     current: str | None = None
+    code_fence_marker: str | None = None  # exact opening fence (e.g. ```, ````)
+    in_details_block = False
     for line in body.splitlines():
+        stripped = line.strip()
+        # Track code fences — match the exact opening fence length to avoid
+        # being fooled by nested fences of different lengths (e.g. ``` inside ````)
+        fence_match = re.match(r"^(`{3,})", stripped)
+        if fence_match:
+            if code_fence_marker is None:
+                code_fence_marker = fence_match.group(1)
+            elif len(fence_match.group(1)) >= len(code_fence_marker):
+                code_fence_marker = None
+        if code_fence_marker is not None:
+            if current:
+                sections[current].append(line)
+            else:
+                preamble.append(line)
+            continue
+        # Stop parsing at <details> blocks (Original Issue metadata).
+        # Handle both multi-line and inline <details>...</details> on one line.
+        lower_stripped = stripped.lower()
+        if lower_stripped.startswith("<details") and not in_details_block:
+            # Check if </details> also appears on the same line (inline block)
+            if "</details" in lower_stripped:
+                # Entire block on one line — preserve it but don't enter state
+                if current:
+                    sections[current].append(line)
+                else:
+                    preamble.append(line)
+                continue
+            in_details_block = True
+        if in_details_block:
+            if "</details" in lower_stripped:
+                in_details_block = False
+            # Preserve <details> content under the current section so it
+            # survives the round-trip, but don't parse headings from it.
+            if current:
+                sections[current].append(line)
+            else:
+                preamble.append(line)
+            continue
         heading_match = re.match(r"^\s*#{1,6}\s+(.*)$", line)
         if heading_match:
             section_key = _resolve_section(heading_match.group(1))
@@ -280,7 +355,8 @@ def _append_raw_issue_section(formatted: str, issue_body: str) -> str:
     if not raw:
         return formatted
     marker = "<summary>Original Issue</summary>"
-    if marker in formatted:
+    # Check INPUT body, not output - if input already has Original Issue, don't nest another
+    if marker in raw:
         return formatted
     fence = _select_code_fence(raw)
     details = (
@@ -327,31 +403,63 @@ def _extract_tasks_from_formatted(body: str) -> list[str]:
     return tasks
 
 
-def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
+def _validate_and_refine_tasks(formatted: str, *, use_llm: bool) -> tuple[str, str | None]:
+    """
+    Validate tasks using two-pass heuristic + LLM refinement.
+
+    Returns:
+        Tuple of (updated_formatted_body, audit_summary)
+    """
     tasks = _extract_tasks_from_formatted(formatted)
     if not tasks:
-        return formatted
+        return formatted, None
 
     try:
-        from scripts.langchain import task_decomposer
-    except ModuleNotFoundError:
-        import task_decomposer
+        from scripts.langchain import task_validator
+    except ImportError:
+        try:
+            import task_validator
+        except ImportError:
+            return formatted, None
 
-    suggestions: list[dict[str, Any]] = []
-    for task in tasks:
-        decomposition = task_decomposer.decompose_task(task, use_llm=use_llm)
-        sub_tasks = decomposition.get("sub_tasks") or []
-        if sub_tasks:
-            suggestions.append({"task": task, "split_suggestions": sub_tasks})
-    if not suggestions:
-        return formatted
+    # Run validation
+    result = task_validator.validate_tasks(tasks, context=formatted, use_llm=use_llm)
 
+    # If no changes, return original
+    if set(result.tasks) == set(tasks) and len(result.tasks) == len(tasks):
+        return formatted, result.audit_summary
+
+    # Replace tasks section with validated tasks
+    lines = formatted.splitlines()
+    header = "## Tasks"
     try:
-        from scripts.langchain import issue_optimizer
-    except ModuleNotFoundError:
-        import issue_optimizer
+        header_idx = next(i for i, line in enumerate(lines) if line.strip() == header)
+    except StopIteration:
+        return formatted, result.audit_summary
 
-    return issue_optimizer._apply_task_decomposition(formatted, {"task_splitting": suggestions})
+    # Find end of Tasks section
+    end_idx = next(
+        (
+            i
+            for i in range(header_idx + 1, len(lines))
+            if lines[i].startswith("## ") and lines[i].strip() != header
+        ),
+        len(lines),
+    )
+
+    # Build new tasks section
+    new_task_lines = [f"- [ ] {task}" for task in result.tasks]
+    if not new_task_lines:
+        new_task_lines = ["- [ ] _Not provided._"]
+
+    # Reconstruct formatted body
+    new_lines = lines[: header_idx + 1]
+    new_lines.append("")  # blank line after header
+    new_lines.extend(new_task_lines)
+    new_lines.append("")  # blank line before next section
+    new_lines.extend(lines[end_idx:])
+
+    return "\n".join(new_lines).strip(), result.audit_summary
 
 
 def _is_github_models_auth_error(exc: Exception) -> bool:
@@ -364,6 +472,32 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
     if not issue_body:
         issue_body = ""
 
+    guard_result = check_prompt_injection(issue_body)
+    if guard_result["blocked"]:
+        return {
+            "formatted_body": issue_body,
+            "provider_used": None,
+            "used_llm": False,
+            "guard_blocked": True,
+            "guard_reason": guard_result["reason"],
+        }
+
+    issue_body = _capped_issue_body(issue_body, _context_workflow("issue_formatter"))
+
+    # Check size before processing to avoid rate limit errors
+    if len(issue_body) > MAX_ISSUE_BODY_SIZE:
+        err_msg = (
+            f"Issue body too large ({len(issue_body):,} chars). "
+            f"Max is {MAX_ISSUE_BODY_SIZE:,}. "
+            "Recursive task decomposition spam suspected; needs manual cleanup."
+        )
+        return {
+            "error": err_msg,
+            "formatted_body": None,
+            "provider_used": None,
+            "used_llm": False,
+        }
+
     if use_llm:
         client_info = _get_llm_client()
         if client_info:
@@ -374,8 +508,13 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
+                trace = TraceInfo()
                 try:
-                    response = chain.invoke({"issue_body": issue_body})
+                    response, trace = invoke_with_trace(
+                        chain,
+                        {"issue_body": issue_body},
+                        operation="issue_formatter",
+                    )
                 except Exception as e:
                     # If GitHub Models fails with 401, retry with OpenAI
                     if provider == "github-models" and _is_github_models_auth_error(e):
@@ -383,7 +522,11 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                         if fallback_info:
                             client, provider = fallback_info
                             chain = template | client
-                            response = chain.invoke({"issue_body": issue_body})
+                            response, trace = invoke_with_trace(
+                                chain,
+                                {"issue_body": issue_body},
+                                operation="issue_formatter",
+                            )
                         else:
                             raise
                     else:
@@ -391,24 +534,34 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 content = getattr(response, "content", None) or str(response)
                 formatted = content.strip()
                 if _formatted_output_valid(formatted):
-                    formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
+                    # NOTE: Task decomposition is now handled by agents:optimize step
+                    # which uses LLM for intelligent splitting. Don't do heuristic
+                    # splitting here - it causes task explosion (issue #805, #1143).
+                    formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
                     formatted = _append_raw_issue_section(formatted, issue_body)
-                    return {
+                    result = {
                         "formatted_body": formatted,
                         "provider_used": provider,
                         "used_llm": True,
+                        "validation_audit": audit,
                     }
+                    result.update(trace.as_dict())
+                    return result
             except ImportError:
                 # Fall through to fallback if imports fail
                 pass
 
     formatted = _format_issue_fallback(issue_body)
-    formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
+    # NOTE: Task decomposition is now handled by agents:optimize step
+    # which uses LLM for intelligent splitting. Don't do heuristic
+    # splitting here - it causes task explosion (issue #805, #1143).
+    formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
     formatted = _append_raw_issue_section(formatted, issue_body)
     return {
         "formatted_body": formatted,
         "provider_used": None,
         "used_llm": False,
+        "validation_audit": audit,
     }
 
 
@@ -449,6 +602,13 @@ def main() -> None:
             "used_llm": result.get("used_llm", False),
             "labels": build_label_transition(),
         }
+        if result.get("guard_blocked"):
+            payload["guard_blocked"] = True
+            payload["guard_reason"] = result.get("guard_reason") or ""
+        if result.get("langsmith_trace_id"):
+            payload["langsmith_trace_id"] = result["langsmith_trace_id"]
+        if result.get("langsmith_trace_url"):
+            payload["langsmith_trace_url"] = result["langsmith_trace_url"]
         print(json.dumps(payload, ensure_ascii=True))
     else:
         print(result["formatted_body"])

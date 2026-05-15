@@ -55,16 +55,21 @@ jobs:
 
           # Get workflow runs from metric-producing workflows.
           : > .metrics-tmp/run_ids.txt
+          : > .metrics-tmp/workflow_errors.log
           for WORKFLOW_PATH in agents-auto-pilot.yml reusable-agents-verifier.yml; do
-            gh api --method GET \
+            if ! gh api --method GET \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "/repos/${{ github.repository }}/actions/workflows/$WORKFLOW_PATH/runs" \
               -F per_page=100 -F status=completed \
               --jq ".workflow_runs[] | select(.created_at >= \"$CUTOFF_DATE\") | .id" \
-              >> .metrics-tmp/run_ids.txt || true
+              >> .metrics-tmp/run_ids.txt 2>> .metrics-tmp/workflow_errors.log; then
+              echo "::warning title=LangSmith workflow lookup failed::$WORKFLOW_PATH"
+            fi
           done
           sort -u .metrics-tmp/run_ids.txt -o .metrics-tmp/run_ids.txt
+          RUN_COUNT=$(grep -Ec '^[0-9]+$' .metrics-tmp/run_ids.txt || true)
+          echo "LANGSMITH_METRICS_RUN_COUNT=$RUN_COUNT" >> "$GITHUB_ENV"
 
           # Download artifacts from each run
           COUNT=0
@@ -79,7 +84,10 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               "/repos/${{ github.repository }}/actions/runs/$run_id/artifacts" \
               --jq '.artifacts[] |
-                select((.name | startswith("autopilot-metrics-")) or .name == "agents-verifier-metrics") |
+                select(
+                  (.name | startswith("autopilot-metrics-")) or
+                  (.name == "agents-verifier-metrics")
+                ) |
                 [.name, .id] | @tsv' \
               > ".metrics-tmp/artifacts_${run_id}.json" || continue
 
@@ -110,6 +118,7 @@ jobs:
           done < .metrics-tmp/run_ids.txt
 
           echo "✅ Downloaded $COUNT metrics artifacts"
+          echo "LANGSMITH_METRICS_ARTIFACT_COUNT=$COUNT" >> "$GITHUB_ENV"
 
           # Combine all NDJSON files into one
           find .metrics-tmp -name "*.ndjson" -exec cat {} \; \
@@ -118,6 +127,23 @@ jobs:
 
           LINES=$(wc -l < .metrics-tmp/combined-metrics.ndjson)
           echo "📈 Combined metrics: $LINES total operations"
+          echo "LANGSMITH_METRICS_LINE_COUNT=$LINES" >> "$GITHUB_ENV"
+
+          cat > .metrics-tmp/diagnostics.md <<EOF
+          # LangSmith Metrics Download Diagnostics
+
+          - Days back: $DAYS_BACK
+          - Cutoff date: $CUTOFF_DATE
+          - Completed metric-producing runs found: $RUN_COUNT
+          - Metrics artifacts downloaded: $COUNT
+          - Combined NDJSON records: $LINES
+
+          ## Workflow Lookup Errors
+
+          \`\`\`
+          $(cat .metrics-tmp/workflow_errors.log)
+          \`\`\`
+          EOF
 
       - name: Generate metrics report
         run: |
@@ -143,6 +169,19 @@ jobs:
             > .metrics-tmp/summary.json
 
           echo "✅ Generated metrics report"
+
+      - name: Upload dashboard diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: langsmith-metrics-diagnostics-${{ github.run_id }}
+          path: |
+            .metrics-tmp/diagnostics.md
+            .metrics-tmp/workflow_errors.log
+            .metrics-tmp/run_ids.txt
+            .metrics-tmp/combined-metrics.ndjson
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Upload report artifact
         if: env.REPORT_AVAILABLE == 'true'
@@ -284,9 +323,7 @@ jobs:
             git commit -m "chore: Update LangSmith metrics dashboard
 
           Automated update from workflow run ${{ github.run_id }}
-          Period: Last ${{ inputs.days_back || '7' }} days
-
-          https://claude.ai/code/session_011yqqC7w1v8FX37eWQ9564j"
+          Period: Last ${{ inputs.days_back || '7' }} days"
 
             git push origin main
             echo "✅ Updated docs/dashboards/langsmith-metrics.md"
@@ -307,8 +344,15 @@ jobs:
             fi
           else
             echo "⚠️ No metrics data available for the specified period"
-            echo "This is normal if:"
-            echo "  - No autopilot runs completed recently"
-            echo "  - Artifacts have expired (14 day retention)"
-            echo "  - This is the first run"
+            echo ""
+            echo "Diagnostics:"
+            echo "  - Completed runs found: ${LANGSMITH_METRICS_RUN_COUNT:-0}"
+            echo "  - Metrics artifacts downloaded: ${LANGSMITH_METRICS_ARTIFACT_COUNT:-0}"
+            echo "  - Combined NDJSON records: ${LANGSMITH_METRICS_LINE_COUNT:-0}"
+            echo "  - Artifact: langsmith-metrics-diagnostics-${{ github.run_id }}"
+            echo ""
+            if [ "${LANGSMITH_METRICS_RUN_COUNT:-0}" != "0" ] && \
+               [ "${LANGSMITH_METRICS_ARTIFACT_COUNT:-0}" = "0" ]; then
+              echo "::warning title=Missing metrics artifacts::Runs found; no artifacts."
+            fi
           fi

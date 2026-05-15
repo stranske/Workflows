@@ -15,6 +15,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
+except ModuleNotFoundError:
+    from trace_utils import TraceInfo, invoke_with_trace
+
 TASK_DECOMPOSITION_PROMPT = """
 This task is too large for a single agent iteration (~10 minutes):
 
@@ -530,8 +535,13 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
+                trace = TraceInfo()
                 try:
-                    response = chain.invoke({"large_task": task})
+                    response, trace = invoke_with_trace(
+                        chain,
+                        {"large_task": task},
+                        operation="task_decomposer",
+                    )
                 except Exception as e:
                     # If GitHub Models fails with 401, retry with OpenAI
                     if provider == "github-models" and _is_github_models_auth_error(e):
@@ -539,7 +549,11 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
                         if fallback_info:
                             client, provider = fallback_info
                             chain = template | client
-                            response = chain.invoke({"large_task": task})
+                            response, trace = invoke_with_trace(
+                                chain,
+                                {"large_task": task},
+                                operation="task_decomposer",
+                            )
                         else:
                             raise
                     else:
@@ -547,11 +561,13 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
                 content = getattr(response, "content", None) or str(response)
                 sub_tasks = _normalize_subtasks(_parse_subtasks(content))
                 if sub_tasks:
-                    return {
+                    result = {
                         "sub_tasks": sub_tasks,
                         "provider_used": provider,
                         "used_llm": True,
                     }
+                    result.update(trace.as_dict())
+                    return result
 
     return {
         "sub_tasks": _normalize_subtasks(_fallback_decompose(task)),

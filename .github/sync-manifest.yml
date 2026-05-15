@@ -485,6 +485,9 @@ scripts:
   - source: scripts/langchain/structured_output.py
     description: "Shared structured output helpers for LangChain workflows"
 
+  - source: scripts/langchain/trace_utils.py
+    description: "Shared LangSmith trace metadata helpers for LangChain workflows"
+
   - source: scripts/langchain/verifier_config.py
     description: "Shared verifier prompt budgets, schema-repair policy, and terminal artifact validation"
 
@@ -516,6 +519,9 @@ scripts:
 
   - source: scripts/langchain/task_decomposer.py
     description: "Task decomposer - breaks large issues into sub-tasks"
+
+  - source: scripts/langchain/task_validator.py
+    description: "Task validator - refines generated issue tasks for actionability"
 
   - source: scripts/langchain/label_matcher.py
     description: "Label matcher - suggests labels based on semantic matching"

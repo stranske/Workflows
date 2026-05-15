@@ -243,6 +243,42 @@ def test_langsmith_trace_counts_cover_url_only_trace_lists() -> None:
     )
 
 
+def test_verifier_langsmith_trace_coverage_deduplicates_run_keys() -> None:
+    entries = [
+        {
+            "metric_type": "verifier",
+            "run_id": "verify-1",
+            "run_attempt": "1",
+            "verdict": "pass",
+            "langsmith_trace_id": "verifier-trace-1",
+        },
+        {
+            "metric_type": "verifier",
+            "run_id": "verify-1",
+            "run_attempt": "1",
+            "verdict": "pass",
+            "langsmith_trace_url": "https://smith.langchain.com/r/verifier-trace-url",
+        },
+        {
+            "metric_type": "verifier",
+            "run_id": "verify-2",
+            "run_attempt": "1",
+            "verdict": "pass",
+        },
+    ]
+
+    summary = aggregate_agent_metrics.build_summary(entries, errors=0)
+
+    assert "Verifier\n- Runs: 2" in summary
+    assert "LangSmith trace coverage: 50.0% (1/2) (2 traces)" in summary
+
+    contract = aggregate_agent_metrics.build_summary_contract(entries, [])
+    verifier = contract["summaries"]["verifier"]
+    assert verifier["runs"] == 2
+    assert verifier["langsmith_trace_records"] == 1
+    assert verifier["langsmith_trace_count"] == 2
+
+
 def test_main_writes_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     keepalive_path = tmp_path / "keepalive.ndjson"
     autofix_path = tmp_path / "autofix.ndjson"

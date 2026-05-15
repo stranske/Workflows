@@ -20,9 +20,11 @@ from typing import Any
 try:
     from scripts.langchain.injection_guard import check_prompt_injection
     from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
+    from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ImportError:  # pragma: no cover - fallback for direct invocation
     from injection_guard import check_prompt_injection
     from issue_pr_context import ContextOptions, build_issue_context
+    from trace_utils import TraceInfo, invoke_with_trace
 
 # Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
 # ~4 chars per token, so 50k chars ≈ 12.5k tokens, leaving headroom for prompt + output
@@ -506,8 +508,13 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
+                trace = TraceInfo()
                 try:
-                    response = chain.invoke({"issue_body": issue_body})
+                    response, trace = invoke_with_trace(
+                        chain,
+                        {"issue_body": issue_body},
+                        operation="issue_formatter",
+                    )
                 except Exception as e:
                     # If GitHub Models fails with 401, retry with OpenAI
                     if provider == "github-models" and _is_github_models_auth_error(e):
@@ -515,7 +522,11 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                         if fallback_info:
                             client, provider = fallback_info
                             chain = template | client
-                            response = chain.invoke({"issue_body": issue_body})
+                            response, trace = invoke_with_trace(
+                                chain,
+                                {"issue_body": issue_body},
+                                operation="issue_formatter",
+                            )
                         else:
                             raise
                     else:
@@ -528,12 +539,14 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                     # splitting here - it causes task explosion (issue #805, #1143).
                     formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
                     formatted = _append_raw_issue_section(formatted, issue_body)
-                    return {
+                    result = {
                         "formatted_body": formatted,
                         "provider_used": provider,
                         "used_llm": True,
                         "validation_audit": audit,
                     }
+                    result.update(trace.as_dict())
+                    return result
             except ImportError:
                 # Fall through to fallback if imports fail
                 pass
@@ -592,6 +605,10 @@ def main() -> None:
         if result.get("guard_blocked"):
             payload["guard_blocked"] = True
             payload["guard_reason"] = result.get("guard_reason") or ""
+        if result.get("langsmith_trace_id"):
+            payload["langsmith_trace_id"] = result["langsmith_trace_id"]
+        if result.get("langsmith_trace_url"):
+            payload["langsmith_trace_url"] = result["langsmith_trace_url"]
         print(json.dumps(payload, ensure_ascii=True))
     else:
         print(result["formatted_body"])

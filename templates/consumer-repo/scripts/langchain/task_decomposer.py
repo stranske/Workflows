@@ -15,6 +15,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
+except ModuleNotFoundError:
+    from trace_utils import TraceInfo, invoke_with_trace
+
 TASK_DECOMPOSITION_PROMPT = """
 This task is too large for a single agent iteration (~10 minutes):
 
@@ -31,7 +36,7 @@ Return the sub-tasks as a markdown bullet list.
 
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "decompose_task.md"
 
-LIST_ITEM_REGEX = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.*)$")
+LIST_ITEM_REGEX = re.compile(r"^\s*(?:[-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 DEPENDENCY_PHRASE_REGEX = re.compile(
     r"\b(depends on|blocked by|waiting for|post-merge|"
     r"(?:after|once|when)\b[^,]*\bmerge\b|requires\b[^.]*\bmerge\b)\b",
@@ -63,6 +68,14 @@ LARGE_TASK_PREFIXES = (
     "scope ",
     "outline ",
     "plan ",
+)
+
+# Prefixes that indicate already-expanded tasks (never re-expand these)
+EXPANSION_PREFIXES = (
+    "define scope for:",
+    "implement focused slice for:",
+    "validate focused slice for:",
+    "define approach for:",
 )
 MAX_CHILD_TITLE_LEN = 96
 
@@ -143,6 +156,24 @@ def _parse_subtasks(text: str) -> list[str]:
 
 
 def _split_task_parts(task: str) -> list[str]:
+    # Handle parenthesized lists intelligently: "Add stats (mean, p50, p90)" becomes
+    # ["Add stats for mean", "Add stats for p50", "Add stats for p90"]
+    # NOT garbage like ["Add stats (mean", "p50", "p90)"]
+    paren_match = re.match(r"^(.+?)\s*\(([^)]+)\)\s*$", task)
+    if paren_match:
+        base = paren_match.group(1).strip()
+        paren_content = paren_match.group(2).strip()
+        # Check if parentheses contain a comma-separated list
+        if ", " in paren_content or " and " in paren_content:
+            items = [
+                item.strip()
+                for item in re.split(r"\s*,\s*|\s+and\s+", paren_content)
+                if item.strip()
+            ]
+            if len(items) > 1:
+                # Create meaningful sub-tasks: "Add stats for mean", "Add stats for p50", etc.
+                return [f"{base} for {item}" for item in items]
+
     for marker in (" with ", " including "):
         if marker in task:
             base, suffix = task.split(marker, 1)
@@ -176,6 +207,9 @@ def _word_count(text: str) -> int:
 
 def _is_large_task(task: str) -> bool:
     lowered = task.lower().strip()
+    # Never re-expand already-expanded tasks (prevents recursive explosion)
+    if _is_already_expanded(task):
+        return False
     has_large_keyword = any(keyword in lowered for keyword in LARGE_TASK_KEYWORDS)
     if lowered.startswith(LARGE_TASK_PREFIXES):
         return has_large_keyword or _word_count(task) > MAX_SUBTASK_WORDS
@@ -191,7 +225,21 @@ def _should_decompose(task: str) -> bool:
     return _is_large_task(task)
 
 
+def _is_already_expanded(task: str) -> bool:
+    """Check if task already has expansion prefix (prevent recursion)."""
+    lowered = task.lower().strip()
+    return any(lowered.startswith(prefix) for prefix in EXPANSION_PREFIXES)
+
+
 def _expand_large_task(task: str) -> list[str]:
+    """Expand a large task into scope/implement/validate sub-tasks.
+
+    Returns the original task unchanged if it already has expansion prefix
+    to prevent recursive expansion (which caused issue #873, #4191).
+    """
+    # Guard against recursive expansion
+    if _is_already_expanded(task):
+        return [task]
     return [
         f"Define scope for: {task}",
         f"Implement focused slice for: {task}",
@@ -219,12 +267,18 @@ def _rewrite_dependency_task(task: str) -> str:
 
 def _normalize_subtasks(sub_tasks: list[str]) -> list[str]:
     normalized: list[str] = []
+    seen: set[str] = set()
     for task in sub_tasks:
         cleaned_task = _strip_dependency_clause(task.strip())
         for part in _split_task_parts(cleaned_task):
             cleaned = _strip_dependency_clause(part.strip())
             if not cleaned:
                 continue
+            # Deduplicate by normalized text
+            norm_key = re.sub(r"\s+", " ", cleaned.lower().strip())
+            if norm_key in seen:
+                continue
+            seen.add(norm_key)
             if _contains_dependency_phrase(cleaned):
                 cleaned = _rewrite_dependency_task(cleaned)
             if _is_large_task(cleaned) and not cleaned.lower().startswith("document dependency"):
@@ -232,7 +286,17 @@ def _normalize_subtasks(sub_tasks: list[str]) -> list[str]:
                     normalized.append(_ensure_verification(scoped_task))
                 continue
             normalized.append(_ensure_verification(cleaned))
-    return normalized
+    # Second dedupe pass on final output — catches duplicates introduced by
+    # _rewrite_dependency_task / _ensure_verification rewriting different
+    # inputs to the same canonical form.
+    final: list[str] = []
+    seen_final: set[str] = set()
+    for entry in normalized:
+        key = re.sub(r"\s+", " ", entry.lower().strip())
+        if key not in seen_final:
+            seen_final.add(key)
+            final.append(entry)
+    return final
 
 
 def normalize_subtasks(sub_tasks: list[str]) -> list[str]:
@@ -471,8 +535,13 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
+                trace = TraceInfo()
                 try:
-                    response = chain.invoke({"large_task": task})
+                    response, trace = invoke_with_trace(
+                        chain,
+                        {"large_task": task},
+                        operation="task_decomposer",
+                    )
                 except Exception as e:
                     # If GitHub Models fails with 401, retry with OpenAI
                     if provider == "github-models" and _is_github_models_auth_error(e):
@@ -480,7 +549,11 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
                         if fallback_info:
                             client, provider = fallback_info
                             chain = template | client
-                            response = chain.invoke({"large_task": task})
+                            response, trace = invoke_with_trace(
+                                chain,
+                                {"large_task": task},
+                                operation="task_decomposer",
+                            )
                         else:
                             raise
                     else:
@@ -488,11 +561,13 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
                 content = getattr(response, "content", None) or str(response)
                 sub_tasks = _normalize_subtasks(_parse_subtasks(content))
                 if sub_tasks:
-                    return {
+                    result = {
                         "sub_tasks": sub_tasks,
                         "provider_used": provider,
                         "used_llm": True,
                     }
+                    result.update(trace.as_dict())
+                    return result
 
     return {
         "sub_tasks": _normalize_subtasks(_fallback_decompose(task)),

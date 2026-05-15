@@ -113,7 +113,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -122,7 +122,7 @@ jobs:
 
       - name: Check if auto-pilot is enabled
         id: check_enabled
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
@@ -155,13 +155,13 @@ jobs:
 
       - name: Checkout repository
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
 
       - name: Set up Node
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
@@ -175,7 +175,7 @@ jobs:
       - name: Resolve Workflows default branch
         if: steps.check_enabled.outputs.enabled == 'true'
         id: workflows_ref
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -198,7 +198,7 @@ jobs:
 
       - name: Checkout Workflows scripts
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           repository: stranske/Workflows
@@ -233,13 +233,13 @@ jobs:
       - name: Set up Python
         id: setup-python
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Cache pip (LLM requirements)
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/pip
@@ -266,13 +266,23 @@ jobs:
       - name: Determine context
         if: steps.check_enabled.outputs.enabled == 'true'
         id: context
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
-            const { createTokenAwareRetry } = require(
-              `${scriptsPath}/.github/scripts/github-api-with-retry.js`
-            );
+            const retryHelpers = require(`${scriptsPath}/.github/scripts/github-api-with-retry.js`);
+            const { createTokenAwareRetry } = retryHelpers;
+            const isRateLimitError = retryHelpers.isRateLimitError || ((error) => {
+              const status = error?.status || error?.response?.status;
+              const message = String(
+                error?.message || error?.response?.data?.message || '',
+              ).toLowerCase();
+              const headers = error?.response?.headers || error?.headers || {};
+              const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
+              return status === 429 ||
+                (status === 403 && message.includes('rate limit')) ||
+                (Number.isFinite(remaining) && remaining <= 0);
+            });
             const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -281,6 +291,26 @@ jobs:
             });
 
             let issueNumber, issue, pr;
+            const deferForRateLimit = (stage, error) => {
+              if (!isRateLimitError(error)) {
+                return false;
+              }
+              core.warning(
+                `Auto-pilot determine context deferred during ${stage}: ${error.message}`,
+              );
+              if (issueNumber) {
+                core.setOutput('issue_number', issueNumber);
+              }
+              if (issue?.title) {
+                core.setOutput('issue_title', issue.title);
+              }
+              if (issue?.state) {
+                core.setOutput('issue_state', issue.state);
+              }
+              core.setOutput('should_continue', 'false');
+              core.setOutput('reason', 'rate-limited');
+              return true;
+            };
 
             // Get issue number from various sources (in priority order)
             if (context.eventName === 'workflow_dispatch') {
@@ -319,14 +349,19 @@ jobs:
 
             // Fetch issue if not in payload (with retry)
             if (!issue) {
-              const { data } = await withRetry(() =>
-                github.rest.issues.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber
-                })
-              );
-              issue = data;
+              try {
+                const { data } = await withRetry((client) =>
+                  client.rest.issues.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber
+                  })
+                );
+                issue = data;
+              } catch (error) {
+                if (deferForRateLimit('issue fetch', error)) return;
+                throw error;
+              }
             }
 
             const labels = issue.labels.map(l => l.name);
@@ -367,15 +402,21 @@ jobs:
             // Check for actual optimizer output (not just label)
             // Since we run optimizer inline now, this should always exist after optimize step
             // the optimizer workflow actually completed its work
-            const comments = await paginateWithRetry(
-              github.rest.issues.listComments,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                per_page: 100
-              }
-            );
+            let comments = [];
+            try {
+              comments = await paginateWithRetry(
+                github.rest.issues.listComments,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  per_page: 100
+                }
+              );
+            } catch (error) {
+              if (deferForRateLimit('optimizer comment scan', error)) return;
+              throw error;
+            }
 
             const hasOptimizerOutput = comments.some(c => {
               const body = c.body || '';
@@ -385,15 +426,21 @@ jobs:
             });
 
             // Check for linked PR (with pagination and multiple event types)
-            const timelineEvents = await paginateWithRetry(
-              github.rest.issues.listEventsForTimeline,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                per_page: 100
-              }
-            );
+            let timelineEvents = [];
+            try {
+              timelineEvents = await paginateWithRetry(
+                github.rest.issues.listEventsForTimeline,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  per_page: 100
+                }
+              );
+            } catch (error) {
+              if (deferForRateLimit('timeline scan', error)) return;
+              throw error;
+            }
 
             function matchesIssueReference(text, num) {
               if (!text) return false;
@@ -447,28 +494,50 @@ jobs:
       - name: Check step count
         if: steps.context.outputs.should_continue == 'true'
         id: cycles
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
-            const { paginateWithRetry } = require(
-              `${scriptsPath}/.github/scripts/github-api-with-retry.js`
-            );
+            const retryHelpers = require(`${scriptsPath}/.github/scripts/github-api-with-retry.js`);
+            const { paginateWithRetry } = retryHelpers;
+            const isRateLimitError = retryHelpers.isRateLimitError || ((error) => {
+              const status = error?.status || error?.response?.status;
+              const message = String(
+                error?.message || error?.response?.data?.message || '',
+              ).toLowerCase();
+              const headers = error?.response?.headers || error?.headers || {};
+              const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
+              return status === 429 ||
+                (status === 403 && message.includes('rate limit')) ||
+                (Number.isFinite(remaining) && remaining <= 0);
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Get all comments to count auto-pilot steps (with pagination and retry)
-            const allComments = await paginateWithRetry(
-              github,
-              github.rest.issues.listComments,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                per_page: 100
+            let allComments = [];
+            try {
+              allComments = await paginateWithRetry(
+                github,
+                github.rest.issues.listComments,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  per_page: 100
+                }
+              );
+            } catch (error) {
+              if (!isRateLimitError(error)) {
+                throw error;
               }
-            );
+              core.warning(`Auto-pilot step count deferred by rate limit: ${error.message}`);
+              core.setOutput('exceeded', 'false');
+              core.setOutput('count', '0');
+              core.setOutput('rate_limited', 'true');
+              return;
+            }
 
             const stepComments = allComments.filter(c =>
               typeof c.body === 'string' && c.body.includes('🤖 Auto-pilot step')
@@ -485,10 +554,11 @@ jobs:
 
             core.setOutput('exceeded', 'false');
             core.setOutput('count', stepCount.toString());
+            core.setOutput('rate_limited', 'false');
 
       - name: Stop if exceeded
         if: steps.cycles.outputs.exceeded == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -533,7 +603,8 @@ jobs:
       - name: Determine next step
         if: |
           steps.context.outputs.should_continue == 'true' &&
-          steps.cycles.outputs.exceeded != 'true'
+          steps.cycles.outputs.exceeded != 'true' &&
+          steps.cycles.outputs.rate_limited != 'true'
         id: next
         env:
           FORCE_STEP: ${{ inputs.force_step }}
@@ -654,9 +725,10 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-          LANGCHAIN_TRACING_V2: "true"
+          LANGCHAIN_TRACING_V2: ${{ secrets.LANGSMITH_API_KEY != '' && 'true' || 'false' }}
           LANGCHAIN_PROJECT: workflows-agents
           PYTHONPATH: ${{ github.workspace }}
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-auto-pilot
         run: |
 
           # Post progress comment
@@ -747,6 +819,17 @@ jobs:
               sys.exit(1)
           with open('/tmp/formatted_body.md', 'w') as f:
               f.write(formatted)
+          def env_value(value):
+              return str(value or '').replace('\r', '').replace('\n', '').strip()
+
+          trace_id = env_value(result.get('langsmith_trace_id'))
+          trace_url = env_value(result.get('langsmith_trace_url'))
+          if trace_id or trace_url:
+              with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env_file:
+                  if trace_id:
+                      env_file.write(f'AUTOPILOT_FORMAT_LANGSMITH_TRACE_ID={trace_id}\n')
+                  if trace_url:
+                      env_file.write(f'AUTOPILOT_FORMAT_LANGSMITH_TRACE_URL={trace_url}\n')
           print('Issue formatted successfully')
           " || exit 1
 
@@ -875,8 +958,8 @@ jobs:
           AUTOPILOT_STEP_NAME: format
           AUTOPILOT_ERROR_CATEGORY: metrics-collector
           AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
-          LANGSMITH_TRACE_ID: ""
-          LANGSMITH_TRACE_URL: ""
+          LANGSMITH_TRACE_ID: ${{ env.AUTOPILOT_FORMAT_LANGSMITH_TRACE_ID || '' }}
+          LANGSMITH_TRACE_URL: ${{ env.AUTOPILOT_FORMAT_LANGSMITH_TRACE_URL || '' }}
         run: |
           success="${{ steps.format_step.outcome == 'success' }}"
           failure_reason="none"
@@ -910,11 +993,12 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-          LANGCHAIN_TRACING_V2: "true"
+          LANGCHAIN_TRACING_V2: ${{ secrets.LANGSMITH_API_KEY != '' && 'true' || 'false' }}
           LANGCHAIN_PROJECT: workflows-agents
           LANGCHAIN_PROVIDER: anthropic
           LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-auto-pilot
         run: |
 
           # Post progress comment
@@ -1198,7 +1282,7 @@ jobs:
 
       - name: Guard - Require optimizer output before apply
         if: steps.next.outputs.next_step == 'apply'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -1293,11 +1377,12 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-          LANGCHAIN_TRACING_V2: "true"
+          LANGCHAIN_TRACING_V2: ${{ secrets.LANGSMITH_API_KEY != '' && 'true' || 'false' }}
           LANGCHAIN_PROJECT: workflows-agents
           LANGCHAIN_PROVIDER: anthropic
           LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
+          ISSUE_PR_CONTEXT_WORKFLOW: agents-auto-pilot
         run: |
 
           # Post progress comment
@@ -1586,7 +1671,7 @@ jobs:
       - name: Complexity pre-check
         if: steps.next.outputs.next_step == 'capability-check'
         id: complexity_check
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -1691,7 +1776,7 @@ jobs:
         if: |
           steps.next.outputs.next_step == 'capability-check' &&
           steps.complexity_check.outputs.too_complex == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           COMPLEXITY_SCORE: ${{ steps.complexity_check.outputs.score }}
@@ -1742,7 +1827,7 @@ jobs:
           steps.next.outputs.next_step == 'capability-check' &&
           steps.complexity_check.outputs.too_complex != 'true'
         id: capability_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -1807,6 +1892,10 @@ jobs:
             const runnerOverride = issueLabels
               .map((label) => toLabelName(label).toLowerCase())
               .find((name) => name.startsWith('runner:'));
+            const runnerOverrideKey = runnerOverride
+              ? runnerOverride.slice('runner:'.length).trim().toLowerCase()
+              : '';
+            let warnedAboutRunnerOverride = false;
 
             try {
               const registryLib = require('./.github/scripts/agent_registry.js');
@@ -1817,6 +1906,23 @@ jobs:
 
               if (Array.isArray(issueLabels) && issueLabels.length) {
                 const knownAgents = new Set(Object.keys(registry.agents || {}));
+                knownAgents.add('auto');
+                const runnerOverrideResolver = () => {
+                  if (!runnerOverrideKey) {
+                    return null;
+                  }
+                  if (!knownAgents.has(runnerOverrideKey)) {
+                    if (!warnedAboutRunnerOverride) {
+                      core.warning(
+                        `Ignoring runner override label ${runnerOverride} because ` +
+                          `${runnerOverrideKey || '(empty)'} is not a registered agent.`,
+                      );
+                      warnedAboutRunnerOverride = true;
+                    }
+                    return null;
+                  }
+                  return runnerOverrideKey;
+                };
                 recognizedAgentLabels = issueLabels
                   .map((label) => {
                     const normalized = toLabelName(label).toLowerCase();
@@ -1836,9 +1942,9 @@ jobs:
                   ? recognizedAgentLabels.map(({ normalized }) => normalized)
                   : issueLabels;
 
-                if (runnerOverride) {
-                  const runnerKey = runnerOverride.slice('runner:'.length).trim();
-                  agentKey = runnerKey || defaultAgent;
+                const overrideKey = runnerOverrideResolver();
+                if (overrideKey) {
+                  agentKey = overrideKey;
                 } else if (routingLabels.length) {
                   try {
                     agentKey =
@@ -1859,9 +1965,18 @@ jobs:
                 } else {
                   agentKey = defaultAgent;
                 }
-              } else if (runnerOverride) {
-                const runnerKey = runnerOverride.slice('runner:'.length).trim();
-                agentKey = runnerKey || defaultAgent;
+              } else if (runnerOverrideKey) {
+                const knownAgents = new Set(Object.keys(registry.agents || {}));
+                knownAgents.add('auto');
+                if (knownAgents.has(runnerOverrideKey)) {
+                  agentKey = runnerOverrideKey;
+                } else {
+                  core.warning(
+                    `Ignoring runner override label ${runnerOverride} because ` +
+                      `${runnerOverrideKey || '(empty)'} is not a registered agent.`,
+                  );
+                  agentKey = defaultAgent;
+                }
               } else {
                 agentKey = defaultAgent;
               }
@@ -2063,7 +2178,7 @@ jobs:
       - name: Execute step - Verify
         if: steps.next.outputs.next_step == 'verify'
         id: verify_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -2200,7 +2315,7 @@ jobs:
       - name: Execute step - Create PR
         if: steps.next.outputs.next_step == 'create-pr'
         id: create_pr_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           ISSUE_TITLE: ${{ steps.context.outputs.issue_title }}
@@ -2274,12 +2389,37 @@ jobs:
               const runnerOverride = issueLabels
                 .map((label) => toLabelName(label).toLowerCase())
                 .find((name) => name.startsWith('runner:'));
+              const runnerOverrideKey = runnerOverride
+                ? runnerOverride.slice('runner:'.length).trim().toLowerCase()
+                : '';
+              let warnedAboutRunnerOverride = false;
 
               let recognizedAgentLabels = [];
+              let runnerOverrideResolver = null;
               if (Array.isArray(issueLabels) && issueLabels.length) {
                 const knownAgents = new Set(Object.keys(registry.agents || {}));
+                knownAgents.add('auto');
+                runnerOverrideResolver = () => {
+                  if (!runnerOverrideKey) {
+                    return null;
+                  }
+                  if (!knownAgents.has(runnerOverrideKey)) {
+                    if (!warnedAboutRunnerOverride) {
+                      core.warning(
+                        `Ignoring runner override label ${runnerOverride} because ` +
+                          `${runnerOverrideKey || '(empty)'} is not a registered agent.`,
+                      );
+                      warnedAboutRunnerOverride = true;
+                    }
+                    return null;
+                  }
+                  return runnerOverrideKey;
+                };
                 recognizedAgentLabels = issueLabels
-                  .map((label) => toLabelName(label).toLowerCase())
+                  .map((label) => {
+                    const normalized = toLabelName(label).toLowerCase();
+                    return normalized;
+                  })
                   .filter((normalized) => normalized.startsWith('agent:'))
                   .filter((normalized) => {
                     const suffix = normalized.slice('agent:'.length);
@@ -2294,16 +2434,37 @@ jobs:
                 ? recognizedAgentLabels
                 : issueLabels;
 
-              if (runnerOverride) {
-                const runnerKey = runnerOverride.slice('runner:'.length).trim();
-                agentKey = runnerKey || defaultAgent;
-                } else if (routingLabels.length) {
-                  try {
-                    agentKey =
-                      resolveAgentFromLabels(
-                        routingLabels,
-                        { registryPath: './.github/agents/registry.yml' },
-                      ) || defaultAgent;
+              const overrideKeyResolver = () => {
+                if (!runnerOverrideKey) {
+                  return null;
+                }
+                const knownAgents = new Set(Object.keys(registry.agents || {}));
+                knownAgents.add('auto');
+                if (!knownAgents.has(runnerOverrideKey)) {
+                  if (!warnedAboutRunnerOverride) {
+                    core.warning(
+                      `Ignoring runner override label ${runnerOverride} because ` +
+                        `${runnerOverrideKey || '(empty)'} is not a registered agent.`,
+                    );
+                    warnedAboutRunnerOverride = true;
+                  }
+                  return null;
+                }
+                return runnerOverrideKey;
+              };
+              const overrideKey = runnerOverrideResolver
+                ? runnerOverrideResolver()
+                : overrideKeyResolver();
+
+              if (overrideKey) {
+                agentKey = overrideKey;
+              } else if (routingLabels.length) {
+                try {
+                  agentKey =
+                    resolveAgentFromLabels(
+                      routingLabels,
+                      { registryPath: './.github/agents/registry.yml' },
+                    ) || defaultAgent;
                 } catch (resolveError) {
                   const resolveContext = resolveError?.message || resolveError;
                   core.warning(
@@ -2487,15 +2648,18 @@ jobs:
                   ? ' Re-dispatched belt dispatcher.'
                   : '';
                 core.info(`Applying branch-creation backoff: waiting ${actualMinutes} minutes`);
+                const backoffBody = [
+                  `🤖 **Auto-pilot**: Backoff delay (${actualMinutes}m)`,
+                  '',
+                  `Branch not created yet. Attempt ${stallCount + 1}/${maxStallRetries}.` +
+                    redispatchNote,
+                  'Waiting before retry...',
+                ].join('\n');
                 await withRetry((client) => client.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
-                    body: `🤖 **Auto-pilot**: Backoff delay (${actualMinutes}m)
-
-                    Branch not created yet.
-                    Attempt ${stallCount + 1}/${maxStallRetries}.${redispatchNote}
-                    Waiting before retry...`
+                  body: backoffBody,
                 }));
 
                 // Sleep with exponential backoff
@@ -2742,11 +2906,15 @@ jobs:
             core.info(`Creating PR from ${branchName}`);
 
             // Fetch issue body to include in PR
+            const { buildIssueContext } = require('./.github/scripts/issue_context_utils.js');
             const { data: issue } = await withRetry((client) => client.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber
             }));
+            const issueContext = buildIssueContext(issue.body || '', {
+              downstreamWorkflow: 'agents-auto-pilot',
+            });
 
             const prTitle = `[Auto-pilot] ${issueTitle}`;
             const prBody = [
@@ -2754,7 +2922,7 @@ jobs:
               '',
               `Closes #${issueNumber}`,
               '',
-              issue.body || ''
+              issueContext.formattedBody || issue.body || ''
             ].join('\n');
 
             try {
@@ -2789,40 +2957,39 @@ jobs:
                 ? `✅ Added labels: \`agent:${agentKey}\`, \`agents:keepalive\`, \`autofix\``
                 : '⚠️ Could not add labels (add manually)';
 
-              // Dispatch PR event hub to build Automated Status Summary
+              // Dispatch PR meta workflow to build Automated Status Summary
               // (GITHUB_TOKEN actions do not trigger workflow runs automatically)
               try {
                 await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  workflow_id: 'agents-80-pr-event-hub.yml',
+                  workflow_id: 'agents-pr-meta.yml',
                   ref: baseBranch,
                   inputs: {
                     pr_number: pr.number.toString(),
-                    handler: 'pr-meta',
                     debug: 'false'
                   }
                 }));
-                core.info(`Dispatched PR event hub update for PR #${pr.number}`);
+                core.info(`Dispatched PR meta update for PR #${pr.number}`);
               } catch (dispatchError) {
-                core.warning(`Could not dispatch PR event hub update: ${dispatchError?.message}`);
+                core.warning(`Could not dispatch PR meta update: ${dispatchError?.message}`);
               }
 
-              // Dispatch gate followups workflow since GITHUB_TOKEN labels don't trigger it
+              // Dispatch keepalive workflow since GITHUB_TOKEN labels don't trigger it
               try {
                 await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  workflow_id: 'agents-81-gate-followups.yml',
+                  workflow_id: 'agents-keepalive-loop.yml',
                   ref: baseBranch,
                   inputs: {
                     pr_number: pr.number.toString(),
                     force_retry: 'true'
                   }
                 }));
-                core.info(`Dispatched gate followups for PR #${pr.number}`);
+                core.info(`Dispatched keepalive for PR #${pr.number}`);
               } catch (dispatchError) {
-                core.warning(`Could not dispatch gate followups: ${dispatchError?.message}`);
+                core.warning(`Could not dispatch keepalive: ${dispatchError?.message}`);
               }
 
               // Add PR link comment to the issue with full URL for visibility
@@ -2909,7 +3076,7 @@ jobs:
       - name: Report - Monitoring PR
         if: steps.next.outputs.next_step == 'monitor-pr'
         id: monitor_pr_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -3068,7 +3235,7 @@ jobs:
       - name: Execute step - Check Completion & Trigger Merge
         if: steps.next.outputs.next_step == 'check-completion'
         id: completion_step
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           PR_NUMBER: ${{ steps.context.outputs.linked_pr }}
@@ -3202,7 +3369,7 @@ jobs:
       # ── Upload auto-pilot metrics for weekly aggregation ───────────
       - name: Upload auto-pilot metrics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@v7
         continue-on-error: true
         with:
           name: autopilot-metrics-${{ github.run_id }}-${{ github.run_attempt }}
@@ -3225,7 +3392,7 @@ jobs:
             fromJSON('["format","optimize","apply","capability-check","create-pr","monitor-pr"]'),
             steps.next.outputs.next_step
           )
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           CURRENT_STEP: ${{ steps.next.outputs.next_step }}
@@ -3326,7 +3493,7 @@ jobs:
 
       - name: Report - Done
         if: steps.next.outputs.next_step == 'done'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:

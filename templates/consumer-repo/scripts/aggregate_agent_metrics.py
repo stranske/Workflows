@@ -416,23 +416,45 @@ def _safe_int(value: Any) -> int | None:
         return None
 
 
-def _langsmith_trace_count(entry: dict[str, Any]) -> int:
-    count = 1 if entry.get("langsmith_trace_id") or entry.get("langsmith_trace_url") else 0
+def _langsmith_trace_refs(entry: dict[str, Any]) -> set[str]:
+    trace_refs: set[str] = set()
+    trace_id = str(entry.get("langsmith_trace_id") or "").strip()
+    trace_url = str(entry.get("langsmith_trace_url") or "").strip()
+    if trace_id:
+        trace_refs.add(f"id:{trace_id}")
+    elif trace_url:
+        trace_refs.add(f"url:{trace_url}")
     traces = entry.get("langsmith_traces")
     if isinstance(traces, list):
-        list_count = sum(
-            1
-            for item in traces
-            if isinstance(item, dict)
-            and (
-                item.get("trace_id")
-                or item.get("langsmith_trace_id")
-                or item.get("trace_url")
-                or item.get("langsmith_trace_url")
-            )
-        )
-        return max(count, list_count)
-    return count
+        for item in traces:
+            if not isinstance(item, dict):
+                continue
+            item_trace_id = str(
+                item.get("trace_id") or item.get("langsmith_trace_id") or ""
+            ).strip()
+            item_trace_url = str(
+                item.get("trace_url") or item.get("langsmith_trace_url") or ""
+            ).strip()
+            if item_trace_id:
+                trace_refs.add(f"id:{item_trace_id}")
+            elif item_trace_url:
+                trace_refs.add(f"url:{item_trace_url}")
+    return trace_refs
+
+
+def _langsmith_trace_count(entry: dict[str, Any]) -> int:
+    return len(_langsmith_trace_refs(entry))
+
+
+def _verifier_run_key(entry: dict[str, Any], index: int) -> str:
+    run_id = entry.get("run_id") or entry.get("workflow_run_id")
+    run_attempt = entry.get("run_attempt")
+    pr_number_for_key = _safe_int(entry.get("pr_number") or entry.get("pr"))
+    if run_id:
+        return f"run:{run_id}:attempt:{run_attempt or ''}"
+    if pr_number_for_key is not None:
+        return f"pr:{pr_number_for_key}"
+    return f"entry:{index}"
 
 
 def _unsupported_verifier_models() -> set[str]:
@@ -611,21 +633,15 @@ def _summarise_verifier(
     issues_created = 0
     acceptance_counts: list[int] = []
     terminal_records = 0
-    langsmith_trace_records = 0
-    langsmith_trace_count = 0
+    langsmith_traced_run_keys: set[str] = set()
+    langsmith_trace_refs_by_run_key: dict[str, set[str]] = {}
     for index, entry in enumerate(entries):
         is_terminal_disposition = entry.get("schema") == "workflows-terminal-disposition/v1"
         is_verifier_terminal = _is_verifier_terminal_entry(entry)
+        verifier_run_key = None
         if not is_terminal_disposition:
-            run_id = entry.get("run_id") or entry.get("workflow_run_id")
-            run_attempt = entry.get("run_attempt")
-            pr_number_for_key = _safe_int(entry.get("pr_number") or entry.get("pr"))
-            if run_id:
-                verifier_run_keys.add(f"run:{run_id}:attempt:{run_attempt or ''}")
-            elif pr_number_for_key is not None:
-                verifier_run_keys.add(f"pr:{pr_number_for_key}")
-            else:
-                verifier_run_keys.add(f"entry:{index}")
+            verifier_run_key = _verifier_run_key(entry, index)
+            verifier_run_keys.add(verifier_run_key)
 
         verdict = entry.get("verdict")
         if verdict:
@@ -683,10 +699,10 @@ def _summarise_verifier(
         acceptance = _safe_int(entry.get("acceptance_criteria_count"))
         if acceptance is not None:
             acceptance_counts.append(acceptance)
-        trace_count = _langsmith_trace_count(entry)
-        if trace_count:
-            langsmith_trace_records += 1
-            langsmith_trace_count += trace_count
+        trace_refs = _langsmith_trace_refs(entry)
+        if trace_refs and verifier_run_key:
+            langsmith_traced_run_keys.add(verifier_run_key)
+            langsmith_trace_refs_by_run_key.setdefault(verifier_run_key, set()).update(trace_refs)
     for entry in ledger_entries or []:
         disposition = str(entry.get("disposition") or "unknown")
         ledger_dispositions[disposition] += 1
@@ -720,8 +736,10 @@ def _summarise_verifier(
         "verdicts": verdicts,
         "issues_created": issues_created,
         "avg_acceptance": avg_acceptance,
-        "langsmith_trace_records": langsmith_trace_records,
-        "langsmith_trace_count": langsmith_trace_count,
+        "langsmith_trace_records": len(langsmith_traced_run_keys),
+        "langsmith_trace_count": sum(
+            len(trace_refs) for trace_refs in langsmith_trace_refs_by_run_key.values()
+        ),
         "terminal_records": terminal_records,
         "terminal_dispositions": terminal_dispositions,
         "terminal_sources": terminal_sources,

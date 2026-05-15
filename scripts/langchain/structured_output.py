@@ -7,6 +7,11 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+try:
+    from scripts.langchain.trace_utils import invoke_with_trace
+except ModuleNotFoundError:
+    from trace_utils import invoke_with_trace
+
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -70,7 +75,10 @@ def build_repair_prompt(
 
 
 def build_repair_callback(
-    client: Any, *, template: str = DEFAULT_REPAIR_PROMPT
+    client: Any,
+    *,
+    template: str = DEFAULT_REPAIR_PROMPT,
+    operation: str = "structured_output_repair",
 ) -> Callable[[str, str, str], str | None]:
     def _repair(schema_json: str, validation_errors: str, raw_response: str) -> str | None:
         try:
@@ -80,7 +88,11 @@ def build_repair_callback(
                 raw_response=raw_response,
                 template=template,
             )
-            response = client.invoke(repair_prompt)
+            response, _trace = invoke_with_trace(
+                client,
+                repair_prompt,
+                operation=operation,
+            )
         except Exception:
             return None
         return getattr(response, "content", None) or str(response)

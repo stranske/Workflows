@@ -20,6 +20,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.langchain.trace_utils import invoke_with_trace
+except ModuleNotFoundError:
+    from trace_utils import invoke_with_trace
+
 TOPIC_SPLITTER_PROMPT = """
 You are a text parsing assistant. The input contains one or more GitHub issues
 or feature requests. Your job is to split them into separate, individual issues.
@@ -94,7 +99,9 @@ def split_topics_with_llm(input_text: str) -> list[dict[str, Any]]:
     prompt = TOPIC_SPLITTER_PROMPT.format(input_text=input_text)
 
     try:
-        response = llm.invoke(prompt)
+        response, trace = invoke_with_trace(llm, prompt, operation="topic_splitter")
+        if trace.trace_url:
+            print(f"LangSmith trace: {trace.trace_url}", file=sys.stderr)
         content = response.content if hasattr(response, "content") else str(response)
     except Exception as e:
         raise RuntimeError(f"LLM call failed: {e}") from e

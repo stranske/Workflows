@@ -15,6 +15,7 @@ from scripts.langchain.task_validator import (
     _looks_like_human_activity,
     _parse_refinement_response,
     merge_with_audit,
+    refine_flagged_tasks,
     triage_tasks,
     validate_no_items_lost,
     validate_tasks,
@@ -268,6 +269,14 @@ class TestValidateTasks:
 
         # All tasks should be in output (none dropped without LLM)
         assert len(result.tasks) == 3
+
+    def test_refine_flagged_tasks_empty_returns_trace_shape(self) -> None:
+        refined, fates, provider, trace = refine_flagged_tasks([])
+
+        assert refined == []
+        assert fates == []
+        assert provider is None
+        assert trace.available is False
 
 
 class TestTaskFateSerialization:

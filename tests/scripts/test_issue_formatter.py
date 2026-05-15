@@ -202,10 +202,12 @@ def test_format_issue_body_guard_blocks_llm(
 
 
 def test_format_issue_body_llm_path_includes_raw_issue(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LANGSMITH_API_KEY", "test-key")
     mock_client = mock.MagicMock()
     mock_chain = mock.MagicMock()
     mock_response = mock.MagicMock()
     mock_response.content = "## Tasks\n- [ ] Do it\n\n## Acceptance Criteria\n- [ ] Done"
+    mock_response.response_metadata = {"run_id": "trace-format"}
     mock_chain.invoke.return_value = mock_response
 
     _install_fake_langchain(monkeypatch, mock_chain)
@@ -217,6 +219,7 @@ def test_format_issue_body_llm_path_includes_raw_issue(monkeypatch: pytest.Monke
         result = issue_formatter.format_issue_body("Raw issue text", use_llm=True)
 
     assert result["used_llm"] is True
+    assert result["langsmith_trace_id"] == "trace-format"
     assert "<summary>Original Issue</summary>" in result["formatted_body"]
     assert "Raw issue text" in result["formatted_body"]
 

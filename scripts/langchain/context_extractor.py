@@ -18,8 +18,10 @@ from pathlib import Path
 
 try:
     from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
+    from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ModuleNotFoundError:
     from issue_pr_context import ContextOptions, build_issue_context
+    from trace_utils import TraceInfo, invoke_with_trace
 
 CONTEXT_EXTRACTOR_PROMPT = """
 From this issue and related discussion, extract:
@@ -260,12 +262,15 @@ def extract_context(
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
+                trace = TraceInfo()
                 try:
-                    response = chain.invoke(
+                    response, trace = invoke_with_trace(
+                        chain,
                         {
                             "issue_body": issue_body,
                             "comments": "\n\n".join(comments) if comments else "_None._",
-                        }
+                        },
+                        operation="context_extractor",
                     )
                 except Exception as e:
                     # If GitHub Models fails with 401, retry with OpenAI
@@ -274,22 +279,26 @@ def extract_context(
                         if fallback_info:
                             client, provider = fallback_info
                             chain = template | client
-                            response = chain.invoke(
+                            response, trace = invoke_with_trace(
+                                chain,
                                 {
                                     "issue_body": issue_body,
                                     "comments": "\n\n".join(comments) if comments else "_None._",
-                                }
+                                },
+                                operation="context_extractor",
                             )
                         else:
                             raise
                     else:
                         raise
                 content = (getattr(response, "content", None) or str(response)).strip()
-                return {
+                result = {
                     "context_section": content,
                     "provider_used": provider,
                     "used_llm": True,
                 }
+                result.update(trace.as_dict())
+                return result
 
     return {
         "context_section": _fallback_extract(issue_body, comments),
