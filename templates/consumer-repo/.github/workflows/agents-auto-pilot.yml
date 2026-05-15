@@ -1011,10 +1011,13 @@ jobs:
           except Exception:
               data = {}
 
+          def env_value(value):
+              return str(value or '').replace('\r', '').replace('\n', '').strip()
+
           env_path = os.environ.get('GITHUB_ENV')
           if env_path:
-              trace_id = str(data.get('langsmith_trace_id') or '').strip()
-              trace_url = str(data.get('langsmith_trace_url') or '').strip()
+              trace_id = env_value(data.get('langsmith_trace_id'))
+              trace_url = env_value(data.get('langsmith_trace_url'))
               with open(env_path, 'a', encoding='utf-8') as env_file:
                   if trace_id:
                       env_file.write(f"AUTOPILOT_OPTIMIZE_LANGSMITH_TRACE_ID={trace_id}\n")
@@ -1398,10 +1401,13 @@ jobs:
           # Apply suggestions
           result = apply_suggestions(issue_body, suggestions, use_llm=True)
 
+          def env_value(value):
+              return str(value or '').replace('\r', '').replace('\n', '').strip()
+
           env_path = os.environ.get('GITHUB_ENV')
           if env_path:
-              trace_id = str(result.get('langsmith_trace_id') or '').strip()
-              trace_url = str(result.get('langsmith_trace_url') or '').strip()
+              trace_id = env_value(result.get('langsmith_trace_id'))
+              trace_url = env_value(result.get('langsmith_trace_url'))
               with open(env_path, 'a', encoding='utf-8') as env_file:
                   if trace_id:
                       env_file.write(f'AUTOPILOT_APPLY_LANGSMITH_TRACE_ID={trace_id}\n')
