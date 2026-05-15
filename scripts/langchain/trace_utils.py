@@ -105,7 +105,12 @@ def _is_unsupported_config_error(exc: TypeError) -> bool:
 def _is_direct_call_type_error(exc: TypeError) -> bool:
     """Return true when Python rejected the call before entering invoke()."""
 
-    return exc.__traceback__ is not None and exc.__traceback__.tb_next is None
+    tb = exc.__traceback__
+    # TypeErrors raised by the runnable include an inner traceback frame.
+    # Direct argument-binding failures from builtins/C shims stop at this call site.
+    return (
+        tb is not None and tb.tb_frame.f_code is invoke_with_trace.__code__ and tb.tb_next is None
+    )
 
 
 def invoke_with_trace(
