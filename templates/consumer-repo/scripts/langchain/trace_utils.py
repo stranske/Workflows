@@ -93,8 +93,8 @@ def invoke_with_trace(
     except Exception as first_exc:
         try:
             response = runnable.invoke(payload)
-        except Exception:
-            raise first_exc
+        except Exception as fallback_exc:
+            raise first_exc from fallback_exc
     trace = extract_trace_info(response)
     if trace.trace_url:
         LOGGER.info("LangSmith trace: %s", trace.trace_url)
