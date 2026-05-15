@@ -640,6 +640,7 @@ jobs:
   publish:
     name: Publish Results
     needs:
+      - select-scenarios
       - scenarios
       - summarize
     if: ${{ always() }}
@@ -676,6 +677,7 @@ jobs:
           'nightly verification'
         }}
       WORKFLOW_RESULT: ${{ needs.scenarios.result }}
+      SELECTED_COUNT: ${{ needs.select-scenarios.outputs.selected_count || '0' }}
       SUMMARY_TABLE: ${{ needs.summarize.outputs.summary_table }}
       FAILURE_COUNT: ${{ needs.summarize.outputs.failure_count }}
       RUN_ID: ${{ needs.summarize.outputs.run_id }}
@@ -793,6 +795,11 @@ jobs:
           if [ "${FAILURE_COUNT}" != "0" ]; then
             echo "Self-test reported ${FAILURE_COUNT} mismatch(es)." >&2
             exit 1
+          fi
+
+          if [ "${WORKFLOW_RESULT}" = "skipped" ] && [ "${SELECTED_COUNT}" = "0" ]; then
+            echo "Self-test matrix skipped because no scenarios were selected."
+            exit 0
           fi
 
           if [ "${WORKFLOW_RESULT}" != "success" ]; then
@@ -934,6 +941,11 @@ jobs:
           if [ "${FAILURE_COUNT}" != "0" ]; then
             echo "Self-test reported ${FAILURE_COUNT} mismatch(es)." >&2
             exit 1
+          fi
+
+          if [ "${WORKFLOW_RESULT}" = "skipped" ] && [ "${SELECTED_COUNT}" = "0" ]; then
+            echo "Self-test matrix skipped because no scenarios were selected."
+            exit 0
           fi
 
           if [ "${WORKFLOW_RESULT}" != "success" ]; then
