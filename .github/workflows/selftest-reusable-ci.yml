@@ -486,6 +486,14 @@ jobs:
               }
             }
 
+            function escapeRegExp(value) {
+              return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            function matchesExpectedArtifact(actual, expected) {
+              return actual === expected || new RegExp(`^${escapeRegExp(expected)}-\\d+$`).test(actual);
+            }
+
             let artifactNames;
             let jobs;
             try {
@@ -540,17 +548,20 @@ jobs:
             const nameSet = new Set(artifactNames);
 
             const matrixJobs = jobs.filter((job) => job.name && job.name.startsWith('Scenario - '));
-            const jobStatusByScenario = Object.fromEntries(
-              matrixJobs.map((job) => {
-                const scenarioName = job.name.replace('Scenario - ', '').trim();
-                const status = job.conclusion === 'success'
-                  ? '✅'
-                  : job.conclusion === 'failure'
-                    ? '❌'
-                    : 'ℹ️';
-                return [scenarioName, status];
-              })
-            );
+            const jobStatusByScenario = {};
+            for (const job of matrixJobs) {
+              const scenarioName = job.name.replace('Scenario - ', '').split('/')[0].trim();
+              if (!scenarioNames.includes(scenarioName)) {
+                continue;
+              }
+              if (job.conclusion === 'failure' || job.conclusion === 'cancelled') {
+                jobStatusByScenario[scenarioName] = '❌';
+              } else if (job.conclusion !== 'success' && job.conclusion !== 'skipped') {
+                jobStatusByScenario[scenarioName] = 'ℹ️';
+              } else if (!jobStatusByScenario[scenarioName]) {
+                jobStatusByScenario[scenarioName] = '✅';
+              }
+            }
 
             const rows = [
               '| Scenario | Status | Missing | Unexpected |',
@@ -566,10 +577,14 @@ jobs:
 
             for (const scenario of scenarioNames) {
               const expected = expectedArtifactsFor(scenario);
-              const missing = expected.filter((name) => !nameSet.has(name));
+              const missing = expected.filter(
+                (name) => !artifactNames.some((actual) => matchesExpectedArtifact(actual, name)),
+              );
               const prefix = `sf-${scenario}-`;
               const actual = artifactNames.filter((name) => name.startsWith(prefix));
-              const unexpected = actual.filter((name) => !expected.includes(name));
+              const unexpected = actual.filter(
+                (name) => !expected.some((expectedName) => matchesExpectedArtifact(name, expectedName)),
+              );
               const ok =
                 missing.length === 0 &&
                 unexpected.length === 0 &&
@@ -591,7 +606,11 @@ jobs:
             }
 
             const stray = artifactNames.filter(
-              (name) => name.startsWith('sf-') && !expectedUniverse.has(name),
+              (name) =>
+                name.startsWith('sf-') &&
+                !Array.from(expectedUniverse).some((expected) =>
+                  matchesExpectedArtifact(name, expected)
+                ),
             );
             if (stray.length) {
               rows.push(`| (stray) | ❌ | (n/a) | ${stray.join('<br>')} |`);

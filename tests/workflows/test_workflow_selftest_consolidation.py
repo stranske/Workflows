@@ -361,6 +361,13 @@ def test_selftest_runner_jobs_contract() -> None:
     assert (
         verify_env.get("SCENARIO_LIST") == "${{ env.SCENARIO_LIST }}"
     ), "Verification step should read scenario list from aggregate env."
+    verify_script = (verify_step.get("with") or {}).get("script", "")
+    assert (
+        "matchesExpectedArtifact" in verify_script
+    ), "Verification should tolerate upload-artifact uniqueness suffixes."
+    assert (
+        ".split('/')[0]" in verify_script
+    ), "Verification should normalize nested reusable workflow job names."
 
     upload_step = _find_step(lambda step: step.get("name") == "Upload self-test report")
     assert upload_step, "Aggregate job must upload the self-test report artifact."
