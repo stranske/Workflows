@@ -183,6 +183,12 @@ def test_langsmith_trace_counts_cover_single_ids_and_trace_lists() -> None:
             ],
         },
         {
+            "metric_type": "verifier",
+            "run_id": "verify-3",
+            "verdict": "pass",
+            "langsmith_trace_url": "https://smith.langchain.com/r/verifier-trace-url",
+        },
+        {
             "metric_type": "step",
             "issue_number": 11,
             "step_name": "optimize",
@@ -201,18 +207,40 @@ def test_langsmith_trace_counts_cover_single_ids_and_trace_lists() -> None:
                 {"trace_id": "autopilot-trace-3"},
             ],
         },
+        {
+            "metric_type": "step",
+            "issue_number": 12,
+            "step_name": "format",
+            "success": True,
+            "duration_ms": 300,
+            "langsmith_trace_url": "https://smith.langchain.com/r/autopilot-trace-url",
+        },
     ]
 
     summary = aggregate_agent_metrics.build_summary(entries, errors=0)
 
-    assert "LangSmith trace coverage: 100.0% (2/2) (3 traces)" in summary
-    assert summary.count("LangSmith trace coverage: 100.0% (2/2) (3 traces)") == 2
+    assert "LangSmith trace coverage: 100.0% (3/3) (4 traces)" in summary
+    assert summary.count("LangSmith trace coverage: 100.0% (3/3) (4 traces)") == 2
 
     contract = aggregate_agent_metrics.build_summary_contract(entries, [])
-    assert contract["summaries"]["verifier"]["langsmith_trace_records"] == 2
-    assert contract["summaries"]["verifier"]["langsmith_trace_count"] == 3
-    assert contract["summaries"]["autopilot"]["langsmith_trace_records"] == 2
-    assert contract["summaries"]["autopilot"]["langsmith_trace_count"] == 3
+    assert contract["summaries"]["verifier"]["langsmith_trace_records"] == 3
+    assert contract["summaries"]["verifier"]["langsmith_trace_count"] == 4
+    assert contract["summaries"]["autopilot"]["langsmith_trace_records"] == 3
+    assert contract["summaries"]["autopilot"]["langsmith_trace_count"] == 4
+
+
+def test_langsmith_trace_counts_cover_url_only_trace_lists() -> None:
+    assert (
+        aggregate_agent_metrics._langsmith_trace_count(
+            {
+                "langsmith_traces": [
+                    {"trace_url": "https://smith.langchain.com/r/list-trace-url"},
+                    {"langsmith_trace_url": "https://smith.langchain.com/r/list-langsmith-url"},
+                ]
+            }
+        )
+        == 2
+    )
 
 
 def test_main_writes_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

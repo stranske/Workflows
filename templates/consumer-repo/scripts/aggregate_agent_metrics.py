@@ -417,10 +417,20 @@ def _safe_int(value: Any) -> int | None:
 
 
 def _langsmith_trace_count(entry: dict[str, Any]) -> int:
-    count = 1 if entry.get("langsmith_trace_id") else 0
+    count = 1 if entry.get("langsmith_trace_id") or entry.get("langsmith_trace_url") else 0
     traces = entry.get("langsmith_traces")
     if isinstance(traces, list):
-        list_count = sum(1 for item in traces if isinstance(item, dict) and item.get("trace_id"))
+        list_count = sum(
+            1
+            for item in traces
+            if isinstance(item, dict)
+            and (
+                item.get("trace_id")
+                or item.get("langsmith_trace_id")
+                or item.get("trace_url")
+                or item.get("langsmith_trace_url")
+            )
+        )
         return max(count, list_count)
     return count
 
