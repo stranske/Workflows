@@ -44,7 +44,10 @@ jobs:
       cache: ${{ steps.python_ci_toggles.outputs.cache || 'true' }}
       pytest_markers: >-
         ${{ steps.python_ci_toggles.outputs.pytest_markers || 'not quarantine and not slow' }}
-      workflow_changed: ${{ steps.classify.outputs.is-workflow-change || steps.diff.outputs.workflow_changed || 'false' }}
+      workflow_changed: >-
+        ${{ steps.classify.outputs.is-workflow-change
+        || steps.diff.outputs.workflow_changed
+        || 'false' }}
       is_docs_only: ${{ steps.classify.outputs.is-docs-only || 'false' }}
       is_python_code: ${{ steps.classify.outputs.is-python-code || 'true' }}
       is_workflow_change: ${{ steps.classify.outputs.is-workflow-change || 'false' }}
@@ -58,7 +61,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -262,7 +265,7 @@ jobs:
     steps:
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
@@ -325,7 +328,7 @@ jobs:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
         id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         continue-on-error: true
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
