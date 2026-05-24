@@ -12,8 +12,11 @@ FIXTURES = ROOT / "tests" / "fixtures" / "langsmith_fleet"
 def test_valid_fixture_passes_registry_validation() -> None:
     records, parse_errors = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
     registry = langsmith_fleet.load_registry(REGISTRY)
+    schema = langsmith_fleet.load_record_schema()
 
-    errors = parse_errors + langsmith_fleet.validate_records(records, registry=registry)
+    errors = parse_errors + langsmith_fleet.validate_records(
+        records, registry=registry, schema=schema
+    )
 
     assert errors == []
 
@@ -21,12 +24,15 @@ def test_valid_fixture_passes_registry_validation() -> None:
 def test_invalid_fixture_reports_first_contract_errors() -> None:
     records, parse_errors = langsmith_fleet.load_ndjson(FIXTURES / "invalid.ndjson")
     registry = langsmith_fleet.load_registry(REGISTRY)
+    schema = langsmith_fleet.load_record_schema()
 
     messages = [
         error.message
-        for error in parse_errors + langsmith_fleet.validate_records(records, registry=registry)
+        for error in parse_errors
+        + langsmith_fleet.validate_records(records, registry=registry, schema=schema)
     ]
 
+    assert any(message.startswith("schema violation: input_hash:") for message in messages)
     assert "input_hash must be a hash or artifact reference" in messages
     assert "domain missing required field: planner_action" in messages
     assert "domain missing required field: tool_call_count" in messages
@@ -45,8 +51,9 @@ def test_unknown_repo_surface_is_rejected() -> None:
         "domain": {"x": "y"},
     }
     registry = langsmith_fleet.load_registry(REGISTRY)
+    schema = langsmith_fleet.load_record_schema()
 
-    errors = langsmith_fleet.validate_record(record, registry=registry)
+    errors = langsmith_fleet.validate_record(record, registry=registry, schema=schema)
 
     assert errors[-1].message == "stranske/unknown/planner-runtime is not in registry"
 
@@ -116,3 +123,21 @@ def test_cli_summary_json_shape(tmp_path: Path, capsys) -> None:
     out = capsys.readouterr().out
 
     assert '"schema_version": "langsmith-fleet/v1"' in out
+
+
+def test_schema_rejects_wrong_domain_type() -> None:
+    record = {
+        "schema_version": langsmith_fleet.SCHEMA_VERSION,
+        "repo": "stranske/Workflows",
+        "surface": "agent-automation",
+        "operation": "verifier",
+        "run_id": "run-1",
+        "status": "success",
+        "github_issue": "stranske/Workflows#2150",
+        "domain": "invalid",
+    }
+    schema = langsmith_fleet.load_record_schema()
+
+    errors = langsmith_fleet.validate_record(record, schema=schema)
+
+    assert any("schema violation: domain:" in error.message for error in errors)

@@ -78,6 +78,9 @@ python scripts/langsmith_fleet.py tests/fixtures/langsmith_fleet/valid.ndjson \
 The validator must fail malformed JSON, missing shared fields, unknown
 repo/surface pairs, missing registry-required domain fields, unsafe raw
 input/output payload fields, negative numeric measurements, and invalid statuses.
+The canonical schema is versioned at
+`docs/contracts/schemas/langsmith-fleet-v1.schema.json` and is enforced by
+`scripts/langsmith_fleet.py`.
 
 ## Repo Responsibilities
 

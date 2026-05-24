@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stranske/Workflows/docs/contracts/schemas/langsmith-fleet-v1.schema.json",
+  "title": "LangSmith Fleet Record v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "repo",
+    "surface",
+    "operation",
+    "run_id",
+    "status",
+    "github_issue",
+    "domain"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "langsmith-fleet/v1"
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1
+    },
+    "surface": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error",
+        "fallback",
+        "no_secret",
+        "skipped"
+      ]
+    },
+    "github_issue": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "latency_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "cost_usd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "input_hash": {
+      "type": "string",
+      "pattern": "^(sha256:|hash:|artifact:|ref:).+"
+    },
+    "output_hash": {
+      "type": "string",
+      "pattern": "^(sha256:|hash:|artifact:|ref:).+"
+    },
+    "github_pr": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "artifact_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "error_category": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

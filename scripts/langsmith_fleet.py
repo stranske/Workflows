@@ -12,7 +12,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
 SCHEMA_VERSION = "langsmith-fleet/v1"
+SCHEMA_PATH = Path("docs/contracts/schemas/langsmith-fleet-v1.schema.json")
 
 REQUIRED_SHARED_FIELDS = (
     "schema_version",
@@ -41,6 +44,14 @@ OPTIONAL_SHARED_FIELDS = (
 )
 
 VALID_STATUSES = {"success", "error", "fallback", "no_secret", "skipped"}
+
+
+def load_record_schema(path: Path = SCHEMA_PATH) -> dict[str, Any]:
+    """Load the JSON schema for LangSmith fleet records."""
+    schema = json.loads(path.read_text())
+    if not isinstance(schema, dict):
+        raise ValueError("record schema must be a JSON object")
+    return schema
 
 
 @dataclass(frozen=True)
@@ -140,9 +151,17 @@ def validate_record(
     *,
     line: int = 1,
     registry: dict[str, Any] | None = None,
+    schema: dict[str, Any] | None = None,
 ) -> list[ValidationError]:
     """Validate a single LangSmith fleet record."""
     errors: list[ValidationError] = []
+    if schema:
+        for schema_error in Draft202012Validator(schema).iter_errors(record):
+            path_text = ".".join(str(part) for part in schema_error.path)
+            prefix = f"{path_text}: " if path_text else ""
+            errors.append(
+                ValidationError(line, f"schema violation: {prefix}{schema_error.message}")
+            )
 
     for field in REQUIRED_SHARED_FIELDS:
         if field not in record:
@@ -201,11 +220,12 @@ def validate_records(
     records: list[dict[str, Any]],
     *,
     registry: dict[str, Any] | None = None,
+    schema: dict[str, Any] | None = None,
 ) -> list[ValidationError]:
     """Validate loaded records."""
     errors: list[ValidationError] = []
     for line, record in enumerate(records, 1):
-        errors.extend(validate_record(record, line=line, registry=registry))
+        errors.extend(validate_record(record, line=line, registry=registry, schema=schema))
     return errors
 
 
@@ -336,7 +356,8 @@ def main() -> None:
 
     records, parse_errors = load_ndjson(args.records)
     registry = load_registry(args.registry)
-    validation_errors = parse_errors + validate_records(records, registry=registry)
+    schema = load_record_schema()
+    validation_errors = parse_errors + validate_records(records, registry=registry, schema=schema)
 
     if validation_errors:
         for error in validation_errors:
