@@ -10,8 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from scripts.aggregate_repo_metrics import summarize_values
 from scripts import langsmith_fleet
+from scripts.aggregate_repo_metrics import summarize_values
 from scripts.metrics_format_utils import ascii_sparkline, format_markdown_table
 
 _DEFAULT_METRICS_PATH = "metrics-history.ndjson"
