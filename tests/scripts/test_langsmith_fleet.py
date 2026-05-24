@@ -141,3 +141,35 @@ def test_schema_rejects_wrong_domain_type() -> None:
     errors = langsmith_fleet.validate_record(record, schema=schema)
 
     assert any("schema violation: domain:" in error.message for error in errors)
+
+
+def test_registry_contains_active_repo_issue_mappings() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    by_repo = {entry["repo"]: entry for entry in registry["repos"]}
+
+    expected = {
+        "stranske/trip-planner": 1208,
+        "stranske/Pension-Data": 445,
+        "stranske/Manager-Database": 1048,
+        "stranske/Counter_Risk": 610,
+        "stranske/Inv-Man-Intake": 438,
+        "stranske/Trend_Model_Project": 5311,
+        "stranske/Portable-Alpha-Extension-Model": 1802,
+    }
+    for repo, issue_number in expected.items():
+        assert by_repo[repo]["issue_number"] == issue_number
+        assert by_repo[repo]["issue"] == f"{repo}#{issue_number}"
+
+
+def test_load_registry_rejects_mismatched_issue_and_issue_number(tmp_path: Path) -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    registry["repos"][1]["issue_number"] = 9999
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(registry), encoding="utf-8")
+
+    try:
+        langsmith_fleet.load_registry(path)
+    except ValueError as exc:
+        assert "issue must match repo#issue_number" in str(exc)
+    else:
+        raise AssertionError("expected load_registry to fail for mismatched issue mapping")

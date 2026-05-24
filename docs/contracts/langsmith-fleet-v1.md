@@ -47,7 +47,7 @@ Optional shared fields:
 
 `config/langsmith_fleet_registry.json` maps each active repo issue to:
 
-- repo and issue,
+- repo, issue, and issue number,
 - surface and allowed operation family,
 - artifact name,
 - rollout status,

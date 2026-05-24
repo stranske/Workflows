@@ -16,6 +16,7 @@ from jsonschema import Draft202012Validator
 
 SCHEMA_VERSION = "langsmith-fleet/v1"
 SCHEMA_PATH = Path("docs/contracts/schemas/langsmith-fleet-v1.schema.json")
+REGISTRY_SCHEMA_VERSION = "langsmith-fleet-registry/v1"
 
 REQUIRED_SHARED_FIELDS = (
     "schema_version",
@@ -90,6 +91,7 @@ def load_registry(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text())
     if not isinstance(data, dict):
         raise ValueError("registry must be a JSON object")
+    validate_registry(data)
     return data
 
 
@@ -104,6 +106,78 @@ def registry_surfaces(registry: dict[str, Any]) -> dict[tuple[str, str], dict[st
         if repo and surface:
             indexed[(repo, surface)] = entry
     return indexed
+
+
+def validate_registry(registry: dict[str, Any]) -> None:
+    """Validate registry structure and required mappings."""
+    if registry.get("schema_version") != REGISTRY_SCHEMA_VERSION:
+        raise ValueError(f"registry schema_version must be {REGISTRY_SCHEMA_VERSION}")
+
+    stale_after_hours = registry.get("stale_after_hours")
+    if isinstance(stale_after_hours, bool) or not isinstance(stale_after_hours, int):
+        raise ValueError("registry stale_after_hours must be an integer")
+    if stale_after_hours <= 0:
+        raise ValueError("registry stale_after_hours must be positive")
+
+    entries = registry.get("repos")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("registry repos must be a non-empty list")
+
+    seen_keys: set[tuple[str, str]] = set()
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(f"registry repos[{index}] must be an object")
+
+        repo = entry.get("repo")
+        issue = entry.get("issue")
+        issue_number = entry.get("issue_number")
+        surface = entry.get("surface")
+        operations = entry.get("operations")
+        required_domain_fields = entry.get("required_domain_fields")
+        artifact_name = entry.get("artifact_name")
+        rollout_status = entry.get("rollout_status")
+
+        if not isinstance(repo, str) or not repo.strip():
+            raise ValueError(f"registry repos[{index}].repo must be a non-empty string")
+        if not isinstance(surface, str) or not surface.strip():
+            raise ValueError(f"registry repos[{index}].surface must be a non-empty string")
+        key = (repo.strip(), surface.strip())
+        if key in seen_keys:
+            raise ValueError(
+                f"registry has duplicate repo/surface mapping for {repo.strip()}/{surface.strip()}"
+            )
+        seen_keys.add(key)
+
+        if isinstance(issue_number, bool) or not isinstance(issue_number, int):
+            raise ValueError(f"registry repos[{index}].issue_number must be an integer")
+        if issue_number <= 0:
+            raise ValueError(f"registry repos[{index}].issue_number must be positive")
+        if not isinstance(issue, str) or not issue.strip():
+            raise ValueError(f"registry repos[{index}].issue must be a non-empty string")
+        expected_issue = f"{repo.strip()}#{issue_number}"
+        if issue.strip() != expected_issue:
+            raise ValueError(
+                f"registry repos[{index}].issue must match repo#issue_number ({expected_issue})"
+            )
+
+        if not isinstance(artifact_name, str) or not artifact_name.strip():
+            raise ValueError(f"registry repos[{index}].artifact_name must be a non-empty string")
+        if not isinstance(rollout_status, str) or not rollout_status.strip():
+            raise ValueError(f"registry repos[{index}].rollout_status must be a non-empty string")
+
+        if not isinstance(operations, list) or not operations:
+            raise ValueError(f"registry repos[{index}].operations must be a non-empty list")
+        if any(not isinstance(item, str) or not item.strip() for item in operations):
+            raise ValueError(f"registry repos[{index}].operations must contain non-empty strings")
+
+        if not isinstance(required_domain_fields, list) or not required_domain_fields:
+            raise ValueError(
+                f"registry repos[{index}].required_domain_fields must be a non-empty list"
+            )
+        if any(not isinstance(item, str) or not item.strip() for item in required_domain_fields):
+            raise ValueError(
+                f"registry repos[{index}].required_domain_fields must contain non-empty strings"
+            )
 
 
 def _is_hash_or_ref(value: Any) -> bool:

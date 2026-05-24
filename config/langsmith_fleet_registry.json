@@ -5,6 +5,7 @@
     {
       "repo": "stranske/Workflows",
       "issue": "stranske/Workflows#2150",
+      "issue_number": 2150,
       "surface": "agent-automation",
       "operations": ["autopilot", "keepalive", "verifier", "dashboard-ingestion"],
       "artifact_name": "langsmith-fleet.ndjson",
@@ -20,6 +21,7 @@
     {
       "repo": "stranske/trip-planner",
       "issue": "stranske/trip-planner#1208",
+      "issue_number": 1208,
       "surface": "planner-runtime",
       "operations": ["conversation", "tool-call", "itinerary-generation"],
       "artifact_name": "langsmith-fleet.ndjson",
@@ -34,6 +36,7 @@
     {
       "repo": "stranske/Pension-Data",
       "issue": "stranske/Pension-Data#445",
+      "issue_number": 445,
       "surface": "nl-to-sql",
       "operations": ["sql-generation", "validation", "execution", "replay"],
       "artifact_name": "langsmith-fleet.ndjson",
@@ -48,6 +51,7 @@
     {
       "repo": "stranske/Manager-Database",
       "issue": "stranske/Manager-Database#1048",
+      "issue_number": 1048,
       "surface": "ai-api",
       "operations": ["nl-query", "holdings-analysis", "rag"],
       "artifact_name": "langsmith-fleet.ndjson",
@@ -62,6 +66,7 @@
     {
       "repo": "stranske/Counter_Risk",
       "issue": "stranske/Counter_Risk#610",
+      "issue_number": 610,
       "surface": "risk-reporting",
       "operations": ["data-quality", "risk-proxy", "limit-monitoring", "report-generation"],
       "artifact_name": "langsmith-fleet.ndjson",
@@ -76,6 +81,7 @@
     {
       "repo": "stranske/Inv-Man-Intake",
       "issue": "stranske/Inv-Man-Intake#438",
+      "issue_number": 438,
       "surface": "intake-extraction",
       "operations": ["package-intake", "extraction", "validation", "review-routing"],
       "artifact_name": "langsmith-fleet.ndjson",
@@ -90,6 +96,7 @@
     {
       "repo": "stranske/Trend_Model_Project",
       "issue": "stranske/Trend_Model_Project#5311",
+      "issue_number": 5311,
       "surface": "llm-replay",
       "operations": ["chain", "replay", "validation", "config-analysis"],
       "artifact_name": "langsmith-fleet.ndjson",
@@ -104,6 +111,7 @@
     {
       "repo": "stranske/Portable-Alpha-Extension-Model",
       "issue": "stranske/Portable-Alpha-Extension-Model#1802",
+      "issue_number": 1802,
       "surface": "scenario-analysis",
       "operations": ["scenario-run", "result-explanation", "run-comparison", "config-patch"],
       "artifact_name": "langsmith-fleet.ndjson",
