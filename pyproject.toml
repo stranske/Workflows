@@ -43,7 +43,7 @@ dev = [
     "packaging>=26.1",
 
     # Required by repo dependency checks / CI fallback checks
-    "hypothesis>=6.152.7",
+    "hypothesis>=6.152.9",
     "pandas",
     "numpy<3.0",
     "pydantic>=2.13.4",
