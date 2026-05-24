@@ -43,6 +43,7 @@ htmlcov/
 *.swo
 *~
 .DS_Store
+workloop-state.md
 
 # Environment
 .env

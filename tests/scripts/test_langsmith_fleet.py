@@ -58,7 +58,7 @@ def test_unknown_repo_surface_is_rejected() -> None:
     assert errors[-1].message == "stranske/unknown/planner-runtime is not in registry"
 
 
-def test_summary_distinguishes_valid_missing_and_invalid(tmp_path: Path) -> None:
+def test_summary_distinguishes_valid_missing_and_invalid() -> None:
     registry = langsmith_fleet.load_registry(REGISTRY)
     valid_records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
     invalid_record = {
@@ -123,6 +123,94 @@ def test_cli_summary_json_shape(tmp_path: Path, capsys) -> None:
     out = capsys.readouterr().out
 
     assert '"schema_version": "langsmith-fleet/v1"' in out
+
+
+def test_cli_summary_can_report_invalid_records(capsys) -> None:
+    argv = [
+        "langsmith_fleet.py",
+        str(FIXTURES / "invalid.ndjson"),
+        "--summary",
+        "--format",
+        "json",
+    ]
+
+    original_argv = langsmith_fleet.sys.argv
+    try:
+        langsmith_fleet.sys.argv = argv
+        langsmith_fleet.main()
+    finally:
+        langsmith_fleet.sys.argv = original_argv
+
+    out = capsys.readouterr().out
+    summary = json.loads(out)
+
+    assert summary["status_counts"]["invalid"] >= 1
+
+
+def test_validation_reports_original_ndjson_line_numbers(tmp_path: Path) -> None:
+    path = tmp_path / "records.ndjson"
+    path.write_text(
+        "\n"
+        "{not-json}\n"
+        "\n"
+        + json.dumps(
+            {
+                "schema_version": langsmith_fleet.SCHEMA_VERSION,
+                "repo": "stranske/Workflows",
+                "surface": "agent-automation",
+                "operation": "verifier",
+                "run_id": "run-1",
+                "status": "success",
+                "github_issue": "stranske/Workflows#2150",
+                "input_hash": "",
+                "domain": {"workflow": "verify"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    records, parse_errors = langsmith_fleet.load_ndjson(path)
+
+    errors = parse_errors + langsmith_fleet.validate_records(records)
+
+    assert parse_errors[0].line == 2
+    assert any(error.line == 4 and "input_hash" in error.message for error in errors)
+
+
+def test_registry_operation_allowlist_is_enforced() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    record = {
+        "schema_version": langsmith_fleet.SCHEMA_VERSION,
+        "repo": "stranske/Workflows",
+        "surface": "agent-automation",
+        "operation": "not-a-real-operation",
+        "run_id": "run-1",
+        "status": "success",
+        "github_issue": "stranske/Workflows#2150",
+        "domain": {"workflow": "verify"},
+    }
+
+    errors = langsmith_fleet.validate_record(record, registry=registry)
+
+    assert any("operation must be one of registry operations" in error.message for error in errors)
+
+
+def test_empty_hash_references_are_invalid_when_present() -> None:
+    record = {
+        "schema_version": langsmith_fleet.SCHEMA_VERSION,
+        "repo": "stranske/Workflows",
+        "surface": "agent-automation",
+        "operation": "verifier",
+        "run_id": "run-1",
+        "status": "success",
+        "github_issue": "stranske/Workflows#2150",
+        "input_hash": " ",
+        "domain": {"workflow": "verify"},
+    }
+
+    errors = langsmith_fleet.validate_record(record)
+
+    assert any(error.message == "input_hash must be a hash or artifact reference" for error in errors)
 
 
 def test_schema_rejects_wrong_domain_type() -> None:

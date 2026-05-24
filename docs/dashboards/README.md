@@ -63,7 +63,7 @@ The dashboard aggregates metrics from:
    `langsmith-fleet/v1` records so the dashboard can distinguish missing,
    invalid, stale, and valid repo artifacts
 5. **Report** - Generates markdown report + JSON summary
-5. **Publish** - Updates dashboard file, creates issue, uploads artifact
+6. **Publish** - Updates dashboard file, creates issue, uploads artifact
 
 ---
 

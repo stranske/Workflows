@@ -63,6 +63,16 @@ class ValidationError:
     message: str
 
 
+class FleetRecord(dict[str, Any]):
+    """A loaded NDJSON record that preserves its source line number."""
+
+    source_line: int
+
+    def __init__(self, data: dict[str, Any], *, source_line: int) -> None:
+        super().__init__(data)
+        self.source_line = source_line
+
+
 def load_ndjson(path: Path) -> tuple[list[dict[str, Any]], list[ValidationError]]:
     """Load NDJSON objects and return parse errors separately."""
     records: list[dict[str, Any]] = []
@@ -82,7 +92,7 @@ def load_ndjson(path: Path) -> tuple[list[dict[str, Any]], list[ValidationError]
         if not isinstance(parsed, dict):
             errors.append(ValidationError(line_number, "record must be a JSON object"))
             continue
-        records.append(parsed)
+        records.append(FleetRecord(parsed, source_line=line_number))
     return records, errors
 
 
@@ -187,7 +197,7 @@ def _is_hash_or_ref(value: Any) -> bool:
         return False
     text = value.strip()
     if not text:
-        return True
+        return False
     return (
         text.startswith("sha256:")
         or text.startswith("hash:")
@@ -283,6 +293,16 @@ def validate_record(
         if not entry:
             errors.append(ValidationError(line, f"{repo}/{surface} is not in registry"))
         elif isinstance(domain, dict):
+            operations = entry.get("operations", [])
+            operation = str(record.get("operation", "")).strip()
+            if operations and operation not in operations:
+                allowed = ", ".join(sorted(str(item) for item in operations))
+                errors.append(
+                    ValidationError(
+                        line,
+                        f"operation must be one of registry operations for {repo}/{surface}: {allowed}",
+                    )
+                )
             for field in entry.get("required_domain_fields", []):
                 if field not in domain:
                     errors.append(ValidationError(line, f"domain missing required field: {field}"))
@@ -298,7 +318,8 @@ def validate_records(
 ) -> list[ValidationError]:
     """Validate loaded records."""
     errors: list[ValidationError] = []
-    for line, record in enumerate(records, 1):
+    for index, record in enumerate(records, 1):
+        line = int(getattr(record, "source_line", index))
         errors.extend(validate_record(record, line=line, registry=registry, schema=schema))
     return errors
 
@@ -433,7 +454,7 @@ def main() -> None:
     schema = load_record_schema()
     validation_errors = parse_errors + validate_records(records, registry=registry, schema=schema)
 
-    if validation_errors:
+    if validation_errors and not args.summary:
         for error in validation_errors:
             print(f"line {error.line}: {error.message}", file=sys.stderr)
         raise SystemExit(1)
