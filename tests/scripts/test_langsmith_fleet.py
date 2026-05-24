@@ -21,6 +21,16 @@ def test_valid_fixture_passes_registry_validation() -> None:
     assert errors == []
 
 
+def test_valid_fixture_covers_each_registry_repo_surface() -> None:
+    records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
+    registry = langsmith_fleet.load_registry(REGISTRY)
+
+    fixture_pairs = {(record["repo"], record["surface"]) for record in records}
+    registry_pairs = {(entry["repo"], entry["surface"]) for entry in registry["repos"]}
+
+    assert fixture_pairs == registry_pairs
+
+
 def test_invalid_fixture_reports_first_contract_errors() -> None:
     records, parse_errors = langsmith_fleet.load_ndjson(FIXTURES / "invalid.ndjson")
     registry = langsmith_fleet.load_registry(REGISTRY)
@@ -61,6 +71,11 @@ def test_unknown_repo_surface_is_rejected() -> None:
 def test_summary_distinguishes_valid_missing_and_invalid() -> None:
     registry = langsmith_fleet.load_registry(REGISTRY)
     valid_records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
+    records_without_counter_risk = [
+        record
+        for record in valid_records
+        if not (record["repo"] == "stranske/Counter_Risk" and record["surface"] == "risk-reporting")
+    ]
     invalid_record = {
         "schema_version": langsmith_fleet.SCHEMA_VERSION,
         "repo": "stranske/Pension-Data",
@@ -74,7 +89,7 @@ def test_summary_distinguishes_valid_missing_and_invalid() -> None:
     }
 
     summary = langsmith_fleet.summarize_fleet_records(
-        [*valid_records, invalid_record],
+        [*records_without_counter_risk, invalid_record],
         registry=registry,
         now=datetime(2026, 5, 24, 3, 0, tzinfo=UTC),
     )
