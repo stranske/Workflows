@@ -18,6 +18,15 @@ SCHEMA_VERSION = "langsmith-fleet/v1"
 SCHEMA_PATH = Path("docs/contracts/schemas/langsmith-fleet-v1.schema.json")
 REGISTRY_SCHEMA_VERSION = "langsmith-fleet-registry/v1"
 PARENT_WORKFLOWS_ISSUE = "stranske/Workflows#2150"
+REQUIRED_ACTIVE_REPO_ISSUES = {
+    "stranske/trip-planner": 1208,
+    "stranske/Pension-Data": 445,
+    "stranske/Manager-Database": 1048,
+    "stranske/Counter_Risk": 610,
+    "stranske/Inv-Man-Intake": 438,
+    "stranske/Trend_Model_Project": 5311,
+    "stranske/Portable-Alpha-Extension-Model": 1802,
+}
 
 REQUIRED_SHARED_FIELDS = (
     "schema_version",
@@ -135,6 +144,7 @@ def validate_registry(registry: dict[str, Any]) -> None:
         raise ValueError("registry repos must be a non-empty list")
 
     seen_keys: set[tuple[str, str]] = set()
+    seen_repo_issues: dict[str, int] = {}
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
             raise ValueError(f"registry repos[{index}] must be an object")
@@ -171,6 +181,16 @@ def validate_registry(registry: dict[str, Any]) -> None:
             raise ValueError(
                 f"registry repos[{index}].issue must match repo#issue_number ({expected_issue})"
             )
+        normalized_repo = repo.strip()
+        if (
+            normalized_repo in seen_repo_issues
+            and seen_repo_issues[normalized_repo] != issue_number
+        ):
+            raise ValueError(
+                f"registry repo {normalized_repo} has conflicting issue_number values "
+                f"({seen_repo_issues[normalized_repo]} vs {issue_number})"
+            )
+        seen_repo_issues[normalized_repo] = issue_number
         if not isinstance(parent_issue, str) or not parent_issue.strip():
             raise ValueError(f"registry repos[{index}].parent_issue must be a non-empty string")
         if parent_issue.strip() != PARENT_WORKFLOWS_ISSUE:
@@ -196,6 +216,17 @@ def validate_registry(registry: dict[str, Any]) -> None:
             raise ValueError(
                 f"registry repos[{index}].required_domain_fields must contain non-empty strings"
             )
+
+    missing_required = [
+        f"{repo}#{issue_number}"
+        for repo, issue_number in REQUIRED_ACTIVE_REPO_ISSUES.items()
+        if seen_repo_issues.get(repo) != issue_number
+    ]
+    if missing_required:
+        raise ValueError(
+            "registry missing required active repo issue mappings: "
+            + ", ".join(sorted(missing_required))
+        )
 
 
 def _is_hash_or_ref(value: Any) -> bool:

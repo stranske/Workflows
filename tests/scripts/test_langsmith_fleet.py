@@ -293,3 +293,20 @@ def test_load_registry_rejects_mismatched_issue_and_issue_number(tmp_path: Path)
         assert "issue must match repo#issue_number" in str(exc)
     else:
         raise AssertionError("expected load_registry to fail for mismatched issue mapping")
+
+
+def test_registry_rejects_missing_active_repo_issue_mapping(tmp_path: Path) -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    registry["repos"] = [
+        entry for entry in registry["repos"] if entry.get("repo") != "stranske/Inv-Man-Intake"
+    ]
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(registry), encoding="utf-8")
+
+    try:
+        langsmith_fleet.load_registry(path)
+    except ValueError as exc:
+        assert "registry missing required active repo issue mappings" in str(exc)
+        assert "stranske/Inv-Man-Intake#438" in str(exc)
+    else:
+        raise AssertionError("expected load_registry to fail for missing active repo issue mapping")
