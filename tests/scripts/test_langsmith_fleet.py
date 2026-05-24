@@ -264,6 +264,21 @@ def test_registry_contains_active_repo_issue_mappings() -> None:
     for repo, issue_number in expected.items():
         assert by_repo[repo]["issue_number"] == issue_number
         assert by_repo[repo]["issue"] == f"{repo}#{issue_number}"
+        assert by_repo[repo]["parent_issue"] == langsmith_fleet.PARENT_WORKFLOWS_ISSUE
+
+
+def test_registry_rejects_missing_parent_issue(tmp_path: Path) -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    registry["repos"][1].pop("parent_issue")
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(registry), encoding="utf-8")
+
+    try:
+        langsmith_fleet.load_registry(path)
+    except ValueError as exc:
+        assert "parent_issue must be a non-empty string" in str(exc)
+    else:
+        raise AssertionError("expected load_registry to fail for missing parent issue")
 
 
 def test_load_registry_rejects_mismatched_issue_and_issue_number(tmp_path: Path) -> None:

@@ -17,6 +17,7 @@ from jsonschema import Draft202012Validator
 SCHEMA_VERSION = "langsmith-fleet/v1"
 SCHEMA_PATH = Path("docs/contracts/schemas/langsmith-fleet-v1.schema.json")
 REGISTRY_SCHEMA_VERSION = "langsmith-fleet-registry/v1"
+PARENT_WORKFLOWS_ISSUE = "stranske/Workflows#2150"
 
 REQUIRED_SHARED_FIELDS = (
     "schema_version",
@@ -141,6 +142,7 @@ def validate_registry(registry: dict[str, Any]) -> None:
         repo = entry.get("repo")
         issue = entry.get("issue")
         issue_number = entry.get("issue_number")
+        parent_issue = entry.get("parent_issue")
         surface = entry.get("surface")
         operations = entry.get("operations")
         required_domain_fields = entry.get("required_domain_fields")
@@ -168,6 +170,12 @@ def validate_registry(registry: dict[str, Any]) -> None:
         if issue.strip() != expected_issue:
             raise ValueError(
                 f"registry repos[{index}].issue must match repo#issue_number ({expected_issue})"
+            )
+        if not isinstance(parent_issue, str) or not parent_issue.strip():
+            raise ValueError(f"registry repos[{index}].parent_issue must be a non-empty string")
+        if parent_issue.strip() != PARENT_WORKFLOWS_ISSUE:
+            raise ValueError(
+                f"registry repos[{index}].parent_issue must be {PARENT_WORKFLOWS_ISSUE}"
             )
 
         if not isinstance(artifact_name, str) or not artifact_name.strip():
