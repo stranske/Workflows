@@ -27,7 +27,7 @@
       "surface": "planner-runtime",
       "operations": ["conversation", "tool-call", "itinerary-generation"],
       "artifact_name": "langsmith-fleet.ndjson",
-      "rollout_status": "planned",
+      "rollout_status": "implemented",
       "required_domain_fields": [
         "planning_mode",
         "planner_action",
@@ -43,7 +43,7 @@
       "surface": "nl-to-sql",
       "operations": ["sql-generation", "validation", "execution", "replay"],
       "artifact_name": "langsmith-fleet.ndjson",
-      "rollout_status": "planned",
+      "rollout_status": "implemented",
       "required_domain_fields": [
         "query_category",
         "sql_validation_status",
@@ -59,7 +59,7 @@
       "surface": "ai-api",
       "operations": ["nl-query", "holdings-analysis", "rag"],
       "artifact_name": "langsmith-fleet.ndjson",
-      "rollout_status": "planned",
+      "rollout_status": "implemented",
       "required_domain_fields": [
         "endpoint",
         "request_category",
@@ -75,7 +75,7 @@
       "surface": "risk-reporting",
       "operations": ["data-quality", "risk-proxy", "limit-monitoring", "report-generation"],
       "artifact_name": "langsmith-fleet.ndjson",
-      "rollout_status": "planned",
+      "rollout_status": "implemented",
       "required_domain_fields": [
         "as_of_date",
         "scenario",
@@ -91,7 +91,7 @@
       "surface": "intake-extraction",
       "operations": ["package-intake", "extraction", "validation", "review-routing"],
       "artifact_name": "langsmith-fleet.ndjson",
-      "rollout_status": "planned",
+      "rollout_status": "implemented-followup-open",
       "required_domain_fields": [
         "package_id",
         "document_type",
@@ -107,7 +107,7 @@
       "surface": "llm-replay",
       "operations": ["chain", "replay", "validation", "config-analysis"],
       "artifact_name": "langsmith-fleet.ndjson",
-      "rollout_status": "planned",
+      "rollout_status": "implemented",
       "required_domain_fields": [
         "dataset_id",
         "config_fingerprint",
@@ -123,7 +123,7 @@
       "surface": "scenario-analysis",
       "operations": ["scenario-run", "result-explanation", "run-comparison", "config-patch"],
       "artifact_name": "langsmith-fleet.ndjson",
-      "rollout_status": "planned",
+      "rollout_status": "implemented",
       "required_domain_fields": [
         "scenario_id",
         "config_hash",

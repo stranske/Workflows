@@ -54,6 +54,12 @@ The dashboard aggregates metrics from:
 - 14-day artifact retention window
 - All completed autopilot runs in the specified time period
 
+The fleet artifacts follow a contract-first design: Workflows owns the
+`langsmith-fleet/v1` schema, registry, validator, and dashboard rollup, while
+each consumer repo owns its local emitter and domain instrumentation. See
+[`docs/contracts/langsmith-fleet-v1.md`](../contracts/langsmith-fleet-v1.md)
+before treating a consumer-local validator as a design blocker.
+
 #### How It Works
 
 1. **Download** - Fetches metrics artifacts from recent autopilot runs
