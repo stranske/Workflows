@@ -77,6 +77,23 @@ Validation must fail for malformed records, including:
 - unsafe raw payload values,
 - invalid status values.
 
+## Repo Issue Implementation Checklist
+
+Each repo-specific LangSmith implementation issue should keep instrumentation
+logic local while proving compatibility with the shared Workflows contract:
+
+1. Keep tracing and instrumentation code in the consumer repo, not in
+   Workflows.
+2. Emit a `langsmith-fleet.ndjson` artifact that validates as
+   `langsmith-fleet/v1`.
+3. Populate shared fields (`repo`, `surface`, `operation`, `github_issue`,
+   `status`, `recorded_at`) exactly as defined by the registry entry.
+4. Populate only repo-specific details in `domain`, including every required
+   domain field from the registry.
+5. Avoid raw prompts/output/PII; publish references and hashes instead.
+6. Include a link back to the parent Workflows LangSmith fleet issue so rollout
+   status can be tracked centrally.
+
 ## Dashboard Status Contract
 
 Dashboard ingestion distinguishes four states per registry entry:

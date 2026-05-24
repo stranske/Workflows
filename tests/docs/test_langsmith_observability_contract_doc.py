@@ -34,3 +34,11 @@ def test_langsmith_observability_contract_doc_lists_tracked_repo_issues() -> Non
 
     for issue in expected_issues:
         assert issue in content
+
+
+def test_langsmith_observability_contract_doc_has_repo_issue_checklist() -> None:
+    content = DOC.read_text(encoding="utf-8")
+
+    assert "Repo Issue Implementation Checklist" in content
+    assert "instrumentation code in the consumer repo" in content
+    assert "link back to the parent Workflows LangSmith fleet issue" in content
