@@ -282,3 +282,38 @@ def test_build_dashboard_from_path_marks_invalid_langsmith_fleet_records(tmp_pat
         "| stranske/trip-planner | planner-runtime | stranske/trip-planner#1208 | invalid |"
         in dashboard
     )
+
+
+def test_main_langsmith_fleet_noops_without_langsmith_api_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    metrics_path = tmp_path / "metrics.ndjson"
+    metrics_path.write_text(
+        '{"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"}\n',
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "dashboard.md"
+    fleet_src = Path("tests/fixtures/langsmith_fleet/valid.ndjson")
+    fleet_path = tmp_path / "langsmith-fleet.ndjson"
+    fleet_path.write_text(fleet_src.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+
+    exit_code = generator.main(
+        [
+            "--path",
+            str(metrics_path),
+            "--output",
+            str(output_path),
+            "--fields",
+            "duration_ms",
+            "--langsmith-fleet-records-path",
+            str(fleet_path),
+            "--langsmith-fleet-registry-path",
+            "config/langsmith_fleet_registry.json",
+        ]
+    )
+
+    assert exit_code == 0
+    content = output_path.read_text(encoding="utf-8")
+    assert "## LangSmith Fleet Artifact Status" in content
+    assert "- Valid: 8" in content
