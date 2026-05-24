@@ -210,7 +210,9 @@ def test_empty_hash_references_are_invalid_when_present() -> None:
 
     errors = langsmith_fleet.validate_record(record)
 
-    assert any(error.message == "input_hash must be a hash or artifact reference" for error in errors)
+    assert any(
+        error.message == "input_hash must be a hash or artifact reference" for error in errors
+    )
 
 
 def test_schema_rejects_wrong_domain_type() -> None:
