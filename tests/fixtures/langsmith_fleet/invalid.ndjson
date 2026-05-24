@@ -1,0 +1,1 @@
+{"schema_version":"langsmith-fleet/v1","repo":"stranske/trip-planner","surface":"planner-runtime","operation":"tool-call","run_id":"trip-session-1","status":"success","input_hash":"raw traveler prompt","github_issue":"stranske/trip-planner#1208","domain":{"planning_mode":"leisure"}}

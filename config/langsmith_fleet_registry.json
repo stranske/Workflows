@@ -1,0 +1,119 @@
+{
+  "schema_version": "langsmith-fleet-registry/v1",
+  "stale_after_hours": 168,
+  "repos": [
+    {
+      "repo": "stranske/Workflows",
+      "issue": "stranske/Workflows#2150",
+      "surface": "agent-automation",
+      "operations": ["autopilot", "keepalive", "verifier", "dashboard-ingestion"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "contract-owner",
+      "required_domain_fields": [
+        "workflow",
+        "agent",
+        "step",
+        "attempt",
+        "result"
+      ]
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "issue": "stranske/trip-planner#1208",
+      "surface": "planner-runtime",
+      "operations": ["conversation", "tool-call", "itinerary-generation"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "planned",
+      "required_domain_fields": [
+        "planning_mode",
+        "planner_action",
+        "tool_call_count",
+        "fallback_state"
+      ]
+    },
+    {
+      "repo": "stranske/Pension-Data",
+      "issue": "stranske/Pension-Data#445",
+      "surface": "nl-to-sql",
+      "operations": ["sql-generation", "validation", "execution", "replay"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "planned",
+      "required_domain_fields": [
+        "query_category",
+        "sql_validation_status",
+        "read_only_status",
+        "row_count"
+      ]
+    },
+    {
+      "repo": "stranske/Manager-Database",
+      "issue": "stranske/Manager-Database#1048",
+      "surface": "ai-api",
+      "operations": ["nl-query", "holdings-analysis", "rag"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "planned",
+      "required_domain_fields": [
+        "endpoint",
+        "request_category",
+        "feedback_id",
+        "evaluation_score"
+      ]
+    },
+    {
+      "repo": "stranske/Counter_Risk",
+      "issue": "stranske/Counter_Risk#610",
+      "surface": "risk-reporting",
+      "operations": ["data-quality", "risk-proxy", "limit-monitoring", "report-generation"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "planned",
+      "required_domain_fields": [
+        "as_of_date",
+        "scenario",
+        "data_quality_status",
+        "limit_breach_count"
+      ]
+    },
+    {
+      "repo": "stranske/Inv-Man-Intake",
+      "issue": "stranske/Inv-Man-Intake#438",
+      "surface": "intake-extraction",
+      "operations": ["package-intake", "extraction", "validation", "review-routing"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "planned",
+      "required_domain_fields": [
+        "package_id",
+        "document_type",
+        "redaction_status",
+        "validation_status"
+      ]
+    },
+    {
+      "repo": "stranske/Trend_Model_Project",
+      "issue": "stranske/Trend_Model_Project#5311",
+      "surface": "llm-replay",
+      "operations": ["chain", "replay", "validation", "config-analysis"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "planned",
+      "required_domain_fields": [
+        "dataset_id",
+        "config_fingerprint",
+        "replay_status",
+        "match_score"
+      ]
+    },
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "issue": "stranske/Portable-Alpha-Extension-Model#1802",
+      "surface": "scenario-analysis",
+      "operations": ["scenario-run", "result-explanation", "run-comparison", "config-patch"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "planned",
+      "required_domain_fields": [
+        "scenario_id",
+        "config_hash",
+        "seed",
+        "metric_delta"
+      ]
+    }
+  ]
+}

@@ -30,6 +30,26 @@ Recommended fields:
 - `metric_name`, `workflow`, `dimension` (used for grouping aggregate output)
 - One or more numeric fields (float/int values, or numeric strings)
 
+## LangSmith fleet artifact format
+
+Repos participating in the cross-repo LangSmith dashboard should emit a
+`langsmith-fleet.ndjson` artifact that follows
+`docs/contracts/langsmith-fleet-v1.md`. Workflows validates these records with
+`scripts/langsmith_fleet.py` and the rollout registry in
+`config/langsmith_fleet_registry.json`.
+
+The fleet artifact status model is intentionally separate from generic numeric
+metrics:
+
+- `missing`: a registered repo/surface did not emit an artifact.
+- `invalid`: records exist but fail the shared contract or domain-field
+  requirements.
+- `stale`: the latest valid record is older than the registry freshness window.
+- `valid`: at least one current record validates for the repo/surface.
+
+This lets the dashboard show adoption and freshness even before every repo has
+enough numeric observations for trend charts.
+
 ## Where metrics live
 
 - Per-repo logs live under the metrics directory (default `repo-metrics/`) and
@@ -94,5 +114,6 @@ python scripts/aggregate_repo_metrics.py --repos owner/repo --metrics-dir repo-m
   --numeric-field duration_ms
 python scripts/metrics_dashboard_generator.py --path combined-repo-metrics.ndjson \
   --output docs/metrics/WEEKLY_DASHBOARD.md --fields duration_ms
+python scripts/langsmith_fleet.py tests/fixtures/langsmith_fleet/valid.ndjson \
+  --summary --format markdown
 ```
-

@@ -49,6 +49,8 @@ gh workflow run "LangSmith Metrics Dashboard" \
 
 The dashboard aggregates metrics from:
 - Autopilot workflow artifacts (`autopilot-metrics-*.ndjson`)
+- LangSmith fleet artifacts (`langsmith-fleet.ndjson`) registered in
+  `config/langsmith_fleet_registry.json`
 - 14-day artifact retention window
 - All completed autopilot runs in the specified time period
 
@@ -57,7 +59,10 @@ The dashboard aggregates metrics from:
 1. **Download** - Fetches metrics artifacts from recent autopilot runs
 2. **Combine** - Merges all NDJSON files into single dataset
 3. **Analyze** - Runs `scripts/aggregate_metrics.py` to compute coverage
-4. **Report** - Generates markdown report + JSON summary
+4. **Validate fleet artifacts** - Runs `scripts/langsmith_fleet.py` against
+   `langsmith-fleet/v1` records so the dashboard can distinguish missing,
+   invalid, stale, and valid repo artifacts
+5. **Report** - Generates markdown report + JSON summary
 5. **Publish** - Updates dashboard file, creates issue, uploads artifact
 
 ---
@@ -106,4 +111,5 @@ jobs:
 
 - [LangSmith Integration Status](../LANGSMITH_INTEGRATION_STATUS.md)
 - [LangSmith E2E Validation](../LANGSMITH_E2E_VALIDATION.md)
+- [LangSmith Fleet Record Contract](../contracts/langsmith-fleet-v1.md)
 - [Autopilot Metrics Schema](../ci/AUTOPILOT_METRICS_SCHEMA.md)

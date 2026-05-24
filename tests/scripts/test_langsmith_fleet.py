@@ -1,0 +1,118 @@
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+
+from scripts import langsmith_fleet
+
+ROOT = Path(__file__).resolve().parents[2]
+REGISTRY = ROOT / "config" / "langsmith_fleet_registry.json"
+FIXTURES = ROOT / "tests" / "fixtures" / "langsmith_fleet"
+
+
+def test_valid_fixture_passes_registry_validation() -> None:
+    records, parse_errors = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
+    registry = langsmith_fleet.load_registry(REGISTRY)
+
+    errors = parse_errors + langsmith_fleet.validate_records(records, registry=registry)
+
+    assert errors == []
+
+
+def test_invalid_fixture_reports_first_contract_errors() -> None:
+    records, parse_errors = langsmith_fleet.load_ndjson(FIXTURES / "invalid.ndjson")
+    registry = langsmith_fleet.load_registry(REGISTRY)
+
+    messages = [
+        error.message
+        for error in parse_errors + langsmith_fleet.validate_records(records, registry=registry)
+    ]
+
+    assert "input_hash must be a hash or artifact reference" in messages
+    assert "domain missing required field: planner_action" in messages
+    assert "domain missing required field: tool_call_count" in messages
+    assert "domain missing required field: fallback_state" in messages
+
+
+def test_unknown_repo_surface_is_rejected() -> None:
+    record = {
+        "schema_version": langsmith_fleet.SCHEMA_VERSION,
+        "repo": "stranske/unknown",
+        "surface": "planner-runtime",
+        "operation": "tool-call",
+        "run_id": "run-1",
+        "status": "success",
+        "github_issue": "stranske/unknown#1",
+        "domain": {"x": "y"},
+    }
+    registry = langsmith_fleet.load_registry(REGISTRY)
+
+    errors = langsmith_fleet.validate_record(record, registry=registry)
+
+    assert errors[-1].message == "stranske/unknown/planner-runtime is not in registry"
+
+
+def test_summary_distinguishes_valid_missing_and_invalid(tmp_path: Path) -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    valid_records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
+    invalid_record = {
+        "schema_version": langsmith_fleet.SCHEMA_VERSION,
+        "repo": "stranske/Pension-Data",
+        "surface": "nl-to-sql",
+        "operation": "validation",
+        "run_id": "nl-query-1",
+        "status": "success",
+        "github_issue": "stranske/Pension-Data#445",
+        "recorded_at": "2026-05-24T02:00:00Z",
+        "domain": {"query_category": "benefit"},
+    }
+
+    summary = langsmith_fleet.summarize_fleet_records(
+        [*valid_records, invalid_record],
+        registry=registry,
+        now=datetime(2026, 5, 24, 3, 0, tzinfo=UTC),
+    )
+    rows = {(row["repo"], row["surface"]): row for row in summary["rows"]}
+
+    assert rows[("stranske/Workflows", "agent-automation")]["status"] == "valid"
+    assert rows[("stranske/trip-planner", "planner-runtime")]["status"] == "valid"
+    assert rows[("stranske/Pension-Data", "nl-to-sql")]["status"] == "invalid"
+    assert rows[("stranske/Counter_Risk", "risk-reporting")]["status"] == "missing"
+
+
+def test_summary_distinguishes_stale_records() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
+
+    summary = langsmith_fleet.summarize_fleet_records(
+        records,
+        registry=registry,
+        now=datetime(2026, 6, 10, 0, 0, tzinfo=UTC),
+    )
+    rows = {(row["repo"], row["surface"]): row for row in summary["rows"]}
+
+    assert rows[("stranske/Workflows", "agent-automation")]["status"] == "stale"
+
+
+def test_markdown_summary_contains_dashboard_status_table() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
+    summary = langsmith_fleet.summarize_fleet_records(records, registry=registry)
+
+    markdown = langsmith_fleet.format_fleet_summary(summary)
+
+    assert "# LangSmith Fleet Artifact Status" in markdown
+    assert "| stranske/Workflows | agent-automation | stranske/Workflows#2150 |" in markdown
+
+
+def test_cli_summary_json_shape(tmp_path: Path, capsys) -> None:
+    records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
+    path = tmp_path / "records.ndjson"
+    path.write_text("\n".join(json.dumps(record) for record in records))
+
+    # Exercise the public formatter path without spawning a subprocess.
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    summary = langsmith_fleet.summarize_fleet_records(records, registry=registry)
+    print(json.dumps(summary, sort_keys=True))
+    out = capsys.readouterr().out
+
+    assert '"schema_version": "langsmith-fleet/v1"' in out
