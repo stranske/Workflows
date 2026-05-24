@@ -19,6 +19,7 @@ This folder contains the source-of-truth documentation for this repository.
 - **[guides/](guides/)** - How-to guides and tutorials (currently minimal)
 - **[ci/](ci/)** - CI reference docs and troubleshooting
 - **[keepalive/](keepalive/)** - Keepalive/Codex automation documentation
+- **[contracts/](contracts/)** - Shared cross-repo contracts and schemas
 - **[reference/](reference/)** - Reference docs and analysis notes
 - **[workflows/](workflows/)** - Workflow system notes (evaluation, bug reports)
 - **[examples/](examples/)** - Runnable examples (placeholder)
