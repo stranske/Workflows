@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.aggregate_repo_metrics import summarize_values
+from scripts import langsmith_fleet
 from scripts.metrics_format_utils import ascii_sparkline, format_markdown_table
 
 _DEFAULT_METRICS_PATH = "metrics-history.ndjson"
@@ -290,6 +291,7 @@ def build_dashboard(
     errors: int,
     numeric_fields: list[str] | None = None,
     thresholds: dict[str, dict[str, Any]] | None = None,
+    fleet_summary: dict[str, Any] | None = None,
 ) -> str:
     fields = numeric_fields or _infer_numeric_fields(entries)
     grouped = _group_by_repo(entries)
@@ -328,6 +330,32 @@ def build_dashboard(
     for repo in sorted(grouped):
         lines.append(_repo_section(repo, grouped[repo], fields, thresholds))
 
+    if fleet_summary:
+        lines.append("## LangSmith Fleet Artifact Status")
+        lines.append("")
+        counts = fleet_summary.get("status_counts", {})
+        lines.append(f"- Registry entries: {fleet_summary.get('total_registry_entries', 0)}")
+        lines.append(f"- Valid: {counts.get('valid', 0)}")
+        lines.append(f"- Missing: {counts.get('missing', 0)}")
+        lines.append(f"- Stale: {counts.get('stale', 0)}")
+        lines.append(f"- Invalid: {counts.get('invalid', 0)}")
+        lines.append("")
+        lines.append("| Repo | Surface | Issue | Status | Records | Latest | First Error |")
+        lines.append("|------|---------|-------|--------|---------|--------|-------------|")
+        for row in fleet_summary.get("rows", []):
+            lines.append(
+                "| {repo} | {surface} | {issue} | {status} | {record_count} | {latest} | {error} |".format(
+                    repo=row["repo"],
+                    surface=row["surface"],
+                    issue=row.get("issue") or "",
+                    status=row["status"],
+                    record_count=row["record_count"],
+                    latest=row.get("latest_recorded_at") or "",
+                    error=row.get("first_error") or "",
+                )
+            )
+        lines.append("")
+
     return "\n".join(lines)
 
 
@@ -335,9 +363,45 @@ def build_dashboard_from_path(
     metrics_path: Path,
     numeric_fields: list[str] | None = None,
     thresholds: dict[str, dict[str, Any]] | None = None,
+    fleet_records_path: Path | None = None,
+    fleet_registry_path: Path | None = None,
 ) -> tuple[str, int]:
     entries, errors = _read_ndjson(metrics_path)
-    return build_dashboard(entries, errors, numeric_fields, thresholds), errors
+    fleet_summary = None
+    if fleet_records_path:
+        fleet_records, fleet_parse_errors = langsmith_fleet.load_ndjson(fleet_records_path)
+        registry_path = fleet_registry_path or Path("config/langsmith_fleet_registry.json")
+        registry = langsmith_fleet.load_registry(registry_path)
+        schema = langsmith_fleet.load_record_schema()
+        fleet_validation_errors = langsmith_fleet.validate_records(
+            fleet_records,
+            registry=registry,
+            schema=schema,
+        )
+        fleet_summary = langsmith_fleet.summarize_fleet_records(fleet_records, registry=registry)
+        if fleet_parse_errors or fleet_validation_errors:
+            rows_by_key = {
+                (row["repo"], row["surface"]): row for row in fleet_summary.get("rows", [])
+            }
+            for error in fleet_parse_errors + fleet_validation_errors:
+                matching_record = next(
+                    (
+                        record
+                        for record in fleet_records
+                        if int(getattr(record, "source_line", -1)) == int(error.line)
+                    ),
+                    None,
+                )
+                if not matching_record:
+                    continue
+                key = (
+                    str(matching_record.get("repo", "")).strip(),
+                    str(matching_record.get("surface", "")).strip(),
+                )
+                row = rows_by_key.get(key)
+                if row and not row.get("first_error"):
+                    row["first_error"] = error.message
+    return build_dashboard(entries, errors, numeric_fields, thresholds, fleet_summary), errors
 
 
 def _parse_field_list(values: list[str] | None) -> list[str] | None:
@@ -365,7 +429,14 @@ def _load_config(config_path: Path | None) -> dict[str, Any]:
 
 def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
     validated: dict[str, Any] = {}
-    allowed = {"metrics_path", "output_path", "numeric_fields", "thresholds"}
+    allowed = {
+        "metrics_path",
+        "output_path",
+        "numeric_fields",
+        "thresholds",
+        "langsmith_fleet_records_path",
+        "langsmith_fleet_registry_path",
+    }
     extra_keys = set(config) - allowed
     if extra_keys:
         extras = ", ".join(sorted(extra_keys))
@@ -382,6 +453,24 @@ def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(output_path, str) or not output_path.strip():
             raise ValueError("output_path must be a non-empty string")
         validated["output_path"] = output_path.strip()
+
+    langsmith_fleet_records_path = config.get("langsmith_fleet_records_path")
+    if langsmith_fleet_records_path is not None:
+        if (
+            not isinstance(langsmith_fleet_records_path, str)
+            or not langsmith_fleet_records_path.strip()
+        ):
+            raise ValueError("langsmith_fleet_records_path must be a non-empty string")
+        validated["langsmith_fleet_records_path"] = langsmith_fleet_records_path.strip()
+
+    langsmith_fleet_registry_path = config.get("langsmith_fleet_registry_path")
+    if langsmith_fleet_registry_path is not None:
+        if (
+            not isinstance(langsmith_fleet_registry_path, str)
+            or not langsmith_fleet_registry_path.strip()
+        ):
+            raise ValueError("langsmith_fleet_registry_path must be a non-empty string")
+        validated["langsmith_fleet_registry_path"] = langsmith_fleet_registry_path.strip()
 
     numeric_fields = config.get("numeric_fields")
     if numeric_fields is not None:
@@ -430,7 +519,12 @@ def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
 
 def _resolve_config_paths(config: dict[str, Any], config_path: Path) -> dict[str, Any]:
     resolved = dict(config)
-    for key in ("metrics_path", "output_path"):
+    for key in (
+        "metrics_path",
+        "output_path",
+        "langsmith_fleet_records_path",
+        "langsmith_fleet_registry_path",
+    ):
         value = resolved.get(key)
         if not value:
             continue
@@ -452,6 +546,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional list of numeric fields to include (comma-separated or space-delimited).",
     )
     parser.add_argument("--config", help="Path to JSON config with defaults.")
+    parser.add_argument(
+        "--langsmith-fleet-records-path",
+        help="Optional NDJSON path for langsmith-fleet/v1 records to append fleet status.",
+    )
+    parser.add_argument(
+        "--langsmith-fleet-registry-path",
+        help="Optional registry path for LangSmith fleet records.",
+    )
     return parser
 
 
@@ -477,6 +579,12 @@ def main(argv: list[str]) -> int:
     if fields is None:
         fields = config.get("numeric_fields")
     thresholds = config.get("thresholds")
+    fleet_records_path_value = args.langsmith_fleet_records_path or config.get(
+        "langsmith_fleet_records_path"
+    )
+    fleet_registry_path_value = args.langsmith_fleet_registry_path or config.get(
+        "langsmith_fleet_registry_path"
+    )
 
     metrics_path = Path(metrics_path_value)
     if not metrics_path.exists():
@@ -487,7 +595,11 @@ def main(argv: list[str]) -> int:
         return 1
 
     dashboard, errors = build_dashboard_from_path(
-        metrics_path, numeric_fields=fields, thresholds=thresholds
+        metrics_path,
+        numeric_fields=fields,
+        thresholds=thresholds,
+        fleet_records_path=Path(fleet_records_path_value) if fleet_records_path_value else None,
+        fleet_registry_path=Path(fleet_registry_path_value) if fleet_registry_path_value else None,
     )
     if errors:
         print(f"metrics_dashboard_generator: parse errors: {errors}", file=sys.stderr)

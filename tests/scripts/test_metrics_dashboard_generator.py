@@ -226,3 +226,59 @@ def test_main_writes_output(tmp_path: Path) -> None:
     assert output_path.exists()
     content = output_path.read_text(encoding="utf-8")
     assert "# Weekly Metrics Dashboard" in content
+
+
+def test_build_dashboard_from_path_includes_langsmith_fleet_status(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "metrics.ndjson"
+    metrics_path.write_text(
+        '{"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"}\n',
+        encoding="utf-8",
+    )
+
+    fleet_src = Path("tests/fixtures/langsmith_fleet/valid.ndjson")
+    fleet_path = tmp_path / "langsmith-fleet.ndjson"
+    fleet_path.write_text(fleet_src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    dashboard, errors = generator.build_dashboard_from_path(
+        metrics_path,
+        numeric_fields=["duration_ms"],
+        fleet_records_path=fleet_path,
+        fleet_registry_path=Path("config/langsmith_fleet_registry.json"),
+    )
+
+    assert errors == 0
+    assert "## LangSmith Fleet Artifact Status" in dashboard
+    assert "- Valid: 8" in dashboard
+    assert "- Missing: 0" in dashboard
+    assert "- Stale: 0" in dashboard
+    assert "- Invalid: 0" in dashboard
+    assert (
+        "| stranske/trip-planner | planner-runtime | stranske/trip-planner#1208 | valid |"
+        in dashboard
+    )
+
+
+def test_build_dashboard_from_path_marks_invalid_langsmith_fleet_records(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "metrics.ndjson"
+    metrics_path.write_text(
+        '{"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"}\n',
+        encoding="utf-8",
+    )
+
+    fleet_src = Path("tests/fixtures/langsmith_fleet/invalid.ndjson")
+    fleet_path = tmp_path / "langsmith-fleet-invalid.ndjson"
+    fleet_path.write_text(fleet_src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    dashboard, _ = generator.build_dashboard_from_path(
+        metrics_path,
+        numeric_fields=["duration_ms"],
+        fleet_records_path=fleet_path,
+        fleet_registry_path=Path("config/langsmith_fleet_registry.json"),
+    )
+
+    assert "## LangSmith Fleet Artifact Status" in dashboard
+    assert "- Invalid: 1" in dashboard
+    assert (
+        "| stranske/trip-planner | planner-runtime | stranske/trip-planner#1208 | invalid |"
+        in dashboard
+    )
