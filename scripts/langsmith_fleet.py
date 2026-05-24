@@ -173,9 +173,7 @@ def validate_record(
 
     for field in ("input_hash", "output_hash"):
         if not _is_hash_or_ref(record.get(field)):
-            errors.append(
-                ValidationError(line, f"{field} must be a hash or artifact reference")
-            )
+            errors.append(ValidationError(line, f"{field} must be a hash or artifact reference"))
 
     trace_id = record.get("trace_id")
     trace_url = record.get("trace_url")
@@ -194,9 +192,7 @@ def validate_record(
         elif isinstance(domain, dict):
             for field in entry.get("required_domain_fields", []):
                 if field not in domain:
-                    errors.append(
-                        ValidationError(line, f"domain missing required field: {field}")
-                    )
+                    errors.append(ValidationError(line, f"domain missing required field: {field}"))
 
     return errors
 
@@ -240,7 +236,10 @@ def summarize_fleet_records(
             status = "missing"
         elif validation_errors:
             status = "invalid"
-        elif latest_recorded_at and (now - latest_recorded_at).total_seconds() > stale_after_hours * 3600:
+        elif (
+            latest_recorded_at
+            and (now - latest_recorded_at).total_seconds() > stale_after_hours * 3600
+        ):
             status = "stale"
         else:
             status = "valid"
@@ -253,7 +252,9 @@ def summarize_fleet_records(
                 "artifact_name": entry.get("artifact_name"),
                 "rollout_status": entry.get("rollout_status"),
                 "record_count": len(matching),
-                "latest_recorded_at": latest_recorded_at.isoformat() if latest_recorded_at else None,
+                "latest_recorded_at": (
+                    latest_recorded_at.isoformat() if latest_recorded_at else None
+                ),
                 "status": status,
                 "first_error": validation_errors[0].message if validation_errors else None,
             }
