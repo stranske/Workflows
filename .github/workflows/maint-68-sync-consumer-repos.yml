@@ -82,6 +82,7 @@ env:
     stranske/Portable-Alpha-Extension-Model
     stranske/Trend_Model_Project
     stranske/Collab-Admin
+    stranske/learning-management-system
 
 concurrency:
   group: sync-consumer-repos-${{ github.repository }}-${{ github.ref }}

@@ -115,5 +115,20 @@
       "Existing code breadth can hide missing end-to-end proof.",
       "Fixture-only planner or approval checks should not count as readiness."
     ]
+  },
+  "stranske/learning-management-system": {
+    "progress_summary": "Newly created repo bootstrapped from stranske/Template with design docs, an architecture index, and a 31-issue Phase-1 implementation queue covering Milestones 0-4 (the path to the Minimum Demo). Implementation work begins from a fresh consumer-template scaffolding; runtime code does not yet exist.",
+    "readiness_summary": "Ready for issue-driven implementation against the agreed Phase 1 design. The Minimum Demo Criterion at the end of Milestone 4 (8-item pre-registered day-30 retention protocol) is the v1 thesis-validation gate; treat Milestone 5+ scope as out of bounds until the demo runs.",
+    "review_focus": [
+      "Confirm Phase 1 schema decisions land coherently: verbose EvidenceRecord, MasteryEstimate as a computed view over evidence (not a written table), SourceReference as a first-class entity with content_hash and drift_status.",
+      "Verify SchedulerEvidenceAdapter implementation matches the 5-row rule table in docs/product/project-plan.md Review Scheduler.",
+      "Verify ownership_scope enforcement (repository pattern + CHECK constraints + aggregation tests) lands before any analytics work that aggregates across scopes.",
+      "Verify LLM trace privacy enforces local-first redaction before any external (LangSmith) trace export."
+    ],
+    "concerns": [
+      "Capability/certification entities (CapabilityTarget, CapabilityEstimate, GapAnalysis, MaintenancePlan, CertificationSnapshot) are explicitly Milestone 5+, NOT Phase 1; flag any PR that introduces /capability/* in Milestones 0-4.",
+      "Research-registry stays as YAML in docs/research/registry/ for v1; do not introduce runtime /research/* APIs or SQLAlchemy tables until a product feature reads them.",
+      "Local-only SourceReference bodies (e.g., Math Academy paraphrase content, personal Kindle highlights) must never appear in default exports or LangSmith traces."
+    ]
   }
 }

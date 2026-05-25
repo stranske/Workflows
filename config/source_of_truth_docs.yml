@@ -133,3 +133,14 @@ repos:
         focus: model identifiers in current use, refresh cadence
       - path: docs/WORKFLOW_GUIDE.md
         focus: workflow authoring guidance and reusable-workflow references
+  stranske/learning-management-system:
+    local_path: learning-management-system
+    docs:
+      - path: README.md
+        focus: operational overview and execution entry points
+      - path: AGENTS.md
+        focus: agent runtime constraints and repo-specific guardrails
+      - path: docs/product/project-plan.md
+        focus: design plan; Phase 1 Minimum Core, Minimum Demo Criterion, Milestone 0-4 deliverables and acceptance criteria, SchedulerEvidenceAdapter, ownership-boundary enforcement, export/import contract
+      - path: docs/product/early-design-decisions.md
+        focus: segmented decision queue; especially Segments 2 (mastery), 7 (stack), 8 (sustainability), 9 (privacy), 10 (LLM cost/routing)
