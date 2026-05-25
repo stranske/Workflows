@@ -110,6 +110,15 @@ def test_repo_overwrites_create_only_supports_template_override() -> None:
     assert not check_consumer_sync_drift.repo_overwrites_create_only(entry, "stranske/Counter_Risk")
 
 
+def test_repo_overwrites_create_only_fails_closed_for_malformed_value() -> None:
+    entry = {
+        "sync_mode": "create_only",
+        "overwrite_repos": "stranske/Template",
+    }
+
+    assert not check_consumer_sync_drift.repo_overwrites_create_only(entry, "stranske/Template")
+
+
 def test_build_report_surfaces_manifest_skips_without_failing() -> None:
     report = check_consumer_sync_drift.build_report(
         repos=["owner/custom"],

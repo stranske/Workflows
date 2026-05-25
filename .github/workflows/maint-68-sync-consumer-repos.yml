@@ -305,7 +305,8 @@ jobs:
       - name: Compute result artifact name
         id: repo_meta
         run: |
-          safe_name=$(printf '%s' '${{ matrix.repo }}' | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^-+|-+$//g')
+          safe_name=$(printf '%s' '${{ matrix.repo }}' \
+            | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^-+|-+$//g')
           echo "artifact_name=${safe_name:-unknown-repo}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Workflows
@@ -432,7 +433,8 @@ jobs:
 
           def repo_overwrites_create_only(item, repo):
               """Return whether repo should ignore create_only for this manifest item."""
-              return repo in (item.get('overwrite_repos', []) or [])
+              overwrite_repos = item.get('overwrite_repos', [])
+              return isinstance(overwrite_repos, list) and repo in overwrite_repos
 
           def comparable_lines(path):
               """Return file lines after leading comment/blank header lines."""
@@ -818,7 +820,9 @@ jobs:
           branch_name="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
 
           if [ "$EXISTING_SYNC_PR" = "true" ]; then
-            existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+            existing_pr=$(
+              gh pr list --head "$branch_name" --json number -q '.[0].number' || echo ""
+            )
             echo "PR #$existing_pr already exists for this sync"
             echo "::notice::Existing PR: #$existing_pr"
             {

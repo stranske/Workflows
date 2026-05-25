@@ -50,6 +50,7 @@ def test_consumer_sync_pr_body_surfaces_create_only_skips() -> None:
 
     assert "sync_mode == 'create_only'" in workflow
     assert "repo_overwrites_create_only" in workflow
+    assert "isinstance(overwrite_repos, list)" in workflow
     assert "File exists and sync_mode is create_only" in workflow
     assert "### Files Skipped" in workflow
     assert 'f.write(f"- {s}\\n")' in workflow
