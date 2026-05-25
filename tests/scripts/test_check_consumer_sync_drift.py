@@ -100,6 +100,18 @@ def test_manifest_skip_reason_supports_repo_specific_policy() -> None:
     assert check_consumer_sync_drift.manifest_skip_reason(entry, "owner/standard") == ""
 
 
+def test_repo_overwrites_create_only_supports_template_override() -> None:
+    entry = {
+        "sync_mode": "create_only",
+        "overwrite_repos": ["stranske/Template"],
+    }
+
+    assert check_consumer_sync_drift.repo_overwrites_create_only(entry, "stranske/Template")
+    assert not check_consumer_sync_drift.repo_overwrites_create_only(
+        entry, "stranske/Counter_Risk"
+    )
+
+
 def test_build_report_surfaces_manifest_skips_without_failing() -> None:
     report = check_consumer_sync_drift.build_report(
         repos=["owner/custom"],

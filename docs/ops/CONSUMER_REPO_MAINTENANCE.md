@@ -179,6 +179,12 @@ Maint 68 is manifest-driven:
 
 Custom Gate repos are a special-case skip: their `pr-00-gate.yml` stays local.
 
+The `Template` repository is the canonical source for new consumer repos, so it
+must not preserve stale copies of files that are `create_only` for real
+consumers. Manifest entries can set `overwrite_repos: [stranske/Template]` to
+keep those files aligned in Template while still preserving customizations in
+production consumers.
+
 ### Reusable Workflow Versioning
 
 First-party consumer repos currently call reusable workflows via `@main`.
@@ -236,7 +242,8 @@ Workflows runs **Health 68 Consumer Sync Drift Check** to detect divergence betw
 templates/manifest entries and the registered consumer repos. It runs daily and
 after template/manifest/script changes.
 
-- Files marked with `sync_mode: create_only` are excluded.
+- Files marked with `sync_mode: create_only` are excluded, except for repos
+  listed in the entry's `overwrite_repos` override.
 - The uploaded `consumer-sync-drift-report` artifact uses
   `workflows-consumer-sync-drift/v1` and includes safe
   `token_diagnostics` (`workflows-drift-token-selection/v1`) so permission or

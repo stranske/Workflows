@@ -430,6 +430,10 @@ jobs:
                   return str(rule.get('reason', '')).strip() or 'Manifest skip for repo'
               return ''
 
+          def repo_overwrites_create_only(item, repo):
+              """Return whether repo should ignore create_only for this manifest item."""
+              return repo in (item.get('overwrite_repos', []) or [])
+
           def comparable_lines(path):
               """Return file lines after leading comment/blank header lines."""
               lines = path.read_text().splitlines()
@@ -547,7 +551,11 @@ jobs:
 
               def skip_create_only():
                   """File exists and sync_mode is create_only"""
-                  return sync_mode == 'create_only' and consumer_dst.exists()
+                  return (
+                      sync_mode == 'create_only'
+                      and consumer_dst.exists()
+                      and not repo_overwrites_create_only(item, current_repo)
+                  )
 
               # Determine skip function: check create_only first (covers most cases),
               # then custom_gate for legacy repos that have completely custom Gates

@@ -29,6 +29,12 @@ def test_consumer_create_only_files_are_manifested() -> None:
         assert source in entries
         assert entries[source]["sync_mode"] == "create_only"
 
+    for source in (
+        ".github/workflows/pr-00-gate.yml",
+        ".github/workflows/ci.yml",
+    ):
+        assert entries[source]["overwrite_repos"] == ["stranske/Template"]
+
 
 def test_gate_manifest_entry_documents_fresh_consumer_bootstrap_risk() -> None:
     entries = _manifest_entries()
@@ -43,6 +49,7 @@ def test_consumer_sync_pr_body_surfaces_create_only_skips() -> None:
     workflow = SYNC_WORKFLOW_PATH.read_text(encoding="utf-8")
 
     assert "sync_mode == 'create_only'" in workflow
+    assert "repo_overwrites_create_only" in workflow
     assert "File exists and sync_mode is create_only" in workflow
     assert "### Files Skipped" in workflow
     assert 'f.write(f"- {s}\\n")' in workflow

@@ -130,6 +130,12 @@ def manifest_skip_reason(entry: dict[str, object], repo: str) -> str:
     return ""
 
 
+def repo_overwrites_create_only(entry: dict[str, object], repo: str) -> bool:
+    """Return whether repo should be drift-checked for create_only entries."""
+    overwrite_repos = entry.get("overwrite_repos", [])
+    return isinstance(overwrite_repos, list) and repo in overwrite_repos
+
+
 def token_candidates(env: dict[str, str] | None = None) -> list[dict[str, str]]:
     """Return deduplicated token candidates without exposing token values."""
     values = env if env is not None else os.environ
@@ -781,8 +787,6 @@ def main() -> int:
             source = entry.get("source")
             if not source:
                 continue
-            if entry.get("sync_mode") == "create_only":
-                continue
             target = entry.get("target", source)
             is_directory = entry.get("is_directory", False)
             local_path = local_path_for(source, section)
@@ -791,6 +795,10 @@ def main() -> int:
                 continue
 
             for repo in remote_trees:
+                if entry.get("sync_mode") == "create_only" and not repo_overwrites_create_only(
+                    entry, repo
+                ):
+                    continue
                 skip_reason = manifest_skip_reason(entry, repo)
                 if skip_reason:
                     skipped.add(f"{repo}: {target} ({skip_reason})")
