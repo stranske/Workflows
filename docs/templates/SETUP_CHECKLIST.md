@@ -365,9 +365,52 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Va
 | Variable Name | Description | Example Value |
 |---------------|-------------|---------------|
 | `ALLOWED_KEEPALIVE_LOGINS` | GitHub usernames allowed to trigger keepalive | `stranske` |
+| `USE_CONSOLIDATED_WORKFLOWS` | Use the consolidated `agents-80-pr-event-hub.yml` + `agents-81-gate-followups.yml` hubs instead of the legacy split workflows. Set `true` for all new repos. | `true` |
 
-Add the variable:
+Add the variables:
 - [ ] `ALLOWED_KEEPALIVE_LOGINS` — Comma-separated list of usernames
+- [ ] `USE_CONSOLIDATED_WORKFLOWS=true` — recommended for all new repos
+
+### 3.3.1 Workflow Token Permissions (CRITICAL)
+
+> **Critical**: GitHub creates new repos with `default_workflow_permissions=read`,
+> which causes Gate to fail with `startup_failure` before any job runs (the
+> `Gate / gate` commit status job needs `write` to publish the status). Every
+> consumer repo must be flipped to `write` before its first PR runs through Gate.
+
+**Symptom if skipped:** Gate workflow shows `startup_failure` (or shows the file
+path `.github/workflows/pr-00-gate.yml` instead of `Gate` as the run name
+because the workflow file can't even be parsed under the restricted permissions).
+The `agents-81-gate-followups.yml` hub then skips the keepalive dispatch because
+Gate never succeeded, and the entire automation pipeline is silently blocked.
+
+**One-shot fix via gh CLI:**
+
+```bash
+gh api -X PUT /repos/<owner>/<repo>/actions/permissions/workflow \
+  -F default_workflow_permissions=write \
+  -F can_approve_pull_request_reviews=true
+```
+
+**Verify:**
+
+```bash
+gh api /repos/<owner>/<repo>/actions/permissions/workflow
+# Expect: {"default_workflow_permissions":"write","can_approve_pull_request_reviews":true}
+```
+
+**Or via the UI:** **Settings** → **Actions** → **General** → **Workflow permissions**
+→ select **"Read and write permissions"** and check **"Allow GitHub Actions to
+create and approve pull requests"** → **Save**.
+
+Discovered during `stranske/learning-management-system` bootstrap (2026-05).
+Counter_Risk, Inv-Man-Intake, Trend_Model_Project, etc. all have `write` per
+their `actions/permissions/workflow` settings.
+
+**Checklist:**
+
+- [ ] `default_workflow_permissions=write` on this repo
+- [ ] `can_approve_pull_request_reviews=true` on this repo
 
 ### 3.4 Install GitHub Apps on Repository
 

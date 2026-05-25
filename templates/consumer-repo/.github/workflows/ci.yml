@@ -11,14 +11,20 @@
 # startup_failure when calling reusable workflows. The reusable workflow
 # defines its own permissions.
 #
+# NOTE: Do NOT add a 'pull_request:' trigger here. Gate (pr-00-gate.yml)
+# already runs the same reusable Python CI on every pull request. Adding
+# a parallel pull_request trigger here causes a second concurrent
+# invocation of the reusable workflow that hits a startup_failure
+# (interaction between secrets: inherit and pull_request from same-repo
+# branches). Production consumers (Counter_Risk, Inv-Man-Intake,
+# Trend_Model_Project, etc.) all omit pull_request: from ci.yml.
+#
 # Copy this file to: .github/workflows/ci.yml
 # Also copy: autofix-versions.env to .github/workflows/autofix-versions.env
 name: CI
 
 on:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
   workflow_dispatch:
 
