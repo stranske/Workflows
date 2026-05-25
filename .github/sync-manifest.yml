@@ -162,6 +162,8 @@ removals:
     description: "Remove deprecated verify-to-issue v1 template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)"
   - target: .github/workflows/agents-verify-to-issue-v2.yml
     description: "Remove deprecated verify-to-issue v2 template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)"
+  - target: .github/workflows/agents-70-orchestrator.yml
+    description: "Remove deprecated orchestrator workflow from template consumers (replaced by agents-80-pr-event-hub.yml and agents-81-gate-followups.yml)"
 # Codex prompts for agent operations
 prompts:
   - source: .github/codex/prompts/keepalive_next_task.md

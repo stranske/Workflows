@@ -54,3 +54,11 @@ def test_consumer_sync_pr_body_surfaces_create_only_skips() -> None:
     assert "### Files Skipped" in workflow
     assert 'f.write(f"- {s}\\n")' in workflow
     assert "sync_summary.md" in workflow
+
+
+def test_manifest_removals_include_legacy_agents_orchestrator() -> None:
+    manifest = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8")) or {}
+    removals = manifest.get("removals", []) or []
+    removal_targets = {entry.get("target") for entry in removals if isinstance(entry, dict)}
+
+    assert ".github/workflows/agents-70-orchestrator.yml" in removal_targets
