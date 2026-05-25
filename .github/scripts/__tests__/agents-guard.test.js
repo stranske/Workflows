@@ -182,13 +182,26 @@ test('allows consumer-only allowlisted workflow removals in consumer repos', () 
   const result = evaluateGuard({
     repository: 'stranske/Template',
     files: [{
-      filename: '.github/workflows/agents-autofix-loop.yml',
+      filename: '.github/workflows/agents-70-orchestrator.yml',
       status: 'removed',
     }],
   });
 
   assert.equal(result.blocked, false);
   assert.equal(result.fatalViolations.length, 0);
+});
+
+test('blocks legacy unnumbered orchestrator removal in consumer repos', () => {
+  const result = evaluateGuard({
+    repository: 'stranske/Travel-Plan-Permission',
+    files: [{
+      filename: '.github/workflows/agents-orchestrator.yml',
+      status: 'removed',
+    }],
+  });
+
+  assert.equal(result.blocked, true);
+  assert.ok(result.fatalViolations.some((reason) => reason.includes('was deleted')));
 });
 
 test('blocks renames of allowlisted removal paths', () => {

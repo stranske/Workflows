@@ -151,7 +151,7 @@ def test_deletion_blocks_with_comment():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-70-orchestrator.yml",
+                "filename": ".github/workflows/agents-active.yml",
                 "status": "removed",
             }
         ],
@@ -170,7 +170,7 @@ def test_custom_marker_propagates_to_comment():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-70-orchestrator.yml",
+                "filename": ".github/workflows/agents-active.yml",
                 "status": "removed",
             }
         ],
@@ -187,7 +187,7 @@ def test_default_marker_added_once():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-70-orchestrator.yml",
+                "filename": ".github/workflows/agents-active.yml",
                 "status": "removed",
             }
         ],
@@ -239,6 +239,7 @@ def test_issue_intake_deletion_allowed():
         ".github/workflows/agents-bot-comment-handler.yml",
         ".github/workflows/agents-keepalive-loop.yml",
         ".github/workflows/agents-verify-to-issue-v2.yml",
+        ".github/workflows/agents-70-orchestrator.yml",
     ],
 )
 def test_consolidated_agent_workflow_deletions_allowed(filename):
@@ -256,6 +257,23 @@ def test_consolidated_agent_workflow_deletions_allowed(filename):
     assert result["blocked"] is False
     assert not result["failureReasons"]
     assert result["commentBody"] is None
+
+
+@skip_if_no_node
+def test_legacy_unnumbered_orchestrator_deletion_blocks_in_consumer_repo():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-orchestrator.yml",
+                "status": "removed",
+            }
+        ],
+        codeowners=CODEOWNERS_SAMPLE,
+        repository="stranske/Travel-Plan-Permission",
+    )
+
+    assert result["blocked"] is True
+    assert any("was deleted" in reason for reason in result["failureReasons"])
 
 
 @skip_if_no_node

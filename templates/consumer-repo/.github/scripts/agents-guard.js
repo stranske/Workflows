@@ -49,10 +49,6 @@ const CONSUMER_ONLY_ALLOW_REMOVED_PATHS = [
   // first-PR template sync remove it without tripping the guard. Discovered
   // during stranske/learning-management-system bootstrap (2026-05).
   '.github/workflows/agents-70-orchestrator.yml',
-  // The consumer-template name (without the 70- prefix). Some Template-based
-  // consumer repos shipped this version; allow removal alongside the prefixed
-  // form so either spelling can be cleaned up.
-  '.github/workflows/agents-orchestrator.yml',
 ];
 
 const ALLOW_REMOVED_PATHS = new Set(
