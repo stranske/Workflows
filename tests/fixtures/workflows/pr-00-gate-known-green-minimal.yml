@@ -1,0 +1,9 @@
+jobs:
+  detect:
+    outputs:
+      doc_only: ${{ steps.classify.outputs.doc_only }}
+      run_core: ${{ steps.classify.outputs.run_core }}
+      reason: ${{ steps.classify.outputs.reason }}
+    steps:
+      - id: classify
+        run: echo "known-green minimal gate fixture"
