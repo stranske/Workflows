@@ -1,14 +1,8 @@
 from __future__ import annotations
 
-import json
-import subprocess
 from typing import Any
 
 from scripts import workflow_startup_failure_diagnostic as diag
-
-
-def _mock_completed(payload: dict[str, Any]) -> subprocess.CompletedProcess[str]:
-    return subprocess.CompletedProcess(args=["gh", "api"], returncode=0, stdout=json.dumps(payload))
 
 
 def test_collect_startup_failures_filters_by_run_and_conclusion() -> None:
@@ -63,13 +57,12 @@ def test_diagnose_startup_failure_collects_output_fields(monkeypatch) -> None:
         },
     ]
 
-    def fake_run(cmd, check, capture_output, text):  # type: ignore[no-untyped-def]
-        assert check is True
-        assert capture_output is True
-        assert text is True
-        return _mock_completed(responses.pop(0))
+    def fake_gh_api(path: str, token: str | None = None) -> dict[str, Any]:
+        assert token is None
+        assert path.startswith("repos/owner/repo/")
+        return responses.pop(0)
 
-    monkeypatch.setattr(diag.subprocess, "run", fake_run)
+    monkeypatch.setattr(diag, "_gh_api", fake_gh_api)
     report = diag.diagnose_startup_failure("owner/repo", 555)
 
     assert report["jobs_count"] == 0
@@ -99,10 +92,10 @@ def test_main_returns_2_when_no_startup_failure(monkeypatch, capsys) -> None:
         {"check_runs": []},
     ]
 
-    def fake_run(cmd, check, capture_output, text):  # type: ignore[no-untyped-def]
-        return _mock_completed(responses.pop(0))
+    def fake_gh_api(path: str, token: str | None = None) -> dict[str, Any]:
+        return responses.pop(0)
 
-    monkeypatch.setattr(diag.subprocess, "run", fake_run)
+    monkeypatch.setattr(diag, "_gh_api", fake_gh_api)
     exit_code = diag.main(["--repo", "owner/repo", "--run-id", "111"])
 
     assert exit_code == 2

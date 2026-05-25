@@ -5,18 +5,33 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
 from typing import Any
 
+from scripts import api_client
 
-def _gh_api(path: str) -> dict[str, Any]:
-    cmd = ["gh", "api", path]
-    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-    data = json.loads(result.stdout)
+
+def _github_token() -> str:
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        return token
+    result = subprocess.run(["gh", "auth", "token"], check=True, capture_output=True, text=True)
+    return result.stdout.strip()
+
+
+def _gh_api(path: str, token: str | None = None) -> dict[str, Any]:
+    auth_token = token or _github_token()
+    data = api_client._request_json(
+        "GET",
+        f"{api_client.GITHUB_API}/{path.lstrip('/')}",
+        auth_token,
+        payload=None,
+    )
     if not isinstance(data, dict):
-        raise ValueError(f"Expected JSON object from gh api {path}")
+        raise ValueError(f"Expected JSON object from GitHub API path {path}")
     return data
 
 
