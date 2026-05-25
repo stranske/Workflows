@@ -107,9 +107,7 @@ def test_repo_overwrites_create_only_supports_template_override() -> None:
     }
 
     assert check_consumer_sync_drift.repo_overwrites_create_only(entry, "stranske/Template")
-    assert not check_consumer_sync_drift.repo_overwrites_create_only(
-        entry, "stranske/Counter_Risk"
-    )
+    assert not check_consumer_sync_drift.repo_overwrites_create_only(entry, "stranske/Counter_Risk")
 
 
 def test_build_report_surfaces_manifest_skips_without_failing() -> None:
