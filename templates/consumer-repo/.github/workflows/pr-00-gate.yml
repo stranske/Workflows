@@ -4,11 +4,11 @@
 #
 # Fresh-consumer bootstrap note:
 # This expanded Gate is not yet safe to seed into brand-new consumer repos.
-# Keep .github/sync-manifest.yml at sync_mode: create_only for this file until
-# issue #2158 proves the expanded detect outputs run on a repo created from
-# stranske/Template. Fresh consumers should temporarily use a known-green
-# deployed consumer Gate, then upgrade after the startup-failure regression is
-# fixed.
+# sync_mode: create_only only protects repos that already have a Gate file; a
+# repo missing pr-00-gate.yml can still receive this template on first sync.
+# Fresh consumers should start from stranske/Template or another known-green
+# deployed consumer Gate, then upgrade after issue #2158 proves this expanded
+# detect-output version no longer hits the startup-failure regression.
 name: Gate
 
 on:
