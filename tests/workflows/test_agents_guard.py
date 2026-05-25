@@ -151,7 +151,7 @@ def test_deletion_blocks_with_comment():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-70-orchestrator.yml",
+                "filename": ".github/workflows/agents-72-codex-belt-worker.yml",
                 "status": "removed",
             }
         ],
@@ -170,7 +170,7 @@ def test_custom_marker_propagates_to_comment():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-70-orchestrator.yml",
+                "filename": ".github/workflows/agents-72-codex-belt-worker.yml",
                 "status": "removed",
             }
         ],
@@ -187,7 +187,7 @@ def test_default_marker_added_once():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-70-orchestrator.yml",
+                "filename": ".github/workflows/agents-72-codex-belt-worker.yml",
                 "status": "removed",
             }
         ],
@@ -239,6 +239,8 @@ def test_issue_intake_deletion_allowed():
         ".github/workflows/agents-bot-comment-handler.yml",
         ".github/workflows/agents-keepalive-loop.yml",
         ".github/workflows/agents-verify-to-issue-v2.yml",
+        ".github/workflows/agents-70-orchestrator.yml",
+        ".github/workflows/agents-orchestrator.yml",
     ],
 )
 def test_consolidated_agent_workflow_deletions_allowed(filename):
