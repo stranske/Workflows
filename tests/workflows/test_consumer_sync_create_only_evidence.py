@@ -30,6 +30,15 @@ def test_consumer_create_only_files_are_manifested() -> None:
         assert entries[source]["sync_mode"] == "create_only"
 
 
+def test_gate_manifest_entry_documents_fresh_consumer_bootstrap_risk() -> None:
+    entries = _manifest_entries()
+    gate = entries[".github/workflows/pr-00-gate.yml"]
+
+    description = str(gate.get("description", ""))
+    assert "not yet fresh-consumer deployable" in description
+    assert "#2158" in description
+
+
 def test_consumer_sync_pr_body_surfaces_create_only_skips() -> None:
     workflow = SYNC_WORKFLOW_PATH.read_text(encoding="utf-8")
 
