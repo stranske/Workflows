@@ -30,7 +30,7 @@ workflows:
   # Core CI/CD
   - source: .github/workflows/pr-00-gate.yml
     description: "Gate workflow - runs tests, lint, type checking before merge. Bootstrap note: the expanded template Gate is not yet fresh-consumer deployable; see issue #2158 before seeding it into new repos."
-    sync_mode: create_only  # Don't overwrite; also prevents the expanded Gate from seeding fresh consumers until #2158 proves it deployable.
+    sync_mode: create_only  # Don't overwrite existing consumer Gate files; fresh repos can still receive this file, so follow #2158 before first seeding.
 
   - source: .github/workflows/ci.yml
     description: "CI workflow - main continuous integration entry point"
