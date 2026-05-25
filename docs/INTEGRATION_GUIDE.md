@@ -663,6 +663,14 @@ concurrency:
 2. Set "Workflow permissions" to **"Read and write permissions"**
 3. Enable **"Allow GitHub Actions to create and approve pull requests"**
 
+**Capture the hidden startup error (file-parse / job-graph phase):**
+```bash
+python scripts/workflow_startup_failure_diagnostic.py --repo OWNER/REPO --run-id RUN_ID
+```
+
+This inspects check-runs for the same head SHA/run ID and prints the parser error
+title/summary text that is not visible in `actions/runs/<id>/jobs`.
+
 
 ### Startup Failure (Caller Workflow Permissions)
 
