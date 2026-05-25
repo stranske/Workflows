@@ -78,6 +78,18 @@ def test_diagnose_startup_failure_collects_output_fields(monkeypatch) -> None:
     finding = report["startup_failures"][0]
     assert finding["title"] == "The workflow is not valid"
     assert "Unrecognized named-value" in finding["summary"]
+    assert finding["failure_phase"] == "workflow_parse_or_graph"
+    assert finding["suspected_root_cause"] == "invalid_expression_context_reference"
+
+
+def test_classify_startup_failure_action_resolution() -> None:
+    phase, root = diag._classify_startup_failure(
+        summary="Unable to resolve action `owner/repo@main`",
+        title="Startup failure",
+        text="Repository not found",
+    )
+    assert phase == "action_resolution"
+    assert root == "action_reference_or_access"
 
 
 def test_main_returns_2_when_no_startup_failure(monkeypatch, capsys) -> None:

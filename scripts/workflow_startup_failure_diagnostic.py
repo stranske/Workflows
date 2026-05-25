@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from typing import Any
@@ -54,6 +55,14 @@ def diagnose_startup_failure(repo: str, run_id: int) -> dict[str, Any]:
     findings: list[dict[str, Any]] = []
     for check in startup_failures:
         output = check.get("output") if isinstance(check.get("output"), dict) else {}
+        summary = str(output.get("summary", ""))
+        title = str(output.get("title", ""))
+        text = str(output.get("text", ""))
+        phase, suspected_root_cause = _classify_startup_failure(
+            summary=summary,
+            title=title,
+            text=text,
+        )
         findings.append(
             {
                 "id": check.get("id"),
@@ -64,9 +73,11 @@ def diagnose_startup_failure(repo: str, run_id: int) -> dict[str, Any]:
                 "completed_at": check.get("completed_at"),
                 "details_url": check.get("details_url"),
                 "html_url": check.get("html_url"),
-                "title": output.get("title", ""),
-                "summary": output.get("summary", ""),
-                "text": output.get("text", ""),
+                "title": title,
+                "summary": summary,
+                "text": text,
+                "failure_phase": phase,
+                "suspected_root_cause": suspected_root_cause,
             }
         )
 
@@ -82,6 +93,26 @@ def diagnose_startup_failure(repo: str, run_id: int) -> dict[str, Any]:
         "jobs_count": jobs_count,
         "startup_failures": findings,
     }
+
+
+def _classify_startup_failure(summary: str, title: str, text: str) -> tuple[str, str]:
+    """Best-effort classification for parse-time startup failures."""
+    blob = "\n".join((title, summary, text)).lower()
+    if "workflow is not valid" in blob or "line " in blob:
+        return ("workflow_parse_or_graph", _guess_parse_cause(blob))
+    if "unable to resolve action" in blob or "repository not found" in blob:
+        return ("action_resolution", "action_reference_or_access")
+    return ("unknown", "unknown")
+
+
+def _guess_parse_cause(blob: str) -> str:
+    if "unrecognized named-value" in blob:
+        return "invalid_expression_context_reference"
+    if re.search(r"unexpected value|mapping values are not allowed", blob):
+        return "yaml_structure_or_syntax"
+    if "fromjson" in blob and "invalid" in blob:
+        return "expression_type_or_json_coercion"
+    return "workflow_parse_or_job_graph_construction"
 
 
 def _build_parser() -> argparse.ArgumentParser:
