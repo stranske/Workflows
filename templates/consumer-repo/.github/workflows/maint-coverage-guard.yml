@@ -136,7 +136,7 @@ jobs:
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
                 };
-            const { paginateWithRetry, withRetry } = retryHelpers;
+            const { paginateWithRetry } = retryHelpers;
 
             const runs = await paginateWithRetry(
               github, github.rest.actions.listWorkflowRuns,
@@ -160,30 +160,11 @@ jobs:
                 new Date(b.run_started_at || b.created_at || 0) -
                 new Date(a.run_started_at || a.created_at || 0),
             );
-            let candidate = null;
-            for (const run of runs) {
-              const artifacts = await withRetry(() =>
-                github.rest.actions.listWorkflowRunArtifacts({
-                  owner,
-                  repo,
-                  run_id: run.id,
-                  per_page: 100,
-                }),
-              );
-              const hasCoverageTrend = artifacts.data.artifacts.some(
-                (artifact) =>
-                  artifact.name === 'gate-coverage-trend' && !artifact.expired,
-              );
-              if (hasCoverageTrend) {
-                candidate = run;
-                break;
-              }
-            }
+            const candidate =
+              runs.find((run) => ['success', 'neutral'].includes(run.conclusion || '')) || runs[0];
 
             if (!candidate) {
-              core.warning(
-                'Unable to locate a completed Gate workflow run with coverage artifacts.',
-              );
+              core.warning('Unable to locate a completed Gate workflow run.');
               core.setOutput('run_id', '');
               return;
             }
