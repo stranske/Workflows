@@ -161,9 +161,7 @@ jobs:
                 new Date(a.run_started_at || a.created_at || 0),
             );
             let candidate = null;
-            for (const run of runs.filter((item) =>
-              ['success', 'neutral'].includes(item.conclusion || ''),
-            )) {
+            for (const run of runs) {
               const artifacts = await withRetry(() =>
                 github.rest.actions.listWorkflowRunArtifacts({
                   owner,
