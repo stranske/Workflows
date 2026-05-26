@@ -163,49 +163,68 @@ jobs:
             const successfulRuns = runs.filter((run) =>
               ['success', 'neutral'].includes(run.conclusion || ''),
             );
-            const runsToProbe = (successfulRuns.length ? successfulRuns : runs).slice(0, 10);
-            const coverageArtifactNames = new Set([
+            const runsToProbe = successfulRuns.slice(0, 10);
+            const requiredCoverageArtifactNames = new Set([
               'gate-coverage-trend',
               'gate-coverage-trend-history',
               'gate-coverage',
-              'gate-coverage.json',
-              'gate-coverage-delta.json',
-              'gate-coverage-summary',
-              'gate-coverage-summary.md',
             ]);
             let candidate = null;
             for (const run of runsToProbe) {
-              const artifacts = await withRetry(() =>
-                github.rest.actions.listWorkflowRunArtifacts({
-                  owner,
-                  repo,
-                  run_id: run.id,
-                  per_page: 100,
-                }),
+              let artifacts = [];
+              try {
+                artifacts = await paginateWithRetry(
+                  github,
+                  github.rest.actions.listWorkflowRunArtifacts,
+                  {
+                    owner,
+                    repo,
+                    run_id: run.id,
+                    per_page: 100,
+                  },
+                );
+              } catch (error) {
+                core.warning(
+                  `Skipping Gate run ${run.id}; artifact lookup failed: ${error.message}`,
+                );
+                continue;
+              }
+
+              const availableCoverageArtifactNames = new Set(
+                artifacts
+                  .filter((artifact) => !artifact.expired)
+                  .map((artifact) => artifact.name),
               );
-              const hasCoverageArtifact = artifacts.data.artifacts.some(
-                (artifact) =>
-                  coverageArtifactNames.has(artifact.name) && !artifact.expired,
+              const missingCoverageArtifactNames = [...requiredCoverageArtifactNames].filter(
+                (artifactName) => !availableCoverageArtifactNames.has(artifactName),
               );
-              if (hasCoverageArtifact) {
+              if (!missingCoverageArtifactNames.length) {
                 candidate = run;
                 break;
               }
-            }
-
-            if (!candidate && successfulRuns.length) {
-              candidate = successfulRuns[0];
-              core.warning(
+              core.info(
                 [
-                  'No recent successful Gate run with coverage artifacts found;',
-                  'falling back to the latest successful Gate run.',
+                  `Skipping Gate run ${run.id}; missing required coverage artifacts:`,
+                  missingCoverageArtifactNames.join(', '),
                 ].join(' '),
               );
             }
 
+            if (!candidate && !successfulRuns.length) {
+              core.warning(
+                'Unable to locate a successful or neutral completed Gate workflow run.',
+              );
+              core.setOutput('run_id', '');
+              return;
+            }
+
             if (!candidate) {
               core.warning(
-                'Unable to locate a completed Gate workflow run with coverage artifacts.',
+                [
+                  'Unable to locate a recent successful Gate workflow run with required',
+                  'coverage artifacts: gate-coverage-trend, gate-coverage-trend-history,',
+                  'gate-coverage.',
+                ].join(' '),
               );
               core.setOutput('run_id', '');
               return;
