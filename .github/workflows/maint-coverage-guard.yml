@@ -150,8 +150,21 @@ jobs:
                 new Date(b.run_started_at || b.created_at || 0) -
                 new Date(a.run_started_at || a.created_at || 0),
             );
+            const successfulRuns = runs.filter((run) =>
+              ['success', 'neutral'].includes(run.conclusion || ''),
+            );
+            const runsToProbe = (successfulRuns.length ? successfulRuns : runs).slice(0, 10);
+            const coverageArtifactNames = new Set([
+              'gate-coverage-trend',
+              'gate-coverage-trend-history',
+              'gate-coverage',
+              'gate-coverage.json',
+              'gate-coverage-delta.json',
+              'gate-coverage-summary',
+              'gate-coverage-summary.md',
+            ]);
             let candidate = null;
-            for (const run of runs) {
+            for (const run of runsToProbe) {
               const artifacts = await withRetry(() =>
                 github.rest.actions.listWorkflowRunArtifacts({
                   owner,
@@ -160,14 +173,24 @@ jobs:
                   per_page: 100,
                 }),
               );
-              const hasCoverageTrend = artifacts.data.artifacts.some(
+              const hasCoverageArtifact = artifacts.data.artifacts.some(
                 (artifact) =>
-                  artifact.name === 'gate-coverage-trend' && !artifact.expired,
+                  coverageArtifactNames.has(artifact.name) && !artifact.expired,
               );
-              if (hasCoverageTrend) {
+              if (hasCoverageArtifact) {
                 candidate = run;
                 break;
               }
+            }
+
+            if (!candidate && successfulRuns.length) {
+              candidate = successfulRuns[0];
+              core.warning(
+                [
+                  'No recent successful Gate run with coverage artifacts found;',
+                  'falling back to the latest successful Gate run.',
+                ].join(' '),
+              );
             }
 
             if (!candidate) {
