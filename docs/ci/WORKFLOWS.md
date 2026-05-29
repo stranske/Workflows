@@ -205,6 +205,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`maint-74-ledger-base-sync.yml`](../../.github/workflows/maint-74-ledger-base-sync.yml) aligns `.agents` ledger base entries to the repository default branch on a weekly schedule or manual dispatch.
 * [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) generates weekly LangSmith trace coverage dashboard - downloads metrics from autopilot artifacts, computes coverage, creates issue report (scheduled Monday 9AM UTC, manual dispatch).
 * [`maint-82-sync-dependabot-campaign.yml`](../../.github/workflows/maint-82-sync-dependabot-campaign.yml) refreshes a GitHub-visible sync/Dependabot campaign issue so local Codex only claims queued bot-review work when remote discovery finds active review threads.
+* [`maint-83-bootstrap-consumer.yml`](../../.github/workflows/maint-83-bootstrap-consumer.yml) applies the manual GitHub-settings bootstrap toggles a freshly-registered consumer needs (SETUP_CHECKLIST §3.1/§3.3/§3.3.1: `default_workflow_permissions=write`, `USE_CONSOLIDATED_WORKFLOWS` + `ALLOWED_KEEPALIVE_LOGINS` variables, and the `stranske-automation-bot` push-collaborator invite) via `scripts/bootstrap_consumer_settings.py` (manual dispatch, dry-run by default).
 
 Together these workflows define the CI surface area referenced by Gate and the Gate summary job, keeping the automation stack observable, testable, and easier to evolve.
 
