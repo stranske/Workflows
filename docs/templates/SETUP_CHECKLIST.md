@@ -22,6 +22,8 @@ Before starting, ensure you have:
 - [ ] Admin access to create repository secrets and variables
 - [ ] Claude Code login/session available if you want Claude-run workflows
 - [ ] Python 3.12+ installed locally for testing
+- [ ] GitHub CLI (`gh`) installed + authenticated (`brew install gh`; `gh auth status`) — the repo/label/secret steps below use it
+- [ ] Access to the team credentials store (e.g. `Code/Numbers/values.txt`), labeled by secret name — source for the Phase 3 secrets the table marks "contact admin"
 
 ---
 
@@ -35,11 +37,12 @@ Before starting, ensure you have:
 - [ ] Create the consumer repo from your chosen template source:
   - [ ] Preferred: start from the consumer repo template under `stranske/Workflows/templates/consumer-repo/` (copied into a new repo)
   - [ ] Alternative: use a dedicated template repo (for example [stranske/Template](https://github.com/stranske/Template)) if your org maintains one
-- [ ] Click **Use this template** → **Create a new repository**
-- [ ] Choose owner: `stranske` (or your organization)
-- [ ] Enter repository name
-- [ ] Select **Private** or **Public** as appropriate
-- [ ] Click **Create repository**
+- [ ] Create via GitHub CLI (the UI "Use this template" path still works too):
+  ```bash
+  gh repo create stranske/<your-repo> --public --template stranske/Template \
+    --description "<short description>"
+  ```
+  Use `--private` if appropriate. `stranske/Template` is a GitHub *template* repo, so `--template` copies its full scaffold in one step.
 
 ### 1.2 Clone and Verify Structure
 
