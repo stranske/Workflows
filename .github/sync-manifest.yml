@@ -668,6 +668,10 @@ docs:
     target: docs/contracts/agent-runner-output.md
     description: "Agent runner output contract specification - required for implementing new agent runners"
 
+  - source: docs/SETUP_CHECKLIST.md
+    target: docs/SETUP_CHECKLIST.md
+    description: "Consumer repo setup checklist. Includes the default_workflow_permissions=write step (§3.3.1) that prevents a Gate startup_failure on fresh consumers (see #2157). Synced so it no longer drifts across the fleet."
+
 # Issue templates synced to consumer repos
 issue_templates:
   - source: .github/ISSUE_TEMPLATE/agent_task.yml
