@@ -26,6 +26,7 @@ You are NOT writing GitHub issues. You are NOT running scripts that mutate the r
    - `archive-progress.md` — recently-discussed topics from prior review sessions.
 3. The repo itself at the local path named in `review-inputs.md`. Read `README.md`, the design source files listed in the brief, and inspect the implementation areas. Use `grep`/`rg` and `git log` as needed; do NOT modify any file.
 4. `docs/ops/REPO_REVIEW_ROUND1_SCHEMA.md` — the findings schema you must conform to.
+5. Any reports under `docs/reports/` listed in the "Reports & Baseline Signals" section of your brief (coverage manifests, baseline-drift, test-quality). A coverage regression, drift alarm, or untested/unwired parameter named there — confirmed against current code — is a verified gap worth raising as a candidate.
 
 ## GitNexus (optional, when the map is current)
 
@@ -55,7 +56,7 @@ GitNexus indexes call-graph relationships, **not SQL strings or file contents**.
    - `missing` — the design commits to it but the implementation does not exist (cite where you verified the absence — e.g., a referenced module that doesn't exist, a documented endpoint that's never registered)
    - `stale-or-conflicting` — code or docs exist but disagree with the design (e.g., README claims X but the code does Y)
    
-   Each classification needs concrete file refs as evidence. File counts and keyword hits do NOT count.
+   Each classification needs concrete file refs as evidence. File counts and keyword hits do NOT count. Baseline coverage/drift reports in `docs/reports/` are corroborating evidence: a parameter flagged there as untested or unwired, confirmed against the code, supports a `partial` classification; a drift alarm supports `stale-or-conflicting`.
 
 3. **Decide readiness for testing or live-style use.** Name the exact tests, smoke checks, verifier commands, or missing proof that would (or do) demonstrate the user journey end-to-end. Generic phrases like "ready for normal coding-agent implementation" fail the gate. The answer must differ across repos because the design target differs.
 

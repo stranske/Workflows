@@ -1581,7 +1581,7 @@ def collect_repo_state(
     design_files = collect_design_files(repo_path)
     implementation_areas = collect_implementation_areas(repo_path)
     report_files = (
-        sorted((repo_path / "docs" / "reports").glob("*.md"))
+        sorted((repo_path / "docs" / "reports").rglob("*.md"))
         if (repo_path / "docs" / "reports").is_dir()
         else []
     )
@@ -3062,6 +3062,18 @@ def write_review_inputs(repo_dir: Path, state: dict[str, Any]) -> None:
         f"- Indexed at: `{gitnexus.get('indexed_at') or 'unknown'}`",
         f"- Indexed commit: `{(gitnexus.get('indexed_commit') or 'unknown')[:12]}`",
         f"- Head commit: `{(gitnexus.get('head_commit') or 'unknown')[:12]}`",
+        "",
+        "## Reports & Baseline Signals",
+        "",
+        "Generated reports under `docs/reports/` (coverage manifests, baseline-drift, "
+        "test-quality signals). Treat a coverage regression, drift alarm, or an "
+        "untested/unwired parameter flagged here as a VERIFIED candidate source when "
+        "current code does not explain or correct it:",
+        "",
+        (
+            "\n".join(f"- `{p}`" for p in (state.get("report_files") or []))
+            or "_None detected._"
+        ),
         "",
         "## Dedup References",
         "",
