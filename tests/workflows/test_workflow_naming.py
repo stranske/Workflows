@@ -264,6 +264,7 @@ EXPECTED_NAMES = {
     "maint-71-merge-sync-prs.yml": "Merge Sync PRs",
     "maint-74-ledger-base-sync.yml": "Ledger Base Sync",
     "maint-80-langsmith-metrics-dashboard.yml": "LangSmith Metrics Dashboard",
+    "maint-81-langsmith-fleet-conformance.yml": "LangSmith Fleet Conformance",
     "maint-82-sync-dependabot-campaign.yml": "Sync/Dependabot Campaign",
     "maint-83-bootstrap-consumer.yml": "Maint 83 Bootstrap Consumer",
     "maint-72-fix-pr-body-conflicts.yml": "Maint 72 Fix PR Body Conflicts",
