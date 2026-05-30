@@ -27,3 +27,17 @@ def test_fleet_status_is_warning_only_and_appended_to_report() -> None:
     assert "::warning title=LangSmith fleet artifacts incomplete::" in source
     assert "cat .metrics-tmp/fleet/fleet-status.md" in source
     assert "if [ -f .metrics-tmp/fleet/fleet-status.md ]; then" in source
+
+
+def test_fleet_rollup_and_publication_paths_are_wired() -> None:
+    source = WORKFLOW.read_text(encoding="utf-8")
+
+    # Fleet rollup is generated from combined records via the validator summary output.
+    assert "python scripts/langsmith_fleet.py .metrics-tmp/fleet/combined-fleet.ndjson" in source
+    assert '--registry "$REGISTRY" --summary --format markdown' in source
+    assert '--registry "$REGISTRY" --summary --format json' in source
+
+    # The same report payload feeds both issue body and committed dashboard file.
+    assert "REPORT=$(cat .metrics-tmp/report.md)" in source
+    assert "$REPORT" in source
+    assert "$(cat .metrics-tmp/report.md)" in source
