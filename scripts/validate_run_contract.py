@@ -148,9 +148,7 @@ def _validate_consumer(
         # Only convention-only ingests (e.g. identity-map-conventions): nothing
         # to schema-validate; presence of a declared ingest is enough.
         unknown = [
-            t
-            for t in ingests
-            if t not in INGEST_SCHEMA_FILES and t not in INGEST_CONVENTION_ONLY
+            t for t in ingests if t not in INGEST_SCHEMA_FILES and t not in INGEST_CONVENTION_ONLY
         ]
         for tok in unknown:
             report.fail(f"unknown ingest schema token '{tok}'", "ingests")
@@ -159,10 +157,7 @@ def _validate_consumer(
     per_schema_errors: dict[str, list[str]] = {}
     for token in schema_tokens:
         schema = _load_schema(schema_dir, INGEST_SCHEMA_FILES[token])
-        errs = [
-            e.message
-            for e in Draft202012Validator(schema).iter_errors(document)
-        ]
+        errs = [e.message for e in Draft202012Validator(schema).iter_errors(document)]
         if not errs:
             # Matched an ingested schema -> conformant.
             _scan_unsafe(document, report)
@@ -212,9 +207,7 @@ def validate_envelope(
         report.fail(err.message, "/".join(str(p) for p in err.absolute_path))
 
     if envelope.get("schema_version") != RUN_SCHEMA_VERSION:
-        report.fail(
-            f"schema_version must be '{RUN_SCHEMA_VERSION}'", "schema_version"
-        )
+        report.fail(f"schema_version must be '{RUN_SCHEMA_VERSION}'", "schema_version")
 
     # 3. Registry-required sections present (role-aware: a tool is never failed
     #    for omitting a section that is out of its declared role).
@@ -225,14 +218,11 @@ def validate_envelope(
         present = section in envelope and envelope.get(section) is not None
         if not present:
             report.fail(
-                f"registry requires section '{section}' for {repo} "
-                "(key absent)", section
+                f"registry requires section '{section}' for {repo} " "(key absent)", section
             )
         elif section not in SECTIONS_EMPTY_OK and envelope.get(section) in ("", [], {}):
             # cost/latency/data_quality: present-but-empty == not populated.
-            report.fail(
-                f"registry requires a populated '{section}' for {repo}", section
-            )
+            report.fail(f"registry requires a populated '{section}' for {repo}", section)
 
     # 4. No inline raw payloads (PII / prompts / rows / full output).
     _scan_unsafe(envelope, report)
@@ -241,25 +231,21 @@ def validate_envelope(
     #    pattern; here we double-check non-empty type when required).
     for ref in envelope.get("identity_refs", []) or []:
         if not isinstance(ref, str) or ":" not in ref:
-            report.fail(f"identity_ref '{ref}' is not a canonical <type>:<id>",
-                        "identity_refs")
+            report.fail(f"identity_ref '{ref}' is not a canonical <type>:<id>", "identity_refs")
 
     # 6. Manifest cross-check: every emitted artifact_id is in the manifest
     #    with a sha256, and the manifest itself validates.
     if manifest is not None:
         manifest_schema = _load_schema(schema_dir, "artifact-manifest-v1.schema.json")
         for err in Draft202012Validator(manifest_schema).iter_errors(manifest):
-            report.fail(f"manifest: {err.message}",
-                        "/".join(str(p) for p in err.absolute_path))
+            report.fail(f"manifest: {err.message}", "/".join(str(p) for p in err.absolute_path))
         by_id = {a.get("artifact_id"): a for a in manifest.get("artifacts", [])}
         for art_id in envelope.get("outputs", {}).get("artifact_ids", []) or []:
             art = by_id.get(art_id)
             if art is None:
-                report.fail(f"artifact_id '{art_id}' not in manifest",
-                            "outputs.artifact_ids")
+                report.fail(f"artifact_id '{art_id}' not in manifest", "outputs.artifact_ids")
             elif not art.get("sha256"):
-                report.fail(f"manifest artifact '{art_id}' missing sha256",
-                            "manifest.artifacts")
+                report.fail(f"manifest artifact '{art_id}' missing sha256", "manifest.artifacts")
 
     # 7. Evidence presence is handled by the required_sections loop above, where
     #    'evidence_refs' is empty-OK (a clean run may attribute nothing). When
@@ -311,23 +297,26 @@ def main(argv: list[str] | None = None) -> int:
     elif report.conformant:
         print(f"{args.repo}: run envelope conforms to {RUN_SCHEMA_VERSION}")
     else:
-        print(f"{args.repo}: {len(report.violations)} conformance violation(s):",
-              file=sys.stderr)
+        print(f"{args.repo}: {len(report.violations)} conformance violation(s):", file=sys.stderr)
         for v in report.violations:
             print(f"  - [{v.path}] {v.message}", file=sys.stderr)
 
     if args.report_json:
-        args.report_json.write_text(json.dumps(
-            {
-                "repo": report.repo,
-                "role": report.role,
-                "conformant": report.conformant,
-                "skipped": report.skipped,
-                "violations": [{"path": v.path, "message": v.message}
-                               for v in report.violations],
-            },
-            indent=2, sort_keys=True,
-        ))
+        args.report_json.write_text(
+            json.dumps(
+                {
+                    "repo": report.repo,
+                    "role": report.role,
+                    "conformant": report.conformant,
+                    "skipped": report.skipped,
+                    "violations": [
+                        {"path": v.path, "message": v.message} for v in report.violations
+                    ],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
     if args.github_output:
         with args.github_output.open("a") as fh:
             ok = report.conformant or report.skipped
@@ -361,8 +350,14 @@ def _self_smoke(schema_dir: Path, registry_path: Path) -> int:
         valid_run = fx / "valid_run.json"
         valid_manifest = fx / "valid_manifest.json"
         if valid_run.is_file():
-            cases.append((valid_run, valid_manifest if valid_manifest.is_file() else None,
-                          "stranske/Pension-Data", True))
+            cases.append(
+                (
+                    valid_run,
+                    valid_manifest if valid_manifest.is_file() else None,
+                    "stranske/Pension-Data",
+                    True,
+                )
+            )
         for inv in (
             "missing_cost.json",
             "unsafe_rows_inline.json",
@@ -371,8 +366,11 @@ def _self_smoke(schema_dir: Path, registry_path: Path) -> int:
         ):
             p = fx / inv
             if p.is_file():
-                mani = valid_manifest if (inv == "artifact_not_in_manifest.json"
-                                          and valid_manifest.is_file()) else None
+                mani = (
+                    valid_manifest
+                    if (inv == "artifact_not_in_manifest.json" and valid_manifest.is_file())
+                    else None
+                )
                 cases.append((p, mani, "stranske/Pension-Data", False))
 
     ok = True
@@ -380,16 +378,21 @@ def _self_smoke(schema_dir: Path, registry_path: Path) -> int:
         envelope = _load_json(path)
         manifest = _load_json(mani_path) if mani_path else None
         report = validate_envelope(
-            envelope=envelope, schema_dir=schema_dir, registry=registry,
-            repo=repo, manifest=manifest,
+            envelope=envelope,
+            schema_dir=schema_dir,
+            registry=registry,
+            repo=repo,
+            manifest=manifest,
         )
         passed = report.conformant or report.skipped
         good = passed == expect_pass
         ok = ok and good
         verdict = "PASS" if good else "FAIL"
         want = "conform" if expect_pass else "reject"
-        print(f"{verdict} fixture {path.name}: expected {want}, "
-              f"got {'conform' if passed else 'reject'}")
+        print(
+            f"{verdict} fixture {path.name}: expected {want}, "
+            f"got {'conform' if passed else 'reject'}"
+        )
 
     if not cases:
         print("NOTE: no fixtures found; schema-only self-smoke.")

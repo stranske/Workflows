@@ -96,10 +96,14 @@ def test_cli_exit_codes(tmp_path) -> None:
     rc = mod.main(
         [
             str(FIXTURES / "valid_run.json"),
-            "--manifest", str(FIXTURES / "valid_manifest.json"),
-            "--registry", str(REGISTRY),
-            "--schema-dir", str(SCHEMA_DIR),
-            "--repo", PRODUCER_REPO,
+            "--manifest",
+            str(FIXTURES / "valid_manifest.json"),
+            "--registry",
+            str(REGISTRY),
+            "--schema-dir",
+            str(SCHEMA_DIR),
+            "--repo",
+            PRODUCER_REPO,
         ]
     )
     assert rc == 0
@@ -107,9 +111,12 @@ def test_cli_exit_codes(tmp_path) -> None:
     rc = mod.main(
         [
             str(FIXTURES / "missing_cost.json"),
-            "--registry", str(REGISTRY),
-            "--schema-dir", str(SCHEMA_DIR),
-            "--repo", PRODUCER_REPO,
+            "--registry",
+            str(REGISTRY),
+            "--schema-dir",
+            str(SCHEMA_DIR),
+            "--repo",
+            PRODUCER_REPO,
         ]
     )
     assert rc == 1
@@ -117,9 +124,12 @@ def test_cli_exit_codes(tmp_path) -> None:
     rc = mod.main(
         [
             str(FIXTURES / "missing_cost.json"),
-            "--registry", str(REGISTRY),
-            "--schema-dir", str(SCHEMA_DIR),
-            "--repo", PRODUCER_REPO,
+            "--registry",
+            str(REGISTRY),
+            "--schema-dir",
+            str(SCHEMA_DIR),
+            "--repo",
+            PRODUCER_REPO,
             "--warn-only",
         ]
     )
@@ -143,8 +153,7 @@ def test_registry_shape_meta() -> None:
         assert p["role"] in {"producer", "consumer", "bridge"}
         assert p["status"] in {"planned", "emitting", "conformant", "candidate", "none"}
     # LMS appears as a candidate consumer AND in the producer exclusion list.
-    lms = [p for p in reg["participants"]
-           if p["repo"] == "stranske/learning-management-system"]
+    lms = [p for p in reg["participants"] if p["repo"] == "stranske/learning-management-system"]
     assert len(lms) == 1
     assert lms[0]["role"] == "consumer"
     assert lms[0]["status"] == "candidate"

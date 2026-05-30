@@ -49,6 +49,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -102,6 +108,18 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const defaultHelpers = {
+              withRetry: (fn) => fn(),
+              paginateWithRetry: (githubInstance, method, params) => {
+                return githubInstance.paginate(method, params);
+              },
+            };
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : defaultHelpers;
+            const { withRetry } = retryHelpers;
             const body = [
               '## Backplane Contract Integrity Failed',
               '',
@@ -116,9 +134,12 @@ jobs:
               '',
               'See `docs/contracts/research-backplane-contract.md`.',
             ].join('\n');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body,
-            });
+            const createComment = () => {
+              return github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            };
+            await withRetry(createComment);

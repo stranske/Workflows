@@ -66,6 +66,12 @@ jobs:
       - name: Checkout participant
         uses: actions/checkout@v6
 
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       # The contract owner (Workflows): canonical registry + schemas + validator.
       - name: Checkout Workflows contract
         uses: actions/checkout@v6
@@ -117,6 +123,17 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const defaultHelpers = {
+              withRetry: (fn) => fn(),
+              paginateWithRetry: (githubInstance, method, params) => {
+                return githubInstance.paginate(method, params);
+              },
+            };
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : defaultHelpers;
+            const { withRetry } = retryHelpers;
             let detail = '(no machine-readable report produced)';
             try {
               const r = JSON.parse(fs.readFileSync('conformance-report.json', 'utf8'));
@@ -133,9 +150,12 @@ jobs:
               '',
               'See `docs/contracts/run-contract-v1.md` for the contract.',
             ].join('\n');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body,
-            });
+            const createComment = () => {
+              return github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            };
+            await withRetry(createComment);

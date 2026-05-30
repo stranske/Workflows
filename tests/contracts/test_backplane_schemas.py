@@ -12,12 +12,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-SCHEMA_DIR = (
-    Path(__file__).resolve().parent.parent.parent
-    / "docs"
-    / "contracts"
-    / "schemas"
-)
+SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "docs" / "contracts" / "schemas"
 
 SCHEMAS = {
     "run-contract-v1.schema.json": "run-contract/v1",
@@ -68,9 +63,7 @@ def test_identity_ref_pattern_is_canonical() -> None:
 def test_manifest_path_rejects_traversal() -> None:
     schema = _load("artifact-manifest-v1.schema.json")
     item = schema["properties"]["artifacts"]["items"]
-    assert sorted(item["required"]) == sorted(
-        ["artifact_id", "name", "path", "sha256"]
-    )
+    assert sorted(item["required"]) == sorted(["artifact_id", "name", "path", "sha256"])
     assert item["properties"]["sha256"]["pattern"] == r"^[a-f0-9]{64}$"
 
 
