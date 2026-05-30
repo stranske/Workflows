@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import subprocess
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from scripts import bootstrap_consumer_settings as bcs
 
 
@@ -171,12 +169,14 @@ def test_main_execute_sets_allowed_keepalive_logins() -> None:
 
 def test_main_execute_keepalive_logins_override() -> None:
     """--keepalive-logins overrides the default owner-derived value."""
-    with patch(
-        "sys.argv",
-        ["bcs", "--repo", "stranske/Foo", "--execute", "--keepalive-logins", "alice,bob"],
+    with (
+        patch(
+            "sys.argv",
+            ["bcs", "--repo", "stranske/Foo", "--execute", "--keepalive-logins", "alice,bob"],
+        ),
+        patch("subprocess.run") as mock_run,
     ):
-        with patch("subprocess.run") as mock_run:
-            bcs.main()
+        bcs.main()
     third_cmd = mock_run.call_args_list[2][0][0]
     assert "alice,bob" in third_cmd
 
@@ -226,6 +226,5 @@ def test_main_execute_and_check_are_mutually_exclusive() -> None:
 
 def test_main_missing_repo_raises_system_exit() -> None:
     """Missing --repo causes argparse to exit."""
-    with patch("sys.argv", ["bcs"]):
-        with pytest.raises(SystemExit):
-            bcs.main()
+    with patch("sys.argv", ["bcs"]), pytest.raises(SystemExit):
+        bcs.main()
