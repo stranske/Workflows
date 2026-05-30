@@ -48,13 +48,17 @@ jobs:
           python-version: '3.12'
 
       - name: Bootstrap consumer settings
+        env:
+          BOOTSTRAP_REPO: ${{ inputs.repo }}
+          KEEPALIVE_LOGINS: ${{ inputs.keepalive_logins }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
-          args=(--repo "${{ inputs.repo }}")
-          if [ -n "${{ inputs.keepalive_logins }}" ]; then
-            args+=(--keepalive-logins "${{ inputs.keepalive_logins }}")
+          args=(--repo "$BOOTSTRAP_REPO")
+          if [ -n "$KEEPALIVE_LOGINS" ]; then
+            args+=(--keepalive-logins "$KEEPALIVE_LOGINS")
           fi
-          if [ "${{ inputs.dry_run }}" != "true" ]; then
+          if [ "$DRY_RUN" != "true" ]; then
             args+=(--execute)
           fi
           python scripts/bootstrap_consumer_settings.py "${args[@]}"
