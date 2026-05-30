@@ -35,6 +35,9 @@ workflows:
     sync_mode: create_only  # Don't overwrite existing consumer Gate files; fresh repos can still receive this file, so follow #2158 before first seeding.
     overwrite_repos:
       - stranske/Template
+    skip_repos:
+      - repo: stranske/Manager-Database
+        reason: "Maintains a fully custom Gate workflow; never overwrite (replaces the hard-coded custom_gate_repos list in maint-68)."
 
   - source: .github/workflows/ci.yml
     description: "CI workflow - main continuous integration entry point"

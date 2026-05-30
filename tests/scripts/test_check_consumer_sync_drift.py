@@ -3,6 +3,27 @@ import json
 from scripts import check_consumer_sync_drift
 
 
+def test_comparable_lines_ignores_leading_comment_and_blank_headers() -> None:
+    """maint-68 syncs header-insensitively; the drift checker must match so a
+    header-only difference is not reported as eternal drift (review E1)."""
+    a = "# header one\n\n# header two\nbody 1\nbody 2\n"
+    b = "# a DIFFERENT header\nbody 1\nbody 2\n"
+    assert check_consumer_sync_drift.comparable_lines(
+        a
+    ) == check_consumer_sync_drift.comparable_lines(b)
+    # A real body difference is still detected.
+    c = "# header\nbody 1\nCHANGED\n"
+    assert check_consumer_sync_drift.comparable_lines(
+        a
+    ) != check_consumer_sync_drift.comparable_lines(c)
+    # Only LEADING comment/blank lines are stripped; mid-file comments are kept.
+    assert check_consumer_sync_drift.comparable_lines("body\n# mid\nmore\n") == [
+        "body",
+        "# mid",
+        "more",
+    ]
+
+
 def test_build_report_returns_machine_readable_counts() -> None:
     token_diagnostics = {
         "schema": "workflows-drift-token-selection/v1",

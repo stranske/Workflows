@@ -386,8 +386,6 @@ jobs:
           dry_run = os.environ.get('DRY_RUN', 'false') == 'true'
           force = os.environ.get('FORCE', 'false') == 'true'
 
-          # Repos with custom Gate workflows
-          custom_gate_repos = ['stranske/Manager-Database']
           changes = []
           skipped = []
 
@@ -521,10 +519,6 @@ jobs:
               consumer_dst = Path('consumer') / source
 
               # Skip conditions
-              def skip_custom_gate():
-                  """Repo has custom Gate workflow"""
-                  return 'pr-00-gate' in source and current_repo in custom_gate_repos
-
               def skip_create_only():
                   """File exists and sync_mode is create_only"""
                   return (
@@ -533,13 +527,10 @@ jobs:
                       and not repo_overwrites_create_only(item, current_repo)
                   )
 
-              # Determine skip function: check create_only first (covers most cases),
-              # then custom_gate for legacy repos that have completely custom Gates
-              skip_fn = None
-              if sync_mode == 'create_only':
-                  skip_fn = skip_create_only
-              elif 'pr-00-gate' in source and current_repo in custom_gate_repos:
-                  skip_fn = skip_custom_gate
+              # Determine skip function. Repo-specific exclusions (e.g. Manager-Database's
+              # fully custom Gate) now come from the manifest's skip_repos and are enforced
+              # inside sync_file via manifest_skip_reason, so no per-file special-casing here.
+              skip_fn = skip_create_only if sync_mode == 'create_only' else None
 
               sync_file(template_src, consumer_dst, description, skip_fn, item)
 

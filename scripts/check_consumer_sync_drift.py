@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -105,6 +106,37 @@ def git_blob_hash(content: bytes) -> str:
     """Return the Git object SHA for file content without fetching the remote blob."""
     header = f"blob {len(content)}\0".encode()
     return hashlib.sha1(header + content).hexdigest()
+
+
+def comparable_lines(text: str) -> list[str]:
+    """Lines after leading comment/blank header lines, matching maint-68's
+    `comparable_lines`. The syncer compares files header-insensitively, so a
+    difference only in leading blank/`#` lines is something it never rewrites.
+    EOL-insensitive via splitlines()."""
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        stripped = lines[index].strip()
+        if stripped == "" or stripped.startswith("#"):
+            index += 1
+            continue
+        break
+    return lines[index:]
+
+
+def remote_blob_text(session: requests.Session, repo: str, sha: str) -> str | None:
+    """Fetch a remote blob's UTF-8 text by SHA, or None if it can't be fetched or
+    decoded (e.g. binary, API error) -- caller falls back to the raw-bytes verdict."""
+    try:
+        response = session.get(f"https://api.github.com/repos/{repo}/git/blobs/{sha}")
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        if data.get("encoding") != "base64":
+            return None
+        return base64.b64decode(data.get("content", "")).decode("utf-8")
+    except (ValueError, UnicodeDecodeError, requests.RequestException):
+        return None
 
 
 def sorted_items(values: set[str]) -> list[str]:
@@ -779,7 +811,23 @@ def main() -> int:
         if remote_entry.get("type") != "blob" or not remote_entry.get("sha"):
             errors.add(f"{repo}: {remote_target} (unexpected remote tree entry)")
             return
-        if str(remote_entry["sha"]) != git_blob_hash(local_file.read_bytes()):
+        local_bytes = local_file.read_bytes()
+        if str(remote_entry["sha"]) == git_blob_hash(local_bytes):
+            return
+        # Raw bytes differ -- but maint-68 syncs using a header-insensitive comparison
+        # (comparable_lines), so a difference only in leading comment/blank headers is
+        # something the syncer will NEVER rewrite; reporting it as drift would be an
+        # eternal false positive (review E1). Confirm real drift the same way before
+        # flagging. On any fetch/decode failure, fall back to the raw-bytes verdict.
+        remote_text = remote_blob_text(session, repo, str(remote_entry["sha"]))
+        try:
+            local_text = local_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            local_text = None
+        if remote_text is None or local_text is None:
+            drift.add(f"{repo}: {remote_target}")
+            return
+        if comparable_lines(local_text) != comparable_lines(remote_text):
             drift.add(f"{repo}: {remote_target}")
 
     for section in sections:
