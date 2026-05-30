@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -237,7 +238,7 @@ def test_main_execute_and_check_are_mutually_exclusive() -> None:
     """Passing both --execute and --check raises SystemExit."""
     with (
         patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute", "--check"]),
-        pytest.raises(SystemExit, match="Choose either"),
+        pytest.raises(SystemExit, match="Choose only one"),
     ):
         bcs.main()
 
@@ -246,3 +247,259 @@ def test_main_missing_repo_raises_system_exit() -> None:
     """Missing --repo causes argparse to exit."""
     with patch("sys.argv", ["bcs"]), pytest.raises(SystemExit):
         bcs.main()
+
+
+def test_main_execute_check_and_verify_are_mutually_exclusive() -> None:
+    """Combining any two of --execute, --check, --verify raises SystemExit."""
+    for combo in [
+        ["--execute", "--check"],
+        ["--execute", "--verify"],
+        ["--check", "--verify"],
+    ]:
+        with (
+            patch("sys.argv", ["bcs", "--repo", "stranske/Foo"] + combo),
+            pytest.raises(SystemExit, match="Choose only one"),
+        ):
+            bcs.main()
+
+
+# ---------------------------------------------------------------------------
+# verify_bootstrap_settings() tests
+# ---------------------------------------------------------------------------
+
+
+def _make_proc(stdout: str = "", returncode: int = 0) -> object:
+    """Build a minimal mock subprocess result."""
+    m = MagicMock()
+    m.stdout = stdout
+    m.returncode = returncode
+    return m
+
+
+def _perms_json(write: bool = True, approve: bool = True) -> str:
+    import json
+
+    return json.dumps(
+        {
+            "default_workflow_permissions": "write" if write else "read",
+            "can_approve_pull_request_reviews": approve,
+        }
+    )
+
+
+def _vars_json(
+    consolidated: str = "true",
+    keepalive: str = "stranske",
+) -> str:
+    import json
+
+    return json.dumps(
+        [
+            {"name": "USE_CONSOLIDATED_WORKFLOWS", "value": consolidated},
+            {"name": "ALLOWED_KEEPALIVE_LOGINS", "value": keepalive},
+        ]
+    )
+
+
+def _all_ok_side_effect(*args, **kwargs):
+    """Return a successful mock result for any subprocess call."""
+    cmd = args[0]
+    cmd_str = " ".join(cmd)
+    if "actions/permissions/workflow" in cmd_str and "variable" not in cmd_str:
+        return _make_proc(_perms_json())
+    if "variable list" in cmd_str:
+        return _make_proc(_vars_json())
+    # collaborator check
+    return _make_proc("")
+
+
+def test_verify_all_settings_ok() -> None:
+    with patch("subprocess.run", side_effect=_all_ok_side_effect):
+        result = bcs.verify_bootstrap_settings("stranske/Foo")
+    assert result == {
+        "workflow_permissions": True,
+        "var_use_consolidated_workflows": True,
+        "var_allowed_keepalive_logins": True,
+        "bot_collaborator": True,
+    }
+
+
+def test_verify_workflow_permissions_wrong_value() -> None:
+    def side_effect(*args, **kwargs):
+        cmd_str = " ".join(args[0])
+        if "actions/permissions/workflow" in cmd_str and "variable" not in cmd_str:
+            return _make_proc(_perms_json(write=False))
+        if "variable list" in cmd_str:
+            return _make_proc(_vars_json())
+        return _make_proc("")
+
+    with patch("subprocess.run", side_effect=side_effect):
+        result = bcs.verify_bootstrap_settings("stranske/Foo")
+    assert result["workflow_permissions"] is False
+    assert result["var_use_consolidated_workflows"] is True
+
+
+def test_verify_workflow_permissions_api_failure() -> None:
+    """When the permissions endpoint returns non-zero, workflow_permissions is False."""
+
+    def side_effect(*args, **kwargs):
+        cmd_str = " ".join(args[0])
+        if "actions/permissions/workflow" in cmd_str and "variable" not in cmd_str:
+            raise subprocess.CalledProcessError(1, args[0])
+        if "variable list" in cmd_str:
+            return _make_proc(_vars_json())
+        return _make_proc("")
+
+    with patch("subprocess.run", side_effect=side_effect):
+        result = bcs.verify_bootstrap_settings("stranske/Foo")
+    assert result["workflow_permissions"] is False
+    assert result["var_use_consolidated_workflows"] is True
+
+
+def test_verify_collaborator_not_yet_accepted() -> None:
+    """Collaborator check returns False when gh api returns non-zero (invite pending)."""
+
+    def side_effect(*args, **kwargs):
+        cmd_str = " ".join(args[0])
+        if "collaborators" in cmd_str:
+            raise subprocess.CalledProcessError(1, args[0])
+        if "actions/permissions/workflow" in cmd_str:
+            return _make_proc(_perms_json())
+        if "variable list" in cmd_str:
+            return _make_proc(_vars_json())
+        return _make_proc("")
+
+    with patch("subprocess.run", side_effect=side_effect):
+        result = bcs.verify_bootstrap_settings("stranske/Foo")
+    assert result["bot_collaborator"] is False
+
+
+def test_verify_variable_api_failure() -> None:
+    """When variable list fails, both variable checks return False."""
+
+    def side_effect(*args, **kwargs):
+        cmd_str = " ".join(args[0])
+        if "variable" in cmd_str:
+            raise subprocess.CalledProcessError(1, args[0])
+        if "actions/permissions/workflow" in cmd_str:
+            return _make_proc(_perms_json())
+        return _make_proc("")
+
+    with patch("subprocess.run", side_effect=side_effect):
+        result = bcs.verify_bootstrap_settings("stranske/Foo")
+    assert result["var_use_consolidated_workflows"] is False
+    assert result["var_allowed_keepalive_logins"] is False
+
+
+def test_verify_keepalive_logins_override() -> None:
+    """--keepalive-logins override is passed through to verify comparison."""
+
+    def side_effect(*args, **kwargs):
+        cmd_str = " ".join(args[0])
+        if "actions/permissions/workflow" in cmd_str and "variable" not in cmd_str:
+            return _make_proc(_perms_json())
+        if "variable list" in cmd_str:
+            return _make_proc(_vars_json(keepalive="alice,bob"))
+        return _make_proc("")
+
+    with patch("subprocess.run", side_effect=side_effect):
+        result = bcs.verify_bootstrap_settings("stranske/Foo", keepalive_logins="alice,bob")
+    assert result["var_allowed_keepalive_logins"] is True
+
+
+def test_verify_bot_override() -> None:
+    """--bot override reaches the collaborator check command."""
+    calls = []
+
+    def side_effect(*args, **kwargs):
+        calls.append(args[0])
+        cmd_str = " ".join(args[0])
+        if "actions/permissions/workflow" in cmd_str and "variable" not in cmd_str:
+            return _make_proc(_perms_json())
+        if "variable list" in cmd_str:
+            return _make_proc(_vars_json())
+        return _make_proc("")
+
+    with patch("subprocess.run", side_effect=side_effect):
+        bcs.verify_bootstrap_settings("stranske/Foo", bot="custom-bot")
+    collab_calls = [c for c in calls if "collaborators" in " ".join(c)]
+    assert len(collab_calls) == 1
+    assert "custom-bot" in collab_calls[0][-1]
+
+
+# ---------------------------------------------------------------------------
+# main() --verify flag tests
+# ---------------------------------------------------------------------------
+
+
+def test_main_verify_all_ok_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--verify"]),
+        patch(
+            "scripts.bootstrap_consumer_settings.verify_bootstrap_settings",
+            return_value={
+                "workflow_permissions": True,
+                "var_use_consolidated_workflows": True,
+                "var_allowed_keepalive_logins": True,
+                "bot_collaborator": True,
+            },
+        ),
+    ):
+        rc = bcs.main()
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "[OK]" in out
+    assert "bot_collaborator" in out
+
+
+def test_main_verify_partial_failure_exits_one(capsys: pytest.CaptureFixture[str]) -> None:
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--verify"]),
+        patch(
+            "scripts.bootstrap_consumer_settings.verify_bootstrap_settings",
+            return_value={
+                "workflow_permissions": True,
+                "var_use_consolidated_workflows": True,
+                "var_allowed_keepalive_logins": True,
+                "bot_collaborator": False,
+            },
+        ),
+    ):
+        rc = bcs.main()
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "[FAIL]" in out
+    assert "bot_collaborator" in out
+
+
+def test_main_verify_passes_bot_and_keepalive_overrides() -> None:
+    with (
+        patch(
+            "sys.argv",
+            [
+                "bcs",
+                "--repo",
+                "stranske/Foo",
+                "--verify",
+                "--bot",
+                "custom-bot",
+                "--keepalive-logins",
+                "alice",
+            ],
+        ),
+        patch(
+            "scripts.bootstrap_consumer_settings.verify_bootstrap_settings",
+            return_value={
+                "workflow_permissions": True,
+                "var_use_consolidated_workflows": True,
+                "var_allowed_keepalive_logins": True,
+                "bot_collaborator": True,
+            },
+        ) as mock_verify,
+    ):
+        bcs.main()
+    mock_verify.assert_called_once_with(
+        "stranske/Foo",
+        bot="custom-bot",
+        keepalive_logins="alice",
+    )

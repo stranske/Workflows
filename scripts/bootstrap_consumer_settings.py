@@ -24,11 +24,13 @@ Usage::
   python scripts/bootstrap_consumer_settings.py --repo stranske/Foo
   python scripts/bootstrap_consumer_settings.py --repo stranske/Foo --execute
   python scripts/bootstrap_consumer_settings.py --repo stranske/Foo --check
+  python scripts/bootstrap_consumer_settings.py --repo stranske/Foo --verify
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import shlex
 import subprocess
 
@@ -94,6 +96,79 @@ def _collaborator_command(repo: str, bot: str) -> list[str]:
 
 def _workflow_permissions_check_command(repo: str) -> list[str]:
     return ["gh", "api", f"/repos/{repo}/actions/permissions/workflow"]
+
+
+def _collaborator_check_command(repo: str, bot: str) -> list[str]:
+    """Check whether bot is already a collaborator (gh returns non-zero if not)."""
+    return ["gh", "api", f"/repos/{repo}/collaborators/{bot}"]
+
+
+def _variable_list_command(repo: str) -> list[str]:
+    return ["gh", "variable", "list", "--repo", repo, "--json", "name,value"]
+
+
+def verify_bootstrap_settings(
+    repo: str,
+    *,
+    bot: str = DEFAULT_BOT,
+    keepalive_logins: str | None = None,
+) -> dict[str, bool]:
+    """Check whether all four bootstrap settings are in place for *repo*.
+
+    Returns a mapping of setting id → bool (True = correctly configured).
+    Each check is independent; a failure in one does not prevent the others.
+    """
+    results: dict[str, bool] = {}
+
+    # 3.3.1 - workflow permissions
+    try:
+        proc = subprocess.run(
+            _workflow_permissions_check_command(repo),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        data = json.loads(proc.stdout)
+        results["workflow_permissions"] = (
+            data.get("default_workflow_permissions") == "write"
+            and data.get("can_approve_pull_request_reviews") is True
+        )
+    except subprocess.CalledProcessError:
+        results["workflow_permissions"] = False
+
+    # 3.3 - repo variables
+    try:
+        proc = subprocess.run(
+            _variable_list_command(repo),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        variables = {v["name"]: v["value"] for v in json.loads(proc.stdout)}
+        results["var_use_consolidated_workflows"] = (
+            variables.get("USE_CONSOLIDATED_WORKFLOWS") == USE_CONSOLIDATED_WORKFLOWS_VALUE
+        )
+        expected_logins = keepalive_logins or _default_keepalive_logins(repo)
+        results["var_allowed_keepalive_logins"] = (
+            variables.get("ALLOWED_KEEPALIVE_LOGINS") == expected_logins
+        )
+    except subprocess.CalledProcessError:
+        results["var_use_consolidated_workflows"] = False
+        results["var_allowed_keepalive_logins"] = False
+
+    # 3.1 - bot collaborator (gh api returns non-zero / non-204 when not a collaborator)
+    try:
+        subprocess.run(
+            _collaborator_check_command(repo, bot),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        results["bot_collaborator"] = True
+    except subprocess.CalledProcessError:
+        results["bot_collaborator"] = False
+
+    return results
 
 
 def build_bootstrap_plan(
@@ -168,17 +243,36 @@ def main() -> int:
         action="store_true",
         help="Read current workflow permissions and exit (no mutations).",
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Check all four bootstrap settings and report pass/fail (no mutations).",
+    )
 
     args = parser.parse_args()
 
-    if args.execute and args.check:
-        raise SystemExit("Choose either --execute or --check, not both.")
+    if sum([args.execute, args.check, args.verify]) > 1:
+        raise SystemExit("Choose only one of --execute, --check, or --verify.")
 
     if args.check:
         cmd = _workflow_permissions_check_command(args.repo)
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print(result.stdout.strip())
         return 0
+
+    if args.verify:
+        status = verify_bootstrap_settings(
+            args.repo,
+            bot=args.bot,
+            keepalive_logins=args.keepalive_logins,
+        )
+        all_ok = True
+        for setting, ok in status.items():
+            mark = "OK" if ok else "FAIL"
+            print(f"[{mark}] {setting}")
+            if not ok:
+                all_ok = False
+        return 0 if all_ok else 1
 
     plan = build_bootstrap_plan(
         args.repo,
