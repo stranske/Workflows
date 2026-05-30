@@ -164,19 +164,24 @@ def test_missing_envelope_skips_for_candidate_and_planned_and_absent(tmp_path) -
 
 
 def test_missing_envelope_decision_by_status() -> None:
-    # The pure helper: only an actively-emitting producer/bridge fails on a
-    # missing envelope; everyone else (planned/candidate/none/absent/consumer)
-    # skips.
+    # The pure helper: any active participant fails on a missing envelope;
+    # everyone else (planned/candidate/none/absent) skips.
     mod = _import_validator()
     run_json = Path("artifacts/reference/run.json")
 
     def reg(role: str, status: str) -> dict:
         return {"participants": [{"repo": "stranske/X", "role": role, "status": status}]}
 
-    # Actively emitting -> a vanished envelope is a real regression -> fail.
-    for status in ("emitting", "conformant"):
-        report = mod.missing_envelope_report(reg("producer", status), "stranske/X", run_json)
-        assert not report.skipped and not report.conformant, status
+    # Actively emitting -> a vanished envelope/input is a real regression -> fail.
+    for role, status in (
+        ("producer", "emitting"),
+        ("producer", "conformant"),
+        ("bridge", "emitting"),
+        ("consumer", "conformant"),
+    ):
+        report = mod.missing_envelope_report(reg(role, status), "stranske/X", run_json)
+        assert not report.skipped and not report.conformant, (role, status)
+        assert f"role='{role}'" in report.violations[0].message
 
     # Not-yet-emitting / opt-out -> skip.
     for role, status in (

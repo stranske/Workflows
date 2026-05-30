@@ -10,7 +10,8 @@ Role-aware (config/backplane_participants.json ``role``):
   shared fields + the entry's ``required_sections`` + the manifest cross-check).
 - ``consumer``: validate ONLY the satellite schemas the entry lists under
   ``ingests`` (the input is treated as an ingested object, e.g. an
-  evidence-object/v1). A consumer is never failed for not emitting a run.json.
+  evidence-object/v1). An active consumer is failed for a missing declared
+  input, not for failing to emit a producer run envelope.
 
 Opt-in: a repo absent from the registry, or with ``status`` of ``none`` /
 ``candidate``, is a no-op SKIP (success). This is the one deliberate difference
@@ -265,24 +266,21 @@ def missing_envelope_report(registry: dict[str, Any], repo: str, run_json: Path)
     The caller's ``emit-reference-run`` job intentionally produces nothing until
     a repo wires its emitter ("the conformance gate will skip (opt-in)"), and
     the registry lifecycle is planned -> emitting -> conformant. So an absent
-    envelope is a clean opt-in SKIP for every repo EXCEPT a producer/bridge that
-    has already reached an emitting/conformant status -- for those a vanished
-    run.json is a genuine regression and must fail. This keeps the opt-in
+    envelope is a clean opt-in SKIP for every repo EXCEPT a participant that has
+    already reached an emitting/conformant status -- for those a vanished input
+    artifact is a genuine regression and must fail. This keeps the opt-in
     contract honest (a non-participant, candidate, or not-yet-emitting producer
     is never failed just for lacking an envelope) without silencing a real
-    regression in an active producer.
+    regression in an active participant.
     """
     entry = _find_entry(registry, repo)
     report = Report(repo=repo, role=entry.get("role", "") if entry else "")
-    is_emitting_producer = (
-        entry is not None
-        and entry.get("role", "producer") in ("producer", "bridge")
-        and entry.get("status") in EMITTING_STATUSES
-    )
-    if is_emitting_producer:
+    is_active_participant = entry is not None and entry.get("status") in EMITTING_STATUSES
+    if is_active_participant:
         report.fail(
-            f"{repo} is an emitting backplane producer "
-            f"(status={entry.get('status')!r}) but no run envelope was found "
+            f"{repo} is an active backplane participant "
+            f"(role={entry.get('role')!r}, status={entry.get('status')!r}) "
+            f"but no run envelope was found "
             f"at {run_json}",
             str(run_json),
         )
