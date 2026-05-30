@@ -56,10 +56,12 @@ The dashboard aggregates two distinct data sources, fetched in this workflow:
 2. **LangSmith fleet artifacts** (`langsmith-fleet.ndjson`) — one per repo
    registered in `config/langsmith_fleet_registry.json`. The workflow attempts a
    **cross-repo artifact download** for each registered repo and combines what it
-   finds. A registered repo with no current artifact is reported as `missing`,
-   not a job failure. (As of this writing, no consumer repo uploads a
-   `langsmith-fleet.ndjson` yet, so most rows render `missing` — that honest
-   "pending adoption" state is the point.)
+   finds. The token used for the dashboard run must have `actions:read` access to
+   each registered repo; otherwise the best-effort lookup records that repo as
+   `missing` because the artifact cannot be read. A registered repo with no
+   current readable artifact is reported as `missing`, not a job failure. (As of
+   this writing, no consumer repo uploads a `langsmith-fleet.ndjson` yet, so most
+   rows render `missing` — that honest "pending adoption" state is the point.)
 
 The fleet artifacts follow a contract-first design: Workflows owns the
 `langsmith-fleet/v1` schema, registry, validator, and dashboard rollup, while
@@ -72,7 +74,8 @@ before treating a consumer-local validator as a design blocker.
 1. **Download trace metrics** - Fetches `autopilot-metrics-*` /
    `agents-verifier-metrics` artifacts from recent runs and merges their NDJSON
 2. **Validate fleet artifacts** - Downloads each registered repo's
-   `langsmith-fleet.ndjson` (best-effort, cross-repo) and runs
+   `langsmith-fleet.ndjson` (best-effort, cross-repo; requires `actions:read` on
+   the registered repos) and runs
    `scripts/langsmith_fleet.py --summary --format markdown` against the registry,
    producing a per-repo status table that distinguishes `missing`, `invalid`,
    `stale`, and `valid`. Any `invalid`/`missing` repo raises a `::warning`

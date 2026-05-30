@@ -1,6 +1,6 @@
 # LangSmith Integration Status
 
-> **Last Updated:** 2026-02-18
+> **Last Updated:** 2026-05-30
 > **Branch:** `main`
 > **Related Issue:** #974
 
