@@ -52,7 +52,6 @@ def build_conformance_report(
 ) -> dict[str, Any]:
     """Return one conformance row per registry entry."""
     now = now or datetime.now(UTC)
-    stale_after_hours = int(registry.get("stale_after_hours", 168))
     schema = langsmith_fleet.load_record_schema()
     rows: list[dict[str, Any]] = []
     counts: dict[str, int] = {"missing": 0, "invalid": 0, "stale": 0, "valid": 0}
