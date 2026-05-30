@@ -11,44 +11,17 @@ name: Maint 68 Sync Consumer Repos
 on:
   release:
     types: [published]
-  push:
-    branches: [main]
-    paths:
-      - 'templates/consumer-repo/**'
-      - '.github/sync-manifest.yml'
-      # All directories referenced by sync-manifest.yml as source paths.
-      # The sync is idempotent (hash-compares before creating PRs), so extra
-      # triggers only cost a ~30s no-op run when nothing actually changed.
-      - '.github/scripts/**'
-      - '.github/codex/**'
-      - '.github/actions/setup-api-client/**'
-      - '.github/actions/export-load-balancer-tokens/**'
-      - '.github/actions/path-classifier/**'
-      - '.github/path-classification.yml'
-      - '.github/copilot-instructions.md'
-      - '.github/copilot-skills/**'
-      - '.github/dependabot.yml'
-      - '.github/templates/**'
-      - '.github/ISSUE_TEMPLATE/**'
-      - 'scripts/langchain/**'
-      - 'scripts/sync_dev_dependencies.py'
-      - 'scripts/sync_test_dependencies.py'
-      - 'scripts/check_test_dependencies.sh'
-      - 'scripts/autopilot_step_timer.py'
-      - 'scripts/autopilot_metrics_collector.py'
-      - 'scripts/ci_*.py'
-      - 'scripts/coverage_history_append.py'
-      - 'tools/resolve_mypy_pin.py'
-      - 'tools/coverage_trend.py'
-      - 'tools/llm_provider.py'
-      - 'tools/langchain_client.py'
-      - 'config/llm_slots.json'
-      - 'config/model_registry.json'
-      - 'docs/AGENT_ISSUE_FORMAT.md'
-      - 'docs/CI_SYSTEM_GUIDE.md'
-      - 'docs/LABELS.md'
-      - 'docs/CODEX_TOKEN_REFRESH.md'
-      - '.gitattributes'
+  schedule:
+    # Debounced sync: coalesce template changes into ONE daily run rather than a
+    # per-push PR wave across the consumer fleet (the dominant sync-PR-volume driver,
+    # per docs/review-2026-05-29/sync-system/). The prepare job hash-compares before
+    # creating any PR, so a scheduled run with nothing to sync is a ~30s no-op (zero
+    # PRs). Runtime behavior already reaches consumers instantly via @main; only the
+    # synced file COPIES wait for this run. For an immediate sync, use the manual
+    # workflow_dispatch below (or publish a release). Daily ordering:
+    #   05:00 maint-68 sync  ->  05:10 Health 68 drift scan  ->  05:30 maint-71 janitor.
+    # (Removing the push trigger also moots the G2 push-allowlist-vs-manifest drift.)
+    - cron: '0 5 * * *'
   workflow_dispatch:
     inputs:
       repos:
