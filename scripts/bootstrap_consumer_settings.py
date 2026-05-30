@@ -156,7 +156,7 @@ def verify_bootstrap_settings(
         results["var_use_consolidated_workflows"] = False
         results["var_allowed_keepalive_logins"] = False
 
-    # 3.1 - bot collaborator (gh api returns non-zero / non-204 when not a collaborator)
+    # 3.1 - bot collaborator (the CLI endpoint call fails when not a collaborator)
     try:
         subprocess.run(
             _collaborator_check_command(repo, bot),
