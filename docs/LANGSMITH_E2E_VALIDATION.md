@@ -288,6 +288,44 @@ The integration is complete and can be deployed to all workflows.
 
 ---
 
+## Fleet Dashboard Live Validation (PR #2190)
+
+**Date:** 2026-05-30
+**Workflow:** `maint-80-langsmith-metrics-dashboard.yml`
+**Trigger:** `workflow_dispatch` on branch `claude/issue-2183-fleet-dashboard-rollup`
+**Run:** [#26693864034](https://github.com/stranske/Workflows/actions/runs/26693864034)
+
+### Observed output
+
+The "LangSmith Fleet Artifact Status" section appeared in `docs/dashboards/langsmith-metrics.md`
+with all 8 registered repos, reflecting the honest current state (no consumer uploads yet):
+
+```
+# LangSmith Fleet Artifact Status
+
+- Registry entries: 8
+- Valid: 0
+- Missing: 8
+- Stale: 0
+- Invalid: 0
+
+| Repo | Surface | Issue | Status | Records | Latest | First Error |
+|------|---------|-------|--------|---------|--------|-------------|
+| stranske/Counter_Risk          | risk-reporting     | … | missing | 0 | | |
+| stranske/Inv-Man-Intake        | intake-extraction  | … | missing | 0 | | |
+| stranske/Manager-Database      | ai-api             | … | missing | 0 | | |
+| stranske/Pension-Data          | nl-to-sql          | … | missing | 0 | | |
+| stranske/Portable-Alpha-Extension-Model | scenario-analysis | … | missing | 0 | | |
+| stranske/Trend_Model_Project   | llm-replay         | … | missing | 0 | | |
+| stranske/Workflows             | agent-automation   | … | missing | 0 | | |
+| stranske/trip-planner          | planner-runtime    | … | missing | 0 | | |
+```
+
+A `::warning` annotation was emitted: `invalid=0 missing=8 (see LangSmith Fleet Artifact Status table)`.
+The dashboard file was committed back to the PR branch by the workflow itself.
+
+---
+
 ## Related Documentation
 
 - [LangSmith Integration Status](./LANGSMITH_INTEGRATION_STATUS.md) - Overall progress tracker
@@ -296,6 +334,7 @@ The integration is complete and can be deployed to all workflows.
 - PR #1533 - Metadata standardization
 - PR #1536 - Core trace extraction
 - PR #1537 - Workflow integration
+- PR #2190 - Fleet dashboard rollup wired into maint-80
 
 ---
 
@@ -307,4 +346,6 @@ The integration is complete and can be deployed to all workflows.
 **Date:** 2026-02-17
 
 Static validation complete (unit tests, code inspection, YAML validation).
+
+**Fleet dashboard live validation:** ✅ Complete — [run #26693864034](https://github.com/stranske/Workflows/actions/runs/26693864034) (2026-05-30)
 Live workflow execution recommended for final verification.
