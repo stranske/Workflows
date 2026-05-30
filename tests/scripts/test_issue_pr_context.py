@@ -5,6 +5,7 @@ import hashlib
 
 from scripts.langchain.issue_pr_context import (
     ContextOptions,
+    already_conformant,
     build_formatted_body_marker,
     build_issue_context,
     build_pr_context,
@@ -230,3 +231,118 @@ def test_cli_outputs_json_payload(tmp_path, capsys) -> None:
     assert exit_code == 0
     assert '"kind": "issue"' in captured.out
     assert "Use helper" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# Anti-bloat: hash-only reuse marker + already_conformant guard
+# ---------------------------------------------------------------------------
+
+CONFORMANT_BODY = "\n".join(
+    [
+        "## Why",
+        "",
+        "Ship it.",
+        "",
+        "## Scope",
+        "",
+        "_Not provided._",
+        "",
+        "## Non-Goals",
+        "",
+        "_Not provided._",
+        "",
+        "## Tasks",
+        "",
+        "- [ ] do a thing",
+        "",
+        "## Acceptance Criteria",
+        "",
+        "- [ ] it works",
+        "",
+        "## Implementation Notes",
+        "",
+        "_Not provided._",
+        "",
+        "<details>",
+        "<summary>Original Issue</summary>",
+        "",
+        "```text",
+        "## Tasks",
+        "- [ ] do a thing",
+        "## Acceptance Criteria",
+        "```",
+        "</details>",
+    ]
+)
+
+
+def test_build_marker_hash_only_omits_body_b64() -> None:
+    """embed_body=False stores only the sha256, not a (size-doubling) base64 copy."""
+    formatted = "## Tasks\n- [ ] keep it small\n"
+    marker = build_formatted_body_marker(
+        workflows=["agents-auto-pilot"],
+        formatted_body=formatted,
+        embed_body=False,
+    )
+    assert "body_b64" not in marker
+    assert '"sha256":"' in marker
+
+
+def test_hash_only_marker_round_trips_via_visible_body() -> None:
+    """A hash-only marker validates against the visible body and returns it cleaned."""
+    formatted = "## Tasks\n- [ ] keep it small\n## Acceptance Criteria\n- [ ] ok"
+    marker = build_formatted_body_marker(
+        workflows=["agents-auto-pilot"],
+        formatted_body=formatted,
+        embed_body=False,
+    )
+    body = f"{formatted}\n\n{marker}"
+    assert reuse_formatted_body({"body": body}, "agents-auto-pilot") == formatted
+    # A body edited after the marker was written fails the hash check (no false reuse).
+    tampered = f"{formatted}\n- [ ] sneaky extra\n\n{marker}"
+    assert reuse_formatted_body({"body": tampered}, "agents-auto-pilot") is None
+
+
+def test_already_conformant_detects_full_template_with_original_block() -> None:
+    assert already_conformant(CONFORMANT_BODY) is True
+
+
+def test_already_conformant_ignores_headings_inside_original_block() -> None:
+    """Headings inside the fenced Original-Issue block must not satisfy conformance."""
+    # The fenced block contains '## Tasks'/'## Acceptance Criteria' but the visible
+    # body has none -> not conformant.
+    body = "\n".join(
+        [
+            "Some raw text",
+            "",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            "```text",
+            "## Why",
+            "## Scope",
+            "## Non-Goals",
+            "## Tasks",
+            "## Acceptance Criteria",
+            "## Implementation Notes",
+            "```",
+            "</details>",
+        ]
+    )
+    assert already_conformant(body) is False
+
+
+def test_already_conformant_requires_all_sections_in_order() -> None:
+    partial = "## Tasks\n- [ ] x\n## Acceptance Criteria\n- [ ] y"
+    assert already_conformant(partial) is False
+
+
+def test_already_conformant_original_issue_optional_flag() -> None:
+    no_block = CONFORMANT_BODY.split("<details>")[0].rstrip()
+    assert already_conformant(no_block) is False
+    assert already_conformant(no_block, require_original_issue=False) is True
+
+
+def test_already_conformant_handles_empty_and_none() -> None:
+    assert already_conformant("") is False
+    assert already_conformant(None) is False

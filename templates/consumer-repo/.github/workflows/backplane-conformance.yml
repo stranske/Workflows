@@ -1,0 +1,56 @@
+name: Backplane Conformance
+
+# Synced caller stub for the research-backplane run-contract/v1 conformance gate.
+#
+# OPT-IN: this caller is safe to ship to any consumer. The reusable workflow it
+# calls is a NO-OP for repos that are not backplane participants (absent from
+# config/backplane_participants.json, or status none/candidate). A repo only
+# starts being gated once it has a non-candidate registry entry AND emits a
+# run.json (producer/bridge) or an ingested object (consumer).
+#
+# Each participant tunes the `emit-reference-run` job below to invoke its own
+# tool's reference run. Until then the gate skips harmlessly.
+
+on:
+  pull_request:
+    paths:
+      # Tune per repo: source that affects the run envelope + emitter.
+      - 'src/**'
+      - 'artifacts/**'
+
+jobs:
+  emit-reference-run:
+    runs-on: ubuntu-latest
+    outputs:
+      run_json: artifacts/reference/run.json
+      manifest: artifacts/reference/manifest.json
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      # Repo-specific: invoke the tool's reference run to emit run.json + manifest.
+      # Replace the placeholder below with the repo's emitter once it exists, e.g.:
+      #   one-pdf-pilot --out artifacts/reference            # Pension-Data
+      #   trend run -c tests/fixtures/golden.yml --returns ... --out artifacts/reference
+      - run: |
+          mkdir -p artifacts/reference
+          if [ -x ./scripts/emit_reference_run.sh ]; then
+            ./scripts/emit_reference_run.sh artifacts/reference
+          else
+            echo "No emitter wired yet; the conformance gate will skip (opt-in)."
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reference-run
+          path: artifacts/reference/
+          if-no-files-found: ignore
+
+  conformance:
+    needs: emit-reference-run
+    uses: stranske/Workflows/.github/workflows/reusable-backplane-conformance.yml@main
+    with:
+      run_json_path: artifacts/reference/run.json
+      manifest_path: artifacts/reference/manifest.json
+    secrets: inherit

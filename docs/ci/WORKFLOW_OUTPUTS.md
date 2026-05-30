@@ -54,6 +54,7 @@ reusable workflow in the no-output section.
 | `reusable-bot-comment-handler.yml` | `comments_count` | string (number-like) | Number of unresolved bot comments found | `needs.bot_comments.outputs.comments_count` |
 | `reusable-bot-comment-handler.yml` | `agent_triggered` | string (boolean-like) | Whether the agent was triggered to address comments | `needs.bot_comments.outputs.agent_triggered` |
 | `reusable-bot-comment-handler.yml` | `app_auth_mode` | string enum | Selected App auth mode: client-id, legacy-app-id, or none | `needs.bot_comments.outputs.app_auth_mode` |
+| `reusable-backplane-conformance.yml` | `conformant` | string (boolean-like) | true if the envelope conformed (or repo is not a participant) | `needs.conformance.outputs.conformant` |
 | `reusable-pr-context.yml` | `pr_number` | string (number-like) | PR number | `needs.context.outputs.pr_number` |
 | `reusable-pr-context.yml` | `pr_title` | string | PR title | `needs.context.outputs.pr_title` |
 | `reusable-pr-context.yml` | `pr_body` | string | PR body (may be truncated for very long bodies) | `needs.context.outputs.pr_body` |

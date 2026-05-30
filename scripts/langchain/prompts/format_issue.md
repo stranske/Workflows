@@ -27,5 +27,16 @@ CRITICAL - Acceptance Criteria must be VERIFIABLE:
 - AVOID subjective language: "clean", "nice", "quality", "properly"
 - Each criterion should be checkable by running a command or inspecting output
 
+CRITICAL - Length & Scope Discipline (improve clarity, do NOT inflate):
+- Improve clarity and structure WITHOUT increasing total length. Do not add a
+  task, criterion, or sentence unless it is required to fill a genuinely missing
+  mandatory section.
+- Preserve the author's scope. Do NOT invent file paths, function names, tests,
+  or acceptance criteria that the source does not imply.
+- If a section has no source content, leave the "_Not provided._" placeholder; do
+  NOT manufacture prose to fill it.
+- Prefer the shortest faithful phrasing. Never restate the same point under two
+  headings, and never split a task that is already a single ~10-minute action.
+
 Raw issue body:
 {issue_body}

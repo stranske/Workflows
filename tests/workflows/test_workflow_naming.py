@@ -125,6 +125,16 @@ def test_health_44_pull_requests_do_not_use_repo_variable_fingerprints():
     assert source.index("pull-request-no-repo-variable") < source.index("--storage repo-variable")
 
 
+def test_maint_83_bootstrap_uses_published_action_versions():
+    workflow = WORKFLOW_DIR / "maint-83-bootstrap-consumer.yml"
+    source = workflow.read_text(encoding="utf-8")
+
+    assert "actions/checkout@v4" in source
+    assert "actions/setup-python@v5" in source
+    assert "actions/checkout@v6" not in source
+    assert "actions/setup-python@v6" not in source
+
+
 def test_inventory_docs_list_all_workflows():
     docs = {
         "docs/ci/WORKFLOW_SYSTEM.md": pathlib.Path("docs/ci/WORKFLOW_SYSTEM.md").read_text(
@@ -243,6 +253,7 @@ EXPECTED_NAMES = {
     "health-74-template-drift.yml": "Health 74 Template Drift",
     "health-75-api-rate-diagnostic.yml": "Health 75 API Rate Diagnostic",
     "health-76-codex-cli-freshness.yml": "Health 76 Codex CLI Freshness",
+    "health-78-backplane-contract.yml": "Backplane Contract Integrity",
     "maint-68-sync-consumer-repos.yml": "Maint 68 Sync Consumer Repos",
     "maint-69-sync-integration-repo.yml": "Maint 69 Sync Integration Repo",
     "maint-69-sync-labels.yml": "Maint 69 Sync Labels",
@@ -254,6 +265,7 @@ EXPECTED_NAMES = {
     "maint-74-ledger-base-sync.yml": "Ledger Base Sync",
     "maint-80-langsmith-metrics-dashboard.yml": "LangSmith Metrics Dashboard",
     "maint-82-sync-dependabot-campaign.yml": "Sync/Dependabot Campaign",
+    "maint-83-bootstrap-consumer.yml": "Maint 83 Bootstrap Consumer",
     "maint-72-fix-pr-body-conflicts.yml": "Maint 72 Fix PR Body Conflicts",
     "maint-61-create-floating-v1-tag.yml": "Maint 61 Create Floating v1 Tag",
     "maint-coverage-guard.yml": "Maint Coverage Guard",
@@ -274,6 +286,7 @@ EXPECTED_NAMES = {
     "reusable-agents-pr-health.yml": "Reusable Agents PR Health",
     "reusable-agents-verifier.yml": "Reusable Agents Verifier",
     "reusable-bot-comment-handler.yml": "Reusable Bot Comment Handler",
+    "reusable-backplane-conformance.yml": "Reusable Backplane Conformance",
     "reusable-pr-context.yml": "Reusable PR Context Fetcher",
     "selftest-reusable-ci.yml": "Selftest: Reusables",
     "selftest-ci.yml": "Selftest CI",

@@ -138,6 +138,10 @@ workflows:
   - source: .github/workflows/reusable-pr-context.yml
     description: "Reusable PR context workflow - centralized PR data fetching via GraphQL"
 
+  # Research-backplane run-contract/v1 conformance caller (opt-in, role-based)
+  - source: .github/workflows/backplane-conformance.yml
+    description: "Backplane conformance caller stub - calls reusable-backplane-conformance.yml@main to validate a repo's emitted run-contract/v1 envelope (producer) or ingested object (consumer). No-op for non-participants (opt-in). Template lives under templates/consumer-repo/.github/workflows/."
+
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:
   - target: .github/workflows/agents-63-issue-intake.yml
@@ -580,6 +584,10 @@ scripts:
   - source: tools/langchain_client.py
     description: "LangChain client builder - multi-provider client with slot-based fallback and configuration"
 
+  # Research-backplane run-contract/v1 validator (run locally + in the conformance gate)
+  - source: scripts/validate_run_contract.py
+    description: "Validates a repo's emitted run-contract/v1 run envelope (producer/bridge) or ingested satellite object (consumer) against the canonical Workflows schemas + opt-in participant registry. Offline/deterministic; opt-in skip for non-participants. Synced so participants can validate locally and the reusable conformance gate can invoke it."
+
   - source: .github/scripts/agents-guard.js
     description: "Guards against unauthorized agent workflow file changes"
 
@@ -667,6 +675,30 @@ docs:
   - source: docs/contracts/agent-runner-output.md
     target: docs/contracts/agent-runner-output.md
     description: "Agent runner output contract specification - required for implementing new agent runners"
+
+  # Research-backplane run-contract/v1 contract set (spec + schemas + identity conventions).
+  # The registry (config/backplane_participants.json) and the program doc
+  # (docs/contracts/research-backplane-contract.md) are intentionally NOT synced
+  # (Workflows-only single source of truth); see research-backplane-contract.md.
+  - source: docs/contracts/run-contract-v1.md
+    target: docs/contracts/run-contract-v1.md
+    description: "Research-backplane run-contract/v1 wire-format spec - participants need it to implement an emitter/ingest adapter"
+
+  - source: docs/contracts/identity-map-conventions.md
+    target: docs/contracts/identity-map-conventions.md
+    description: "Canonical entity-ID conventions for run-contract/v1 identity_refs / evidence entity_ref - participants emit against these"
+
+  - source: docs/contracts/schemas/run-contract-v1.schema.json
+    target: docs/contracts/schemas/run-contract-v1.schema.json
+    description: "JSON Schema (draft 2020-12) for run-contract/v1 run envelopes - loaded by the validator and local helpers so participants validate without a Workflows checkout"
+
+  - source: docs/contracts/schemas/artifact-manifest-v1.schema.json
+    target: docs/contracts/schemas/artifact-manifest-v1.schema.json
+    description: "JSON Schema (draft 2020-12) for artifact-manifest/v1 - the named-artifact manifest a run envelope references"
+
+  - source: docs/contracts/schemas/evidence-object-v1.schema.json
+    target: docs/contracts/schemas/evidence-object-v1.schema.json
+    description: "JSON Schema (draft 2020-12) for evidence-object/v1 - attributable evidence objects (the satellite schema consumers like the LMS would ingest)"
 
   - source: docs/SETUP_CHECKLIST.md
     target: docs/SETUP_CHECKLIST.md

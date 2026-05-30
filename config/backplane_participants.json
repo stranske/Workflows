@@ -1,0 +1,190 @@
+{
+  "schema_version": "backplane-participants/v1",
+  "contract": "run-contract/v1",
+  "parent_issue": "stranske/Workflows#TBD-P0",
+  "stale_after_hours": 168,
+  "note": "Opt-in registry for the research-backplane interoperability contract (run-contract/v1). Workflows home: config/backplane_participants.json. Participation is OPT-IN and ROLE-BASED, not binary in/out: a repo participates only if it appears here with a non-'none', non-'candidate' status. Absence (or status none/candidate) == the contract does not apply and the conformance gate is a no-op. Modeled on config/langsmith_fleet_registry.json. Each participant declares a 'role': 'producer' (emits a run-contract/v1 run.json; the gate validates full emission), 'consumer' (ingests backplane artifacts only -- the gate validates ONLY the schemas listed in 'ingests', never full run-contract emission), or 'bridge' (both). 'tier_role' is the descriptive fleet role (reference-tool, identity-source, etc.). status lifecycle: planned -> emitting -> conformant; 'candidate' marks a role-architecture placeholder the gate skips (used to capture a cross-over relationship before it is activated). required_sections lists which optional run-contract/v1 sections are MANDATORY for that producer (so a tool is never failed for omitting a section out of its role, e.g. a Monte Carlo engine omits evidence/identity).",
+  "participants": [
+    {
+      "repo": "stranske/Pension-Data",
+      "parent_issue": "stranske/Workflows#TBD-P0",
+      "issue": "stranske/Pension-Data#TBD-P2",
+      "contract_version": "run-contract/v1",
+      "tier": 1,
+      "role": "producer",
+      "tier_role": "reference-tool",
+      "entry_point": {
+        "tool": "one-pdf-pilot",
+        "invocation": "python scripts/run_one_pdf_pilot.py",
+        "console_script": "one-pdf-pilot",
+        "secondary_tool": "nl-to-sql"
+      },
+      "artifact_name": "run.json",
+      "manifest_name": "manifest.json",
+      "required_sections": [
+        "cost",
+        "latency",
+        "warnings",
+        "evidence_refs",
+        "identity_refs",
+        "data_quality"
+      ],
+      "status": "planned",
+      "rationale": "Readiest in the fleet (6-standard sum 15/18). Already has run ledgers, named artifacts, 3/3 artifact_discipline and identity_map, page-level evidence. The proof-of-concept producer (P2). Gap is the unified query/NL run envelope + cost capture + evidence excerpt/method."
+    },
+    {
+      "repo": "stranske/Trend_Model_Project",
+      "parent_issue": "stranske/Workflows#TBD-P0",
+      "issue": "stranske/Trend_Model_Project#TBD-P1",
+      "contract_version": "run-contract/v1",
+      "tier": 1,
+      "role": "producer",
+      "tier_role": "computational-tool",
+      "entry_point": {
+        "tool": "run-simulation",
+        "invocation": "trend run -c config.yml --returns data.csv",
+        "console_script": "trend",
+        "library_api": "trend_analysis.api.run_simulation"
+      },
+      "artifact_name": "run_envelope.json",
+      "manifest_name": "manifest.json",
+      "required_sections": [
+        "cost",
+        "latency",
+        "warnings",
+        "identity_refs"
+      ],
+      "status": "planned",
+      "rationale": "Near-verbatim blueprint signature run_simulation(config, returns) -> RunResult (api.py:400); content-addressed run_id (bundle.py:75-81); 3/3 artifact_discipline + ci_reference_runs. evidence is out of role (0/3 N/A for a computational engine), so 'evidence_refs' is intentionally NOT required. Needs the single replayable envelope + cost/latency + structured warnings + a funds/managers identity map."
+    },
+    {
+      "repo": "stranske/Counter_Risk",
+      "parent_issue": "stranske/Workflows#TBD-P0",
+      "issue": "stranske/Counter_Risk#TBD-P3",
+      "contract_version": "run-contract/v1",
+      "tier": 1,
+      "role": "producer",
+      "tier_role": "reporting-tool",
+      "entry_point": {
+        "tool": "counter-risk-run",
+        "invocation": "counter-risk run --config ... --as-of-date ... --output-dir ...",
+        "console_script": "counter-risk",
+        "install_blocker": "console script not pip-installed today; pandas missing from runtime deps (weekly 'high'). Must be fixed before 'emitting'."
+      },
+      "artifact_name": "run.json",
+      "manifest_name": "manifest.json",
+      "required_sections": [
+        "cost",
+        "latency",
+        "warnings",
+        "identity_refs",
+        "data_quality"
+      ],
+      "status": "planned",
+      "rationale": "Among the readiest (sum 14/18); schema'd manifest, first-class data_quality (3/3), validated name registry (3/3 identity). Candidate THIRD prototype tool. Must first register the console script + add pandas, then enforce manifest_schema end-to-end and add tool/git/python provenance + top-level schema_version. evidence is 1/3 and partly out of role; not required."
+    },
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "parent_issue": "stranske/Workflows#TBD-P0",
+      "issue": "stranske/Portable-Alpha-Extension-Model#TBD-P3",
+      "contract_version": "run-contract/v1",
+      "tier": 1,
+      "role": "producer",
+      "tier_role": "computational-tool",
+      "entry_point": {
+        "tool": "run-single",
+        "invocation": "pa cli (headless) -> RunArtifacts",
+        "library_api": "pa_core.facade.run_single"
+      },
+      "artifact_name": "run.json",
+      "manifest_name": "manifest.json",
+      "required_sections": [
+        "cost",
+        "latency",
+        "warnings"
+      ],
+      "status": "planned",
+      "rationale": "Near-ready computational tool (5 of 6 standards strong once ev/id discounted as out-of-role for a Monte Carlo engine). Hashed manifest + verifiable bundle + content-addressed idempotency + CI golden runs. Alternate THIRD tool. Needs the unified run.json that finally captures warnings (currently stderr-only) + a cost stub, and the golden gate flipped from ::warning:: to hard-fail. evidence_objects (0/3 N/A) and identity_map (1/3 N/A) are out of role -> NOT required."
+    },
+    {
+      "repo": "stranske/Manager-Database",
+      "parent_issue": "stranske/Workflows#TBD-P0",
+      "issue": "stranske/Manager-Database#TBD-P3",
+      "contract_version": "run-contract/v1",
+      "tier": 2,
+      "role": "producer",
+      "tier_role": "identity-source",
+      "entry_point": {
+        "tool": "diff-holdings",
+        "invocation": "python -m manager_database.diff_holdings (and ETL flows)",
+        "note": "Tool contract is weakest in fleet (1/3 run_contract): diff_holdings returns list[dict], daily_diff_flow returns None. Tool-ification deferred."
+      },
+      "artifact_name": "run.json",
+      "manifest_name": "manifest.json",
+      "required_sections": [
+        "identity_refs"
+      ],
+      "status": "planned",
+      "rationale": "Tier-2: included as the IDENTITY SOURCE (best-in-fleet identity_map 3/3: canonical manager_id + aliases + cik + lei + registry_ids, live EDGAR resolution). NOT a first-class orchestrated tool in the prototype. Its highest-leverage contribution is surfacing canonical manager/provider IDs the other repos join on. Full RunResult envelope + CI-gating its existing eval thresholds are P3+. Therefore only 'identity_refs' is required at first."
+    },
+    {
+      "repo": "stranske/Inv-Man-Intake",
+      "parent_issue": "stranske/Workflows#TBD-P0",
+      "issue": "stranske/Inv-Man-Intake#TBD-P3",
+      "contract_version": "run-contract/v1",
+      "tier": 2,
+      "role": "producer",
+      "tier_role": "evidence-source",
+      "entry_point": {
+        "tool": "ingest",
+        "invocation": "inv-man-ingest <package> --out <dir> (NOT YET BUILT)",
+        "blocker": "Full pipeline only exists inside run_v1_smoke_pipeline(...), a test helper returning a dataclass of object fields; no headless entry point, no materialized manifest, in-memory-only storage."
+      },
+      "artifact_name": "run.json",
+      "manifest_name": "manifest.json",
+      "required_sections": [
+        "evidence_refs",
+        "identity_refs"
+      ],
+      "status": "planned",
+      "rationale": "Tier-2: included as the EVIDENCE SOURCE (evidence_objects 2/3, enforced source-doc+page provenance). NOT a first-class orchestrated tool yet: needs a real ingest(package) entry point + manifest + durable storage and real firm/fund alias resolution (aliases_json hard-coded None) before it can be CALLED. Tool-ification deferred to P3+."
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "parent_issue": "stranske/Workflows#TBD-P0",
+      "issue": "stranske/Workflows#TBD-crossover",
+      "contract_version": "run-contract/v1",
+      "tier": 3,
+      "role": "consumer",
+      "tier_role": "crossover-consumer",
+      "ingests": [
+        "evidence-object/v1",
+        "identity-map-conventions"
+      ],
+      "artifact_name": null,
+      "manifest_name": null,
+      "required_sections": [],
+      "status": "candidate",
+      "rationale": "CANDIDATE consumer, NOT ACTIVE (status: candidate -> the conformance gate is a no-op for it). Captured architecturally so the cross-over use case is supported: investment-tool evidence objects + canonical identity refs flowing INTO the learning system (e.g. attributing a learning artifact to a source document or a canonical entity). As a CONSUMER it ingests the satellite schemas listed in 'ingests' and is NEVER required to emit a run-contract/v1 run.json. This does NOT make LMS a backplane PRODUCER: LMS remains in the 'excluded' block as a producer (its own EvidenceRecord/MasteryEstimate domain contracts must NOT be conflated with backplane evidence objects). Activating LMS (candidate -> consumer) is a deliberate, reviewable charter decision; P0 only records the architecture."
+    }
+  ],
+  "excluded": [
+    {
+      "repo": "stranske/trip-planner",
+      "reason": "Travel-planning app, not investment-research. Out of backplane charter. Already a langsmith-fleet participant for observability; that is a SEPARATE contract and does not make it a backplane participant."
+    },
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "reason": "Travel approval workflow, not investment-research. Out of backplane charter."
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "excluded_as": "producer",
+      "reason": "Excluded AS A PRODUCER: it is a learning engine, not an investment-research tool that emits run envelopes, and its EvidenceRecord/MasteryEstimate are domain-specific contracts that must NOT be conflated with backplane evidence objects. It DOES appear in 'participants' as a status:'candidate' CONSUMER (role: consumer) so the cross-over use case -- investment-tool evidence/identity flowing into the LMS -- is supported architecturally without being active. The candidate consumer entry does not weaken this producer exclusion."
+    },
+    {
+      "repo": "stranske/Workflows",
+      "reason": "Workflows is the CONTRACT OWNER / harness, not a research tool that emits run envelopes. It hosts the contract, schemas, registry, validator, and conformance workflow; it does not conform to the contract as a participant. Mirrors langsmith-fleet rollout_status 'contract-owner'. (Workflows-as-app is explicitly excluded.)"
+    }
+  ]
+}

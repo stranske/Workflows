@@ -24,6 +24,20 @@ MARKER_RE = re.compile(
     re.DOTALL,
 )
 
+# The canonical AGENT_ISSUE_TEMPLATE section headers, in order. A body that
+# already carries all of these (in order) plus an embedded Original-Issue block
+# has already been through the formatter; re-formatting it from scratch is the
+# re-run amplification that ballooned issues, so callers treat it as a no-op.
+CONFORMANT_SECTIONS = (
+    "Why",
+    "Scope",
+    "Non-Goals",
+    "Tasks",
+    "Acceptance Criteria",
+    "Implementation Notes",
+)
+ORIGINAL_ISSUE_SUMMARY = "<summary>Original Issue</summary>"
+
 
 @dataclass(frozen=True)
 class ContextOptions:
@@ -148,18 +162,76 @@ def build_formatted_body_marker(
     downstream_workflow: str | None = None,
     workflows: list[str] | tuple[str, ...] | None = None,
     formatted_body: str | None = None,
+    embed_body: bool = True,
 ) -> str:
-    """Build a compact marker that downstream callers can store with a body."""
+    """Build a compact marker that downstream callers can store with a body.
+
+    With ``embed_body=True`` (default) the marker carries a base64 copy of the
+    formatted body so it can be restored verbatim. Pass ``embed_body=False`` to
+    store only the sha256 fingerprint: ``reuse_formatted_body`` then validates the
+    visible body against the hash and returns it cleaned, which proves idempotency
+    without ~doubling the body size. The lightweight form is preferred when the
+    formatted body is written back into the issue in full anyway.
+    """
     payload: dict[str, Any] = {}
     if downstream_workflow:
         payload["workflow"] = downstream_workflow
     if workflows:
         payload["workflows"] = list(workflows)
     if formatted_body is not None:
-        payload["body_b64"] = base64.b64encode(formatted_body.encode("utf-8")).decode("ascii")
+        if embed_body:
+            payload["body_b64"] = base64.b64encode(formatted_body.encode("utf-8")).decode("ascii")
         payload["sha256"] = hashlib.sha256(formatted_body.encode("utf-8")).hexdigest()
     marker_payload = json.dumps(payload, separators=(",", ":"), sort_keys=True)
     return f"<!-- {MARKER_PREFIX}:{MARKER_VERSION} {marker_payload} -->"
+
+
+def already_conformant(body: str | None, *, require_original_issue: bool = True) -> bool:
+    """Return True when ``body`` is already in AGENT_ISSUE_TEMPLATE form.
+
+    A body is conformant when every ``CONFORMANT_SECTIONS`` heading is present as
+    a top-level ``##`` heading, in canonical order, and (unless disabled) the
+    embedded Original-Issue ``<details>`` block is present. Such a body has
+    already been formatted; re-running the formatter on it only paraphrases
+    prior output and is the primary re-run amplification vector. Headings inside
+    fenced code blocks (e.g. the Original-Issue verbatim copy) are ignored.
+    """
+    text = _text(body)
+    if not text:
+        return False
+
+    headings = _top_level_headings(text)
+    expected = [section.lower() for section in CONFORMANT_SECTIONS]
+    # Subsequence match in order: every expected heading appears, in sequence.
+    idx = 0
+    for heading in headings:
+        if idx < len(expected) and heading == expected[idx]:
+            idx += 1
+    if idx != len(expected):
+        return False
+
+    return not (require_original_issue and ORIGINAL_ISSUE_SUMMARY not in text)
+
+
+def _top_level_headings(body: str) -> list[str]:
+    """Return normalized ``##``-level headings, skipping fenced code blocks."""
+    headings: list[str] = []
+    code_fence: str | None = None
+    for line in body.splitlines():
+        stripped = line.strip()
+        fence_match = re.match(r"^(`{3,})", stripped)
+        if fence_match:
+            if code_fence is None:
+                code_fence = fence_match.group(1)
+            elif len(fence_match.group(1)) >= len(code_fence):
+                code_fence = None
+            continue
+        if code_fence is not None:
+            continue
+        heading_match = re.match(r"^##\s+(.+?)\s*$", line)
+        if heading_match:
+            headings.append(heading_match.group(1).strip().lower())
+    return headings
 
 
 def _build_payload(

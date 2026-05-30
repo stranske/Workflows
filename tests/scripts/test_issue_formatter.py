@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 from scripts.langchain import issue_formatter
+from scripts.langchain.issue_pr_context import reuse_formatted_body
 
 
 def _install_fake_langchain(monkeypatch: pytest.MonkeyPatch, mock_chain: mock.MagicMock) -> None:
@@ -378,3 +379,159 @@ def test_format_issue_body_caps_oversized_input() -> None:
     assert result["formatted_body"] is not None
     assert len(result["formatted_body"]) < len(oversized_body)
     assert "context exceeded token budget" in result["formatted_body"]
+
+
+# ---------------------------------------------------------------------------
+# Anti-bloat: idempotency / byte-stability (incident #1127 -> #1135, ~78x)
+# ---------------------------------------------------------------------------
+
+
+def test_format_issue_twice_is_byte_stable() -> None:
+    """Formatting an already-formatted body must NOT grow it.
+
+    Re-running the formatter on its own output was the primary re-run
+    amplification vector. A reuse marker + already-conformant guard now make the
+    second pass a byte-stable no-op.
+    """
+    raw = (
+        "Why: ship portfolio constraint validation\n\n"
+        "Tasks:\n"
+        "- Define common constraints (weight bounds, leverage, concentration)\n"
+        "- Implement ConstraintValidator class\n"
+        "- Add validation hooks in portfolio construction\n\n"
+        "Acceptance:\n"
+        "- tests pass\n"
+    )
+    first = issue_formatter.format_issue_body(raw, use_llm=False)["formatted_body"]
+    second = issue_formatter.format_issue_body(first, use_llm=False)
+    third = issue_formatter.format_issue_body(second["formatted_body"], use_llm=False)
+
+    assert second["formatted_body"] == first  # byte-stable on re-format
+    assert third["formatted_body"] == first  # and stays stable
+    assert second["used_llm"] is False
+    assert second.get("skipped") in {"reused_marker", "already_conformant"}
+
+
+def test_format_issue_reuse_marker_written_and_honored() -> None:
+    """A formatter output carries a reuse marker that later stages can detect."""
+    raw = "Why: do it\n\nTasks:\n- add a thing\n\nAcceptance:\n- it works"
+    formatted = issue_formatter.format_issue_body(raw, use_llm=False)["formatted_body"]
+
+    assert "issue-pr-context:formatted-body" in formatted
+    # The marker round-trips for any of the auto-pilot chain workflow tags.
+    for workflow in ("agents-auto-pilot", "issue_optimizer"):
+        assert (
+            reuse_formatted_body({"body": formatted}, workflow) is not None
+        ), f"marker should be reusable for {workflow}"
+
+
+def test_format_issue_already_conformant_body_skipped() -> None:
+    """A structurally conformant body (no marker) is detected and not re-formatted."""
+    conformant = "\n".join(
+        [
+            "## Why",
+            "",
+            "Ship it.",
+            "",
+            "## Scope",
+            "",
+            "_Not provided._",
+            "",
+            "## Non-Goals",
+            "",
+            "_Not provided._",
+            "",
+            "## Tasks",
+            "",
+            "- [ ] do a thing",
+            "",
+            "## Acceptance Criteria",
+            "",
+            "- [ ] it works",
+            "",
+            "## Implementation Notes",
+            "",
+            "_Not provided._",
+            "",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            "```text",
+            "Why: ship it",
+            "```",
+            "</details>",
+        ]
+    )
+    result = issue_formatter.format_issue_body(conformant, use_llm=False)
+    assert result["skipped"] == "already_conformant"
+    assert result["used_llm"] is False
+
+
+def test_append_raw_issue_section_replaces_not_nests() -> None:
+    """_append_raw_issue_section keeps exactly one Original-Issue block.
+
+    Previously, when the formatted output already had a block but the raw source
+    did not, a second block was nested (the #1135 nesting vector).
+    """
+    formatted_with_block = "\n".join(
+        [
+            "## Tasks",
+            "",
+            "- [ ] Task 1",
+            "",
+            "## Acceptance Criteria",
+            "",
+            "- [ ] Done",
+            "",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            "```text",
+            "TRUE ORIGINAL",
+            "```",
+            "</details>",
+        ]
+    )
+    # Re-format case: format_issue_body passes the already-formatted body (block
+    # and all) back in as issue_body. The block must be replaced once, not nested,
+    # and the verbatim innermost original preserved.
+    out = issue_formatter._append_raw_issue_section(formatted_with_block, formatted_with_block)
+    assert out.count("<summary>Original Issue</summary>") == 1
+    assert "TRUE ORIGINAL" in out
+
+    # Edge: the formatted OUTPUT carries a block but the raw arg is empty. The
+    # original is still recovered from the output rather than dropped or nested.
+    out_empty_raw = issue_formatter._append_raw_issue_section(formatted_with_block, "")
+    assert out_empty_raw.count("<summary>Original Issue</summary>") == 1
+    assert "TRUE ORIGINAL" in out_empty_raw
+
+
+def test_append_raw_issue_section_collapses_nested_blocks() -> None:
+    """Pre-existing nested blocks collapse to a single block on the next pass."""
+    nested = "\n".join(
+        [
+            "## Tasks",
+            "",
+            "- [ ] x",
+            "",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            "````text",
+            "## Tasks",
+            "- [ ] x",
+            "",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            "```text",
+            "TRUE ORIGINAL",
+            "```",
+            "</details>",
+            "````",
+            "</details>",
+        ]
+    )
+    out = issue_formatter._append_raw_issue_section("## Tasks\n\n- [ ] x", nested)
+    assert out.count("<summary>Original Issue</summary>") == 1
+    assert out.count("TRUE ORIGINAL") == 1

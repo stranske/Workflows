@@ -18,6 +18,15 @@ FORBIDDEN patterns (DO NOT OUTPUT):
 - Sentence fragments (single words, punctuation only)
 - Nested prefixes like "Define scope for: Define scope for: ..." (recursion)
 
+LENGTH & SCOPE DISCIPLINE (do NOT inflate):
+- Output AT MOST 3 sub-tasks. Fewer is better; only emit as many as the task
+  genuinely contains as independent deliverables.
+- Preserve scope: do NOT invent file paths, functions, tests, or steps the task
+  does not already imply.
+- Do NOT decompose a task that is already a single ~10-minute action — return it
+  as a single bullet unchanged.
+- Prefer the shortest faithful phrasing; never restate the same step twice.
+
 Return sub-tasks as a markdown bullet list.
 Each task should be ONE action a coding agent can complete and verify.
 

@@ -1,0 +1,145 @@
+# Backplane Contract Integrity - validates the run-contract/v1 contract set
+#
+# Workflows-internal gate (NOT a consumer workflow). Runs on PRs that touch the
+# contract, schemas, registry, validator, or fixtures and asserts:
+#   1. the three schemas are valid JSON Schema (draft 2020-12) and load;
+#   2. config/backplane_participants.json validates against its meta-schema shape
+#      (every participant has the required keys; contract_version is known;
+#      excluded repos carry a reason; LMS is a candidate consumer, not active);
+#   3. the bundled valid fixtures pass the validator and each invalid fixture
+#      fails it (the validator self-test / self-smoke).
+#
+# Modeled on health-70-validate-sync-manifest.yml (validate -> upload -> comment).
+
+name: Backplane Contract Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/run-contract-v1.md'
+      - 'docs/contracts/research-backplane-contract.md'
+      - 'docs/contracts/identity-map-conventions.md'
+      - 'docs/contracts/schemas/**'
+      - 'config/backplane_participants.json'
+      - 'scripts/validate_run_contract.py'
+      - 'tests/fixtures/backplane/**'
+      - 'tests/contracts/**'
+      - '.github/workflows/health-78-backplane-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/schemas/**'
+      - 'config/backplane_participants.json'
+      - 'scripts/validate_run_contract.py'
+      - 'tests/fixtures/backplane/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-integrity:
+    name: Validate backplane contract integrity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install jsonschema pytest
+
+      - name: Validator self-smoke (schemas load + fixtures behave)
+        run: |
+          mkdir -p artifacts/backplane-contract
+          python scripts/validate_run_contract.py \
+            --self-smoke \
+            --registry config/backplane_participants.json \
+            --schema-dir docs/contracts/schemas \
+            --repo stranske/Workflows \
+            tests/fixtures/backplane/valid_run.json \
+            | tee artifacts/backplane-contract/self-smoke.txt
+
+      - name: Documented invalid-fixture smoke (must exit 1)
+        run: |
+          set +e
+          python scripts/validate_run_contract.py \
+            tests/fixtures/backplane/missing_cost.json \
+            --registry config/backplane_participants.json \
+            --schema-dir docs/contracts/schemas \
+            --repo stranske/Pension-Data
+          rc=$?
+          set -e
+          if [ "$rc" -ne 1 ]; then
+            echo "Expected exit 1 for missing_cost.json, got $rc" >&2
+            exit 1
+          fi
+          echo "OK: invalid fixture missing_cost.json exited 1 as required."
+
+      - name: Contract test suite
+        run: |
+          python -m pytest tests/contracts/ -q \
+            | tee artifacts/backplane-contract/pytest.txt
+
+      - name: Upload contract integrity report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: backplane-contract-integrity
+          path: artifacts/backplane-contract/
+          if-no-files-found: warn
+
+      - name: Comment on PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const defaultHelpers = {
+              withRetry: (fn) => fn(),
+              paginateWithRetry: (githubInstance, method, params) => {
+                return githubInstance.paginate(method, params);
+              },
+            };
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : defaultHelpers;
+            const { withRetry } = retryHelpers;
+            const body = [
+              '## Backplane Contract Integrity Failed',
+              '',
+              'A change to the `run-contract/v1` contract set (schemas, registry,',
+              'validator, or fixtures) failed the Workflows-internal integrity gate.',
+              '',
+              'Check that:',
+              '- the three schemas load as valid draft 2020-12 JSON Schema,',
+              '- `config/backplane_participants.json` keeps the required shape',
+              '  (role/status/contract_version; excluded repos carry a reason),',
+              '- the valid fixtures still pass and the invalid fixtures still fail.',
+              '',
+              'See `docs/contracts/research-backplane-contract.md`.',
+            ].join('\n');
+            const createComment = () => {
+              return github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            };
+            await withRetry(createComment);

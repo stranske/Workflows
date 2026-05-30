@@ -1,0 +1,161 @@
+name: Reusable Backplane Conformance
+
+# Validates a participating repo's emitted run-contract/v1 envelope (producer /
+# bridge) OR an ingested satellite object (consumer) against the canonical
+# Workflows-owned schemas + the opt-in participant registry.
+#
+# OPT-IN + ROLE-BASED: repos absent from config/backplane_participants.json
+# (or status none/candidate) pass as a no-op. The contract is adopted, not
+# imposed. The role declared in the registry decides what is validated:
+#   - producer/bridge: full run-contract/v1 emission (run.json [+ manifest.json]).
+#   - consumer: ONLY the schemas the entry lists under `ingests` (e.g.
+#     evidence-object/v1); a consumer is never failed for not emitting a run.json.
+#
+# The reusable workflow reads the CANONICAL registry + schemas + validator from
+# stranske/Workflows@<contract_ref> (default @main) -- never from the
+# participant's copy -- so there is exactly one registry.
+
+on:
+  workflow_call:
+    inputs:
+      run_json_path:
+        description: 'Path to the emitted run.json (producer/bridge) or ingested object (consumer) to validate'
+        required: true
+        type: string
+      manifest_path:
+        description: 'Path to the run manifest.json (enables artifact cross-check; producers only)'
+        required: false
+        default: ''
+        type: string
+      repo:
+        description: 'Participant repo slug (defaults to calling repo)'
+        required: false
+        default: ''
+        type: string
+      contract_ref:
+        description: 'Workflows contract ref to validate against (@main convention)'
+        required: false
+        default: 'main'
+        type: string
+      strict:
+        description: 'Fail the job on any violation (false = warn-only bring-up)'
+        required: false
+        default: true
+        type: boolean
+    outputs:
+      conformant:
+        description: 'true if the envelope conformed (or repo is not a participant)'
+        value: ${{ jobs.conformance.outputs.conformant }}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    name: Backplane run-contract conformance
+    runs-on: ubuntu-latest
+    outputs:
+      conformant: ${{ steps.validate.outputs.conformant }}
+    steps:
+      # The participant's own checkout (carries the emitted run.json/manifest).
+      - name: Checkout participant
+        uses: actions/checkout@v6
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      # The contract owner (Workflows): canonical registry + schemas + validator.
+      - name: Checkout Workflows contract
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          ref: ${{ inputs.contract_ref }}
+          path: .backplane-contract
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install jsonschema
+
+      - name: Validate run envelope
+        id: validate
+        run: |
+          set -euo pipefail
+          REPO="${{ inputs.repo }}"
+          if [ -z "${REPO}" ]; then REPO="${{ github.repository }}"; fi
+          ARGS=( "${{ inputs.run_json_path }}"
+                 --registry .backplane-contract/config/backplane_participants.json
+                 --schema-dir .backplane-contract/docs/contracts/schemas
+                 --repo "${REPO}" )
+          if [ -n "${{ inputs.manifest_path }}" ]; then
+            ARGS+=( --manifest "${{ inputs.manifest_path }}" )
+          fi
+          if [ "${{ inputs.strict }}" != "true" ]; then
+            ARGS+=( --warn-only )
+          fi
+          # Validator writes a machine-readable report and sets conformant=...
+          python .backplane-contract/scripts/validate_run_contract.py "${ARGS[@]}" \
+            --report-json conformance-report.json \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: Upload conformance report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: backplane-conformance-report
+          path: conformance-report.json
+          if-no-files-found: warn
+
+      - name: Comment on PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const defaultHelpers = {
+              withRetry: (fn) => fn(),
+              paginateWithRetry: (githubInstance, method, params) => {
+                return githubInstance.paginate(method, params);
+              },
+            };
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : defaultHelpers;
+            const { withRetry } = retryHelpers;
+            let detail = '(no machine-readable report produced)';
+            try {
+              const r = JSON.parse(fs.readFileSync('conformance-report.json', 'utf8'));
+              detail = (r.violations || []).map((v) => `- \`${v.path || ''}\` ${v.message}`).join('\n');
+            } catch (e) { /* leave default */ }
+            const body = [
+              '## Backplane Conformance Failed',
+              '',
+              'This PR emits a `run.json` that does not conform to `run-contract/v1`',
+              'or its registry entry in `config/backplane_participants.json`.',
+              '',
+              '### Violations',
+              detail || '(see workflow logs)',
+              '',
+              'See `docs/contracts/run-contract-v1.md` for the contract.',
+            ].join('\n');
+            const createComment = () => {
+              return github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            };
+            await withRetry(createComment);
