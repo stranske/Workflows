@@ -447,7 +447,7 @@ jobs:
           Automated update from workflow run ${{ github.run_id }}
           Period: Last ${{ inputs.days_back || '7' }} days"
 
-            git push origin main
+            git push origin HEAD:${{ github.ref_name }}
             echo "✅ Updated docs/dashboards/langsmith-metrics.md"
           fi
 
