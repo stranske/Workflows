@@ -1,0 +1,64 @@
+# .github/workflows/maint-83-bootstrap-consumer.yml
+# Automates the manual GitHub-settings bootstrap toggles a freshly-registered
+# first-party consumer needs (SETUP_CHECKLIST.md 3.1 / 3.3 / 3.3.1):
+#   - default_workflow_permissions=write + can_approve_pull_request_reviews=true
+#   - repo variables USE_CONSOLIDATED_WORKFLOWS + ALLOWED_KEEPALIVE_LOGINS
+#   - stranske-automation-bot push collaborator invite
+# Skipping any of these silently breaks Gate / keepalive / autofix on the new
+# consumer (see stranske/Fine-Art-Archive #13 bootstrap, 2026-05-29).
+name: Maint 83 Bootstrap Consumer
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Consumer repo to bootstrap (owner/name, e.g. stranske/Foo)"
+        required: true
+      keepalive_logins:
+        description: "Comma-separated ALLOWED_KEEPALIVE_LOGINS (default: repo owner)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Dry run - print the gh commands without applying them"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.repo }}
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    env:
+      # Cross-repo admin settings need an owner/bot PAT; the default GITHUB_TOKEN
+      # cannot change another repo's Actions permissions or add collaborators.
+      GH_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Bootstrap consumer settings
+        env:
+          BOOTSTRAP_REPO: ${{ inputs.repo }}
+          KEEPALIVE_LOGINS: ${{ inputs.keepalive_logins }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          args=(--repo "$BOOTSTRAP_REPO")
+          if [ -n "$KEEPALIVE_LOGINS" ]; then
+            args+=(--keepalive-logins "$KEEPALIVE_LOGINS")
+          fi
+          if [ "$DRY_RUN" != "true" ]; then
+            args+=(--execute)
+          fi
+          python scripts/bootstrap_consumer_settings.py "${args[@]}"

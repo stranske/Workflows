@@ -802,3 +802,73 @@ def test_main_module_invocation(monkeypatch) -> None:
         runpy.run_path(task_decomposer.__file__, run_name="__main__")
     output = captured.getvalue()
     assert output.startswith("-")
+
+
+# ---------------------------------------------------------------------------
+# Anti-bloat: bounded fan-out + elision sentinel
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_subtasks_caps_fan_out_with_sentinel() -> None:
+    """A long multi-part input is capped at MAX_SUBTASKS_PER_PARENT with a sentinel."""
+    parts = [
+        "alpha one, bravo two, charlie three, delta four, "
+        "echo five, foxtrot six, golf seven, hotel eight"
+    ]
+    result = task_decomposer.normalize_subtasks(parts)
+    assert len(result) == task_decomposer.MAX_SUBTASKS_PER_PARENT
+    sentinels = [t for t in result if task_decomposer.is_elision_sentinel(t)]
+    assert len(sentinels) == 1
+    assert "sub-tasks elided" in sentinels[0]
+
+
+def test_normalize_subtasks_does_not_triple_multi_part_input() -> None:
+    """Multiple parts must NOT each be tripled (the 3xN fan-out vector)."""
+    result = task_decomposer.normalize_subtasks(
+        ["Update docs and add tests and refactor the parser"]
+    )
+    assert not any("focused slice for" in t.lower() for t in result)
+    # Three independent parts -> three tasks, not nine.
+    assert len(result) == 3
+
+
+def test_normalize_subtasks_single_large_task_still_expands_to_triple() -> None:
+    """A single genuinely-large task still gets the intended scope/implement/validate triple."""
+    result = task_decomposer.normalize_subtasks(
+        ["Implement end-to-end constraint validation across the entire system"]
+    )
+    assert len(result) == 3
+    assert any(t.lower().startswith("define scope for:") for t in result)
+    assert any(t.lower().startswith("implement focused slice for:") for t in result)
+    assert any(t.lower().startswith("validate focused slice for:") for t in result)
+
+
+def test_normalize_subtasks_is_idempotent_on_capped_output() -> None:
+    """Re-normalizing capped output is stable and preserves the sentinel verbatim."""
+    parts = [
+        "alpha one, bravo two, charlie three, delta four, "
+        "echo five, foxtrot six, golf seven, hotel eight"
+    ]
+    once = task_decomposer.normalize_subtasks(parts)
+    twice = task_decomposer.normalize_subtasks(once)
+    assert twice == once
+    # The sentinel did not get a "(verify: ...)" suffix or get re-split.
+    assert any(task_decomposer.is_elision_sentinel(t) for t in twice)
+
+
+def test_is_elision_sentinel_recognizes_generated_marker() -> None:
+    """The sentinel emitted by elision_sentinel is recognized by is_elision_sentinel."""
+    marker = task_decomposer.elision_sentinel(7, kind="tasks")
+    assert task_decomposer.is_elision_sentinel(marker)
+    assert task_decomposer.is_elision_sentinel(f"- [ ] {marker}")
+    assert not task_decomposer.is_elision_sentinel("Add tests for the parser")
+
+
+def test_build_child_issues_excludes_sentinel() -> None:
+    """Elision sentinels are bookkeeping markers, never materialized as child issues."""
+    many = [f"Implement distinct feature module number {i} for the system" for i in range(10)]
+    children = task_decomposer.build_child_issues(many, parent_title="Parent", max_children=3)
+    assert len(children) <= 3
+    for child in children:
+        assert not task_decomposer.is_elision_sentinel(child["title"])
+        assert "elided; split this issue" not in child["body"]
