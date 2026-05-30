@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "app-baseline-kit"
+version = "0.1.0"
+description = "Shared harness for scenario-driven wiring/sensibility/regression baselines across apps."
+requires-python = ">=3.10"
+dependencies = [
+    "PyYAML>=6.0",
+    "pytest>=7.0",
+    "pytest-regressions>=2.8",
+]
+
+[tool.setuptools.packages.find]
+include = ["baseline_kit*"]
