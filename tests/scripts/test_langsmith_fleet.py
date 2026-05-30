@@ -140,10 +140,7 @@ def test_markdown_summary_renders_mixed_valid_invalid_missing_rows() -> None:
     records_without_counter_risk = [
         record
         for record in valid_records
-        if not (
-            record["repo"] == "stranske/Counter_Risk"
-            and record["surface"] == "risk-reporting"
-        )
+        if not (record["repo"] == "stranske/Counter_Risk" and record["surface"] == "risk-reporting")
     ]
     # A schema-incomplete Pension-Data record -> its row renders as "invalid".
     invalid_record = {
@@ -172,14 +169,8 @@ def test_markdown_summary_renders_mixed_valid_invalid_missing_rows() -> None:
     assert "- Missing: 1" in markdown
 
     # Per-repo status rows, one per status flavor.
-    assert (
-        "| stranske/Workflows | agent-automation | stranske/Workflows#2150 | valid |"
-        in markdown
-    )
-    assert (
-        "| stranske/Pension-Data | nl-to-sql | stranske/Pension-Data#445 | invalid |"
-        in markdown
-    )
+    assert "| stranske/Workflows | agent-automation | stranske/Workflows#2150 | valid |" in markdown
+    assert "| stranske/Pension-Data | nl-to-sql | stranske/Pension-Data#445 | invalid |" in markdown
     assert (
         "| stranske/Counter_Risk | risk-reporting | stranske/Counter_Risk#610 | missing |"
         in markdown
