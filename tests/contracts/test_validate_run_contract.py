@@ -136,6 +136,63 @@ def test_cli_exit_codes(tmp_path) -> None:
     assert rc == 0
 
 
+def test_missing_envelope_skips_for_candidate_and_planned_and_absent(tmp_path) -> None:
+    # A missing run.json must be an opt-in SKIP (exit 0) for a candidate
+    # consumer (LMS), a not-yet-emitting "planned" producer (Pension-Data), and
+    # an absent repo -- the caller's emit-reference-run job legitimately
+    # produces nothing until an emitter is wired. Regression guard for the
+    # "cannot load run envelope -> exit 2" crash that gated every PR.
+    mod = _import_validator()
+    missing = tmp_path / "does-not-exist" / "run.json"
+    for repo in (
+        "stranske/learning-management-system",  # candidate consumer
+        PRODUCER_REPO,  # planned producer
+        "stranske/not-a-participant",  # absent
+    ):
+        rc = mod.main(
+            [
+                str(missing),
+                "--registry",
+                str(REGISTRY),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+                "--repo",
+                repo,
+            ]
+        )
+        assert rc == 0, f"missing envelope should skip (exit 0) for {repo}, got {rc}"
+
+
+def test_missing_envelope_decision_by_status() -> None:
+    # The pure helper: only an actively-emitting producer/bridge fails on a
+    # missing envelope; everyone else (planned/candidate/none/absent/consumer)
+    # skips.
+    mod = _import_validator()
+    run_json = Path("artifacts/reference/run.json")
+
+    def reg(role: str, status: str) -> dict:
+        return {"participants": [{"repo": "stranske/X", "role": role, "status": status}]}
+
+    # Actively emitting -> a vanished envelope is a real regression -> fail.
+    for status in ("emitting", "conformant"):
+        report = mod.missing_envelope_report(reg("producer", status), "stranske/X", run_json)
+        assert not report.skipped and not report.conformant, status
+
+    # Not-yet-emitting / opt-out -> skip.
+    for role, status in (
+        ("producer", "planned"),
+        ("consumer", "candidate"),
+        ("producer", "none"),
+        ("bridge", "planned"),
+    ):
+        report = mod.missing_envelope_report(reg(role, status), "stranske/X", run_json)
+        assert report.skipped and report.conformant, (role, status)
+
+    # Absent repo -> skip.
+    report = mod.missing_envelope_report({"participants": []}, "stranske/Y", run_json)
+    assert report.skipped and report.conformant
+
+
 def test_registry_shape_meta() -> None:
     reg = _registry()
     investment_repos = {
