@@ -26,6 +26,24 @@ def artifact_path_for_repo(records_root: Path, repo: str, artifact_name: str) ->
     return records_root / f"{owner}__{name}" / artifact_name
 
 
+def row_from_summary(
+    summary: Mapping[str, Any],
+    *,
+    repo: str,
+    surface: str,
+) -> dict[str, Any] | None:
+    """Return one summary row matching repo/surface."""
+    rows = summary.get("rows")
+    if not isinstance(rows, list):
+        return None
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("repo")) == repo and str(row.get("surface")) == surface:
+            return row
+    return None
+
+
 def build_conformance_report(
     artifact_paths: Mapping[str, Path],
     *,
@@ -53,6 +71,21 @@ def build_conformance_report(
         else:
             records, parse_errors = langsmith_fleet.load_ndjson(artifact_path)
             record_count = len(records)
+            summary = langsmith_fleet.summarize_fleet_records(records, registry=registry, now=now)
+            summary_row = row_from_summary(summary, repo=repo, surface=surface)
+            if summary_row:
+                record_count = int(summary_row.get("record_count") or record_count)
+                first_error = (
+                    str(summary_row.get("first_error")) if summary_row.get("first_error") else None
+                )
+                latest_raw = summary_row.get("latest_recorded_at")
+                if isinstance(latest_raw, str) and latest_raw.strip():
+                    try:
+                        latest_recorded_at = datetime.fromisoformat(
+                            latest_raw.replace("Z", "+00:00")
+                        )
+                    except ValueError:
+                        latest_recorded_at = None
             validation_errors = parse_errors + langsmith_fleet.validate_records(
                 records,
                 registry=registry,
@@ -66,14 +99,11 @@ def build_conformance_report(
                 status = "invalid"
                 first_error = validation_errors[0].message
             else:
-                latest_recorded_at = langsmith_fleet._latest_recorded_at(records)
-                if (
-                    latest_recorded_at
-                    and (now - latest_recorded_at).total_seconds() > stale_after_hours * 3600
-                ):
-                    status = "stale"
-                else:
-                    status = "valid"
+                # Parse status/first_error from canonical summary rows.
+                status = str(summary_row.get("status")) if summary_row else "missing"
+                if status not in {"missing", "invalid", "stale", "valid"}:
+                    status = "invalid"
+                    first_error = first_error or "summary row returned unknown status"
 
         counts[status] += 1
         rows.append(
