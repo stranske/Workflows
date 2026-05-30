@@ -90,6 +90,17 @@ CRITICAL rules for split_suggestions:
     "Define metadata contract"
   ]
 
+Length & scope discipline (do NOT inflate the issue):
+- Only propose a split when a task genuinely contains 2+ independent deliverables.
+  Propose at most 3 sub-tasks per task. Do NOT split a task that is already a
+  single ~10-minute action.
+- Preserve the author's scope. Do NOT invent file paths, function names, tests,
+  or acceptance criteria that the source does not imply.
+- Do NOT duplicate sections that already exist, and do NOT repeat the same point
+  under two headings.
+- If a section has no source content, leave it empty (a placeholder); do NOT
+  manufacture prose to fill it.
+
 Output JSON with this shape:
 {{
   "task_splitting": [{{
@@ -109,17 +120,33 @@ PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "analyze_issue.md"
 APPLY_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "apply_suggestions.md"
 
 APPLY_SUGGESTIONS_PROMPT = """
-Reformat this issue applying the approved suggestions.
+Apply the approved suggestions to this already-structured issue as a PATCH.
 
-Original issue:
+The issue is ALREADY in AGENT_ISSUE_TEMPLATE form. Your job is to apply ONLY the
+listed suggestions — NOT to re-format, re-paraphrase, re-order, or re-derive the
+issue. This is the single most important rule: re-writing already-good content
+is what makes issues balloon.
+
+Current issue body:
 {original_body}
 
 Approved suggestions:
 {suggestions_json}
 
-Apply ALL suggestions and output the complete reformatted issue
-following AGENT_ISSUE_TEMPLATE structure. Move blocked tasks to
-a "## Deferred Tasks (Requires Human)" section.
+Rules:
+- Change ONLY the specific tasks/criteria/sections named in the suggestions.
+- Preserve ALL other text VERBATIM, including the existing section structure and
+  the trailing "<details>Original Issue</details>" block.
+- Apply each task split in place (replace the one task with its named sub-tasks);
+  do not also restate the parent.
+- Move blocked tasks to a "## Deferred Tasks (Requires Human)" section (create it
+  once if absent; never duplicate it).
+- Do NOT increase total length except by the minimum needed to apply a suggestion.
+  Do NOT invent file paths, function names, tests, or criteria the source does not
+  imply, and do NOT fill empty/placeholder sections with manufactured prose.
+
+Output the full issue body with the suggestions applied and everything else
+unchanged.
 """.strip()
 
 ISSUE_OPTIMIZER_REPAIR_PROMPT = DEFAULT_REPAIR_PROMPT
@@ -605,24 +632,116 @@ def _deduplicate_task_lines(formatted: str) -> str:
         len(lines),
     )
 
+    decomposer = _decomposer_module()
     seen: set[str] = set()
+    seen_token_sets: list[frozenset[str]] = []
     deduped: list[str] = []
     for line in lines[header_idx + 1 : end_idx]:
         stripped = line.strip()
         if not stripped:
             deduped.append(line)
             continue
-        norm = _normalize_task_text(_strip_task_marker(stripped))
+        # Never collapse elision sentinels (they are bookkeeping, and two
+        # different counts must not be treated as duplicates).
+        if decomposer.is_elision_sentinel(stripped):
+            deduped.append(line)
+            continue
+        task_text = _strip_task_marker(stripped)
+        norm = _normalize_task_text(task_text)
         if not norm:
             deduped.append(line)
             continue
-        if norm in seen:
+        tokens = _task_token_set(task_text)
+        if norm in seen or _is_near_duplicate(tokens, seen_token_sets):
             continue
         seen.add(norm)
+        seen_token_sets.append(tokens)
         deduped.append(line)
 
     result = lines[: header_idx + 1] + deduped + lines[end_idx:]
     return "\n".join(result)
+
+
+def _section_bounds(lines: list[str], header: str) -> tuple[int, int] | None:
+    """Return ``(header_idx, end_idx)`` for ``header`` (e.g. ``## Tasks``), or None."""
+    try:
+        header_idx = next(i for i, line in enumerate(lines) if line.strip() == header)
+    except StopIteration:
+        return None
+    end_idx = next(
+        (
+            i
+            for i in range(header_idx + 1, len(lines))
+            if lines[i].startswith("## ") and lines[i].strip() != header
+        ),
+        len(lines),
+    )
+    return header_idx, end_idx
+
+
+def _cap_section_items(formatted: str, header: str, max_items: int, *, kind: str) -> str:
+    """Cap the checkbox items under ``header`` at ``max_items`` with an elision sentinel."""
+    lines = formatted.splitlines()
+    bounds = _section_bounds(lines, header)
+    if bounds is None:
+        return formatted
+    header_idx, end_idx = bounds
+    capped, _elided = _cap_checkbox_lines(lines[header_idx + 1 : end_idx], max_items, kind=kind)
+    result = lines[: header_idx + 1] + capped + lines[end_idx:]
+    return "\n".join(result)
+
+
+def _enforce_count_caps(formatted: str) -> str:
+    """Apply MAX_TASKS / MAX_ACCEPTANCE ceilings, emitting elision sentinels.
+
+    This is the missing *ceiling* that complements the template-completeness
+    *floor*. Capped items are not silently dropped: a single explicit
+    "(N further items elided)" checkbox is appended so the no-silent-loss audit
+    still balances.
+    """
+    decomposer = _decomposer_module()
+    formatted = _cap_section_items(formatted, "## Tasks", decomposer.MAX_TASKS, kind="tasks")
+    formatted = _cap_section_items(
+        formatted, "## Acceptance Criteria", decomposer.MAX_ACCEPTANCE, kind="criteria"
+    )
+    return formatted
+
+
+# Reuse the formatter's body-size ceiling so the optimizer refuses ballooned
+# input rather than silently truncating it.
+try:
+    from scripts.langchain.issue_formatter import MAX_ISSUE_BODY_SIZE
+except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
+    try:
+        from issue_formatter import MAX_ISSUE_BODY_SIZE
+    except ModuleNotFoundError:
+        MAX_ISSUE_BODY_SIZE = 50000
+
+
+def _reset_oversized_body(issue_body: str, workflow: str) -> str | None:
+    """If ``issue_body`` is oversized, return the embedded verbatim original to re-format.
+
+    A ballooned body (the runaway-expansion failure mode) preserves the true
+    original inside its innermost Original-Issue ``<details>`` block. Recovering
+    that and re-formatting it is the signal-preserving reset documented as the
+    manual recovery in AUTOPILOT_FIX_HISTORY. Returns ``None`` when the body is
+    within budget or no embedded original is available.
+    """
+    if len(issue_body) <= MAX_ISSUE_BODY_SIZE:
+        return None
+    try:
+        from scripts.langchain import issue_formatter
+    except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
+        import issue_formatter
+    original = issue_formatter._innermost_original_issue(issue_body)
+    if original and original.strip():
+        print(
+            f"Issue body oversized ({len(issue_body):,} chars); "
+            "resetting to embedded Original Issue before optimizing.",
+            file=sys.stderr,
+        )
+        return original.strip()
+    return None
 
 
 def _section_duplication_ratio(formatted: str) -> float:
@@ -648,6 +767,75 @@ def _strip_task_marker(text: str) -> str:
 def _normalize_task_text(text: str) -> str:
     cleaned = re.sub(r"\s+", " ", text.strip())
     return cleaned.lower()
+
+
+# Near-duplicate threshold (token-set Jaccard). Lines this similar are collapsed,
+# catching paraphrases like "Add tests for X" vs "Add unit tests for X" that
+# exact-match dedup misses.
+NEAR_DUPLICATE_JACCARD = 0.85
+# Trailing verification suffix the decomposer appends; ignored when comparing task
+# similarity so "(verify: ...)" boilerplate doesn't keep near-duplicates apart.
+_VERIFY_SUFFIX_RE = re.compile(r"\s*\(verify:[^)]*\)\s*$", re.IGNORECASE)
+
+
+def _task_token_set(text: str) -> frozenset[str]:
+    body = _VERIFY_SUFFIX_RE.sub("", text)
+    return frozenset(re.findall(r"[a-z0-9']+", body.lower()))
+
+
+def _is_near_duplicate(tokens: frozenset[str], seen_token_sets: list[frozenset[str]]) -> bool:
+    if not tokens:
+        return False
+    for prior in seen_token_sets:
+        if not prior:
+            continue
+        union = tokens | prior
+        if not union:
+            continue
+        if len(tokens & prior) / len(union) >= NEAR_DUPLICATE_JACCARD:
+            return True
+    return False
+
+
+def _decomposer_module() -> Any:
+    try:
+        from scripts.langchain import task_decomposer
+    except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
+        import task_decomposer
+    return task_decomposer
+
+
+def _cap_checkbox_lines(lines: list[str], max_items: int, *, kind: str) -> tuple[list[str], int]:
+    """Trim a list of checkbox lines to ``max_items``, replacing the overflow.
+
+    Top-level checkbox items beyond the cap are dropped and a single explicit
+    elision sentinel is appended so the no-silent-loss audit still reconciles.
+    Nested sub-task lines, blank lines, and existing sentinels are preserved as
+    structure and do not count toward the cap. Returns ``(new_lines, elided)``.
+    """
+    decomposer = _decomposer_module()
+    kept: list[str] = []
+    top_level_count = 0
+    elided = 0
+    for line in lines:
+        stripped = line.strip()
+        indent = line[: len(line) - len(line.lstrip())]
+        is_top_checkbox = (
+            bool(LIST_ITEM_REGEX.match(stripped))
+            and not indent
+            and not decomposer.is_elision_sentinel(stripped)
+        )
+        if not is_top_checkbox:
+            kept.append(line)
+            continue
+        if top_level_count < max_items:
+            kept.append(line)
+            top_level_count += 1
+        else:
+            elided += 1
+    if elided:
+        kept.append(f"- [ ] {decomposer.elision_sentinel(elided, kind=kind)}")
+    return kept, elided
 
 
 def _coerce_split_suggestions(entry: dict[str, Any]) -> list[str]:
@@ -811,6 +999,12 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
             guard_blocked=True,
             guard_reason=guard_result["reason"],
         )
+
+    # Size pre-check: analyze the embedded original instead of a silently
+    # truncated ballooned body (see _reset_oversized_body).
+    reset = _reset_oversized_body(issue_body, _context_workflow("issue_optimizer"))
+    if reset is not None:
+        issue_body = reset
 
     issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
 
@@ -1030,12 +1224,37 @@ def _apply_task_decomposition(formatted_body: str | None, suggestions: dict[str,
         indent = indent_match.group(0)
         sub_indent = f"{indent}  "
         for sub_task in sub_tasks:
+            # Preserve elision sentinels verbatim — stripping markers would
+            # mangle the "(N further sub-tasks elided)" bookkeeping line.
+            if task_decomposer.is_elision_sentinel(sub_task):
+                updated.append(f"{sub_indent}- [ ] {sub_task.strip()}")
+                continue
             cleaned = _strip_task_marker(sub_task)
             if cleaned:
                 updated.append(f"{sub_indent}- [ ] {cleaned}")
 
     updated.extend(lines[end_idx:])
     return "\n".join(updated).strip()
+
+
+def _finalize_apply_body(formatted: str) -> str:
+    """Cap + re-mark an already-deduplicated applied body.
+
+    Callers run ``_deduplicate_task_lines`` first (the section-duplication guard
+    needs the deduped form), so this only enforces the count ceilings and writes
+    the reuse marker that keeps re-runs idempotent.
+    """
+    formatted = _enforce_count_caps(formatted)
+    return _mark_optimized_body(formatted)
+
+
+def _mark_optimized_body(formatted: str) -> str:
+    """Refresh the reuse marker on an optimizer output (delegates to the formatter)."""
+    try:
+        from scripts.langchain import issue_formatter
+    except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
+        import issue_formatter
+    return issue_formatter._with_reuse_marker(formatted)
 
 
 def apply_suggestions(
@@ -1053,6 +1272,14 @@ def apply_suggestions(
             "guard_blocked": True,
             "guard_reason": guard_result["reason"],
         }
+
+    # Size pre-check: refuse to operate on an already-ballooned body. Instead of
+    # silently truncating to the token budget and re-embedding the rest (which
+    # grows the document), reset to the embedded verbatim original and re-format
+    # that — the documented manual recovery, automated.
+    reset = _reset_oversized_body(issue_body, _context_workflow("issue_optimizer"))
+    if reset is not None:
+        issue_body = reset
 
     issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
 
@@ -1100,7 +1327,7 @@ def apply_suggestions(
                             )
                         else:
                             result = {
-                                "formatted_body": formatted,
+                                "formatted_body": _finalize_apply_body(formatted),
                                 "provider_used": provider,
                                 "used_llm": True,
                             }
@@ -1148,7 +1375,7 @@ def apply_suggestions(
                                             file=sys.stderr,
                                         )
                                         result = {
-                                            "formatted_body": formatted,
+                                            "formatted_body": _finalize_apply_body(formatted),
                                             "provider_used": openai_provider,
                                             "used_llm": True,
                                         }
@@ -1186,7 +1413,7 @@ def apply_suggestions(
     formatted = _append_deferred_tasks(formatted, suggestions)
     formatted = _deduplicate_task_lines(formatted)
     return {
-        "formatted_body": formatted,
+        "formatted_body": _finalize_apply_body(formatted),
         "provider_used": None,
         "used_llm": False,
     }

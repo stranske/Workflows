@@ -665,3 +665,193 @@ def test_apply_suggestions_langsmith_trace_fields(monkeypatch: pytest.MonkeyPatc
     assert result["langsmith_trace_id"] == "apply-trace-xyz789"
     assert "apply-trace-xyz789" in result["langsmith_trace_url"]
     assert result["provider_used"] == "test-provider"
+
+
+# ---------------------------------------------------------------------------
+# Anti-bloat: decomposition caps, idempotency, no-silent-loss with sentinels
+# ---------------------------------------------------------------------------
+
+
+def _top_level_task_lines(body: str) -> list[str]:
+    lines = body.splitlines()
+    header_idx = next(i for i, line in enumerate(lines) if line.strip() == "## Tasks")
+    end_idx = next(
+        (
+            i
+            for i in range(header_idx + 1, len(lines))
+            if lines[i].startswith("## ") and lines[i].strip() != "## Tasks"
+        ),
+        len(lines),
+    )
+    return [
+        line
+        for line in lines[header_idx + 1 : end_idx]
+        if line.strip().startswith(("- [", "* [", "1.", "a)")) and not line.startswith("  ")
+    ]
+
+
+def test_apply_six_task_issue_stays_within_max_tasks_no_triple() -> None:
+    """A 6-task issue must not explode into per-task scope/implement/validate triples."""
+    from scripts.langchain import task_decomposer
+
+    tasks = [
+        "Define common constraints for weight bounds",
+        "Implement ConstraintValidator class",
+        "Add validation hooks in portfolio construction",
+        "Generate suggestions for constraint violations",
+        "Add a --validate-only CLI flag",
+        "Document the supported constraints",
+    ]
+    body = (
+        "## Tasks\n"
+        + "\n".join(f"- [ ] {t}" for t in tasks)
+        + "\n\n## Acceptance Criteria\n- [ ] tests pass\n"
+    )
+    # No split suggestions provided: tasks should pass through unmultiplied.
+    result = issue_optimizer.apply_suggestions(body, {}, use_llm=False)
+    formatted = result["formatted_body"]
+
+    top = _top_level_task_lines(formatted)
+    # Six tasks in, at most six top-level tasks out (well under the cap), no triple.
+    assert len(top) == len(tasks)
+    assert len(top) <= task_decomposer.MAX_TASKS
+    assert "focused slice for" not in formatted.lower()
+    # Each original task appears exactly once in the Tasks section (no triple,
+    # no near-duplicate). It may also appear in the preserved Original-Issue block.
+    for task in tasks:
+        assert sum(1 for line in top if task in line) == 1
+
+
+def test_apply_caps_tasks_at_max_with_elision_sentinel() -> None:
+    """Over-cap task lists are trimmed but emit an explicit elided sentinel.
+
+    The elision keeps the no-silent-loss contract: nothing vanishes silently.
+    """
+    from scripts.langchain import task_decomposer
+
+    over = task_decomposer.MAX_TASKS + 5
+    body = (
+        "## Tasks\n"
+        + "\n".join(f"- [ ] Task number {i} does distinct work item {i}" for i in range(over))
+        + "\n\n## Acceptance Criteria\n- [ ] it works\n"
+    )
+    formatted = issue_optimizer.apply_suggestions(body, {}, use_llm=False)["formatted_body"]
+    top = _top_level_task_lines(formatted)
+
+    # MAX_TASKS real items + 1 sentinel line accounting for the remainder.
+    assert len([line for line in top if not task_decomposer.is_elision_sentinel(line)]) == (
+        task_decomposer.MAX_TASKS
+    )
+    sentinels = [line for line in top if task_decomposer.is_elision_sentinel(line)]
+    assert len(sentinels) == 1
+    assert "elided" in sentinels[0]
+
+
+def test_apply_three_cycles_single_original_issue_block() -> None:
+    """Three apply cycles must leave exactly one Original-Issue <details> block."""
+    suggestions = {
+        "task_splitting": [
+            {
+                "task": "Update docs and add tests",
+                "split_suggestions": [
+                    "Update the documentation pages thoroughly",
+                    "Add unit tests for the new code path",
+                ],
+            }
+        ]
+    }
+    body = "## Tasks\n- [ ] Update docs and add tests\n\n## Acceptance Criteria\n- [ ] tests pass\n"
+    c1 = issue_optimizer.apply_suggestions(body, suggestions, use_llm=False)["formatted_body"]
+    c2 = issue_optimizer.apply_suggestions(c1, suggestions, use_llm=False)["formatted_body"]
+    c3 = issue_optimizer.apply_suggestions(c2, suggestions, use_llm=False)["formatted_body"]
+
+    assert c1.count("<summary>Original Issue</summary>") == 1
+    assert c3.count("<summary>Original Issue</summary>") == 1
+    # And the body stabilizes rather than growing each cycle.
+    assert c3 == c2
+
+
+def test_apply_is_byte_stable_across_reruns() -> None:
+    """Re-applying the same suggestions must not keep growing the body."""
+    suggestions = {
+        "task_splitting": [
+            {
+                "task": "Update docs and add tests",
+                "split_suggestions": [
+                    "Update the documentation pages thoroughly",
+                    "Add unit tests for the new code path",
+                ],
+            }
+        ]
+    }
+    body = "## Tasks\n- [ ] Update docs and add tests\n\n## Acceptance Criteria\n- [ ] tests pass\n"
+    a1 = issue_optimizer.apply_suggestions(body, suggestions, use_llm=False)["formatted_body"]
+    a2 = issue_optimizer.apply_suggestions(a1, suggestions, use_llm=False)["formatted_body"]
+    a3 = issue_optimizer.apply_suggestions(a2, suggestions, use_llm=False)["formatted_body"]
+    assert a2 == a3
+    assert len(a3) <= len(a2)
+
+
+def test_deduplicate_task_lines_collapses_near_duplicates() -> None:
+    """Near-duplicate tasks (paraphrases) collapse, not just exact matches."""
+    formatted = "\n".join(
+        [
+            "## Tasks",
+            "- [ ] Add tests for the parser module",
+            "- [ ] Add unit tests for the parser module",
+            "- [ ] Document the public API surface",
+            "## Acceptance Criteria",
+            "- [ ] it works",
+        ]
+    )
+    deduped = issue_optimizer._deduplicate_task_lines(formatted)
+    top = _top_level_task_lines(deduped)
+    # The two near-identical "Add ... tests for the parser module" collapse to one.
+    assert sum(1 for line in top if "parser module" in line) == 1
+    assert any("public API surface" in line for line in top)
+
+
+def test_apply_resets_oversized_body_to_embedded_original() -> None:
+    """An oversized ballooned body is reset to its embedded Original Issue."""
+    original = "Why: real intent\n\nTasks:\n- do the real thing\n\nAcceptance:\n- it works"
+    n_padding = 3000
+    bloated = (
+        "## Tasks\n"
+        + "\n".join(f"- [ ] padding task {i}" for i in range(n_padding))
+        + "\n\n## Acceptance Criteria\n- [ ] x\n\n<details>\n<summary>Original Issue</summary>\n\n"
+        + f"```text\n{original}\n```\n</details>"
+    )
+    assert len(bloated) > issue_optimizer.MAX_ISSUE_BODY_SIZE
+    formatted = issue_optimizer.apply_suggestions(bloated, {}, use_llm=False)["formatted_body"]
+    # The reset re-formats the small original, so the result is far smaller and
+    # carries the real task, not the thousands of padding tasks.
+    assert len(formatted) < len(bloated)
+    assert "do the real thing" in formatted
+    assert f"padding task {n_padding - 1}" not in formatted
+
+
+def test_apply_no_silent_loss_audit_passes_with_caps() -> None:
+    """Capping must never trip the no-silent-loss audit; sentinels keep it balanced.
+
+    Re-formatting a capped body routes its Tasks (including the elision sentinel)
+    through task_validator.validate_tasks / merge_with_audit. That audit raises on
+    unaccounted loss; this asserts it does not.
+    """
+    from scripts.langchain import issue_formatter, task_decomposer
+
+    over = task_decomposer.MAX_TASKS + 8
+    body = (
+        "## Tasks\n"
+        + "\n".join(f"- [ ] Distinct work item number {i} to complete" for i in range(over))
+        + "\n\n## Acceptance Criteria\n- [ ] it works\n"
+    )
+    capped = issue_optimizer.apply_suggestions(body, {}, use_llm=False)["formatted_body"]
+
+    # Sentinel must be present (the elided remainder is accounted for, not dropped).
+    assert any(task_decomposer.is_elision_sentinel(line) for line in _top_level_task_lines(capped))
+
+    # Re-formatting the capped body must not raise the audit ValueError.
+    reformatted = issue_formatter.format_issue_body(capped, use_llm=False)
+    assert reformatted["formatted_body"] is not None
+    # The sentinel survives the validator round-trip.
+    assert "elided" in reformatted["formatted_body"]
