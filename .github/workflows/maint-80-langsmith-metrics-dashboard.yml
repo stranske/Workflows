@@ -177,11 +177,14 @@ jobs:
           while IFS=$'\t' read -r repo artifact_name; do
             [ -z "$repo" ] && continue
             echo "🔎 Resolving $artifact_name in $repo ..."
-            artifact_id=$(gh api --paginate --slurp --method GET \
+            artifacts_json=$(gh api --paginate --slurp --method GET \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "/repos/$repo/actions/artifacts?per_page=100" \
-              --jq "[.[].artifacts[]? | select(.name == \"$artifact_name\" and .expired == false)] | sort_by(.created_at) | last | .id" \
+              2>> .metrics-tmp/fleet/fleet_errors.log || echo "")
+            artifact_id=$(printf '%s' "$artifacts_json" | jq -r \
+              --arg artifact_name "$artifact_name" \
+              '[.[].artifacts[]? | select(.name == $artifact_name and .expired == false)] | sort_by(.created_at) | last | .id // empty' \
               2>> .metrics-tmp/fleet/fleet_errors.log || echo "")
             if [ -z "$artifact_id" ] || [ "$artifact_id" = "null" ]; then
               echo "  ↪ no current artifact for $repo (missing)"
@@ -372,7 +375,7 @@ jobs:
           gh issue create \
             --title "📊 LangSmith Trace Coverage Report - Week of $START_DATE" \
             --body-file .metrics-tmp/issue-body.md \
-            --label "metrics,langsmith,automated"
+            --label "metrics,automated"
 
       - name: Update dashboard file
         if: env.REPORT_AVAILABLE == 'true'
@@ -462,7 +465,7 @@ jobs:
             echo "  - Dashboard file: docs/dashboards/langsmith-metrics.md"
             if [ "${{ github.event_name }}" == "schedule" ] || \
                [ "${{ inputs.create_issue }}" == "true" ]; then
-              echo "  - Issue: Created with label 'langsmith,metrics'"
+              echo "  - Issue: Created with labels 'metrics,automated'"
             fi
           else
             echo "⚠️ No metrics data available for the specified period"
