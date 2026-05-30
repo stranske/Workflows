@@ -121,26 +121,32 @@ def test_main_dry_run_prints_commands(capsys: pytest.CaptureFixture[str]) -> Non
 
 
 def test_main_dry_run_does_not_call_subprocess(capsys: pytest.CaptureFixture[str]) -> None:
-    with patch("sys.argv", ["bcs", "--repo", "stranske/Foo"]):
-        with patch("subprocess.run") as mock_run:
-            bcs.main()
-            mock_run.assert_not_called()
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo"]),
+        patch("subprocess.run") as mock_run,
+    ):
+        bcs.main()
+        mock_run.assert_not_called()
 
 
 def test_main_execute_runs_all_four_commands() -> None:
     """--execute calls subprocess.run for each of the four bootstrap operations."""
-    with patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]):
-        with patch("subprocess.run") as mock_run:
-            rc = bcs.main()
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
+        patch("subprocess.run") as mock_run,
+    ):
+        rc = bcs.main()
     assert rc == 0
     assert mock_run.call_count == 4
 
 
 def test_main_execute_workflow_permissions_command() -> None:
     """--execute first call sets workflow permissions."""
-    with patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]):
-        with patch("subprocess.run") as mock_run:
-            bcs.main()
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
+        patch("subprocess.run") as mock_run,
+    ):
+        bcs.main()
     first_cmd = mock_run.call_args_list[0][0][0]
     assert first_cmd[3] == "PUT"
     assert "/repos/stranske/Foo/actions/permissions/workflow" in first_cmd[4]
@@ -149,9 +155,11 @@ def test_main_execute_workflow_permissions_command() -> None:
 
 def test_main_execute_sets_use_consolidated_workflows() -> None:
     """--execute second call sets USE_CONSOLIDATED_WORKFLOWS=true."""
-    with patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]):
-        with patch("subprocess.run") as mock_run:
-            bcs.main()
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
+        patch("subprocess.run") as mock_run,
+    ):
+        bcs.main()
     second_cmd = mock_run.call_args_list[1][0][0]
     assert "USE_CONSOLIDATED_WORKFLOWS" in second_cmd
     assert "true" in second_cmd
@@ -159,9 +167,11 @@ def test_main_execute_sets_use_consolidated_workflows() -> None:
 
 def test_main_execute_sets_allowed_keepalive_logins() -> None:
     """--execute third call sets ALLOWED_KEEPALIVE_LOGINS to repo owner."""
-    with patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]):
-        with patch("subprocess.run") as mock_run:
-            bcs.main()
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
+        patch("subprocess.run") as mock_run,
+    ):
+        bcs.main()
     third_cmd = mock_run.call_args_list[2][0][0]
     assert "ALLOWED_KEEPALIVE_LOGINS" in third_cmd
     assert "stranske" in third_cmd
@@ -183,9 +193,11 @@ def test_main_execute_keepalive_logins_override() -> None:
 
 def test_main_execute_sends_bot_collaborator_invite() -> None:
     """--execute fourth call invites the bot as push collaborator."""
-    with patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]):
-        with patch("subprocess.run") as mock_run:
-            bcs.main()
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
+        patch("subprocess.run") as mock_run,
+    ):
+        bcs.main()
     fourth_cmd = mock_run.call_args_list[3][0][0]
     assert bcs.DEFAULT_BOT in fourth_cmd[4]
     assert "permission=push" in fourth_cmd
@@ -193,9 +205,11 @@ def test_main_execute_sends_bot_collaborator_invite() -> None:
 
 def test_main_execute_bot_override() -> None:
     """--bot overrides DEFAULT_BOT in the collaborator invite."""
-    with patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute", "--bot", "other-bot"]):
-        with patch("subprocess.run") as mock_run:
-            bcs.main()
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute", "--bot", "other-bot"]),
+        patch("subprocess.run") as mock_run,
+    ):
+        bcs.main()
     fourth_cmd = mock_run.call_args_list[3][0][0]
     assert "other-bot" in fourth_cmd[4]
 
@@ -206,9 +220,11 @@ def test_main_check_reads_workflow_permissions(capsys: pytest.CaptureFixture[str
     fake_result.stdout = (
         '{"default_workflow_permissions":"write","can_approve_pull_request_reviews":true}'
     )
-    with patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--check"]):
-        with patch("subprocess.run", return_value=fake_result) as mock_run:
-            rc = bcs.main()
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--check"]),
+        patch("subprocess.run", return_value=fake_result) as mock_run,
+    ):
+        rc = bcs.main()
     assert rc == 0
     mock_run.assert_called_once()
     called_cmd = mock_run.call_args[0][0]
@@ -219,9 +235,11 @@ def test_main_check_reads_workflow_permissions(capsys: pytest.CaptureFixture[str
 
 def test_main_execute_and_check_are_mutually_exclusive() -> None:
     """Passing both --execute and --check raises SystemExit."""
-    with patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute", "--check"]):
-        with pytest.raises(SystemExit, match="Choose either"):
-            bcs.main()
+    with (
+        patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute", "--check"]),
+        pytest.raises(SystemExit, match="Choose either"),
+    ):
+        bcs.main()
 
 
 def test_main_missing_repo_raises_system_exit() -> None:
