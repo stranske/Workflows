@@ -16,6 +16,22 @@ LangSmith tracing infrastructure is now **100% complete (8 of 8 tasks)**. The tr
 - ✅ Comprehensive unit tests
 - ✅ Live workflow validation with LangSmith enabled
 
+### Fleet rollup readiness
+
+The `langsmith-fleet/v1` contract, validator (`scripts/langsmith_fleet.py`),
+registry (`config/langsmith_fleet_registry.json`), and rollup are all built and
+unit-tested, and as of issue
+[#2183](https://github.com/stranske/Workflows/issues/2183) the rollup is **wired
+into a running workflow**: `maint-80-langsmith-metrics-dashboard.yml` now
+attempts a cross-repo download of each registered repo's `langsmith-fleet.ndjson`
+and renders a per-repo status table into the weekly issue + dashboard file.
+
+Honest current state: **no consumer repo uploads a `langsmith-fleet.ndjson` yet**,
+so the live table renders every registered repo as `missing`. That is expected
+"pending consumer adoption", not a failure — the rollup is live and will reflect
+`valid`/`stale`/`invalid` automatically as consumer repos begin uploading the
+artifact. Incomplete adoption surfaces as a `::warning`, never a hard failure.
+
 ---
 
 ## ✅ Completed Components

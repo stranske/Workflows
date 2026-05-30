@@ -126,6 +126,66 @@ def test_markdown_summary_contains_dashboard_status_table() -> None:
     assert "| stranske/Workflows | agent-automation | stranske/Workflows#2150 |" in markdown
 
 
+def test_markdown_summary_renders_mixed_valid_invalid_missing_rows() -> None:
+    """The maint-80 dashboard renders this exact markdown section.
+
+    Feeds a mixed fleet (≥1 valid, ≥1 invalid, ≥1 missing) and asserts the
+    rendered section text carries both the per-repo status rows and the
+    aggregate counts the weekly dashboard surfaces.
+    """
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    valid_records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
+
+    # Drop Counter_Risk entirely -> its registry row renders as "missing".
+    records_without_counter_risk = [
+        record
+        for record in valid_records
+        if not (
+            record["repo"] == "stranske/Counter_Risk"
+            and record["surface"] == "risk-reporting"
+        )
+    ]
+    # A schema-incomplete Pension-Data record -> its row renders as "invalid".
+    invalid_record = {
+        "schema_version": langsmith_fleet.SCHEMA_VERSION,
+        "repo": "stranske/Pension-Data",
+        "surface": "nl-to-sql",
+        "operation": "validation",
+        "run_id": "nl-query-1",
+        "status": "success",
+        "github_issue": "stranske/Pension-Data#445",
+        "recorded_at": "2026-05-24T02:00:00Z",
+        "domain": {"query_category": "benefit"},
+    }
+
+    summary = langsmith_fleet.summarize_fleet_records(
+        [*records_without_counter_risk, invalid_record],
+        registry=registry,
+        now=datetime(2026, 5, 24, 3, 0, tzinfo=UTC),
+    )
+    markdown = langsmith_fleet.format_fleet_summary(summary)
+
+    # Aggregate counts (one registry row per repo; 8 total).
+    assert "# LangSmith Fleet Artifact Status" in markdown
+    assert f"- Registry entries: {len(registry['repos'])}" in markdown
+    assert "- Invalid: 1" in markdown
+    assert "- Missing: 1" in markdown
+
+    # Per-repo status rows, one per status flavor.
+    assert (
+        "| stranske/Workflows | agent-automation | stranske/Workflows#2150 | valid |"
+        in markdown
+    )
+    assert (
+        "| stranske/Pension-Data | nl-to-sql | stranske/Pension-Data#445 | invalid |"
+        in markdown
+    )
+    assert (
+        "| stranske/Counter_Risk | risk-reporting | stranske/Counter_Risk#610 | missing |"
+        in markdown
+    )
+
+
 def test_cli_summary_json_shape(tmp_path: Path, capsys) -> None:
     records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
     path = tmp_path / "records.ndjson"

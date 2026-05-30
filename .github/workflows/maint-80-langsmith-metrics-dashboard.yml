@@ -145,30 +145,144 @@ jobs:
           \`\`\`
           EOF
 
-      - name: Generate metrics report
+      - name: Validate fleet artifacts
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ ! -f .metrics-tmp/combined-metrics.ndjson ] || \
-             [ ! -s .metrics-tmp/combined-metrics.ndjson ]; then
-            echo "⚠️ No metrics data found"
-            echo "REPORT_AVAILABLE=false" >> "$GITHUB_ENV"
-            exit 0
+          set -uo pipefail
+          REGISTRY=config/langsmith_fleet_registry.json
+          mkdir -p .metrics-tmp/fleet
+          # Always start from an empty combined file so repos with no artifact
+          # surface as "missing" (the registry-driven rollup never skips them).
+          : > .metrics-tmp/fleet/combined-fleet.ndjson
+
+          # Enumerate (repo, artifact_name) from the registry.
+          python - "$REGISTRY" > .metrics-tmp/fleet/repos.tsv <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as fh:
+              registry = json.load(fh)
+          for entry in registry.get("repos", []):
+              repo = entry.get("repo", "")
+              artifact = entry.get("artifact_name", "langsmith-fleet.ndjson")
+              if repo:
+                  print(f"{repo}\t{artifact}")
+          PY
+
+          # Cross-repo download is best-effort: a repo with no uploaded artifact
+          # (the current fleet-wide reality — no consumer uploads one yet) is
+          # treated as "missing", never as a job failure.
+          while IFS=$'\t' read -r repo artifact_name; do
+            [ -z "$repo" ] && continue
+            echo "🔎 Resolving $artifact_name in $repo ..."
+            artifact_id=$(gh api --method GET \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/$repo/actions/artifacts?per_page=100" \
+              --jq "[.artifacts[] | select(.name == \"$artifact_name\" and .expired == false)] | sort_by(.created_at) | last | .id" \
+              2>> .metrics-tmp/fleet/fleet_errors.log || echo "")
+            if [ -z "$artifact_id" ] || [ "$artifact_id" = "null" ]; then
+              echo "  ↪ no current artifact for $repo (missing)"
+              continue
+            fi
+            safe_repo="${repo//\//_}"
+            zip_path=".metrics-tmp/fleet/${safe_repo}.zip"
+            if gh api --method GET \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/$repo/actions/artifacts/$artifact_id/zip" \
+              > "$zip_path" 2>> .metrics-tmp/fleet/fleet_errors.log; then
+              extract_dir=".metrics-tmp/fleet/extracted/${safe_repo}"
+              mkdir -p "$extract_dir"
+              if unzip -q -o "$zip_path" -d "$extract_dir" 2>> .metrics-tmp/fleet/fleet_errors.log; then
+                find "$extract_dir" -name "*.ndjson" -exec cat {} \; \
+                  >> .metrics-tmp/fleet/combined-fleet.ndjson
+              else
+                echo "  ↪ unzip failed for $repo (missing)"
+              fi
+              rm -f "$zip_path"
+            else
+              echo "  ↪ artifact download failed for $repo (missing)"
+            fi
+          done < .metrics-tmp/fleet/repos.tsv
+
+          # Reuse the already-tested rollup. The registry drives the table, so
+          # every registered repo gets a row even with zero combined records.
+          python scripts/langsmith_fleet.py .metrics-tmp/fleet/combined-fleet.ndjson \
+            --registry "$REGISTRY" --summary --format markdown \
+            > .metrics-tmp/fleet/fleet-status.md
+          python scripts/langsmith_fleet.py .metrics-tmp/fleet/combined-fleet.ndjson \
+            --registry "$REGISTRY" --summary --format json \
+            > .metrics-tmp/fleet/fleet-status.json
+
+          echo "FLEET_STATUS_AVAILABLE=true" >> "$GITHUB_ENV"
+
+          # Warning-only (mirrors the existing "::warning" precedent in this
+          # workflow): never hard-fail the dashboard on incomplete adoption.
+          read -r INVALID MISSING < <(python - <<'PY'
+          import json
+
+          with open(".metrics-tmp/fleet/fleet-status.json", encoding="utf-8") as fh:
+              counts = json.load(fh).get("status_counts", {})
+          print(counts.get("invalid", 0), counts.get("missing", 0))
+          PY
+          )
+          echo "LANGSMITH_FLEET_INVALID=${INVALID:-0}" >> "$GITHUB_ENV"
+          echo "LANGSMITH_FLEET_MISSING=${MISSING:-0}" >> "$GITHUB_ENV"
+          if [ "${INVALID:-0}" != "0" ] || [ "${MISSING:-0}" != "0" ]; then
+            echo "::warning title=LangSmith fleet artifacts incomplete::invalid=${INVALID:-0} missing=${MISSING:-0} (see LangSmith Fleet Artifact Status table)"
           fi
 
-          echo "REPORT_AVAILABLE=true" >> "$GITHUB_ENV"
+      - name: Generate metrics report
+        run: |
+          : > .metrics-tmp/report.md
+          METRICS_AVAILABLE=false
+          if [ -f .metrics-tmp/combined-metrics.ndjson ] && \
+             [ -s .metrics-tmp/combined-metrics.ndjson ]; then
+            METRICS_AVAILABLE=true
 
-          # Generate markdown report
-          python scripts/aggregate_metrics.py \
-            --metrics-file .metrics-tmp/combined-metrics.ndjson \
-            --output-format markdown \
-            > .metrics-tmp/report.md
+            # Generate markdown report
+            python scripts/aggregate_metrics.py \
+              --metrics-file .metrics-tmp/combined-metrics.ndjson \
+              --output-format markdown \
+              >> .metrics-tmp/report.md
 
-          # Generate JSON summary
-          python scripts/aggregate_metrics.py \
-            --metrics-file .metrics-tmp/combined-metrics.ndjson \
-            --output-format json \
-            > .metrics-tmp/summary.json
+            # Generate JSON summary
+            python scripts/aggregate_metrics.py \
+              --metrics-file .metrics-tmp/combined-metrics.ndjson \
+              --output-format json \
+              > .metrics-tmp/summary.json
 
-          echo "✅ Generated metrics report"
+            echo "✅ Generated trace-coverage report"
+          else
+            echo "⚠️ No autopilot/verifier trace metrics found for this period"
+            {
+              echo "## LangSmith Trace Coverage"
+              echo ""
+              echo "_No autopilot/verifier trace metrics were found for this period._"
+            } >> .metrics-tmp/report.md
+          fi
+
+          # Always append the fleet artifact status section so the dashboard
+          # surfaces adoption/freshness even when no trace metrics exist.
+          if [ -f .metrics-tmp/fleet/fleet-status.md ]; then
+            {
+              echo ""
+              echo "---"
+              echo ""
+              cat .metrics-tmp/fleet/fleet-status.md
+            } >> .metrics-tmp/report.md
+            echo "✅ Appended LangSmith fleet artifact status"
+          fi
+
+          # The dashboard is publishable when either data source produced content.
+          if [ "$METRICS_AVAILABLE" = "true" ] || \
+             [ -f .metrics-tmp/fleet/fleet-status.md ]; then
+            echo "REPORT_AVAILABLE=true" >> "$GITHUB_ENV"
+          else
+            echo "REPORT_AVAILABLE=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Upload dashboard diagnostics
         if: always()
@@ -180,6 +294,9 @@ jobs:
             .metrics-tmp/workflow_errors.log
             .metrics-tmp/run_ids.txt
             .metrics-tmp/combined-metrics.ndjson
+            .metrics-tmp/fleet/fleet-status.md
+            .metrics-tmp/fleet/fleet-status.json
+            .metrics-tmp/fleet/fleet_errors.log
           if-no-files-found: ignore
           retention-days: 90
 
@@ -192,6 +309,9 @@ jobs:
             .metrics-tmp/report.md
             .metrics-tmp/summary.json
             .metrics-tmp/combined-metrics.ndjson
+            .metrics-tmp/fleet/fleet-status.md
+            .metrics-tmp/fleet/fleet-status.json
+          if-no-files-found: ignore
           retention-days: 90
 
       - name: Create dashboard issue

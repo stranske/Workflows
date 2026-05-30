@@ -47,12 +47,19 @@ gh workflow run "LangSmith Metrics Dashboard" \
 
 #### Data Sources
 
-The dashboard aggregates metrics from:
-- Autopilot workflow artifacts (`autopilot-metrics-*.ndjson`)
-- LangSmith fleet artifacts (`langsmith-fleet.ndjson`) registered in
-  `config/langsmith_fleet_registry.json`
-- 14-day artifact retention window
-- All completed autopilot runs in the specified time period
+The dashboard aggregates two distinct data sources, fetched in this workflow:
+
+1. **Trace-coverage metrics** — artifacts from this repo's own completed runs,
+   matched by name `autopilot-metrics-*` and `agents-verifier-metrics`
+   (`agents-auto-pilot.yml` and `reusable-agents-verifier.yml`), within the
+   `days_back` window. These feed `scripts/aggregate_metrics.py`.
+2. **LangSmith fleet artifacts** (`langsmith-fleet.ndjson`) — one per repo
+   registered in `config/langsmith_fleet_registry.json`. The workflow attempts a
+   **cross-repo artifact download** for each registered repo and combines what it
+   finds. A registered repo with no current artifact is reported as `missing`,
+   not a job failure. (As of this writing, no consumer repo uploads a
+   `langsmith-fleet.ndjson` yet, so most rows render `missing` — that honest
+   "pending adoption" state is the point.)
 
 The fleet artifacts follow a contract-first design: Workflows owns the
 `langsmith-fleet/v1` schema, registry, validator, and dashboard rollup, while
@@ -62,14 +69,21 @@ before treating a consumer-local validator as a design blocker.
 
 #### How It Works
 
-1. **Download** - Fetches metrics artifacts from recent autopilot runs
-2. **Combine** - Merges all NDJSON files into single dataset
-3. **Analyze** - Runs `scripts/aggregate_metrics.py` to compute coverage
-4. **Validate fleet artifacts** - Runs `scripts/langsmith_fleet.py` against
-   `langsmith-fleet/v1` records so the dashboard can distinguish missing,
-   invalid, stale, and valid repo artifacts
-5. **Report** - Generates markdown report + JSON summary
-6. **Publish** - Updates dashboard file, creates issue, uploads artifact
+1. **Download trace metrics** - Fetches `autopilot-metrics-*` /
+   `agents-verifier-metrics` artifacts from recent runs and merges their NDJSON
+2. **Validate fleet artifacts** - Downloads each registered repo's
+   `langsmith-fleet.ndjson` (best-effort, cross-repo) and runs
+   `scripts/langsmith_fleet.py --summary --format markdown` against the registry,
+   producing a per-repo status table that distinguishes `missing`, `invalid`,
+   `stale`, and `valid`. Any `invalid`/`missing` repo raises a `::warning`
+   (warning-only — it never hard-fails the dashboard)
+3. **Analyze** - Runs `scripts/aggregate_metrics.py` to compute trace coverage
+   (when trace metrics exist for the window)
+4. **Report** - Generates a markdown report combining the trace-coverage section
+   and the fleet artifact status section (the report is published even when only
+   the fleet section has content)
+5. **Publish** - Updates `docs/dashboards/langsmith-metrics.md`, creates the
+   weekly issue, and uploads artifacts (report + fleet status JSON/markdown)
 
 ---
 
