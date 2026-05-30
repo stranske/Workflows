@@ -19,3 +19,11 @@ def test_dashboard_issue_uses_existing_labels() -> None:
     assert '--label "metrics,automated"' in source
     assert "metrics,langsmith,automated" not in source
     assert "labels 'metrics,automated'" in source
+
+
+def test_fleet_status_is_warning_only_and_appended_to_report() -> None:
+    source = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "::warning title=LangSmith fleet artifacts incomplete::" in source
+    assert "cat .metrics-tmp/fleet/fleet-status.md" in source
+    assert "if [ -f .metrics-tmp/fleet/fleet-status.md ]; then" in source

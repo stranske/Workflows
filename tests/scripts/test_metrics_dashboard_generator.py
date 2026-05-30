@@ -353,3 +353,10 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
     assert (
         "| stranske/Pension-Data | nl-to-sql | stranske/Pension-Data#445 | missing |" in dashboard
     )
+    fleet_section = dashboard.split("## LangSmith Fleet Artifact Status", maxsplit=1)[1]
+    status_rows = [
+        line
+        for line in fleet_section.splitlines()
+        if line.startswith("| stranske/") and line.endswith(" |")
+    ]
+    assert len(status_rows) == 8
