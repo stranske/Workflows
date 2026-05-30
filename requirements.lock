@@ -22,7 +22,7 @@ attrs==26.1.0
     #   aiohttp
     #   jsonschema
     #   referencing
-black==26.3.1
+black==26.5.1
     # via workflows (pyproject.toml)
 certifi==2026.4.22
     # via
@@ -42,7 +42,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   click
     #   pytest
     #   tqdm
-coverage==7.14.0
+coverage==7.14.1
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov
@@ -294,7 +294,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.13
+ruff==0.15.15
     # via workflows (pyproject.toml)
 six==1.17.0
     # via python-dateutil
