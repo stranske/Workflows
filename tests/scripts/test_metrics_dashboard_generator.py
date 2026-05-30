@@ -317,3 +317,39 @@ def test_main_langsmith_fleet_noops_without_langsmith_api_key(
     content = output_path.read_text(encoding="utf-8")
     assert "## LangSmith Fleet Artifact Status" in content
     assert "- Valid: 8" in content
+
+
+def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
+    """mixed.ndjson: 1 valid (Workflows) + 1 invalid (trip-planner) + 6 missing repos."""
+    metrics_path = tmp_path / "metrics.ndjson"
+    metrics_path.write_text(
+        '{"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"}\n',
+        encoding="utf-8",
+    )
+
+    fleet_src = Path("tests/fixtures/langsmith_fleet/mixed.ndjson")
+    fleet_path = tmp_path / "langsmith-fleet-mixed.ndjson"
+    fleet_path.write_text(fleet_src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    dashboard, errors = generator.build_dashboard_from_path(
+        metrics_path,
+        numeric_fields=["duration_ms"],
+        fleet_records_path=fleet_path,
+        fleet_registry_path=Path("config/langsmith_fleet_registry.json"),
+    )
+
+    assert errors == 0
+    assert "## LangSmith Fleet Artifact Status" in dashboard
+    assert "- Valid: 1" in dashboard
+    assert "- Invalid: 1" in dashboard
+    assert "- Missing: 6" in dashboard
+    assert (
+        "| stranske/Workflows | agent-automation | stranske/Workflows#2150 | valid |" in dashboard
+    )
+    assert (
+        "| stranske/trip-planner | planner-runtime | stranske/trip-planner#1208 | invalid |"
+        in dashboard
+    )
+    assert (
+        "| stranske/Pension-Data | nl-to-sql | stranske/Pension-Data#445 | missing |" in dashboard
+    )
