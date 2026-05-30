@@ -18,6 +18,13 @@
 name: Merge Sync PRs
 
 on:
+  schedule:
+    # Daily janitor pass: auto-merge ready sync PRs, close superseded ones, and prune
+    # leftover branches without waiting for a manual dispatch. Runs just after Health 68's
+    # drift scan (cron '10 5') so it acts on a fresh picture. A schedule event carries no
+    # inputs, so the script's parseBooleanInput defaults apply unchanged:
+    # auto_merge=true, dry_run=false, cleanup_branches=true, repos=all.
+    - cron: '30 5 * * *'
   repository_dispatch:
     types: [merge-sync-prs]
   workflow_dispatch:
@@ -596,14 +603,25 @@ jobs:
             const merged = report.summary.merged;
             const stale = report.summary.stale_closed;
             const branchesDeleted = report.summary.branch_deleted;
+            // A consumer's own red CI (checks_failed) is outside this workflow's control,
+            // so it must NOT fail the fleet janitor run — otherwise one red consumer turns
+            // every scheduled flush red and forces re-runs. Only genuine sync-system action
+            // failures (merge/cleanup/missing-target) are blocking; consumer CI health is
+            // surfaced via the merge report and Health 68 instead.
             const blockingFailures = results.filter(
               (r) =>
-                r.status === 'checks_failed' ||
                 r.status === 'merge_failed' ||
                 r.status === 'stale_close_failed' ||
                 r.status === 'branch_delete_failed' ||
                 r.status === 'target_missing',
             );
+            const checksFailed = results.filter((r) => r.status === 'checks_failed');
+            if (checksFailed.length > 0) {
+              core.notice(
+                `${checksFailed.length} consumer sync PR(s) have failing checks (consumer CI); ` +
+                  `left open, not treated as a janitor failure.`,
+              );
+            }
             const failed = dryRun ? 0 : blockingFailures.length;
             const pending = report.summary.checks_pending;
             const ready = report.summary.ready;

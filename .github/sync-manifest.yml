@@ -735,15 +735,13 @@ excluded:
     reason: "Each repo maintains its own coverage baseline - template provided for reference"
   - path: scripts/__pycache__
     reason: "Python bytecode cache - never synced"
+  - path: .github/workflows/autofix-versions.env
+    reason: "Repo-specific CI version pins; consumers copy or override per docs/ci/WORKFLOWS.md. Intentionally not synced (see CLAUDE.md)."
 
 # Copilot configuration - skills and instructions for AI assistants
 copilot_config:
   - source: .github/copilot-instructions.md
     description: "Repository-specific instructions for GitHub Copilot"
-
-  - source: .github/actions/export-load-balancer-tokens/
-    is_directory: true
-    description: "Local action for exporting load balancer tokens"
 
   # Skills folder - synced as a directory
   - source: .github/copilot-skills/
