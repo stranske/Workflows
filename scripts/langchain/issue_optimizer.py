@@ -148,6 +148,17 @@ CHECKBOX_REGEX = re.compile(r"^\[[ xX]\]\s*(.*)$")
 SUBJECTIVE_CRITERIA = ("clean", "nice", "good", "fast", "better", "intuitive", "polished")
 SUGGESTIONS_MARKER_PREFIX = "suggestions-json:"
 
+# Falsifiability heuristic (AGENT_ISSUE_FORMAT.md "Definition of Ready" §2):
+# at least one acceptance criterion must name an observable, falsifiable gate
+# (a test path/id, a runnable command, or a smoke/verification step). Kept as a
+# conservative string heuristic so it never flags a genuinely test-backed issue;
+# it fires only when NONE of the criteria reference a gate at all.
+VERIFICATION_REFERENCE_REGEX = re.compile(
+    r"tests?/|::|_test\b|\.test\.|\bspec\b|\bpytest\b|gh workflow run\b|"
+    r"\bnpm (?:run )?test\b|\byarn test\b|\bcurl\b|dev_check\.sh|\bsmoke\b|\bverif",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class IssueOptimizationResult:
@@ -493,6 +504,12 @@ def _detect_blocked_tasks(tasks: list[str]) -> list[dict[str, str]]:
     return blocked
 
 
+def _acceptance_references_verification(criteria: list[str]) -> bool:
+    """True when at least one acceptance criterion names a falsifiable gate
+    (a test path/id, a runnable command, or a smoke/verification step)."""
+    return any(VERIFICATION_REFERENCE_REGEX.search(c) for c in criteria)
+
+
 def _detect_objective_criteria(criteria: list[str]) -> list[dict[str, str]]:
     results: list[dict[str, str]] = []
     for criterion in criteria:
@@ -505,6 +522,25 @@ def _detect_objective_criteria(criteria: list[str]) -> list[dict[str, str]]:
                     "suggestion": "Replace with a measurable check (tests, lint, command output)",
                 }
             )
+    # Floor check (Definition of Ready §2): flag when the acceptance block as a
+    # whole names no test / smoke / verification gate, not just per-criterion
+    # subjectivity. Only fires when there is at least one criterion to assess.
+    if criteria and not _acceptance_references_verification(criteria):
+        results.append(
+            {
+                "criterion": "Acceptance Criteria (overall)",
+                "issue": (
+                    "No acceptance criterion references a test, smoke test, "
+                    "or verification gate"
+                ),
+                "suggestion": (
+                    "Add at least one criterion naming a concrete test/command "
+                    "(e.g. a pytest path::id, `gh workflow run`, or a documented "
+                    "smoke/live-verification step) per AGENT_ISSUE_FORMAT.md "
+                    "Definition of Ready"
+                ),
+            }
+        )
     return results
 
 

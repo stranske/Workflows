@@ -129,6 +129,101 @@ def test_body_quality_errors_accepts_task_list_alias() -> None:
 
 
 # ---------------------------------------------------------------------------
+# acceptance falsifiability gate (Definition of Ready §2)
+# ---------------------------------------------------------------------------
+
+# A long, otherwise-clean filler so length/boilerplate checks don't mask the
+# falsifiability assertion. Acceptance criteria here are deliberately vague
+# (no test, no command, no smoke/verif token).
+_FILLER = "Background detail. " * 120
+
+
+def _body_with_acceptance(criteria_block: str) -> str:
+    return (
+        "## Why\n\n"
+        f"{_FILLER}\n\n"
+        "## Tasks\n\n"
+        "- [ ] In `src/foo.py:10`, do the concrete thing.\n\n"
+        "## Acceptance Criteria\n\n"
+        f"{criteria_block}\n\n"
+        "## Implementation Notes\n\n"
+        f"{_FILLER}\n"
+    )
+
+
+def test_acceptance_has_verification_gate_true_for_named_test() -> None:
+    body = _body_with_acceptance("- [ ] `tests/test_foo.py::test_bar` passes after the fix.")
+    assert body_writer.acceptance_has_verification_gate(body) is True
+
+
+def test_acceptance_has_verification_gate_true_for_command() -> None:
+    body = _body_with_acceptance("- [ ] `gh workflow run selftest-ci.yml` shows a green run.")
+    assert body_writer.acceptance_has_verification_gate(body) is True
+
+
+def test_acceptance_has_verification_gate_true_for_smoke_token() -> None:
+    body = _body_with_acceptance("- [ ] Smoke request returns HTTP 400 with the error body.")
+    assert body_writer.acceptance_has_verification_gate(body) is True
+
+
+def test_acceptance_has_verification_gate_false_for_vague_criteria() -> None:
+    body = _body_with_acceptance(
+        "- [ ] The output looks correct.\n- [ ] The feature works as expected."
+    )
+    assert body_writer.acceptance_has_verification_gate(body) is False
+
+
+def test_acceptance_gate_ignores_test_refs_outside_acceptance_block() -> None:
+    # A pytest reference in Implementation Notes must NOT satisfy the gate; the
+    # falsifiable criterion has to live in the Acceptance Criteria section.
+    body = (
+        "## Why\n\n"
+        f"{_FILLER}\n\n"
+        "## Tasks\n\n"
+        "- [ ] In `src/foo.py:10`, do the concrete thing.\n\n"
+        "## Acceptance Criteria\n\n"
+        "- [ ] It works nicely.\n\n"
+        "## Implementation Notes\n\n"
+        "Run `pytest tests/test_foo.py` locally first.\n"
+        f"{_FILLER}\n"
+    )
+    assert body_writer.acceptance_has_verification_gate(body) is False
+
+
+def test_body_quality_errors_flags_acceptance_without_gate() -> None:
+    body = _body_with_acceptance(
+        "- [ ] The output looks correct.\n- [ ] The feature works as expected."
+    )
+    errors = body_writer.body_quality_errors(body)
+    assert any("falsifiable gate" in e for e in errors), errors
+
+
+def test_body_quality_errors_passes_acceptance_with_named_test() -> None:
+    body = _body_with_acceptance(
+        "- [ ] `tests/test_foo.py::test_bar` passes (asserts the 400 path)."
+    )
+    errors = body_writer.body_quality_errors(body)
+    assert not any("falsifiable gate" in e for e in errors), errors
+
+
+def test_body_quality_errors_clean_body_passes_gate() -> None:
+    # The shared CLEAN_BODY fixture names pytest + a runnable command in its
+    # acceptance criteria, so the falsifiability gate must not fire on it.
+    errors = body_writer.body_quality_errors(CLEAN_BODY)
+    assert not any("falsifiable gate" in e for e in errors)
+
+
+def test_missing_acceptance_section_not_double_flagged_for_gate() -> None:
+    # When the acceptance section is absent entirely, the missing-section error
+    # owns it; the falsifiability check must NOT also fire (avoids a confusing
+    # double error).
+    body = CLEAN_BODY.replace("## Acceptance Criteria", "## Verify")
+    errors = body_writer.body_quality_errors(body)
+    assert any("Acceptance Criteria" in e and "missing" in e for e in errors)
+    assert not any("falsifiable gate" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
 # converged_path + canonical_body_writer_prompt
 # ---------------------------------------------------------------------------
 

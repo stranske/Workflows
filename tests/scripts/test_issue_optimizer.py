@@ -295,6 +295,62 @@ def test_detect_blocked_and_subjective_criteria() -> None:
     assert criteria[0]["issue"] == "Subjective wording"
 
 
+def test_detect_objective_criteria_flags_missing_verification_gate() -> None:
+    # No criterion references a test / command / smoke gate -> aggregate flag.
+    criteria = issue_optimizer._detect_objective_criteria(
+        ["The output is correct", "Registration succeeds"]
+    )
+    issues = [c["issue"] for c in criteria]
+    assert any("references a test" in i for i in issues), issues
+
+
+def test_detect_objective_criteria_no_flag_when_test_named() -> None:
+    # At least one criterion names a pytest path::id -> no aggregate flag.
+    criteria = issue_optimizer._detect_objective_criteria(
+        ["tests/test_register.py::test_rejects_bad_email passes", "Returns HTTP 400"]
+    )
+    assert all("references a test" not in c["issue"] for c in criteria)
+
+
+def test_detect_objective_criteria_no_flag_for_command_or_smoke() -> None:
+    for criterion in (
+        "gh workflow run selftest-ci.yml shows a non-zero collected count",
+        "Smoke POST /api/register returns 400",
+        "curl -i /health returns 200",
+    ):
+        criteria = issue_optimizer._detect_objective_criteria([criterion])
+        assert all("references a test" not in c["issue"] for c in criteria), criterion
+
+
+def test_detect_objective_criteria_subjective_and_missing_gate_both() -> None:
+    # A subjective criterion that also lacks any verification reference yields
+    # BOTH the per-criterion subjective flag and the aggregate gate flag, with
+    # the subjective entry preserved first (back-compat).
+    criteria = issue_optimizer._detect_objective_criteria(["Make output nice"])
+    issues = [c["issue"] for c in criteria]
+    assert issues[0] == "Subjective wording"
+    assert any("references a test" in i for i in issues), issues
+
+
+def test_detect_objective_criteria_empty_input_no_flag() -> None:
+    # No criteria at all -> nothing to assess; do not emit the aggregate flag
+    # (a missing acceptance section is handled by missing_sections elsewhere).
+    assert issue_optimizer._detect_objective_criteria([]) == []
+
+
+def test_fallback_analysis_flags_missing_verification_gate() -> None:
+    # End-to-end through the fallback path: an acceptance block with no test
+    # reference surfaces the aggregate objective-criteria flag.
+    issue_body = (
+        "## Tasks\n- [ ] Do the thing\n\n"
+        "## Acceptance Criteria\n- [ ] It works correctly\n- [ ] Looks done\n"
+    )
+    result = issue_optimizer._fallback_analysis(issue_body)
+    assert any(
+        "references a test" in c.get("issue", "") for c in result.objective_criteria
+    ), result.objective_criteria
+
+
 def test_fallback_analysis_detects_missing_sections() -> None:
     issue_body = "## Tasks\nNot a bullet\n"
     result = issue_optimizer._fallback_analysis(issue_body)

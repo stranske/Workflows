@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -71,6 +72,34 @@ GENERIC_BODY_PHRASES = (
     "at least one targeted automated test",
     "approved weekly-review candidate",
 )
+
+# Falsifiability heuristic (Definition of Ready, AGENT_ISSUE_FORMAT.md §2):
+# an issue's Acceptance Criteria must name at least one observable, falsifiable
+# gate — a test, a runnable command, or a documented verification step. This is
+# a deliberately conservative string heuristic (no LLM) so it never blocks a
+# genuinely test-backed body and reliably catches the "no gate at all" case.
+# A criterion qualifies if it matches any of:
+#   - a test path / id            (`tests/`, `::`, `_test`, `.test.`, `spec`)
+#   - a runner / verification verb (`pytest`, `gh workflow run`, `npm test`, ...)
+#   - the literal tokens          (`smoke`, `verif`)
+VERIFICATION_GATE_PATTERNS = (
+    r"tests?/",
+    r"::",
+    r"_test\b",
+    r"\.test\.",
+    r"\bspec\b",
+    r"\bpytest\b",
+    r"gh workflow run\b",
+    r"\bnpm (?:run )?test\b",
+    r"\bnpm ci\b",
+    r"\byarn test\b",
+    r"\bcurl\b",
+    r"dev_check\.sh",
+    r"\bsmoke\b",
+    r"\bverif",
+)
+_VERIFICATION_GATE_RE = re.compile("|".join(VERIFICATION_GATE_PATTERNS), re.IGNORECASE)
+_ACCEPTANCE_HEADINGS = ("## acceptance criteria", "## acceptance")
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +150,44 @@ def verify_clean_sync(repo_path: Path) -> tuple[bool, str]:
 # ---------------------------------------------------------------------------
 
 
+def _acceptance_block(body: str) -> str:
+    """Return the text of the `## Acceptance Criteria` section (through the next
+    `## ` heading), or "" if no such heading is present. Heading match is
+    case-insensitive and accepts the `## Acceptance` alias.
+    """
+    lines = body.splitlines()
+    start: int | None = None
+    for i, line in enumerate(lines):
+        stripped = line.strip().lower()
+        if any(stripped == h or stripped.startswith(h + " ") for h in _ACCEPTANCE_HEADINGS):
+            start = i
+            break
+    if start is None:
+        return ""
+    end = next(
+        (i for i in range(start + 1, len(lines)) if lines[i].lstrip().startswith("## ")),
+        len(lines),
+    )
+    return "\n".join(lines[start + 1 : end])
+
+
+def acceptance_has_verification_gate(body: str) -> bool:
+    """Conservative, LLM-free readiness lint shared with other generators
+    (AGENT_ISSUE_FORMAT.md §2 / Definition of Ready). Returns True when the
+    body's Acceptance Criteria block references at least one falsifiable gate
+    (a test path/id, a runnable command, or a `smoke`/`verif` token). Returns
+    False only when an Acceptance Criteria block exists but names no such gate.
+
+    Intentionally string-based so it never blocks a genuinely test-backed body;
+    it only fires on the "no observable gate at all" failure.
+    """
+    block = _acceptance_block(body)
+    if not block.strip():
+        # No acceptance section to evaluate; the missing-section check owns this.
+        return True
+    return bool(_VERIFICATION_GATE_RE.search(block))
+
+
 def body_quality_errors(body: str) -> list[str]:
     """Lightweight quality check for written bodies. Mirrors the
     AGENT_ISSUE_FORMAT.md standard at validation time so low-quality bodies
@@ -146,6 +213,13 @@ def body_quality_errors(body: str) -> list[str]:
         errors.append("body is missing the required `## Tasks` section")
     if "## acceptance criteria" not in lowered and "## acceptance" not in lowered:
         errors.append("body is missing the required `## Acceptance Criteria` section")
+    elif not acceptance_has_verification_gate(body):
+        errors.append(
+            "Acceptance Criteria contain no falsifiable gate; at least one "
+            "criterion must name a test, smoke test, runnable command, or "
+            "documented live-verification step (see AGENT_ISSUE_FORMAT.md "
+            "'Definition of Ready')"
+        )
     if len(body) < 1500:
         errors.append(
             f"body is too short ({len(body)} chars); reference issues like #468 "
