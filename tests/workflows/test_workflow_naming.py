@@ -125,6 +125,16 @@ def test_health_44_pull_requests_do_not_use_repo_variable_fingerprints():
     assert source.index("pull-request-no-repo-variable") < source.index("--storage repo-variable")
 
 
+def test_maint_83_bootstrap_uses_published_action_versions():
+    workflow = WORKFLOW_DIR / "maint-83-bootstrap-consumer.yml"
+    source = workflow.read_text(encoding="utf-8")
+
+    assert "actions/checkout@v4" in source
+    assert "actions/setup-python@v5" in source
+    assert "actions/checkout@v6" not in source
+    assert "actions/setup-python@v6" not in source
+
+
 def test_inventory_docs_list_all_workflows():
     docs = {
         "docs/ci/WORKFLOW_SYSTEM.md": pathlib.Path("docs/ci/WORKFLOW_SYSTEM.md").read_text(
