@@ -1,0 +1,153 @@
+name: LangSmith Fleet Conformance
+
+on:
+  schedule:
+    - cron: '30 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      enforce_block:
+        description: 'Fail when a registered repo is missing, invalid, or stale'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      - name: Download latest fleet artifacts
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+
+            const registry = JSON.parse(
+              fs.readFileSync('config/langsmith_fleet_registry.json', 'utf8')
+            );
+            fs.mkdirSync('.metrics-tmp/fleet', { recursive: true });
+
+            for (const entry of registry.repos) {
+              const [owner, repoName] = entry.repo.split('/');
+              const safeRepo = entry.repo.replace('/', '__');
+              const outDir = path.join('.metrics-tmp/fleet', safeRepo);
+              fs.mkdirSync(outDir, { recursive: true });
+
+              const artifacts = await withRetry(() =>
+                github.rest.actions.listArtifactsForRepo({
+                  owner,
+                  repo: repoName,
+                  name: entry.artifact_name,
+                  per_page: 100,
+                })
+              );
+              const artifact = artifacts.data.artifacts.find((item) => !item.expired);
+              if (!artifact) {
+                core.warning(`No ${entry.artifact_name} artifact found for ${entry.repo}`);
+                continue;
+              }
+
+              const download = await withRetry(() =>
+                github.rest.actions.downloadArtifact({
+                  owner,
+                  repo: repoName,
+                  artifact_id: artifact.id,
+                  archive_format: 'zip',
+                })
+              );
+              fs.writeFileSync(
+                path.join(outDir, `${artifact.id}.zip`),
+                Buffer.from(download.data)
+              );
+            }
+
+      - name: Extract fleet artifacts
+        run: |
+          set -euo pipefail
+          find .metrics-tmp/fleet -name "*.zip" -print0 | while IFS= read -r -d '' zip_path; do
+            out_dir="$(dirname "$zip_path")"
+            unzip -q -o "$zip_path" -d "$out_dir"
+            rm "$zip_path"
+          done
+          jq -c '.repos[]' config/langsmith_fleet_registry.json | while read -r entry; do
+            repo="$(jq -r '.repo' <<<"$entry")"
+            artifact_name="$(jq -r '.artifact_name' <<<"$entry")"
+            safe_repo="${repo//\//__}"
+            out_dir=".metrics-tmp/fleet/${safe_repo}"
+            mkdir -p "$out_dir"
+
+            if [ ! -f "${out_dir}/${artifact_name}" ]; then
+              found="$(find "$out_dir" -name "$artifact_name" -print -quit)"
+              if [ -n "$found" ]; then
+                cp "$found" "${out_dir}/${artifact_name}"
+              fi
+            fi
+          done
+
+      - name: Build conformance report
+        run: |
+          set -euo pipefail
+          python scripts/langsmith_fleet_conformance.py \
+            --records-root .metrics-tmp/fleet \
+            --format json \
+            > .metrics-tmp/langsmith-fleet-conformance.json
+          python scripts/langsmith_fleet_conformance.py \
+            --records-root .metrics-tmp/fleet \
+            --format markdown \
+            > .metrics-tmp/langsmith-fleet-conformance.md
+          cat .metrics-tmp/langsmith-fleet-conformance.md >> "$GITHUB_STEP_SUMMARY"
+
+          jq -r '.rows[] | select(.status != "valid") |
+            "::warning title=LangSmith fleet conformance \(.status)::" +
+            "\(.repo)/\(.surface): \(.first_error // "no artifact uploaded")"'
+            .metrics-tmp/langsmith-fleet-conformance.json
+
+          non_valid_count="$(jq '[.rows[] | select(.status != "valid")] | length' \
+            .metrics-tmp/langsmith-fleet-conformance.json)"
+          echo "LANGSMITH_FLEET_NON_VALID_COUNT=${non_valid_count}" >> "$GITHUB_ENV"
+
+      - name: Upload conformance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: langsmith-fleet-conformance-${{ github.run_id }}
+          path: |
+            .metrics-tmp/langsmith-fleet-conformance.json
+            .metrics-tmp/langsmith-fleet-conformance.md
+            .metrics-tmp/fleet
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Enforce conformance
+        if: >
+          inputs.enforce_block == true &&
+          env.LANGSMITH_FLEET_NON_VALID_COUNT != '0'
+        run: |
+          echo "LangSmith fleet conformance found"
+          echo "${LANGSMITH_FLEET_NON_VALID_COUNT} non-valid row(s)."
+          exit 1

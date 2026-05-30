@@ -77,6 +77,15 @@ Validation must fail for malformed records, including:
 - unsafe raw payload values,
 - invalid status values.
 
+Workflows runs a fleet conformance check from
+`.github/workflows/maint-81-langsmith-fleet-conformance.yml`. The check reads
+each registry entry, downloads the latest per-repo `langsmith-fleet.ndjson`
+artifact when one exists, and validates it with `scripts/langsmith_fleet.py`.
+The scheduled path is warning-only: missing, stale, or invalid rows emit
+workflow warnings and a machine-readable report artifact, but they do not block
+the weekly run. Manual dispatch can set `enforce_block=true` to fail the
+workflow for non-`valid` rows when maintainers intentionally want a hard gate.
+
 ## Repo Issue Implementation Checklist
 
 Each repo-specific LangSmith implementation issue should keep instrumentation
@@ -102,3 +111,11 @@ Dashboard ingestion distinguishes four states per registry entry:
 - `invalid`: artifact exists but fails validation,
 - `stale`: latest valid record is older than the freshness window,
 - `valid`: at least one current valid record is present.
+
+The conformance report artifact uses the same status vocabulary and includes
+`repo`, `surface`, `issue`, `artifact_name`, `record_count`,
+`latest_recorded_at`, `status`, and `first_error` for every registry row. An
+uploaded artifact with malformed records is reported as `invalid` for the
+owning repo/surface even when the malformed rows omit routing fields such as
+`surface`, `run_id`, or `github_issue`; missing routing fields must not be
+silently downgraded to `missing`.
