@@ -225,12 +225,12 @@ gh label create "verify:create-new-pr" --color "5319E7" --description "Creates f
 
 > **Critical**: Keepalive automation will fail silently without these secrets.
 
-> **Automation shortcut**: The GitHub-settings toggles in §3.1, §3.3, and §3.3.1
+> **Automation shortcut**: The GitHub settings toggles in sections 3.1, 3.3, and 3.3.1
 > (bot collaborator, `USE_CONSOLIDATED_WORKFLOWS` / `ALLOWED_KEEPALIVE_LOGINS`
 > variables, and `default_workflow_permissions=write`) can be applied in one shot
 > from the canonical Workflows repo by running the **Maint 83 Bootstrap Consumer**
-> workflow (`scripts/bootstrap_consumer_settings.py`) against this repo. Secrets
-> (§3.2) still require manual setup. The collaborator invite still has to be
+> workflow (`scripts/bootstrap_consumer_settings.py`) against this repo. Secrets in
+> section 3.2 still require manual setup. The collaborator invite still has to be
 > accepted by the bot account.
 
 ### 3.1 Bot Collaborator Access
