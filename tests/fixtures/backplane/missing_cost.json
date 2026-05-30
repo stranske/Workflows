@@ -1,0 +1,41 @@
+{
+  "schema_version": "run-contract/v1",
+  "repo": "stranske/Pension-Data",
+  "tool": "one-pdf-pilot",
+  "run_id": "sha256:0f0e0d0c0b0a09080706050403020100ffeeddccbbaa99887766554433221100",
+  "status": "success",
+  "github_issue": "stranske/Workflows#TBD-P0",
+  "actor": {
+    "kind": "ci",
+    "id": "backplane-fixture",
+    "intent": "INVALID: cost key absent though Pension-Data requires it"
+  },
+  "inputs": {
+    "validated": true,
+    "refs": [
+      "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    ]
+  },
+  "outputs": {
+    "manifest_ref": "artifact:manifest.json",
+    "artifact_ids": []
+  },
+  "provenance": {
+    "tool_version": "0.1.0",
+    "git_sha": null,
+    "python_version": "3.12.0"
+  },
+  "latency": {
+    "wall_ms": 4210.5
+  },
+  "warnings": [],
+  "data_quality": {
+    "overall_status": "ok"
+  },
+  "evidence_refs": [
+    "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  ],
+  "identity_refs": [
+    "manager:cik_0001067983"
+  ]
+}

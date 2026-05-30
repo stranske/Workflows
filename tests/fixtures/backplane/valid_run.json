@@ -1,0 +1,60 @@
+{
+  "schema_version": "run-contract/v1",
+  "repo": "stranske/Pension-Data",
+  "tool": "one-pdf-pilot",
+  "run_id": "sha256:0f0e0d0c0b0a09080706050403020100ffeeddccbbaa99887766554433221100",
+  "status": "success",
+  "github_issue": "stranske/Workflows#TBD-P0",
+  "actor": {
+    "kind": "ci",
+    "id": "backplane-fixture",
+    "intent": "p0 valid fixture for run-contract/v1 self-test"
+  },
+  "inputs": {
+    "validated": true,
+    "refs": [
+      "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    ],
+    "summary": {
+      "as_of_date": "2026-05-29"
+    }
+  },
+  "outputs": {
+    "manifest_ref": "artifact:manifest.json",
+    "summary": {
+      "final_score": 0.7809
+    },
+    "artifact_ids": [
+      "report-xlsx"
+    ]
+  },
+  "provenance": {
+    "tool_version": "0.1.0",
+    "git_sha": null,
+    "python_version": "3.12.0",
+    "platform": "linux"
+  },
+  "cost": {
+    "usd": 0.0123,
+    "input_tokens": 1500,
+    "output_tokens": 320
+  },
+  "latency": {
+    "wall_ms": 4210.5
+  },
+  "warnings": [],
+  "data_quality": {
+    "overall_status": "ok",
+    "dropped_rows": 0,
+    "coerced_rows": 0,
+    "conflict": false
+  },
+  "evidence_refs": [
+    "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  ],
+  "identity_refs": [
+    "manager:cik_0001067983",
+    "pension:calpers"
+  ],
+  "recorded_at": "2026-05-29T18:00:00Z"
+}

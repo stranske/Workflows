@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stranske/Workflows/docs/contracts/schemas/evidence-object-v1.schema.json",
+  "title": "Research Backplane Evidence Object v1",
+  "description": "An attributable evidence object linking an extracted/asserted fact back to its source. Closes the fleet's most common evidence gap: even the best repos (Pension-Data 2/3, Inv-Man-Intake 2/3) omit EXCERPT text and extraction METHOD from their evidence object. Both are required here. Out of role for pure computational engines (PAEM/Trend_Model emit no facts) -- such tools list 'evidence' outside their registry required_sections and emit no evidence objects.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "evidence_id",
+    "fact_ref",
+    "source_id",
+    "method"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "evidence-object/v1"
+    },
+    "evidence_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable, deterministic id for this evidence object (e.g. a content hash), referenced from run-contract/v1 evidence_refs."
+    },
+    "fact_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the fact/metric/field this evidence supports (e.g. 'strategy.asset_class', a metric key, a holdings delta id)."
+    },
+    "source_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable source document / dataset id the fact was drawn from."
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "rule",
+        "parser",
+        "table",
+        "text",
+        "ocr",
+        "llm",
+        "computed",
+        "fallback",
+        "manual"
+      ],
+      "description": "How the fact was extracted/produced. This is the field the fleet's best repos are missing (Pension-Data: no method on the evidence link; Inv-Man-Intake: provider_name lives on the document result, not the field)."
+    },
+    "excerpt": {
+      "type": ["string", "null"],
+      "maxLength": 2000,
+      "description": "The quoted source text supporting the fact (bounded). Required to be PRESENT (string or explicit null) so consumers can see WHAT text supports a fact. The fleet stores positional anchors like 'text:3' instead of quoted excerpts; this field carries the quote. Bounded length keeps it artifact-safe; long source bodies stay in named artifacts."
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Structured location within the source. The richer locators (bbox/table/row) already exist on types like Inv-Man-Intake SourceLocation but are not propagated to the evidence object today.",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1
+        },
+        "table_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "row": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "column": {
+          "type": ["string", "integer"]
+        },
+        "bbox": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    },
+    "confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Per-evidence-link confidence (so two evidence sources for one fact can carry differing confidences -- a gap noted for Pension-Data, where confidence sits on the fact not the link)."
+    },
+    "entity_ref": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+:[a-z0-9][a-z0-9_.:-]*$",
+      "description": "Optional canonical entity id (per identity-map-conventions.md) the fact is about."
+    }
+  }
+}

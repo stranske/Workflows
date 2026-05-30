@@ -1,0 +1,18 @@
+{
+  "schema_version": "artifact-manifest/v1",
+  "run_id": "sha256:0f0e0d0c0b0a09080706050403020100ffeeddccbbaa99887766554433221100",
+  "tool": "one-pdf-pilot",
+  "git_sha": null,
+  "created_at": "2026-05-29T18:00:00Z",
+  "artifacts": [
+    {
+      "artifact_id": "report-xlsx",
+      "name": "report.xlsx",
+      "kind": "workbook",
+      "path": "report.xlsx",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "bytes": 20480,
+      "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    }
+  ]
+}

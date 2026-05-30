@@ -1,0 +1,42 @@
+{
+  "schema_version": "run-contract/v1",
+  "repo": "stranske/Pension-Data",
+  "tool": "one-pdf-pilot",
+  "run_id": "sha256:0f0e0d0c0b0a09080706050403020100ffeeddccbbaa99887766554433221100",
+  "status": "success",
+  "github_issue": "stranske/Workflows#TBD-P0",
+  "actor": {
+    "kind": "ci",
+    "id": "backplane-fixture",
+    "intent": "INVALID: references an artifact_id absent from valid_manifest.json"
+  },
+  "inputs": {
+    "validated": true
+  },
+  "outputs": {
+    "manifest_ref": "artifact:manifest.json",
+    "artifact_ids": [
+      "report-xlsx",
+      "chart-png-not-in-manifest"
+    ]
+  },
+  "provenance": {
+    "tool_version": "0.1.0"
+  },
+  "cost": {
+    "usd": 0.01,
+    "input_tokens": 100,
+    "output_tokens": 50
+  },
+  "latency": {
+    "wall_ms": 100.0
+  },
+  "warnings": [],
+  "data_quality": {
+    "overall_status": "ok"
+  },
+  "evidence_refs": [],
+  "identity_refs": [
+    "manager:cik_0001067983"
+  ]
+}
