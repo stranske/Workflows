@@ -736,7 +736,7 @@ def _reset_oversized_body(issue_body: str, workflow: str) -> str | None:
     original = issue_formatter._innermost_original_issue(issue_body)
     if original and original.strip():
         print(
-            f"Issue body oversized ({len(issue_body):,} chars); "
+            f"Issue body oversized ({len(issue_body):,} chars) for {workflow}; "
             "resetting to embedded Original Issue before optimizing.",
             file=sys.stderr,
         )
