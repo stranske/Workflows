@@ -124,7 +124,7 @@ jobs:
 
           jq -r '.rows[] | select(.status != "valid") |
             "::warning title=LangSmith fleet conformance \(.status)::" +
-            "\(.repo)/\(.surface): \(.first_error // "no artifact uploaded")"'
+            "\(.repo)/\(.surface): \(.first_error // "no artifact uploaded")"' \
             .metrics-tmp/langsmith-fleet-conformance.json
 
           non_valid_count="$(jq '[.rows[] | select(.status != "valid")] | length' \
