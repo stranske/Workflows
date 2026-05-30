@@ -21,7 +21,7 @@ This directory contains automated dashboard reports for monitoring repository me
 #### Where to View
 
 1. **Dashboard file:** `docs/dashboards/langsmith-metrics.md` (updated weekly, committed to main)
-2. **Weekly issues:** Created automatically with label `langsmith,metrics`
+2. **Weekly issues:** Created automatically with labels `metrics,automated`
 3. **Workflow artifacts:** Downloadable JSON + markdown reports (90-day retention)
 
 #### Manual Triggers
