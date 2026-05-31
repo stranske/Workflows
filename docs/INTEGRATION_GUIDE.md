@@ -369,6 +369,12 @@ Copy from `/templates/` and customize:
 | `dependency-refresh.yml` | Keep `requirements.lock` updated |
 | `cosmetic-repair.yml` | Auto-fix formatting issues |
 
+> **Consuming a `packages/` monorepo dependency (e.g. `app-baseline-kit`)?**
+> Exclude it from `requirements.lock` with `[tool.uv.pip] no-emit-package` so a
+> frozen SHA in the lock cannot conflict with the unpinned `@main` URL when
+> Workflows `main` advances. See
+> [Monorepo Package Dependencies](ops/CONSUMER_REPO_MAINTENANCE.md#monorepo-package-dependencies-app-baseline-kit).
+
 ### Customization Checklist
 
 After copying a template:

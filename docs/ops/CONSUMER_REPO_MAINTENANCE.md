@@ -227,6 +227,60 @@ exist, but continues syncing the canonical pins from Workflows. The
 `maint-auto-update-pypi-versions.yml` workflow owns opening source bump PRs for
 freshness updates.
 
+### Monorepo Package Dependencies (`app-baseline-kit`)
+
+Shared packages that live in this repo under `packages/` (currently
+`app-baseline-kit`, which ships the `baseline_kit` import) are consumed by
+other repos via an **unpinned** git URL in `pyproject.toml`:
+
+```toml
+"app-baseline-kit @ git+https://github.com/stranske/Workflows.git#subdirectory=packages/app-baseline-kit"
+```
+
+That URL resolves to **Workflows `main` HEAD** at install time, which is the
+intended `@main` consumer default. The hazard is the compiled lockfile: by
+default `uv pip compile` freezes that dependency to whatever commit `main`
+pointed at when the lock was generated, e.g.
+
+```
+app-baseline-kit @ git+https://github.com/stranske/Workflows.git@<sha>#subdirectory=packages/app-baseline-kit
+```
+
+CI installs the lock **and** the editable project together
+(`uv pip install -r requirements.lock -e .[app,dev]`), so the same package is
+declared twice — pinned (lock) and unpinned (project). They agree only while
+`main` stays at `<sha>`. The next Workflows `main` advance makes the unpinned
+URL resolve to a different commit, and uv aborts the install:
+
+```
+Requirements contain conflicting URLs for package `app-baseline-kit`
+```
+
+This silently breaks every downstream consumer's CI on an unrelated Workflows
+merge (it broke trip-planner CI after the `py.typed` PR #2204). Refreshing the
+lock fixes it only until the next advance, so it is not a stable answer.
+
+**Convention: exclude monorepo `@main` packages from the lock.** In each
+consuming repo's `pyproject.toml`, add:
+
+```toml
+[tool.uv.pip]
+no-emit-package = ["app-baseline-kit"]
+```
+
+Then regenerate the lock with the repo's documented `uv pip compile` command.
+The dependency drops out of `requirements.lock` (every other, versioned package
+stays pinned), the editable project install resolves it from `@main`, and there
+is no frozen SHA to keep refreshed — the conflict class is gone permanently. uv
+reads `[tool.uv.pip]` from `pyproject.toml`, so the lock regen, the
+`dependency-refresh.yml` automation, and the lockfile-freshness check all honor
+it consistently with no extra wiring.
+
+Applied to `trip-planner` and `Counter_Risk`; apply the same block whenever a
+new repo adopts `app-baseline-kit` (or any future `packages/` member referenced
+by an unpinned `@main` URL). This is a per-repo `pyproject.toml`/`requirements.lock`
+change, not a synced template file.
+
 ### Manual Sync Trigger
 
 ```bash
