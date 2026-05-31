@@ -23,7 +23,9 @@ class InvariantResult:
     detail: str = ""
 
 
-def split_results(results: list[InvariantResult]) -> tuple[list[InvariantResult], list[InvariantResult]]:
+def split_results(
+    results: list[InvariantResult],
+) -> tuple[list[InvariantResult], list[InvariantResult]]:
     """Return (failing errors, failing warnings)."""
     errors = [r for r in results if r.severity == ERROR and not r.ok]
     warns = [r for r in results if r.severity == WARN and not r.ok]
@@ -34,7 +36,9 @@ def assert_invariants(results: list[InvariantResult], *, context: str = "") -> N
     """Raise AssertionError on any failing error-invariant; warn on soft ones."""
     errors, warns = split_results(results)
     for r in warns:
-        warnings.warn(f"[soft]{(' ' + context) if context else ''} {r.name}: {r.detail}", stacklevel=2)
+        warnings.warn(
+            f"[soft]{(' ' + context) if context else ''} {r.name}: {r.detail}", stacklevel=2
+        )
     if errors:
         head = f"Invariant violations{(' (' + context + ')') if context else ''}:"
         raise AssertionError(head + "\n" + "\n".join(f"  - {r.name}: {r.detail}" for r in errors))

@@ -3070,10 +3070,7 @@ def write_review_inputs(repo_dir: Path, state: dict[str, Any]) -> None:
         "untested/unwired parameter flagged here as a VERIFIED candidate source when "
         "current code does not explain or correct it:",
         "",
-        (
-            "\n".join(f"- `{p}`" for p in (state.get("report_files") or []))
-            or "_None detected._"
-        ),
+        ("\n".join(f"- `{p}`" for p in (state.get("report_files") or [])) or "_None detected._"),
         "",
         "## Dedup References",
         "",
