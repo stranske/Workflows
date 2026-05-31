@@ -137,7 +137,22 @@ def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
         if step.get("name") == "Run Python tests"
     ]
 
-    assert python_test_steps == ["python -m pytest tests/workflows/ -v\n"]
+    assert python_test_steps == [
+        "python -m pytest \\\n"
+        "  tests/workflows/ \\\n"
+        "  tests/test_verdict_policy.py \\\n"
+        "  tests/test_verdict_extract.py \\\n"
+        "  tests/test_verdict_policy_integration.py \\\n"
+        "  tests/test_structured_output.py \\\n"
+        "  tests/scripts/test_pr_verifier_compare.py \\\n"
+        "  tests/scripts/test_pr_verifier_fallback.py \\\n"
+        "  tests/scripts/test_pr_verifier_chain_depth.py \\\n"
+        "  tests/scripts/test_pr_verifier_comparison_report.py \\\n"
+        "  tests/scripts/test_pr_verifier_structured_output.py \\\n"
+        "  tests/scripts/test_pr_verifier_infra_detection.py \\\n"
+        "  tests/scripts/test_pr_verifier_issue_creation.py \\\n"
+        "  -v\n"
+    ]
     assert not re.search(
         r"--ignore(?:-glob)?(?:=|\s+)tests/workflows/?(?:\s|$)", python_test_steps[0]
     )

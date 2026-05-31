@@ -70,11 +70,26 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytest pytest-cov pyyaml requests numpy pandas
+          pip install pytest pytest-cov pyyaml requests numpy pandas pydantic
 
       - name: Run Python tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          python -m pytest tests/workflows/ -v
+          python -m pytest \
+            tests/workflows/ \
+            tests/test_verdict_policy.py \
+            tests/test_verdict_extract.py \
+            tests/test_verdict_policy_integration.py \
+            tests/test_structured_output.py \
+            tests/scripts/test_pr_verifier_compare.py \
+            tests/scripts/test_pr_verifier_fallback.py \
+            tests/scripts/test_pr_verifier_chain_depth.py \
+            tests/scripts/test_pr_verifier_comparison_report.py \
+            tests/scripts/test_pr_verifier_structured_output.py \
+            tests/scripts/test_pr_verifier_infra_detection.py \
+            tests/scripts/test_pr_verifier_issue_creation.py \
+            -v
 
   lint-and-validate:
     name: Lint, Format & YAML Validation
