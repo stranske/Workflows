@@ -1,7 +1,10 @@
+import datetime as dt
 from pathlib import Path
 
 import pytest
 from scripts import metrics_dashboard_generator as generator
+
+_FLEET_FIXTURE_NOW = dt.datetime(2026, 5, 25, tzinfo=dt.UTC)
 
 
 def test_build_dashboard_includes_repo_sections() -> None:
@@ -244,6 +247,7 @@ def test_build_dashboard_from_path_includes_langsmith_fleet_status(tmp_path: Pat
         numeric_fields=["duration_ms"],
         fleet_records_path=fleet_path,
         fleet_registry_path=Path("config/langsmith_fleet_registry.json"),
+        fleet_now=_FLEET_FIXTURE_NOW,
     )
 
     assert errors == 0
@@ -274,6 +278,7 @@ def test_build_dashboard_from_path_marks_invalid_langsmith_fleet_records(tmp_pat
         numeric_fields=["duration_ms"],
         fleet_records_path=fleet_path,
         fleet_registry_path=Path("config/langsmith_fleet_registry.json"),
+        fleet_now=_FLEET_FIXTURE_NOW,
     )
 
     assert "## LangSmith Fleet Artifact Status" in dashboard
@@ -297,6 +302,18 @@ def test_main_langsmith_fleet_noops_without_langsmith_api_key(
     fleet_path = tmp_path / "langsmith-fleet.ndjson"
     fleet_path.write_text(fleet_src.read_text(encoding="utf-8"), encoding="utf-8")
     monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+    original_summarize = generator.langsmith_fleet.summarize_fleet_records
+
+    def summarize_with_fixed_now(*args: object, **kwargs: object) -> dict[str, object]:
+        if kwargs.get("now") is None:
+            kwargs["now"] = _FLEET_FIXTURE_NOW
+        return original_summarize(*args, **kwargs)
+
+    monkeypatch.setattr(
+        generator.langsmith_fleet,
+        "summarize_fleet_records",
+        summarize_with_fixed_now,
+    )
 
     exit_code = generator.main(
         [
@@ -336,6 +353,7 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
         numeric_fields=["duration_ms"],
         fleet_records_path=fleet_path,
         fleet_registry_path=Path("config/langsmith_fleet_registry.json"),
+        fleet_now=_FLEET_FIXTURE_NOW,
     )
 
     assert errors == 0

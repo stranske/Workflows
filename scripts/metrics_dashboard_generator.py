@@ -365,6 +365,7 @@ def build_dashboard_from_path(
     thresholds: dict[str, dict[str, Any]] | None = None,
     fleet_records_path: Path | None = None,
     fleet_registry_path: Path | None = None,
+    fleet_now: _dt.datetime | None = None,
 ) -> tuple[str, int]:
     entries, errors = _read_ndjson(metrics_path)
     fleet_summary = None
@@ -378,7 +379,11 @@ def build_dashboard_from_path(
             registry=registry,
             schema=schema,
         )
-        fleet_summary = langsmith_fleet.summarize_fleet_records(fleet_records, registry=registry)
+        fleet_summary = langsmith_fleet.summarize_fleet_records(
+            fleet_records,
+            registry=registry,
+            now=fleet_now,
+        )
         if fleet_parse_errors or fleet_validation_errors:
             rows_by_key = {
                 (row["repo"], row["surface"]): row for row in fleet_summary.get("rows", [])
