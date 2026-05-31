@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-DEFAULT_TOLERANCE = dict(atol=1e-9, rtol=1e-6)
+DEFAULT_TOLERANCE = {"atol": 1e-9, "rtol": 1e-6}
 
 
 def check_metrics(
