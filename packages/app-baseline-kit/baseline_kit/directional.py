@@ -19,17 +19,17 @@ DEFAULT_TOL = 1e-9
 # direction name -> comparator(left, right, tol) -> bool
 DIRECTIONS = {
     # temporal framing (variant vs control)
-    "increase": lambda l, r, t: l > r + t,
-    "decrease": lambda l, r, t: l < r - t,
-    "increase_or_equal": lambda l, r, t: l >= r - t,
-    "decrease_or_equal": lambda l, r, t: l <= r + t,
-    "change": lambda l, r, t: abs(l - r) > t,
-    "unchanged": lambda l, r, t: abs(l - r) <= t,
+    "increase": lambda lo, hi, tol: lo > hi + tol,
+    "decrease": lambda lo, hi, tol: lo < hi - tol,
+    "increase_or_equal": lambda lo, hi, tol: lo >= hi - tol,
+    "decrease_or_equal": lambda lo, hi, tol: lo <= hi + tol,
+    "change": lambda lo, hi, tol: abs(lo - hi) > tol,
+    "unchanged": lambda lo, hi, tol: abs(lo - hi) <= tol,
     # ordering framing (entity vs entity) -- aliases of the same logic
-    "less_than": lambda l, r, t: l < r - t,
-    "greater_than": lambda l, r, t: l > r + t,
-    "less_or_equal": lambda l, r, t: l <= r + t,
-    "greater_or_equal": lambda l, r, t: l >= r - t,
+    "less_than": lambda lo, hi, tol: lo < hi - tol,
+    "greater_than": lambda lo, hi, tol: lo > hi + tol,
+    "less_or_equal": lambda lo, hi, tol: lo <= hi + tol,
+    "greater_or_equal": lambda lo, hi, tol: lo >= hi - tol,
 }
 
 
