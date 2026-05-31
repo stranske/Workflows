@@ -58,7 +58,7 @@ docstring-parser==0.18.0
     # via anthropic
 execnet==2.1.2
     # via pytest-xdist
-faiss-cpu==1.13.2
+faiss-cpu==1.14.2
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
@@ -86,7 +86,7 @@ httpx==0.28.1
     #   openai
 httpx-sse==0.4.3
     # via langchain-community
-hypothesis==6.152.9
+hypothesis==6.155.1
     # via workflows (pyproject.toml)
 identify==2.6.19
     # via pre-commit
