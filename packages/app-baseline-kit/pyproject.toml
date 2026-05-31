@@ -15,3 +15,8 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["baseline_kit*"]
+
+# Ship the PEP 561 marker so consumers' type checkers (mypy) analyze
+# baseline_kit instead of treating it as an untyped third-party import.
+[tool.setuptools.package-data]
+baseline_kit = ["py.typed"]
