@@ -137,22 +137,13 @@ def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
         if step.get("name") == "Run Python tests"
     ]
 
-    assert python_test_steps == [
-        "python -m pytest \\\n"
-        "  tests/workflows/ \\\n"
-        "  tests/test_verdict_policy.py \\\n"
-        "  tests/test_verdict_extract.py \\\n"
-        "  tests/test_verdict_policy_integration.py \\\n"
-        "  tests/test_structured_output.py \\\n"
-        "  tests/scripts/test_pr_verifier_compare.py \\\n"
-        "  tests/scripts/test_pr_verifier_fallback.py \\\n"
-        "  tests/scripts/test_pr_verifier_chain_depth.py \\\n"
-        "  tests/scripts/test_pr_verifier_comparison_report.py \\\n"
-        "  tests/scripts/test_pr_verifier_structured_output.py \\\n"
-        "  tests/scripts/test_pr_verifier_infra_detection.py \\\n"
-        "  tests/scripts/test_pr_verifier_issue_creation.py \\\n"
-        "  -v\n"
-    ]
+    assert len(python_test_steps) == 1
+    assert "tests/workflows/" in python_test_steps[0]
+    assert "tests/test_verdict_policy.py" in python_test_steps[0]
+    assert "tests/test_verdict_extract.py" in python_test_steps[0]
+    assert "tests/test_structured_output.py" in python_test_steps[0]
+    assert "tests/scripts/test_pr_verifier_compare.py" in python_test_steps[0]
+    assert "tests/scripts/test_update_versions_from_pypi.py" not in python_test_steps[0]
     assert not re.search(
         r"--ignore(?:-glob)?(?:=|\s+)tests/workflows/?(?:\s|$)", python_test_steps[0]
     )

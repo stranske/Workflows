@@ -40,6 +40,15 @@ def test_select_verdict_worst_case_policy():
     assert select_verdict(verdicts, policy="worst") == "CONCERNS"
 
 
+def test_select_verdict_worst_case_prefers_fail_over_concerns():
+    verdicts = [
+        ProviderVerdict("openai", "gpt-5.2", "CONCERNS", 86),
+        ProviderVerdict("anthropic", "claude-sonnet-4-5", "FAIL", 85),
+    ]
+
+    assert select_verdict(verdicts, policy="worst") == "FAIL"
+
+
 def test_select_verdict_majority_policy():
     verdicts = [
         ProviderVerdict("openai", "gpt-5.2", "PASS", 86),
