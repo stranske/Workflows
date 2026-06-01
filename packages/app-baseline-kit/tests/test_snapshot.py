@@ -5,7 +5,7 @@ from __future__ import annotations
 from baseline_kit import check_snapshot, normalize_response, response_to_payload
 
 
-def test_bare_key_redaction_at_any_depth():
+def test_bare_key_redaction_at_any_depth() -> None:
     payload = {
         "id": 1,
         "name": "alpha",
@@ -22,7 +22,7 @@ def test_bare_key_redaction_at_any_depth():
     assert [i["v"] for i in out["items"]] == [1, 2]
 
 
-def test_dotted_path_is_anchored_at_root():
+def test_dotted_path_is_anchored_at_root() -> None:
     payload = {
         "request_id": "top-level-keep-if-not-excluded",
         "meta": {"request_id": "drop-me"},
@@ -35,7 +35,7 @@ def test_dotted_path_is_anchored_at_root():
     assert out["nested"]["meta"]["request_id"] == "survives-anchored"
 
 
-def test_wildcard_path_redacts_each_list_element():
+def test_wildcard_path_redacts_each_list_element() -> None:
     payload = {
         "items": [
             {"name": "a", "updated_at": "2020-01-01"},
@@ -47,14 +47,14 @@ def test_wildcard_path_redacts_each_list_element():
     assert [i["name"] for i in out["items"]] == ["a", "b"]
 
 
-def test_wildcard_drops_all_direct_children():
+def test_wildcard_drops_all_direct_children() -> None:
     payload = {"data": {"a": 1, "b": 2}, "keep": "yes"}
     out = normalize_response(payload, exclude=("data.*",))
     assert out["data"] == {}
     assert out["keep"] == "yes"
 
 
-def test_key_sorting_is_deterministic():
+def test_key_sorting_is_deterministic() -> None:
     a = normalize_response({"b": 1, "a": 2, "c": {"z": 1, "y": 2}})
     b = normalize_response({"c": {"y": 2, "z": 1}, "a": 2, "b": 1})
     assert list(a.keys()) == ["a", "b", "c"]
@@ -62,13 +62,13 @@ def test_key_sorting_is_deterministic():
     assert a == b
 
 
-def test_list_order_is_preserved_without_sort_key():
+def test_list_order_is_preserved_without_sort_key() -> None:
     payload = {"xs": [3, 1, 2]}
     out = normalize_response(payload)
     assert out["xs"] == [3, 1, 2]
 
 
-def test_sort_key_reorders_record_list():
+def test_sort_key_reorders_record_list() -> None:
     payload = {
         "managers": [
             {"name": "Charlie", "id": 3},
@@ -80,7 +80,7 @@ def test_sort_key_reorders_record_list():
     assert [m["name"] for m in out["managers"]] == ["Alice", "Bob", "Charlie"]
 
 
-def test_sort_key_runs_before_redaction_target_is_fine():
+def test_sort_key_runs_before_redaction_target_is_fine() -> None:
     # sort by a field, then redact a different (volatile) field
     payload = {
         "rows": [
@@ -93,25 +93,25 @@ def test_sort_key_runs_before_redaction_target_is_fine():
     assert all("ts" not in r for r in out["rows"])
 
 
-def test_tuple_is_coerced_to_list():
+def test_tuple_is_coerced_to_list() -> None:
     out = normalize_response({"xs": (1, 2, 3)})
     assert out["xs"] == [1, 2, 3]
     assert isinstance(out["xs"], list)
 
 
-def test_input_is_not_mutated():
+def test_input_is_not_mutated() -> None:
     payload = {"id": 1, "name": "x"}
     normalize_response(payload, exclude=("id",))
     assert payload == {"id": 1, "name": "x"}
 
 
-def test_top_level_list_payload():
+def test_top_level_list_payload() -> None:
     payload = [{"id": 1, "v": "a"}, {"id": 2, "v": "b"}]
     out = normalize_response(payload, exclude=("id",))
     assert out == [{"v": "a"}, {"v": "b"}]
 
 
-def test_scalar_and_none_pass_through():
+def test_scalar_and_none_pass_through() -> None:
     assert normalize_response(None) is None
     assert normalize_response(42) == 42
     assert normalize_response("x") == "x"
@@ -120,15 +120,15 @@ def test_scalar_and_none_pass_through():
 class _FakeResponse:
     """Duck-typed stand-in for a TestClient/httpx response."""
 
-    def __init__(self, status_code, body):
+    def __init__(self, status_code: int, body: object) -> None:
         self.status_code = status_code
         self._body = body
 
-    def json(self):
+    def json(self) -> object:
         return self._body
 
 
-def test_response_to_payload_duck_typed():
+def test_response_to_payload_duck_typed() -> None:
     resp = _FakeResponse(200, {"managers": [{"id": 1, "name": "Alice"}]})
     payload = response_to_payload(resp)
     assert payload == {
@@ -137,7 +137,7 @@ def test_response_to_payload_duck_typed():
     }
 
 
-def test_check_snapshot_round_trip(data_regression):
+def test_check_snapshot_round_trip(data_regression: object) -> None:
     # Mirrors a FastAPI GET /managers response with volatile fields redacted.
     resp = _FakeResponse(
         200,

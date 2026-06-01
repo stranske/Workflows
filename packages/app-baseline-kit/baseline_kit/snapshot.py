@@ -186,7 +186,7 @@ def normalize_response(
 
 
 def check_snapshot(
-    data_regression,
+    data_regression: Any,
     payload: JSONValue,
     *,
     exclude: Iterable[str] = (),
