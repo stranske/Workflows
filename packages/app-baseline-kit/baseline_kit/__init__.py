@@ -23,6 +23,7 @@ from .directional import DIRECTIONS, evaluate_direction
 from .golden import DEFAULT_TOLERANCE, check_metrics
 from .invariants import InvariantResult, assert_invariants, split_results
 from .manifest import CoverageManifest
+from .snapshot import check_snapshot, normalize_response, response_to_payload
 
 __all__ = [
     "load_catalog",
@@ -34,4 +35,7 @@ __all__ = [
     "assert_invariants",
     "split_results",
     "CoverageManifest",
+    "check_snapshot",
+    "normalize_response",
+    "response_to_payload",
 ]

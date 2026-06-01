@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "app-baseline-kit"
-version = "0.1.0"
+version = "0.2.0"
 description = "Shared harness for scenario-driven wiring/sensibility/regression baselines across apps."
 requires-python = ">=3.10"
 dependencies = [

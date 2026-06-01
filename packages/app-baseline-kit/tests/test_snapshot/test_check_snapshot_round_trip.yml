@@ -1,0 +1,7 @@
+json:
+  managers:
+  - name: Alpha
+  - name: Bravo
+  meta:
+    count: 2
+status_code: 200
