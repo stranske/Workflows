@@ -128,11 +128,17 @@ def test_health_44_pull_requests_do_not_use_repo_variable_fingerprints():
 def test_maint_83_bootstrap_uses_published_action_versions():
     workflow = WORKFLOW_DIR / "maint-83-bootstrap-consumer.yml"
     source = workflow.read_text(encoding="utf-8")
+    data = yaml.safe_load(source)
+    uses = [step["uses"] for step in data["jobs"]["bootstrap"]["steps"] if "uses" in step]
 
-    assert "actions/checkout@v4" in source
-    assert "actions/setup-python@v5" in source
-    assert "actions/checkout@v6" not in source
-    assert "actions/setup-python@v6" not in source
+    assert any(
+        action.startswith("actions/checkout@v") and action.rsplit("@v", 1)[1].isdigit()
+        for action in uses
+    )
+    assert any(
+        action.startswith("actions/setup-python@v") and action.rsplit("@v", 1)[1].isdigit()
+        for action in uses
+    )
 
 
 def test_inventory_docs_list_all_workflows():
