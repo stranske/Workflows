@@ -150,15 +150,16 @@ def _validate_consumer(
 
     # Try each declared schema; the document conforms if it matches at least one
     # of the ingested schema shapes (e.g. an evidence-object/v1 object).
+    unknown = [
+        t for t in ingests if t not in INGEST_SCHEMA_FILES and t not in INGEST_CONVENTION_ONLY
+    ]
+    for tok in unknown:
+        report.fail(f"unknown ingest schema token '{tok}'", "ingests")
+
     schema_tokens = [t for t in ingests if t in INGEST_SCHEMA_FILES]
     if not schema_tokens:
         # Only convention-only ingests (e.g. identity-map-conventions): nothing
         # to schema-validate; presence of a declared ingest is enough.
-        unknown = [
-            t for t in ingests if t not in INGEST_SCHEMA_FILES and t not in INGEST_CONVENTION_ONLY
-        ]
-        for tok in unknown:
-            report.fail(f"unknown ingest schema token '{tok}'", "ingests")
         return report
 
     per_schema_errors: dict[str, list[str]] = {}
@@ -325,7 +326,11 @@ def main(argv: list[str] | None = None) -> int:
     if envelope is None:
         report = missing_envelope_report(registry, args.repo, args.run_json)
     else:
-        manifest = _load_json(args.manifest) if args.manifest else None
+        try:
+            manifest = _load_json(args.manifest) if args.manifest else None
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"ERROR: cannot load artifact manifest: {exc}", file=sys.stderr)
+            return 2
         report = validate_envelope(
             envelope=envelope,
             schema_dir=args.schema_dir,

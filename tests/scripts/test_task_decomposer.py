@@ -843,6 +843,21 @@ def test_normalize_subtasks_single_large_task_still_expands_to_triple() -> None:
     assert any(t.lower().startswith("validate focused slice for:") for t in result)
 
 
+def test_normalize_subtasks_ignores_elision_sentinel_when_allowing_triple() -> None:
+    """A carried elision sentinel must not make one real large task look multi-part."""
+    result = task_decomposer.normalize_subtasks(
+        [
+            "Implement end-to-end constraint validation across the entire system",
+            task_decomposer.elision_sentinel(4, kind="sub-tasks"),
+        ],
+        max_subtasks=5,
+    )
+    assert any(t.lower().startswith("define scope for:") for t in result)
+    assert any(t.lower().startswith("implement focused slice for:") for t in result)
+    assert any(t.lower().startswith("validate focused slice for:") for t in result)
+    assert any(task_decomposer.is_elision_sentinel(t) for t in result)
+
+
 def test_normalize_subtasks_is_idempotent_on_capped_output() -> None:
     """Re-normalizing capped output is stable and preserves the sentinel verbatim."""
     parts = [

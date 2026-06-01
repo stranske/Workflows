@@ -345,10 +345,11 @@ def _normalize_subtasks(
     audit still balances.
     """
     parts = _collect_cleaned_parts(sub_tasks)
+    task_parts = [part for part in parts if not is_elision_sentinel(part)]
     # Only expand the mechanical triple when the input was effectively a single
     # task; multiple parts already represent a decomposition and must not be
     # tripled again (that 3xN fan-out is what ballooned issues).
-    allow_triple = len(parts) == 1
+    allow_triple = len(task_parts) == 1
 
     normalized: list[str] = []
     for cleaned in parts:

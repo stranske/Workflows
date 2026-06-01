@@ -135,6 +135,39 @@ def test_cli_exit_codes(tmp_path) -> None:
     )
     assert rc == 0
 
+    # Bad/missing manifests are load errors, not traceback crashes.
+    rc = mod.main(
+        [
+            str(FIXTURES / "valid_run.json"),
+            "--manifest",
+            str(tmp_path / "missing-manifest.json"),
+            "--registry",
+            str(REGISTRY),
+            "--schema-dir",
+            str(SCHEMA_DIR),
+            "--repo",
+            PRODUCER_REPO,
+        ]
+    )
+    assert rc == 2
+
+    bad_manifest = tmp_path / "bad-manifest.json"
+    bad_manifest.write_text("{not json", encoding="utf-8")
+    rc = mod.main(
+        [
+            str(FIXTURES / "valid_run.json"),
+            "--manifest",
+            str(bad_manifest),
+            "--registry",
+            str(REGISTRY),
+            "--schema-dir",
+            str(SCHEMA_DIR),
+            "--repo",
+            PRODUCER_REPO,
+        ]
+    )
+    assert rc == 2
+
 
 def test_missing_envelope_skips_for_candidate_and_planned_and_absent(tmp_path) -> None:
     # A missing run.json must be an opt-in SKIP (exit 0) for a candidate
@@ -196,6 +229,41 @@ def test_missing_envelope_decision_by_status() -> None:
     # Absent repo -> skip.
     report = mod.missing_envelope_report({"participants": []}, "stranske/Y", run_json)
     assert report.skipped and report.conformant
+
+
+def test_consumer_mixed_unknown_ingest_token_fails() -> None:
+    """Unknown ingest tokens are invalid even when another declared token matches."""
+    mod = _import_validator()
+    evidence = {
+        "schema_version": "evidence-object/v1",
+        "evidence_id": "ev-1",
+        "fact_ref": "metric.alpha",
+        "source_id": "source-1",
+        "method": "computed",
+    }
+    registry = {
+        "participants": [
+            {
+                "repo": "stranske/Consumer",
+                "role": "consumer",
+                "status": "conformant",
+                "ingests": ["evidence-object/v1", "typo-object/v1"],
+            }
+        ]
+    }
+
+    report = mod.validate_envelope(
+        envelope=evidence,
+        schema_dir=SCHEMA_DIR,
+        registry=registry,
+        repo="stranske/Consumer",
+        manifest=None,
+    )
+
+    assert not report.conformant
+    assert any(
+        "unknown ingest schema token 'typo-object/v1'" == v.message for v in report.violations
+    )
 
 
 def test_registry_shape_meta() -> None:
