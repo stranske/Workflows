@@ -76,15 +76,16 @@ baseline-kit commit used in CI is not recorded in the lock; reproducibility of
 *that one package* depends on `main` HEAD at install time. Acceptable while the
 package is unversioned; revisit once it is tagged/released.
 
-> **Pattern A variant (lock-SHA, no no-emit):** `Pension-Data` declares `@main`
-> in `pyproject.toml` but does **not** use `no-emit-package`, so `uv pip compile`
-> records a SHA for the package in `requirements.lock` and CI installs
-> `-r requirements.lock`. This is a working, accepted variant: developers pick up
-> new `main` features when they regenerate the lock, and CI runs reproducibly
-> against the recorded SHA. It is **not** Pattern C — the `pyproject` source of
-> truth stays unpinned `@main`. The cost is lock churn whenever the lock is
-> regenerated against an advanced `main`; if that churn becomes a conflict
-> source, add `no-emit-package` to move to canonical Pattern A.
+> **⚠️ `no-emit-package` is REQUIRED for Pattern A — omitting it is a trap, not a
+> variant.** If a repo declares `@main` in `pyproject.toml` but does **not** use
+> `no-emit-package`, `uv pip compile` freezes a commit SHA for the package into
+> `requirements.lock`. The unpinned `pyproject` URL and the SHA-pinned lock URL
+> then **conflict**, and `uv` aborts with *"Requirements contain conflicting URLs
+> for package `app-baseline-kit`"* on any **cold-cache** resolve. A warm uv cache
+> can mask this, so such a repo may merge green once and then fail a later CI run
+> for no apparent change. `Pension-Data` hit exactly this (fixed in PR #498 by
+> adding `no-emit-package`). Always exclude the package from the lock so the only
+> URL uv sees is the unpinned `@main` one.
 
 ### Pattern B — lock-only / `requirements-baseline.txt` (custom build backend)
 
@@ -113,7 +114,9 @@ deps in extras.
 
 ### Pattern C — frozen SHA in `pyproject.toml` (DEPRECATED — must migrate)
 
-**Current instance: `learning-management-system` (LMS).**
+**Current instances: none.** `learning-management-system` was the last Pattern C
+repo; it was migrated to Pattern A in PR #232. This section is retained to
+document why a frozen SHA is rejected.
 
 ```toml
 # DEPRECATED — do not adopt for new repos.
@@ -174,11 +177,11 @@ harness.
 |------|---------------|---------|----------|----------------|--------------------------------------|
 | `trip-planner` | setuptools | **A** (reference) | excluded (no-emit) | yes | editable install of `@main` |
 | `Counter_Risk` | setuptools | **A** (+no-emit) | excluded (no-emit) | yes | `pip install -e .[dev]` from `@main` |
-| `Trend_Model_Project` | setuptools | **A** (unpinned) | absent | yes | `pip install -e .[dev]` from `@main` |
-| `Portable-Alpha-Extension-Model` | setuptools | **A** (unpinned `@main`) | absent | yes | `pip install -e .` from `@main` (PEP 508 URL-pinned, not version-pinned) |
-| `Pension-Data` | setuptools | **A variant** (`@main` in pyproject, SHA in lock) | SHA `13f94883…` | yes (on lock regen) | CI installs `-r requirements.lock` (pinned SHA) |
+| `Trend_Model_Project` | setuptools | **A** (unpinned; add `no-emit` on next lock regen) | absent | yes | `pip install -e .[dev]` from `@main` |
+| `Portable-Alpha-Extension-Model` | setuptools | **A** (+no-emit) | excluded (no-emit) | yes | `pip install -e .[dev]` from `@main` (migrated from a frozen SHA, PR #1857) |
+| `Pension-Data` | setuptools | **A** (+no-emit) | excluded (no-emit) | yes | `pip install -e .[dev]` from `@main` (added `no-emit` to fix a conflicting-URL failure, PR #498) |
 | `Travel-Plan-Permission` | custom (`tp_build_backend`) | **B** (lock-only) | SHA `13f94883…` | no | CI `-r requirements.lock`; local `requirements-baseline.txt` |
-| `learning-management-system` | setuptools | **C** (frozen SHA — migrate to A) | SHA `13f94883…` | no | `-r requirements.lock` (pinned SHA) |
+| `learning-management-system` | setuptools | **A** (+no-emit) | excluded (no-emit) | yes | `pip install -e .[dev]` from `@main` (migrated from a frozen SHA, PR #232) |
 | `Inv-Man-Intake` | setuptools | **Vendored** | absent | no | local `src/baseline_kit/` (first-party in `.project_modules.txt`) |
 
 ## How to choose (decision order)
