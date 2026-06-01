@@ -276,10 +276,25 @@ reads `[tool.uv.pip]` from `pyproject.toml`, so the lock regen, the
 `dependency-refresh.yml` automation, and the lockfile-freshness check all honor
 it consistently with no extra wiring.
 
-Applied to `trip-planner` and `Counter_Risk`; apply the same block whenever a
-new repo adopts `app-baseline-kit` (or any future `packages/` member referenced
-by an unpinned `@main` URL). This is a per-repo `pyproject.toml`/`requirements.lock`
-change, not a synced template file.
+If the repo has a dependency-alignment test (`tests/test_dependency_version_alignment.py`,
+which asserts every `pyproject.toml` dependency is pinned in `requirements.lock`),
+make it read the same `no-emit-package` list and subtract those names from the
+expected set — otherwise it fails on the now-absent package. Drive it from the
+config, not a hardcoded name, so the two never drift:
+
+```python
+no_emit = {
+    n.split(" @ ")[0].split("[")[0].strip().lower()
+    for n in pyproject.get("tool", {}).get("uv", {}).get("pip", {}).get("no-emit-package", [])
+}
+declared -= no_emit
+```
+
+Applied to `trip-planner` and `Counter_Risk`; apply the same `pyproject.toml`,
+lock-regen, and alignment-test changes whenever a new repo adopts
+`app-baseline-kit` (or any future `packages/` member referenced by an unpinned
+`@main` URL). These are per-repo `pyproject.toml`/`requirements.lock`/test
+changes, not synced template files.
 
 ### Manual Sync Trigger
 
