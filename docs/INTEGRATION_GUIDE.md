@@ -373,7 +373,9 @@ Copy from `/templates/` and customize:
 > Exclude it from `requirements.lock` with `[tool.uv.pip] no-emit-package` so a
 > frozen SHA in the lock cannot conflict with the unpinned `@main` URL when
 > Workflows `main` advances. See
-> [Monorepo Package Dependencies](ops/CONSUMER_REPO_MAINTENANCE.md#monorepo-package-dependencies-app-baseline-kit).
+> [Monorepo Package Dependencies](ops/CONSUMER_REPO_MAINTENANCE.md#monorepo-package-dependencies-app-baseline-kit),
+> and [Declaring the `app-baseline-kit` Dependency](guides/BASELINE_KIT_DEPENDENCY.md)
+> for the catalog of accepted patterns and how to choose one.
 
 ### Customization Checklist
 
