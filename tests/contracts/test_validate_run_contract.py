@@ -262,7 +262,7 @@ def test_consumer_mixed_unknown_ingest_token_fails() -> None:
 
     assert not report.conformant
     assert any(
-        "unknown ingest schema token 'typo-object/v1'" == v.message for v in report.violations
+        v.message == "unknown ingest schema token 'typo-object/v1'" for v in report.violations
     )
 
 
