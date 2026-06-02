@@ -184,12 +184,16 @@ def _detect_local_project_modules() -> set[str]:
 
     tests_dir = Path("tests")
     if tests_dir.is_dir():
-        for item in tests_dir.rglob("*.py"):
-            if any(part.startswith(".") or part == "__pycache__" for part in item.parts):
+        for item in tests_dir.iterdir():
+            if item.name.startswith(".") or item.name == "__pycache__":
                 continue
-            if item.name.startswith("test_") or item.name in {"__init__.py", "conftest.py"}:
-                continue
-            detected.add(item.stem)
+            if item.is_dir() and (item / "__init__.py").exists():
+                detected.add(item.name)
+            elif item.suffix == ".py":
+                if item.name == "conftest.py":
+                    detected.add("conftest")
+                elif not item.name.startswith("test_") and item.name != "__init__.py":
+                    detected.add(item.stem)
 
     return detected
 
@@ -290,7 +294,7 @@ def extract_imports_from_file(file_path: Path) -> set[str]:
             for alias in node.names:
                 module = alias.name.split(".")[0]
                 imports.add(module)
-        elif isinstance(node, ast.ImportFrom) and node.module:
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             module = node.module.split(".")[0]
             imports.add(module)
 

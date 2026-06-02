@@ -42,6 +42,28 @@ def test_detect_local_project_modules_finds_packages_and_modules(
     assert "root_module" in detected
 
 
+def test_detect_local_project_modules_finds_top_level_test_helpers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "conftest.py").write_text("FIXTURE = object()\n", encoding="utf-8")
+    (tests_dir / "helpers.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tests_dir / "test_helpers.py").write_text("import pandas\n", encoding="utf-8")
+    (tests_dir / "support").mkdir()
+    (tests_dir / "support" / "__init__.py").write_text("", encoding="utf-8")
+    (tests_dir / "baseline").mkdir()
+    (tests_dir / "baseline" / "adapter.py").write_text("VALUE = 2\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+
+    detected = std._detect_local_project_modules()
+
+    assert {"conftest", "helpers", "support"}.issubset(detected)
+    assert "test_helpers" not in detected
+    assert "adapter" not in detected
+
+
 def test_extract_imports_from_file_parses_top_level_imports(tmp_path: Path) -> None:
     sample = tmp_path / "sample.py"
     sample.write_text(
@@ -61,6 +83,25 @@ def test_extract_imports_from_file_parses_top_level_imports(tmp_path: Path) -> N
     imports = std.extract_imports_from_file(sample)
 
     assert imports == {"os", "requests", "yaml", "pkg"}
+
+
+def test_extract_imports_from_file_ignores_relative_import_modules(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.py"
+    sample.write_text(
+        "\n".join(
+            [
+                "from .adapter import Adapter",
+                "from ..conftest import fixture",
+                "from requests import Session",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    imports = std.extract_imports_from_file(sample)
+
+    assert imports == {"requests"}
 
 
 def test_extract_imports_from_file_handles_parse_errors(tmp_path: Path) -> None:
@@ -237,8 +278,9 @@ def test_find_missing_dependencies_ignores_test_helper_modules(
     helper_dir = tmp_path / "tests" / "baseline"
     helper_dir.mkdir(parents=True)
     (helper_dir / "adapter.py").write_text("value = 1\n", encoding="utf-8")
+    (helper_dir / "conftest.py").write_text("fixture_value = 1\n", encoding="utf-8")
     (helper_dir / "test_adapter.py").write_text(
-        "import adapter\nimport requests\nimport pandas\n",
+        "from .adapter import value\nfrom .conftest import fixture_value\nimport requests\nimport pandas\n",
         encoding="utf-8",
     )
 
@@ -246,6 +288,36 @@ def test_find_missing_dependencies_ignores_test_helper_modules(
     monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
 
     assert std.find_missing_dependencies() == {"pandas"}
+
+
+def test_find_missing_dependencies_keeps_nested_helper_stems_available_for_packages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "\n".join(
+            [
+                "[project.optional-dependencies]",
+                "dev = [",
+                '  "requests",',
+                "]",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    helper_dir = tmp_path / "tests" / "baseline"
+    helper_dir.mkdir(parents=True)
+    (helper_dir / "adapter.py").write_text("value = 1\n", encoding="utf-8")
+    (helper_dir / "test_adapter.py").write_text(
+        "import adapter\nimport requests\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
+
+    assert std.find_missing_dependencies() == {"adapter"}
 
 
 def test_find_missing_dependencies_ignores_reviewed_stdlib_and_maps_jwt(
