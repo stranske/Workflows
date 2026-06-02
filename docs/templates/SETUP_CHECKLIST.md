@@ -8,7 +8,7 @@ configuration** and will fail silently if any element is missing.
 > before keepalive started functioning correctly. The lessons learned are encoded
 > in this checklist.
 
-> **See also**: [Consumer Repo Maintenance Guide](../ops/CONSUMER_REPO_MAINTENANCE.md)
+> **See also**: [Consumer Repo Maintenance Guide](https://github.com/stranske/Workflows/blob/main/docs/ops/CONSUMER_REPO_MAINTENANCE.md)
 > for debugging issues across multiple repos.
 
 ---
