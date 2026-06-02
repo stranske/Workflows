@@ -64,6 +64,26 @@ def test_detect_local_project_modules_finds_top_level_test_helpers(
     assert "adapter" not in detected
 
 
+def test_detect_local_project_modules_does_not_mask_packaged_tests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+    (tests_dir / "conftest.py").write_text("FIXTURE = object()\n", encoding="utf-8")
+    (tests_dir / "helpers.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tests_dir / "api").mkdir()
+    (tests_dir / "api" / "__init__.py").write_text("", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+
+    detected = std._detect_local_project_modules()
+
+    assert "conftest" in detected
+    assert "helpers" not in detected
+    assert "api" not in detected
+
+
 def test_extract_imports_from_file_parses_top_level_imports(tmp_path: Path) -> None:
     sample = tmp_path / "sample.py"
     sample.write_text(

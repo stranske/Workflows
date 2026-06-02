@@ -184,8 +184,13 @@ def _detect_local_project_modules() -> set[str]:
 
     tests_dir = Path("tests")
     if tests_dir.is_dir():
+        tests_is_package = (tests_dir / "__init__.py").exists()
         for item in tests_dir.iterdir():
             if item.name.startswith(".") or item.name == "__pycache__":
+                continue
+            if tests_is_package:
+                if item.name == "conftest.py":
+                    detected.add("conftest")
                 continue
             if item.is_dir() and (item / "__init__.py").exists():
                 detected.add(item.name)
