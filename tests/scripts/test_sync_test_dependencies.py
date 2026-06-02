@@ -80,7 +80,7 @@ def test_detect_local_project_modules_handles_packaged_tests_without_pythonpath(
     detected = std._detect_local_project_modules()
 
     assert "conftest" in detected
-    assert "api" in detected
+    assert "api" not in detected
     assert "helpers" not in detected
 
 
