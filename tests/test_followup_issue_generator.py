@@ -111,6 +111,37 @@ def test_parse_checklist_drops_placeholder_checkboxes() -> None:
     ]
 
 
+def test_generate_without_llm_adds_fallback_acceptance_when_placeholders_filter_out() -> None:
+    original_issue = extract_original_issue_data("""
+## Why
+Verifier follow-up needed.
+
+## Tasks
+- [ ] Fix the reported issue
+
+## Acceptance Criteria
+- [ ] _Not provided._
+""")
+    verification_data = VerificationData(
+        provider_verdicts={"openai": {"verdict": "CONCERNS", "confidence": 80}},
+        concerns=["Missing regression coverage"],
+    )
+
+    followup = generate_followup_issue(
+        verification_data=verification_data,
+        original_issue=original_issue,
+        pr_number=321,
+        use_llm=False,
+    )
+
+    assert original_issue.acceptance_criteria == []
+    assert "- [ ] _Not provided._" not in followup.body
+    assert (
+        "- [ ] Verification concerns from PR #321 are addressed and follow-up "
+        "verification passes."
+    ) in followup.body
+
+
 def test_select_followup_acceptance_criteria_keeps_workflow_items_for_workflow_feedback() -> None:
     original_issue = OriginalIssueData(
         title="Mixed verifier follow-up",

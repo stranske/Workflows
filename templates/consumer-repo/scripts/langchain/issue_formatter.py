@@ -18,10 +18,12 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from scripts.langchain.checklist_utils import is_placeholder_checklist_text
     from scripts.langchain.injection_guard import check_prompt_injection
     from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
     from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ImportError:  # pragma: no cover - fallback for direct invocation
+    from checklist_utils import is_placeholder_checklist_text
     from injection_guard import check_prompt_injection
     from issue_pr_context import ContextOptions, build_issue_context
     from trace_utils import TraceInfo, invoke_with_trace
@@ -183,21 +185,6 @@ def _normalize_non_action_lines(lines: list[str]) -> list[str]:
     return cleaned
 
 
-def _is_placeholder_checklist_text(text: str) -> bool:
-    stripped = text.strip()
-    normalized = stripped.strip("_").strip()
-    return normalized in {
-        "",
-        "---",
-        "Not provided.",
-    } or (
-        stripped.startswith("_")
-        and stripped.endswith("_")
-        and normalized.startswith("Filed from ")
-        and " review" in normalized
-    )
-
-
 def _normalize_checklist_lines(lines: list[str]) -> list[str]:
     cleaned: list[str] = []
     in_fence = False
@@ -219,14 +206,14 @@ def _normalize_checklist_lines(lines: list[str]) -> list[str]:
             if checkbox:
                 mark = "x" if checkbox.group(1).lower() == "x" else " "
                 text = checkbox.group(2).strip()
-                if text and not _is_placeholder_checklist_text(text):
+                if text and not is_placeholder_checklist_text(text):
                     cleaned.append(f"{indent}- [{mark}] {text}")
                 continue
             text = remainder.strip()
-            if not _is_placeholder_checklist_text(text):
+            if not is_placeholder_checklist_text(text):
                 cleaned.append(f"{indent}- [ ] {text}")
         else:
-            if not _is_placeholder_checklist_text(stripped):
+            if not is_placeholder_checklist_text(stripped):
                 cleaned.append(f"- [ ] {stripped}")
     return cleaned
 

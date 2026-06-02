@@ -504,6 +504,9 @@ scripts:
   - source: scripts/langchain/verifier_config.py
     description: "Shared verifier prompt budgets, schema-repair policy, and terminal artifact validation"
 
+  - source: scripts/langchain/checklist_utils.py
+    description: "Shared checklist parsing helpers for issue and follow-up generation"
+
   - source: scripts/langchain/issue_formatter.py
     description: "Issue formatter - converts raw text to AGENT_ISSUE_TEMPLATE format"
 

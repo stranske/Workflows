@@ -32,6 +32,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.langchain.checklist_utils import is_placeholder_checklist_text
+except ImportError:  # pragma: no cover - fallback for direct invocation
+    from checklist_utils import is_placeholder_checklist_text
+
 DEFAULT_TOKEN_BUDGET = 4000
 EVAL_FOLLOW_UP_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 TOKEN_CHARS = 4
@@ -290,21 +295,6 @@ def _truncate_task_to_budget(task: str, budget: int) -> str:
     return best or suffix.strip()
 
 
-def _is_placeholder_checklist_text(text: str) -> bool:
-    stripped = text.strip()
-    normalized = stripped.strip("_").strip()
-    return normalized in {
-        "",
-        "---",
-        "Not provided.",
-    } or (
-        stripped.startswith("_")
-        and stripped.endswith("_")
-        and normalized.startswith("Filed from ")
-        and " review" in normalized
-    )
-
-
 @dataclass
 class VerificationData:
     """Data extracted from verification comments."""
@@ -518,7 +508,7 @@ def extract_original_issue_data(
     for match in checkbox_pattern.finditer(task_section):
         task_text = match.group(2).strip()
         if (
-            task_text and len(task_text) > 3 and not _is_placeholder_checklist_text(task_text)
+            task_text and len(task_text) > 3 and not is_placeholder_checklist_text(task_text)
         ):  # Skip tiny fragments
             data.tasks.append(task_text)
 
@@ -526,7 +516,7 @@ def extract_original_issue_data(
     ac_section = sections.get("acceptance criteria", sections.get("acceptance", ""))
     for match in checkbox_pattern.finditer(ac_section):
         criterion = match.group(2).strip()
-        if criterion and len(criterion) > 3 and not _is_placeholder_checklist_text(criterion):
+        if criterion and len(criterion) > 3 and not is_placeholder_checklist_text(criterion):
             data.acceptance_criteria.append(criterion)
 
     return data
@@ -828,6 +818,8 @@ def _generate_without_llm(
 
     # Use original unmet acceptance criteria
     acceptance_criteria = original_issue.acceptance_criteria[:10]
+    if not acceptance_criteria:
+        acceptance_criteria = [_fallback_followup_acceptance_criterion(pr_number)]
 
     # Build body
     body_parts = [
@@ -914,6 +906,13 @@ def _generate_without_llm(
         title=title,
         body="\n".join(body_parts),
         labels=["follow-up", "agents:optimize"],
+    )
+
+
+def _fallback_followup_acceptance_criterion(pr_number: int) -> str:
+    return (
+        f"Verification concerns from PR #{pr_number} are addressed and follow-up "
+        "verification passes."
     )
 
 
