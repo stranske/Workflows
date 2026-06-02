@@ -64,7 +64,7 @@ def test_detect_local_project_modules_finds_top_level_test_helpers(
     assert "adapter" not in detected
 
 
-def test_detect_local_project_modules_does_not_mask_packaged_tests(
+def test_detect_local_project_modules_handles_packaged_tests_without_pythonpath(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     tests_dir = tmp_path / "tests"
@@ -80,8 +80,38 @@ def test_detect_local_project_modules_does_not_mask_packaged_tests(
     detected = std._detect_local_project_modules()
 
     assert "conftest" in detected
-    assert "helpers" in detected
-    assert "api" not in detected
+    assert "api" in detected
+    assert "helpers" not in detected
+
+
+def test_detect_local_project_modules_keeps_packaged_test_helpers_on_pythonpath(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "\n".join(
+            [
+                "[tool.pytest.ini_options]",
+                'pythonpath = ["tests"]',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+    (tests_dir / "conftest.py").write_text("FIXTURE = object()\n", encoding="utf-8")
+    (tests_dir / "helpers.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tests_dir / "api").mkdir()
+    (tests_dir / "api" / "__init__.py").write_text("", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
+
+    detected = std._detect_local_project_modules()
+
+    assert {"api", "conftest", "helpers"}.issubset(detected)
 
 
 def test_extract_imports_from_file_parses_top_level_imports(tmp_path: Path) -> None:
@@ -347,6 +377,9 @@ def test_find_missing_dependencies_ignores_packaged_top_level_test_helpers(
     pyproject.write_text(
         "\n".join(
             [
+                "[tool.pytest.ini_options]",
+                'pythonpath = ["tests"]',
+                "",
                 "[project.optional-dependencies]",
                 "dev = [",
                 '  "requests",',

@@ -185,13 +185,18 @@ def _detect_local_project_modules() -> set[str]:
     tests_dir = Path("tests")
     if tests_dir.is_dir():
         tests_is_package = (tests_dir / "__init__.py").exists()
+        tests_on_pythonpath = _tests_dir_on_pythonpath()
         for item in tests_dir.iterdir():
             if item.name.startswith(".") or item.name == "__pycache__":
                 continue
             if tests_is_package:
                 if item.name == "conftest.py":
                     detected.add("conftest")
+                elif item.is_dir() and (item / "__init__.py").exists():
+                    detected.add(item.name)
                 elif (
+                    tests_on_pythonpath
+                    and
                     item.suffix == ".py"
                     and not item.name.startswith("test_")
                     and item.name != "__init__.py"
@@ -207,6 +212,31 @@ def _detect_local_project_modules() -> set[str]:
                     detected.add(item.stem)
 
     return detected
+
+
+def _tests_dir_on_pythonpath() -> bool:
+    if not PYPROJECT_FILE.exists():
+        return False
+    try:
+        with PYPROJECT_FILE.open("rb") as fh:
+            data = tomllib.load(fh)
+    except (OSError, tomllib.TOMLDecodeError):
+        return False
+
+    pytest_options = (
+        data.get("tool", {}).get("pytest", {}).get("ini_options", {})
+        if isinstance(data, dict)
+        else {}
+    )
+    pythonpath = pytest_options.get("pythonpath", [])
+    if isinstance(pythonpath, str):
+        entries = pythonpath.split()
+    elif isinstance(pythonpath, list):
+        entries = [str(entry) for entry in pythonpath]
+    else:
+        entries = []
+
+    return any(entry.strip().rstrip("/").removeprefix("./") == "tests" for entry in entries)
 
 
 def _read_local_modules() -> set[str]:
