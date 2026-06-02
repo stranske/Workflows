@@ -11,4 +11,9 @@ import yaml
 def load_catalog(path: str | Path) -> dict[str, Any]:
     """Load a scenario catalog YAML file into a dict."""
     with Path(path).open() as fh:
-        return cast(dict[str, Any], yaml.safe_load(fh) or {})
+        loaded = yaml.safe_load(fh)
+    if loaded is None:
+        return {}
+    if not isinstance(loaded, dict):
+        raise ValueError("Catalog YAML must contain a mapping at the top level.")
+    return cast(dict[str, Any], loaded)
