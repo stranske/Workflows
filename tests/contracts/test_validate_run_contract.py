@@ -90,7 +90,7 @@ def test_candidate_status_repo_is_skipped() -> None:
     assert report.conformant
 
 
-def test_cli_exit_codes(tmp_path) -> None:
+def test_cli_exit_codes(tmp_path, capsys) -> None:
     mod = _import_validator()
     # Valid -> exit 0.
     rc = mod.main(
@@ -136,11 +136,12 @@ def test_cli_exit_codes(tmp_path) -> None:
     assert rc == 0
 
     # Bad/missing manifests are load errors, not traceback crashes.
+    missing_manifest = tmp_path / "missing-manifest.json"
     rc = mod.main(
         [
             str(FIXTURES / "valid_run.json"),
             "--manifest",
-            str(tmp_path / "missing-manifest.json"),
+            str(missing_manifest),
             "--registry",
             str(REGISTRY),
             "--schema-dir",
@@ -150,6 +151,8 @@ def test_cli_exit_codes(tmp_path) -> None:
         ]
     )
     assert rc == 2
+    captured = capsys.readouterr()
+    assert f"ERROR: cannot load artifact manifest {missing_manifest}:" in captured.err
 
     bad_manifest = tmp_path / "bad-manifest.json"
     bad_manifest.write_text("{not json", encoding="utf-8")
@@ -167,6 +170,8 @@ def test_cli_exit_codes(tmp_path) -> None:
         ]
     )
     assert rc == 2
+    captured = capsys.readouterr()
+    assert f"ERROR: cannot load artifact manifest {bad_manifest}:" in captured.err
 
 
 def test_missing_envelope_skips_for_candidate_and_planned_and_absent(tmp_path) -> None:

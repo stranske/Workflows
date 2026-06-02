@@ -330,7 +330,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             manifest = _load_json(args.manifest) if args.manifest else None
         except (OSError, json.JSONDecodeError) as exc:
-            print(f"ERROR: cannot load artifact manifest: {exc}", file=sys.stderr)
+            print(f"ERROR: cannot load artifact manifest {args.manifest}: {exc}", file=sys.stderr)
             return 2
         report = validate_envelope(
             envelope=envelope,
