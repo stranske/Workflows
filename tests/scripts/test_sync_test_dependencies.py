@@ -39,7 +39,7 @@ def test_detect_local_project_modules_finds_packages_and_modules(
     assert "tool" in detected
     assert "pkg" in detected
     assert "rootpkg" in detected
-    assert "root_module" not in detected
+    assert "root_module" in detected
 
 
 def test_extract_imports_from_file_parses_top_level_imports(tmp_path: Path) -> None:

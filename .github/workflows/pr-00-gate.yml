@@ -44,7 +44,10 @@ jobs:
       cache: ${{ steps.python_ci_toggles.outputs.cache || 'true' }}
       pytest_markers: >-
         ${{ steps.python_ci_toggles.outputs.pytest_markers || 'not quarantine and not slow' }}
-      workflow_changed: ${{ steps.classify.outputs.is-workflow-change || steps.diff.outputs.workflow_changed || 'false' }}
+      workflow_changed: >-
+        ${{ steps.classify.outputs.is-workflow-change
+        || steps.diff.outputs.workflow_changed
+        || 'false' }}
       is_docs_only: ${{ steps.classify.outputs.is-docs-only || 'false' }}
       is_python_code: ${{ steps.classify.outputs.is-python-code || 'true' }}
       is_workflow_change: ${{ steps.classify.outputs.is-workflow-change || 'false' }}
@@ -198,15 +201,34 @@ jobs:
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Detect optional script test suites
+        id: script_tests
+        run: |
+          set -euo pipefail
+          if [ -d .github/scripts/__tests__ ]; then
+            echo "node_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "node_tests=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -d tests/workflows/github_scripts ]; then
+            echo "python_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "python_tests=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-node@v6
+        if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
         with:
           node-version: '20'
       - run: node --test .github/scripts/__tests__/*.test.js
+        if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
       - uses: actions/setup-python@v6
+        if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
         with:
           python-version: '3.12'
       - run: python -m pip install --upgrade pip pytest requests
+        if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
       - run: pytest tests/workflows/github_scripts
+        if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
 
   issue-consistency:
     name: issue consistency
@@ -229,15 +251,22 @@ jobs:
           git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
       - uses: actions/setup-python@v6
+        if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         with:
           python-version: '3.12'
       - name: Check issue number consistency
+        if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         run: python scripts/check_issue_consistency.py
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           BASE_REF: ${{ github.base_ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           BASE_REMOTE: upstream
+      - name: Skip issue consistency check
+        if: ${{ hashFiles('scripts/check_issue_consistency.py') == '' }}
+        run: >-
+          echo "scripts/check_issue_consistency.py not present;
+          skipping Workflows-specific issue consistency check."
 
   docker-smoke:
     name: docker smoke
