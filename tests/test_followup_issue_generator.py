@@ -97,6 +97,16 @@ def test_budget_followup_tasks_omits_task_when_suffix_exceeds_budget(
     assert selected == []
 
 
+def test_parse_checklist_drops_placeholder_checkboxes() -> None:
+    lines = [
+        "- [ ] _Filed from the 2026-05-29 design-vs-implementation + blueprint review (upgraded issue set)._",
+        "- [ ] _Not provided._",
+        "- [ ] Add focused regression test",
+    ]
+
+    assert followup_issue_generator._parse_checklist(lines) == ["Add focused regression test"]
+
+
 def test_select_followup_acceptance_criteria_keeps_workflow_items_for_workflow_feedback() -> None:
     original_issue = OriginalIssueData(
         title="Mixed verifier follow-up",

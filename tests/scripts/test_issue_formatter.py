@@ -115,6 +115,19 @@ def test_format_issue_fallback_uses_placeholders() -> None:
     assert acceptance == "- [ ] _Not provided._"
 
 
+def test_normalize_checklist_lines_drops_placeholder_checkboxes() -> None:
+    lines = [
+        "- [ ] ---",
+        "- [ ] _Filed from the 2026-05-29 design-vs-implementation + blueprint review (upgraded issue set)._",
+        "- [ ] _Not provided._",
+        "- [ ] Add focused regression test",
+    ]
+
+    normalized = issue_formatter._normalize_checklist_lines(lines)
+
+    assert normalized == ["- [ ] Add focused regression test"]
+
+
 def test_format_issue_fallback_preserves_raw_issue() -> None:
     raw = "Raw issue text\n\n- bullet"
     result = issue_formatter.format_issue_body(raw, use_llm=False)
