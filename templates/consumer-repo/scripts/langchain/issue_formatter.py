@@ -183,6 +183,21 @@ def _normalize_non_action_lines(lines: list[str]) -> list[str]:
     return cleaned
 
 
+def _is_placeholder_checklist_text(text: str) -> bool:
+    stripped = text.strip()
+    normalized = stripped.strip("_").strip()
+    return normalized in {
+        "",
+        "---",
+        "Not provided.",
+    } or (
+        stripped.startswith("_")
+        and stripped.endswith("_")
+        and normalized.startswith("Filed from ")
+        and " review" in normalized
+    )
+
+
 def _normalize_checklist_lines(lines: list[str]) -> list[str]:
     cleaned: list[str] = []
     in_fence = False
@@ -204,12 +219,15 @@ def _normalize_checklist_lines(lines: list[str]) -> list[str]:
             if checkbox:
                 mark = "x" if checkbox.group(1).lower() == "x" else " "
                 text = checkbox.group(2).strip()
-                if text:
+                if text and not _is_placeholder_checklist_text(text):
                     cleaned.append(f"{indent}- [{mark}] {text}")
                 continue
-            cleaned.append(f"{indent}- [ ] {remainder.strip()}")
+            text = remainder.strip()
+            if not _is_placeholder_checklist_text(text):
+                cleaned.append(f"{indent}- [ ] {text}")
         else:
-            cleaned.append(f"- [ ] {stripped}")
+            if not _is_placeholder_checklist_text(stripped):
+                cleaned.append(f"- [ ] {stripped}")
     return cleaned
 
 

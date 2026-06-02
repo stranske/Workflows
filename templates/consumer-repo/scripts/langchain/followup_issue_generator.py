@@ -290,6 +290,21 @@ def _truncate_task_to_budget(task: str, budget: int) -> str:
     return best or suffix.strip()
 
 
+def _is_placeholder_checklist_text(text: str) -> bool:
+    stripped = text.strip()
+    normalized = stripped.strip("_").strip()
+    return normalized in {
+        "",
+        "---",
+        "Not provided.",
+    } or (
+        stripped.startswith("_")
+        and stripped.endswith("_")
+        and normalized.startswith("Filed from ")
+        and " review" in normalized
+    )
+
+
 @dataclass
 class VerificationData:
     """Data extracted from verification comments."""
@@ -502,14 +517,22 @@ def extract_original_issue_data(
     checkbox_pattern = re.compile(r"^\s*[-*+]\s*\[([ xX])\]\s*(.+)$", re.MULTILINE)
     for match in checkbox_pattern.finditer(task_section):
         task_text = match.group(2).strip()
-        if task_text and len(task_text) > 3:  # Skip tiny fragments
+        if (
+            task_text
+            and len(task_text) > 3
+            and not _is_placeholder_checklist_text(task_text)
+        ):  # Skip tiny fragments
             data.tasks.append(task_text)
 
     # Extract acceptance criteria
     ac_section = sections.get("acceptance criteria", sections.get("acceptance", ""))
     for match in checkbox_pattern.finditer(ac_section):
         criterion = match.group(2).strip()
-        if criterion and len(criterion) > 3:
+        if (
+            criterion
+            and len(criterion) > 3
+            and not _is_placeholder_checklist_text(criterion)
+        ):
             data.acceptance_criteria.append(criterion)
 
     return data

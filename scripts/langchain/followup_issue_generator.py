@@ -877,12 +877,18 @@ def _strip_checkbox(line: str, list_match: re.Match[str] | None = None) -> str:
 
 
 def _is_placeholder_checklist_text(text: str) -> bool:
-    normalized = text.strip().strip("_").strip()
+    stripped = text.strip()
+    normalized = stripped.strip("_").strip()
     return normalized in {
         "",
         "---",
         "Not provided.",
-    } or normalized.startswith("Filed from ")
+    } or (
+        stripped.startswith("_")
+        and stripped.endswith("_")
+        and normalized.startswith("Filed from ")
+        and " review" in normalized
+    )
 
 
 def _parse_checklist(lines: list[str]) -> list[str]:

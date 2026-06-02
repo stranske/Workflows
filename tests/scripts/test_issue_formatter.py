@@ -121,11 +121,15 @@ def test_normalize_checklist_lines_drops_placeholder_checkboxes() -> None:
         "- [ ] _Filed from the 2026-05-29 design-vs-implementation + blueprint review (upgraded issue set)._",
         "- [ ] _Not provided._",
         "- [ ] Add focused regression test",
+        "- [ ] Filed from intake form preserves source metadata",
     ]
 
     normalized = issue_formatter._normalize_checklist_lines(lines)
 
-    assert normalized == ["- [ ] Add focused regression test"]
+    assert normalized == [
+        "- [ ] Add focused regression test",
+        "- [ ] Filed from intake form preserves source metadata",
+    ]
 
 
 def test_format_issue_fallback_preserves_raw_issue() -> None:
