@@ -33,9 +33,13 @@ from pathlib import Path
 from typing import Any
 
 from scripts.langchain import verdict_policy
-from scripts.langchain.checklist_utils import is_placeholder_checklist_text
 from scripts.langchain.issue_pr_context import estimate_tokens
 from scripts.langchain.verifier_config import EVAL_FOLLOW_UP_BUDGET_TOKENS
+
+try:
+    from scripts.langchain.checklist_utils import is_placeholder_checklist_text
+except ImportError:  # pragma: no cover - fallback for direct invocation
+    from checklist_utils import is_placeholder_checklist_text
 
 try:
     from scripts.langchain.injection_guard import check_prompt_injection
