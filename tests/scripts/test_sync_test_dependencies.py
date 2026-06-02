@@ -80,7 +80,7 @@ def test_detect_local_project_modules_does_not_mask_packaged_tests(
     detected = std._detect_local_project_modules()
 
     assert "conftest" in detected
-    assert "helpers" not in detected
+    assert "helpers" in detected
     assert "api" not in detected
 
 
@@ -338,6 +338,37 @@ def test_find_missing_dependencies_keeps_nested_helper_stems_available_for_packa
     monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
 
     assert std.find_missing_dependencies() == {"adapter"}
+
+
+def test_find_missing_dependencies_ignores_packaged_top_level_test_helpers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "\n".join(
+            [
+                "[project.optional-dependencies]",
+                "dev = [",
+                '  "requests",',
+                "]",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+    (tests_dir / "expected_cli_outputs.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tests_dir / "test_cli.py").write_text(
+        "from expected_cli_outputs import VALUE\nimport requests\nimport pandas\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
+
+    assert std.find_missing_dependencies() == {"pandas"}
 
 
 def test_find_missing_dependencies_ignores_reviewed_stdlib_and_maps_jwt(

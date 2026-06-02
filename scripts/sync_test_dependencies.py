@@ -191,6 +191,12 @@ def _detect_local_project_modules() -> set[str]:
             if tests_is_package:
                 if item.name == "conftest.py":
                     detected.add("conftest")
+                elif (
+                    item.suffix == ".py"
+                    and not item.name.startswith("test_")
+                    and item.name != "__init__.py"
+                ):
+                    detected.add(item.stem)
                 continue
             if item.is_dir() and (item / "__init__.py").exists():
                 detected.add(item.name)
