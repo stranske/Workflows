@@ -518,9 +518,7 @@ def extract_original_issue_data(
     for match in checkbox_pattern.finditer(task_section):
         task_text = match.group(2).strip()
         if (
-            task_text
-            and len(task_text) > 3
-            and not _is_placeholder_checklist_text(task_text)
+            task_text and len(task_text) > 3 and not _is_placeholder_checklist_text(task_text)
         ):  # Skip tiny fragments
             data.tasks.append(task_text)
 
@@ -528,11 +526,7 @@ def extract_original_issue_data(
     ac_section = sections.get("acceptance criteria", sections.get("acceptance", ""))
     for match in checkbox_pattern.finditer(ac_section):
         criterion = match.group(2).strip()
-        if (
-            criterion
-            and len(criterion) > 3
-            and not _is_placeholder_checklist_text(criterion)
-        ):
+        if criterion and len(criterion) > 3 and not _is_placeholder_checklist_text(criterion):
             data.acceptance_criteria.append(criterion)
 
     return data
