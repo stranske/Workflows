@@ -196,8 +196,7 @@ def _detect_local_project_modules() -> set[str]:
                     detected.add(item.name)
                 elif (
                     tests_on_pythonpath
-                    and
-                    item.suffix == ".py"
+                    and item.suffix == ".py"
                     and not item.name.startswith("test_")
                     and item.name != "__init__.py"
                 ):
