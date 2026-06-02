@@ -182,6 +182,15 @@ def _detect_local_project_modules() -> set[str]:
             elif item.suffix == ".py":
                 detected.add(item.stem)
 
+    tests_dir = Path("tests")
+    if tests_dir.is_dir():
+        for item in tests_dir.rglob("*.py"):
+            if any(part.startswith(".") or part == "__pycache__" for part in item.parts):
+                continue
+            if item.name.startswith("test_") or item.name in {"__init__.py", "conftest.py"}:
+                continue
+            detected.add(item.stem)
+
     return detected
 
 

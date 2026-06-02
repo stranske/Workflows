@@ -218,6 +218,36 @@ def test_find_missing_dependencies_ignores_local_and_mapped_modules(
     assert std.find_missing_dependencies() == {"pandas"}
 
 
+def test_find_missing_dependencies_ignores_test_helper_modules(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "\n".join(
+            [
+                "[project.optional-dependencies]",
+                "dev = [",
+                '  "requests",',
+                "]",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    helper_dir = tmp_path / "tests" / "baseline"
+    helper_dir.mkdir(parents=True)
+    (helper_dir / "adapter.py").write_text("value = 1\n", encoding="utf-8")
+    (helper_dir / "test_adapter.py").write_text(
+        "import adapter\nimport requests\nimport pandas\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
+
+    assert std.find_missing_dependencies() == {"pandas"}
+
+
 def test_find_missing_dependencies_ignores_reviewed_stdlib_and_maps_jwt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
