@@ -33,10 +33,15 @@ else:
     TOMLKIT_ERROR = None
 
 PYPROJECT_FILE = Path("pyproject.toml")
-PYTEST_TOML_FILE = Path("pytest.toml")
+PYTEST_TOML_FILES = (
+    Path("pytest.toml"),
+    Path(".pytest.toml"),
+)
 PYTEST_INI_CONFIGS = (
     (Path("pytest.ini"), ("pytest",)),
     (Path(".pytest.ini"), ("pytest",)),
+)
+PYTEST_FALLBACK_INI_CONFIGS = (
     (Path("tox.ini"), ("pytest",)),
     (Path("setup.cfg"), ("tool:pytest", "pytest")),
 )
@@ -274,11 +279,13 @@ def _tests_dir_on_pyproject_pythonpath(config_file: Path) -> bool:
     pytest_config = tool.get("pytest")
     if not isinstance(pytest_config, dict):
         return False
+    if _pythonpath_has_tests(pytest_config.get("pythonpath", [])):
+        return True
     pytest_options = pytest_config.get("ini_options")
-    if not isinstance(pytest_options, dict):
-        return False
+    if isinstance(pytest_options, dict):
+        return _pythonpath_has_tests(pytest_options.get("pythonpath", []))
 
-    return _pythonpath_has_tests(pytest_options.get("pythonpath", []))
+    return False
 
 
 def _tests_dir_on_ini_pythonpath(config_file: Path, section_names: tuple[str, ...]) -> bool:
@@ -300,9 +307,10 @@ def _tests_dir_on_ini_pythonpath(config_file: Path, section_names: tuple[str, ..
 
 
 def _tests_dir_on_pythonpath() -> bool:
-    pytest_toml = _resolve_config_path(PYTEST_TOML_FILE)
-    if pytest_toml.exists():
-        return _tests_dir_on_pytest_toml_pythonpath(pytest_toml)
+    for config_file in PYTEST_TOML_FILES:
+        pytest_toml = _resolve_config_path(config_file)
+        if pytest_toml.exists():
+            return _tests_dir_on_pytest_toml_pythonpath(pytest_toml)
 
     for config_file, section_names in PYTEST_INI_CONFIGS:
         resolved_config = _resolve_config_path(config_file)
@@ -312,6 +320,11 @@ def _tests_dir_on_pythonpath() -> bool:
     pyproject = _resolve_config_path(PYPROJECT_FILE)
     if pyproject.exists():
         return _tests_dir_on_pyproject_pythonpath(pyproject)
+
+    for config_file, section_names in PYTEST_FALLBACK_INI_CONFIGS:
+        resolved_config = _resolve_config_path(config_file)
+        if resolved_config.exists():
+            return _tests_dir_on_ini_pythonpath(resolved_config, section_names)
     return False
 
 

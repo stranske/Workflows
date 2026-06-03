@@ -121,6 +121,7 @@ def test_detect_local_project_modules_keeps_packaged_test_helpers_on_pythonpath(
         (".pytest.ini", "[pytest]"),
         ("tox.ini", "[pytest]"),
         ("setup.cfg", "[tool:pytest]"),
+        ("setup.cfg", "[pytest]"),
     ],
 )
 def test_detect_local_project_modules_reads_ini_pythonpath_for_packaged_tests(
@@ -151,10 +152,11 @@ def test_detect_local_project_modules_reads_ini_pythonpath_for_packaged_tests(
     assert "helpers" in detected
 
 
+@pytest.mark.parametrize("config_name", ["pytest.toml", ".pytest.toml"])
 def test_detect_local_project_modules_reads_pytest_toml_pythonpath_for_packaged_tests(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, config_name: str
 ) -> None:
-    (tmp_path / "pytest.toml").write_text(
+    (tmp_path / config_name).write_text(
         "\n".join(
             [
                 "[pytest]",
@@ -171,6 +173,33 @@ def test_detect_local_project_modules_reads_pytest_toml_pythonpath_for_packaged_
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(std, "PYPROJECT_FILE", tmp_path / "pyproject.toml")
+
+    detected = std._detect_local_project_modules()
+
+    assert "helpers" in detected
+
+
+def test_detect_local_project_modules_reads_native_pyproject_pythonpath_for_packaged_tests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "\n".join(
+            [
+                "[tool.pytest]",
+                'pythonpath = ["tests"]',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+    (tests_dir / "helpers.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
 
     detected = std._detect_local_project_modules()
 
@@ -194,6 +223,28 @@ def test_tests_dir_on_pythonpath_uses_first_existing_pytest_config(
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(std, "PYPROJECT_FILE", tmp_path / "pyproject.toml")
+
+    assert std._tests_dir_on_pythonpath() is False
+
+
+def test_tests_dir_on_pythonpath_uses_pyproject_before_tox_ini(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[tool.pytest.ini_options]\naddopts = '-q'\n", encoding="utf-8")
+    (tmp_path / "tox.ini").write_text(
+        "\n".join(
+            [
+                "[pytest]",
+                "pythonpath = tests",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
 
     assert std._tests_dir_on_pythonpath() is False
 
