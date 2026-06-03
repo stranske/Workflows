@@ -114,6 +114,124 @@ def test_detect_local_project_modules_keeps_packaged_test_helpers_on_pythonpath(
     assert {"api", "conftest", "helpers"}.issubset(detected)
 
 
+@pytest.mark.parametrize(
+    "config_name, section",
+    [
+        ("pytest.ini", "[pytest]"),
+        (".pytest.ini", "[pytest]"),
+        ("tox.ini", "[pytest]"),
+        ("setup.cfg", "[tool:pytest]"),
+    ],
+)
+def test_detect_local_project_modules_reads_ini_pythonpath_for_packaged_tests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, config_name: str, section: str
+) -> None:
+    (tmp_path / config_name).write_text(
+        "\n".join(
+            [
+                section,
+                "pythonpath =",
+                "    src",
+                "    tests",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+    (tests_dir / "helpers.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", tmp_path / "pyproject.toml")
+
+    detected = std._detect_local_project_modules()
+
+    assert "helpers" in detected
+
+
+def test_detect_local_project_modules_reads_pytest_toml_pythonpath_for_packaged_tests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "pytest.toml").write_text(
+        "\n".join(
+            [
+                "[pytest]",
+                'pythonpath = ["src", "tests"]',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+    (tests_dir / "helpers.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", tmp_path / "pyproject.toml")
+
+    detected = std._detect_local_project_modules()
+
+    assert "helpers" in detected
+
+
+def test_tests_dir_on_pythonpath_uses_first_existing_pytest_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "pytest.ini").write_text("[pytest]\naddopts = -q\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        "\n".join(
+            [
+                "[tool.pytest.ini_options]",
+                'pythonpath = ["tests"]',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", tmp_path / "pyproject.toml")
+
+    assert std._tests_dir_on_pythonpath() is False
+
+
+@pytest.mark.parametrize(
+    "pyproject_contents",
+    [
+        '[tool]\npytest = "not-a-table"\n',
+        '[tool.pytest]\nini_options = "not-a-table"\n',
+    ],
+)
+def test_tests_dir_on_pythonpath_ignores_non_table_pyproject_shapes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyproject_contents: str
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(pyproject_contents, encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
+
+    assert std._tests_dir_on_pythonpath() is False
+
+
+def test_detect_local_project_modules_skips_pythonpath_read_for_unpackaged_tests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "helpers.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "_tests_dir_on_pythonpath", lambda: pytest.fail("unexpected read"))
+
+    detected = std._detect_local_project_modules()
+
+    assert "helpers" in detected
+
+
 def test_extract_imports_from_file_parses_top_level_imports(tmp_path: Path) -> None:
     sample = tmp_path / "sample.py"
     sample.write_text(
