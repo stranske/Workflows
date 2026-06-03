@@ -264,7 +264,7 @@ def _tests_dir_on_pytest_toml_pythonpath(config_file: Path) -> bool:
     return _pythonpath_has_tests(pytest_options.get("pythonpath", []))
 
 
-def _tests_dir_on_pyproject_pythonpath(config_file: Path) -> bool:
+def _tests_dir_on_pyproject_pythonpath(config_file: Path) -> bool | None:
     try:
         with config_file.open("rb") as fh:
             data = tomllib.load(fh)
@@ -272,13 +272,13 @@ def _tests_dir_on_pyproject_pythonpath(config_file: Path) -> bool:
         return False
 
     if not isinstance(data, dict):
-        return False
+        return None
     tool = data.get("tool")
     if not isinstance(tool, dict):
-        return False
+        return None
     pytest_config = tool.get("pytest")
     if not isinstance(pytest_config, dict):
-        return False
+        return False if "pytest" in tool else None
     if _pythonpath_has_tests(pytest_config.get("pythonpath", [])):
         return True
     pytest_options = pytest_config.get("ini_options")
@@ -289,7 +289,7 @@ def _tests_dir_on_pyproject_pythonpath(config_file: Path) -> bool:
 
 
 def _tests_dir_on_ini_pythonpath(config_file: Path, section_names: tuple[str, ...]) -> bool:
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(interpolation=None)
     try:
         read_files = config.read(config_file, encoding="utf-8")
     except (configparser.Error, OSError, UnicodeDecodeError):
@@ -298,9 +298,13 @@ def _tests_dir_on_ini_pythonpath(config_file: Path, section_names: tuple[str, ..
         return False
 
     for section_name in section_names:
-        if config.has_option(section_name, "pythonpath") and _pythonpath_has_tests(
-            config.get(section_name, "pythonpath")
-        ):
+        if not config.has_option(section_name, "pythonpath"):
+            continue
+        try:
+            pythonpath = config.get(section_name, "pythonpath", raw=True)
+        except configparser.Error:
+            return False
+        if _pythonpath_has_tests(pythonpath):
             return True
 
     return False
@@ -319,7 +323,9 @@ def _tests_dir_on_pythonpath() -> bool:
 
     pyproject = _resolve_config_path(PYPROJECT_FILE)
     if pyproject.exists():
-        return _tests_dir_on_pyproject_pythonpath(pyproject)
+        pyproject_result = _tests_dir_on_pyproject_pythonpath(pyproject)
+        if pyproject_result is not None:
+            return pyproject_result
 
     for config_file, section_names in PYTEST_FALLBACK_INI_CONFIGS:
         resolved_config = _resolve_config_path(config_file)

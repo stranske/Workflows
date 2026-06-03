@@ -249,6 +249,33 @@ def test_tests_dir_on_pythonpath_uses_pyproject_before_tox_ini(
     assert std._tests_dir_on_pythonpath() is False
 
 
+def test_tests_dir_on_pythonpath_falls_back_when_pyproject_has_no_pytest_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[project]\nname = 'sample'\n", encoding="utf-8")
+    (tmp_path / "tox.ini").write_text("[pytest]\npythonpath = tests\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
+
+    assert std._tests_dir_on_pythonpath() is True
+
+
+def test_tests_dir_on_pythonpath_reads_ini_values_without_interpolation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "pytest.ini").write_text(
+        "[pytest]\npythonpath = tests %(missing_value)s\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(std, "PYPROJECT_FILE", tmp_path / "pyproject.toml")
+
+    assert std._tests_dir_on_pythonpath() is True
+
+
 @pytest.mark.parametrize(
     "pyproject_contents",
     [
