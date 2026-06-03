@@ -265,11 +265,12 @@ def _tests_dir_on_pytest_toml_pythonpath(config_file: Path) -> bool:
 
 
 def _tests_dir_on_pyproject_pythonpath(config_file: Path) -> bool | None:
+    """Return None when pyproject has no usable pytest config and fallback files should be checked."""
     try:
         with config_file.open("rb") as fh:
             data = tomllib.load(fh)
     except (OSError, tomllib.TOMLDecodeError):
-        return False
+        return None
 
     if not isinstance(data, dict):
         return None
