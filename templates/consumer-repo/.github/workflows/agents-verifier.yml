@@ -86,7 +86,7 @@ jobs:
       fingerprint_current_hash: ${{ steps.fingerprint.outputs.current_hash }}
     steps:
       - name: Checkout retry helpers
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -329,7 +329,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout state fingerprint helper
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           sparse-checkout: scripts/state_fingerprint.py
           sparse-checkout-cone-mode: false

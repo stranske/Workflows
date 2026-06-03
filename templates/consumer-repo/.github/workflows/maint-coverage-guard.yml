@@ -33,7 +33,7 @@ jobs:
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
 
       - name: Checkout retry helpers
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
@@ -117,7 +117,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Locate latest Gate workflow run
         id: discover
