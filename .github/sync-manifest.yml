@@ -208,6 +208,7 @@ scripts:
 
   - source: tools/requirements-llm.txt
     description: "Pinned LLM dependencies - required by agents-auto-pilot.yml"
+    template_sync: exact
 
   - source: tools/coverage_trend.py
     description: "Generates coverage trend summaries - required by reusable CI workflow"
