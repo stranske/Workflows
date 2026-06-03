@@ -228,14 +228,17 @@ def _detect_local_project_modules() -> set[str]:
 
 def _pythonpath_has_tests(pythonpath: Any) -> bool:
     if isinstance(pythonpath, str):
-        entries = pythonpath.split()
+        entries = re.split(r"[\s,]+", pythonpath)
     elif isinstance(pythonpath, list):
-        entries = [str(entry) for entry in pythonpath]
+        entries = [
+            candidate for entry in pythonpath for candidate in re.split(r"[\s,]+", str(entry))
+        ]
     else:
         entries = []
 
     return any(
-        entry.strip().strip('"').strip("'").rstrip("/").removeprefix("./") == "tests"
+        entry.strip().strip('"').strip("'").replace("\\", "/").rstrip("/").removeprefix("./")
+        == "tests"
         for entry in entries
     )
 
@@ -265,7 +268,7 @@ def _tests_dir_on_pytest_toml_pythonpath(config_file: Path) -> bool:
 
 
 def _tests_dir_on_pyproject_pythonpath(config_file: Path) -> bool | None:
-    """Return None when pyproject has no usable pytest config and fallback files should be checked."""
+    """Return None when pyproject has no readable, usable pytest config."""
     try:
         with config_file.open("rb") as fh:
             data = tomllib.load(fh)
@@ -279,7 +282,7 @@ def _tests_dir_on_pyproject_pythonpath(config_file: Path) -> bool | None:
         return None
     pytest_config = tool.get("pytest")
     if not isinstance(pytest_config, dict):
-        return False if "pytest" in tool else None
+        return None
     if _pythonpath_has_tests(pytest_config.get("pythonpath", [])):
         return True
     pytest_options = pytest_config.get("ini_options")
@@ -323,7 +326,8 @@ def _tests_dir_on_pythonpath() -> bool:
             return _tests_dir_on_ini_pythonpath(resolved_config, section_names)
 
     pyproject = _resolve_config_path(PYPROJECT_FILE)
-    if pyproject.exists():
+    pyproject_exists = pyproject.exists()
+    if pyproject_exists:
         pyproject_result = _tests_dir_on_pyproject_pythonpath(pyproject)
         if pyproject_result is not None:
             return pyproject_result
@@ -332,6 +336,9 @@ def _tests_dir_on_pythonpath() -> bool:
         resolved_config = _resolve_config_path(config_file)
         if resolved_config.exists():
             return _tests_dir_on_ini_pythonpath(resolved_config, section_names)
+
+    if pyproject_exists:
+        return False
     return False
 
 
