@@ -288,7 +288,17 @@ def test_tests_dir_on_pythonpath_falls_back_when_pyproject_is_invalid(
     assert std._tests_dir_on_pythonpath() is True
 
 
-@pytest.mark.parametrize("pythonpath", ["src tests", ".\\tests", ["tests\\"]])
+@pytest.mark.parametrize(
+    "pythonpath",
+    [
+        "src tests",
+        ".\\tests",
+        '"./tests"',
+        'src "./tests"',
+        '"C:\\path with spaces\\tests"',
+        ["tests\\"],
+    ],
+)
 def test_tests_dir_on_pythonpath_accepts_common_path_spellings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pythonpath: object
 ) -> None:
@@ -300,7 +310,7 @@ def test_tests_dir_on_pythonpath_accepts_common_path_spellings(
             encoding="utf-8",
         )
     else:
-        escaped_pythonpath = str(pythonpath).replace("\\", "\\\\")
+        escaped_pythonpath = str(pythonpath).replace("\\", "\\\\").replace('"', '\\"')
         pyproject.write_text(
             f'[tool.pytest]\npythonpath = "{escaped_pythonpath}"\n',
             encoding="utf-8",
@@ -347,6 +357,30 @@ def test_tests_dir_on_pythonpath_reads_ini_values_without_interpolation(
     monkeypatch.setattr(std, "PYPROJECT_FILE", tmp_path / "pyproject.toml")
 
     assert std._tests_dir_on_pythonpath() is True
+
+
+def test_tests_dir_on_ini_pythonpath_checks_next_section_after_read_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class ConfigWithBrokenFirstSection:
+        def read(self, config_file: Path, encoding: str) -> list[str]:
+            return [str(config_file)]
+
+        def has_option(self, section_name: str, option_name: str) -> bool:
+            return section_name in {"tool:pytest", "pytest"} and option_name == "pythonpath"
+
+        def get(self, section_name: str, option_name: str, raw: bool) -> str:
+            if section_name == "tool:pytest":
+                raise std.configparser.Error("bad section")
+            return "tests"
+
+    monkeypatch.setattr(
+        std.configparser,
+        "ConfigParser",
+        lambda interpolation=None: ConfigWithBrokenFirstSection(),
+    )
+
+    assert std._tests_dir_on_ini_pythonpath(tmp_path / "pytest.ini", ("tool:pytest", "pytest"))
 
 
 @pytest.mark.parametrize(

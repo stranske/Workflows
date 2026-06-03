@@ -238,11 +238,14 @@ def _pythonpath_has_tests(pythonpath: Any) -> bool:
     else:
         entries = []
 
-    return any(
-        entry.strip().strip('"').strip("'").replace("\\", "/").rstrip("/").removeprefix("./")
-        == "tests"
-        for entry in entries
-    )
+    return any(_pythonpath_entry_is_tests_dir(entry) for entry in entries)
+
+
+def _pythonpath_entry_is_tests_dir(entry: str) -> bool:
+    normalized = entry.strip().strip('"').strip("'").replace("\\", "/").rstrip("/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized == "tests" or normalized.endswith("/tests")
 
 
 def _config_root() -> Path:
@@ -270,7 +273,7 @@ def _tests_dir_on_pytest_toml_pythonpath(config_file: Path) -> bool:
 
 
 def _tests_dir_on_pyproject_pythonpath(config_file: Path) -> bool | None:
-    """Return None when pyproject has no readable, usable pytest config."""
+    """Return None when pyproject has no usable pytest table or cannot be read."""
     try:
         with config_file.open("rb") as fh:
             data = tomllib.load(fh)
@@ -309,7 +312,7 @@ def _tests_dir_on_ini_pythonpath(config_file: Path, section_names: tuple[str, ..
         try:
             pythonpath = config.get(section_name, "pythonpath", raw=True)
         except configparser.Error:
-            return False
+            continue
         if _pythonpath_has_tests(pythonpath):
             return True
 
@@ -339,8 +342,6 @@ def _tests_dir_on_pythonpath() -> bool:
         if resolved_config.exists():
             return _tests_dir_on_ini_pythonpath(resolved_config, section_names)
 
-    if pyproject_exists:
-        return False
     return False
 
 
