@@ -12,6 +12,7 @@ import argparse
 import ast
 import configparser
 import re
+import shlex
 import sys
 import tomllib
 from pathlib import Path
@@ -228,11 +229,12 @@ def _detect_local_project_modules() -> set[str]:
 
 def _pythonpath_has_tests(pythonpath: Any) -> bool:
     if isinstance(pythonpath, str):
-        entries = re.split(r"[\s,]+", pythonpath)
+        try:
+            entries = shlex.split(pythonpath, posix=False)
+        except ValueError:
+            entries = pythonpath.split()
     elif isinstance(pythonpath, list):
-        entries = [
-            candidate for entry in pythonpath for candidate in re.split(r"[\s,]+", str(entry))
-        ]
+        entries = [str(entry) for entry in pythonpath]
     else:
         entries = []
 
