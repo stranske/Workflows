@@ -3,7 +3,7 @@ from pathlib import Path
 
 from scripts import check_workflow_action_pins
 
-PINNED_CHECKOUT = "de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+PINNED_CHECKOUT = "df4cb1c069e1874edd31b4311f1884172cec0e10"
 PINNED_GITHUB_SCRIPT = "3a2844b7e9c422d3c10d287c895573f7108da1b3"
 
 
@@ -16,7 +16,7 @@ on: push
 jobs:
   test:
     steps:
-      - uses: actions/checkout@{PINNED_CHECKOUT} # v6
+      - uses: actions/checkout@{PINNED_CHECKOUT} # v6.0.3
       - name: Script
         uses: actions/github-script@{PINNED_GITHUB_SCRIPT} # v9
 """,
@@ -104,7 +104,7 @@ on: push
 jobs:
   test:
     steps:
-      - uses: actions/checkout@{PINNED_CHECKOUT} # v6
+      - uses: actions/checkout@{PINNED_CHECKOUT} # v6.0.3
 """,
         encoding="utf-8",
     )
