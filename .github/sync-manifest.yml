@@ -207,7 +207,7 @@ scripts:
     description: "Resolves mypy version pinning - required by reusable CI workflow"
 
   - source: tools/requirements-llm.txt
-    description: "Pinned LLM dependencies - required by agents-auto-pilot.yml"
+    description: "Pinned LLM dependencies - exact-sync guarded for agent workflows"
     template_sync: exact
 
   - source: tools/coverage_trend.py
