@@ -3,13 +3,27 @@ name: Health 72 Template Sync
 on:
   pull_request:
     paths:
+      - '.github/sync-manifest.yml'
       - '.github/scripts/**/*.js'
+      - 'scripts/aggregate_agent_metrics.py'
+      - 'scripts/sync_templates.sh'
+      - 'scripts/validate_template_sync.py'
+      - 'tools/requirements-llm.txt'
       - 'templates/consumer-repo/.github/scripts/**/*.js'
+      - 'templates/consumer-repo/scripts/aggregate_agent_metrics.py'
+      - 'templates/consumer-repo/tools/requirements-llm.txt'
   push:
     branches: [main]
     paths:
+      - '.github/sync-manifest.yml'
       - '.github/scripts/**/*.js'
+      - 'scripts/aggregate_agent_metrics.py'
+      - 'scripts/sync_templates.sh'
+      - 'scripts/validate_template_sync.py'
+      - 'tools/requirements-llm.txt'
       - 'templates/consumer-repo/.github/scripts/**/*.js'
+      - 'templates/consumer-repo/scripts/aggregate_agent_metrics.py'
+      - 'templates/consumer-repo/tools/requirements-llm.txt'
 
 permissions:
   contents: write
@@ -55,11 +69,11 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/sync_templates.sh
-          if [ -n "$(git status --porcelain templates/consumer-repo/.github/scripts)" ]; then
+          if [ -n "$(git status --porcelain templates/consumer-repo)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add templates/consumer-repo/.github/scripts
-            git commit -m "chore: sync template scripts" || true
+            git add templates/consumer-repo
+            git commit -m "chore: sync consumer templates" || true
             git push origin "HEAD:${HEAD_REF}"
           else
             echo "No template changes to sync."

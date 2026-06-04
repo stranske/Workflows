@@ -124,7 +124,7 @@ def test_validator_handles_missing_template_directory(tmp_path):
 
 
 def test_validator_suggests_sync_command(tmp_path):
-    """Validator should suggest running sync script when validation fails."""
+    """Validator should suggest running sync script and staging changed template files."""
     source, template = create_test_structure(tmp_path)
 
     (source / "test.js").write_text("console.log('source');")
@@ -140,6 +140,7 @@ def test_validator_suggests_sync_command(tmp_path):
 
     assert result.returncode == 1
     assert "./scripts/sync_templates.sh" in result.stdout
+    assert "git add templates/consumer-repo/.github/scripts/test.js" in result.stdout
 
 
 def test_validator_handles_multiple_mismatches(tmp_path):
@@ -229,3 +230,4 @@ def test_validator_checks_exact_template_sync_script_entries(tmp_path):
 
     assert result.returncode == 1
     assert "scripts/aggregate_agent_metrics.py" in result.stdout
+    assert "git add templates/consumer-repo/scripts/aggregate_agent_metrics.py" in result.stdout

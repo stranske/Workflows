@@ -7,7 +7,7 @@ Prevent propagating bugs to consumer repos by validating changes in the source (
 
 ### 0. Verify Template Sync (CRITICAL)
 
-**If you modified `.github/scripts/`, ensure templates are synced:**
+**If you modified `.github/scripts/` or another manifest-declared exact template-sync file, ensure templates are synced:**
 
 ```bash
 # Check for out-of-sync templates
@@ -20,11 +20,11 @@ python scripts/validate_template_sync.py
 python scripts/validate_template_sync.py
 
 # Commit template changes:
-git add templates/consumer-repo/.github/scripts/
+git add templates/consumer-repo/<changed-path>
 git commit -m "sync: update templates with latest script changes"
 ```
 
-**Why?** Consumer repos sync from `templates/consumer-repo/`. If source scripts are changed but templates aren't updated, no sync PRs will be created.
+**Why?** Consumer repos sync from `templates/consumer-repo/`. If exact-sync source files are changed but templates aren't updated, no sync PRs will be created with those changes.
 
 The CI workflow `health-72-template-sync.yml` enforces this, but check manually before triggering sync.
 

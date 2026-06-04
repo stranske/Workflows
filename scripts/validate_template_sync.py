@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Validate that template files are in sync with source files.
+Validate that exact template-sync files match their source files.
 
-This prevents the common mistake of updating .github/scripts/ without
-updating templates/consumer-repo/.github/scripts/, which causes sync
-PRs to consumer repos to not be triggered.
+This prevents the common mistake of updating source files that are copied
+into templates/consumer-repo/ without updating the matching template files,
+which causes sync PRs to consumer repos to miss the source change.
 """
 
 import hashlib
@@ -40,6 +40,10 @@ def _manifest_template_sync_sources(manifest: dict) -> list[str]:
         if entry.get("template_sync") == "exact":
             sources.append(source)
     return sorted(set(sources))
+
+
+def _format_stage_paths(template_root: Path, mismatches: list[Path]) -> list[str]:
+    return [str(template_root / path) for path in mismatches]
 
 
 def main() -> int:
@@ -97,7 +101,9 @@ def main() -> int:
             else:
                 print(f"  • {path} (out of sync)")
         print("\n💡 To fix: ./scripts/sync_templates.sh")
-        print("   Then: git add templates/consumer-repo/.github/scripts/")
+        print("   Then stage the affected template path(s):")
+        for path in _format_stage_paths(Path("templates") / "consumer-repo", mismatches):
+            print(f"     git add {path}")
         return 1
 
     print("✅ All template files in sync")
