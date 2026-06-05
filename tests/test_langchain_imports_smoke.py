@@ -62,8 +62,7 @@ def test_synced_consumer_tree_imports_langchain_helpers(tmp_path: Path) -> None:
         if path.name != "__init__.py"
     )
 
-    script = dedent(
-        f"""
+    script = dedent(f"""
         import importlib
 
         module_names = {module_names!r}
@@ -72,8 +71,7 @@ def test_synced_consumer_tree_imports_langchain_helpers(tmp_path: Path) -> None:
         assert verifier.api_client.__name__ == "scripts.api_client"
         for module_name in module_names:
             importlib.import_module(module_name)
-        """
-    )
+        """)
     env = os.environ.copy()
     env["PYTHONPATH"] = str(consumer)
 
