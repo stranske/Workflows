@@ -55,7 +55,7 @@ on:
       codex_cli_version:
         description: 'Pinned @openai/codex CLI version to install.'
         required: false
-        default: '0.101.0'
+        default: '0.125.0'
         type: string
       codex_model:
         description: 'Codex model ID to pass to codex exec.'

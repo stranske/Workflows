@@ -215,6 +215,7 @@ def test_reusable_codex_run_prefers_gpt_55_with_non_codex_fallback() -> None:
     run_step = _find_step_by_name(workflow, "Run Codex")
 
     assert inputs["codex_model"]["default"] == "gpt-5.5"
+    assert inputs["codex_cli_version"]["default"] == "0.125.0"
     assert resolve_step.get("id") == "codex_model"
     assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.5"
     assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.4"
