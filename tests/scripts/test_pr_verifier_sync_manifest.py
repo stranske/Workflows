@@ -8,6 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / ".github" / "sync-manifest.yml"
 PR_VERIFIER = ROOT / "scripts" / "langchain" / "pr_verifier.py"
+API_CLIENT = ROOT / "scripts" / "api_client.py"
+TEMPLATE_API_CLIENT = ROOT / "templates" / "consumer-repo" / "scripts" / "api_client.py"
 
 
 def _manifest_sources() -> set[str]:
@@ -34,3 +36,10 @@ def test_pr_verifier_imports_api_client_from_synced_manifest() -> None:
     sources = _manifest_sources()
     assert "scripts/langchain/pr_verifier.py" in sources
     assert "scripts/api_client.py" in sources
+
+
+def test_pr_verifier_api_client_is_available_in_consumer_template() -> None:
+    assert TEMPLATE_API_CLIENT.exists()
+    assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(
+        encoding="utf-8"
+    )
