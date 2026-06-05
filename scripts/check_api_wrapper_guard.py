@@ -25,6 +25,7 @@ SKIP_FILES = {
     ROOT / "scripts" / "check_api_wrapper_guard.py",
     ROOT / "scripts" / "check_consumer_sync_drift.py",
     ROOT / "scripts" / "api_client.py",
+    ROOT / "templates" / "consumer-repo" / "scripts" / "api_client.py",
     ROOT / "tools" / "enforce_gate_branch_protection.py",
     ROOT / ".github" / "workflows" / "maint-80-langsmith-metrics-dashboard.yml",
     # Health/diagnostic workflows that intentionally test raw API auth
