@@ -47,7 +47,7 @@ def test_build_summary_formats_sections() -> None:
             "pr_number": 101,
             "run_id": "verify-101",
             "disposition": "follow-up-created",
-            "llm_model": "gpt-5.3-codex",
+            "llm_model": "gpt-5.5",
             "model_selection_reason": "default",
             "llm_cli_version": "codex-cli 0.125.0",
             "verifier_mode": "checkbox",
@@ -115,7 +115,7 @@ def test_build_summary_formats_sections() -> None:
     assert "Verifier follow-up policy actions: create-follow-up (1)" in summary
     assert "Verifier follow-up policy triggers: verifier-concerns (1)" in summary
     assert "Verifier follow-up depth-limit records: 0" in summary
-    assert "Verifier models: gpt-5.3-codex (1)" in summary
+    assert "Verifier models: gpt-5.5 (1)" in summary
     assert "Verifier CLI versions: codex-cli 0.125.0 (1)" in summary
     assert "Unsupported verifier models: n/a" in summary
     assert "Unsupported model dispositions: n/a" in summary
@@ -133,7 +133,7 @@ def test_build_summary_formats_sections() -> None:
 
     contract = aggregate_agent_metrics.build_summary_contract(entries, [])
     verifier_contract = contract["summaries"]["verifier"]
-    assert verifier_contract["verifier_models"] == {"gpt-5.3-codex": 1}
+    assert verifier_contract["verifier_models"] == {"gpt-5.5": 1}
     assert verifier_contract["verifier_cli_versions"] == {"codex-cli 0.125.0": 1}
     assert verifier_contract["model_selection_reasons"] == {"default": 1}
     assert verifier_contract["unknown_verifier_modes"] == {}
@@ -936,7 +936,7 @@ def test_summary_helpers_cover_branches() -> None:
                 "run_id": "123",
                 "pr_number": 303,
                 "disposition": "follow-up-created",
-                "llm_model": "gpt-5.3-codex",
+                "llm_model": "gpt-5.5",
                 "model_selection_reason": "fallback-unsupported-chatgpt-codex-model",
                 "llm_cli_version": "codex-cli 0.125.0",
                 "verifier_mode": " Checkbox ",
@@ -954,7 +954,7 @@ def test_summary_helpers_cover_branches() -> None:
     )
     assert verifier_with_terminal["runs"] == 1
     assert verifier_with_terminal["terminal_records"] == 2
-    assert verifier_with_terminal["verifier_models"]["gpt-5.3-codex"] == 1
+    assert verifier_with_terminal["verifier_models"]["gpt-5.5"] == 1
     assert verifier_with_terminal["verifier_models"]["gpt-5.4"] == 1
     assert verifier_with_terminal["verifier_cli_versions"]["codex-cli 0.125.0"] == 2
     assert verifier_with_terminal["unsupported_verifier_models"] == Counter()

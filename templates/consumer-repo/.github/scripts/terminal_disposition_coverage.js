@@ -12,7 +12,7 @@ const TERMINAL_ARTIFACT_FAMILIES = new Set([
   'verifier-terminal-disposition',
   'review-thread-terminal-disposition',
 ]);
-const DEFAULT_UNSUPPORTED_CODEX_MODELS = ['gpt-5.2-codex'];
+const DEFAULT_UNSUPPORTED_CODEX_MODELS = ['gpt-5.2-codex', 'gpt-5.3-codex'];
 const DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER = '';
 const DEFAULT_ENFORCEMENT_MODE = 'warning-only';
 const HARD_BLOCK_MODE = 'hard-block';

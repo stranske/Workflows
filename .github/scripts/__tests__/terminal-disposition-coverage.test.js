@@ -264,7 +264,7 @@ test('summarizes verifier model compatibility with configurable unsupported mode
         artifact_family: 'verifier-terminal-disposition',
         source_type: 'pull-request',
         source_id: '1',
-        llm_model: 'gpt-5.3-codex',
+        llm_model: 'gpt-5.5',
         model_selection_reason: 'default',
       },
       {
@@ -282,7 +282,7 @@ test('summarizes verifier model compatibility with configurable unsupported mode
   assert.equal(summary.verifier_record_count, 2);
   assert.deepEqual(summary.selected_models, {
     'custom-bad': 1,
-    'gpt-5.3-codex': 1,
+    'gpt-5.5': 1,
   });
   assert.deepEqual(summary.model_selection_reasons, { default: 1 });
   assert.equal(summary.unsupported_records[0].source_key, 'pull-request:2');

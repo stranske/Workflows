@@ -8,7 +8,6 @@ ROOT = Path(__file__).resolve().parents[2]
 MIN_CODEX_CLI_BY_MODEL = {
     "gpt-5.5": (0, 125, 0),
     "gpt-5.4": (0, 125, 0),
-    "gpt-5.3-codex": (0, 101, 0),
 }
 
 
@@ -59,10 +58,11 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     )
     assert 'npm install -g "@openai/codex@0.125.0"' in install_step["run"]
     assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.5"
-    assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.4 gpt-5.3-codex"
+    assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.4"
     assert resolve_step["env"]["VERIFIER_MODE"] == "${{ inputs.mode }}"
     assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]
-    assert "gpt-5.2-codex" in resolve_step["run"]
+    assert "*-codex*" in resolve_step["run"]
+    assert '[ "$model" = "$DEFAULT_CODEX_MODEL" ]' in resolve_step["run"]
     assert 'candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"' in resolve_step["run"]
     assert "Candidate order" in resolve_step["run"]
     assert '[ "${VERIFIER_MODE:-}" = "checkbox" ]' in resolve_step["run"]

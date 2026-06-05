@@ -498,7 +498,7 @@ jobs:
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         env:
           DEFAULT_CODEX_MODEL: gpt-5.5
-          FALLBACK_CODEX_MODELS: gpt-5.4 gpt-5.3-codex
+          FALLBACK_CODEX_MODELS: gpt-5.4
           REQUESTED_MODEL: ${{ inputs.model }}
           VERIFIER_MODE: ${{ inputs.mode }}
         run: |
@@ -520,12 +520,12 @@ jobs:
           fi
 
           candidates="$model"
-          if [ "$reason" = "default" ]; then
+          if [ "$model" = "$DEFAULT_CODEX_MODEL" ]; then
             candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
           fi
 
           case "$model" in
-            gpt-5.2-codex)
+            *-codex*)
               echo "::warning::Codex model '$model' is not compatible with the configured ChatGPT auth; trying '$DEFAULT_CODEX_MODEL' first."
               model="$DEFAULT_CODEX_MODEL"
               reason="fallback-unsupported-chatgpt-codex-model"

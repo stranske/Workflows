@@ -207,6 +207,29 @@ def test_reusable_codex_run_persists_refreshed_auth_bundle_with_app_token() -> N
     assert not missing, f"Persist step missing required snippets: {missing}"
 
 
+def test_reusable_codex_run_prefers_gpt_55_with_non_codex_fallback() -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    on_block = workflow.get("on") or workflow.get(True)
+    inputs = on_block["workflow_call"]["inputs"]
+    resolve_step = _find_step_by_name(workflow, "Resolve Codex run model")
+    run_step = _find_step_by_name(workflow, "Run Codex")
+
+    assert inputs["codex_model"]["default"] == "gpt-5.5"
+    assert resolve_step.get("id") == "codex_model"
+    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.5"
+    assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.4"
+    assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]
+    assert "*-codex*" in resolve_step["run"]
+    assert '[ "$model" = "$DEFAULT_CODEX_MODEL" ]' in resolve_step["run"]
+    assert 'candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"' in resolve_step["run"]
+    assert "gpt-5.3-codex" not in resolve_step["run"]
+
+    assert "CODEX_MODEL_CANDIDATES" in run_step["env"]
+    assert 'for codex_model in "${codex_models[@]}"; do' in run_step["run"]
+    assert '--model "$codex_model"' in run_step["run"]
+    assert "runtime-fallback-model-unavailable" in run_step["run"]
+
+
 def test_workflow_llm_needs_human_comment_documents_blocker() -> None:
     text = _load_text(NEEDS_HUMAN_COMMENT)
     required_phrases = [

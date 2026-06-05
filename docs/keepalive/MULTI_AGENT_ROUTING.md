@@ -13,7 +13,7 @@ The keepalive system routes work to different agents based on the `agent:*` labe
 
 | Label | Agent | Workflow |
 |-------|-------|----------|
-| `agent:codex` | Codex CLI (gpt-5.3-codex) | `reusable-codex-run.yml` |
+| `agent:codex` | Codex CLI (gpt-5.5; fallback gpt-5.4) | `reusable-codex-run.yml` |
 | `agent:claude` | Claude CLI | `reusable-claude-run.yml` |
 
 The authoritative list lives in `.github/agents/registry.yml`; update that registry and the matching runner workflow before adding labels to this table.

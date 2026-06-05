@@ -19,7 +19,7 @@ _DEFAULT_OUTPUT = "agent-metrics-summary.md"
 _DEFAULT_JSON_OUTPUT = "agent-metrics-summary.json"
 _DEFAULT_DOWNLOAD_MANIFEST_PATH = "artifacts/metric-artifact-download-manifest.json"
 _DEFAULT_ARTIFACT_SELECTION_PATH = "artifacts/metric-artifacts-selection.json"
-_DEFAULT_UNSUPPORTED_VERIFIER_MODELS = {"gpt-5.2-codex"}
+_DEFAULT_UNSUPPORTED_VERIFIER_MODELS = {"gpt-5.2-codex", "gpt-5.3-codex"}
 _DEFAULT_VERIFIER_MODEL_METADATA_REQUIRED_AFTER = ""
 _NULL_EQUIVALENT_TOKENS = {
     "",

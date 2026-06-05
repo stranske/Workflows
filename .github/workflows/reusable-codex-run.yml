@@ -60,7 +60,7 @@ on:
       codex_model:
         description: 'Codex model ID to pass to codex exec.'
         required: false
-        default: 'gpt-5.3-codex'
+        default: 'gpt-5.5'
         type: string
       codex_args:
         description: 'Optional Codex CLI arguments (string or JSON array).'
@@ -812,10 +812,59 @@ jobs:
             echo "No merge conflicts - merge succeeded automatically"
           fi
 
+      - name: Resolve Codex run model
+        id: codex_model
+        env:
+          DEFAULT_CODEX_MODEL: gpt-5.5
+          FALLBACK_CODEX_MODELS: gpt-5.4
+          REQUESTED_MODEL: ${{ inputs.codex_model }}
+        run: |
+          set -euo pipefail
+          model="$(
+            printf '%s' "${REQUESTED_MODEL:-}" |
+              sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+          )"
+          reason="input"
+
+          if [ -z "$model" ] || [ "$model" = "undefined" ] || [ "$model" = "null" ]; then
+            model="$DEFAULT_CODEX_MODEL"
+            reason="default"
+          fi
+
+          candidates="$model"
+          if [ "$model" = "$DEFAULT_CODEX_MODEL" ]; then
+            candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
+          fi
+
+          case "$model" in
+            *-codex*)
+              echo "::warning::Codex-specialized model '$model' is not compatible with the configured ChatGPT auth; trying '$DEFAULT_CODEX_MODEL' first."
+              model="$DEFAULT_CODEX_MODEL"
+              reason="fallback-unsupported-chatgpt-codex-model"
+              candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
+              ;;
+          esac
+
+          {
+            echo "model=$model"
+            echo "selection_reason=$reason"
+            echo "candidates=$candidates"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Codex run model"
+            echo ""
+            echo "- Model: \`$model\`"
+            echo "- Selection reason: \`$reason\`"
+            echo "- Candidate order: \`$candidates\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run Codex
         id: run_codex
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex
+          CODEX_MODEL_CANDIDATES: ${{ steps.codex_model.outputs.candidates }}
+          CODEX_MODEL_SELECTION_REASON: ${{ steps.codex_model.outputs.selection_reason }}
         run: |
           set -euo pipefail
 
@@ -828,7 +877,6 @@ jobs:
           PROMPT_FILE="${{ steps.prompt.outputs.file }}"
           # Use PR-specific output filename to avoid merge conflicts
           PR_NUM="${{ inputs.pr_number }}"
-          CODEX_MODEL="${{ inputs.codex_model }}"
           if [ -n "${PR_NUM}" ]; then
             OUTPUT_FILE="codex-output-${PR_NUM}.md"
             SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
@@ -895,7 +943,8 @@ jobs:
 
           echo "Running Codex CLI directly with ChatGPT auth..."
           echo "Prompt file: $PROMPT_FILE"
-          echo "Model: $CODEX_MODEL"
+          echo "Model candidates: ${CODEX_MODEL_CANDIDATES:-}"
+          echo "Model selection reason: ${CODEX_MODEL_SELECTION_REASON:-input}"
           echo "Sandbox: $SANDBOX"
           if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
             echo "Extra args: provided (${#EXTRA_ARGS[@]} arg(s))"
@@ -984,20 +1033,57 @@ jobs:
 
           # Run codex exec with --json to capture rich session data
           # JSONL events stream to stdout, final message still goes to OUTPUT_FILE
-          CODEX_EXIT=0
-          cmd=(
-            codex exec
-            --json
-            --skip-git-repo-check
-            --sandbox "$SANDBOX"
-            --model "$CODEX_MODEL"
-            --output-last-message "$OUTPUT_FILE"
-          )
-          if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
-            cmd+=("${EXTRA_ARGS[@]}")
-          fi
           prompt_content="$(cat "$PROMPT_FILE")"
-          "${cmd[@]}" "$prompt_content" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
+          CODEX_EXIT=1
+          selected_model=""
+          selected_reason="${CODEX_MODEL_SELECTION_REASON:-input}"
+          : > "$SESSION_JSONL"
+          IFS=' ' read -r -a codex_models <<< "${CODEX_MODEL_CANDIDATES:-}"
+          model_count="${#codex_models[@]}"
+          if [ "$model_count" -eq 0 ]; then
+            echo "::error::No Codex model candidates resolved."
+          fi
+
+          attempt=0
+          for codex_model in "${codex_models[@]}"; do
+            attempt=$((attempt + 1))
+            attempt_session="${SESSION_JSONL%.jsonl}-attempt-${attempt}.jsonl"
+            rm -f "$OUTPUT_FILE" "$attempt_session"
+            echo "Running Codex with model '${codex_model}' (${attempt}/${model_count})..."
+            cmd=(
+              codex exec
+              --json
+              --skip-git-repo-check
+              --sandbox "$SANDBOX"
+              --model "$codex_model"
+              --output-last-message "$OUTPUT_FILE"
+            )
+            if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
+              cmd+=("${EXTRA_ARGS[@]}")
+            fi
+
+            CODEX_EXIT=0
+            "${cmd[@]}" "$prompt_content" > "$attempt_session" 2>&1 || CODEX_EXIT=$?
+            cat "$attempt_session" >> "$SESSION_JSONL"
+            selected_model="$codex_model"
+
+            if [ "$CODEX_EXIT" -eq 0 ]; then
+              if [ "$attempt" -gt 1 ]; then
+                selected_reason="runtime-fallback-model-unavailable"
+              fi
+              break
+            fi
+
+            if [ "$attempt" -lt "$model_count" ] &&
+              grep -Eiq "model.*(not supported|not available|unsupported|unavailable)|not compatible" \
+                "$attempt_session"; then
+              echo "::warning::Codex model '${codex_model}' was unavailable; trying the next run model."
+              selected_reason="runtime-fallback-model-unavailable"
+              continue
+            fi
+
+            break
+          done
 
           # Kill watchdog only if it hasn't fired yet. If it has already
           # fired (flag file exists), it may be committing/pushing — let it finish.
@@ -1009,12 +1095,14 @@ jobs:
           fi
 
           echo "exit-code=${CODEX_EXIT}" >> "$GITHUB_OUTPUT"
+          echo "model=${selected_model}" >> "$GITHUB_OUTPUT"
+          echo "model-selection-reason=${selected_reason}" >> "$GITHUB_OUTPUT"
 
           if [ "$CODEX_EXIT" -ne 0 ]; then
-            echo "::error::Codex CLI exited with code ${CODEX_EXIT}"
+            echo "::error::Codex CLI exited with code ${CODEX_EXIT} using model ${selected_model:-unknown}"
           fi
 
-          echo "Codex completed with exit code ${CODEX_EXIT}. Output written to $OUTPUT_FILE"
+          echo "Codex completed with exit code ${CODEX_EXIT}. Model: ${selected_model:-unknown}. Output written to $OUTPUT_FILE"
 
           # Set outputs for downstream steps through the shared parser.
           if [ -f "$OUTPUT_FILE" ]; then
