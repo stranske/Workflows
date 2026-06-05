@@ -17,6 +17,10 @@ VERIFIER = WORKFLOWS_DIR / "reusable-agents-verifier.yml"
 REUSABLE_CODEX_RUN = WORKFLOWS_DIR / "reusable-codex-run.yml"
 NEEDS_HUMAN_COMMENT = Path("agents/codex-1447.md")
 REFERENCE_PACK_FIXTURES = Path("tests/workflows/fixtures/reference_packs")
+MIN_CODEX_CLI_BY_RUN_MODEL = {
+    "gpt-5.5": (0, 125, 0),
+    "gpt-5.4": (0, 125, 0),
+}
 
 
 def _load_text(path: Path) -> str:
@@ -26,6 +30,23 @@ def _load_text(path: Path) -> str:
 
 def _load_workflow(path: Path) -> dict:
     return yaml.safe_load(_load_text(path))
+
+
+def _parse_version_tuple(value: str) -> tuple[int, int, int]:
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", value)
+    assert match, f"Could not parse semantic version from: {value!r}"
+    return tuple(int(part) for part in match.groups())
+
+
+def _workflow_call_inputs(workflow: dict) -> dict:
+    on_block = workflow.get("on") or workflow.get(True)
+    return on_block["workflow_call"]["inputs"]
+
+
+def _codex_run_model_candidates(resolve_step: dict) -> list[str]:
+    default_model = resolve_step["env"]["DEFAULT_CODEX_MODEL"]
+    fallback_models = resolve_step["env"]["FALLBACK_CODEX_MODELS"].split()
+    return [default_model, *fallback_models]
 
 
 def _assert_pinned_install(text: str, expected: str, name: str, minimum: int = 1) -> None:
@@ -209,8 +230,7 @@ def test_reusable_codex_run_persists_refreshed_auth_bundle_with_app_token() -> N
 
 def test_reusable_codex_run_prefers_gpt_55_with_non_codex_fallback() -> None:
     workflow = _load_workflow(REUSABLE_CODEX_RUN)
-    on_block = workflow.get("on") or workflow.get(True)
-    inputs = on_block["workflow_call"]["inputs"]
+    inputs = _workflow_call_inputs(workflow)
     resolve_step = _find_step_by_name(workflow, "Resolve Codex run model")
     run_step = _find_step_by_name(workflow, "Run Codex")
 
@@ -229,6 +249,29 @@ def test_reusable_codex_run_prefers_gpt_55_with_non_codex_fallback() -> None:
     assert 'for codex_model in "${codex_models[@]}"; do' in run_step["run"]
     assert '--model "$codex_model"' in run_step["run"]
     assert "runtime-fallback-model-unavailable" in run_step["run"]
+
+
+def test_reusable_codex_run_model_cli_compatibility_contract() -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    inputs = _workflow_call_inputs(workflow)
+    resolve_step = _find_step_by_name(workflow, "Resolve Codex run model")
+
+    installed_cli = _parse_version_tuple(inputs["codex_cli_version"]["default"])
+    candidates = _codex_run_model_candidates(resolve_step)
+    unreviewed_models = [
+        model for model in candidates if model not in MIN_CODEX_CLI_BY_RUN_MODEL
+    ]
+    assert not unreviewed_models, (
+        "Reusable Codex run model candidates need an explicit reviewed minimum CLI mapping: "
+        + ", ".join(unreviewed_models)
+    )
+
+    for model in candidates:
+        minimum_cli = MIN_CODEX_CLI_BY_RUN_MODEL[model]
+        assert installed_cli >= minimum_cli, (
+            f"Codex run model {model} requires @openai/codex >= {minimum_cli}, "
+            f"but reusable-codex-run.yml defaults to {installed_cli}."
+        )
 
 
 def test_workflow_llm_needs_human_comment_documents_blocker() -> None:
