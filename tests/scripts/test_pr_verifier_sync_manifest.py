@@ -40,6 +40,4 @@ def test_pr_verifier_imports_api_client_from_synced_manifest() -> None:
 
 def test_pr_verifier_api_client_is_available_in_consumer_template() -> None:
     assert TEMPLATE_API_CLIENT.exists()
-    assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(
-        encoding="utf-8"
-    )
+    assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(encoding="utf-8")
