@@ -492,6 +492,9 @@ scripts:
     description: "Scans agent belt for available tools"
 
   # LangChain scripts for agent workflows
+  - source: scripts/api_client.py
+    description: "Shared GitHub API client used by synced Python automation scripts"
+
   # Issue optimization (Phase 1) - agents-issue-optimizer.yml
   - source: scripts/langchain/issue_optimizer.py
     description: "Issue optimizer - analyzes issues and suggests improvements"
