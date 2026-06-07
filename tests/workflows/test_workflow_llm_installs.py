@@ -258,9 +258,7 @@ def test_reusable_codex_run_model_cli_compatibility_contract() -> None:
 
     installed_cli = _parse_version_tuple(inputs["codex_cli_version"]["default"])
     candidates = _codex_run_model_candidates(resolve_step)
-    unreviewed_models = [
-        model for model in candidates if model not in MIN_CODEX_CLI_BY_RUN_MODEL
-    ]
+    unreviewed_models = [model for model in candidates if model not in MIN_CODEX_CLI_BY_RUN_MODEL]
     assert not unreviewed_models, (
         "Reusable Codex run model candidates need an explicit reviewed minimum CLI mapping: "
         + ", ".join(unreviewed_models)
