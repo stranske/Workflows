@@ -169,7 +169,10 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             raise RuntimeError("langchain_openai is required for OpenAI embeddings.") from exc
 
         try:
-            client = OpenAIEmbeddings(model=resolved_model, api_key=os.environ["OPENAI_API_KEY"])
+            client = OpenAIEmbeddings(
+                model=resolved_model,
+                openai_api_key=os.environ["OPENAI_API_KEY"],
+            )
             vectors = client.embed_documents(items)
         except Exception as exc:  # pragma: no cover - depends on external SDK errors
             raise RuntimeError("OpenAI embeddings request failed.") from exc

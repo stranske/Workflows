@@ -6,10 +6,10 @@ from tools.embedding_provider import FALLBACK_DIMENSIONS, LocalFallbackEmbedding
 
 
 class StubEmbeddings:
-    def __init__(self, model, base_url=None, api_key=None):
+    def __init__(self, model, base_url=None, api_key=None, openai_api_key=None):
         self.model = model
         self.base_url = base_url
-        self.api_key = api_key
+        self.api_key = api_key or openai_api_key
 
     def embed_documents(self, texts):
         return [[float(len(text))] for text in texts]

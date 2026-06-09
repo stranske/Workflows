@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlencode
 
@@ -126,9 +127,10 @@ def fetch_issue(
     issue_number: int,
     token: str,
     *,
+    parser: Callable[[dict[str, Any]], Any] | None = None,
     retry_attempts: int | None = None,
     retry_backoff: float | None = None,
-):
+) -> Any:
     url = f"{GITHUB_API}/repos/{repo}/issues/{issue_number}"
     data = _request_json(
         "GET",
@@ -139,9 +141,9 @@ def fetch_issue(
     )
     if not isinstance(data, dict):
         raise RuntimeError("GitHub API did not return a JSON object for the issue.")
-    from scripts.duplicate_detection import parse_source_issue
-
-    return parse_source_issue(data)
+    if parser is not None:
+        return parser(data)
+    return data
 
 
 def fetch_issues(
@@ -202,9 +204,11 @@ def create_issue(
     retry_backoff: float | None = None,
 ) -> dict[str, Any]:
     url = f"{GITHUB_API}/repos/{repo}/issues"
-    from scripts.duplicate_detection import build_issue_payload
-
-    payload = build_issue_payload(title, body, labels)
+    payload: dict[str, Any] = {"title": title}
+    if body is not None:
+        payload["body"] = body
+    if labels:
+        payload["labels"] = labels
     data = _request_json(
         "POST",
         url,

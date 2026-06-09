@@ -19,6 +19,7 @@ from scripts.duplicate_detection import (
     format_source_confirmation,
     format_source_issue_line,
     matches_expected_duplicate,
+    parse_source_issue,
 )
 
 
@@ -372,6 +373,7 @@ def main(argv: list[str]) -> int:
             args.repo,
             args.source_issue,
             token,
+            parser=parse_source_issue,
             retry_attempts=args.retry_attempts,
             retry_backoff=args.retry_backoff,
         )

@@ -5,8 +5,22 @@ import types
 from tools import embedding_provider
 
 
+class StubEmbeddings:
+    def __init__(self, model, openai_api_key=None):
+        self.model = model
+        self.openai_api_key = openai_api_key
+
+    def embed_documents(self, texts):
+        return [[float(len(text))] for text in texts]
+
+
 def _install_stub_langchain(monkeypatch):
     monkeypatch.setitem(sys.modules, "langchain_openai", types.SimpleNamespace())
+
+
+def _install_stub_openai_embeddings(monkeypatch):
+    module = types.SimpleNamespace(OpenAIEmbeddings=StubEmbeddings)
+    monkeypatch.setitem(sys.modules, "langchain_openai", module)
 
 
 def test_registry_selects_openai_with_credentials(monkeypatch):
@@ -59,6 +73,18 @@ def test_provider_capabilities_are_immutable_and_fallback_hash_uses_sha256():
     digest = hashlib.sha256(b"example").digest()
     expected = int.from_bytes(digest[:8], "little")
     assert embedding_provider._hash_token("example") == expected
+
+
+def test_openai_provider_passes_openai_api_key(monkeypatch):
+    _install_stub_openai_embeddings(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "token")
+
+    provider = embedding_provider.OpenAIEmbeddingProvider()
+    response = provider.embed(["alpha"])
+
+    assert response.vectors == [[5.0]]
+    assert response.metadata.provider == "openai"
+    assert response.metadata.dimensions == 1
 
 
 def test_registry_selection_is_deterministic(monkeypatch):
