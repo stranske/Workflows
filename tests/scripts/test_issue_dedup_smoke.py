@@ -235,6 +235,32 @@ def test_request_json_returns_payload(monkeypatch) -> None:
     assert api_client._request_json("GET", "http://example", "token", None) == {"ok": True}
 
 
+def test_request_json_omits_json_argument_without_payload(monkeypatch) -> None:
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_request(method, url, **kwargs):
+        captured_kwargs.update(kwargs)
+        return DummyResponse(200, json_data={"ok": True})
+
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
+
+    assert api_client._request_json("GET", "http://example", "token", None) == {"ok": True}
+    assert "json" not in captured_kwargs
+
+
+def test_request_json_includes_json_argument_with_payload(monkeypatch) -> None:
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_request(method, url, **kwargs):
+        captured_kwargs.update(kwargs)
+        return DummyResponse(200, json_data={"ok": True})
+
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
+
+    assert api_client._request_json("POST", "http://example", "token", {"x": 1}) == {"ok": True}
+    assert captured_kwargs["json"] == {"x": 1}
+
+
 def test_request_json_retries_on_server_error(monkeypatch) -> None:
     responses = [
         DummyResponse(500, json_data={"message": "oops"}),

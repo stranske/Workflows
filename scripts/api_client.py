@@ -68,15 +68,19 @@ def _request_response(
     attempts = max(1, max_attempts)
     for attempt in range(1, attempts + 1):
         try:
-            response = requests.request(
-                method,
-                url,
-                headers={
+            request_kwargs: dict[str, Any] = {
+                "headers": {
                     "Authorization": f"Bearer {token}",
                     "Accept": "application/vnd.github+json",
                 },
-                json=payload,
-                timeout=DEFAULT_TIMEOUT,
+                "timeout": DEFAULT_TIMEOUT,
+            }
+            if payload is not None:
+                request_kwargs["json"] = payload
+            response = requests.request(
+                method,
+                url,
+                **request_kwargs,
             )
         except requests.RequestException as exc:
             if attempt >= attempts:

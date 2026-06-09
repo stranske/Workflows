@@ -83,7 +83,7 @@ class EmbeddingProvider(ABC):
     cost_tier: int = 1
     latency_tier: int = 1
     priority: int = 0
-    capabilities: set[str] = set()
+    capabilities: frozenset[str] = frozenset()
 
     @property
     def default_model(self) -> str:
@@ -132,7 +132,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
     cost_tier = 2
     latency_tier = 2
     priority = 10
-    capabilities = {"embeddings"}
+    capabilities = frozenset({"embeddings"})
 
     @property
     def default_model(self) -> str:
@@ -191,7 +191,7 @@ class LocalFallbackEmbeddingProvider(EmbeddingProvider):
     cost_tier = 0
     latency_tier = 1
     priority = 0
-    capabilities = {"embeddings", "local"}
+    capabilities = frozenset({"embeddings", "local"})
 
     @property
     def default_model(self) -> str:
@@ -231,7 +231,7 @@ def _tokenize(text: str) -> list[str]:
 
 
 def _hash_token(token: str) -> int:
-    digest = hashlib.md5(token.encode("utf-8")).digest()
+    digest = hashlib.sha256(token.encode("utf-8")).digest()
     return int.from_bytes(digest[:8], "little")
 
 

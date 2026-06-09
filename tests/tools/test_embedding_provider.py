@@ -1,3 +1,4 @@
+import hashlib
 import sys
 import types
 
@@ -46,6 +47,18 @@ def test_registry_selects_fallback_without_credentials(monkeypatch):
     assert selection is not None
     assert selection.provider.provider_id == "fallback"
     assert selection.provider.is_fallback() is True
+
+
+def test_provider_capabilities_are_immutable_and_fallback_hash_uses_sha256():
+    assert embedding_provider.EmbeddingProvider.capabilities == frozenset()
+    assert embedding_provider.OpenAIEmbeddingProvider.capabilities == frozenset({"embeddings"})
+    assert embedding_provider.LocalFallbackEmbeddingProvider.capabilities == frozenset(
+        {"embeddings", "local"}
+    )
+
+    digest = hashlib.sha256(b"example").digest()
+    expected = int.from_bytes(digest[:8], "little")
+    assert embedding_provider._hash_token("example") == expected
 
 
 def test_registry_selection_is_deterministic(monkeypatch):
