@@ -75,6 +75,12 @@ def test_provider_capabilities_are_immutable_and_fallback_hash_uses_sha256():
     assert embedding_provider._hash_token("example") == expected
 
 
+def test_base_provider_supports_model_accepts_keyword_argument():
+    provider = embedding_provider.LocalFallbackEmbeddingProvider()
+
+    assert provider.supports_model(model="custom-embedding-model") is True
+
+
 def test_openai_provider_passes_openai_api_key(monkeypatch):
     _install_stub_openai_embeddings(monkeypatch)
     monkeypatch.setenv("OPENAI_API_KEY", "token")
