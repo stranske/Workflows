@@ -6,9 +6,9 @@ from tools import embedding_provider
 
 
 class StubEmbeddings:
-    def __init__(self, model, openai_api_key=None):
+    def __init__(self, model, api_key=None):
         self.model = model
-        self.openai_api_key = openai_api_key
+        self.api_key = api_key
 
     def embed_documents(self, texts):
         return [[float(len(text))] for text in texts]
@@ -81,7 +81,7 @@ def test_base_provider_supports_model_accepts_keyword_argument():
     assert provider.supports_model(model="custom-embedding-model") is True
 
 
-def test_openai_provider_passes_openai_api_key(monkeypatch):
+def test_openai_provider_passes_api_key(monkeypatch):
     _install_stub_openai_embeddings(monkeypatch)
     monkeypatch.setenv("OPENAI_API_KEY", "token")
 
