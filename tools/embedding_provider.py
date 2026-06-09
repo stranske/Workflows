@@ -105,6 +105,7 @@ class EmbeddingProvider(ABC):
 
     def supports_model(self, model: str | None) -> bool:
         """Return True if the provider can serve the requested model."""
+        del model
         return True
 
     def supports_capabilities(self, required: set[str]) -> bool:
