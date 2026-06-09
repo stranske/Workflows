@@ -172,7 +172,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         try:
             client = OpenAIEmbeddings(
                 model=resolved_model,
-                api_key=lambda: os.environ["OPENAI_API_KEY"],
+                api_key=os.environ["OPENAI_API_KEY"],
             )
             vectors = client.embed_documents(items)
         except Exception as exc:  # pragma: no cover - depends on external SDK errors
