@@ -663,6 +663,7 @@ jobs:
           GATE_ARTIFACTS_ROOT: ${{ github.workspace }}/gate_artifacts
 
       - name: Compose PR summary comment
+        if: always()
         id: compose_comment
         run: |
           python <<'PY'
@@ -674,7 +675,10 @@ jobs:
           head_sha = os.environ.get('HEAD_SHA', '').strip()
 
           if not body:
-              raise SystemExit('Summary body missing; aborting comment composition.')
+              body = (
+                  '## Automated Status Summary\n\n'
+                  '_Gate summary details were unavailable for this run._'
+              )
 
           head_token = head_sha[:12] if head_sha else ''
           parts = []
@@ -877,6 +881,10 @@ jobs:
             const { upsertAnchoredComment } = require('./.github/scripts/comment-dedupe.js');
 
             const commentPath = path.resolve('gate-summary.md');
+            if (!fs.existsSync(commentPath)) {
+              core.warning('gate-summary.md was not created; skipping summary comment update.');
+              return;
+            }
             const body = fs.readFileSync(commentPath, 'utf8');
             await upsertAnchoredComment({
               github,

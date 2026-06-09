@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlencode
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 GITHUB_API = "https://api.github.com"
 DEFAULT_TIMEOUT = 30

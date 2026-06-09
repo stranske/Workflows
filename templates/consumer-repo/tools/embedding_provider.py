@@ -17,6 +17,7 @@ Selection semantics:
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import math
 import os
@@ -171,7 +172,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         try:
             client = OpenAIEmbeddings(
                 model=resolved_model,
-                api_key=os.environ["OPENAI_API_KEY"],
+                api_key=lambda: os.environ["OPENAI_API_KEY"],
             )
             vectors = client.embed_documents(items)
         except Exception as exc:  # pragma: no cover - depends on external SDK errors
@@ -256,12 +257,14 @@ class EmbeddingProviderRegistry:
         """Register a provider instance."""
         self._providers.append(provider)
 
-    def list(self) -> list[EmbeddingProvider]:
+    def list(self) -> builtins.list[EmbeddingProvider]:
         """Return a copy of registered providers."""
         return list(self._providers)
 
-    def _eligible_providers(self, criteria: EmbeddingSelectionCriteria) -> list[EmbeddingProvider]:
-        candidates: list[EmbeddingProvider] = []
+    def _eligible_providers(
+        self, criteria: EmbeddingSelectionCriteria
+    ) -> builtins.list[EmbeddingProvider]:
+        candidates: builtins.list[EmbeddingProvider] = []
         for provider in self._providers:
             provider_id = provider.provider_id
             if criteria.provider_allowlist and provider_id not in criteria.provider_allowlist:

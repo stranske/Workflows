@@ -6,9 +6,12 @@ from tools import embedding_provider
 
 
 class StubEmbeddings:
+    last_instance = None
+
     def __init__(self, model, api_key=None):
         self.model = model
         self.api_key = api_key
+        StubEmbeddings.last_instance = self
 
     def embed_documents(self, texts):
         return [[float(len(text))] for text in texts]
@@ -91,6 +94,8 @@ def test_openai_provider_passes_api_key(monkeypatch):
     assert response.vectors == [[5.0]]
     assert response.metadata.provider == "openai"
     assert response.metadata.dimensions == 1
+    assert callable(StubEmbeddings.last_instance.api_key)
+    assert StubEmbeddings.last_instance.api_key() == "token"
 
 
 def test_registry_selection_is_deterministic(monkeypatch):
