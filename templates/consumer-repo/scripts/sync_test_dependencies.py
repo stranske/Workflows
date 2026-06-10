@@ -33,7 +33,7 @@ except ImportError as exc:  # pragma: no cover - exercised via CLI messaging.
 else:
     TOMLKIT_ERROR = None
 
-PytestIniConfig = tuple[Path, tuple[str, ...]]
+type PytestIniConfig = tuple[Path, tuple[str, ...]]
 PYPROJECT_FILE = Path("pyproject.toml")
 PYTEST_TOML_FILES = (
     Path("pytest.toml"),

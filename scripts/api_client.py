@@ -1,17 +1,32 @@
 from __future__ import annotations
 
+import importlib
 import time
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Mapping
+from typing import Any, Protocol, cast
 from urllib.parse import urlencode
-
-import requests  # type: ignore[import-untyped]
 
 GITHUB_API = "https://api.github.com"
 DEFAULT_TIMEOUT = 30
 DEFAULT_RETRY_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF = 1.0
 RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+class _Response(Protocol):
+    status_code: int
+    text: str
+
+    def json(self) -> Any: ...
+
+
+class _RequestsModule(Protocol):
+    RequestException: type[Exception]
+
+    def request(self, method: str, url: str, **kwargs: Any) -> _Response: ...
+
+
+requests = cast(_RequestsModule, importlib.import_module("requests"))
 
 
 def _should_retry(status_code: int, detail: Any) -> bool:
@@ -65,7 +80,7 @@ def _request_response(
     *,
     max_attempts: int = DEFAULT_RETRY_ATTEMPTS,
     backoff: float = DEFAULT_RETRY_BACKOFF,
-) -> requests.Response:
+) -> _Response:
     attempts = max(1, max_attempts)
     for attempt in range(1, attempts + 1):
         try:
@@ -238,6 +253,7 @@ def fetch_oauth_scopes(
     except RuntimeError:
         return None
     headers = getattr(response, "headers", None)
-    if not headers:
+    if not isinstance(headers, Mapping):
         return None
-    return headers.get("X-OAuth-Scopes")
+    scopes = headers.get("X-OAuth-Scopes")
+    return str(scopes) if scopes is not None else None
