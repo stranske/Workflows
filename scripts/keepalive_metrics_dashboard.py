@@ -4,14 +4,13 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from collections import Counter
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 from scripts.metrics_format_utils import format_markdown_table
+from src.ndjson_parser import read_ndjson_file
 
 
 def _safe_int(value: Any) -> int | None:
@@ -21,29 +20,6 @@ def _safe_int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
-
-
-def _read_ndjson(path: Path) -> tuple[list[dict[str, Any]], int]:
-    entries: list[dict[str, Any]] = []
-    errors = 0
-    try:
-        content = path.read_text(encoding="utf-8")
-    except OSError:
-        return entries, 1
-    for line in content.splitlines():
-        raw = line.strip()
-        if not raw:
-            continue
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            errors += 1
-            continue
-        if isinstance(parsed, dict):
-            entries.append(parsed)
-        else:
-            errors += 1
-    return entries, errors
 
 
 def _format_counter(counter: Counter[str]) -> str:
@@ -198,8 +174,8 @@ def main(argv: list[str]) -> int:
         print(f"keepalive_metrics_dashboard: log not found: {path}", file=sys.stderr)
         return 1
 
-    records, errors = _read_ndjson(path)
-    dashboard = build_dashboard(records, errors)
+    records, _errors = read_ndjson_file(path)
+    dashboard = build_dashboard(records, len(_errors))
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

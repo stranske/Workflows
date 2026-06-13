@@ -13,20 +13,15 @@ from typing import Any
 from src import aggregator, cli_parser, ndjson_parser, percentile_calculator
 
 
-def _read_ndjson(path: Path) -> tuple[list[dict[str, Any]], int]:
-    entries, errors = ndjson_parser.read_ndjson_file(path)
-    return entries, len(errors)
-
-
 def read_repo_metrics(path: Path, repo: str) -> tuple[list[dict[str, Any]], int]:
     """Load a per-repo metrics log and tag entries with the repo name."""
-    entries, errors = _read_ndjson(path)
+    entries, errors = ndjson_parser.read_ndjson_file(path)
     tagged: list[dict[str, Any]] = []
     for entry in entries:
         tagged_entry = dict(entry)
         tagged_entry["repo"] = repo
         tagged.append(tagged_entry)
-    return tagged, errors
+    return tagged, len(errors)
 
 
 def _as_number(value: Any) -> float | None:

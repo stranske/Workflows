@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -13,32 +12,10 @@ from typing import Any
 from scripts import langsmith_fleet
 from scripts.aggregate_repo_metrics import summarize_values
 from scripts.metrics_format_utils import ascii_sparkline, format_markdown_table
+from src.ndjson_parser import read_ndjson_file
 
 _DEFAULT_METRICS_PATH = "metrics-history.ndjson"
 _DEFAULT_OUTPUT_PATH = "docs/metrics/WEEKLY_DASHBOARD.md"
-
-
-def _read_ndjson(path: Path) -> tuple[list[dict[str, Any]], int]:
-    entries: list[dict[str, Any]] = []
-    errors = 0
-    try:
-        content = path.read_text(encoding="utf-8")
-    except OSError:
-        return entries, 1
-    for line in content.splitlines():
-        raw = line.strip()
-        if not raw:
-            continue
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            errors += 1
-            continue
-        if isinstance(parsed, dict):
-            entries.append(parsed)
-        else:
-            errors += 1
-    return entries, errors
 
 
 def _as_number(value: Any) -> float | None:
@@ -367,7 +344,8 @@ def build_dashboard_from_path(
     fleet_registry_path: Path | None = None,
     fleet_now: _dt.datetime | None = None,
 ) -> tuple[str, int]:
-    entries, errors = _read_ndjson(metrics_path)
+    entries, _parse_errors = read_ndjson_file(metrics_path)
+    errors = len(_parse_errors)
     fleet_summary = None
     if fleet_records_path:
         fleet_records, fleet_parse_errors = langsmith_fleet.load_ndjson(fleet_records_path)

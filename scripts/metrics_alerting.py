@@ -16,6 +16,7 @@ import requests
 from scripts import api_client, duplicate_detection
 
 from src import percentile_calculator
+from src.ndjson_parser import read_ndjson_file
 
 DEFAULT_METRICS_PATH = "metrics-history.ndjson"
 DEFAULT_THRESHOLDS_PATH = "config/alerting-thresholds.json"
@@ -77,29 +78,6 @@ def _parse_timestamp(value: Any) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed
-
-
-def _read_ndjson(path: Path) -> tuple[list[dict[str, Any]], int]:
-    entries: list[dict[str, Any]] = []
-    errors = 0
-    try:
-        content = path.read_text(encoding="utf-8")
-    except OSError:
-        return entries, 1
-    for line in content.splitlines():
-        raw = line.strip()
-        if not raw:
-            continue
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            errors += 1
-            continue
-        if isinstance(parsed, dict):
-            entries.append(parsed)
-        else:
-            errors += 1
-    return entries, errors
 
 
 def _filter_recent_entries(
@@ -541,9 +519,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"metrics_alerting: metrics file not found: {metrics_path}", file=sys.stderr)
         return 1
 
-    entries, errors = _read_ndjson(metrics_path)
-    if errors:
-        print(f"metrics_alerting: parse errors found: {errors}", file=sys.stderr)
+    entries, _errors = read_ndjson_file(metrics_path)
+    if _errors:
+        print(f"metrics_alerting: parse errors found: {len(_errors)}", file=sys.stderr)
 
     now = datetime.now(UTC)
     alerts = build_alerts(entries, thresholds, now=now)
