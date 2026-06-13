@@ -16,6 +16,7 @@ AUTO_PILOT = WORKFLOWS_DIR / "agents-auto-pilot.yml"
 VERIFIER = WORKFLOWS_DIR / "reusable-agents-verifier.yml"
 REUSABLE_CODEX_RUN = WORKFLOWS_DIR / "reusable-codex-run.yml"
 NEEDS_HUMAN_COMMENT = Path("agents/codex-1447.md")
+REFERENCE_PACK_ACTION = Path(".github/actions/agent-reference-packs/action.yml")
 REFERENCE_PACK_FIXTURES = Path("tests/workflows/fixtures/reference_packs")
 MIN_CODEX_CLI_BY_RUN_MODEL = {
     "gpt-5.5": (0, 125, 0),
@@ -82,6 +83,15 @@ def _find_step_by_name(workflow: dict, step_name: str) -> dict:
         if step.get("name") == step_name:
             return step
     raise AssertionError(f"Missing workflow step: {step_name}")
+
+
+def _reference_pack_action_script() -> str:
+    action = _load_workflow(REFERENCE_PACK_ACTION)
+    step = _find_step_by_name(
+        {"jobs": {"action": {"steps": action["runs"]["steps"]}}},
+        "Validate and materialize reference packs",
+    )
+    return str(step.get("run", ""))
 
 
 def _assert_pip_cache(workflow: dict, hash_path: str, name: str) -> None:
@@ -411,10 +421,11 @@ def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missi
 def test_reusable_codex_workflow_has_reference_pack_validation_step() -> None:
     workflow = _load_workflow(REUSABLE_CODEX_RUN)
     step = _find_step_by_name(workflow, "Validate and materialize reference packs")
-    run_script = str(step.get("run", ""))
-    # Step must validate config with reference_packs.py
+    assert step.get("uses") == "./.github/actions/agent-reference-packs"
+    run_script = _reference_pack_action_script()
+    # Shared action must validate config with reference_packs.py
     assert "reference_packs.py" in run_script
-    # Step must no-op when config file is absent
+    # Shared action must no-op when config file is absent
     assert "reference_packs.json" in run_script
     # Step must be positioned before Assemble prompt
     steps = _iter_steps(workflow)
@@ -431,9 +442,7 @@ def test_reusable_codex_reference_pack_step_handles_sha_refs() -> None:
     """The materialization script must detect full 40-char hex SHAs and use
     clone+fetch+checkout instead of --branch, and suppress stderr on clone
     commands to avoid leaking tokens."""
-    workflow = _load_workflow(REUSABLE_CODEX_RUN)
-    step = _find_step_by_name(workflow, "Validate and materialize reference packs")
-    run_script = str(step.get("run", ""))
+    run_script = _reference_pack_action_script()
     # Must detect full 40-char hex SHAs (case-insensitive)
     assert (
         "[0-9a-fA-F]{40}" in run_script
