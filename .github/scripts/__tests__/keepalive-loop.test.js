@@ -217,6 +217,49 @@ test('evaluateKeepaliveLoop skips when keepalive is disabled', async () => {
   assert.equal(result.reason, 'keepalive-disabled');
 });
 
+test('evaluateKeepaliveLoop skips a paused PR even on a green Gate with work remaining (#2267)', async () => {
+  const pr = {
+    number: 267,
+    head: { ref: 'codex/issue-1', sha: 'sha-267' },
+    labels: [{ name: 'agent:codex' }, { name: 'agents:paused' }],
+    body: '## Tasks\n- [ ] one\n- [ ] two\n## Acceptance Criteria\n- [ ] a\n- [ ] b\n',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ head_sha: 'sha-267', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  // Deliberate-break gate (#2267): removing the `pausedByLabel` branch in
+  // evaluateKeepaliveLoop makes this same PR dispatch (action 'run') instead of skipping,
+  // so this assertion is what catches a regression of the operator pause control.
+  assert.equal(result.action, 'skip');
+  assert.equal(result.reason, 'paused');
+});
+
+test('evaluateKeepaliveLoop skips a needs-human PR until the label is cleared (#2267)', async () => {
+  const pr = {
+    number: 268,
+    head: { ref: 'codex/issue-2', sha: 'sha-268' },
+    labels: [{ name: 'agent:codex' }, { name: 'needs-human' }],
+    body: '## Tasks\n- [ ] one\n- [ ] two\n## Acceptance Criteria\n- [ ] a\n- [ ] b\n',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ head_sha: 'sha-268', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'skip');
+  assert.equal(result.reason, 'needs-human');
+});
+
 test('evaluateKeepaliveLoop stops when tasks are complete and verification is done', async () => {
   const pr = {
     number: 303,

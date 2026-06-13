@@ -57,6 +57,9 @@ workflows:
   - source: .github/workflows/agents-81-gate-followups.yml
     description: "Gate followups hub - consolidates keepalive and autofix followups"
 
+  - source: .github/workflows/agents-keepalive-sweep.yml
+    description: "Keepalive sweep (#2267) - periodic level-based resync; dispatches the loop for open agent PRs so silent zero-commit stalls resurface"
+
   # Agent system - execution
   - source: .github/workflows/agents-keepalive-loop-reporter.yml
     description: "Keepalive reporter - posts summary when keepalive run fails or cancels"

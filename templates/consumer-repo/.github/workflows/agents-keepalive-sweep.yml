@@ -1,0 +1,78 @@
+# Agents Keepalive Sweep (#2267)
+#
+# Level-based resync for the event-driven keepalive loop. The consumer loop
+# (agents-81-gate-followups.yml) reacts to Gate completions and label events; a round
+# that ends with zero commits produces no follow-up event, so a silently-stalled PR is
+# never re-evaluated. This periodic sweep re-runs the loop for every open PR carrying an
+# `agent:*` label, so stalls resurface on their own.
+#
+# Safety: this only *dispatches the existing loop* — it makes no dispatch decision of its
+# own. The loop's state-fingerprint/debounce makes an unchanged PR a near-free no-op, and
+# the operator guardrails (`agents:paused` / `needs-human` / `agents:max-runs:0`) ensure
+# the sweep never causes a paused or human-blocked PR to re-dispatch an agent.
+
+name: Agents Keepalive Sweep
+
+on:
+  schedule:
+    - cron: '23 * * * *'   # hourly, off-peak minute
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List eligible PRs without dispatching the loop'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: write   # workflow_dispatch of the keepalive loop
+
+concurrency:
+  group: keepalive-sweep-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Re-evaluate stalled agent PRs
+    runs-on: ubuntu-latest
+    # Consumers run the loop via agents-81 only in consolidated mode.
+    if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true'
+    steps:
+      - name: Dispatch keepalive loop for open agent PRs
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const dryRun = String(
+              (context.payload.inputs && context.payload.inputs.dry_run) || 'false',
+            ) === 'true';
+            const { owner, repo } = context.repo;
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const eligible = prs.filter((pr) =>
+              !pr.draft && (pr.labels || []).some((l) => /^agent:/i.test(l.name || '')),
+            );
+            core.info(`Open PRs: ${prs.length}; non-draft agent-labelled: ${eligible.length}`);
+            let dispatched = 0;
+            for (const pr of eligible) {
+              if (dryRun) {
+                core.info(`[dry-run] would re-evaluate PR #${pr.number}`);
+                continue;
+              }
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner,
+                  repo,
+                  workflow_id: 'agents-81-gate-followups.yml',
+                  ref: context.payload.repository.default_branch,
+                  inputs: { pr_number: String(pr.number) },
+                });
+                dispatched += 1;
+              } catch (error) {
+                core.warning(`Failed to dispatch loop for PR #${pr.number}: ${error.message}`);
+              }
+            }
+            await core.summary
+              .addRaw(`Keepalive sweep: ${eligible.length} agent PR(s) eligible, ${dispatched} re-evaluated (dry_run=${dryRun}).`)
+              .write();
