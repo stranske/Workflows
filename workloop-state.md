@@ -1,5 +1,14 @@
 # Workloop State
 
+## 2026-06-13T09:29Z - closer (codex) review-fix pushed for #2290
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2290](https://github.com/stranske/Workflows/pull/2290), source issue `#2266`, branch `codex/issue-2266-coverage-source`.
+- **Blocker:** four unresolved review threads correctly flagged that `--cov=.` overrides `[tool.coverage.run].source`, the Gate coverage comment overclaimed pyproject ownership, and the consumer template gate comment still carried stale `scripts/, not src/` wording.
+- **Action:** changed reusable Python CI to pass bare `--cov` with `--cov-config=pyproject.toml`, updated the in-repo Gate comment to avoid overclaiming source selection, and mirrored the comment into `templates/consumer-repo/.github/workflows/pr-00-gate.yml`.
+- **Validation:** `python scripts/validate_template_completeness.py` passed; `scripts/sync_templates.sh` reported all files already in sync; `python -m pytest tests/workflows/test_workflow_agents_consolidation.py -q -rA` passed (`62 passed`); YAML/TOML parse smoke passed and confirmed `--cov=.` is absent.
+- **Review/post-push state:** pushed head `7c204049` to `codex/issue-2266-coverage-source`, posted evidence comment https://github.com/stranske/Workflows/pull/2290#issuecomment-4698126188, and resolved all four review threads (`PRRT_kwDOQprj9M6JUHtH`, `PRRT_kwDOQprj9M6JUH6z`, `PRRT_kwDOQprj9M6JUH64`, `PRRT_kwDOQprj9M6JUH7B`).
+- **Next action:** wait for fresh CI on head `7c204049`; final snapshot was non-draft, `MERGEABLE`, `mergeStateStatus=UNSTABLE`, with checks in progress/pending.
+
 ## 2026-06-13T09:13Z - closer (codex) review-fix pushed for #2289
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2289](https://github.com/stranske/Workflows/pull/2289), source issue `#2265`, branch `claude/issue-2265-autopilot-verify-paren`.
