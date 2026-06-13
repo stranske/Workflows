@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T13:27Z - closer (codex) rebased #2298 after #2295 merge
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2298](https://github.com/stranske/Workflows/pull/2298), source issue `#2275`, branch `codex/issue-2275-dead-code-sync-sweep`.
+- **Blocker:** GitHub reported #2298 as `DIRTY` after `main` advanced through #2295. Fresh review-thread audit showed 0 unresolved threads, so the actionable closer-owned blocker was branch conflict/rebase recovery.
+- **Action:** reused automation worktree `/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/workflows-2298-guardfix`, reset it to the remote PR branch, rebased onto current `origin/main`, and resolved the sole conflict in `workloop-state.md` by preserving the #2275/#2298 opener entry plus newer closer entries. Source files rebased without conflicts.
+- **Validation:** `python3 scripts/validate_template_completeness.py` passed; `scripts/sync_templates.sh` reported all files already in sync; `node --test .github/scripts/__tests__/agents-guard.test.js` passed (`22 passed`); `/opt/anaconda3/bin/python -m pytest tests/workflows/test_workflow_naming.py tests/workflows/test_codex_belt_pipeline.py tests/workflows/test_workflow_agents_consolidation.py tests/workflows/test_keepalive_post_work.py tests/workflows/test_keepalive_workflow.py -q` passed (`103 passed, 1 skipped`); `git diff --check` clean.
+- **Next action:** wait for fresh checks on the pushed head. If checks settle green and review threads remain resolved, merge #2298, apply `verify:compare`, and keep issue #2275 open until durable verifier/provider disposition.
+
 ## 2026-06-13T12:24Z - closer (codex) advanced PR #2298 (Health 45 guard allowlist fix)
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2298](https://github.com/stranske/Workflows/pull/2298), source issue `#2275`, branch `codex/issue-2275-dead-code-sync-sweep`.
