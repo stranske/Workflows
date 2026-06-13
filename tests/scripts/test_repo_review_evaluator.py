@@ -965,13 +965,9 @@ def test_feedback_covers_converged_cycle_binding() -> None:
     converged = {"synthesized_at": "2026-06-10T09:00:00+00:00"}
 
     # Stale feedback predating the converged set -> NOT covered (the bug this closes).
-    assert (
-        evaluator.feedback_covers_converged({}, "2026-05-03", converged) is False
-    )
+    assert evaluator.feedback_covers_converged({}, "2026-05-03", converged) is False
     # Feedback at least as new as the converged set -> covered.
-    assert (
-        evaluator.feedback_covers_converged({}, "2026-06-10", converged) is True
-    )
+    assert evaluator.feedback_covers_converged({}, "2026-06-10", converged) is True
     # Explicit per-repo binding to this converged set -> covered regardless of date.
     assert (
         evaluator.feedback_covers_converged(
@@ -993,6 +989,4 @@ def test_feedback_covers_converged_cycle_binding() -> None:
     # No converged set to bind to (round-1 path) -> prior behavior preserved.
     assert evaluator.feedback_covers_converged({}, "2026-05-03", None) is True
     # Unparseable feedback date fails closed (do not auto-approve blindly).
-    assert (
-        evaluator.feedback_covers_converged({}, "not-a-date", converged) is False
-    )
+    assert evaluator.feedback_covers_converged({}, "not-a-date", converged) is False
