@@ -34,10 +34,10 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_REL = ".github/workflows/reusable-10-ci-python.yml"
 WORKFLOW_PATH = ROOT / WORKFLOW_REL
 
-# A checkout step line of the form `        ref: main` (any indentation). The
-# input default `default: 'main'` and `ref: ${{ inputs.workflows_ref }}` must
-# NOT match. This is the line the issue's deliberate-break gate re-introduces.
-_REF_MAIN_LINE = re.compile(r"^\s*ref:\s*main\s*$", re.MULTILINE)
+# A checkout step line of the form `ref: main`, including quoted values and
+# trailing comments. The input default `default: 'main'` and expressions like
+# `ref: ${{ inputs.workflows_ref || 'main' }}` must NOT match.
+_REF_MAIN_LINE = re.compile(r"^\s*ref:\s*(['\"]?)main\1\s*(?:#.*)?$", re.MULTILINE)
 
 
 def _load_workflow() -> dict:
@@ -56,14 +56,36 @@ def test_no_hardcoded_ref_main() -> None:
     )
 
 
+def test_ref_main_guard_catches_quoted_and_commented_literals() -> None:
+    """The guard catches the common YAML spellings of a hardcoded main ref."""
+    offenders = [
+        "ref: main",
+        "  ref: main  # deliberate break",
+        'ref: "main"',
+        "ref: 'main'",
+    ]
+    allowed = [
+        "default: 'main'",
+        "ref: ${{ inputs.workflows_ref }}",
+        "ref: ${{ inputs.workflows_ref || 'main' }}",
+        "ref: mainline",
+    ]
+    for line in offenders:
+        assert _REF_MAIN_LINE.match(line), line
+    for line in allowed:
+        assert not _REF_MAIN_LINE.match(line), line
+
+
 def test_workflows_ref_input_declared() -> None:
     """The reusable exposes a backward-compatible ``workflows_ref`` input."""
     data = _load_workflow()
-    inputs = (data.get(True) or data.get("on") or {})["workflow_call"]["inputs"]
-    assert "workflows_ref" in inputs, "missing `workflows_ref` workflow_call input"
-    spec = inputs["workflows_ref"]
-    assert spec.get("required") is False, "`workflows_ref` must be optional"
-    assert spec.get("default") == "main", "`workflows_ref` must default to main"
+    triggers = data.get(True) or data.get("on") or {}
+    for trigger in ("workflow_call", "workflow_dispatch"):
+        inputs = triggers[trigger]["inputs"]
+        assert "workflows_ref" in inputs, f"missing `workflows_ref` {trigger} input"
+        spec = inputs["workflows_ref"]
+        assert spec.get("required") is False, f"{trigger} `workflows_ref` must be optional"
+        assert spec.get("default") == "main", f"{trigger} `workflows_ref` must default to main"
 
 
 def test_workflows_checkouts_use_workflows_ref_input() -> None:

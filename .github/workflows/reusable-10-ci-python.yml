@@ -172,6 +172,13 @@ on:
         description: Working directory for all run steps (useful for monorepos).
         required: false
         default: '.'
+      workflows_ref:
+        description: >-
+          The ref of the Workflows repo to check out for helper code/actions.
+          Defaults to main for manual workflow_dispatch runs.
+        required: false
+        default: 'main'
+        type: string
       python-versions:
         description: JSON array of Python versions to execute.
         required: false
@@ -405,7 +412,7 @@ jobs:
           repository: stranske/Workflows
           # Resolve helpers to the ref this reusable was pinned at (consumers
           # pass workflows_ref matching their `@ref`); defaults to main.
-          ref: ${{ inputs.workflows_ref }}
+          ref: ${{ inputs.workflows_ref || 'main' }}
           path: .workflows-lib
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -720,7 +727,7 @@ jobs:
           repository: stranske/Workflows
           # Resolve helpers to the ref this reusable was pinned at (consumers
           # pass workflows_ref matching their `@ref`); defaults to main.
-          ref: ${{ inputs.workflows_ref }}
+          ref: ${{ inputs.workflows_ref || 'main' }}
           path: .workflows-lib
           sparse-checkout: |
             scripts/reusable_ci_scope.py
@@ -1517,7 +1524,7 @@ jobs:
           repository: stranske/Workflows
           # Resolve helpers to the ref this reusable was pinned at (consumers
           # pass workflows_ref matching their `@ref`); defaults to main.
-          ref: ${{ inputs.workflows_ref }}
+          ref: ${{ inputs.workflows_ref || 'main' }}
           path: .workflows-lib
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
@@ -2467,7 +2474,7 @@ jobs:
           repository: stranske/Workflows
           # Resolve helpers to the ref this reusable was pinned at (consumers
           # pass workflows_ref matching their `@ref`); defaults to main.
-          ref: ${{ inputs.workflows_ref }}
+          ref: ${{ inputs.workflows_ref || 'main' }}
           path: .workflows-lib
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
