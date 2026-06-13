@@ -88,9 +88,7 @@ jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     secrets:
-      pypi-token: ${{ secrets.PYPI_TOKEN }}  # Optional, for publishing private dependencies
-      workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-      workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      pypi-token: ${{ secrets.PYPI_TOKEN }}  # Optional, for installing private dependencies
 ```
 <!-- REUSABLE-10-SECRETS-END -->
 
