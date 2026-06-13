@@ -481,6 +481,13 @@ jobs:
       - name: Create issue
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        # Security: pass agent/LLM-generated title and body via the environment, never
+        # interpolated into the script body. A value containing a quote or newline could
+        # otherwise break out of the JS string literal and execute with the workflow token
+        # on the pull_request_target path (script injection).
+        env:
+          ISSUE_TITLE: ${{ steps.generate.outputs.issue_title || steps.fallback.outputs.issue_title }}
+          ISSUE_BODY: ${{ steps.generate.outputs.issue_body || steps.fallback.outputs.issue_body }}
         with:
           script: |
             const fs = require('fs');
@@ -489,12 +496,8 @@ jobs:
               ? require(retryHelperPath)
               : { withRetry: (fn) => fn() };
 
-            const issueTitle = (
-              '${{ steps.generate.outputs.issue_title || steps.fallback.outputs.issue_title }}'
-            );
-            const issueBody = (
-              '${{ steps.generate.outputs.issue_body || steps.fallback.outputs.issue_body }}'
-            );
+            const issueTitle = process.env.ISSUE_TITLE || '';
+            const issueBody = process.env.ISSUE_BODY || '';
 
             if (!issueTitle || !issueBody) {
               core.setFailed('Failed to generate issue content');
