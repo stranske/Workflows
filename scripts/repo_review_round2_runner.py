@@ -83,7 +83,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 # ---------------------------------------------------------------------------
 
 WORKFLOWS_STEWARD = Path(
-    "/Users/teacher/Library/CloudStorage/Dropbox/Learning/Code/Workflows-steward"
+    os.environ.get("REPO_REVIEW_STEWARD_ROOT") or Path(__file__).resolve().parent.parent
 )
 PROMPT_FILE = WORKFLOWS_STEWARD / "docs/ops/REPO_REVIEW_ROUND2_PROMPT.md"
 PROTOCOL_FILE = WORKFLOWS_STEWARD / "docs/ops/REPO_REVIEW_ROUND2_PROTOCOL.md"

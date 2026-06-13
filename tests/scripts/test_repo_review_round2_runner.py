@@ -1,3 +1,4 @@
+import importlib
 import json
 from pathlib import Path
 
@@ -154,3 +155,21 @@ def test_synthesize_converged_surfaces_pending_candidate_as_deadlocked(tmp_path:
     assert payload["converged_candidates"] == []
     assert payload["deadlocked_candidates"][0]["title"] == "Keep approved repo-local work"
     assert payload["deadlocked_candidates"][0]["source_agent"] == "codex"
+
+
+def test_steward_root_resolves_from_env_or_module(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import scripts.repo_review_round2_runner as mod
+
+    # --- env-set branch ---
+    monkeypatch.setenv("REPO_REVIEW_STEWARD_ROOT", str(tmp_path))
+    reloaded = importlib.reload(mod)
+    assert reloaded.WORKFLOWS_STEWARD == tmp_path
+
+    # --- env-unset branch ---
+    monkeypatch.delenv("REPO_REVIEW_STEWARD_ROOT", raising=False)
+    reloaded2 = importlib.reload(mod)
+    expected = Path(reloaded2.__file__).resolve().parent.parent
+    assert reloaded2.WORKFLOWS_STEWARD == expected
