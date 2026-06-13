@@ -20,6 +20,7 @@ class SummaryContext:
     summary_path: Path | None
     output_path: Path | None
     python_required: bool = True
+    docs_guard_result: str = "success"
 
 
 @dataclass(slots=True)
@@ -217,7 +218,7 @@ def _collect_table(
     )
 
 
-def _doc_only_lines(reason: str) -> list[str]:
+def _doc_only_lines(reason: str, docs_guard_result: str = "success") -> list[str]:
     if not reason:
         reason = "docs_only"
     note = (
@@ -232,12 +233,16 @@ def _doc_only_lines(reason: str) -> list[str]:
         "| Job | Result |",
         "| --- | --- |",
         "| docs-only | success |",
+        f"| docs-guard | {_friendly(docs_guard_result)} |",
     ]
     return lines
 
 
 def _append_job_table(
-    lines: list[str], job_results: Mapping[str, Iterable[str]], docker_result: str
+    lines: list[str],
+    job_results: Mapping[str, Iterable[str]],
+    docs_guard_result: str,
+    docker_result: str,
 ) -> None:
     lines.append("")
     lines.append("| Job | Result |")
@@ -245,6 +250,7 @@ def _append_job_table(
     for job_name, outcomes in sorted(job_results.items()):
         result = _pick_best(outcomes)
         lines.append(f"| {job_name} | {_friendly(result)} |")
+    lines.append(f"| docs-guard | {_friendly(docs_guard_result)} |")
     lines.append(f"| docker-smoke | {_friendly(docker_result)} |")
 
 
@@ -256,10 +262,11 @@ def _active_lines(
     coverage_entries: Iterable[tuple[str, str]],
     coverage_percents: Iterable[str],
     job_results: Mapping[str, list[str]],
-    docker_result: str,
+    docs_guard_result: str = "success",
+    docker_result: str = "skipped",
 ) -> list[str]:
     lines = ["### Gate status", *table]
-    _append_job_table(lines, job_results, docker_result)
+    _append_job_table(lines, job_results, docs_guard_result, docker_result)
 
     lint_status, lint_detail = _aggregate(lint_entries)
     type_status, type_detail = _aggregate(type_entries)
@@ -281,13 +288,27 @@ def _active_lines(
 
 
 def summarize(context: SummaryContext) -> SummaryResult:
+    docs_guard_result = _normalize(context.docs_guard_result or "success")
+
     if context.doc_only or not context.run_core:
-        lines = _doc_only_lines(context.reason)
+        lines = _doc_only_lines(context.reason, docs_guard_result)
         description = (
             "Gate fast-pass: docs-only change detected; heavy checks skipped."
             if context.reason == "docs_only"
             else f"Docs-only change; heavy checks skipped ({context.reason or 'docs_only'})."
         )
+        if docs_guard_result == "cancelled":
+            return SummaryResult(
+                lines=lines,
+                state="pending",
+                description="Docs guard cancelled; waiting for rerun.",
+            )
+        if docs_guard_result not in ("success", "skipped"):
+            return SummaryResult(
+                lines=lines,
+                state="failure",
+                description=f"Docs guard result: {docs_guard_result}.",
+            )
         return SummaryResult(lines=lines, state="success", description=description)
 
     records = _load_summary_records(context.artifacts_root)
@@ -311,6 +332,7 @@ def summarize(context: SummaryContext) -> SummaryResult:
         coverage_entries,
         coverage_percents,
         job_results,
+        docs_guard_result,
         context.docker_result,
     )
 
@@ -323,9 +345,15 @@ def summarize(context: SummaryContext) -> SummaryResult:
     failure_checks: tuple[str, ...] = ()
     format_failure = False
 
+    if docs_guard_result == "cancelled":
+        state = "pending"
+        description = "Docs guard cancelled; waiting for rerun."
+    elif docs_guard_result not in ("success", "skipped"):
+        state = "failure"
+        description = f"Docs guard result: {docs_guard_result}."
     # Python CI skipped is OK when path classification says no Python-relevant
     # files changed.
-    if not context.python_required and python_result == "skipped":
+    elif not context.python_required and python_result == "skipped":
         lines.append("- Python CI skipped: no Python-code changes detected.")
     elif python_result == "cancelled":
         state = "pending"
@@ -379,6 +407,7 @@ def build_context() -> SummaryContext:
     run_core = _normalize(os.environ.get("RUN_CORE"), "true") == "true"
     reason = os.environ.get("REASON") or ""
     python_result = os.environ.get("PYTHON_RESULT") or "skipped"
+    docs_guard_result = os.environ.get("DOCS_GUARD_RESULT") or "success"
     docker_result = os.environ.get("DOCKER_RESULT") or "skipped"
     docker_changed = _normalize(os.environ.get("DOCKER_CHANGED"), "false") == "true"
     python_required = _normalize(os.environ.get("PYTHON_REQUIRED"), "true") == "true"
@@ -391,6 +420,7 @@ def build_context() -> SummaryContext:
         run_core=run_core,
         reason=reason,
         python_result=python_result,
+        docs_guard_result=docs_guard_result,
         docker_result=docker_result,
         docker_changed=docker_changed,
         artifacts_root=artifacts_root,

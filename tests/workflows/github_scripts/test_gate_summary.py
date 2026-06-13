@@ -59,6 +59,26 @@ def test_doc_only_summary_state() -> None:
     assert result.format_failure is False
 
 
+def test_doc_only_summary_fails_when_docs_guard_fails() -> None:
+    context = gate_summary.SummaryContext(
+        doc_only=True,
+        run_core=False,
+        reason="docs_only",
+        python_result="success",
+        docker_result="skipped",
+        docker_changed=False,
+        artifacts_root=Path("/tmp/nonexistent"),
+        summary_path=None,
+        output_path=None,
+        docs_guard_result="failure",
+    )
+
+    result = gate_summary.summarize(context)
+    assert result.state == "failure"
+    assert result.description == "Docs guard result: failure."
+    assert any("| docs-guard | failure |" in line for line in result.lines)
+
+
 def test_active_summary_reads_artifacts(tmp_path: Path) -> None:
     write_summary(tmp_path, "3.12")
 
@@ -83,6 +103,29 @@ def test_active_summary_reads_artifacts(tmp_path: Path) -> None:
     assert "| docker-smoke | success |" in joined
     assert result.cosmetic_failure is False
     assert result.format_failure is False
+
+
+def test_active_summary_fails_when_docs_guard_fails(tmp_path: Path) -> None:
+    write_summary(tmp_path, "3.12")
+
+    context = gate_summary.SummaryContext(
+        doc_only=False,
+        run_core=True,
+        reason="",
+        python_result="success",
+        docker_result="success",
+        docker_changed=False,
+        artifacts_root=tmp_path,
+        summary_path=None,
+        output_path=None,
+        docs_guard_result="failure",
+    )
+
+    result = gate_summary.summarize(context)
+    joined = "\n".join(result.lines)
+    assert result.state == "failure"
+    assert result.description == "Docs guard result: failure."
+    assert "| docs-guard | failure |" in joined
 
 
 @pytest.mark.parametrize(
@@ -358,6 +401,7 @@ def test_build_context_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.setenv("REASON", "workflow_only")
     monkeypatch.setenv("PYTHON_RESULT", "FAILURE")
     monkeypatch.setenv("PYTHON_REQUIRED", "FALSE")
+    monkeypatch.setenv("DOCS_GUARD_RESULT", "FAILURE")
     monkeypatch.setenv("DOCKER_RESULT", "cancelled")
     monkeypatch.setenv("DOCKER_CHANGED", "TRUE")
     artifacts_root = tmp_path / "gate_artifacts"
@@ -373,6 +417,7 @@ def test_build_context_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert context.reason == "workflow_only"
     assert context.python_result == "FAILURE"
     assert context.python_required is False
+    assert context.docs_guard_result == "FAILURE"
     assert context.docker_result == "cancelled"
     assert context.docker_changed is True
     assert context.artifacts_root == artifacts_root
