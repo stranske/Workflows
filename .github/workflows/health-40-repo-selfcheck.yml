@@ -402,6 +402,29 @@ jobs:
             core.setOutput('label_errors', JSON.stringify(labelErrors));
             core.setOutput('branch_fetch_error', branchFetchError || '');
 
+      - name: Root allowlist guard
+        # Fail when a tracked file appears at the repo root (depth 0) that is
+        # not on the reviewed allowlist (config/root-allowlist.txt). Keeps
+        # one-off debris (stray fixer scripts, per-run CI snapshots, *.patch)
+        # from silently accumulating at the system-of-record repo root and
+        # bloating every agent's working context. See issue #2277. This is
+        # wired into the (non-required) health workflow on purpose: it flags a
+        # future stray without blocking unrelated PRs at the Gate.
+        run: |
+          allowlist="config/root-allowlist.txt"
+          if [ ! -f "$allowlist" ]; then
+            echo "::error::Missing $allowlist (root-allowlist guard cannot run)"
+            exit 1
+          fi
+          stray="$(git ls-files | awk -F/ 'NF==1' | grep -vxF -f "$allowlist" || true)"
+          if [ -n "$stray" ]; then
+            echo "::error::Unlisted file(s) at repo root are not on $allowlist:"
+            printf '%s\n' "$stray" | sed 's/^/  - /'
+            echo "If a listed file is intentional, add it to $allowlist; otherwise remove it from the repo root."
+            exit 1
+          fi
+          echo "Root allowlist guard: OK (no unlisted files at repo root)."
+
       - name: Aggregate & Summarize
         id: aggregate
         env:
