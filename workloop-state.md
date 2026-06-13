@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T12:19Z - closer (codex) rebased #2296 after #2294 label-doc sync
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2296](https://github.com/stranske/Workflows/pull/2296), source issue `#2274`, branch `claude/issue-2274-entrypoint-docs-inputs`.
+- **Blocker:** latest Gate runs failed both `python ci / python 3.12` and `python ci / python 3.13` on `tests/docs/test_labels_template_sync.py::test_consumer_template_labels_doc_matches_canonical_doc`; #2296 was still based before #2294's canonical/template `docs/LABELS.md` sync.
+- **Action:** used disposable clone `/tmp/wf-2296-ci.3WRYps` and rebased #2296 onto current `main` (`ec5fd586`). The rebase was clean and brought in the #2294 label-doc sync; no source/doc edits were needed beyond this state entry.
+- **Validation:** `python -m pytest tests/docs/test_labels_template_sync.py tests/workflows/test_reusable_workflow_inputs_doc.py tests/workflows/test_reusable_workflow_outputs_doc.py -q -rA` passed (`7 passed`); `python scripts/validate_template_completeness.py` passed; `scripts/sync_templates.sh` reported all files already in sync; `git diff --check` clean.
+- **Next action:** push the rebased branch with `--force-with-lease`, remove stale `agent:needs-attention`, and wait for fresh Gate checks. If checks settle green and review threads remain clear, merge #2296, apply `verify:compare`, and keep #2274 open until durable verifier disposition.
+
 ## 2026-06-13T12:12Z - closer (codex) rebased #2295 after #2294 merge
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2295](https://github.com/stranske/Workflows/pull/2295), source issue `#2273`, branch `codex/issue-2273-langsmith-zero-signal`.
