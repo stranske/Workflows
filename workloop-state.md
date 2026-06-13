@@ -8,6 +8,15 @@
 - **Validation:** run focused grep for live `api-helpers.js` workflow requires, workflow YAML parse, JS API helper tests, Agents Guard tests, template completeness/sync validation, and `git diff --check` before push.
 - **Next action:** push the guard dependency fix, then wait for fresh checks. If checks settle green and no new review threads appear, merge #2304, apply `verify:compare`, and keep #2278 open until verifier disposition.
 
+## 2026-06-13T15:13Z - opener (codex) issue #2279 docs remediation
+
+- **Selected opener lane:** issue [#2279](https://github.com/stranske/Workflows/issues/2279), branch `codex/issue-2279-docs-remediation`; PR not opened yet at this checkpoint.
+- **Cap/drain context:** opener cap was 3/5 after the mandatory cap-health and infra-stall preflight. #2303 and #2304 had fresh Gate/keepalive evidence and were active-moving; #2287 remains scoped-blocked on the known Selftest:Reusables zero-scenario decision. No opener-owned PR needed label repair, rerun, or bounded quick recovery before new materialization.
+- **Queue/liveness disposition:** liveness guard required action. High-priority queue entries for Travel-Plan-Permission and trip-planner were stale duplicates: TPP #1191/#1192 already completed the TripState smoke item; trip-planner #1363 and #1369 were already closed. A duplicate TPP issue #1193 was created from the stale queue, then immediately corrected with the full body, commented as duplicate of #1191/#1192, and closed as completed before selecting the next live unlinked issue.
+- **Implementation:** replaced stale `docs/keepalive/SETUP_CHECKLIST.md` with a compatibility pointer to `templates/consumer-repo/docs/SETUP_CHECKLIST.md`; updated README setup links; added `docs/ops/RUNBOOK.md` and `docs/ops/PAUSE_RESUME_RUNBOOK.md`; documented missing control-plane labels in canonical and consumer-template `docs/LABELS.md`; pruned nonexistent active workflow entries from `docs/ci/WORKFLOWS.md`; added `tests/workflows/test_workflows_doc_links_resolve.py`.
+- **Validation:** new workflow-doc link test passed with `workflow references checked: 103` and `dangling workflow references: []`; deliberate break by re-adding `maint-keepalive.yml` failed naming `['maint-keepalive.yml']`, then reverted and passed. Focused docs tests passed (`5 passed`): link guard, label sync, label table formatting, setup-checklist pointer. `tests/workflows/test_workflow_naming.py` passed (`9 passed`). `git diff --check` passed. Acceptance greps: each required label appeared in `docs/LABELS.md`; old README `docs/keepalive/SETUP_CHECKLIST.md` setup links returned no matches; both ops runbooks are non-empty.
+- **Next action:** commit, rebase onto the latest `origin/main`, push, open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`, then fire `pr_opened` for #2279.
+
 ## 2026-06-13T15:00Z - closer (codex) narrowed #2303 follow-up lane metadata
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2303](https://github.com/stranske/Workflows/pull/2303), source issue `#2275`, follow-up branch `claude/issue-2275-template-rlac-cleanup`.

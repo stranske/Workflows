@@ -131,7 +131,7 @@ Start with:
 - `docs/USAGE.md`
 - `docs/INTEGRATION_GUIDE.md`
 - `docs/ci-workflow.md`
-- `docs/keepalive/SETUP_CHECKLIST.md`
+- `templates/consumer-repo/docs/SETUP_CHECKLIST.md`
 - `docs/guides/ADD_NEW_AGENT.md` — Checklist for onboarding new automation agents
 - `docs/analysis/verify-compare-40pr-evaluation-feb-2026.md` - Verify:compare pipeline evaluation (Feb 2026)
 
@@ -225,7 +225,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 - Usage: docs/USAGE.md
 - Integration guide: docs/INTEGRATION_GUIDE.md
 - CI wiring: docs/ci-workflow.md
-- Keepalive setup: docs/keepalive/SETUP_CHECKLIST.md
+- Keepalive setup: templates/consumer-repo/docs/SETUP_CHECKLIST.md
 - Workflow guide: docs/WORKFLOW_GUIDE.md
 - Agent policy: docs/AGENTS_POLICY.md
 - Compatibility: docs/COMPATIBILITY.md

@@ -120,18 +120,15 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 * [`maint-52-sync-dev-versions.yml`](../../.github/workflows/maint-52-sync-dev-versions.yml) syncs dev tool versions (ruff, mypy, black, isort, pytest) from `autofix-versions.env` to consumer repository `pyproject.toml` files weekly or on version changes.
 * [`maint-auto-update-pypi-versions.yml`](../../.github/workflows/maint-auto-update-pypi-versions.yml) checks PyPI daily for latest dev tool versions and creates a PR to update `autofix-versions.env` when versions are outdated.
 * [`maint-62-integration-consumer.yml`](../../.github/workflows/maint-62-integration-consumer.yml) runs daily at 05:05 UTC, on release publication, or by manual dispatch to execute the integration-repo scenarios via the reusable Python CI template and keep the integration failure issue updated.
-* [`maint-63-ensure-environments.yml`](../../.github/workflows/maint-63-ensure-environments.yml) ensures agent environments (`agent-standard`, `agent-high-privilege`) exist with appropriate protection rules for environment-gated workflows.
 * [`maint-65-sync-label-docs.yml`](../../.github/workflows/maint-65-sync-label-docs.yml) synchronizes `docs/LABELS.md` to consumer repositories weekly (Sundays 00:00 UTC) or via manual dispatch.
 * [`maint-66-monthly-audit.yml`](../../.github/workflows/maint-66-monthly-audit.yml) performs comprehensive monthly workflow health audits, collecting statistics and creating actionable tracking issues.
 * [`maint-60-release.yml`](../../.github/workflows/maint-60-release.yml) creates GitHub releases automatically when version tags (`v*`) are pushed.
 * [`maint-61-create-floating-v1-tag.yml`](../../.github/workflows/maint-61-create-floating-v1-tag.yml) creates or refreshes the floating `v1` tag to point at the latest `v1.x` release, enabling consumers to track major version updates automatically.
-* [`maint-keepalive.yml`](../../.github/workflows/maint-keepalive.yml) ensures Codex/autofix configuration stays fresh and pings for outstanding tasks.
-
 ## Agents Control Plane
 
 The agent workflows coordinate Codex and chat orchestration across topics:
 
-Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workflow. The default consumer installation is the template pair `agents-80-pr-event-hub.yml` + `agents-81-gate-followups.yml` (plus `agents-verifier.yml`, `pr-00-gate.yml`, `AGENTS.md`, and `CLAUDE.md`).
+Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workflow. The default consumer installation uses the consumer-template PR event hub and Gate followups workflows (plus `agents-verifier.yml`, `pr-00-gate.yml`, `AGENTS.md`, and `CLAUDE.md`).
 
 * [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) is the thin dispatcher that triggers the orchestrator init and main phases. It calls [`reusable-70-orchestrator-init.yml`](../../.github/workflows/reusable-70-orchestrator-init.yml) for initialization (rate limit checks, token preflight, parameter resolution) and [`reusable-70-orchestrator-main.yml`](../../.github/workflows/reusable-70-orchestrator-main.yml) for the main keepalive and belt operations.
 * Required permissions: `actions: write`, `contents: write`, and `pull-requests: write` at the workflow root so nested branch-sync and keepalive post-work steps can request their scopes without startup failure.
@@ -144,13 +141,10 @@ Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workf
 * [`agents-keepalive-branch-sync.yml`](../../.github/workflows/agents-keepalive-branch-sync.yml) issues short-lived sync branches, merges the reconciliation PR automatically, and tears down the branch once the update lands so keepalive can clear branch drift without human intervention.
 * [`agents-keepalive-dispatch-handler.yml`](../../.github/workflows/agents-keepalive-dispatch-handler.yml) listens for orchestrator `repository_dispatch` payloads and replays them through the reusable agents topology so keepalive actions stay aligned with branch-sync repairs.
 * [`agents-71-codex-belt-dispatcher.yml`](../../.github/workflows/agents-71-codex-belt-dispatcher.yml), [`agents-72-codex-belt-worker-dispatch.yml`](../../.github/workflows/agents-72-codex-belt-worker-dispatch.yml), and [`agents-72-codex-belt-worker.yml`](../../.github/workflows/agents-72-codex-belt-worker.yml) handle dispatching and execution.
-* [`agents-74-pr-body-writer.yml`](../../.github/workflows/agents-74-pr-body-writer.yml) synchronizes PR body sections from source issues and builds status summaries.
-* [`agents-pr-meta-v4.yml`](../../.github/workflows/agents-pr-meta-v4.yml) is the Workflows-repo PR meta manager, using external scripts to stay under GitHub workflow parser limits. Consumer repos should use the current `agents-80-pr-event-hub.yml` / `agents-81-gate-followups.yml` template pair unless they are intentionally maintaining a legacy compatibility file.
-* [`agents-75-keepalive-on-gate.yml`](../../.github/workflows/agents-75-keepalive-on-gate.yml) implements the keepalive-on-gate consolidation and gate-aware keepalive behavior.
+* [`agents-pr-meta-v4.yml`](../../.github/workflows/agents-pr-meta-v4.yml) is the Workflows-repo PR meta manager, using external scripts to stay under GitHub workflow parser limits. Consumer repos should use the current consumer-template PR event hub and Gate followups workflow pair unless they are intentionally maintaining a legacy compatibility file.
 * [`agents-bot-comment-handler.yml`](../../.github/workflows/agents-bot-comment-handler.yml) dispatches the reusable bot comment handler after Gate success, manual dispatch, or the `autofix:bot-comments` label to address bot review comments.
 * [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) includes the keepalive sweep, which the orchestrator toggles via the `keepalive_enabled` flag and repository-level `keepalive:paused` label.
 * [`agents-63-issue-intake.yml`](../../.github/workflows/agents-63-issue-intake.yml) is the canonical front door. It now listens for `agent:codex` labels directly and routes both label triggers and ChatGPT sync requests through the shared normalization pipeline.
-* [`agents-64-pr-comment-commands.yml`](../../.github/workflows/agents-64-pr-comment-commands.yml) processes slash commands in PR comments to trigger workflow actions.
 * [`agents-64-verify-agent-assignment.yml`](../../.github/workflows/agents-64-verify-agent-assignment.yml) validates that labelled issues retain an approved agent assignee and publishes the verification outputs.
 * [`agents-issue-optimizer.yml`](../../.github/workflows/agents-issue-optimizer.yml) runs issue optimization passes when `agents:optimize` or `agents:apply-suggestions` labels are applied.
 * [`agents-moderate-connector.yml`](../../.github/workflows/agents-moderate-connector.yml) moderates connector-authored PR comments, enforcing repository allow/deny lists and applying the debugging label when deletions occur.
@@ -160,7 +154,7 @@ Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workf
 * [`agents-capability-check.yml`](../../.github/workflows/agents-capability-check.yml) performs pre-flight checks before agent assignment to identify blockers like ambiguous scope or missing context.
 * [`agents-decompose.yml`](../../.github/workflows/agents-decompose.yml) decomposes large issues into actionable sub-tasks using LLM analysis.
 * [`agents-dedup.yml`](../../.github/workflows/agents-dedup.yml) detects duplicate issues using semantic similarity analysis and posts findings as a comment.
-* [`agents-verify-to-issue-v2.yml`](../../.github/workflows/agents-verify-to-issue-v2.yml) creates follow-up issues from verification feedback when PRs receive CONCERNS or FAIL verdicts using the enhanced LangChain analyzer. (Legacy `agents-verify-to-issue.yml` has been removed.)
+* [`agents-verify-to-issue-v2.yml`](../../.github/workflows/agents-verify-to-issue-v2.yml) creates follow-up issues from verification feedback when PRs receive CONCERNS or FAIL verdicts using the enhanced LangChain analyzer. The legacy v1 issue workflow has been removed.
 * [`agents-verify-to-new-pr.yml`](../../.github/workflows/agents-verify-to-new-pr.yml) creates a follow-up issue from verification feedback, enforces the follow-up chain-depth limit, emits verifier follow-up ledger records, and kicks off a new PR when policy allows it.
 * [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) automatically applies the `agents:allow-change` label to Dependabot PRs.
 * [`maint-dependabot-auto-lock.yml`](../../.github/workflows/maint-dependabot-auto-lock.yml) automatically regenerates requirements.lock when dependabot updates pyproject.toml.
@@ -216,5 +210,3 @@ Together these workflows define the CI surface area referenced by Gate and the G
 
 * [`selftest-ci.yml`](../../.github/workflows/selftest-ci.yml) runs the repository's own test suite (JS + Python tests, linting, YAML validation) on push and PR, including the langchain verdict, verifier, and structured-output contract tests.
 * [`health-keepalive-e2e.yml`](../../.github/workflows/health-keepalive-e2e.yml) path-filtered E2E test for the keepalive system. Runs only when keepalive-related files change. Supports two modes: orchestration-only (default) and real Codex ping (via `e2e:codex-ping` label).
-* [`health-keepalive-auth-diagnostic.yml`](../../.github/workflows/health-keepalive-auth-diagnostic.yml) 4-part diagnostic suite for keepalive auth: GitHub App tokens, Claude CLI auth, Codex auth, and PAT availability. Run on `workflow_dispatch`.
-* [`health-claude-cli-auth-debug.yml`](../../.github/workflows/health-claude-cli-auth-debug.yml) isolated Claude Code CLI auth test (temporary, delete after validation).
