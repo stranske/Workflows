@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T12:24Z - closer (codex) advanced PR #2298 (Health 45 guard allowlist fix)
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2298](https://github.com/stranske/Workflows/pull/2298), source issue `#2275`, branch `codex/issue-2275-dead-code-sync-sweep`.
+- **Blocker:** Health 45 Agents Guard failed because the PR intentionally deletes `.github/workflows/agents-belt-dispatcher.yml`, `.github/workflows/agents-belt-worker.yml`, and `.github/workflows/agents-belt-conveyor.yml`. The source issue and PR body explicitly require removing these unnumbered alias wrappers after rewiring callers to the numbered `agents-71/72/73-codex-belt-*` workflows, so the stale protection inventory was the actionable blocker.
+- **Action:** added the three retired belt alias workflow paths to `LEGACY_ALLOW_REMOVED_PATHS` in root and consumer-template `agents-guard.js`, and extended the guard unit test's allowlisted-removal cases.
+- **Validation:** `node --test .github/scripts/__tests__/agents-guard.test.js` passed (`22 passed`); `scripts/sync_templates.sh` synced the consumer-template guard copy; `python3 scripts/validate_template_completeness.py` passed; `git diff --check` passed.
+- **Post-push state:** pushed `152c5aa9` to `codex/issue-2275-dead-code-sync-sweep`. Next closer action: re-check #2298 after fresh Health 45/Gate checks settle; if clean and review-clear, merge #2298, apply `verify:compare`, and sequence source issue `#2275`.
+
 ## 2026-06-13T12:28Z - opener (codex) issue #2275 -> PR #2298 (dead-code sync sweep)
 
 - **Selected opener lane:** issue [#2275](https://github.com/stranske/Workflows/issues/2275), branch `codex/issue-2275-dead-code-sync-sweep`, PR [#2298](https://github.com/stranske/Workflows/pull/2298).
