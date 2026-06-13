@@ -10,6 +10,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 WORKFLOW_PATHS = [
+    Path(".github/workflows/autofix.yml"),
     Path(".github/workflows/agents-71-codex-belt-dispatcher.yml"),
     Path(".github/workflows/agents-72-codex-belt-worker.yml"),
     Path(".github/workflows/agents-73-codex-belt-conveyor.yml"),
@@ -24,6 +25,7 @@ WORKFLOW_PATHS = [
     Path("templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml"),
     Path("templates/consumer-repo/.github/workflows/agents-verifier.yml"),
     Path("templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml"),
+    Path("templates/consumer-repo/.github/workflows/autofix.yml"),
 ]
 
 RETRY_HELPERS = (
