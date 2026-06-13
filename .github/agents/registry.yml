@@ -80,8 +80,7 @@ agents:
       verifier_checkbox: false  # verification stays on the existing judge (config/llm_slots.json)
 
   gemini:
-    enabled: false
-    runner_workflow: ''
+    runner_workflow: .github/workflows/reusable-gemini-run.yml
     required_secrets:
       - GEMINI_API_KEY
     branch_prefix: gemini/issue-
@@ -89,6 +88,8 @@ agents:
       window: daily
       limit: 1  # TODO: confirm owner-supplied public plan limit
     ui_mentions_allowed: false
+    # Reuses stranske-automation-bot for branch pushes/attribution until a
+    # dedicated service account is provisioned.
     automation_logins:
       - stranske-automation-bot
     readiness_candidates:
@@ -96,12 +97,12 @@ agents:
     preflight:
       assign_user: stranske-automation-bot
       command_phrase: ''
-      enabled: false
+      enabled: false   # issue-intake/invite flow deferred; PR keepalive only this phase
     capabilities:
-      pr_keepalive: false
-      pr_autofix: false
+      pr_keepalive: true
+      pr_autofix: false         # autofix-loop wiring deferred
       belt: false
-      verifier_checkbox: false
+      verifier_checkbox: false  # verification stays on the existing judge (config/llm_slots.json)
 
   aider:
     enabled: false

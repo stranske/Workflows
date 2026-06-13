@@ -1009,6 +1009,16 @@ jobs:
             codex-prompt*.md \
             codex-session-*.jsonl \
             codex-analysis-*.json \
+            claude-output*.md \
+            claude-prompt*.md \
+            claude-session*.log \
+            claude-session*.jsonl \
+            claude-analysis*.json \
+            gemini-output*.md \
+            gemini-prompt*.md \
+            gemini-session*.log \
+            gemini-session*.jsonl \
+            gemini-analysis*.json \
             .coverage \
             .workflows-lib \
             .github/scripts/node_modules \

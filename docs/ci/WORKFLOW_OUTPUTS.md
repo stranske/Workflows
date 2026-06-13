@@ -130,6 +130,22 @@ reusable workflow in the no-output section.
 | `reusable-cursor-run.yml` | `error-category` | string | Error category (transient/auth/resource/logic/unknown) | `needs.cursor.outputs.error-category` |
 | `reusable-cursor-run.yml` | `error-type` | string | Error type (cursor/infrastructure/auth/unknown) | `needs.cursor.outputs.error-type` |
 | `reusable-cursor-run.yml` | `error-recovery` | string | Suggested recovery action | `needs.cursor.outputs.error-recovery` |
+| `reusable-gemini-run.yml` | `final-message` | string (base64) | Full Gemini output message (base64 encoded) | `needs.gemini.outputs.final-message` |
+| `reusable-gemini-run.yml` | `final-message-summary` | string | First 500 chars of Gemini output (safe for PR comments) | `needs.gemini.outputs.final-message-summary` |
+| `reusable-gemini-run.yml` | `error-summary` | string | Failure summary message (prefers Gemini output, falls back to preflight errors) | `needs.gemini.outputs.error-summary` |
+| `reusable-gemini-run.yml` | `exit-code` | string (number-like) | Gemini CLI exit code (0=success) | `needs.gemini.outputs.exit-code` |
+| `reusable-gemini-run.yml` | `changes-made` | string (boolean-like) | Whether Gemini made file changes (true/false) | `needs.gemini.outputs.changes-made` |
+| `reusable-gemini-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.gemini.outputs.commit-sha` |
+| `reusable-gemini-run.yml` | `files-changed` | string (number-like) | Number of files changed by Gemini | `needs.gemini.outputs.files-changed` |
+| `reusable-gemini-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed | `needs.gemini.outputs.llm-analysis-run` |
+| `reusable-gemini-run.yml` | `llm-provider` | string | LLM provider used for analysis (placeholder for compatibility) | `needs.gemini.outputs.llm-provider` |
+| `reusable-gemini-run.yml` | `llm-model` | string | Specific model used for analysis (placeholder for compatibility) | `needs.gemini.outputs.llm-model` |
+| `reusable-gemini-run.yml` | `llm-confidence` | string (number-like) | Confidence level of LLM analysis (placeholder for compatibility) | `needs.gemini.outputs.llm-confidence` |
+| `reusable-gemini-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of completed task descriptions (placeholder for compatibility) | `needs.gemini.outputs.llm-completed-tasks` |
+| `reusable-gemini-run.yml` | `llm-has-completions` | string (boolean-like) | Whether any task completions were detected (placeholder for compatibility) | `needs.gemini.outputs.llm-has-completions` |
+| `reusable-gemini-run.yml` | `error-category` | string | Error category (transient/auth/resource/logic/unknown) | `needs.gemini.outputs.error-category` |
+| `reusable-gemini-run.yml` | `error-type` | string | Error type (gemini/infrastructure/auth/unknown) | `needs.gemini.outputs.error-type` |
+| `reusable-gemini-run.yml` | `error-recovery` | string | Suggested recovery action | `needs.gemini.outputs.error-recovery` |
 <!-- OUTPUT-REFERENCE-END -->
 
 ## Workflows without workflow_call outputs

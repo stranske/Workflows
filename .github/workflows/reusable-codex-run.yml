@@ -1399,6 +1399,11 @@ jobs:
             cursor-session*.log \
             cursor-session*.jsonl \
             cursor-analysis*.json \
+            gemini-output*.md \
+            gemini-prompt*.md \
+            gemini-session*.log \
+            gemini-session*.jsonl \
+            gemini-analysis*.json \
             .coverage \
             .workflows-lib \
             .github/scripts/node_modules \

@@ -1,4 +1,4 @@
-name: Reusable Claude Run
+name: Reusable Gemini Run
 
 on:
   workflow_call:
@@ -9,11 +9,11 @@ on:
         default: false
         type: boolean
       prompt_file:
-        description: 'Path to the prompt file that Claude should read.'
+        description: 'Path to the prompt file that Gemini should read.'
         required: true
         type: string
       mode:
-        description: 'Claude mode for logging purposes (keepalive | autofix | verifier).'
+        description: 'Gemini mode for logging purposes (keepalive | autofix | verifier).'
         required: false
         default: keepalive
         type: string
@@ -56,28 +56,24 @@ on:
         type: string
       skip_permissions:
         description: >-
-          Pass --dangerously-skip-permissions to Claude CLI so it can write files
-          without interactive approval. Set to false to run in read-only / review mode.
+          Pass --approval-mode yolo to the gemini CLI so it can apply edits and
+          run tool calls without confirmation. Set to false to run in
+          read-only / review mode.
         required: false
         default: true
         type: boolean
-      claude_cli_package:
-        description: 'Optional npm package to install if claude CLI is not already present.'
-        required: false
-        default: '@anthropic-ai/claude-code'
-        type: string
-      claude_cli_version:
-        description: 'Optional npm version to install for claude_cli_package (empty = latest).'
+      gemini_cli_version:
+        description: 'Optional npm version for @google/gemini-cli (empty = latest).'
         required: false
         default: ''
         type: string
-      claude_args:
-        description: 'Optional additional Claude CLI arguments (string).'
+      gemini_cli_args:
+        description: 'Optional additional gemini CLI arguments (string).'
         required: false
         default: ''
         type: string
       appendix:
-        description: 'Optional context appended to the prompt passed to Claude.'
+        description: 'Optional context appended to the prompt passed to Gemini.'
         required: false
         default: ''
         type: string
@@ -92,14 +88,10 @@ on:
         default: 'agent-standard'
         type: string
     secrets:
-      CLAUDE_AUTH_JSON:
-        description: 'JSON contents for Claude CLI auth (written to ~/.claude/.credentials.json and ~/.config/claude-code/auth.json)'
-        required: false
-      CLAUDE_CODE_OAUTH_TOKEN:
+      GEMINI_API_KEY:
         description: >-
-          Long-lived OAuth token from `claude setup-token` (valid ~1 year).
-          Preferred over CLAUDE_AUTH_JSON because it does not expire quickly.
-          Set via env var so the CLI picks it up automatically.
+          API key for the gemini CLI (headless auth). Exported to the run
+          step as the GEMINI_API_KEY env var so the CLI picks it up automatically.
         required: false
       WORKFLOWS_APP_ID:
         required: false
@@ -114,54 +106,54 @@ on:
         description: 'Anthropic API key for LLM analysis (enables Claude slot)'
     outputs:
       final-message:
-        description: 'Full Claude output message (base64 encoded)'
-        value: ${{ jobs.claude.outputs.final-message }}
+        description: 'Full Gemini output message (base64 encoded)'
+        value: ${{ jobs.gemini.outputs.final-message }}
       final-message-summary:
-        description: 'First 500 chars of Claude output (safe for PR comments)'
-        value: ${{ jobs.claude.outputs.final-message-summary }}
+        description: 'First 500 chars of Gemini output (safe for PR comments)'
+        value: ${{ jobs.gemini.outputs.final-message-summary }}
       error-summary:
         description: >-
-          Failure summary message (prefers Claude output, falls back to preflight errors)
-        value: ${{ jobs.claude.outputs.error-summary }}
+          Failure summary message (prefers Gemini output, falls back to preflight errors)
+        value: ${{ jobs.gemini.outputs.error-summary }}
       exit-code:
-        description: 'Claude CLI exit code (0=success)'
-        value: ${{ jobs.claude.outputs.exit-code }}
+        description: 'Gemini CLI exit code (0=success)'
+        value: ${{ jobs.gemini.outputs.exit-code }}
       changes-made:
-        description: 'Whether Claude made file changes (true/false)'
-        value: ${{ jobs.claude.outputs.changes-made }}
+        description: 'Whether Gemini made file changes (true/false)'
+        value: ${{ jobs.gemini.outputs.changes-made }}
       commit-sha:
         description: 'SHA of the commit if changes were pushed'
-        value: ${{ jobs.claude.outputs.commit-sha }}
+        value: ${{ jobs.gemini.outputs.commit-sha }}
       files-changed:
-        description: 'Number of files changed by Claude'
-        value: ${{ jobs.claude.outputs.files-changed }}
+        description: 'Number of files changed by Gemini'
+        value: ${{ jobs.gemini.outputs.files-changed }}
       llm-analysis-run:
         description: 'Whether LLM analysis was performed'
-        value: ${{ jobs.claude.outputs.llm-analysis-run }}
+        value: ${{ jobs.gemini.outputs.llm-analysis-run }}
       llm-provider:
         description: 'LLM provider used for analysis (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-provider }}
+        value: ${{ jobs.gemini.outputs.llm-provider }}
       llm-model:
         description: 'Specific model used for analysis (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-model }}
+        value: ${{ jobs.gemini.outputs.llm-model }}
       llm-confidence:
         description: 'Confidence level of LLM analysis (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-confidence }}
+        value: ${{ jobs.gemini.outputs.llm-confidence }}
       llm-completed-tasks:
         description: 'JSON array of completed task descriptions (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-completed-tasks }}
+        value: ${{ jobs.gemini.outputs.llm-completed-tasks }}
       llm-has-completions:
         description: 'Whether any task completions were detected (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-has-completions }}
+        value: ${{ jobs.gemini.outputs.llm-has-completions }}
       error-category:
         description: 'Error category (transient/auth/resource/logic/unknown)'
-        value: ${{ jobs.claude.outputs.error-category }}
+        value: ${{ jobs.gemini.outputs.error-category }}
       error-type:
-        description: 'Error type (claude/infrastructure/auth/unknown)'
-        value: ${{ jobs.claude.outputs.error-type }}
+        description: 'Error type (gemini/infrastructure/auth/unknown)'
+        value: ${{ jobs.gemini.outputs.error-type }}
       error-recovery:
         description: 'Suggested recovery action'
-        value: ${{ jobs.claude.outputs.error-recovery }}
+        value: ${{ jobs.gemini.outputs.error-recovery }}
 
 permissions:
   contents: write
@@ -170,24 +162,24 @@ permissions:
   models: read
 
 concurrency:
-  group: claude-${{ inputs.mode }}-${{ inputs.pr_number || github.ref }}
+  group: gemini-${{ inputs.mode }}-${{ inputs.pr_number || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  claude:
-    name: Claude (${{ inputs.mode }})
+  gemini:
+    name: Gemini (${{ inputs.mode }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     timeout-minutes: ${{ inputs.max_runtime_minutes }}
     if: ${{ !inputs.skip }}
     outputs:
-      final-message: ${{ steps.run_claude.outputs.final-message }}
-      final-message-summary: ${{ steps.run_claude.outputs.final-message-summary }}
-      exit-code: ${{ steps.run_claude.outputs.exit-code }}
+      final-message: ${{ steps.run_gemini.outputs.final-message }}
+      final-message-summary: ${{ steps.run_gemini.outputs.final-message-summary }}
+      exit-code: ${{ steps.run_gemini.outputs.exit-code }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
-      error-summary: ${{ steps.run_claude.outputs.error-summary }}
+      error-summary: ${{ steps.run_gemini.outputs.error-summary }}
       llm-analysis-run: ${{ steps.compat.outputs.llm-analysis-run }}
       llm-provider: ${{ steps.compat.outputs.llm-provider }}
       llm-model: ${{ steps.compat.outputs.llm-model }}
@@ -198,42 +190,76 @@ jobs:
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
     steps:
-      # Shared agent-agnostic setup (App-token mint / auth-token selection /
-      # checkout / Node.js / API client / Workflows scripts checkout) lives in
-      # the agent-run-base composite so it is maintained once for both runners
-      # (issue #2341).
-      - name: Mint Workflows bootstrap app token
-        id: bootstrap_app_token
+      - name: Mint GitHub App token (preferred)
+        id: app_token
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
 
-      - name: Checkout Workflows run-base action
+      - name: Select auth token
+        id: auth_token
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+        run: |
+          set -euo pipefail
+          checkout_token="${APP_TOKEN:-${GITHUB_TOKEN}}"
+          push_token="${APP_TOKEN:-}"
+          source="app-token"
+          push_allowed="true"
+
+          if [ -z "$push_token" ]; then
+            source="github-token"
+            push_allowed="false"
+          fi
+
+          {
+            echo "checkout_token=${checkout_token}"
+            echo "push_token=${push_token}"
+            echo "source=${source}"
+            echo "push_allowed=${push_allowed}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "WORKFLOWS_TOKEN=${checkout_token}"
+            echo "GEMINI_MODE=${{ inputs.mode }}"
+            echo "GEMINI_PR_NUMBER=${{ inputs.pr_number }}"
+          } >> "$GITHUB_ENV"
+
+          printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.pr_ref || github.ref }}
+          token: ${{ steps.auth_token.outputs.checkout_token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      # Align infrastructure prep with Codex runner so both agents share
+      # the same token load balancer, scripts checkout, and tooling deps.
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      - name: Checkout Workflows scripts
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: ${{ inputs.workflows_ref }}
-          path: .workflows-actions
+          path: .workflows-lib
           sparse-checkout: |
-            .github/actions/agent-run-base
-          token: ${{ steps.bootstrap_app_token.outputs.token || github.token }}
-
-      - name: Agent run base setup
-        id: run_base
-        uses: ./.workflows-actions/.github/actions/agent-run-base
-        with:
-          checkout_ref: ${{ inputs.pr_ref || github.ref }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
-          workflows_ref: ${{ inputs.workflows_ref }}
-          secrets: ${{ toJSON(secrets) }}
-          github_token: ${{ github.token }}
-          runner_mode: ${{ inputs.mode }}
-          runner_pr_number: ${{ inputs.pr_number }}
-          mode_env_name: CLAUDE_MODE
-          pr_number_env_name: CLAUDE_PR_NUMBER
+            .github
+            tools
+            scripts
+          token: ${{ steps.auth_token.outputs.checkout_token }}
 
       # Ensure Workflows deps BEFORE calling setup-api-client for .workflows-lib.
       # setup-api-client invokes create_vendor_aliases.js + npm and will fail
@@ -317,7 +343,7 @@ jobs:
         run: |
           set -euo pipefail
           fail_on_missing=true
-          if [ "${CLAUDE_MODE:-}" = "e2e-test" ]; then
+          if [ "${GEMINI_MODE:-}" = "e2e-test" ]; then
             fail_on_missing=false
           fi
           if [ ! -d ".workflows-lib" ]; then
@@ -337,7 +363,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: '3.12'
           cache: pip
           cache-dependency-path: |
             pyproject.toml
@@ -397,8 +423,8 @@ jobs:
               error_msg="Prompt template integrity check failed. "
               error_msg+="The base prompt contains embedded task content "
               error_msg+="that should be removed."
-              echo "CLAUDE_PREFLIGHT_ERROR=${error_msg}" >> "$GITHUB_ENV"
-              echo "CLAUDE_PREFLIGHT_STAGE=prompt-integrity" >> "$GITHUB_ENV"
+              echo "GEMINI_PREFLIGHT_ERROR=${error_msg}" >> "$GITHUB_ENV"
+              echo "GEMINI_PREFLIGHT_STAGE=prompt-integrity" >> "$GITHUB_ENV"
               echo "::error::Prompt template integrity check failed. See output above."
               echo "::error::The base prompt contains embedded task content that should be removed."
               exit 1
@@ -418,9 +444,99 @@ jobs:
 
       - name: Validate and materialize reference packs
         id: reference_packs
-        uses: ./.github/actions/agent-reference-packs
-        with:
-          checkout_token: ${{ steps.run_base.outputs.checkout_token }}
+        env:
+          GH_TOKEN: ${{ steps.auth_token.outputs.checkout_token }}
+        run: |
+          set -euo pipefail
+          if [ ! -f ".github/reference_packs.json" ]; then
+            echo "No .github/reference_packs.json found; skipping reference packs."
+            echo "reference_packs_exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Validating reference pack configuration..."
+          python .workflows-lib/scripts/reference_packs.py --workspace . --format json \
+            > /tmp/reference_packs_output.json
+          echo "reference_packs_exists=true" >> "$GITHUB_OUTPUT"
+
+          python3 <<'REFPACK_EOF'
+          import json, subprocess, os, shutil, sys, re
+
+          with open("/tmp/reference_packs_output.json") as f:
+              data = json.load(f)
+
+          token = os.environ.get("GH_TOKEN", "")
+          for plan in data.get("checkout_plan", []):
+              name = plan["name"]
+              repo = plan["repo"]
+              ref = plan["ref"]
+              checkout_path = plan["checkout_path"]
+              paths = plan["paths"]
+              clone_dir = f"/tmp/ref-pack-{name}"
+
+              print(f"Cloning {repo}@{ref} for pack '{name}'...")
+              if os.path.exists(clone_dir):
+                  shutil.rmtree(clone_dir)
+              if token:
+                  clone_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+              else:
+                  clone_url = f"https://github.com/{repo}.git"
+
+              is_sha = bool(re.fullmatch(r'[0-9a-fA-F]{40}', ref))
+              if is_sha:
+                  subprocess.check_call([
+                      "git", "clone", "--depth=1", "--filter=blob:none",
+                      "--sparse", "--no-checkout", clone_url, clone_dir
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                  subprocess.check_call([
+                      "git", "-C", clone_dir, "fetch", "origin", ref, "--depth=1"
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                  subprocess.check_call([
+                      "git", "-C", clone_dir, "checkout", ref
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              else:
+                  subprocess.check_call([
+                      "git", "clone", "--depth=1", "--branch", ref,
+                      "--filter=blob:none", "--sparse", clone_url, clone_dir
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              subprocess.check_call([
+                  "git", "-C", clone_dir, "sparse-checkout", "set", "--no-cone"
+              ] + paths, stdout=subprocess.DEVNULL)
+              subprocess.check_call([
+                  "git", "-C", clone_dir, "sparse-checkout", "reapply"
+              ], stdout=subprocess.DEVNULL)
+
+              os.makedirs(checkout_path, exist_ok=True)
+              for p in paths:
+                  src = os.path.join(clone_dir, p)
+                  dst = os.path.join(checkout_path, p)
+                  if os.path.isdir(src):
+                      shutil.copytree(src, dst, dirs_exist_ok=True)
+                  elif os.path.isfile(src):
+                      os.makedirs(os.path.dirname(dst), exist_ok=True)
+                      shutil.copy2(src, dst)
+                  else:
+                      print(f"::warning::Path '{p}' not found in {repo}@{ref}", file=sys.stderr)
+              shutil.rmtree(clone_dir, ignore_errors=True)
+              print(f"Pack '{name}' materialized at {checkout_path}")
+
+          md_path = os.path.join(".reference", "REFERENCE_PACKS.md")
+          os.makedirs(os.path.dirname(md_path), exist_ok=True)
+          with open(md_path, "w") as md:
+              for plan in data.get("checkout_plan", []):
+                  md.write(f"## {plan['name']}\n")
+                  md.write(f"- **Repo:** `{plan['repo']}`\n")
+                  md.write(f"- **Ref:** `{plan['ref']}`\n")
+                  md.write(f"- **Paths:** {', '.join(f'`{p}`' for p in plan['paths'])}\n")
+                  checkout = plan["checkout_path"]
+                  md.write(f"- **Location:** `{checkout}/`\n\n")
+                  md.write("### Contents\n")
+                  for root, dirs, files in os.walk(checkout):
+                      for fname in sorted(files):
+                          rel = os.path.relpath(os.path.join(root, fname), checkout)
+                          md.write(f"- `{rel}`\n")
+                  md.write("\n")
+          print(f"Generated {md_path}")
+          REFPACK_EOF
 
       - name: Assemble prompt
         id: prompt
@@ -431,24 +547,32 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
+          # gemini is a first-class runner_lib provider that uses the same
+          # plain-text (non-JSONL) prompt/parse path as claude.
+          if [ -n "${PR_NUMBER:-}" ]; then
+            PROMPT_OUTPUT="gemini-prompt-${PR_NUMBER}.md"
+          else
+            PROMPT_OUTPUT="gemini-prompt.md"
+          fi
           PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
             python -m scripts.runner_lib assemble-prompt \
-              --provider claude \
+              --provider gemini \
               --base-prompt "$BASE_PROMPT" \
               --appendix "$APPENDIX" \
               --mode "$MODE" \
               --pr-number "$PR_NUMBER" \
+              --output "$PROMPT_OUTPUT" \
               --task-appendix-file /tmp/keepalive-artifacts/task-appendix.txt
 
       # Keep workspace shape identical to Codex runner so git status noise doesn't
       # confuse the agent or produce merge conflicts when multiple PRs run.
-      - name: Clean workspace for Claude
+      - name: Clean workspace for Gemini
         id: clean_workspace
         env:
           PR_NUM: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
-          echo "Cleaning workspace to ensure clean git state for Claude..."
+          echo "Cleaning workspace to ensure clean git state for Gemini..."
 
           if [ -d ".workflows-lib" ]; then
             if ! grep -q "^\.workflows-lib" .git/info/exclude 2>/dev/null; then
@@ -473,17 +597,17 @@ jobs:
           fi
 
           echo "Removing stale workflow artifact files..."
-          rm -f claude-output*.md claude-session*.log claude-session*.jsonl claude-analysis*.json 2>/dev/null || true
+          rm -f gemini-output*.md gemini-session*.log gemini-session*.jsonl gemini-analysis*.json 2>/dev/null || true
 
           echo "Git status after cleanup:"
           git status --short || true
 
           ignore_re='^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
-          ignore_re+='claude-.*|autofix.*)$'
+          ignore_re+='gemini-.*|autofix.*)$'
           ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
-          ignore_re+='claude-.*|autofix.*)/'
+          ignore_re+='gemini-.*|autofix.*)/'
           REMAINING=$(git status --porcelain | cut -c4- | grep -cvE "$ignore_re" 2>/dev/null || echo "0")
           REMAINING=$(printf '%s' "$REMAINING" | tr -d '[:space:]')
           REMAINING=${REMAINING:-0}
@@ -492,11 +616,11 @@ jobs:
             echo "::notice::Found ${REMAINING} pre-existing change(s) in workspace."
             git status --short
           else
-            echo "Workspace is clean for Claude."
+            echo "Workspace is clean for Gemini."
           fi
 
       - name: Surface merge conflicts
-        if: inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
+        if: inputs.prompt_file == '.github/gemini/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
         env:
           WORKFLOW_BASE_REF: ${{ inputs.base_ref || github.event.pull_request.base.ref || '' }}
         run: |
@@ -533,100 +657,71 @@ jobs:
       - name: Preflight auth
         id: preflight
         env:
-          AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON || '' }}
-          OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || '' }}
         run: |
           set -euo pipefail
 
-          # Prefer CLAUDE_CODE_OAUTH_TOKEN (long-lived, from `claude setup-token`)
-          # over CLAUDE_AUTH_JSON (credentials.json with short-lived OAuth tokens).
-          if [ -n "$OAUTH_TOKEN" ]; then
-            echo "auth-method=oauth-token" >> "$GITHUB_OUTPUT"
+          # The gemini CLI authenticates headlessly via the GEMINI_API_KEY env var.
+          # If it is missing, mark preflight failed so the run step short-circuits
+          # with an auth error (mirrors the Claude runner's missing-auth path).
+          if [ -n "$GEMINI_API_KEY" ]; then
+            echo "auth-method=api-key" >> "$GITHUB_OUTPUT"
             echo "missing=false" >> "$GITHUB_OUTPUT"
-            # Ensure the CLI skips onboarding prompts in headless mode
-            mkdir -p "$HOME/.claude"
-            printf '{"hasCompletedOnboarding":true}' > "$HOME/.claude.json"
-            chmod 0600 "$HOME/.claude.json"
-          elif [ -n "$AUTH_JSON" ]; then
-            echo "auth-method=credentials-json" >> "$GITHUB_OUTPUT"
-            echo "missing=false" >> "$GITHUB_OUTPUT"
-
-            # Claude Code CLI reads credentials from ~/.claude/.credentials.json (primary)
-            # and may also check ~/.config/claude-code/auth.json (legacy).
-            # Normalize key name: CLI expects "accessToken" but some auth flows produce "token".
-            NORMALIZED=$(python3 -c "
-            import json, sys
-            data = json.loads(sys.stdin.read())
-            oauth = data.get('claudeAiOauth', {})
-            if 'token' in oauth and 'accessToken' not in oauth:
-                oauth['accessToken'] = oauth.pop('token')
-                data['claudeAiOauth'] = oauth
-            print(json.dumps(data))
-            " <<< "$AUTH_JSON")
-
-            for dir in "$HOME/.claude" "$HOME/.config/claude-code"; do
-              mkdir -p "$dir"
-              target="$dir/.credentials.json"
-              [ "$dir" = "$HOME/.config/claude-code" ] && target="$dir/auth.json"
-              printf '%s' "$NORMALIZED" > "$target"
-              chmod 0600 "$target"
-            done
+            # Export for the run step (and any later steps) to pick up.
+            echo "GEMINI_API_KEY=${GEMINI_API_KEY}" >> "$GITHUB_ENV"
           else
             echo "missing=true" >> "$GITHUB_OUTPUT"
-            echo "error=Missing Claude auth: set CLAUDE_CODE_OAUTH_TOKEN (preferred) or CLAUDE_AUTH_JSON secret" >> "$GITHUB_OUTPUT"
+            echo "error=Missing Gemini auth: set the GEMINI_API_KEY secret" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-      - name: Ensure Claude CLI
+      - name: Ensure Gemini CLI
         if: steps.preflight.outputs.missing != 'true'
         env:
-          PACKAGE: ${{ inputs.claude_cli_package }}
-          VERSION: ${{ inputs.claude_cli_version }}
+          VERSION: ${{ inputs.gemini_cli_version }}
         run: |
           set -euo pipefail
-          if command -v claude >/dev/null 2>&1; then
-            echo "Claude CLI already present: $(command -v claude)"
+
+          # Resolve the gemini binary if it is already on PATH (print version and
+          # exit early so we don't reinstall on self-hosted/cached runners).
+          if command -v gemini >/dev/null 2>&1; then
+            echo "Gemini CLI already present: $(command -v gemini)"
+            gemini --version || true
             exit 0
           fi
 
-          if [ -z "$PACKAGE" ]; then
-            echo "::error::Claude CLI not found on PATH, and claude_cli_package is empty."
-            exit 1
-          fi
+          # Install Google's Gemini CLI from npm. An empty gemini_cli_version
+          # installs the latest published release; otherwise pin to @<version>.
+          echo "Gemini CLI not found; installing @google/gemini-cli${VERSION:+@${VERSION}} ..."
+          npm install -g "@google/gemini-cli${VERSION:+@${VERSION}}"
 
-          echo "Claude CLI not found; attempting npm install: ${PACKAGE}${VERSION:+@${VERSION}}"
-          if [ -n "$VERSION" ]; then
-            npm install -g "${PACKAGE}@${VERSION}"
+          # npm -g already exposes the binary on PATH, so no $GITHUB_PATH edit is
+          # needed — but verify it actually resolves before proceeding.
+          if command -v gemini >/dev/null 2>&1; then
+            echo "Installed Gemini CLI: $(command -v gemini)"
+            gemini --version || true
           else
-            npm install -g "${PACKAGE}"
-          fi
-
-          if ! command -v claude >/dev/null 2>&1; then
-            echo "::error::Claude CLI still not found after install."
-            echo "::error::If your CLI binary is not named 'claude', adjust claude_cli_package"
-            echo "::error::and/or pass the right claude_args for your environment."
+            echo "::error::Gemini CLI (gemini) not found on PATH after install."
+            echo "::error::Check the npm install output above for @google/gemini-cli."
             exit 1
           fi
 
-          echo "Installed Claude CLI: $(command -v claude)"
-          claude --version || true
-
-      - name: Run Claude
-        id: run_claude
+      - name: Run Gemini
+        id: run_gemini
         if: always()
         env:
           PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
           PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
           PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
-          EXTRA_ARGS_RAW: ${{ inputs.claude_args }}
+          EXTRA_ARGS_RAW: ${{ inputs.gemini_cli_args }}
           PR_NUMBER: ${{ inputs.pr_number }}
           SKIP_PERMISSIONS: ${{ inputs.skip_permissions }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || '' }}
           PR_REF: ${{ inputs.pr_ref }}
         run: |
           set -euo pipefail
 
-          extra_args_file="${RUNNER_TEMP:-/tmp}/claude-extra-args.txt"
+          extra_args_file="${RUNNER_TEMP:-/tmp}/gemini-extra-args.txt"
           : > "$extra_args_file"
           if [ -n "${EXTRA_ARGS_RAW:-}" ]; then
             python3 - "$EXTRA_ARGS_RAW" "$extra_args_file" <<'PY'
@@ -641,30 +736,30 @@ jobs:
               try:
                   value = json.loads(raw)
               except json.JSONDecodeError as exc:
-                  raise SystemExit(f"claude_args JSON parse failed: {exc}")
+                  raise SystemExit(f"gemini_cli_args JSON parse failed: {exc}")
               if not isinstance(value, list):
-                  raise SystemExit("claude_args JSON must be an array")
+                  raise SystemExit("gemini_cli_args JSON must be an array")
               for idx, item in enumerate(value):
                   if not isinstance(item, str):
-                      raise SystemExit(f"claude_args JSON array item {idx} must be a string")
+                      raise SystemExit(f"gemini_cli_args JSON array item {idx} must be a string")
                   if '\x00' in item:
-                      raise SystemExit(f"claude_args JSON array item {idx} contains NUL")
+                      raise SystemExit(f"gemini_cli_args JSON array item {idx} contains NUL")
               args = value
           else:
               try:
                   args = shlex.split(raw)
               except ValueError as exc:
-                  raise SystemExit(f"claude_args split failed: {exc}")
+                  raise SystemExit(f"gemini_cli_args split failed: {exc}")
               for idx, item in enumerate(args):
                   if '\x00' in item:
-                      raise SystemExit(f"claude_args arg {idx} contains NUL")
+                      raise SystemExit(f"gemini_cli_args arg {idx} contains NUL")
 
           with open(out_path, 'w', encoding='utf-8') as handle:
               for arg in args:
                   handle.write(arg)
                   handle.write('\n')
 
-          print(f"Parsed {len(args)} claude extra arg(s).")
+          print(f"Parsed {len(args)} gemini extra arg(s).")
           PY
           fi
           mapfile -t extra_args < "$extra_args_file" || true
@@ -680,9 +775,9 @@ jobs:
 
           if [ -z "${PROMPT_FILE:-}" ]; then
             if [ -n "${PR_NUMBER:-}" ]; then
-              PROMPT_FILE="claude-prompt-${PR_NUMBER}.md"
+              PROMPT_FILE="gemini-prompt-${PR_NUMBER}.md"
             else
-              PROMPT_FILE="claude-prompt.md"
+              PROMPT_FILE="gemini-prompt.md"
             fi
             echo "::notice::Prompt output was empty; using assembled prompt fallback: ${PROMPT_FILE}"
           fi
@@ -698,45 +793,53 @@ jobs:
 
           prompt_content="$(cat "$PROMPT_FILE")"
           if [ -n "${PR_NUMBER:-}" ]; then
-            output_file="claude-output-${PR_NUMBER}.md"
+            output_file="gemini-output-${PR_NUMBER}.md"
           else
-            output_file="claude-output.md"
+            output_file="gemini-output.md"
           fi
 
+          # --approval-mode yolo lets the gemini CLI apply edits and run tool
+          # calls without confirmation (the analogue of Claude's
+          # --dangerously-skip-permissions / cursor's --force). Omit it for
+          # read-only / review mode.
           perm_flag=()
           if [ "${SKIP_PERMISSIONS:-true}" = "true" ]; then
-            perm_flag=("--dangerously-skip-permissions")
+            perm_flag=(--approval-mode yolo)
           fi
 
           # Use PR-specific session log filename (mirrors Codex runner pattern)
           if [ -n "${PR_NUMBER:-}" ]; then
-            SESSION_LOG="claude-session-${PR_NUMBER}.log"
+            SESSION_LOG="gemini-session-${PR_NUMBER}.log"
           else
-            SESSION_LOG="claude-session.log"
+            SESSION_LOG="gemini-session.log"
           fi
 
-          echo "Running Claude Code in agentic mode..."
+          echo "Running Gemini CLI in headless mode..."
+          echo "CLI: $(command -v gemini)"
           echo "Prompt file: $PROMPT_FILE"
           echo "Output file: $output_file"
           echo "Session log: $SESSION_LOG"
 
-          # claude -p (--print) runs in non-interactive agentic mode:
-          # all tools execute, and the final text response goes to stdout.
-          # Note: --output-file does NOT exist in Claude CLI; use shell
-          # redirection.  Tee to $SESSION_LOG so we have a debug artifact
-          # even if the run fails.
+          # gemini -p runs headlessly: it applies tools/edits and prints the
+          # final assistant message to stdout as plain text. We deliberately do
+          # NOT pass --output-format json (its JSON shape has been unstable across
+          # releases); the default text stdout is what the contract base64-encodes,
+          # matching the cursor/claude text path. Tee to $SESSION_LOG so we keep a
+          # debug artifact even if the run fails.
+          GEMINI_CLI_ARGS=("${extra_args[@]}")
           set +e
-          claude -p "$prompt_content" \
+          gemini -p "$prompt_content" \
             "${perm_flag[@]}" \
-            "${extra_args[@]}" \
+            ${MODEL:+--model "$MODEL"} \
+            "${GEMINI_CLI_ARGS[@]}" \
             2>&1 | tee "$SESSION_LOG" > "$output_file"
           status=${PIPESTATUS[0]}
           set -e
 
-          # Diagnostic: show what Claude did to the workspace
-          echo "::group::Post-Claude workspace diagnostics"
-          echo "Claude exit code: $status"
-          echo "Git status after Claude run:"
+          # Diagnostic: show what Gemini did to the workspace
+          echo "::group::Post-Gemini workspace diagnostics"
+          echo "Gemini exit code: $status"
+          echo "Git status after Gemini run:"
           git status --short || true
           echo "Unpushed commits (if any):"
           diag_branch="${PR_REF:-}"
@@ -749,8 +852,8 @@ jobs:
           echo "exit-code=$status" >> "$GITHUB_OUTPUT"
           PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
             python -m scripts.runner_lib parse-output \
-              --provider claude \
-              --raw-output-file "$output_file" >/tmp/claude-runner-result.json
+              --provider gemini \
+              --raw-output-file "$output_file" >/tmp/gemini-runner-result.json
 
           if [ "$status" -ne 0 ]; then
             exit "$status"
@@ -760,8 +863,8 @@ jobs:
         id: commit
         if: always()
         env:
-          PUSH_TOKEN: ${{ steps.run_base.outputs.push_token || '' }}
-          PUSH_ALLOWED: ${{ steps.run_base.outputs.push_allowed }}
+          PUSH_TOKEN: ${{ steps.auth_token.outputs.push_token || '' }}
+          PUSH_ALLOWED: ${{ steps.auth_token.outputs.push_allowed }}
           PR_REF: ${{ inputs.pr_ref }}
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -778,7 +881,7 @@ jobs:
 
           if [ "$CHANGED_FILES" -eq 0 ]; then
             echo "No uncommitted changes."
-            # Claude Code in agentic mode (--dangerously-skip-permissions) can
+            # Gemini in headless mode (--force) can
             # create its own git commits via the Bash tool.  Check for unpushed
             # commits that need pushing — mirrors the Codex runner pattern.
             git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
@@ -792,7 +895,7 @@ jobs:
             fi
 
             if [ "$UNPUSHED_COMMITS" -gt 0 ]; then
-              echo "Found ${UNPUSHED_COMMITS} unpushed commit(s) from Claude — pushing them."
+              echo "Found ${UNPUSHED_COMMITS} unpushed commit(s) from Gemini — pushing them."
               COMMIT_SHA=$(git rev-parse HEAD)
               echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
               echo "changes-made=true" >> "$GITHUB_OUTPUT"
@@ -828,7 +931,7 @@ jobs:
               for attempt in 1 2 3; do
                 echo "Push attempt ${attempt}/3 (unpushed commits path)..."
                 if git push "$REMOTE_URL" "HEAD:${target_branch}"; then
-                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Claude (attempt ${attempt}, SHA: ${COMMIT_SHA})"
+                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Gemini (attempt ${attempt}, SHA: ${COMMIT_SHA})"
                   exit 0
                 fi
                 echo "::warning::Push failed (attempt ${attempt})"
@@ -860,7 +963,7 @@ jobs:
           if [ "$PUSH_ALLOWED" != "true" ] || [ -z "$PUSH_TOKEN" ]; then
             echo "changes-made=true" >> "$GITHUB_OUTPUT"
             echo "commit-sha=" >> "$GITHUB_OUTPUT"
-            echo "::error::Claude made changes but no GitHub App push token is available."
+            echo "::error::Gemini made changes but no GitHub App push token is available."
             echo "::error::Configure WORKFLOWS_APP_ID/WORKFLOWS_APP_PRIVATE_KEY."
             exit 1
           fi
@@ -886,6 +989,11 @@ jobs:
           # Unstage non-agent artifacts to prevent committing workflow noise.
           # Mirrors the exclusion list from reusable-codex-run.yml.
           git reset HEAD -- \
+            gemini-output*.md \
+            gemini-prompt*.md \
+            gemini-session*.log \
+            gemini-session*.jsonl \
+            gemini-analysis*.json \
             claude-output*.md \
             claude-prompt*.md \
             claude-session*.log \
@@ -900,11 +1008,6 @@ jobs:
             cursor-session*.log \
             cursor-session*.jsonl \
             cursor-analysis*.json \
-            gemini-output*.md \
-            gemini-prompt*.md \
-            gemini-session*.log \
-            gemini-session*.jsonl \
-            gemini-analysis*.json \
             .coverage \
             .workflows-lib \
             .github/scripts/node_modules \
@@ -917,21 +1020,21 @@ jobs:
             2>/dev/null || true
 
           # Bail if all changes were artifacts — but still check for unpushed
-          # commits from Claude (it may have committed via Bash tool).
+          # commits from Gemini (it may have committed via Bash tool).
           if git diff --cached --quiet; then
             echo "::notice::No non-artifact changes to commit after filtering."
             # Fetch remote so FETCH_HEAD is current (mirrors Codex runner pattern).
             git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
             UNPUSHED=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")
             if [ "$UNPUSHED" -gt 0 ]; then
-              echo "::notice::Found ${UNPUSHED} unpushed commit(s) from Claude — pushing them."
+              echo "::notice::Found ${UNPUSHED} unpushed commit(s) from Gemini — pushing them."
               sha=$(git rev-parse HEAD)
               echo "commit-sha=$sha" >> "$GITHUB_OUTPUT"
               echo "changes-made=true" >> "$GITHUB_OUTPUT"
               AGENT_FILES=$(git diff --name-only FETCH_HEAD..HEAD | wc -l | tr -d ' ')
               echo "files-changed=${AGENT_FILES:-1}" >> "$GITHUB_OUTPUT"
               # Rebase onto the remote tip so the push is a fast-forward.
-              # Without this, Claude's commit sits on the stale checkout base
+              # Without this, Gemini's commit sits on the stale checkout base
               # and the push is non-fast-forward when the branch has advanced.
               if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
                 echo "Rebasing unpushed commits onto ${target_branch} before push."
@@ -984,7 +1087,7 @@ jobs:
           git diff --cached --stat
           echo "::endgroup::"
 
-          commit_message="Claude (${MODE}) automated update"
+          commit_message="Gemini (${MODE}) automated update"
           if [ -n "${PR_NUMBER:-}" ]; then
             commit_message+=" for PR #${PR_NUMBER}"
           fi
@@ -994,7 +1097,7 @@ jobs:
           echo "changes-made=true" >> "$GITHUB_OUTPUT"
 
           # Sync with remote before push — the branch may have advanced
-          # during the Claude run. Mirrors reusable-codex-run.yml pattern.
+          # during the Gemini run. Mirrors reusable-codex-run.yml pattern.
           echo "::group::Sync with remote before push"
           git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
           if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
@@ -1040,18 +1143,18 @@ jobs:
           echo "::error::Failed to push after 3 attempts."
           exit 1
 
-      - name: Upload Claude output
+      - name: Upload Gemini output
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: claude-output-${{ inputs.pr_number || github.run_id }}
+          name: gemini-output-${{ inputs.pr_number || github.run_id }}
           path: |
-            claude-output*.md
-            claude-session*.log
-            claude-session*.jsonl
+            gemini-output*.md
+            gemini-session*.log
+            gemini-session*.jsonl
           if-no-files-found: ignore
 
-      - name: Analyze Claude session
+      - name: Analyze Gemini session
         id: analyze_session
         if: always()
         env:
@@ -1061,14 +1164,14 @@ jobs:
           set -euo pipefail
 
           if [ -n "${PR_NUM}" ]; then
-            SESSION_LOG="claude-session-${PR_NUM}.log"
+            SESSION_LOG="gemini-session-${PR_NUM}.log"
           else
-            SESSION_LOG="claude-session.log"
+            SESSION_LOG="gemini-session.log"
           fi
 
           # Check if session file exists and has content
           if [ ! -f "$SESSION_LOG" ] || [ ! -s "$SESSION_LOG" ]; then
-            echo "No Claude session log found or file is empty"
+            echo "No Gemini session log found or file is empty"
             echo "session-available=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -1094,7 +1197,7 @@ jobs:
           set -euo pipefail
 
           SESSION_LOG="${{ steps.analyze_session.outputs.session-file }}"
-          ANALYSIS_FILE="claude-analysis-${PR_NUM}.json"
+          ANALYSIS_FILE="gemini-analysis-${PR_NUM}.json"
 
           # Fetch PR body to extract tasks
           echo "Fetching PR #${PR_NUM} body..."
@@ -1118,7 +1221,7 @@ jobs:
 
           # Run full LLM analysis and save JSON output
           # The analyze_codex_session.py script auto-detects text vs JSONL input,
-          # so it works with Claude's plain-text session logs (data_source=summary).
+          # so it works with Gemini's plain-text session logs (data_source=summary).
           echo "Running LLM-powered task completion analysis..."
           if [ ! -f .workflows-lib/scripts/analyze_codex_session.py ]; then
             echo "::error::Analysis script not found."
@@ -1228,19 +1331,19 @@ jobs:
             // The prompt file name is passed to postCompletionComment which uses
             // it as the base name; it also checks for PR-specific variants internally.
             const prNumber = process.env.PR_NUMBER || '';
-            let promptFile = 'claude-prompt.md';
+            let promptFile = 'gemini-prompt.md';
             if (prNumber) {
-              const prSpecific = `claude-prompt-${prNumber}.md`;
+              const prSpecific = `gemini-prompt-${prNumber}.md`;
               if (fs.existsSync(prSpecific)) {
                 promptFile = prSpecific;
               }
             }
             // Also check codex-prompt as shared belt PRs use that naming.
-            // Only fall back when no claude-prompt variant exists at all.
+            // Only fall back when no gemini-prompt variant exists at all.
             if (!fs.existsSync(promptFile)) {
               const codexFallback = prNumber ? `codex-prompt-${prNumber}.md` : 'codex-prompt.md';
               if (fs.existsSync(codexFallback)) {
-                core.info(`No claude-prompt file found; using ${codexFallback}`);
+                core.info(`No gemini-prompt file found; using ${codexFallback}`);
                 promptFile = codexFallback;
               }
             }
@@ -1266,11 +1369,11 @@ jobs:
 
       - name: Classify failure
         id: classify_failure
-        if: always() && steps.run_claude.outputs.exit-code != '0'
+        if: always() && steps.run_gemini.outputs.exit-code != '0'
         uses: actions/github-script@v9
         env:
-          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
-          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          EXIT_CODE: ${{ steps.run_gemini.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_gemini.outputs.final-message-summary }}
           PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -1308,7 +1411,7 @@ jobs:
               } else if (errorInfo.category === ERROR_CATEGORIES.auth) {
                 errorType = 'auth';
               } else {
-                errorType = 'claude';
+                errorType = 'gemini';
               }
             }
 
@@ -1327,10 +1430,10 @@ jobs:
             console.log(`  Recovery: ${errorInfo.recovery}`);
 
       - name: Write error summary to GITHUB_STEP_SUMMARY
-        if: always() && steps.run_claude.outputs.exit-code != '0'
+        if: always() && steps.run_gemini.outputs.exit-code != '0'
         env:
-          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
-          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          EXIT_CODE: ${{ steps.run_gemini.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_gemini.outputs.final-message-summary }}
           ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
           ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
           ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
@@ -1339,7 +1442,7 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo "## Claude Run Failed"
+            echo "## Gemini Run Failed"
             echo ""
             echo "| Field | Value |"
             echo "|-------|-------|"
@@ -1365,10 +1468,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create error diagnostics artifact
-        if: always() && steps.run_claude.outputs.exit-code != '0'
+        if: always() && steps.run_gemini.outputs.exit-code != '0'
         env:
-          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
-          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          EXIT_CODE: ${{ steps.run_gemini.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_gemini.outputs.final-message-summary }}
           ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
           ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
           ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
@@ -1387,7 +1490,7 @@ jobs:
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "run_id": "${{ github.run_id }}",
             "run_url": "${RUN_URL}",
-            "agent": "claude",
+            "agent": "gemini",
             "mode": "${MODE:-unknown}",
             "pr_number": "${PR_NUMBER:-}",
             "exit_code": "${EXIT_CODE:-unknown}",
@@ -1398,15 +1501,15 @@ jobs:
           }
           JSONEOF
 
-          # Copy claude output if available
-          for f in claude-output*.md; do
+          # Copy gemini output if available
+          for f in gemini-output*.md; do
             [ -f "$f" ] && cp "$f" error-diagnostics/ && break
           done 2>/dev/null || true
 
           echo "Created error diagnostics in error-diagnostics/"
 
       - name: Upload error diagnostics
-        if: always() && steps.run_claude.outputs.exit-code != '0'
+        if: always() && steps.run_gemini.outputs.exit-code != '0'
         uses: actions/upload-artifact@v7
         with:
           name: error-diagnostics-${{ inputs.mode }}-${{ github.run_id }}
@@ -1415,16 +1518,16 @@ jobs:
 
       - name: Post PR comment on non-transient failure
         if: >-
-          always() && steps.run_claude.outputs.exit-code != '0' &&
+          always() && steps.run_gemini.outputs.exit-code != '0' &&
           steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
         uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
-          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
+          EXIT_CODE: ${{ steps.run_gemini.outputs.exit-code }}
           ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
           ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
           ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
-          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          OUTPUT_SUMMARY: ${{ steps.run_gemini.outputs.final-message-summary }}
           MODE: ${{ inputs.mode }}
           RUN_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -1457,10 +1560,10 @@ jobs:
             const mode = process.env.MODE || 'unknown';
             const runUrl = process.env.RUN_URL || '';
 
-            const marker = '<!-- claude-failure-notification -->';
+            const marker = '<!-- gemini-failure-notification -->';
 
             const body = `${marker}
-            ## Claude ${mode} run failed
+            ## Gemini ${mode} run failed
 
             | Field | Value |
             |-------|-------|

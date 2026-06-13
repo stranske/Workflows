@@ -11,7 +11,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:codex` | Issue or PR labeled | Routes the issue or PR to the Codex agent
 | `agent:claude` | Issue or PR labeled | Routes the issue or PR to the Claude Code agent
 | `agent:cursor` | Issue or PR labeled | Routes the issue or PR to the Cursor agent (`cursor-agent` CLI)
-| `agent:gemini` | Issue or PR labeled | Routes the issue or PR to the Gemini agent (`gemini` CLI) — runner lands in a follow-up phase
+| `agent:gemini` | Issue or PR labeled | Routes the issue or PR to the Gemini agent (`gemini` CLI)
 | `agent:aider` | Issue or PR labeled | Routes the issue or PR to the Aider agent for cheap, low-complexity tasks — runner lands in a follow-up phase
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; do not combine with concrete `agent:<name>` labels
 | `agent:retry` | PR labeled | Requests one re-dispatch of the matching keepalive runner
@@ -150,16 +150,32 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ---
 
-### `agent:gemini` and `agent:aider`
+### `agent:gemini`
 
 **Applies to:** Issues and Pull Requests
 
-These labels are registered ahead of their runners (which land in follow-up phases of the multi-agent
-rollout). `agent:gemini` routes to the `gemini` CLI; `agent:aider` is reserved for cheap, low-complexity
-tasks via Aider with a configurable backend model. Their registry entries are present for capacity
-tracking but disabled until the matching `reusable-<agent>-run.yml` runners ship, so applying these
-labels will not dispatch a runner yet. See `docs/guides/ADD_NEW_AGENT.md` and the rollout plan for
-sequencing.
+**Trigger:** When applied to an issue or PR
+
+**Effect:**
+1. Routes the issue or PR to the Gemini agent, a parallel surface to `agent:codex`/`agent:claude`/`agent:cursor`
+2. On PRs, keepalive dispatches work via `reusable-gemini-run.yml` per `.github/agents/registry.yml`
+3. Branch prefix `gemini/issue-<number>` is used for agent work
+
+**Prerequisites:**
+- Repository has a valid `GEMINI_API_KEY` secret (per `.github/agents/registry.yml`)
+
+**Workflow:** `agents-keepalive-loop.yml`; runner is `reusable-gemini-run.yml` per `.github/agents/registry.yml`.
+
+---
+
+### `agent:aider`
+
+**Applies to:** Issues and Pull Requests
+
+Registered ahead of its runner (lands in a follow-up phase). `agent:aider` is reserved for cheap,
+low-complexity tasks via Aider with a configurable backend model. Until its `reusable-aider-run.yml`
+runner and registry entry ship, applying this label will not dispatch a runner. See
+`docs/guides/ADD_NEW_AGENT.md` and the rollout plan for sequencing.
 
 ---
 

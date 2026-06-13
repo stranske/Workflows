@@ -24,9 +24,9 @@ from scripts.state_fingerprint import GitHubApi, _github_context
 
 MARKER_VERSION = "v1"
 MARKER_PREFIX = "runner-dispatch"
-PROVIDERS = {"autofix", "claude", "codex", "cursor"}
-# cursor uses the same plain-text (non-JSONL) prompt/parse path as claude.
-PROMPT_PROVIDERS = {"claude", "codex", "cursor"}
+PROVIDERS = {"autofix", "claude", "codex", "cursor", "gemini"}
+# cursor and gemini use the same plain-text (non-JSONL) prompt/parse path as claude.
+PROMPT_PROVIDERS = {"claude", "codex", "cursor", "gemini"}
 TERMINAL_STATUSES = {"completed", "error"}
 PENDING_STALE_AFTER_SECONDS = 30 * 60
 TRUSTED_MARKER_AUTHORS = {

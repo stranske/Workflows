@@ -119,6 +119,32 @@ def test_parse_cursor_text_output_success() -> None:
     assert result.error is None
 
 
+def test_assemble_prompt_formats_gemini_prompt(tmp_path: Path) -> None:
+    _write_prompt_fixture(tmp_path)
+
+    prompt = assemble_prompt(
+        "baseline",
+        {
+            "workspace": tmp_path,
+            "base_prompt_file": ".github/codex/prompts/task.md",
+            "appendix": "Gemini context",
+        },
+        "gemini",
+    )
+
+    assert prompt.file == "gemini-prompt.md"
+    assert prompt.provider == "gemini"
+    assert "Gemini context" in prompt.text
+
+
+def test_parse_gemini_text_output_success() -> None:
+    result = parse_runner_output("gemini", "Implemented the change and ran tests.\n")
+
+    assert result.success is True
+    assert "Implemented the change" in result.final_message
+    assert result.error is None
+
+
 def test_parse_codex_jsonl_success() -> None:
     raw = "\n".join(
         [
