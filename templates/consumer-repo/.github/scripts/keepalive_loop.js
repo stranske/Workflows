@@ -4029,6 +4029,47 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           if (core) core.warning(`Failed to add needs-human label: ${error.message}`);
         }
       }
+
+      // #2270 (FO-4/FO-5): when the loop terminal is tasks-complete, apply the
+      // `automerge` label so the completed PR reaches the GUARDED merger (the
+      // bootstrap-guarded belt conveyor / orchestrator automerge sweep in root,
+      // the consumer in-repo guarded merger in agents-81-gate-followups). This
+      // replaces the native auto-merge path removed from the belt worker. It is
+      // the only reliable producer of `automerge` once native auto-merge is gone.
+      // Idempotent: skip the add when the label is already present.
+      if (isSuccessStop) {
+        try {
+          let alreadyLabelled = false;
+          try {
+            const { data: existing } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            alreadyLabelled = (existing || []).some(
+              (label) => normalise(label?.name).toLowerCase() === 'automerge',
+            );
+          } catch (error) {
+            // If we cannot read labels, fall through and attempt the add — the
+            // GitHub API is idempotent for an already-present label anyway.
+            if (core) core.warning(`Unable to inspect labels before automerge add: ${error.message}`);
+          }
+          if (!alreadyLabelled) {
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['automerge'],
+            });
+            if (core) core.info(`Applied automerge label on tasks-complete for PR #${prNumber}.`);
+          } else if (core) {
+            core.info(`automerge label already present on PR #${prNumber}; skipping.`);
+          }
+        } catch (error) {
+          if (core) core.warning(`Failed to add automerge label: ${error.message}`);
+        }
+      }
     } catch (error) {
       const rateLimitMessage = [error?.message, error?.response?.data?.message]
         .filter(Boolean)
