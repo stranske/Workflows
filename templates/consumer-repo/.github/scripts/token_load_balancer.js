@@ -416,29 +416,31 @@ function registerToken(tokenInfo) {
 /**
  * Refresh rate limits for all registered tokens
  */
-async function refreshAllRateLimits({ github, core }) {
+async function refreshAllRateLimits({ github, core, _Octokit = null }) {
   const now = Date.now();
-  
+
   // Skip if we refreshed recently
   if (now - tokenRegistry.lastRefresh < tokenRegistry.refreshInterval) {
     core?.debug?.('Skipping rate limit refresh - too recent');
     return;
   }
-  
+
   // Attempt the @octokit/rest import once for the whole refresh cycle
   // rather than per-token — import success/failure is environment-level,
-  // not token-specific.
-  let Octokit = null;
-  try {
-    ({ Octokit } = await requireOrImport('@octokit/rest'));
-  } catch (importErr) {
-    // All tokens get a conservative synthetic budget when Octokit is not
-    // resolvable from the action dependency layout.
-    core?.error?.(
-      `@octokit/rest import failed: ${importErr.message}. ` +
-      `Token rotation is degraded — rate limit checks are skipped. ` +
-      `Ensure setup-api-client installs dependencies and exports NODE_PATH.`
-    );
+  // not token-specific.  _Octokit is a test-only injection escape hatch.
+  let Octokit = _Octokit;
+  if (!Octokit) {
+    try {
+      ({ Octokit } = await requireOrImport('@octokit/rest'));
+    } catch (importErr) {
+      // All tokens get a conservative synthetic budget when Octokit is not
+      // resolvable from the action dependency layout.
+      core?.error?.(
+        `@octokit/rest import failed: ${importErr.message}. ` +
+        `Token rotation is degraded — rate limit checks are skipped. ` +
+        `Ensure setup-api-client installs dependencies and exports NODE_PATH.`
+      );
+    }
   }
   
   const results = [];

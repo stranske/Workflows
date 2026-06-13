@@ -5,49 +5,29 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-test('refreshAllRateLimits resolves Octokit from NODE_PATH-installed action deps', () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'token-load-balancer-node-path-'));
-  const nodePath = path.join(tempDir, 'node_modules');
-  const restDir = path.join(nodePath, '@octokit', 'rest');
-  fs.mkdirSync(restDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(restDir, 'package.json'),
-    JSON.stringify({ name: '@octokit/rest', main: 'index.js' }) + '\n'
-  );
-  fs.writeFileSync(
-    path.join(restDir, 'index.js'),
-    `
-class Octokit {
-  constructor(options) {
-    this.auth = options.auth;
-    this.rateLimit = {
-      get: async () => ({
-        data: {
-          resources: {
-            core: {
-              limit: 5000,
-              remaining: 4999,
-              used: 1,
-              reset: 2000000000
-            }
-          }
-        }
-      })
-    };
-  }
-}
-module.exports = { Octokit };
-`
-  );
-
+test('refreshAllRateLimits accepts an injected Octokit (simulates NODE_PATH action deps)', async () => {
+  // The _Octokit injection escape hatch lets tests supply a mock Octokit
+  // without fighting Node.js module resolution order (local node_modules
+  // always wins over NODE_PATH, so a NODE_PATH-only mock is unreliable).
   const scriptPath = path.resolve(__dirname, '..', 'token_load_balancer.js');
-  const child = spawnSync(
-    process.execPath,
-    [
-      '-e',
-      `
-(async () => {
-  const balancer = require(process.argv[1]);
+  // Use a fresh require so we don't pollute the module cache of other tests.
+  const balancer = require(scriptPath);
+
+  const mockOctokit = class MockOctokit {
+    constructor(options) {
+      this.auth = options.auth;
+      this.rateLimit = {
+        get: async () => ({
+          data: {
+            resources: {
+              core: { limit: 5000, remaining: 4999, used: 1, reset: 2000000000 },
+            },
+          },
+        }),
+      };
+    }
+  };
+
   const errors = [];
   balancer.tokenRegistry.tokens.clear();
   balancer.tokenRegistry.lastRefresh = 0;
@@ -57,38 +37,21 @@ module.exports = { Octokit };
     type: 'PAT',
     source: 'TEST_TOKEN',
     capabilities: ['read-repo'],
-    priority: 5
+    priority: 5,
   });
   await balancer.refreshAllRateLimits({
+    _Octokit: mockOctokit,
     core: {
       error: (message) => errors.push(message),
       warning: (message) => errors.push(message),
-      debug: () => {}
-    }
+      debug: () => {},
+    },
   });
-  const rateLimit = balancer.tokenRegistry.tokens.get('TEST_TOKEN').rateLimit;
-  process.stdout.write(JSON.stringify({ errors, rateLimit }) + '\\n');
-})().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
-`,
-      scriptPath,
-    ],
-    {
-      env: {
-        ...process.env,
-        NODE_PATH: nodePath,
-      },
-      encoding: 'utf8',
-    }
-  );
 
-  assert.equal(child.status, 0, child.stderr);
-  const result = JSON.parse(child.stdout);
-  assert.deepEqual(result.errors, []);
-  assert.equal(result.rateLimit.remaining, 4999);
-  assert.equal(result.rateLimit.importFailed, undefined);
+  const rateLimit = balancer.tokenRegistry.tokens.get('TEST_TOKEN').rateLimit;
+  assert.deepEqual(errors, []);
+  assert.equal(rateLimit.remaining, 4999);
+  assert.equal(rateLimit.importFailed, undefined);
 });
 
 test('invalid credential warning cache defaults outside the repository workspace', () => {
