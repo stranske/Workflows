@@ -412,10 +412,15 @@ async function dispatchFallbackWorkflow({
   idempotencyKey,
   roundTag = 'round=?',
   record,
+  statusMode = 'active',
 }) {
   if (!baseRef || !headRef || !headSha) {
     record('Fallback dispatch', `skipped: base/head/head_sha missing. ${roundTag}`);
     return { dispatched: false };
+  }
+  if (statusMode === 'dry-run') {
+    record('Fallback dispatch', `skipped: dry-run mode. ${roundTag}`);
+    return { dispatched: false, dryRun: true };
   }
   try {
     const inputs = {
@@ -730,6 +735,7 @@ async function attemptUpdateBranchViaApi({
   core,
   record,
   appendRound,
+  statusMode = 'active',
 }) {
   if (!Number.isFinite(prNumber) || prNumber <= 0 || !baselineHead) {
     record('Update-branch API', appendRound('skipped: missing PR context or baseline head.'));
@@ -738,6 +744,10 @@ async function attemptUpdateBranchViaApi({
   if (!github?.rest?.pulls?.updateBranch) {
     record('Update-branch API', appendRound('skipped: Octokit client lacks updateBranch support.'));
     return { attempted: false };
+  }
+  if (statusMode === 'dry-run') {
+    record('Update-branch API', appendRound('skipped: dry-run mode.'));
+    return { attempted: false, dryRun: true };
   }
 
   const requestPayload = {
@@ -847,6 +857,7 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
   const appendRound = (message) => `${message} ${roundTag}`;
 
   const statusMode = parseBoolean(env.DRY_RUN, false) ? 'dry-run' : 'active';
+  const isDryRun = statusMode === 'dry-run';
   let syncStatus = 'needs_update';
   let statusHead = baselineHead || '';
   let statusBase = baseBranch || '';
@@ -1046,6 +1057,13 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
   let stateCommentUrl = stateManager.commentUrl || '';
 
   const applyStateUpdate = async (updates, { forcePersist = false } = {}) => {
+    if (isDryRun) {
+      state = mergeStateShallow(state, updates);
+      commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
+      escalationRecord = state.escalation_comment && typeof state.escalation_comment === 'object' ? state.escalation_comment : {};
+      return { state: { ...state }, commentId: stateCommentId, commentUrl: stateCommentUrl, dryRun: true };
+    }
+
     if (!forcePersist && !stateCommentId) {
       state = mergeStateShallow(state, updates);
       commandState = state.command_dispatch && typeof state.command_dispatch === 'object' ? state.command_dispatch : {};
@@ -1066,7 +1084,7 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
     const saved = await applyStateUpdate({}, { forcePersist: true });
     stateCommentId = saved.commentId || stateCommentId;
     stateCommentUrl = saved.commentUrl || stateCommentUrl;
-    record('State comment', appendRound(`initialised id=${stateCommentId || 0}`));
+    record('State comment', appendRound(isDryRun ? 'skipped initialisation: dry-run mode.' : `initialised id=${stateCommentId || 0}`));
   } else {
     record('State comment', appendRound(`reused id=${stateCommentId}`));
   }
@@ -1259,12 +1277,16 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
   if (baselineHead && initialHead && baselineHead !== initialHead) {
     record('Head check', `Head already advanced to ${initialHead}; skipping sync gate.`);
     if (hasSyncLabel) {
-      try {
-        await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: syncLabel });
-        record('Sync label', appendRound(`Removed ${syncLabel}.`));
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        record('Sync label', appendRound(`Failed to remove ${syncLabel}: ${message}`));
+      if (isDryRun) {
+        record('Sync label', appendRound(`Skipped removing ${syncLabel}: dry-run mode.`));
+      } else {
+        try {
+          await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: syncLabel });
+          record('Sync label', appendRound(`Removed ${syncLabel}.`));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          record('Sync label', appendRound(`Failed to remove ${syncLabel}: ${message}`));
+        }
       }
     } else {
       record('Sync label', appendRound(`${syncLabel} not present.`));
@@ -1391,6 +1413,10 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
       record('Update-branch API', appendRound('skipped: baseline head missing.'));
       return { changed: false };
     }
+    if (isDryRun) {
+      record('Update-branch API', appendRound('skipped: dry-run mode.'));
+      return { changed: false, dryRun: true };
+    }
 
     try {
       const response = await github.rest.pulls.updateBranch({
@@ -1452,6 +1478,7 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
           headRepo: headRepoFullName,
           headIsFork,
           record,
+          statusMode,
         });
 
     if (!dispatchInfo.dispatched) {
@@ -1589,6 +1616,7 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
       core,
       record,
       appendRound,
+      statusMode,
     });
     if (apiResult?.attempted) {
       if (apiResult?.changed) {
@@ -1645,6 +1673,7 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
           headRepo: headRepoFullName,
           headIsFork,
           record,
+          statusMode,
         });
 
     if (dispatchInfo.dispatched && !state.fallback_dispatch?.dispatched) {
@@ -1723,15 +1752,19 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
     await persistLastInstruction(finalHead || baselineHead || initialHead);
 
     if (hasSyncLabel) {
-      try {
-        await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: syncLabel });
-        record('Sync label', `Removed ${syncLabel}.`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        record('Sync label', `Failed to remove ${syncLabel}: ${message}`);
+      if (isDryRun) {
+        record('Sync label', appendRound(`Skipped removing ${syncLabel}: dry-run mode.`));
+      } else {
+        try {
+          await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: syncLabel });
+          record('Sync label', appendRound(`Removed ${syncLabel}.`));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          record('Sync label', appendRound(`Failed to remove ${syncLabel}: ${message}`));
+        }
       }
     } else {
-      record('Sync label', `${syncLabel} not present.`);
+      record('Sync label', appendRound(`${syncLabel} not present.`));
     }
     const elapsed = Date.now() - startTime;
     record('Result', appendRound(`mode=${mode || 'unknown'} sha=${finalHead || '(unknown)'} elapsed=${elapsed}ms`));
@@ -1762,12 +1795,16 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
   });
 
   if (!hasSyncLabel) {
-    try {
-      await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [syncLabel] });
-      record('Sync label', appendRound(`Applied ${syncLabel}.`));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      record('Sync label', appendRound(`Failed to apply ${syncLabel}: ${message}`));
+    if (isDryRun) {
+      record('Sync label', appendRound(`Skipped applying ${syncLabel}: dry-run mode.`));
+    } else {
+      try {
+        await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [syncLabel] });
+        record('Sync label', appendRound(`Applied ${syncLabel}.`));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        record('Sync label', appendRound(`Failed to apply ${syncLabel}: ${message}`));
+      }
     }
   } else {
     record('Sync label', appendRound(`${syncLabel} already present.`));
@@ -1796,25 +1833,29 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
     record('Escalation comment', appendRound('Reusing previous escalation comment.'));
   } else {
     const escalationMessage = `Keepalive: manual action needed — use update-branch/create-pr controls (click Update Branch or open Create PR) at: ${manualActionLink}`;
-    try {
-      const { data: escalationComment } = await github.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: prNumber,
-        body: escalationMessage,
-      });
-      updateSyncLink(escalationComment?.html_url || manualActionLink, { prefer: true });
-      await updateEscalationRecord({
-        comment_id: escalationComment?.id || '',
-        comment_url: escalationComment?.html_url || '',
-        idempotency_key: idempotencyKey,
-        recorded_at: new Date().toISOString(),
-        body: escalationMessage,
-      });
-      record('Escalation comment', appendRound('Posted escalation notice.'));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
+    if (isDryRun) {
+      record('Escalation comment', appendRound('Skipped posting escalation notice: dry-run mode.'));
+    } else {
+      try {
+        const { data: escalationComment } = await github.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: prNumber,
+          body: escalationMessage,
+        });
+        updateSyncLink(escalationComment?.html_url || manualActionLink, { prefer: true });
+        await updateEscalationRecord({
+          comment_id: escalationComment?.id || '',
+          comment_url: escalationComment?.html_url || '',
+          idempotency_key: idempotencyKey,
+          recorded_at: new Date().toISOString(),
+          body: escalationMessage,
+        });
+        record('Escalation comment', appendRound('Posted escalation notice.'));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        record('Escalation comment', appendRound(`Failed to post escalation comment: ${message}`));
+      }
     }
   }
 
