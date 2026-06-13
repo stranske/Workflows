@@ -509,9 +509,9 @@ jobs:
               print(f"Cloning {repo}@{ref} for pack '{name}'...")
               if os.path.exists(clone_dir):
                   shutil.rmtree(clone_dir)
-                if token:
+              if token:
                   clone_url = f"https://x-access-token:{token}@github.com/{repo}.git"
-                else:
+              else:
                   clone_url = f"https://github.com/{repo}.git"
 
               # Detect whether ref is a full 40-char commit SHA.
