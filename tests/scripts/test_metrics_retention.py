@@ -196,7 +196,7 @@ def test_main_defaults_include_agents_dir(tmp_path: Path, monkeypatch) -> None:
     assert log_records[-1]["files_processed"] == 1
 
 
-def test_main_no_metrics_files_writes_noop_summary(tmp_path: Path, monkeypatch) -> None:
+def test_main_no_metrics_files_writes_noop_summary(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     config_path = tmp_path / "retention-policy.json"
     log_path = tmp_path / "metrics-retention.ndjson"
@@ -226,6 +226,10 @@ def test_main_no_metrics_files_writes_noop_summary(tmp_path: Path, monkeypatch) 
     )
 
     assert exit_code == 0
+    # Falsifiable smoke for the no-op branch message (scripts/metrics_retention.py).
+    # If the printed summary string changes, this assertion must fail.
+    captured = capsys.readouterr()
+    assert "no metrics files found; wrote no-op summary" in captured.out
     log_records = [json.loads(line) for line in _load_lines(log_path)]
     assert log_records == [
         {

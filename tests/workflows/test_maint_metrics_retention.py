@@ -1,4 +1,4 @@
-"""Shape tests for the metrics-retention scheduled workflow."""
+"""Shape tests for the metrics-retention workflow (workflow_dispatch + pull_request only)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,10 @@ from pathlib import Path
 import yaml
 
 WORKFLOW_PATH = Path(".github/workflows/maint-metrics-retention.yml")
+RETENTION_DOCS = (
+    Path("docs/agent-automation.md"),
+    Path("docs/ci/WORKFLOW_SYSTEM.md"),
+)
 
 
 def _load_workflow() -> dict:
@@ -20,15 +24,20 @@ def test_workflow_has_required_triggers() -> None:
     # boolean rules used by `yaml.safe_load`.
     triggers = data.get(True) or data.get("on")
     assert triggers is not None, "workflow must declare triggers"
-    assert "schedule" in triggers, "must run on a cron schedule"
-    assert (
-        isinstance(triggers["schedule"], list) and triggers["schedule"]
-    ), "schedule must list cron entries"
-    assert all(
-        "cron" in entry for entry in triggers["schedule"]
-    ), "each schedule entry needs a cron expression"
+    # The nightly `schedule:` cron was removed: with no artifact-restore step it
+    # only ever produced a no-op summary (see issue #2276). The workflow remains a
+    # PR-path / manual smoke test of metrics_retention.py and must NOT reintroduce
+    # the scheduled no-op run.
+    assert "schedule" not in triggers, "no-op nightly schedule must not be reintroduced"
     assert "workflow_dispatch" in triggers, "must support manual workflow_dispatch"
     assert "pull_request" in triggers, "must trigger on pull_request for dry-run validation"
+
+
+def test_retention_docs_do_not_advertise_removed_nightly_schedule() -> None:
+    for path in RETENTION_DOCS:
+        text = path.read_text(encoding="utf-8")
+        assert "runs `scripts/metrics_retention.py` nightly" not in text
+        assert "The nightly schedule is implemented" not in text
 
 
 def test_workflow_invokes_retention_script_with_dry_run_branch() -> None:

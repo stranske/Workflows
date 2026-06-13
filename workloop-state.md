@@ -1,5 +1,6 @@
 # Workloop State
 
+<<<<<<< HEAD
 ## 2026-06-13T13:27Z - closer (codex) rebased #2298 after #2295 merge
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2298](https://github.com/stranske/Workflows/pull/2298), source issue `#2275`, branch `codex/issue-2275-dead-code-sync-sweep`.
@@ -24,6 +25,15 @@
 - **Zero-caller checks:** `grep -rnE 'agents-belt-(dispatcher|worker|conveyor)' .github/workflows templates/consumer-repo/.github/workflows`, `grep -rln rate-limit-aware-client .github scripts templates`, and `grep -rnE 'mergeConnectorPullRequest|locateConnectorPullRequest|scoreConnectorPr|containsTrace' .github/scripts scripts --include='*.js'` all returned empty.
 - **Deliberate-break gate:** temporarily restored one deleted alias call (`uses: ./.github/workflows/agents-belt-dispatcher.yml`) and `actionlint` failed with `could not read reusable workflow file ... no such file or directory`; reverted the break and reran `actionlint` clean.
 - **Next action:** keepalive/Gate owns CI and review iteration on #2298.
+=======
+## 2026-06-13T13:33Z - closer (codex) fixed #2301 retention-doc review thread
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2301](https://github.com/stranske/Workflows/pull/2301), source issue `#2276`, branch `claude/issue-2276-rm-orphan-metrics`.
+- **Blocker:** one unresolved P2 review thread correctly flagged that #2301 removed the no-op `schedule:` trigger from `.github/workflows/maint-metrics-retention.yml` and added a guard test, but operator/workflow-system docs still advertised a nightly 02:00 UTC metrics-retention run.
+- **Action:** updated `docs/agent-automation.md` and `docs/ci/WORKFLOW_SYSTEM.md` to describe the workflow as manual plus pull-request dry-run validation, and added a regression assertion to `tests/workflows/test_maint_metrics_retention.py` so those docs do not reintroduce the removed nightly claim.
+- **Validation:** run focused retention workflow/docs tests before push; if clean, resolve the review thread and wait for fresh checks.
+- **Next action:** if fresh checks settle green and review threads remain resolved, merge #2301, apply `verify:compare`, and keep issue #2276 open until durable verifier/provider disposition.
+>>>>>>> origin/main
 
 ## 2026-06-13T13:28Z - closer (codex) resolved #2296 docs-only guard review thread
 
