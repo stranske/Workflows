@@ -190,6 +190,7 @@ jobs:
             .github/actions/setup-api-client
             .github/agents/registry.yml
             .github/scripts/agent_registry.js
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false

@@ -64,6 +64,22 @@ def _iter_job_scripts(workflow: dict[str, Any]) -> Iterable[tuple[str, str]]:
                 yield step.get("name", "<unnamed>"), script
 
 
+def _iter_checkout_sparse_paths(workflow: dict[str, Any]) -> Iterable[tuple[str, set[str]]]:
+    jobs = workflow.get("jobs") or {}
+    for job in jobs.values():
+        steps = job.get("steps") or []
+        for step in steps:
+            uses = step.get("uses")
+            if not (isinstance(uses, str) and uses.startswith("actions/checkout@")):
+                continue
+            checkout_with = step.get("with") or {}
+            sparse_checkout = checkout_with.get("sparse-checkout")
+            if not isinstance(sparse_checkout, str):
+                continue
+            paths = {line.strip() for line in sparse_checkout.splitlines() if line.strip()}
+            yield step.get("name", "<unnamed>"), paths
+
+
 def _rest_calls_missing_retry(script: str, step_name: str, workflow_path: Path) -> list[str]:
     failures: list[str] = []
     for match in re.finditer(r"github\.rest\.", script):
@@ -109,4 +125,24 @@ def test_retry_wrappers_cover_pagination() -> None:
         not failures
     ), "Use paginateWithRetry/paginateWithBackoff instead of github.paginate: " + ", ".join(
         sorted(failures)
+    )
+
+
+def test_sparse_retry_helper_checkouts_include_classifier_dependency() -> None:
+    failures: list[str] = []
+    for relative_path in WORKFLOW_PATHS:
+        workflow_path = REPO_ROOT / relative_path
+        assert workflow_path.exists(), f"Missing workflow: {relative_path}"
+        workflow = _load_workflow(workflow_path)
+        for step_name, paths in _iter_checkout_sparse_paths(workflow):
+            if (
+                ".github/scripts/github-api-with-retry.js" in paths
+                and ".github/scripts/error_classifier.js" not in paths
+                and ".github/scripts" not in paths
+            ):
+                failures.append(f"{relative_path.as_posix()}::{step_name}")
+    assert not failures, (
+        "Sparse checkouts that materialize github-api-with-retry.js must also include "
+        ".github/scripts/error_classifier.js, because the retry helper requires it: "
+        + ", ".join(sorted(failures))
     )
