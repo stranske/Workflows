@@ -368,6 +368,12 @@ def test_selftest_runner_jobs_contract() -> None:
     assert (
         ".split('/')[0]" in verify_script
     ), "Verification should normalize nested reusable workflow job names."
+    # The rate-limit fallback must not count a legitimately-skipped, zero-scenario run
+    # as a failure: when the artifact API is rate-limited on a PR that selected no
+    # scenarios, that is a clean no-op, otherwise FAILURE_COUNT=1 leaks to publish.
+    assert (
+        "skippedNoScenarios" in verify_script
+    ), "Rate-limit fallback must treat skipped/zero-scenario runs as non-failing."
 
     upload_step = _find_step(lambda step: step.get("name") == "Upload self-test report")
     assert upload_step, "Aggregate job must upload the self-test report artifact."
@@ -384,9 +390,17 @@ def test_selftest_runner_jobs_contract() -> None:
 
     fail_step = _find_step(lambda step: step.get("name") == "Fail on verification errors")
     assert fail_step, "Aggregate job must fail when verification mismatches occur."
+    fail_if = fail_step.get("if", "")
     assert (
-        fail_step.get("if") == "${{ steps.verify.outputs.failures != '0' }}"
+        "steps.verify.outputs.failures != '0'" in fail_if
     ), "Failure guard should inspect verification failure count."
+    # A legitimately-skipped run with no selected scenarios is a clean no-op, not a
+    # mismatch: the guard must mirror the skipped-handling at the publish/comment jobs
+    # so the Aggregate & Verify job does not red-fail on PRs that touch no reusable.
+    assert (
+        "needs.scenarios.result == 'skipped'" in fail_if
+        and "needs.select-scenarios.outputs.selected_count == '0'" in fail_if
+    ), "Failure guard must exempt the legitimately-skipped, zero-scenario case."
 
 
 def test_selftest_runner_publish_job_contract() -> None:

@@ -512,7 +512,10 @@ jobs:
               if (!isRateLimitError(error)) {
                 throw error;
               }
-              const failures = workflowResult === 'success' ? 0 : 1;
+              const skippedNoScenarios =
+                workflowResult === 'skipped' && scenarioNames.length === 0;
+              const failures =
+                workflowResult === 'success' || skippedNoScenarios ? 0 : 1;
               const table = [
                 '| Scenario | Status | Missing | Unexpected |',
                 '|---|---|---|---|',
@@ -651,7 +654,7 @@ jobs:
           path: selftest-report.json
 
       - name: Fail on verification errors
-        if: ${{ steps.verify.outputs.failures != '0' }}
+        if: ${{ steps.verify.outputs.failures != '0' && !(needs.scenarios.result == 'skipped' && needs.select-scenarios.outputs.selected_count == '0') }}
         run: |
           echo 'Artifact expectation mismatches detected.' >&2
           exit 1
