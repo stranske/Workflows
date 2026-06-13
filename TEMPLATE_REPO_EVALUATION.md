@@ -32,16 +32,12 @@ The Template repository's README has been evaluated against the current keepaliv
 | No auth alternatives | Supports CODEX_AUTH_JSON or GitHub App | Document both auth methods |
 | Minimal setup docs | Requires environments, variables, secrets | Complete setup requirements |
 
-## Prepared Updates
+## Historical Update Plan
 
-### Files Created
-1. **template-repo-readme-updates.patch** (8.6KB)
-   - Git patch with all README changes
-   - Ready to apply to Template repo
-
-2. **template-pr-description.md**
-   - Comprehensive PR description
-   - Includes before/after, testing notes, deployment info
+This evaluation originally produced one-off patch and PR-description files for a
+Template repo documentation rollout. Those generated root-level artifacts are no
+longer tracked in this repository; this document now preserves the evaluation
+findings and desired README changes without requiring a stale patch file.
 
 ### Changes Summary
 
@@ -75,8 +71,8 @@ The Template repository's README has been evaluated against the current keepaliv
 ### Option 1: Manual PR (Recommended)
 1. Human with write access clones Template repo
 2. Creates branch from main
-3. Applies patch: `git apply template-repo-readme-updates.patch`
-4. Creates PR using template-pr-description.md
+3. Updates README.md using the findings and change summary in this document
+4. Creates PR with the evaluation summary, testing notes, and deployment context
 5. Reviews and merges
 
 ### Option 2: Automated (If access available)
@@ -86,11 +82,11 @@ cd /tmp
 git clone git@github.com:stranske/Template.git
 cd Template
 git checkout -b docs/update-keepalive-architecture
-git apply /path/to/template-repo-readme-updates.patch
+# Edit README.md using the findings and change summary above.
 git commit -m "docs: update README with current keepalive architecture"
 git push origin docs/update-keepalive-architecture
 gh pr create --title "docs: update README with current keepalive architecture" \
-  --body-file /path/to/template-pr-description.md
+  --body "Update Template README with the current Gate-triggered keepalive architecture, setup requirements, auth options, control labels, and troubleshooting guidance."
 ```
 
 ## Related Consumer Repos

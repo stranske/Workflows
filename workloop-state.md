@@ -1,5 +1,21 @@
 # Workloop State
 
+## 2026-06-13T14:30Z - closer (codex) rebased #2302 after #2298 merge
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2302](https://github.com/stranske/Workflows/pull/2302), source issue `#2277`, branch `claude/issue-2277-root-debris-allowlist`.
+- **Blocker:** #2298 merged first and advanced `origin/main`, making #2302 `DIRTY` even though its fresh Gate checks were green and review threads were resolved.
+- **Action:** rebased #2302 onto current `origin/main` (`f5d00ca7`), resolving the sole conflict in `workloop-state.md` additively so #2302 state and the newly merged #2298 state are both preserved.
+- **Validation:** run stale root-debris reference checks, template completeness/sync validation, conflict-marker scan, and `git diff --check` before push.
+- **Next action:** push the rebased branch with `--force-with-lease`; then re-check #2302. If checks settle green and review threads remain resolved, merge #2302, apply `verify:compare`, and keep issue #2277 open until durable verifier/provider disposition.
+
+## 2026-06-13T14:18Z - closer (codex) addressed #2302 root-debris review threads
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2302](https://github.com/stranske/Workflows/pull/2302), source issue `#2277`, branch `claude/issue-2277-root-debris-allowlist`.
+- **Blocker:** two unresolved P2 review threads correctly flagged stale tracked references after #2302 deleted generated root artifacts: `TEMPLATE_REPO_EVALUATION.md` still instructed maintainers to apply `template-repo-readme-updates.patch`, and `DECISIONS.md` still pointed auth coverage decisions at `artifacts/coverage-auth.txt`.
+- **Action:** updated `TEMPLATE_REPO_EVALUATION.md` to preserve the historical Template README evaluation while removing stale patch/`git apply` instructions, and updated `DECISIONS.md` to record the auth coverage baselines as reproducible commands rather than a committed generated artifact.
+- **Validation:** run `rg` checks for the removed artifact references, `git diff --check`, and focused docs/root-allowlist validation before push. Resolve review threads after push if they remain current.
+- **Next action:** wait for fresh checks on the pushed head. If checks settle green and review threads remain resolved, merge #2302, apply `verify:compare`, and keep issue #2277 open until durable verifier/provider disposition.
+
 ## 2026-06-13T14:12Z - closer (codex) repaired #2298 state merge after #2301 merge
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2298](https://github.com/stranske/Workflows/pull/2298), source issue `#2275`, branch `codex/issue-2275-dead-code-sync-sweep`.
