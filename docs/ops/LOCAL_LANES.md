@@ -11,9 +11,10 @@ workspace-private memory, with no owning doc in the system-of-record repo.
 > `handoff.sh` helper, the rendered Claude prompt `.md` files, the worktree
 > reaper — lives under `~/.codex` and is **not** in this checkout. This document
 > is authoritative for the *contract* (what the arrangement is and why), but the
-> recommended changes to the out-of-repo implementation (moving `workloop-state.md`
-> out of repos, building/maintaining a worktree reaper) are recorded here as
-> **recommendations**, not implemented in this repository. The only files this
+> changes to the out-of-repo implementation (moving `workloop-state.md`
+> out of repos, the worktree reaper, memory-file rotation) are **implemented in the
+> `~/.codex` layer as of 2026-06-13** but live outside this checkout — this doc records
+> the contract and current status, not the code. The only files this
 > contract owns in-repo are this doc, the consumer-template `.gitignore` status
 > block, `.github/sync-manifest.yml`, `docs/ops/GITNEXUS.md`, and
 > `docs/ops/bin/gitnexus_fleet.sh`.
@@ -55,7 +56,7 @@ All durable lane state lives under `~/.codex`, outside any repo checkout:
 | Claude scheduled tasks | `~/.claude/scheduled-tasks/handoff-claude-opener/`, `…/handoff-claude-closer/` | The Claude-side scheduled entry points. |
 | Per-automation memory | `~/.codex/automations/<id>/memory.md` | Append-only round history (newest section prepended). See rotation policy below. |
 | Worktrees | `~/.codex/automations/pd-workloop-resume/worktrees/` and `~/.codex/worktrees/` | Persistent lane worktrees. Disposable clones go under `/tmp`. |
-| Per-repo run state | `<repo>/workloop-state.md` | Canonical per-repo lane state (repo, issue, branch, PR, blocker, next action). **Strategy below — should not be tracked.** |
+| Per-repo run state | `~/.codex/handoff/workloop/<repo>.md` | Canonical per-repo lane state (repo, issue, branch, PR, blocker, next action), relocated out of repos 2026-06-13. The legacy in-repo `<repo>/workloop-state.md` is deprecated, gitignored, and no longer written — see strategy below. |
 
 The two lanes (opener `pd-workloop-resume`, closer `imi-merge-verify-closer`)
 share the sentinel and hand off via the relay helper. The sentinel's `active.*`
@@ -80,10 +81,11 @@ intended lifecycle is a four-tier ladder, oldest-first:
 4. **deleted** — only after compression and a retention window; canonical repos
    are **never** moved or deleted.
 
-Implementation note (out of repo): a worktree reaper is recommended to walk
-`~/.codex/**/worktrees` and `/tmp/wf-*`, demoting trees down the ladder by age
-and pushed-state. Until that exists, lanes archive rather than delete and run the
-code-workspace-hygiene audit when a checkout is created outside a canonical repo.
+Implementation note (out of repo, implemented 2026-06-13): `~/.codex/bin/lane-worktree-gc.sh`
+(daily launchd `com.stranske.lane-worktree-gc`) removes lane worktrees idle ≥14 days,
+freshness-gated via `find -newer` so an in-flight tree is never deleted, and best-effort
+prunes the canonical repos' worktree registrations. It is dry-run by default; `--apply`
+reclaims (the first apply reclaimed ~43 GB). Canonical repos are never moved or deleted.
 
 ## `workloop-state.md` strategy
 
@@ -112,16 +114,22 @@ enabler delivered with this contract:
   the propagation check remains valid even if the template block cannot be
   loaded.
 
-Follow-ups (out of repo, owned by the local automations):
+Implemented in the out-of-repo lane layer (2026-06-13):
 
-- Stop committing `workloop-state.md` where it is already tracked. A fleet-wide
-  `git rm --cached workloop-state.md` is a **fleet operation, not an in-repo
-  change**, and is explicitly out of scope here; the gitignore entry above is the
-  enabler that makes new commits stop.
-- Consider moving lane state out of repos entirely to
-  `~/.codex/handoff/workloop/<repo>.md` so it never touches a checkout. This
-  removes the artifact from PR diffs at the source and is the recommended
-  end-state.
+- **Lane state relocated out of repos entirely** to `~/.codex/handoff/workloop/<repo>.md`,
+  so it never touches a checkout. The opener/closer prompts now write there and are
+  forbidden from creating or committing `workloop-state.md` inside any repo;
+  `handoff.sh read-resume` reads the relocated path (with an in-repo fallback during the
+  transition). This removes the artifact from PR diffs at the source — the recommended
+  end-state, now live.
+
+Still pending as a fleet operation (not an in-repo change here):
+
+- A one-time `git rm --cached workloop-state.md` for the repos where it is already tracked
+  (`Travel-Plan-Permission`, `Trend_Model_Project`, `Counter_Risk`, `Manager-Database`,
+  `Inv-Man-Intake`, `trip-planner`, `learning-management-system`). This is the documented
+  follow-up to the gitignore enabler above; it stops the tracked copies from lingering once
+  the lanes have stopped writing them.
 
 ## `Workflows-steward` arrangement
 
@@ -140,7 +148,7 @@ checked out, the **canonical clone cannot `git checkout main`** — git refuses 
 branch already checked out in another worktree — so a "temporary" worktree ends
 up holding the default branch hostage.
 
-**Canonical arrangement: the `Workflows-steward` worktree should sit at a
+**Canonical arrangement (applied 2026-06-13): the `Workflows-steward` worktree sits at a
 detached `HEAD` at `origin/main`.** A detached HEAD takes no branch lock, so the
 canonical clone keeps `main` free while the steward still tracks the latest
 reviewed tip. GitNexus continues to ignore the steward worktree for indexing —
@@ -159,6 +167,8 @@ Each automation keeps an **append-only** `memory.md` under
 - The pre-run helper emits only the **last few** entries in its structured
   resume block (older history trimmed for output size); the full file remains on
   disk.
-- Rotation, when needed, is by archiving the tail of the file (oldest sections)
-  to a dated sibling under the automation directory rather than truncating in
-  place — same archive-don't-delete principle as the worktree tiers above.
+- Rotation is implemented (2026-06-13) by `~/.codex/bin/rotate-lane-memory.sh` (daily
+  launchd `com.stranske.lane-memory-rotate`): it keeps the newest 30 sections in `memory.md`
+  and archives the older tail to a dated `memory-YYYY-MM.md` sibling, md5-guarded against a
+  concurrent prepend so a new round's entry is never clobbered — archive-don't-delete, same
+  principle as the worktree tiers above.
