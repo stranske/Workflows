@@ -78,3 +78,5 @@ Standalone validation and utility scripts. Run locally:
 
 ### `docs/`
 All user-facing documentation organized by topic.
+
+<!-- canary-2297: temporary green-path verification for branch protection; DO NOT MERGE, will be closed -->
