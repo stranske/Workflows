@@ -205,6 +205,59 @@ test('countActive treats recently completed runs as active within lookback windo
   }
 });
 
+test('countActive counts long-running dispatches that complete inside the lookback', async () => {
+  let detailCalls = 0;
+  const github = {
+    rest: {
+      actions: {
+        listWorkflowRuns: Symbol('listWorkflowRuns'),
+        async getWorkflowRun() {
+          detailCalls += 1;
+          return {
+            data: {
+              inputs: {
+                pr_number: '77',
+              },
+            },
+          };
+        },
+      },
+    },
+    async paginate(_fn, params) {
+      if (params.workflow_id === 'agents-70-orchestrator.yml' && params.status === 'completed') {
+        assert.equal(params.created, undefined);
+        return [
+          {
+            id: 9150,
+            event: 'workflow_dispatch',
+            pull_requests: [],
+            created_at: '2025-11-16T20:00:00Z',
+            updated_at: '2025-11-16T20:59:30Z',
+          },
+        ];
+      }
+      return [];
+    },
+  };
+  const originalNow = Date.now;
+  Date.now = () => Date.parse('2025-11-16T21:00:00Z');
+  try {
+    const result = await countActive({
+      github,
+      owner: 'stranske',
+      repo: 'Workflows',
+      prNumber: 77,
+      completedLookbackSeconds: 300,
+    });
+
+    assert.equal(result.active, 1);
+    assert.equal(result.breakdown.get('orchestrator_recent'), 1);
+    assert.equal(detailCalls, 1);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test('countActive ignores completed runs outside the lookback window', async () => {
   const registry = {
     'agents-70-orchestrator.yml|completed': [
@@ -282,7 +335,7 @@ test('countActive does not fetch run details for completed runs older than the l
     assert.equal(result.active, 0);
     assert.equal(detailCalls, 0);
     const completedParams = capturedParams.find((params) => params.status === 'completed');
-    assert.equal(completedParams.created, '>2025-11-16T20:55:00.000Z');
+    assert.equal(completedParams.created, undefined);
   } finally {
     Date.now = originalNow;
   }

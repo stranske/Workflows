@@ -749,10 +749,6 @@ async function countActive({
           status,
           per_page: 100,
         };
-        if (status === 'completed' && includeRecentCompleted) {
-          listParams.created = `>${new Date(recentCutoff).toISOString()}`;
-        }
-
         const runs = await paginateWithBackoff(github, github.rest.actions.listWorkflowRuns, listParams, { core });
         for (const run of runs) {
           const runId = Number(run?.id || 0);
