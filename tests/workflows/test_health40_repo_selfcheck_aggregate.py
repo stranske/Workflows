@@ -13,10 +13,10 @@ WORKFLOW = ROOT / ".github/workflows/health-40-repo-selfcheck.yml"
 def _extract_aggregate_heredoc() -> str:
     text = WORKFLOW.read_text(encoding="utf-8")
     match = re.search(
-        r"      - name: Aggregate & Summarize\n"
-        r".*?^          python - <<'PY'\n"
+        r"^\s*-\s+name:\s+Aggregate & Summarize\n"
+        r".*?^\s*python\s+-\s+<<'PY'\n"
         r"(?P<body>.*?)"
-        r"^          PY\n",
+        r"^\s*PY\n",
         text,
         flags=re.MULTILINE | re.DOTALL,
     )
@@ -38,10 +38,11 @@ def test_close_tracker_gate_requires_positive_checks_ran_signal() -> None:
 
     assert 'handle.write("checks_ran=true\\n")' in text
     assert re.search(
-        r"- name: Close failure tracker issue\n"
-        r".*?steps\.aggregate\.outputs\.checks_ran == 'true' &&\n"
-        r"\s+steps\.aggregate\.outputs\.has_errors != 'true' &&\n"
-        r"\s+steps\.aggregate\.outputs\.has_warnings != 'true'",
+        r"-\s+name:\s+Close failure tracker issue\b"
+        r"(?s:.*?)"
+        r"steps\.aggregate\.outputs\.checks_ran\s*==\s*'true'\s*&&\s*"
+        r"steps\.aggregate\.outputs\.has_errors\s*!=\s*'true'\s*&&\s*"
+        r"steps\.aggregate\.outputs\.has_warnings\s*!=\s*'true'",
         text,
         flags=re.DOTALL,
     )
