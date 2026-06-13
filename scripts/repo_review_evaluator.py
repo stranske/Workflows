@@ -1794,6 +1794,7 @@ def _records_from_round2_candidates(
     converged: dict[str, Any],
     *,
     max_items: int | None,
+    meta_candidate: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     source_path = str(converged.get("__source_path", ""))
@@ -1825,6 +1826,11 @@ def _records_from_round2_candidates(
                 "round1_candidate": candidate,
                 "agent": agent,
                 "scope": scope,
+                # Bounded-autonomy tiering (#2272): mark the systemic meta-audit
+                # candidate so the queue producer can route it to deeper_review
+                # under a blanket approval. `meta_candidate is candidate` is an
+                # identity check against the object appended by the caller.
+                "is_meta": meta_candidate is not None and candidate is meta_candidate,
             }
         )
         if max_items is not None and len(records) >= max_items:
@@ -1850,9 +1856,12 @@ def issue_candidate_records(
     if isinstance(converged, dict):
         raw_candidates = list(converged.get("converged_candidates") or [])
         meta = converged.get("meta_candidate")
-        if isinstance(meta, dict):
-            raw_candidates.append(meta)
-        return _records_from_round2_candidates(raw_candidates, converged, max_items=max_items)
+        meta_obj = meta if isinstance(meta, dict) else None
+        if meta_obj is not None:
+            raw_candidates.append(meta_obj)
+        return _records_from_round2_candidates(
+            raw_candidates, converged, max_items=max_items, meta_candidate=meta_obj
+        )
 
     findings = state.get("round1_findings") or {}
     raw_candidates = findings.get("candidates") if isinstance(findings, dict) else None
@@ -2551,6 +2560,77 @@ def feedback_covers_converged(
     return fb >= cv
 
 
+def candidate_priority(candidate: dict[str, Any]) -> str:
+    """Normalized priority of a single candidate.
+
+    Round-1 and round-2 candidates carry their own ``priority`` on the source
+    dict stored under ``round1_candidate``; fall back to ``normal`` when absent.
+    """
+    source = candidate.get("round1_candidate")
+    if isinstance(source, dict):
+        return normalize_priority(source.get("priority"))
+    return normalize_priority(candidate.get("priority"))
+
+
+def candidate_is_deadlock_derived(candidate: dict[str, Any]) -> bool:
+    """True when a converged candidate carries deadlock provenance.
+
+    Round-2 deadlocks are normally surfaced to the human packet and never reach
+    the queue. But a human (via a hand-edited converged.json / resolution) or a
+    future synthesizer may promote a previously-deadlocked candidate into the
+    converged set; such a candidate must not auto-approve under a blanket
+    decision. We treat any of a small set of provenance markers on the source
+    candidate (or its ``origin`` block) as the deadlock-derived signal.
+    """
+    source = candidate.get("round1_candidate")
+    source = source if isinstance(source, dict) else candidate
+    for key in ("from_deadlock", "deadlock_derived", "deadlock_resolved", "resolved_from_deadlock"):
+        if bool(source.get(key)):
+            return True
+    origin = source.get("origin")
+    if isinstance(origin, dict):
+        for key in ("from_deadlock", "deadlock_derived", "deadlock_resolved"):
+            if bool(origin.get(key)):
+                return True
+    return False
+
+
+def high_stakes_tier(candidate: dict[str, Any]) -> str | None:
+    """Name the high-stakes tier of a candidate, or None if it is not high-stakes.
+
+    Bounded-autonomy tiering (#2272): even when feedback covers the converged
+    set, a blanket ``approve all`` must not unattended-approve these tiers. The
+    returned string is used in the deeper-review reason so the human sees which
+    tier held the candidate back. Order is most-to-least specific.
+    """
+    if candidate.get("is_meta"):
+        return "meta-audit"
+    if candidate_is_deadlock_derived(candidate):
+        return "deadlock-derived"
+    if candidate_priority(candidate) == "high":
+        return "high-priority"
+    return None
+
+
+def candidate_explicitly_named(
+    decision: dict[str, Any], candidate: dict[str, Any], candidates: list[dict[str, Any]]
+) -> bool:
+    """Was this candidate *individually* named by the human (not swept by "all")?
+
+    A high-stakes candidate still auto-approves when the human explicitly listed
+    its index in ``approved_candidates`` or matched it via
+    ``approved_title_patterns``. A blanket ``approved_candidates: "all"`` is NOT
+    an explicit naming and does not bypass the tiering gate.
+    """
+    index = int(candidate.get("candidate_index", 0))
+    if index in candidate_title_pattern_indexes(decision, "approved_title_patterns", candidates):
+        return True
+    approved = decision.get("approved_candidates", [])
+    if not isinstance(approved, list):
+        return False
+    return index in parse_candidate_indexes(approved)
+
+
 def build_approved_issue_queue(
     states: list[dict[str, Any]], feedback_config: dict[str, Any], generated_on: str
 ) -> dict[str, Any]:
@@ -2683,10 +2763,55 @@ def build_approved_issue_queue(
             warnings.append(
                 f"{state['repo']} approved missing candidate indexes: {', '.join(map(str, missing_indexes))}"
             )
+        auto_approve_high = bool(decision.get("auto_approve_high", False))
         for candidate in candidates:
             if candidate["candidate_index"] not in selected_indexes:
                 continue
             if candidate["candidate_index"] in dropped_indexes:
+                continue
+            # Bounded-autonomy priority tiering (#2272): even with feedback that
+            # covers the converged set, a blanket "approve all" must not
+            # unattended-approve high-stakes candidates — high-priority fixes,
+            # the systemic meta-audit, and deadlock-derived items. These route
+            # to deeper-review UNLESS the human named the candidate explicitly
+            # (approved_candidates index / approved_title_patterns) or the repo
+            # opted in with auto_approve_high: true. low/normal non-meta keep
+            # auto-approving.
+            tier = high_stakes_tier(candidate)
+            if (
+                tier is not None
+                and not auto_approve_high
+                and not candidate_explicitly_named(decision, candidate, candidates)
+            ):
+                warnings.append(
+                    f"{state['repo']} candidate {candidate['candidate_index']} "
+                    f"({tier}) was swept in by a blanket approval; routed to deeper-review "
+                    f"(high-stakes tiering guard)."
+                )
+                deeper_review.append(
+                    {
+                        "repo": state["repo"],
+                        "priority": priority,
+                        "decision": "deeper-review",
+                        "notes": (
+                            f"High-stakes candidate held back from unattended approval — tier "
+                            f"'{tier}'. A blanket 'approve all' does not auto-approve "
+                            f"{tier} candidates. To approve candidate "
+                            f"{candidate['candidate_index']} ({candidate['title']}), list its "
+                            f"index in approved_candidates, match it with an "
+                            f"approved_title_patterns entry, or set auto_approve_high: true for "
+                            f"this repo."
+                        ),
+                        "design_target": state["decision_brief"]["design_target"],
+                        "review_focus": state["decision_brief"]["review_focus"],
+                        "concerns": [
+                            *state["decision_brief"]["concerns"],
+                            f"Confirm the {tier} candidate {candidate['candidate_index']}: "
+                            f"{candidate['title']}",
+                        ],
+                        "gitnexus_map": state["gitnexus_map"],
+                    }
+                )
                 continue
             evidence_trace = review_evidence_trace_for_candidate(state, candidate)
             if evidence_trace is None:

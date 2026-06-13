@@ -2,13 +2,17 @@
 """Create GitHub issues from the approved weekly repo-review queue.
 
 The script is intentionally explicit: dry-run is the default, and `--apply`
-is required before it writes to GitHub. Creation is idempotent against open
-issues with the exact same title in the target repo.
+is required before it writes to GitHub. Creation is idempotent: each created
+issue carries a stable per-item marker (`<!-- repo-review-item: <repo>#<hash> -->`)
+and dedup consults open AND recently-closed issues by that marker, then by exact
+title, then by token-Jaccard similarity — so re-running `--apply` after items
+were materialized-and-closed does not recreate them (#2272).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shlex
@@ -181,7 +185,62 @@ def validate_issue_queue(issues: list[dict[str, Any]]) -> None:
         raise ValueError(f"approved issue queue failed quality validation:\n- {joined}")
 
 
+ITEM_MARKER_RE = re.compile(r"<!--\s*repo-review-item:\s*(\S+?)\s*-->")
+
+
+def item_hash(repo: str, title: str) -> str:
+    """Stable short hash identifying a repo-review item by repo + candidate title.
+
+    Materialization ledger (#2272): the same approved candidate must hash to the
+    same value across re-runs and across cycles, so re-materialization can be
+    detected from the marker alone. Title is lowercased/whitespace-collapsed so
+    trivial formatting differences don't change the identity.
+    """
+    norm_title = re.sub(r"\s+", " ", str(title or "").strip().lower())
+    digest = hashlib.sha256(f"{repo}\x00{norm_title}".encode()).hexdigest()
+    return digest[:12]
+
+
+def item_marker(repo: str, title: str) -> str:
+    """The per-item HTML-comment marker embedded in created issue bodies."""
+    return f"<!-- repo-review-item: {repo}#{item_hash(repo, title)} -->"
+
+
+def body_has_item_marker(body: str, marker: str) -> bool:
+    """True when an existing issue body already carries this exact item marker."""
+    target = ITEM_MARKER_RE.search(marker)
+    target_id = target.group(1) if target else marker
+    return any(found.group(1) == target_id for found in ITEM_MARKER_RE.finditer(str(body or "")))
+
+
+def find_marker_duplicate(
+    issue: dict[str, Any], existing_issues: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Find an existing (open OR closed) issue already materialized for this item.
+
+    Consults the per-item marker (#2272) so a re-run after the issue was closed
+    finds it by identity even if the title was edited. Returns the matching
+    existing issue, or None.
+    """
+    marker = item_marker(str(issue.get("repo", "")), str(issue.get("title", "")))
+    for existing in existing_issues:
+        if body_has_item_marker(str(existing.get("body") or ""), marker):
+            return existing
+    return None
+
+
 def fetch_open_issues(repo: str, prefix: list[str]) -> list[dict[str, Any]]:
+    """Fetch issues to dedup against.
+
+    Materialization ledger (#2272): dedup must see recently-CLOSED issues, not
+    just open ones. The steady state within days of a weekly cycle is that every
+    approved item is already materialized AND closed; re-running ``--apply`` on a
+    queue that still lists those titles would otherwise recreate the whole batch
+    (the open-only blindness that produced duplicate storms). We therefore query
+    ``--state all`` and also pull each issue ``body`` so the per-item marker
+    (see ``item_marker``) can be matched exactly, independent of title drift.
+    The function name is retained for monkeypatch compatibility.
+    """
     result = run_command_with_retry(
         gh_command(
             prefix,
@@ -190,11 +249,11 @@ def fetch_open_issues(repo: str, prefix: list[str]) -> list[dict[str, Any]]:
             "--repo",
             repo,
             "--state",
-            "open",
+            "all",
             "--limit",
             "500",
             "--json",
-            "number,title,labels,url",
+            "number,title,labels,url,body,state",
         ),
         label=f"issue-list[{repo}]",
     )
@@ -325,21 +384,35 @@ def add_missing_labels(
     )
 
 
+def body_with_item_marker(repo: str, title: str, body: str) -> str:
+    """Return the issue body with the per-item marker appended (idempotent)."""
+    marker = item_marker(repo, title)
+    if body_has_item_marker(body, marker):
+        return body
+    return f"{body.rstrip()}\n\n{marker}\n"
+
+
 def create_issue(issue: dict[str, Any], prefix: list[str]) -> str:
     labels = [str(label) for label in issue.get("labels", [])]
+    repo = str(issue["repo"])
+    title = str(issue["title"])
     args = gh_command(
         prefix,
         "issue",
         "create",
         "--repo",
-        str(issue["repo"]),
+        repo,
         "--title",
-        str(issue["title"]),
+        title,
     )
     for label in labels:
         args.extend(["--label", label])
+    # Materialization ledger (#2272): stamp the body with a stable per-item
+    # marker so future runs can detect this item was already materialized,
+    # including after it is closed.
+    body = body_with_item_marker(repo, title, str(issue["body"]))
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".md") as body_file:
-        body_file.write(str(issue["body"]))
+        body_file.write(body)
         body_file.flush()
         result = run_command_with_retry(
             [*args, "--body-file", body_file.name],
@@ -372,14 +445,22 @@ def upload_issues(
         by_repo.setdefault(repo, []).append(issue)
 
     for repo, repo_issues in sorted(by_repo.items()):
-        open_issues = fetch_open_issues(repo, prefix)
-        open_by_title = {item.get("title"): item for item in open_issues}
+        # `existing_issues` now includes recently-closed issues (#2272), so a
+        # re-run after items were materialized-and-closed does not recreate them.
+        existing_issues = fetch_open_issues(repo, prefix)
+        open_by_title = {item.get("title"): item for item in existing_issues}
         labels = sorted({label for issue in repo_issues for label in issue.get("labels", [])})
         if apply:
             ensure_labels(repo, labels, prefix)
         for issue in repo_issues:
             title = str(issue["title"])
-            existing = open_by_title.get(title) or find_semantic_duplicate(issue, open_issues)
+            # Dedup precedence: per-item marker (exact identity, open OR closed)
+            # > exact title > token-Jaccard semantic match.
+            existing = (
+                find_marker_duplicate(issue, existing_issues)
+                or open_by_title.get(title)
+                or find_semantic_duplicate(issue, existing_issues)
+            )
             if existing:
                 if apply:
                     add_missing_labels(
@@ -413,7 +494,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("docs/reports/repo-review/approved-issue-queue.json"),
         help="Path to approved-issue-queue.json (default: the path the "
-        "coordinator's queue-builder writes)",
+        "final evaluator pass writes)",
     )
     parser.add_argument(
         "--gh-prefix",

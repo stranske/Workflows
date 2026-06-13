@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
-"""Assemble approved-issue-queue.json from per-repo converged.json files
+"""Assemble an approved-issue-queue payload from per-repo converged.json files
 plus config/repo_review_feedback.json.
+
+NOTE (#2272): this module is NOT the producer of the weekly pipeline's
+``docs/reports/repo-review/approved-issue-queue.json``. The coordinator invokes
+``build_queue`` for a log-only preview (step 3) and the final evaluator pass
+(``repo_review_evaluator.write_approved_issue_queue``, step 4) is the SOLE writer
+of that artifact, applying the priority-tiering and cycle-binding guards. The
+standalone ``--out`` CLI here is a developer/debugging helper that writes
+wherever you point it; it does not feed the opener/uploader by itself.
 
 Honors per-repo feedback decisions:
 
