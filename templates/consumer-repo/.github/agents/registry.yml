@@ -47,3 +47,25 @@ agents:
       pr_autofix: true
       belt: true
       verifier_checkbox: true
+
+  cursor:
+    runner_workflow: .github/workflows/reusable-cursor-run.yml
+    required_secrets:
+      - CURSOR_API_KEY
+    branch_prefix: cursor/issue-
+    ui_mentions_allowed: false
+    # Reuses stranske-automation-bot for branch pushes/attribution until a
+    # dedicated stranske-cursor-bot service account is provisioned.
+    automation_logins:
+      - stranske-automation-bot
+    readiness_candidates:
+      - stranske-automation-bot
+    preflight:
+      assign_user: stranske-automation-bot
+      command_phrase: ''
+      enabled: false   # issue-intake/invite flow deferred; PR keepalive + autofix only this phase
+    capabilities:
+      pr_keepalive: true
+      pr_autofix: false         # autofix-loop wiring lands in follow-up phase 1b
+      belt: false              # belt routing deferred to a later phase
+      verifier_checkbox: false  # verification stays on the existing judge (config/llm_slots.json)

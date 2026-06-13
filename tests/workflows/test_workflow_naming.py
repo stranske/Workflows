@@ -283,6 +283,7 @@ EXPECTED_NAMES = {
     "reusable-16-agents.yml": "Reusable 16 Agents",
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
     "reusable-claude-run.yml": "Reusable Claude Run",
+    "reusable-cursor-run.yml": "Reusable Cursor Run",
     "reusable-codex-run.yml": "Reusable Codex Run",
     "reusable-20-pr-meta.yml": "Reusable 20 PR Meta",
     "reusable-70-orchestrator-init.yml": "Agents 70 Init (Reusable)",

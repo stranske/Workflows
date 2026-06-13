@@ -1,4 +1,4 @@
-name: Reusable Claude Run
+name: Reusable Cursor Run
 
 on:
   workflow_call:
@@ -9,11 +9,11 @@ on:
         default: false
         type: boolean
       prompt_file:
-        description: 'Path to the prompt file that Claude should read.'
+        description: 'Path to the prompt file that Cursor should read.'
         required: true
         type: string
       mode:
-        description: 'Claude mode for logging purposes (keepalive | autofix | verifier).'
+        description: 'Cursor mode for logging purposes (keepalive | autofix | verifier).'
         required: false
         default: keepalive
         type: string
@@ -56,28 +56,18 @@ on:
         type: string
       skip_permissions:
         description: >-
-          Pass --dangerously-skip-permissions to Claude CLI so it can write files
-          without interactive approval. Set to false to run in read-only / review mode.
+          Pass --force to cursor-agent so it can apply edits without confirmation.
+          Set to false to run in read-only / review mode.
         required: false
         default: true
         type: boolean
-      claude_cli_package:
-        description: 'Optional npm package to install if claude CLI is not already present.'
-        required: false
-        default: '@anthropic-ai/claude-code'
-        type: string
-      claude_cli_version:
-        description: 'Optional npm version to install for claude_cli_package (empty = latest).'
-        required: false
-        default: ''
-        type: string
-      claude_args:
-        description: 'Optional additional Claude CLI arguments (string).'
+      cursor_cli_args:
+        description: 'Optional additional cursor-agent CLI arguments (string).'
         required: false
         default: ''
         type: string
       appendix:
-        description: 'Optional context appended to the prompt passed to Claude.'
+        description: 'Optional context appended to the prompt passed to Cursor.'
         required: false
         default: ''
         type: string
@@ -92,14 +82,10 @@ on:
         default: 'agent-standard'
         type: string
     secrets:
-      CLAUDE_AUTH_JSON:
-        description: 'JSON contents for Claude CLI auth (written to ~/.claude/.credentials.json and ~/.config/claude-code/auth.json)'
-        required: false
-      CLAUDE_CODE_OAUTH_TOKEN:
+      CURSOR_API_KEY:
         description: >-
-          Long-lived OAuth token from `claude setup-token` (valid ~1 year).
-          Preferred over CLAUDE_AUTH_JSON because it does not expire quickly.
-          Set via env var so the CLI picks it up automatically.
+          Cursor API key for headless cursor-agent auth. Exported to the run
+          step as the CURSOR_API_KEY env var so the CLI picks it up automatically.
         required: false
       WORKFLOWS_APP_ID:
         required: false
@@ -114,54 +100,54 @@ on:
         description: 'Anthropic API key for LLM analysis (enables Claude slot)'
     outputs:
       final-message:
-        description: 'Full Claude output message (base64 encoded)'
-        value: ${{ jobs.claude.outputs.final-message }}
+        description: 'Full Cursor output message (base64 encoded)'
+        value: ${{ jobs.cursor.outputs.final-message }}
       final-message-summary:
-        description: 'First 500 chars of Claude output (safe for PR comments)'
-        value: ${{ jobs.claude.outputs.final-message-summary }}
+        description: 'First 500 chars of Cursor output (safe for PR comments)'
+        value: ${{ jobs.cursor.outputs.final-message-summary }}
       error-summary:
         description: >-
-          Failure summary message (prefers Claude output, falls back to preflight errors)
-        value: ${{ jobs.claude.outputs.error-summary }}
+          Failure summary message (prefers Cursor output, falls back to preflight errors)
+        value: ${{ jobs.cursor.outputs.error-summary }}
       exit-code:
-        description: 'Claude CLI exit code (0=success)'
-        value: ${{ jobs.claude.outputs.exit-code }}
+        description: 'Cursor CLI exit code (0=success)'
+        value: ${{ jobs.cursor.outputs.exit-code }}
       changes-made:
-        description: 'Whether Claude made file changes (true/false)'
-        value: ${{ jobs.claude.outputs.changes-made }}
+        description: 'Whether Cursor made file changes (true/false)'
+        value: ${{ jobs.cursor.outputs.changes-made }}
       commit-sha:
         description: 'SHA of the commit if changes were pushed'
-        value: ${{ jobs.claude.outputs.commit-sha }}
+        value: ${{ jobs.cursor.outputs.commit-sha }}
       files-changed:
-        description: 'Number of files changed by Claude'
-        value: ${{ jobs.claude.outputs.files-changed }}
+        description: 'Number of files changed by Cursor'
+        value: ${{ jobs.cursor.outputs.files-changed }}
       llm-analysis-run:
         description: 'Whether LLM analysis was performed'
-        value: ${{ jobs.claude.outputs.llm-analysis-run }}
+        value: ${{ jobs.cursor.outputs.llm-analysis-run }}
       llm-provider:
         description: 'LLM provider used for analysis (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-provider }}
+        value: ${{ jobs.cursor.outputs.llm-provider }}
       llm-model:
         description: 'Specific model used for analysis (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-model }}
+        value: ${{ jobs.cursor.outputs.llm-model }}
       llm-confidence:
         description: 'Confidence level of LLM analysis (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-confidence }}
+        value: ${{ jobs.cursor.outputs.llm-confidence }}
       llm-completed-tasks:
         description: 'JSON array of completed task descriptions (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-completed-tasks }}
+        value: ${{ jobs.cursor.outputs.llm-completed-tasks }}
       llm-has-completions:
         description: 'Whether any task completions were detected (placeholder for compatibility)'
-        value: ${{ jobs.claude.outputs.llm-has-completions }}
+        value: ${{ jobs.cursor.outputs.llm-has-completions }}
       error-category:
         description: 'Error category (transient/auth/resource/logic/unknown)'
-        value: ${{ jobs.claude.outputs.error-category }}
+        value: ${{ jobs.cursor.outputs.error-category }}
       error-type:
-        description: 'Error type (claude/infrastructure/auth/unknown)'
-        value: ${{ jobs.claude.outputs.error-type }}
+        description: 'Error type (cursor/infrastructure/auth/unknown)'
+        value: ${{ jobs.cursor.outputs.error-type }}
       error-recovery:
         description: 'Suggested recovery action'
-        value: ${{ jobs.claude.outputs.error-recovery }}
+        value: ${{ jobs.cursor.outputs.error-recovery }}
 
 permissions:
   contents: write
@@ -170,24 +156,24 @@ permissions:
   models: read
 
 concurrency:
-  group: claude-${{ inputs.mode }}-${{ inputs.pr_number || github.ref }}
+  group: cursor-${{ inputs.mode }}-${{ inputs.pr_number || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  claude:
-    name: Claude (${{ inputs.mode }})
+  cursor:
+    name: Cursor (${{ inputs.mode }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     timeout-minutes: ${{ inputs.max_runtime_minutes }}
     if: ${{ !inputs.skip }}
     outputs:
-      final-message: ${{ steps.run_claude.outputs.final-message }}
-      final-message-summary: ${{ steps.run_claude.outputs.final-message-summary }}
-      exit-code: ${{ steps.run_claude.outputs.exit-code }}
+      final-message: ${{ steps.run_cursor.outputs.final-message }}
+      final-message-summary: ${{ steps.run_cursor.outputs.final-message-summary }}
+      exit-code: ${{ steps.run_cursor.outputs.exit-code }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
-      error-summary: ${{ steps.run_claude.outputs.error-summary }}
+      error-summary: ${{ steps.run_cursor.outputs.error-summary }}
       llm-analysis-run: ${{ steps.compat.outputs.llm-analysis-run }}
       llm-provider: ${{ steps.compat.outputs.llm-provider }}
       llm-model: ${{ steps.compat.outputs.llm-model }}
@@ -231,8 +217,8 @@ jobs:
 
           {
             echo "WORKFLOWS_TOKEN=${checkout_token}"
-            echo "CLAUDE_MODE=${{ inputs.mode }}"
-            echo "CLAUDE_PR_NUMBER=${{ inputs.pr_number }}"
+            echo "CURSOR_MODE=${{ inputs.mode }}"
+            echo "CURSOR_PR_NUMBER=${{ inputs.pr_number }}"
           } >> "$GITHUB_ENV"
 
           printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
@@ -351,7 +337,7 @@ jobs:
         run: |
           set -euo pipefail
           fail_on_missing=true
-          if [ "${CLAUDE_MODE:-}" = "e2e-test" ]; then
+          if [ "${CURSOR_MODE:-}" = "e2e-test" ]; then
             fail_on_missing=false
           fi
           if [ ! -d ".workflows-lib" ]; then
@@ -431,8 +417,8 @@ jobs:
               error_msg="Prompt template integrity check failed. "
               error_msg+="The base prompt contains embedded task content "
               error_msg+="that should be removed."
-              echo "CLAUDE_PREFLIGHT_ERROR=${error_msg}" >> "$GITHUB_ENV"
-              echo "CLAUDE_PREFLIGHT_STAGE=prompt-integrity" >> "$GITHUB_ENV"
+              echo "CURSOR_PREFLIGHT_ERROR=${error_msg}" >> "$GITHUB_ENV"
+              echo "CURSOR_PREFLIGHT_STAGE=prompt-integrity" >> "$GITHUB_ENV"
               echo "::error::Prompt template integrity check failed. See output above."
               echo "::error::The base prompt contains embedded task content that should be removed."
               exit 1
@@ -555,24 +541,32 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
+          # cursor is a first-class runner_lib provider that uses the same
+          # plain-text (non-JSONL) prompt/parse path as claude.
+          if [ -n "${PR_NUMBER:-}" ]; then
+            PROMPT_OUTPUT="cursor-prompt-${PR_NUMBER}.md"
+          else
+            PROMPT_OUTPUT="cursor-prompt.md"
+          fi
           PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
             python -m scripts.runner_lib assemble-prompt \
-              --provider claude \
+              --provider cursor \
               --base-prompt "$BASE_PROMPT" \
               --appendix "$APPENDIX" \
               --mode "$MODE" \
               --pr-number "$PR_NUMBER" \
+              --output "$PROMPT_OUTPUT" \
               --task-appendix-file /tmp/keepalive-artifacts/task-appendix.txt
 
       # Keep workspace shape identical to Codex runner so git status noise doesn't
       # confuse the agent or produce merge conflicts when multiple PRs run.
-      - name: Clean workspace for Claude
+      - name: Clean workspace for Cursor
         id: clean_workspace
         env:
           PR_NUM: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
-          echo "Cleaning workspace to ensure clean git state for Claude..."
+          echo "Cleaning workspace to ensure clean git state for Cursor..."
 
           if [ -d ".workflows-lib" ]; then
             if ! grep -q "^\.workflows-lib" .git/info/exclude 2>/dev/null; then
@@ -597,17 +591,17 @@ jobs:
           fi
 
           echo "Removing stale workflow artifact files..."
-          rm -f claude-output*.md claude-session*.log claude-session*.jsonl claude-analysis*.json 2>/dev/null || true
+          rm -f cursor-output*.md cursor-session*.log cursor-session*.jsonl cursor-analysis*.json 2>/dev/null || true
 
           echo "Git status after cleanup:"
           git status --short || true
 
           ignore_re='^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
-          ignore_re+='claude-.*|autofix.*)$'
+          ignore_re+='cursor-.*|autofix.*)$'
           ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
-          ignore_re+='claude-.*|autofix.*)/'
+          ignore_re+='cursor-.*|autofix.*)/'
           REMAINING=$(git status --porcelain | cut -c4- | grep -cvE "$ignore_re" 2>/dev/null || echo "0")
           REMAINING=$(printf '%s' "$REMAINING" | tr -d '[:space:]')
           REMAINING=${REMAINING:-0}
@@ -616,11 +610,11 @@ jobs:
             echo "::notice::Found ${REMAINING} pre-existing change(s) in workspace."
             git status --short
           else
-            echo "Workspace is clean for Claude."
+            echo "Workspace is clean for Cursor."
           fi
 
       - name: Surface merge conflicts
-        if: inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
+        if: inputs.prompt_file == '.github/cursor/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
         env:
           WORKFLOW_BASE_REF: ${{ inputs.base_ref || github.event.pull_request.base.ref || '' }}
         run: |
@@ -657,100 +651,77 @@ jobs:
       - name: Preflight auth
         id: preflight
         env:
-          AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON || '' }}
-          OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY || '' }}
         run: |
           set -euo pipefail
 
-          # Prefer CLAUDE_CODE_OAUTH_TOKEN (long-lived, from `claude setup-token`)
-          # over CLAUDE_AUTH_JSON (credentials.json with short-lived OAuth tokens).
-          if [ -n "$OAUTH_TOKEN" ]; then
-            echo "auth-method=oauth-token" >> "$GITHUB_OUTPUT"
+          # cursor-agent authenticates headlessly via the CURSOR_API_KEY env var.
+          # If it is missing, mark preflight failed so the run step short-circuits
+          # with an auth error (mirrors the Claude runner's missing-auth path).
+          if [ -n "$CURSOR_API_KEY" ]; then
+            echo "auth-method=api-key" >> "$GITHUB_OUTPUT"
             echo "missing=false" >> "$GITHUB_OUTPUT"
-            # Ensure the CLI skips onboarding prompts in headless mode
-            mkdir -p "$HOME/.claude"
-            printf '{"hasCompletedOnboarding":true}' > "$HOME/.claude.json"
-            chmod 0600 "$HOME/.claude.json"
-          elif [ -n "$AUTH_JSON" ]; then
-            echo "auth-method=credentials-json" >> "$GITHUB_OUTPUT"
-            echo "missing=false" >> "$GITHUB_OUTPUT"
-
-            # Claude Code CLI reads credentials from ~/.claude/.credentials.json (primary)
-            # and may also check ~/.config/claude-code/auth.json (legacy).
-            # Normalize key name: CLI expects "accessToken" but some auth flows produce "token".
-            NORMALIZED=$(python3 -c "
-            import json, sys
-            data = json.loads(sys.stdin.read())
-            oauth = data.get('claudeAiOauth', {})
-            if 'token' in oauth and 'accessToken' not in oauth:
-                oauth['accessToken'] = oauth.pop('token')
-                data['claudeAiOauth'] = oauth
-            print(json.dumps(data))
-            " <<< "$AUTH_JSON")
-
-            for dir in "$HOME/.claude" "$HOME/.config/claude-code"; do
-              mkdir -p "$dir"
-              target="$dir/.credentials.json"
-              [ "$dir" = "$HOME/.config/claude-code" ] && target="$dir/auth.json"
-              printf '%s' "$NORMALIZED" > "$target"
-              chmod 0600 "$target"
-            done
+            # Export for the run step (and any later steps) to pick up.
+            echo "CURSOR_API_KEY=${CURSOR_API_KEY}" >> "$GITHUB_ENV"
           else
             echo "missing=true" >> "$GITHUB_OUTPUT"
-            echo "error=Missing Claude auth: set CLAUDE_CODE_OAUTH_TOKEN (preferred) or CLAUDE_AUTH_JSON secret" >> "$GITHUB_OUTPUT"
+            echo "error=Missing Cursor auth: set the CURSOR_API_KEY secret" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-      - name: Ensure Claude CLI
+      - name: Ensure Cursor CLI
         if: steps.preflight.outputs.missing != 'true'
-        env:
-          PACKAGE: ${{ inputs.claude_cli_package }}
-          VERSION: ${{ inputs.claude_cli_version }}
         run: |
           set -euo pipefail
-          if command -v claude >/dev/null 2>&1; then
-            echo "Claude CLI already present: $(command -v claude)"
+
+          # Resolve the cursor-agent binary if it is already on PATH (binary is
+          # named "cursor-agent"; "agent" is an accepted alias).
+          if command -v cursor-agent >/dev/null 2>&1; then
+            echo "Cursor CLI already present: $(command -v cursor-agent)"
+            cursor-agent --version || true
+            exit 0
+          fi
+          if command -v agent >/dev/null 2>&1; then
+            echo "Cursor CLI already present (as 'agent'): $(command -v agent)"
+            agent --version || true
             exit 0
           fi
 
-          if [ -z "$PACKAGE" ]; then
-            echo "::error::Claude CLI not found on PATH, and claude_cli_package is empty."
-            exit 1
-          fi
+          echo "Cursor CLI not found; installing via cursor.com/install ..."
+          curl https://cursor.com/install -fsS | bash
+          # The installer drops the binary in $HOME/.cursor/bin; expose it to all
+          # subsequent steps and to the rest of this step's PATH.
+          echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.cursor/bin:$PATH"
 
-          echo "Claude CLI not found; attempting npm install: ${PACKAGE}${VERSION:+@${VERSION}}"
-          if [ -n "$VERSION" ]; then
-            npm install -g "${PACKAGE}@${VERSION}"
+          if command -v cursor-agent >/dev/null 2>&1; then
+            echo "Installed Cursor CLI: $(command -v cursor-agent)"
+            cursor-agent --version || true
+          elif command -v agent >/dev/null 2>&1; then
+            echo "Installed Cursor CLI (as 'agent'): $(command -v agent)"
+            agent --version || true
           else
-            npm install -g "${PACKAGE}"
-          fi
-
-          if ! command -v claude >/dev/null 2>&1; then
-            echo "::error::Claude CLI still not found after install."
-            echo "::error::If your CLI binary is not named 'claude', adjust claude_cli_package"
-            echo "::error::and/or pass the right claude_args for your environment."
+            echo "::error::Cursor CLI (cursor-agent) not found after install."
+            echo "::error::Expected the binary in \$HOME/.cursor/bin; check the installer output above."
             exit 1
           fi
 
-          echo "Installed Claude CLI: $(command -v claude)"
-          claude --version || true
-
-      - name: Run Claude
-        id: run_claude
+      - name: Run Cursor
+        id: run_cursor
         if: always()
         env:
           PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
           PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
           PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
-          EXTRA_ARGS_RAW: ${{ inputs.claude_args }}
+          EXTRA_ARGS_RAW: ${{ inputs.cursor_cli_args }}
           PR_NUMBER: ${{ inputs.pr_number }}
           SKIP_PERMISSIONS: ${{ inputs.skip_permissions }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY || '' }}
           PR_REF: ${{ inputs.pr_ref }}
         run: |
           set -euo pipefail
 
-          extra_args_file="${RUNNER_TEMP:-/tmp}/claude-extra-args.txt"
+          extra_args_file="${RUNNER_TEMP:-/tmp}/cursor-extra-args.txt"
           : > "$extra_args_file"
           if [ -n "${EXTRA_ARGS_RAW:-}" ]; then
             python3 - "$EXTRA_ARGS_RAW" "$extra_args_file" <<'PY'
@@ -765,30 +736,30 @@ jobs:
               try:
                   value = json.loads(raw)
               except json.JSONDecodeError as exc:
-                  raise SystemExit(f"claude_args JSON parse failed: {exc}")
+                  raise SystemExit(f"cursor_cli_args JSON parse failed: {exc}")
               if not isinstance(value, list):
-                  raise SystemExit("claude_args JSON must be an array")
+                  raise SystemExit("cursor_cli_args JSON must be an array")
               for idx, item in enumerate(value):
                   if not isinstance(item, str):
-                      raise SystemExit(f"claude_args JSON array item {idx} must be a string")
+                      raise SystemExit(f"cursor_cli_args JSON array item {idx} must be a string")
                   if '\x00' in item:
-                      raise SystemExit(f"claude_args JSON array item {idx} contains NUL")
+                      raise SystemExit(f"cursor_cli_args JSON array item {idx} contains NUL")
               args = value
           else:
               try:
                   args = shlex.split(raw)
               except ValueError as exc:
-                  raise SystemExit(f"claude_args split failed: {exc}")
+                  raise SystemExit(f"cursor_cli_args split failed: {exc}")
               for idx, item in enumerate(args):
                   if '\x00' in item:
-                      raise SystemExit(f"claude_args arg {idx} contains NUL")
+                      raise SystemExit(f"cursor_cli_args arg {idx} contains NUL")
 
           with open(out_path, 'w', encoding='utf-8') as handle:
               for arg in args:
                   handle.write(arg)
                   handle.write('\n')
 
-          print(f"Parsed {len(args)} claude extra arg(s).")
+          print(f"Parsed {len(args)} cursor extra arg(s).")
           PY
           fi
           mapfile -t extra_args < "$extra_args_file" || true
@@ -804,9 +775,9 @@ jobs:
 
           if [ -z "${PROMPT_FILE:-}" ]; then
             if [ -n "${PR_NUMBER:-}" ]; then
-              PROMPT_FILE="claude-prompt-${PR_NUMBER}.md"
+              PROMPT_FILE="cursor-prompt-${PR_NUMBER}.md"
             else
-              PROMPT_FILE="claude-prompt.md"
+              PROMPT_FILE="cursor-prompt.md"
             fi
             echo "::notice::Prompt output was empty; using assembled prompt fallback: ${PROMPT_FILE}"
           fi
@@ -822,45 +793,56 @@ jobs:
 
           prompt_content="$(cat "$PROMPT_FILE")"
           if [ -n "${PR_NUMBER:-}" ]; then
-            output_file="claude-output-${PR_NUMBER}.md"
+            output_file="cursor-output-${PR_NUMBER}.md"
           else
-            output_file="claude-output.md"
+            output_file="cursor-output.md"
           fi
 
+          # --force lets cursor-agent apply edits without confirmation (the
+          # analogue of Claude's --dangerously-skip-permissions). Omit it for
+          # read-only / review mode.
           perm_flag=()
           if [ "${SKIP_PERMISSIONS:-true}" = "true" ]; then
-            perm_flag=("--dangerously-skip-permissions")
+            perm_flag=(--force)
           fi
 
           # Use PR-specific session log filename (mirrors Codex runner pattern)
           if [ -n "${PR_NUMBER:-}" ]; then
-            SESSION_LOG="claude-session-${PR_NUMBER}.log"
+            SESSION_LOG="cursor-session-${PR_NUMBER}.log"
           else
-            SESSION_LOG="claude-session.log"
+            SESSION_LOG="cursor-session.log"
           fi
 
-          echo "Running Claude Code in agentic mode..."
+          # Resolve the cursor-agent binary (installer name) or its "agent" alias.
+          CURSOR_BIN="cursor-agent"
+          if ! command -v cursor-agent >/dev/null 2>&1 && command -v agent >/dev/null 2>&1; then
+            CURSOR_BIN="agent"
+          fi
+
+          echo "Running Cursor agent in headless mode..."
+          echo "CLI: $CURSOR_BIN"
           echo "Prompt file: $PROMPT_FILE"
           echo "Output file: $output_file"
           echo "Session log: $SESSION_LOG"
 
-          # claude -p (--print) runs in non-interactive agentic mode:
-          # all tools execute, and the final text response goes to stdout.
-          # Note: --output-file does NOT exist in Claude CLI; use shell
-          # redirection.  Tee to $SESSION_LOG so we have a debug artifact
-          # even if the run fails.
+          # cursor-agent -p runs headlessly: it applies tools/edits and prints
+          # the final assistant message to stdout. --output-format text keeps the
+          # captured output a clean final message (the contract base64-encodes it).
+          # Tee to $SESSION_LOG so we keep a debug artifact even if the run fails.
           set +e
-          claude -p "$prompt_content" \
+          "$CURSOR_BIN" -p "$prompt_content" \
             "${perm_flag[@]}" \
+            --output-format text \
+            ${MODEL:+--model "$MODEL"} \
             "${extra_args[@]}" \
             2>&1 | tee "$SESSION_LOG" > "$output_file"
           status=${PIPESTATUS[0]}
           set -e
 
-          # Diagnostic: show what Claude did to the workspace
-          echo "::group::Post-Claude workspace diagnostics"
-          echo "Claude exit code: $status"
-          echo "Git status after Claude run:"
+          # Diagnostic: show what Cursor did to the workspace
+          echo "::group::Post-Cursor workspace diagnostics"
+          echo "Cursor exit code: $status"
+          echo "Git status after Cursor run:"
           git status --short || true
           echo "Unpushed commits (if any):"
           diag_branch="${PR_REF:-}"
@@ -873,8 +855,8 @@ jobs:
           echo "exit-code=$status" >> "$GITHUB_OUTPUT"
           PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
             python -m scripts.runner_lib parse-output \
-              --provider claude \
-              --raw-output-file "$output_file" >/tmp/claude-runner-result.json
+              --provider cursor \
+              --raw-output-file "$output_file" >/tmp/cursor-runner-result.json
 
           if [ "$status" -ne 0 ]; then
             exit "$status"
@@ -902,7 +884,7 @@ jobs:
 
           if [ "$CHANGED_FILES" -eq 0 ]; then
             echo "No uncommitted changes."
-            # Claude Code in agentic mode (--dangerously-skip-permissions) can
+            # Cursor in headless mode (--force) can
             # create its own git commits via the Bash tool.  Check for unpushed
             # commits that need pushing — mirrors the Codex runner pattern.
             git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
@@ -916,7 +898,7 @@ jobs:
             fi
 
             if [ "$UNPUSHED_COMMITS" -gt 0 ]; then
-              echo "Found ${UNPUSHED_COMMITS} unpushed commit(s) from Claude — pushing them."
+              echo "Found ${UNPUSHED_COMMITS} unpushed commit(s) from Cursor — pushing them."
               COMMIT_SHA=$(git rev-parse HEAD)
               echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
               echo "changes-made=true" >> "$GITHUB_OUTPUT"
@@ -952,7 +934,7 @@ jobs:
               for attempt in 1 2 3; do
                 echo "Push attempt ${attempt}/3 (unpushed commits path)..."
                 if git push "$REMOTE_URL" "HEAD:${target_branch}"; then
-                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Claude (attempt ${attempt}, SHA: ${COMMIT_SHA})"
+                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Cursor (attempt ${attempt}, SHA: ${COMMIT_SHA})"
                   exit 0
                 fi
                 echo "::warning::Push failed (attempt ${attempt})"
@@ -984,7 +966,7 @@ jobs:
           if [ "$PUSH_ALLOWED" != "true" ] || [ -z "$PUSH_TOKEN" ]; then
             echo "changes-made=true" >> "$GITHUB_OUTPUT"
             echo "commit-sha=" >> "$GITHUB_OUTPUT"
-            echo "::error::Claude made changes but no GitHub App push token is available."
+            echo "::error::Cursor made changes but no GitHub App push token is available."
             echo "::error::Configure WORKFLOWS_APP_ID/WORKFLOWS_APP_PRIVATE_KEY."
             exit 1
           fi
@@ -1010,20 +992,15 @@ jobs:
           # Unstage non-agent artifacts to prevent committing workflow noise.
           # Mirrors the exclusion list from reusable-codex-run.yml.
           git reset HEAD -- \
-            claude-output*.md \
-            claude-prompt*.md \
-            claude-session*.log \
-            claude-session*.jsonl \
-            claude-analysis*.json \
-            codex-output*.md \
-            codex-prompt*.md \
-            codex-session-*.jsonl \
-            codex-analysis-*.json \
             cursor-output*.md \
             cursor-prompt*.md \
             cursor-session*.log \
             cursor-session*.jsonl \
             cursor-analysis*.json \
+            codex-output*.md \
+            codex-prompt*.md \
+            codex-session-*.jsonl \
+            codex-analysis-*.json \
             .coverage \
             .workflows-lib \
             .github/scripts/node_modules \
@@ -1036,21 +1013,21 @@ jobs:
             2>/dev/null || true
 
           # Bail if all changes were artifacts — but still check for unpushed
-          # commits from Claude (it may have committed via Bash tool).
+          # commits from Cursor (it may have committed via Bash tool).
           if git diff --cached --quiet; then
             echo "::notice::No non-artifact changes to commit after filtering."
             # Fetch remote so FETCH_HEAD is current (mirrors Codex runner pattern).
             git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
             UNPUSHED=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")
             if [ "$UNPUSHED" -gt 0 ]; then
-              echo "::notice::Found ${UNPUSHED} unpushed commit(s) from Claude — pushing them."
+              echo "::notice::Found ${UNPUSHED} unpushed commit(s) from Cursor — pushing them."
               sha=$(git rev-parse HEAD)
               echo "commit-sha=$sha" >> "$GITHUB_OUTPUT"
               echo "changes-made=true" >> "$GITHUB_OUTPUT"
               AGENT_FILES=$(git diff --name-only FETCH_HEAD..HEAD | wc -l | tr -d ' ')
               echo "files-changed=${AGENT_FILES:-1}" >> "$GITHUB_OUTPUT"
               # Rebase onto the remote tip so the push is a fast-forward.
-              # Without this, Claude's commit sits on the stale checkout base
+              # Without this, Cursor's commit sits on the stale checkout base
               # and the push is non-fast-forward when the branch has advanced.
               if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
                 echo "Rebasing unpushed commits onto ${target_branch} before push."
@@ -1103,7 +1080,7 @@ jobs:
           git diff --cached --stat
           echo "::endgroup::"
 
-          commit_message="Claude (${MODE}) automated update"
+          commit_message="Cursor (${MODE}) automated update"
           if [ -n "${PR_NUMBER:-}" ]; then
             commit_message+=" for PR #${PR_NUMBER}"
           fi
@@ -1113,7 +1090,7 @@ jobs:
           echo "changes-made=true" >> "$GITHUB_OUTPUT"
 
           # Sync with remote before push — the branch may have advanced
-          # during the Claude run. Mirrors reusable-codex-run.yml pattern.
+          # during the Cursor run. Mirrors reusable-codex-run.yml pattern.
           echo "::group::Sync with remote before push"
           git fetch "$REMOTE_URL" "$target_branch" 2>/dev/null || true
           if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
@@ -1159,18 +1136,18 @@ jobs:
           echo "::error::Failed to push after 3 attempts."
           exit 1
 
-      - name: Upload Claude output
+      - name: Upload Cursor output
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: claude-output-${{ inputs.pr_number || github.run_id }}
+          name: cursor-output-${{ inputs.pr_number || github.run_id }}
           path: |
-            claude-output*.md
-            claude-session*.log
-            claude-session*.jsonl
+            cursor-output*.md
+            cursor-session*.log
+            cursor-session*.jsonl
           if-no-files-found: ignore
 
-      - name: Analyze Claude session
+      - name: Analyze Cursor session
         id: analyze_session
         if: always()
         env:
@@ -1180,14 +1157,14 @@ jobs:
           set -euo pipefail
 
           if [ -n "${PR_NUM}" ]; then
-            SESSION_LOG="claude-session-${PR_NUM}.log"
+            SESSION_LOG="cursor-session-${PR_NUM}.log"
           else
-            SESSION_LOG="claude-session.log"
+            SESSION_LOG="cursor-session.log"
           fi
 
           # Check if session file exists and has content
           if [ ! -f "$SESSION_LOG" ] || [ ! -s "$SESSION_LOG" ]; then
-            echo "No Claude session log found or file is empty"
+            echo "No Cursor session log found or file is empty"
             echo "session-available=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -1213,7 +1190,7 @@ jobs:
           set -euo pipefail
 
           SESSION_LOG="${{ steps.analyze_session.outputs.session-file }}"
-          ANALYSIS_FILE="claude-analysis-${PR_NUM}.json"
+          ANALYSIS_FILE="cursor-analysis-${PR_NUM}.json"
 
           # Fetch PR body to extract tasks
           echo "Fetching PR #${PR_NUM} body..."
@@ -1237,7 +1214,7 @@ jobs:
 
           # Run full LLM analysis and save JSON output
           # The analyze_codex_session.py script auto-detects text vs JSONL input,
-          # so it works with Claude's plain-text session logs (data_source=summary).
+          # so it works with Cursor's plain-text session logs (data_source=summary).
           echo "Running LLM-powered task completion analysis..."
           if [ ! -f .workflows-lib/scripts/analyze_codex_session.py ]; then
             echo "::error::Analysis script not found."
@@ -1347,19 +1324,19 @@ jobs:
             // The prompt file name is passed to postCompletionComment which uses
             // it as the base name; it also checks for PR-specific variants internally.
             const prNumber = process.env.PR_NUMBER || '';
-            let promptFile = 'claude-prompt.md';
+            let promptFile = 'cursor-prompt.md';
             if (prNumber) {
-              const prSpecific = `claude-prompt-${prNumber}.md`;
+              const prSpecific = `cursor-prompt-${prNumber}.md`;
               if (fs.existsSync(prSpecific)) {
                 promptFile = prSpecific;
               }
             }
             // Also check codex-prompt as shared belt PRs use that naming.
-            // Only fall back when no claude-prompt variant exists at all.
+            // Only fall back when no cursor-prompt variant exists at all.
             if (!fs.existsSync(promptFile)) {
               const codexFallback = prNumber ? `codex-prompt-${prNumber}.md` : 'codex-prompt.md';
               if (fs.existsSync(codexFallback)) {
-                core.info(`No claude-prompt file found; using ${codexFallback}`);
+                core.info(`No cursor-prompt file found; using ${codexFallback}`);
                 promptFile = codexFallback;
               }
             }
@@ -1385,11 +1362,11 @@ jobs:
 
       - name: Classify failure
         id: classify_failure
-        if: always() && steps.run_claude.outputs.exit-code != '0'
+        if: always() && steps.run_cursor.outputs.exit-code != '0'
         uses: actions/github-script@v9
         env:
-          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
-          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          EXIT_CODE: ${{ steps.run_cursor.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_cursor.outputs.final-message-summary }}
           PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -1427,7 +1404,7 @@ jobs:
               } else if (errorInfo.category === ERROR_CATEGORIES.auth) {
                 errorType = 'auth';
               } else {
-                errorType = 'claude';
+                errorType = 'cursor';
               }
             }
 
@@ -1446,10 +1423,10 @@ jobs:
             console.log(`  Recovery: ${errorInfo.recovery}`);
 
       - name: Write error summary to GITHUB_STEP_SUMMARY
-        if: always() && steps.run_claude.outputs.exit-code != '0'
+        if: always() && steps.run_cursor.outputs.exit-code != '0'
         env:
-          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
-          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          EXIT_CODE: ${{ steps.run_cursor.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_cursor.outputs.final-message-summary }}
           ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
           ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
           ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
@@ -1458,7 +1435,7 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo "## Claude Run Failed"
+            echo "## Cursor Run Failed"
             echo ""
             echo "| Field | Value |"
             echo "|-------|-------|"
@@ -1484,10 +1461,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create error diagnostics artifact
-        if: always() && steps.run_claude.outputs.exit-code != '0'
+        if: always() && steps.run_cursor.outputs.exit-code != '0'
         env:
-          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
-          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          EXIT_CODE: ${{ steps.run_cursor.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_cursor.outputs.final-message-summary }}
           ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
           ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
           ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
@@ -1506,7 +1483,7 @@ jobs:
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "run_id": "${{ github.run_id }}",
             "run_url": "${RUN_URL}",
-            "agent": "claude",
+            "agent": "cursor",
             "mode": "${MODE:-unknown}",
             "pr_number": "${PR_NUMBER:-}",
             "exit_code": "${EXIT_CODE:-unknown}",
@@ -1517,15 +1494,15 @@ jobs:
           }
           JSONEOF
 
-          # Copy claude output if available
-          for f in claude-output*.md; do
+          # Copy cursor output if available
+          for f in cursor-output*.md; do
             [ -f "$f" ] && cp "$f" error-diagnostics/ && break
           done 2>/dev/null || true
 
           echo "Created error diagnostics in error-diagnostics/"
 
       - name: Upload error diagnostics
-        if: always() && steps.run_claude.outputs.exit-code != '0'
+        if: always() && steps.run_cursor.outputs.exit-code != '0'
         uses: actions/upload-artifact@v7
         with:
           name: error-diagnostics-${{ inputs.mode }}-${{ github.run_id }}
@@ -1534,16 +1511,16 @@ jobs:
 
       - name: Post PR comment on non-transient failure
         if: >-
-          always() && steps.run_claude.outputs.exit-code != '0' &&
+          always() && steps.run_cursor.outputs.exit-code != '0' &&
           steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
         uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
-          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
+          EXIT_CODE: ${{ steps.run_cursor.outputs.exit-code }}
           ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
           ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
           ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
-          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          OUTPUT_SUMMARY: ${{ steps.run_cursor.outputs.final-message-summary }}
           MODE: ${{ inputs.mode }}
           RUN_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -1576,10 +1553,10 @@ jobs:
             const mode = process.env.MODE || 'unknown';
             const runUrl = process.env.RUN_URL || '';
 
-            const marker = '<!-- claude-failure-notification -->';
+            const marker = '<!-- cursor-failure-notification -->';
 
             const body = `${marker}
-            ## Claude ${mode} run failed
+            ## Cursor ${mode} run failed
 
             | Field | Value |
             |-------|-------|

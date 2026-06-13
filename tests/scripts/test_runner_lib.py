@@ -93,6 +93,32 @@ def test_assemble_prompt_formats_claude_prompt(tmp_path: Path) -> None:
     assert "Claude context" in prompt.text
 
 
+def test_assemble_prompt_formats_cursor_prompt(tmp_path: Path) -> None:
+    _write_prompt_fixture(tmp_path)
+
+    prompt = assemble_prompt(
+        "baseline",
+        {
+            "workspace": tmp_path,
+            "base_prompt_file": ".github/codex/prompts/task.md",
+            "appendix": "Cursor context",
+        },
+        "cursor",
+    )
+
+    assert prompt.file == "cursor-prompt.md"
+    assert prompt.provider == "cursor"
+    assert "Cursor context" in prompt.text
+
+
+def test_parse_cursor_text_output_success() -> None:
+    result = parse_runner_output("cursor", "Implemented the change and ran tests.\n")
+
+    assert result.success is True
+    assert "Implemented the change" in result.final_message
+    assert result.error is None
+
+
 def test_parse_codex_jsonl_success() -> None:
     raw = "\n".join(
         [

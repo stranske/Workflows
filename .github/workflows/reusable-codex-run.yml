@@ -1536,6 +1536,11 @@ jobs:
             claude-session*.log \
             claude-session*.jsonl \
             claude-analysis*.json \
+            cursor-output*.md \
+            cursor-prompt*.md \
+            cursor-session*.log \
+            cursor-session*.jsonl \
+            cursor-analysis*.json \
             .coverage \
             .workflows-lib \
             .github/scripts/node_modules \

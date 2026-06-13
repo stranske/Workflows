@@ -6,6 +6,15 @@
 - name: agent:claude
   color: 5319e7
   description: Assign to Claude agent
+- name: agent:cursor
+  color: 00b8d9
+  description: Assign to Cursor agent (cursor-agent CLI)
+- name: agent:gemini
+  color: 1a73e8
+  description: Assign to Gemini agent (gemini CLI)
+- name: agent:aider
+  color: 8d6e63
+  description: Assign to Aider agent (cheap, low-complexity tasks)
 - name: agent:copilot
   color: 1d76db
   description: Assign to Copilot
