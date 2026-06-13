@@ -53,8 +53,7 @@ def test_shared_refpack_action_heredoc_compiles() -> None:
     src = path.read_text()
     match = _HEREDOC.search(src)
     assert match is not None, (
-        f"{REFPACK_ACTION}: could not locate the python3 <<'REFPACK_EOF' "
-        "reference-pack heredoc"
+        f"{REFPACK_ACTION}: could not locate the python3 <<'REFPACK_EOF' " "reference-pack heredoc"
     )
 
     body = textwrap.dedent(match.group(1))
@@ -74,6 +73,6 @@ def test_reusable_runners_use_shared_refpack_action(workflow_rel: str) -> None:
 
     src = path.read_text()
     assert "uses: ./.github/actions/agent-reference-packs" in src
-    assert _HEREDOC.search(src) is None, (
-        f"{workflow_rel}: reference-pack heredoc should live only in {REFPACK_ACTION}"
-    )
+    assert (
+        _HEREDOC.search(src) is None
+    ), f"{workflow_rel}: reference-pack heredoc should live only in {REFPACK_ACTION}"
