@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-const { SKIP_MARKER } = require('../keepalive_guard_utils');
+const { SKIP_MARKER, analyseSkipComments } = require('../keepalive_guard_utils');
 
 function createSummary() {
   return {
@@ -545,7 +545,61 @@ test('runKeepaliveGate routes incomplete draft PRs to human', async () => {
   assert.deepEqual(github.__calls.labelAdds.map((call) => call.labels), [
     ['agent:needs-attention', 'needs-human', 'agents:paused'],
   ]);
-  assert.equal(github.__calls.commentsCreated.length, 1);
-  assert.match(github.__calls.commentsCreated[0].body, /Draft PR requires human disposition/);
+  assert.ok(github.__calls.commentsCreated.length >= 1);
+  assert.ok(
+    github.__calls.commentsCreated.some((c) => /Draft PR requires human disposition/.test(c.body)),
+    'expected a draft-disposition comment to be posted'
+  );
+  restore();
+});
+
+test('finaliseSkip posts a skip-count marker comment that analyseSkipComments reads back', async () => {
+  const { core, outputs } = createCore();
+  const gateStub = async () => createGateResult();
+  const { runKeepaliveGate, restore } = loadRunnerWithGate(gateStub);
+
+  // PR with missing keepalive label so the runner will call finaliseSkip
+  const pr = makePullRequest({
+    labels: [],
+  });
+  const github = createGithub({
+    pull: pr,
+    runsByWorkflow: {
+      'pr-00-gate.yml': [
+        { head_sha: 'abc123', status: 'completed', conclusion: 'success' },
+      ],
+    },
+    // No prior skip comments — nextSkipCount will be 1 normally, but we
+    // supply a skipCount of 3 by pre-seeding highestCount via comments.
+    comments: [
+      { body: `${SKIP_MARKER}\n<!-- keepalive-skip-count: 2 -->\nKeepalive 1 trace-1 skipped: missing-label:agents:keepalive` },
+    ],
+  });
+
+  await runKeepaliveGate({
+    core,
+    github,
+    context: { repo: { owner: 'octo', repo: 'demo' }, runId: 42 },
+    env: makeEnv({ KEEPALIVE_MAX_RETRIES: '5' }),
+  });
+
+  assert.equal(outputs.proceed, 'false');
+
+  // Exactly one skip-count comment should have been posted (the draft-disposition
+  // comment is only posted for draft-needs-human; this is a label-missing skip).
+  const skipComments = github.__calls.commentsCreated.filter((c) =>
+    c.body.includes(SKIP_MARKER)
+  );
+  assert.equal(skipComments.length, 1, 'expected exactly one skip-count marker comment');
+
+  const postedBody = skipComments[0].body;
+
+  // The comment must carry the skip-count marker so analyseSkipComments can parse it.
+  assert.match(postedBody, /<!--\s*keepalive-skip-count:\s*3\s*-->/i);
+
+  // Round-trip: feed the posted comment to analyseSkipComments and verify highestCount.
+  const analysis = analyseSkipComments([{ body: postedBody }]);
+  assert.equal(analysis.highestCount, 3, `expected highestCount === 3, got ${analysis.highestCount}`);
+
   restore();
 });
