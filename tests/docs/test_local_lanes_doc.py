@@ -14,10 +14,10 @@ GITNEXUS = REPO_ROOT / "docs" / "ops" / "GITNEXUS.md"
 
 # The four required section headings from the issue acceptance criteria.
 REQUIRED_HEADINGS = [
-    "state locations",
-    "retention tiers",
-    "workloop-state.md` strategy",
-    "Workflows-steward` arrangement",
+    "## State locations",
+    "## Worktree retention tiers",
+    "## `workloop-state.md` strategy",
+    "## `Workflows-steward` arrangement",
 ]
 
 
@@ -36,6 +36,8 @@ def test_local_lanes_doc_has_all_required_sections() -> None:
 
 def test_workloop_state_ignored_in_consumer_template_block() -> None:
     text = CONSUMER_GITIGNORE.read_text(encoding="utf-8")
+    assert "# BEGIN WORKFLOWS STATUS FILES" in text
+    assert "# END WORKFLOWS STATUS FILES" in text
     begin = text.index("# BEGIN WORKFLOWS STATUS FILES")
     end = text.index("# END WORKFLOWS STATUS FILES")
     block = text[begin:end]
@@ -45,8 +47,23 @@ def test_workloop_state_ignored_in_consumer_template_block() -> None:
     )
 
 
+def test_status_ignore_sync_script_carries_workloop_state_pattern() -> None:
+    from scripts import sync_status_file_ignores
+
+    assert "workloop-state.md" in sync_status_file_ignores.CANONICAL_PATTERNS
+    assert "workloop-state.md" in sync_status_file_ignores.FALLBACK_PATTERNS
+
+
 def test_gitnexus_links_to_local_lanes() -> None:
     text = GITNEXUS.read_text(encoding="utf-8")
     assert "LOCAL_LANES.md" in text, "GITNEXUS.md must link to the lane contract doc"
     # The misleading throwaway framing must be corrected.
     assert "temporary automation state and must be ignored" not in text
+
+
+def test_agent_instructions_carry_steward_contract() -> None:
+    for path in (REPO_ROOT / "AGENTS.md", REPO_ROOT / "CLAUDE.md"):
+        text = path.read_text(encoding="utf-8")
+        assert "LOCAL_LANES.md" in text
+        assert "detached HEAD" in text
+        assert "temporary automation state and must be ignored" not in text

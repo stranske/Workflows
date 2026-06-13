@@ -50,7 +50,7 @@ All durable lane state lives under `~/.codex`, outside any repo checkout:
 | --- | --- | --- |
 | Baton sentinel | `~/.codex/handoff/lane-handoff.json` | Single cross-lane JSON: `baton` (round/chain), `active.*` (most-recent productive action — cross-lane, single-slot), `queue` pressures, `batch.last_sweep`, and `stop.scoped_blockers`. |
 | Handoff helper | `~/.codex/bin/handoff.sh` | Subcommands the lanes call: `write-event`, `set-key-pr`/`clear-key-pr`, `scope-blocker`/`clear-scoped-blocker`/`list-scoped-blockers`, `request-pause`/`approve-pause`/`reject-pause`. |
-| Pre/post-run relay | `~/.codex/bin/handoff-prerun.sh`, `~/.codex/bin/handoff-relay.sh`, `handoff-postrun.sh` | Lane mutex, structured resume block, and cross-agent dispatch on terminal events. |
+| Pre/post-run relay | `~/.codex/bin/handoff-prerun.sh`, `~/.codex/bin/handoff-relay.sh`, `~/.codex/bin/handoff-postrun.sh` | Lane mutex, structured resume block, and cross-agent dispatch on terminal events. |
 | Lane prompts (source) | `~/.codex/automations/<id>/automation.toml` | Codex TOML is the source of truth; `~/.codex/bin/render-claude-prompts.sh` re-renders the Claude `.md` variants under `~/.codex/handoff/prompts/`. |
 | Claude scheduled tasks | `~/.claude/scheduled-tasks/handoff-claude-opener/`, `…/handoff-claude-closer/` | The Claude-side scheduled entry points. |
 | Per-automation memory | `~/.codex/automations/<id>/memory.md` | Append-only round history (newest section prepended). See rotation policy below. |
@@ -104,6 +104,13 @@ enabler delivered with this contract:
   files. (The whole consumer `.gitignore` is intentionally in the sync-manifest
   `excluded:` list as "repo-specific"; the status-file script owns the managed
   block, which is the correct propagation path for this entry.)
+- The sync-manifest exclusion for `.gitignore` therefore remains intentional:
+  the generic consumer-template sync must not overwrite repo-local ignore
+  rules, while `scripts/sync_status_file_ignores.py --repo <owner/name>` checks
+  and reports the managed status block that consumers need. The fallback
+  canonical pattern list in that script also includes `workloop-state.md`, so
+  the propagation check remains valid even if the template block cannot be
+  loaded.
 
 Follow-ups (out of repo, owned by the local automations):
 
@@ -138,8 +145,8 @@ detached `HEAD` at `origin/main`.** A detached HEAD takes no branch lock, so the
 canonical clone keeps `main` free while the steward still tracks the latest
 reviewed tip. GitNexus continues to ignore the steward worktree for indexing —
 that part of the old note is correct and is preserved; only the "temporary /
-throwaway" framing is corrected (see [`GITNEXUS.md`](GITNEXUS.md) and
-`docs/ops/bin/gitnexus_fleet.sh`).
+throwaway" framing is corrected (see [`GITNEXUS.md`](GITNEXUS.md),
+`docs/ops/bin/gitnexus_fleet.sh`, `AGENTS.md`, and `CLAUDE.md`).
 
 ## Memory-file rotation
 

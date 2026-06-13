@@ -734,7 +734,7 @@ git_config:
 excluded:
 
   - path: .gitignore
-    reason: "Repo-specific ignore patterns"
+    reason: "Repo-specific ignore patterns; the managed Workflows status-file block is propagated by scripts/sync_status_file_ignores.py instead of generic sync targets"
   - path: README.md
     reason: "Repo-specific documentation"
   - path: config/coverage-baseline.json

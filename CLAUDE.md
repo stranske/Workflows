@@ -50,7 +50,7 @@ Start with the current docs instead of inferring behavior from old comments:
 - GitNexus is an optional local MCP/indexing layer for cross-repo search and impact checks. Read `docs/ops/GITNEXUS.md` before changing its setup.
 - Use GitNexus opportunistically for workflow/template drift, reusable workflow blast-radius checks, and Workflows-vs-consumer ownership questions when the MCP server is available and indexes are fresh.
 - Treat `.gitnexus/` and `~/.gitnexus/` as local derived cache. Do not commit indexes or make CI, remote workflows, or correctness depend on GitNexus output.
-- `Template` is part of the canonical GitNexus fleet because new repos are cloned from it. `Workflows-steward` is temporary automation state and must be ignored.
+- `Template` is part of the canonical GitNexus fleet because new repos are cloned from it. `Workflows-steward` is a load-bearing linked worktree for repo-review outputs; keep it ignored by GitNexus indexing, but arrange it as detached HEAD at `origin/main` so it does not lock the canonical clone's `main` branch. See `docs/ops/LOCAL_LANES.md`.
 - If GitNexus is unavailable or stale, continue with normal `rg`, git, and test-based repository exploration.
 
 ## Workflow PR Checklist
