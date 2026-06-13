@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T15:00Z - closer (codex) narrowed #2303 follow-up lane metadata
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2303](https://github.com/stranske/Workflows/pull/2303), source issue `#2275`, follow-up branch `claude/issue-2275-template-rlac-cleanup`.
+- **Blocker:** #2298's verifier CONCERNS audit found one real residual gap: the retired `rate-limit-aware-client.js` was removed from the root scripts tree but still existed in the consumer template. The follow-up PR's code diff is correctly bounded to deleting `templates/consumer-repo/.github/scripts/rate-limit-aware-client.js`, but the PR body still carried the full original #2275 task list, which caused keepalive to focus on already-merged belt-alias work.
+- **Action:** recorded this closer lane state and narrowed the PR body to the residual template cleanup so future keepalive/review reads do not attempt unrelated already-merged #2298 tasks.
+- **Validation:** before push, confirm the branch diff remains limited to the template file deletion plus this state entry; run template completeness/sync validation, `rg -n 'rate-limit-aware-client' templates/consumer-repo`, and `git diff --check`.
+- **Next action:** after the metadata/state repair push, re-check #2303. If fresh checks settle green, merge #2303, apply `verify:compare`, and keep issue #2275 open until durable verifier/provider disposition.
+
 ## 2026-06-13T14:30Z - closer (codex) rebased #2302 after #2298 merge
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2302](https://github.com/stranske/Workflows/pull/2302), source issue `#2277`, branch `claude/issue-2277-root-debris-allowlist`.
