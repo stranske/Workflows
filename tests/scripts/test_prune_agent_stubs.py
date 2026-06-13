@@ -2,7 +2,6 @@
 
 from scripts.prune_agent_stubs import select_prunable
 
-
 # ---------------------------------------------------------------------------
 # Core acceptance-criteria test (from issue #2336)
 # ---------------------------------------------------------------------------
@@ -44,9 +43,9 @@ def test_select_prunable_non_stub_names_ignored() -> None:
     non_stubs = [
         "README.md",
         "AUTO-PILOT-100.md",  # uppercase start — does not match
-        "auto-pilot.md",       # no trailing issue number
-        ".hidden-1.md",        # starts with dot
-        "auto_pilot-100.md",   # underscore not in pattern
+        "auto-pilot.md",  # no trailing issue number
+        ".hidden-1.md",  # starts with dot
+        "auto_pilot-100.md",  # underscore not in pattern
     ]
     assert select_prunable(non_stubs, {100}) == []
 
