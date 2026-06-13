@@ -1135,45 +1135,14 @@ jobs:
             core.setOutput('number', String(prNumber));
             core.setOutput('summary', `Prepared PR #${prNumber} targeting \`${base}\`.`);
 
-      - name: Configure auto-merge strategy
-        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
-        uses: actions/github-script@v9
-        with:
-          github-token: ${{ env.GH_BELT_TOKEN }}
-          script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              task: 'belt-worker-auto-merge',
-            });
-            const prNumber = Number('${{ steps.pr.outputs.number }}');
-            const { owner, repo } = context.repo;
-
-            try {
-              const { data: pr } = await withRetry((client) =>
-                client.rest.pulls.get({ owner, repo, pull_number: prNumber })
-              );
-              if (!pr.node_id) {
-                core.warning(`Unable to retrieve node_id for PR #${prNumber}; skipping auto-merge enablement.`);
-                return;
-              }
-
-              await withRetry((client) => client.graphql(
-                `mutation EnableAutoMerge($pullRequestId: ID!, $method: PullRequestMergeMethod!) {
-                  enablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId, mergeMethod: $method }) {
-                    pullRequest { number }
-                  }
-                }`,
-                { pullRequestId: pr.node_id, method: 'SQUASH' }
-              ));
-
-              core.summary.addHeading('Merge Strategy').addList([
-                `Enabled auto-merge (squash) for PR #${prNumber} once required checks pass.`,
-              ]).write();
-            } catch (error) {
-              core.warning(`Failed to enable auto-merge for PR #${prNumber}: ${error.message}`);
-            }
+      # Native GitHub auto-merge enablement removed (#2270). It merged the instant
+      # required checks passed, with NO bootstrap-only or unchecked-task guard — which
+      # let placeholder-only "bootstrap PR for issue #N" PRs merge to the default branch
+      # with zero work (37 of 120 such merges in repo history). Agent PRs now reach the
+      # default branch only through the guarded path: the bootstrap-guarded belt conveyor
+      # (agents-73) and the automerge sweep (reusable-70), both gated on the `automerge`
+      # label applied at task-completion and now refusing bootstrap-only / unchecked-task
+      # diffs. Do not re-introduce unconditional native auto-merge here.
 
       - name: Apply automation labels
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}

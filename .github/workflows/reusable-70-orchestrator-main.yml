@@ -3397,8 +3397,34 @@ jobs:
                             failingCheck = `Unable to list check runs: ${error.message || error}`;
                           }
 
+                          // #2270: refuse to auto-merge a bootstrap-only placeholder PR
+                          // (a PR whose only change is the agents/<agent>-<issue>.md stub).
+                          // These carry zero work; merging them was the 37/120 empty-merge
+                          // bug. Mirrors the belt conveyor's bootstrap-only detection.
+                          let bootstrapOnly = false;
+                          if (checksOk) {
+                            try {
+                              const { data: prFiles } = await withRetry(() => github.rest.pulls.listFiles({
+                                owner,
+                                repo,
+                                pull_number: prNumber,
+                                per_page: 100,
+                              }));
+                              const placeholder = /^agents\/[a-z][a-z0-9_-]*-\d+\.md$/i;
+                              bootstrapOnly = prFiles.length > 0
+                                && prFiles.every((f) => placeholder.test(f.filename));
+                            } catch (error) {
+                              // If we cannot enumerate the diff, do NOT merge blind.
+                              bootstrapOnly = true;
+                              failingCheck = `Unable to list PR files: ${error.message || error}`;
+                            }
+                          }
+
                           if (!checksOk) {
                             note = failingCheck || 'Checks have not completed successfully.';
+                          } else if (bootstrapOnly) {
+                            note = failingCheck
+                              || 'Refusing auto-merge: bootstrap-only placeholder PR (no work landed).';
                           } else {
                             const mergeParams = {
                               owner,
