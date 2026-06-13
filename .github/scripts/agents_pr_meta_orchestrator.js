@@ -1,6 +1,7 @@
 'use strict';
 
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 
 // Resolve default agent from registry
 let _defaultAgent = 'codex';
@@ -25,15 +26,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 function isTransientError(error) {
   if (!error) return false;
-  const status = Number(error?.status || 0);
-  const message = String(error?.message || '').toLowerCase();
-  // Secondary rate limit (429), server errors (5xx) are always retryable
-  if (status === 429 || status >= 500) return true;
-  // 403 is only retryable if message indicates rate limit or abuse detection
-  if (status === 403 && (message.includes('rate limit') || message.includes('abuse detection'))) return true;
-  // Check for rate limit keywords in any error message
-  if (message.includes('rate limit') || message.includes('abuse detection') || message.includes('timeout')) return true;
-  return false;
+  return classifyError(error).category === ERROR_CATEGORIES.transient;
 }
 
 /**

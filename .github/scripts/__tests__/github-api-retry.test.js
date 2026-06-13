@@ -3,11 +3,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+// github_api_retry.js was consolidated into github-api-with-retry.js
+// (issue #2278); this suite asserts the same behavior against it.
 const {
   computeRetryDelayMs,
   resolveMaxRetries,
   withGithubApiRetry,
-} = require('../github_api_retry');
+} = require('../github-api-with-retry');
 
 test('resolveMaxRetries uses operation-specific overrides', () => {
   const limits = { read: 4, unknown: 1 };

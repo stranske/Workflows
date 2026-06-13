@@ -3,8 +3,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { calculateBackoffDelay } = require('../github_api_retry');
-const { withBackoff, paginateWithBackoff } = require('../api-helpers');
+// api-helpers.js and github_api_retry.js were consolidated into
+// github-api-with-retry.js (issue #2278); these suites assert the same
+// behavior against the consolidated module.
+const { calculateBackoffDelay, withBackoff, paginateWithBackoff } = require('../github-api-with-retry');
 
 function withStubbedRandom(value, fn) {
   const originalRandom = Math.random;

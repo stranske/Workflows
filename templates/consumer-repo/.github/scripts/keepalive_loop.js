@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
-const { createGithubApiCache } = require('./github-api-cache-client');
+const { getGithubApiCache } = require('./github-api-cache-client');
 const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
@@ -467,21 +467,8 @@ function resolveDurationMs({ durationMs, startTs }) {
   return Math.max(0, Math.floor(delta));
 }
 
-function getGithubApiCache({ github, core }) {
-  if (github && github.__keepaliveApiCache) {
-    return github.__keepaliveApiCache;
-  }
-  const cache = createGithubApiCache({ core });
-  if (github) {
-    Object.defineProperty(github, '__keepaliveApiCache', {
-      value: cache,
-      enumerable: false,
-      configurable: false,
-      writable: false,
-    });
-  }
-  return cache;
-}
+// getGithubApiCache is now the single shared factory from
+// github-api-cache-client.js (sentinel __githubApiCache).
 
 async function fetchPullRequestCached({ github, context, prNumber, core }) {
   if (!github?.rest?.pulls?.get || !context?.repo?.owner || !context?.repo?.repo) {

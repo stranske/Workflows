@@ -1,6 +1,7 @@
 'use strict';
 
-const { createGithubApiCache } = require('./github-api-cache-client');
+const { getGithubApiCache } = require('./github-api-cache-client');
+const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { makeTrace } = require('./keepalive_contract.js');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 const {
@@ -19,22 +20,8 @@ const DEFAULT_INSTRUCTION_SIGNATURE =
  */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function getGithubApiCache({ github, core }) {
-  if (!github) {
-    return createGithubApiCache({ core });
-  }
-  if (github.__agentsPrMetaApiCache) {
-    return github.__agentsPrMetaApiCache;
-  }
-  const cache = createGithubApiCache({ core });
-  Object.defineProperty(github, '__agentsPrMetaApiCache', {
-    value: cache,
-    enumerable: false,
-    configurable: false,
-    writable: false,
-  });
-  return cache;
-}
+// getGithubApiCache is now the single shared factory from
+// github-api-cache-client.js (sentinel __githubApiCache).
 
 async function fetchPullRequestCached({ github, owner, repo, prNumber, core, maxRetries = 3 }) {
   if (!github?.rest?.pulls?.get || !owner || !repo) {
@@ -94,15 +81,7 @@ async function fetchPullRequestCached({ github, owner, repo, prNumber, core, max
  */
 function isTransientError(error) {
   if (!error) return false;
-  const status = Number(error?.status || 0);
-  const message = String(error?.message || '').toLowerCase();
-  // Secondary rate limit (429), server errors (5xx) are always retryable
-  if (status === 429 || status >= 500) return true;
-  // 403 is only retryable if message indicates rate limit or abuse detection
-  if (status === 403 && (message.includes('rate limit') || message.includes('abuse detection'))) return true;
-  // Check for rate limit keywords in any error message
-  if (message.includes('rate limit') || message.includes('abuse detection') || message.includes('timeout')) return true;
-  return false;
+  return classifyError(error).category === ERROR_CATEGORIES.transient;
 }
 
 // Inlined from ../../scripts/keepalive_instruction_segment.js to avoid relative require issues in github-script

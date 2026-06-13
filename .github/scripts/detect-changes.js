@@ -1,6 +1,7 @@
 'use strict';
 
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const { isRateLimitError } = require('./error_classifier');
 
 const DOC_EXTENSIONS = [
   '.md',
@@ -154,18 +155,6 @@ function isDockerRelated(filename) {
 function isWorkflowFile(filename) {
   const normalized = normalizeSlashes(filename);
   return normalized.startsWith(WORKFLOW_PREFIX);
-}
-
-function isRateLimitError(error) {
-  if (!error) {
-    return false;
-  }
-  const status = error.status || error?.response?.status;
-  if (status !== 403) {
-    return false;
-  }
-  const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
-  return message.includes('rate limit') || message.includes('ratelimit');
 }
 
 function isNonFatalListFilesError(error) {

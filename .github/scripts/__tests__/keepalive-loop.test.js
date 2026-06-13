@@ -859,7 +859,8 @@ test('evaluateKeepaliveLoop invalidates cache and emits cache metrics', async ()
     workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
   });
   const cacheCalls = { invalidations: [], metrics: 0 };
-  github.__keepaliveApiCache = {
+  // Single shared cache sentinel after issue #2278 consolidation.
+  github.__githubApiCache = {
     buildPrCacheKey() {
       return 'pr-key';
     },

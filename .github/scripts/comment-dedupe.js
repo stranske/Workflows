@@ -2,21 +2,10 @@
 
 const fs = require('fs');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const { isRateLimitError } = require('./error_classifier');
 
 function trim(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function isRateLimitError(error) {
-  if (!error) {
-    return false;
-  }
-  const status = error.status || error?.response?.status;
-  if (status !== 403) {
-    return false;
-  }
-  const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
-  return message.includes('rate limit') || message.includes('ratelimit');
 }
 
 function isPullRequestEvent(context) {

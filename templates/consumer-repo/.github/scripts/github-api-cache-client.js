@@ -103,7 +103,39 @@ function createGithubApiCache(options = {}) {
   };
 }
 
+/**
+ * Resolve a single shared GitHub API cache for a given Octokit client.
+ *
+ * Consolidates the three previously-divergent `getGithubApiCache` factories
+ * (in keepalive_gate.js, agents_pr_meta_keepalive.js, keepalive_loop.js), each
+ * of which attached its own cache under a distinct per-module sentinel, so
+ * three independent caches lived on the same `github` object. This single
+ * factory attaches one cache under `__githubApiCache`, so callers share it.
+ *
+ * @param {Object} options
+ * @param {Object} [options.github] - Octokit instance (cache attached to it)
+ * @param {Object} [options.core] - GitHub Actions core (for metric logging)
+ * @returns {Object} The shared cache wrapper from {@link createGithubApiCache}
+ */
+function getGithubApiCache({ github, core } = {}) {
+  if (!github) {
+    return createGithubApiCache({ core });
+  }
+  if (github.__githubApiCache) {
+    return github.__githubApiCache;
+  }
+  const cache = createGithubApiCache({ core });
+  Object.defineProperty(github, '__githubApiCache', {
+    value: cache,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+  return cache;
+}
+
 module.exports = {
   createGithubApiCache,
+  getGithubApiCache,
   emitCacheMetrics,
 };

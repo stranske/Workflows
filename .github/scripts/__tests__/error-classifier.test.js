@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   ERROR_CATEGORIES,
   classifyError,
+  isRateLimitError,
   suggestRecoveryAction,
 } = require('../error_classifier.js');
 
@@ -103,6 +104,45 @@ test('classifyError provides category-specific recovery guidance', () => {
     assert.match(result.recovery, entry.recoveryPattern);
   }
 });
+test('isRateLimitError: a 403 that is NOT a rate limit returns false', () => {
+  // This is the regression guard for the over-broad bare-403 predicate
+  // (formerly keepalive_gate.js): a genuine permission/scope failure must
+  // NOT be classified as a rate limit.
+  assert.equal(
+    isRateLimitError({ status: 403, message: 'Resource not accessible by integration' }),
+    false
+  );
+  assert.equal(
+    isRateLimitError({ status: 403, message: 'Forbidden' }),
+    false
+  );
+});
+
+test('isRateLimitError: a 403 that IS a rate limit returns true', () => {
+  assert.equal(
+    isRateLimitError({ status: 403, message: 'API rate limit exceeded for installation' }),
+    true
+  );
+  // Rate-limit signalled by exhausted header, even without a message match.
+  assert.equal(
+    isRateLimitError({ status: 403, response: { headers: { 'x-ratelimit-remaining': '0' } } }),
+    true
+  );
+  // Secondary rate limit (abuse detection).
+  assert.equal(
+    isRateLimitError({ status: 403, message: 'You have exceeded a secondary rate limit' }),
+    true
+  );
+});
+
+test('isRateLimitError: 429 is always a rate limit; other statuses are not', () => {
+  assert.equal(isRateLimitError({ status: 429, message: 'Too Many Requests' }), true);
+  assert.equal(isRateLimitError({ status: 429 }), true);
+  assert.equal(isRateLimitError({ status: 404, message: 'Not Found' }), false);
+  assert.equal(isRateLimitError({ status: 401, message: 'Bad credentials' }), false);
+  assert.equal(isRateLimitError(null), false);
+});
+
 test('classifyError returns transient for dirty git state messages', () => {
   // Agent sees unexpected changes (workflow artifacts like .workflows-lib, codex-session-*.jsonl)
   const messages = [

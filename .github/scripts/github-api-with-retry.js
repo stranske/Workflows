@@ -9,7 +9,33 @@
  * Usage in github-script actions:
  *   const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
  *   const data = await withRetry(() => github.rest.issues.get({...}));
+ *
+ * This module also absorbs the former `github_api_retry.js` (category-aware
+ * retry: withGithubApiRetry/computeRetryDelayMs/resolveMaxRetries/
+ * calculateBackoffDelay) and `api-helpers.js` (paginateWithBackoff/withBackoff/
+ * checkRateLimitStatus/createRateLimitAwareClient and rate-limit reset helpers)
+ * so all GitHub-API retry/pagination/backoff helpers live in one module.
  */
+
+const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
+
+// NOTE: `github-rate-limited-wrapper.js` requires THIS module
+// (createTokenAwareRetry), so it is required lazily inside the functions that
+// need it (paginateWithBackoff/checkRateLimitStatus) to avoid a circular
+// require at module-load time.
+
+const DEFAULT_BASE_DELAY_MS = 1000;
+const DEFAULT_MAX_DELAY_MS = 30000;
+const DEFAULT_MAX_RETRIES = 3;
+const RATE_LIMIT_THRESHOLD = 500;
+
+const DEFAULT_RETRY_LIMITS = Object.freeze({
+  read: 3,
+  write: 2,
+  dispatch: 2,
+  admin: 1,
+  unknown: 1,
+});
 
 function normaliseHeaders(headers) {
   if (!headers || typeof headers !== 'object') {
@@ -608,11 +634,339 @@ async function createTokenAwareRetry(options = {}) {
   };
 }
 
+// ===========================================================================
+// Category-aware retry (absorbed from former github_api_retry.js)
+// ===========================================================================
+
+/**
+ * Calculate delay with exponential backoff and jitter.
+ * @param {number} attempt - Current attempt number (0-indexed)
+ * @param {number} baseDelay - Base delay in milliseconds
+ * @param {number} maxDelay - Maximum delay in milliseconds
+ * @returns {number} Calculated delay with jitter
+ */
+function calculateBackoffDelay(attempt, baseDelay = DEFAULT_BASE_DELAY_MS, maxDelay = DEFAULT_MAX_DELAY_MS) {
+  const exponentialDelay = baseDelay * Math.pow(2, attempt);
+  const cappedDelay = Math.min(exponentialDelay, maxDelay);
+  const jitter = cappedDelay * 0.25 * (Math.random() * 2 - 1);
+  return Math.round(cappedDelay + jitter);
+}
+
+function resolveMaxRetries(operation, maxRetriesByOperation) {
+  if (!maxRetriesByOperation || typeof maxRetriesByOperation !== 'object') {
+    return DEFAULT_RETRY_LIMITS.unknown;
+  }
+  if (operation && maxRetriesByOperation[operation] != null) {
+    return maxRetriesByOperation[operation];
+  }
+  return maxRetriesByOperation.unknown ?? DEFAULT_RETRY_LIMITS.unknown;
+}
+
+function calculateWaitUntilReset(resetTimestamp, nowMs) {
+  if (!Number.isFinite(resetTimestamp)) {
+    return DEFAULT_BASE_DELAY_MS;
+  }
+  const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const resetTime = resetTimestamp * 1000;
+  const waitTime = resetTime - now;
+  return Math.max(1000, Math.min(waitTime + 1000, 60000));
+}
+
+function computeRetryDelayMs({ error, attempt, baseDelay, maxDelay, backoffFn, nowMs }) {
+  const headers = normaliseHeaders(error?.response?.headers || error?.headers);
+  const retryAfter = parseInt(headers['retry-after'], 10);
+  if (Number.isFinite(retryAfter) && retryAfter >= 0) {
+    return Math.min(retryAfter * 1000, maxDelay);
+  }
+
+  const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
+  const reset = parseInt(headers['x-ratelimit-reset'], 10);
+  if (Number.isFinite(remaining) && remaining <= 0 && Number.isFinite(reset)) {
+    return Math.min(calculateWaitUntilReset(reset, nowMs), maxDelay);
+  }
+
+  return Math.min(backoffFn(attempt, baseDelay, maxDelay), maxDelay);
+}
+
+function logRetry({ core, label, operation, attempt, maxRetries, delayMs, category, message }) {
+  const summary = [
+    `Retrying ${label}`,
+    `operation=${operation}`,
+    `category=${category}`,
+    `attempt=${attempt + 1}/${maxRetries + 1}`,
+    `delayMs=${delayMs}`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const detail = message ? `; error=${message}` : '';
+  const full = `${summary}${detail}`;
+
+  if (core && typeof core.warning === 'function') {
+    core.warning(full);
+  } else {
+    console.warn(`[WARN] ${full}`);
+  }
+}
+
+/**
+ * Retry a GitHub API call only for transient (error_classifier) categories,
+ * with category-aware backoff (Retry-After / rate-limit reset / exponential).
+ */
+async function withGithubApiRetry(apiCall, options = {}) {
+  const {
+    operation = 'unknown',
+    label = 'GitHub API call',
+    maxRetriesByOperation = DEFAULT_RETRY_LIMITS,
+    baseDelay = DEFAULT_BASE_DELAY_MS,
+    maxDelay = DEFAULT_MAX_DELAY_MS,
+    core = null,
+    sleep: sleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    backoffFn = calculateBackoffDelay,
+  } = options;
+
+  const maxRetries = resolveMaxRetries(operation, maxRetriesByOperation);
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await apiCall();
+    } catch (error) {
+      lastError = error;
+      const { category, message } = classifyError(error);
+
+      if (category !== ERROR_CATEGORIES.transient || attempt >= maxRetries) {
+        throw error;
+      }
+
+      const delayMs = computeRetryDelayMs({
+        error,
+        attempt,
+        baseDelay,
+        maxDelay,
+        backoffFn,
+      });
+
+      logRetry({ core, label, operation, attempt, maxRetries, delayMs, category, message });
+      await sleepFn(delayMs);
+    }
+  }
+
+  throw lastError || new Error('GitHub API call failed after retries');
+}
+
+// ===========================================================================
+// Rate-limit-aware pagination/backoff helpers (absorbed from former
+// api-helpers.js). paginateWithBackoff/checkRateLimitStatus wrap the client
+// with ensureRateLimitWrapped, lazily required to avoid a circular dependency.
+// ===========================================================================
+
+/**
+ * Extract rate limit reset time from error or response headers.
+ * @param {Error|Object} errorOrResponse
+ * @returns {number|null} Unix timestamp of reset time, or null if not found
+ */
+function extractRateLimitReset(errorOrResponse) {
+  if (!errorOrResponse) {
+    return null;
+  }
+  const headers = errorOrResponse?.response?.headers || errorOrResponse?.headers || {};
+  const resetHeader = headers['x-ratelimit-reset'] || headers['X-RateLimit-Reset'];
+  if (resetHeader) {
+    const parsed = parseInt(resetHeader, 10);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  const retryAfter = headers['retry-after'] || headers['Retry-After'];
+  if (retryAfter) {
+    const seconds = parseInt(retryAfter, 10);
+    if (Number.isFinite(seconds)) {
+      return Math.floor(Date.now() / 1000) + seconds;
+    }
+  }
+  return null;
+}
+
+/**
+ * github.paginate with exponential backoff on transient/rate-limit errors.
+ */
+async function paginateWithBackoff(github, method, params, options = {}) {
+  const {
+    maxRetries = DEFAULT_MAX_RETRIES,
+    baseDelay = DEFAULT_BASE_DELAY_MS,
+    maxDelay = DEFAULT_MAX_DELAY_MS,
+    core = null,
+    env = process.env,
+  } = options;
+
+  let client = github;
+  try {
+    // Lazy require breaks the github-rate-limited-wrapper <-> this-module cycle.
+    const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+    client = await ensureRateLimitWrapped({ github, core, env });
+  } catch (error) {
+    client = github;
+  }
+
+  return withGithubApiRetry(
+    () => client.paginate(method, params),
+    {
+      operation: 'read',
+      label: 'GitHub API pagination',
+      maxRetriesByOperation: {
+        read: maxRetries,
+        write: maxRetries,
+        dispatch: maxRetries,
+        admin: maxRetries,
+        unknown: maxRetries,
+      },
+      baseDelay,
+      maxDelay,
+      core,
+      backoffFn: calculateBackoffDelay,
+    }
+  );
+}
+
+/**
+ * Single (non-paginated) API call with exponential backoff.
+ */
+async function withBackoff(apiCall, options = {}) {
+  const {
+    maxRetries = DEFAULT_MAX_RETRIES,
+    baseDelay = DEFAULT_BASE_DELAY_MS,
+    maxDelay = DEFAULT_MAX_DELAY_MS,
+    core = null,
+  } = options;
+
+  return withGithubApiRetry(apiCall, {
+    operation: 'read',
+    label: 'GitHub API call',
+    maxRetriesByOperation: {
+      read: maxRetries,
+      write: maxRetries,
+      dispatch: maxRetries,
+      admin: maxRetries,
+      unknown: maxRetries,
+    },
+    baseDelay,
+    maxDelay,
+    core,
+    backoffFn: calculateBackoffDelay,
+  });
+}
+
+/**
+ * Check current rate limit status and report whether it's safe to proceed.
+ */
+async function checkRateLimitStatus(github, options = {}) {
+  const { threshold = RATE_LIMIT_THRESHOLD, core = null, env = process.env } = options;
+
+  let client = github;
+  try {
+    // Lazy require breaks the github-rate-limited-wrapper <-> this-module cycle.
+    const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+    client = await ensureRateLimitWrapped({ github, core, env });
+  } catch (error) {
+    client = github;
+  }
+
+  try {
+    const { data: rateLimit } = await client.rest.rateLimit.get();
+    const coreLimit = rateLimit?.resources?.core || {};
+    const remaining = coreLimit.remaining || 0;
+    const limit = coreLimit.limit || 5000;
+    const resetTimestamp = coreLimit.reset || 0;
+    const resetTime = new Date(resetTimestamp * 1000);
+
+    const safe = remaining >= threshold;
+    const percentUsed = limit > 0 ? Math.round(((limit - remaining) / limit) * 100) : 0;
+
+    const status = {
+      safe,
+      remaining,
+      limit,
+      threshold,
+      percentUsed,
+      resetTimestamp,
+      resetTime: resetTime.toISOString(),
+      waitTimeMs: safe ? 0 : calculateWaitUntilReset(resetTimestamp),
+    };
+
+    if (!safe) {
+      logWithCore(
+        core,
+        'warning',
+        `Rate limit low: ${remaining}/${limit} remaining (${percentUsed}% used). ` +
+          `Threshold: ${threshold}. Resets at ${status.resetTime}`
+      );
+    } else {
+      logWithCore(core, 'info', `Rate limit OK: ${remaining}/${limit} remaining (${percentUsed}% used)`);
+    }
+
+    return status;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logWithCore(core, 'warning', `Failed to check rate limit: ${message}`);
+
+    return {
+      safe: true,
+      remaining: -1,
+      limit: -1,
+      threshold,
+      percentUsed: -1,
+      resetTimestamp: 0,
+      resetTime: '',
+      waitTimeMs: 0,
+      error: message,
+    };
+  }
+}
+
+/**
+ * Create a rate-limit-aware wrapper around an Octokit instance.
+ */
+function createRateLimitAwareClient(github, options = {}) {
+  const defaultOptions = {
+    maxRetries: DEFAULT_MAX_RETRIES,
+    baseDelay: DEFAULT_BASE_DELAY_MS,
+    maxDelay: DEFAULT_MAX_DELAY_MS,
+    core: null,
+    ...options,
+  };
+
+  return {
+    paginate: (method, params, opts = {}) =>
+      paginateWithBackoff(github, method, params, { ...defaultOptions, ...opts }),
+    checkRateLimit: (opts = {}) => checkRateLimitStatus(github, { ...defaultOptions, ...opts }),
+    withBackoff: (apiCall, opts = {}) => withBackoff(apiCall, { ...defaultOptions, ...opts }),
+    raw: github,
+  };
+}
+
 module.exports = {
   isRateLimitError,
   isSecondaryRateLimitError,
   withRetry,
   paginateWithRetry,
   createTokenAwareRetry,
-  sleep
+  sleep,
+  // Category-aware retry (former github_api_retry.js)
+  DEFAULT_RETRY_LIMITS,
+  calculateBackoffDelay,
+  resolveMaxRetries,
+  calculateWaitUntilReset,
+  computeRetryDelayMs,
+  withGithubApiRetry,
+  // Rate-limit-aware pagination/backoff (former api-helpers.js)
+  paginateWithBackoff,
+  withBackoff,
+  checkRateLimitStatus,
+  createRateLimitAwareClient,
+  extractRateLimitReset,
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_BASE_DELAY_MS,
+  DEFAULT_MAX_DELAY_MS,
+  RATE_LIMIT_THRESHOLD,
 };

@@ -15,6 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const childProcess = require('child_process');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const { isRateLimitError: classifyRateLimitError } = require('./error_classifier');
 const {
   extractIssueNumbersFromText,
   formatSourceContextForLog,
@@ -834,25 +835,12 @@ function isRateLimitError(error) {
   if (!error) {
     return false;
   }
+  // Preserve the module-local RateLimitError sentinel; delegate everything
+  // else to the centralized predicate in error_classifier.js.
   if (error instanceof RateLimitError) {
     return true;
   }
-  const status = typeof error.status === 'number' ? error.status : null;
-  const message = error instanceof Error ? error.message : String(error);
-  const messageLower = message.toLowerCase();
-  if (status === 429) {
-    return true;
-  }
-  if (status !== 403) {
-    return false;
-  }
-  if (messageLower.includes('rate limit')) {
-    return true;
-  }
-  const headers = error?.response?.headers || {};
-  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
-  const remaining = Number(remainingRaw);
-  return Number.isFinite(remaining) && remaining <= 0;
+  return classifyRateLimitError(error);
 }
 
 // ========== Status Block Functions ==========

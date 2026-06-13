@@ -136,6 +136,65 @@ function matchesPattern(message, patterns) {
   return patterns.some((pattern) => message.includes(pattern));
 }
 
+function normaliseHeaders(headers) {
+  if (!headers || typeof headers !== 'object') {
+    return {};
+  }
+  return Object.entries(headers).reduce((acc, [key, value]) => {
+    acc[String(key).toLowerCase()] = value;
+    return acc;
+  }, {});
+}
+
+// Message substrings that, on a 403, indicate a rate-limit rather than a
+// genuine permission/scope failure. Kept narrow on purpose: a bare 403 is NOT
+// a rate limit (see isRateLimitError) — that over-broad match was the latent
+// bug this predicate centralizes away.
+const RATE_LIMIT_MESSAGE_PATTERNS = [
+  'rate limit',
+  'rate-limited',
+  'ratelimit',
+  'api rate',
+  'secondary rate',
+  'too many requests',
+  'abuse detection',
+];
+
+/**
+ * Determine whether an error represents a GitHub rate-limit condition.
+ *
+ * Returns true ONLY when:
+ *   - the status is 429, OR
+ *   - the status is 403 AND the message indicates a rate limit OR a rate-limit
+ *     header reports exhaustion (`x-ratelimit-remaining <= 0`).
+ *
+ * A 403 that is NOT a rate limit (e.g. "Resource not accessible by integration")
+ * returns false — this is the fix for the over-broad `status === 403` predicate
+ * that previously misrouted genuine permission failures into rate-limit backoff.
+ *
+ * @param {Error|Object} error
+ * @returns {boolean}
+ */
+function isRateLimitError(error) {
+  if (!error) {
+    return false;
+  }
+  const status = getStatusCode(error);
+  if (status === 429) {
+    return true;
+  }
+  if (status === 403) {
+    const message = normaliseMessage(error);
+    if (matchesPattern(message, RATE_LIMIT_MESSAGE_PATTERNS)) {
+      return true;
+    }
+    const headers = normaliseHeaders(error?.response?.headers || error?.headers);
+    const remaining = Number.parseInt(headers['x-ratelimit-remaining'], 10);
+    return Number.isFinite(remaining) && remaining <= 0;
+  }
+  return false;
+}
+
 function classifyByStatus(status, message) {
   if (status === 401) {
     return ERROR_CATEGORIES.auth;
@@ -215,5 +274,6 @@ function suggestRecoveryAction(category) {
 module.exports = {
   ERROR_CATEGORIES,
   classifyError,
+  isRateLimitError,
   suggestRecoveryAction,
 };
