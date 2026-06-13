@@ -8,6 +8,14 @@
 - **Validation:** run focused grep for live `api-helpers.js` workflow requires, workflow YAML parse, JS API helper tests, Agents Guard tests, template completeness/sync validation, and `git diff --check` before push.
 - **Next action:** push the guard dependency fix, then wait for fresh checks. If checks settle green and no new review threads appear, merge #2304, apply `verify:compare`, and keep #2278 open until verifier disposition.
 
+## 2026-06-13T15:15Z - opener (codex) opened #2305 for issue #2279
+
+- **Selected opener lane:** issue [#2279](https://github.com/stranske/Workflows/issues/2279), branch `codex/issue-2279-docs-remediation`, ready-for-review PR [#2305](https://github.com/stranske/Workflows/pull/2305).
+- **Routing:** PR #2305 is non-draft, base `main`, head `codex/issue-2279-docs-remediation`, and labels are exactly `agent:codex`, `agents:keepalive`, and `autofix`.
+- **Implementation summary:** canonicalized setup docs to `templates/consumer-repo/docs/SETUP_CHECKLIST.md`, added operator and pause/resume runbooks, documented missing control-plane labels in the synced label guide, pruned phantom workflow catalog entries, and added a non-zero workflow-doc link-resolution guard.
+- **Validation:** focused docs tests passed (`5 passed`), workflow naming/inventory tests passed (`9 passed`), `git diff --check origin/main..HEAD` clean, and deliberate-break proof failed on `maint-keepalive.yml` before reverting to the passing state.
+- **Next action:** keepalive/Gate owns CI and review iteration on #2305.
+
 ## 2026-06-13T15:13Z - opener (codex) issue #2279 docs remediation
 
 - **Selected opener lane:** issue [#2279](https://github.com/stranske/Workflows/issues/2279), branch `codex/issue-2279-docs-remediation`; PR not opened yet at this checkpoint.
