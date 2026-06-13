@@ -401,6 +401,16 @@ def test_selftest_runner_jobs_contract() -> None:
         "needs.scenarios.result == 'skipped'" in fail_if
         and "needs.select-scenarios.outputs.selected_count == '0'" in fail_if
     ), "Failure guard must exempt the legitimately-skipped, zero-scenario case."
+    # Guard against an accidentally-inverted clause: the skipped/zero-scenario pair
+    # must be NEGATED as a group (so it SUPPRESSES failure), not OR'd in as an extra
+    # failure trigger. Pin the exact `&& !(...)` grouping so a flipped guard fails here.
+    assert (
+        "&& !(needs.scenarios.result == 'skipped'"
+        " && needs.select-scenarios.outputs.selected_count == '0')"
+    ) in fail_if, (
+        "Skipped/zero-scenario clause must be negated and AND-combined "
+        "(&& !(...)) so it exempts—not triggers—the failure."
+    )
 
 
 def test_selftest_runner_publish_job_contract() -> None:
