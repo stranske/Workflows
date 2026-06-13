@@ -22,7 +22,12 @@ def test_resolve_default_branch_action_contract_and_template_copy() -> None:
     assert action["inputs"]["owner"]["default"] == "stranske"
     assert action["inputs"]["repo"]["default"] == "Workflows"
     assert action["runs"]["steps"][0]["uses"] == "actions/github-script@v9"
-    assert "resolve-default-branch.js" in action["runs"]["steps"][0]["with"]["script"]
+    resolve_step = action["runs"]["steps"][0]
+    assert resolve_step["env"]["RESOLVE_DEFAULT_BRANCH_ACTION_PATH"] == "${{ github.action_path }}"
+    script = resolve_step["with"]["script"]
+    assert "resolve-default-branch.js" in script
+    assert "RESOLVE_DEFAULT_BRANCH_ACTION_PATH" in script
+    assert "GITHUB_ACTION_PATH" not in script
 
     assert (ACTION_DIR / "resolve-default-branch.js").read_text(encoding="utf-8") == (
         TEMPLATE_ACTION_DIR / "resolve-default-branch.js"
@@ -156,3 +161,27 @@ def test_resolve_default_branch_inline_workflow_copies_removed() -> None:
     uses_pattern = re.compile(r"^\s*uses:\s+.*resolve-default-branch(?:@.*)?$", re.MULTILINE)
     action_uses = sum(len(uses_pattern.findall(text)) for text in texts.values())
     assert action_uses == 10
+
+
+def test_pr_meta_bootstraps_resolver_from_workflows_checkout() -> None:
+    """PR meta cannot require unsynced consumers to already have the new action."""
+    workflow = REPO_ROOT / ".github" / "workflows" / "reusable-20-pr-meta.yml"
+    data = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+    steps = next(
+        job["steps"]
+        for job in data["jobs"].values()
+        if any(step.get("name") == "Resolve Workflows ref" for step in job.get("steps", []))
+    )
+
+    resolver_checkout = next(
+        step for step in steps if step.get("name") == "Checkout resolver action"
+    )
+    assert resolver_checkout["uses"] == "actions/checkout@v6"
+    assert resolver_checkout["with"]["path"] == "workflows-resolver"
+    assert ".github/actions/resolve-default-branch" in resolver_checkout["with"]["sparse-checkout"]
+
+    resolve_step = next(step for step in steps if step.get("name") == "Resolve Workflows ref")
+    assert resolve_step["uses"] == "./workflows-resolver/.github/actions/resolve-default-branch"
+    assert "./consumer/.github/actions/resolve-default-branch" not in workflow.read_text(
+        encoding="utf-8"
+    )

@@ -34,10 +34,12 @@ runs:
     - name: Resolve default branch
       id: resolve
       uses: actions/github-script@v9
+      env:
+        RESOLVE_DEFAULT_BRANCH_ACTION_PATH: ${{ github.action_path }}
       with:
         script: |
           const { resolveDefaultBranch } = require(
-            `${process.env.GITHUB_ACTION_PATH}/resolve-default-branch.js`
+            `${process.env.RESOLVE_DEFAULT_BRANCH_ACTION_PATH}/resolve-default-branch.js`
           );
 
           await resolveDefaultBranch({
