@@ -53,8 +53,7 @@ def test_refpack_heredoc_compiles(workflow_rel: str) -> None:
     src = path.read_text()
     match = _HEREDOC.search(src)
     assert match is not None, (
-        f"{workflow_rel}: could not locate the python3 <<'REFPACK_EOF' "
-        "reference-pack heredoc"
+        f"{workflow_rel}: could not locate the python3 <<'REFPACK_EOF' " "reference-pack heredoc"
     )
 
     body = textwrap.dedent(match.group(1))
