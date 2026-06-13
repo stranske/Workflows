@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T13:33Z - closer (codex) fixed #2301 retention-doc review thread
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2301](https://github.com/stranske/Workflows/pull/2301), source issue `#2276`, branch `claude/issue-2276-rm-orphan-metrics`.
+- **Blocker:** one unresolved P2 review thread correctly flagged that #2301 removed the no-op `schedule:` trigger from `.github/workflows/maint-metrics-retention.yml` and added a guard test, but operator/workflow-system docs still advertised a nightly 02:00 UTC metrics-retention run.
+- **Action:** updated `docs/agent-automation.md` and `docs/ci/WORKFLOW_SYSTEM.md` to describe the workflow as manual plus pull-request dry-run validation, and added a regression assertion to `tests/workflows/test_maint_metrics_retention.py` so those docs do not reintroduce the removed nightly claim.
+- **Validation:** run focused retention workflow/docs tests before push; if clean, resolve the review thread and wait for fresh checks.
+- **Next action:** if fresh checks settle green and review threads remain resolved, merge #2301, apply `verify:compare`, and keep issue #2276 open until durable verifier/provider disposition.
+
 ## 2026-06-13T13:28Z - closer (codex) resolved #2296 docs-only guard review thread
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2296](https://github.com/stranske/Workflows/pull/2296), source issue `#2274`, branch `claude/issue-2274-entrypoint-docs-inputs`.

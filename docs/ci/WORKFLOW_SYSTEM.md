@@ -499,11 +499,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   compares them against `config/coverage-baseline.json`, surfacing notices when
   coverage dips outside the allowed guard band.
 - **Maint Metrics Retention** – `.github/workflows/maint-metrics-retention.yml`
-  runs `scripts/metrics_retention.py` nightly (02:00 UTC) with
+  runs `scripts/metrics_retention.py` by manual dispatch with
   `config/retention-policy.json`, uploads `metrics-retention.ndjson` as an
   artifact, and writes the storage reduction percentage to the step summary.
-  Pull-request triggers activate `--dry-run` mode automatically. Fresh checkouts
-  with no metrics logs produce a successful zero-file no-op summary.
+  Pull-request triggers activate `--dry-run` mode automatically. The prior
+  02:00 UTC nightly cron was removed because fresh checkouts have no metrics
+  artifacts to retain; fresh checkouts still produce a successful zero-file
+  no-op summary for PR validation.
   - Coverage reports intentionally exclude CLI-only entry points (for example,
     `if __name__ == "__main__"` blocks marked with `# pragma: no cover`).
 - **Maint 46 Post CI** – `.github/workflows/maint-46-post-ci.yml` is a recovery

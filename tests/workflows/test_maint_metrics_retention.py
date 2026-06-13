@@ -7,6 +7,10 @@ from pathlib import Path
 import yaml
 
 WORKFLOW_PATH = Path(".github/workflows/maint-metrics-retention.yml")
+RETENTION_DOCS = (
+    Path("docs/agent-automation.md"),
+    Path("docs/ci/WORKFLOW_SYSTEM.md"),
+)
 
 
 def _load_workflow() -> dict:
@@ -27,6 +31,13 @@ def test_workflow_has_required_triggers() -> None:
     assert "schedule" not in triggers, "no-op nightly schedule must not be reintroduced"
     assert "workflow_dispatch" in triggers, "must support manual workflow_dispatch"
     assert "pull_request" in triggers, "must trigger on pull_request for dry-run validation"
+
+
+def test_retention_docs_do_not_advertise_removed_nightly_schedule() -> None:
+    for path in RETENTION_DOCS:
+        text = path.read_text(encoding="utf-8")
+        assert "runs `scripts/metrics_retention.py` nightly" not in text
+        assert "The nightly schedule is implemented" not in text
 
 
 def test_workflow_invokes_retention_script_with_dry_run_branch() -> None:
