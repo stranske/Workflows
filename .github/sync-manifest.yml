@@ -163,6 +163,14 @@ removals:
     description: "Remove deprecated orchestrator workflow from template consumers (replaced by agents-80-pr-event-hub.yml and agents-81-gate-followups.yml)"
   - target: .github/workflows/agents-orchestrator.yml
     description: "Remove deprecated legacy orchestrator workflow from template consumers (replaced by agents-80-pr-event-hub.yml and agents-81-gate-followups.yml)"
+  - target: .github/workflows/agents-belt-dispatcher.yml
+    description: "Remove retired belt dispatcher alias wrapper from template consumers (callers rewired to agents-71-codex-belt-dispatcher.yml)"
+  - target: .github/workflows/agents-belt-worker.yml
+    description: "Remove retired belt worker alias wrapper from template consumers (callers rewired to agents-72-codex-belt-worker.yml)"
+  - target: .github/workflows/agents-belt-conveyor.yml
+    description: "Remove retired belt conveyor alias wrapper from template consumers (callers rewired to agents-73-codex-belt-conveyor.yml)"
+  - target: .github/scripts/rate-limit-aware-client.js
+    description: "Remove retired rate-limit-aware client from template consumers (superseded by github-rate-limited-wrapper.js)"
 # Codex prompts for agent operations
 prompts:
   - source: .github/codex/prompts/keepalive_next_task.md

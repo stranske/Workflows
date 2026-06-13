@@ -102,7 +102,7 @@ For workflows making GitHub API calls, use the shared retry helpers or the trans
 ```javascript
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
-github = ensureRateLimitWrapped(github, { core });
+github = await ensureRateLimitWrapped({ github, core });
 ```
 
 ### GraphQL Batching
