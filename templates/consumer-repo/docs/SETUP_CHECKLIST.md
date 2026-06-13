@@ -117,6 +117,25 @@ For repositories that already exist (not created from Template):
    **Option B: Create custom Gate (other project types)**
    
    If your repo has different CI needs, use the template as a **starting point**:
+
+5. **CI helper scripts required by reusable Python CI**
+
+   `reusable-10-ci-python.yml` invokes two repository helper scripts during
+   standard Python CI. Copy these files from the Workflows consumer template
+   whenever the repo uses the template Gate or calls the reusable Python CI
+   workflow directly:
+
+   - [ ] `scripts/sync_test_dependencies.py`
+   - [ ] `tools/resolve_mypy_pin.py`
+
+   Verify both helpers are executable from the repository root:
+
+   ```bash
+   python scripts/sync_test_dependencies.py --verify
+   python tools/resolve_mypy_pin.py
+   ```
+
+   If either file is missing, Python CI can fail before project tests run.
    
    ```bash
    # Start with the template

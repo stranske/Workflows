@@ -139,6 +139,14 @@
 - **Post-push state:** pushed code head `beb4818f`, posted evidence comment on #2294, resolved review threads `PRRT_kwDOQprj9M6JUfsP` and `PRRT_kwDOQprj9M6JUft7`, then pushed this state entry as final head `26267f30`. Final live snapshot after the state commit: review threads 0 unresolved; PR open/non-draft, `MERGEABLE`, `mergeStateStatus=UNSTABLE`; fresh checks are queued/in progress on `26267f30`. Non-key async wait override does not apply.
 - **Next action:** re-check #2294 after fresh checks settle on the latest head; if checks are green and review threads remain resolved, merge #2294, apply the intended `verify:compare` label, and sequence source issue `#2271` until durable verifier disposition.
 
+## 2026-06-13T15:25Z - closer (codex) review-fix for #2305 docs remediation
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2305](https://github.com/stranske/Workflows/pull/2305), source issue [#2279](https://github.com/stranske/Workflows/issues/2279), branch `codex/issue-2279-docs-remediation`.
+- **Blocker:** three unresolved review threads: the canonical consumer setup checklist omitted required reusable Python CI helpers (`scripts/sync_test_dependencies.py`, `tools/resolve_mypy_pin.py`), and `docs/ops/PAUSE_RESUME_RUNBOOK.md` incorrectly described `agents:pause` as a no-op even though active keepalive/PR-health paths still honor it as a legacy alias.
+- **Action:** added the required CI-helper copy/verification step to `templates/consumer-repo/docs/SETUP_CHECKLIST.md`; changed the pause runbook to document `agents:pause` as a legacy PR-level alias while keeping `agents:paused` as the canonical operator spelling; extended `tests/test_setup_checklist_ci_scripts.py` to cover both doc contracts.
+- **Validation:** `python -m pytest tests/test_setup_checklist_ci_scripts.py -q -rA` passed (`2 passed`); `python3 scripts/validate_template_completeness.py` passed; `python3 scripts/validate_template_sync.py` passed; `git diff --check` clean.
+- **Next action:** push the review-fix commit to PR #2305, resolve review threads `PRRT_kwDOQprj9M6JVZvM`, `PRRT_kwDOQprj9M6JVZvP`, and `PRRT_kwDOQprj9M6JVZ4c`, then wait for fresh CI. If checks settle green and no new review threads appear, merge #2305, apply `verify:compare`, and keep #2279 open until verifier disposition.
+
 ## 2026-06-13T11:04Z - opener (codex) issue #2273 LangSmith dashboard wiring
 
 - **Selected opener lane:** `stranske/Workflows` issue [#2273](https://github.com/stranske/Workflows/issues/2273), branch `codex/issue-2273-langsmith-zero-signal`, PR [#2295](https://github.com/stranske/Workflows/pull/2295).

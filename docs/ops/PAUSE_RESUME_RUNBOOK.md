@@ -27,16 +27,21 @@ Use `keepalive:paused` when every keepalive run in a repository should stop.
 - Verify: rerun or inspect the orchestrator summary for the
   `keepalive_pause_label` output.
 
-## Do Not Use: `agents:pause`
+## Legacy Alias: `agents:pause`
 
-`agents:pause` exists in `.github/labels-core.yml`, but no active workflow or
-script consumes it as a pause control.
+`agents:pause` exists in `.github/labels-core.yml` as a legacy alias. Prefer
+`agents:paused` for new incident handling, but do not treat `agents:pause` as a
+no-op while older automation still recognizes it.
 
-- Scope: none.
-- Effect: no-op decoy.
-- Operator rule: do not apply it during incident handling.
-- If it was applied accidentally, remove it and apply `agents:paused` or create
-  `keepalive:paused`, depending on the intended scope.
+- Scope: one PR.
+- Consumers: `.github/scripts/keepalive_loop.js` and reusable PR-health checks
+  still include `agents:pause` in their pause-label sets; `keepalive_gate.js`
+  only checks the canonical `agents:paused` spelling.
+- Operator rule: apply `agents:paused` for new pauses.
+- Migration rule: when an existing PR already has `agents:pause`, either leave
+  it in place until the human blocker is resolved or replace it with
+  `agents:paused` in the same operation. Removing it by itself can resume
+  keepalive unexpectedly.
 
 ## Fleet-Wide Pauses
 
