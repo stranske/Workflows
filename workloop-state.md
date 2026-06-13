@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T10:03Z - closer (codex) rebased #2292 conflict lane
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2292](https://github.com/stranske/Workflows/pull/2292), source issue `#2268`, branch `claude/issue-2268-auto-delegation`.
+- **Blocker:** GitHub reported `mergeable=CONFLICTING` / `mergeStateStatus=DIRTY` after `main` advanced through #2288, #2289, and #2290. Direct review-thread audit found 0 unresolved threads; current check snapshot had only passing/skipped checks, so the actionable blocker was the branch conflict.
+- **Action:** created automation worktree `/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/workflows-2292-conflict-fix`, fetched/pruned remote state, rebased the PR branch onto `origin/main` (`8e5e3a51`), and resolved the sole conflict in `workloop-state.md` by preserving both the #2268 opener entry and the prior #2290 closer entry, newest first. Source files merged cleanly.
+- **Validation:** `node --test .github/scripts/__tests__/agent-delegation-policy.test.js` passed (`22 passed`); `node --test .github/scripts/__tests__/keepalive-loop.test.js` passed (`104 passed`); `python scripts/validate_template_completeness.py` passed; `scripts/sync_templates.sh` reported all files already in sync; `git diff --check` clean; `.github/workflows/agents-keepalive-loop.yml` parsed as YAML.
+- **Next action:** push the rebased branch with `--force-with-lease`, then wait for fresh PR checks. If checks settle green and the PR remains review-clear, merge and apply the intended verifier handling for source issue `#2268`.
+
 ## 2026-06-13T09:46Z - opener (claude_code) issue #2268 -> PR (agent:auto delegation)
 
 - **Selected lane:** `stranske/Workflows` issue [#2268](https://github.com/stranske/Workflows/issues/2268) (`P1: agent:auto delegation is structurally inert`), branch `claude/issue-2268-auto-delegation`, base `main`. Oldest unlinked P1 from the 2026-06-13 repo-review batch; cap was 2/5 (unlinked-liveness override).
