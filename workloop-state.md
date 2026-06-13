@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T15:12Z - closer (codex) addressed #2304 API helper review thread
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2304](https://github.com/stranske/Workflows/pull/2304), source issue `#2278`, branch `claude/issue-2278-consolidate-github-api-wrappers`.
+- **Blocker:** one unresolved P1 review thread correctly noted that #2304 deletes `.github/scripts/api-helpers.js` while `.github/workflows/reusable-70-orchestrator-init.yml` still required that deleted entry point during the rate-limit pre-check.
+- **Action:** updated the reusable init rate-limit pre-check to require `.github/scripts/github-api-with-retry.js`, which already exports `checkRateLimitStatus` after the consolidation.
+- **Validation:** run focused grep for live `api-helpers.js` workflow requires, workflow YAML parse, JS API helper tests, template completeness/sync validation, and `git diff --check` before push.
+- **Next action:** push the review fix, resolve the review thread, then wait for fresh checks. If checks settle green and no new review threads appear, merge #2304, apply `verify:compare`, and keep #2278 open until verifier disposition.
+
 ## 2026-06-13T15:00Z - closer (codex) narrowed #2303 follow-up lane metadata
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2303](https://github.com/stranske/Workflows/pull/2303), source issue `#2275`, follow-up branch `claude/issue-2275-template-rlac-cleanup`.

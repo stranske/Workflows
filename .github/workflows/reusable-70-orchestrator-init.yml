@@ -143,7 +143,7 @@ jobs:
           script: |
             const path = require('path');
             const { checkRateLimitStatus } = require(
-              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/api-helpers.js')
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/github-api-with-retry.js')
             );
             const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '500', 10);
             const status = await checkRateLimitStatus(github, { threshold, core });
