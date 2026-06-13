@@ -1151,6 +1151,17 @@ jobs:
             final_verdict="${checkbox_verdict:-unknown}"
           fi
 
+          # CI-failure hard gate (issue #2271): a CI workflow concluding
+          # `failure` on the merge commit disqualifies a PASS verdict. Floor
+          # the unified verdict at CONCERNS so a merge that breaks main can
+          # never verify PASS, regardless of the LLM's acceptance review.
+          ci_failed="${{ steps.context.outputs.ci_failed }}"
+          lc_verdict="$(printf '%s' "$final_verdict" | tr '[:upper:]' '[:lower:]')"
+          if [ "$ci_failed" = "true" ] && { [ "$lc_verdict" = "pass" ] || [ "$lc_verdict" = "passed" ]; }; then
+            echo "::warning::CI concluded failure on the merge commit; overriding ${final_verdict} verdict to CONCERNS (issue #2271)."
+            final_verdict="concerns"
+          fi
+
           echo "verdict=$final_verdict" >> "$GITHUB_OUTPUT"
           echo "Final verdict: $final_verdict"
 
