@@ -223,6 +223,7 @@ EXPECTED_NAMES = {
     "agents-73-codex-belt-conveyor.yml": "Agents 73 Codex Belt Conveyor",
     "agents-debug-issue-event.yml": "Agents Debug Issue Event",
     "agents-keepalive-loop.yml": "Agents Keepalive Loop",
+    "agents-keepalive-sweep.yml": "Agents Keepalive Sweep",
     "agents-keepalive-loop-reporter.yml": "Keepalive Loop Reporter",
     "agents-keepalive-branch-sync.yml": "Keepalive Branch Sync",
     "agents-keepalive-dispatch-handler.yml": "Keepalive Dispatch Handler",
