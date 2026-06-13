@@ -281,7 +281,7 @@ test('runKeepalivePostWork removes sync label when head already advanced', async
   restore();
 });
 
-test('runKeepalivePostWork escalates and adds sync label when sync times out', async () => {
+test('runKeepalivePostWork performs no GitHub mutations in dry-run mode', async () => {
   const { core, outputs } = createCore();
   const stub = createStateManagerStub();
   const { runKeepalivePostWork, restore } = loadRunnerWithStateManager(stub.getManager);
@@ -300,9 +300,12 @@ test('runKeepalivePostWork escalates and adds sync label when sync times out', a
 
   assert.equal(outputs.action, 'escalate');
   assert.equal(outputs.status, 'needs_update');
-  assert.equal(github.calls.addLabels.length, 1);
-  assert.equal(github.calls.addLabels[0].labels[0], 'agents:sync-required');
-  assert.ok(github.calls.createComment[0].body.includes('Keepalive: manual action needed'));
+  assert.equal(github.calls.updateBranch.length, 0);
+  assert.equal(github.calls.createWorkflowDispatch.length, 0);
+  assert.equal(github.calls.addLabels.length, 0);
+  assert.equal(github.calls.removeLabel.length, 0);
+  assert.equal(github.calls.createComment.length, 0);
+  assert.equal(stub.saves.length, 0);
   restore();
 });
 

@@ -120,3 +120,95 @@ def test_upload_dry_run_skips_exact_title_duplicates(monkeypatch) -> None:
         }
     ]
     assert summary["would_create"] == [{"repo": "owner/repo", "title": "New issue"}]
+
+
+def test_fetch_open_issues_queries_state_all(monkeypatch) -> None:
+    """Materialization ledger (#2272): dedup must see closed issues. The list
+    query uses `--state all` (not `open`) and pulls `body` so the per-item
+    marker can be matched."""
+    captured: dict[str, list[str]] = {}
+
+    def fake_run(args, *, label=""):
+        captured["args"] = args
+
+        class _R:
+            stdout = "[]"
+
+        return _R()
+
+    monkeypatch.setattr(uploader, "run_command_with_retry", fake_run)
+    uploader.fetch_open_issues("owner/repo", ["gh"])
+    args = captured["args"]
+    assert "--state" in args and args[args.index("--state") + 1] == "all"
+    json_fields = args[args.index("--json") + 1]
+    assert "body" in json_fields
+
+
+def test_upload_skips_recently_closed_item_by_marker(monkeypatch) -> None:
+    """#2272 deliberate-break gate: a queue item whose issue was already created
+    AND CLOSED must not be recreated. The closed issue carries the per-item
+    marker; dedup matches on it even though the closed issue's title was edited.
+
+    Break demonstration: reverting `fetch_open_issues` to `--state open` (so the
+    closed issue is invisible) OR dropping the `find_marker_duplicate` call from
+    `upload_issues` makes this item fall through to `would_create` and the
+    assertion below fails.
+    """
+    marker = uploader.item_marker("owner/repo", "Add a deterministic smoke gate")
+    closed_body = f"## Why\nAlready shipped last cycle.\n\n{marker}\n"
+
+    def fake_fetch(repo: str, prefix: list[str]):
+        return [
+            {
+                "number": 42,
+                "title": "Renamed after triage",  # title drifted; marker is stable
+                "state": "CLOSED",
+                "url": "https://github.test/owner/repo/issues/42",
+                "labels": [{"name": "repo-review-approved"}],
+                "body": closed_body,
+            }
+        ]
+
+    monkeypatch.setattr(uploader, "fetch_open_issues", fake_fetch)
+    issues = [issue("Add a deterministic smoke gate") | {"labels": ["repo-review-approved"]}]
+
+    summary = uploader.upload_issues(issues, prefix=["gh"], apply=False)
+
+    assert summary["would_create"] == []
+    assert summary["skipped_duplicates"] == [
+        {
+            "repo": "owner/repo",
+            "title": "Add a deterministic smoke gate",
+            "number": 42,
+            "url": "https://github.test/owner/repo/issues/42",
+        }
+    ]
+
+
+def test_create_issue_stamps_item_marker(monkeypatch) -> None:
+    """create_issue appends the per-item marker to the body it writes, so the
+    materialized issue is self-identifying on future dedup passes."""
+    written: dict[str, str] = {}
+
+    def fake_run(args, *, label=""):
+        body_path = args[args.index("--body-file") + 1]
+        written["body"] = Path(body_path).read_text(encoding="utf-8")
+
+        class _R:
+            stdout = "https://github.test/owner/repo/issues/7\n"
+
+        return _R()
+
+    monkeypatch.setattr(uploader, "run_command_with_retry", fake_run)
+    url = uploader.create_issue(
+        issue("Add a deterministic smoke gate") | {"labels": ["repo-review-approved"]},
+        ["gh"],
+    )
+    assert url == "https://github.test/owner/repo/issues/7"
+    expected_marker = uploader.item_marker("owner/repo", "Add a deterministic smoke gate")
+    assert expected_marker in written["body"]
+    # Idempotent: re-stamping a body that already has the marker does not duplicate it.
+    restamped = uploader.body_with_item_marker(
+        "owner/repo", "Add a deterministic smoke gate", written["body"]
+    )
+    assert restamped.count("repo-review-item:") == 1

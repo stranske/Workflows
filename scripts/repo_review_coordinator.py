@@ -576,10 +576,14 @@ def run(args: argparse.Namespace) -> int:
         )
         reports.append(report)
 
-    # 3. Build the approved-issue-queue.json from converged.json + feedback.
-    #    Pure data assembly, no subprocess; safe to run even if some repos
-    #    deadlocked (they're skipped by the queue builder's per-repo decision
-    #    routing). The cron does NOT auto-upload — that requires --apply on
+    # 3. Queue-builder preview only (#2272: single queue producer).
+    #    The approved-issue-queue.json has ONE producer: the final evaluator
+    #    pass in step 4 (evaluator.write_approved_issue_queue). queue_builder
+    #    used to write the artifact here and the evaluator silently overwrote it
+    #    with divergent approve/revise + meta + cycle-binding semantics, so the
+    #    file on disk depended on a race. The coordinator now only *computes* a
+    #    queue_builder preview for the log (counts), and must NOT write the
+    #    artifact. The cron still does NOT auto-upload — that requires --apply on
     #    the upload helper, which the human runs after reviewing the packet.
     feedback_path = workflows_steward_root / "config" / "repo_review_feedback.json"
     queue_out = output_dir / "approved-issue-queue.json"
@@ -593,18 +597,21 @@ def run(args: argparse.Namespace) -> int:
             from repo_review_queue_builder import build_queue  # type: ignore[no-redef]
         try:
             queue_data = build_queue(output_dir / "round2", feedback_path)
-            queue_out.write_text(json.dumps(queue_data, indent=2) + "\n", encoding="utf-8")
             n = len(queue_data["issues"])
-            print(f"[coordinator] queue-builder: wrote {n} issues → {queue_out.name}")
+            print(
+                f"[coordinator] queue-builder preview: {n} issue(s) "
+                f"(not written — evaluator step 4 is the sole writer of {queue_out.name})"
+            )
         except Exception as exc:  # pragma: no cover - never blocks the cycle
-            print(f"[coordinator] queue-builder FAILED (non-fatal): {exc}", file=sys.stderr)
+            print(f"[coordinator] queue-builder preview FAILED (non-fatal): {exc}", file=sys.stderr)
     else:
         print(
-            f"[coordinator] queue-builder: skipping — feedback file absent at {feedback_path}",
+            f"[coordinator] queue-builder preview: skipping — feedback file absent at {feedback_path}",
             file=sys.stderr,
         )
 
-    # 4. Final evaluator pass produces the human-decision-packet.md.
+    # 4. Final evaluator pass: refreshes human-decision-packet.md AND is the SOLE
+    #    producer of approved-issue-queue.json (evaluator.write_approved_issue_queue).
     print("[coordinator] running final evaluator pass to refresh packet")
     final_cmd = [
         sys.executable,

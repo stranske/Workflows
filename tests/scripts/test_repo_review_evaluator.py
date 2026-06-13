@@ -785,6 +785,148 @@ def test_round1_candidate_auto_generates_matching_evidence_trace(
     assert queue["deeper_review"] == []
 
 
+def _make_converged_candidate(
+    title: str, *, priority: str = "normal", scope: str = "fix"
+) -> dict[str, object]:
+    """A round-2 converged candidate carrying its own agent-ready body, the
+    structured fields the auto-trace needs, and a per-candidate priority."""
+    return {
+        "title": title,
+        "scope": scope,
+        "priority": priority,
+        "gap": "Specific design commitment unmet for this converged candidate.",
+        "current_state": "Today's code/tests do not prove the gap is closed.",
+        "required_change": "Add the targeted change described by this candidate.",
+        "design_refs": ["README.md", "docs/design.md"],
+        "implementation_refs": ["src/example.py"],
+        "test_refs": ["tests/test_example.py"],
+        "acceptance_criteria": ["Test fails before fix and passes after."],
+        "non_goals": ["Do not bundle unrelated cleanup."],
+        "tasks": ["First task", "Second task"],
+        "body": VALID_ISSUE_BODY,
+        "origin": {"source_agent": "codex", "round1_index": 1, "merged_from": None},
+    }
+
+
+def _tiering_state(tmp_path: Path) -> dict[str, object]:
+    """Repo state whose round-2 converged set carries a low, a normal, a high,
+    and a meta-audit candidate — the inputs for the high-stakes tiering gate."""
+    repo_dir = tmp_path / "Trend_Model_Project"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / "README.md").write_text("# Trend\n", encoding="utf-8")
+    config = evaluator.RepoConfig(
+        repo="stranske/Trend_Model_Project",
+        local_path="Trend_Model_Project",
+        status="active",
+        cadence="weekly",
+        decision_anchor="trend model workflow",
+    )
+    converged = {
+        "schema_version": "v1",
+        "repo": "stranske/Trend_Model_Project",
+        "synthesized_at": "2026-04-20T09:00:00+00:00",
+        "converged_candidates": [
+            _make_converged_candidate("Add low-priority cleanup gate", priority="low"),
+            _make_converged_candidate("Add normal-priority smoke gate", priority="normal"),
+            _make_converged_candidate("Add high-priority release gate", priority="high"),
+        ],
+        "deadlocked_candidates": [],
+        "meta_candidate": _make_converged_candidate(
+            "Audit duplicate-dedup pattern across modules", priority="normal", scope="audit"
+        ),
+    }
+    return evaluator.collect_repo_state(
+        tmp_path,
+        config,
+        review_profile={
+            "progress_summary": "Trend has model surfaces and needs operational proof before release.",
+            "readiness_summary": "Trend needs deterministic smoke coverage before live confidence.",
+            "review_focus": ["Verify the release smoke path before upload."],
+            "concerns": ["Do not treat fallback-only tests as readiness."],
+        },
+        round2_converged=converged,
+        remote_progress={},
+    )
+
+
+def test_priority_tiering_routes_high_stakes_under_blanket_approval(tmp_path: Path) -> None:
+    """#2272 high-stakes tiering: under a fresh blanket 'approve all' (feedback
+    covers the converged set), low/normal candidates auto-approve, but a
+    high-priority candidate AND the meta-audit candidate route to deeper_review.
+
+    Deliberate-break gate: forcing ``high_stakes_tier`` to always return None
+    (i.e. deleting the tiering) makes the high-priority + meta candidates
+    auto-approve and the four-vs-two split assertions below fail.
+    """
+    state = _tiering_state(tmp_path)
+    # Feedback dated AFTER the converged synthesized_at, so feedback_covers_converged
+    # is True and the stale-feedback guard does NOT fire — only tiering can hold back.
+    feedback = {
+        "generated_on": "2026-05-01",
+        "defaults": {"approved_candidates": "all"},
+        "decisions": {
+            "stranske/Trend_Model_Project": {"decision": "approve", "priority": "normal"}
+        },
+    }
+
+    queue = evaluator.build_approved_issue_queue([state], feedback, "2026-05-01")
+
+    approved_titles = {item["title"] for item in queue["issues"]}
+    deeper_titles = " ".join(item["notes"] for item in queue["deeper_review"])
+    # low + normal auto-approve.
+    assert "Add low-priority cleanup gate" in approved_titles
+    assert "Add normal-priority smoke gate" in approved_titles
+    # high-priority + meta-audit are held back, NOT materialized.
+    assert "Add high-priority release gate" not in approved_titles
+    assert "Audit duplicate-dedup pattern across modules" not in approved_titles
+    assert len(queue["issues"]) == 2
+    # Two deeper_review entries naming their tiers.
+    assert "high-priority" in deeper_titles
+    assert "meta-audit" in deeper_titles
+    assert sum(1 for w in queue["warnings"] if "high-stakes tiering guard" in w) == 2
+
+
+def test_priority_tiering_respects_explicit_naming_and_opt_in(tmp_path: Path) -> None:
+    """The high-stakes gate yields to an explicit human decision: listing the
+    high-priority candidate's index in approved_candidates approves it, and the
+    repo-level auto_approve_high flag approves the whole high-stakes set."""
+    # (a) Explicitly naming the high-priority candidate index (3) approves it,
+    #     while the meta candidate (index 4) — not named — still routes deeper.
+    state = _tiering_state(tmp_path)
+    feedback_named = {
+        "generated_on": "2026-05-01",
+        "defaults": {"approved_candidates": "all"},
+        "decisions": {
+            "stranske/Trend_Model_Project": {
+                "decision": "approve",
+                "priority": "normal",
+                "approved_candidates": [1, 2, 3],
+            }
+        },
+    }
+    queue_named = evaluator.build_approved_issue_queue([state], feedback_named, "2026-05-01")
+    named_titles = {item["title"] for item in queue_named["issues"]}
+    assert "Add high-priority release gate" in named_titles
+    assert "Audit duplicate-dedup pattern across modules" not in named_titles
+
+    # (b) auto_approve_high opts the repo into unattended high-stakes approval:
+    #     all four candidates (incl. high + meta) materialize.
+    state_b = _tiering_state(tmp_path / "b")
+    feedback_optin = {
+        "generated_on": "2026-05-01",
+        "defaults": {"approved_candidates": "all"},
+        "decisions": {
+            "stranske/Trend_Model_Project": {
+                "decision": "approve",
+                "priority": "normal",
+                "auto_approve_high": True,
+            }
+        },
+    }
+    queue_optin = evaluator.build_approved_issue_queue([state_b], feedback_optin, "2026-05-01")
+    assert len(queue_optin["issues"]) == 4
+
+
 def test_round1_candidate_without_agent_ready_body_is_routed_to_revision(
     tmp_path: Path,
 ) -> None:
@@ -955,3 +1097,38 @@ def test_archive_candidates_are_matched_to_candidate_repo_terms(tmp_path: Path) 
     assert [item.title for item in candidates["stranske/Manager-Database"]] == [
         "Add Manager Database RAG alert coverage"
     ]
+
+
+def test_feedback_covers_converged_cycle_binding() -> None:
+    """#2272: a blanket approval must not auto-approve a converged set newer than the
+    feedback that 'approved all'. Deliberate-break gate: removing the date comparison in
+    feedback_covers_converged makes the stale-feedback case return True and this fails.
+    """
+    converged = {"synthesized_at": "2026-06-10T09:00:00+00:00"}
+
+    # Stale feedback predating the converged set -> NOT covered (the bug this closes).
+    assert evaluator.feedback_covers_converged({}, "2026-05-03", converged) is False
+    # Feedback at least as new as the converged set -> covered.
+    assert evaluator.feedback_covers_converged({}, "2026-06-10", converged) is True
+    # Explicit per-repo binding to this converged set -> covered regardless of date.
+    assert (
+        evaluator.feedback_covers_converged(
+            {"approved_converged_synthesized_at": "2026-06-10T09:00:00+00:00"},
+            "2026-05-03",
+            converged,
+        )
+        is True
+    )
+    # A pin to a different converged set -> NOT covered.
+    assert (
+        evaluator.feedback_covers_converged(
+            {"approved_converged_synthesized_at": "2026-05-01T00:00:00+00:00"},
+            "2026-05-03",
+            converged,
+        )
+        is False
+    )
+    # No converged set to bind to (round-1 path) -> prior behavior preserved.
+    assert evaluator.feedback_covers_converged({}, "2026-05-03", None) is True
+    # Unparseable feedback date fails closed (do not auto-approve blindly).
+    assert evaluator.feedback_covers_converged({}, "not-a-date", converged) is False

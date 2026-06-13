@@ -368,6 +368,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
+    core?.setOutput?.('ci_failed', 'false');
     core?.setOutput?.('diff_summary_path', '');
     core?.setOutput?.('diff_path', '');
     core?.setOutput?.('chain_depth', '0');
@@ -375,6 +376,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
       shouldRun: false,
       reason: resolveReason || 'No pull request detected.',
       ciResults: [],
+      ciFailed: false,
     };
   }
 
@@ -395,10 +397,11 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
+    core?.setOutput?.('ci_failed', 'false');
     core?.setOutput?.('diff_summary_path', '');
     core?.setOutput?.('diff_path', '');
     core?.setOutput?.('chain_depth', '0');
-    return { shouldRun: false, reason: skipReason, ciResults: [] };
+    return { shouldRun: false, reason: skipReason, ciResults: [], ciFailed: false };
   }
 
   const closingIssues = await fetchClosingIssues({
@@ -531,10 +534,20 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     targetShas: ciTargetShas,
     workflows,
   });
-  content.push('## CI Information (Reference Only)');
+  // A CI workflow concluding `failure` on the merge commit is a hard,
+  // pre-LLM disqualifier: a merge that breaks main must never verify PASS
+  // (issue #2271). The workflow consumes the `ci_failed` output below to
+  // floor the unified verdict at CONCERNS regardless of the LLM review.
+  const ciFailed = ciResults.some(
+    (r) => String(r?.conclusion).toLowerCase() === 'failure'
+  );
+  content.push('## CI Information');
   content.push('');
-  content.push('**Note:** This verification runs post-merge. CI status is irrelevant - focus on evaluating the code changes against acceptance criteria.');
-  content.push('The CI results below are provided only to confirm which test suites ran, not for status evaluation.');
+  if (ciFailed) {
+    content.push('**CI gate:** One or more CI workflows concluded `failure` on the merge commit. A failing CI conclusion disqualifies a PASS verdict — this verification must not return PASS while CI is red. Review the code against the acceptance criteria, but the unified verdict is floored at CONCERNS.');
+  } else {
+    content.push('**Note:** This verification runs post-merge. The CI results below confirm which test suites ran on the merge commit; a CI workflow concluding `failure` disqualifies a PASS verdict.');
+  }
   content.push('');
   if (ciResults.length) {
     content.push('| Workflow | Conclusion | Run | Jobs (summary) |');
@@ -589,10 +602,11 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', JSON.stringify(ciResults));
+    core?.setOutput?.('ci_failed', ciFailed ? 'true' : 'false');
     core?.setOutput?.('diff_summary_path', '');
     core?.setOutput?.('diff_path', '');
     core?.setOutput?.('chain_depth', String(chainDepth));
-    return { shouldRun: false, reason: skipReason, ciResults };
+    return { shouldRun: false, reason: skipReason, ciResults, ciFailed };
   }
 
   const diffMaxBytes = Number.parseInt(process.env.VERIFIER_DIFF_MAX_BYTES || '', 10);
@@ -645,6 +659,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   core?.setOutput?.('context_path', contextPath);
   core?.setOutput?.('acceptance_count', String(acceptanceCount));
   core?.setOutput?.('ci_results', JSON.stringify(ciResults));
+  core?.setOutput?.('ci_failed', ciFailed ? 'true' : 'false');
   core?.setOutput?.('diff_summary_path', diffSummaryPath);
   core?.setOutput?.('diff_path', diffText ? diffPath : '');
   core?.setOutput?.('chain_depth', String(chainDepth));
@@ -660,6 +675,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     targetSha,
     acceptanceCount,
     ciResults,
+    ciFailed,
     chainDepth,
   };
 }

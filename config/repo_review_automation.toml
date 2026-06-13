@@ -65,26 +65,31 @@ output = "docs/reports/repo-review/round2/<owner>__<repo>/converged.json"
 if_failed = "round1=FAIL aborts that repo; round2=FAIL is surfaced in the summary but does not block other repos."
 
 [operational_notes.queue_builder]
-step = "3. Queue builder"
+step = "3. Queue-builder preview (does NOT write the artifact)"
 description = """
-Reads converged.json files and config/repo_review_feedback.json to produce
-the approved-issue-queue.json. Pure data assembly — no subprocess. Repos
-that deadlocked or were skipped are handled by the builder's per-repo
-decision routing. The cron does NOT auto-upload; the human reviews the
+Reads converged.json files and config/repo_review_feedback.json and computes a
+queue preview for the coordinator log only. Pure data assembly — no subprocess.
+As of #2272 the queue_builder is NOT a producer of approved-issue-queue.json:
+the final evaluator pass (step 4) is the SOLE writer of that artifact. This step
+previously wrote the file and the evaluator silently overwrote it with divergent
+approve/revise + meta-candidate + cycle-binding semantics, so what landed on disk
+depended on a race. The cron still does NOT auto-upload; the human reviews the
 packet and runs upload_repo_review_issues.py --apply.
 """
-output = "docs/reports/repo-review/approved-issue-queue.json"
-if_failed = "Non-fatal. Logged to stderr; cycle continues without a queue file."
+output = "none (preview counts logged to coordinator stdout)"
+if_failed = "Non-fatal. Logged to stderr; the evaluator still writes the queue in step 4."
 
 [operational_notes.final_evaluator]
-step = "4. Final evaluator pass"
+step = "4. Final evaluator pass (SOLE producer of approved-issue-queue.json)"
 description = """
-Second run of repo_review_evaluator.py to refresh the human-decision-packet.md
-and the per-repo decision briefs using the converged.json outputs. Skips the
-GitNexus preflight (maps already refreshed by round-1 runner).
+Second run of repo_review_evaluator.py. It refreshes the human-decision-packet.md
+and per-repo decision briefs from the converged.json outputs, and is the single
+producer of approved-issue-queue.json (evaluator.write_approved_issue_queue),
+applying the priority tiering and cycle-binding guards (#2272). Skips the GitNexus
+preflight (maps already refreshed by round-1 runner).
 """
-output = "docs/reports/repo-review/human-decision-packet.md"
-if_failed = "Logged to coordinator/final-evaluator.log. The packet from the prior step is still on disk."
+output = "docs/reports/repo-review/human-decision-packet.md, docs/reports/repo-review/approved-issue-queue.json (+ .md)"
+if_failed = "Logged to coordinator/final-evaluator.log. The packet/queue from the prior cycle remain on disk."
 
 [operational_notes.backlog_scan]
 step = "5. Backlog scan"

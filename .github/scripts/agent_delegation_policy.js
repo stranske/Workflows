@@ -216,11 +216,15 @@ function calculateEffectiveness({ history = [], lookbackRounds = 3, core }) {
   const tasks = recentRounds.reduce((sum, round) => sum + (round.tasks || 0), 0);
   const gatePassed = recentRounds.some((round) => round.gate === 'pass');
 
-  // Agent is effective if any of these conditions met:
-  // - Made at least 1 commit in lookback window
-  // - Completed at least 1 task in lookback window
-  // - Gate passed in lookback window
-  const effective = commits >= 1 || tasks >= 1 || gatePassed;
+  // Agent is effective only when it produced real forward motion:
+  // - Made at least 1 commit in lookback window, OR
+  // - Completed at least 1 task in lookback window.
+  // A green Gate with zero commits and zero tasks is NOT progress: a normal
+  // `run` dispatch only happens on a green Gate (Activation Guardrail §2), so a
+  // genuinely stuck agent records `gate: 'pass'` every round. Counting that as
+  // effective made the stall detector unable to ever fire (#2268). `gatePassed`
+  // is still returned/reported below, just not treated as progress.
+  const effective = commits >= 1 || tasks >= 1;
 
   const summary = [
     commits > 0 ? `${commits} commits` : null,
@@ -263,10 +267,13 @@ function detectStall({ history = [], threshold = 3, core }) {
   let consecutiveNoProgress = 0;
   for (let i = history.length - 1; i >= 0; i--) {
     const round = history[i];
+    // Progress = real forward motion only. A commit-less green Gate must NOT
+    // reset the consecutive-no-progress counter, otherwise a stuck agent that
+    // keeps a green Gate while making zero commits never trips the stall
+    // threshold and `agent:auto` delegation can never switch (#2268).
     const hasProgress =
       (round.commits || 0) > 0 ||
-      (round.tasks || 0) > 0 ||
-      round.gate === 'pass';
+      (round.tasks || 0) > 0;
 
     if (hasProgress) {
       break; // Found progress, stop counting

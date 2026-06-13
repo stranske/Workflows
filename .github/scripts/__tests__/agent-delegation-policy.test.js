@@ -118,7 +118,11 @@ test('calculateEffectiveness returns effective=true when tasks completed', () =>
   assert.ok(result.summary.includes('2 tasks'));
 });
 
-test('calculateEffectiveness returns effective=true when gate passed', () => {
+// Semantics intentionally changed for #2268: a commit-less green Gate is NOT
+// progress. A normal `run` dispatch only happens on a green Gate, so a stuck
+// agent records gate:'pass' every round; counting that as effective made the
+// stall detector unable to fire. gatePassed is still reported for visibility.
+test('calculateEffectiveness does NOT count a commit-less gate pass as effective', () => {
   const history = [
     { iteration: 16, commits: 0, tasks: 0, gate: 'fail' },
     { iteration: 17, commits: 0, tasks: 0, gate: 'pass' },
@@ -127,7 +131,7 @@ test('calculateEffectiveness returns effective=true when gate passed', () => {
 
   const result = calculateEffectiveness({ history, lookbackRounds: 3 });
 
-  assert.equal(result.effective, true);
+  assert.equal(result.effective, false);
   assert.equal(result.gatePassed, true);
   assert.ok(result.summary.includes('gate passed'));
 });
@@ -160,6 +164,23 @@ test('detectStall returns isStalled=true when threshold exceeded', () => {
   assert.equal(result.isStalled, true);
   assert.equal(result.consecutiveRounds, 3);
   assert.ok(result.reason.includes('3 rounds, no progress'));
+});
+
+// #2268 deliberate-break gate: a 3-round zero-commit green-gate history MUST
+// produce isStalled=true. Restoring the old `|| round.gate === 'pass'` progress
+// test in detectStall makes this case come back isStalled=false (the green gates
+// reset the counter), proving this test catches the gate-pass-as-progress poison.
+test('detectStall fires after 3 zero-commit green-gate rounds', () => {
+  const history = [
+    { iteration: 16, commits: 0, tasks: 0, gate: 'pass' },
+    { iteration: 17, commits: 0, tasks: 0, gate: 'pass' },
+    { iteration: 18, commits: 0, tasks: 0, gate: 'pass' },
+  ];
+
+  const result = detectStall({ history, threshold: 3 });
+
+  assert.equal(result.isStalled, true);
+  assert.equal(result.consecutiveRounds, 3);
 });
 
 test('detectStall returns isStalled=false when progress in last round', () => {

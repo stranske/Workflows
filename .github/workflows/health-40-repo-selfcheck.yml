@@ -494,10 +494,10 @@ jobs:
               lines.append('| --- | --- | --- |')
               for check in checks:
                   title = check.get('title', 'Unknown')
-                status_key = check.get('status', 'info')
-                status = status_labels.get(status_key, status_key)
-                detail_raw = check.get('detail') or ''
-                detail = str(detail_raw).replace('\n', '<br>').replace('|', '\\|')
+                  status_key = check.get('status', 'info')
+                  status = status_labels.get(status_key, status_key)
+                  detail_raw = check.get('detail') or ''
+                  detail = str(detail_raw).replace('\n', '<br>').replace('|', '\\|')
                   lines.append(f'| {title} | {status} | {detail} |')
 
           if privileged_skipped:
@@ -662,7 +662,7 @@ jobs:
               *fix_items,
           ])
 
-            comment_body = '\n'.join(block for block in comment_sections if block is not None)
+          comment_body = '\n'.join(block for block in comment_sections if block is not None)
 
           issue_sections = [
               '# Repository self-check findings',
@@ -709,6 +709,7 @@ jobs:
               has_warnings = 'true' if findings and not error_findings else 'false'
               handle.write(f"has_errors={has_errors}\n")
               handle.write(f"has_warnings={has_warnings}\n")
+              handle.write("checks_ran=true\n")
               handle.write(f"privileged_mode={privileged_mode}\n")
               handle.write('issue_body<<ISSUE\n')
               handle.write(issue_body)
@@ -948,6 +949,7 @@ jobs:
       - name: Close failure tracker issue
         if: >-
           ${{
+            steps.aggregate.outputs.checks_ran == 'true' &&
             steps.aggregate.outputs.has_errors != 'true' &&
             steps.aggregate.outputs.has_warnings != 'true'
           }}

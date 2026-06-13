@@ -558,8 +558,11 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   assert.ok(markdown.includes('Pull request #321'));
   assert.ok(markdown.includes('Issue #456'));
   assert.ok(markdown.includes('Issue #789'));
-  assert.ok(markdown.includes('## CI Information (Reference Only)'));
-  assert.ok(markdown.includes('CI status is irrelevant - focus on evaluating the code changes'));
+  assert.ok(markdown.includes('## CI Information'));
+  assert.ok(!markdown.includes('CI status is irrelevant'));
+  assert.ok(markdown.includes('a CI workflow concluding `failure` disqualifies a PASS verdict'));
+  assert.equal(result.ciFailed, false);
+  assert.equal(core.outputs.ci_failed, 'false');
   assert.ok(markdown.includes('| Workflow | Conclusion | Run |'));
   assert.ok(markdown.includes('| Gate | success | [run](https://ci/gate) |'));
   assert.ok(markdown.includes('| Selftest CI | success | [run](https://ci/selftest) |'));
@@ -1279,4 +1282,76 @@ test('buildVerifierContext includes chain depth in context markdown', async () =
   const result = await buildVerifierContext({ github, context: ctx, core });
   assert.ok(result.markdown.includes('Chain depth: 3'));
   assert.equal(core.outputs.chain_depth, '3');
+});
+
+test('buildVerifierContext flags ciFailed when a CI workflow concluded failure on the merge commit', async () => {
+  const core = buildCore();
+  const artifactPaths = [
+    'verifier-context.md',
+    'verifier-diff-summary.md',
+    'verifier-pr-diff.patch',
+  ].map((artifact) => path.join(process.cwd(), artifact));
+  const originalArtifacts = new Map(
+    artifactPaths.map((artifactPath) => [
+      artifactPath,
+      fs.existsSync(artifactPath) ? fs.readFileSync(artifactPath, 'utf8') : null,
+    ])
+  );
+  const prDetails = {
+    number: 271,
+    title: 'CI failure gate',
+    body: `## Tasks\n- [ ] Do the thing\n\n## Acceptance Criteria\n- [ ] It works`,
+    html_url: 'https://example.com/pr/271',
+    merge_commit_sha: 'merge-sha-271',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-271' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 271,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/271',
+      },
+    },
+    sha: 'sha-271',
+  };
+  // One CI workflow passes, another concluded failure on the merge commit.
+  const ciWorkflows = '["gate-ci.yml", "tests-ci.yml"]';
+  const github = buildGithubStub({
+    prDetails,
+    closingIssues: [],
+    runsByWorkflow: {
+      'gate-ci.yml': [
+        { head_sha: 'merge-sha-271', conclusion: 'success', html_url: 'https://ci/gate' },
+      ],
+      'tests-ci.yml': [
+        { head_sha: 'merge-sha-271', conclusion: 'failure', html_url: 'https://ci/tests' },
+      ],
+    },
+  });
+  try {
+    const result = await buildVerifierContext({ github, context, core, ciWorkflows });
+
+    assert.equal(result.shouldRun, true);
+    assert.equal(result.ciFailed, true);
+    assert.equal(core.outputs.ci_failed, 'true');
+    // The verifier prompt must no longer tell the model CI is irrelevant.
+    assert.ok(!result.markdown.includes('CI status is irrelevant'));
+    // And it must surface the disqualifying CI gate to the LLM.
+    assert.ok(result.markdown.includes('disqualifies a PASS verdict'));
+  } finally {
+    for (const artifactPath of artifactPaths) {
+      const originalContent = originalArtifacts.get(artifactPath);
+      if (originalContent === null) {
+        fs.rmSync(artifactPath, { force: true });
+      } else {
+        fs.writeFileSync(artifactPath, originalContent, 'utf8');
+      }
+    }
+  }
 });

@@ -900,6 +900,46 @@ jobs:
               > evaluation-comment.md
           fi
 
+      - name: Apply CI failure hard gate to LLM evaluation comment
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate' &&
+            steps.context.outputs.ci_failed == 'true' &&
+            (
+              steps.llm_evaluate.outputs.verdict == 'PASS' ||
+              steps.llm_evaluate.outputs.verdict == 'PASSED' ||
+              steps.llm_evaluate.outputs.verdict == 'pass' ||
+              steps.llm_evaluate.outputs.verdict == 'passed'
+            )
+          }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path('evaluation-comment.md')
+          text = path.read_text(encoding='utf-8') if path.exists() else '## LLM Evaluation Report\n'
+          banner = (
+              '> **CI failure hard gate:** CI concluded `failure` on the merge commit, '
+              'so the posted verifier verdict is floored to **CONCERNS** even though '
+              'the LLM evaluation returned PASS.\n\n'
+          )
+          text, count = re.subn(
+              r'^\*\*Verdict:\*\*.*$',
+              '**Verdict:** CONCERNS (CI failure hard gate)',
+              text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          if count == 0:
+              text = '## LLM Evaluation Report\n\n**Verdict:** CONCERNS (CI failure hard gate)\n\n' + text
+          if '**CI failure hard gate:**' not in text:
+              text = text.replace('\n\n', '\n\n' + banner, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Post LLM evaluation comment
         if: >-
           ${{
@@ -1100,6 +1140,37 @@ jobs:
               > comparison-comment.md
           fi
 
+      - name: Apply CI failure hard gate to comparison comment
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare' &&
+            steps.context.outputs.ci_failed == 'true' &&
+            (
+              steps.llm_compare.outputs.verdict == 'PASS' ||
+              steps.llm_compare.outputs.verdict == 'PASSED' ||
+              steps.llm_compare.outputs.verdict == 'pass' ||
+              steps.llm_compare.outputs.verdict == 'passed'
+            )
+          }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('comparison-comment.md')
+          text = path.read_text(encoding='utf-8') if path.exists() else '## Provider Comparison Report\n'
+          banner = (
+              '> **CI failure hard gate:** CI concluded `failure` on the merge commit. '
+              'Provider rows below are preserved for auditability, but the posted '
+              'verifier disposition is floored to **CONCERNS** and must not be '
+              'treated as PASS.\n\n'
+          )
+          if 'CI failure hard gate' not in text:
+              text = text.replace('\n\n', '\n\n' + banner, 1) if '\n\n' in text else text + '\n\n' + banner
+          path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Post comparison report comment
         if: >-
           ${{
@@ -1149,6 +1220,17 @@ jobs:
             final_verdict="${compare_verdict:-unknown}"
           else
             final_verdict="${checkbox_verdict:-unknown}"
+          fi
+
+          # CI-failure hard gate (issue #2271): a CI workflow concluding
+          # `failure` on the merge commit disqualifies a PASS verdict. Floor
+          # the unified verdict at CONCERNS so a merge that breaks main can
+          # never verify PASS, regardless of the LLM's acceptance review.
+          ci_failed="${{ steps.context.outputs.ci_failed }}"
+          lc_verdict="$(printf '%s' "$final_verdict" | tr '[:upper:]' '[:lower:]')"
+          if [ "$ci_failed" = "true" ] && { [ "$lc_verdict" = "pass" ] || [ "$lc_verdict" = "passed" ]; }; then
+            echo "::warning::CI concluded failure on the merge commit; overriding ${final_verdict} verdict to CONCERNS (issue #2271)."
+            final_verdict="concerns"
           fi
 
           echo "verdict=$final_verdict" >> "$GITHUB_OUTPUT"
