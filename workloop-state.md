@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T11:31Z - closer (codex) CI sync fix pushed for #2294
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2294](https://github.com/stranske/Workflows/pull/2294), source issue `#2271`, branch `claude/issue-2271-verifier-ci-gate`.
+- **Blocker:** latest Gate run `27465282081` failed on both `python ci / python 3.12` and `python ci / python 3.13`; the concrete pytest failure was `tests/docs/test_labels_template_sync.py::test_consumer_template_labels_doc_matches_canonical_doc`, where `templates/consumer-repo/docs/LABELS.md` lagged the canonical `docs/LABELS.md` `agent:auto` text.
+- **Action:** mechanically synced `templates/consumer-repo/docs/LABELS.md` from canonical `docs/LABELS.md`.
+- **Validation:** `python -m pytest tests/docs/test_labels_template_sync.py -q -rA` passed (`1 passed`); `node --test .github/scripts/__tests__/agents-verifier-context.test.js` passed (`30 passed`); `python -m pytest tests/workflows/test_verifier_terminal_disposition.py -q -rA` passed (`3 passed`); `python scripts/validate_template_completeness.py` passed; `scripts/sync_templates.sh` reported all files already in sync; `git diff --check` clean.
+- **Next action:** wait for fresh checks on the pushed head; if Gate is green and review threads remain resolved, merge #2294, apply `verify:compare`, and keep issue #2271 open until durable verifier disposition.
+
 ## 2026-06-13T11:11Z - closer (codex) review-fix pushed for #2294
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2294](https://github.com/stranske/Workflows/pull/2294), source issue `#2271`, branch `claude/issue-2271-verifier-ci-gate`.

@@ -130,11 +130,11 @@ This document describes all labels that trigger automated workflows or affect CI
 **Effect:**
 1. Delegates routing to the auto-delegation policy in `.github/scripts/agent_delegation_policy.js`
 2. The policy switches between Codex and Claude based on stall/effectiveness signals
-3. Used to recover from capacity-stuck PRs by replacing the concrete `agent:<name>` label with `agent:auto`; the registry rejects `agent:auto` when it is co-present with a concrete agent label
+3. Used to recover from capacity-stuck PRs: **add** `agent:auto` to the PR (alongside the existing `agent:<name>` label); keepalive will override the concrete label and route through auto-delegation
 4. Selects a runner through the delegation policy without mutating labels; if no current agent is recorded, the policy chooses the default available agent or the first available alternative
 
 **Prerequisites:**
-- Do not combine `agent:auto` with `agent:codex`, `agent:claude`, or another concrete routing label; exactly one routing mode must be present
+- When `agent:auto` is present, any co-present concrete `agent:<name>` label is silently ignored; `agent:auto` always wins
 - Existing delegation state improves switch decisions, but the initial-selection path can choose an agent without a concrete label
 
 **Lifecycle:** Applied manually or by orchestrator/closer when a PR is capacity-stuck. The delegation policy reads it on keepalive ticks and either keeps the current runner choice or switches the runner decision for that dispatch.
