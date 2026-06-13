@@ -1000,24 +1000,9 @@ jobs:
           fetch-depth: 1
           path: consumer
 
-      - name: Resolve Workflows default branch
+      - name: Resolve Workflows ref
         id: workflows_ref
-        uses: actions/github-script@v9
-        with:
-          script: |
-            // NOTE: github-api-with-retry.js is NOT available here because the
-            // Workflows repo hasn't been checked out yet (that happens in the next
-            // step). Use a plain GitHub API call — no retry wrapper needed for this
-            // single low-risk read.
-            const { data } = await github.rest.repos.get({
-              owner: 'stranske',
-              repo: 'Workflows'
-            });
-            if (!data?.default_branch) {
-              core.setFailed('Could not determine Workflows default branch');
-              return;
-            }
-            core.setOutput('ref', data.default_branch);
+        uses: ./consumer/.github/actions/resolve-default-branch
       - name: Checkout Workflows scripts
         uses: actions/checkout@v6
         with:

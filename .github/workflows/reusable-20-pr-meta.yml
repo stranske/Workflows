@@ -133,52 +133,19 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
-
-
-      - name: Resolve Workflows default branch
+      - name: Resolve Workflows ref
         id: workflows_ref
-        uses: actions/github-script@v9
+        uses: ./consumer/.github/actions/resolve-default-branch
         with:
-          script: |
-            const payloadDefault = context.payload?.repository?.default_branch;
-            if (payloadDefault) {
-              core.setOutput('ref', payloadDefault);
-              return;
-            }
-
-            const { createTokenAwareRetry } = require(
-              './consumer/.github/scripts/github-api-with-retry.js'
-            );
-
-            const { withRetry, github: retryGithub } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'pr-meta-workflows-ref',
-              capabilities: ['read-repo'],
-            });
-
-            const client = retryGithub || github;
-            try {
-              const { data } = await withRetry((octokit) =>
-                octokit.rest.repos.get({ owner: 'stranske', repo: 'Workflows' })
-              );
-              if (data?.default_branch) {
-                core.setOutput('ref', data.default_branch);
-                return;
-              }
-            } catch (error) {
-              core.warning(`Failed to resolve Workflows default branch: ${error.message}`);
-            }
-
-            core.warning('Falling back to Workflows ref "main".');
-            core.setOutput('ref', 'main');
+          fallback_ref: main
+          fail_on_error: 'false'
+          task: pr-meta-workflows-ref
 
       - name: Checkout Workflows scripts
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          ref: main
+          ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
             scripts
             .github/scripts

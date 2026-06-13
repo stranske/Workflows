@@ -1,0 +1,52 @@
+name: Resolve Default Branch
+description: Resolve a repository default branch with the shared GitHub API retry helper when available.
+
+inputs:
+  owner:
+    description: Repository owner.
+    required: false
+    default: stranske
+  repo:
+    description: Repository name.
+    required: false
+    default: Workflows
+  fallback_ref:
+    description: Optional ref to use when the API lookup fails or returns no default branch.
+    required: false
+    default: ''
+  fail_on_error:
+    description: Whether to fail the step when no default branch can be resolved and no fallback is set.
+    required: false
+    default: 'true'
+  task:
+    description: Retry helper task name for logging and token selection.
+    required: false
+    default: resolve-default-branch
+
+outputs:
+  ref:
+    description: Resolved default branch, or fallback_ref when configured and resolution fails.
+    value: ${{ steps.resolve.outputs.ref }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve default branch
+      id: resolve
+      uses: actions/github-script@v9
+      with:
+        script: |
+          const { resolveDefaultBranch } = require(
+            `${process.env.GITHUB_ACTION_PATH}/resolve-default-branch.js`
+          );
+
+          await resolveDefaultBranch({
+            github,
+            core,
+            owner: '${{ inputs.owner }}',
+            repo: '${{ inputs.repo }}',
+            fallbackRef: '${{ inputs.fallback_ref }}',
+            failOnError: '${{ inputs.fail_on_error }}' !== 'false',
+            task: '${{ inputs.task }}',
+            env: process.env,
+          });

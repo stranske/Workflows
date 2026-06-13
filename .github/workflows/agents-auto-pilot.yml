@@ -172,29 +172,12 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
-      - name: Resolve Workflows default branch
+      - name: Resolve Workflows ref
         if: steps.check_enabled.outputs.enabled == 'true'
         id: workflows_ref
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: ./.github/actions/resolve-default-branch
         with:
-          script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'auto-pilot-resolve-workflows-ref',
-            });
-
-            const { data } = await withRetry((client) => client.rest.repos.get({
-              owner: 'stranske',
-              repo: 'Workflows'
-            }));
-            if (!data?.default_branch) {
-              core.setFailed('Could not determine Workflows default branch');
-              return;
-            }
-            core.setOutput('ref', data.default_branch);
+          task: auto-pilot-resolve-workflows-ref
 
       - name: Checkout Workflows scripts
         if: steps.check_enabled.outputs.enabled == 'true'

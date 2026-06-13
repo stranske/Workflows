@@ -301,24 +301,9 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ env.GH_BELT_TOKEN }}
 
-      - name: Resolve Workflows default branch
+      - name: Resolve Workflows ref
         id: workflows_ref
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({ github, core });
-            const { data } = await withRetry((client) =>
-              client.rest.repos.get({
-                owner: 'stranske',
-                repo: 'Workflows'
-              })
-            );
-            if (!data?.default_branch) {
-              core.setFailed('Could not determine Workflows default branch');
-              return;
-            }
-            core.setOutput('ref', data.default_branch);
+        uses: ./.github/actions/resolve-default-branch
 
       - name: Checkout Workflows scripts
         uses: actions/checkout@v6

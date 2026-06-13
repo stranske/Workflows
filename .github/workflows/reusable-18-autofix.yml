@@ -236,50 +236,38 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # Dual checkout pattern: Workflows scripts as supplement to consumer repo
-      - name: Resolve Workflows default branch
-        id: workflows_ref
-        uses: actions/github-script@v9
+      - name: Determine Workflows workflow ref
+        id: workflows_workflow_ref
+        shell: bash
+        env:
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+          ref="${WORKFLOW_REF##*@}"
+          if [ -z "$ref" ] || [ "$ref" = "$WORKFLOW_REF" ]; then
+            ref="main"
+          fi
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout resolver action
+        uses: actions/checkout@v6
         with:
-          script: |
-            const fs = require('fs');
-            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
-            const retryHelpers = fs.existsSync(retryHelperPath)
-              ? require(retryHelperPath)
-              : {
-                  createTokenAwareRetry: async () => ({
-                    withRetry: (fn) => fn(github),
-                  }),
-                };
-            const { createTokenAwareRetry } = retryHelpers;
-            const { withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'autofix-resolve-workflows-ref',
-              capabilities: ['contents:read'],
-            });
-            const fallback = 'main';
-            try {
-              const { data } = await withRetry((client) =>
-                client.rest.repos.get({
-                  owner: 'stranske',
-                  repo: 'Workflows',
-                }),
-              );
-              const ref = data?.default_branch || fallback;
-              if (!data?.default_branch) {
-                core.warning(
-                  `Workflows default branch missing; falling back to ${fallback}`,
-                );
-              }
-              core.setOutput('ref', ref);
-            } catch (error) {
-              const message = error?.message || String(error);
-              core.warning(
-                `Failed to resolve Workflows default branch; using ${fallback}. ${message}`,
-              );
-              core.setOutput('ref', fallback);
-            }
+          repository: stranske/Workflows
+          ref: ${{ steps.workflows_workflow_ref.outputs.ref }}
+          sparse-checkout: |
+            .github/actions/resolve-default-branch
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: workflows-resolver
+          fetch-depth: 1
+
+      - name: Resolve Workflows ref
+        id: workflows_ref
+        uses: ./workflows-resolver/.github/actions/resolve-default-branch
+        with:
+          fallback_ref: main
+          fail_on_error: 'false'
+          task: autofix-resolve-workflows-ref
       - name: Checkout Workflows scripts (for autofix utilities)
         uses: actions/checkout@v6
         with:
