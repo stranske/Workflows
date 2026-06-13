@@ -1599,6 +1599,9 @@ function normaliseConfig(config = {}) {
     prompt_mode: promptMode,
     prompt_file: promptFile,
     prompt_scenario: promptScenario,
+    verifier_agent: normalise(cfg.verifier_agent),
+    progress_review_threshold: cfg.progress_review_threshold != null ? toNumber(cfg.progress_review_threshold, 4) : undefined,
+    complete_gate_failure_rounds: cfg.complete_gate_failure_rounds != null ? toNumber(cfg.complete_gate_failure_rounds, 3) : undefined,
   };
 }
 

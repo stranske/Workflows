@@ -177,6 +177,18 @@ failure_threshold: 4 # stop after 4
   assert.equal(config.failure_threshold, 4);
 });
 
+test('normaliseConfig preserves verifier_agent / progress_review_threshold / complete_gate_failure_rounds', () => {
+  const body = `
+<!-- keepalive-config:start -->
+{"keepalive_enabled": true, "verifier_agent": "claude", "progress_review_threshold": 6, "complete_gate_failure_rounds": 5}
+<!-- keepalive-config:end -->
+`;
+  const config = parseConfig(body);
+  assert.equal(config.verifier_agent, 'claude');
+  assert.equal(config.progress_review_threshold, 6);
+  assert.equal(config.complete_gate_failure_rounds, 5);
+});
+
 test('evaluateKeepaliveLoop waits when agent label is missing', async () => {
   const pr = {
     number: 101,
