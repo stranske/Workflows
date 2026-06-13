@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.metrics_format_utils import format_markdown_table
+
 from src.ndjson_parser import read_ndjson_file
 
 
