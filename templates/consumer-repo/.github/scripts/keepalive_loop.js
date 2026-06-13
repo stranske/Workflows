@@ -2385,7 +2385,23 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     if (hasAgentLabel) {
       try {
         const { resolveAgentRoutingFromLabels } = require('./agent_registry.js');
-        const routing = resolveAgentRoutingFromLabels(routingLabelCandidates.length ? routingLabelCandidates : pr.labels);
+        // agent:auto overrides a co-present concrete agent label (#2268). The
+        // capacity-stuck runbook says to ADD agent:auto alongside the existing
+        // agent:<X>; without this filter, resolveAgentRoutingFromLabels throws on
+        // the auto+concrete combination, the catch below disables keepalive, and
+        // the runbook silently does the opposite of its intent. Dropping the
+        // concrete label here lets auto win and routing stay enabled; the current
+        // agent is tracked in delegation state, not via the label.
+        const candidateLabels = routingLabelCandidates.length ? routingLabelCandidates : pr.labels;
+        const hasAutoLabel = candidateLabels.some(
+          (label) => normalise((typeof label === 'object' ? label.name : label) || '').toLowerCase() === 'agent:auto',
+        );
+        const routingLabels = hasAutoLabel
+          ? candidateLabels.filter(
+            (label) => normalise((typeof label === 'object' ? label.name : label) || '').toLowerCase() === 'agent:auto',
+          )
+          : candidateLabels;
+        const routing = resolveAgentRoutingFromLabels(routingLabels);
         agentType = routing.agentKey;
         agentRoutingMode = routing.mode;
       } catch (error) {
@@ -3849,8 +3865,11 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         ? previousState.effectiveness_history
         : [];
 
-      // Build effectiveness entry for this round (only when agent ran)
-      const effectivenessEntry = action === 'run' ? {
+      // Build effectiveness entry for this round. Record `run`, `fix`, and
+      // `conflict` rounds: a stuck agent burns fix/conflict rounds without
+      // commits too, and excluding them hid those stalled rounds from
+      // effectiveness_history so the stall detector under-counted (#2268).
+      const effectivenessEntry = ['run', 'fix', 'conflict'].includes(action) ? {
         iteration: nextIteration,
         agent: agentType,
         commits: agentCommitSha ? 1 : 0,

@@ -57,6 +57,9 @@ jobs:
       has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
       has_high_privilege: ${{ steps.evaluate.outputs.has_high_privilege }}
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
+      agent_routing_mode: ${{ steps.evaluate.outputs.agent_routing_mode }}
+      delegation_reason: ${{ steps.evaluate.outputs.delegation_reason }}
+      delegation_should_switch: ${{ steps.evaluate.outputs.delegation_should_switch }}
       # task_appendix is delivered via artifact upload (keepalive-task-appendix-<pr>)
       # to avoid GitHub's secret scanner censoring the job output.
       trace: ${{ steps.evaluate.outputs.trace }}
@@ -1289,6 +1292,9 @@ jobs:
               keepalive_enabled: '${{ needs.evaluate.outputs.keepalive_enabled }}',
               autofix_enabled: '${{ needs.evaluate.outputs.autofix_enabled }}',
               agent_type: '${{ needs.evaluate.outputs.agent_type }}',
+              agent_routing_mode: '${{ needs.evaluate.outputs.agent_routing_mode }}',
+              delegation_reason: '${{ needs.evaluate.outputs.delegation_reason }}',
+              delegation_should_switch: '${{ needs.evaluate.outputs.delegation_should_switch }}',
               trace: '${{ needs.evaluate.outputs.trace }}',
               // Agent run result - check which agent ran
               run_result: runResult,
