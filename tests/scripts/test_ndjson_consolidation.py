@@ -106,7 +106,6 @@ def test_aggregate_repo_metrics_returns_correct_record_count(
     # Patch the canonical as imported by aggregate_repo_metrics (via src.ndjson_parser)
     import src.ndjson_parser as ndjson_mod
 
-    original = ndjson_mod.read_ndjson_file
     monkeypatch.setattr(ndjson_mod, "read_ndjson_file", lambda path: ([], []))
 
     tagged_records, error_count = aggregate_repo_metrics.read_repo_metrics(
