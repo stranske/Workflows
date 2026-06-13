@@ -31,6 +31,11 @@ const LEGACY_ALLOW_REMOVED_PATHS = [
   // v1 verify-to-issue workflow deprecated; v2 is the active version.
   // Archived to archives/deprecated-workflows/
   '.github/workflows/agents-verify-to-issue.yml',
+  // Issue 2275 retired the unnumbered belt alias wrappers after callers were
+  // rewired to agents-71/72/73 directly.
+  '.github/workflows/agents-belt-dispatcher.yml',
+  '.github/workflows/agents-belt-worker.yml',
+  '.github/workflows/agents-belt-conveyor.yml',
 ];
 
 const CONSUMER_ONLY_ALLOW_REMOVED_PATHS = [

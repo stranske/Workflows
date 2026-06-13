@@ -127,6 +127,9 @@ test('allows removal of allowlisted workflow paths', () => {
     '.github/workflows/agents-pr-meta-v2.yml',
     '.github/workflows/agents-pr-meta-v3.yml',
     '.github/workflows/agents-verify-to-issue.yml',
+    '.github/workflows/agents-belt-dispatcher.yml',
+    '.github/workflows/agents-belt-worker.yml',
+    '.github/workflows/agents-belt-conveyor.yml',
   ];
 
   for (const filename of allowlistedPaths) {
