@@ -1876,13 +1876,9 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/${{ inputs['working-directory'] || '.' }}
         run: |
           set -euo pipefail
-          coverage_target="src"
-          if [ ! -d "$coverage_target" ]; then
-            coverage_target="."
-          fi
           args=("--junitxml=pytest-junit.xml")
           if [ "${COVERAGE_ENABLED}" = "true" ]; then
-            args+=("--cov=${coverage_target}")
+            args+=("--cov" "--cov-config=pyproject.toml")
             args+=("--cov-report=xml:coverage.xml")
             args+=("--cov-report=term-missing")
             args+=("--cov-report=json:coverage.json")

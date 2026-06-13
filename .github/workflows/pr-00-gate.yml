@@ -181,7 +181,7 @@ jobs:
       typecheck: ${{ needs.detect.outputs.typecheck == 'true' }}
       run-mypy: ${{ needs.detect.outputs.typecheck == 'true' }}
       coverage: ${{ needs.detect.outputs.coverage == 'true' }}
-      # Workflows repo has scripts/, not src/ - disable coverage minimum
+      # Keep coverage threshold informational; reusable Python CI owns source selection.
       coverage-min: ''
       cache: ${{ needs.detect.outputs.cache == 'true' }}
       enable-soft-gate: ${{ needs.detect.outputs.coverage == 'true' }}
