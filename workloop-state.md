@@ -1,23 +1,5 @@
 # Workloop State
 
-## 2026-06-13T16:05Z - opener (codex) opened #2309 for issue #2281
-
-- Repo: stranske/Workflows
-- Issue: #2281
-- PR: #2309
-- Branch: codex/issue-2281-consumer-hygiene
-- Lane: opener materialization complete; keepalive owns next iteration
-- Scope: in-repo enabler only. Extend maint-69 WIT sync to deliver consumer-template agents-80/81 hubs and add maint-sync-workflows.yml to sync-manifest removals. Consumer-repo checkbox work remains tracked by #2281.
-- PR state: open, non-draft, closes #2281, labels `agent:codex`, `agents:keepalive`, and `autofix`.
-- Validation:
-  - pytest tests/workflows/test_integration_repo_sync_hubs.py -q -> 2 passed
-  - deliberate-break gate: removing agents-81 from the maint-69 sparse checkout made test_integration_repo_sync_delivers_consumer_agent_hubs_to_wit fail on the missing delivered-set path; restored line and test passed
-  - pytest tests/workflows/test_integration_repo_sync_hubs.py tests/workflows/test_consumer_sync_create_only_evidence.py tests/workflows/test_workflow_on_triggers_valid.py tests/workflows/test_workflow_naming.py -q -> 151 passed
-  - python scripts/validate_template_completeness.py --strict --manifest .github/sync-manifest.yml --source sync-manifest -> pass
-  - git diff --check -> pass
-- Handoff: `pr_opened` fired with `active.source_repo=stranske/Workflows`, `active.source_issue=2281`, `active.source_pr=2309`, `active.next_action=wait_for_keepalive`.
-- Next action: wait for Gate/keepalive on #2309; opener should move to the next eligible lane when cap allows.
-
 ## 2026-06-13T15:33Z - closer (codex) fixed #2305 Gate catalog regression
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2305](https://github.com/stranske/Workflows/pull/2305), source issue `#2279`, branch `codex/issue-2279-docs-remediation`.
