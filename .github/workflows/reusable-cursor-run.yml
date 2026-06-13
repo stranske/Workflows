@@ -689,10 +689,12 @@ jobs:
 
           echo "Cursor CLI not found; installing via cursor.com/install ..."
           curl https://cursor.com/install -fsS | bash
-          # The installer drops the binary in $HOME/.cursor/bin; expose it to all
-          # subsequent steps and to the rest of this step's PATH.
+          # The installer may place the binary in $HOME/.local/bin or
+          # $HOME/.cursor/bin depending on version; expose both to subsequent
+          # steps and to the rest of this step's PATH.
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
-          export PATH="$HOME/.cursor/bin:$PATH"
+          export PATH="$HOME/.local/bin:$HOME/.cursor/bin:$PATH"
 
           if command -v cursor-agent >/dev/null 2>&1; then
             echo "Installed Cursor CLI: $(command -v cursor-agent)"
@@ -702,7 +704,7 @@ jobs:
             agent --version || true
           else
             echo "::error::Cursor CLI (cursor-agent) not found after install."
-            echo "::error::Expected the binary in \$HOME/.cursor/bin; check the installer output above."
+            echo "::error::Expected the binary in \$HOME/.local/bin or \$HOME/.cursor/bin; check the installer output above."
             exit 1
           fi
 

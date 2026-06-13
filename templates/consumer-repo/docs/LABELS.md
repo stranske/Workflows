@@ -10,6 +10,9 @@ This document describes all labels that trigger automated workflows or affect CI
 | `autofix:clean` | PR labeled | Triggers clean-mode autofix (more aggressive)
 | `agent:codex` | Issue or PR labeled | Routes the issue or PR to the Codex agent
 | `agent:claude` | Issue or PR labeled | Routes the issue or PR to the Claude Code agent
+| `agent:cursor` | Issue or PR labeled | Routes the issue or PR to the Cursor agent (`cursor-agent` CLI)
+| `agent:gemini` | Issue or PR labeled | Routes the issue or PR to the Gemini agent (`gemini` CLI) — runner lands in a follow-up phase
+| `agent:aider` | Issue or PR labeled | Routes the issue or PR to the Aider agent for cheap, low-complexity tasks — runner lands in a follow-up phase
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; do not combine with concrete `agent:<name>` labels
 | `agent:retry` | PR labeled | Requests one re-dispatch of the matching keepalive runner
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
@@ -125,6 +128,37 @@ This document describes all labels that trigger automated workflows or affect CI
 **Lifecycle:** Applied at issue claim / PR creation by an opener that already has Claude capacity. Removed when work completes (PR merged or issue closed). Co-applied with `agents:keepalive` on the PR so keepalive is enabled.
 
 **Workflow:** `agents-bot-comment-handler.yml`, `agents-auto-label.yml`, `agents-keepalive-loop.yml`, `agents-guard.yml`, `reusable-pr-context.yml`; runner is `reusable-claude-run.yml` per `.github/agents/registry.yml`.
+
+---
+
+### `agent:cursor`
+
+**Applies to:** Issues and Pull Requests
+
+**Trigger:** When applied to an issue or PR
+
+**Effect:**
+1. Routes the issue or PR to the Cursor agent, a parallel surface to `agent:codex` and `agent:claude`
+2. On PRs, keepalive dispatches work via `reusable-cursor-run.yml` per `.github/agents/registry.yml`
+3. Branch prefix `cursor/issue-<number>` is used for agent work (see `.github/agents/registry.yml`)
+
+**Prerequisites:**
+- Repository has a valid `CURSOR_API_KEY` secret (per `.github/agents/registry.yml`)
+- Issue or PR should have clear requirements
+
+**Workflow:** `agents-keepalive-loop.yml`, `agents-autofix-loop.yml`; runner is `reusable-cursor-run.yml` per `.github/agents/registry.yml`.
+
+---
+
+### `agent:gemini` and `agent:aider`
+
+**Applies to:** Issues and Pull Requests
+
+These labels are registered ahead of their runners (which land in follow-up phases of the multi-agent
+rollout). `agent:gemini` routes to the `gemini` CLI; `agent:aider` is reserved for cheap, low-complexity
+tasks via Aider with a configurable backend model. Until their `reusable-<agent>-run.yml` runners and
+registry entries ship, applying these labels will not dispatch a runner. See
+`docs/guides/ADD_NEW_AGENT.md` and the rollout plan for sequencing.
 
 ---
 

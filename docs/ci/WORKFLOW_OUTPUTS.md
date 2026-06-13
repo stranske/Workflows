@@ -114,6 +114,22 @@ reusable workflow in the no-output section.
 | `reusable-claude-run.yml` | `error-category` | string | Error category (transient/auth/resource/logic/unknown) | `needs.claude.outputs.error-category` |
 | `reusable-claude-run.yml` | `error-type` | string | Error type (claude/infrastructure/auth/unknown) | `needs.claude.outputs.error-type` |
 | `reusable-claude-run.yml` | `error-recovery` | string | Suggested recovery action | `needs.claude.outputs.error-recovery` |
+| `reusable-cursor-run.yml` | `final-message` | string (base64) | Full Cursor output message (base64 encoded) | `needs.cursor.outputs.final-message` |
+| `reusable-cursor-run.yml` | `final-message-summary` | string | First 500 chars of Cursor output (safe for PR comments) | `needs.cursor.outputs.final-message-summary` |
+| `reusable-cursor-run.yml` | `error-summary` | string | Failure summary message (prefers Cursor output, falls back to preflight errors) | `needs.cursor.outputs.error-summary` |
+| `reusable-cursor-run.yml` | `exit-code` | string (number-like) | Cursor CLI exit code (0=success) | `needs.cursor.outputs.exit-code` |
+| `reusable-cursor-run.yml` | `changes-made` | string (boolean-like) | Whether Cursor made file changes (true/false) | `needs.cursor.outputs.changes-made` |
+| `reusable-cursor-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.cursor.outputs.commit-sha` |
+| `reusable-cursor-run.yml` | `files-changed` | string (number-like) | Number of files changed by Cursor | `needs.cursor.outputs.files-changed` |
+| `reusable-cursor-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed | `needs.cursor.outputs.llm-analysis-run` |
+| `reusable-cursor-run.yml` | `llm-provider` | string | LLM provider used for analysis (placeholder for compatibility) | `needs.cursor.outputs.llm-provider` |
+| `reusable-cursor-run.yml` | `llm-model` | string | Specific model used for analysis (placeholder for compatibility) | `needs.cursor.outputs.llm-model` |
+| `reusable-cursor-run.yml` | `llm-confidence` | string (number-like) | Confidence level of LLM analysis (placeholder for compatibility) | `needs.cursor.outputs.llm-confidence` |
+| `reusable-cursor-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of completed task descriptions (placeholder for compatibility) | `needs.cursor.outputs.llm-completed-tasks` |
+| `reusable-cursor-run.yml` | `llm-has-completions` | string (boolean-like) | Whether any task completions were detected (placeholder for compatibility) | `needs.cursor.outputs.llm-has-completions` |
+| `reusable-cursor-run.yml` | `error-category` | string | Error category (transient/auth/resource/logic/unknown) | `needs.cursor.outputs.error-category` |
+| `reusable-cursor-run.yml` | `error-type` | string | Error type (cursor/infrastructure/auth/unknown) | `needs.cursor.outputs.error-type` |
+| `reusable-cursor-run.yml` | `error-recovery` | string | Suggested recovery action | `needs.cursor.outputs.error-recovery` |
 <!-- OUTPUT-REFERENCE-END -->
 
 ## Workflows without workflow_call outputs
