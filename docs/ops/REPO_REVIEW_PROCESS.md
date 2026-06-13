@@ -110,7 +110,7 @@ Outputs are written to `docs/reports/repo-review/`:
 
 - `human-decision-packet.md`: one review queue across active repos.
 - `repo-review-summary.json`: machine-readable summary.
-- `approved-issue-queue.json`: machine-readable queue of approved, prioritized, agent-formatted issue bodies.
+- `approved-issue-queue.json`: machine-readable queue of approved, prioritized, agent-formatted issue bodies. Written by exactly one producer — the final evaluator pass (`repo_review_evaluator.write_approved_issue_queue`), which applies the priority-tiering and cycle-binding guards (#2272). The coordinator's step-3 queue-builder is a log-only preview and does **not** write this file.
 - `approved-issue-queue.md`: human-readable rendering of the approved issue queue, deeper-review items, and dropped candidates.
 - `repos/<owner>__<repo>/decision-brief.md`: human-facing progress, readiness, issue-set, and feedback brief.
 - `repos/<owner>__<repo>/review-execution.md`: automated evidence gathering and preliminary gap classification.
