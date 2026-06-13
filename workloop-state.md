@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T10:24Z - closer (codex) review-fix pushed for #2293
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2293](https://github.com/stranske/Workflows/pull/2293), source issue `#2269`, branch `codex/issue-2269-keepalive-dry-run`.
+- **Blocker:** three unresolved review threads: one P2 correctly noted that dry-run still saved hidden keepalive-state comments via `applyStateUpdate`/`forcePersist`, and two Copilot threads noted inconsistent `Sync label` row formatting between dry-run and active paths.
+- **Action:** rebased onto `origin/main` after #2292 merged; resolved the `workloop-state.md` conflict by preserving both #2269 and #2292 entries. Added a dry-run guard to the shared state-save layer in root and consumer-template `keepalive_post_work.js`, leaving state in memory for outputs but skipping `stateManager.save(...)`; normalized active `Sync label` records to use `appendRound(...)`. Extended the dry-run test to assert `stub.saves.length === 0`.
+- **Validation:** `node --test .github/scripts/__tests__/keepalive-post-work.test.js` passed (`5 passed`); `node -c` passed for root and template scripts; `python scripts/validate_template_completeness.py` passed; `scripts/sync_templates.sh` reported all files already in sync.
+- **Next action:** push with `--force-with-lease`, resolve the three review threads, and wait for fresh PR checks on the rebased head. If checks settle green and no new review threads appear, merge #2293 and apply verifier/source-issue sequencing for `#2269`.
+
 ## 2026-06-13T10:06Z - opener (codex) opened dry-run mutation guard lane for #2269
 
 - **Selected opener lane:** issue [#2269](https://github.com/stranske/Workflows/issues/2269), branch `codex/issue-2269-keepalive-dry-run`, PR [#2293](https://github.com/stranske/Workflows/pull/2293).
