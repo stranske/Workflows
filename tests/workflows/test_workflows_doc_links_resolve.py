@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 WORKFLOWS_DOC = Path("docs/ci/WORKFLOWS.md")
 WORKFLOW_DIR = Path(".github/workflows")
 WORKFLOW_LINK_RE = re.compile(r"\]\(\.\./\.\./\.github/workflows/([^)#]+\.yml)(?:#[^)]+)?\)")

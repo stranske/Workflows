@@ -8,6 +8,14 @@
 - **Validation:** run focused grep for live `api-helpers.js` workflow requires, workflow YAML parse, JS API helper tests, Agents Guard tests, template completeness/sync validation, and `git diff --check` before push.
 - **Next action:** push the guard dependency fix, then wait for fresh checks. If checks settle green and no new review threads appear, merge #2304, apply `verify:compare`, and keep #2278 open until verifier disposition.
 
+## 2026-06-13T15:19Z - opener (codex) quick-recovered #2305 lint formatting
+
+- **Selected opener lane:** PR [#2305](https://github.com/stranske/Workflows/pull/2305), source issue `#2279`, branch `codex/issue-2279-docs-remediation`.
+- **Failure:** live `Lint, Format & YAML Validation` job `81200876206` failed on `black --check --line-length 100 .`; the job log named exactly two files: `tests/test_setup_checklist_ci_scripts.py` and `tests/workflows/test_workflows_doc_links_resolve.py`.
+- **Action:** ran `black --line-length 100` on those two files only.
+- **Validation:** `black --check --line-length 100 tests/test_setup_checklist_ci_scripts.py tests/workflows/test_workflows_doc_links_resolve.py` passed; focused docs pytest set passed (`5 passed`); `git diff --check` passed.
+- **Next action:** push the recovery commit and let fresh Gate/keepalive checks run asynchronously.
+
 ## 2026-06-13T15:15Z - opener (codex) opened #2305 for issue #2279
 
 - **Selected opener lane:** issue [#2279](https://github.com/stranske/Workflows/issues/2279), branch `codex/issue-2279-docs-remediation`, ready-for-review PR [#2305](https://github.com/stranske/Workflows/pull/2305).
