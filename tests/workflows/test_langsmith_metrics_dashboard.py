@@ -1,6 +1,8 @@
+import json
 from pathlib import Path
 
 WORKFLOW = Path(".github/workflows/maint-80-langsmith-metrics-dashboard.yml")
+FLEET_REGISTRY = Path("config/langsmith_fleet_registry.json")
 
 
 def test_fleet_artifact_lookup_does_not_mix_slurp_with_jq() -> None:
@@ -19,6 +21,35 @@ def test_dashboard_issue_uses_existing_labels() -> None:
     assert '--label "metrics,automated"' in source
     assert "metrics,langsmith,automated" not in source
     assert "labels 'metrics,automated'" in source
+
+
+def test_run_discovery_targets_workflows_with_runs() -> None:
+    source = WORKFLOW.read_text(encoding="utf-8")
+    discovery_line = next(
+        line for line in source.splitlines() if "for WORKFLOW_PATH in" in line
+    )
+
+    assert "agents-auto-pilot.yml" in discovery_line
+    assert "agents-verifier.yml" in discovery_line
+    assert "reusable-agents-verifier.yml" not in discovery_line
+
+
+def test_dashboard_issue_upserts_single_pinned_issue() -> None:
+    source = WORKFLOW.read_text(encoding="utf-8")
+
+    assert 'ISSUE_TITLE="📊 LangSmith Trace Coverage Dashboard"' in source
+    assert "gh issue list \\" in source
+    assert 'gh issue edit "$DASHBOARD_ISSUE"' in source
+    assert "LangSmith Trace Coverage Report - Week of $START_DATE" not in source
+
+
+def test_workflows_fleet_entry_is_paused_until_emitter_exists() -> None:
+    registry = json.loads(FLEET_REGISTRY.read_text(encoding="utf-8"))
+    workflows_entry = next(
+        entry for entry in registry["repos"] if entry["repo"] == "stranske/Workflows"
+    )
+
+    assert workflows_entry["rollout_status"] == "paused"
 
 
 def test_fleet_status_is_warning_only_and_appended_to_report() -> None:

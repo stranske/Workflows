@@ -10,7 +10,7 @@
       "surface": "agent-automation",
       "operations": ["autopilot", "keepalive", "verifier", "dashboard-ingestion"],
       "artifact_name": "langsmith-fleet.ndjson",
-      "rollout_status": "contract-owner",
+      "rollout_status": "paused",
       "required_domain_fields": [
         "workflow",
         "agent",

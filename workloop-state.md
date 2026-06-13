@@ -17,6 +17,16 @@
 - **Post-push state:** pushed code head `beb4818f`, posted evidence comment on #2294, resolved review threads `PRRT_kwDOQprj9M6JUfsP` and `PRRT_kwDOQprj9M6JUft7`, then pushed this state entry as final head `26267f30`. Final live snapshot after the state commit: review threads 0 unresolved; PR open/non-draft, `MERGEABLE`, `mergeStateStatus=UNSTABLE`; fresh checks are queued/in progress on `26267f30`. Non-key async wait override does not apply.
 - **Next action:** re-check #2294 after fresh checks settle on the latest head; if checks are green and review threads remain resolved, merge #2294, apply the intended `verify:compare` label, and sequence source issue `#2271` until durable verifier disposition.
 
+## 2026-06-13T11:04Z - opener (codex) issue #2273 LangSmith dashboard wiring
+
+- **Selected opener lane:** `stranske/Workflows` issue [#2273](https://github.com/stranske/Workflows/issues/2273), branch `codex/issue-2273-langsmith-zero-signal`, PR [#2295](https://github.com/stranske/Workflows/pull/2295).
+- **Cap/drain context:** raw opener cap was 2/5 after the drain sweep. PR #2287 remains scoped-blocked on the Selftest: Reusables zero-scenario design decision; PR #2294 was repaired from stale dispatch evidence to active-moving with fresh Gate/Agents Keepalive Loop runs after `agent:retry` was consumed.
+- **Implementation:** corrected LangSmith metrics discovery to query `agents-verifier.yml` instead of the `workflow_call`-only reusable verifier; changed dashboard issue publication from weekly issue creation to a single pinned dashboard issue upsert; marked the Workflows `agent-automation` LangSmith fleet registry row `paused` until an emitter exists; updated dashboard README wording.
+- **Validation:** `python -m pytest tests/workflows/test_langsmith_metrics_dashboard.py -v` passed (`7 passed`); YAML/JSON parse smoke passed; `git diff --check` passed; `python scripts/validate_template_completeness.py` passed; empty-record `scripts/langsmith_fleet.py` smoke confirmed the selected pause path preserves missing-row reporting while registry state is explicit.
+- **Deliberate-break gate:** temporarily changed the discovery loop back to `reusable-agents-verifier.yml`; `test_run_discovery_targets_workflows_with_runs` failed on the new assertion that the reusable workflow must not be in the discovery line; restored the fix and the full test file passed.
+- **Workspace note:** canonical Workflows `.git` metadata rejected new branch/worktree writes from Dropbox (`Operation not permitted`), so implementation used disposable clone `/tmp/wf-2273-codex.PmK4us` and will push `HEAD` to the registry branch.
+- **Next action:** push the branch, open a ready-for-review PR with `agent:codex`, `agents:keepalive`, and `autofix`, then hand off to keepalive.
+
 ## 2026-06-13T10:24Z - closer (codex) review-fix pushed for #2293
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2293](https://github.com/stranske/Workflows/pull/2293), source issue `#2269`, branch `codex/issue-2269-keepalive-dry-run`.

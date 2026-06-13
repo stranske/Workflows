@@ -21,7 +21,7 @@ This directory contains automated dashboard reports for monitoring repository me
 #### Where to View
 
 1. **Dashboard file:** `docs/dashboards/langsmith-metrics.md` (updated weekly, committed to main)
-2. **Weekly issues:** Created automatically with labels `metrics,automated`
+2. **Dashboard issue:** A single open issue is updated with labels `metrics,automated`
 3. **Workflow artifacts:** Downloadable JSON + markdown reports (90-day retention)
 
 #### Manual Triggers
@@ -51,7 +51,7 @@ The dashboard aggregates two distinct data sources, fetched in this workflow:
 
 1. **Trace-coverage metrics** — artifacts from this repo's own completed runs,
    matched by name `autopilot-metrics-*` and `agents-verifier-metrics`
-   (`agents-auto-pilot.yml` and `reusable-agents-verifier.yml`), within the
+   (`agents-auto-pilot.yml` and `agents-verifier.yml`), within the
    `days_back` window. These feed `scripts/aggregate_metrics.py`.
 2. **LangSmith fleet artifacts** (`langsmith-fleet.ndjson`) — one per repo
    registered in `config/langsmith_fleet_registry.json`. The workflow attempts a
@@ -85,8 +85,8 @@ before treating a consumer-local validator as a design blocker.
 4. **Report** - Generates a markdown report combining the trace-coverage section
    and the fleet artifact status section (the report is published even when only
    the fleet section has content)
-5. **Publish** - Updates `docs/dashboards/langsmith-metrics.md`, creates the
-   weekly issue, and uploads artifacts (report + fleet status JSON/markdown)
+5. **Publish** - Updates `docs/dashboards/langsmith-metrics.md`, upserts the
+   dashboard issue, and uploads artifacts (report + fleet status JSON/markdown)
 
 ---
 
