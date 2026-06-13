@@ -1,0 +1,112 @@
+name: Agent Reference Packs
+description: Validate and materialize reference packs for reusable agent runners.
+
+inputs:
+  checkout_token:
+    description: Token used for private reference-pack checkouts.
+    required: false
+
+outputs:
+  reference_packs_exists:
+    description: Whether .github/reference_packs.json was present.
+    value: ${{ steps.reference_packs.outputs.reference_packs_exists }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate and materialize reference packs
+      id: reference_packs
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.checkout_token }}
+      run: |
+        set -euo pipefail
+        if [ ! -f ".github/reference_packs.json" ]; then
+          echo "No .github/reference_packs.json found; skipping reference packs."
+          echo "reference_packs_exists=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        echo "Validating reference pack configuration..."
+        python .workflows-lib/scripts/reference_packs.py --workspace . --format json \
+          > /tmp/reference_packs_output.json
+        echo "reference_packs_exists=true" >> "$GITHUB_OUTPUT"
+
+        python3 <<'REFPACK_EOF'
+        import json, subprocess, os, shutil, sys, re
+
+        with open("/tmp/reference_packs_output.json") as f:
+            data = json.load(f)
+
+        token = os.environ.get("GH_TOKEN", "")
+        for plan in data.get("checkout_plan", []):
+            name = plan["name"]
+            repo = plan["repo"]
+            ref = plan["ref"]
+            checkout_path = plan["checkout_path"]
+            paths = plan["paths"]
+            clone_dir = f"/tmp/ref-pack-{name}"
+
+            print(f"Cloning {repo}@{ref} for pack '{name}'...")
+            if os.path.exists(clone_dir):
+                shutil.rmtree(clone_dir)
+            if token:
+                clone_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+            else:
+                clone_url = f"https://github.com/{repo}.git"
+
+            is_sha = bool(re.fullmatch(r'[0-9a-fA-F]{40}', ref))
+            if is_sha:
+                subprocess.check_call([
+                    "git", "clone", "--depth=1", "--filter=blob:none",
+                    "--sparse", "--no-checkout", clone_url, clone_dir
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.check_call([
+                    "git", "-C", clone_dir, "fetch", "origin", ref, "--depth=1"
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.check_call([
+                    "git", "-C", clone_dir, "checkout", ref
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                subprocess.check_call([
+                    "git", "clone", "--depth=1", "--branch", ref,
+                    "--filter=blob:none", "--sparse", clone_url, clone_dir
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.check_call([
+                "git", "-C", clone_dir, "sparse-checkout", "set", "--no-cone"
+            ] + paths, stdout=subprocess.DEVNULL)
+            subprocess.check_call([
+                "git", "-C", clone_dir, "sparse-checkout", "reapply"
+            ], stdout=subprocess.DEVNULL)
+
+            os.makedirs(checkout_path, exist_ok=True)
+            for p in paths:
+                src = os.path.join(clone_dir, p)
+                dst = os.path.join(checkout_path, p)
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst, dirs_exist_ok=True)
+                elif os.path.isfile(src):
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    shutil.copy2(src, dst)
+                else:
+                    print(f"::warning::Path '{p}' not found in {repo}@{ref}", file=sys.stderr)
+            shutil.rmtree(clone_dir, ignore_errors=True)
+            print(f"Pack '{name}' materialized at {checkout_path}")
+
+        md_path = os.path.join(".reference", "REFERENCE_PACKS.md")
+        os.makedirs(os.path.dirname(md_path), exist_ok=True)
+        with open(md_path, "w") as md:
+            for plan in data.get("checkout_plan", []):
+                md.write(f"## {plan['name']}\n")
+                md.write(f"- **Repo:** `{plan['repo']}`\n")
+                md.write(f"- **Ref:** `{plan['ref']}`\n")
+                md.write(f"- **Paths:** {', '.join(f'`{p}`' for p in plan['paths'])}\n")
+                checkout = plan["checkout_path"]
+                md.write(f"- **Location:** `{checkout}/`\n\n")
+                md.write("### Contents\n")
+                for root, dirs, files in os.walk(checkout):
+                    for fname in sorted(files):
+                        rel = os.path.relpath(os.path.join(root, fname), checkout)
+                        md.write(f"- `{rel}`\n")
+                md.write("\n")
+        print(f"Generated {md_path}")
+        REFPACK_EOF
