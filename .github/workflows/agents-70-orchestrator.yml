@@ -105,8 +105,14 @@ jobs:
           ) ||
           ''
         }}
+      # A1 orchestrator-retirement shadow: automatic runs (schedule / workflow_run) run
+      # dry (no writes) while we confirm the event-driven keepalive loop + hourly sweep
+      # cover the orchestrator's role, before deleting agents-70 + reusable-70-orchestrator-main.
+      # Manual `workflow_dispatch` with dry_run=false still runs live. Revert: remove the
+      # first clause below.
       dry_run: >-
         ${{
+          (github.event_name == 'schedule' || github.event_name == 'workflow_run') && 'true' ||
           github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run ||
           github.event_name == 'repository_dispatch' && (
             github.event.client_payload && github.event.client_payload.dry_run || ''
