@@ -8,6 +8,16 @@ on:
         required: false
         default: '.'
         type: string
+      workflows_ref:
+        description: >-
+          The ref of the Workflows repo to check out for helper code/actions.
+          A consumer that pins this reusable at a tag or SHA should pass the
+          same ref here so the helper checkouts resolve to that pin instead of
+          main-HEAD. Defaults to main for backward compatibility with callers
+          that ride `@main`.
+        required: false
+        default: 'main'
+        type: string
       python-version:
         description: Primary Python version to use when `python-versions` is not provided.
         required: false
@@ -393,7 +403,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          ref: main
+          # Resolve helpers to the ref this reusable was pinned at (consumers
+          # pass workflows_ref matching their `@ref`); defaults to main.
+          ref: ${{ inputs.workflows_ref }}
           path: .workflows-lib
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -706,7 +718,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          ref: main
+          # Resolve helpers to the ref this reusable was pinned at (consumers
+          # pass workflows_ref matching their `@ref`); defaults to main.
+          ref: ${{ inputs.workflows_ref }}
           path: .workflows-lib
           sparse-checkout: |
             scripts/reusable_ci_scope.py
@@ -1501,7 +1515,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          ref: main
+          # Resolve helpers to the ref this reusable was pinned at (consumers
+          # pass workflows_ref matching their `@ref`); defaults to main.
+          ref: ${{ inputs.workflows_ref }}
           path: .workflows-lib
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
@@ -2449,7 +2465,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          ref: main
+          # Resolve helpers to the ref this reusable was pinned at (consumers
+          # pass workflows_ref matching their `@ref`); defaults to main.
+          ref: ${{ inputs.workflows_ref }}
           path: .workflows-lib
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
