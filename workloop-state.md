@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T15:33Z - closer (codex) fixed #2305 Gate catalog regression
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2305](https://github.com/stranske/Workflows/pull/2305), source issue `#2279`, branch `codex/issue-2279-docs-remediation`.
+- **Blocker:** after the review-thread fix, Gate `python ci / python 3.12` and `python ci / python 3.13` failed on `tests/docs/test_workflow_catalog_consumer_defaults.py::test_ci_workflows_guide_marks_consumer_default_event_hub_pair`; `docs/ci/WORKFLOWS.md` no longer explicitly named `agents-80-pr-event-hub.yml` even though the test requires the consumer default event-hub pair.
+- **Action:** restored the explicit consumer-template `agents-80-pr-event-hub.yml` and `agents-81-gate-followups.yml` filenames in the CI workflow catalog note.
+- **Validation:** run `python -m pytest tests/docs/test_workflow_catalog_consumer_defaults.py tests/test_setup_checklist_ci_scripts.py -q -rA`, template completeness/sync validation, and `git diff --check` before pushing.
+- **Next action:** push the fix to #2305 and wait for fresh checks. If checks settle green and no new review threads appear, merge #2305, apply `verify:compare`, and keep #2279 open until verifier disposition.
+
 ## 2026-06-13T15:12Z - closer (codex) addressed #2304 API helper review thread
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2304](https://github.com/stranske/Workflows/pull/2304), source issue `#2278`, branch `claude/issue-2278-consolidate-github-api-wrappers`.

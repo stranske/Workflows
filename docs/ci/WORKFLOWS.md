@@ -128,7 +128,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 
 The agent workflows coordinate Codex and chat orchestration across topics:
 
-Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workflow. The default consumer installation uses the consumer-template PR event hub and Gate followups workflows (plus `agents-verifier.yml`, `pr-00-gate.yml`, `AGENTS.md`, and `CLAUDE.md`).
+Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workflow. The default consumer installation uses the consumer-template `agents-80-pr-event-hub.yml` PR event hub and `agents-81-gate-followups.yml` workflows (plus `agents-verifier.yml`, `pr-00-gate.yml`, `AGENTS.md`, and `CLAUDE.md`).
 
 * [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) is the thin dispatcher that triggers the orchestrator init and main phases. It calls [`reusable-70-orchestrator-init.yml`](../../.github/workflows/reusable-70-orchestrator-init.yml) for initialization (rate limit checks, token preflight, parameter resolution) and [`reusable-70-orchestrator-main.yml`](../../.github/workflows/reusable-70-orchestrator-main.yml) for the main keepalive and belt operations.
 * Required permissions: `actions: write`, `contents: write`, and `pull-requests: write` at the workflow root so nested branch-sync and keepalive post-work steps can request their scopes without startup failure.
