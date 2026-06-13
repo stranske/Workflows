@@ -1,5 +1,14 @@
 # Workloop State
 
+## 2026-06-13T12:18Z - opener (codex) opened dead-code deletion lane for #2275
+
+- **Selected opener lane:** issue [#2275](https://github.com/stranske/Workflows/issues/2275), branch `codex/issue-2275-delete-dead-code`, PR [#2299](https://github.com/stranske/Workflows/pull/2299).
+- **Implementation:** removed the dead agent-agnostic belt alias workflows from the root repo and consumer template, rewired the orchestrator to call `agents-71/72/73` reusable workflows directly, removed the unused `rate-limit-aware-client.js` helper/test/docs/manifest/API-guard references, and deleted the unused connector-merge helper cluster from `keepalive_post_work.js`.
+- **Validation:** `python3 scripts/validate_template_completeness.py` passed; `node .github/scripts/__checks__/api-call-guard.js` passed; `node --check .github/scripts/keepalive_post_work.js` passed; `node --test .github/scripts/__tests__/*.test.js` passed (`1192 pass`, `1 skipped`); `python3 scripts/validate_workflow_yaml.py .github/workflows/reusable-70-orchestrator-main.yml .github/workflows/health-74-template-drift.yml` passed; `actionlint -oneline .github/workflows/reusable-70-orchestrator-main.yml .github/workflows/health-74-template-drift.yml` passed; `git diff --check` passed.
+- **Deliberate-break gate:** temporarily changed the orchestrator back to deleted `./.github/workflows/agents-belt-dispatcher.yml`; `actionlint` failed with the expected missing reusable workflow file error, then the direct canonical path was restored and checks passed.
+- **PR/dispatch state:** opened ready-for-review PR #2299 with `agent:codex`, `agents:keepalive`, and `autofix`; PR is non-draft, linked to #2275, `MERGEABLE`/`UNSTABLE`, and fresh Gate/keepalive checks are running on the pushed head.
+- **Next action:** wait for Gate/keepalive on #2299; keepalive owns CI and bot-review iteration.
+
 ## 2026-06-13T11:31Z - closer (codex) CI sync fix pushed for #2294
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2294](https://github.com/stranske/Workflows/pull/2294), source issue `#2271`, branch `claude/issue-2271-verifier-ci-gate`.
