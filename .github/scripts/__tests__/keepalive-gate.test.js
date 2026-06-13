@@ -234,6 +234,60 @@ test('countActive ignores completed runs outside the lookback window', async () 
   }
 });
 
+test('countActive does not fetch run details for completed runs older than the lookback', async () => {
+  let detailCalls = 0;
+  const capturedParams = [];
+  const github = {
+    rest: {
+      actions: {
+        listWorkflowRuns: Symbol('listWorkflowRuns'),
+        async getWorkflowRun() {
+          detailCalls += 1;
+          return {
+            data: {
+              inputs: {
+                pr_number: '79',
+              },
+            },
+          };
+        },
+      },
+    },
+    async paginate(_fn, params) {
+      capturedParams.push(params);
+      if (params.workflow_id === 'agents-70-orchestrator.yml' && params.status === 'completed') {
+        return [
+          {
+            id: 9300,
+            event: 'workflow_dispatch',
+            pull_requests: [],
+            updated_at: '2025-11-16T20:40:00Z',
+          },
+        ];
+      }
+      return [];
+    },
+  };
+  const originalNow = Date.now;
+  Date.now = () => Date.parse('2025-11-16T21:00:00Z');
+  try {
+    const result = await countActive({
+      github,
+      owner: 'stranske',
+      repo: 'Workflows',
+      prNumber: 79,
+      completedLookbackSeconds: 300,
+    });
+
+    assert.equal(result.active, 0);
+    assert.equal(detailCalls, 0);
+    const completedParams = capturedParams.find((params) => params.status === 'completed');
+    assert.equal(completedParams.created, '>2025-11-16T20:55:00.000Z');
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test('evaluateRunCapForPr caches pull request fetches', async () => {
   let pullCalls = 0;
   const github = {
