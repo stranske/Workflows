@@ -722,16 +722,43 @@ jobs:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
+  autofix-cursor:
+    needs: prepare
+    if: >-
+      needs.prepare.outputs.should_run == 'true' &&
+      needs.prepare.outputs.dispatch_should_run == 'true' &&
+      needs.prepare.outputs.agent_type == 'cursor'
+    name: Run Cursor autofix
+    uses: stranske/Workflows/.github/workflows/reusable-cursor-run.yml@main
+    with:
+      prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
+      mode: autofix
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      pr_ref: ${{ needs.prepare.outputs.head_ref }}
+      appendix: ${{ needs.prepare.outputs.appendix }}
+      environment: >-
+        ${{
+          needs.prepare.outputs.has_high_privilege == 'true' &&
+          'agent-high-privilege' ||
+          'agent-standard'
+        }}
+    secrets:
+      CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
   record-autofix-completion:
     name: Record autofix dispatch completion
     needs:
       - prepare
       - autofix
       - autofix-claude
+      - autofix-cursor
     if: >-
       always() &&
       needs.prepare.outputs.dispatch_should_run == 'true' &&
-      (needs.autofix.result != 'skipped' || needs.autofix-claude.result != 'skipped')
+      (needs.autofix.result != 'skipped' || needs.autofix-claude.result != 'skipped' ||
+       needs.autofix-cursor.result != 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout runner library
@@ -752,13 +779,17 @@ jobs:
           HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
           SUMMARY: >-
             ${{ needs.autofix.outputs.final-message-summary ||
-                needs.autofix-claude.outputs.final-message-summary || '' }}
+                needs.autofix-claude.outputs.final-message-summary ||
+                needs.autofix-cursor.outputs.final-message-summary || '' }}
           EXIT_CODE: >-
             ${{ needs.autofix.outputs.exit-code ||
-                needs.autofix-claude.outputs.exit-code || '' }}
+                needs.autofix-claude.outputs.exit-code ||
+                needs.autofix-cursor.outputs.exit-code || '' }}
           JOB_RESULT: >-
             ${{ needs.autofix.result != 'skipped' &&
-                needs.autofix.result || needs.autofix-claude.result }}
+                needs.autofix.result ||
+                (needs.autofix-claude.result != 'skipped' &&
+                 needs.autofix-claude.result || needs.autofix-cursor.result) }}
         run: |
           set -euo pipefail
           if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
@@ -876,6 +907,7 @@ jobs:
       - prepare
       - autofix
       - autofix-claude
+      - autofix-cursor
     if: always()
     runs-on: ubuntu-latest
     environment: >-
@@ -942,10 +974,13 @@ jobs:
             const stopReason = '${{ needs.prepare.outputs.stop_reason }}';
             const codexAutofixResult = '${{ needs.autofix.result }}';
             const claudeAutofixResult = '${{ needs.autofix-claude.result }}';
+            const cursorAutofixResult = '${{ needs.autofix-cursor.result }}';
             const autofixResult =
               codexAutofixResult && codexAutofixResult !== 'skipped'
                 ? codexAutofixResult
-                : claudeAutofixResult;
+                : (claudeAutofixResult && claudeAutofixResult !== 'skipped'
+                    ? claudeAutofixResult
+                    : cursorAutofixResult);
 
             const { owner, repo } = context.repo;
             let fixApplied = false;

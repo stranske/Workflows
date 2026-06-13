@@ -66,6 +66,6 @@ agents:
       enabled: false   # issue-intake/invite flow deferred; PR keepalive + autofix only this phase
     capabilities:
       pr_keepalive: true
-      pr_autofix: false         # autofix-loop wiring lands in follow-up phase 1b
+      pr_autofix: true          # wired into agents-autofix-loop.yml (autofix-cursor job)
       belt: false              # belt routing deferred to a later phase
       verifier_checkbox: false  # verification stays on the existing judge (config/llm_slots.json)
