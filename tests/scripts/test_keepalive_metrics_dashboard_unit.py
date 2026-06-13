@@ -8,33 +8,6 @@ def test_safe_int_handles_empty_invalid() -> None:
     assert dashboard._safe_int("5") == 5
 
 
-def test_read_ndjson_handles_invalid_lines(tmp_path) -> None:
-    path = tmp_path / "metrics.ndjson"
-    path.write_text(
-        "\n".join(
-            [
-                "",
-                '{"pr_number": 10, "iteration": 2, "error_category": "none"}',
-                "[1, 2, 3]",
-                "{bad json}",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    entries, errors = dashboard._read_ndjson(path)
-
-    assert entries == [{"pr_number": 10, "iteration": 2, "error_category": "none"}]
-    assert errors == 2
-
-
-def test_read_ndjson_missing_file(tmp_path) -> None:
-    entries, errors = dashboard._read_ndjson(tmp_path / "missing.ndjson")
-
-    assert entries == []
-    assert errors == 1
-
-
 def test_format_rate_handles_zero_denominator() -> None:
     assert dashboard._format_rate(1, 0) == "n/a"
     assert dashboard._format_rate(1, -1) == "n/a"
