@@ -2398,6 +2398,19 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const hasHighPrivilege = labels.includes('agent-high-privilege');
     const keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
 
+    // Operator stop-controls (#2267). The canonical event-driven loop must enforce the
+    // documented pause / human-block guardrails itself — previously they lived only on
+    // the orchestrator path, so `agents:paused` / `needs-human` did not actually stop
+    // the loop from re-dispatching on the next green Gate.
+    //   * agents:paused  — operator pause (canonical spelling; agents:pause accepted as a
+    //                      transitional alias to match reusable-agents-pr-health).
+    //   * needs-human    — hard human-blocker; stays stopped until a human removes it.
+    //   * agents:max-runs:0 — explicit "hold" cap. (K>=1 is already enforced by the
+    //                      per-PR concurrency group `keepalive-<pr>`, cancel-in-progress:false.)
+    const pausedByLabel = labels.includes('agents:paused') || labels.includes('agents:pause');
+    const humanBlocked = labels.includes('needs-human');
+    const runCapZero = labels.includes('agents:max-runs:0');
+
     const sections = parseScopeTasksAcceptanceSections(pr.body || '');
     const normalisedSections = normaliseChecklistSections(sections);
     const combinedChecklist = [normalisedSections?.tasks, normalisedSections?.acceptance]
@@ -2620,8 +2633,19 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const hasDefinitiveConflict = conflictResult.hasConflict &&
       conflictResult.primarySource === 'github-api';
 
+    // Operator stop-controls (#2267) take precedence over every dispatch decision so a
+    // paused or human-blocked PR never re-dispatches an agent, even on a green Gate.
+    if (pausedByLabel) {
+      action = 'skip';
+      reason = 'paused';
+    } else if (humanBlocked) {
+      action = 'skip';
+      reason = 'needs-human';
+    } else if (runCapZero) {
+      action = 'skip';
+      reason = 'run-cap-zero';
     // Conflict resolution takes highest priority ONLY for definitive conflicts
-    if (hasDefinitiveConflict && hasAgentLabel && keepaliveEnabled) {
+    } else if (hasDefinitiveConflict && hasAgentLabel && keepaliveEnabled) {
       action = 'conflict';
       reason = `merge-conflict-${conflictResult.primarySource || 'detected'}`;
     } else if (!hasAgentLabel) {
