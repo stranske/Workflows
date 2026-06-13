@@ -38,7 +38,6 @@ const RETRY_WRAPPER_PATTERNS = [
 const EXEMPT_FILES = [
   'github-api-with-retry.js',
   'github-rate-limited-wrapper.js',
-  'rate-limit-aware-client.js',
   'token_load_balancer.js',
   'api-helpers.js', // Low-level helpers used by retry wrapper
 ];

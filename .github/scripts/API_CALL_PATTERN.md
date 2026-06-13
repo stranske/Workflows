@@ -308,7 +308,6 @@ This will fail if any script has `github.rest.*` calls that aren't protected by 
 
 The following files are exempt from the API call guard:
 - `github-api-with-retry.js` - The retry wrapper itself
-- `rate-limit-aware-client.js` - Low-level rate limit client
 - `token_load_balancer.js` - Token management
 - Files in `__tests__/` - Test files
 - Files in `__checks__/` - CI guard scripts

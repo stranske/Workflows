@@ -16,9 +16,6 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `agents-autofix-loop.yml` | Re-added the Gate `workflow_run` trigger (alongside the dispatcher path) so Gate failures still launch repairs even in repos that haven’t adopted the new dispatch event, and updated every `withRetry` call to use the token-aware client so rate-limit rotation actually works. |
 | [x] | `agents-autofix-rebase.yml` | New helper keeps PRs rebased via the App token and files `autofix:conflict` only when manual work is needed. |
 | [x] | `agents-bot-comment-autolabel.yml` | Auto-labels trusted bot review comments with `autofix:bot-comments` so inline fixes run without human input. |
-| [x] | `agents-belt-conveyor.yml` | Alias wrapper around the Codex conveyor; documented accordingly. |
-| [x] | `agents-belt-dispatcher.yml` | Alias wrapper around the Codex dispatcher; documented accordingly. |
-| [x] | `agents-belt-worker.yml` | Alias wrapper around the Codex worker; documented accordingly. |
 | [x] | `agents-bot-comment-handler.yml` | Workflow now auto-runs when trusted bots comment (plus existing triggers); documented the new behavior. |
 | [x] | `agents-capability-check.yml` | Still needed as the pre-agent guard; runs the LangChain capability classifier, posts a structured comment, and applies `needs-human` when tasks are blocked. |
 | [x] | `agents-debug-issue-event.yml` | Kept as-is; purely dumps GitHub context for label debugging and doesn’t mutate issues. |

@@ -5,8 +5,6 @@ const { createKeepaliveStateManager } = require('./keepalive_state.js');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 const AGENT_LABEL_PREFIX = 'agent:';
-const MERGE_METHODS = new Set(['merge', 'squash', 'rebase']);
-
 // Resolve default agent from registry (used for agent alias + dispatch defaults)
 let _defaultAgent = 'codex';
 try {
@@ -45,46 +43,6 @@ function parseBoolean(value, fallback = false) {
     return false;
   }
   return fallback;
-}
-
-function parseCommaList(value) {
-  if (!value) {
-    return [];
-  }
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => normaliseLower(typeof entry === 'string' ? entry : entry?.login || entry?.name))
-      .filter(Boolean);
-  }
-  if (typeof value !== 'string') {
-    return [];
-  }
-  return value
-    .split(/[\s,]+/)
-    .map((entry) => normaliseLower(entry))
-    .filter(Boolean);
-}
-
-function clampMergeMethod(method, fallback = 'squash') {
-  const candidate = normaliseLower(method);
-  if (MERGE_METHODS.has(candidate)) {
-    return candidate;
-  }
-  if (candidate === 'ff' || candidate === 'fast-forward' || candidate === 'fastforward') {
-    return 'merge';
-  }
-  return fallback;
-}
-
-function toTimestamp(value) {
-  if (!value) {
-    return 0;
-  }
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    return 0;
-  }
-  return parsed;
 }
 
 async function delay(ms) {
@@ -500,171 +458,6 @@ async function findFallbackRun({ github, owner, repo, createdAfter, existingRunI
   return null;
 }
 
-function buildAutomationLoginSet(value, fallback = []) {
-  const list = parseCommaList(value);
-  if (!list.length && Array.isArray(fallback) && fallback.length) {
-    return new Set(parseCommaList(fallback));
-  }
-  return new Set(list);
-}
-
-function containsTrace(text, trace) {
-  if (!text || !trace) {
-    return false;
-  }
-  const haystack = normaliseLower(text);
-  const needle = normaliseLower(trace);
-  if (!haystack || !needle) {
-    return false;
-  }
-  return haystack.includes(needle);
-}
-
-function scoreConnectorPr(pr, { trace, baseRef }) {
-  let score = 0;
-  if (!pr || typeof pr !== 'object') {
-    return score;
-  }
-  if (containsTrace(pr.title, trace)) {
-    score += 4;
-  }
-  if (containsTrace(pr.body, trace)) {
-    score += 3;
-  }
-  const headRef = normaliseLower(pr.head?.ref);
-  if (headRef && trace && headRef.includes(normaliseLower(trace))) {
-    score += 2;
-  }
-  if (headRef && baseRef && headRef.includes(normaliseLower(baseRef))) {
-    score += 1;
-  }
-  const createdAt = toTimestamp(pr.created_at || pr.updated_at || pr.closed_at);
-  if (Number.isFinite(createdAt) && createdAt > 0) {
-    score += 0.000001 * createdAt;
-  }
-  return score;
-}
-
-async function locateConnectorPullRequest({
-  github,
-  owner,
-  repo,
-  baseRef,
-  trace,
-  createdAfter,
-  allowedLogins,
-}) {
-  if (!github?.rest?.pulls?.list) {
-    return null;
-  }
-  try {
-    const response = await github.rest.pulls.list({
-      owner,
-      repo,
-      state: 'open',
-      base: baseRef,
-      sort: 'created',
-      direction: 'desc',
-      per_page: 50,
-    });
-    const pulls = Array.isArray(response?.data) ? response.data : [];
-    if (!pulls.length) {
-      return null;
-    }
-    const allowed = allowedLogins instanceof Set ? allowedLogins : new Set();
-    const threshold = createdAfter ? createdAfter - 30_000 : 0;
-    let candidate = null;
-    let candidateScore = Number.NEGATIVE_INFINITY;
-    for (const pr of pulls) {
-      const created = toTimestamp(pr.created_at || pr.updated_at);
-      if (threshold && created && created < threshold) {
-        break;
-      }
-      const login = normaliseLower(pr.user?.login);
-      if (allowed.size && (!login || !allowed.has(login))) {
-        continue;
-      }
-      const score = scoreConnectorPr(pr, { trace, baseRef });
-      if (candidate === null || score > candidateScore) {
-        candidate = pr;
-        candidateScore = score;
-      }
-    }
-    return candidate;
-  } catch (error) {
-    return null;
-  }
-}
-
-async function mergeConnectorPullRequest({
-  github,
-  owner,
-  repo,
-  baseRef,
-  trace,
-  dispatchTimestamp,
-  allowedLogins,
-  mergeMethod,
-  deleteBranch,
-  record,
-  appendRound,
-}) {
-  const createdAfter = dispatchTimestamp ? toTimestamp(dispatchTimestamp) : 0;
-  const pr = await locateConnectorPullRequest({
-    github,
-    owner,
-    repo,
-    baseRef,
-    trace,
-    createdAfter,
-    allowedLogins,
-  });
-  if (!pr) {
-    record('Create-pr auto-merge', appendRound('no connector PR detected.'));
-    return { attempted: true, merged: false };
-  }
-
-  const prNumber = Number(pr.number);
-  const prUrl = normalise(pr?.html_url);
-  if (!Number.isFinite(prNumber) || prNumber <= 0) {
-    record('Create-pr auto-merge', appendRound('skipped: invalid PR identifier.'));
-    return { attempted: true, merged: false, prUrl };
-  }
-
-  try {
-    await github.rest.pulls.merge({
-      owner,
-      repo,
-      pull_number: prNumber,
-      merge_method: mergeMethod,
-      commit_title: `Keepalive sync ${trace || ''}`.trim(),
-    });
-    record('Create-pr auto-merge', appendRound(`merged PR #${prNumber} using ${mergeMethod}.`));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    record('Create-pr auto-merge', appendRound(`failed: ${message}`));
-    return { attempted: true, merged: false, prNumber, error: message, prUrl };
-  }
-
-  let branchDeleted = false;
-  if (deleteBranch && pr.head?.ref && !pr.head?.repo?.fork) {
-    try {
-      await github.rest.git.deleteRef({
-        owner,
-        repo,
-        ref: `heads/${pr.head.ref}`,
-      });
-      branchDeleted = true;
-      record('Create-pr cleanup', appendRound(`deleted branch ${pr.head.ref}.`));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      record('Create-pr cleanup', appendRound(`failed to delete branch ${pr.head.ref}: ${message}`));
-    }
-  }
-
-  return { attempted: true, merged: true, prNumber, branchDeleted, prUrl };
-}
-
 function formatCommandBody(action, trace, round) {
   const parts = [`/${normalise(action)}`.trim()];
   if (trace) {
@@ -850,9 +643,6 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
   const pollShort = parseNumber(env.POLL_SHORT_MS, 5_000, { min: 0 });
   const ttlLong = parseNumber(env.TTL_LONG_MS, 240_000, { min: 0 });
   const pollLong = parseNumber(env.POLL_LONG_MS, 5_000, { min: 0 });
-  const automationLogins = buildAutomationLoginSet(env.AUTOMATION_LOGINS);
-  const mergeMethod = clampMergeMethod(env.MERGE_METHOD, 'squash');
-  const deleteTempBranch = parseBoolean(env.DELETE_TEMP_BRANCH, true);
   const roundTag = `round=${round || '?'}`;
   const appendRound = (message) => `${message} ${roundTag}`;
 
