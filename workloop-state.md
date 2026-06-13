@@ -9,6 +9,13 @@
 - **Review state:** resolved review threads `PRRT_kwDOQprj9M6JUFOW` and `PRRT_kwDOQprj9M6JUFRf`; posted evidence comment https://github.com/stranske/Workflows/pull/2289#issuecomment-4698092479.
 - **Next action:** wait for fresh CI on head `ae57662b` to finish. Final snapshot: PR non-draft, `MERGEABLE`, `mergeStateStatus=UNSTABLE`; review threads resolved; checks still in progress (`Gate` python ci/ledger validation, `enforce`, `CodeQL`). If they settle green, merge #2289; Workflows convention means no verifier label unless a repo-specific verifier target is explicitly intended.
 
+## 2026-06-13T09:03Z - opener (codex) opened #2290 for issue #2266
+
+- **Selected opener lane:** issue [#2266](https://github.com/stranske/Workflows/issues/2266), branch `codex/issue-2266-coverage-source`, PR [#2290](https://github.com/stranske/Workflows/pull/2290).
+- **Implementation:** added `source = ["scripts", "tools", "src"]` to `[tool.coverage.run]`, changed reusable Python CI coverage from the `src` heuristic to `--cov=. --cov-config=pyproject.toml`, and corrected the stale Gate coverage-min comment.
+- **Validation:** pre-fix `uv run --extra dev ... --cov=src` on `tests/scripts/test_langsmith_fleet_conformance.py` passed with `scripts-prefixed: 0` and `tools-prefixed: 0`; post-fix `--cov=. --cov-config=pyproject.toml` passed with `scripts-prefixed: 126` and `tools-prefixed: 16`. TOML/YAML parse check passed for all touched files.
+- **Next action:** wait for Gate/keepalive on #2290; keepalive owns any CI or bot-review iteration.
+
 ## 2026-06-13T08:23Z - closer (codex) review-fix pushed for #2288
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2288](https://github.com/stranske/Workflows/pull/2288), source issue `#2264`, branch `codex/issue-2264-health40-aggregate-heredoc`.

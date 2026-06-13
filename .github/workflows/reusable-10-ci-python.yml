@@ -1878,7 +1878,7 @@ jobs:
           set -euo pipefail
           args=("--junitxml=pytest-junit.xml")
           if [ "${COVERAGE_ENABLED}" = "true" ]; then
-            args+=("--cov=." "--cov-config=pyproject.toml")
+            args+=("--cov" "--cov-config=pyproject.toml")
             args+=("--cov-report=xml:coverage.xml")
             args+=("--cov-report=term-missing")
             args+=("--cov-report=json:coverage.json")
