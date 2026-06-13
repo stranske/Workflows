@@ -374,6 +374,8 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Effect:** Verifies acceptance criteria checkbox completion and opens follow-up issues if gaps are detected.
 
+**CI failure hard gate:** If any polled CI workflow concludes `failure` on the merge commit, the verdict is floored at CONCERNS before the LLM runs, so a merge that breaks `main` can never verify PASS.
+
 **Workflow:** `agents-verifier.yml`
 
 ---
@@ -386,6 +388,8 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Effect:** Runs an LLM evaluation of the work and posts a report with optional follow-up issues.
 
+**CI failure hard gate:** If any polled CI workflow concludes `failure` on the merge commit, the verdict is floored at CONCERNS before the LLM runs, so a merge that breaks `main` can never verify PASS.
+
 **Workflow:** `agents-verifier.yml`
 
 ---
@@ -397,6 +401,8 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 **Trigger:** When applied to a merged PR
 
 **Effect:** Runs the verifier across multiple models and posts a comparison report.
+
+**CI failure hard gate:** If any polled CI workflow concludes `failure` on the merge commit, the verdict is floored at CONCERNS before the LLM runs, so a merge that breaks `main` can never verify PASS.
 
 **Workflow:** `agents-verifier.yml`
 
