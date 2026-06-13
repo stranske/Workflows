@@ -166,10 +166,10 @@ def test_steward_root_resolves_from_env_or_module(
     # --- env-set branch ---
     monkeypatch.setenv("REPO_REVIEW_STEWARD_ROOT", str(tmp_path))
     reloaded = importlib.reload(mod)
-    assert reloaded.WORKFLOWS_STEWARD == tmp_path
+    assert tmp_path == reloaded.WORKFLOWS_STEWARD
 
     # --- env-unset branch ---
     monkeypatch.delenv("REPO_REVIEW_STEWARD_ROOT", raising=False)
     reloaded2 = importlib.reload(mod)
     expected = Path(reloaded2.__file__).resolve().parent.parent
-    assert reloaded2.WORKFLOWS_STEWARD == expected
+    assert expected == reloaded2.WORKFLOWS_STEWARD
