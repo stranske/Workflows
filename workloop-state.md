@@ -1,5 +1,14 @@
 # Workloop State
 
+## 2026-06-13T12:28Z - opener (codex) issue #2275 -> PR #2298 (dead-code sync sweep)
+
+- **Selected opener lane:** issue [#2275](https://github.com/stranske/Workflows/issues/2275), branch `codex/issue-2275-dead-code-sync-sweep`, PR [#2298](https://github.com/stranske/Workflows/pull/2298).
+- **Implementation:** rewired `reusable-70-orchestrator-main.yml` belt dispatcher/worker/conveyor calls to the numbered workflows (`agents-71/72/73-codex-belt-*`) and deleted the three alias wrappers from source, consumer template, sync manifest, and template drift list. Removed the unused `.github/scripts/rate-limit-aware-client.js` plus its test and stale API-wrapper documentation/allowlist entry. Deleted the unused connector auto-merge cluster from `keepalive_post_work.js` and removed remaining runtime/doc references to the deleted alias worker path.
+- **Validation:** `node --test .github/scripts/__tests__/*.test.js` passed (`1192 passed, 1 skipped` after rebase); `/opt/anaconda3/bin/python -m pytest tests/workflows/test_workflow_naming.py tests/workflows/test_codex_belt_pipeline.py tests/workflows/test_workflow_agents_consolidation.py tests/workflows/test_keepalive_post_work.py tests/workflows/test_keepalive_workflow.py -q` passed (`103 passed, 1 skipped`); `python3 scripts/validate_template_completeness.py` passed; workflow YAML + sync-manifest YAML parsed; `node -c` passed for changed scripts; `actionlint` with `.github/actionlint-allowlist.txt` passed; `git diff --check origin/main..HEAD` passed.
+- **Zero-caller checks:** `grep -rnE 'agents-belt-(dispatcher|worker|conveyor)' .github/workflows templates/consumer-repo/.github/workflows`, `grep -rln rate-limit-aware-client .github scripts templates`, and `grep -rnE 'mergeConnectorPullRequest|locateConnectorPullRequest|scoreConnectorPr|containsTrace' .github/scripts scripts --include='*.js'` all returned empty.
+- **Deliberate-break gate:** temporarily restored one deleted alias call (`uses: ./.github/workflows/agents-belt-dispatcher.yml`) and `actionlint` failed with `could not read reusable workflow file ... no such file or directory`; reverted the break and reran `actionlint` clean.
+- **Next action:** keepalive/Gate owns CI and review iteration on #2298.
+
 ## 2026-06-13T12:12Z - closer (codex) rebased #2295 after #2294 merge
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2295](https://github.com/stranske/Workflows/pull/2295), source issue `#2273`, branch `codex/issue-2273-langsmith-zero-signal`.
