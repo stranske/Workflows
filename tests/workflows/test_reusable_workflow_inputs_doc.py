@@ -137,13 +137,13 @@ def test_integration_guide_full_ci_example_uses_real_names() -> None:
     example_inputs = _job_keys(example, "with")
     assert example_inputs, "Full CI example should pass at least one input via `with`"
     unknown_inputs = example_inputs - real_inputs
-    assert not unknown_inputs, (
-        f"INTEGRATION_GUIDE Full CI example uses nonexistent inputs: {sorted(unknown_inputs)}"
-    )
+    assert (
+        not unknown_inputs
+    ), f"INTEGRATION_GUIDE Full CI example uses nonexistent inputs: {sorted(unknown_inputs)}"
 
     example_secrets = _job_keys(example, "secrets")
     assert example_secrets, "Full CI example should pass at least one secret"
     unknown_secrets = example_secrets - real_secrets
-    assert not unknown_secrets, (
-        f"INTEGRATION_GUIDE Full CI example uses nonexistent secrets: {sorted(unknown_secrets)}"
-    )
+    assert (
+        not unknown_secrets
+    ), f"INTEGRATION_GUIDE Full CI example uses nonexistent secrets: {sorted(unknown_secrets)}"
