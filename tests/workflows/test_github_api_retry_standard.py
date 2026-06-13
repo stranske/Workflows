@@ -146,3 +146,17 @@ def test_sparse_retry_helper_checkouts_include_classifier_dependency() -> None:
         ".github/scripts/error_classifier.js, because the retry helper requires it: "
         + ", ".join(sorted(failures))
     )
+
+
+def test_agents_verifier_callers_pass_checked_pr_number() -> None:
+    caller_paths = [
+        Path(".github/workflows/agents-verifier.yml"),
+        Path("templates/consumer-repo/.github/workflows/agents-verifier.yml"),
+    ]
+    for relative_path in caller_paths:
+        workflow = _load_workflow(REPO_ROOT / relative_path)
+        verifier_job = workflow["jobs"]["verifier"]
+        assert verifier_job["uses"] == (
+            "stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main"
+        )
+        assert verifier_job["with"]["pr_number"] == "${{ needs.check.outputs.pr_number }}"
