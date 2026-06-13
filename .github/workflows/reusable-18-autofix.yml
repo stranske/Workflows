@@ -260,6 +260,7 @@ jobs:
           sparse-checkout-cone-mode: false
           path: workflows-resolver
           fetch-depth: 1
+          token: ${{ secrets.service_bot_pat || github.token }}
 
       - name: Resolve Workflows ref
         id: workflows_ref
