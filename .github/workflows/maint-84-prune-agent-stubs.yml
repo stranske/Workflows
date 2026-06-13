@@ -1,0 +1,62 @@
+name: Maint 84 Prune Agent Stubs
+
+on:
+  schedule:
+    # Weekly on Monday at 08:00 UTC (after Dependabot sweep, before metrics runs)
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview deletions without removing any files"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  issues: read
+
+concurrency:
+  group: maint-prune-agent-stubs-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune closed-issue agent stubs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.OWNER_PR_PAT || github.token }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run pruner
+        env:
+          DRY_RUN: ${{ inputs.dry_run != false && 'true' || 'false' }}
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT || github.token }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python scripts/prune_agent_stubs.py --repo stranske/Workflows --dry-run
+          else
+            python scripts/prune_agent_stubs.py --repo stranske/Workflows
+          fi
+
+      - name: Commit deleted stubs
+        if: ${{ inputs.dry_run == false || github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT || github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No stubs deleted; nothing to commit."
+          else
+            git add agents/
+            git commit -m "maint: prune closed-issue agent stubs [skip ci]"
+            git push
+          fi

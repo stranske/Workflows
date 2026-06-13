@@ -202,6 +202,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`maint-81-langsmith-fleet-conformance.yml`](../../.github/workflows/maint-81-langsmith-fleet-conformance.yml) validates fleet artifact coverage against `config/langsmith_fleet_registry.json` and reports missing/stale/invalid records (scheduled Monday 9:30AM UTC, manual dispatch with optional enforcement).
 * [`maint-82-sync-dependabot-campaign.yml`](../../.github/workflows/maint-82-sync-dependabot-campaign.yml) refreshes a GitHub-visible sync/Dependabot campaign issue so local Codex only claims queued bot-review work when remote discovery finds active review threads.
 * [`maint-83-bootstrap-consumer.yml`](../../.github/workflows/maint-83-bootstrap-consumer.yml) applies the manual GitHub-settings bootstrap toggles a freshly-registered consumer needs (SETUP_CHECKLIST §3.1/§3.3/§3.3.1: `default_workflow_permissions=write`, `USE_CONSOLIDATED_WORKFLOWS` + `ALLOWED_KEEPALIVE_LOGINS` variables, and the `stranske-automation-bot` push-collaborator invite) via `scripts/bootstrap_consumer_settings.py` (manual dispatch, dry-run by default).
+* [`maint-84-prune-agent-stubs.yml`](../../.github/workflows/maint-84-prune-agent-stubs.yml) garbage-collects `agents/<agent>-<N>.md` bootstrap stubs whose issue `#N` is closed, preventing unbounded accumulation; runs weekly (Monday 08:00 UTC) via `scripts/prune_agent_stubs.py`.
 
 Together these workflows define the CI surface area referenced by Gate and the Gate summary job, keeping the automation stack observable, testable, and easier to evolve.
 

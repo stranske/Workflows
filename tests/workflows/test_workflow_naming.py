@@ -298,4 +298,5 @@ EXPECTED_NAMES = {
     "selftest-ci.yml": "Selftest CI",
     "health-keepalive-e2e.yml": "Keepalive E2E",
     "maint-39-test-llm-providers.yml": "Maint 39 Test LLM Providers",
+    "maint-84-prune-agent-stubs.yml": "Maint 84 Prune Agent Stubs",
 }
