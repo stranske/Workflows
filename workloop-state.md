@@ -1,5 +1,13 @@
 # Workloop State
 
+## 2026-06-13T12:12Z - closer (codex) rebased #2295 after #2294 merge
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2295](https://github.com/stranske/Workflows/pull/2295), source issue `#2273`, branch `codex/issue-2273-langsmith-zero-signal`.
+- **Blocker:** batch-safe merge of [#2294](https://github.com/stranske/Workflows/pull/2294) advanced `main`, and the attempted batch merge of #2295 then failed with GitHub `Pull Request has merge conflicts`.
+- **Action:** used disposable clone `/tmp/wf-2295-conflict.evQX0i`, rebased #2295 onto current `main` (`ec5fd586`), and resolved the state-only `workloop-state.md` conflicts by preserving the newer #2294 closer entries plus the #2273/#2295 opener entry. Source workflow/test files rebased without conflicts.
+- **Validation:** `python -m pytest tests/workflows/test_langsmith_metrics_dashboard.py -q -rA` passed (`7 passed`); `python scripts/validate_template_completeness.py` passed; `scripts/sync_templates.sh` reported all files already in sync; workflow YAML and registry JSON parse passed; `git diff --check` clean.
+- **Next action:** push the rebased branch with `--force-with-lease`; then wait for fresh Gate/review state. If checks settle green and review threads remain resolved, merge #2295, apply `verify:compare`, and keep issue #2273 open until durable verifier disposition.
+
 ## 2026-06-13T11:31Z - closer (codex) CI sync fix pushed for #2294
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2294](https://github.com/stranske/Workflows/pull/2294), source issue `#2271`, branch `claude/issue-2271-verifier-ci-gate`.
