@@ -5,7 +5,11 @@ const path = require('path');
 
 function retryHelperCandidates(env = process.env, cwd = process.cwd()) {
   const actionPath = env.GITHUB_ACTION_PATH || '';
+  const resolverActionPath = env.RESOLVE_DEFAULT_BRANCH_ACTION_PATH || '';
   return [
+    resolverActionPath
+      ? path.resolve(resolverActionPath, '..', '..', 'scripts', 'github-api-with-retry.js')
+      : '',
     actionPath ? path.resolve(actionPath, '..', '..', 'scripts', 'github-api-with-retry.js') : '',
     path.resolve(cwd, '.github/scripts/github-api-with-retry.js'),
     path.resolve(cwd, 'consumer/.github/scripts/github-api-with-retry.js'),

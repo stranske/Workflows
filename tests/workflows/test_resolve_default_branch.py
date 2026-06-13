@@ -37,6 +37,12 @@ def test_resolve_default_branch_action_contract_and_template_copy() -> None:
     ).read_text(encoding="utf-8")
 
 
+def test_retry_helper_prefers_explicit_resolver_action_path() -> None:
+    script = (ACTION_DIR / "resolve-default-branch.js").read_text(encoding="utf-8")
+    assert "RESOLVE_DEFAULT_BRANCH_ACTION_PATH" in script
+    assert script.index("resolverActionPath") < script.index("actionPath ?")
+
+
 @skip_if_no_node
 def test_resolve_default_branch_logic_with_stubbed_client() -> None:
     script = r"""
@@ -170,7 +176,16 @@ def test_resolve_default_branch_inline_workflow_copies_removed() -> None:
 
 def test_pr_meta_bootstraps_resolver_from_workflows_checkout() -> None:
     """PR meta cannot require unsynced consumers to already have the new action."""
-    workflow = REPO_ROOT / ".github" / "workflows" / "reusable-20-pr-meta.yml"
+    assert_workflow_bootstraps_resolver_from_workflows_checkout("reusable-20-pr-meta.yml")
+
+
+def test_keepalive_bootstraps_resolver_from_workflows_checkout() -> None:
+    """Keepalive cannot require unsynced consumers to already have the new action."""
+    assert_workflow_bootstraps_resolver_from_workflows_checkout("reusable-16-agents.yml")
+
+
+def assert_workflow_bootstraps_resolver_from_workflows_checkout(workflow_name: str) -> None:
+    workflow = REPO_ROOT / ".github" / "workflows" / workflow_name
     data = yaml.safe_load(workflow.read_text(encoding="utf-8"))
     steps = next(
         job["steps"]

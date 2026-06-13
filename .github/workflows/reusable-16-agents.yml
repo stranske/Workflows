@@ -1000,9 +1000,44 @@ jobs:
           fetch-depth: 1
           path: consumer
 
+      - name: Determine Workflows workflow ref
+        id: workflows_workflow_ref
+        shell: bash
+        env:
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+          ref="${WORKFLOW_REF##*@}"
+          if [ -z "$ref" ] || [ "$ref" = "$WORKFLOW_REF" ]; then
+            ref="main"
+          fi
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout resolver action
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          ref: ${{ steps.workflows_workflow_ref.outputs.ref }}
+          sparse-checkout: |
+            .github/actions/resolve-default-branch
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: workflows-resolver
+          fetch-depth: 1
+          token: >-
+            ${{
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.service_bot_pat ||
+              github.token
+            }}
+
       - name: Resolve Workflows ref
         id: workflows_ref
-        uses: ./consumer/.github/actions/resolve-default-branch
+        uses: ./workflows-resolver/.github/actions/resolve-default-branch
+        with:
+          fallback_ref: main
+          fail_on_error: 'false'
+          task: keepalive-workflows-ref
       - name: Checkout Workflows scripts
         uses: actions/checkout@v6
         with:
