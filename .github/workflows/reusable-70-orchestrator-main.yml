@@ -1355,7 +1355,7 @@ jobs:
     name: Belt Dispatcher
     needs:
       - keepalive-guard
-    uses: ./.github/workflows/agents-belt-dispatcher.yml
+    uses: ./.github/workflows/agents-71-codex-belt-dispatcher.yml
     with:
       force_issue: ${{ inputs.dispatcher_force_issue }}
       dry_run: ${{ inputs.dry_run == 'true' }}
@@ -1454,7 +1454,7 @@ jobs:
         needs.belt-check-existing-pr.outputs.pr_exists != 'true' ||
         inputs.enable_keepalive == 'true'
       )
-    uses: ./.github/workflows/agents-belt-worker.yml
+    uses: ./.github/workflows/agents-72-codex-belt-worker.yml
     with:
       issue: ${{ needs.belt-dispatch.outputs.issue }}
       branch: ${{ needs.belt-dispatch.outputs.branch }}
@@ -3206,7 +3206,7 @@ jobs:
     strategy:
       matrix:
         pr: ${{ fromJson(needs.belt-scan-ready-prs.outputs.items) }}
-    uses: ./.github/workflows/agents-belt-conveyor.yml
+    uses: ./.github/workflows/agents-73-codex-belt-conveyor.yml
     with:
       issue: ${{ matrix.pr.issue || 0 }}
       branch: ${{ matrix.pr.branch }}
