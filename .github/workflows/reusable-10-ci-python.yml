@@ -172,13 +172,6 @@ on:
         description: Working directory for all run steps (useful for monorepos).
         required: false
         default: '.'
-      workflows_ref:
-        description: >-
-          The ref of the Workflows repo to check out for helper code/actions.
-          Defaults to main for manual workflow_dispatch runs.
-        required: false
-        default: 'main'
-        type: string
       python-versions:
         description: JSON array of Python versions to execute.
         required: false

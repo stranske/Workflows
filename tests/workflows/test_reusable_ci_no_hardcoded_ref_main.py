@@ -80,12 +80,11 @@ def test_workflows_ref_input_declared() -> None:
     """The reusable exposes a backward-compatible ``workflows_ref`` input."""
     data = _load_workflow()
     triggers = data.get(True) or data.get("on") or {}
-    for trigger in ("workflow_call", "workflow_dispatch"):
-        inputs = triggers[trigger]["inputs"]
-        assert "workflows_ref" in inputs, f"missing `workflows_ref` {trigger} input"
-        spec = inputs["workflows_ref"]
-        assert spec.get("required") is False, f"{trigger} `workflows_ref` must be optional"
-        assert spec.get("default") == "main", f"{trigger} `workflows_ref` must default to main"
+    inputs = triggers["workflow_call"]["inputs"]
+    assert "workflows_ref" in inputs, "missing `workflows_ref` workflow_call input"
+    spec = inputs["workflows_ref"]
+    assert spec.get("required") is False, "`workflows_ref` must be optional"
+    assert spec.get("default") == "main", "`workflows_ref` must default to main"
 
 
 def test_workflows_checkouts_use_workflows_ref_input() -> None:
@@ -106,6 +105,10 @@ def test_workflows_checkouts_use_workflows_ref_input() -> None:
             assert "inputs.workflows_ref" in ref, (
                 f"job {job_name!r}: checkout of stranske/Workflows uses "
                 f"ref={ref!r}; expected `${{{{ inputs.workflows_ref }}}}`."
+            )
+            assert "|| 'main'" in ref, (
+                f"job {job_name!r}: checkout of stranske/Workflows uses "
+                f"ref={ref!r}; expected a main fallback for workflow_dispatch runs."
             )
     assert checked >= 4, (
         f"expected to inspect the 4 known Workflows helper checkouts, " f"found {checked}"
