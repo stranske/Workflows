@@ -375,14 +375,21 @@ jobs:
           EOF
 
           # Upsert a single pinned dashboard issue instead of minting a new
-          # no-data issue every schedule.
-          DASHBOARD_ISSUE=$(gh issue list \
+          # no-data issue every schedule. Capture the lookup separately so a
+          # transient API/list failure aborts the step instead of silently
+          # leaving DASHBOARD_ISSUE empty and falling through to the create
+          # branch, which would reintroduce the duplicate-issue churn this
+          # change exists to stop.
+          if ! DASHBOARD_ISSUE_JSON=$(gh issue list \
             --state open \
             --label "metrics" \
             --search "LangSmith Trace Coverage Dashboard in:title" \
-            --json number,title \
-            --jq '.[] | select(.title == "📊 LangSmith Trace Coverage Dashboard") | .number' | \
-            head -n 1)
+            --json number,title); then
+            echo "::error::Failed to list existing dashboard issues; aborting to avoid duplicate dashboard issue churn." >&2
+            exit 1
+          fi
+          DASHBOARD_ISSUE=$(printf '%s' "$DASHBOARD_ISSUE_JSON" \
+            | jq -r --arg title "$ISSUE_TITLE" 'map(select(.title == $title)) | .[0].number // empty')
 
           if [ -n "$DASHBOARD_ISSUE" ]; then
             gh issue edit "$DASHBOARD_ISSUE" \
