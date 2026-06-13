@@ -75,6 +75,7 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/agents-guard.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/error_classifier.js
             .github/scripts/package.json
             .github/scripts/package-lock.json
             .github/scripts/node_modules/minimatch
@@ -144,6 +145,7 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/agents-guard.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/error_classifier.js
             .github/scripts/package.json
             .github/scripts/package-lock.json
             .github/scripts/node_modules/minimatch
