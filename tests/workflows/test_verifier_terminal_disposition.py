@@ -136,3 +136,31 @@ def test_reusable_verifier_codex_model_cli_compatibility_contract() -> None:
             f"Verifier model {model} requires @openai/codex >= {minimum_cli}, "
             f"but reusable-agents-verifier.yml installs {installed_cli}."
         )
+
+
+def test_reusable_verifier_floors_ci_failure_comments_before_posting() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-agents-verifier.yml")
+    steps = workflow["jobs"]["verifier"]["steps"]
+    names = [step.get("name") for step in steps]
+
+    eval_floor = next(
+        step
+        for step in steps
+        if step.get("name") == "Apply CI failure hard gate to LLM evaluation comment"
+    )
+    compare_floor = next(
+        step
+        for step in steps
+        if step.get("name") == "Apply CI failure hard gate to comparison comment"
+    )
+
+    assert names.index(eval_floor["name"]) < names.index("Post LLM evaluation comment")
+    assert names.index(compare_floor["name"]) < names.index("Post comparison report comment")
+    assert "steps.context.outputs.ci_failed == 'true'" in eval_floor["if"]
+    assert "steps.llm_evaluate.outputs.verdict == 'PASS'" in eval_floor["if"]
+    assert "evaluation-comment.md" in eval_floor["run"]
+    assert "**Verdict:** CONCERNS (CI failure hard gate)" in eval_floor["run"]
+    assert "steps.context.outputs.ci_failed == 'true'" in compare_floor["if"]
+    assert "steps.llm_compare.outputs.verdict == 'PASS'" in compare_floor["if"]
+    assert "comparison-comment.md" in compare_floor["run"]
+    assert "Provider rows below are preserved for auditability" in compare_floor["run"]
