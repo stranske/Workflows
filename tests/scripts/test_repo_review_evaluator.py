@@ -955,3 +955,44 @@ def test_archive_candidates_are_matched_to_candidate_repo_terms(tmp_path: Path) 
     assert [item.title for item in candidates["stranske/Manager-Database"]] == [
         "Add Manager Database RAG alert coverage"
     ]
+
+
+def test_feedback_covers_converged_cycle_binding() -> None:
+    """#2272: a blanket approval must not auto-approve a converged set newer than the
+    feedback that 'approved all'. Deliberate-break gate: removing the date comparison in
+    feedback_covers_converged makes the stale-feedback case return True and this fails.
+    """
+    converged = {"synthesized_at": "2026-06-10T09:00:00+00:00"}
+
+    # Stale feedback predating the converged set -> NOT covered (the bug this closes).
+    assert (
+        evaluator.feedback_covers_converged({}, "2026-05-03", converged) is False
+    )
+    # Feedback at least as new as the converged set -> covered.
+    assert (
+        evaluator.feedback_covers_converged({}, "2026-06-10", converged) is True
+    )
+    # Explicit per-repo binding to this converged set -> covered regardless of date.
+    assert (
+        evaluator.feedback_covers_converged(
+            {"approved_converged_synthesized_at": "2026-06-10T09:00:00+00:00"},
+            "2026-05-03",
+            converged,
+        )
+        is True
+    )
+    # A pin to a different converged set -> NOT covered.
+    assert (
+        evaluator.feedback_covers_converged(
+            {"approved_converged_synthesized_at": "2026-05-01T00:00:00+00:00"},
+            "2026-05-03",
+            converged,
+        )
+        is False
+    )
+    # No converged set to bind to (round-1 path) -> prior behavior preserved.
+    assert evaluator.feedback_covers_converged({}, "2026-05-03", None) is True
+    # Unparseable feedback date fails closed (do not auto-approve blindly).
+    assert (
+        evaluator.feedback_covers_converged({}, "not-a-date", converged) is False
+    )

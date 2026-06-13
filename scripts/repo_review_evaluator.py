@@ -2515,6 +2515,42 @@ def issue_body_has_required_sections(body: str) -> bool:
     return issue_body_is_agent_ready(body)
 
 
+def feedback_covers_converged(
+    decision: dict[str, Any], feedback_generated_on: str, converged: Any
+) -> bool:
+    """Cycle-binding (#2272): does the recorded human feedback actually correspond to the
+    current round-2 converged set, or does it predate it?
+
+    A stale per-repo ``"approve all"`` decision otherwise auto-approves every *future*
+    cycle's brand-new candidates that the human never saw. Feedback is treated as covering
+    the current converged set when either:
+
+      * the decision pins ``approved_converged_synthesized_at`` to the converged set's
+        ``synthesized_at`` (explicit binding), or
+      * the feedback's ``generated_on`` date is at least as new as the converged set's
+        ``synthesized_at`` date.
+
+    When there is no converged set to bind to (round-1-only path) prior behavior is kept.
+    Unparseable dates fail closed (not covered) so a malformed stamp cannot auto-approve.
+    """
+    if not isinstance(converged, dict):
+        return True
+    synth = str(converged.get("synthesized_at") or "").strip()
+    if not synth:
+        return True
+    pinned = str(decision.get("approved_converged_synthesized_at") or "").strip()
+    if pinned:
+        return pinned == synth
+    from datetime import date
+
+    try:
+        fb = date.fromisoformat(str(feedback_generated_on or "")[:10])
+        cv = date.fromisoformat(synth[:10])
+    except ValueError:
+        return False
+    return fb >= cv
+
+
 def build_approved_issue_queue(
     states: list[dict[str, Any]], feedback_config: dict[str, Any], generated_on: str
 ) -> dict[str, Any]:
@@ -2592,6 +2628,48 @@ def build_approved_issue_queue(
                         *state["decision_brief"]["concerns"],
                         "Complete a repo-specific design-vs-implementation review before upload.",
                     ],
+                    "gitnexus_map": state["gitnexus_map"],
+                }
+            )
+            continue
+
+        # Cycle-binding (#2272): a blanket "approve all" only auto-approves the cycle the
+        # human actually reviewed. If the feedback predates this converged set (and the
+        # repo hasn't opted into unattended approval), route the new candidates to
+        # deeper-review instead of materializing them. Explicitly listed approved_candidates
+        # and repos with auto_approve_new:true are unaffected.
+        approved_spec = decision.get("approved_candidates", defaults.get("approved_candidates", []))
+        is_blanket = isinstance(approved_spec, str) and approved_spec.strip().lower() == "all"
+        auto_approve_new = bool(decision.get("auto_approve_new", False))
+        converged = state.get("round2_converged")
+        if (
+            is_blanket
+            and not auto_approve_new
+            and not feedback_covers_converged(
+                decision, feedback_config.get("generated_on", ""), converged
+            )
+        ):
+            synth = str((converged or {}).get("synthesized_at") or "").strip()
+            warnings.append(
+                f"{state['repo']}: blanket 'approve all' feedback is not bound to the current "
+                f"converged set; routed to deeper-review (stale-feedback guard)."
+            )
+            deeper_review.append(
+                {
+                    "repo": state["repo"],
+                    "priority": priority,
+                    "decision": "deeper-review",
+                    "notes": (
+                        f"Blanket 'approve all' feedback (generated_on "
+                        f"{feedback_config.get('generated_on', '?')}) predates this cycle's converged "
+                        f"set (synthesized_at {synth or '?'}); new candidates need fresh human "
+                        f"approval. To approve: set this repo's approved_converged_synthesized_at to "
+                        f"the converged synthesized_at, list specific approved_candidates, or set "
+                        f"auto_approve_new: true."
+                    ),
+                    "design_target": state["decision_brief"]["design_target"],
+                    "review_focus": state["decision_brief"]["review_focus"],
+                    "concerns": state["decision_brief"]["concerns"],
                     "gitnexus_map": state["gitnexus_map"],
                 }
             )
