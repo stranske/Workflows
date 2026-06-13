@@ -179,6 +179,12 @@ archives/metrics/
 # PR automation generated files (MEDIUM conflict risk)
 pr_body.md
 
+# Local opener/closer lane state (MEDIUM conflict risk)
+# Per-repo lane scratch (repo/issue/branch/PR/blocker/next-action) written by
+# the local opener/closer lanes; a lane artifact, not a repo deliverable.
+# See stranske/Workflows docs/ops/LOCAL_LANES.md.
+workloop-state.md
+
 # Test/coverage artifacts
 coverage.xml
 

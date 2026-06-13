@@ -14,8 +14,9 @@ CODE_ROOT="${CODE_ROOT:-$(cd "${WORKFLOWS_ROOT}/.." && pwd)}"
 GITNEXUS_BIN="${GITNEXUS_BIN:-gitnexus}"
 GITNEXUS_GLOBAL_IGNORE="${GITNEXUS_GLOBAL_IGNORE:-${HOME}/.gitignore_global}"
 
-# Canonical repos only. Workflows-steward is a temporary automation worktree
-# and must not be registered in GitNexus.
+# Canonical repos only. Workflows-steward is a load-bearing linked worktree of
+# the canonical clone (detached HEAD at origin/main; see docs/ops/LOCAL_LANES.md)
+# and must not be registered in GitNexus for indexing.
 FLEET_REPOS=(
   "Workflows"
   "Template"
@@ -67,7 +68,8 @@ Environment:
                        Global excludes file. Default: ${GITNEXUS_GLOBAL_IGNORE}.
 
 Notes:
-  - This script intentionally ignores Workflows-steward.
+  - This script intentionally ignores Workflows-steward for indexing (it is a
+    load-bearing linked worktree, not throwaway; see docs/ops/LOCAL_LANES.md).
   - Initial indexing leaves embeddings off and skips AGENTS/CLAUDE rewrites.
   - Use --embeddings manually only after baseline indexing proves useful.
 USAGE

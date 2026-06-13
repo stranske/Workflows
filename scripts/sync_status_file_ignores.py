@@ -61,6 +61,8 @@ FALLBACK_PATTERNS: list[str] = [
     ".autofix-venv/",
     # PR automation generated files (MEDIUM conflict risk)
     "pr_body.md",
+    # Local opener/closer lane state (MEDIUM conflict risk)
+    "workloop-state.md",
     # Test/coverage artifacts
     "coverage.xml",
     # Wrong package manager artifacts (defense-in-depth)

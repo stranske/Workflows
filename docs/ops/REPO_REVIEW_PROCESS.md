@@ -127,6 +127,7 @@ Local changes are split by how they affect the review:
 - `Issues.txt` is a helper/queue file. Changes there are review inputs, not blockers.
 - Generated output such as `docs/reports/` is ephemeral and does not block review.
 - Other non-generated local changes are surfaced as review-blocking until they are understood, because they may change the implementation being evaluated.
+- `workloop-state.md` is local opener/closer lane scratch, not a review input or deliverable; it should not be tracked. See [`LOCAL_LANES.md`](LOCAL_LANES.md) for the lane state/retention/steward contract that the opener (which consumes this review's approved queue) operates under.
 
 Local `.gitnexus/` maps are review inputs, not blockers. The evaluator reads only `.gitnexus/meta.json` to report map freshness, indexed commit, and index size. It does not parse the binary local map. For deeper semantic review, especially repos marked `deeper-review`, use the GitNexus MCP query/context tools against the repo design target, review focus, and implementation paths surfaced in the packet. If a natural-language GitNexus query returns no processes, fall back to Cypher community/process listings before concluding the map has no useful signal.
 

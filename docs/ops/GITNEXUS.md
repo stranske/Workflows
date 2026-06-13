@@ -20,8 +20,14 @@ The canonical GitNexus fleet is:
 - `Portable-Alpha-Extension-Model`
 - `Collab-Admin`
 
-`Workflows-steward` is temporary automation state and must be ignored by
-GitNexus. Do not add short-lived issue, PR, or review clones to the registry.
+`Workflows-steward` must be ignored by GitNexus for indexing, but it is **not**
+throwaway scratch: it is a linked git worktree of the canonical `Workflows`
+clone that holds the repo-review/steward outputs and is structurally
+load-bearing for the opener lane. To keep it from holding the canonical clone's
+`main` hostage, its canonical arrangement is a **detached `HEAD` at
+`origin/main`** (a detached HEAD takes no branch lock). See
+[`LOCAL_LANES.md`](LOCAL_LANES.md) for the full steward/lane-state contract. Do
+not add short-lived issue, PR, or review clones to the registry.
 
 ## Local Cache Policy
 
