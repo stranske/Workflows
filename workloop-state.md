@@ -1,5 +1,14 @@
 # Workloop State
 
+## 2026-06-13T11:11Z - closer (codex) review-fix pushed for #2294
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2294](https://github.com/stranske/Workflows/pull/2294), source issue `#2271`, branch `claude/issue-2271-verifier-ci-gate`.
+- **Blocker:** two unresolved review threads on an otherwise clean/mergeable PR: a P2 thread correctly noted that PASS evaluation/comparison comments could be posted before the CI-failure verdict floor, and a Copilot thread noted the new verifier-context test only cleaned up `verifier-context.md` while the helper also writes diff artifacts.
+- **Action:** rebased the PR branch onto `origin/main`, added pre-post hard-gate rewrites for evaluate/compare comment files so CI-failed PASS reports are posted as CONCERNS before `gh pr comment`, added a workflow regression test for the step ordering, and made the verifier-context test restore pre-existing `verifier-context.md`, `verifier-diff-summary.md`, and `verifier-pr-diff.patch` content while removing only newly-created artifacts.
+- **Validation:** `node --test .github/scripts/__tests__/agents-verifier-context.test.js` passed (`30 passed`); `python -m pytest tests/workflows/test_verifier_terminal_disposition.py -q` passed (`3 passed`); `python scripts/validate_template_completeness.py` passed; `scripts/sync_templates.sh` reported all files already in sync; `git diff --check` clean.
+- **Post-push state:** pushed code head `beb4818f`, posted evidence comment on #2294, resolved review threads `PRRT_kwDOQprj9M6JUfsP` and `PRRT_kwDOQprj9M6JUft7`, then pushed this state entry as final head `26267f30`. Final live snapshot after the state commit: review threads 0 unresolved; PR open/non-draft, `MERGEABLE`, `mergeStateStatus=UNSTABLE`; fresh checks are queued/in progress on `26267f30`. Non-key async wait override does not apply.
+- **Next action:** re-check #2294 after fresh checks settle on the latest head; if checks are green and review threads remain resolved, merge #2294, apply the intended `verify:compare` label, and sequence source issue `#2271` until durable verifier disposition.
+
 ## 2026-06-13T10:24Z - closer (codex) review-fix pushed for #2293
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2293](https://github.com/stranske/Workflows/pull/2293), source issue `#2269`, branch `codex/issue-2269-keepalive-dry-run`.
