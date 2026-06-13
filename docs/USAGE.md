@@ -51,12 +51,22 @@ steps:
 
 ### reusable-10-ci-python.yml
 
+These names are guarded against the workflow's real `on.workflow_call.inputs`
+by `tests/workflows/test_reusable_workflow_inputs_doc.py`; every input below
+must exist in `.github/workflows/reusable-10-ci-python.yml`.
+
+<!-- REUSABLE-10-INPUTS-START -->
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `python-version` | No | `"3.12"` | Python version to use |
-| `run-tests` | No | `true` | Run pytest |
-| `run-lint` | No | `true` | Run ruff linting |
-| `run-typecheck` | No | `true` | Run mypy type checking |
+| `python-version` | No | `"3.12"` | Primary Python version when `python-versions` is not provided |
+| `python-versions` | No | `"[]"` | JSON array of Python versions to execute (takes precedence when non-empty) |
+| `working-directory` | No | `"."` | Relative working directory (`.` for repo root) |
+| `lint` | No | `true` | Toggle Ruff lint execution |
+| `format_check` | No | `true` | Toggle Black format check execution |
+| `typecheck` | No | `true` | Toggle mypy execution |
+| `coverage` | No | `true` | Toggle coverage instrumentation, packaging, and enforcement |
+| `coverage-min` | No | `"70"` | Minimum coverage percentage required to pass |
+<!-- REUSABLE-10-INPUTS-END -->
 
 ### reusable-18-autofix.yml
 
@@ -68,15 +78,19 @@ steps:
 
 ## Secrets
 
-Some workflows require secrets to be passed:
+Some workflows require secrets to be passed. The secret names below are guarded
+against `reusable-10-ci-python.yml`'s `on.workflow_call.secrets` block by
+`tests/workflows/test_reusable_workflow_inputs_doc.py`:
 
+<!-- REUSABLE-10-SECRETS-START -->
 ```yaml
 jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      pypi-token: ${{ secrets.PYPI_TOKEN }}  # Optional, for installing private dependencies
 ```
+<!-- REUSABLE-10-SECRETS-END -->
 
 ## Versioning
 

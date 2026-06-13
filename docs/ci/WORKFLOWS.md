@@ -51,6 +51,7 @@ enforcement step evaluates their results.
 | Job ID | Display name | Purpose | Artifacts / outputs | Notes |
 | --- | --- | --- | --- | --- |
 | `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` once with a 3.12 + 3.13 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage payloads share the `gate-coverage` artifact under `coverage/runtimes/<python>` for downstream consumers. |
+| `docs-guard` | docs guard | Runs the cheap reusable-workflow documentation guards even when the PR is docs-only. | None (logs only). | Skips cleanly in consumer repos that do not carry the Workflows docs guard tests, but fails the `Gate / gate` status when Workflows docs drift from reusable workflow inputs/outputs. |
 | `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
 | `summary` | summary | Aggregates lint/type/test/coverage results, computes deltas, uploads `gate-summary.md`, and maintains the consolidated PR comment. | Job summary, `gate-summary.md`, `gate-coverage.json`, `gate-coverage-delta.json`, `gate-coverage-summary.md`. | Posts the required `Gate / gate` status and enforces failure when upstream legs are unhealthy. |
 

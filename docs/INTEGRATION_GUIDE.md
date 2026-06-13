@@ -136,7 +136,7 @@ jobs:
 
 | Workflow | Purpose | Inputs |
 |----------|---------|--------|
-| `reusable-10-ci-python.yml` | Full Python CI pipeline | `python-version`, `coverage-threshold` |
+| `reusable-10-ci-python.yml` | Full Python CI pipeline | `python-version`, `coverage-min` |
 | `reusable-99-selftest.yml` | Run self-tests on workflow files | - |
 
 ## Workflow Outputs
@@ -349,11 +349,11 @@ jobs:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-version: '3.12'
-      run-tests: true
-      check-types: true
-      coverage-threshold: 80
+      lint: true
+      typecheck: true
+      coverage-min: '70'
     secrets:
-      pypi: ${{ secrets.PYPI_TOKEN }}  # Optional, for publishing
+      pypi-token: ${{ secrets.PYPI_TOKEN }}  # Optional, for publishing
 ```
 
 ---

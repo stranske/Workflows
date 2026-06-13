@@ -197,6 +197,38 @@ jobs:
       # coverage artifacts without special-casing runtime names.
       artifact-prefix: 'gate-'
 
+  docs-guard:
+    name: docs guard
+    needs:
+      - detect
+      - environment-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.12'
+      - name: Run reusable workflow docs guards
+        run: |
+          set -euo pipefail
+          tests=()
+          for path in \
+            tests/workflows/test_reusable_workflow_inputs_doc.py \
+            tests/workflows/test_reusable_workflow_outputs_doc.py; do
+            if [ -f "$path" ]; then
+              tests+=("$path")
+            fi
+          done
+          if [ "${#tests[@]}" -eq 0 ]; then
+            echo "No reusable workflow docs guard tests found; skipping."
+            exit 0
+          fi
+          python -m pip install --upgrade pip pytest pyyaml
+          python -m pytest "${tests[@]}" -q
+
   github-scripts-tests:
     name: github scripts tests
     needs:
@@ -337,6 +369,7 @@ jobs:
       - detect
       - environment-gate
       - python-ci
+      - docs-guard
       - docker-smoke
       - github-scripts-tests
       - issue-consistency
@@ -543,6 +576,7 @@ jobs:
           RUN_CORE: ${{ needs.detect.outputs.run_core || 'true' }}
           REASON: ${{ needs.detect.outputs.reason }}
           PYTHON_RESULT: ${{ needs.python-ci.result || 'skipped' }}
+          DOCS_GUARD_RESULT: ${{ needs.docs-guard.result || 'success' }}
           PYTHON_REQUIRED: ${{ needs.detect.outputs.is_python_code || 'true' }}
           DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
           DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}

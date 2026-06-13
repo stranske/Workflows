@@ -39,7 +39,7 @@ Tests under `tests/test_workflow_naming.py` enforce the naming policy and invent
 The active roster below mirrors the **Keep** list in the [Workflow System Overview](ci/WORKFLOW_SYSTEM.md). Each entry links back to the filenames under `.github/workflows/` and should be reflected in `docs/ci/WORKFLOWS.md` and the unit tests whenever the inventory changes.
 
 ### PR Checks
-- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.12/3.13) and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only, and the ancillary ledger-validation leg now respects that fast-path so readme-only PRs don’t boot Python just to learn there are no `.agents/**` ledgers to scan.
+- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.12/3.13), reusable-workflow docs guard, and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only, while the cheap docs guard still checks Workflows reusable input/output documentation.
 - **`pr-11-ci-smoke.yml`** — Minimal invariant CI that runs on push/PR to phase-2-dev and main. Installs the project, validates imports, and runs `pytest tests/test_invariants.py` for fast regression detection; the checkout now relies on the default workflow token since the job never leaves the repository.
 
 _Inline Gate helper_
