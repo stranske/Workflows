@@ -28,9 +28,7 @@ try {
   ]);
 }
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
-// Accept both new alias and legacy filename
 const WORKER_WORKFLOW_FILES = [
-  'agents-belt-worker.yml',
   'agents-72-codex-belt-worker.yml',
 ];
 const RECENT_COMPLETED_LOOKBACK_SECONDS = 300; // 5 minutes
