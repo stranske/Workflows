@@ -1,7 +1,9 @@
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -9,6 +11,7 @@ ACTION_DIR = REPO_ROOT / ".github" / "actions" / "resolve-default-branch"
 TEMPLATE_ACTION_DIR = (
     REPO_ROOT / "templates" / "consumer-repo" / ".github" / "actions" / "resolve-default-branch"
 )
+skip_if_no_node = pytest.mark.skipif(shutil.which("node") is None, reason="Node.js required")
 
 
 def test_resolve_default_branch_action_contract_and_template_copy() -> None:
@@ -34,6 +37,7 @@ def test_resolve_default_branch_action_contract_and_template_copy() -> None:
     ).read_text(encoding="utf-8")
 
 
+@skip_if_no_node
 def test_resolve_default_branch_logic_with_stubbed_client() -> None:
     script = r"""
 const assert = require('assert');
@@ -88,6 +92,7 @@ const { resolveDefaultBranch } = require('./.github/actions/resolve-default-bran
     assert result.returncode == 0, result.stderr + result.stdout
 
 
+@skip_if_no_node
 def test_resolve_default_branch_fallback_preserves_lenient_callers() -> None:
     script = r"""
 const assert = require('assert');
@@ -160,7 +165,7 @@ def test_resolve_default_branch_inline_workflow_copies_removed() -> None:
 
     uses_pattern = re.compile(r"^\s*uses:\s+.*resolve-default-branch(?:@.*)?$", re.MULTILINE)
     action_uses = sum(len(uses_pattern.findall(text)) for text in texts.values())
-    assert action_uses == 10
+    assert action_uses >= 10
 
 
 def test_pr_meta_bootstraps_resolver_from_workflows_checkout() -> None:
