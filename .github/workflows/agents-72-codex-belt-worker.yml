@@ -1099,9 +1099,15 @@ jobs:
               core.warning(`Unable to read issue #${issue}: ${error.message}`);
             }
 
+            // #2270 (FO-1): lead with the auto-pilot adoption markers so that
+            // auto-pilot's linked-PR detection (meta:issue / Closes #N) resolves
+            // this belt-opened PR instead of seeing linkedPR=null and self-terminating
+            // at create-pr. These are the exact markers auto-pilot writes/detects
+            // (agents-auto-pilot.yml meta regex + `Closes #N`). They also let
+            // GitHub auto-close the source issue on a guarded merge.
             const header = `### Source Issue #${issue}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map((line) => `> ${line}`).join('\n');
-            const body = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically by the belt worker.`;
+            const body = `<!-- meta:issue:${issue} -->\n\nCloses #${issue}\n\n${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically by the belt worker.`;
 
             // Attempt to reuse an existing PR first
             let prNumber = null;

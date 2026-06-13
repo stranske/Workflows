@@ -1978,6 +1978,122 @@ test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures
   assert.ok(needsHumanLabel);
 });
 
+test('updateKeepaliveLoopSummary applies automerge label on tasks-complete (#2270)', async () => {
+  // After native auto-merge was removed from the belt worker, the loop's
+  // tasks-complete terminal is the reliable producer of the `automerge` label
+  // that routes a completed PR to the guarded merger.
+  const existingState = formatStateComment({
+    trace: 'trace-automerge',
+    iteration: 3,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 47, body: existingState, html_url: 'https://example.com/47' }],
+    labels: ['agent:codex', 'agents:keepalive'],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(459),
+    core: buildCore(),
+    inputs: {
+      prNumber: 459,
+      action: 'stop',
+      reason: 'tasks-complete',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 0,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 3,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-automerge',
+    },
+  });
+
+  const automergeLabel = github.actions.find((action) =>
+    action.type === 'label' && action.labels.includes('automerge')
+  );
+  assert.ok(automergeLabel, 'expected automerge label to be applied on tasks-complete');
+});
+
+test('updateKeepaliveLoopSummary does not re-add automerge when already present (#2270 idempotent)', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-automerge-idem',
+    iteration: 3,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 48, body: existingState, html_url: 'https://example.com/48' }],
+    // automerge already present (any case) — must be treated as idempotent.
+    labels: ['agent:codex', 'AutoMerge', 'agents:keepalive'],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(460),
+    core: buildCore(),
+    inputs: {
+      prNumber: 460,
+      action: 'stop',
+      reason: 'tasks-complete',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 0,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 3,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-automerge-idem',
+    },
+  });
+
+  const automergeAdds = github.actions.filter((action) =>
+    action.type === 'label' && action.labels.includes('automerge')
+  );
+  assert.equal(automergeAdds.length, 0, 'automerge label must not be re-added when already present');
+});
+
+test('updateKeepaliveLoopSummary does not apply automerge on a non-success stop (#2270)', async () => {
+  // Only the tasks-complete terminal should route to the guarded merger.
+  const existingState = formatStateComment({
+    trace: 'trace-no-automerge',
+    iteration: 5,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 49, body: existingState, html_url: 'https://example.com/49' }],
+    labels: ['agent:codex', 'agents:keepalive'],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(461),
+    core: buildCore(),
+    inputs: {
+      prNumber: 461,
+      action: 'stop',
+      reason: 'max-iterations-unproductive',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 5,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-no-automerge',
+    },
+  });
+
+  const automergeAdds = github.actions.filter((action) =>
+    action.type === 'label' && action.labels.includes('automerge')
+  );
+  assert.equal(automergeAdds.length, 0, 'automerge must only be applied on tasks-complete');
+});
+
 test('updateKeepaliveLoopSummary does not treat skipped runs as agent failures', async () => {
   const existingState = formatStateComment({
     trace: 'trace-run-skipped',
@@ -2209,13 +2325,23 @@ test('updateKeepaliveLoopSummary does NOT add needs-human on tasks-complete', as
     },
   });
 
-  // Should only update comment, NOT add needs-human label
-  assert.equal(github.actions.length, 2);
+  // Should update comment and add the automerge label (tasks-complete), but
+  // must NOT add needs-human (tasks-complete is a success terminal, #2270).
   assert.equal(github.actions[0].type, 'update');
   // Should show completed status
   assert.match(github.actions[0].body, /tasks-complete/);
   // Failure state should be clear
   assert.match(github.actions[0].body, /"failure":\{\}/);
+  // No needs-human on a success terminal.
+  assert.equal(
+    github.actions.some((action) => action.type === 'label' && action.labels.includes('needs-human')),
+    false,
+  );
+  // The automerge label IS applied so the completed PR reaches the guarded merger.
+  assert.equal(
+    github.actions.some((action) => action.type === 'label' && action.labels.includes('automerge')),
+    true,
+  );
 });
 
 test('updateKeepaliveLoopSummary clears stale human-blocker labels on tasks-complete', async () => {
