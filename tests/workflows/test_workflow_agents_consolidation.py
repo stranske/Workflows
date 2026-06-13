@@ -34,6 +34,15 @@ def _workflow_on_section(data: dict) -> dict:
     return data.get("on") or data.get(True) or {}
 
 
+def _workflow_step_by_id(path: Path, step_id: str) -> dict:
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    for job in (data.get("jobs") or {}).values():
+        for step in job.get("steps") or []:
+            if step.get("id") == step_id:
+                return step
+    raise AssertionError(f"{path} must define step id {step_id!r}")
+
+
 def test_agents_orchestrator_inputs_and_uses():
     # The orchestrator is now split: dispatcher calls init and main reusable workflows
     dispatcher = WORKFLOWS_DIR / "agents-70-orchestrator.yml"
@@ -148,6 +157,25 @@ def test_auto_pilot_dispatches_pr_event_hub_pr_meta_only():
         assert "inputsByWorkflow" in text
         assert "'agents-80-pr-event-hub.yml': {" in text
         assert "handler: 'pr-meta'" in text
+
+
+def test_auto_pilot_verify_step_parses_in_source_and_template():
+    workflow_paths = [
+        WORKFLOWS_DIR / "agents-auto-pilot.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-auto-pilot.yml"),
+    ]
+
+    for workflow_path in workflow_paths:
+        step = _workflow_step_by_id(workflow_path, "verify_step")
+        script = (step.get("with") or {}).get("script") or ""
+
+        assert "capabilities: ['issues:write', 'pulls:read']\n}));" not in script
+        assert (
+            "capabilities: ['issues:write', 'pulls:read']\n});\n"
+            "const issueNumber = Number(process.env.ISSUE_NUMBER);"
+        ) in script
+        assert "agentKey" not in script
+        assert "Dispatched belt dispatcher" not in script
 
 
 def test_orchestrator_bootstrap_label_delegates_fallback():

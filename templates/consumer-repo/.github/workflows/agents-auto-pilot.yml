@@ -2190,9 +2190,8 @@ jobs:
               env: process.env,
               task: 'auto-pilot-verify',
               capabilities: ['issues:write', 'pulls:read']
-              }));
-              const prefix = `Dispatched belt dispatcher (agent: ${agentKey}) for issue`;
-              core.info(`${prefix} #${issueNumber}`);
+            });
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
 
             // Find the merged PR for this issue
             // Look for PRs with the meta marker or explicit closing reference
