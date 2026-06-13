@@ -21,8 +21,11 @@ would defeat the purpose. Each test runs in well under 5s.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import time
 from pathlib import Path
+from unittest.mock import MagicMock, call, patch
 
 from scripts import repo_review_heartbeat as heartbeat
 
@@ -253,3 +256,52 @@ def test_sentinel_directory_is_created_on_demand(tmp_path: Path) -> None:
     assert result.succeeded is True
     assert nested_log.exists()
     assert result.sentinel_path.exists()
+
+
+def test_spawn_uses_new_session_and_killpg(tmp_path: Path) -> None:
+    """Popen must be called with start_new_session=True, and the terminate path
+    must use os.killpg (not proc.send_signal / proc.kill) on stall/timeout."""
+    log = tmp_path / "killpg_test.log"
+    fake_pgid = 99999
+
+    # Build a mock proc that looks alive for one heartbeat tick then triggers
+    # the stall/timeout path by never advancing mtime.
+    mock_proc = MagicMock()
+    mock_proc.pid = 12345
+    # poll() returning None means the process is still running (drives the loop)
+    # then returning 0 after terminate to unblock proc.wait().
+    mock_proc.poll.return_value = None
+    mock_proc.wait.return_value = 0
+
+    with (
+        patch("subprocess.Popen", return_value=mock_proc) as mock_popen,
+        patch("os.killpg") as mock_killpg,
+        patch("os.getpgid", return_value=fake_pgid),
+    ):
+        # Use timeout=1 and stall_threshold=1 so the loop terminates quickly.
+        # log_file is never written, so mtime stays None and stall_for grows.
+        heartbeat.run_with_heartbeat(
+            ["fake-agent", "--arg"],
+            prompt=None,
+            cwd=tmp_path,
+            env=None,
+            log_file=log,
+            timeout=1,
+            heartbeat_interval=1,
+            stall_threshold=1,
+            label="killpg-test",
+        )
+
+    # Assert Popen was called with start_new_session=True
+    assert mock_popen.call_count == 1
+    _, popen_kwargs = mock_popen.call_args
+    assert popen_kwargs.get("start_new_session") is True, (
+        "Popen must be called with start_new_session=True"
+    )
+
+    # Assert os.killpg was called at least once with the process group id
+    assert mock_killpg.call_count >= 1, "os.killpg must be called on the terminate path"
+    first_killpg_call = mock_killpg.call_args_list[0]
+    assert first_killpg_call.args[0] == fake_pgid, (
+        f"os.killpg first arg must be the pgid ({fake_pgid}), got {first_killpg_call.args[0]}"
+    )

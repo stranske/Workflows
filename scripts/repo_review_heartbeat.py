@@ -134,6 +134,7 @@ def run_with_heartbeat(
             stdout=log_handle,
             stderr=subprocess.STDOUT,
             text=True,
+            start_new_session=True,
         )
     except OSError as exc:
         log_handle.close()
@@ -245,11 +246,11 @@ def run_with_heartbeat(
 
         # Reached only on stuck or timed_out. Terminate.
         try:
-            proc.send_signal(signal.SIGTERM)
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
             try:
                 proc.wait(timeout=15)
             except subprocess.TimeoutExpired:
-                proc.kill()
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                 proc.wait(timeout=5)
         except ProcessLookupError:
             pass
