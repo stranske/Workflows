@@ -1,6 +1,13 @@
 # Workloop State
 
-<<<<<<< HEAD
+## 2026-06-13T14:12Z - closer (codex) repaired #2298 state merge after #2301 merge
+
+- **Selected complex lane:** `stranske/Workflows` PR [#2298](https://github.com/stranske/Workflows/pull/2298), source issue `#2275`, branch `codex/issue-2275-dead-code-sync-sweep`.
+- **Blocker:** after batch-merging #2301, #2298 was refreshed by keepalive to head `66002479`, but that merge left unresolved conflict markers in `workloop-state.md`. GitHub also still showed #2298 as `UNSTABLE` with `Health 44 Gate Branch Protection / enforce` in progress and `Gate / summary` queued.
+- **Action:** fast-forwarded the automation worktree to `origin/codex/issue-2275-dead-code-sync-sweep`, resolved the state-file conflict additively by preserving both the prior #2298 closer entry and the #2301 state entry from `main`, and added this status entry. No source workflow/script behavior was changed.
+- **Validation:** `python3 scripts/validate_template_completeness.py` passed; `python3 scripts/validate_template_sync.py` passed; `rg -n '^(<<<<<<<|=======|>>>>>>>)' workloop-state.md` returned empty after the repair; `git diff --check` passed before push.
+- **Next action:** wait for fresh checks on the repaired head. If checks settle green and review threads remain resolved, merge #2298, apply `verify:compare`, and keep issue #2275 open until durable verifier/provider disposition.
+
 ## 2026-06-13T13:27Z - closer (codex) rebased #2298 after #2295 merge
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2298](https://github.com/stranske/Workflows/pull/2298), source issue `#2275`, branch `codex/issue-2275-dead-code-sync-sweep`.
@@ -25,7 +32,7 @@
 - **Zero-caller checks:** `grep -rnE 'agents-belt-(dispatcher|worker|conveyor)' .github/workflows templates/consumer-repo/.github/workflows`, `grep -rln rate-limit-aware-client .github scripts templates`, and `grep -rnE 'mergeConnectorPullRequest|locateConnectorPullRequest|scoreConnectorPr|containsTrace' .github/scripts scripts --include='*.js'` all returned empty.
 - **Deliberate-break gate:** temporarily restored one deleted alias call (`uses: ./.github/workflows/agents-belt-dispatcher.yml`) and `actionlint` failed with `could not read reusable workflow file ... no such file or directory`; reverted the break and reran `actionlint` clean.
 - **Next action:** keepalive/Gate owns CI and review iteration on #2298.
-=======
+
 ## 2026-06-13T13:33Z - closer (codex) fixed #2301 retention-doc review thread
 
 - **Selected complex lane:** `stranske/Workflows` PR [#2301](https://github.com/stranske/Workflows/pull/2301), source issue `#2276`, branch `claude/issue-2276-rm-orphan-metrics`.
@@ -33,7 +40,6 @@
 - **Action:** updated `docs/agent-automation.md` and `docs/ci/WORKFLOW_SYSTEM.md` to describe the workflow as manual plus pull-request dry-run validation, and added a regression assertion to `tests/workflows/test_maint_metrics_retention.py` so those docs do not reintroduce the removed nightly claim.
 - **Validation:** run focused retention workflow/docs tests before push; if clean, resolve the review thread and wait for fresh checks.
 - **Next action:** if fresh checks settle green and review threads remain resolved, merge #2301, apply `verify:compare`, and keep issue #2276 open until durable verifier/provider disposition.
->>>>>>> origin/main
 
 ## 2026-06-13T13:28Z - closer (codex) resolved #2296 docs-only guard review thread
 
