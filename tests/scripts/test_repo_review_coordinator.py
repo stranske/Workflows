@@ -109,6 +109,7 @@ def test_coordinate_repo_writes_skip_converged_and_round2_state(
         log_dir=output_dir / "logs" / "coordinator",
         round1_timeout=30,
         round2_timeout=30,
+        max_turns=3,
         skip_gate_enabled=True,
     )
 
@@ -156,6 +157,7 @@ def test_coordinate_repo_allows_mocked_round1_to_round2_state_progression(
         log_dir=output_dir / "logs" / "coordinator",
         round1_timeout=30,
         round2_timeout=30,
+        max_turns=3,
         skip_gate_enabled=False,
     )
 
@@ -214,6 +216,7 @@ def test_run_orders_docs_drift_between_backlog_and_notify(tmp_path: Path, monkey
         skip_gitnexus_preflight=False,
         round1_timeout=30,
         round2_timeout=30,
+        max_turns=3,
         disable_skip_gate=True,
         skip_auto_archive=True,
     )
@@ -280,6 +283,7 @@ def test_run_keeps_docs_drift_failure_non_fatal(tmp_path: Path, monkeypatch) -> 
         skip_gitnexus_preflight=False,
         round1_timeout=30,
         round2_timeout=30,
+        max_turns=3,
         disable_skip_gate=True,
         skip_auto_archive=True,
     )
@@ -287,3 +291,13 @@ def test_run_keeps_docs_drift_failure_non_fatal(tmp_path: Path, monkeypatch) -> 
 
     assert rc == 0
     assert calls[-1] == "notify"
+
+
+def test_round2_subprocess_timeout_covers_multiturn_budget() -> None:
+    """The subprocess wrapper timeout must cover the full multi-turn budget.
+
+    Defaults: round2_timeout=2700, max_turns=3, n_agents=2.
+    Worst-case runtime = 3 * 2 * 2700 = 16200s.
+    """
+    result = coordinator.round2_subprocess_timeout(2700, 3, 2)
+    assert result >= 3 * 2 * 2700

@@ -333,6 +333,22 @@ def run_subprocess(
 # ---------------------------------------------------------------------------
 
 
+def round2_subprocess_timeout(
+    round2_timeout: int,
+    max_turns: int,
+    n_agents: int,
+    buffer: int = 1500,
+) -> int:
+    """Return the subprocess wrapper timeout for the full multi-turn round-2 budget.
+
+    ``round2_timeout`` is the per-agent-turn budget (passed as ``--turn-timeout``
+    to the runner).  The runner's legitimate worst-case runtime is
+    ``max_turns * n_agents * round2_timeout`` plus a fixed buffer for synthesis
+    and overhead.
+    """
+    return max_turns * n_agents * round2_timeout + buffer
+
+
 def coordinate_repo(
     *,
     repo: str,
@@ -343,6 +359,7 @@ def coordinate_repo(
     log_dir: Path,
     round1_timeout: int,
     round2_timeout: int,
+    max_turns: int,
     skip_gate_enabled: bool,
 ) -> dict[str, Any]:
     """Run the full Phase-4 flow for one repo. Returns a small report dict."""
@@ -430,7 +447,7 @@ def coordinate_repo(
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "round2-runner.log",
         name="round-2",
-        timeout=round2_timeout + 1500,
+        timeout=round2_subprocess_timeout(round2_timeout, max_turns, len(agents)),
     )
     report["round2"] = {
         "succeeded": r2_result.succeeded,
@@ -572,6 +589,7 @@ def run(args: argparse.Namespace) -> int:
             log_dir=log_dir,
             round1_timeout=args.round1_timeout,
             round2_timeout=args.round2_timeout,
+            max_turns=args.max_turns,
             skip_gate_enabled=not args.disable_skip_gate,
         )
         reports.append(report)
@@ -802,6 +820,12 @@ def main() -> int:
         type=int,
         default=45 * 60,
         help="hard timeout per round-2 agent-turn in seconds (default: 2700)",
+    )
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=3,
+        help="maximum negotiation turns per round-2 run (default: 3)",
     )
     parser.add_argument(
         "--disable-skip-gate",
