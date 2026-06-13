@@ -140,7 +140,8 @@ async function detectInstructionComment({ github, context, comment, prNumber, en
     reason === 'duplicate-keepalive' ||
     reason === 'keepalive-detected' ||
     reason === 'no-automation-source-context' ||
-    reason === 'fork-pr';
+    reason === 'fork-pr' ||
+    reason === 'lock-held';
   if (!isValid) {
     return null;
   }
@@ -309,6 +310,9 @@ async function evaluateKeepaliveWorkerGate({ core, github, context, env = proces
   } else if (latestInstruction?.reason === 'fork-pr') {
     action = 'skip';
     reason = 'fork-pr';
+  } else if (latestInstruction?.reason === 'lock-held') {
+    action = 'skip';
+    reason = 'lock-held';
   } else if (!latestInstruction) {
     reason = 'missing-instruction';
   } else if (lastProcessed.commentId === 0n || !lastProcessed.headSha || !headSha) {

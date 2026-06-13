@@ -217,3 +217,30 @@ test('keepalive worker gate executes when keepalive disabled', async () => {
   assert.equal(result.prNumber, '');
   assert.equal(result.headSha, '');
 });
+
+test('keepalive worker gate skips a lock-held (already-processed) instruction', async () => {
+  const instructionId = 300;
+  const headSha = 'bcd234';
+  const instructionComment = buildInstructionComment({ id: instructionId, trace: 'trace-lock-held', createdAt: '2024-01-01T02:00:00Z' });
+  // Build a github stub whose paginate returns both the instruction reaction ('hooray')
+  // and the lock reaction ('rocket') for the instruction comment, causing detectKeepalive
+  // to return reason:'lock-held' with deduped:'true'.
+  const lockReactions = [{ content: 'hooray' }, { content: 'rocket' }];
+  const baseStub = makeGithubStub({ prNumber: 123, headSha, comments: [instructionComment] });
+  const github = {
+    ...baseStub,
+    async paginate(method, params) {
+      if (method === this.rest.issues.listComments) {
+        return [instructionComment];
+      }
+      if (method === this.rest.reactions.listForIssueComment) {
+        return lockReactions;
+      }
+      return [];
+    },
+  };
+  const result = await evaluateKeepaliveWorkerGate({ core: makeCore(), github, context: baseContext, env: baseEnv });
+  assert.equal(result.action, 'skip');
+  assert.equal(result.reason, 'lock-held');
+  assert.equal(result.instructionId, String(instructionId));
+});
