@@ -68,16 +68,3 @@ Checks:
 - Confirm the dashboard generator is reading the newest combined NDJSON file.
 - Check that the aggregation output directory matches the dashboard config if a
   custom `--output-dir` is used.
-
-### Badge failures
-
-Symptoms: README badges show `invalid`, `unknown`, or stale data.
-
-Checks:
-- Rebuild badge payloads with `scripts/generate_metrics_badges.py` using the
-  latest summary JSON.
-- Ensure the badge endpoint JSON files are published at the configured URL.
-- Re-run `scripts/update_readme_badges.py` so README badge links point at the
-  correct endpoint base.
-- Validate the badge JSON files contain numeric fields that match the expected
-  schema for the badge service.
