@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths:
       - 'templates/integration-repo/**'
+      - 'templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml'
+      - 'templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml'
       - '.github/workflows/autofix-versions.env'
   workflow_dispatch:
     inputs:
@@ -41,6 +43,8 @@ jobs:
           path: workflows
           sparse-checkout: |
             templates/integration-repo
+            templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml
+            templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml
             .github/workflows/autofix-versions.env
             .github/scripts/sync_tracker_state
           sparse-checkout-cone-mode: false
@@ -116,6 +120,18 @@ jobs:
             echo "✅ Updated notify-workflows.yml"
           fi
 
+          # Sync consumer-template PR/keepalive hubs required for WIT PR automation.
+          for workflow in agents-80-pr-event-hub.yml agents-81-gate-followups.yml; do
+            src="../workflows/templates/consumer-repo/.github/workflows/${workflow}"
+            if [ -f "${src}" ]; then
+              cp "${src}" ".github/workflows/${workflow}"
+              echo "✅ Updated ${workflow}"
+            else
+              echo "::error::Missing consumer-template workflow: ${src}"
+              exit 1
+            fi
+          done
+
           # Sync scripts directory (if exists in templates)
           if [ -d "../workflows/templates/integration-repo/scripts" ]; then
             mkdir -p scripts
@@ -181,6 +197,8 @@ jobs:
             -m "- ci.yml (with workflow reference)" \
             -m "- autofix-versions.env (version pins)" \
             -m "- notify-workflows.yml (bidirectional sync trigger)" \
+            -m "- agents-80-pr-event-hub.yml (consumer PR event hub)" \
+            -m "- agents-81-gate-followups.yml (consumer Gate followups hub)" \
             -m "- scripts/ (synced from templates)" \
             -m "- requirements.lock (regenerated with updated tool versions)" \
             -m "" \

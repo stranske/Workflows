@@ -163,6 +163,8 @@ removals:
     description: "Remove deprecated orchestrator workflow from template consumers (replaced by agents-80-pr-event-hub.yml and agents-81-gate-followups.yml)"
   - target: .github/workflows/agents-orchestrator.yml
     description: "Remove deprecated legacy orchestrator workflow from template consumers (replaced by agents-80-pr-event-hub.yml and agents-81-gate-followups.yml)"
+  - target: .github/workflows/maint-sync-workflows.yml
+    description: "Remove stale consumer-local workflow syncer that can re-fetch retired agents-63/70 workflows after central manifest removals"
   - target: .github/workflows/agents-belt-dispatcher.yml
     description: "Remove retired belt dispatcher alias wrapper from template consumers (callers rewired to agents-71-codex-belt-dispatcher.yml)"
   - target: .github/workflows/agents-belt-worker.yml
