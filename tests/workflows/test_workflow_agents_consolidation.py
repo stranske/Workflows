@@ -897,6 +897,20 @@ def test_orchestrator_jobs_checkout_scripts_before_local_requires():
         ), f"Job {job_name} must warn against removing the checkout guard"
 
 
+def test_agents_verifier_checkout_includes_retry_helper_dependencies():
+    data = _load_workflow_yaml("agents-verifier.yml")
+    steps = data["jobs"]["check"]["steps"]
+    checkout = next(step for step in steps if step.get("name") == "Checkout retry helpers")
+    sparse_checkout = checkout["with"]["sparse-checkout"]
+    paths = {line.strip() for line in sparse_checkout.splitlines() if line.strip()}
+
+    assert ".github/actions/setup-api-client" in paths
+    assert ".github/scripts/github-api-with-retry.js" in paths
+    assert ".github/scripts/error_classifier.js" in paths
+    assert ".github/scripts/token_load_balancer.js" in paths
+    assert checkout["with"]["sparse-checkout-cone-mode"] is False
+
+
 def test_gate_workflow_uses_fork_head_for_script_tests_and_ledger():
     data = _load_workflow_yaml("pr-00-gate.yml")
     jobs = data.get("jobs", {})
