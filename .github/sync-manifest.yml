@@ -521,6 +521,9 @@ scripts:
 
   - source: scripts/langchain/_llm_client.py
     description: "Shared LangChain chat-client construction (get_llm_client/get_llm_clients)"
+    # delivery: copy -- imported transitively by copy-delivered LangChain scripts
+    # such as issue_optimizer.py, issue_formatter.py, and task_validator.py.
+    delivery: copy
 
   - source: scripts/langchain/verifier_config.py
     description: "Shared verifier prompt budgets, schema-repair policy, and terminal artifact validation"
