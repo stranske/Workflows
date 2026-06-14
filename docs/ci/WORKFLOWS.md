@@ -123,6 +123,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 * [`maint-62-integration-consumer.yml`](../../.github/workflows/maint-62-integration-consumer.yml) runs daily at 05:05 UTC, on release publication, or by manual dispatch to execute the integration-repo scenarios via the reusable Python CI template and keep the integration failure issue updated.
 * [`maint-65-sync-label-docs.yml`](../../.github/workflows/maint-65-sync-label-docs.yml) synchronizes `docs/LABELS.md` to consumer repositories weekly (Sundays 00:00 UTC) or via manual dispatch.
 * [`maint-66-monthly-audit.yml`](../../.github/workflows/maint-66-monthly-audit.yml) performs comprehensive monthly workflow health audits, collecting statistics and creating actionable tracking issues.
+* [`maint-48-docs-drift-audit.yml`](../../.github/workflows/maint-48-docs-drift-audit.yml) seeds a monthly scoped docs-drift audit issue (deduped) for the lane fleet to diff the canonical docs against reality and open fix PRs.
 * [`maint-60-release.yml`](../../.github/workflows/maint-60-release.yml) creates GitHub releases automatically when version tags (`v*`) are pushed.
 ## Agents Control Plane
 

@@ -1,0 +1,70 @@
+name: Maint 48 Docs Drift Audit
+
+# Monthly docs-drift audit. Doc-rot is this system's most pervasive defect class (the 2026-06
+# audit found stale counts/claims across the canonical docs). This seeds one scoped,
+# agent-actionable issue per month so the lane fleet diffs the canonical docs against the
+# current tree and opens fix PRs.
+#
+# Design note: the LLM diffing is done by whichever lane/keepalive agent picks the issue up
+# (cost-managed via the configured models, Sonnet-pinned) rather than a dedicated inline Claude
+# Action — which post-2026-06-15 bills against the metered Agent-SDK credit. Same outcome as the
+# audit's "monthly docs-drift agent", routed through the system's own issue->agent mechanism
+# (mirrors maint-66's monthly-audit-issue pattern). To diff inline instead, swap the create step
+# for a claude-code-action run.
+
+on:
+  schedule:
+    - cron: '0 7 1 * *'  # 1st of each month, 07:00 UTC (after maint-66 monthly audit at 06:00)
+  workflow_dispatch:
+    inputs:
+      create_issue:
+        description: 'Create the docs-drift audit issue'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  seed-audit:
+    name: Seed monthly docs-drift audit issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Create the docs-drift audit issue (deduped)
+        if: ${{ inputs.create_issue != false }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="[Docs Drift Audit] $(date +%B' '%Y)"
+          # Dedup: one open audit at a time (skip if last month's isn't done yet).
+          existing=$(gh issue list --repo "$REPO" --state open \
+            --search '"[Docs Drift Audit]" in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Open docs-drift audit issue already exists: #$existing — skipping."
+            exit 0
+          fi
+          gh issue create --repo "$REPO" --title "$title" \
+            --body-file .github/docs-drift-audit-template.md \
+            --label "documentation,maintenance"
+          echo "Created docs-drift audit issue: $title"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Maint 48 Docs Drift Audit"
+            echo "Seeds one scoped \`[Docs Drift Audit]\` issue per month (deduped) for the lane fleet"
+            echo "to diff the canonical docs against reality and open fix PRs."
+          } >> "$GITHUB_STEP_SUMMARY"

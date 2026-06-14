@@ -563,6 +563,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   at 06:00 UTC), collecting run statistics, identifying high-failure workflows,
   listing never-run workflows, and creating/updating a tracking issue with an
   actionable checklist.
+- **Maint 48 Docs Drift Audit** – `.github/workflows/maint-48-docs-drift-audit.yml`
+  seeds one scoped docs-drift audit issue per month (1st at 07:00 UTC, deduped)
+  so the lane fleet diffs the canonical docs against the current tree and opens
+  fix PRs. Doc-rot is the audit's most pervasive defect class.
 - **Maint 45 Cosmetic Repair** – `.github/workflows/maint-45-cosmetic-repair.yml`
   is a manual workflow. It runs pytest and the guardrail fixers, then opens a
   labelled PR if changes are needed.

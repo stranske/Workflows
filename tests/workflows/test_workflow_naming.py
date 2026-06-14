@@ -239,6 +239,7 @@ EXPECTED_NAMES = {
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-46-post-ci.yml": "Maint 46 Post CI",
     "maint-47-disable-legacy-workflows.yml": "Maint 47 Disable Legacy Workflows",
+    "maint-48-docs-drift-audit.yml": "Maint 48 Docs Drift Audit",
     "maint-50-tool-version-check.yml": "Maint 50 Tool Version Check",
     "maint-51-dependency-refresh.yml": "Maint 51 Dependency Refresh",
     "maint-sync-action-versions.yml": "Maint Sync Action Versions",
