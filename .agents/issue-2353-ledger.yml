@@ -8,10 +8,10 @@ tasks:
       `claude`, `cursor`, `gemini`, and `aider` with `window` (`5h`, `weekly`, or
       `daily`) and integer `limit` values; use `# TODO: confirm` placeholders if owner-supplied
       values are pending.'
-    status: doing
+    status: done
     started_at: '2026-06-14T00:30:58Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-06-14T00:31:09Z'
+    commit: 48571767bf137ef5b01393abff5558b254c76dd0
     notes: []
   - id: task-02
     title: 'Define the exact YAML schema for the capacity block including required
