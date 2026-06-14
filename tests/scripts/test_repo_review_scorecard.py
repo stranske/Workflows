@@ -154,6 +154,47 @@ def test_approved_scorecard_issue_items_rejects_approved_findings_all() -> None:
     assert any("approved_findings='all' is not honored" in warning for warning in result["warnings"])
 
 
+def test_scorecard_defaults_alone_cannot_approve_findings() -> None:
+    """Top-level scorecard_defaults must not approve without per-repo scorecard block."""
+    feedback = {
+        "scorecard_defaults": {
+            "decision": "approve",
+            "approved_findings": ["scorecard:Branch-Protection"],
+            "dropped_findings": [],
+            "priority": "normal",
+        },
+        "decisions": {
+            "stranske/Workflows": {
+                "decision": "defer",
+            }
+        },
+    }
+    result = approved_scorecard_issue_items(_sample_scan(), feedback, "2026-06-14")
+    assert result["issues"] == []
+    assert len(result["pending"]) == 2
+
+
+def test_approved_scorecard_candidate_index_starts_at_9000_after_dropped() -> None:
+    feedback = {
+        "scorecard_defaults": {"decision": "defer", "approved_findings": []},
+        "decisions": {
+            "stranske/Workflows": {
+                "scorecard": {
+                    "decision": "approve",
+                    "approved_findings": ["scorecard:Branch-Protection"],
+                    "dropped_findings": ["scorecard:Token-Permissions"],
+                    "priority": "normal",
+                    "priority_overrides": {},
+                }
+            }
+        },
+    }
+    result = approved_scorecard_issue_items(_sample_scan(), feedback, "2026-06-14")
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["candidate_index"] == 9000
+    assert len(result["dropped"]) == 1
+
+
 def test_approved_scorecard_issue_items_materializes_explicit_approval() -> None:
     feedback = {
         "scorecard_defaults": {"decision": "defer", "approved_findings": []},
@@ -226,6 +267,44 @@ def test_scan_scorecard_repos_uses_fixture_fetcher(tmp_path: Path) -> None:
     assert result["schema"] == SCHEMA
     assert result["total_findings"] == 2
     assert result["by_repo"][0]["repo"] == "stranske/Workflows"
+
+
+def test_scan_scorecard_repos_skips_repos_without_explicit_scorecard_block(tmp_path: Path) -> None:
+    docs_config = tmp_path / "source_of_truth_docs.yml"
+    docs_config.write_text(
+        yaml.safe_dump(
+            {
+                "scorecard": {
+                    "enabled": True,
+                    "default_minimum_score": 7.0,
+                },
+                "repos": {
+                    "stranske/Workflows": {
+                        "local_path": "Workflows-steward",
+                        "scorecard": {"enabled": True, "minimum_score": 7.0},
+                    },
+                    "stranske/Template": {
+                        "local_path": "Template",
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = load_scorecard_config(docs_config)
+    calls: list[str] = []
+
+    def fetcher(repo: str):
+        calls.append(repo)
+        return True, {"checks": []}, None
+
+    result = scan_scorecard_repos(
+        scorecard_config=config,
+        active_repos={"stranske/Workflows", "stranske/Template"},
+        fetcher=fetcher,
+    )
+    assert calls == ["stranske/Workflows"]
+    assert [bucket["repo"] for bucket in result["by_repo"]] == ["stranske/Workflows"]
 
 
 def test_format_scorecard_section_renders_one_section_per_repo() -> None:

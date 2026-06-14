@@ -38,6 +38,8 @@ SCHEMA = "repo-review-scorecard-scan/v1"
 SCORECARD_API_BASE = "https://api.securityscorecards.dev/projects"
 SCORECARD_CANDIDATE_INDEX_START = 9000
 PRIORITY_ORDER = {"high": 0, "normal": 1, "low": 2}
+# Gating fields must come from per-repo feedback; scorecard_defaults alone cannot approve.
+SCORECARD_GATING_KEYS = frozenset({"decision", "approved_findings", "dropped_findings"})
 
 try:
     from scripts.repo_review_issue_quality import (
@@ -98,11 +100,12 @@ def load_scorecard_config(docs_config_path: Path) -> dict[str, Any]:
     for repo, repo_config in repos.items():
         if not isinstance(repo_config, dict):
             continue
-        repo_scorecard = repo_config.get("scorecard") or {}
-        if not isinstance(repo_scorecard, dict):
-            repo_scorecard = {}
+        raw_scorecard = repo_config.get("scorecard")
+        repo_scorecard = raw_scorecard if isinstance(raw_scorecard, dict) else {}
+        explicit_scorecard = bool(repo_scorecard)
         per_repo[str(repo)] = {
             "local_path": str(repo_config.get("local_path") or ""),
+            "explicit_scorecard": explicit_scorecard,
             "scorecard": _merge_scorecard_config(defaults, repo_scorecard),
         }
     return {
@@ -308,14 +311,24 @@ def _scorecard_decision_for_repo(
     defaults = feedback_config.get("scorecard_defaults") or {}
     if not isinstance(defaults, dict):
         defaults = {}
+    non_gating_defaults = {
+        key: value for key, value in defaults.items() if key not in SCORECARD_GATING_KEYS
+    }
     repo_decision = (feedback_config.get("decisions") or {}).get(repo) or {}
     if not isinstance(repo_decision, dict):
         repo_decision = {}
-    scorecard_decision = repo_decision.get("scorecard") or {}
-    if not isinstance(scorecard_decision, dict):
-        scorecard_decision = {}
-    merged = dict(defaults)
-    merged.update(scorecard_decision)
+    repo_scorecard = repo_decision.get("scorecard")
+    has_repo_scorecard = isinstance(repo_scorecard, dict) and bool(repo_scorecard)
+    if not has_repo_scorecard:
+        # scorecard_defaults alone cannot approve findings — per-repo block required.
+        merged = {
+            **non_gating_defaults,
+            "decision": "defer",
+            "approved_findings": [],
+            "dropped_findings": [],
+        }
+        return merged, repo_decision
+    merged = {**non_gating_defaults, **repo_scorecard}
     return merged, repo_decision
 
 
@@ -531,6 +544,10 @@ def scan_scorecard_repos(
         if repo_subset and repo not in repo_subset:
             continue
         if not isinstance(repo_entry, dict):
+            continue
+        # Global enabled=true applies only to repos with an explicit scorecard block
+        # in source_of_truth_docs.yml — not every docs-configured fleet repo.
+        if not repo_entry.get("explicit_scorecard"):
             continue
         repo_scorecard = repo_entry.get("scorecard") or {}
         if not isinstance(repo_scorecard, dict):

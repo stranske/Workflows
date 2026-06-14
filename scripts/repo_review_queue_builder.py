@@ -179,7 +179,17 @@ def build_queue(
         scorecard_scan = load_scorecard_scan(round2_dir.parent / "scorecard-scan.json")
     generated_on = datetime.now(tz=UTC).strftime("%Y-%m-%d")
     scorecard = approved_scorecard_issue_items(scorecard_scan, feedback, generated_on)
-    queue.extend(scorecard["issues"])
+    for item in scorecard["issues"]:
+        if item.get("body_valid") is not True or item.get("body_quality_errors"):
+            skipped.append(
+                {
+                    "repo": item.get("repo", "?"),
+                    "finding_id": str(item.get("scorecard_finding_id", "")),
+                    "reason": "scorecard issue body failed quality gate",
+                }
+            )
+            continue
+        queue.append(item)
     for pending in scorecard["pending"]:
         skipped.append(
             {

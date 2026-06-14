@@ -2898,7 +2898,29 @@ def build_approved_issue_queue(
             )
 
     scorecard = approved_scorecard_issue_items(scorecard_scan, feedback_config, generated_on)
-    issues.extend(scorecard["issues"])
+    for item in scorecard["issues"]:
+        if item.get("body_valid") is not True or item.get("body_quality_errors"):
+            deeper_review.append(
+                {
+                    "repo": item.get("repo", "?"),
+                    "priority": normalize_priority(item.get("priority", "normal")),
+                    "decision": "revise",
+                    "notes": (
+                        f"Scorecard finding {item.get('scorecard_finding_id', '?')} "
+                        "was approved but did not pass the issue-body quality gate."
+                    ),
+                    "design_target": "OpenSSF Scorecard supply-chain posture",
+                    "review_focus": [
+                        "Revise the Scorecard issue body before upload.",
+                    ],
+                    "concerns": [
+                        "Scorecard issue bodies must pass issue_body_quality_errors before enqueue.",
+                    ],
+                    "gitnexus_map": {"status": "not-applicable", "meta_path": None},
+                }
+            )
+            continue
+        issues.append(item)
     for pending in scorecard["pending"]:
         deeper_review.append(
             {

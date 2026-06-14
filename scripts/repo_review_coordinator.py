@@ -600,6 +600,7 @@ def run(args: argparse.Namespace) -> int:
     #     evaluator, and notify.
     scorecard_path = output_dir / "scorecard-scan.json"
     scorecard_config = workflows_steward_root / "config" / "source_of_truth_docs.yml"
+    scorecard_scan: dict[str, Any] | None = None
     if scorecard_config.is_file():
         scorecard_cmd = [
             sys.executable,
@@ -623,6 +624,12 @@ def run(args: argparse.Namespace) -> int:
                 f"[coordinator] scorecard-scan FAILED (non-fatal): {scorecard_result.notes}",
                 file=sys.stderr,
             )
+        try:
+            from scripts.repo_review_scorecard import load_scorecard_scan
+        except ModuleNotFoundError:
+            sys.path.insert(0, str(workflows_steward_root / "scripts"))
+            from repo_review_scorecard import load_scorecard_scan  # type: ignore[no-redef]
+        scorecard_scan = load_scorecard_scan(scorecard_path)
     else:
         print(
             f"[coordinator] scorecard-scan: skipping -- config not found at {scorecard_config}",
@@ -642,16 +649,13 @@ def run(args: argparse.Namespace) -> int:
     queue_out = output_dir / "approved-issue-queue.json"
     if feedback_path.is_file():
         try:
-            from scripts.repo_review_scorecard import load_scorecard_scan
             from scripts.repo_review_queue_builder import (
                 build_queue,  # type: ignore[import-not-found]
             )
         except ModuleNotFoundError:
             sys.path.insert(0, str(workflows_steward_root / "scripts"))
-            from repo_review_scorecard import load_scorecard_scan  # type: ignore[no-redef]
             from repo_review_queue_builder import build_queue  # type: ignore[no-redef]
         try:
-            scorecard_scan = load_scorecard_scan(scorecard_path)
             queue_data = build_queue(output_dir / "round2", feedback_path, scorecard_scan)
             n = len(queue_data["issues"])
             print(
