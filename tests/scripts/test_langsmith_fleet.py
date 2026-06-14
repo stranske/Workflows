@@ -1,11 +1,15 @@
+import copy
 import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+import yaml
 from scripts import langsmith_fleet
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "config" / "langsmith_fleet_registry.json"
+AGENT_REGISTRY = ROOT / ".github" / "agents" / "registry.yml"
 FIXTURES = ROOT / "tests" / "fixtures" / "langsmith_fleet"
 
 
@@ -361,3 +365,48 @@ def test_registry_rejects_missing_active_repo_issue_mapping(tmp_path: Path) -> N
         assert "stranske/Inv-Man-Intake#438" in str(exc)
     else:
         raise AssertionError("expected load_registry to fail for missing active repo issue mapping")
+
+
+def _load_agent_registry() -> dict[str, object]:
+    loaded = yaml.safe_load(AGENT_REGISTRY.read_text(encoding="utf-8"))
+    assert isinstance(loaded, dict)
+    return loaded
+
+
+def test_agent_registry_capacity_blocks_validate() -> None:
+    registry = _load_agent_registry()
+
+    langsmith_fleet.validate_registry(registry)
+
+    agents = registry["agents"]
+    assert set(agents) >= {"codex", "claude", "cursor", "gemini", "aider"}
+    for agent in ("codex", "claude", "cursor", "gemini", "aider"):
+        assert agents[agent]["capacity"]["window"] in {"5h", "weekly", "daily"}
+        assert isinstance(agents[agent]["capacity"]["limit"], int)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("window", "bogus", "capacity.window must be one of"),
+        ("limit", -1, "capacity.limit must be a positive integer"),
+    ],
+)
+def test_agent_registry_capacity_rejects_malformed_values(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    registry = copy.deepcopy(_load_agent_registry())
+    registry["agents"]["codex"]["capacity"][field] = value
+
+    with pytest.raises(ValueError, match=message):
+        langsmith_fleet.validate_registry(registry)
+
+
+def test_agent_registry_capacity_is_required() -> None:
+    registry = copy.deepcopy(_load_agent_registry())
+    del registry["agents"]["codex"]["capacity"]
+
+    with pytest.raises(ValueError, match=r"codex\.capacity must be an object"):
+        langsmith_fleet.validate_registry(registry)

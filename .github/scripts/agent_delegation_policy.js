@@ -156,6 +156,14 @@ function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {},
  * @returns {Object} - { available, reason }
  */
 function checkPrerequisites({ agent, agentConfig, secrets, core }) {
+  if (agentConfig.enabled === false) {
+    core?.debug?.(`Agent ${agent} disabled in registry`);
+    return {
+      available: false,
+      reason: 'agent-disabled',
+    };
+  }
+
   const requiredSecrets = agentConfig.required_secrets || [];
   const mode = agentConfig.required_secrets_mode || 'all';
 

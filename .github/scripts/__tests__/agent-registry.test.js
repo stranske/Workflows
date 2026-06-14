@@ -15,6 +15,7 @@ const {
   resolveAgentRoutingFromLabels,
   getAgentEntries,
   getAgentPreflightConfigs,
+  validateAgentRegistry,
 } = require('../agent_registry');
 
 const REGISTRY_PATH = path.resolve(__dirname, '..', '..', 'agents', 'registry.yml');
@@ -150,6 +151,7 @@ test('resolveAgentRoutingFromLabels rejects multiple explicit agent labels (obje
 test('getAgentConfig returns config for codex', () => {
   const config = getAgentConfig('codex', { registryPath: REGISTRY_PATH });
   assert.equal(config.branch_prefix, 'codex/issue-');
+  assert.deepEqual(config.capacity, { window: '5h', limit: 1 });
   assert.equal(config.ui_mentions_allowed, false);
   assert.ok(config.capabilities);
 });
@@ -178,11 +180,17 @@ test('getAgentPreflightConfigs honors enabled flag and readiness fallback', () =
       'default_agent: codex',
       'agents:',
       '  enabled:',
+      '    capacity:',
+      '      window: daily',
+      '      limit: 1',
       '    readiness_candidates:',
       '      - fallback-user',
       '    preflight:',
       '      command_phrase: ping',
       '  disabled:',
+      '    capacity:',
+      '      window: daily',
+      '      limit: 1',
       '    preflight:',
       '      assign_user: disabled-user',
       '      enabled: false',
@@ -199,4 +207,40 @@ test('getAgentPreflightConfigs honors enabled flag and readiness fallback', () =
   assert.equal(configsWithDisabled.length, 2);
   assert.equal(configsWithDisabled[1].key, 'disabled');
   assert.equal(configsWithDisabled[1].assign_user, 'disabled-user');
+});
+
+test('loadAgentRegistry exposes disabled planned-agent capacity blocks', () => {
+  const registry = loadAgentRegistry({ registryPath: REGISTRY_PATH });
+  assert.equal(registry.agents.gemini.enabled, false);
+  assert.equal(registry.agents.aider.enabled, false);
+  assert.deepEqual(registry.agents.gemini.capacity, { window: 'daily', limit: 1 });
+  assert.deepEqual(registry.agents.aider.capacity, { window: 'daily', limit: 1 });
+});
+
+test('validateAgentRegistry rejects invalid capacity entries', () => {
+  assert.throws(
+    () => {
+      validateAgentRegistry({
+        agents: {
+          codex: {
+            capacity: { window: 'bogus', limit: 1 },
+          },
+        },
+      });
+    },
+    /capacity\.window must be one of/,
+  );
+
+  assert.throws(
+    () => {
+      validateAgentRegistry({
+        agents: {
+          codex: {
+            capacity: { window: '5h', limit: 0 },
+          },
+        },
+      });
+    },
+    /capacity\.limit must be a positive integer/,
+  );
 });

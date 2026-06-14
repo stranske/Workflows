@@ -11,6 +11,9 @@ agents:
     required_secrets:
       - CODEX_AUTH_JSON
     branch_prefix: codex/issue-
+    capacity:
+      window: 5h
+      limit: 1  # TODO: confirm owner-supplied public plan limit
     ui_mentions_allowed: false
     automation_logins:
       - chatgpt-codex-connector
@@ -33,6 +36,9 @@ agents:
       - CLAUDE_AUTH_JSON          # fallback: credentials.json (short-lived OAuth)
     required_secrets_mode: any    # at least one must be present
     branch_prefix: claude/issue-
+    capacity:
+      window: 5h
+      limit: 1  # TODO: confirm owner-supplied public plan limit
     ui_mentions_allowed: false
     automation_logins:
       - stranske-automation-bot
@@ -53,6 +59,9 @@ agents:
     required_secrets:
       - CURSOR_API_KEY
     branch_prefix: cursor/issue-
+    capacity:
+      window: daily
+      limit: 1  # TODO: confirm owner-supplied public plan limit
     ui_mentions_allowed: false
     # Reuses stranske-automation-bot for branch pushes/attribution until a
     # dedicated stranske-cursor-bot service account is provisioned.
@@ -69,3 +78,51 @@ agents:
       pr_autofix: true          # wired into agents-autofix-loop.yml (autofix-cursor job)
       belt: false              # belt routing deferred to a later phase
       verifier_checkbox: false  # verification stays on the existing judge (config/llm_slots.json)
+
+  gemini:
+    enabled: false
+    runner_workflow: ''
+    required_secrets:
+      - GEMINI_API_KEY
+    branch_prefix: gemini/issue-
+    capacity:
+      window: daily
+      limit: 1  # TODO: confirm owner-supplied public plan limit
+    ui_mentions_allowed: false
+    automation_logins:
+      - stranske-automation-bot
+    readiness_candidates:
+      - stranske-automation-bot
+    preflight:
+      assign_user: stranske-automation-bot
+      command_phrase: ''
+      enabled: false
+    capabilities:
+      pr_keepalive: false
+      pr_autofix: false
+      belt: false
+      verifier_checkbox: false
+
+  aider:
+    enabled: false
+    runner_workflow: ''
+    required_secrets:
+      - AIDER_API_KEY
+    branch_prefix: aider/issue-
+    capacity:
+      window: daily
+      limit: 1  # TODO: confirm owner-supplied public plan limit
+    ui_mentions_allowed: false
+    automation_logins:
+      - stranske-automation-bot
+    readiness_candidates:
+      - stranske-automation-bot
+    preflight:
+      assign_user: stranske-automation-bot
+      command_phrase: ''
+      enabled: false
+    capabilities:
+      pr_keepalive: false
+      pr_autofix: false
+      belt: false
+      verifier_checkbox: false

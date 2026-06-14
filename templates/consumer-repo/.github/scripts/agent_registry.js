@@ -2,6 +2,8 @@
 
 const fs = require('node:fs');
 
+const ALLOWED_CAPACITY_WINDOWS = new Set(['5h', 'weekly', 'daily']);
+
 function stripTrailingComment(rawLine) {
   const line = String(rawLine ?? '');
   const trimmed = line.trim();
@@ -156,7 +158,36 @@ function loadAgentRegistry(options = {}) {
   if (!registry.default_agent || typeof registry.default_agent !== 'string') {
     throw new Error('Agent registry missing required "default_agent" string');
   }
+  validateAgentRegistry(registry);
   return registry;
+}
+
+function validateAgentCapacity(agentKey, agentConfig) {
+  if (!agentConfig || typeof agentConfig !== 'object' || Array.isArray(agentConfig)) {
+    throw new Error(`Agent registry entry for ${agentKey} must be an object`);
+  }
+
+  const capacity = agentConfig.capacity;
+  if (!capacity || typeof capacity !== 'object' || Array.isArray(capacity)) {
+    throw new Error(`Agent config missing capacity block for agent: ${agentKey}`);
+  }
+
+  const window = String(capacity.window || '').trim();
+  if (!ALLOWED_CAPACITY_WINDOWS.has(window)) {
+    throw new Error(
+      `Agent ${agentKey} capacity.window must be one of: ${Array.from(ALLOWED_CAPACITY_WINDOWS).join(', ')}`,
+    );
+  }
+
+  if (!Number.isInteger(capacity.limit) || capacity.limit <= 0) {
+    throw new Error(`Agent ${agentKey} capacity.limit must be a positive integer`);
+  }
+}
+
+function validateAgentRegistry(registry) {
+  for (const [agentKey, agentConfig] of Object.entries(registry.agents || {})) {
+    validateAgentCapacity(agentKey, agentConfig);
+  }
 }
 
 function normalizeLabel(label) {
@@ -344,4 +375,5 @@ module.exports = {
   parseRegistryYaml,
   resolveAgentFromLabels,
   resolveAgentRoutingFromLabels,
+  validateAgentRegistry,
 };

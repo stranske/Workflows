@@ -58,6 +58,20 @@ test('checkPrerequisites returns available=false when secret missing', () => {
   assert.equal(result.reason, 'missing-secret-CODEX_AUTH_JSON');
 });
 
+test('checkPrerequisites returns available=false when agent disabled', () => {
+  const result = checkPrerequisites({
+    agent: 'gemini',
+    agentConfig: {
+      enabled: false,
+      required_secrets: ['GEMINI_API_KEY'],
+    },
+    secrets: { GEMINI_API_KEY: 'present' },
+  });
+
+  assert.equal(result.available, false);
+  assert.equal(result.reason, 'agent-disabled');
+});
+
 test('checkPrerequisites with mode=any returns available=true when one secret present', () => {
   const result = checkPrerequisites({
     agent: 'claude',

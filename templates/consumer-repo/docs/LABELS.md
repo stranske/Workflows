@@ -156,9 +156,10 @@ This document describes all labels that trigger automated workflows or affect CI
 
 These labels are registered ahead of their runners (which land in follow-up phases of the multi-agent
 rollout). `agent:gemini` routes to the `gemini` CLI; `agent:aider` is reserved for cheap, low-complexity
-tasks via Aider with a configurable backend model. Until their `reusable-<agent>-run.yml` runners and
-registry entries ship, applying these labels will not dispatch a runner. See
-`docs/guides/ADD_NEW_AGENT.md` and the rollout plan for sequencing.
+tasks via Aider with a configurable backend model. Their registry entries are present for capacity
+tracking but disabled until the matching `reusable-<agent>-run.yml` runners ship, so applying these
+labels will not dispatch a runner yet. See `docs/guides/ADD_NEW_AGENT.md` and the rollout plan for
+sequencing.
 
 ---
 

@@ -18,6 +18,7 @@ SCHEMA_VERSION = "langsmith-fleet/v1"
 SCHEMA_PATH = Path("docs/contracts/schemas/langsmith-fleet-v1.schema.json")
 REGISTRY_SCHEMA_VERSION = "langsmith-fleet-registry/v1"
 PARENT_WORKFLOWS_ISSUE = "stranske/Workflows#2150"
+AGENT_CAPACITY_WINDOWS = {"5h", "weekly", "daily"}
 REQUIRED_ACTIVE_REPO_ISSUES = {
     "stranske/trip-planner": 1208,
     "stranske/Pension-Data": 445,
@@ -130,6 +131,10 @@ def registry_surfaces(registry: dict[str, Any]) -> dict[tuple[str, str], dict[st
 
 def validate_registry(registry: dict[str, Any]) -> None:
     """Validate registry structure and required mappings."""
+    if "agents" in registry and "repos" not in registry:
+        validate_agent_registry_capacity(registry)
+        return
+
     if registry.get("schema_version") != REGISTRY_SCHEMA_VERSION:
         raise ValueError(f"registry schema_version must be {REGISTRY_SCHEMA_VERSION}")
 
@@ -227,6 +232,34 @@ def validate_registry(registry: dict[str, Any]) -> None:
             "registry missing required active repo issue mappings: "
             + ", ".join(sorted(missing_required))
         )
+
+
+def validate_agent_registry_capacity(registry: dict[str, Any]) -> None:
+    """Validate capacity blocks in the YAML agent registry."""
+    agents = registry.get("agents")
+    if not isinstance(agents, dict) or not agents:
+        raise ValueError("agent registry agents must be a non-empty mapping")
+
+    for agent_key, agent_config in agents.items():
+        if not isinstance(agent_key, str) or not agent_key.strip():
+            raise ValueError("agent registry keys must be non-empty strings")
+        if not isinstance(agent_config, dict):
+            raise ValueError(f"agent registry {agent_key} must be an object")
+
+        capacity = agent_config.get("capacity")
+        if not isinstance(capacity, dict):
+            raise ValueError(f"agent registry {agent_key}.capacity must be an object")
+
+        window = capacity.get("window")
+        if window not in AGENT_CAPACITY_WINDOWS:
+            allowed = ", ".join(sorted(AGENT_CAPACITY_WINDOWS))
+            raise ValueError(f"agent registry {agent_key}.capacity.window must be one of {allowed}")
+
+        limit = capacity.get("limit")
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError(
+                f"agent registry {agent_key}.capacity.limit must be a positive integer"
+            )
 
 
 def _is_hash_or_ref(value: Any) -> bool:
