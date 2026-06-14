@@ -464,7 +464,10 @@ def test_get_llm_client_missing_dependency(monkeypatch) -> None:
         return original_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr("builtins.__import__", fake_import)
-    assert task_decomposer.get_llm_client(provider=task_decomposer._resolve_decomposer_provider()) is None
+    assert (
+        task_decomposer.get_llm_client(provider=task_decomposer._resolve_decomposer_provider())
+        is None
+    )
 
 
 def test_get_llm_client_no_tokens(monkeypatch) -> None:
@@ -472,7 +475,10 @@ def test_get_llm_client_no_tokens(monkeypatch) -> None:
     _install_fake_langchain_openai(monkeypatch)
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    assert task_decomposer.get_llm_client(provider=task_decomposer._resolve_decomposer_provider()) is None
+    assert (
+        task_decomposer.get_llm_client(provider=task_decomposer._resolve_decomposer_provider())
+        is None
+    )
 
 
 def test_get_llm_client_with_github_token(monkeypatch) -> None:
@@ -480,7 +486,9 @@ def test_get_llm_client_with_github_token(monkeypatch) -> None:
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    client_info = task_decomposer.get_llm_client(provider=task_decomposer._resolve_decomposer_provider())
+    client_info = task_decomposer.get_llm_client(
+        provider=task_decomposer._resolve_decomposer_provider()
+    )
     assert client_info is not None
     client, provider = client_info
     assert provider == "github-models"
@@ -493,7 +501,9 @@ def test_get_llm_client_github_token_defaults(monkeypatch) -> None:
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    client_info = task_decomposer.get_llm_client(provider=task_decomposer._resolve_decomposer_provider())
+    client_info = task_decomposer.get_llm_client(
+        provider=task_decomposer._resolve_decomposer_provider()
+    )
     assert client_info is not None
     client, provider = client_info
     assert provider == "github-models"
@@ -509,7 +519,9 @@ def test_get_llm_client_with_openai_token(monkeypatch) -> None:
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
-    client_info = task_decomposer.get_llm_client(provider=task_decomposer._resolve_decomposer_provider())
+    client_info = task_decomposer.get_llm_client(
+        provider=task_decomposer._resolve_decomposer_provider()
+    )
     assert client_info is not None
     client, provider = client_info
     assert provider == "openai"
@@ -523,7 +535,9 @@ def test_get_llm_client_prefers_openai_token(monkeypatch) -> None:
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
-    client_info = task_decomposer.get_llm_client(provider=task_decomposer._resolve_decomposer_provider())
+    client_info = task_decomposer.get_llm_client(
+        provider=task_decomposer._resolve_decomposer_provider()
+    )
     assert client_info is not None
     client, provider = client_info
     assert provider == "openai"
