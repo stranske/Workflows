@@ -95,11 +95,15 @@ def check_diff_quality(base: str, head: str) -> list[str]:
             "test-quality: added/modified test files without literal expected assertions: "
             + ", ".join(weak_tests)
         )
-    secrets = _secret_hits(_full_diff(base, head))
-    if secrets:
+    # Surface only the *count* of matched patterns: never echo secret values or
+    # pattern-derived data into CI logs (clear-text-logging hardening). The gate
+    # failing is the signal; the author inspects their own diff to remediate.
+    blocked_pattern_count = len(set(_secret_hits(_full_diff(base, head))))
+    if blocked_pattern_count:
         failures.append(
-            "secret-scan: complete diff contains blocked secret pattern(s): "
-            + ", ".join(sorted(set(secrets)))
+            "secret-scan: complete diff contains "
+            f"{blocked_pattern_count} blocked secret pattern(s); "
+            "inspect the diff and remove them"
         )
     return failures
 
