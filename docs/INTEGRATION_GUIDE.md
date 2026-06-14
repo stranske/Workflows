@@ -42,25 +42,33 @@ jobs:
 
 ## Versioning Strategy
 
-Choose the reference that matches your stability needs:
+**`@main` is the single supported pin.** Reference every reusable workflow at
+`@main`:
 
 | Reference | When to use it | Behavior |
 |-----------|----------------|----------|
-| **Default branch (`@main`)** | Current first-party consumer default. | Tracks the latest reusable workflow behavior used by the synced consumer templates. |
-| **Pinned commit SHA** | When you need fully reproducible builds or a controlled rollout. | Locked to a specific revision until you update it. |
-| **Other refs** | Only when intentionally testing or managing a separate distribution strategy. | Includes release tags or feature branches. |
+| **Default branch (`@main`)** | The supported pin for all consumers. | Tracks the latest reusable workflow behavior used by the synced consumer templates. |
+| **Pinned commit SHA** | Only for a one-off reproducible build or a controlled rollout you manage yourself. | Locked to a specific revision; **not** kept current and **unsupported** for ongoing use — the reusable's helper checkouts resolve against `main` (see below), so a SHA pin is no longer self-consistent. |
 
-Example with both floating and pinned tags:
+> **No floating version tags.** The repository previously published a floating
+> `v1` tag (auto-refreshed to track `main`). That scheme has been **removed** —
+> the `v1` tag never delivered isolation from `main` and added maintenance cost
+> without benefit. Do not pin reusable workflows at the `v1` tag or any other
+> tag; use `@main`.
+>
+> **Why `@main` is self-consistent and a SHA pin is not.** Inside
+> `reusable-10-ci-python.yml`, the helper-code checkouts use `ref: main`
+> intentionally (the helper layer is only validated as a unit on `main`). A
+> caller pinned at `@main` therefore runs helper code that matches its pin. A
+> caller pinned at an arbitrary SHA would still execute the helper scripts from
+> `main`, so SHA pins are not supported for ongoing use.
+
+Example (the supported pattern):
 
 ```yaml
 jobs:
-  ci-default:
+  ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
-    with:
-      python-version: '3.12'
-
-  ci-pinned:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@abc123def4567890
     with:
       python-version: '3.12'
 ```
@@ -733,8 +741,10 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/AGENTS.md -o AGENTS.md
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/CLAUDE.md -o CLAUDE.md
 
-# These examples track the live Workflows source via /main/. For reproducible
-# bootstrap, replace /main/ with a release tag or commit SHA in each URL.
+# These examples track the live Workflows source via /main/, which is the
+# supported pin. For a one-off reproducible bootstrap you may replace /main/
+# with a commit SHA in each URL, but @main is the supported reference for
+# ongoing use (there is no floating version tag).
 ```
 
 ### Workflow Summary

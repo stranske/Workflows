@@ -38,11 +38,11 @@ Use actions directly in your workflow steps:
 
 ```yaml
 steps:
-  - uses: stranske/Workflows/.github/actions/autofix@v1
+  - uses: stranske/Workflows/.github/actions/autofix@main
     with:
       token: ${{ secrets.GITHUB_TOKEN }}
-      
-  - uses: stranske/Workflows/.github/actions/python-ci-setup@v1
+
+  - uses: stranske/Workflows/.github/actions/python-ci-setup@main
     with:
       python-version: "3.12"
 ```
@@ -94,9 +94,14 @@ jobs:
 
 ## Versioning
 
-- Use `@main` for the current first-party consumer default
-- Use `@<commit-sha>` for reproducible pinned integrations
-- Use alternate refs only when you intentionally need a separate distribution or test surface
+- **`@main` is the single supported pin.** Reference every reusable workflow and
+  composite action at `@main`.
+- There is **no floating version tag.** A `v1` tag scheme previously existed but
+  has been removed; do not pin reusables at the `v1` tag (or any other tag).
+- A `@<commit-sha>` pin is supported only for a one-off reproducible build you
+  manage yourself — it is not kept current. See
+  [INTEGRATION_GUIDE.md → Versioning Strategy](INTEGRATION_GUIDE.md#versioning-strategy)
+  for why `@main` is the self-consistent reference.
 
 ## Examples
 

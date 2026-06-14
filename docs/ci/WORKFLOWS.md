@@ -124,7 +124,6 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 * [`maint-65-sync-label-docs.yml`](../../.github/workflows/maint-65-sync-label-docs.yml) synchronizes `docs/LABELS.md` to consumer repositories weekly (Sundays 00:00 UTC) or via manual dispatch.
 * [`maint-66-monthly-audit.yml`](../../.github/workflows/maint-66-monthly-audit.yml) performs comprehensive monthly workflow health audits, collecting statistics and creating actionable tracking issues.
 * [`maint-60-release.yml`](../../.github/workflows/maint-60-release.yml) creates GitHub releases automatically when version tags (`v*`) are pushed.
-* [`maint-61-create-floating-v1-tag.yml`](../../.github/workflows/maint-61-create-floating-v1-tag.yml) creates or refreshes the floating `v1` tag to point at the latest `v1.x` release, enabling consumers to track major version updates automatically.
 ## Agents Control Plane
 
 The agent workflows coordinate Codex and chat orchestration across topics:
@@ -193,7 +192,6 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) syncs integration-repo templates to Workflows-Integration-Tests repository (template push, manual dispatch with dry-run support).
 * [`maint-69-sync-labels.yml`](../../.github/workflows/maint-69-sync-labels.yml) syncs core functional labels from labels-core.yml to consumer repos (push to labels-core.yml, manual dispatch with dry-run support).
 * [`maint-70-fix-integration-formatting.yml`](../../.github/workflows/maint-70-fix-integration-formatting.yml) applies Black and Ruff formatting fixes to Integration-Tests repository files (manual dispatch for CI formatting failures).
-* [`maint-73-refresh-reusable-tags.yml`](../../.github/workflows/maint-73-refresh-reusable-tags.yml) auto-refreshes floating tags (v1) to track main HEAD - ensures consumer repos always run latest reusable workflow versions without manual updates (push to main, manual dispatch). Replaces deprecated maint-61.
 * [`maint-71-auto-fix-integration.yml`](../../.github/workflows/maint-71-auto-fix-integration.yml) automatically applies formatting fixes to Integration-Tests when triggered by issue comments or workflow failures.
 * [`maint-71-merge-sync-prs.yml`](../../.github/workflows/maint-71-merge-sync-prs.yml) automates merging sync PRs in consumer repos - checks status, merges passing PRs, cleans up stale PRs, and deletes leftover `sync/workflows-*` branches tied to closed or merged sync PRs (manual dispatch).
 * [`maint-72-fix-pr-body-conflicts.yml`](../../.github/workflows/maint-72-fix-pr-body-conflicts.yml) removes pr_body.md from main branch and adds to .gitignore across consumer repos - prevents merge conflicts from PR description files (manual dispatch, weekly schedule).
