@@ -6,7 +6,7 @@ This directory is currently a placeholder; until runnable examples land here, us
 
 ## Start Here
 
-- [../templates/SETUP_CHECKLIST.md](../templates/SETUP_CHECKLIST.md)
+- [SETUP_CHECKLIST.md](../../templates/consumer-repo/docs/SETUP_CHECKLIST.md)
 - [../USAGE.md](../USAGE.md)
 - [../INTEGRATION_GUIDE.md](../INTEGRATION_GUIDE.md)
 

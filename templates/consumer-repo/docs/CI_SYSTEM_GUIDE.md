@@ -204,7 +204,7 @@ by a separate integration sync check in the Workflows repo.
 ### Helpful Links
 
 - [Workflows Repository](https://github.com/stranske/Workflows)
-- [SETUP_CHECKLIST.md](https://github.com/stranske/Workflows/blob/main/docs/templates/SETUP_CHECKLIST.md) - Consumer repo setup guide
+- [SETUP_CHECKLIST.md](https://github.com/stranske/Workflows/blob/main/templates/consumer-repo/docs/SETUP_CHECKLIST.md) - Consumer repo setup guide
 - [CONSUMER_REPO_MAINTENANCE.md](https://github.com/stranske/Workflows/blob/main/docs/ops/CONSUMER_REPO_MAINTENANCE.md) - Debugging and maintenance
 
 ---

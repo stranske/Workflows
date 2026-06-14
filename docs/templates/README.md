@@ -4,9 +4,9 @@ Templates for creating consistent documentation across the repository.
 
 ## Available Templates
 
-### [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md)
+### [SETUP_CHECKLIST.md](../../templates/consumer-repo/docs/SETUP_CHECKLIST.md)
 
-Consumer-facing setup checklist for adopting these workflows (preferred pins, required secrets, common wiring).
+Consumer-facing setup checklist for adopting these workflows (preferred pins, required secrets, common wiring). The canonical, maintained copy lives at `templates/consumer-repo/docs/SETUP_CHECKLIST.md`; the local `docs/templates/SETUP_CHECKLIST.md` is a redirect stub.
 
 ### [AGENT_ISSUE_TEMPLATE.md](AGENT_ISSUE_TEMPLATE.md)
 

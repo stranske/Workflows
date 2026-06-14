@@ -2,12 +2,32 @@
 
 This document captures lessons learned from implementing keepalive functionality in consumer repositories, based on the Travel-Plan-Permission repo implementation (PRs #47-#94, December 2025).
 
+> **Current consumer surfaces (read this first when diagnosing a stuck PR).**
+> The consolidated consumer installation no longer ships `agents-pr-meta.yml`,
+> `agents-keepalive-loop.yml`, or `agents-70-orchestrator.yml` — `.github/sync-manifest.yml`
+> removes them from consumer repos (past the 2026-02-15 removal deadline). On a
+> current consumer the two workflows that actually drive PR/keepalive events are:
+>
+> - **`agents-80-pr-event-hub.yml`** (PR event hub) — handles `issue_comment`,
+>   `pull_request`, `pull_request_target`, and Gate `workflow_run` completion;
+>   replaces `agents-pr-meta.yml` and `agents-bot-comment-handler.yml`.
+> - **`agents-81-gate-followups.yml`** (Gate followups) — runs on Gate completion
+>   and drives the keepalive/autofix follow-up work; replaces `agents-keepalive-loop.yml`,
+>   `agents-autofix-loop.yml`, and the orchestrator's consumer-side role.
+>
+> When checking Actions runs on a consumer repo, look at **Agents PR Event Hub** and
+> **Agents Gate Followups**, not the legacy workflow names below. The legacy names are
+> retained in the sections that follow only as historical context for the original
+> Travel-Plan-Permission implementation; on the Workflows repo itself the legacy
+> workflows (e.g. `agents-keepalive-loop.yml`, `agents-70-orchestrator.yml`) still
+> exist and remain valid references — see `docs/ci/WORKFLOWS.md`.
+
 ## Overview
 
 The keepalive system enables automated agent (Codex) continuation on pull requests. When a human posts `@codex <instructions>`, the system:
-1. Detects the comment via `agents-pr-meta.yml`
+1. Detects the comment via `agents-80-pr-event-hub.yml` (legacy installs: `agents-pr-meta.yml`)
 2. Waits for Gate CI to pass
-3. Dispatches the orchestrator to continue agent work
+3. Dispatches keepalive follow-up work via `agents-81-gate-followups.yml` to continue agent work (legacy installs: the orchestrator / `agents-keepalive-loop.yml`)
 4. Repeats until all tasks are complete
 
 ## Understanding CLI vs UI Agents
@@ -70,7 +90,8 @@ Is Gate passing? → NO → Fix Gate failures first
     ↓ YES
 Does PR have unchecked tasks? → NO → Add tasks or remove agent:codex
     ↓ YES
-Check agents-keepalive-loop.yml runs → NONE → Workflow not triggering
+Check agents-81-gate-followups.yml runs → NONE → Workflow not triggering
+  (legacy installs: agents-keepalive-loop.yml)
     ↓ RUNS EXIST
 Check run jobs → All skipped → Check evaluate step outputs
     ↓ Run-codex skipped
@@ -81,19 +102,29 @@ Check remaining_conflicts → != '0' → Conflicts need resolution
 Check mark-running job → Skipped → Secrets or permissions issue
 ```
 
-**Key point:** If keepalive loop workflow IS running but skipping Codex execution, the issue is in the workflow conditions, NOT in the orchestrator.
+**Key point:** If the gate-followups workflow IS running but skipping Codex execution, the issue is in the workflow conditions, NOT in the orchestrator.
 
 ## Critical Components
 
 ### Required Workflows (in consumer repo)
 
+These are the consumer-template workflows that drive keepalive on a current
+consumer installation (see `templates/consumer-repo/.github/workflows/`):
+
 | Workflow | Purpose | Key Triggers |
 |----------|---------|--------------|
-| `agents-pr-meta.yml` | Detects keepalive comments, dispatches orchestrator | `issue_comment`, `pull_request`, `workflow_run` |
-| `agents-70-orchestrator.yml` | Scheduled keepalive sweeps | `schedule`, `workflow_dispatch` |
-| `agents-63-issue-intake.yml` | Creates issues from Issues.txt, triggers Codex | `issues`, `workflow_dispatch` |
+| `agents-80-pr-event-hub.yml` | Detects keepalive comments / PR events and routes them (replaces `agents-pr-meta.yml`) | `issue_comment`, `pull_request`, `pull_request_target`, `workflow_run` |
+| `agents-81-gate-followups.yml` | Runs keepalive/autofix follow-up work after Gate completes (replaces `agents-keepalive-loop.yml` and the consumer-side orchestrator role) | `workflow_run` (Gate), `pull_request` (labeled), `workflow_dispatch` |
 | `pr-00-gate.yml` | CI enforcement with commit status | `pull_request` |
 | `autofix.yml` | Auto-fixes lint/format issues | `pull_request`, `pull_request_target` |
+
+> **Legacy note.** Older consumer installs (pre-consolidation) used
+> `agents-pr-meta.yml` (comment detection / orchestrator dispatch),
+> `agents-70-orchestrator.yml` (scheduled keepalive sweeps), and
+> `agents-63-issue-intake.yml` (issue creation from `Issues.txt`). Those
+> workflows are now removed from consumers by `.github/sync-manifest.yml`; the
+> event-hub + gate-followups pair above supersedes them. The legacy names appear
+> in the historical incident notes further down for context.
 
 ### Required Scripts (in consumer repo)
 
@@ -329,8 +360,8 @@ if (!inFence && /^[-*]\s+\[[ xX]\]/.test(tr)) {
 When keepalive isn't working, check in this order:
 
 1. **Check workflow triggers**
-   - Is `agents-pr-meta.yml` triggered on `issue_comment`?
-   - Is `workflow_run` trigger configured for Gate?
+   - Is `agents-80-pr-event-hub.yml` triggered on `issue_comment`? (legacy installs: `agents-pr-meta.yml`)
+   - Is the Gate `workflow_run` trigger configured (on `agents-80-pr-event-hub.yml` / `agents-81-gate-followups.yml`)?
 
 2. **Check job outputs**
    - Look at `resolve_pr` job - is `pr_number` output set?
