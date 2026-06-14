@@ -7,10 +7,10 @@ tasks:
     title: Add `cost_per_verified_success` aggregation to `scripts/aggregate_agent_metrics.py`,
       keyed on `(agent, difficulty_tier)`, summing `cost_usd` over runs and dividing
       by the count of runs whose verifier `verdict == "pass"` only.
-    status: doing
+    status: done
     started_at: '2026-06-14T00:29:43Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-06-14T00:29:52Z'
+    commit: 07d64126e3f6847c785aaee85c8309267a4add8d
     notes: []
   - id: task-02
     title: 'Create a function to filter runs where verifier verdict equals pass only
