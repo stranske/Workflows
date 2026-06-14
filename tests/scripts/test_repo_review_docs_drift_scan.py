@@ -694,6 +694,7 @@ def test_notify_headline_reflects_docs_drift(tmp_path: Path, monkeypatch: pytest
                 }
             ],
         },
+        scorecard={"by_repo": [], "total_findings": 0, "total_errors": 0},
         packet_path=tmp_path / "packet.md",
         queue_path=tmp_path / "queue.json",
         output_dir=tmp_path / "out",
@@ -737,6 +738,7 @@ def test_notify_headline_uses_by_repo_fallback_counts(
                 }
             ],
         },
+        scorecard={"by_repo": [], "total_findings": 0, "total_errors": 0},
         packet_path=tmp_path / "packet.md",
         queue_path=tmp_path / "queue.json",
         output_dir=tmp_path / "out",
@@ -766,6 +768,7 @@ def test_notify_falls_back_when_desktop_unwritable(tmp_path: Path, monkeypatch: 
         queue_summary={"total": 0, "by_repo": {}, "skipped_count": 0, "issue_titles": []},
         backlog={"auto_labeled": [], "needs_human": []},
         docs_drift={},
+        scorecard={"by_repo": [], "total_findings": 0, "total_errors": 0},
         packet_path=tmp_path / "packet.md",
         queue_path=tmp_path / "queue.json",
         output_dir=out_dir,

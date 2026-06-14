@@ -18,6 +18,18 @@
 # The scanner reads each doc, asks claude to compare load-bearing claims
 # against the current implementation, and emits one drift record per
 # (doc, claim) pair. See scripts/repo_review_docs_drift_scan.py.
+#
+# Scorecard settings (repo-review human-gated candidate source):
+#   scorecard: top-level defaults for OpenSSF Scorecard scan
+#   repos.<owner>/<repo>.scorecard: per-repo overrides (enabled, minimum_score, etc.)
+
+scorecard:
+  enabled: true
+  default_minimum_score: 7.0
+  max_findings_per_repo: 5
+  source: public_api
+  include_checks: []
+  exclude_checks: []
 
 repos:
   stranske/Collab-Admin:
@@ -106,6 +118,10 @@ repos:
         focus: agent runtime constraints and repo-specific guardrails
   stranske/Workflows:
     local_path: Workflows-steward
+    scorecard:
+      enabled: true
+      minimum_score: 7.0
+      workflow: .github/workflows/health-53-scorecard.yml
     docs:
       - path: README.md
         focus: pipeline overview, model versions, entry-point commands

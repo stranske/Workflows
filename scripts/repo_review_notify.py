@@ -299,11 +299,103 @@ def summarize_docs_drift(docs_drift: dict[str, Any]) -> tuple[int, int]:
     return drift_count, error_count
 
 
+try:
+    from scripts.repo_review_scorecard import load_scorecard_scan as _load_scorecard_scan_impl
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from repo_review_scorecard import load_scorecard_scan as _load_scorecard_scan_impl  # type: ignore[no-redef]
+
+
+def load_scorecard_scan(path: Path | None) -> dict[str, Any]:
+    """Load scorecard-scan.json, or return empty when absent/malformed."""
+    loaded = _load_scorecard_scan_impl(path)
+    if loaded is None:
+        return {"by_repo": [], "total_findings": 0, "total_errors": 0}
+    return loaded
+
+
+def summarize_scorecard(scorecard: dict[str, Any]) -> tuple[int, int]:
+    """Return (finding_count, error_count) with by_repo fallback."""
+    finding_count = int((scorecard or {}).get("total_findings", 0) or 0)
+    error_count = int((scorecard or {}).get("total_errors", 0) or 0)
+    if finding_count == 0 and error_count == 0:
+        by_repo = (scorecard or {}).get("by_repo") or []
+        finding_count = sum(len(bucket.get("findings") or []) for bucket in by_repo)
+        error_count = sum(len(bucket.get("errors") or []) for bucket in by_repo)
+    return finding_count, error_count
+
+
+def format_scorecard_section(scorecard: dict[str, Any]) -> str:
+    """Render one human-action section per repo with approval snippets."""
+    by_repo = scorecard.get("by_repo") or []
+    actionable = [
+        bucket
+        for bucket in by_repo
+        if isinstance(bucket, dict) and (bucket.get("findings") or bucket.get("errors"))
+    ]
+    if not actionable:
+        return ""
+
+    parts: list[str] = [
+        "\n\n## Scorecard findings need explicit approval\n\n",
+        "Low-scoring OpenSSF Scorecard checks were scanned from the public API. ",
+        "They do **not** enter `approved-issue-queue.json` until you edit ",
+        "`config/repo_review_feedback.json` and list explicit `approved_findings` ",
+        "under each repo's `scorecard` decision. Do not create issues directly from ",
+        "this section.\n",
+    ]
+    for bucket in actionable:
+        repo = str(bucket.get("repo") or "?")
+        findings = bucket.get("findings") or []
+        errors = bucket.get("errors") or []
+        parts.append(f"\n### {repo}\n")
+        if errors and not findings:
+            parts.append(f"- Scan errors: {len(errors)} (see `scorecard-scan.json`)\n")
+            continue
+        for finding in findings:
+            if not isinstance(finding, dict):
+                continue
+            finding_id = str(finding.get("finding_id") or "")
+            check = str(finding.get("check") or "")
+            score = finding.get("score", "?")
+            reason = str(finding.get("reason") or "")[:200]
+            doc_url = str(finding.get("documentation_url") or "")
+            parts.append(
+                f"- **{finding_id}** — score `{score}` — {reason}\n"
+            )
+            if doc_url:
+                parts.append(f"  - Docs: {doc_url}\n")
+            snippet = {
+                "decision": "approve",
+                "approved_findings": [finding_id],
+                "dropped_findings": [],
+                "priority": finding.get("priority", "normal"),
+                "priority_overrides": {},
+                "notes": f"Explicit approval for {check} after human review.",
+            }
+            parts.append(
+                f"\n  Paste under `decisions[\"{repo}\"].scorecard` in "
+                f"`config/repo_review_feedback.json`:\n\n"
+                f"  ```json\n"
+                f"{json.dumps(snippet, indent=2)}\n"
+                f"  ```\n"
+            )
+    parts.append(
+        "\nAfter editing feedback, rerun the evaluator to regenerate the queue:\n\n"
+        "```bash\n"
+        "python scripts/repo_review_evaluator.py \\\n"
+        "  --output-dir docs/reports/repo-review \\\n"
+        "  --skip-gitnexus-preflight\n"
+        "```\n"
+    )
+    return "".join(parts)
+
+
 def write_desktop_reminder(
     *,
     queue_summary: dict[str, Any],
     backlog: dict[str, Any],
     docs_drift: dict[str, Any],
+    scorecard: dict[str, Any],
     packet_path: Path,
     queue_path: Path,
     output_dir: Path,
@@ -333,8 +425,10 @@ def write_desktop_reminder(
     backlog_count = auto_labeled_count + needs_human_count
     docs_drift_count, docs_drift_error_count = summarize_docs_drift(docs_drift)
     docs_drift_signal_count = docs_drift_count + docs_drift_error_count
+    scorecard_count, scorecard_error_count = summarize_scorecard(scorecard)
+    scorecard_signal_count = scorecard_count + scorecard_error_count
 
-    if total == 0 and backlog_count == 0 and docs_drift_signal_count == 0:
+    if total == 0 and backlog_count == 0 and docs_drift_signal_count == 0 and scorecard_signal_count == 0:
         headline = (
             "## ✓ Clean week — no action required\n\n"
             "No fresh design-vs-implementation gaps, no unaddressed "
@@ -394,6 +488,7 @@ def write_desktop_reminder(
 
     backlog_section = format_backlog_section(backlog)
     docs_drift_section = format_docs_drift_section(docs_drift)
+    scorecard_section = format_scorecard_section(scorecard)
 
     next_action = (
         ""
@@ -424,7 +519,7 @@ def write_desktop_reminder(
     body = f"""# Weekly repo-review packet ready — {today}
 
 {headline}
-{skipped_note}{next_action}{backlog_section}{docs_drift_section}
+{skipped_note}{next_action}{backlog_section}{docs_drift_section}{scorecard_section}
 ## When you're done
 
 Delete this file once you've acted on the queued issues AND the backlog:
@@ -485,6 +580,14 @@ def main() -> int:
         "adds a 'Doc drift detected' section to the desktop file",
     )
     parser.add_argument(
+        "--scorecard-scan",
+        type=Path,
+        default=None,
+        help="path to scorecard-scan.json from scripts/repo_review_scorecard.py "
+        "(default: <output_dir>/scorecard-scan.json if present); when present, "
+        "adds a 'Scorecard findings need explicit approval' section to the desktop file",
+    )
+    parser.add_argument(
         "--skip-notification",
         action="store_true",
         help="suppress the macOS notification (still writes the desktop file)",
@@ -522,6 +625,12 @@ def main() -> int:
         else output_dir / "docs-drift-scan.json"
     )
     docs_drift = load_docs_drift_scan(docs_drift_path)
+    scorecard_path = (
+        args.scorecard_scan
+        if args.scorecard_scan is not None
+        else output_dir / "scorecard-scan.json"
+    )
+    scorecard = load_scorecard_scan(scorecard_path)
     auto_labeled_count = len(backlog.get("auto_labeled", []) or [])
     needs_human_count = len(backlog.get("needs_human", []) or [])
     backlog_count = auto_labeled_count + needs_human_count
@@ -571,6 +680,7 @@ def main() -> int:
             queue_summary=summary,
             backlog=backlog,
             docs_drift=docs_drift,
+            scorecard=scorecard,
             packet_path=packet_path,
             queue_path=queue_path,
             output_dir=output_dir,
@@ -582,10 +692,15 @@ def main() -> int:
     docs_drift_repos = sum(
         1 for b in (docs_drift or {}).get("by_repo") or [] if b.get("drift_instances")
     )
+    scorecard_total = (scorecard or {}).get("total_findings", 0) or 0
+    scorecard_repos = sum(
+        1 for b in (scorecard or {}).get("by_repo") or [] if b.get("findings")
+    )
     print(
         f"[notify] {total} issue(s) ready, {summary['skipped_count']} repo decision(s) skipped, "
         f"{auto_labeled_count} backlog auto-labeled, {needs_human_count} backlog need decision, "
-        f"{docs_drift_total} doc-drift instance(s) across {docs_drift_repos} repo(s)"
+        f"{docs_drift_total} doc-drift instance(s) across {docs_drift_repos} repo(s), "
+        f"{scorecard_total} scorecard finding(s) across {scorecard_repos} repo(s)"
     )
     return 0
 

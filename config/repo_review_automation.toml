@@ -26,6 +26,7 @@ round1_per_agent_seconds = 5400   # 90 min
 round2_per_turn_seconds = 2700    # 45 min
 backlog_scan_seconds = 300
 docs_drift_scan_seconds = 1800    # ~5-10 min across 9 repos
+scorecard_scan_seconds = 300
 notify_seconds = 60
 
 # ---------------------------------------------------------------------------
@@ -78,6 +79,26 @@ packet and runs upload_repo_review_issues.py --apply.
 """
 output = "none (preview counts logged to coordinator stdout)"
 if_failed = "Non-fatal. Logged to stderr; the evaluator still writes the queue in step 4."
+
+[operational_notes.scorecard_scan]
+step = "2b. Scorecard scan"
+description = """
+Runs immediately after per-repo rounds and before the queue-builder preview
+(step 3) and final evaluator pass (step 4).
+
+Scans configured repos for low-scoring OpenSSF Scorecard checks via the public
+API (published by Health 53). Findings are human-gated: they surface in the
+notify desktop reminder and only enter approved-issue-queue.json after explicit
+approval in config/repo_review_feedback.json (decisions.<repo>.scorecard).
+
+Same non-fatal pattern as docs-drift — failures are logged but don't abort the
+cycle.
+"""
+output = "docs/reports/repo-review/scorecard-scan.json"
+log = "docs/reports/repo-review/logs/coordinator/scorecard-scan.log"
+expected_runtime = "~30 s per enabled repo (public API fetch)"
+if_failed = "Non-fatal. Logged to scorecard-scan.log. The desktop reminder omits the Scorecard section."
+config = "config/source_of_truth_docs.yml (scorecard section)"
 
 [operational_notes.final_evaluator]
 step = "4. Final evaluator pass (SOLE producer of approved-issue-queue.json)"
@@ -156,8 +177,8 @@ Surfaces the cycle outcome to the human reviewer via:
      Center.
   b. Desktop file at ~/Desktop/REPO-REVIEW-ACTION-NEEDED.md: persistent
      until the human deletes it. Includes upload queue, backlog-scan results,
-     and doc-drift results. The human reviews this file and runs
-     upload_repo_review_issues.py --apply for approved issues.
+     doc-drift results, and Scorecard approval snippets. The human reviews this
+     file and runs upload_repo_review_issues.py --apply for approved issues.
 """
 output = "~/Desktop/REPO-REVIEW-ACTION-NEEDED.md"
 log = "docs/reports/repo-review/logs/coordinator/notify.log"

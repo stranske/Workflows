@@ -110,8 +110,9 @@ Outputs are written to `docs/reports/repo-review/`:
 
 - `human-decision-packet.md`: one review queue across active repos.
 - `repo-review-summary.json`: machine-readable summary.
-- `approved-issue-queue.json`: machine-readable queue of approved, prioritized, agent-formatted issue bodies. Written by exactly one producer — the final evaluator pass (`repo_review_evaluator.write_approved_issue_queue`), which applies the priority-tiering and cycle-binding guards (#2272). The coordinator's step-3 queue-builder is a log-only preview and does **not** write this file.
+- `approved-issue-queue.json`: machine-readable queue of approved, prioritized, agent-formatted issue bodies. Written by exactly one producer — the final evaluator pass (`repo_review_evaluator.write_approved_issue_queue`), which applies the priority-tiering and cycle-binding guards (#2272). The coordinator's step-3 queue-builder is a log-only preview and does **not** write this file. Scorecard findings enter this queue only after explicit human approval in `config/repo_review_feedback.json`.
 - `approved-issue-queue.md`: human-readable rendering of the approved issue queue, deeper-review items, and dropped candidates.
+- `scorecard-scan.json`: machine-readable OpenSSF Scorecard scan output for configured repos. Low-scoring checks are surfaced in the notify desktop reminder; they do not become queue issues until a human sets `decisions.<repo>.scorecard.decision = "approve"` and lists explicit `approved_findings` IDs, then reruns the evaluator.
 - `repos/<owner>__<repo>/decision-brief.md`: human-facing progress, readiness, issue-set, and feedback brief.
 - `repos/<owner>__<repo>/review-execution.md`: automated evidence gathering and preliminary gap classification.
 - `repos/<owner>__<repo>/design-review.md`: standardized review worksheet for that repo.
@@ -191,6 +192,18 @@ and creates the remaining approved issues in the individual repos. Deeper-review
 uploaded until the deeper review produces a new candidate set and the human approves it.
 
 Approved drafts flow through `approved-issue-queue.json`. Opener-lane automations should select from that queue by priority, using `high` before `normal` before `low`, while respecting the repo recorded on each item. Closer-lane automations should continue to sweep PRs, review comments, merge readiness, and verifier status across all active repos rather than focusing on a fixed two-repo list.
+
+### Scorecard approval flow
+
+OpenSSF Scorecard findings are a supplemental candidate source, not an automatic issue creator:
+
+1. The coordinator runs `scripts/repo_review_scorecard.py` and writes `scorecard-scan.json`.
+2. `scripts/repo_review_notify.py` surfaces low-scoring checks in `~/Desktop/REPO-REVIEW-ACTION-NEEDED.md`, grouped by repo, with ready-to-paste approval snippets for `config/repo_review_feedback.json`.
+3. The human edits `config/repo_review_feedback.json` and sets `decisions.<repo>.scorecard.decision = "approve"` plus explicit `approved_findings` IDs (for example `["scorecard:Branch-Protection"]`). Blanket `approved_candidates: "all"` and `"approved_findings": "all"` do **not** approve Scorecard findings.
+4. The human reruns `scripts/repo_review_evaluator.py` to regenerate `approved-issue-queue.json`.
+5. Only then may `upload_repo_review_issues.py --apply` publish the approved Scorecard queue items.
+
+The final evaluator pass remains the sole producer of `approved-issue-queue.json`.
 
 ## Issue Gate
 

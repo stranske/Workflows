@@ -34,6 +34,14 @@ except ModuleNotFoundError:  # pragma: no cover - supports direct script executi
         review_evidence_trace_errors,
     )
 
+try:
+    from scripts.repo_review_scorecard import approved_scorecard_issue_items, load_scorecard_scan
+except ModuleNotFoundError:  # pragma: no cover - supports direct script execution.
+    from repo_review_scorecard import (  # type: ignore[no-redef]
+        approved_scorecard_issue_items,
+        load_scorecard_scan,
+    )
+
 VALID_STATUSES = {"active", "paused", "ignored", "needs-human"}
 PENDING_REVIEW_STATUS = "pending standardized review"
 EXECUTED_REVIEW_STATUS = "standard review executed; human decision queued"
@@ -2632,7 +2640,10 @@ def candidate_explicitly_named(
 
 
 def build_approved_issue_queue(
-    states: list[dict[str, Any]], feedback_config: dict[str, Any], generated_on: str
+    states: list[dict[str, Any]],
+    feedback_config: dict[str, Any],
+    generated_on: str,
+    scorecard_scan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     defaults = feedback_config.get("defaults", {}) if isinstance(feedback_config, dict) else {}
     decisions = feedback_config.get("decisions", {}) if isinstance(feedback_config, dict) else {}
@@ -2886,6 +2897,33 @@ def build_approved_issue_queue(
                 }
             )
 
+    scorecard = approved_scorecard_issue_items(scorecard_scan, feedback_config, generated_on)
+    issues.extend(scorecard["issues"])
+    for pending in scorecard["pending"]:
+        deeper_review.append(
+            {
+                "repo": pending["repo"],
+                "priority": normalize_priority("normal"),
+                "decision": "deeper-review",
+                "notes": (
+                    f"Scorecard finding {pending.get('finding_id', '?')} "
+                    f"({pending.get('check', '?')}, score {pending.get('score', '?')}): "
+                    f"{pending.get('reason', 'pending human approval')}."
+                ),
+                "design_target": "OpenSSF Scorecard supply-chain posture",
+                "review_focus": [
+                    "Review low-scoring Scorecard checks surfaced by the weekly scan.",
+                    "Approve explicit finding IDs in config/repo_review_feedback.json before upload.",
+                ],
+                "concerns": [
+                    "Scorecard findings require explicit human approval; blanket repo approvals do not apply.",
+                ],
+                "gitnexus_map": {"status": "not-applicable", "meta_path": None},
+            }
+        )
+    dropped.extend(scorecard["dropped"])
+    warnings.extend(scorecard["warnings"])
+
     issues.sort(
         key=lambda item: (item["priority_rank"], item["repo"].lower(), item["candidate_index"])
     )
@@ -2912,7 +2950,8 @@ def write_approved_issue_queue(
     feedback_config: dict[str, Any],
     generated_on: str,
 ) -> dict[str, Any]:
-    queue = build_approved_issue_queue(states, feedback_config, generated_on)
+    scorecard_scan = load_scorecard_scan(output_dir / "scorecard-scan.json")
+    queue = build_approved_issue_queue(states, feedback_config, generated_on, scorecard_scan)
     (output_dir / "approved-issue-queue.json").write_text(
         json.dumps(queue, indent=2) + "\n", encoding="utf-8"
     )

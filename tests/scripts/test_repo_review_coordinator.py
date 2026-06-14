@@ -226,12 +226,130 @@ def test_run_orders_docs_drift_between_backlog_and_notify(tmp_path: Path, monkey
     call_names = [name for name, _timeout in calls]
     assert call_names == [
         "preflight",
+        "scorecard-scan",
         "final-evaluator",
         "backlog-scan",
         "docs-drift-scan",
         "notify",
     ]
     assert dict(calls)["docs-drift-scan"] == dict(calls)["backlog-scan"] == 300
+    assert dict(calls)["scorecard-scan"] == 300
+
+
+def test_run_orders_scorecard_before_final_evaluator(tmp_path: Path, monkeypatch) -> None:
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "config" / "source_of_truth_docs.yml").write_text("repos: []\n", encoding="utf-8")
+    output_dir = tmp_path / "out"
+
+    monkeypatch.setattr(
+        coordinator,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", status="active")],
+            [],
+        ),
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "coordinate_repo",
+        lambda **_: {
+            "repo": "stranske/Example",
+            "round1": {"succeeded": True, "duration_seconds": 0.01},
+            "round2": {"succeeded": True, "duration_seconds": 0.01},
+            "skip_gate_fired": False,
+        },
+    )
+
+    calls: list[str] = []
+
+    def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
+        calls.append(name)
+        if name == "scorecard-scan":
+            Path(cmd[cmd.index("--out") + 1]).write_text('{"schema":"repo-review-scorecard-scan/v1","by_repo":[]}\n', encoding="utf-8")
+        return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
+
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
+
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=[],
+        agents=["codex", "claude"],
+        skip_preflight=False,
+        skip_gitnexus_preflight=False,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
+    )
+    rc = coordinator.run(args)
+
+    assert rc == 0
+    assert calls.index("scorecard-scan") < calls.index("final-evaluator")
+
+
+def test_run_keeps_scorecard_failure_non_fatal(tmp_path: Path, monkeypatch) -> None:
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "config" / "source_of_truth_docs.yml").write_text("repos: []\n", encoding="utf-8")
+    output_dir = tmp_path / "out"
+
+    monkeypatch.setattr(
+        coordinator,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", status="active")],
+            [],
+        ),
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "coordinate_repo",
+        lambda **_: {
+            "repo": "stranske/Example",
+            "round1": {"succeeded": True, "duration_seconds": 0.01},
+            "round2": {"succeeded": True, "duration_seconds": 0.01},
+            "skip_gate_fired": False,
+        },
+    )
+
+    calls: list[str] = []
+
+    def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
+        calls.append(name)
+        if name == "scorecard-scan":
+            return coordinator.StepResult(
+                name=name, succeeded=False, duration_seconds=0.01, notes="exit 1"
+            )
+        return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
+
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
+
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=[],
+        agents=["codex", "claude"],
+        skip_preflight=False,
+        skip_gitnexus_preflight=False,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
+    )
+    rc = coordinator.run(args)
+
+    assert rc == 0
+    assert calls[-1] == "notify"
 
 
 def test_run_keeps_docs_drift_failure_non_fatal(tmp_path: Path, monkeypatch) -> None:

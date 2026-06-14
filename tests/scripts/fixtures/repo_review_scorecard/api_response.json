@@ -1,0 +1,48 @@
+{
+  "date": "2026-06-01T12:00:00Z",
+  "repo": {
+    "name": "github.com/stranske/Workflows",
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "scorecard": {
+    "version": "v5.0.0",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "score": 6.2,
+  "checks": [
+    {
+      "name": "Branch-Protection",
+      "score": 0,
+      "reason": "branch protection not enabled on default branch",
+      "documentation": {
+        "short": "Branch-Protection",
+        "url": "https://github.com/ossf/scorecard/blob/main/docs/checks.md#branch-protection"
+      },
+      "details": [
+        "Warn: no branch protection settings found"
+      ]
+    },
+    {
+      "name": "Maintained",
+      "score": 10,
+      "reason": "project is maintained",
+      "documentation": {
+        "short": "Maintained",
+        "url": "https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained"
+      },
+      "details": []
+    },
+    {
+      "name": "Token-Permissions",
+      "score": 4,
+      "reason": "detected workflow tokens with write permissions",
+      "documentation": {
+        "short": "Token-Permissions",
+        "url": "https://github.com/ossf/scorecard/blob/main/docs/checks.md#token-permissions"
+      },
+      "details": [
+        "Info: 'contents: write' in .github/workflows/example.yml"
+      ]
+    }
+  ]
+}

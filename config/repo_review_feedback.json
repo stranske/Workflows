@@ -5,6 +5,13 @@
     "omitted_repo_decision": "defer",
     "approved_candidates": "all"
   },
+  "scorecard_defaults": {
+    "decision": "defer",
+    "approved_findings": [],
+    "dropped_findings": [],
+    "priority": "normal",
+    "priority_overrides": {}
+  },
   "routing_rules": [
     "Consumer repo workflow-sync or Workflows-maintenance tasks belong in stranske/Workflows unless the issue directly implements behavior required by the consumer repo design.",
     "Repos marked deeper-review must receive a real design-vs-implementation review before the automation accepts no-new-issues as a valid outcome.",
@@ -93,6 +100,14 @@
     "stranske/Workflows": {
       "decision": "defer",
       "priority": "normal",
+      "scorecard": {
+        "decision": "defer",
+        "approved_findings": [],
+        "dropped_findings": [],
+        "priority": "normal",
+        "priority_overrides": {},
+        "notes": "Human approval required before low-scoring Scorecard findings enter the approved issue queue."
+      },
       "notes": "Workflows is the system-of-record repo and is not in the active fleet for the multi-agent design-vs-implementation review. Workflows-originated maintenance is routed via the existing campaign-controller pipeline."
     }
   }

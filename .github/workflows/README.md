@@ -18,7 +18,7 @@ Core layers:
 - Cosmetic repair (`maint-45-cosmetic-repair.yml`): manual pytest run plus guardrail fixer that opens labelled repair PRs when drift is detected.
 - Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml`, `health-51-zizmor.yml`, `health-52-semgrep.yml`, `health-53-scorecard.yml`, labelers, dependency review, CodeQL.
 - Semgrep CE scan (`health-52-semgrep.yml`): report-only SAST using Semgrep Community Edition with `p/default`, `p/python`, `p/github-actions`, and `p/secrets` rulesets; uploads SARIF to GitHub Security for defence-in-depth alongside CodeQL.
-- OpenSSF Scorecard (`health-53-scorecard.yml`): report-only supply-chain posture scan (push to main, `branch_protection_rule`, weekly schedule, manual dispatch); uploads SARIF to GitHub Security.
+- OpenSSF Scorecard (`health-53-scorecard.yml`): report-only supply-chain posture scan (push to main, `branch_protection_rule`, weekly schedule, manual dispatch); uploads SARIF to GitHub Security. Published Scorecard API results are consumed by the weekly repo-review Scorecard scan as a human-gated supplemental candidate source.
 - Keepalive heartbeat (`maint-keepalive.yml`): twice-daily cron + dispatch workflow that posts a timestamped comment (with run link) to the Ops heartbeat issue using `ACTIONS_BOT_PAT` and fails fast if either the issue variable or PAT is missing.
 - Coverage guard (`maint-coverage-guard.yml`): daily cron + dispatch workflow that fetches the latest Gate coverage artifacts, compares them to the configured baseline, and maintains the rolling `[coverage] baseline breach` issue.
 

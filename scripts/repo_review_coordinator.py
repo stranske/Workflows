@@ -594,6 +594,41 @@ def run(args: argparse.Namespace) -> int:
         )
         reports.append(report)
 
+    # 2b. Scorecard scan: surface low-scoring OpenSSF checks for human approval.
+    #     Same non-fatal pattern as docs-drift -- failures are logged but don't
+    #     abort the cycle. Output is consumed by queue-builder preview, the final
+    #     evaluator, and notify.
+    scorecard_path = output_dir / "scorecard-scan.json"
+    scorecard_config = workflows_steward_root / "config" / "source_of_truth_docs.yml"
+    if scorecard_config.is_file():
+        scorecard_cmd = [
+            sys.executable,
+            str(workflows_steward_root / "scripts" / "repo_review_scorecard.py"),
+            "--registry",
+            str(registry_path),
+            "--docs-config",
+            str(scorecard_config),
+            "--out",
+            str(scorecard_path),
+        ]
+        scorecard_result = run_subprocess(
+            scorecard_cmd,
+            cwd=workflows_steward_root,
+            log_path=log_dir / "scorecard-scan.log",
+            name="scorecard-scan",
+            timeout=300,
+        )
+        if not scorecard_result.succeeded:
+            print(
+                f"[coordinator] scorecard-scan FAILED (non-fatal): {scorecard_result.notes}",
+                file=sys.stderr,
+            )
+    else:
+        print(
+            f"[coordinator] scorecard-scan: skipping -- config not found at {scorecard_config}",
+            file=sys.stderr,
+        )
+
     # 3. Queue-builder preview only (#2272: single queue producer).
     #    The approved-issue-queue.json has ONE producer: the final evaluator
     #    pass in step 4 (evaluator.write_approved_issue_queue). queue_builder
@@ -607,14 +642,17 @@ def run(args: argparse.Namespace) -> int:
     queue_out = output_dir / "approved-issue-queue.json"
     if feedback_path.is_file():
         try:
+            from scripts.repo_review_scorecard import load_scorecard_scan
             from scripts.repo_review_queue_builder import (
                 build_queue,  # type: ignore[import-not-found]
             )
         except ModuleNotFoundError:
             sys.path.insert(0, str(workflows_steward_root / "scripts"))
+            from repo_review_scorecard import load_scorecard_scan  # type: ignore[no-redef]
             from repo_review_queue_builder import build_queue  # type: ignore[no-redef]
         try:
-            queue_data = build_queue(output_dir / "round2", feedback_path)
+            scorecard_scan = load_scorecard_scan(scorecard_path)
+            queue_data = build_queue(output_dir / "round2", feedback_path, scorecard_scan)
             n = len(queue_data["issues"])
             print(
                 f"[coordinator] queue-builder preview: {n} issue(s) "
@@ -731,6 +769,8 @@ def run(args: argparse.Namespace) -> int:
         str(backlog_scan_path),
         "--docs-drift-scan",
         str(docs_drift_path),
+        "--scorecard-scan",
+        str(scorecard_path),
         "--workflows-steward-root",
         str(workflows_steward_root),
     ]

@@ -36,6 +36,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.repo_review_scorecard import approved_scorecard_issue_items, load_scorecard_scan
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from repo_review_scorecard import (  # type: ignore[no-redef]
+        approved_scorecard_issue_items,
+        load_scorecard_scan,
+    )
+
 META_AUDIT_LABEL = "repo-review-meta-audit"
 APPROVE_DECISIONS = {"approve", "revise"}
 SKIP_DECISIONS = {"defer", "no_new_work_accept"}
@@ -74,7 +82,11 @@ def is_uploadable_body(body: str | None) -> tuple[bool, str]:
     return True, ""
 
 
-def build_queue(round2_dir: Path, feedback_path: Path) -> dict[str, Any]:
+def build_queue(
+    round2_dir: Path,
+    feedback_path: Path,
+    scorecard_scan: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     feedback = json.loads(feedback_path.read_text(encoding="utf-8"))
     decisions = feedback.get("decisions", {}) or {}
 
@@ -163,6 +175,28 @@ def build_queue(round2_dir: Path, feedback_path: Path) -> dict[str, Any]:
                         }
                     )
 
+    if scorecard_scan is None:
+        scorecard_scan = load_scorecard_scan(round2_dir.parent / "scorecard-scan.json")
+    generated_on = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    scorecard = approved_scorecard_issue_items(scorecard_scan, feedback, generated_on)
+    queue.extend(scorecard["issues"])
+    for pending in scorecard["pending"]:
+        skipped.append(
+            {
+                "repo": pending.get("repo", "?"),
+                "finding_id": str(pending.get("finding_id", "")),
+                "reason": str(pending.get("reason", "scorecard finding pending")),
+            }
+        )
+    for dropped in scorecard["dropped"]:
+        skipped.append(
+            {
+                "repo": dropped.get("repo", "?"),
+                "finding_id": str(dropped.get("finding_id", "")),
+                "reason": "scorecard finding dropped",
+            }
+        )
+
     return {
         "generated_on": datetime.now(tz=UTC).strftime("%Y-%m-%d"),
         "feedback_source": str(feedback_path),
@@ -187,6 +221,12 @@ def parse_args() -> argparse.Namespace:
         help="path to config/repo_review_feedback.json",
     )
     parser.add_argument(
+        "--scorecard-scan",
+        type=Path,
+        default=None,
+        help="path to scorecard-scan.json (default: <round2-dir>/../scorecard-scan.json)",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         required=True,
@@ -202,8 +242,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    scorecard_scan_path = (
+        args.scorecard_scan
+        if args.scorecard_scan is not None
+        else args.round2_dir.parent / "scorecard-scan.json"
+    )
+    scorecard_scan = load_scorecard_scan(scorecard_scan_path)
     try:
-        result = build_queue(args.round2_dir, args.feedback)
+        result = build_queue(args.round2_dir, args.feedback, scorecard_scan)
     except FileNotFoundError as exc:
         print(f"[queue-builder] {exc}", file=sys.stderr)
         return 2

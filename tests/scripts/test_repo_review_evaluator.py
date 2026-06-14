@@ -1132,3 +1132,94 @@ def test_feedback_covers_converged_cycle_binding() -> None:
     assert evaluator.feedback_covers_converged({}, "2026-05-03", None) is True
     # Unparseable feedback date fails closed (do not auto-approve blindly).
     assert evaluator.feedback_covers_converged({}, "not-a-date", converged) is False
+
+
+def test_build_approved_issue_queue_includes_approved_scorecard_findings() -> None:
+    from scripts.repo_review_scorecard import SCHEMA
+
+    scorecard_scan = {
+        "schema": SCHEMA,
+        "generated_on": "2026-06-14T12:00:00Z",
+        "by_repo": [
+            {
+                "repo": "stranske/Workflows",
+                "local_path": "Workflows-steward",
+                "workflow": ".github/workflows/health-53-scorecard.yml",
+                "findings": [
+                    {
+                        "finding_id": "scorecard:Branch-Protection",
+                        "check": "Branch-Protection",
+                        "score": 0.0,
+                        "minimum_score": 7.0,
+                        "priority": "high",
+                        "reason": "branch protection not enabled on default branch",
+                        "details": [],
+                        "documentation_url": "https://example.com/branch-protection",
+                    }
+                ],
+            }
+        ],
+    }
+    feedback = {
+        "generated_on": "2026-06-14",
+        "decisions": {
+            "stranske/Workflows": {
+                "decision": "defer",
+                "scorecard": {
+                    "decision": "approve",
+                    "approved_findings": ["scorecard:Branch-Protection"],
+                    "dropped_findings": [],
+                    "priority": "normal",
+                    "priority_overrides": {},
+                },
+            }
+        },
+    }
+    queue = evaluator.build_approved_issue_queue([], feedback, "2026-06-14", scorecard_scan)
+    assert len(queue["issues"]) == 1
+    assert queue["issues"][0]["scorecard_finding_id"] == "scorecard:Branch-Protection"
+    assert queue["issues"][0]["source_type"] == "scorecard finding"
+
+
+def test_build_approved_issue_queue_surfaces_unapproved_scorecard_for_deeper_review() -> None:
+    from scripts.repo_review_scorecard import SCHEMA
+
+    scorecard_scan = {
+        "schema": SCHEMA,
+        "by_repo": [
+            {
+                "repo": "stranske/Workflows",
+                "local_path": "Workflows-steward",
+                "workflow": ".github/workflows/health-53-scorecard.yml",
+                "findings": [
+                    {
+                        "finding_id": "scorecard:Branch-Protection",
+                        "check": "Branch-Protection",
+                        "score": 0.0,
+                        "minimum_score": 7.0,
+                        "priority": "high",
+                        "reason": "branch protection not enabled on default branch",
+                        "details": [],
+                        "documentation_url": "https://example.com/branch-protection",
+                    }
+                ],
+            }
+        ],
+    }
+    feedback = {
+        "generated_on": "2026-06-14",
+        "scorecard_defaults": {"decision": "defer", "approved_findings": []},
+        "decisions": {
+            "stranske/Workflows": {
+                "decision": "defer",
+                "scorecard": {
+                    "decision": "defer",
+                    "approved_findings": [],
+                    "dropped_findings": [],
+                },
+            }
+        },
+    }
+    queue = evaluator.build_approved_issue_queue([], feedback, "2026-06-14", scorecard_scan)
+    assert queue["issues"] == []
+    assert any("Scorecard finding" in item["notes"] for item in queue["deeper_review"])
