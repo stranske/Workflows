@@ -162,6 +162,7 @@ Coverage evidence: `tests/workflows/test_reusable_workflow_outputs_doc.py` loads
 | `reusable-10-ci-python.yml` | None (artifacts only: coverage, metrics, summaries). |
 | `reusable-11-ci-node.yml` | None (artifacts only: coverage + junit when enabled). |
 | `reusable-12-ci-docker.yml` | None (logs only). |
+| `reusable-13-cross-repo-smoke.yml` | None (logs only). |
 | `reusable-18-autofix.yml` | None (patch artifacts + summaries). |
 | `reusable-70-orchestrator-main.yml` | None (consumes init outputs; exports status via summaries). |
 | `reusable-agents-issue-bridge.yml` | None (bridge PR creation artifacts/logs). |
@@ -280,6 +281,7 @@ Reusable workflows without `workflow_call` outputs:
 | `reusable-10-ci-python.yml` | No `workflow_call` outputs; publishes coverage, metrics, logs, and summaries as artifacts/job output. |
 | `reusable-11-ci-node.yml` | No `workflow_call` outputs; publishes coverage and JUnit artifacts when enabled. |
 | `reusable-12-ci-docker.yml` | No `workflow_call` outputs; logs Docker smoke results. |
+| `reusable-13-cross-repo-smoke.yml` | No `workflow_call` outputs; logs cross-repo smoke command output. |
 | `reusable-18-autofix.yml` | No `workflow_call` outputs; publishes patch artifacts and summaries. |
 | `reusable-70-orchestrator-main.yml` | No `workflow_call` outputs; consumes init outputs and reports status via summaries. |
 | `reusable-agents-issue-bridge.yml` | No `workflow_call` outputs; creates bridge PR artifacts and logs. |
@@ -758,6 +760,7 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 | `agents-verifier.yml` | Runs label-driven post-merge verification | manual dispatch, `verify:*` labels |
 | `autofix.yml` | Auto-fixes lint/format issues | PR sync, `autofix` label |
 | `pr-00-gate.yml` | Required PR gate and summary status | PR |
+| `cross-repo-smoke.yml` | Optional cross-repo integration smoke (host + pinned dependency checkout) | push, PR, manual (opt-in via `CROSS_REPO_SMOKE_*` vars) |
 | `autofix-versions.env` | Pins tool versions | N/A |
 | `AGENTS.md` / `CLAUDE.md` | Repo-local agent guidance synced from Workflows | N/A |
 
@@ -782,6 +785,58 @@ backward compatibility, but new manual setup should prefer the current defaults.
 | `SERVICE_BOT_PAT` | Bot account for comments/labels (stranske-automation-bot) | agents, autofix |
 | `ACTIONS_BOT_PAT` | Workflow dispatch triggers | event-hub/follow-up automation (`agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`); legacy orchestrator/pr-meta only when intentionally retained |
 | `OWNER_PR_PAT` | Create PRs on behalf of user | issue-intake |
+| `CROSS_REPO_TOKEN` | Read access to a dependency repository for cross-repo smoke | `cross-repo-smoke.yml` when `CROSS_REPO_SMOKE_ENABLED=true` |
+
+### Cross-Repo Smoke (opt-in)
+
+The synced `cross-repo-smoke.yml` caller is safe to ship to every consumer repo.
+It remains a no-op until you set repository variables and the `CROSS_REPO_TOKEN`
+secret. When enabled, it delegates to
+`stranske/Workflows/.github/workflows/reusable-13-cross-repo-smoke.yml@main`.
+
+Required repository variables when enabling:
+
+| Variable | Purpose |
+|----------|---------|
+| `CROSS_REPO_SMOKE_ENABLED` | Set to `true` to run the workflow |
+| `CROSS_REPO_SMOKE_DEPENDENCY_REPO` | Dependency slug (`owner/repo`) |
+| `CROSS_REPO_SMOKE_RUN_COMMAND` | Shell command executed from the host workspace root |
+
+Optional repository variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CROSS_REPO_SMOKE_DEPENDENCY_REF` | `main` | Branch, tag, or SHA for the dependency checkout |
+| `CROSS_REPO_SMOKE_SETUP_NODE` | `false` | Set to `true` to run `actions/setup-node` before installs |
+| `CROSS_REPO_SMOKE_NODE_VERSION` | `20` | Node.js version when setup is enabled |
+| `CROSS_REPO_SMOKE_HOST_INSTALL_COMMAND` | *(empty)* | Host install command (workspace root) |
+| `CROSS_REPO_SMOKE_DEPENDENCY_INSTALL_COMMAND` | *(empty)* | Dependency install command (dependency checkout path) |
+
+Example caller wiring (already present in the synced template):
+
+```yaml
+jobs:
+  cross-repo-smoke:
+    if: >-
+      vars.CROSS_REPO_SMOKE_ENABLED == 'true' &&
+      vars.CROSS_REPO_SMOKE_DEPENDENCY_REPO != '' &&
+      vars.CROSS_REPO_SMOKE_RUN_COMMAND != '' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+    uses: stranske/Workflows/.github/workflows/reusable-13-cross-repo-smoke.yml@main
+    with:
+      dependency_repo: ${{ vars.CROSS_REPO_SMOKE_DEPENDENCY_REPO }}
+      dependency_ref: ${{ vars.CROSS_REPO_SMOKE_DEPENDENCY_REF || 'main' }}
+      setup_node: ${{ vars.CROSS_REPO_SMOKE_SETUP_NODE == 'true' }}
+      node_version: ${{ vars.CROSS_REPO_SMOKE_NODE_VERSION || '20' }}
+      host_install_command: ${{ vars.CROSS_REPO_SMOKE_HOST_INSTALL_COMMAND || '' }}
+      dependency_install_command: ${{ vars.CROSS_REPO_SMOKE_DEPENDENCY_INSTALL_COMMAND || '' }}
+      run_command: ${{ vars.CROSS_REPO_SMOKE_RUN_COMMAND }}
+    secrets:
+      CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+```
+
+The reusable workflow exports `DEPENDENCY_PATH` (basename of `dependency_repo`)
+to the smoke command environment so scripts can reference the sibling checkout.
 
 ### Dual Checkout Architecture
 

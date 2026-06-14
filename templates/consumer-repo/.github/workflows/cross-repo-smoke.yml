@@ -1,0 +1,45 @@
+# Thin caller for cross-repo smoke tests - delegates to Workflows reusable workflow.
+#
+# Opt-in via repository variables (Settings → Secrets and variables → Actions → Variables):
+#   CROSS_REPO_SMOKE_ENABLED=true
+#   CROSS_REPO_SMOKE_DEPENDENCY_REPO=owner/dependency-repo
+#   CROSS_REPO_SMOKE_DEPENDENCY_REF=<branch|tag|sha>   (optional; default main)
+#   CROSS_REPO_SMOKE_RUN_COMMAND=<shell command>        (required when enabled)
+#   CROSS_REPO_SMOKE_SETUP_NODE=true|false            (optional; default false)
+#   CROSS_REPO_SMOKE_NODE_VERSION=20                  (optional)
+#   CROSS_REPO_SMOKE_HOST_INSTALL_COMMAND=<command>   (optional)
+#   CROSS_REPO_SMOKE_DEPENDENCY_INSTALL_COMMAND=<cmd> (optional)
+#
+# Requires repository secret CROSS_REPO_TOKEN with read access to the dependency repo.
+#
+# NOTE: Do NOT add a top-level 'permissions:' block here. It causes startup_failure
+# when calling reusable workflows. The reusable workflow defines its own permissions.
+
+name: Cross-Repo Smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  cross-repo-smoke:
+    name: cross-repo smoke
+    if: >-
+      vars.CROSS_REPO_SMOKE_ENABLED == 'true' &&
+      vars.CROSS_REPO_SMOKE_DEPENDENCY_REPO != '' &&
+      vars.CROSS_REPO_SMOKE_RUN_COMMAND != '' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+    uses: stranske/Workflows/.github/workflows/reusable-13-cross-repo-smoke.yml@main
+    with:
+      dependency_repo: ${{ vars.CROSS_REPO_SMOKE_DEPENDENCY_REPO }}
+      dependency_ref: ${{ vars.CROSS_REPO_SMOKE_DEPENDENCY_REF || 'main' }}
+      setup_node: ${{ vars.CROSS_REPO_SMOKE_SETUP_NODE == 'true' }}
+      node_version: ${{ vars.CROSS_REPO_SMOKE_NODE_VERSION || '20' }}
+      host_install_command: ${{ vars.CROSS_REPO_SMOKE_HOST_INSTALL_COMMAND || '' }}
+      dependency_install_command: ${{ vars.CROSS_REPO_SMOKE_DEPENDENCY_INSTALL_COMMAND || '' }}
+      run_command: ${{ vars.CROSS_REPO_SMOKE_RUN_COMMAND }}
+    secrets:
+      CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}

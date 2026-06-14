@@ -140,6 +140,7 @@ The workflows below do not expose `workflow_call` outputs. They publish artifact
 - `reusable-10-ci-python.yml`
 - `reusable-11-ci-node.yml`
 - `reusable-12-ci-docker.yml`
+- `reusable-13-cross-repo-smoke.yml`
 - `reusable-18-autofix.yml`
 - `reusable-70-orchestrator-main.yml`
 - `reusable-agents-issue-bridge.yml`

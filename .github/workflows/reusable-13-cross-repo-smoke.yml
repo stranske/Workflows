@@ -1,0 +1,122 @@
+name: Reusable Cross-Repo Smoke
+
+on:
+  workflow_call:
+    inputs:
+      dependency_repo:
+        description: GitHub repository slug (owner/name) for the dependency checkout.
+        required: true
+        type: string
+      dependency_ref:
+        description: Git ref (branch, tag, or SHA) to pin for the dependency checkout.
+        required: false
+        default: main
+        type: string
+      setup_node:
+        description: Whether to run actions/setup-node before install/smoke commands.
+        required: false
+        default: false
+        type: boolean
+      node_version:
+        description: Node.js version passed to actions/setup-node when setup_node is true.
+        required: false
+        default: '20'
+        type: string
+      host_install_command:
+        description: Optional shell command to install host-repo dependencies (runs from workspace root).
+        required: false
+        default: ''
+        type: string
+      dependency_install_command:
+        description: Optional shell command to install dependency-repo dependencies (runs from the dependency checkout path).
+        required: false
+        default: ''
+        type: string
+      run_command:
+        description: Shell command that executes the cross-repo smoke test (runs from workspace root).
+        required: true
+        type: string
+    secrets:
+      CROSS_REPO_TOKEN:
+        description: Token with read access to the dependency repository.
+        required: true
+
+jobs:
+  cross-repo-smoke:
+    name: cross-repo smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout host repository
+        uses: actions/checkout@v6
+
+      - name: Resolve dependency checkout path
+        id: dependency_path
+        shell: bash
+        env:
+          DEPENDENCY_REPO: ${{ inputs.dependency_repo }}
+        run: |
+          set -euo pipefail
+          path="${DEPENDENCY_REPO##*/}"
+          if [ -z "$path" ]; then
+            echo "dependency_repo must be owner/name" >&2
+            exit 1
+          fi
+          echo "path=${path}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout dependency repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.dependency_repo }}
+          ref: ${{ inputs.dependency_ref }}
+          path: ${{ steps.dependency_path.outputs.path }}
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+
+      - name: Log resolved dependency SHA
+        working-directory: ${{ steps.dependency_path.outputs.path }}
+        shell: bash
+        env:
+          DEPENDENCY_REF: ${{ inputs.dependency_ref }}
+        run: |
+          set -euo pipefail
+          echo "dependency_repo=${{ inputs.dependency_repo }}"
+          echo "dependency_ref=${DEPENDENCY_REF}"
+          echo "dependency_resolved_sha=$(git rev-parse HEAD)"
+
+      - name: Set up Node.js
+        if: inputs.setup_node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Install host dependencies
+        if: inputs.host_install_command != ''
+        shell: bash
+        env:
+          HOST_INSTALL_COMMAND: ${{ inputs.host_install_command }}
+        run: |
+          set -euo pipefail
+          eval "$HOST_INSTALL_COMMAND"
+
+      - name: Install dependency dependencies
+        if: inputs.dependency_install_command != ''
+        working-directory: ${{ steps.dependency_path.outputs.path }}
+        shell: bash
+        env:
+          DEPENDENCY_INSTALL_COMMAND: ${{ inputs.dependency_install_command }}
+        run: |
+          set -euo pipefail
+          eval "$DEPENDENCY_INSTALL_COMMAND"
+
+      - name: Run cross-repo smoke command
+        shell: bash
+        env:
+          DEPENDENCY_REPO: ${{ inputs.dependency_repo }}
+          DEPENDENCY_REF: ${{ inputs.dependency_ref }}
+          DEPENDENCY_PATH: ${{ steps.dependency_path.outputs.path }}
+          RUN_COMMAND: ${{ inputs.run_command }}
+        run: |
+          set -euo pipefail
+          echo "dependency_path=${DEPENDENCY_PATH}"
+          eval "$RUN_COMMAND"

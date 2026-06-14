@@ -382,7 +382,7 @@ fires where” without diving into the full tables:
   - **Health 45 Agents Guard.** [workflow history](https://github.com/stranske/Workflows/actions/workflows/agents-guard.yml).
 - **Error checking, linting, and testing topology**
   - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
-    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-agents-issue-bridge.yml`, `reusable-agents-pr-health.yml`, `reusable-agents-verifier.yml`, `reusable-backplane-conformance.yml`, `reusable-bot-comment-handler.yml`, `reusable-claude-run.yml`, `reusable-codex-run.yml`, `reusable-cursor-run.yml`, `reusable-pr-context.yml`, and `selftest-reusable-ci.yml`.
+    `reusable-13-cross-repo-smoke.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-agents-issue-bridge.yml`, `reusable-agents-pr-health.yml`, `reusable-agents-verifier.yml`, `reusable-backplane-conformance.yml`, `reusable-bot-comment-handler.yml`, `reusable-claude-run.yml`, `reusable-codex-run.yml`, `reusable-cursor-run.yml`, `reusable-pr-context.yml`, and `selftest-reusable-ci.yml`.
   - **Triggers.** Invoked via `workflow_call` by Gate, Gate summary job, and manual
     reruns. `selftest-reusable-ci.yml` handles the nightly rehearsal (cron at 06:30 UTC)
     and manual publication modes via `workflow_dispatch`.
@@ -397,6 +397,8 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Workflows/actions/workflows/reusable-10-ci-python.yml).
     Docker CI:
     [workflow history](https://github.com/stranske/Workflows/actions/workflows/reusable-12-ci-docker.yml).
+    Cross-repo smoke:
+    [workflow history](https://github.com/stranske/Workflows/actions/workflows/reusable-13-cross-repo-smoke.yml).
     Self-test workflow:
     [workflow history](https://github.com/stranske/Workflows/actions/workflows/selftest-reusable-ci.yml).
 
@@ -465,7 +467,7 @@ status updates:
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
 | Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-51-dependency-refresh.yml`, `maint-62-integration-consumer.yml`, `maint-63-ensure-environments.yml`, `maint-65-sync-label-docs.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-moderate-connector.yml`, `agents-autofix-dispatcher.yml`, `agents-autofix-loop.yml`, `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`, `agents-keepalive-loop-reporter.yml`, `agents-keepalive-branch-sync.yml`, `agents-keepalive-dispatch-handler.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-issue-optimizer.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
-| Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
+| Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-13-cross-repo-smoke.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
 Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
 
@@ -655,6 +657,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Reusable Docker CI** – `reusable-12-ci-docker.yml` builds the container
   image and exercises the smoke tests Gate otherwise short-circuits for
   docs-only changes.
+- **Reusable Cross-Repo Smoke** – `reusable-13-cross-repo-smoke.yml` checks out
+  a pinned dependency repository next to the host workspace and runs caller-provided
+  install and smoke commands. Consumer repos opt in through synced
+  `cross-repo-smoke.yml` plus `CROSS_REPO_SMOKE_*` repository variables.
 - **Reusable Agents** – `reusable-16-agents.yml` powers orchestrated dispatch.
 - **Reusable Autofix** – `reusable-18-autofix.yml` centralizes fixers for Gate summary job.
 - **Selftest: Reusables** – `selftest-reusable-ci.yml` is the consolidated entry
@@ -760,6 +766,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **CI Autofix Loop** (`autofix.yml`, agents bucket) | `workflow_run` | Detect CI failures in agent PRs and apply automated formatting fixes when the `autofix` label is present. | ⚪ Triggered by Gate failures | [Autofix workflow runs](https://github.com/stranske/Workflows/actions/workflows/autofix.yml) |
 | **Reusable Python CI** (`reusable-10-ci-python.yml`, error-checking bucket) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | [Reusable Python CI runs](https://github.com/stranske/Workflows/actions/workflows/reusable-10-ci-python.yml) |
 | **Reusable Docker CI** (`reusable-12-ci-docker.yml`, error-checking bucket) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | [Reusable Docker runs](https://github.com/stranske/Workflows/actions/workflows/reusable-12-ci-docker.yml) |
+| **Reusable Cross-Repo Smoke** (`reusable-13-cross-repo-smoke.yml`, error-checking bucket) | `workflow_call` | Check out a pinned dependency repo and run caller-provided cross-repo smoke commands. | ✅ When invoked | [Reusable cross-repo smoke runs](https://github.com/stranske/Workflows/actions/workflows/reusable-13-cross-repo-smoke.yml) |
 | **Reusable Agents** (`reusable-16-agents.yml`, error-checking bucket) | `workflow_call` | Power orchestrated dispatch. | ✅ When invoked | [Reusable Agents history](https://github.com/stranske/Workflows/actions/workflows/reusable-16-agents.yml) |
 | **Reusable Autofix** (`reusable-18-autofix.yml`, error-checking bucket) | `workflow_call` | Centralise formatter + fixer execution. | ✅ When invoked | [Reusable Autofix runs](https://github.com/stranske/Workflows/actions/workflows/reusable-18-autofix.yml) |
 | **Selftest: Reusables** (`selftest-reusable-ci.yml`, error-checking bucket) | `schedule` (06:30 UTC), `workflow_dispatch` | Rehearse the reusable CI scenarios nightly and publish manual summaries or PR comments on demand. | ⚪ Scheduled/manual | [Self-test workflow history](https://github.com/stranske/Workflows/actions/workflows/selftest-reusable-ci.yml) |

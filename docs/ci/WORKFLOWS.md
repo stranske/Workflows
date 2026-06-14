@@ -84,6 +84,7 @@ workflows or consuming outputs in dependent jobs.
     * The workflow now defaults to `hypothesis 6.115.1` and `pydantic-core 2.27.1` when no override file is present to stay Python 3.12 compatible.
 * [`Reusable CI (Node)`](../../.github/workflows/reusable-11-ci-node.yml) (`reusable-11-ci-node.yml`) runs lint/format/typecheck/test legs for Node projects with optional multi-version matrices.
 * [`Reusable CI (Docker)`](../../.github/workflows/reusable-12-ci-docker.yml) executes the container smoke test whenever Docker-related files change.
+* [`Reusable Cross-Repo Smoke`](../../.github/workflows/reusable-13-cross-repo-smoke.yml) (`reusable-13-cross-repo-smoke.yml`) checks out a pinned dependency repository alongside the host repo and runs a caller-provided smoke command (used by opt-in consumer `cross-repo-smoke.yml` callers).
 
 The gate uses the shared `.github/scripts/detect-changes.js` helper to decide when documentation-only changes can skip heavy jobs and when Docker smoke tests must run.
 

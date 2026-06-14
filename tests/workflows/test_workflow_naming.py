@@ -282,6 +282,7 @@ EXPECTED_NAMES = {
     "reusable-10-ci-python.yml": "Reusable CI",
     "reusable-11-ci-node.yml": "Reusable Node CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
+    "reusable-13-cross-repo-smoke.yml": "Reusable Cross-Repo Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
     "reusable-claude-run.yml": "Reusable Claude Run",

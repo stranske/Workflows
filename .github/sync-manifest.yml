@@ -135,6 +135,10 @@ workflows:
   - source: .github/workflows/reusable-pr-context.yml
     description: "Reusable PR context workflow - centralized PR data fetching via GraphQL"
 
+  - source: .github/workflows/cross-repo-smoke.yml
+    description: "Cross-repo smoke caller - opt-in host + pinned dependency integration test via reusable-13-cross-repo-smoke.yml"
+    sync_mode: create_only
+
   # Research-backplane run-contract/v1 conformance caller (opt-in, role-based)
   - source: .github/workflows/backplane-conformance.yml
     description: "Backplane conformance caller stub - calls reusable-backplane-conformance.yml@main to validate a repo's emitted run-contract/v1 envelope (producer) or ingested object (consumer). No-op for non-participants (opt-in). Template lives under templates/consumer-repo/.github/workflows/."
