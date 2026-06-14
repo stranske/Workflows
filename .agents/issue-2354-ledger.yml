@@ -7,10 +7,10 @@ tasks:
     title: Add `cost_per_verified_success` aggregation to `scripts/aggregate_agent_metrics.py`,
       keyed on `(agent, difficulty_tier)`, summing `cost_usd` over runs and dividing
       by the count of runs whose verifier `verdict == "pass"` only.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes:
       - Reopened by closer after review found the prior completion pointed at a
         ledger-only commit; keepalive must attach a real implementation commit
@@ -18,227 +18,227 @@ tasks:
   - id: task-02
     title: 'Create a function to filter runs where verifier verdict equals pass only
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-03
     title: 'Implement cost summation logic that aggregates cost_usd values across
       filtered runs (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-04
     title: 'Implement success counting logic that counts only runs with verdict equals
       pass (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-05
     title: 'Create the cost_per_verified_success calculation by dividing total cost
       by success count (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-06
     title: 'Add composite keying logic using agent (verify: confirm completion in
       repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-07
     title: 'difficulty_tier as the key tuple (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-08
     title: Add `cost_source` emission in `scripts/aggregate_agent_metrics.py` with
       `observed` vs `modeled` when `cost_usd` is null.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-09
     title: 'Implement null detection logic for cost_usd field values in the aggregation
       pipeline (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-10
     title: 'Add cost_source classification that returns observed when cost_usd has
       a value (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-11
     title: 'Add cost_source classification that returns modeled when cost_usd is null
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-12
     title: 'Emit the cost_source field in the aggregation output alongside cost_per_verified_success
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-13
     title: Update `scripts/aggregate_agent_metrics.py` to treat non-`pass` verdicts
       (`skipped`, `concerns`, `error`, missing/parse-fail) as `unverified` and surface
       them as `unverified_count`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-14
     title: 'Create a function to classify verdicts as unverified when they are skipped
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-15
     title: 'concerns (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-16
     title: 'error (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-17
     title: 'missing (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-18
     title: 'or parse-fail (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-19
     title: _(3 further sub-tasks elided; split this issue)_
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-20
     title: Update `scripts/aggregate_agent_metrics.py` to write the new metric to
       existing summary outputs `agent-metrics-summary.md` and `agent-metrics-summary.json`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-21
     title: '`PYTHONPATH=$(pwd) python -m pytest tests/scripts/test_aggregate_agent_metrics.py
       -q` passes with a new case asserting `cost_per_verified_success` credits only
       `verdict=="pass"` rows.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-22
     title: Temporarily changing the new verdict filter from `== "pass"` to include
       `"concerns"` causes the new test case with one `pass` + one `concerns` record
       and denominator `1` to fail; reverting the change makes it pass.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-23
     title: A record with `cost_usd == null` is emitted with `cost_source == "modeled"`
       and is not silently dropped or counted as `$0`, as asserted by the test.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-24
     title: In `scripts/aggregate_agent_metrics.py`, add a `cost_per_verified_success`
       aggregation keyed on `(agent, difficulty_tier)` that sums `cost_usd` over runs
       and divides by the count of runs whose verifier `verdict == "pass"` only; emit
       a `cost_source` flag (`observed` vs `modeled`) where cost is null.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-25
     title: "Treat `verdict` values other than `pass` (`skipped`, `concerns`, `error`,\
       \ missing/parse-fail) as `unverified` \u2014 excluded from the success denominator,\
       \ surfaced in the summary as a separate `unverified_count`."
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-26
     title: Add the metric to the markdown + JSON summary outputs the script already
       writes (`agent-metrics-summary.{md,json}`).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-27
     title: '`PYTHONPATH=$(pwd) python -m pytest tests/scripts/test_aggregate_agent_metrics.py
       -q` passes with a new case asserting `cost_per_verified_success` credits only
       `verdict==pass` rows.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-28
     title: "**Deliberate-break gate:** in the new aggregation, temporarily change\
       \ the verdict filter from `== \"pass\"` to include `\"concerns\"` \u2192 the\
       \ new test case (which feeds one `pass` + one `concerns` record and asserts\
       \ the denominator is `1`) **MUST FAIL**; revert \u2192 passes. Capture the FAIL."
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
   - id: task-29
     title: A record with `cost_usd == null` is emitted with `cost_source == "modeled"`
       (asserted by the test), never silently dropped or counted as `$0`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-06-14T02:20:26Z'
+    finished_at: '2026-06-14T02:25:48Z'
+    commit: 3e498b21
     notes: []
