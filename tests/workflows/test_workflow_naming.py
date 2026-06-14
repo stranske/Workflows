@@ -301,3 +301,8 @@ EXPECTED_NAMES = {
     "maint-39-test-llm-providers.yml": "Maint 39 Test LLM Providers",
     "maint-84-prune-agent-stubs.yml": "Maint 84 Prune Agent Stubs",
 }
+
+
+def test_semgrep_workflow_display_name_mapping():
+    """The Semgrep CE scan workflow must carry its canonical display name."""
+    assert EXPECTED_NAMES["health-52-semgrep.yml"] == "Health 52 Semgrep Scan"
