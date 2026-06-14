@@ -968,6 +968,76 @@ def test_summary_helpers_cover_branches() -> None:
     assert verifier_with_terminal["verifier_modes"]["checkbox"] == 2
 
 
+def test_verifier_cost_per_verified_success_uses_pass_denominator_only() -> None:
+    verifier = aggregate_agent_metrics._summarise_verifier(
+        [
+            {
+                "agent": "Codex",
+                "difficulty_tier": "High",
+                "verdict": "pass",
+                "cost_usd": "2.50",
+                "run_id": "success-run",
+            },
+            {
+                "agent": "codex",
+                "difficulty_tier": "high",
+                "verdict": "concerns",
+                "cost_usd": 1.25,
+                "run_id": "concerns-run",
+            },
+            {
+                "agent": "codex",
+                "difficulty_tier": "high",
+                "verdict": "skipped",
+                "cost_usd": None,
+                "run_id": "modeled-run",
+            },
+        ]
+    )
+
+    metric = verifier["cost_per_verified_success"]["codex|high"]
+
+    assert metric["runs"] == 3
+    assert metric["verified_success_count"] == 1
+    assert metric["unverified_count"] == 2
+    assert metric["observed_cost_usd"] == 3.75
+    assert metric["modeled_cost_count"] == 1
+    assert metric["cost_source"] == "modeled"
+    assert metric["cost_per_verified_success"] == 3.75
+
+
+def test_summary_outputs_cost_per_verified_success_markdown_and_json() -> None:
+    entries = [
+        {
+            "agent_type": "claude",
+            "difficulty": "normal",
+            "verdict": "pass",
+            "cost_usd": 3,
+            "run_id": "run-1",
+        },
+        {
+            "agent_type": "claude",
+            "difficulty": "normal",
+            "verdict": "error",
+            "cost_usd": 1,
+            "run_id": "run-2",
+        },
+    ]
+
+    summary = aggregate_agent_metrics.build_summary(entries, errors=0)
+    contract = aggregate_agent_metrics.build_summary_contract(entries, [])
+    metric = contract["summaries"]["verifier"]["cost_per_verified_success"]["claude|normal"]
+
+    assert (
+        "- Cost per verified success: claude|normal=$4.00 (1 pass, 1 unverified, observed)"
+        in summary
+    )
+    assert metric["cost_per_verified_success"] == 4.0
+    assert metric["verified_success_count"] == 1
+    assert metric["unverified_count"] == 1
+    assert metric["cost_source"] == "observed"
+
+
 def test_summary_contract_exposes_runtime_verifier_model_fallback() -> None:
     entries = [
         {

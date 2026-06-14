@@ -529,6 +529,77 @@ def _verifier_mode_requires_model_metadata(entry: dict[str, Any]) -> bool:
     return bool(verifier_mode) and verifier_mode != "evaluate"
 
 
+def _normalize_group_token(value: Any, fallback: str = "unknown") -> str:
+    text = str(value).strip().lower().replace("_", "-") if value is not None else ""
+    return text or fallback
+
+
+def _verifier_agent(entry: dict[str, Any]) -> str:
+    return _normalize_group_token(
+        entry.get("agent")
+        or entry.get("agent_type")
+        or entry.get("runner")
+        or entry.get("provider")
+    )
+
+
+def _verifier_difficulty_tier(entry: dict[str, Any]) -> str:
+    return _normalize_group_token(
+        entry.get("difficulty_tier") or entry.get("difficulty") or entry.get("tier")
+    )
+
+
+def _is_verified_success(entry: dict[str, Any]) -> bool:
+    return str(entry.get("verdict") or "").strip().lower() == "pass"
+
+
+def _summarise_cost_per_verified_success(
+    entries: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    groups: dict[tuple[str, str], dict[str, Any]] = {}
+    for entry in entries:
+        key = (_verifier_agent(entry), _verifier_difficulty_tier(entry))
+        group = groups.setdefault(
+            key,
+            {
+                "agent": key[0],
+                "difficulty_tier": key[1],
+                "runs": 0,
+                "verified_success_count": 0,
+                "unverified_count": 0,
+                "observed_cost_usd": 0.0,
+                "modeled_cost_count": 0,
+                "cost_source": "observed",
+            },
+        )
+        group["runs"] += 1
+        if _is_verified_success(entry):
+            group["verified_success_count"] += 1
+        else:
+            group["unverified_count"] += 1
+
+        cost = _safe_float(entry.get("cost_usd"))
+        if cost is None:
+            group["modeled_cost_count"] += 1
+            group["cost_source"] = "modeled"
+        else:
+            group["observed_cost_usd"] += cost
+
+    results: dict[str, dict[str, Any]] = {}
+    for key, group in sorted(groups.items()):
+        denominator = group["verified_success_count"]
+        cost_per_verified_success = (
+            group["observed_cost_usd"] / denominator if denominator else None
+        )
+        group["observed_cost_usd"] = round(group["observed_cost_usd"], 6)
+        if cost_per_verified_success is not None:
+            group["cost_per_verified_success"] = round(cost_per_verified_success, 6)
+        else:
+            group["cost_per_verified_success"] = None
+        results[f"{key[0]}|{key[1]}"] = group
+    return results
+
+
 def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
     stop_reasons: Counter[str] = Counter()
     actions: Counter[str] = Counter()
@@ -752,6 +823,7 @@ def _summarise_verifier(
         "model_selection_reasons": model_selection_reasons,
         "verifier_modes": verifier_modes,
         "unknown_verifier_modes": unknown_verifier_modes,
+        "cost_per_verified_success": _summarise_cost_per_verified_success(entries),
         "ledger_records": len(ledger_entries or []),
         "ledger_dispositions": ledger_dispositions,
         "ledger_prs": len(ledger_prs),
@@ -1246,6 +1318,22 @@ def _format_missing_terminal_artifact_families(
     return ", ".join(str(item) for item in missing) if missing else "none"
 
 
+def _format_cost_per_verified_success(groups: dict[str, dict[str, Any]]) -> str:
+    if not groups:
+        return "n/a"
+    parts: list[str] = []
+    for key, group in sorted(groups.items()):
+        metric = group.get("cost_per_verified_success")
+        metric_text = "n/a" if metric is None else f"${float(metric):.2f}"
+        parts.append(
+            f"{key}={metric_text} "
+            f"({group['verified_success_count']} pass, "
+            f"{group['unverified_count']} unverified, "
+            f"{group['cost_source']})"
+        )
+    return "; ".join(parts)
+
+
 def build_summary(
     entries: list[dict[str, Any]],
     errors: int,
@@ -1370,6 +1458,10 @@ def build_summary(
             f"- Model selection reasons: {_format_counter(verifier['model_selection_reasons'])}",
             f"- Verifier modes: {_format_counter(verifier['verifier_modes'])}",
             f"- Unknown verifier modes: {_format_counter(verifier['unknown_verifier_modes'])}",
+            (
+                "- Cost per verified success: "
+                f"{_format_cost_per_verified_success(verifier['cost_per_verified_success'])}"
+            ),
             "",
             "## Codex CLI Freshness",
             f"- Records: {codex_cli_freshness['records']}",
