@@ -9,9 +9,8 @@ Workflows/
 │   │   ├── maint-*.yaml            # Maintenance workflows
 │   │   ├── agents-*.yaml           # Agent orchestration
 │   │   └── issues-*.yaml           # Issue management
-│   ├── actions/                    # 12 composite actions
+│   ├── actions/                    # 10 composite actions
 │   │   ├── autofix/                # Automated formatting + lint fixes
-│   │   ├── python-ci-setup/        # Python environment + dependency install
 │   │   ├── build-pr-comment/       # PR comment builder helpers
 │   │   └── signature-verify/       # CI signature verification
 │   └── scripts/                    # 49 workflow helper scripts

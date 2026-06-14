@@ -41,10 +41,6 @@ steps:
   - uses: stranske/Workflows/.github/actions/autofix@main
     with:
       token: ${{ secrets.GITHUB_TOKEN }}
-
-  - uses: stranske/Workflows/.github/actions/python-ci-setup@main
-    with:
-      python-version: "3.12"
 ```
 
 ## Workflow Inputs

@@ -99,7 +99,6 @@ After PR merge, applying a `verify:*` label (typically `verify:evaluate` via aut
 ### Composite Actions (.github/actions)
 
 - `autofix/` - Formatting and hygiene automation
-- `python-ci-setup/` - Python environment setup for CI
 - `signature-verify/` - Signature/manifest verification helpers
 - `codex-bootstrap-lite/` - Lightweight bootstrap utilities for agent runs
 - `setup-api-client/` - Token export and API client initialization

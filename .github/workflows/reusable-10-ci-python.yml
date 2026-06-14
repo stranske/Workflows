@@ -443,7 +443,7 @@ jobs:
           sparse-checkout-cone-mode: true
 
 
-      # Inlined from .github/actions/python-ci-setup for external repo compatibility
+      # Install block inlined directly (reusable workflows can't use ./ local composites in consumer context)
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -845,7 +845,7 @@ jobs:
             ${{ inputs['working-directory'] }}
           sparse-checkout-cone-mode: true
 
-      # Inlined from .github/actions/python-ci-setup for external repo compatibility
+      # Install block inlined directly (reusable workflows can't use ./ local composites in consumer context)
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -1165,7 +1165,7 @@ jobs:
           set -euo pipefail
           python "${GITHUB_WORKSPACE}/tools/resolve_mypy_pin.py"
 
-      # Inlined from .github/actions/python-ci-setup for external repo compatibility
+      # Install block inlined directly (reusable workflows can't use ./ local composites in consumer context)
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -1507,7 +1507,7 @@ jobs:
             ${{ inputs['working-directory'] }}
           sparse-checkout-cone-mode: true
 
-      # Inlined from .github/actions/python-ci-setup for external repo compatibility
+      # Install block inlined directly (reusable workflows can't use ./ local composites in consumer context)
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
