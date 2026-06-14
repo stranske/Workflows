@@ -38,6 +38,7 @@ jobs:
     name: zizmor Actions static analysis
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       security-events: write  # upload SARIF to code-scanning
     steps:
@@ -47,6 +48,7 @@ jobs:
           persist-credentials: false  # read-only scan; no git creds needed (zizmor: artipacked)
 
       - name: Run zizmor (advisory)
+        id: run_zizmor
         continue-on-error: true  # existing ~110 injection findings are a tracked baseline;
                                  # code-scanning annotates NEW findings on PR diffs. Remove this
                                  # to make zizmor a hard gate once the baseline is triaged.
@@ -65,7 +67,9 @@ jobs:
             > zizmor.sarif
 
       - name: Upload SARIF to code-scanning
+        id: upload_sarif
         if: ${{ hashFiles('zizmor.sarif') != '' }}
+        continue-on-error: true  # advisory scan; fork PRs may not be allowed to upload SARIF
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: zizmor.sarif
@@ -76,7 +80,16 @@ jobs:
         run: |
           {
             echo "## zizmor — GitHub Actions SAST"
-            echo "Advisory run; findings uploaded to **Security → Code scanning** (category \`zizmor\`)."
+            echo "Advisory run; code-scanning upload status: \`${{ steps.upload_sarif.outcome }}\`."
+            if [ "${{ steps.upload_sarif.outcome }}" = "success" ]; then
+              echo "Findings uploaded to **Security → Code scanning** (category \`zizmor\`)."
+            elif [ "${{ steps.upload_sarif.outcome }}" = "failure" ]; then
+              echo "SARIF upload failed; findings were not uploaded to code scanning."
+            elif [ "${{ steps.upload_sarif.outcome }}" = "skipped" ]; then
+              echo "SARIF upload skipped; no \`zizmor.sarif\` file was available to upload."
+            else
+              echo "Findings were not uploaded to code scanning; inspect the upload step for details."
+            fi
             echo "Covers \`.github/workflows\` + both \`templates/*/.github/workflows\` (the YAML synced to 9 repos)."
             echo "Hard-gating follows the baseline injection triage — see the zizmor tracking issue."
           } >> "$GITHUB_STEP_SUMMARY"
