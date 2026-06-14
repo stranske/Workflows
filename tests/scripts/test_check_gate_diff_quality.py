@@ -24,11 +24,13 @@ def test_weak_added_tests_flags_test_without_literal_assertion(tmp_path, monkeyp
 
 
 def test_secret_hits_scan_added_complete_diff_lines() -> None:
+    github_token = "ghp_" + "A" * 24
+    openai_token = "sk-" + "B" * 24
     diff = "\n".join(
         [
             "diff --git a/file b/file",
-            "+token = 'ghp_1234567890ABCDEFGHIJKLMNOP'",
-            "-old = 'sk-not-added-secret-value-123456'",
+            f"+token = '{github_token}'",
+            f"-old = '{openai_token}'",
         ]
     )
 
