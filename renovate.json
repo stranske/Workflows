@@ -1,4 +1,23 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"]
+  "description": "Shared Workflows Renovate preset: grouped devDependencies with automerge-on-green; vendored minimatch cascade grouping.",
+  "extends": ["config:recommended"],
+  "platformAutomerge": true,
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Group non-major devDependency updates and automerge when CI is green",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "devDependencies (non-major)",
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Vendored minimatch cascade: keep minimatch, brace-expansion, and balanced-match in one PR",
+      "matchFileNames": [".github/scripts/**"],
+      "matchPackageNames": ["minimatch", "brace-expansion", "balanced-match"],
+      "groupName": "vendored minimatch cascade"
+    }
+  ]
 }
