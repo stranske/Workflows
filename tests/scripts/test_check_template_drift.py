@@ -8,6 +8,7 @@ from scripts.check_template_drift import (
     AllowlistEntry,
     TemplateDriftAllowlist,
     drift_between,
+    main,
     normalized_sha256,
 )
 
@@ -88,6 +89,31 @@ def test_cli_fails_on_unallowlisted_agent_template_drift(tmp_path: Path) -> None
     assert "agents-demo.yml" in result.stdout
 
 
+def test_cli_fails_when_agent_template_counterpart_is_missing(tmp_path: Path) -> None:
+    main_path = tmp_path / ".github" / "workflows" / "agents-demo.yml"
+    main_path.parent.mkdir(parents=True)
+    main_path.write_text("name: demo\n", encoding="utf-8")
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "version: 1",
+                "workflows:",
+                "  - source: .github/workflows/agents-demo.yml",
+                "    description: Demo workflow",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run_checker(tmp_path)
+
+    assert result.returncode == 1
+    assert "template counterpart is missing" in result.stdout
+    assert "templates/consumer-repo/.github/workflows/agents-demo.yml" in result.stdout
+
+
 def test_cli_passes_on_allowlisted_agent_template_drift(tmp_path: Path) -> None:
     main = "one\n"
     template = "two\n"
@@ -113,6 +139,21 @@ def test_cli_passes_on_allowlisted_agent_template_drift(tmp_path: Path) -> None:
 
     assert result.returncode == 0
     assert "allowlisted baseline drift: 1" in result.stdout
+
+
+def test_main_empty_argv_ignores_process_argv(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_template_drift.py",
+            "--repo-root",
+            str(tmp_path / "missing"),
+        ],
+    )
+
+    assert main([]) == 0
 
 
 def _write_pair(tmp_path: Path, filename: str, main: str, template: str) -> None:

@@ -10,6 +10,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import yaml
+
 WORKFLOW_ALIAS_MAPPINGS = {
     "agents-63-issue-intake.yml": "agents-issue-intake.yml",
 }
@@ -147,19 +149,41 @@ def read_allowlist(path: Path) -> TemplateDriftAllowlist:
     return TemplateDriftAllowlist(tuple(entries))
 
 
+def read_manifest_workflow_names(repo_root: Path) -> set[str]:
+    manifest_path = repo_root / ".github" / "sync-manifest.yml"
+    if not manifest_path.exists():
+        return set()
+
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+    workflow_names: set[str] = set()
+    for entry in manifest.get("workflows", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        source = str(entry.get("source", ""))
+        if source.startswith(".github/workflows/"):
+            workflow_names.add(source.removeprefix(".github/workflows/"))
+    return workflow_names
+
+
 def discover_workflow_pairs(repo_root: Path) -> list[WorkflowPair]:
     main_dir = repo_root / ".github" / "workflows"
     template_dir = repo_root / "templates" / "consumer-repo" / ".github" / "workflows"
+    manifest_workflow_names = read_manifest_workflow_names(repo_root)
 
     pairs: dict[tuple[str, str], WorkflowPair] = {}
 
     for main_path in sorted(main_dir.glob("agents-*.yml")):
         template_name = WORKFLOW_ALIAS_MAPPINGS.get(main_path.name, main_path.name)
         template_path = template_dir / template_name
-        if template_path.exists():
-            rel_main = main_path.relative_to(repo_root).as_posix()
-            rel_template = template_path.relative_to(repo_root).as_posix()
-            pairs[(rel_main, rel_template)] = WorkflowPair(main_path, template_path)
+        if (
+            not template_path.exists()
+            and main_path.name not in WORKFLOW_ALIAS_MAPPINGS
+            and template_name not in manifest_workflow_names
+        ):
+            continue
+        rel_main = main_path.relative_to(repo_root).as_posix()
+        rel_template = template_path.relative_to(repo_root).as_posix()
+        pairs[(rel_main, rel_template)] = WorkflowPair(main_path, template_path)
 
     return [pairs[key] for key in sorted(pairs)]
 
@@ -172,10 +196,24 @@ def check_pairs(
     results: list[PairResult] = []
     for pair in pairs:
         main_text = pair.main_path.read_text(encoding="utf-8")
-        template_text = pair.template_path.read_text(encoding="utf-8")
         main_rel = pair.main_path.relative_to(repo_root).as_posix()
         template_rel = pair.template_path.relative_to(repo_root).as_posix()
         main_hash = normalized_sha256(main_text)
+
+        if not pair.template_path.exists():
+            results.append(
+                PairResult(
+                    main_path=main_rel,
+                    template_path=template_rel,
+                    status="drift",
+                    main_sha256=main_hash,
+                    template_sha256="",
+                    reason="template counterpart is missing",
+                )
+            )
+            continue
+
+        template_text = pair.template_path.read_text(encoding="utf-8")
         template_hash = normalized_sha256(template_text)
 
         if normalize_text(main_text) == normalize_text(template_text):
@@ -237,6 +275,8 @@ def render_summary(results: list[PairResult]) -> str:
                 lines.append(f"- `{result.main_path}` -> `{result.template_path}`")
                 lines.append(f"  - main sha256: `{result.main_sha256}`")
                 lines.append(f"  - template sha256: `{result.template_sha256}`")
+                if result.reason:
+                    lines.append(f"  - reason: {result.reason}")
         lines.append("")
 
     if counts["allowlisted"]:
@@ -286,7 +326,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv or sys.argv[1:])
+    args = parse_args(sys.argv[1:] if argv is None else argv)
     repo_root = args.repo_root.resolve()
     allowlist_path = args.allowlist if args.allowlist.is_absolute() else repo_root / args.allowlist
     allowlist = read_allowlist(allowlist_path)
