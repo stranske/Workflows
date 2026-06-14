@@ -7,11 +7,14 @@ tasks:
     title: 'Add a `test-quality` job to `.github/workflows/pr-00-gate.yml` with `needs:
       detect`, add it to `summary.needs`, and fail when a PR diff adds a test file
       containing zero literal-expected assertions.'
-    status: done
-    started_at: '2026-06-14T00:30:47Z'
-    finished_at: '2026-06-14T00:30:56Z'
-    commit: e2c7bd4f8ed8e0264bac3a2b592c3e39f44c7723
-    notes: []
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - Reopened by closer after review found the prior completion pointed at a
+        ledger-only commit; keepalive must attach the real pr-00-gate.yml
+        implementation commit before marking this task done.
   - id: task-02
     title: 'Document dependency for: Create a new test-quality job in pr-00-gate.yml
       that  the detect job (verify: dependency recorded)'
