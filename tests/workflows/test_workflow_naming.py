@@ -236,6 +236,7 @@ EXPECTED_NAMES = {
     "health-codex-auth-check.yml": "Health 46 Codex Auth Check",
     "health-50-security-scan.yml": "Health 50 Security Scan",
     "health-51-zizmor.yml": "Health 51 Actions SAST (zizmor)",
+    "health-52-semgrep.yml": "Health 52 Semgrep Scan",
     "health-53-scorecard.yml": "Health 53 Scorecard",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-46-post-ci.yml": "Maint 46 Post CI",
@@ -303,6 +304,9 @@ EXPECTED_NAMES = {
 }
 
 
+def test_semgrep_workflow_display_name_mapping():
+    """The Semgrep CE scan workflow must carry its canonical display name."""
+    assert EXPECTED_NAMES["health-52-semgrep.yml"] == "Health 52 Semgrep Scan"
 def test_scorecard_workflow_display_name_mapping():
     """The OpenSSF Scorecard workflow must carry its canonical display name."""
     assert EXPECTED_NAMES["health-53-scorecard.yml"] == "Health 53 Scorecard"
