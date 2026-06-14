@@ -3,12 +3,20 @@ name: Health 53 Scorecard
 on:
   schedule:
     - cron: '30 1 * * 1'
+  # push to the default branch and branch_protection_rule are required for
+  # ossf/scorecard-action publish_results to update the public Scorecard API;
+  # workflow_dispatch allows manual advisory runs.
   push:
     branches: [main]
   branch_protection_rule:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: scorecard-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   scorecard:
@@ -22,11 +30,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: ossf/scorecard-action@v2
+        continue-on-error: true  # advisory/report-only; a transient Scorecard
+                                 # failure must not fail the whole workflow
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
       - uses: github/codeql-action/upload-sarif@v4
+        if: ${{ hashFiles('results.sarif') != '' }}
         continue-on-error: true
         with:
           sarif_file: results.sarif

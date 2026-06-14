@@ -180,6 +180,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`health-codex-auth-check.yml`](../../.github/workflows/health-codex-auth-check.yml) checks Codex auth token expiration twice daily and creates issues when refresh is needed.
 * [`health-50-security-scan.yml`](../../.github/workflows/health-50-security-scan.yml) runs CodeQL security analysis on Python code (push, PR, weekly schedule).
 * [`health-51-zizmor.yml`](../../.github/workflows/health-51-zizmor.yml) runs zizmor static analysis over the shipped GitHub Actions YAML (both template dirs + this repo) and uploads findings to code scanning (push, PR, weekly schedule).
+* [`health-53-scorecard.yml`](../../.github/workflows/health-53-scorecard.yml) runs the OpenSSF Scorecard supply-chain posture scan (report-only/advisory) and uploads findings to code scanning (push to main, `branch_protection_rule`, weekly schedule, manual dispatch).
 * [`health-67-integration-sync-check.yml`](../../.github/workflows/health-67-integration-sync-check.yml) validates that Workflows-Integration-Tests repo stays in sync with templates (push, `repository_dispatch`, daily schedule).
 * [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) detects drift in registered consumer repos (template/manifest changes, daily schedule, manual dispatch).
 * [`health-70-validate-sync-manifest.yml`](../../.github/workflows/health-70-validate-sync-manifest.yml) validates that sync-manifest.yml is complete - ensures all sync-able files are declared (PR, push).
