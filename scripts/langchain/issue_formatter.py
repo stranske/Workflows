@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from scripts.langchain._llm_client import get_llm_client as _get_llm_client
     from scripts.langchain.checklist_utils import is_placeholder_checklist_text
     from scripts.langchain.injection_guard import check_prompt_injection
     from scripts.langchain.issue_pr_context import (
@@ -29,6 +30,7 @@ try:
     )
     from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ImportError:  # pragma: no cover - fallback for direct invocation
+    from _llm_client import get_llm_client as _get_llm_client
     from checklist_utils import is_placeholder_checklist_text
     from injection_guard import check_prompt_injection
     from issue_pr_context import (
@@ -182,24 +184,6 @@ def _load_prompt() -> str:
         if feedback:
             return f"{base_prompt}\n\n{feedback}\n"
     return base_prompt
-
-
-def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
-    """Get LLM client, trying GitHub Models first (cheaper), then OpenAI.
-
-    Args:
-        force_openai: If True, skip GitHub Models and use OpenAI directly.
-                      Use this for retry after GitHub Models 401 error.
-    """
-    try:
-        from tools.langchain_client import build_chat_client
-    except ImportError:
-        return None
-
-    resolved = build_chat_client(force_openai=force_openai)
-    if not resolved:
-        return None
-    return resolved.client, resolved.provider
 
 
 def _normalize_heading(text: str) -> str:

@@ -17,6 +17,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.langchain._llm_client import get_llm_client as _get_llm_client
+except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
+    from _llm_client import get_llm_client as _get_llm_client
+
 ChatPromptTemplate: Any | None = None
 
 
@@ -100,18 +105,6 @@ class CapabilityCheckResult:
         if self.langsmith_trace_url:
             result["langsmith_trace_url"] = self.langsmith_trace_url
         return result
-
-
-def _get_llm_client() -> tuple[object, str] | None:
-    try:
-        from tools.langchain_client import build_chat_client
-    except ImportError:
-        return None
-
-    resolved = build_chat_client()
-    if not resolved:
-        return None
-    return resolved.client, resolved.provider
 
 
 def _build_llm_config(

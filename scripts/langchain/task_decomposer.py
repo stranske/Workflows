@@ -16,8 +16,10 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from scripts.langchain._llm_client import get_llm_client
     from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ModuleNotFoundError:
+    from _llm_client import get_llm_client
     from trace_utils import TraceInfo, invoke_with_trace
 
 TASK_DECOMPOSITION_PROMPT = """
@@ -123,31 +125,25 @@ def _load_prompt() -> str:
     return TASK_DECOMPOSITION_PROMPT
 
 
-def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
-    """Get LLM client using slot order (OpenAI, Claude, GitHub Models).
+def _resolve_decomposer_provider(force_openai: bool = False) -> str | None:
+    """Resolve the provider for task decomposition.
+
+    Script-specific slot logic preserved from the former ``_get_llm_client``:
+    force OpenAI on retry, otherwise honor ``LANGCHAIN_PROVIDER`` and fall back to
+    GitHub Models when only a ``GITHUB_TOKEN`` is present. The actual client
+    construction is delegated to :func:`get_llm_client`.
 
     Args:
         force_openai: If True, force OpenAI for retry after GitHub Models 401 error.
     """
-    try:
-        from tools.langchain_client import build_chat_client
-    except ImportError:
-        return None
-
-    provider = None
     if force_openai:
-        provider = "openai"
-    else:
-        env_provider = os.environ.get("LANGCHAIN_PROVIDER")
-        if env_provider:
-            provider = env_provider
-        elif os.environ.get("GITHUB_TOKEN") and not os.environ.get("OPENAI_API_KEY"):
-            provider = "github-models"
-
-    resolved = build_chat_client(provider=provider)
-    if not resolved:
-        return None
-    return resolved.client, resolved.provider
+        return "openai"
+    env_provider = os.environ.get("LANGCHAIN_PROVIDER")
+    if env_provider:
+        return env_provider
+    if os.environ.get("GITHUB_TOKEN") and not os.environ.get("OPENAI_API_KEY"):
+        return "github-models"
+    return None
 
 
 def _ensure_verification(text: str) -> str:
@@ -616,7 +612,7 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
         return {"sub_tasks": [], "provider_used": None, "used_llm": False}
 
     if use_llm:
-        client_info = _get_llm_client()
+        client_info = get_llm_client(provider=_resolve_decomposer_provider())
         if client_info:
             client, provider = client_info
             try:
@@ -637,7 +633,9 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
                 except Exception as e:
                     # If GitHub Models fails with 401, retry with OpenAI
                     if provider == "github-models" and _is_github_models_auth_error(e):
-                        fallback_info = _get_llm_client(force_openai=True)
+                        fallback_info = get_llm_client(
+                            provider=_resolve_decomposer_provider(force_openai=True)
+                        )
                         if fallback_info:
                             client, provider = fallback_info
                             chain = template | client

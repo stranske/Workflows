@@ -21,8 +21,10 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 try:
+    from scripts.langchain._llm_client import get_llm_client as _get_llm_client
     from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ModuleNotFoundError:
+    from _llm_client import get_llm_client as _get_llm_client
     from trace_utils import TraceInfo, invoke_with_trace
 
 # ---------------------------------------------------------------------------
@@ -292,19 +294,6 @@ def triage_tasks(tasks: list[str]) -> TriageResult:
 # ---------------------------------------------------------------------------
 # LLM client utilities
 # ---------------------------------------------------------------------------
-
-
-def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
-    """Get LLM client using slot order (OpenAI, Claude, GitHub Models)."""
-    try:
-        from tools.langchain_client import build_chat_client
-    except ImportError:
-        return None
-
-    resolved = build_chat_client(provider="openai" if force_openai else None)
-    if not resolved:
-        return None
-    return resolved.client, resolved.provider
 
 
 def _is_github_models_auth_error(exc: Exception) -> bool:

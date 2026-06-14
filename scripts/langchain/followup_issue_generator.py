@@ -37,6 +37,11 @@ from scripts.langchain.issue_pr_context import estimate_tokens
 from scripts.langchain.verifier_config import EVAL_FOLLOW_UP_BUDGET_TOKENS
 
 try:
+    from scripts.langchain._llm_client import build_client
+except ImportError:  # pragma: no cover - fallback for direct invocation
+    from _llm_client import build_client
+
+try:
     from scripts.langchain.checklist_utils import is_placeholder_checklist_text
 except ImportError:  # pragma: no cover - fallback for direct invocation
     from checklist_utils import is_placeholder_checklist_text
@@ -905,22 +910,22 @@ def _parse_checklist(lines: list[str]) -> list[str]:
     return items
 
 
-def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
-    """Get LLM client using slot order with optional reasoning model override."""
-    try:
-        from tools.langchain_client import build_chat_client
-    except ImportError as e:
-        print(f"Warning: langchain_client not available: {e}", file=sys.stderr)
-        return None
+def _get_followup_client(reasoning: bool = False) -> tuple[Any, str] | None:
+    """Get LLM client using slot order with optional reasoning model override.
 
+    The reasoning-model selection and diagnostics are followup-specific; the
+    actual import-guarded construction is delegated to the shared
+    :func:`build_client`. Returns ``(client, model)`` to preserve the prior
+    behavior (this helper returns the *model* label, not the provider).
+    """
     if reasoning:
         model = os.environ.get("FOLLOWUP_REASONING_MODEL", "o3-mini")
-        resolved = build_chat_client(model=model, provider="openai")
+        resolved = build_client(model=model, provider="openai")
         if not resolved:
-            resolved = build_chat_client()
+            resolved = build_client()
     else:
         model = os.environ.get("FOLLOWUP_MODEL", "gpt-5.4")
-        resolved = build_chat_client(model=model)
+        resolved = build_client(model=model)
 
     if not resolved:
         print("Warning: No LLM API keys found", file=sys.stderr)
@@ -1329,9 +1334,9 @@ def generate_followup_issue(
         )
 
     # Get reasoning model for analysis (o3-mini)
-    reasoning_client_info = _get_llm_client(reasoning=True)
+    reasoning_client_info = _get_followup_client(reasoning=True)
     # Get standard model for follow-up generation/formatting (gpt-5.4)
-    standard_client_info = _get_llm_client(reasoning=False)
+    standard_client_info = _get_followup_client(reasoning=False)
 
     # Handle partial availability: use whatever client(s) we have
     if reasoning_client_info and standard_client_info:

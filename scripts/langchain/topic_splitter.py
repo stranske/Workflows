@@ -21,8 +21,10 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from scripts.langchain._llm_client import get_llm_client as _get_llm_client
     from scripts.langchain.trace_utils import invoke_with_trace
 except ModuleNotFoundError:
+    from _llm_client import get_llm_client as _get_llm_client
     from trace_utils import invoke_with_trace
 
 TOPIC_SPLITTER_PROMPT = """
@@ -56,20 +58,6 @@ Output format - respond with ONLY valid JSON, no other text:
 Input text to split:
 {input_text}
 """.strip()
-
-
-def _get_llm_client() -> tuple[object, str] | None:
-    """Get LangChain LLM client using slot order."""
-    try:
-        from tools.langchain_client import build_chat_client
-    except ImportError:
-        print("langchain_client not available", file=sys.stderr)
-        return None
-
-    resolved = build_chat_client()
-    if not resolved:
-        return None
-    return resolved.client, resolved.provider
 
 
 def _generate_guid(title: str) -> str:

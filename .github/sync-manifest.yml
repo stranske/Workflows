@@ -519,6 +519,9 @@ scripts:
     description: "Shared LangSmith trace metadata helpers for LangChain workflows"
     delivery: copy
 
+  - source: scripts/langchain/_llm_client.py
+    description: "Shared LangChain chat-client construction (get_llm_client/get_llm_clients)"
+
   - source: scripts/langchain/verifier_config.py
     description: "Shared verifier prompt budgets, schema-repair policy, and terminal artifact validation"
     delivery: copy

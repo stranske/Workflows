@@ -27,9 +27,11 @@ from scripts.langchain.structured_output import (
 )
 
 try:
+    from scripts.langchain._llm_client import get_llm_client as _get_llm_client
     from scripts.langchain.injection_guard import check_prompt_injection
     from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
 except ModuleNotFoundError:
+    from _llm_client import get_llm_client as _get_llm_client
     from injection_guard import check_prompt_injection
     from issue_pr_context import ContextOptions, build_issue_context
 
@@ -342,18 +344,6 @@ def _load_apply_prompt() -> str:
     if APPLY_PROMPT_PATH.is_file():
         return APPLY_PROMPT_PATH.read_text(encoding="utf-8").strip()
     return APPLY_SUGGESTIONS_PROMPT
-
-
-def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
-    try:
-        from tools.langchain_client import build_chat_client
-    except ImportError:
-        return None
-
-    resolved = build_chat_client(force_openai=force_openai)
-    if not resolved:
-        return None
-    return resolved.client, resolved.provider
 
 
 def _build_llm_config(

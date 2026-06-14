@@ -19,11 +19,13 @@ import re
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
 from scripts import api_client
+from scripts.langchain._llm_client import get_llm_client, get_llm_clients
 from scripts.langchain.structured_output import (
     build_repair_callback,
     parse_structured_output,
@@ -33,6 +35,12 @@ from scripts.langchain.verifier_config import (
     EVAL_SCHEMA_REPAIR_BUDGET_TOKENS,
     SchemaRepairPolicy,
 )
+
+# The shared client builder returns the ClientInfo ``provider_label`` for the
+# verifier (the historical ``_get_llm_client`` returned that field). Bound under
+# the module name so existing tests can monkeypatch ``pr_verifier._get_llm_client``.
+_get_llm_client = partial(get_llm_client, return_field="provider_label")
+_get_llm_clients = get_llm_clients
 
 LOGGER = logging.getLogger(__name__)
 SCHEMA_REPAIR_POLICY = SchemaRepairPolicy()
@@ -274,43 +282,6 @@ def _load_prompt() -> str:
         prompt = PROMPT_PATH.read_text(encoding="utf-8").strip()
         return _ensure_prompt_rubric(prompt)
     return _ensure_prompt_rubric(PR_EVALUATION_PROMPT)
-
-
-def _get_llm_client(
-    model: str | None = None, provider: str | None = None
-) -> tuple[object, str] | None:
-    """Get an LLM client for evaluation.
-
-    Args:
-        model: Optional model name override.
-        provider: Optional provider override ('openai' or 'github-models').
-                  If not specified, uses OpenAI if OPENAI_API_KEY is set and model
-                  is specified, otherwise falls back to GitHub Models.
-
-    Returns:
-        Tuple of (client, provider_name) or None if no credentials available.
-    """
-    try:
-        from tools.langchain_client import build_chat_client
-    except ImportError:
-        return None
-
-    resolved = build_chat_client(model=model, provider=provider)
-    if not resolved:
-        return None
-    return resolved.client, resolved.provider_label
-
-
-def _get_llm_clients(
-    model1: str | None = None, model2: str | None = None
-) -> list[tuple[object, str, str]]:
-    try:
-        from tools.langchain_client import build_chat_clients
-    except ImportError:
-        return []
-
-    clients = build_chat_clients(model1=model1, model2=model2)
-    return [(entry.client, entry.provider, entry.model) for entry in clients]
 
 
 @dataclass(frozen=True)
