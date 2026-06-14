@@ -1,0 +1,16 @@
+# zizmor — GitHub Actions static analysis (https://docs.zizmor.sh).
+#
+# Why this exists: this repo SHIPS workflow YAML to 9 consumer repos via template sync, so a
+# template-injection / dangerous-trigger / over-permissioned bug here replicates fleet-wide.
+# zizmor's injection + permission audits are the high-value signal we want surfaced.
+#
+# unpinned-uses policy: zizmor's default is hash-pin (every `uses:` must be a full commit SHA),
+# which flags ~669 ordinary tag refs in this repo (actions/checkout@v6, codeql-action@v4, …).
+# Fleet-wide SHA pinning is a separate, deliberate supply-chain decision (Dependabot/Renovate
+# territory), NOT an injection concern — so relax to ref-pin here (require a ref; flag only
+# truly-floating `uses:`). Revisit this if/when the fleet adopts SHA pinning.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "*": ref-pin

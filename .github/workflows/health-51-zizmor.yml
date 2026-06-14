@@ -1,0 +1,82 @@
+name: Health 51 Actions SAST (zizmor)
+
+# Static analysis of the GitHub Actions YAML this repo ships to 9 consumer repos via template
+# sync — a template-injection / dangerous-trigger / over-permissioned bug here replicates
+# fleet-wide. Advisory for now: findings go to Security -> Code scanning (category `zizmor`),
+# and GitHub annotates NEW findings on PR diffs. Flip to a hard gate (drop the step's
+# continue-on-error and add this check to the branch ruleset) once the baseline injection
+# findings are triaged — see the zizmor tracking issue.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - 'templates/consumer-repo/.github/workflows/**'
+      - 'templates/integration-repo/.github/workflows/**'
+      - '.github/zizmor.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - 'templates/consumer-repo/.github/workflows/**'
+      - 'templates/integration-repo/.github/workflows/**'
+      - '.github/zizmor.yml'
+  schedule:
+    - cron: '30 2 * * 1'  # weekly, Monday 02:30 UTC (offset from health-50's Sunday run)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zizmor-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zizmor:
+    name: zizmor Actions static analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # upload SARIF to code-scanning
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false  # read-only scan; no git creds needed (zizmor: artipacked)
+
+      - name: Run zizmor (advisory)
+        continue-on-error: true  # existing ~110 injection findings are a tracked baseline;
+                                 # code-scanning annotates NEW findings on PR diffs. Remove this
+                                 # to make zizmor a hard gate once the baseline is triaged.
+        env:
+          GH_TOKEN: ${{ github.token }}  # online metadata lookups; avoids API rate limits
+        run: |
+          set -uo pipefail
+          # Config in .github/zizmor.yml relaxes unpinned-uses (a separate SHA-pinning concern);
+          # the injection + permission audits are what we care about here.
+          pipx run zizmor \
+            --config .github/zizmor.yml \
+            --format sarif \
+            .github/workflows \
+            templates/consumer-repo/.github/workflows \
+            templates/integration-repo/.github/workflows \
+            > zizmor.sarif
+
+      - name: Upload SARIF to code-scanning
+        if: ${{ hashFiles('zizmor.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## zizmor — GitHub Actions SAST"
+            echo "Advisory run; findings uploaded to **Security → Code scanning** (category \`zizmor\`)."
+            echo "Covers \`.github/workflows\` + both \`templates/*/.github/workflows\` (the YAML synced to 9 repos)."
+            echo "Hard-gating follows the baseline injection triage — see the zizmor tracking issue."
+          } >> "$GITHUB_STEP_SUMMARY"
