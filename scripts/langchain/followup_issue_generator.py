@@ -928,7 +928,16 @@ def _get_followup_client(reasoning: bool = False) -> tuple[Any, str] | None:
         resolved = build_client(model=model)
 
     if not resolved:
-        print("Warning: No LLM API keys found", file=sys.stderr)
+        # Shared build_client collapses both "langchain deps missing" and "no
+        # credentials" to None. Re-probe the import in this (rare) failure path
+        # so the diagnostic names the actual cause, restoring the distinct
+        # import-failure signal the pre-refactor helper emitted.
+        try:
+            import tools.langchain_client  # noqa: F401
+        except ImportError as exc:
+            print(f"Warning: langchain_client not available: {exc}", file=sys.stderr)
+        else:
+            print("Warning: No LLM API keys found", file=sys.stderr)
         return None
 
     print(
