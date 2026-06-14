@@ -3,219 +3,253 @@ issue: 2353
 base: main
 branch: codex/issue-2353
 tasks:
-  - id: task-01
-    title: 'Add a `capacity:` block in `.github/agents/registry.yml` for `codex`,
-      `claude`, `cursor`, `gemini`, and `aider` with `window` (`5h`, `weekly`, or
-      `daily`) and integer `limit` values; use `# TODO: confirm` placeholders if owner-supplied
-      values are pending.'
-    status: done
-    started_at: '2026-06-14T00:30:58Z'
-    finished_at: '2026-06-14T00:31:09Z'
-    commit: 48571767bf137ef5b01393abff5558b254c76dd0
-    notes: []
-  - id: task-02
-    title: 'Define the exact YAML schema for the capacity block including required
-      fields (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-03
-    title: 'Define the exact YAML schema for the capacity block including data types
-      (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-04
-    title: 'Add the capacity block to the codex agent entry in registry.yml with appropriate
-      values (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-05
-    title: _(2 further sub-tasks elided; split this issue)_
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-06
-    title: Update `templates/consumer-repo/.github/agents/registry.yml` to mirror
-      the same `capacity` blocks.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-07
-    title: Extend `scripts/langsmith_fleet.py:validate_registry` to validate the `capacity`
-      block, requiring `window` to match an allowed enum and `limit` to be a positive
-      integer.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-08
-    title: 'Define the allowed window enum values for capacity validation in langsmith_fleet.py
-      (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-09
-    title: 'Implement validation logic to check that capacity.window matches the allowed
-      enum values (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-10
-    title: 'Implement validation logic to check that capacity.limit is a positive
-      integer (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-11
-    title: 'Add error messages for invalid capacity block configurations in validate_registry
-      (verify: config validated)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-12
-    title: Add a test in `tests/scripts/test_langsmith_fleet.py` asserting a well-formed
-      `capacity` block validates and malformed `capacity.limit` or `capacity.window`
-      entries fail validation.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-13
-    title: 'Create a test case that validates a well-formed capacity block passes
-      validation (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-14
-    title: 'Create a test case that validates an invalid capacity.limit value fails
-      validation (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-15
-    title: 'Create a test case that validates a missing capacity block is handled
-      appropriately (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-16
-    title: '`PYTHONPATH=$(pwd) python -m pytest tests/scripts/test_langsmith_fleet.py
-      -q` passes with a case covering a valid `capacity` block.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-17
-    title: If one agent's `capacity.limit` is temporarily set to `-1` or `capacity.window`
-      to `bogus` in `registry.yml`, the new validation case in `tests/scripts/test_langsmith_fleet.py`
-      fails; after reverting, it passes.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-18
-    title: '`tests/scripts/test_check_consumer_sync_drift.py` passes, confirming `.github/agents/registry.yml`
-      and `templates/consumer-repo/.github/agents/registry.yml` remain in sync.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-19
-    title: 'In `.github/agents/registry.yml`, add a `capacity:` block to each agent
-      (`codex`, `claude`, `cursor`, `gemini`, `aider`) with `window` (e.g. `5h` /
-      `weekly` / `daily`) and `limit` integers reflecting the public plan limits (values
-      supplied by the owner; placeholders allowed with a `# TODO: confirm` comment).'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-20
-    title: Mirror the same blocks into `templates/consumer-repo/.github/agents/registry.yml`
-      (dual-location lockstep).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-21
-    title: Extend `scripts/langsmith_fleet.py:validate_registry` (~line 131) to validate
-      the `capacity` block (window in an allowed enum, `limit` a positive int) and
-      raise on malformed entries.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-22
-    title: '`PYTHONPATH=$(pwd) python -m pytest tests/scripts/test_langsmith_fleet.py
-      -q` passes with a new case asserting a well-formed `capacity` block validates.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-23
-    title: "**Deliberate-break gate:** temporarily set one agent's `capacity.limit`\
-      \ to `-1` (or `window: bogus`) in `registry.yml` \u2192 the new validation case\
-      \ in `tests/scripts/test_langsmith_fleet.py` **MUST FAIL**; revert \u2192 passes.\
-      \ Capture the FAIL."
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-24
-    title: '`tests/scripts/test_check_consumer_sync_drift.py` (or the template-drift
-      test) still passes, confirming the registry and its consumer-template copy stay
-      in lockstep.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-25
-    title: "Add a `capacity:` block in `.github/agents/registry.yml` for `codex`,\
-      \ `claude`, `cursor`, `gemini`, and `aider` (The issue states 'values supplied\
-      \ by the owner' and allows '# TODO: confirm' placeholders, but doesn't provide\
-      \ the actual limit values or specify which agents should use placeholders versus\
-      \ real values. | Provide specific limit values for each agent's capacity block,\
-      \ or explicitly state that all agents should use '# TODO: confirm' placeholders\
-      \ initially. Reference PR #2350 \xA74 should be made accessible or the values\
-      \ extracted into this issue.)"
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+- id: task-01
+  title: 'Add a `capacity:` block in `.github/agents/registry.yml` for `codex`, `claude`, `cursor`, `gemini`, and `aider` with `window` (`5h`, `weekly`, or `daily`) and integer `limit` values; use `# TODO: confirm` placeholders if owner-supplied values are pending.'
+  status: done
+  started_at: '2026-06-14T00:30:58Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-02
+  title: 'Define the exact YAML schema for the capacity block including required fields (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-03
+  title: 'Define the exact YAML schema for the capacity block including data types (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-04
+  title: 'Add the capacity block to the codex agent entry in registry.yml with appropriate values (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-05
+  title: _(2 further sub-tasks elided; split this issue)_
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-06
+  title: Update `templates/consumer-repo/.github/agents/registry.yml` to mirror the same `capacity` blocks.
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-07
+  title: Extend `scripts/langsmith_fleet.py:validate_registry` to validate the `capacity` block, requiring `window` to match an allowed enum and `limit` to be a positive integer.
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-08
+  title: 'Define the allowed window enum values for capacity validation in langsmith_fleet.py (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-09
+  title: 'Implement validation logic to check that capacity.window matches the allowed enum values (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-10
+  title: 'Implement validation logic to check that capacity.limit is a positive integer (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-11
+  title: 'Add error messages for invalid capacity block configurations in validate_registry (verify: config validated)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-12
+  title: Add a test in `tests/scripts/test_langsmith_fleet.py` asserting a well-formed `capacity` block validates and malformed `capacity.limit` or `capacity.window` entries fail validation.
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-13
+  title: 'Create a test case that validates a well-formed capacity block passes validation (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-14
+  title: 'Create a test case that validates an invalid capacity.limit value fails validation (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-15
+  title: 'Create a test case that validates a missing capacity block is handled appropriately (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-16
+  title: '`PYTHONPATH=$(pwd) python -m pytest tests/scripts/test_langsmith_fleet.py -q` passes with a case covering a valid `capacity` block.'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-17
+  title: If one agent's `capacity.limit` is temporarily set to `-1` or `capacity.window` to `bogus` in `registry.yml`, the new validation case in `tests/scripts/test_langsmith_fleet.py` fails; after reverting, it passes.
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-18
+  title: '`tests/scripts/test_check_consumer_sync_drift.py` passes, confirming `.github/agents/registry.yml` and `templates/consumer-repo/.github/agents/registry.yml` remain in sync.'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-19
+  title: 'In `.github/agents/registry.yml`, add a `capacity:` block to each agent (`codex`, `claude`, `cursor`, `gemini`, `aider`) with `window` (e.g. `5h` / `weekly` / `daily`) and `limit` integers reflecting the public plan limits (values supplied by the owner; placeholders allowed with a `# TODO: confirm` comment).'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-20
+  title: Mirror the same blocks into `templates/consumer-repo/.github/agents/registry.yml` (dual-location lockstep).
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-21
+  title: Extend `scripts/langsmith_fleet.py:validate_registry` (~line 131) to validate the `capacity` block (window in an allowed enum, `limit` a positive int) and raise on malformed entries.
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-22
+  title: '`PYTHONPATH=$(pwd) python -m pytest tests/scripts/test_langsmith_fleet.py -q` passes with a new case asserting a well-formed `capacity` block validates.'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-23
+  title: '**Deliberate-break gate:** temporarily set one agent''s `capacity.limit` to `-1` (or `window: bogus`) in `registry.yml` → the new validation case in `tests/scripts/test_langsmith_fleet.py` **MUST FAIL**; revert → passes. Capture the FAIL.'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-24
+  title: '`tests/scripts/test_check_consumer_sync_drift.py` (or the template-drift test) still passes, confirming the registry and its consumer-template copy stay in lockstep.'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
+- id: task-25
+  title: 'Add a `capacity:` block in `.github/agents/registry.yml` for `codex`, `claude`, `cursor`, `gemini`, and `aider` (The issue states ''values supplied by the owner'' and allows ''# TODO: confirm'' placeholders, but doesn''t provide the actual limit values or specify which agents should use placeholders versus real values. | Provide specific limit values for each agent''s capacity block, or explicitly state that all agents should use ''# TODO: confirm'' placeholders initially. Reference PR #2350 §4 should be made accessible or the values extracted into this issue.)'
+  status: done
+  started_at: '2026-06-14T02:01:06Z'
+  finished_at: '2026-06-14T02:01:06Z'
+  commit: 6659423387392aaa8a9a1393e4fbdb1c11d65ad0
+  notes:
+  - Capacity blocks added to root and consumer-template agent registries with TODO-confirm placeholders.
+  - Registry loaders now validate capacity.window and positive integer capacity.limit; planned gemini/aider entries stay disabled until runners ship.
+  - Validation covered by Python/JS tests, deliberate-break capacity.limit=-1 failure, and consumer-sync drift checks.
