@@ -98,6 +98,13 @@ def test_get_llm_client_return_field_selects_label(
     assert result[1] == expected
 
 
+def test_get_llm_client_rejects_unknown_return_field(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_fake_langchain_client(monkeypatch, info=_fake_info())
+
+    with pytest.raises(ValueError, match="return_field must be one of"):
+        _llm_client.get_llm_client(return_field="provider_lable")
+
+
 def test_get_llm_client_returns_none_without_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     _install_fake_langchain_client(monkeypatch, info=None)
 

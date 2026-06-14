@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from typing import Any
 
+_RETURN_FIELDS = frozenset({"provider", "model", "provider_label"})
+
 
 def get_llm_client(
     *,
@@ -48,6 +50,10 @@ def get_llm_client(
         ``(client, label)`` or ``None`` when ``langchain`` deps are missing or no
         credentials are available.
     """
+    if return_field not in _RETURN_FIELDS:
+        allowed = ", ".join(sorted(_RETURN_FIELDS))
+        raise ValueError(f"return_field must be one of: {allowed}")
+
     info = build_client(model=model, provider=provider, force_openai=force_openai)
     if not info:
         return None
