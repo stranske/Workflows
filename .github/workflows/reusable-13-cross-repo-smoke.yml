@@ -58,6 +58,10 @@ jobs:
           DEPENDENCY_REPO: ${{ inputs.dependency_repo }}
         run: |
           set -euo pipefail
+          if [[ ! "$DEPENDENCY_REPO" =~ ^[^/[:space:]]+/[^/[:space:]]+$ ]]; then
+            echo "dependency_repo must be in owner/name form (got: '${DEPENDENCY_REPO}')" >&2
+            exit 1
+          fi
           path="${DEPENDENCY_REPO##*/}"
           if [ -z "$path" ]; then
             echo "dependency_repo must be owner/name" >&2
@@ -72,21 +76,25 @@ jobs:
           ref: ${{ inputs.dependency_ref }}
           path: ${{ steps.dependency_path.outputs.path }}
           token: ${{ secrets.CROSS_REPO_TOKEN }}
+          # Caller-provided install/smoke commands later run against this checkout;
+          # do not leave the dependency-repo token configured for git operations.
+          persist-credentials: false
 
       - name: Log resolved dependency SHA
         working-directory: ${{ steps.dependency_path.outputs.path }}
         shell: bash
         env:
+          DEPENDENCY_REPO: ${{ inputs.dependency_repo }}
           DEPENDENCY_REF: ${{ inputs.dependency_ref }}
         run: |
           set -euo pipefail
-          echo "dependency_repo=${{ inputs.dependency_repo }}"
+          echo "dependency_repo=${DEPENDENCY_REPO}"
           echo "dependency_ref=${DEPENDENCY_REF}"
           echo "dependency_resolved_sha=$(git rev-parse HEAD)"
 
       - name: Set up Node.js
         if: inputs.setup_node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node_version }}
 
@@ -97,7 +105,7 @@ jobs:
           HOST_INSTALL_COMMAND: ${{ inputs.host_install_command }}
         run: |
           set -euo pipefail
-          eval "$HOST_INSTALL_COMMAND"
+          bash -euo pipefail -c "$HOST_INSTALL_COMMAND"
 
       - name: Install dependency dependencies
         if: inputs.dependency_install_command != ''
@@ -107,7 +115,7 @@ jobs:
           DEPENDENCY_INSTALL_COMMAND: ${{ inputs.dependency_install_command }}
         run: |
           set -euo pipefail
-          eval "$DEPENDENCY_INSTALL_COMMAND"
+          bash -euo pipefail -c "$DEPENDENCY_INSTALL_COMMAND"
 
       - name: Run cross-repo smoke command
         shell: bash
@@ -119,4 +127,4 @@ jobs:
         run: |
           set -euo pipefail
           echo "dependency_path=${DEPENDENCY_PATH}"
-          eval "$RUN_COMMAND"
+          bash -euo pipefail -c "$RUN_COMMAND"
