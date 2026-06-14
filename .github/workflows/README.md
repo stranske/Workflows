@@ -17,6 +17,7 @@ Core layers:
 - Codex belt automation (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`): hands-off conveyor for labelled issues—dispatcher selects `agent:codex` + `status:ready` issues and prepares a `codex/issue-*` branch, worker opens or refreshes the PR with labels/assignees, and conveyor merges after Gate success before re-queuing the dispatcher.
 - Cosmetic repair (`maint-45-cosmetic-repair.yml`): manual pytest run plus guardrail fixer that opens labelled repair PRs when drift is detected.
 - Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, labelers, dependency review, CodeQL.
+- Semgrep CE scan (`health-52-semgrep.yml`): report-only SAST using Semgrep Community Edition with `p/default`, `p/python`, `p/github-actions`, and `p/secrets` rulesets; uploads SARIF to GitHub Security for defence-in-depth alongside CodeQL.
 - Keepalive heartbeat (`maint-keepalive.yml`): twice-daily cron + dispatch workflow that posts a timestamped comment (with run link) to the Ops heartbeat issue using `ACTIONS_BOT_PAT` and fails fast if either the issue variable or PAT is missing.
 - Coverage guard (`maint-coverage-guard.yml`): daily cron + dispatch workflow that fetches the latest Gate coverage artifacts, compares them to the configured baseline, and maintains the rolling `[coverage] baseline breach` issue.
 
