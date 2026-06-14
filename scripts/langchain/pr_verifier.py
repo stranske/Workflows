@@ -842,8 +842,12 @@ def evaluate_pr_multiple(
 ) -> list[EvaluationResult]:
     change_type = _classify_change_type(_bounded_diff_for_classification(diff))
     runner = ComparisonRunner.from_environment(context, diff, model1, model2)
-    if not runner.clients:
-        result = _fallback_evaluation("LLM client unavailable (missing credentials or dependency).")
+    families = {_provider_family(provider) for _, provider, _ in runner.clients}
+    if len(runner.clients) < 2 or len(families) < 2:
+        result = _fallback_evaluation(
+            "unverified: compare mode requires two cross-family verifier judges; "
+            f"available families: {', '.join(sorted(families)) or 'none'}."
+        )
         result.change_type = change_type
         return [result]
     results: list[EvaluationResult] = []
@@ -852,6 +856,17 @@ def evaluate_pr_multiple(
         result.change_type = change_type
         results.append(result)
     return results
+
+
+def _provider_family(provider: str) -> str:
+    label = provider.lower()
+    if "github-models" in label:
+        return "github-models"
+    if "openai" in label:
+        return "openai"
+    if "anthropic" in label or "claude" in label:
+        return "anthropic"
+    return label.split("/", 1)[0].strip() or "unknown"
 
 
 def _normalize_text(text: str) -> str:

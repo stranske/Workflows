@@ -61,3 +61,31 @@ def test_evaluate_pr_multiple_falls_back_when_no_clients(monkeypatch) -> None:
     assert len(results) == 1
     assert results[0].used_llm is False
     assert results[0].verdict == "CONCERNS"
+    assert "unverified" in (results[0].error or "")
+
+
+def test_evaluate_pr_multiple_blocks_same_family_only(monkeypatch) -> None:
+    calls: list[str] = []
+    clients = [
+        (FakeClient("first", calls), "openai/gpt-5.4", "gpt-5.4"),
+        (FakeClient("second", calls), "openai/gpt-5.5", "gpt-5.5"),
+    ]
+    runner = pr_verifier.ComparisonRunner(
+        context="context",
+        diff=None,
+        prompt="prompt",
+        clients=clients,
+    )
+    monkeypatch.setattr(
+        pr_verifier.ComparisonRunner,
+        "from_environment",
+        lambda context, diff, model1=None, model2=None: runner,
+    )
+
+    results = pr_verifier.evaluate_pr_multiple("context")
+
+    assert calls == []
+    assert len(results) == 1
+    assert results[0].used_llm is False
+    assert results[0].verdict == "CONCERNS"
+    assert "unverified" in (results[0].error or "")

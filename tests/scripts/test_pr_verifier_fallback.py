@@ -107,3 +107,28 @@ def test_evaluate_pr_no_fallback_on_non_auth_error(monkeypatch) -> None:
 
     assert result.used_llm is False
     assert "Rate limit" in (result.error or "")
+
+
+def test_compare_mode_same_family_fails_closed_as_unverified(monkeypatch) -> None:
+    """Compare mode must not silently use same-family-only verifier judges."""
+    clients = [
+        (FakeClient("openai-a", succeed=True), "openai/gpt-5.4", "gpt-5.4"),
+        (FakeClient("openai-b", succeed=True), "openai/gpt-5.5", "gpt-5.5"),
+    ]
+    runner = pr_verifier.ComparisonRunner(
+        context="context",
+        diff=None,
+        prompt="prompt",
+        clients=clients,
+    )
+    monkeypatch.setattr(
+        pr_verifier.ComparisonRunner,
+        "from_environment",
+        lambda context, diff, model1=None, model2=None: runner,
+    )
+
+    result = pr_verifier.evaluate_pr_multiple("test context")[0]
+
+    assert result.used_llm is False
+    assert result.verdict == "CONCERNS"
+    assert "unverified" in (result.error or "")

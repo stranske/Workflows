@@ -300,6 +300,36 @@ jobs:
           echo "scripts/check_issue_consistency.py not present;
           skipping Workflows-specific issue consistency check."
 
+  test-quality:
+    name: test-quality
+    needs:
+      - detect
+      - environment-gate
+    if: ${{ github.event_name == 'pull_request' && needs.detect.outputs.doc_only != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Fetch base ref
+        run: |
+          set -euo pipefail
+          upstream="https://github.com/${{ github.event.pull_request.base.repo.full_name }}.git"
+          base_ref="${{ github.event.pull_request.base.ref }}"
+          git remote add upstream "$upstream"
+          git fetch --no-tags upstream \
+            "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check test quality and secret diff
+        run: >-
+          python scripts/check_gate_diff_quality.py
+          --base "refs/remotes/upstream/${{ github.event.pull_request.base.ref }}"
+          --head HEAD
+
   docker-smoke:
     name: docker smoke
     needs:
@@ -366,6 +396,7 @@ jobs:
       - docker-smoke
       - github-scripts-tests
       - issue-consistency
+      - test-quality
       - ledger-validation
     if: ${{ always() }}
     runs-on: ubuntu-latest
