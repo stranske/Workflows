@@ -235,6 +235,7 @@ EXPECTED_NAMES = {
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "health-codex-auth-check.yml": "Health 46 Codex Auth Check",
     "health-50-security-scan.yml": "Health 50 Security Scan",
+    "health-51-zizmor.yml": "Health 51 Actions SAST (zizmor)",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-46-post-ci.yml": "Maint 46 Post CI",
     "maint-47-disable-legacy-workflows.yml": "Maint 47 Disable Legacy Workflows",
