@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_security_relevant: ${{ steps.classify.outputs.is-security-relevant || 'true' }}
+      is_python_code: ${{ steps.classify.outputs.is-python-code || 'true' }}
       classification_rationale: >-
         ${{ steps.classify.outputs.classification-rationale || 'path classifier unavailable' }}
     steps:
@@ -36,9 +37,14 @@ jobs:
   semgrep:
     name: Semgrep
     needs: classify
-    if: ${{ needs.classify.outputs.is_security_relevant == 'true' }}
+    if: >-
+      ${{
+        needs.classify.outputs.is_security_relevant == 'true' ||
+        needs.classify.outputs.is_python_code == 'true'
+      }}
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       security-events: write
 
@@ -68,6 +74,7 @@ jobs:
 
       - name: Upload SARIF
         id: upload_sarif
+        if: ${{ hashFiles('semgrep.sarif') != '' }}
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
