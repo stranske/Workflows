@@ -831,6 +831,12 @@ jobs:
           # the final assistant message to stdout. --output-format text keeps the
           # captured output a clean final message (the contract base64-encodes it).
           # Tee to $SESSION_LOG so we keep a debug artifact even if the run fails.
+          # COST GUARD (2026-06-14): never let an EMPTY $MODEL fall back to cursor-agent's server
+          # default — on a fresh runner that is gpt-5.5-high Max Mode (Cloud Agents), which drained the
+          # $60/mo Cursor API pool in a single day. Default to 'auto': Cursor's free Auto routing, which
+          # draws the Auto bucket (verified 2026-06-14: headless `--model auto` runs even when the metered
+          # API bucket is 100% spent). Callers may still override MODEL explicitly.
+          MODEL="${MODEL:-auto}"
           set +e
           "$CURSOR_BIN" -p "$prompt_content" \
             "${perm_flag[@]}" \
