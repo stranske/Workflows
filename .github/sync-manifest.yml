@@ -487,101 +487,149 @@ scripts:
     description: "Scans agent belt for available tools"
 
   # LangChain scripts for agent workflows
+  #
+  # delivery: channel annotation (issue #2347)
+  #   copy    = physically copy-synced into the consumer tree by maint-68 and
+  #             read from the consumer's own working directory at runtime.
+  #   runtime = NOT copy-synced; the consuming consumer-template workflow does a
+  #             runtime sparse-checkout of stranske/Workflows `scripts/langchain`
+  #             (whole-directory) and runs the script from that fetched tree.
+  # Entries with `delivery: runtime` MUST NOT appear in any copy-synced section
+  # (they live under `runtime_fetched:` below); see
+  # tests/workflows/test_sync_manifest_delivery.py.
   - source: scripts/api_client.py
     description: "Shared GitHub API client used by synced Python automation scripts"
 
   # Issue optimization (Phase 1) - agents-issue-optimizer.yml
   - source: scripts/langchain/issue_optimizer.py
     description: "Issue optimizer - analyzes issues and suggests improvements"
+    # delivery: copy -- read from the consumer working tree by agents-auto-pilot.yml
+    # (optimize/apply steps: `python scripts/langchain/issue_optimizer.py` +
+    # `sys.path.insert(0, 'scripts/langchain')`), which does NOT runtime-fetch
+    # scripts/langchain. Must stay copy-synced.
+    delivery: copy
 
   - source: scripts/langchain/structured_output.py
     description: "Shared structured output helpers for LangChain workflows"
+    # delivery: copy -- imported transitively by issue_optimizer.py on auto-pilot's
+    # copy-path (`from scripts.langchain.structured_output import ...`).
+    delivery: copy
 
   - source: scripts/langchain/trace_utils.py
     description: "Shared LangSmith trace metadata helpers for LangChain workflows"
+    delivery: copy
 
   - source: scripts/langchain/verifier_config.py
     description: "Shared verifier prompt budgets, schema-repair policy, and terminal artifact validation"
+    delivery: copy
 
   - source: scripts/langchain/checklist_utils.py
     description: "Shared checklist parsing helpers for issue and follow-up generation"
+    delivery: copy
 
   - source: scripts/langchain/issue_formatter.py
     description: "Issue formatter - converts raw text to AGENT_ISSUE_TEMPLATE format"
+    # delivery: copy -- read from the consumer working tree by agents-auto-pilot.yml
+    # (format step: `python scripts/langchain/issue_formatter.py`), which does NOT
+    # runtime-fetch scripts/langchain. Must stay copy-synced.
+    delivery: copy
 
   - source: scripts/langchain/issue_pr_context.py
     description: "Issue/PR context assembly helper with shared token budget caps"
+    delivery: copy
 
   - source: scripts/langchain/issue_dedup.py
     description: "Issue deduplication - finds similar open issues"
+    delivery: copy
 
   - source: scripts/langchain/injection_guard.py
     description: "Prompt injection guard - validates prompts before LLM submission"
+    delivery: copy
 
   - source: scripts/langchain/progress_reviewer.py
     description: "Progress reviewer - evaluates agent progress for keepalive rounds"
+    delivery: copy
 
   # Context and semantic analysis
   - source: scripts/langchain/context_extractor.py
     description: "Context extractor - extracts relevant context from issues/PRs"
+    delivery: copy
 
   - source: scripts/langchain/semantic_matcher.py
     description: "Semantic matcher - vector similarity for issues/labels"
+    delivery: copy
 
   # Agent capability and task management
   - source: scripts/langchain/capability_check.py
     description: "Capability check - pre-flight agent feasibility assessment"
+    delivery: copy
 
   - source: scripts/langchain/task_decomposer.py
     description: "Task decomposer - breaks large issues into sub-tasks"
+    delivery: copy
 
   - source: scripts/langchain/task_validator.py
     description: "Task validator - refines generated issue tasks for actionability"
+    delivery: copy
 
   - source: scripts/langchain/label_matcher.py
     description: "Label matcher - suggests labels based on semantic matching"
+    delivery: copy
 
   # PR verification and follow-up
   - source: scripts/langchain/pr_verifier.py
     description: "PR verifier - validates PR changes against acceptance criteria"
+    delivery: copy
 
-  - source: scripts/langchain/followup_issue_generator.py
-    description: "Follow-up issue generator - creates issues from verification feedback"
+  # NOTE (issue #2347): scripts/langchain/followup_issue_generator.py was MOVED
+  # out of this copy-sync set into the `runtime_fetched:` section below. It is
+  # delivered to consumers ONLY via runtime sparse-checkout (see that section).
 
   # Integration layer for LangChain components
   - source: scripts/langchain/integration_layer.py
     description: "Integration layer - coordinates LangChain components"
+    delivery: copy
 
   - source: scripts/langchain/topic_splitter.py
     description: "Topic splitter - splits conversations into discrete issues"
+    delivery: copy
 
   # LangChain prompt templates
   - source: scripts/langchain/prompts/format_issue.md
     description: "Prompt template for LLM-based issue formatting"
+    delivery: copy
 
   - source: scripts/langchain/prompts/analyze_issue.md
     description: "Prompt template for issue analysis/optimization"
+    delivery: copy
 
   - source: scripts/langchain/prompts/apply_suggestions.md
     description: "Prompt template for applying optimization suggestions"
+    delivery: copy
 
   - source: scripts/langchain/prompts/context_extract.md
     description: "Prompt template for context extraction"
+    delivery: copy
 
   - source: scripts/langchain/prompts/decompose_task.md
     description: "Prompt template for task decomposition"
+    delivery: copy
 
   - source: scripts/langchain/prompts/pr_evaluation.md
     description: "Prompt template for PR evaluation/verification"
+    delivery: copy
 
   - source: scripts/langchain/prompts/refine_tasks.md
     description: "Prompt template for task refinement and validation"
+    delivery: copy
 
   - source: scripts/langchain/verdict_extract.py
     description: "Verdict extractor - parses verification verdicts from LLM output"
+    delivery: copy
 
   - source: scripts/langchain/verdict_policy.py
     description: "Verdict policy engine - applies pass/fail rules to verification results"
+    delivery: copy
 
   - source: tools/llm_provider.py
     description: "LLM provider configuration - GitHub Models and OpenAI client setup"
@@ -737,6 +785,40 @@ git_config:
 
 
 # Files that exist in templates but are NOT synced (consumer creates their own)
+# Runtime-fetched scripts (issue #2347)
+#
+# These files are intentionally NOT copy-synced into consumer repos. The
+# consumer-template workflows that use them perform a runtime sparse-checkout of
+# stranske/Workflows `scripts/langchain` (whole-directory) and run the script
+# directly from that fetched tree, so a copy in the consumer working tree would
+# only create a second, skew-prone delivery path during the daily sync window.
+#
+# This section is deliberately NOT in the list of sections processed by the
+# sync engine (maint-68-sync-consumer-repos.yml) or the drift checker
+# (scripts/check_consumer_sync_drift.py), so entries here are never copied and
+# never drift-probed. Each entry MUST carry `delivery: runtime`.
+# Enforced by tests/workflows/test_sync_manifest_delivery.py.
+runtime_fetched:
+  - source: scripts/langchain/followup_issue_generator.py
+    delivery: runtime
+    description: "Follow-up issue generator - creates issues from verification feedback. Runtime-fetched only."
+    # Runtime-fetch evidence (consumer-delivered workflows, both in the manifest
+    # `workflows:` set):
+    #   * templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml
+    #     - L315-323: actions/checkout repository: stranske/Workflows,
+    #       sparse-checkout includes `scripts/langchain` + `tools`, NO `path:`
+    #       (lands in the workspace root).
+    #     - L434: `python scripts/langchain/followup_issue_generator.py ...`
+    #       runs from that runtime-fetched root.
+    #   * templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml
+    #     - L67-83: the ONLY checkout is repository: stranske/Workflows with
+    #       `scripts/langchain` in sparse-checkout and NO `path:`; the consumer's
+    #       own repo is never checked out into root in this job.
+    #     - L576: `python scripts/langchain/followup_issue_generator.py ...`.
+    # No consumer-delivered workflow reads this module from the copy-synced tree,
+    # and no script/tool imports it (grep: zero importers), so dropping it from
+    # copy-sync is safe.
+
 excluded:
 
   - path: .gitignore
