@@ -5,9 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 import yaml
-
 from scripts.repo_review_issue_quality import issue_body_quality_errors
 from scripts.repo_review_notify import format_scorecard_section
 from scripts.repo_review_scorecard import (
@@ -21,9 +19,7 @@ from scripts.repo_review_scorecard import (
     scan_scorecard_repos,
 )
 
-FIXTURE_API = (
-    Path(__file__).parent / "fixtures" / "repo_review_scorecard" / "api_response.json"
-)
+FIXTURE_API = Path(__file__).parent / "fixtures" / "repo_review_scorecard" / "api_response.json"
 
 
 def _sample_scan(*, repo: str = "stranske/Workflows") -> dict[str, object]:
@@ -130,8 +126,10 @@ def test_approved_scorecard_issue_items_requires_explicit_approved_findings() ->
     result = approved_scorecard_issue_items(_sample_scan(), feedback, "2026-06-14")
     assert result["issues"] == []
     assert len(result["pending"]) == 2
-    assert all("not explicitly approved" in item["reason"] or "decision=defer" in item["reason"]
-               for item in result["pending"])
+    assert all(
+        "not explicitly approved" in item["reason"] or "decision=defer" in item["reason"]
+        for item in result["pending"]
+    )
 
 
 def test_approved_scorecard_issue_items_rejects_approved_findings_all() -> None:
@@ -151,7 +149,9 @@ def test_approved_scorecard_issue_items_rejects_approved_findings_all() -> None:
     }
     result = approved_scorecard_issue_items(_sample_scan(), feedback, "2026-06-14")
     assert result["issues"] == []
-    assert any("approved_findings='all' is not honored" in warning for warning in result["warnings"])
+    assert any(
+        "approved_findings='all' is not honored" in warning for warning in result["warnings"]
+    )
 
 
 def test_scorecard_defaults_alone_cannot_approve_findings() -> None:
@@ -320,4 +320,4 @@ def test_format_scorecard_section_includes_approval_snippet() -> None:
     rendered = format_scorecard_section(_sample_scan())
     assert "approved_findings" in rendered
     assert "scorecard:Branch-Protection" in rendered
-    assert "decisions[\"stranske/Workflows\"].scorecard" in rendered
+    assert 'decisions["stranske/Workflows"].scorecard' in rendered

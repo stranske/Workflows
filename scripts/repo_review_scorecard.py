@@ -57,6 +57,7 @@ def normalize_priority(value: object) -> str:
     priority = str(value or "normal").lower().strip()
     return priority if priority in PRIORITY_ORDER else "normal"
 
+
 ApiFetcher = Callable[[str], tuple[bool, dict[str, Any] | None, str | None]]
 
 
@@ -183,10 +184,14 @@ def filter_scorecard_findings(
     for finding in findings:
         check = str(finding.get("check") or "")
         if include and check not in include:
-            skipped.append({"finding_id": scorecard_finding_id(check), "reason": "not in include_checks"})
+            skipped.append(
+                {"finding_id": scorecard_finding_id(check), "reason": "not in include_checks"}
+            )
             continue
         if check in exclude:
-            skipped.append({"finding_id": scorecard_finding_id(check), "reason": "listed in exclude_checks"})
+            skipped.append(
+                {"finding_id": scorecard_finding_id(check), "reason": "listed in exclude_checks"}
+            )
             continue
         score = float(finding.get("score", 0) or 0)
         if score >= minimum_score:
@@ -496,7 +501,9 @@ def approved_scorecard_issue_items(
     return result
 
 
-def fetch_scorecard_api(repo: str, *, timeout: int = 60) -> tuple[bool, dict[str, Any] | None, str | None]:
+def fetch_scorecard_api(
+    repo: str, *, timeout: int = 60
+) -> tuple[bool, dict[str, Any] | None, str | None]:
     url = scorecard_api_url(repo)
     request = urllib.request.Request(url, headers={"Accept": "application/json"})
     try:
@@ -558,13 +565,17 @@ def scan_scorecard_repos(
 
         local_path = str(repo_entry.get("local_path") or "")
         minimum_score = float(
-            repo_scorecard.get("minimum_score", repo_scorecard.get("default_minimum_score", default_minimum))
+            repo_scorecard.get(
+                "minimum_score", repo_scorecard.get("default_minimum_score", default_minimum)
+            )
             or default_minimum
         )
         max_findings = int(repo_scorecard.get("max_findings_per_repo", default_max) or default_max)
         include_checks = list(repo_scorecard.get("include_checks", default_include) or [])
         exclude_checks = list(repo_scorecard.get("exclude_checks", default_exclude) or [])
-        workflow_path = str(repo_scorecard.get("workflow") or ".github/workflows/health-53-scorecard.yml")
+        workflow_path = str(
+            repo_scorecard.get("workflow") or ".github/workflows/health-53-scorecard.yml"
+        )
         source_url = scorecard_api_url(repo)
 
         ok, payload, error = fetch(repo)
@@ -606,7 +617,9 @@ def scan_scorecard_repos(
     return {
         "schema": SCHEMA,
         "generated_on": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "config_source": str(scorecard_config.get("config_source") or "config/source_of_truth_docs.yml"),
+        "config_source": str(
+            scorecard_config.get("config_source") or "config/source_of_truth_docs.yml"
+        ),
         "total_findings": total_findings,
         "total_errors": total_errors,
         "by_repo": by_repo,

@@ -302,7 +302,9 @@ def summarize_docs_drift(docs_drift: dict[str, Any]) -> tuple[int, int]:
 try:
     from scripts.repo_review_scorecard import load_scorecard_scan as _load_scorecard_scan_impl
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
-    from repo_review_scorecard import load_scorecard_scan as _load_scorecard_scan_impl  # type: ignore[no-redef]
+    from repo_review_scorecard import (
+        load_scorecard_scan as _load_scorecard_scan_impl,  # type: ignore[no-redef]
+    )
 
 
 def load_scorecard_scan(path: Path | None) -> dict[str, Any]:
@@ -359,9 +361,7 @@ def format_scorecard_section(scorecard: dict[str, Any]) -> str:
             score = finding.get("score", "?")
             reason = str(finding.get("reason") or "")[:200]
             doc_url = str(finding.get("documentation_url") or "")
-            parts.append(
-                f"- **{finding_id}** — score `{score}` — {reason}\n"
-            )
+            parts.append(f"- **{finding_id}** — score `{score}` — {reason}\n")
             if doc_url:
                 parts.append(f"  - Docs: {doc_url}\n")
             snippet = {
@@ -373,7 +373,7 @@ def format_scorecard_section(scorecard: dict[str, Any]) -> str:
                 "notes": f"Explicit approval for {check} after human review.",
             }
             parts.append(
-                f"\n  Paste under `decisions[\"{repo}\"].scorecard` in "
+                f'\n  Paste under `decisions["{repo}"].scorecard` in '
                 f"`config/repo_review_feedback.json`:\n\n"
                 f"  ```json\n"
                 f"{json.dumps(snippet, indent=2)}\n"
@@ -428,7 +428,12 @@ def write_desktop_reminder(
     scorecard_count, scorecard_error_count = summarize_scorecard(scorecard)
     scorecard_signal_count = scorecard_count + scorecard_error_count
 
-    if total == 0 and backlog_count == 0 and docs_drift_signal_count == 0 and scorecard_signal_count == 0:
+    if (
+        total == 0
+        and backlog_count == 0
+        and docs_drift_signal_count == 0
+        and scorecard_signal_count == 0
+    ):
         headline = (
             "## ✓ Clean week — no action required\n\n"
             "No fresh design-vs-implementation gaps, no unaddressed "
@@ -693,9 +698,7 @@ def main() -> int:
         1 for b in (docs_drift or {}).get("by_repo") or [] if b.get("drift_instances")
     )
     scorecard_total = (scorecard or {}).get("total_findings", 0) or 0
-    scorecard_repos = sum(
-        1 for b in (scorecard or {}).get("by_repo") or [] if b.get("findings")
-    )
+    scorecard_repos = sum(1 for b in (scorecard or {}).get("by_repo") or [] if b.get("findings"))
     print(
         f"[notify] {total} issue(s) ready, {summary['skipped_count']} repo decision(s) skipped, "
         f"{auto_labeled_count} backlog auto-labeled, {needs_human_count} backlog need decision, "

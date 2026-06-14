@@ -140,7 +140,9 @@ def test_build_queue_includes_approved_scorecard_items(tmp_path: Path) -> None:
     repos = {item["repo"] for item in result["issues"]}
     assert "stranske/Travel-Plan-Permission" in repos
     assert "stranske/Workflows" in repos
-    scorecard_items = [item for item in result["issues"] if item.get("source_type") == "scorecard finding"]
+    scorecard_items = [
+        item for item in result["issues"] if item.get("source_type") == "scorecard finding"
+    ]
     assert len(scorecard_items) == 1
     assert scorecard_items[0]["scorecard_finding_id"] == "scorecard:Branch-Protection"
 

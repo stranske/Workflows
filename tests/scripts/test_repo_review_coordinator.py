@@ -269,7 +269,9 @@ def test_run_orders_scorecard_before_final_evaluator(tmp_path: Path, monkeypatch
     def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
         calls.append(name)
         if name == "scorecard-scan":
-            Path(cmd[cmd.index("--out") + 1]).write_text('{"schema":"repo-review-scorecard-scan/v1","by_repo":[]}\n', encoding="utf-8")
+            Path(cmd[cmd.index("--out") + 1]).write_text(
+                '{"schema":"repo-review-scorecard-scan/v1","by_repo":[]}\n', encoding="utf-8"
+            )
         return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
 
     monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
