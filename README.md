@@ -128,6 +128,8 @@ After PR merge, applying a `verify:*` label (typically `verify:evaluate` via aut
 ### Documentation (docs)
 
 Start with:
+- `docs/GLOSSARY.md` — plain-language definitions of the system's key terms
+- `docs/QUICK_REFERENCE.md` — two-page operator cheat-sheet (pause/resume, keepalive, labels)
 - `docs/USAGE.md`
 - `docs/INTEGRATION_GUIDE.md`
 - `docs/ci-workflow.md`
@@ -222,6 +224,8 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 **Links:**
 - Documentation: docs/README.md
+- Glossary: docs/GLOSSARY.md
+- Quick reference: docs/QUICK_REFERENCE.md
 - Usage: docs/USAGE.md
 - Integration guide: docs/INTEGRATION_GUIDE.md
 - CI wiring: docs/ci-workflow.md

@@ -6,6 +6,8 @@ This folder contains the source-of-truth documentation for this repository.
 
 | Document | Description |
 |----------|-------------|
+| [GLOSSARY.md](GLOSSARY.md) | Plain-language definitions of the system's key terms |
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Two-page operator cheat-sheet (pause/resume, keepalive, labels) |
 | [USAGE.md](USAGE.md) | Quick start and common setup patterns |
 | [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) | Full integration guide for consumers |
 | [ci-workflow.md](ci-workflow.md) | CI workflow wiring and local validation |
