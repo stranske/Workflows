@@ -17,7 +17,7 @@ The `requirements.lock` file **must** include ALL optional dependency groups:
 - `dev` - Development tools (black, mypy, pytest)
 - `langchain` - LangChain integration for LLM-enhanced task analysis
 
-**Workflow**: `.github/workflows/maint-51-dependency-refresh.yml` automatically regenerates the lock file when dependencies need updating:
+**Lock regeneration**: Renovate's `pip-compile` manager keeps `requirements.lock` fresh. On any source-dependency bump it regenerates the lock in the same PR by re-running the command recorded in the lock header, and its `lockFileMaintenance` (enabled by default for this manager, branch topic `pip-compile-refresh`) periodically recompiles the lock from scratch. `.github/workflows/maint-dependabot-auto-lock.yml` is a Workflows-only backstop that re-runs the same header command on `dependabot[bot]`/`renovate[bot]` PR branches. The recorded compile command is:
 
 ```yaml
 uv pip compile pyproject.toml \

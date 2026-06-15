@@ -243,7 +243,6 @@ EXPECTED_NAMES = {
     "maint-47-disable-legacy-workflows.yml": "Maint 47 Disable Legacy Workflows",
     "maint-48-docs-drift-audit.yml": "Maint 48 Docs Drift Audit",
     "maint-50-tool-version-check.yml": "Maint 50 Tool Version Check",
-    "maint-51-dependency-refresh.yml": "Maint 51 Dependency Refresh",
     "maint-sync-action-versions.yml": "Maint Sync Action Versions",
     "maint-sync-env-from-pyproject.yml": "Maint - Sync pyproject from versions.env",
     "maint-52-validate-workflows.yml": "Maint 52 Validate Workflows",

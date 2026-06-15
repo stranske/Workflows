@@ -354,7 +354,7 @@ fires where” without diving into the full tables:
 - **Maintenance & repo health**
   - **Primary workflows.** Gate summary job inside `pr-00-gate.yml`,
     `maint-46-post-ci.yml`, `maint-coverage-guard.yml`,
-    `maint-51-dependency-refresh.yml`, `maint-45-cosmetic-repair.yml`,
+    `maint-45-cosmetic-repair.yml`,
     and the health guardrails (`health-40` through `health-44`).
   - **Triggers.** Combination of the Gate summary job running after Gate,
     recurring schedules (health guardrails), and manual dispatch for
@@ -363,7 +363,6 @@ fires where” without diving into the full tables:
     and enforce branch-protection expectations without waiting for the next PR.
   - **Where to inspect logs.** Gate summary job: [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml).
     Maint 46: [workflow history](https://github.com/stranske/Workflows/actions/workflows/maint-46-post-ci.yml).
-    Maint 51: [dependency refresh runs](https://github.com/stranske/Workflows/actions/workflows/maint-51-dependency-refresh.yml).
     Maint 45: [workflow history](https://github.com/stranske/Workflows/actions/workflows/maint-45-cosmetic-repair.yml).
     Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Workflows/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
 - **Issue / agents automation**
@@ -465,7 +464,7 @@ status updates:
 | Bucket | Where it runs | YAML entry points | Why it exists |
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
-| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-51-dependency-refresh.yml`, `maint-62-integration-consumer.yml`, `maint-63-ensure-environments.yml`, `maint-65-sync-label-docs.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
+| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-62-integration-consumer.yml`, `maint-63-ensure-environments.yml`, `maint-65-sync-label-docs.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-moderate-connector.yml`, `agents-autofix-dispatcher.yml`, `agents-autofix-loop.yml`, `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`, `agents-keepalive-loop-reporter.yml`, `agents-keepalive-branch-sync.yml`, `agents-keepalive-dispatch-handler.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-issue-optimizer.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-13-cross-repo-smoke.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
@@ -525,11 +524,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Maint 50 Tool Version Check** – `.github/workflows/maint-50-tool-version-check.yml`
   runs weekly (Mondays 8:00 AM UTC) to check PyPI for new versions of CI/autofix tools
   (black, ruff, mypy, pytest, etc.) and creates an issue when updates are available.
-- **Maint 51 Dependency Refresh** – `.github/workflows/maint-51-dependency-refresh.yml`
-  runs on the 1st and 15th of each month (04:00 UTC) or on manual dispatch to
-  regenerate `requirements.lock` via `uv pip compile`, verify tooling pin
-  alignment, and open a refresh pull request when upgrades are detected (dry-run
-  friendly by default).
 - **Maint 39 Test LLM Providers** – `.github/workflows/maint-39-test-llm-providers.yml`
   is a manual workflow that verifies LLM provider API keys (GitHub Models, OpenAI)
   are configured correctly. Used to test the task completion analysis fallback chain.
@@ -701,7 +695,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **PR 11 - Minimal invariant CI** (`pr-11-ci-smoke.yml`, PR checks bucket) | `push` (`main`), `pull_request` (`main`), `workflow_dispatch` | Fast YAML + scripts syntax sanity check on Python 3.12 for early warning on workflow/script regressions. | ⚪ Automatic on push/PR | [Minimal invariant CI runs](https://github.com/stranske/Workflows/actions/workflows/pr-11-ci-smoke.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Workflows/actions/workflows/maint-47-disable-legacy-workflows.yml) |
 | **Maint 50 Tool Version Check** (`maint-50-tool-version-check.yml`, maintenance bucket) | `schedule` (Mondays 8:00 AM UTC), `workflow_dispatch` | Check PyPI for new versions of CI/autofix tools and create/update an issue when updates are available. | ⚪ Scheduled | [Maint 50 version checks](https://github.com/stranske/Workflows/actions/workflows/maint-50-tool-version-check.yml) |
-| **Maint 51 Dependency Refresh** (`maint-51-dependency-refresh.yml`, maintenance bucket) | `schedule` (1st & 15th at 04:00 UTC), `workflow_dispatch` | Regenerate `requirements.lock` with `uv pip compile`, verify tool-pin alignment, and open a refresh PR when dependency updates are detected (supports dry-run previews). | ⚪ Scheduled | [Maint 51 dependency refresh](https://github.com/stranske/Workflows/actions/workflows/maint-51-dependency-refresh.yml) |
 | **Auto-label dependency PRs** (`maint-auto-label-dep-prs.yml`, maintenance bucket) | `pull_request_target` (`opened`) | Apply the `agents:allow-change` label to dependency-bot PRs (Dependabot + Renovate) so protected-workflow changes can be reviewed without manual label work. | ⚪ Automatic on PR open | [Auto-label runs](https://github.com/stranske/Workflows/actions/workflows/maint-auto-label-dep-prs.yml) |
 | **Dependabot Auto-Lock** (`maint-dependabot-auto-lock.yml`, maintenance bucket) | `pull_request` (Dependabot branches, `pyproject.toml` changes) | Regenerate `requirements.lock` when Dependabot updates `pyproject.toml`, commit the updated lockfile back to the Dependabot PR branch, and keep dependency pins in sync. | ⚪ Automatic on Dependabot PRs | [Dependabot auto-lock runs](https://github.com/stranske/Workflows/actions/workflows/maint-dependabot-auto-lock.yml) |
 | **Dependabot Weekly Sweep (Consumers)** (`maint-dependabot-weekly-sweep.yml`, maintenance bucket) | `schedule` (Mondays 09:00 UTC), `workflow_dispatch` | Sweep registered consumer repos weekly to enable Dependabot auto-merge and merge eligible PRs when checks are green. | ⚪ Scheduled/manual | [Dependabot weekly sweep runs](https://github.com/stranske/Workflows/actions/workflows/maint-dependabot-weekly-sweep.yml) |
@@ -824,7 +817,7 @@ snapshots for audit trails.
 ## Final topology (keep vs retire)
 
 - **Keep.** `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`,
-  `maint-51-dependency-refresh.yml`, the Gate summary job (inline),
+  the Gate summary job (inline),
   `maint-coverage-guard.yml`, health 40/41/42/43/44,
   agents 70/63, `agents-moderate-connector.yml`, `agents-debug-issue-event.yml`, `agents-guard.yml`, reusable 10/12/16/18, and
   `maint-auto-label-dep-prs.yml`, `maint-dependabot-auto-lock.yml`, and `selftest-reusable-ci.yml`.
