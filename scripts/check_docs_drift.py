@@ -4,14 +4,14 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import sys
-from typing import Sequence
+from collections import Counter
+from collections.abc import Sequence
+from pathlib import Path, PurePosixPath
 
 DriftRecord = dict[str, str]
 
@@ -20,12 +20,14 @@ WORKFLOWS_DOC = Path("docs/ci/WORKFLOWS.md")
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 REPO_PATH_PREFIXES = ("scripts/", ".github/workflows/", "tests/", "docs/")
 
-WORKFLOW_TOKEN_RE = re.compile(
-    r"(?<![A-Za-z0-9_])([A-Za-z0-9_./-]+\.ya?ml)(?![A-Za-z0-9_])"
-)
+WORKFLOW_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z0-9_./-]+\.ya?ml)(?![A-Za-z0-9_])")
 INLINE_CODE_RE = re.compile(r"(?<!`)`(?!`)([^`\n]+?)(?<!`)`(?!`)")
 FILE_EXTENSION_RE = re.compile(r"\.[A-Za-z0-9]+$")
-GLOB_CHARS = set("*?[]{}")
+GLOB_CHARS = set("*?[]{}!")
+NON_ROOT_WORKFLOW_CONTEXT_RE = re.compile(
+    r"\b(?:consumer|consumer-template|template|templates|integration-repo)\b",
+    re.IGNORECASE,
+)
 
 
 def _workflow_files_on_disk(root: Path) -> set[str]:
@@ -39,14 +41,43 @@ def _workflow_files_on_disk(root: Path) -> set[str]:
     }
 
 
+def _is_root_workflow_path(token: str) -> bool:
+    parts = PurePosixPath(token).parts
+    for index, part in enumerate(parts[:-1]):
+        if part == ".github" and index + 1 < len(parts) and parts[index + 1] == "workflows":
+            return "templates" not in parts and "template" not in parts
+    return False
+
+
+def _workflow_token_context(text: str, token_start: int, token_end: int) -> str:
+    line_start = text.rfind("\n", 0, token_start) + 1
+    line_end = text.find("\n", token_end)
+    if line_end == -1:
+        line_end = len(text)
+    line = text[line_start:line_end]
+    relative_start = token_start - line_start
+    relative_end = token_end - line_start
+    return line[:relative_start] + line[relative_end:]
+
+
+def _is_bare_workflow_reference(text: str, match: re.Match[str]) -> bool:
+    token_start, token_end = match.span(1)
+    context = _workflow_token_context(text, token_start, token_end)
+    if NON_ROOT_WORKFLOW_CONTEXT_RE.search(context):
+        return False
+
+    return token_start > 0 and text[token_start - 1] == "`"
+
+
 def _mentioned_workflow_filenames(text: str) -> set[str]:
     filenames: set[str] = set()
     for match in WORKFLOW_TOKEN_RE.finditer(text):
         token = match.group(1)
         if "/" in token:
-            token_path = PurePosixPath(token)
-            if "templates" in token_path.parts or ".github/workflows/" not in token:
+            if not _is_root_workflow_path(token):
                 continue
+        elif not _is_bare_workflow_reference(text, match):
+            continue
         if token.startswith("n.") and match.start(1) > 0 and text[match.start(1) - 1] == "\\":
             token = token[2:]
         filename = PurePosixPath(token).name
@@ -73,8 +104,7 @@ def check_workflow_inventory(root: Path) -> list[DriftRecord]:
                 "type": "undocumented_workflow",
                 "path": filename,
                 "detail": (
-                    "Exists in .github/workflows/ but is not mentioned in "
-                    "docs/ci/WORKFLOWS.md"
+                    "Exists in .github/workflows/ but is not mentioned in " "docs/ci/WORKFLOWS.md"
                 ),
             }
         )
@@ -147,14 +177,10 @@ def check_dangling_references(
                 }
             )
 
-    return sorted(
-        drift, key=lambda record: (record["type"], record["path"], record["detail"])
-    )
+    return sorted(drift, key=lambda record: (record["type"], record["path"]))
 
 
-def check_docs_drift(
-    root: Path, docs: Sequence[str | Path] | None = None
-) -> list[DriftRecord]:
+def check_docs_drift(root: Path, docs: Sequence[str | Path] | None = None) -> list[DriftRecord]:
     """Run all docs-drift checks for a repository root."""
     return check_workflow_inventory(root) + check_dangling_references(root, docs)
 
@@ -163,7 +189,7 @@ def build_report(drift: Sequence[DriftRecord]) -> dict[str, object]:
     """Build the deterministic machine-readable report."""
     sorted_drift = sorted(
         (dict(record) for record in drift),
-        key=lambda record: (record["type"], record["path"], record.get("detail", "")),
+        key=lambda record: (record["type"], record["path"]),
     )
     by_type = Counter(record["type"] for record in sorted_drift)
     return {
@@ -183,9 +209,7 @@ def format_human_report(report: dict[str, object]) -> str:
     lines = [f"Docs drift: {drift_count}"]
     for record in report["drift"]:
         assert isinstance(record, dict)
-        lines.append(
-            f"{record['type']}  {record['path']}  \u2014 {record.get('detail', '')}"
-        )
+        lines.append(f"{record['type']}  {record['path']}  \u2014 {record.get('detail', '')}")
     return "\n".join(lines)
 
 
@@ -240,14 +264,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
 
     try:
-        root = (
-            args.repo_root if args.repo_root is not None else detect_repo_root()
-        ).expanduser()
+        root = (args.repo_root if args.repo_root is not None else detect_repo_root()).expanduser()
         root = root.resolve()
         if not root.exists() or not root.is_dir():
-            raise FileNotFoundError(
-                f"repo root not found: {_display_path(root, Path.cwd())}"
-            )
+            raise FileNotFoundError(f"repo root not found: {_display_path(root, Path.cwd())}")
 
         docs = tuple(args.docs) if args.docs is not None else DEFAULT_DOCS
         report = build_report(check_docs_drift(root, docs))

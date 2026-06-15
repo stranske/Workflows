@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import sys
-from typing import Iterable
+from collections.abc import Iterable
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -91,6 +91,27 @@ def test_workflow_mentioned_in_docs_but_missing_on_disk(tmp_path: Path) -> None:
     ]
 
 
+def test_dotted_and_slash_workflow_refs_count_but_template_refs_do_not(
+    tmp_path: Path,
+) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("release.pipeline.v2.yml", "health-72-template-sync.yml"),
+        workflows_doc="""
+Root workflow link: [Release](../../.github/workflows/release.pipeline.v2.yml).
+Root inline workflow: `health-72-template-sync.yml`.
+Consumer-template examples use `agents-80-pr-event-hub.yml` and
+[Template](../../templates/consumer-repo/.github/workflows/template-only.yml).
+Opt-in consumer `cross-repo-smoke.yml` callers are not Workflows inventory.
+Config names such as sync-manifest.yml and labels-core.yml are not workflows.
+""",
+    )
+
+    drift = check_workflow_inventory(root)
+
+    assert drift == []
+
+
 def test_missing_backtick_repo_path_is_dangling_reference(tmp_path: Path) -> None:
     root = _repo(
         tmp_path,
@@ -106,6 +127,37 @@ def test_missing_backtick_repo_path_is_dangling_reference(tmp_path: Path) -> Non
     assert "docs/ci/WORKFLOWS.md" in drift[0]["detail"]
 
 
+def test_repo_path_glob_tokens_are_ignored(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("build.yml",),
+        workflows_doc="""
+`build.yml` cites glob-style paths `scripts/*.py`, `scripts/file?.py`,
+`scripts/[abc].py`, `docs/{old,new}.md`, and `tests/!excluded.py`.
+It also cites a real missing file: `scripts/does_not_exist.py`.
+""",
+    )
+
+    drift = check_dangling_references(root)
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("dangling_reference", "scripts/does_not_exist.py")
+    ]
+
+
+def test_dangling_reference_ties_preserve_scan_order(tmp_path: Path) -> None:
+    root = _repo(tmp_path, workflows_doc="")
+    _write(root / "docs/a.md", "`scripts/missing.py`\n")
+    _write(root / "docs/b.md", "`scripts/missing.py`\n")
+
+    drift = check_dangling_references(root, ["docs/b.md", "docs/a.md"])
+
+    assert [record["detail"] for record in drift] == [
+        "Referenced in docs/b.md",
+        "Referenced in docs/a.md",
+    ]
+
+
 def test_template_workflow_is_not_part_of_runtime_inventory(tmp_path: Path) -> None:
     root = _repo(
         tmp_path,
@@ -119,3 +171,16 @@ def test_template_workflow_is_not_part_of_runtime_inventory(tmp_path: Path) -> N
     drift = check_workflow_inventory(root)
 
     assert drift == []
+
+
+def test_cli_report_write_io_error_returns_two(tmp_path: Path, capsys) -> None:
+    root = _repo(tmp_path / "repo", workflows=("build.yml",), workflows_doc="`build.yml`\n")
+    report_dir = tmp_path / "report-dir"
+    report_dir.mkdir()
+
+    exit_code = main(["--repo-root", str(root), "--report", str(report_dir)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert captured.out == ""
+    assert "error:" in captured.err
