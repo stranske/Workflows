@@ -4,18 +4,23 @@ description: >-
   out the target repository, set up Node.js, prepare the API client, and check
   out the stranske/Workflows scripts into .workflows-lib. Extracted from
   reusable-claude-run.yml and reusable-codex-run.yml so the steps are
-  maintained in one place (issue #2341). Agent-specific steps (App-token mint,
-  auth-token selection, Workflows script-dep install, tooling validation, and
-  the agent invocation) stay in each runner.
+  maintained in one place (issue #2341). Agent-specific steps (Workflows
+  script-dep install, tooling validation, and the agent invocation) stay in
+  each runner.
 
 inputs:
   checkout_ref:
     description: Git ref to check out for the target repository.
     required: false
     default: ''
-  checkout_token:
-    description: Token used for repository checkouts (target repo and Workflows scripts).
-    required: true
+  workflows_app_id:
+    description: GitHub App ID used to mint the preferred write token.
+    required: false
+    default: ''
+  workflows_app_private_key:
+    description: GitHub App private key used to mint the preferred write token.
+    required: false
+    default: ''
   workflows_ref:
     description: Ref of stranske/Workflows to check out into .workflows-lib.
     required: true
@@ -26,16 +31,89 @@ inputs:
   github_token:
     description: GITHUB_TOKEN forwarded to setup-api-client.
     required: true
+  runner_mode:
+    description: Current runner mode; exported to the agent-specific mode env name.
+    required: false
+    default: ''
+  runner_pr_number:
+    description: Current PR number; exported to the agent-specific PR env name.
+    required: false
+    default: ''
+  mode_env_name:
+    description: Environment variable name that receives runner_mode.
+    required: true
+  pr_number_env_name:
+    description: Environment variable name that receives runner_pr_number.
+    required: true
+
+outputs:
+  checkout_token:
+    description: Token selected for checkouts.
+    value: ${{ steps.auth_token.outputs.checkout_token }}
+  push_token:
+    description: App token selected for pushes, or empty when unavailable.
+    value: ${{ steps.auth_token.outputs.push_token }}
+  source:
+    description: Selected auth source, app-token or github-token.
+    value: ${{ steps.auth_token.outputs.source }}
+  push_allowed:
+    description: true when push_token is available.
+    value: ${{ steps.auth_token.outputs.push_allowed }}
 
 runs:
   using: composite
   steps:
+    - name: Mint GitHub App token
+      id: app_token
+      continue-on-error: true
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ inputs.workflows_app_id || '0' }}
+        private-key: ${{ inputs.workflows_app_private_key || 'dummy' }}
+
+    - name: Select auth token
+      id: auth_token
+      shell: bash
+      env:
+        APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+        GITHUB_TOKEN_VALUE: ${{ inputs.github_token }}
+        RUNNER_MODE: ${{ inputs.runner_mode }}
+        RUNNER_PR_NUMBER: ${{ inputs.runner_pr_number }}
+        MODE_ENV_NAME: ${{ inputs.mode_env_name }}
+        PR_NUMBER_ENV_NAME: ${{ inputs.pr_number_env_name }}
+      run: |
+        set -euo pipefail
+        checkout_token="${APP_TOKEN:-${GITHUB_TOKEN_VALUE}}"
+        push_token="${APP_TOKEN:-}"
+        source="app-token"
+        push_allowed="true"
+
+        if [ -z "$push_token" ]; then
+          source="github-token"
+          push_allowed="false"
+        fi
+
+        {
+          echo "checkout_token=${checkout_token}"
+          echo "push_token=${push_token}"
+          echo "source=${source}"
+          echo "push_allowed=${push_allowed}"
+        } >> "$GITHUB_OUTPUT"
+
+        {
+          echo "WORKFLOWS_TOKEN=${checkout_token}"
+          echo "${MODE_ENV_NAME}=${RUNNER_MODE}"
+          echo "${PR_NUMBER_ENV_NAME}=${RUNNER_PR_NUMBER}"
+        } >> "$GITHUB_ENV"
+
+        printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
+
     - name: Checkout
       uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ inputs.checkout_ref || github.ref }}
-        token: ${{ inputs.checkout_token }}
+        token: ${{ steps.auth_token.outputs.checkout_token }}
 
     - name: Set up Node.js
       uses: actions/setup-node@v6
@@ -60,4 +138,4 @@ runs:
           .github
           tools
           scripts
-        token: ${{ inputs.checkout_token }}
+        token: ${{ steps.auth_token.outputs.checkout_token }}

@@ -214,48 +214,10 @@ jobs:
       session-event-count: ${{ steps.analyze_session.outputs.event-count }}
       session-todo-count: ${{ steps.analyze_session.outputs.todo-count }}
     steps:
-      - name: Mint GitHub App token (preferred)
-        id: app_token
-        continue-on-error: true
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
-
-      - name: Select auth token
-        id: auth_token
-        env:
-          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
-        run: |
-          set -euo pipefail
-          checkout_token="${APP_TOKEN:-${GITHUB_TOKEN}}"
-          push_token="${APP_TOKEN:-}"
-          source="app-token"
-          push_allowed="true"
-
-          if [ -z "$push_token" ]; then
-            source="github-token"
-            push_allowed="false"
-          fi
-
-          {
-            echo "checkout_token=${checkout_token}"
-            echo "push_token=${push_token}"
-            echo "source=${source}"
-            echo "push_allowed=${push_allowed}"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "WORKFLOWS_TOKEN=${checkout_token}"
-            echo "CODEX_MODE=${{ inputs.mode }}"
-            echo "CODEX_PR_NUMBER=${{ inputs.pr_number }}"
-          } >> "$GITHUB_ENV"
-
-          printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
-
-      # Shared agent-agnostic setup (checkout / Node.js / API client /
-      # Workflows scripts checkout) lives in the agent-run-base composite so it
-      # is maintained once for both runners (issue #2341).
+      # Shared agent-agnostic setup (App-token mint / auth-token selection /
+      # checkout / Node.js / API client / Workflows scripts checkout) lives in
+      # the agent-run-base composite so it is maintained once for both runners
+      # (issue #2341).
       - name: Checkout Workflows run-base action
         uses: actions/checkout@v6
         with:
@@ -264,16 +226,22 @@ jobs:
           path: .workflows-actions
           sparse-checkout: |
             .github/actions/agent-run-base
-          token: ${{ steps.auth_token.outputs.checkout_token }}
+          token: ${{ github.token }}
 
       - name: Agent run base setup
+        id: run_base
         uses: ./.workflows-actions/.github/actions/agent-run-base
         with:
           checkout_ref: ${{ inputs.pr_ref || github.ref }}
-          checkout_token: ${{ steps.auth_token.outputs.checkout_token }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           workflows_ref: ${{ inputs.workflows_ref }}
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
+          runner_mode: ${{ inputs.mode }}
+          runner_pr_number: ${{ inputs.pr_number }}
+          mode_env_name: CODEX_MODE
+          pr_number_env_name: CODEX_PR_NUMBER
 
       - name: Ensure Workflows script deps
         run: |
@@ -463,7 +431,7 @@ jobs:
         id: reference_packs
         uses: ./.github/actions/agent-reference-packs
         with:
-          checkout_token: ${{ steps.auth_token.outputs.checkout_token }}
+          checkout_token: ${{ steps.run_base.outputs.checkout_token }}
 
       - name: Assemble prompt
         id: prompt
@@ -849,7 +817,7 @@ jobs:
 
               TARGET_BRANCH="${{ inputs.pr_ref }}"
               TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
-              PUSH_TOKEN="${{ steps.auth_token.outputs.push_token }}"
+              PUSH_TOKEN="${{ steps.run_base.outputs.push_token }}"
               REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
 
               # Fetch to get current FETCH_HEAD before checking for unpushed work
@@ -1091,7 +1059,7 @@ jobs:
         continue-on-error: true
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex
-          GH_TOKEN: ${{ steps.auth_token.outputs.push_token }}
+          GH_TOKEN: ${{ steps.run_base.outputs.push_token }}
           INITIAL_AUTH_SHA: ${{ steps.codex_auth.outputs.auth_sha }}
         run: |
           set -euo pipefail
@@ -1233,8 +1201,8 @@ jobs:
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
           PR_REF: ${{ inputs.pr_ref }}
-          PUSH_ALLOWED: ${{ steps.auth_token.outputs.push_allowed }}
-          PUSH_TOKEN: ${{ steps.auth_token.outputs.push_token }}
+          PUSH_ALLOWED: ${{ steps.run_base.outputs.push_allowed }}
+          PUSH_TOKEN: ${{ steps.run_base.outputs.push_token }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"

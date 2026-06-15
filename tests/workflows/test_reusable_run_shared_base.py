@@ -12,9 +12,10 @@ applied twice.
 
 PR #2345 extracted the reference-pack materializer into
 ``.github/actions/agent-reference-packs``. This follow-up extracts the
-agent-agnostic *setup* block — checkout of the target repo, Node.js setup, the
-API client, and the ``.workflows-lib`` scripts checkout — into
-``.github/actions/agent-run-base`` so it is maintained in one place.
+agent-agnostic *setup* block — App-token minting, auth-token selection,
+checkout of the target repo, Node.js setup, the API client, and the
+``.workflows-lib`` scripts checkout — into ``.github/actions/agent-run-base``
+so it is maintained in one place.
 
 This test asserts both runners call the shared composite exactly once and no
 longer carry their own copy of the extracted ``actions/checkout`` /
@@ -44,6 +45,8 @@ RUN_BASE_USE_BASES = {
 # Step names the composite must run, in order. Behaviour parity with the
 # pre-extraction inline block depends on this exact sequence.
 EXPECTED_STEP_NAMES = [
+    "Mint GitHub App token",
+    "Select auth token",
     "Checkout",
     "Set up Node.js",
     "Setup API client",
@@ -81,6 +84,8 @@ def test_run_base_action_exists_and_parses() -> None:
     # The shared block must still reach setup-api-client and the sparse
     # Workflows scripts checkout — the whole point of the extraction.
     src = path.read_text()
+    assert "uses: actions/create-github-app-token@v3" in src
+    assert "push_allowed" in src
     assert "uses: ./.github/actions/setup-api-client" in src
     assert "sparse-checkout" in src
 
@@ -121,6 +126,14 @@ def test_extracted_setup_steps_not_duplicated_in_runners(workflow_rel: str) -> N
     # the composite; only the pre-checkout for the composite definition remains
     # in the runners.
     assert "repository: stranske/Workflows" in src
+    assert "uses: actions/create-github-app-token@v3" not in src, (
+        f"{workflow_rel}: App-token minting was extracted to {RUN_BASE_ACTION}; "
+        "it should not reappear verbatim in the runner"
+    )
+    assert "steps.auth_token.outputs" not in src, (
+        f"{workflow_rel}: auth-token selection was extracted to {RUN_BASE_ACTION}; "
+        "runner code should consume steps.run_base.outputs instead"
+    )
     assert "path: .workflows-lib" not in src, (
         f"{workflow_rel}: the .workflows-lib sparse checkout was extracted to "
         f"{RUN_BASE_ACTION}; it should not reappear verbatim in the runner"
