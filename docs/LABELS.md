@@ -599,7 +599,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
    explicit permission.
 
 **Consumers:** `.github/scripts/agents-guard.js`,
-`.github/workflows/maint-dependabot-auto-label.yml`.
+`.github/workflows/maint-auto-label-dep-prs.yml`.
 
 ---
 

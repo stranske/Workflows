@@ -52,7 +52,7 @@ concurrency groups and set cancel-in-progress: true (see docs/ops/debouncing-run
 | `.github/workflows/maint-65-sync-label-docs.yml` | `${{ github.workflow }}-${{ github.ref }}` |
 | `.github/workflows/maint-69-sync-integration-repo.yml` | `${{ github.workflow }}-${{ github.ref }}` |
 | `.github/workflows/maint-71-auto-fix-integration.yml` | `${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}` |
-| `.github/workflows/maint-dependabot-auto-label.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
+| `.github/workflows/maint-auto-label-dep-prs.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
 | `.github/workflows/maint-dependabot-auto-lock.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
 | `.github/workflows/maint-sync-action-versions.yml` | `${{ github.workflow }}-${{ github.ref }}` |
 | `.github/workflows/maint-sync-env-from-pyproject.yml` | `${{ github.workflow }}-${{ github.ref }}` |

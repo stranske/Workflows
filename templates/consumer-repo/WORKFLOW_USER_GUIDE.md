@@ -843,16 +843,13 @@ The Workflows repository includes maintenance workflows that handle sync, update
 
 ---
 
-### `maint-dependabot-auto-label.yml` - Label Dependabot PRs
-**Purpose:** Auto-labels Dependabot PRs by category
+### `maint-auto-label-dep-prs.yml` - Label dependency PRs
+**Purpose:** Auto-labels dependency-bot PRs with `agents:allow-change`
 
-**Trigger:** When Dependabot opens PR
+**Trigger:** When Dependabot or Renovate opens a PR
 
 **Labels Applied:**
-- `dependencies` (all)
-- `python` for Python packages
-- `github-actions` for action updates
-- `security` for security updates
+- `agents:allow-change` (so protected-workflow changes can be reviewed without manual label work)
 
 **Use When:** Automatic, no action needed
 

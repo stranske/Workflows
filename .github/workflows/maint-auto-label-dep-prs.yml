@@ -1,4 +1,7 @@
-name: Auto-label Dependabot PRs
+name: Auto-label dependency PRs
+# Applies agents:allow-change to dependency-bot PRs (dependabot[bot] and
+# renovate[bot]). Renamed from the dependabot-specific file/name once Renovate
+# became the fleet's bumper; not a gate check, so the check-run rename is safe.
 
 on:
   pull_request_target:
