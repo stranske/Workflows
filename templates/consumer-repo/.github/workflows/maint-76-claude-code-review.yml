@@ -30,6 +30,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/github-rate-limited-wrapper.js
             .github/scripts/token_load_balancer.js

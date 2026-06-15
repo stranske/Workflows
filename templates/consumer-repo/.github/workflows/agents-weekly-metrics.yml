@@ -34,6 +34,7 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/bot_comment_auth_coverage.js
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/terminal_disposition.js
             .github/scripts/terminal_disposition_coverage.js

@@ -849,6 +849,7 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/prompt_injection_guard.js
             .github/scripts/github-rate-limited-wrapper.js
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
             scripts/runner_lib
