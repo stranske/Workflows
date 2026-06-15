@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Workflows Renovate config — replaces Dependabot for runtime pip deps + GitHub Actions, grouped with automerge-on-green. Shared dev-tool pins (ruff/black/mypy/pytest/...) are EXCLUDED here: they move through autofix-versions.env via maint-auto-update-pypi-versions.yml + maint-51-dependency-refresh.yml, NOT the bumper (mirrors the retired dependabot ignore list).",
+  "extends": ["config:recommended"],
+  "platformAutomerge": true,
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Dev-tool pins are owned by autofix-versions.env + the maint workflows — Renovate must not bump them",
+      "matchPackageNames": ["ruff", "black", "mypy", "pytest", "pytest-cov", "pytest-xdist", "coverage", "isort", "docformatter"],
+      "enabled": false
+    },
+    {
+      "description": "Runtime/test-support minor+patch: group + automerge on green (majors stay separate for review)",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major updates",
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "GitHub Actions minor+patch: group + automerge on green",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "github-actions",
+      "automerge": true
+    },
+    {
+      "description": "Vendored minimatch cascade — keep minimatch, brace-expansion, balanced-match in one PR",
+      "matchFileNames": [".github/scripts/**"],
+      "matchPackageNames": ["minimatch", "brace-expansion", "balanced-match"],
+      "groupName": "vendored minimatch cascade"
+    }
+  ]
+}
