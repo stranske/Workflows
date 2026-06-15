@@ -7,7 +7,7 @@
 [pair.1]
 main = .github/workflows/agents-63-issue-intake.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-intake.yml
-main_sha256 = cf922877984f7d7a5f4f197def3b2ef8be763f83441d5c47409026b6cb4db783
+main_sha256 = b9c4c9d5c48a48fd6307277fc724d8d1f6aff742fe3cde5c606b178ec8f529ce
 template_sha256 = 689d22e20cc6f21df006a2f7ed54924fc05d63adea5ef89251788f888f2a5495
 reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
 
@@ -35,36 +35,36 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.5]
 main = .github/workflows/agents-auto-label.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
-main_sha256 = f94e7f767264ca700c2a07b8097795e3eda5d2e9a5b8df63e1936a0c202d174b
-template_sha256 = bb9d21d51b02c28c2d8f6ffd5d81ef151f5be2bc75ce4373de61e8c59486ad1d
+main_sha256 = 4dacff89dfef1ffadcd1e3d781aa8cc82bafa6433e3f0d65208f4576ffefe6bd
+template_sha256 = b6e4ff7bef753216bde90ccd4cc6e505b02a02df7be8b5aaa7e191077a1335d6
 reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
 
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-autofix-dispatcher.yml
-main_sha256 = bb6841b5b89107ada1e823b9e21bc00f325ce723665bfc9555e4231d12b7e45e
-template_sha256 = a4703ccd7b04ba958d9807d875f86ac1d9b1f305345b66ff6c55c0059c117a94
+main_sha256 = f8584d92f218da726690e349cf8513d6eb4db2edfcace1b388e48388eb8eb3d2
+template_sha256 = c699daf54422f6e7548211a55d88ca34df0b752b0cc8c8e8d60c9dec219149e9
 reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
 
 [pair.7]
 main = .github/workflows/agents-capability-check.yml
 template = templates/consumer-repo/.github/workflows/agents-capability-check.yml
-main_sha256 = 27d58d8709538b6be76d0972b30e59d03a40b67b3036478e84afd27951a16041
-template_sha256 = e1e8a6817da55d877670cf683c2d4d3417842ae47ba5e0a3a69c2b3835cfcf97
+main_sha256 = 039a8f5dbb1b7e455c076c15036840226e6b5d4e54004c1e67543b5decb36cae
+template_sha256 = 4286693c0f9701fc4a0e550821a5a0229ad140c154c36db3b8cb3fd8089e233e
 reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
 
 [pair.8]
 main = .github/workflows/agents-decompose.yml
 template = templates/consumer-repo/.github/workflows/agents-decompose.yml
-main_sha256 = e9a0d1764e5524604dcda3a1eaafb6e9b914b7b3624546062d043fe0c8ef4af4
-template_sha256 = 9d0fd14edf785c459206377811240b08921f3ce12b23a691294c88634bb0473a
+main_sha256 = 55db24f3678614f71da81df2f1d80a7fc93fdaf84d06c943da1013d74f5aebd8
+template_sha256 = 0687139513b4b148b1a792a652bdd55e13eef88fc661659f597c2506d967a7e7
 reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
 
 [pair.9]
 main = .github/workflows/agents-dedup.yml
 template = templates/consumer-repo/.github/workflows/agents-dedup.yml
-main_sha256 = fa039946022efce3163f050b6664a9f95f6652d970f6f6e95af2b3b7852c50c1
-template_sha256 = 18bd729d35dddcf225c770dabce548a69479f9f808b3a9e3bc4a02fd86496a03
+main_sha256 = 73665af908b2f725958ed1e895e457fdc902ea367478bedc2be6d86518ed44f5
+template_sha256 = 5f008bf68d1e59d3011d30a1a7ea9136476f1b85509aff3c31807e97084605e4
 reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
 
 [pair.10]
@@ -77,8 +77,8 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = 36c786476b92f638133bef25a36361ab197c1a5302f4499adb89cb1e7a29477d
-template_sha256 = 04fe11354ae1b337a7fc371f7154c0476e9ccbdee3e8bb5cfb9ea50cd07ee36a
+main_sha256 = 66e1b7a23c0178d558c0e88f1c75de00f228d2eda23e7bb9c744a6fd909aaf5f
+template_sha256 = d64c0ed82527ed7aea9a85aa163659baa55d118a17a984b00cbb28fb18afe2dd
 reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
 
 [pair.12]
@@ -105,6 +105,6 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.15]
 main = .github/workflows/agents-weekly-metrics.yml
 template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
-main_sha256 = 56386f02373d50afff04e99a753a004f08c8960771989cc6e92b10340901c163
-template_sha256 = f512b96005535ac15bb27ca87c0434b77d9fae63008cdb5f1766bacabcf7b368
+main_sha256 = 3798ce82e746acc4036c191404fe2b3954ba9c09b183d07adcf42c4650108b2c
+template_sha256 = 1b8606bf9cfa446e04db2fb6b6d53569fa14fd375deac1be9818dd90a135ebd2
 reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
