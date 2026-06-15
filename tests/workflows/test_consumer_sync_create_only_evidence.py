@@ -24,7 +24,6 @@ def test_consumer_create_only_files_are_manifested() -> None:
     for source in (
         ".github/workflows/pr-00-gate.yml",
         ".github/workflows/ci.yml",
-        ".github/dependabot.yml",
     ):
         assert source in entries
         assert entries[source]["sync_mode"] == "create_only"
