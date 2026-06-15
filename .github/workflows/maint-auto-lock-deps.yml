@@ -1,4 +1,4 @@
-name: Dependabot Auto-Lock
+name: Auto-lock dependency PRs
 # Backstop that regenerates requirements.lock when a dependency bot updates a
 # declared lock input file, so the checked-in lock stays in sync.
 #

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-WORKFLOW = Path(".github/workflows/maint-82-sync-dependabot-campaign.yml")
+WORKFLOW = Path(".github/workflows/maint-82-sync-dependency-campaign.yml")
 
 
 def _refresh_script() -> str:
@@ -26,3 +26,12 @@ def test_campaign_refresh_passes_current_sync_hash_to_runner():
 
     assert "const currentSyncHash = '${{ steps.hash.outputs.hash }}';" in script
     assert "currentSyncHash," in script
+
+
+def test_campaign_workflow_bot_agnostic_identity():
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+
+    # Renamed bot-agnostic display name (was "Sync/Dependabot Campaign").
+    assert data["name"] == "Sync/Dependency Campaign"
+    # Loads the renamed campaign script.
+    assert "sync_dependency_campaign.js" in _refresh_script()

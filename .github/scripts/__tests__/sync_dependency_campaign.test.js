@@ -20,7 +20,7 @@ const {
   replaceCampaignMarker,
   verboseDryRunLoggingEnabled,
   validateCampaignState,
-} = require('../sync_dependabot_campaign.js');
+} = require('../sync_dependency_campaign.js');
 
 test('formats and parses campaign marker', () => {
   const state = {

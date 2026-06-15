@@ -273,11 +273,6 @@ def test_merge_sync_prs_uploads_machine_readable_report_and_hash_input():
     ), "Maint 71 must upload the merge report as a GitHub-visible artifact"
 
 
-def test_dependabot_weekly_sweep_deletes_merged_branches():
-    text = (WORKFLOWS_DIR / "maint-dependabot-weekly-sweep.yml").read_text(encoding="utf-8")
-    assert "--delete-branch" in text, "Dependabot sweep must request branch deletion on merge"
-
-
 def test_consumer_sync_run_uploads_machine_readable_report():
     text = (WORKFLOWS_DIR / "maint-68-sync-consumer-repos.yml").read_text(encoding="utf-8")
     assert (

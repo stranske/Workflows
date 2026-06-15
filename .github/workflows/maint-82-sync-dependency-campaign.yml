@@ -1,4 +1,8 @@
-name: Sync/Dependabot Campaign
+name: Sync/Dependency Campaign
+# Watches dependency-bot PRs (renovate[bot]; legacy dependabot[bot]) + consumer
+# sync drift. Internal identifiers (repository_dispatch type, concurrency group,
+# and artifact/state-file names below) intentionally keep the historical
+# "sync-dependabot-campaign" slug for dispatcher + persisted-state continuity.
 
 on:
   schedule:
@@ -95,7 +99,7 @@ jobs:
             const {
               formatCampaignRunSummaryMarkdown,
               runCampaign,
-            } = require('./.github/scripts/sync_dependabot_campaign.js');
+            } = require('./.github/scripts/sync_dependency_campaign.js');
             const fs = require('fs');
 
             const registeredRepos = '${{ steps.registered.outputs.repos }}'
@@ -136,7 +140,7 @@ jobs:
               .join(', ') || '-';
             const unpublishedResults = stats.items_unpublished_source_results || 0;
             await core.summary
-              .addHeading('Sync/Dependabot Campaign')
+              .addHeading('Sync/Dependency Campaign')
               .addList([
                 `Current sync hash: ${result.state.current_sync_hash || '-'}`,
                 `Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,

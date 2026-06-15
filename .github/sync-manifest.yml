@@ -130,10 +130,6 @@ workflows:
     description: "Renovate config - extends stranske/Workflows//renovate-presets/fleet (shared fleet preset)"
     sync_mode: create_only
 
-  - source: .github/workflows/dependabot-automerge.yml
-    description: "Dependabot auto-merge - automatically merges dependabot PRs when checks pass"
-
-
   # Reusable PR context workflow (medium-effort rate limit optimization)
   - source: .github/workflows/reusable-pr-context.yml
     description: "Reusable PR context workflow - centralized PR data fetching via GraphQL"
@@ -148,6 +144,8 @@ workflows:
 
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:
+  - target: .github/workflows/dependabot-automerge.yml
+    description: "Remove the retired Dependabot auto-merge workflow - the fleet is on Renovate (platformAutomerge covers auto-merge); see renovate-presets/fleet.json."
   - target: .github/workflows/agents-63-issue-intake.yml
     description: "Remove deprecated issue intake workflow (replaced by agents-64/70)"
   - target: .workflows-lib

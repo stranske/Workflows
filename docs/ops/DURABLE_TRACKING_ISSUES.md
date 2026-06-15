@@ -32,7 +32,7 @@ next cycle.
 | Issue | Title | Source workflow | Cadence | Update style |
 |-------|-------|-----------------|---------|--------------|
 | [#1796](https://github.com/stranske/Workflows/issues/1796) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
-| [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependabot campaign queue | [`maint-82-sync-dependabot-campaign.yml`](../../.github/workflows/maint-82-sync-dependabot-campaign.yml) + [`.github/scripts/sync_dependabot_campaign.js`](../../.github/scripts/sync_dependabot_campaign.js) | Every 6h + Mondays 10:30 UTC | Body rewritten in place |
+| [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependency campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 6h + Mondays 10:30 UTC | Body rewritten in place |
 | [#1868](https://github.com/stranske/Workflows/issues/1868) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 05:10 UTC | Body rewritten in place |
 
 The signal flow each tracker carries:
