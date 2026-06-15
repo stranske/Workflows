@@ -253,41 +253,17 @@ jobs:
 
           printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
 
-      - name: Checkout
-        uses: actions/checkout@v6
+      # Shared agent-agnostic setup (checkout / Node.js / API client /
+      # Workflows scripts checkout) lives in the agent-run-base composite so it
+      # is maintained once for both runners (issue #2341).
+      - name: Agent run base setup
+        uses: ./.github/actions/agent-run-base
         with:
-          fetch-depth: 0
-          ref: ${{ inputs.pr_ref || github.ref }}
-          token: ${{ steps.auth_token.outputs.checkout_token }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20
-
-      # Checkout Workflows repo scripts for post-completion, error handling, and LLM analysis
-      # These scripts are in stranske/Workflows but need to be available when
-      # this reusable workflow runs in consumer repos
-      - name: Setup API client
-        uses: ./.github/actions/setup-api-client
-        with:
+          checkout_ref: ${{ inputs.pr_ref || github.ref }}
+          checkout_token: ${{ steps.auth_token.outputs.checkout_token }}
+          workflows_ref: ${{ inputs.workflows_ref }}
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
-
-
-
-      - name: Checkout Workflows scripts
-        uses: actions/checkout@v6
-        with:
-          repository: stranske/Workflows
-          # Use the workflows_ref input which should match the @ref in the uses: line
-          ref: ${{ inputs.workflows_ref }}
-          path: .workflows-lib
-          sparse-checkout: |
-            .github
-            tools
-            scripts
-          token: ${{ steps.auth_token.outputs.checkout_token }}
 
       - name: Ensure Workflows script deps
         run: |

@@ -1,0 +1,63 @@
+name: Agent Run Base
+description: >-
+  Shared, agent-agnostic setup for the reusable agent runner workflows: check
+  out the target repository, set up Node.js, prepare the API client, and check
+  out the stranske/Workflows scripts into .workflows-lib. Extracted from
+  reusable-claude-run.yml and reusable-codex-run.yml so the steps are
+  maintained in one place (issue #2341). Agent-specific steps (App-token mint,
+  auth-token selection, Workflows script-dep install, tooling validation, and
+  the agent invocation) stay in each runner.
+
+inputs:
+  checkout_ref:
+    description: Git ref to check out for the target repository.
+    required: false
+    default: ${{ github.ref }}
+  checkout_token:
+    description: Token used for repository checkouts (target repo and Workflows scripts).
+    required: true
+  workflows_ref:
+    description: Ref of stranske/Workflows to check out into .workflows-lib.
+    required: true
+  secrets:
+    description: JSON-encoded secrets (toJSON(secrets)) forwarded to setup-api-client.
+    required: false
+    default: '{}'
+  github_token:
+    description: GITHUB_TOKEN forwarded to setup-api-client.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        ref: ${{ inputs.checkout_ref }}
+        token: ${{ inputs.checkout_token }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: 20
+
+    # Aligns infrastructure prep across both agent runners so they share the
+    # same token load balancer, scripts checkout, and tooling deps.
+    - name: Setup API client
+      uses: ./.github/actions/setup-api-client
+      with:
+        secrets: ${{ inputs.secrets }}
+        github_token: ${{ inputs.github_token }}
+
+    - name: Checkout Workflows scripts
+      uses: actions/checkout@v6
+      with:
+        repository: stranske/Workflows
+        ref: ${{ inputs.workflows_ref }}
+        path: .workflows-lib
+        sparse-checkout: |
+          .github
+          tools
+          scripts
+        token: ${{ inputs.checkout_token }}
