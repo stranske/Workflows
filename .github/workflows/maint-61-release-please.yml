@@ -23,7 +23,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Run release-please
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           config-file: release-please-config.json
