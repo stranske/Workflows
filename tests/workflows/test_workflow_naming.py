@@ -266,6 +266,7 @@ EXPECTED_NAMES = {
     "maint-69-sync-integration-repo.yml": "Maint 69 Sync Integration Repo",
     "maint-69-sync-labels.yml": "Maint 69 Sync Labels",
     "maint-60-release.yml": "Maint 60 Release",
+    "maint-61-release-please.yml": "Maint 61 Release Please",
     "maint-70-fix-integration-formatting.yml": "Fix Integration Tests Formatting",
     "maint-71-auto-fix-integration.yml": "Auto-Fix Integration Test Failures",
     "maint-71-merge-sync-prs.yml": "Merge Sync PRs",

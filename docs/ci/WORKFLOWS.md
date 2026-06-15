@@ -126,6 +126,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 * [`maint-66-monthly-audit.yml`](../../.github/workflows/maint-66-monthly-audit.yml) performs comprehensive monthly workflow health audits, collecting statistics and creating actionable tracking issues.
 * [`maint-48-docs-drift-audit.yml`](../../.github/workflows/maint-48-docs-drift-audit.yml) seeds a monthly scoped docs-drift audit issue (deduped) for the lane fleet to diff the canonical docs against reality and open fix PRs.
 * [`maint-60-release.yml`](../../.github/workflows/maint-60-release.yml) creates GitHub releases automatically when version tags (`v*`) are pushed.
+* [`maint-61-release-please.yml`](../../.github/workflows/maint-61-release-please.yml) runs release-please on pushes to `main`, using the Workflows GitHub App token when configured, to maintain the Conventional Commits-driven Release PR, changelog, tags, and GitHub releases from the manifest seeded at `1.1.2`.
 ## Agents Control Plane
 
 The agent workflows coordinate Codex and chat orchestration across topics:
