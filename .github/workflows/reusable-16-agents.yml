@@ -154,6 +154,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
             .github/scripts/agent_registry.js
@@ -369,6 +370,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/agent_registry.js
             .github/actions/setup-api-client

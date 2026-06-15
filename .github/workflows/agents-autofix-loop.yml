@@ -108,6 +108,7 @@ jobs:
             .github/scripts/agent_registry.js
             .github/scripts/prompt_injection_guard.js
             .github/actions/setup-api-client
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/github-rate-limited-wrapper.js
             .github/scripts/token_load_balancer.js
@@ -839,6 +840,7 @@ jobs:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
@@ -933,6 +935,7 @@ jobs:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/actions/setup-api-client
             .github/scripts/github-rate-limited-wrapper.js

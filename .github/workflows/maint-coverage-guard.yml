@@ -29,6 +29,7 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/actions/artifact-cache
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
@@ -105,6 +106,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/artifact-cache
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false

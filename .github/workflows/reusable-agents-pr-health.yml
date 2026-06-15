@@ -219,6 +219,7 @@ jobs:
           repository: stranske/Workflows
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
@@ -593,6 +594,7 @@ jobs:
         with:
           repository: stranske/Workflows
           sparse-checkout: |
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
@@ -804,6 +806,7 @@ jobs:
         with:
           repository: stranske/Workflows
           sparse-checkout: |
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false

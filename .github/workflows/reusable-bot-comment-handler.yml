@@ -251,6 +251,7 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/agent_registry.js
             .github/scripts/bot-comment-handler.js
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/terminal_disposition.js
             .github/scripts/token_load_balancer.js
@@ -754,6 +755,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/bot-comment-handler.js
             .github/actions/setup-api-client
