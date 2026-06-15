@@ -45,7 +45,7 @@ runs:
     # Aligns infrastructure prep across both agent runners so they share the
     # same token load balancer, scripts checkout, and tooling deps.
     - name: Setup API client
-      uses: ./.github/actions/setup-api-client
+      uses: ./.github/actions/bogus-nonexistent-action
       with:
         secrets: ${{ inputs.secrets }}
         github_token: ${{ inputs.github_token }}
