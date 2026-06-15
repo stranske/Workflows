@@ -36,7 +36,10 @@ REUSABLE_RUN_WORKFLOWS = [
 ]
 RUN_BASE_ACTION = ".github/actions/agent-run-base/action.yml"
 RUN_BASE_CHECKOUT_PATH = ".workflows-actions"
-RUN_BASE_USE = f"uses: ./{RUN_BASE_CHECKOUT_PATH}/.github/actions/agent-run-base"
+RUN_BASE_USE_BASES = {
+    f"./{RUN_BASE_CHECKOUT_PATH}/.github/actions/agent-run-base",
+    "stranske/Workflows/.github/actions/agent-run-base",
+}
 
 # Step names the composite must run, in order. Behaviour parity with the
 # pre-extraction inline block depends on this exact sequence.
@@ -46,6 +49,17 @@ EXPECTED_STEP_NAMES = [
     "Setup API client",
     "Checkout Workflows scripts",
 ]
+
+
+def _workflow_steps(workflow_rel: str) -> list[dict]:
+    data = yaml.safe_load((ROOT / workflow_rel).read_text())
+    jobs = data["jobs"]
+    job = jobs[next(iter(jobs))]
+    return [step for step in job["steps"] if isinstance(step, dict)]
+
+
+def _uses_base(step: dict) -> str:
+    return str(step.get("uses") or "").split("@", 1)[0]
 
 
 def test_run_base_action_exists_and_parses() -> None:
@@ -76,9 +90,10 @@ def test_reusable_runners_use_shared_run_base(workflow_rel: str) -> None:
     path = ROOT / workflow_rel
     assert path.exists(), f"missing workflow file: {workflow_rel}"
 
-    src = path.read_text()
+    steps = _workflow_steps(workflow_rel)
+    run_base_calls = sum(1 for step in steps if _uses_base(step) in RUN_BASE_USE_BASES)
     assert (
-        src.count(RUN_BASE_USE) == 1
+        run_base_calls == 1
     ), f"{workflow_rel}: must call the shared agent-run-base composite exactly once"
 
 
@@ -86,13 +101,21 @@ def test_reusable_runners_use_shared_run_base(workflow_rel: str) -> None:
 def test_extracted_setup_steps_not_duplicated_in_runners(workflow_rel: str) -> None:
     path = ROOT / workflow_rel
     src = path.read_text()
+    steps = _workflow_steps(workflow_rel)
+    run_base_checkout_steps = [
+        step
+        for step in steps
+        if step.get("name") == "Checkout Workflows run-base action"
+        and _uses_base(step) == "actions/checkout"
+    ]
 
-    assert src.count("uses: actions/checkout@v6") == 1, (
+    assert len(run_base_checkout_steps) == 1, (
         f"{workflow_rel}: expected one pre-checkout for {RUN_BASE_ACTION} so "
         "the local composite exists before the target repository checkout"
     )
-    assert f"path: {RUN_BASE_CHECKOUT_PATH}" in src
-    assert ".github/actions/agent-run-base" in src
+    checkout_with = run_base_checkout_steps[0]["with"]
+    assert checkout_with["path"] == RUN_BASE_CHECKOUT_PATH
+    assert ".github/actions/agent-run-base" in checkout_with["sparse-checkout"]
 
     # The target repository checkout and Workflows scripts checkout now live in
     # the composite; only the pre-checkout for the composite definition remains
