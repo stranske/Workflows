@@ -122,11 +122,6 @@ workflows:
   - source: .github/workflows/maint-76-claude-code-review.yml
     description: "Claude Code review (opt-in) - runs only on labeled PRs or manual dispatch"
 
-  # Dependabot configuration and automation
-  - source: .github/dependabot.yml
-    description: "Dependabot config - ignores dev tools synced via maint-52"
-    sync_mode: create_only
-
   # Renovate configuration - extends the shared fleet preset (renovate-presets/fleet.json).
   # create_only so a consumer that already onboarded (e.g. a Mend generic config) is not clobbered;
   # supersedes per-repo Renovate onboarding by giving consumers the fleet preset (dev-tool exclusions
