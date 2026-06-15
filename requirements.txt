@@ -1,6 +1,12 @@
 # Core runtime dependencies
+# Note: pytest and other dev/test tools are NOT pinned here — they are owned by
+# autofix-versions.env and the pyproject.toml [dev] extra (synced via maint-52 /
+# scripts/sync_dev_dependencies.py, which updates pyproject + requirements.lock
+# but NOT this file). A pytest pin here drifted out of sync and made the lock
+# unsatisfiable (fixed once in #2404); removing it keeps the dev-tool pin in a
+# single owner so the now-enabled Renovate pip-compile manager can always
+# recompile the lock.
 requests==2.34.2
-pytest==9.1.0
 pyyaml==6.0.3
 pydantic==2.13.4
 numpy==2.4.6

@@ -1,9 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "stranske fleet-shared Renovate preset — single source of truth for dependency automation across all stranske/* repos. Replaces Dependabot for runtime pip deps + GitHub Actions, grouped with automerge-on-green. Dev-tool pins (ruff/black/mypy/pytest/...) are EXCLUDED: they move through autofix-versions.env via the maint workflows, NOT the bumper (mirrors the retired Dependabot ignore list). The vendored .github/scripts npm cascade (minimatch/brace-expansion/balanced-match) is kept in one PR. Each repo's renovate.json extends this via `github>stranske/Workflows//renovate-presets/fleet`, so a fleet-wide policy change is one edit here — no per-repo re-sync.",
+  "description": "stranske fleet-shared Renovate preset — single source of truth for dependency automation across all stranske/* repos. Replaces Dependabot for runtime pip deps + GitHub Actions, grouped with automerge-on-green. Dev-tool pins (ruff/black/mypy/pytest/...) are EXCLUDED: they move through autofix-versions.env via the maint workflows, NOT the bumper (mirrors the retired Dependabot ignore list). The vendored .github/scripts npm cascade (minimatch/brace-expansion/balanced-match) is kept in one PR. The pip-compile manager is enabled against requirements.lock so that uv-compiled lock (a `uv pip compile` output) is regenerated in-PR whenever a source dep changes — this is what kept consumers' locks fresh under Dependabot's native lock update; consumers have NO auto-lock workflow and rely on this preset. Each repo's renovate.json extends this via `github>stranske/Workflows//renovate-presets/fleet`, so a fleet-wide policy change is one edit here — no per-repo re-sync.",
   "extends": ["config:recommended"],
   "platformAutomerge": true,
   "labels": ["dependencies"],
+  "pip-compile": {
+    "managerFilePatterns": ["/(^|/)requirements\\.lock$/"]
+  },
   "packageRules": [
     {
       "description": "Dev-tool pins are owned by autofix-versions.env + the maint workflows — Renovate must not bump them",

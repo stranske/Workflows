@@ -252,7 +252,6 @@ pygments==2.20.0
     # via pytest
 pytest==9.1.0
     # via
-    #   -r requirements.txt
     #   workflows (pyproject.toml)
     #   pytest-cov
     #   pytest-xdist
