@@ -233,7 +233,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       # Align infrastructure prep with Codex runner so both agents share
       # the same token load balancer, scripts checkout, and tooling deps.

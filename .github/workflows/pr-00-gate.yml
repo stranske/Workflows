@@ -250,7 +250,7 @@ jobs:
       - uses: actions/setup-node@v6
         if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
         with:
-          node-version: '20'
+          node-version: '24'
       - run: node --test .github/scripts/__tests__/*.test.js
         if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
       - uses: actions/setup-python@v6
@@ -450,7 +450,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
       - name: Install GitHub API dependencies
         run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
       - name: Handle docs-only change

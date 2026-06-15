@@ -186,7 +186,7 @@ jobs:
         if: steps.eligibility.outputs.should-run == 'true'
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
       - name: Install GitHub API dependencies
         if: steps.eligibility.outputs.should-run == 'true'
         run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app

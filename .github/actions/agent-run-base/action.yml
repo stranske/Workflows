@@ -40,7 +40,7 @@ runs:
     - name: Set up Node.js
       uses: actions/setup-node@v6
       with:
-        node-version: 20
+        node-version: 24
 
     # Aligns infrastructure prep across both agent runners so they share the
     # same token load balancer, scripts checkout, and tooling deps.
