@@ -479,7 +479,7 @@ def test_gather_metrics_files_missing_dir(tmp_path: Path) -> None:
     assert files == []
 
 
-def test_read_ndjson_counts_parse_errors(tmp_path: Path) -> None:
+def test_read_metric_ndjson_counts_parse_errors(tmp_path: Path) -> None:
     path = tmp_path / "metrics.ndjson"
     path.write_text(
         "\n".join(
@@ -494,7 +494,7 @@ def test_read_ndjson_counts_parse_errors(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    entries, errors = aggregate_agent_metrics._read_ndjson([path])
+    entries, errors = aggregate_agent_metrics.read_metric_ndjson_files([path])
 
     assert len(entries) == 1
     assert entries[0]["key"] == "value"
@@ -504,7 +504,7 @@ def test_read_ndjson_counts_parse_errors(tmp_path: Path) -> None:
     assert errors[0].line == 2
 
 
-def test_read_ndjson_does_not_buffer_valid_ndjson_for_fallback(
+def test_read_metric_ndjson_does_not_buffer_valid_ndjson_for_fallback(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     path = tmp_path / "metrics.ndjson"
@@ -520,14 +520,16 @@ def test_read_ndjson_does_not_buffer_valid_ndjson_for_fallback(
 
     monkeypatch.setattr(aggregate_agent_metrics.json, "loads", counting_loads)
 
-    entries, errors = aggregate_agent_metrics._read_ndjson([path])
+    entries, errors = aggregate_agent_metrics.read_metric_ndjson_files([path])
 
     assert len(entries) == 2
     assert errors == []
     assert calls == 2
 
 
-def test_read_ndjson_streams_file_lines(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_read_metric_ndjson_streams_file_lines(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     path = tmp_path / "metrics.ndjson"
     path.write_text('{"key": "value"}\n', encoding="utf-8")
 
@@ -536,22 +538,22 @@ def test_read_ndjson_streams_file_lines(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
     monkeypatch.setattr(Path, "read_text", fail_read_text)
 
-    entries, errors = aggregate_agent_metrics._read_ndjson([path])
+    entries, errors = aggregate_agent_metrics.read_metric_ndjson_files([path])
 
     assert len(entries) == 1
     assert entries[0]["key"] == "value"
     assert errors == []
 
 
-def test_read_ndjson_counts_unreadable_file(tmp_path: Path) -> None:
+def test_read_metric_ndjson_counts_unreadable_file(tmp_path: Path) -> None:
     missing = tmp_path / "missing.ndjson"
-    entries, errors = aggregate_agent_metrics._read_ndjson([missing])
+    entries, errors = aggregate_agent_metrics.read_metric_ndjson_files([missing])
     assert entries == []
     assert len(errors) == 1
     assert errors[0].reason == "unreadable-file"
 
 
-def test_read_ndjson_attributes_parse_errors_to_artifact_family(tmp_path: Path) -> None:
+def test_read_metric_ndjson_attributes_parse_errors_to_artifact_family(tmp_path: Path) -> None:
     metrics_dir = (
         tmp_path / "artifacts" / "review-thread-terminal-disposition-123" / "agent-metrics"
     )
@@ -559,7 +561,7 @@ def test_read_ndjson_attributes_parse_errors_to_artifact_family(tmp_path: Path) 
     path = metrics_dir / "terminal.ndjson"
     path.write_text('{"ok": true}\n{"broken": true\n', encoding="utf-8")
 
-    entries, errors = aggregate_agent_metrics._read_ndjson([path])
+    entries, errors = aggregate_agent_metrics.read_metric_ndjson_files([path])
 
     assert len(entries) == 1
     assert entries[0]["ok"] is True
@@ -765,7 +767,7 @@ def test_parse_error_detail_overflow_does_not_use_incoming_identity() -> None:
     assert "third-artifact" not in contract["by_artifact"]
 
 
-def test_read_ndjson_preserves_artifact_name_with_id_extraction_dir(tmp_path: Path) -> None:
+def test_read_metric_ndjson_preserves_artifact_name_with_id_extraction_dir(tmp_path: Path) -> None:
     metrics_dir = (
         tmp_path
         / "artifacts"
@@ -777,7 +779,7 @@ def test_read_ndjson_preserves_artifact_name_with_id_extraction_dir(tmp_path: Pa
     path = metrics_dir / "terminal.ndjson"
     path.write_text('{"schema":"workflows-terminal-disposition/v1"}\n', encoding="utf-8")
 
-    entries, errors = aggregate_agent_metrics._read_ndjson([path])
+    entries, errors = aggregate_agent_metrics.read_metric_ndjson_files([path])
 
     assert errors == []
     assert len(entries) == 1
@@ -787,7 +789,7 @@ def test_read_ndjson_preserves_artifact_name_with_id_extraction_dir(tmp_path: Pa
     assert entries[0]["metric_artifact_family"] == "review-thread-terminal-disposition"
 
 
-def test_read_ndjson_accepts_legacy_pretty_json_object(tmp_path: Path) -> None:
+def test_read_metric_ndjson_accepts_legacy_pretty_json_object(tmp_path: Path) -> None:
     metrics_dir = tmp_path / "artifacts" / "keepalive-metrics"
     metrics_dir.mkdir(parents=True)
     path = metrics_dir / "keepalive-metrics.ndjson"
@@ -804,7 +806,7 @@ def test_read_ndjson_accepts_legacy_pretty_json_object(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    entries, errors = aggregate_agent_metrics._read_ndjson([path])
+    entries, errors = aggregate_agent_metrics.read_metric_ndjson_files([path])
 
     assert errors == []
     assert len(entries) == 1
@@ -814,14 +816,14 @@ def test_read_ndjson_accepts_legacy_pretty_json_object(tmp_path: Path) -> None:
     assert entries[0]["artifact_name"] == "keepalive-metrics"
 
 
-def test_read_ndjson_bounds_legacy_json_fallback_buffer(tmp_path: Path) -> None:
+def test_read_metric_ndjson_bounds_legacy_json_fallback_buffer(tmp_path: Path) -> None:
     path = tmp_path / "large-invalid.ndjson"
     path.write_text(
         "\n".join(["{"] * (aggregate_agent_metrics._MAX_LEGACY_JSON_FALLBACK_LINES + 1)) + "\n",
         encoding="utf-8",
     )
 
-    entries, errors = aggregate_agent_metrics._read_ndjson([path])
+    entries, errors = aggregate_agent_metrics.read_metric_ndjson_files([path])
 
     assert entries == []
     assert len(errors) <= aggregate_agent_metrics._MAX_STORED_PARSE_ERROR_DETAILS
