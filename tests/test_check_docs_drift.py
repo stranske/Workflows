@@ -112,6 +112,31 @@ Config names such as sync-manifest.yml and labels-core.yml are not workflows.
     assert drift == []
 
 
+def test_bare_root_workflow_ref_counts_even_with_template_context(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("health-72-template-sync.yml",),
+        workflows_doc="""
+The `health-72-template-sync.yml` workflow validates consumer template sync.
+""",
+    )
+
+    drift = check_workflow_inventory(root)
+
+    assert drift == []
+
+
+def test_missing_workflow_inventory_doc_reports_drift(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(root / ".github/workflows/build.yml", "name: Build\n")
+
+    drift = check_workflow_inventory(root)
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("undocumented_workflow", "build.yml")
+    ]
+
+
 def test_missing_backtick_repo_path_is_dangling_reference(tmp_path: Path) -> None:
     root = _repo(
         tmp_path,
@@ -184,3 +209,35 @@ def test_cli_report_write_io_error_returns_two(tmp_path: Path, capsys) -> None:
     assert exit_code == 2
     assert captured.out == ""
     assert "error:" in captured.err
+
+
+def test_cli_json_orders_mixed_drift_records(tmp_path: Path, capsys) -> None:
+    root = _repo(
+        tmp_path / "repo",
+        workflows=("zeta.yml", "alpha.yml"),
+        workflows_doc="""
+Retired workflow: `beta.yml`.
+Path drift: `scripts/missing.py`.
+""",
+    )
+    report_path = tmp_path / "drift.json"
+
+    exit_code = main(
+        [
+            "--repo-root",
+            str(root),
+            "--json",
+            "--report",
+            str(report_path),
+        ]
+    )
+
+    assert exit_code == 1
+    report = json.loads(capsys.readouterr().out)
+    assert [(record["type"], record["path"]) for record in report["drift"]] == [
+        ("dangling_reference", "scripts/missing.py"),
+        ("documented_but_missing", "beta.yml"),
+        ("undocumented_workflow", "alpha.yml"),
+        ("undocumented_workflow", "zeta.yml"),
+    ]
+    assert json.loads(report_path.read_text(encoding="utf-8")) == report

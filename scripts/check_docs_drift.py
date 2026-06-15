@@ -60,7 +60,12 @@ def _workflow_token_context(text: str, token_start: int, token_end: int) -> str:
     return line[:relative_start] + line[relative_end:]
 
 
-def _is_bare_workflow_reference(text: str, match: re.Match[str]) -> bool:
+def _is_bare_workflow_reference(
+    text: str, match: re.Match[str], root_workflows: set[str] | None = None
+) -> bool:
+    if match.group(1) in (root_workflows or set()):
+        return True
+
     token_start, token_end = match.span(1)
     context = _workflow_token_context(text, token_start, token_end)
     if NON_ROOT_WORKFLOW_CONTEXT_RE.search(context):
@@ -69,14 +74,14 @@ def _is_bare_workflow_reference(text: str, match: re.Match[str]) -> bool:
     return token_start > 0 and text[token_start - 1] == "`"
 
 
-def _mentioned_workflow_filenames(text: str) -> set[str]:
+def _mentioned_workflow_filenames(text: str, root_workflows: set[str] | None = None) -> set[str]:
     filenames: set[str] = set()
     for match in WORKFLOW_TOKEN_RE.finditer(text):
         token = match.group(1)
         if "/" in token:
             if not _is_root_workflow_path(token):
                 continue
-        elif not _is_bare_workflow_reference(text, match):
+        elif not _is_bare_workflow_reference(text, match, root_workflows):
             continue
         if token.startswith("n.") and match.start(1) > 0 and text[match.start(1) - 1] == "\\":
             token = token[2:]
@@ -92,10 +97,9 @@ def check_workflow_inventory(root: Path) -> list[DriftRecord]:
     """Compare .github/workflows files against docs/ci/WORKFLOWS.md mentions."""
     root = Path(root)
     workflows_doc = root / WORKFLOWS_DOC
-    doc_text = workflows_doc.read_text(encoding="utf-8")
-
     on_disk = _workflow_files_on_disk(root)
-    documented = _mentioned_workflow_filenames(doc_text)
+    doc_text = workflows_doc.read_text(encoding="utf-8") if workflows_doc.is_file() else ""
+    documented = _mentioned_workflow_filenames(doc_text, on_disk)
 
     drift: list[DriftRecord] = []
     for filename in sorted(on_disk - documented):
