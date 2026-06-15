@@ -127,6 +127,14 @@ workflows:
     description: "Dependabot config - ignores dev tools synced via maint-52"
     sync_mode: create_only
 
+  # Renovate configuration - extends the shared fleet preset (renovate-presets/fleet.json).
+  # create_only so a consumer that already onboarded (e.g. a Mend generic config) is not clobbered;
+  # supersedes per-repo Renovate onboarding by giving consumers the fleet preset (dev-tool exclusions
+  # owned by autofix-versions.env, grouped automerge, vendored-minimatch cascade).
+  - source: .github/renovate.json
+    description: "Renovate config - extends stranske/Workflows//renovate-presets/fleet (shared fleet preset)"
+    sync_mode: create_only
+
   - source: .github/workflows/dependabot-automerge.yml
     description: "Dependabot auto-merge - automatically merges dependabot PRs when checks pass"
 

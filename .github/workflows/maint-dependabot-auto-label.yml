@@ -13,7 +13,8 @@ concurrency:
 
 jobs:
   label:
-    if: github.actor == 'dependabot[bot]'
+    # Dependabot and Renovate both produce dependency PRs that should carry agents:allow-change.
+    if: github.actor == 'dependabot[bot]' || github.actor == 'renovate[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Add agents:allow-change label

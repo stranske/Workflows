@@ -101,7 +101,12 @@ function isSyncPullRequest(pr = {}) {
 function isDependabotPullRequest(pr = {}) {
   const login = normaliseLogin(pr.user?.login || pr.author?.login || pr.author);
   const headRef = cleanString(pr.head?.ref || pr.headRefName || pr.headRef || pr.head_ref);
-  return login === 'dependabot[bot]' || login === 'app/dependabot' || headRef.startsWith('dependabot/');
+  // Detects both Dependabot and Renovate dependency PRs. Renovate replaces Dependabot fleet-wide;
+  // the campaign keeps tracking both under the 'dependabot' classification for backward compatibility.
+  return (
+    login === 'dependabot[bot]' || login === 'app/dependabot' || headRef.startsWith('dependabot/') ||
+    login === 'renovate[bot]' || login === 'app/renovate' || headRef.startsWith('renovate/')
+  );
 }
 
 function classifyPullRequest(pr = {}) {

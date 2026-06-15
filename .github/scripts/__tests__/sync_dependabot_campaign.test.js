@@ -68,6 +68,8 @@ test('detects sync and dependabot pull requests', () => {
 
   assert.equal(isDependabotPullRequest({ user: { login: 'dependabot[bot]' } }), true);
   assert.equal(isDependabotPullRequest({ head: { ref: 'dependabot/npm/lodash-5' } }), true);
+  assert.equal(isDependabotPullRequest({ user: { login: 'renovate[bot]' } }), true);
+  assert.equal(isDependabotPullRequest({ head: { ref: 'renovate/non-major-updates' } }), true);
   assert.equal(isDependabotPullRequest({ user: { login: 'stranske' } }), false);
 });
 

@@ -104,11 +104,27 @@ jobs:
               ''
             }}
           GATE_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
+          PR_ACTOR: ${{ github.actor }}
         run: |
           if [ -z "${PR_NUMBER:-}" ]; then
             {
               echo "should_run=true"
               echo "reason=no-pr-context"
+              echo "current_hash="
+              echo "prior_hash="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Dependency-bot PRs (Dependabot/Renovate) are not agent work. Route them to the existing
+          # should_run=false path BEFORE the authenticated fingerprint API calls, which 403 on the
+          # restricted bot-PR token (a non-required, non-blocking but noisy keepalive failure).
+          # Dependabot is already implicitly skipped by GitHub's token restrictions; this makes both
+          # explicit. Normal (human/agent) PRs are unaffected.
+          if [ "${PR_ACTOR:-}" = "dependabot[bot]" ] || [ "${PR_ACTOR:-}" = "renovate[bot]" ]; then
+            {
+              echo "should_run=false"
+              echo "reason=dependency-bot-pr"
               echo "current_hash="
               echo "prior_hash="
             } >> "$GITHUB_OUTPUT"

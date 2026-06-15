@@ -328,7 +328,8 @@ const NON_ASSIGNABLE_LOGINS = new Set([
   'chatgpt-codex-connector',
   'stranske-automation-bot',
   'github-actions',
-  'dependabot'
+  'dependabot',
+  'renovate'
 ]);
 
 const KEEPALIVE_INSTRUCTION_REACTION = 'hooray';
