@@ -52,9 +52,9 @@ def test_run_base_action_exists_and_parses() -> None:
     assert path.exists(), f"missing action file: {RUN_BASE_ACTION}"
 
     data = yaml.safe_load(path.read_text())
-    assert data.get("runs", {}).get("using") == "composite", (
-        f"{RUN_BASE_ACTION}: expected a composite action"
-    )
+    assert (
+        data.get("runs", {}).get("using") == "composite"
+    ), f"{RUN_BASE_ACTION}: expected a composite action"
 
     steps = data["runs"]["steps"]
     names = [s.get("name") for s in steps]
@@ -76,9 +76,9 @@ def test_reusable_runners_use_shared_run_base(workflow_rel: str) -> None:
     assert path.exists(), f"missing workflow file: {workflow_rel}"
 
     src = path.read_text()
-    assert src.count(RUN_BASE_USE) == 1, (
-        f"{workflow_rel}: must call the shared agent-run-base composite exactly once"
-    )
+    assert (
+        src.count(RUN_BASE_USE) == 1
+    ), f"{workflow_rel}: must call the shared agent-run-base composite exactly once"
 
 
 @pytest.mark.parametrize("workflow_rel", REUSABLE_RUN_WORKFLOWS)
