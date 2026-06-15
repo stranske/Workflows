@@ -1,0 +1,121 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import sys
+from typing import Iterable
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.check_docs_drift import (  # noqa: E402
+    check_dangling_references,
+    check_docs_drift,
+    check_workflow_inventory,
+    main,
+)
+
+
+def _write(path: Path, content: str = "") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def _repo(
+    root: Path,
+    *,
+    workflows: Iterable[str] = (),
+    workflows_doc: str = "",
+    extra_files: Iterable[str] = (),
+) -> Path:
+    _write(root / "docs/ci/WORKFLOWS.md", workflows_doc)
+    for workflow in workflows:
+        _write(root / ".github/workflows" / workflow, "name: test\n")
+    for extra_file in extra_files:
+        _write(root / extra_file, "")
+    return root
+
+
+def test_clean_tree_reports_zero_drift_and_cli_exit_zero(tmp_path: Path, capsys) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("alpha.yml", "beta.yaml"),
+        workflows_doc="""
+Active workflows include `alpha.yml` and
+[Beta](../../.github/workflows/beta.yaml).
+
+Existing repo paths: `scripts/existing.py`, `tests/test_existing.py`,
+`docs/ci/WORKFLOWS.md`.
+
+Ignored non-path tokens: `alpha`, `scripts/no extension`, `scripts/*.py`.
+""",
+        extra_files=("scripts/existing.py", "tests/test_existing.py"),
+    )
+
+    assert check_workflow_inventory(root) == []
+    assert check_dangling_references(root) == []
+    assert check_docs_drift(root) == []
+
+    exit_code = main(["--repo-root", str(root), "--json"])
+
+    assert exit_code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report == {"summary": {"drift": 0, "by_type": {}}, "drift": []}
+
+
+def test_workflow_on_disk_absent_from_docs_is_undocumented(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("extra.yml",),
+        workflows_doc="This doc intentionally names no workflow files.\n",
+    )
+
+    drift = check_workflow_inventory(root)
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("undocumented_workflow", "extra.yml")
+    ]
+
+
+def test_workflow_mentioned_in_docs_but_missing_on_disk(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        workflows_doc="The retired `missing.yml` workflow is still listed.\n",
+    )
+
+    drift = check_docs_drift(root)
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("documented_but_missing", "missing.yml")
+    ]
+
+
+def test_missing_backtick_repo_path_is_dangling_reference(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("build.yml",),
+        workflows_doc="`build.yml` cites `scripts/does_not_exist.py`.\n",
+    )
+
+    drift = check_docs_drift(root)
+
+    assert len(drift) == 1
+    assert drift[0]["type"] == "dangling_reference"
+    assert drift[0]["path"] == "scripts/does_not_exist.py"
+    assert "docs/ci/WORKFLOWS.md" in drift[0]["detail"]
+
+
+def test_template_workflow_is_not_part_of_runtime_inventory(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        workflows_doc="Template workflows are not runtime workflow inventory.\n",
+    )
+    _write(
+        root / "templates/consumer-repo/.github/workflows/template-only.yml",
+        "name: Template only\n",
+    )
+
+    drift = check_workflow_inventory(root)
+
+    assert drift == []
