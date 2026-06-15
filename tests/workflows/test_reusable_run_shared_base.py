@@ -121,14 +121,30 @@ def test_extracted_setup_steps_not_duplicated_in_runners(workflow_rel: str) -> N
     checkout_with = run_base_checkout_steps[0]["with"]
     assert checkout_with["path"] == RUN_BASE_CHECKOUT_PATH
     assert ".github/actions/agent-run-base" in checkout_with["sparse-checkout"]
+    assert (
+        checkout_with["token"] == "${{ steps.bootstrap_app_token.outputs.token || github.token }}"
+    )
+
+    bootstrap_token_steps = [
+        step
+        for step in steps
+        if step.get("name") == "Mint Workflows bootstrap app token"
+        and _uses_base(step) == "actions/create-github-app-token"
+    ]
+    assert len(bootstrap_token_steps) == 1, (
+        f"{workflow_rel}: private/internal Workflows consumers need an App "
+        "token before the sparse checkout that loads agent-run-base"
+    )
+    assert bootstrap_token_steps[0].get("continue-on-error") is True
 
     # The target repository checkout and Workflows scripts checkout now live in
     # the composite; only the pre-checkout for the composite definition remains
     # in the runners.
     assert "repository: stranske/Workflows" in src
-    assert "uses: actions/create-github-app-token@v3" not in src, (
-        f"{workflow_rel}: App-token minting was extracted to {RUN_BASE_ACTION}; "
-        "it should not reappear verbatim in the runner"
+    assert src.count("uses: actions/create-github-app-token@v3") == 1, (
+        f"{workflow_rel}: only the run-base bootstrap checkout may mint an App "
+        "token in the runner; shared runtime auth still belongs in "
+        f"{RUN_BASE_ACTION}"
     )
     assert "steps.auth_token.outputs" not in src, (
         f"{workflow_rel}: auth-token selection was extracted to {RUN_BASE_ACTION}; "

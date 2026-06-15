@@ -223,7 +223,7 @@ def test_reusable_codex_run_persists_refreshed_auth_bundle_with_app_token() -> N
     assert step.get("continue-on-error") is True
 
     env = step.get("env") or {}
-    assert env.get("GH_TOKEN") == "${{ steps.auth_token.outputs.push_token }}"
+    assert env.get("GH_TOKEN") == "${{ steps.run_base.outputs.push_token }}"
     assert env.get("INITIAL_AUTH_SHA") == "${{ steps.codex_auth.outputs.auth_sha }}"
 
     run_script = str(step.get("run", ""))

@@ -218,6 +218,14 @@ jobs:
       # checkout / Node.js / API client / Workflows scripts checkout) lives in
       # the agent-run-base composite so it is maintained once for both runners
       # (issue #2341).
+      - name: Mint Workflows bootstrap app token
+        id: bootstrap_app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+
       - name: Checkout Workflows run-base action
         uses: actions/checkout@v6
         with:
@@ -226,7 +234,7 @@ jobs:
           path: .workflows-actions
           sparse-checkout: |
             .github/actions/agent-run-base
-          token: ${{ github.token }}
+          token: ${{ steps.bootstrap_app_token.outputs.token || github.token }}
 
       - name: Agent run base setup
         id: run_base
