@@ -644,7 +644,7 @@ jobs:
           }}
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.14'
 
       - name: Cache pip (LLM evaluation requirements)
         if: >-
@@ -953,7 +953,7 @@ jobs:
           }}
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.14'
 
       - name: Cache pip (LLM comparison requirements)
         if: >-

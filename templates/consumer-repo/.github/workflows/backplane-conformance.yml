@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: '3.12'
+          python-version: '3.14'
       - run: pip install -e .
       # Repo-specific: invoke the tool's reference run to emit run.json + manifest.
       # Replace the placeholder below with the repo's emitter once it exists, e.g.:

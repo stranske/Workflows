@@ -210,7 +210,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: '3.12'
+          python-version: '3.14'
       - name: Run reusable workflow docs guards
         run: |
           set -euo pipefail
@@ -264,7 +264,7 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
         with:
-          python-version: '3.12'
+          python-version: '3.14'
       - run: python -m pip install --upgrade pip pytest requests
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
       - run: pytest tests/workflows/github_scripts
@@ -293,7 +293,7 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         with:
-          python-version: '3.12'
+          python-version: '3.14'
       - name: Check issue number consistency
         if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         run: python scripts/check_issue_consistency.py
@@ -349,7 +349,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: '3.12'
+          python-version: '3.14'
 
       - name: Install PyYAML
         run: pip install PyYAML

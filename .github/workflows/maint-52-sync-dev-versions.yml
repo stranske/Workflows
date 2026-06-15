@@ -59,7 +59,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.14'
 
       - name: Report versions against PyPI
         run: |
@@ -148,7 +148,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.14'
 
       - name: Check for pyproject.toml
         id: check
