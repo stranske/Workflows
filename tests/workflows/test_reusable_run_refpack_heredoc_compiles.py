@@ -72,6 +72,7 @@ def test_reusable_runners_use_shared_refpack_action(workflow_rel: str) -> None:
     assert path.exists(), f"missing workflow file: {workflow_rel}"
 
     src = path.read_text()
+    assert src.count("uses: ./.github/actions/agent-reference-packs") == 1
     assert "uses: ./.github/actions/agent-reference-packs" in src
     assert (
         _HEREDOC.search(src) is None
