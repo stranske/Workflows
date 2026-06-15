@@ -12,7 +12,7 @@ inputs:
   checkout_ref:
     description: Git ref to check out for the target repository.
     required: false
-    default: ${{ github.ref }}
+    default: ''
   checkout_token:
     description: Token used for repository checkouts (target repo and Workflows scripts).
     required: true
@@ -34,7 +34,7 @@ runs:
       uses: actions/checkout@v6
       with:
         fetch-depth: 0
-        ref: ${{ inputs.checkout_ref }}
+        ref: ${{ inputs.checkout_ref || github.ref }}
         token: ${{ inputs.checkout_token }}
 
     - name: Set up Node.js

@@ -688,6 +688,10 @@ actions:
     is_directory: true
     description: "Unified API client setup - installs @octokit deps and exports all load balancer tokens"
 
+  - source: .github/actions/agent-run-base/
+    is_directory: true
+    description: "Shared agent runner setup action - required by reusable-codex-run.yml and reusable-claude-run.yml"
+
   - source: .github/actions/resolve-default-branch/
     is_directory: true
     description: "Resolves repository default branches for Workflows dual-checkout patterns"

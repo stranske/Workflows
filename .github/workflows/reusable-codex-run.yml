@@ -256,8 +256,18 @@ jobs:
       # Shared agent-agnostic setup (checkout / Node.js / API client /
       # Workflows scripts checkout) lives in the agent-run-base composite so it
       # is maintained once for both runners (issue #2341).
+      - name: Checkout Workflows run-base action
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          ref: ${{ inputs.workflows_ref }}
+          path: .workflows-actions
+          sparse-checkout: |
+            .github/actions/agent-run-base
+          token: ${{ steps.auth_token.outputs.checkout_token }}
+
       - name: Agent run base setup
-        uses: ./.github/actions/agent-run-base
+        uses: ./.workflows-actions/.github/actions/agent-run-base
         with:
           checkout_ref: ${{ inputs.pr_ref || github.ref }}
           checkout_token: ${{ steps.auth_token.outputs.checkout_token }}

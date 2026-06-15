@@ -35,7 +35,8 @@ REUSABLE_RUN_WORKFLOWS = [
     ".github/workflows/reusable-claude-run.yml",
 ]
 RUN_BASE_ACTION = ".github/actions/agent-run-base/action.yml"
-RUN_BASE_USE = "uses: ./.github/actions/agent-run-base"
+RUN_BASE_CHECKOUT_PATH = ".workflows-actions"
+RUN_BASE_USE = f"uses: ./{RUN_BASE_CHECKOUT_PATH}/.github/actions/agent-run-base"
 
 # Step names the composite must run, in order. Behaviour parity with the
 # pre-extraction inline block depends on this exact sequence.
@@ -86,12 +87,18 @@ def test_extracted_setup_steps_not_duplicated_in_runners(workflow_rel: str) -> N
     path = ROOT / workflow_rel
     src = path.read_text()
 
-    # The target/Workflows-scripts checkouts now live only in the composite.
-    assert "actions/checkout@v6" not in src, (
-        f"{workflow_rel}: checkout was extracted to {RUN_BASE_ACTION}; "
-        "it should not reappear verbatim in the runner"
+    assert src.count("uses: actions/checkout@v6") == 1, (
+        f"{workflow_rel}: expected one pre-checkout for {RUN_BASE_ACTION} so "
+        "the local composite exists before the target repository checkout"
     )
-    assert "sparse-checkout" not in src, (
+    assert f"path: {RUN_BASE_CHECKOUT_PATH}" in src
+    assert ".github/actions/agent-run-base" in src
+
+    # The target repository checkout and Workflows scripts checkout now live in
+    # the composite; only the pre-checkout for the composite definition remains
+    # in the runners.
+    assert "repository: stranske/Workflows" in src
+    assert "path: .workflows-lib" not in src, (
         f"{workflow_rel}: the .workflows-lib sparse checkout was extracted to "
         f"{RUN_BASE_ACTION}; it should not reappear verbatim in the runner"
     )
