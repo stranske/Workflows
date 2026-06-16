@@ -420,8 +420,8 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             "uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6" in text
         ), "Weekly metrics must pin the Node runtime setup action to the v6 commit SHA"
         assert (
-            'node-version: "20"' in text
-        ), "Weekly metrics must run its Node helpers on an explicit Node 20 runtime"
+            'node-version: "24"' in text
+        ), "Weekly metrics must run its Node helpers on an explicit Node 24 runtime"
         assert (
             "Install GitHub API dependencies" not in text
         ), "Weekly metrics must rely on setup-api-client for pinned GitHub API dependencies"
