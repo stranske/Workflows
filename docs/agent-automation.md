@@ -9,7 +9,7 @@ remain retired, but the keepalive loop is an active path for PR progression.
 ## High-Level Flow
 
 ```
-Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
+Manual dispatch / 30-minute schedule ──▶ agents-70-orchestrator.yml
                                         │
                                         ├─ Readiness probes (GraphQL assignability)
                                         ├─ Optional Codex preflight diagnostics
@@ -25,7 +25,7 @@ Gate workflow_run (PRs) ───────────────▶ agents-
 ```
 
 - No automatic label forwarding remains. Maintainers trigger the orchestrator directly from the Actions tab (manual
-  `workflow_dispatch`) or allow the 20-minute schedule to run readiness + watchdog checks.
+  `workflow_dispatch`) or allow the 30-minute schedule to run readiness + watchdog checks.
 - Codex keepalive on PRs is driven by the Gate `workflow_run` loop. The orchestrator sweep is optional and can be
   disabled via `params_json` (e.g. `{ "enable_keepalive": false }`).
 - Keepalive contract guidance lives in [`docs/keepalive/GoalsAndPlumbing.md`](keepalive/GoalsAndPlumbing.md); review it before
@@ -39,7 +39,7 @@ Gate workflow_run (PRs) ───────────────▶ agents-
 
 ### `agents-70-orchestrator.yml`
 
-- **Triggers:** `schedule` (every 20 minutes) and manual `workflow_dispatch` with curated inputs.
+- **Triggers:** `schedule` (every 30 minutes) and manual `workflow_dispatch` with curated inputs.
 - **Inputs:** `enable_readiness`, `readiness_agents`, `enable_preflight`, `codex_user`,
   `enable_verify_issue`, `verify_issue_number`, `verify_issue_valid_assignees`, `enable_watchdog`, `draft_pr`, plus an extensible
   `params_json` string for long tail toggles (currently `diagnostic_mode`, `readiness_custom_logins`, `codex_command_phrase`,
@@ -245,7 +245,7 @@ After each major step, the workflow re-dispatches itself to continue the pipelin
    }
    ```
 3. Review the run summary for readiness tables, watchdog escalation indicators, and Codex bootstrap status.
-4. Repeat manual dispatches as needed; scheduled runs provide 20-minute coverage for stale bootstrap detection.
+4. Repeat manual dispatches as needed; scheduled runs provide 30-minute coverage for stale bootstrap detection.
 
 ## Alerting Threshold Tuning
 
@@ -404,6 +404,6 @@ Labels in auto-pilot are **hybrid: status markers with functional side effects**
 
 - Extend `params_json` to cover any additional toggles without growing the dispatch form (embed an `options_json` string when nested structures are required).
 - Consider adding a lightweight CLI wrapper that posts curated `params_json` payloads for common scenarios.
-- Monitor usage; if the 20-minute schedule proves redundant, convert it to manual-only to further reduce background noise.
+- Monitor usage; if the 30-minute schedule proves redundant, convert it to manual-only to further reduce background noise.
 
 For questions or updates, open an issue labeled `agent:codex` describing the desired change.

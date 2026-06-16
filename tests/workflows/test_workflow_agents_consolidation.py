@@ -824,6 +824,26 @@ def test_agents_orchestrator_schedule_preserved():
     ], "Orchestrator schedule must stay on the 30-minute cadence to conserve API quota"
 
 
+def test_agents_orchestrator_active_docs_match_schedule():
+    expected_cron = "`*/30 * * * *`"
+    active_docs = {
+        Path("docs/WORKFLOW_GUIDE.md"): "30-minute cron",
+        Path("docs/agent-automation.md"): "30-minute schedule",
+        Path("docs/ci/WORKFLOW_SYSTEM.md"): "Cron every 30 minutes",
+    }
+
+    for path, expected_phrase in active_docs.items():
+        text = path.read_text(encoding="utf-8").replace("\xa0", " ")
+        assert expected_phrase in text
+        assert "20-minute" not in text
+        assert "every 20 minutes" not in text
+        assert "Cron every 20 minutes" not in text
+        assert "`*/20 * * * *`" not in text
+
+    workflow_system = Path("docs/ci/WORKFLOW_SYSTEM.md").read_text(encoding="utf-8")
+    assert expected_cron in workflow_system
+
+
 def test_orchestrator_jobs_checkout_scripts_before_local_requires():
     # The orchestrator is now split: jobs are in init and main reusable workflows
     init_data = _load_workflow_yaml("reusable-70-orchestrator-init.yml")
