@@ -293,7 +293,7 @@ jobs:
 
       - name: Upload dashboard diagnostics
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: langsmith-metrics-diagnostics-${{ github.run_id }}
           path: |
@@ -301,23 +301,37 @@ jobs:
             .metrics-tmp/workflow_errors.log
             .metrics-tmp/run_ids.txt
             .metrics-tmp/combined-metrics.ndjson
+            .metrics-tmp/fleet/combined-fleet.ndjson
             .metrics-tmp/fleet/fleet-status.md
             .metrics-tmp/fleet/fleet-status.json
             .metrics-tmp/fleet/fleet_errors.log
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Upload fleet rollup artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: langsmith-fleet-rollup-${{ github.run_id }}
+          path: .metrics-tmp/fleet/combined-fleet.ndjson
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 90
 
       - name: Upload report artifact
         if: env.REPORT_AVAILABLE == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: langsmith-metrics-report-${{ github.run_id }}
           path: |
             .metrics-tmp/report.md
             .metrics-tmp/summary.json
             .metrics-tmp/combined-metrics.ndjson
+            .metrics-tmp/fleet/combined-fleet.ndjson
             .metrics-tmp/fleet/fleet-status.md
             .metrics-tmp/fleet/fleet-status.json
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 90
 
