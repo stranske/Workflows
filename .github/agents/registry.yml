@@ -80,6 +80,7 @@ agents:
       verifier_checkbox: false  # verification stays on the existing judge (config/llm_slots.json)
 
   gemini:
+    enabled: true
     runner_workflow: .github/workflows/reusable-gemini-run.yml
     required_secrets:
       - GEMINI_API_KEY

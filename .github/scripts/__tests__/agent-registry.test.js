@@ -209,9 +209,9 @@ test('getAgentPreflightConfigs honors enabled flag and readiness fallback', () =
   assert.equal(configsWithDisabled[1].assign_user, 'disabled-user');
 });
 
-test('loadAgentRegistry exposes disabled planned-agent capacity blocks', () => {
+test('loadAgentRegistry exposes live and disabled planned-agent capacity blocks', () => {
   const registry = loadAgentRegistry({ registryPath: REGISTRY_PATH });
-  assert.equal(registry.agents.gemini.enabled, false);
+  assert.equal(registry.agents.gemini.enabled, true);
   assert.equal(registry.agents.aider.enabled, false);
   assert.deepEqual(registry.agents.gemini.capacity, { window: 'daily', limit: 1 });
   assert.deepEqual(registry.agents.aider.capacity, { window: 'daily', limit: 1 });
