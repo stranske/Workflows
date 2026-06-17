@@ -184,8 +184,7 @@ jobs:
 
           # Run sync check first
           if python ../scripts/sync_dev_dependencies.py \
-            --check \
-            --use-minimum-pins 2>&1 \
+            --check 2>&1 \
             | tee /tmp/sync_output.txt; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           else
@@ -193,7 +192,7 @@ jobs:
 
             # Apply if not dry run
             if [ "${{ inputs.dry_run }}" != "true" ]; then
-              python ../scripts/sync_dev_dependencies.py --apply --use-minimum-pins
+              python ../scripts/sync_dev_dependencies.py --apply
             fi
           fi
 
@@ -218,7 +217,6 @@ jobs:
           # Use --create-if-missing to add dev deps
           if python ../scripts/sync_dev_dependencies.py \
             --apply \
-            --use-minimum-pins \
             --create-if-missing 2>&1 \
             | tee /tmp/sync_output.txt; then
             if grep -q "version updates" /tmp/sync_output.txt; then

@@ -352,6 +352,7 @@ def test_autofix_versions_env_is_not_general_template_synced():
     assert ".github/workflows/autofix-versions.env" in version_sync_text
     assert "pyproject.toml .github/workflows/autofix-versions.env" in version_sync_text
     assert "requirements.lock" in version_sync_text
+    assert "--use-minimum-pins" not in version_sync_text
 
 
 def test_consumer_sync_repo_exclusions_live_in_manifest():
