@@ -225,6 +225,15 @@ scripts:
   - source: tools/coverage_guard.py
     description: "Checks coverage guard artifacts - required by maint-coverage-guard.yml"
 
+  - source: tools/__init__.py
+    description: "Tools package marker for Python helpers imported by synced workflows"
+
+  - source: tools/ci_failure_triage.py
+    description: "Classifies CI failure logs - required by pr-00-gate.yml summary generation"
+
+  - source: tools/post_ci_summary.py
+    description: "Builds consolidated Gate summary comments - required by pr-00-gate.yml"
+
   # Scripts directory - CI helpers used by reusable-10-ci-python.yml
   - source: scripts/state_fingerprint.py
     description: "Computes workflow state fingerprints for unchanged-state skip gates"
