@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 import os
 import re
-from html import unescape
 from collections.abc import Iterable, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
+from html import unescape
 from pathlib import Path
 from typing import Any, TypedDict
 
