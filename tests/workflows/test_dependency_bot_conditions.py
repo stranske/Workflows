@@ -2,7 +2,6 @@ import pathlib
 
 import yaml
 
-
 WORKFLOW_ROOT = pathlib.Path(".github/workflows")
 SYNC_MANIFEST = pathlib.Path(".github/sync-manifest.yml")
 ACTIVE_DEPENDENCY_BOT_WORKFLOWS = (
