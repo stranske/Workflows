@@ -4,6 +4,7 @@ name: Auto-label dependency PRs
 # became the fleet's bumper; not a gate check, so the check-run rename is safe.
 
 on:
+  # zizmor: ignore[dangerous-triggers] labels dependency-bot PRs only; does not checkout or run PR code
   pull_request_target:
     types: [opened]
 
@@ -17,6 +18,8 @@ concurrency:
 jobs:
   label:
     # Dependabot and Renovate both produce dependency PRs that should carry agents:allow-change.
+    # This pull_request_target workflow must trust the immutable PR author, not
+    # github.actor, because actor can be a maintainer rerunning a bot-authored PR.
     if: github.event.pull_request.user.login == 'dependabot[bot]' || github.event.pull_request.user.login == 'renovate[bot]'
     runs-on: ubuntu-latest
     steps:

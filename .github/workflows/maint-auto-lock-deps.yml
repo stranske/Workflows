@@ -32,9 +32,14 @@ jobs:
   regenerate-lock:
     name: Regenerate requirements.lock
     runs-on: ubuntu-latest
+    # This workflow runs on pull_request, not pull_request_target, so checking
+    # out github.head_ref is not an untrusted-code privileged checkout.
+    # Gate on the immutable PR author rather than github.actor, which can be a
+    # maintainer rerunning a bot-authored PR.
     if: github.event.pull_request.user.login == 'dependabot[bot]' || github.event.pull_request.user.login == 'renovate[bot]'
 
     steps:
+      # zizmor: ignore[artipacked] this backstop intentionally pushes regenerated requirements.lock
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
