@@ -171,6 +171,34 @@ def test_main_runs_when_invoked_by_file_path(tmp_path: Path) -> None:
     assert "Automated Status Summary" in output_path.read_text(encoding="utf-8")
 
 
+def test_main_runs_by_file_path_when_tools_package_is_shadowed(tmp_path: Path) -> None:
+    output_path = tmp_path / "output.txt"
+    contexts_path = tmp_path / "contexts.json"
+    shadow_root = tmp_path / "shadow"
+    shadow_tools = shadow_root / "tools"
+    shadow_tools.mkdir(parents=True)
+    (shadow_tools / "__init__.py").write_text("# Shadow package without ci_failure_triage\n")
+    _write_json(contexts_path, [])
+
+    result = subprocess.run(
+        [sys.executable, "tools/post_ci_summary.py"],
+        cwd=Path(__file__).resolve().parents[1],
+        env={
+            **os.environ,
+            "PYTHONPATH": str(shadow_root),
+            "RUNS_JSON": "[]",
+            "REQUIRED_CONTEXTS_FILE": str(contexts_path),
+            "GITHUB_OUTPUT": str(output_path),
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Automated Status Summary" in output_path.read_text(encoding="utf-8")
+
+
 def test_collect_triage_block_from_artifacts(tmp_path: Path) -> None:
     artifacts_root = tmp_path / "gate_artifacts"
     runtime_dir = artifacts_root / "downloads" / "coverage" / "runtimes" / "3.12"

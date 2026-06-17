@@ -19,11 +19,13 @@ from typing import Any, TypedDict
 try:
     from tools.ci_failure_triage import triage_ci_failure
 except ModuleNotFoundError as exc:
-    if exc.name != "tools":
+    missing_name = exc.name or ""
+    if missing_name != "tools" and not missing_name.startswith("tools."):
         raise
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    sys.modules.pop("tools", None)
     from tools.ci_failure_triage import triage_ci_failure
 
 
