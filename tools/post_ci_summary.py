@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
-import xml.etree.ElementTree as ET
+from html import unescape
 from collections.abc import Iterable, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -383,26 +383,68 @@ def _collect_junit_failures(artifacts_root: Path, limit: int) -> list[str]:
 
     for path in sorted(base.rglob("**/pytest-junit.xml")):
         try:
-            tree = ET.parse(path)
-        except ET.ParseError:
+            xml_text = path.read_text(encoding="utf-8")
+        except OSError:
             continue
-        root = tree.getroot()
-        for case in root.iter("testcase"):
-            file_attr = case.attrib.get("file")
-            line_attr = case.attrib.get("line")
+        for case in _iter_junit_testcase_blocks(xml_text):
+            case_attrs = _parse_xml_attributes(case["attrs"])
+            file_attr = case_attrs.get("file")
+            line_attr = case_attrs.get("line")
             if file_attr:
                 line_suffix = f", line {line_attr}" if line_attr else ""
                 _append_line(failures, f'File "{file_attr}"{line_suffix}', limit)
             for tag in ("failure", "error"):
-                for node in case.findall(tag):
-                    message = node.attrib.get("message")
+                for node in _iter_xml_tag_blocks(case["body"], tag):
+                    attrs = _parse_xml_attributes(node["attrs"])
+                    message = attrs.get("message")
                     if message:
                         _append_text(failures, message, limit)
-                    if node.text:
-                        _append_text(failures, node.text, limit)
+                    if node["body"]:
+                        _append_text(failures, _strip_xml_tags(node["body"]), limit)
             if len(failures) >= limit:
                 return failures
     return failures
+
+
+_TESTCASE_RE = re.compile(
+    r"<testcase\b(?P<attrs>[^>]*)>(?P<body>.*?)</testcase>",
+    re.IGNORECASE | re.DOTALL,
+)
+_XML_ATTR_RE = re.compile(
+    r"(?P<name>[A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*"
+    r"(?P<quote>['\"])(?P<value>.*?)(?P=quote)",
+    re.DOTALL,
+)
+_XML_TAG_RE_CACHE: dict[str, re.Pattern[str]] = {}
+
+
+def _iter_junit_testcase_blocks(xml_text: str) -> Iterable[dict[str, str]]:
+    for match in _TESTCASE_RE.finditer(xml_text):
+        yield {"attrs": match.group("attrs"), "body": match.group("body")}
+
+
+def _iter_xml_tag_blocks(xml_text: str, tag: str) -> Iterable[dict[str, str]]:
+    pattern = _XML_TAG_RE_CACHE.get(tag)
+    if pattern is None:
+        escaped = re.escape(tag)
+        pattern = re.compile(
+            rf"<{escaped}\b(?P<attrs>[^>]*)>(?P<body>.*?)</{escaped}>",
+            re.IGNORECASE | re.DOTALL,
+        )
+        _XML_TAG_RE_CACHE[tag] = pattern
+    for match in pattern.finditer(xml_text):
+        yield {"attrs": match.group("attrs"), "body": match.group("body")}
+
+
+def _parse_xml_attributes(raw_attrs: str) -> dict[str, str]:
+    return {
+        match.group("name"): unescape(match.group("value"))
+        for match in _XML_ATTR_RE.finditer(raw_attrs)
+    }
+
+
+def _strip_xml_tags(xml_text: str) -> str:
+    return unescape(re.sub(r"<[^>]+>", "", xml_text))
 
 
 def _collect_check_failure_lines(records: Sequence[Mapping[str, object]]) -> list[str]:
