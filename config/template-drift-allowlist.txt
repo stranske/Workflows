@@ -3,13 +3,24 @@
 # Each entry permits exactly one current normalized main/template content pair.
 # If either file changes, the fingerprint no longer matches and Health 74 fails
 # until the template is aligned or this baseline is deliberately re-reviewed.
+#
+# 2026-06-14 re-baseline: refreshed the fingerprints of 7 entries (issue-intake,
+# auto-label, capability-check, decompose, dedup, issue-optimizer, weekly-metrics)
+# that went stale after action-version bumps (#2391/#2394) and root feature work.
+# The divergence is intentional, not a missing consumer improvement: consumer
+# template workflows SHA-pin third-party actions per the fleet action-pin contract
+# (docs/HISTORY.md, PR #1925) and carry LangSmith tracing env, while the root
+# Workflows-repo copies use floating major tags plus repo-internal concurrency +
+# sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Aligning the
+# template to root would strip the contractually-required consumer action pins, so
+# these are re-baselined rather than aligned.
 
 [pair.1]
 main = .github/workflows/agents-63-issue-intake.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-intake.yml
 main_sha256 = 8e552c2e168919da4265d78ae3983c21bced979c2896fb4fb928bbb0796c13a0
 template_sha256 = 689d22e20cc6f21df006a2f7ed54924fc05d63adea5ef89251788f888f2a5495
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence (re-baselined 2026-06-14): numeric-prefixed root agents-63-issue-intake is a Workflows-internal superset (chatgpt_sync/agent_bridge/Codex bridge, ~1.7k lines) vs the minimal consumer intake template; alias-mapped. Only the root fingerprint changed since the last baseline (#2391 actions bump).
 
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml
@@ -37,7 +48,7 @@ main = .github/workflows/agents-auto-label.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
 main_sha256 = 4dacff89dfef1ffadcd1e3d781aa8cc82bafa6433e3f0d65208f4576ffefe6bd
 template_sha256 = b6e4ff7bef753216bde90ccd4cc6e505b02a02df7be8b5aaa7e191077a1335d6
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
 
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml
@@ -51,21 +62,21 @@ main = .github/workflows/agents-capability-check.yml
 template = templates/consumer-repo/.github/workflows/agents-capability-check.yml
 main_sha256 = 039a8f5dbb1b7e455c076c15036840226e6b5d4e54004c1e67543b5decb36cae
 template_sha256 = 4286693c0f9701fc4a0e550821a5a0229ad140c154c36db3b8cb3fd8089e233e
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
 
 [pair.8]
 main = .github/workflows/agents-decompose.yml
 template = templates/consumer-repo/.github/workflows/agents-decompose.yml
 main_sha256 = 55db24f3678614f71da81df2f1d80a7fc93fdaf84d06c943da1013d74f5aebd8
 template_sha256 = 0687139513b4b148b1a792a652bdd55e13eef88fc661659f597c2506d967a7e7
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
 
 [pair.9]
 main = .github/workflows/agents-dedup.yml
 template = templates/consumer-repo/.github/workflows/agents-dedup.yml
 main_sha256 = 73665af908b2f725958ed1e895e457fdc902ea367478bedc2be6d86518ed44f5
 template_sha256 = 5f008bf68d1e59d3011d30a1a7ea9136476f1b85509aff3c31807e97084605e4
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
 
 [pair.10]
 main = .github/workflows/agents-guard.yml
@@ -79,7 +90,7 @@ main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
 main_sha256 = 6a3603e7f8046e47836742cdbb52beca0ad56e8829a0dd877992e1d1e3c34fca
 template_sha256 = d64c0ed82527ed7aea9a85aa163659baa55d118a17a984b00cbb28fb18afe2dd
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
@@ -107,4 +118,4 @@ main = .github/workflows/agents-weekly-metrics.yml
 template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
 main_sha256 = 3654d17f7c4331b06cffdddfa1bab31386e48880ddeb9e16a69efebcb6e6c775
 template_sha256 = 75832352eefdb2a958c63ce3943bb8fb1045fdd0e53dd4942490893d01ef03b4
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
