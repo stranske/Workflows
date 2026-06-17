@@ -202,6 +202,8 @@ jobs:
         id: auth_token
         env:
           APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+          GEMINI_MODE_INPUT: ${{ inputs.mode }}
+          GEMINI_PR_NUMBER_INPUT: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
           checkout_token="${APP_TOKEN:-${GITHUB_TOKEN}}"
@@ -223,8 +225,8 @@ jobs:
 
           {
             echo "WORKFLOWS_TOKEN=${checkout_token}"
-            echo "GEMINI_MODE=${{ inputs.mode }}"
-            echo "GEMINI_PR_NUMBER=${{ inputs.pr_number }}"
+            echo "GEMINI_MODE=${GEMINI_MODE_INPUT}"
+            echo "GEMINI_PR_NUMBER=${GEMINI_PR_NUMBER_INPUT}"
           } >> "$GITHUB_ENV"
 
           printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
