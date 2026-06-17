@@ -32,7 +32,7 @@ jobs:
   regenerate-lock:
     name: Regenerate requirements.lock
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]' || github.actor == 'renovate[bot]'
+    if: github.event.pull_request.user.login == 'dependabot[bot]' || github.event.pull_request.user.login == 'renovate[bot]'
 
     steps:
       - uses: actions/checkout@v6
