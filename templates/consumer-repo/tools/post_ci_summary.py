@@ -16,7 +16,15 @@ from html import unescape
 from pathlib import Path
 from typing import Any, TypedDict
 
-from tools.ci_failure_triage import triage_ci_failure
+try:
+    from tools.ci_failure_triage import triage_ci_failure
+except ModuleNotFoundError as exc:
+    if exc.name != "tools":
+        raise
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from tools.ci_failure_triage import triage_ci_failure
 
 
 @dataclass(frozen=True)
@@ -25,17 +33,6 @@ class JobRecord:
     state: str | None
     url: str | None
     highlight: bool
-
-
-@dataclass(frozen=True)
-class RunRecord:
-    key: str
-    display_name: str
-    present: bool
-    state: str | None
-    attempt: int | None
-    label: str
-    url: str | None
 
 
 class RequiredJobGroup(TypedDict):
@@ -173,7 +170,11 @@ DOC_ONLY_JOB_KEYS: tuple[str, ...] = ("core312", "core313", "docker")
 
 
 def _matches_slug(slug: str, variants: Sequence[Sequence[str]]) -> bool:
-    return any(all(token in slug for token in option) for option in variants)
+    segments = set(slug.split("-"))
+    return any(
+        all(part in segments for token in option for part in token.split("-"))
+        for option in variants
+    )
 
 
 def _classify_job_key(name: str) -> str | None:
@@ -350,7 +351,7 @@ def _load_gate_summary_records(artifacts_root: Path) -> list[dict[str, object]]:
     base = artifacts_root / "downloads"
     if not base.exists():
         return records
-    for path in sorted(base.rglob("**/summary.json")):
+    for path in sorted(base.rglob("summary.json")):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
@@ -381,7 +382,7 @@ def _collect_junit_failures(artifacts_root: Path, limit: int) -> list[str]:
     if not base.exists():
         return failures
 
-    for path in sorted(base.rglob("**/pytest-junit.xml")):
+    for path in sorted(base.rglob("pytest-junit.xml")):
         try:
             xml_text = path.read_text(encoding="utf-8")
         except OSError:
@@ -460,7 +461,7 @@ def _collect_check_failure_lines(records: Sequence[Mapping[str, object]]) -> lis
 
         type_check = checks.get("type_check") if isinstance(checks, Mapping) else None
         if isinstance(type_check, Mapping) and _outcome_is_failure(type_check.get("outcome")):
-            lines.append("mypy: Found 1 errors in 1 files")
+            lines.append("mypy type check failed")
 
         tests = checks.get("tests") if isinstance(checks, Mapping) else None
         if isinstance(tests, Mapping) and _outcome_is_failure(tests.get("outcome")):
@@ -468,7 +469,7 @@ def _collect_check_failure_lines(records: Sequence[Mapping[str, object]]) -> lis
 
         coverage_min = checks.get("coverage_minimum") if isinstance(checks, Mapping) else None
         if isinstance(coverage_min, Mapping) and _outcome_is_failure(coverage_min.get("outcome")):
-            lines.append("coverage failure: required test coverage of 0% not reached")
+            lines.append("coverage failure: coverage minimum check failed")
 
     return lines
 
@@ -649,8 +650,6 @@ def _collect_required_segments(
     runs: Sequence[Mapping[str, object]],
     groups: Sequence[RequiredJobGroup],
 ) -> list[str]:
-    import re
-
     segments: list[str] = []
     job_sources: list[Mapping[str, object]] = []
     for run in runs:

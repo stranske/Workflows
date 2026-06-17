@@ -428,7 +428,10 @@ def _format_text_report(report: TriageReport) -> str:
 
 def _read_log_text(path: str | None) -> str:
     if path:
-        return Path(path).read_text(encoding="utf-8")
+        try:
+            return Path(path).read_text(encoding="utf-8")
+        except OSError as exc:
+            sys.exit(f"Error reading log file: {exc}")
     return sys.stdin.read()
 
 
