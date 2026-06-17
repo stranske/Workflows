@@ -47,6 +47,7 @@ jobs:
             templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml
             .github/workflows/autofix-versions.env
             .github/scripts/sync_tracker_state
+            scripts/sync_dev_dependencies.py
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token
@@ -108,6 +109,16 @@ jobs:
             cp "../workflows/.github/workflows/autofix-versions.env" \
               .github/workflows/autofix-versions.env
             echo "✅ Updated autofix-versions.env"
+          fi
+
+          # Align integration repo dev-tool pins with the canonical env before
+          # regenerating the lock, otherwise reusable CI may install conflicting pins.
+          if [ -f "pyproject.toml" ]; then
+            python "../workflows/scripts/sync_dev_dependencies.py" \
+              --apply \
+              --pin-file ".github/workflows/autofix-versions.env" \
+              --pyproject "pyproject.toml"
+            echo "✅ Synced pyproject.toml dev tool pins"
           fi
 
           # Sync notify-workflows.yml (handles bidirectional sync)
@@ -186,7 +197,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add .github/workflows/ requirements.lock scripts/
+          git add .github/workflows/ pyproject.toml requirements.lock scripts/
           git commit \
             -m "sync: Update workflow templates from stranske/Workflows" \
             -m "" \

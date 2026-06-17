@@ -46,6 +46,24 @@ def test_integration_repo_sync_delivers_consumer_agent_hubs_to_wit() -> None:
         assert hub in commit_script
 
 
+def test_integration_repo_sync_aligns_dev_tool_pins() -> None:
+    workflow = _workflow()
+    checkout = next(
+        step
+        for step in workflow["jobs"]["sync"]["steps"]
+        if step.get("name") == "Checkout Workflows repo"
+    )
+    sparse_checkout = str(checkout["with"]["sparse-checkout"])
+    apply_script = _step_run(workflow, "Apply template updates")
+    commit_script = _step_run(workflow, "Commit and push changes")
+
+    assert "scripts/sync_dev_dependencies.py" in sparse_checkout
+    assert 'python "../workflows/scripts/sync_dev_dependencies.py"' in apply_script
+    assert '--pin-file ".github/workflows/autofix-versions.env"' in apply_script
+    assert '--pyproject "pyproject.toml"' in apply_script
+    assert "git add .github/workflows/ pyproject.toml requirements.lock scripts/" in commit_script
+
+
 def test_sync_manifest_removes_stale_consumer_local_workflow_syncer() -> None:
     manifest = yaml.safe_load(SYNC_MANIFEST.read_text(encoding="utf-8")) or {}
     removal_targets = {
