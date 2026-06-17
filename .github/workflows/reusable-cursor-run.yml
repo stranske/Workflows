@@ -583,15 +583,21 @@ jobs:
           if ! grep -q "^\.github/scripts/node_modules" .git/info/exclude 2>/dev/null; then
             echo ".github/scripts/node_modules" >> .git/info/exclude 2>/dev/null || true
           fi
-          if ! grep -q "^\.workflows-lib/\.github/scripts/node_modules" .git/info/exclude 2>/dev/null; then
-            echo ".workflows-lib/.github/scripts/node_modules" >> .git/info/exclude 2>/dev/null || true
+          if ! grep -q \
+            "^\.workflows-lib/\.github/scripts/node_modules" \
+            .git/info/exclude 2>/dev/null; then
+            printf '%s\n' ".workflows-lib/.github/scripts/node_modules" \
+              >> .git/info/exclude 2>/dev/null || true
           fi
           if ! grep -q "^node_modules" .git/info/exclude 2>/dev/null; then
             echo "node_modules" >> .git/info/exclude 2>/dev/null || true
           fi
 
           echo "Removing stale workflow artifact files..."
-          rm -f cursor-output*.md cursor-session*.log cursor-session*.jsonl cursor-analysis*.json 2>/dev/null || true
+          rm -f \
+            cursor-output*.md cursor-session*.log \
+            cursor-session*.jsonl cursor-analysis*.json \
+            2>/dev/null || true
 
           echo "Git status after cleanup:"
           git status --short || true
@@ -602,7 +608,12 @@ jobs:
           ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
           ignore_re+='cursor-.*|autofix.*)/'
-          REMAINING=$(git status --porcelain | cut -c4- | grep -cvE "$ignore_re" 2>/dev/null || echo "0")
+          REMAINING=$(
+            git status --porcelain |
+              cut -c4- |
+              grep -cvE "$ignore_re" 2>/dev/null ||
+              echo "0"
+          )
           REMAINING=$(printf '%s' "$REMAINING" | tr -d '[:space:]')
           REMAINING=${REMAINING:-0}
           echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
@@ -614,7 +625,10 @@ jobs:
           fi
 
       - name: Surface merge conflicts
-        if: inputs.prompt_file == '.github/cursor/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
+        if: >-
+          inputs.prompt_file == '.github/cursor/prompts/fix_merge_conflicts.md' ||
+          inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' ||
+          inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
         env:
           WORKFLOW_BASE_REF: ${{ inputs.base_ref || github.event.pull_request.base.ref || '' }}
         run: |
@@ -704,7 +718,8 @@ jobs:
             agent --version || true
           else
             echo "::error::Cursor CLI (cursor-agent) not found after install."
-            echo "::error::Expected the binary in \$HOME/.local/bin or \$HOME/.cursor/bin; check the installer output above."
+            echo "::error::Expected the binary in \$HOME/.local/bin or "\
+              "\$HOME/.cursor/bin; check the installer output above."
             exit 1
           fi
 
@@ -781,7 +796,8 @@ jobs:
             else
               PROMPT_FILE="cursor-prompt.md"
             fi
-            echo "::notice::Prompt output was empty; using assembled prompt fallback: ${PROMPT_FILE}"
+            echo "::notice::Prompt output was empty; using assembled prompt fallback: "\
+              "${PROMPT_FILE}"
           fi
 
           if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
@@ -831,11 +847,13 @@ jobs:
           # the final assistant message to stdout. --output-format text keeps the
           # captured output a clean final message (the contract base64-encodes it).
           # Tee to $SESSION_LOG so we keep a debug artifact even if the run fails.
-          # COST GUARD (2026-06-14): never let an EMPTY $MODEL fall back to cursor-agent's server
-          # default — on a fresh runner that is gpt-5.5-high Max Mode (Cloud Agents), which drained the
-          # $60/mo Cursor API pool in a single day. Default to 'auto': Cursor's free Auto routing, which
-          # draws the Auto bucket (verified 2026-06-14: headless `--model auto` runs even when the metered
-          # API bucket is 100% spent). Callers may still override MODEL explicitly.
+          # COST GUARD (2026-06-14): never let an EMPTY $MODEL fall back to
+          # cursor-agent's server default. On a fresh runner that is
+          # gpt-5.5-high Max Mode (Cloud Agents), which drained the $60/mo
+          # Cursor API pool in a single day. Default to 'auto': Cursor's free
+          # Auto routing, which draws the Auto bucket (verified 2026-06-14:
+          # headless `--model auto` runs even when the metered API bucket is
+          # 100% spent). Callers may still override MODEL explicitly.
           MODEL="${MODEL:-auto}"
           set +e
           "$CURSOR_BIN" -p "$prompt_content" \
@@ -915,7 +933,12 @@ jobs:
               if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
                 AGENT_FILES=$(git diff --name-only FETCH_HEAD..HEAD | wc -l | tr -d ' ')
               else
-                AGENT_FILES=$(git diff --name-only HEAD~"${UNPUSHED_COMMITS}"..HEAD 2>/dev/null | wc -l | tr -d ' ' || echo "1")
+                AGENT_FILES=$(
+                  git diff --name-only HEAD~"${UNPUSHED_COMMITS}"..HEAD 2>/dev/null |
+                    wc -l |
+                    tr -d ' ' ||
+                    echo "1"
+                )
               fi
               echo "files-changed=${AGENT_FILES:-1}" >> "$GITHUB_OUTPUT"
               if [ "$PUSH_ALLOWED" != "true" ] || [ -z "$PUSH_TOKEN" ]; then
@@ -942,7 +965,8 @@ jobs:
               for attempt in 1 2 3; do
                 echo "Push attempt ${attempt}/3 (unpushed commits path)..."
                 if git push "$REMOTE_URL" "HEAD:${target_branch}"; then
-                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Cursor (attempt ${attempt}, SHA: ${COMMIT_SHA})"
+                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Cursor "\
+                    "(attempt ${attempt}, SHA: ${COMMIT_SHA})"
                   exit 0
                 fi
                 echo "::warning::Push failed (attempt ${attempt})"
@@ -1187,7 +1211,9 @@ jobs:
             exit 0
           fi
 
-          echo "Session log captured: $(wc -l < "$SESSION_LOG") lines, $(wc -c < "$SESSION_LOG") bytes"
+                    line_count=$(wc -l < "$SESSION_LOG")
+                    byte_count=$(wc -c < "$SESSION_LOG")
+                    echo "Session log captured: ${line_count} lines, ${byte_count} bytes"
           echo "session-available=true" >> "$GITHUB_OUTPUT"
           echo "session-file=$SESSION_LOG" >> "$GITHUB_OUTPUT"
 
@@ -1333,9 +1359,12 @@ jobs:
           script: |
             // Try .workflows-lib first (consumer repos), fall back to local copy
             const fs = require('fs');
-            const modulePath = fs.existsSync('./.workflows-lib/.github/scripts/post_completion_comment.js')
-              ? './.workflows-lib/.github/scripts/post_completion_comment.js'
-              : './.github/scripts/post_completion_comment.js';
+                      const workflowsLibPath =
+                        './.workflows-lib/.github/scripts/post_completion_comment.js';
+                      const localPath = './.github/scripts/post_completion_comment.js';
+                      const modulePath = fs.existsSync(workflowsLibPath)
+                        ? workflowsLibPath
+                        : localPath;
             const { postCompletionComment } = require(modulePath);
 
             // Determine prompt file — prefer PR-specific variant, then generic.

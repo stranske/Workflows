@@ -696,7 +696,8 @@ jobs:
 
           case "$model" in
             *-codex*)
-              echo "::warning::Codex-specialized model '$model' is not compatible with the configured ChatGPT auth; trying '$DEFAULT_CODEX_MODEL' first."
+              echo "::warning::Codex-specialized model '$model' is not compatible "\
+                "with the configured ChatGPT auth; trying '$DEFAULT_CODEX_MODEL' first."
               model="$DEFAULT_CODEX_MODEL"
               reason="fallback-unsupported-chatgpt-codex-model"
               candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
@@ -821,7 +822,8 @@ jobs:
             (
               sleep "$WATCHDOG_DELAY"
               touch "$WATCHDOG_FIRED_FLAG"
-              echo "::warning::Pre-timeout watchdog fired (${GRACE_MIN}m before ${MAX_RUNTIME_MIN}m limit)"
+              echo "::warning::Pre-timeout watchdog fired "\
+                "(${GRACE_MIN}m before ${MAX_RUNTIME_MIN}m limit)"
 
               TARGET_BRANCH="${{ inputs.pr_ref }}"
               TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
@@ -838,12 +840,15 @@ jobs:
               fi
 
               if [ "$CHANGED" -gt 0 ] || [ "$UNPUSHED" -gt 0 ]; then
-                echo "::notice::Watchdog saving ${CHANGED} uncommitted file(s) and ${UNPUSHED} unpushed commit(s)"
+                echo "::notice::Watchdog saving ${CHANGED} uncommitted file(s) "\
+                  "and ${UNPUSHED} unpushed commit(s)"
                 git config user.name  "github-actions[bot]"
                 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
                 if [ "$CHANGED" -gt 0 ]; then
                   git add -A
-                  git commit -m "chore(codex-keepalive): pre-timeout checkpoint (PR #${PR_NUM:-})" --no-verify || true
+                  git commit \
+                    -m "chore(codex-keepalive): pre-timeout checkpoint (PR #${PR_NUM:-})" \
+                    --no-verify || true
                 fi
                 # Rebase onto remote before pushing to avoid non-fast-forward rejection
                 if git rev-parse FETCH_HEAD >/dev/null 2>&1; then
@@ -886,7 +891,8 @@ jobs:
               fi
             ) &
             WATCHDOG_PID=$!
-            echo "::notice::Pre-timeout watchdog started (PID ${WATCHDOG_PID}, fires in $((WATCHDOG_DELAY/60))m)"
+                      echo "::notice::Pre-timeout watchdog started "\
+                        "(PID ${WATCHDOG_PID}, fires in $((WATCHDOG_DELAY/60))m)"
           fi
 
           # Run codex exec with --json to capture rich session data
@@ -932,10 +938,12 @@ jobs:
               break
             fi
 
+            unavailable_model_re="model.*(not supported|not available|unsupported|unavailable)"
+            unavailable_model_re+="|not compatible"
             if [ "$attempt" -lt "$model_count" ] &&
-              grep -Eiq "model.*(not supported|not available|unsupported|unavailable)|not compatible" \
-                "$attempt_session"; then
-              echo "::warning::Codex model '${codex_model}' was unavailable; trying the next run model."
+              grep -Eiq "$unavailable_model_re" "$attempt_session"; then
+              echo "::warning::Codex model '${codex_model}' was unavailable; "\
+                "trying the next run model."
               selected_reason="runtime-fallback-model-unavailable"
               continue
             fi
@@ -957,10 +965,12 @@ jobs:
           echo "model-selection-reason=${selected_reason}" >> "$GITHUB_OUTPUT"
 
           if [ "$CODEX_EXIT" -ne 0 ]; then
-            echo "::error::Codex CLI exited with code ${CODEX_EXIT} using model ${selected_model:-unknown}"
+                      echo "::error::Codex CLI exited with code ${CODEX_EXIT} "\
+                        "using model ${selected_model:-unknown}"
           fi
 
-          echo "Codex completed with exit code ${CODEX_EXIT}. Model: ${selected_model:-unknown}. Output written to $OUTPUT_FILE"
+                    echo "Codex completed with exit code ${CODEX_EXIT}. "\
+                      "Model: ${selected_model:-unknown}. Output written to $OUTPUT_FILE"
 
           # Set outputs for downstream steps through the shared parser.
           if [ -f "$OUTPUT_FILE" ]; then
@@ -1074,7 +1084,8 @@ jobs:
 
           if [ -z "${GH_TOKEN:-}" ]; then
             echo "::notice::Skipping CODEX_AUTH_JSON auto-persist: app token unavailable."
-            echo "::notice::Provide WORKFLOWS_APP_ID/WORKFLOWS_APP_PRIVATE_KEY to enable hands-off rotation."
+                      echo "::notice::Provide WORKFLOWS_APP_ID/WORKFLOWS_APP_PRIVATE_KEY "\
+                        "to enable hands-off rotation."
             echo "persisted=false" >> "$GITHUB_OUTPUT"
             echo "reason=no-app-token" >> "$GITHUB_OUTPUT"
             exit 0
@@ -1298,7 +1309,8 @@ jobs:
               for attempt in 1 2 3; do
                 echo "Push attempt ${attempt}/3 (unpushed commits path)..."
                 if git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"; then
-                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Codex (attempt ${attempt}, SHA: ${COMMIT_SHA})"
+                            echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Codex "\
+                              "(attempt ${attempt}, SHA: ${COMMIT_SHA})"
                   exit 0
                 fi
                 echo "::warning::Push failed (attempt ${attempt})"

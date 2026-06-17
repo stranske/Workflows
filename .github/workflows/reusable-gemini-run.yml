@@ -589,15 +589,21 @@ jobs:
           if ! grep -q "^\.github/scripts/node_modules" .git/info/exclude 2>/dev/null; then
             echo ".github/scripts/node_modules" >> .git/info/exclude 2>/dev/null || true
           fi
-          if ! grep -q "^\.workflows-lib/\.github/scripts/node_modules" .git/info/exclude 2>/dev/null; then
-            echo ".workflows-lib/.github/scripts/node_modules" >> .git/info/exclude 2>/dev/null || true
+          if ! grep -q \
+            "^\.workflows-lib/\.github/scripts/node_modules" \
+            .git/info/exclude 2>/dev/null; then
+            printf '%s\n' ".workflows-lib/.github/scripts/node_modules" \
+              >> .git/info/exclude 2>/dev/null || true
           fi
           if ! grep -q "^node_modules" .git/info/exclude 2>/dev/null; then
             echo "node_modules" >> .git/info/exclude 2>/dev/null || true
           fi
 
           echo "Removing stale workflow artifact files..."
-          rm -f gemini-output*.md gemini-session*.log gemini-session*.jsonl gemini-analysis*.json 2>/dev/null || true
+          rm -f \
+            gemini-output*.md gemini-session*.log \
+            gemini-session*.jsonl gemini-analysis*.json \
+            2>/dev/null || true
 
           echo "Git status after cleanup:"
           git status --short || true
@@ -608,7 +614,12 @@ jobs:
           ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
           ignore_re+='gemini-.*|autofix.*)/'
-          REMAINING=$(git status --porcelain | cut -c4- | grep -cvE "$ignore_re" 2>/dev/null || echo "0")
+          REMAINING=$(
+            git status --porcelain |
+              cut -c4- |
+              grep -cvE "$ignore_re" 2>/dev/null ||
+              echo "0"
+          )
           REMAINING=$(printf '%s' "$REMAINING" | tr -d '[:space:]')
           REMAINING=${REMAINING:-0}
           echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
@@ -620,7 +631,10 @@ jobs:
           fi
 
       - name: Surface merge conflicts
-        if: inputs.prompt_file == '.github/gemini/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
+        if: >-
+          inputs.prompt_file == '.github/gemini/prompts/fix_merge_conflicts.md' ||
+          inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' ||
+          inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
         env:
           WORKFLOW_BASE_REF: ${{ inputs.base_ref || github.event.pull_request.base.ref || '' }}
         run: |
@@ -779,7 +793,8 @@ jobs:
             else
               PROMPT_FILE="gemini-prompt.md"
             fi
-            echo "::notice::Prompt output was empty; using assembled prompt fallback: ${PROMPT_FILE}"
+            echo "::notice::Prompt output was empty; using assembled prompt fallback: "\
+              "${PROMPT_FILE}"
           fi
 
           if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
@@ -904,7 +919,12 @@ jobs:
               if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
                 AGENT_FILES=$(git diff --name-only FETCH_HEAD..HEAD | wc -l | tr -d ' ')
               else
-                AGENT_FILES=$(git diff --name-only HEAD~"${UNPUSHED_COMMITS}"..HEAD 2>/dev/null | wc -l | tr -d ' ' || echo "1")
+                AGENT_FILES=$(
+                  git diff --name-only HEAD~"${UNPUSHED_COMMITS}"..HEAD 2>/dev/null |
+                    wc -l |
+                    tr -d ' ' ||
+                    echo "1"
+                )
               fi
               echo "files-changed=${AGENT_FILES:-1}" >> "$GITHUB_OUTPUT"
               if [ "$PUSH_ALLOWED" != "true" ] || [ -z "$PUSH_TOKEN" ]; then
@@ -931,7 +951,8 @@ jobs:
               for attempt in 1 2 3; do
                 echo "Push attempt ${attempt}/3 (unpushed commits path)..."
                 if git push "$REMOTE_URL" "HEAD:${target_branch}"; then
-                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Gemini (attempt ${attempt}, SHA: ${COMMIT_SHA})"
+                  echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Gemini "\
+                    "(attempt ${attempt}, SHA: ${COMMIT_SHA})"
                   exit 0
                 fi
                 echo "::warning::Push failed (attempt ${attempt})"
@@ -1176,7 +1197,9 @@ jobs:
             exit 0
           fi
 
-          echo "Session log captured: $(wc -l < "$SESSION_LOG") lines, $(wc -c < "$SESSION_LOG") bytes"
+                    line_count=$(wc -l < "$SESSION_LOG")
+                    byte_count=$(wc -c < "$SESSION_LOG")
+                    echo "Session log captured: ${line_count} lines, ${byte_count} bytes"
           echo "session-available=true" >> "$GITHUB_OUTPUT"
           echo "session-file=$SESSION_LOG" >> "$GITHUB_OUTPUT"
 
@@ -1322,9 +1345,12 @@ jobs:
           script: |
             // Try .workflows-lib first (consumer repos), fall back to local copy
             const fs = require('fs');
-            const modulePath = fs.existsSync('./.workflows-lib/.github/scripts/post_completion_comment.js')
-              ? './.workflows-lib/.github/scripts/post_completion_comment.js'
-              : './.github/scripts/post_completion_comment.js';
+                      const workflowsLibPath =
+                        './.workflows-lib/.github/scripts/post_completion_comment.js';
+                      const localPath = './.github/scripts/post_completion_comment.js';
+                      const modulePath = fs.existsSync(workflowsLibPath)
+                        ? workflowsLibPath
+                        : localPath;
             const { postCompletionComment } = require(modulePath);
 
             // Determine prompt file — prefer PR-specific variant, then generic.
