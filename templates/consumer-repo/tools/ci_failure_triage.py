@@ -296,21 +296,27 @@ def _get_llm_client() -> tuple[_LLMClient, str] | None:
 
     if github_token:
         return (
-            ChatOpenAI(
-                model=DEFAULT_MODEL,
-                base_url=GITHUB_MODELS_BASE_URL,
-                api_key=cast(Any, github_token),
-                temperature=0.1,
+            cast(
+                _LLMClient,
+                ChatOpenAI(
+                    model=DEFAULT_MODEL,
+                    base_url=GITHUB_MODELS_BASE_URL,
+                    api_key=cast(Any, github_token),
+                    temperature=0.1,
+                ),
             ),
             "github-models",
         )
     if openai_token is None:
         return None
     return (
-        ChatOpenAI(
-            model=DEFAULT_MODEL,
-            api_key=cast(Any, openai_token),
-            temperature=0.1,
+        cast(
+            _LLMClient,
+            ChatOpenAI(
+                model=DEFAULT_MODEL,
+                api_key=cast(Any, openai_token),
+                temperature=0.1,
+            ),
         ),
         "openai",
     )
