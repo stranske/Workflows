@@ -55,9 +55,9 @@ Issue created ──▶ Format ──▶ Optimize ──▶ Apply ──▶ Capa
 | **Format** | `issue_formatter.py` + `task_decomposer.py` restructure the issue into Why / Scope / Tasks / Acceptance Criteria |
 | **Optimize** | `issue_optimizer.py` analyzes the repo codebase and adds file paths, patterns, and conflict warnings |
 | **Apply** | Enriches issue tasks with optimizer suggestions |
-| **Capability Check** | Validates issue suitability for automation; assigns `agent:codex` label |
+| **Capability Check** | Validates issue suitability for automation; assigns the registry-backed `agent:<name>` label (default `agent:codex`, overridable via `runner:<name>`) |
 | **Create PR** | Creates `codex/issue-*` branch with issue context in PR body |
-| **Keepalive** | Event-driven loop (Gate completion → task appendix → Codex CLI dispatch → push → repeat) |
+| **Keepalive** | Event-driven loop (Gate completion → task appendix → registry-backed agent dispatch → push → repeat) |
 | **Verify** | LLM-based evaluation of PR against acceptance criteria (PASS / CONCERNS / FAIL) |
 | **Follow-up** | On CONCERNS/FAIL, creates a follow-up issue with verification gaps as tasks (target max depth 2; automated enforcement pending) |
 

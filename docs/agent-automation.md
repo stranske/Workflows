@@ -20,7 +20,7 @@ Manual dispatch / 30-minute schedule ──▶ agents-70-orchestrator.yml
 Gate workflow_run (PRs) ───────────────▶ agents-keepalive-loop.yml
                                         │
                                         ├─ Evaluate PR keepalive guardrails
-                                        ├─ Run Codex CLI via reusable-codex-run.yml
+                                        ├─ Run the registry-backed agent via its reusable runner workflow
                                         └─ Loop on subsequent Gate completions
 ```
 
@@ -104,7 +104,7 @@ The `agents-auto-pilot.yml` workflow implements a complete end-to-end automation
 | **Format** | Structures issue into standard template | ✅ Inline: `issue_formatter.py` | `agents:formatted` |
 | **Optimize** | Analyzes and suggests improvements | ✅ Inline: `issue_optimizer.py` | (none - adds comment) |
 | **Apply** | Applies optimization suggestions | ✅ Inline: `apply_suggestions()` | `agents:apply-suggestions` |
-| **Capability Check** | Validates agent can handle task | 🏷️ Label: `agent:codex` (triggers capability workflow) | `agent:codex` |
+| **Capability Check** | Validates agent can handle task | 🏷️ Label: `agent:<name>` (registry default or runner override) | `agent:<name> (registry default or runner override)` |
 | **Create PR** | Creates branch and initial PR | ✅ Direct: GitHub API | (converts issue to PR) |
 | **Monitor** | Tracks PR progress via keepalive | 🏷️ Label: `agents:keepalive` (triggers keepalive) | `agents:keepalive` |
 | **Check Completion** | Verifies all tasks done, CI passes | ✅ Inline: Checks CI status directly | (checks state) |

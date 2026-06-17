@@ -11,6 +11,8 @@ from tools import langchain_client
 README = Path("README.md")
 WORKFLOWS_DOC = Path("docs/ci/WORKFLOWS.md")
 WORKFLOWS_DIR = Path(".github/workflows")
+AGENT_REGISTRY = Path(".github/agents/registry.yml")
+MULTI_AGENT_ROUTING_DOC = Path("docs/keepalive/MULTI_AGENT_ROUTING.md")
 
 
 def _default_compare_models() -> tuple[str, str]:
@@ -57,3 +59,25 @@ def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
     )
     assert 'gate --> autofixDispatch["Autofix Dispatch' in doc
     assert 'autofixDispatch --> autofixLoop["Agents Autofix Loop' in doc
+
+
+def test_agent_routing_doc_covers_enabled_registry_agents() -> None:
+    registry = yaml.safe_load(AGENT_REGISTRY.read_text(encoding="utf-8"))
+    routing_doc = MULTI_AGENT_ROUTING_DOC.read_text(encoding="utf-8")
+
+    active_runners = {
+        agent: config["runner_workflow"]
+        for agent, config in registry["agents"].items()
+        if config.get("runner_workflow") and config.get("enabled", True) is not False
+    }
+
+    missing = [
+        f"{agent} ({Path(workflow).name})"
+        for agent, workflow in active_runners.items()
+        if f"agent:{agent}" not in routing_doc or Path(workflow).name not in routing_doc
+    ]
+
+    assert not missing, (
+        "docs/keepalive/MULTI_AGENT_ROUTING.md is missing active registry agents: "
+        + ", ".join(missing)
+    )

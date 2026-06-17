@@ -49,7 +49,7 @@ Auto-pilot pipeline:
 | Formats and enriches the issue | Drives the agent through PR tasks |
 | Creates the PR and branch | Evaluates Gate results and remaining work |
 | Dispatches the next pipeline step | Builds task appendix from PR body checkboxes |
-| Triggers verification post-merge | Dispatches Codex CLI with explicit task context |
+| Triggers verification post-merge | Dispatches the registry-backed agent with explicit task context |
 
 ### Critical Integration Points
 
