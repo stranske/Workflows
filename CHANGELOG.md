@@ -127,6 +127,7 @@ Breaking changes are called out with a **BREAKING** marker and scheduled accordi
 * harden synced metrics parser ([4590511](https://github.com/stranske/Workflows/commit/459051114fd11b1a930ea04d0344e69dbad7f359))
 * harden synced runner helpers ([#2044](https://github.com/stranske/Workflows/issues/2044)) ([2e359bb](https://github.com/stranske/Workflows/commit/2e359bbf806cd2871d608dc10475e3b2d2d81dcb))
 * harden tracker matching and eligibility checkout ([#2121](https://github.com/stranske/Workflows/issues/2121)) ([40d5594](https://github.com/stranske/Workflows/commit/40d5594478a15aaa02c86d80d17ab5a243b0a7c6))
+* **health-74:** re-baseline 7 stale template-drift allowlist entries ([#2397](https://github.com/stranske/Workflows/issues/2397)) ([f6378d5](https://github.com/stranske/Workflows/commit/f6378d53a36192ee1a17c9588be7c67a5b5df18c))
 * ignore test helper modules in dependency sync ([#2221](https://github.com/stranske/Workflows/issues/2221)) ([221a83f](https://github.com/stranske/Workflows/commit/221a83f7799169d25da52aff4e26b1c82b103bd4))
 * include manifest path in contract load errors ([#2218](https://github.com/stranske/Workflows/issues/2218)) ([0833781](https://github.com/stranske/Workflows/commit/083378150435ce77df939ce9d3a5274029084ccf))
 * infer agent from branch before falling back to default ([91fda11](https://github.com/stranske/Workflows/commit/91fda1154140ed40fc5d195fe4c1e406e5263e72))
