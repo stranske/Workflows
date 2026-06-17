@@ -77,7 +77,8 @@ def test_agent_routing_doc_covers_enabled_registry_agents() -> None:
         if f"agent:{agent}" not in routing_doc or Path(workflow).name not in routing_doc
     ]
 
-    assert not missing, (
-        "docs/keepalive/MULTI_AGENT_ROUTING.md is missing active registry agents: "
-        + ", ".join(missing)
+    assert (
+        not missing
+    ), "docs/keepalive/MULTI_AGENT_ROUTING.md is missing active registry agents: " + ", ".join(
+        missing
     )
