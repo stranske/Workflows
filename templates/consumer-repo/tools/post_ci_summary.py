@@ -411,8 +411,7 @@ _TESTCASE_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _XML_ATTR_RE = re.compile(
-    r"(?P<name>[A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*"
-    r"(?P<quote>['\"])(?P<value>.*?)(?P=quote)",
+    r"(?P<name>[A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*" r"(?P<quote>['\"])(?P<value>.*?)(?P=quote)",
     re.DOTALL,
 )
 _XML_TAG_RE_CACHE: dict[str, re.Pattern[str]] = {}
