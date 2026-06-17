@@ -13,8 +13,8 @@ import yaml
 DEPRECATED_ACTIONS = {
     "actions/checkout@v2": "actions/checkout@v4",
     "actions/checkout@v3": "actions/checkout@v4",
-    "actions/upload-artifact@v2": "actions/upload-artifact@v6",
-    "actions/upload-artifact@v3": "actions/upload-artifact@v6",
+    "actions/upload-artifact@v2": "actions/upload-artifact@v7",
+    "actions/upload-artifact@v3": "actions/upload-artifact@v7",
     "actions/download-artifact@v2": "actions/download-artifact@v7",
     "actions/download-artifact@v3": "actions/download-artifact@v7",
 }
@@ -87,7 +87,7 @@ def check_missing_timeout(workflow: dict) -> list[str]:
 
 
 def check_upload_artifact_major(
-    workflow: dict, expected_major: int = 6
+    workflow: dict, expected_major: int = 7
 ) -> list[tuple[str, str, str]]:
     """Check that actions/upload-artifact uses the expected major version.
 

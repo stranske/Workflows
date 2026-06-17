@@ -121,19 +121,19 @@ class TestCheckUploadArtifactMajor:
     """Tests for check_upload_artifact_major function."""
 
     def test_accepts_expected_major(self) -> None:
-        """Test that v6 is accepted."""
+        """Test that v7 is accepted."""
         workflow = {
-            "jobs": {"build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v6"}]}}
+            "jobs": {"build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v7"}]}}
         }
 
         issues = check_upload_artifact_major(workflow)
         assert issues == []
 
     def test_accepts_expected_major_with_patch(self) -> None:
-        """Test that v6.x.y is accepted."""
+        """Test that v7.x.y is accepted."""
         workflow = {
             "jobs": {
-                "build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v6.1.2"}]}
+                "build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v7.0.1"}]}
             }
         }
 
@@ -141,14 +141,14 @@ class TestCheckUploadArtifactMajor:
         assert issues == []
 
     def test_flags_other_major(self) -> None:
-        """Test that non-v6 major versions are flagged."""
+        """Test that non-v7 major versions are flagged."""
         workflow = {
             "jobs": {"build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v4"}]}}
         }
 
         issues = check_upload_artifact_major(workflow)
         assert len(issues) == 1
-        assert "v6" in issues[0][2]
+        assert "v7" in issues[0][2]
 
     def test_ignores_other_actions(self) -> None:
         """Test that unrelated actions are ignored."""
