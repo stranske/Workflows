@@ -33,7 +33,7 @@ jobs:
       proceed: ${{ steps.check.outputs.proceed || 'true' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -104,7 +104,7 @@ jobs:
       INCLUDE_PRS: 'true'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client

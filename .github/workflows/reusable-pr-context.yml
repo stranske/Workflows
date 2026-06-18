@@ -139,7 +139,7 @@ jobs:
 
     steps:
       - name: Checkout (for scripts)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts

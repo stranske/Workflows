@@ -83,7 +83,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
         with:
@@ -223,7 +223,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -263,7 +263,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup API client
         if: ${{ env.RUN_CONSUMER_CHECKS == 'true' && env.OWNER_PR_PAT != '' }}
@@ -316,7 +316,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Generate comprehensive report
         id: report
@@ -342,7 +342,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
         with:
@@ -372,7 +372,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
         with:
@@ -392,7 +392,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
         with:

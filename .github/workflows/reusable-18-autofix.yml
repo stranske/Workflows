@@ -250,7 +250,7 @@ jobs:
           echo "ref=${ref}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout resolver action
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_workflow_ref.outputs.ref }}
@@ -270,7 +270,7 @@ jobs:
           fail_on_error: 'false'
           task: autofix-resolve-workflows-ref
       - name: Checkout Workflows scripts (for autofix utilities)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_ref.outputs.ref }}
@@ -293,7 +293,7 @@ jobs:
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
 
       - name: Checkout PR HEAD
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.PR_HEAD_REF || github.ref }}
           fetch-depth: 0
@@ -1445,7 +1445,7 @@ jobs:
 
       - name: Checkout Workflows for PR comment action
         if: steps.guard.outputs.skip != 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_ref.outputs.ref }}

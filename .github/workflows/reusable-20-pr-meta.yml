@@ -111,7 +111,7 @@ jobs:
     steps:
       # Dual checkout pattern: consumer repo for context, Workflows repo for scripts
       - name: Checkout consumer repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: consumer
@@ -147,7 +147,7 @@ jobs:
           echo "ref=${ref}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout resolver action
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_workflow_ref.outputs.ref }}
@@ -173,7 +173,7 @@ jobs:
           task: pr-meta-workflows-ref
 
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_ref.outputs.ref }}
@@ -289,7 +289,7 @@ jobs:
       AGENTS_AUTOMATION_PAT: ${{ secrets.AGENTS_AUTOMATION_PAT || '' }}
     steps:
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: main
@@ -366,7 +366,7 @@ jobs:
       reason: ${{ steps.gate.outputs.reason }}
     steps:
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: main
@@ -523,7 +523,7 @@ jobs:
     if: inputs.event_name == 'pull_request'
     steps:
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: main

@@ -49,7 +49,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout host repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Resolve dependency checkout path
         id: dependency_path
@@ -70,7 +70,7 @@ jobs:
           echo "path=${path}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout dependency repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.dependency_repo }}
           ref: ${{ inputs.dependency_ref }}

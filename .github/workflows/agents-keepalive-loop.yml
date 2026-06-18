@@ -78,7 +78,7 @@ jobs:
       dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -632,7 +632,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -819,7 +819,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout runner library
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             scripts/runner_lib
@@ -889,7 +889,7 @@ jobs:
       feedback: ${{ steps.review.outputs.feedback }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -1154,7 +1154,7 @@ jobs:
       }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client

@@ -25,7 +25,7 @@ jobs:
     name: Repository health summary
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client

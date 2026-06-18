@@ -43,7 +43,7 @@ jobs:
       security-events: write  # upload SARIF to code-scanning
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false  # read-only scan; no git creds needed (zizmor: artipacked)
 

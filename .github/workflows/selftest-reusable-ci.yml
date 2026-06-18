@@ -83,7 +83,7 @@ jobs:
       proceed: ${{ steps.check.outputs.proceed || 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -155,7 +155,7 @@ jobs:
       rationale: ${{ steps.scope.outputs.rationale }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -744,7 +744,7 @@ jobs:
 
       - name: Checkout artifact cache action
         if: ${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/actions/artifact-cache

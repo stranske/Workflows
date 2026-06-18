@@ -88,7 +88,7 @@ jobs:
       pr_number: ${{ steps.check.outputs.pr_number }}
     steps:
       - name: Checkout retry helpers
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/actions/setup-api-client

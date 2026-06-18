@@ -64,7 +64,7 @@ jobs:
     steps:
       # The participant's own checkout (carries the emitted run.json/manifest).
       - name: Checkout participant
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -74,7 +74,7 @@ jobs:
 
       # The contract owner (Workflows): canonical registry + schemas + validator.
       - name: Checkout Workflows contract
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ inputs.contract_ref }}

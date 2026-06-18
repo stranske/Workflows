@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
       - name: Extract run information
@@ -161,7 +161,7 @@ jobs:
 
       - name: Checkout Integration-Tests repo
         if: steps.check_status.outputs.should_fix == 'true' && steps.integration_token.outputs.token_available == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows-Integration-Tests
           ref: ${{ steps.integration_ref.outputs.ref }}

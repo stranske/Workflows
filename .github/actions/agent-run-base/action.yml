@@ -109,7 +109,7 @@ runs:
         printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
 
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
         ref: ${{ inputs.checkout_ref || github.ref }}
@@ -129,7 +129,7 @@ runs:
         github_token: ${{ inputs.github_token }}
 
     - name: Checkout Workflows scripts
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: stranske/Workflows
         ref: ${{ inputs.workflows_ref }}

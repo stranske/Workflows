@@ -75,7 +75,7 @@ jobs:
       manifest_json: ${{ steps.manifest.outputs.json }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             templates/consumer-repo
@@ -190,7 +190,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -284,7 +284,7 @@ jobs:
           echo "artifact_name=${safe_name:-unknown-repo}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Workflows
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: workflows
 
@@ -1045,7 +1045,7 @@ jobs:
       CONSUMER_SYNC_RUN_REPORT_JSON: artifacts/consumer-sync-run-report.json
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts/sync_run_contract.js
@@ -1159,7 +1159,7 @@ jobs:
     if: failure()
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github

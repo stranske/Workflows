@@ -99,7 +99,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout (for security gate)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
@@ -763,7 +763,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout runner library
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             scripts/runner_lib
@@ -835,7 +835,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout (for retry helpers)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
@@ -930,7 +930,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout (for retry helpers)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}

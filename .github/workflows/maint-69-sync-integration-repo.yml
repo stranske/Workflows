@@ -38,7 +38,7 @@ jobs:
       token_available: ${{ steps.token.outputs.token_available }}
     steps:
       - name: Checkout Workflows repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: workflows
           sparse-checkout: |
@@ -305,7 +305,7 @@ jobs:
           fi
 
       - name: Checkout tracker helper
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts/sync_tracker_state

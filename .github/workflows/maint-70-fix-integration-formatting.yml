@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
@@ -70,7 +70,7 @@ jobs:
           github-token: ${{ github.token }}
       - name: Checkout Integration-Tests repo
         if: steps.integration_token.outputs.token_available == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows-Integration-Tests
           ref: ${{ steps.integration_ref.outputs.ref }}

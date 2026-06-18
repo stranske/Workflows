@@ -150,7 +150,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout retry helpers
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -367,7 +367,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout retry helpers
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts/error_classifier.js
@@ -586,7 +586,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -736,7 +736,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Find Ready Issues
         id: ready
         uses: actions/github-script@v9
@@ -976,7 +976,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Basic Repo Sanity
         run: |
           test -f pyproject.toml || { echo 'pyproject.toml missing'; exit 1; }
@@ -997,7 +997,7 @@ jobs:
     steps:
       # Dual checkout pattern: consumer repo for context, Workflows repo for scripts
       - name: Checkout consumer repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: consumer
@@ -1016,7 +1016,7 @@ jobs:
           echo "ref=${ref}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout resolver action
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_workflow_ref.outputs.ref }}
@@ -1041,7 +1041,7 @@ jobs:
           fail_on_error: 'false'
           task: keepalive-workflows-ref
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_ref.outputs.ref }}

@@ -96,7 +96,7 @@ jobs:
       # Full checkout from the start - sparse checkout causes issues with file visibility
       # in subsequent steps even after disabling it
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: true

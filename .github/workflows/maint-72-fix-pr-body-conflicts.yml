@@ -48,7 +48,7 @@ jobs:
       repo_matrix: ${{ steps.repos.outputs.matrix }}
     steps:
       - name: Checkout Workflows repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build repo matrix from canonical list
         id: repos
@@ -132,7 +132,7 @@ jobs:
 
       - name: Checkout retry helpers
         if: steps.check.outputs.skip != 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/actions/setup-api-client

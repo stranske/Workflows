@@ -99,7 +99,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout caller repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           fetch-depth: 0
@@ -115,7 +115,7 @@ jobs:
         uses: ./.github/actions/resolve-default-branch
 
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           repository: stranske/Workflows

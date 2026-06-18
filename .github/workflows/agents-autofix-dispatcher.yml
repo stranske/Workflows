@@ -28,7 +28,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout workflow helpers
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |

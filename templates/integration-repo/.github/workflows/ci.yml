@@ -97,7 +97,7 @@ jobs:
     steps:
       - name: Checkout retry helpers (Workflows)
         if: ${{ secrets.ACTIONS_BOT_PAT != '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           path: workflows

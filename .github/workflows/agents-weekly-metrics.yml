@@ -17,7 +17,7 @@ jobs:
     environment: agent-standard
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/actions/artifact-cache

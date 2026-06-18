@@ -135,7 +135,7 @@ jobs:
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Checkout guard helpers
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -257,7 +257,7 @@ jobs:
       cap: ${{ steps.cap.outputs.cap || '' }}
     steps:
       - name: Checkout run cap helpers
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -359,7 +359,7 @@ jobs:
       agent_alias: ${{ steps.resolve.outputs.agent_alias || '' }}
     steps:
       - name: Checkout retry helpers
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -561,7 +561,7 @@ jobs:
       head_repo: ${{ steps.snapshot.outputs.head_repo || '' }}
     steps:
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts
@@ -1892,7 +1892,7 @@ jobs:
           fi
 
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts
@@ -2071,7 +2071,7 @@ jobs:
 
       - name: Checkout orchestrator scripts
         if: steps.gate.outputs.should_post == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts
@@ -2929,7 +2929,7 @@ jobs:
 
       # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts
@@ -3179,7 +3179,7 @@ jobs:
     steps:
       # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts
@@ -3227,7 +3227,7 @@ jobs:
     steps:
       # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts

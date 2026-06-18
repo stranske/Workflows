@@ -213,7 +213,7 @@ jobs:
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
 
       - name: Checkout Workflows run-base action
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ inputs.workflows_ref }}
