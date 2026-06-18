@@ -100,6 +100,10 @@ def test_active_docs_do_not_claim_automatic_verifier_followup() -> None:
         r"|"
         r"follow-up issue is opened[^.|\n]*(?:fail|failure|concerns)"
         r"|"
+        r"creates?[^.|\n]*follow-up issues?[^.|\n]*(?:when|on)[^.|\n]*(?:concerns|fail|failure)"
+        r"|"
+        r"creates?[^.|\n]*follow-up issues?[^.|\n]*gaps"
+        r"|"
         r"failures open issues"
         r")"
     )
@@ -119,6 +123,5 @@ def test_active_docs_do_not_claim_automatic_verifier_followup() -> None:
 
     assert not failures, (
         "Active verifier docs imply automatic follow-up issue creation without "
-        "the manual verify:create-issue / verify:create-new-pr caveat:\n"
-        + "\n".join(failures)
+        "the manual verify:create-issue / verify:create-new-pr caveat:\n" + "\n".join(failures)
     )

@@ -59,7 +59,7 @@ Issue created ──▶ Format ──▶ Optimize ──▶ Apply ──▶ Capa
 | **Create PR** | Creates `codex/issue-*` branch with issue context in PR body |
 | **Keepalive** | Event-driven loop (Gate completion → task appendix → registry-backed agent dispatch → push → repeat) |
 | **Verify** | LLM-based evaluation of PR against acceptance criteria (PASS / CONCERNS / FAIL) |
-| **Follow-up** | On CONCERNS/FAIL, maintainers or automation apply `verify:create-issue` or `verify:create-new-pr` to create label-triggered follow-up work with chain depth capped at 2 |
+| **Follow-up** | On CONCERNS/FAIL, maintainers or automation apply `verify:create-issue` for an issue-only follow-up or `verify:create-new-pr` for a bootstrapped follow-up PR; the new-PR path enforces the chain-depth cap |
 
 ### Self-Dispatch Mechanism
 
