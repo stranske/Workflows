@@ -196,7 +196,7 @@ def assert_workflow_bootstraps_resolver_from_workflows_checkout(workflow_name: s
     resolver_checkout = next(
         step for step in steps if step.get("name") == "Checkout resolver action"
     )
-    assert resolver_checkout["uses"] == "actions/checkout@v6"
+    assert resolver_checkout["uses"] == "actions/checkout@v7"
     assert resolver_checkout["with"]["path"] == "workflows-resolver"
     assert ".github/actions/resolve-default-branch" in resolver_checkout["with"]["sparse-checkout"]
 

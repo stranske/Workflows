@@ -211,7 +211,7 @@ def test_canonical_bot_comment_handler_direct_app_tokens_prefer_client_id() -> N
         legacy_step = next(
             step for step in steps if step.get("name") == "Mint GitHub App Token (legacy App ID)"
         )
-        checkout_step = next(step for step in steps if step.get("uses") == "actions/checkout@v6")
+        checkout_step = next(step for step in steps if step.get("uses") == "actions/checkout@v7")
 
         assert detect_step["env"]["WORKFLOWS_APP_CLIENT_ID"] == (
             "${{ secrets.WORKFLOWS_APP_CLIENT_ID }}"
