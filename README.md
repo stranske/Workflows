@@ -45,7 +45,7 @@ Issue created ──▶ Format ──▶ Optimize ──▶ Apply ──▶ Capa
                     ┌─────┴──────┐
                     │ PASS       │ CONCERNS/FAIL
                     ▼            ▼
-                  Done     Follow-up Issue (capped at depth 2)
+                  Done     Label-triggered follow-up
 ```
 
 ### Pipeline Stages
@@ -59,7 +59,7 @@ Issue created ──▶ Format ──▶ Optimize ──▶ Apply ──▶ Capa
 | **Create PR** | Creates `codex/issue-*` branch with issue context in PR body |
 | **Keepalive** | Event-driven loop (Gate completion → task appendix → registry-backed agent dispatch → push → repeat) |
 | **Verify** | LLM-based evaluation of PR against acceptance criteria (PASS / CONCERNS / FAIL) |
-| **Follow-up** | On CONCERNS/FAIL, creates a follow-up issue with verification gaps as tasks (target max depth 2; automated enforcement pending) |
+| **Follow-up** | On CONCERNS/FAIL, maintainers or automation apply `verify:create-issue` or `verify:create-new-pr` to create label-triggered follow-up work with chain depth capped at 2 |
 
 ### Self-Dispatch Mechanism
 

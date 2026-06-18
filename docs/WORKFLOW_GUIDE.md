@@ -197,7 +197,10 @@ The verifier validates merged PRs against tasks and acceptance criteria using la
 
 ### Expected outputs
 - **Run summary** — Verdict (PASS/FAIL), highlights, and links to the acceptance/task context.
-- **Issue on failure** — A follow-up issue is opened when the verdict is FAIL.
+- **Issue on failure** — Follow-up issue creation is manual and label-triggered:
+  apply `verify:create-issue` for an issue-only follow-up or
+  `verify:create-new-pr` for a bootstrapped follow-up PR when a
+  CONCERNS/FAIL verdict needs more work.
 - **Mode-specific report** — Checkbox mode posts criteria coverage, Evaluate posts a structured rubric report, Compare posts a model comparison table.
 These outputs land in the Actions run summary, with any follow-up issue filed in the same repository.
 
@@ -209,7 +212,10 @@ These outputs land in the Actions run summary, with any follow-up issue filed in
 ## Verifier Troubleshooting
 - **No verifier run** — Ensure the PR was merged, the `verify:*` label was applied before merge, and the repository includes `agents-verifier.yml`.
 - **Verifier skipped** — Confirm the PR body includes Tasks and Acceptance Criteria sections with checkboxes.
-- **Follow-up issue missing** — Check the run summary for a PASS verdict; failures open issues only when the verifier is enabled and has permissions.
+- **Follow-up issue missing** — Check the run summary for a PASS verdict and
+  confirm `verify:create-issue` or `verify:create-new-pr` was applied to the
+  merged PR; ordinary verifier CONCERNS/FAIL verdicts do not automatically open
+  follow-up issues.
 - **Auth or API errors** — Confirm `SERVICE_BOT_PAT` is configured and has repo/issue permissions.
 
 

@@ -13,6 +13,12 @@ WORKFLOWS_DOC = Path("docs/ci/WORKFLOWS.md")
 WORKFLOWS_DIR = Path(".github/workflows")
 AGENT_REGISTRY = Path(".github/agents/registry.yml")
 MULTI_AGENT_ROUTING_DOC = Path("docs/keepalive/MULTI_AGENT_ROUTING.md")
+ACTIVE_VERIFIER_DOCS = (
+    Path("README.md"),
+    Path("docs/WORKFLOW_GUIDE.md"),
+    Path("docs/ci/WORKFLOWS.md"),
+    Path("docs/LABELS.md"),
+)
 
 
 def _default_compare_models() -> tuple[str, str]:
@@ -83,4 +89,36 @@ def test_agent_routing_doc_covers_enabled_registry_agents() -> None:
         not missing
     ), "docs/keepalive/MULTI_AGENT_ROUTING.md is missing active registry agents: " + ", ".join(
         missing
+    )
+
+
+def test_active_docs_do_not_claim_automatic_verifier_followup() -> None:
+    stale_followup_claim = re.compile(
+        r"(?i)("
+        r"(?:on|when)\s+(?:concerns|fail|failure|verdict is fail)[^.|\n]*"
+        r"(?:creates?|opens?|is opened)[^.|\n]*follow-up issue"
+        r"|"
+        r"follow-up issue is opened[^.|\n]*(?:fail|failure|concerns)"
+        r"|"
+        r"failures open issues"
+        r")"
+    )
+    manual_label_caveat = re.compile(
+        r"(?i)verify:create-(?:issue|new-pr)|label-triggered|manual|maintainers? or automation"
+    )
+
+    failures: list[str] = []
+    for path in ACTIVE_VERIFIER_DOCS:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if not stale_followup_claim.search(line):
+                continue
+            context = "\n".join(lines[max(0, index - 2) : index + 3])
+            if not manual_label_caveat.search(context):
+                failures.append(f"{path}:{index + 1}: {line.strip()}")
+
+    assert not failures, (
+        "Active verifier docs imply automatic follow-up issue creation without "
+        "the manual verify:create-issue / verify:create-new-pr caveat:\n"
+        + "\n".join(failures)
     )
