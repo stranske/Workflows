@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.15.1](https://github.com/stranske/Workflows/compare/v1.15.0...v1.15.1) (2026-06-19)
+
+
+### Bug Fixes
+
+* allow guarded dependency workflow updates ([5537bf0](https://github.com/stranske/Workflows/commit/5537bf0303890ca727cb15a11ab0aa14358271d4))
+* preserve release-please PR bodies ([#2467](https://github.com/stranske/Workflows/issues/2467)) ([9cee0b3](https://github.com/stranske/Workflows/commit/9cee0b32c80f5d9d87651934618302c71ea8ceaa))
+
 ## [1.15.0](https://github.com/stranske/Workflows/compare/v1.14.0...v1.15.0) (2026-06-18)
 
 
