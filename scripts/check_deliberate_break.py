@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -30,6 +31,7 @@ SECTION_HEADER_RE = re.compile(r"^#{2,6}\s+(.+?)\s*$", re.MULTILINE)
 ASSERTION_DIFF_RE = re.compile(
     r"\b(assert|expect\(|pytest\.raises\(|assert\.)\b",
 )
+DEFAULT_TIMEOUT_SECONDS = 120
 
 
 @dataclass(frozen=True)
@@ -128,7 +130,12 @@ def _pytest_command(test_id: str) -> tuple[str, ...]:
     return (sys.executable, "-m", "pytest", test_id, "-q")
 
 
-def _run(command: tuple[str, ...], cwd: Path) -> subprocess.CompletedProcess[str]:
+def _run(
+    command: tuple[str, ...],
+    cwd: Path,
+    *,
+    timeout: int = DEFAULT_TIMEOUT_SECONDS,
+) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     pythonpath = str(cwd)
     if env.get("PYTHONPATH"):
@@ -140,17 +147,33 @@ def _run(command: tuple[str, ...], cwd: Path) -> subprocess.CompletedProcess[str
         text=True,
         capture_output=True,
         env=env,
+        timeout=timeout,
     )
 
 
-def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+def _git(
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: int = DEFAULT_TIMEOUT_SECONDS,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *args],
         cwd=cwd,
         check=True,
         text=True,
         capture_output=True,
+        timeout=timeout,
     )
+
+
+def _assertion_diff_lines(diff_text: str) -> Iterator[str]:
+    """Yield removed assertion lines; adding a new assertion is valid test growth."""
+    for line in diff_text.splitlines():
+        if not line.startswith("-") or line.startswith("---"):
+            continue
+        if ASSERTION_DIFF_RE.search(line):
+            yield line[:240]
 
 
 def _changed_assertions(base: str, head: str, test_file: str, cwd: Path) -> list[str]:
@@ -161,15 +184,7 @@ def _changed_assertions(base: str, head: str, test_file: str, cwd: Path) -> list
         ["diff", "--no-ext-diff", "--unified=0", f"{base}...{head}", "--", test_file],
         cwd,
     )
-    hits: list[str] = []
-    for line in completed.stdout.splitlines():
-        if not (line.startswith("+") or line.startswith("-")):
-            continue
-        if line.startswith(("+++", "---")):
-            continue
-        if ASSERTION_DIFF_RE.search(line):
-            hits.append(line[:240])
-    return hits
+    return list(_assertion_diff_lines(completed.stdout))
 
 
 def _archive_ref(base: str, target: Path, cwd: Path) -> None:
@@ -178,9 +193,27 @@ def _archive_ref(base: str, target: Path, cwd: Path) -> None:
         cwd=cwd,
         check=True,
         capture_output=True,
+        timeout=DEFAULT_TIMEOUT_SECONDS,
     )
+    target_root = target.resolve()
     with tarfile.open(fileobj=BytesIO(archive.stdout), mode="r:") as tar:
-        tar.extractall(target, filter="data")
+        for member in tar:
+            member_path = target_root / member.name
+            resolved = member_path.resolve()
+            if not resolved.is_relative_to(target_root):
+                raise ValueError(f"unsafe archive path: {member.name}")
+            if member.isdir():
+                resolved.mkdir(parents=True, exist_ok=True)
+                continue
+            if not member.isfile():
+                continue
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+            source = tar.extractfile(member)
+            if source is None:
+                continue
+            with source, resolved.open("wb") as destination:
+                shutil.copyfileobj(source, destination)
+            resolved.chmod(member.mode & 0o777)
 
 
 def verify_spec(
@@ -200,17 +233,26 @@ def verify_spec(
             test_file=spec.test_file,
         )
 
-    if enforce_tamper:
-        tampered = _changed_assertions(base, head, spec.test_file, repo)
-        if tampered:
-            return _json_result(
-                VERDICT_BROKEN,
-                reason="test-assertion-tamper",
-                test_file=spec.test_file,
-                changed_assertions=tampered,
-            )
+    try:
+        if enforce_tamper:
+            tampered = _changed_assertions(base, head, spec.test_file, repo)
+            if tampered:
+                return _json_result(
+                    VERDICT_BROKEN,
+                    reason="test-assertion-tamper",
+                    test_file=spec.test_file,
+                    changed_assertions=tampered,
+                )
 
-    head_run = _run(spec.command, repo)
+        head_run = _run(spec.command, repo)
+    except subprocess.TimeoutExpired as exc:
+        return _json_result(
+            VERDICT_BROKEN,
+            reason="command-timeout",
+            command=list(exc.cmd) if isinstance(exc.cmd, (tuple, list)) else str(exc.cmd),
+            timeout=exc.timeout,
+        )
+
     if head_run.returncode != 0:
         return _json_result(
             VERDICT_BROKEN,
@@ -221,13 +263,27 @@ def verify_spec(
             stderr=head_run.stderr,
         )
 
-    with tempfile.TemporaryDirectory(prefix="deliberate-break-base-") as tmp:
-        base_dir = Path(tmp)
-        _archive_ref(base, base_dir, repo)
-        base_test = base_dir / spec.test_file
-        base_test.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(test_path, base_test)
-        base_run = _run(spec.command, base_dir)
+    try:
+        with tempfile.TemporaryDirectory(prefix="deliberate-break-base-") as tmp:
+            base_dir = Path(tmp)
+            _archive_ref(base, base_dir, repo)
+            base_test = base_dir / spec.test_file
+            base_test.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(test_path, base_test)
+            base_run = _run(spec.command, base_dir)
+    except subprocess.TimeoutExpired as exc:
+        return _json_result(
+            VERDICT_BROKEN,
+            reason="command-timeout",
+            command=list(exc.cmd) if isinstance(exc.cmd, (tuple, list)) else str(exc.cmd),
+            timeout=exc.timeout,
+        )
+    except ValueError as exc:
+        return _json_result(
+            VERDICT_BROKEN,
+            reason="archive-extract-failed",
+            detail=str(exc),
+        )
 
     if base_run.returncode == 0:
         return _json_result(

@@ -21,6 +21,7 @@ class SummaryContext:
     output_path: Path | None
     python_required: bool = True
     docs_guard_result: str = "success"
+    test_quality_result: str = "skipped"
 
 
 @dataclass(slots=True)
@@ -243,6 +244,7 @@ def _append_job_table(
     job_results: Mapping[str, Iterable[str]],
     docs_guard_result: str,
     docker_result: str,
+    test_quality_result: str,
 ) -> None:
     lines.append("")
     lines.append("| Job | Result |")
@@ -252,6 +254,7 @@ def _append_job_table(
         lines.append(f"| {job_name} | {_friendly(result)} |")
     lines.append(f"| docs-guard | {_friendly(docs_guard_result)} |")
     lines.append(f"| docker-smoke | {_friendly(docker_result)} |")
+    lines.append(f"| test-quality | {_friendly(test_quality_result)} |")
 
 
 def _active_lines(
@@ -264,9 +267,10 @@ def _active_lines(
     job_results: Mapping[str, list[str]],
     docs_guard_result: str = "success",
     docker_result: str = "skipped",
+    test_quality_result: str = "skipped",
 ) -> list[str]:
     lines = ["### Gate status", *table]
-    _append_job_table(lines, job_results, docs_guard_result, docker_result)
+    _append_job_table(lines, job_results, docs_guard_result, docker_result, test_quality_result)
 
     lint_status, lint_detail = _aggregate(lint_entries)
     type_status, type_detail = _aggregate(type_entries)
@@ -334,6 +338,7 @@ def summarize(context: SummaryContext) -> SummaryResult:
         job_results,
         docs_guard_result,
         context.docker_result,
+        context.test_quality_result,
     )
 
     state = "success"
@@ -341,6 +346,7 @@ def summarize(context: SummaryContext) -> SummaryResult:
 
     python_result = _normalize(context.python_result or "success")
     docker_result_norm = _normalize(context.docker_result or "skipped")
+    test_quality_result = _normalize(context.test_quality_result or "skipped")
     cosmetic_failure = False
     failure_checks: tuple[str, ...] = ()
     format_failure = False
@@ -378,10 +384,20 @@ def summarize(context: SummaryContext) -> SummaryResult:
     elif not context.docker_changed:
         lines.append("- Docker smoke skipped: no Docker-related changes detected.")
 
+    if state == "success":
+        if test_quality_result == "cancelled":
+            state = "pending"
+            description = "Test-quality cancelled; waiting for rerun."
+        elif test_quality_result not in ("success", "skipped"):
+            state = "failure"
+            description = f"Test-quality result: {test_quality_result}."
+
     adjusted_lines = []
     for line in lines:
         if line.startswith("| docker-smoke"):
             adjusted_lines.append(f"| docker-smoke | {_friendly(docker_result_norm)} |")
+        elif line.startswith("| test-quality"):
+            adjusted_lines.append(f"| test-quality | {_friendly(test_quality_result)} |")
         else:
             adjusted_lines.append(line)
 
@@ -409,6 +425,7 @@ def build_context() -> SummaryContext:
     python_result = os.environ.get("PYTHON_RESULT") or "skipped"
     docs_guard_result = os.environ.get("DOCS_GUARD_RESULT") or "success"
     docker_result = os.environ.get("DOCKER_RESULT") or "skipped"
+    test_quality_result = os.environ.get("TEST_QUALITY_RESULT") or "skipped"
     docker_changed = _normalize(os.environ.get("DOCKER_CHANGED"), "false") == "true"
     python_required = _normalize(os.environ.get("PYTHON_REQUIRED"), "true") == "true"
     artifacts_root = Path(os.environ.get("GATE_ARTIFACTS_ROOT", "gate_artifacts"))
@@ -422,6 +439,7 @@ def build_context() -> SummaryContext:
         python_result=python_result,
         docs_guard_result=docs_guard_result,
         docker_result=docker_result,
+        test_quality_result=test_quality_result,
         docker_changed=docker_changed,
         artifacts_root=artifacts_root,
         summary_path=summary_path,

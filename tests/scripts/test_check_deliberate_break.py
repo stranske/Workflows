@@ -43,7 +43,7 @@ def _write_test(repo: Path, expected: int) -> None:
     test_file = repo / "tests" / "test_app.py"
     test_file.parent.mkdir(exist_ok=True)
     test_file.write_text(
-        "import app\n\n\n" "def test_value():\n" f"    assert app.value() == {expected}\n",
+        f"import app\n\n\ndef test_value():\n    assert app.value() == {expected}\n",
         encoding="utf-8",
     )
 
@@ -138,6 +138,43 @@ def test_assertion_tamper_is_flagged(tmp_path, monkeypatch) -> None:
 
     assert result["verdict"] == VERDICT_BROKEN
     assert result["reason"] == "test-assertion-tamper"
+
+
+def test_new_assertion_in_existing_test_file_is_not_tamper(tmp_path, monkeypatch) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    _write_app(repo, 0)
+    test_file = repo / "tests" / "test_app.py"
+    test_file.parent.mkdir(exist_ok=True)
+    test_file.write_text(
+        "def test_existing_value():\n    assert 1 + 1 == 2\n",
+        encoding="utf-8",
+    )
+    base = _commit(repo, "base test")
+    _write_app(repo, 1)
+    test_file.write_text(
+        "import app\n\n\n"
+        "def test_existing_value():\n"
+        "    assert 1 + 1 == 2\n\n\n"
+        "def test_value():\n"
+        "    assert app.value() == 1\n",
+        encoding="utf-8",
+    )
+    _commit(repo, "implementation and added assertion")
+    monkeypatch.chdir(repo)
+
+    spec = parse_deliberate_break_spec(
+        "<!-- deliberate-break: "
+        "test=tests/test_app.py::test_value "
+        "test-file=tests/test_app.py "
+        "break-file=app.py -->"
+    )
+    assert spec is not None
+
+    result = verify_spec(spec, base=base)
+
+    assert result["verdict"] == VERDICT_PASS
 
 
 def test_added_acceptance_test_is_not_tamper(tmp_path, monkeypatch) -> None:
