@@ -165,7 +165,7 @@ Issue: "Add user authentication"
 | `agent:needs-attention` | Human intervention required |
 | `agents:auto-pilot-pause` | Auto-pilot paused |
 | `agents:auto-pilot-failed` | Auto-pilot stopped due to errors |
-| `agents:allow-change` | Permission signal for `agents-guard`; bypasses CODEOWNER approval only for automated dependency PRs from Dependabot/Renovate. Auto-applied by `maint-auto-label-dep-prs.yml`; manual application does not bypass guard enforcement. |
+| `agents:allow-change` | Permission signal for `agents-guard`; bypasses guard-level CODEOWNER approval only for dependency-only `uses:` reference updates from Dependabot/Renovate or repository owner/member/collaborator PRs. Auto-applied to dependency-bot PRs by `maint-auto-label-dep-prs.yml`; arbitrary workflow logic edits still require review. |
 | `needs-human` | Escalated to human |
 | `follow-up` | Created as follow-up to another issue/PR |
 | `duplicate` | Potential duplicate detected |
@@ -850,7 +850,7 @@ The Workflows repository includes maintenance workflows that handle sync, update
 **Trigger:** When Dependabot or Renovate opens a PR
 
 **Labels Applied:**
-- `agents:allow-change` (so protected-workflow changes can be reviewed without manual label work)
+- `agents:allow-change` (so dependency-bot protected-workflow version updates can use the guarded dependency-update lane)
 
 **Use When:** Automatic, no action needed
 

@@ -609,10 +609,14 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 **Trigger:** Agent guard evaluation
 
 **Effect:**
-1. Allows protected automation changes, such as Dependabot or workflow-adjacent
-   edits, after the change has been justified.
-2. Prevents `agents-guard` from blocking PRs that would otherwise require
-   explicit permission.
+1. Signals maintainer permission for protected automation changes after the
+   change has been justified.
+2. Allows the guard to pass without Code Owner approval only when every
+   protected workflow diff is limited to `uses: owner/action@ref` dependency
+   reference updates and the PR author is Dependabot, Renovate, or a repository
+   owner/member/collaborator.
+3. Does not bypass review for protected workflow logic edits, deletes, renames,
+   or dependency changes whose patch cannot be inspected.
 
 **Consumers:** `.github/scripts/agents-guard.js`,
 `.github/workflows/maint-auto-label-dep-prs.yml`.

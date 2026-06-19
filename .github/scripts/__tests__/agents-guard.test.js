@@ -11,6 +11,33 @@ const protectedFile = {
 };
 
 const codeownersContent = '.github/workflows/agents-foo.yml @owner';
+const actionVersionPatch = [
+  '@@ -1,3 +1,3 @@',
+  ' steps:',
+  '   - name: Checkout',
+  '-    uses: actions/checkout@v6',
+  '+    uses: actions/checkout@v7',
+].join('\n');
+const workflowLogicPatch = [
+  '@@ -1,3 +1,3 @@',
+  ' steps:',
+  '-  - run: echo old',
+  '+  - run: echo new',
+].join('\n');
+const usesCommentOnlyPatch = [
+  '@@ -1,3 +1,3 @@',
+  ' steps:',
+  '-    uses: actions/checkout@v7 # old note',
+  '+    uses: actions/checkout@v7 # new note',
+].join('\n');
+const swappedActionPatch = [
+  '@@ -1,4 +1,4 @@',
+  ' steps:',
+  '-    uses: actions/checkout@v6',
+  '-    uses: actions/setup-node@v4',
+  '+    uses: actions/setup-node@v4',
+  '+    uses: actions/checkout@v7',
+].join('\n');
 
 test('blocks protected workflow edits without label or approval', () => {
   const result = evaluateGuard({
@@ -276,6 +303,84 @@ test('does not allow label-only bypass without codeowner approval', () => {
   assert.equal(result.hasAllowLabel, true);
   assert.equal(result.needsApproval, true);
   assert.ok(result.failureReasons.some((reason) => reason.includes('Request approval from a CODEOWNER')));
+});
+
+test('allows dependency bot action version updates with allow-change label', () => {
+  const result = evaluateGuard({
+    files: [{ ...protectedFile, patch: actionVersionPatch }],
+    codeownersContent: '.github/workflows/agents-foo.yml @octo/security',
+    labels: [{ name: 'agents:allow-change' }],
+    authorLogin: 'renovate[bot]',
+  });
+
+  assert.equal(result.blocked, false);
+  assert.equal(result.hasAllowLabel, true);
+  assert.equal(result.hasDependencyUpgradeBypass, true);
+  assert.equal(result.protectedChangesAreDependencyOnly, true);
+  assert.equal(result.needsApproval, false);
+});
+
+test('allows maintainer action version updates with allow-change label', () => {
+  const result = evaluateGuard({
+    files: [{ ...protectedFile, patch: actionVersionPatch }],
+    codeownersContent: '.github/workflows/agents-foo.yml @octo/security',
+    labels: [{ name: 'agents:allow-change' }],
+    authorLogin: 'stranske',
+    authorAssociation: 'OWNER',
+  });
+
+  assert.equal(result.blocked, false);
+  assert.equal(result.hasAllowLabel, true);
+  assert.equal(result.hasDependencyUpgradeBypass, true);
+  assert.equal(result.protectedChangesAreDependencyOnly, true);
+  assert.equal(result.needsApproval, false);
+});
+
+test('blocks labeled maintainer edits that change workflow logic', () => {
+  const result = evaluateGuard({
+    files: [{ ...protectedFile, patch: workflowLogicPatch }],
+    codeownersContent: '.github/workflows/agents-foo.yml @octo/security',
+    labels: [{ name: 'agents:allow-change' }],
+    authorLogin: 'stranske',
+    authorAssociation: 'OWNER',
+  });
+
+  assert.equal(result.blocked, true);
+  assert.equal(result.hasAllowLabel, true);
+  assert.equal(result.hasDependencyUpgradeBypass, false);
+  assert.equal(result.protectedChangesAreDependencyOnly, false);
+  assert.equal(result.needsApproval, true);
+  assert.ok(result.failureReasons.some((reason) => reason.includes('Request approval from a CODEOWNER')));
+});
+
+test('blocks labeled maintainer edits that only change uses-line comments', () => {
+  const result = evaluateGuard({
+    files: [{ ...protectedFile, patch: usesCommentOnlyPatch }],
+    codeownersContent: '.github/workflows/agents-foo.yml @octo/security',
+    labels: [{ name: 'agents:allow-change' }],
+    authorLogin: 'stranske',
+    authorAssociation: 'OWNER',
+  });
+
+  assert.equal(result.blocked, true);
+  assert.equal(result.hasDependencyUpgradeBypass, false);
+  assert.equal(result.protectedChangesAreDependencyOnly, false);
+  assert.equal(result.needsApproval, true);
+});
+
+test('blocks labeled maintainer edits that swap actions between uses lines', () => {
+  const result = evaluateGuard({
+    files: [{ ...protectedFile, patch: swappedActionPatch }],
+    codeownersContent: '.github/workflows/agents-foo.yml @octo/security',
+    labels: [{ name: 'agents:allow-change' }],
+    authorLogin: 'stranske',
+    authorAssociation: 'OWNER',
+  });
+
+  assert.equal(result.blocked, true);
+  assert.equal(result.hasDependencyUpgradeBypass, false);
+  assert.equal(result.protectedChangesAreDependencyOnly, false);
+  assert.equal(result.needsApproval, true);
 });
 
 test('requires explicit approval when codeowners only list a team', () => {

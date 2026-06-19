@@ -51,6 +51,7 @@ def run_guard(
     codeowners=None,
     protected=None,
     author=None,
+    author_association=None,
     marker=None,
     repository=None,
 ):
@@ -64,6 +65,8 @@ def run_guard(
         payload["protectedPaths"] = protected
     if author is not None:
         payload["authorLogin"] = author
+    if author_association is not None:
+        payload["authorAssociation"] = author_association
     if marker is not None:
         payload["marker"] = marker
     if repository is not None:
@@ -144,6 +147,45 @@ CODEOWNERS_SAMPLE = """
 # Example CODEOWNERS entries
 /.github/workflows/** @stranske
 """.strip()
+
+ACTION_VERSION_PATCH = "\n".join(
+    [
+        "@@ -1,3 +1,3 @@",
+        " steps:",
+        "   - name: Checkout",
+        "-    uses: actions/checkout@v6",
+        "+    uses: actions/checkout@v7",
+    ]
+)
+
+WORKFLOW_LOGIC_PATCH = "\n".join(
+    [
+        "@@ -1,3 +1,3 @@",
+        " steps:",
+        "-  - run: echo old",
+        "+  - run: echo new",
+    ]
+)
+
+USES_COMMENT_ONLY_PATCH = "\n".join(
+    [
+        "@@ -1,3 +1,3 @@",
+        " steps:",
+        "-    uses: actions/checkout@v7 # old note",
+        "+    uses: actions/checkout@v7 # new note",
+    ]
+)
+
+SWAPPED_ACTION_PATCH = "\n".join(
+    [
+        "@@ -1,4 +1,4 @@",
+        " steps:",
+        "-    uses: actions/checkout@v6",
+        "-    uses: actions/setup-node@v4",
+        "+    uses: actions/setup-node@v4",
+        "+    uses: actions/checkout@v7",
+    ]
+)
 
 
 @skip_if_no_node
@@ -330,6 +372,121 @@ def test_label_without_codeowner_still_blocks():
     assert result["blocked"] is True
     assert "Missing `agents:allow-change` label." not in result["failureReasons"]
     assert any("Request approval" in reason for reason in result["failureReasons"])
+
+
+@skip_if_no_node
+def test_dependency_bot_action_version_update_with_label_passes():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
+                "status": "modified",
+                "patch": ACTION_VERSION_PATCH,
+            }
+        ],
+        labels=[{"name": "agents:allow-change"}],
+        reviews=[],
+        codeowners=".github/workflows/agents-63-issue-intake.yml @octo/security",
+        author="renovate[bot]",
+    )
+
+    assert result["blocked"] is False
+    assert result["hasDependencyUpgradeBypass"] is True
+    assert result["protectedChangesAreDependencyOnly"] is True
+    assert result["needsApproval"] is False
+
+
+@skip_if_no_node
+def test_owner_action_version_update_with_label_passes_without_personal_codeowner():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
+                "status": "modified",
+                "patch": ACTION_VERSION_PATCH,
+            }
+        ],
+        labels=[{"name": "agents:allow-change"}],
+        reviews=[],
+        codeowners=".github/workflows/agents-63-issue-intake.yml @octo/security",
+        author="stranske",
+        author_association="OWNER",
+    )
+
+    assert result["blocked"] is False
+    assert result["hasDependencyUpgradeBypass"] is True
+    assert result["protectedChangesAreDependencyOnly"] is True
+    assert result["needsApproval"] is False
+
+
+@skip_if_no_node
+def test_owner_label_does_not_bypass_non_dependency_workflow_edits():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
+                "status": "modified",
+                "patch": WORKFLOW_LOGIC_PATCH,
+            }
+        ],
+        labels=[{"name": "agents:allow-change"}],
+        reviews=[],
+        codeowners=".github/workflows/agents-63-issue-intake.yml @octo/security",
+        author="stranske",
+        author_association="OWNER",
+    )
+
+    assert result["blocked"] is True
+    assert result["hasDependencyUpgradeBypass"] is False
+    assert result["protectedChangesAreDependencyOnly"] is False
+    assert result["needsApproval"] is True
+    assert any("Request approval" in reason for reason in result["failureReasons"])
+
+
+@skip_if_no_node
+def test_owner_label_does_not_bypass_uses_line_comment_only_edits():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
+                "status": "modified",
+                "patch": USES_COMMENT_ONLY_PATCH,
+            }
+        ],
+        labels=[{"name": "agents:allow-change"}],
+        reviews=[],
+        codeowners=".github/workflows/agents-63-issue-intake.yml @octo/security",
+        author="stranske",
+        author_association="OWNER",
+    )
+
+    assert result["blocked"] is True
+    assert result["hasDependencyUpgradeBypass"] is False
+    assert result["protectedChangesAreDependencyOnly"] is False
+    assert result["needsApproval"] is True
+
+
+@skip_if_no_node
+def test_owner_label_does_not_bypass_swapped_action_uses_edits():
+    result = run_guard(
+        files=[
+            {
+                "filename": ".github/workflows/agents-63-issue-intake.yml",
+                "status": "modified",
+                "patch": SWAPPED_ACTION_PATCH,
+            }
+        ],
+        labels=[{"name": "agents:allow-change"}],
+        reviews=[],
+        codeowners=".github/workflows/agents-63-issue-intake.yml @octo/security",
+        author="stranske",
+        author_association="OWNER",
+    )
+
+    assert result["blocked"] is True
+    assert result["hasDependencyUpgradeBypass"] is False
+    assert result["protectedChangesAreDependencyOnly"] is False
+    assert result["needsApproval"] is True
 
 
 @skip_if_no_node

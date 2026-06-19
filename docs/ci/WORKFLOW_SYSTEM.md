@@ -258,8 +258,12 @@ explain why a particular status appears in the Checks tab.
   `pull_request_target` (labels beginning with `agent:`—for example
   `agents:allow-change`).
 - **What it enforces.** Confirms protected workflow edits carry the
-  `agents:allow-change` label, CODEOWNERS approval, and the correct guard
-  marker. When no protected files are in scope, the job exits cleanly.
+  `agents:allow-change` label, the correct guard marker, and Code Owner approval
+  except for the narrow dependency-update lane. That lane allows protected
+  workflow diffs that change only `uses: owner/action@ref` references to pass
+  with `agents:allow-change` for Dependabot, Renovate, or repository
+  owner/member/collaborator authors without a separate Code Owner approval.
+  When no protected files are in scope, the job exits cleanly.
 - **Merge impact.** Required on every PR; the status context (**Health 45
   Agents Guard / Enforce agents workflow protections**) stays green unless a
   protected change violates the guard policy.
@@ -412,7 +416,7 @@ enforces the guardrail so you know where to confirm compliance:
 | --- | --- | --- |
 | PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates so it never races Gate summary job. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
 | Maintenance & repo health | Gate summary job only runs after Gate succeeds; Health 40–44 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Gate summary job summary comment, Health dashboard history, and Maint 45 run permissions. |
-| Issue / agents automation | `agents:allow-change` label, Code Owner review, and Health 45 Agents Guard are mandatory before protected YAML merges; orchestrator dispatch only accepts labelled issues. | [Agents Workflow Protection Policy](./AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
+| Issue / agents automation | `agents:allow-change` label and Health 45 Agents Guard are mandatory before protected YAML merges; Code Owner review is mandatory except for dependency-only `uses: owner/action@ref` updates by Dependabot, Renovate, or repository owner/member/collaborator authors using the narrow label path. Orchestrator dispatch only accepts labelled issues. | [Agents Workflow Protection Policy](./AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
 | Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, Health 43 signature guard, and the reusable workflow permissions matrix. |
 
 ### Observability surfaces by bucket
@@ -834,9 +838,11 @@ snapshots for audit trails.
 3. Secure the required `agents:allow-change` label (maintainers only) before
    pushing edits to protected workflows. Gate or the orchestrator will block the
    PR without it.
-4. Keep Code Owner review enabled so the protected files land only with explicit
-   maintainer approval. At least one owning maintainer must approve before
-   merging.
+4. Keep Code Owner review enabled so workflow logic edits land only with
+   explicit maintainer approval. Dependency-only action reference updates may
+   satisfy Health 45 with `agents:allow-change` when authored by Dependabot,
+   Renovate, or a repository owner/member/collaborator; branch protection can
+   still require review.
 5. After merge, remove the label, confirm Gate summary job processed the follow-up
    hygiene, and verify Agents Guard reports green.
 6. Reflect the new state in this document and the [Workflow Catalog](WORKFLOWS.md)

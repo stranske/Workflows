@@ -10,6 +10,8 @@ const path = require('path');
 const DEFAULT_MARKER = '<!-- agents-guard-marker -->';
 
 const DEFAULT_PROTECTED_PATHS = ['.github/workflows/agents-*.yml'];
+const DEPENDENCY_UPDATE_BOT_LOGINS = new Set(['dependabot[bot]', 'renovate[bot]']);
+const TRUSTED_DEPENDENCY_AUTHOR_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 const LEGACY_ALLOW_REMOVED_PATHS = [
   // Keepalive consolidation retired the standalone keepalive sweeps.
   '.github/workflows/agents-75-keepalive-on-gate.yml',
@@ -396,6 +398,83 @@ function extractLabelNames(labels) {
   );
 }
 
+function parseActionReferenceLine(line) {
+  const match = String(line || '').match(/^\s*(?:-\s*)?uses:\s*["']?([^@\s#'"]+)@([^\s#'"]+)["']?(?:\s*(?:#.*)?)?$/i);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    action: match[1].toLowerCase(),
+    ref: match[2],
+  };
+}
+
+function sameActionSequence(left, right) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index].action !== right[index].action) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function sameActionRefSequence(left, right) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index].action !== right[index].action || left[index].ref !== right[index].ref) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function patchChangesOnlyActionReferences(patch) {
+  if (!patch || typeof patch !== 'string') {
+    return false;
+  }
+
+  const removedRefs = [];
+  const addedRefs = [];
+  for (const rawLine of patch.split(/\r?\n/)) {
+    if (!rawLine || rawLine.startsWith('+++') || rawLine.startsWith('---')) {
+      continue;
+    }
+
+    const marker = rawLine[0];
+    if (marker !== '+' && marker !== '-') {
+      continue;
+    }
+
+    const parsed = parseActionReferenceLine(rawLine.slice(1));
+    if (!parsed) {
+      return false;
+    }
+
+    if (marker === '-') {
+      removedRefs.push(parsed);
+    } else {
+      addedRefs.push(parsed);
+    }
+  }
+
+  if (removedRefs.length === 0 || addedRefs.length === 0) {
+    return false;
+  }
+
+  return sameActionSequence(removedRefs, addedRefs) &&
+    !sameActionRefSequence(removedRefs, addedRefs);
+}
+
 function evaluateGuard({
   files = [],
   labels = [],
@@ -404,6 +483,7 @@ function evaluateGuard({
   protectedPaths = DEFAULT_PROTECTED_PATHS,
   labelName = 'agents:allow-change',
   authorLogin = '',
+  authorAssociation = '',
   marker = DEFAULT_MARKER,
   repository = process.env.GITHUB_REPOSITORY || '',
 } = {}) {
@@ -524,16 +604,37 @@ function evaluateGuard({
   }
 
   const normalizedAuthor = authorLogin ? String(authorLogin).toLowerCase() : '';
-  const authorIsCodeowner = normalizedAuthor && codeownerLogins.has(normalizedAuthor);
+  const normalizedAuthorAssociation = authorAssociation
+    ? String(authorAssociation).toUpperCase()
+    : '';
+  const authorIsCodeowner = Boolean(
+    normalizedAuthor && codeownerLogins.has(normalizedAuthor),
+  );
   const hasExternalApproval = [...codeownerLogins].some((login) => approvedLogins.has(login));
-  const hasCodeownerApproval = hasExternalApproval || authorIsCodeowner;
+  const hasCodeownerApproval = Boolean(hasExternalApproval || authorIsCodeowner);
 
   const hasProtectedChanges = modifiedProtectedPaths.size > 0;
-  // Security note: Allow `agents:allow-change` label to bypass CODEOWNER approval
-  // ONLY for automated dependency PRs from known bots (dependabot, renovate).
-  // Human PRs or other bot PRs still require CODEOWNER approval even with label.
-  const isAutomatedPR = normalizedAuthor && (normalizedAuthor === 'dependabot[bot]' || normalizedAuthor === 'renovate[bot]');
-  const needsApproval = hasProtectedChanges && !hasCodeownerApproval && !(hasAllowLabel && isAutomatedPR);
+  const protectedChangesAreDependencyOnly = hasProtectedChanges && relevantFiles
+    .filter((file) => file.status === 'modified' && matchProtectedPath(file.filename || ''))
+    .every((file) => patchChangesOnlyActionReferences(file.patch || ''));
+  const isDependencyUpdateBot = Boolean(
+    normalizedAuthor && DEPENDENCY_UPDATE_BOT_LOGINS.has(normalizedAuthor),
+  );
+  const authorCanUseDependencyBypass = Boolean(
+    isDependencyUpdateBot ||
+      (normalizedAuthorAssociation &&
+        TRUSTED_DEPENDENCY_AUTHOR_ASSOCIATIONS.has(normalizedAuthorAssociation)),
+  );
+  // Security note: the `agents:allow-change` label can bypass CODEOWNER approval
+  // only for protected workflow dependency reference updates. This keeps routine
+  // action version alignment moving while arbitrary workflow logic edits still
+  // require CODEOWNER review.
+  const hasDependencyUpgradeBypass = Boolean(
+    hasAllowLabel &&
+      authorCanUseDependencyBypass &&
+      protectedChangesAreDependencyOnly,
+  );
+  const needsApproval = hasProtectedChanges && !hasCodeownerApproval && !hasDependencyUpgradeBypass;
   const needsLabel = hasProtectedChanges && !hasAllowLabel && !hasCodeownerApproval;
 
   const failureReasons = [];
@@ -619,6 +720,10 @@ function evaluateGuard({
     authorIsCodeowner,
     needsLabel,
     needsApproval,
+    hasDependencyUpgradeBypass,
+    protectedChangesAreDependencyOnly,
+    isDependencyUpdateBot,
+    authorCanUseDependencyBypass,
     modifiedProtectedPaths: [...modifiedProtectedPaths],
     touchedProtectedPaths: [...touchedProtectedPaths],
     fatalViolations,
@@ -633,6 +738,7 @@ module.exports = {
   evaluateGuard,
   parseCodeowners,
   globToRegExp,
+  patchChangesOnlyActionReferences,
   validatePullRequestTargetSafety,
   detectPullRequestTargetViolations,
 };

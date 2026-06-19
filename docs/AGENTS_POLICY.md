@@ -36,10 +36,13 @@ replaced them entirely.
 3. **CI guardrail** – the `Health 45 Agents Guard` check (see
    `.github/workflows/agents-guard.yml`) fails any pull request that modifies,
    deletes, or renames a protected file without the required label and
-   approvals. The check documents override steps and prevents merges unless a
-   maintainer explicitly bypasses the branch protection rule. Mark this status
-   check as **required** on the default branch so the enforcement cannot be
-   skipped accidentally.
+   approvals. The only guard-level review exception is for dependency-only
+   `uses: owner/action@ref` updates on protected workflows when the PR has
+   `agents:allow-change` and is authored by Dependabot, Renovate, or a
+   repository owner/member/collaborator. The check documents override steps and
+   prevents merges unless a maintainer explicitly bypasses the branch protection
+   rule. Mark this status check as **required** on the default branch so the
+   enforcement cannot be skipped accidentally.
 
 ## Emergency override procedure
 

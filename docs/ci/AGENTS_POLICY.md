@@ -115,7 +115,12 @@ When one of these scenarios applies:
    confirming the change reason fits the allowlist.
 3. Ensure the PR body includes the incident or policy context plus rollback
    steps.
-4. Secure Code Owner review before merge; the label does not bypass review.
+4. Secure Code Owner review before merge for workflow logic edits. A narrow
+   dependency-update exception lets the guard pass without Code Owner approval
+   when all protected workflow changes are limited to `uses: owner/action@ref`
+   reference updates, the PR has `agents:allow-change`, and the author is
+   Dependabot, Renovate, or a repository owner/member/collaborator. Repository
+   branch protection may still require review even when the guard passes.
 5. Remove the label once merged so the guardrail resumes full enforcement on
    future PRs.
 
@@ -123,8 +128,12 @@ When one of these scenarios applies:
 - **Guard check failing for “missing agents:allow-change label”.** Add the label
   (maintainers only) or revert the workflow edits. The check re-evaluates once
   the label is present.
-- **CODEOWNERS review still required.** Ping the maintainer group listed in
-  `.github/CODEOWNERS`. Draft reviews do not satisfy branch protection.
+- **CODEOWNERS review still required.** For non-dependency workflow edits, ping
+  the maintainer group listed in `.github/CODEOWNERS`. Draft reviews do not
+  satisfy branch protection. For dependency-only action reference updates,
+  confirm the PR has `agents:allow-change`, the protected file diff changes only
+  `uses:` lines, and the author is Dependabot, Renovate, or a repository
+  owner/member/collaborator.
 - **Ruleset rejection on push.** Confirm you are operating on a maintainer-owned
   branch or request a maintainer to apply a temporary bypass while they assist
   with the change.

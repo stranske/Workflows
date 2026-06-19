@@ -208,6 +208,8 @@ jobs:
             const authorLogin =
               context.payload.pull_request.user &&
               context.payload.pull_request.user.login;
+            const authorAssociation =
+              context.payload.pull_request.author_association || '';
             const { owner, repo } = context.repo;
             const baseRef = context.payload.pull_request.base.sha;
             const labelName = 'agents:allow-change';
@@ -420,6 +422,7 @@ jobs:
               protectedPaths,
               labelName,
               authorLogin,
+              authorAssociation,
               marker,
             });
 

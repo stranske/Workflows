@@ -81,9 +81,9 @@ reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA
 [pair.10]
 main = .github/workflows/agents-guard.yml
 template = templates/consumer-repo/.github/workflows/agents-guard.yml
-main_sha256 = b2c13f14c0fef728644c958eb4f0d547f680acad873f6bea4f6bbe248c4bc80c
-template_sha256 = 9dbca1d3b9a4a5efa059589cba40567c64798ce9d93282fff7f05afc57da9a1b
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+main_sha256 = 382d27aaaaab05866b77f2b573b36d3e0cf43f3db3185bf93ffd4c44564d8403
+template_sha256 = a157d208e4c1f0e4c9e1cb602ef2068c5540cfc5eac0c6f3f4f12554a365b48c
+reason = Intentional divergence re-baselined 2026-06-18: root and consumer guard workflows differ for pinned consumer actions/App-token setup, but both now pass pull_request.author_association into the shared guard script for the dependency-update lane.
 
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
