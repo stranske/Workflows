@@ -39,9 +39,9 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.4]
 main = .github/workflows/agents-73-codex-belt-conveyor.yml
 template = templates/consumer-repo/.github/workflows/agents-73-codex-belt-conveyor.yml
-main_sha256 = ad45b8c561a09e0ff0ad2c059a29bafce335a19053f0dc797872f586766f81dc
-template_sha256 = 94b889c6c84c4dfda557a8d56a4d390acd009184ae167b1630380fec35ea4e20
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+main_sha256 = 3a19af6ea9b6aa7a7c16d8afe919dff318071e69f1b597fd7fb14bc245872ace
+template_sha256 = 2a93d90300845ee800c98f1863dc42f1decd0f777756f3dc7362c3b77977dd48
+reason = Existing reviewed baseline drift re-baselined 2026-06-19: runtime AC merge guard added to both root and consumer conveyor while preserving consumer action pinning differences.
 
 [pair.5]
 main = .github/workflows/agents-auto-label.yml

@@ -191,6 +191,20 @@ def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
     assert "getCombinedStatusForRef" in gate_script
     assert "conveyor requires success" in gate_script
 
+    checkout_steps = [step for step in steps if step.get("name") == "Checkout retry helpers"]
+    assert checkout_steps, "Conveyor must check out local helper scripts"
+    checkout_sparse = (checkout_steps[0].get("with") or {}).get("sparse-checkout", "")
+    assert (
+        ".github/scripts/runtime_ac_merge_guard.js" in checkout_sparse
+    ), "Conveyor sparse checkout must include the runtime AC merge guard helper"
+
+    merge_steps = [step for step in steps if step.get("name") == "Merge PR with squash"]
+    assert merge_steps, "Conveyor must define a merge step"
+    merge_script = (merge_steps[0].get("with") or {}).get("script", "")
+    assert "runtime_ac_merge_guard.js" in merge_script
+    assert "assertRuntimeAcMergeAllowed" in merge_script
+    assert "agents-73-codex-belt-conveyor" in merge_script
+
     redispatch_steps = [step for step in steps if step.get("name") == "Re-dispatch dispatcher"]
     assert redispatch_steps, "Conveyor must re-trigger the dispatcher"
     redispatch = redispatch_steps[0]

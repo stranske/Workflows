@@ -138,6 +138,7 @@ jobs:
               parseBooleanInput,
               selectActiveSyncPr,
             } = require('./.github/scripts/sync_pr_merge_contract.js');
+            const { assertRuntimeAcMergeAllowed } = require('./.github/scripts/runtime_ac_merge_guard.js');
             // Support repository_dispatch (no inputs) with sensible defaults
             const inputRepos =
               process.env.REPOS_INPUT ||
@@ -503,6 +504,31 @@ jobs:
                 }
 
                 // Merge the PR
+                try {
+                  await assertRuntimeAcMergeAllowed({
+                    github,
+                    core,
+                    owner,
+                    repo,
+                    prNumber: pr.number,
+                    labels: pr.labels,
+                    withRetry,
+                    source: 'maint-71-merge-sync-prs',
+                  });
+                } catch (guardError) {
+                  const message = String(guardError?.message || guardError);
+                  console.log(`Runtime AC merge guard blocked PR #${pr.number}: ${message}`);
+                  results.push({
+                    owner,
+                    repo,
+                    pr: pr.number,
+                    branch: pr.head.ref,
+                    status: 'merge_blocked_runtime_ac',
+                    error: message,
+                  });
+                  continue;
+                }
+
                 try {
                   const mergeMethods = ['merge', 'squash', 'rebase'];
                   let merged = false;

@@ -98,6 +98,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     checks_pending: 0,
     ready: 0,
     dry_run_merge: 1,
+    merge_blocked_runtime_ac: 0,
     merged: 0,
     merge_failed: 0,
     error: 0,
@@ -135,10 +136,12 @@ test('buildMarkdownSummary includes non-zero statuses and artifact name', () => 
     summary: summarizeResults([
       { status: 'merged' },
       { status: 'checks_pending' },
+      { status: 'merge_blocked_runtime_ac' },
     ]),
   });
 
   assert.match(markdown, /Expected branch: `sync\/workflows-5108b94a2435`/);
   assert.match(markdown, /\| merged \| 1 \|/);
+  assert.match(markdown, /\| merge_blocked_runtime_ac \| 1 \|/);
   assert.match(markdown, /sync-pr-merge-report/);
 });

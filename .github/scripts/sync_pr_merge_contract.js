@@ -107,6 +107,7 @@ function summarizeResults(results) {
     checks_pending: 0,
     ready: 0,
     dry_run_merge: 0,
+    merge_blocked_runtime_ac: 0,
     merged: 0,
     merge_failed: 0,
     error: 0,

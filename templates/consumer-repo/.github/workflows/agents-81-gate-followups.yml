@@ -1552,6 +1552,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
+            .github/scripts/runtime_ac_merge_guard.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
       - name: Merge labelled agent PRs (guarded)
@@ -1563,6 +1564,7 @@ jobs:
             const fs = require('fs');
             const label = 'automerge';
             const retryPath = './.github/scripts/github-api-with-retry.js';
+            const { assertRuntimeAcMergeAllowed } = require('./.github/scripts/runtime_ac_merge_guard.js');
             const { createTokenAwareRetry } = fs.existsSync(retryPath)
               ? require(retryPath)
               : {
@@ -1731,6 +1733,16 @@ jobs:
                           note = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
                         } else {
                           try {
+                            await assertRuntimeAcMergeAllowed({
+                              github,
+                              core,
+                              owner,
+                              repo,
+                              prNumber,
+                              labels: issue.labels,
+                              withRetry,
+                              source: 'agents-81-gate-followups guarded merge',
+                            });
                             const response = await withRetry((client) => client.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' }));
                             if (response && response.data && response.data.merged) {
                               status = 'merged';

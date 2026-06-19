@@ -106,6 +106,47 @@ def test_agents_orchestrator_exposes_dry_run_toggle():
     assert "dryRun" in resolver_text, "Resolve script should compute and surface the dry_run flag"
 
 
+def test_external_merge_lanes_require_runtime_ac_guard():
+    main_text = (WORKFLOWS_DIR / "reusable-70-orchestrator-main.yml").read_text(encoding="utf-8")
+    maint_text = (WORKFLOWS_DIR / "maint-71-merge-sync-prs.yml").read_text(encoding="utf-8")
+    manifest_text = Path(".github/sync-manifest.yml").read_text(encoding="utf-8")
+    template_guard = Path("templates/consumer-repo/.github/scripts/runtime_ac_merge_guard.js")
+    template_followups_text = Path(
+        "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "runtime_ac_merge_guard.js" in main_text
+    assert "assertRuntimeAcMergeAllowed" in main_text
+    assert "reusable-70-orchestrator-main automerge sweep" in main_text
+
+    assert "runtime_ac_merge_guard.js" in maint_text
+    assert "assertRuntimeAcMergeAllowed" in maint_text
+    assert "merge_blocked_runtime_ac" in maint_text
+
+    assert ".github/scripts/runtime_ac_merge_guard.js" in manifest_text
+    assert template_guard.exists(), "Consumer template must include the guard helper"
+    assert "runtime_ac_merge_guard.js" in template_followups_text
+    assert "assertRuntimeAcMergeAllowed" in template_followups_text
+    assert "agents-81-gate-followups guarded merge" in template_followups_text
+    guarded_merge_job = template_followups_text.split("guarded-merge:", 1)[1]
+    guarded_merge_checkout = guarded_merge_job.split("- name: Merge labelled agent PRs", 1)[0]
+    assert ".github/scripts/runtime_ac_merge_guard.js" in guarded_merge_checkout
+
+    merge_workflows = [
+        *WORKFLOWS_DIR.glob("*.yml"),
+        *Path("templates/consumer-repo/.github/workflows").glob("*.yml"),
+    ]
+    unguarded = [
+        str(path)
+        for path in merge_workflows
+        if "pulls.merge" in path.read_text(encoding="utf-8")
+        and "assertRuntimeAcMergeAllowed" not in path.read_text(encoding="utf-8")
+    ]
+    assert not unguarded, "Workflow merge lanes missing runtime AC guard: " + ", ".join(
+        sorted(unguarded)
+    )
+
+
 def test_orchestrator_idle_precheck_defers_on_issue_scan_rate_limit():
     init_text = (WORKFLOWS_DIR / "reusable-70-orchestrator-init.yml").read_text(encoding="utf-8")
 

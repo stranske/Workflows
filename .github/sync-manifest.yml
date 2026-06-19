@@ -449,6 +449,9 @@ scripts:
   - source: .github/scripts/merge_manager.js
     description: "Manages PR merge operations"
 
+  - source: .github/scripts/runtime_ac_merge_guard.js
+    description: "Blocks external merge lanes for PRs that require local Orchestrator runtime acceptance checks"
+
   - source: .github/scripts/comment-dedupe.js
     description: "Deduplicates bot comments on issues/PRs"
 

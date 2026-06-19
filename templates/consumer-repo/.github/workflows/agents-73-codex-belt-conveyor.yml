@@ -192,6 +192,7 @@ jobs:
             .github/scripts/agent_registry.js
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/runtime_ac_merge_guard.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
@@ -440,6 +441,7 @@ jobs:
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const { assertRuntimeAcMergeAllowed } = require('./.github/scripts/runtime_ac_merge_guard.js');
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
@@ -451,6 +453,15 @@ jobs:
             const prNumber = Number('${{ inputs.pr_number }}');
             const { owner, repo } = context.repo;
             try {
+              await assertRuntimeAcMergeAllowed({
+                github,
+                core,
+                owner,
+                repo,
+                prNumber,
+                withRetry,
+                source: 'agents-73-codex-belt-conveyor',
+              });
               await withRetry(() => github.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' }));
               core.setOutput('merged', 'true');
             } catch (error) {

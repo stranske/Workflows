@@ -3246,6 +3246,7 @@ jobs:
             const label = (process.env.AUTOMERGE_LABEL || 'automerge').trim();
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const { assertRuntimeAcMergeAllowed } = require('./.github/scripts/runtime_ac_merge_guard.js');
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
@@ -3434,6 +3435,16 @@ jobs:
                               merge_method: 'squash'
                             };
                             try {
+                              await assertRuntimeAcMergeAllowed({
+                                github,
+                                core,
+                                owner,
+                                repo,
+                                prNumber,
+                                labels: issue.labels,
+                                withRetry,
+                                source: 'reusable-70-orchestrator-main automerge sweep',
+                              });
                               const response = await withRetry(() => {
                                 return github.rest.pulls.merge(mergeParams);
                               });
