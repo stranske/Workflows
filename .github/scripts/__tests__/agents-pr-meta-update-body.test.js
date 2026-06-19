@@ -17,6 +17,7 @@ const {
   buildPreamble,
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
+  isReleasePleasePr,
   resolveExplicitNonIssueWorkflowSourceContext,
   extractExplicitIssueSyncNumbers,
   hasExplicitIssueSyncReference,
@@ -77,6 +78,20 @@ test('parseCheckboxStates extracts checked items from a checkbox list', () => {
   assert.strictEqual(states.get('task one completed'), true);
   assert.strictEqual(states.get('task three completed'), true);
   assert.strictEqual(states.has('task two pending'), false);
+});
+
+test('isReleasePleasePr detects release-please release PRs', () => {
+  assert.equal(isReleasePleasePr({
+    title: 'chore(main): release 1.16.0',
+    head: { ref: 'release-please--branches--main' },
+    labels: [{ name: 'autorelease: pending' }],
+  }), true);
+
+  assert.equal(isReleasePleasePr({
+    title: 'Implement regular feature',
+    head: { ref: 'codex/feature' },
+    labels: [],
+  }), false);
 });
 
 test('parseCheckboxStates normalizes text by stripping leading dashes', () => {
@@ -851,6 +866,74 @@ test('run resolves stale repair warning for no-automation PRs with linked issues
   assert.match(calls.updateCommentBody, /origin=github_issue/);
   assert.match(calls.updateCommentBody, /A linked GitHub issue is present/);
   assert.match(calls.updateCommentBody, /no_automation=true/);
+});
+
+test('run skips release-please PR body updates', async () => {
+  const calls = {
+    pullGet: 0,
+    pullUpdate: 0,
+    issueGet: 0,
+  };
+  const github = {
+    rest: {
+      pulls: {
+        get: async () => {
+          calls.pullGet += 1;
+          return {
+            data: {
+              number: 55,
+              state: 'open',
+              title: 'chore(main): release 1.16.0',
+              body: '<!-- pr-preamble:start -->\n<!-- meta:issue:2367 -->\n<!-- pr-preamble:end -->',
+              head: { sha: 'abc123', ref: 'release-please--branches--main' },
+              base: { ref: 'main' },
+              labels: [{ name: 'autorelease: pending' }],
+            },
+          };
+        },
+        update: async () => {
+          calls.pullUpdate += 1;
+        },
+      },
+      issues: {
+        get: async () => {
+          calls.issueGet += 1;
+          throw new Error('should not fetch an issue for release-please PRs');
+        },
+      },
+    },
+  };
+  const failures = [];
+  const messages = [];
+  const core = {
+    info: (message) => messages.push(message),
+    debug: () => {},
+    warning: () => {},
+    error: () => {},
+    setFailed: (message) => failures.push(message),
+  };
+
+  await run({
+    github,
+    context: {
+      repo: { owner: 'octo', repo: 'demo' },
+      eventName: 'pull_request',
+      payload: {
+        pull_request: {
+          number: 55,
+          head: { sha: 'abc123' },
+        },
+      },
+    },
+    core,
+    inputs: {},
+  });
+
+  assert.deepEqual(failures, []);
+  assert.strictEqual(calls.pullGet, 1);
+  assert.strictEqual(calls.issueGet, 0);
+  assert.strictEqual(calls.pullUpdate, 0);
+  assert.match(messages.join('\n'), /release-please PR/);
 });
 
 test('run leaves source repair warning unresolved when issue fetch fails', async () => {

@@ -250,7 +250,7 @@ pyflakes==3.4.0
     # via flake8
 pygments==2.20.0
     # via pytest
-pytest==9.1.0
+pytest==9.1.1
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov
@@ -296,7 +296,7 @@ rpds-py==2026.5.1
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.17
+ruff==0.15.18
     # via workflows (pyproject.toml)
 six==1.17.0
     # via python-dateutil
