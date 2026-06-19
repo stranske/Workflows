@@ -626,17 +626,21 @@ jobs:
           if [ "$codex_outcome" = "failure" ]; then
             # Codex crashed - treat as error verdict for follow-up
             verdict="error"
+            printf '%s\n' '{"verdict":"error","source":"codex-step-failure","needs_attention":true}' > "$verdict_json"
           elif [ -f "codex-output.md" ]; then
-            python .github/scripts/verifier_verdict_json.py \
+            python .workflows-lib/.github/scripts/verifier_verdict_json.py \
               --output codex-output.md \
               --json "$verdict_json"
             verdict="$(
               python -c 'import json, sys; from pathlib import Path; print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("verdict", "unknown"))' "$verdict_json"
             )"
+            needs_attention="$(
+              python -c 'import json, sys; from pathlib import Path; print("true" if json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("needs_attention") else "false")' "$verdict_json"
+            )"
           else
             printf '%s\n' '{"verdict":"unknown","source":"missing-output","needs_attention":true}' > "$verdict_json"
           fi
-          if [ "$verdict" = "needs-review" ]; then
+          if [ "$verdict" = "needs-review" ] || [ "${needs_attention:-false}" = "true" ]; then
             echo "needs_human=true" >> "$GITHUB_OUTPUT"
           fi
           echo "verdict_json=$verdict_json" >> "$GITHUB_OUTPUT"

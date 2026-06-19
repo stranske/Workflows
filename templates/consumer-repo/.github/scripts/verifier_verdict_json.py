@@ -9,9 +9,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-VERDICT_RE = re.compile(r"\bverdict\s*:\s*(pass|fail)\b", re.IGNORECASE)
+VERDICT_RE = re.compile(
+    r"\b[\"']?verdict[\"']?\s*:\s*[\"']?(pass|fail)[\"']?\b",
+    re.IGNORECASE,
+)
 FENCED_BLOCK_RE = re.compile(r"```(?P<lang>[^\n`]*)\n(?P<body>.*?)```", re.DOTALL)
-JSON_OBJECT_RE = re.compile(r"\{.*?\}", re.DOTALL)
 
 VALID_VERDICTS = {"pass", "fail", "needs-review", "error", "unknown"}
 
@@ -56,13 +58,6 @@ def _json_candidates(markdown: str) -> list[dict[str, Any]]:
         if isinstance(parsed, dict):
             candidates.append(parsed)
 
-    for match in JSON_OBJECT_RE.finditer(markdown):
-        try:
-            parsed = json.loads(match.group(0))
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed, dict):
-            candidates.append(parsed)
     return candidates
 
 

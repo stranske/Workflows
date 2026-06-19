@@ -19,9 +19,11 @@ Guidance:
 
 Output format (mandatory):
 - Start with a fenced JSON block containing only the machine verdict:
+
   ```json
   {"verdict":"PASS","reason":"all acceptance criteria verified"}
   ```
+
 - Use `"verdict":"FAIL"` if ANY criterion is NOT MET, regardless of how many are met.
 - Do not write `Verdict: PASS` or `Verdict: FAIL` as free text; the workflow parses only the fenced JSON verdict.
 - Include a **Scope Check** section:
