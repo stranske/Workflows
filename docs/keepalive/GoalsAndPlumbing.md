@@ -226,6 +226,18 @@ Keepalive now has two ways to detect task completion and keep PR checkboxes in s
 - The reconciliation step uses the same task text from the Automated Status Summary to avoid accidental mismatch.
 - LLM analysis is optional; if unavailable, the commit/file matcher remains active.
 
+### Deliberate-Break Gate
+
+Gate runs an opt-in execution check when the PR body's Acceptance Criteria declares a deliberate-break marker:
+
+```markdown
+<!-- deliberate-break: test=tests/test_feature.py::test_runtime_contract test-file=tests/test_feature.py break-file=src/feature.py -->
+```
+
+When present, `scripts/check_deliberate_break.py` runs the named test on the PR head, archives the base ref, overlays only the named test file onto that base tree, and reruns the same test. The expected result is green on head and red on base; green on both is reported as `FAIL_HOLLOW`, and red on head is reported as `FAIL_BROKEN`. If no marker is present, the step logs `skipped: no deliberate-break marker` and exits successfully.
+
+The same Gate step applies the `acceptance-criteria` label when a marker is present. That label arms the runtime acceptance merge guard so non-CI-verifiable merge lanes defer to the local Orchestrator runtime acceptance path instead of merging on prose evidence alone.
+
 ---
 
 ## Appendix: Operator Checklist

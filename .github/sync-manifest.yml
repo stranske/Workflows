@@ -238,6 +238,9 @@ scripts:
   - source: scripts/state_fingerprint.py
     description: "Computes workflow state fingerprints for unchanged-state skip gates"
 
+  - source: scripts/check_deliberate_break.py
+    description: "Opt-in Gate helper that proves named deliberate-break acceptance tests fail against the base implementation"
+
   - source: scripts/reference_packs.py
     description: "Validates and resolves reference pack configuration for shared runner prompt assembly"
 
