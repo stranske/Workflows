@@ -452,6 +452,28 @@ function resolveAgentType({ inputs = {}, env = {}, pr = {} } = {}) {
   return '';
 }
 
+function prLabelNames(pr = {}) {
+  return new Set(
+    (Array.isArray(pr.labels) ? pr.labels : [])
+      .map((label) => normalise(typeof label === 'string' ? label : label?.name))
+      .filter(Boolean),
+  );
+}
+
+function isReleasePleasePr(pr = {}) {
+  const labels = prLabelNames(pr);
+  const title = normalise(pr.title);
+  const body = normalise(pr.body);
+  const headRef = normalise(pr.head?.ref || pr.headRefName);
+
+  return (
+    headRef.startsWith('release-please--branches--') ||
+    labels.has('autorelease: pending') ||
+    /^chore\([^)]*\):\s*release\b/i.test(title) ||
+    /\brelease-please\b/i.test(body)
+  );
+}
+
 /**
  * Merge checkbox states from existingStates into newContent.
  * Only unchecked items `- [ ]` in newContent get their state restored.
@@ -1380,6 +1402,11 @@ async function run({github: rawGithub, context, core, inputs}) {
     return;
   }
 
+  if (isReleasePleasePr(pr)) {
+    core.info(`PR #${pr.number} is a release-please PR; skipping issue-sourced PR body sync.`);
+    return;
+  }
+
   const sourceContext = resolvePrSourceContext(pr);
   const issueNumber = sourceContext.issueNumber;
   if (sourceContext.noAutomation) {
@@ -1702,6 +1729,8 @@ module.exports = {
   buildPreamble,
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
+  prLabelNames,
+  isReleasePleasePr,
   resolveExplicitNonIssueWorkflowSourceContext,
   extractExplicitIssueSyncNumbers,
   hasExplicitIssueSyncReference,
