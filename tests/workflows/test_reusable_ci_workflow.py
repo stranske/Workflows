@@ -217,8 +217,7 @@ def test_artifact_names_normalized() -> None:
     assert langsmith_upload_step["uses"] == "actions/upload-artifact@v7"
     assert langsmith_upload_step["continue-on-error"] is True
     assert (
-        langsmith_upload_step["with"]["name"]
-        == "${{ inputs['artifact-prefix'] }}langsmith-fleet"
+        langsmith_upload_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}langsmith-fleet"
     )
     assert (
         langsmith_upload_step["with"]["path"]
