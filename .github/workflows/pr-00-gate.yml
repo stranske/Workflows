@@ -348,12 +348,23 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            await github.rest.issues.addLabels({
+            const issue_number = context.payload.pull_request.number;
+            const { data: issue } = await github.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              labels: ['acceptance-criteria'],
+              issue_number,
             });
+            const labels = issue.labels.map((label) =>
+              typeof label === 'string' ? label : label.name
+            );
+            if (!labels.includes('acceptance-criteria')) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                labels: ['acceptance-criteria'],
+              });
+            }
 
   docker-smoke:
     name: docker smoke
