@@ -2660,6 +2660,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     } else if (!tasksPresent) {
       action = 'stop';
       reason = 'no-checklists';
+    } else if (shouldStopForMaxIterations) {
+      action = 'stop';
+      reason = 'round-budget-exhausted';
     } else if (gateNormalized !== 'success') {
       // Handle cancelled gate first (transient — should not consume fix budget)
       if (gateNormalized === 'cancelled') {
@@ -2765,9 +2768,6 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           `Agent produced 0 file changes and 0 tasks completed for ${persistedConsecutiveZeroActivityRounds} consecutive rounds — likely infrastructure failure (auth, permissions, sandbox). Stopping.`,
         );
       }
-    } else if (shouldStopForMaxIterations) {
-      action = 'stop';
-      reason = 'round-budget-exhausted';
     } else if (needsProgressReview) {
       // Trigger LLM-based progress review when agent is active but not completing tasks
       // This allows legitimate prep work while catching scope drift early

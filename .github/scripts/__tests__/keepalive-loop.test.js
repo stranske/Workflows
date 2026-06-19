@@ -350,6 +350,38 @@ test('evaluateKeepaliveLoop stops at max iterations even when productive with ta
   assert.equal(result.reason, 'round-budget-exhausted');
 });
 
+test('evaluateKeepaliveLoop stops at max iterations before fixable gate failures', async () => {
+  const pr = {
+    number: 407,
+    head: { ref: 'feature/budget-gate-fail', sha: 'sha-budget-fail' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const stateComment = formatStateComment({
+    trace: '',
+    iteration: 5,
+    max_iterations: 5,
+    last_files_changed: 2,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 25, body: stateComment, html_url: 'https://example.com/25' }],
+    workflowRuns: [{ id: 1007, head_sha: 'sha-budget-fail', conclusion: 'failure' }],
+  });
+  github.rest.actions.listJobsForWorkflowRun = async () => ({
+    data: { jobs: [{ name: 'test (3.12)', status: 'completed', conclusion: 'failure' }] },
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'stop');
+  assert.equal(result.reason, 'round-budget-exhausted');
+  assert.notEqual(result.reason, 'fix-test');
+});
+
 test('evaluateKeepaliveLoop triggers progress review without file changes', async () => {
   const pr = {
     number: 406,
