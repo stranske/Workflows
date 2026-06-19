@@ -485,6 +485,9 @@ scripts:
   - source: .github/scripts/verifier_issue_formatter.js
     description: "Formats issues for verifier output"
 
+  - source: .github/scripts/verifier_verdict_json.py
+    description: "Extracts structured post-merge verifier verdict JSON without trusting diff text"
+
   - source: .github/scripts/agents_orchestrator_resolve.js
     description: "Resolves agent orchestrator state"
 

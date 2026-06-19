@@ -619,6 +619,7 @@ jobs:
         run: |
           set -euo pipefail
           verdict="unknown"
+          verdict_json="${RUNNER_TEMP}/verdict.json"
 
           # Check if the codex step failed (continue-on-error means we still get here)
           codex_outcome="${{ steps.codex.outcome }}"
@@ -626,12 +627,19 @@ jobs:
             # Codex crashed - treat as error verdict for follow-up
             verdict="error"
           elif [ -f "codex-output.md" ]; then
-            if grep -qiE 'verdict:[[:space:]]*fail' "codex-output.md"; then
-              verdict="fail"
-            elif grep -qiE 'verdict:[[:space:]]*pass' "codex-output.md"; then
-              verdict="pass"
-            fi
+            python .github/scripts/verifier_verdict_json.py \
+              --output codex-output.md \
+              --json "$verdict_json"
+            verdict="$(
+              python -c 'import json, sys; from pathlib import Path; print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("verdict", "unknown"))' "$verdict_json"
+            )"
+          else
+            printf '%s\n' '{"verdict":"unknown","source":"missing-output","needs_attention":true}' > "$verdict_json"
           fi
+          if [ "$verdict" = "needs-review" ]; then
+            echo "needs_human=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "verdict_json=$verdict_json" >> "$GITHUB_OUTPUT"
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
       # === LLM Evaluation Mode (when mode=evaluate) ===
