@@ -1739,7 +1739,6 @@ jobs:
                               owner,
                               repo,
                               prNumber,
-                              labels: issue.labels,
                               withRetry,
                               source: 'agents-81-gate-followups guarded merge',
                             });

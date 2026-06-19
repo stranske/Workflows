@@ -3441,7 +3441,6 @@ jobs:
                                 owner,
                                 repo,
                                 prNumber,
-                                labels: issue.labels,
                                 withRetry,
                                 source: 'reusable-70-orchestrator-main automerge sweep',
                               });

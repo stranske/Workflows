@@ -511,7 +511,6 @@ jobs:
                     owner,
                     repo,
                     prNumber: pr.number,
-                    labels: pr.labels,
                     withRetry,
                     source: 'maint-71-merge-sync-prs',
                   });

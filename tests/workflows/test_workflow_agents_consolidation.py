@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import yaml
@@ -144,6 +145,19 @@ def test_external_merge_lanes_require_runtime_ac_guard():
     ]
     assert not unguarded, "Workflow merge lanes missing runtime AC guard: " + ", ".join(
         sorted(unguarded)
+    )
+
+    stale_label_guards = []
+    guard_call = re.compile(r"assertRuntimeAcMergeAllowed\(\{(?P<body>.*?)\n\s*\}\);", re.DOTALL)
+    for path in merge_workflows:
+        text = path.read_text(encoding="utf-8")
+        for match in guard_call.finditer(text):
+            if re.search(r"\blabels\s*:", match.group("body")):
+                stale_label_guards.append(str(path))
+    assert (
+        not stale_label_guards
+    ), "Runtime AC merge guards must fetch fresh labels at merge time: " + ", ".join(
+        sorted(stale_label_guards)
     )
 
 
