@@ -32,6 +32,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `security:bypass-guard` | Issue or PR labeled | Bypasses prompt-injection guard after explicit approval
 | `agents:allow-change` | PR labeled | Allows guarded automation changes that require explicit permission
 | `automerge` | PR labeled | Marks a completed agent PR for guarded automerge
+| `runtime-ac` / runtime verification labels | PR labeled | Blocks external auto-merge until local Orchestrator runtime AC checks pass
 | `status:in-progress` | Issue labeled | Marks an issue claimed by the belt dispatcher/worker
 | `from:<agent>` | PR labeled | Records the automation agent that produced the PR
 | `runner:<agent>` | Issue labeled | Selects an auto-pilot runner without triggering issue intake
@@ -620,6 +621,31 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Consumers:** `.github/scripts/agents-guard.js`,
 `.github/workflows/maint-auto-label-dep-prs.yml`.
+
+---
+
+### Runtime AC merge labels
+
+**Labels:** `runtime-ac`, `runtime-verification`, `acceptance-criteria`,
+`verification-spec`, `verification-plan`, `ac-checks`, `runtime-checks`
+
+**Applies to:** Pull Requests
+
+**Trigger:** Runtime acceptance criteria or verification labels applied to a PR.
+Prefixed labels such as `verify:runtime-ac` are treated the same as
+`runtime-ac`.
+
+**Effect:**
+1. Blocks external merge lanes from merging the PR directly.
+2. Requires maintainers to merge through the local Orchestrator runtime AC guard
+   after the runtime acceptance spec passes.
+3. Fails closed if an external merge lane cannot read PR labels.
+
+**Consumers:** `.github/scripts/runtime_ac_merge_guard.js`,
+`.github/workflows/agents-73-codex-belt-conveyor.yml`,
+`.github/workflows/reusable-70-orchestrator-main.yml`,
+`.github/workflows/maint-71-merge-sync-prs.yml`,
+`templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml`.
 
 ---
 
