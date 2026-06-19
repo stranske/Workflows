@@ -205,6 +205,9 @@ def test_artifact_names_normalized() -> None:
     delta_step = _step("Upload coverage delta artifact")
     assert delta_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}coverage-delta"
 
+    primary_step = _step("Resolve primary python version")
+    assert _normalize_expr(primary_step["if"]) == "${{always()}}"
+
     langsmith_check_step = _step("Check LangSmith fleet telemetry artifact")
     assert langsmith_check_step["id"] == "langsmith_fleet_artifact"
     assert "artifacts/langsmith/langsmith-fleet.ndjson" in langsmith_check_step["run"]
@@ -213,7 +216,10 @@ def test_artifact_names_normalized() -> None:
     langsmith_upload_step = _step("Upload LangSmith fleet telemetry artifact")
     assert langsmith_upload_step["uses"] == "actions/upload-artifact@v7"
     assert langsmith_upload_step["continue-on-error"] is True
-    assert langsmith_upload_step["with"]["name"] == "langsmith-fleet.ndjson"
+    assert (
+        langsmith_upload_step["with"]["name"]
+        == "${{ inputs['artifact-prefix'] }}langsmith-fleet"
+    )
     assert (
         langsmith_upload_step["with"]["path"]
         == "${{ env.PROJECT_ROOT }}/artifacts/langsmith/langsmith-fleet.ndjson"

@@ -2190,6 +2190,7 @@ jobs:
           echo "All checks passed!"
 
       - name: Resolve primary python version
+        if: ${{ always() }}
         run: |
           python - <<'PY'
           import json
@@ -2477,7 +2478,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
-          name: langsmith-fleet.ndjson
+          name: ${{ inputs['artifact-prefix'] }}langsmith-fleet
           path: ${{ env.PROJECT_ROOT }}/artifacts/langsmith/langsmith-fleet.ndjson
           if-no-files-found: warn
           retention-days: 90
