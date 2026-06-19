@@ -85,9 +85,7 @@ def _explicit_marker(section: str) -> DeliberateBreakSpec | None:
         break_file = values.get("break-file") or values.get("revert-file")
         command_text = values.get("command")
         if not test_id or not test_file or not break_file:
-            raise ValueError(
-                "deliberate-break marker requires test, test-file, and break-file"
-            )
+            raise ValueError("deliberate-break marker requires test, test-file, and break-file")
         command = tuple(shlex.split(command_text)) if command_text else _pytest_command(test_id)
         return DeliberateBreakSpec(test_id, test_file, break_file, command)
     return None
@@ -102,8 +100,7 @@ def _fallback_marker(section: str) -> DeliberateBreakSpec | None:
         (
             line
             for line in section.splitlines()
-            if "deliberate-break" in line.lower()
-            or "deliberate break" in line.lower()
+            if "deliberate-break" in line.lower() or "deliberate break" in line.lower()
         ),
         "",
     )

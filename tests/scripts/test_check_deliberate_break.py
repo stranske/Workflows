@@ -43,9 +43,7 @@ def _write_test(repo: Path, expected: int) -> None:
     test_file = repo / "tests" / "test_app.py"
     test_file.parent.mkdir(exist_ok=True)
     test_file.write_text(
-        "import app\n\n\n"
-        "def test_value():\n"
-        f"    assert app.value() == {expected}\n",
+        "import app\n\n\n" "def test_value():\n" f"    assert app.value() == {expected}\n",
         encoding="utf-8",
     )
 
