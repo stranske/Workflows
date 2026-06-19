@@ -43,6 +43,7 @@ Every active repo review uses the same dimensions:
 - `test_and_live_readiness`: determine whether tests or smoke paths prove the user journey required by the design.
 - `integration_and_state`: check cross-repo contracts, external providers, persistence, reload behavior, source authority, generated artifacts, and workflow handoffs.
 - `issue_generation`: convert verified gaps into issue drafts with evidence, non-goals, tasks, acceptance criteria, and tests that would fail before the fix.
+- `dynamic_run_evidence`: real run-outcome evidence the static review cannot see — reverted/abandoned agent PRs and recurring failure patterns from the week's runs. This dimension is **automated and locally sourced**: the evaluator shells to the Orchestrator feedback Brain (`keepalive_evidence.py`) and the dimension is present only when that local store is reachable. It degrades silently (the dimension is omitted, never an error) wherever the Brain is absent, e.g. CI. A reverted PR raises a `material` gap; an abandoned PR or recurring failure raises `needs human decision`; a candidate whose linked issue is still open is flagged as already-tracked rather than net-new.
 
 ## Weekly Run
 
@@ -153,7 +154,7 @@ If natural-language GitNexus query returns no processes and the repo map has `em
 
 `decision-brief.md` is the human review surface. It summarizes current progress against the design anchor, readiness for testing/live implementation, candidate issue set, and a compact feedback slot for approve/revise/defer/drop/deeper-review decisions.
 
-`review-execution.md` is the automated execution phase. It gathers evidence for each standard dimension and classifies obvious automated gaps such as missing design sources, missing implementation surfaces, missing tests/workflows, or absent smoke/live-readiness markers. Dimensions marked `needs human decision` still require semantic review before issue approval.
+`review-execution.md` is the automated execution phase. It gathers evidence for each standard dimension and classifies obvious automated gaps such as missing design sources, missing implementation surfaces, missing tests/workflows, or absent smoke/live-readiness markers. When the local Orchestrator feedback Brain is reachable it also adds the `dynamic_run_evidence` dimension — reverted/abandoned PRs and recurring failures observed in the week's runs — which the static design-vs-implementation pass structurally cannot detect. Dimensions marked `needs human decision` still require semantic review before issue approval.
 
 ## Archive Use
 

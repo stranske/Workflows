@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -524,6 +525,107 @@ def gap_label(severity: str) -> str:
     return "no"
 
 
+def _resolve_orchestrator_cli(name: str = "keepalive_evidence.py") -> Path | None:
+    """Locate an Orchestrator Brain CLI. The repo-review runs locally and reaches the Brain via the
+    Dropbox canonical dir or the launchd-readable mirror; CI reaches neither (degrade silently)."""
+    candidates: list[Path] = []
+    env_dir = os.environ.get("ORCH_DIR")
+    if env_dir:
+        candidates.append(Path(env_dir).expanduser() / name)
+    candidates.append(Path("~/.codex/orchestrator-mirror").expanduser() / name)
+    candidates.append(
+        Path("~/Library/CloudStorage/Dropbox/Learning/Code/Orchestrator").expanduser() / name
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def build_dynamic_run_evidence(state: dict[str, Any]) -> dict[str, Any] | None:
+    """Automated dimension fed by the local feedback Brain (keepalive_evidence.py): real run-outcome
+    evidence (reverted/abandoned PRs, recurring failures) the static design review cannot see. Returns
+    None — and the dimension is omitted — whenever the Brain/CLI is unavailable (e.g. CI), so the
+    evaluator never depends on local-only state for correctness."""
+    repo = state.get("repo")
+    cli = _resolve_orchestrator_cli()
+    if not repo or cli is None:
+        return None
+    try:
+        proc = subprocess.run(
+            ["python3", str(cli), "--repo", repo, "--json"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    try:
+        data = json.loads(proc.stdout)
+    except ValueError:
+        return None
+    candidates = data.get("candidates") or []
+    signals = data.get("signals") or {}
+    # Net-new = the static review missed it; already-tracked = an open issue already covers it.
+    fresh = [c for c in candidates if not c.get("possible_duplicate")]
+    tracked = [c for c in candidates if c.get("possible_duplicate")]
+    high = [c for c in fresh if c.get("severity") == "HIGH"]
+    other = [c for c in fresh if c.get("severity") != "HIGH"]
+    tracked_high = [c for c in tracked if c.get("severity") == "HIGH"]
+    if high:
+        severity = "material"
+    elif other or tracked_high:
+        # A tracked reversal stays a human-decision nudge (confirm the open issue captures the revert).
+        severity = "needs human decision"
+    else:
+        severity = "none"
+    by_type: dict[str, int] = {}
+    for candidate in fresh:
+        by_type[candidate["type"]] = by_type.get(candidate["type"], 0) + 1
+    durable_rate = signals.get("durable_rate")
+    rate_text = f"{durable_rate:.2f}" if isinstance(durable_rate, (int, float)) else "n/a"
+    evidence = [
+        f"Source: local feedback Brain keepalive run outcomes ({data.get('lookback_days', 30)}d window).",
+        f"Net-new candidates: {len(fresh)} (by type: {by_type or 'none'}).",
+        f"Repo durable-rate: {rate_text}.",
+    ]
+    for candidate in (high + other)[:6]:
+        evidence.append(f"[{candidate.get('severity')}] {candidate.get('seed')}")
+    if tracked:
+        refs = ", ".join(
+            f"{c.get('type')} PR#{c.get('evidence', {}).get('pr', '?')}->#{c.get('dup_issue')}"
+            for c in tracked[:5]
+        )
+        evidence.append(
+            f"Already tracked by open issues (confirm each captures the run outcome, not net-new): {refs}"
+        )
+    finding_parts: list[str] = []
+    if fresh:
+        finding_parts.append(
+            f"{len(fresh)} net-new candidate(s) the static design review cannot see "
+            f"({len(high)} reverted/breaking, {len(other)} abandoned/recurring)"
+        )
+    if tracked:
+        finding_parts.append(f"{len(tracked)} already tracked by an open issue (confirm coverage)")
+    if finding_parts:
+        finding = "; ".join(finding_parts) + " — review for durable-fix or regression-test issues."
+    else:
+        finding = (
+            "No reverted, abandoned, or recurring-failure run evidence in the window; "
+            "nothing the static review missed."
+        )
+    return {
+        "id": "dynamic_run_evidence",
+        "label": "Dynamic Run Evidence",
+        "evidence": evidence,
+        "finding": finding,
+        "gap_severity": severity,
+        "issue_draft_needed": gap_label(severity),
+    }
+
+
 def build_review_execution(state: dict[str, Any]) -> dict[str, Any]:
     repo_path = Path(state["local_path"])
     tracked_files = tracked_repo_files(repo_path)
@@ -744,6 +846,10 @@ def build_review_execution(state: dict[str, Any]) -> dict[str, Any]:
             "issue_draft_needed": gap_label(issue_severity),
         }
     )
+
+    dynamic_dimension = build_dynamic_run_evidence(state)
+    if dynamic_dimension is not None:
+        dimensions.append(dynamic_dimension)
 
     gap_count = sum(
         1
