@@ -297,7 +297,7 @@ test('evaluateKeepaliveLoop stops when tasks are complete and verification is do
   assert.equal(result.reason, 'tasks-complete');
 });
 
-test('evaluateKeepaliveLoop stops when max iterations reached AND unproductive', async () => {
+test('evaluateKeepaliveLoop stops when round budget is exhausted', async () => {
   const pr = {
     number: 404,
     head: { ref: 'feature/four', sha: 'sha-4' },
@@ -315,10 +315,10 @@ test('evaluateKeepaliveLoop stops when max iterations reached AND unproductive',
     core: buildCore(),
   });
   assert.equal(result.action, 'stop');
-  assert.equal(result.reason, 'max-iterations-unproductive');
+  assert.equal(result.reason, 'round-budget-exhausted');
 });
 
-test('evaluateKeepaliveLoop continues past max iterations when productive with tasks remaining', async () => {
+test('evaluateKeepaliveLoop stops at max iterations even when productive with tasks remaining', async () => {
   const pr = {
     number: 405,
     head: { ref: 'feature/extended', sha: 'sha-ext' },
@@ -346,8 +346,8 @@ test('evaluateKeepaliveLoop continues past max iterations when productive with t
     context: buildContext(pr.number),
     core: buildCore(),
   });
-  assert.equal(result.action, 'run', 'Should continue past max iterations when productive');
-  assert.equal(result.reason, 'ready-extended', 'Should report ready-extended reason');
+  assert.equal(result.action, 'stop', 'Should stop once the per-PR round budget is exhausted');
+  assert.equal(result.reason, 'round-budget-exhausted');
 });
 
 test('evaluateKeepaliveLoop triggers progress review without file changes', async () => {

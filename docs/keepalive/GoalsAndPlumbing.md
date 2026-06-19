@@ -73,6 +73,8 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 - **Default limit:** Maximum of **1** concurrent agent run per PR.
 - **Label override:** Respect `agents:max-parallel:<K>` when present (integer 1–5).
 - **Enforcement:** Dispatch only when the count of in-progress runs is `< K`. If at cap, exit quietly after updating the run summary.
+- **Round budget:** The loop also enforces `max_iterations` as a hard per-PR round budget. The default is 12 rounds unless overridden by keepalive config.
+- **Budget exhaustion:** When the current iteration reaches `max_iterations`, keepalive stops dispatching and adds `needs-human` with reason `round-budget-exhausted`. Raise the configured budget only after reviewing the PR summary and deciding that more automated rounds are warranted.
 
 ---
 
@@ -81,6 +83,7 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 - Removing the `agent:*` label halts new dispatches until a label is re-applied and all guardrails pass again.
 - Respect the `agents:paused` label, which blocks *all* keepalive activity.
 - After repeated failures (default: 3), the loop pauses and adds `needs-human` label.
+- Agent delegation treats two consecutive zero-progress rounds as stalled. Commit churn is not progress unless it advances checklist state or reaches a green Gate.
 
 **To resume after failure:**
 1. Investigate the failure reason in the keepalive summary comment
