@@ -475,6 +475,84 @@ def test_collect_repo_state_marks_clean_active_repo_review_pending(tmp_path: Pat
     assert state["decision_brief"]["review_quality_errors"]
 
 
+def test_liveness_dimension_flags_status_claim_without_sink_evidence(tmp_path: Path) -> None:
+    repo_dir = tmp_path / "brain"
+    repo_dir.mkdir()
+    (repo_dir / "README.md").write_text(
+        "# Brain\n\nThe LangSmith pipeline is implemented, wired, and scheduled.\n",
+        encoding="utf-8",
+    )
+    src = repo_dir / "src"
+    src.mkdir()
+    (src / "brain.py").write_text("def run():\n    return 'ok'\n", encoding="utf-8")
+    subprocess = evaluator.subprocess
+    subprocess.run(["git", "-C", str(repo_dir), "init"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True
+    )
+    subprocess.run(["git", "-C", str(repo_dir), "config", "user.name", "Test User"], check=True)
+    subprocess.run(["git", "-C", str(repo_dir), "add", "README.md", "src/brain.py"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "commit", "-m", "initial"],
+        check=True,
+        capture_output=True,
+    )
+    config = evaluator.RepoConfig(
+        repo="owner/brain",
+        local_path="brain",
+        status="active",
+        cadence="weekly",
+        decision_anchor="cost telemetry must reach the Brain",
+    )
+
+    state = evaluator.collect_repo_state(tmp_path, config, remote_progress={})
+    liveness = evaluator.execution_dimension(state, "liveness_evidence")
+
+    assert liveness["gap_severity"] == "material"
+    assert "real sink/output evidence" in liveness["finding"]
+    assert state["review_execution"]["gap_count"] >= 1
+    assert "Not ready to approve completion claims" in state["decision_brief"]["readiness_summary"]
+
+
+def test_liveness_dimension_surfaces_possible_sink_evidence_for_review(tmp_path: Path) -> None:
+    repo_dir = tmp_path / "brain"
+    repo_dir.mkdir()
+    (repo_dir / "README.md").write_text(
+        "# Brain\n\nThe LangSmith pipeline is implemented and scheduled.\n\n"
+        "Latest verified sink sample: 95 cost rows written to the Brain.\n",
+        encoding="utf-8",
+    )
+    src = repo_dir / "src"
+    src.mkdir()
+    (src / "brain.py").write_text("def run():\n    return 'ok'\n", encoding="utf-8")
+    subprocess = evaluator.subprocess
+    subprocess.run(["git", "-C", str(repo_dir), "init"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True
+    )
+    subprocess.run(["git", "-C", str(repo_dir), "config", "user.name", "Test User"], check=True)
+    subprocess.run(["git", "-C", str(repo_dir), "add", "README.md", "src/brain.py"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "commit", "-m", "initial"],
+        check=True,
+        capture_output=True,
+    )
+    config = evaluator.RepoConfig(
+        repo="owner/brain",
+        local_path="brain",
+        status="active",
+        cadence="weekly",
+        decision_anchor="cost telemetry must reach the Brain",
+    )
+
+    state = evaluator.collect_repo_state(tmp_path, config, remote_progress={})
+    liveness = evaluator.execution_dimension(state, "liveness_evidence")
+
+    assert liveness["gap_severity"] == "needs human decision"
+    assert "possible sink/output evidence" in liveness["finding"]
+    assert any("README.md" in item for item in liveness["evidence"])
+
+
 def test_issues_txt_changes_are_helper_inputs_not_review_blockers(tmp_path: Path) -> None:
     repo_dir = tmp_path / "intake"
     repo_dir.mkdir()
@@ -568,6 +646,7 @@ def test_write_repo_artifacts_emits_standard_design_review(tmp_path: Path) -> No
     text = review.read_text(encoding="utf-8")
     assert "Standard Design Review" in text
     assert "Design Contract" in text
+    assert "Liveness Evidence" in text
     assert "Process Chain Checkpoint" in text
     assert "earliest failed stage" in text
     assert "Required Review Evidence Trace" in text
@@ -578,10 +657,12 @@ def test_write_repo_artifacts_emits_standard_design_review(tmp_path: Path) -> No
     execution_text = execution.read_text(encoding="utf-8")
     assert "Review Execution" in execution_text
     assert "Dimension Findings" in execution_text
+    assert "Liveness Evidence" in execution_text
     brief_text = brief.read_text(encoding="utf-8")
     assert "Review Quality Gate" in brief_text
     assert "Current Progress Compared With Design" in brief_text
     assert "Readiness For Testing Or Live Implementation" in brief_text
+    assert "Liveness evidence" in brief_text
     assert "Candidate Issue Set" in brief_text
 
 

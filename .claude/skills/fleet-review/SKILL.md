@@ -40,11 +40,12 @@ Relationship: the coordinator produces the standing weekly queue from `config/re
 1. **Fan out one reviewer per repo.** Spawn one sub-agent per `active` repo, in parallel. Each reviewer reviews exactly one repo against the standard dimensions and **returns its final answer as Markdown in the final message** — NOT enforced structured output.
    - **Hard-won lesson:** forcing `StructuredOutput` / strict JSON schemas on heavy analysis agents failed on **26 of 32 agents** in the 2026-05-29 run. Markdown final-message returns are reliable. Ask for a consistent Markdown *shape* (headings below), not a validated schema.
    - Ask each reviewer for **file:line-grounded** evidence, not generic "code exists" statements.
-2. **Standard dimensions** (every repo, same five — from `docs/ops/REPO_REVIEW_PROCESS.md`):
+2. **Standard dimensions** (every repo, same six — from `docs/ops/REPO_REVIEW_PROCESS.md`):
    - `design_contract` — intended product/workflow from README/docs + registry anchor.
    - `implementation_coverage` — real working behavior vs scaffolds/seams/fixtures/advisory-only.
    - `test_and_live_readiness` — do tests/smoke paths prove the user journey the design requires.
    - `integration_and_state` — cross-repo contracts, providers, persistence, reload, source authority, artifacts, workflow handoffs.
+   - `liveness_evidence` — for claims that something is implemented, wired, scheduled, or automated, require a real sink/output row, artifact, smoke result, dashboard sample, or equivalent upstream-to-sink evidence before treating it as done.
    - `issue_generation` — convert verified gaps into drafts (see Issue Gate).
    - Suggested reviewer Markdown shape: one `##` per dimension, a short **Verdict**, then bulleted **Evidence (file:line)**, then **Candidate issues** each with Why / what's missing / acceptance.
 3. **Main-loop synthesis.** Collect all reviewer Markdown and synthesize in the main loop (the 1M context holds every review at once). Produce: a fleet summary, readiness tiers, and a single prioritized cross-repo issue list. Do not just concatenate the reviews.
