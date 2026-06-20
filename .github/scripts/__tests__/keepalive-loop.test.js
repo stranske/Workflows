@@ -383,34 +383,47 @@ test('evaluateKeepaliveLoop stops at max iterations before fixable gate failures
 });
 
 test('evaluateKeepaliveLoop falls back to default budget for invalid max iterations', async () => {
-  const pr = {
-    number: 408,
-    head: { ref: 'feature/invalid-budget', sha: 'sha-invalid-budget' },
-    labels: [{ name: 'agent:codex' }],
-    body: '<!-- keepalive-config: {"keepalive_enabled": true, "max_iterations": -3} -->\n## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
-  };
-  const stateComment = formatStateComment({
-    trace: '',
-    iteration: 12,
-    max_iterations: 0,
-    last_files_changed: 1,
-    failure: {},
-  });
-  const github = buildGithubStub({
-    pr,
-    comments: [{ id: 26, body: stateComment, html_url: 'https://example.com/26' }],
-    workflowRuns: [{ id: 1008, head_sha: 'sha-invalid-budget', conclusion: 'success' }],
-  });
+  const cases = [
+    { name: 'negative config', configValue: -3, stateValue: 0 },
+    { name: 'partial numeric string config', configValue: '3 rounds', stateValue: 0 },
+    { name: 'decimal config', configValue: 3.9, stateValue: 0 },
+    { name: 'partial numeric string state', configValue: 0, stateValue: '3 rounds' },
+    { name: 'decimal state', configValue: 0, stateValue: 3.9 },
+  ];
 
-  const result = await evaluateKeepaliveLoop({
-    github,
-    context: buildContext(pr.number),
-    core: buildCore(),
-  });
+  for (const testCase of cases) {
+    const pr = {
+      number: 408,
+      head: {
+        ref: `feature/invalid-budget-${testCase.name.replaceAll(' ', '-')}`,
+        sha: `sha-invalid-budget-${testCase.name}`,
+      },
+      labels: [{ name: 'agent:codex' }],
+      body: `<!-- keepalive-config: ${JSON.stringify({ keepalive_enabled: true, max_iterations: testCase.configValue })} -->\n## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a`,
+    };
+    const stateComment = formatStateComment({
+      trace: '',
+      iteration: 12,
+      max_iterations: testCase.stateValue,
+      last_files_changed: 1,
+      failure: {},
+    });
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 26, body: stateComment, html_url: 'https://example.com/26' }],
+      workflowRuns: [{ id: 1008, head_sha: pr.head.sha, conclusion: 'success' }],
+    });
 
-  assert.equal(result.action, 'stop');
-  assert.equal(result.reason, 'round-budget-exhausted');
-  assert.equal(result.maxIterations, 12);
+    const result = await evaluateKeepaliveLoop({
+      github,
+      context: buildContext(pr.number),
+      core: buildCore(),
+    });
+
+    assert.equal(result.action, 'stop', testCase.name);
+    assert.equal(result.reason, 'round-budget-exhausted', testCase.name);
+    assert.equal(result.maxIterations, 12, testCase.name);
+  }
 });
 
 test('evaluateKeepaliveLoop triggers progress review without file changes', async () => {

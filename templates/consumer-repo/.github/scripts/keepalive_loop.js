@@ -143,8 +143,21 @@ function toNumber(value, fallback = 0) {
 }
 
 function toPositiveInteger(value, fallback = 0) {
-  const parsed = toNumber(value, fallback);
-  return parsed > 0 ? Math.floor(parsed) : fallback;
+  const fallbackValue = Number.isSafeInteger(fallback) && fallback > 0 ? fallback : 0;
+
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value > 0 ? value : fallbackValue;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^[1-9]\d*$/.test(trimmed)) {
+      const parsed = Number(trimmed);
+      return Number.isSafeInteger(parsed) ? parsed : fallbackValue;
+    }
+  }
+
+  return fallbackValue;
 }
 
 function toOptionalNumber(value) {
@@ -1598,7 +1611,7 @@ function normaliseConfig(config = {}) {
     ),
     autofix_enabled: toBool(cfg.autofix_enabled ?? cfg.autofix, false),
     iteration: toNumber(cfg.iteration ?? cfg.keepalive_iteration, 0),
-    max_iterations: toNumber(cfg.max_iterations ?? cfg.keepalive_max_iterations, 0),
+    max_iterations: cfg.max_iterations ?? cfg.keepalive_max_iterations,
     failure_threshold: toNumber(cfg.failure_threshold ?? cfg.keepalive_failure_threshold, 3),
     trace,
     prompt_mode: promptMode,
