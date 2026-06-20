@@ -18,6 +18,19 @@ on:
         required: false
         default: true
         type: boolean
+      orchestrator_skill_pack:
+        description: >-
+          Optional reference-pack name override for exported Orchestrator skill context
+          passed to Codex keepalive runs.
+        required: false
+        default: ''
+        type: string
+      orchestrator_skill_enabled:
+        description: >-
+          Optional enabled override for exported Orchestrator skill context (true/false).
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -698,6 +711,8 @@ jobs:
       # task_appendix delivered via artifact; input left empty to avoid secret scanner
       appendix: ''
       iteration: ${{ needs.evaluate.outputs.iteration }}
+      orchestrator_skill_pack: ${{ github.event.inputs.orchestrator_skill_pack || '' }}
+      orchestrator_skill_enabled: ${{ github.event.inputs.orchestrator_skill_enabled || '' }}
       environment: >-
         ${{
           needs.evaluate.outputs.has_high_privilege == 'true' &&
@@ -825,6 +840,7 @@ jobs:
             scripts/runner_lib
             scripts/state_fingerprint.py
             scripts/reference_packs.py
+            scripts/orchestrator_skill.py
           sparse-checkout-cone-mode: false
 
       - name: Record completion

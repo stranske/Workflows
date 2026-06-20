@@ -72,6 +72,19 @@ on:
         required: false
         default: ''
         type: string
+      orchestrator_skill_pack:
+        description: >-
+          Optional reference-pack name override for exported Orchestrator skill context.
+        required: false
+        default: ''
+        type: string
+      orchestrator_skill_enabled:
+        description: >-
+          Optional enabled override for exported Orchestrator skill context (true/false).
+          Empty means use .github/orchestrator_skill.json when present.
+        required: false
+        default: ''
+        type: string
       iteration:
         description: 'Current iteration number (for tracking in completion comments).'
         required: false
@@ -440,6 +453,8 @@ jobs:
         uses: ./.github/actions/agent-reference-packs
         with:
           checkout_token: ${{ steps.run_base.outputs.checkout_token }}
+          orchestrator_skill_pack: ${{ inputs.orchestrator_skill_pack }}
+          orchestrator_skill_enabled: ${{ inputs.orchestrator_skill_enabled }}
 
       - name: Assemble prompt
         id: prompt
@@ -450,14 +465,16 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
+          assemble_args=(
+            --provider codex
+            --base-prompt "$BASE_PROMPT"
+            --appendix "$APPENDIX"
+            --mode "$MODE"
+            --pr-number "$PR_NUMBER"
+            --task-appendix-file /tmp/keepalive-artifacts/task-appendix.txt
+          )
           PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
-            python -m scripts.runner_lib assemble-prompt \
-              --provider codex \
-              --base-prompt "$BASE_PROMPT" \
-              --appendix "$APPENDIX" \
-              --mode "$MODE" \
-              --pr-number "$PR_NUMBER" \
-              --task-appendix-file /tmp/keepalive-artifacts/task-appendix.txt
+            python -m scripts.runner_lib assemble-prompt "${assemble_args[@]}"
 
       - name: Install Codex CLI
         run: |

@@ -74,6 +74,46 @@ def test_assemble_prompt_formats_codex_prompt(tmp_path: Path) -> None:
     assert (tmp_path / "codex-prompt-123.md").read_text(encoding="utf-8") == prompt.text
 
 
+def test_assemble_prompt_includes_orchestrator_skill_section_when_summary_exists(
+    tmp_path: Path,
+) -> None:
+    _write_prompt_fixture(tmp_path)
+    orchestrator_summary = tmp_path / ".reference" / "ORCHESTRATOR_SKILL.md"
+    orchestrator_summary.write_text(
+        "Read and apply the materialized Orchestrator skill files before coordinating work.\n",
+        encoding="utf-8",
+    )
+
+    prompt = assemble_prompt(
+        None,
+        {
+            "workspace": tmp_path,
+            "base_prompt_file": ".github/codex/prompts/task.md",
+        },
+        "codex",
+    )
+
+    assert "## Orchestrator Skill Context" in prompt.text
+    assert "Read and apply the materialized Orchestrator skill files" in prompt.text
+
+
+def test_assemble_prompt_skips_orchestrator_skill_section_when_summary_missing(
+    tmp_path: Path,
+) -> None:
+    _write_prompt_fixture(tmp_path)
+
+    prompt = assemble_prompt(
+        None,
+        {
+            "workspace": tmp_path,
+            "base_prompt_file": ".github/codex/prompts/task.md",
+        },
+        "codex",
+    )
+
+    assert "## Orchestrator Skill Context" not in prompt.text
+
+
 def test_assemble_prompt_formats_claude_prompt(tmp_path: Path) -> None:
     _write_prompt_fixture(tmp_path)
 

@@ -28,9 +28,14 @@ def test_sync_manifest_ships_reference_packs_before_runner_lib() -> None:
     script_sources = [entry.get("source") for entry in manifest.get("scripts", []) or []]
 
     assert (repo_root / "scripts" / "reference_packs.py").is_file()
+    assert (repo_root / "scripts" / "orchestrator_skill.py").is_file()
     assert "scripts/reference_packs.py" in script_sources
+    assert "scripts/orchestrator_skill.py" in script_sources
     assert "scripts/runner_lib/" in script_sources
     assert script_sources.index("scripts/reference_packs.py") < script_sources.index(
+        "scripts/runner_lib/"
+    )
+    assert script_sources.index("scripts/orchestrator_skill.py") < script_sources.index(
         "scripts/runner_lib/"
     )
 

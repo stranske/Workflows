@@ -48,6 +48,19 @@ on:
         required: false
         default: false
         type: boolean
+      orchestrator_skill_pack:
+        description: >-
+          Optional reference-pack name override for exported Orchestrator skill context on
+          downstream Codex opener/closer runs (repo config remains primary).
+        required: false
+        default: ''
+        type: string
+      orchestrator_skill_enabled:
+        description: >-
+          Optional enabled override for exported Orchestrator skill context (true/false).
+        required: false
+        default: ''
+        type: string
     secrets:
       WORKFLOWS_APP_ID:
         required: false

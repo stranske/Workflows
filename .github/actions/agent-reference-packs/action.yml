@@ -5,6 +5,14 @@ inputs:
   checkout_token:
     description: Token used for private reference-pack checkouts.
     required: false
+  orchestrator_skill_pack:
+    description: Optional reference-pack name override for exported Orchestrator skill context.
+    required: false
+    default: ''
+  orchestrator_skill_enabled:
+    description: Optional enabled override for exported Orchestrator skill context (true/false).
+    required: false
+    default: ''
 
 outputs:
   reference_packs_exists:
@@ -19,19 +27,20 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.checkout_token }}
+        ORCHESTRATOR_SKILL_PACK: ${{ inputs.orchestrator_skill_pack }}
+        ORCHESTRATOR_SKILL_ENABLED: ${{ inputs.orchestrator_skill_enabled }}
       run: |
         set -euo pipefail
         if [ ! -f ".github/reference_packs.json" ]; then
           echo "No .github/reference_packs.json found; skipping reference packs."
           echo "reference_packs_exists=false" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-        echo "Validating reference pack configuration..."
-        python .workflows-lib/scripts/reference_packs.py --workspace . --format json \
-          > /tmp/reference_packs_output.json
-        echo "reference_packs_exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Validating reference pack configuration..."
+          python .workflows-lib/scripts/reference_packs.py --workspace . --format json \
+            > /tmp/reference_packs_output.json
+          echo "reference_packs_exists=true" >> "$GITHUB_OUTPUT"
 
-        python3 <<'REFPACK_EOF'
+          python3 <<'REFPACK_EOF'
         import json, subprocess, os, shutil, sys, re
 
         with open("/tmp/reference_packs_output.json") as f:
@@ -110,3 +119,57 @@ runs:
                 md.write("\n")
         print(f"Generated {md_path}")
         REFPACK_EOF
+        fi
+
+        if [ ! -f ".github/orchestrator_skill.json" ] && \
+          [ -z "${ORCHESTRATOR_SKILL_PACK:-}" ] && \
+          [ -z "${ORCHESTRATOR_SKILL_ENABLED:-}" ]; then
+          echo "No orchestrator skill config or overrides; skipping Orchestrator context."
+          exit 0
+        fi
+
+        pack_args=()
+        if [ -n "${ORCHESTRATOR_SKILL_PACK:-}" ]; then
+          pack_args+=(--pack-override "$ORCHESTRATOR_SKILL_PACK")
+        fi
+        if [ -n "${ORCHESTRATOR_SKILL_ENABLED:-}" ]; then
+          pack_args+=(--enabled-override "$ORCHESTRATOR_SKILL_ENABLED")
+        fi
+
+        python .workflows-lib/scripts/orchestrator_skill.py --workspace . --format json \
+          "${pack_args[@]}" > /tmp/orchestrator_skill_output.json || {
+            echo "::error::Orchestrator skill config validation failed."
+            exit 1
+          }
+
+        PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" python3 <<'ORCHSKILL_EOF'
+        import json
+        import os
+
+        with open("/tmp/orchestrator_skill_output.json", encoding="utf-8") as handle:
+            data = json.load(handle)
+
+        if not data.get("enabled"):
+            print("Orchestrator skill context disabled or not configured; skipping.")
+            raise SystemExit(0)
+
+        from scripts.runner_lib.core import materialize_orchestrator_skill
+
+        pack_override = os.environ.get("ORCHESTRATOR_SKILL_PACK", "").strip() or None
+        enabled_override = None
+        enabled_raw = os.environ.get("ORCHESTRATOR_SKILL_ENABLED", "").strip().lower()
+        if enabled_raw:
+            enabled_override = enabled_raw in {"1", "true", "yes", "on"}
+
+        token = os.environ.get("GH_TOKEN", "") or None
+        summary = materialize_orchestrator_skill(
+            ".",
+            pack_override=pack_override,
+            enabled_override=enabled_override,
+            token=token,
+        )
+        if summary is None:
+            print("Orchestrator skill context not materialized.")
+        else:
+            print(f"Generated {summary}")
+        ORCHSKILL_EOF

@@ -244,6 +244,9 @@ scripts:
   - source: scripts/reference_packs.py
     description: "Validates and resolves reference pack configuration for shared runner prompt assembly"
 
+  - source: scripts/orchestrator_skill.py
+    description: "Validates and resolves exported Orchestrator skill context for remote Codex lanes"
+
   - source: scripts/runner_lib/
     is_directory: true
     description: "Shared runner prompt assembly, output parsing, and dispatch debounce helpers"
