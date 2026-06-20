@@ -13,20 +13,23 @@ VERDICT_RE = re.compile(
     r"\b[\"']?verdict[\"']?\s*:\s*[\"']?(pass|fail)[\"']?\b",
     re.IGNORECASE,
 )
-FENCED_BLOCK_RE = re.compile(r"```(?P<lang>[^\n`]*)\n(?P<body>.*?)```", re.DOTALL)
+FENCED_BLOCK_RE = re.compile(
+    r"^[ \t]*```(?P<lang>[^\n`]*)\n(?P<body>.*?)^[ \t]*```[ \t]*$",
+    re.MULTILINE | re.DOTALL,
+)
 
-VALID_VERDICTS = {"pass", "fail", "needs-review", "error", "unknown"}
+VALID_VERDICTS = {"pass", "concerns", "fail", "error"}
 
 
 def _normalize_verdict(value: object) -> str:
     verdict = str(value or "").strip().lower().replace("_", "-")
     if verdict in {"passed", "success"}:
         return "pass"
-    if verdict in {"failed", "failure", "concerns"}:
+    if verdict in {"needs-review", "needs review", "review", "concern", "concerns"}:
+        return "concerns"
+    if verdict in {"failed", "failure"}:
         return "fail"
-    if verdict in {"needs-review", "needs review", "review"}:
-        return "needs-review"
-    return verdict if verdict in VALID_VERDICTS else "unknown"
+    return verdict if verdict in VALID_VERDICTS else ""
 
 
 def _diff_regions(markdown: str) -> list[str]:
@@ -74,7 +77,7 @@ def build_verdict(output: str) -> dict[str, Any]:
     output_without_diff = _without_diff_regions(output)
     for candidate in _json_candidates(output_without_diff):
         verdict = _normalize_verdict(candidate.get("verdict"))
-        if verdict == "unknown":
+        if not verdict:
             continue
         return {
             **candidate,
@@ -84,7 +87,7 @@ def build_verdict(output: str) -> dict[str, Any]:
         }
 
     return {
-        "verdict": "unknown",
+        "verdict": "error",
         "source": "missing-structured-json",
         "needs_attention": True,
         "reason": "no structured verifier JSON verdict found outside diff regions",
