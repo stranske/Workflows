@@ -212,6 +212,9 @@ scripts:
   # Dev dependency sync script
   - source: scripts/sync_dev_dependencies.py
     description: "Syncs dev dependency versions from autofix-versions.env to pyproject.toml"
+  - source: scripts/check_agents_md_freshness.py
+    description: "Warns when the generated Orchestrator AGENTS.md playbook section cites stale repo paths or commands"
+    template_sync: exact
   - source: tools/resolve_mypy_pin.py
     description: "Resolves mypy version pinning - required by reusable CI workflow"
 
