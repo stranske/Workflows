@@ -15,7 +15,7 @@ Source: `docs/ops/REPO_REVIEW_PROCESS.md` (Issue Gate) and
 - **Tasks** a coding agent can actually complete.
 - **Acceptance criteria** with a failing test, a smoke test, or a documented live-verification gate.
 
-If any of the six is absent, the candidate is not ready.
+If any of the seven is absent, the candidate is not ready.
 
 ## Required body sections (enforced)
 

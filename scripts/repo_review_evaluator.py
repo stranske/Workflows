@@ -199,6 +199,21 @@ LIVENESS_EVIDENCE_PATTERNS = [
     "wrote",
     "written",
 ]
+
+
+def bounded_keyword_pattern(keyword: str) -> str:
+    """Match a human word/phrase without matching snake_case fragments."""
+    escaped = re.escape(keyword).replace(r"\ ", r"[- ]")
+    return rf"(^|[^[:alnum:]_]){escaped}([^[:alnum:]_]|$)"
+
+
+LIVENESS_CLAIM_GREP_PATTERNS = [
+    bounded_keyword_pattern(keyword if keyword != "pull" else "pull request")
+    for keyword in LIVENESS_CLAIM_PATTERNS
+]
+LIVENESS_EVIDENCE_GREP_PATTERNS = [
+    bounded_keyword_pattern(keyword) for keyword in LIVENESS_EVIDENCE_PATTERNS
+]
 REVIEW_DIMENSIONS = (
     {
         "id": "design_contract",
@@ -535,11 +550,14 @@ def git_grep_files(
     pathspecs: list[str],
     limit: int = 12,
     timeout: int = 10,
+    extended_regex: bool = False,
 ) -> list[str]:
     bounded_pathspecs = list(dict.fromkeys(pathspecs))[:REVIEW_SCAN_FILE_LIMIT]
     if not patterns or not bounded_pathspecs or not repo_path.exists():
         return []
     args = ["grep", "-Il", "-i"]
+    if extended_regex:
+        args.append("-E")
     for pattern in patterns[:30]:
         args.extend(["-e", pattern])
     args.extend(["--", *bounded_pathspecs])
@@ -724,15 +742,17 @@ def build_review_execution(state: dict[str, Any]) -> dict[str, Any]:
     ]
     liveness_claim_files = git_grep_files(
         repo_path,
-        LIVENESS_CLAIM_PATTERNS,
+        LIVENESS_CLAIM_GREP_PATTERNS,
         pathspecs=evidence_files[:REVIEW_SCAN_FILE_LIMIT],
         limit=20,
+        extended_regex=True,
     )
     liveness_evidence_files = git_grep_files(
         repo_path,
-        LIVENESS_EVIDENCE_PATTERNS,
+        LIVENESS_EVIDENCE_GREP_PATTERNS,
         pathspecs=evidence_files[:REVIEW_SCAN_FILE_LIMIT],
         limit=20,
+        extended_regex=True,
     )
     design_headings = {
         rel_path: markdown_headings(repo_path, rel_path) for rel_path in state["design_files"][:6]
@@ -3540,6 +3560,14 @@ def write_review_inputs(repo_dir: Path, state: dict[str, Any]) -> None:
         "current code does not explain or correct it:",
         "",
         ("\n".join(f"- `{p}`" for p in (state.get("report_files") or [])) or "_None detected._"),
+        "",
+        "## Liveness Evidence Check",
+        "",
+        "When a doc, issue draft, implementation note, report, dashboard, telemetry, or pipeline "
+        "claims behavior is implemented, wired, scheduled, automated, or otherwise complete, "
+        "verify the real sink/output. Require a recent row, artifact, smoke result, dashboard "
+        "sample, or equivalent upstream-to-sink trace before treating the claim as complete. "
+        "Static code presence, broad status wording, or old setup docs are not enough.",
         "",
         "## Dedup References",
         "",

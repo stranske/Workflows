@@ -48,7 +48,13 @@ def _extract_yaml_run_block(path: Path, step_name: str) -> str:
     if step_index is None:
         raise AssertionError(f"{path}: missing step named {step_name!r}")
 
-    for run_index in range(step_index + 1, len(lines)):
+    next_step_index = len(lines)
+    for index in range(step_index + 1, len(lines)):
+        if lines[index].lstrip().startswith("- name: "):
+            next_step_index = index
+            break
+
+    for run_index in range(step_index + 1, next_step_index):
         run_line = lines[run_index]
         if run_line.strip() != "run: |":
             continue
@@ -56,7 +62,7 @@ def _extract_yaml_run_block(path: Path, step_name: str) -> str:
         run_indent = len(run_line) - len(run_line.lstrip(" "))
         content_indent = run_indent + 2
         body: list[str] = []
-        for body_line in lines[run_index + 1 :]:
+        for body_line in lines[run_index + 1 : next_step_index]:
             if body_line.strip() and len(body_line) - len(body_line.lstrip(" ")) <= run_indent:
                 break
             if body_line.startswith(" " * content_indent):
@@ -116,6 +122,6 @@ def test_reusable_runners_use_shared_refpack_action(workflow_rel: str) -> None:
     src = path.read_text()
     assert src.count("uses: ./.github/actions/agent-reference-packs") == 1
     assert "uses: ./.github/actions/agent-reference-packs" in src
-    assert (
-        "REFPACK_EOF" not in src
-    ), f"{workflow_rel}: reference-pack heredoc should live only in {REFPACK_ACTION}"
+    assert "REFPACK_EOF" not in src, (
+        f"{workflow_rel}: reference-pack heredoc should live only in {REFPACK_ACTION}"
+    )

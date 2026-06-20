@@ -553,6 +553,42 @@ def test_liveness_dimension_surfaces_possible_sink_evidence_for_review(tmp_path:
     assert any("README.md" in item for item in liveness["evidence"])
 
 
+def test_liveness_dimension_ignores_snake_case_fragments(tmp_path: Path) -> None:
+    repo_dir = tmp_path / "brain"
+    repo_dir.mkdir()
+    (repo_dir / "README.md").write_text(
+        "# Brain\n\nThe pull_request handler exists.\n", encoding="utf-8"
+    )
+    src = repo_dir / "src"
+    src.mkdir()
+    (src / "brain.py").write_text("def run():\n    return 'pull_request'\n", encoding="utf-8")
+    subprocess = evaluator.subprocess
+    subprocess.run(["git", "-C", str(repo_dir), "init"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "config", "user.email", "test@example.com"], check=True
+    )
+    subprocess.run(["git", "-C", str(repo_dir), "config", "user.name", "Test User"], check=True)
+    subprocess.run(["git", "-C", str(repo_dir), "add", "README.md", "src/brain.py"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "commit", "-m", "initial"],
+        check=True,
+        capture_output=True,
+    )
+    config = evaluator.RepoConfig(
+        repo="owner/brain",
+        local_path="brain",
+        status="active",
+        cadence="weekly",
+        decision_anchor="pull request metadata should not imply live completion",
+    )
+
+    state = evaluator.collect_repo_state(tmp_path, config, remote_progress={})
+    liveness = evaluator.execution_dimension(state, "liveness_evidence")
+
+    assert "README.md" not in "\n".join(liveness["evidence"])
+    assert "No explicit implementation/status/data-flow claims" in liveness["finding"]
+
+
 def test_issues_txt_changes_are_helper_inputs_not_review_blockers(tmp_path: Path) -> None:
     repo_dir = tmp_path / "intake"
     repo_dir.mkdir()
@@ -640,9 +676,11 @@ def test_write_repo_artifacts_emits_standard_design_review(tmp_path: Path) -> No
     review = output_dir / "repos" / "owner__demo" / "design-review.md"
     execution = output_dir / "repos" / "owner__demo" / "review-execution.md"
     brief = output_dir / "repos" / "owner__demo" / "decision-brief.md"
+    review_inputs = output_dir / "repos" / "owner__demo" / "review-inputs.md"
     assert review.is_file()
     assert execution.is_file()
     assert brief.is_file()
+    assert review_inputs.is_file()
     text = review.read_text(encoding="utf-8")
     assert "Standard Design Review" in text
     assert "Design Contract" in text
@@ -664,6 +702,9 @@ def test_write_repo_artifacts_emits_standard_design_review(tmp_path: Path) -> No
     assert "Readiness For Testing Or Live Implementation" in brief_text
     assert "Liveness evidence" in brief_text
     assert "Candidate Issue Set" in brief_text
+    review_inputs_text = review_inputs.read_text(encoding="utf-8")
+    assert "## Liveness Evidence Check" in review_inputs_text
+    assert "verify the real sink/output" in review_inputs_text
 
 
 def test_write_packet_embeds_substantive_decision_brief(tmp_path: Path) -> None:
