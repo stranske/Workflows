@@ -47,6 +47,13 @@ on:
         required: false
         default: false
         type: boolean
+      orchestrator_skill_pack:
+        description: >-
+          Optional reference-pack name override for exported Orchestrator skill context on
+          downstream Codex opener/closer runs (repo config remains primary).
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -68,6 +75,7 @@ jobs:
       use_step_branch: ${{ inputs.use_step_branch }}
       max_parallel: ${{ fromJSON(inputs.max_parallel) }}
       keepalive: ${{ inputs.keepalive }}
+      orchestrator_skill_pack: ${{ inputs.orchestrator_skill_pack }}
     secrets:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}

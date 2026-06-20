@@ -93,6 +93,26 @@ def test_enabled_override_can_enable_pack_without_repo_config(tmp_path: Path) ->
     assert plan.pack == "orchestrator"
 
 
+def test_pack_override_enables_pack_without_repo_config(tmp_path: Path) -> None:
+    plan = resolve_orchestrator_skill_plan(
+        tmp_path,
+        pack_override="orchestrator",
+    )
+
+    assert plan is not None
+    assert plan.pack == "orchestrator"
+
+
+def test_enabled_override_can_disable_pack_override_without_repo_config(tmp_path: Path) -> None:
+    plan = resolve_orchestrator_skill_plan(
+        tmp_path,
+        pack_override="orchestrator",
+        enabled_override=False,
+    )
+
+    assert plan is None
+
+
 def test_summary_instructs_agent_to_read_exported_material(tmp_path: Path) -> None:
     checkout = tmp_path / ".reference" / "orchestrator-skill"
     checkout.mkdir(parents=True)

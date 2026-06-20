@@ -205,8 +205,8 @@ def resolve_orchestrator_skill_plan(
 
     if config_text is not None:
         enabled, plan = parse_orchestrator_skill_config_text(config_text, config_path)
-    elif enabled_override is True and pack_override:
-        enabled = True
+    elif pack_override:
+        enabled = enabled_override is not False
         plan = OrchestratorSkillCheckoutPlan(
             repo="",
             ref="",
