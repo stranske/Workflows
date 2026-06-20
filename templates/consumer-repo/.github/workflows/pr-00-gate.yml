@@ -358,7 +358,6 @@ jobs:
           echo "scripts/check_deliberate_break.py not present;
           skipping opt-in deliberate-break check."
       - name: Warn on stale managed AGENTS.md playbook refs
-        if: ${{ hashFiles('scripts/check_agents_md_freshness.py') != '' }}
         run: >-
           python scripts/check_agents_md_freshness.py
           --repo-root .

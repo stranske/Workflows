@@ -40,7 +40,7 @@ class Finding:
 
 def managed_section(text: str) -> str | None:
     start = text.find(MANAGED_START)
-    end = text.find(MANAGED_END)
+    end = text.find(MANAGED_END, start + len(MANAGED_START)) if start >= 0 else -1
     if start < 0 or end < 0 or end < start:
         return None
     return text[start : end + len(MANAGED_END)]
@@ -79,6 +79,9 @@ def _check_command_ref(repo_root: Path, ref: str) -> list[Finding]:
         findings.append(Finding("command", ref, f"referenced command not found: {ref}"))
     for arg in ref.split()[1:]:
         arg = _clean_ref(arg)
+        if "=" in arg:
+            _, arg = arg.split("=", 1)
+            arg = _clean_ref(arg)
         if _looks_like_path(arg) and not _path_exists(repo_root, arg):
             findings.append(Finding("path", arg, f"referenced path not found: {arg}"))
     return findings
