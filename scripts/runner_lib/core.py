@@ -315,6 +315,8 @@ def _materialize_single_checkout_plan(
         _run_git(["git", "-C", str(clone_dir), "sparse-checkout", "reapply"], env=git_env)
 
         destination_root = workspace_path / checkout_path
+        if destination_root.exists():
+            shutil.rmtree(destination_root)
         destination_root.mkdir(parents=True, exist_ok=True)
         for rel_path in paths:
             src = clone_dir / rel_path

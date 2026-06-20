@@ -122,6 +122,9 @@ def test_reusable_runners_use_shared_refpack_action(workflow_rel: str) -> None:
     src = path.read_text()
     assert src.count("uses: ./.github/actions/agent-reference-packs") == 1
     assert "uses: ./.github/actions/agent-reference-packs" in src
-    assert (
-        "REFPACK_EOF" not in src
-    ), f"{workflow_rel}: reference-pack heredoc should live only in {REFPACK_ACTION}"
+    assert "REFPACK_EOF" not in src, (
+        f"{workflow_rel}: reference-pack heredoc should live only in {REFPACK_ACTION}"
+    )
+    assert "ORCHSKILL_EOF" not in src, (
+        f"{workflow_rel}: orchestrator-skill heredoc should live only in {REFPACK_ACTION}"
+    )
