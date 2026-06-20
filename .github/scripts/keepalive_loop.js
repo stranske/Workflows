@@ -142,6 +142,11 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(fallback) ? Number(fallback) : 0;
 }
 
+function toPositiveInteger(value, fallback = 0) {
+  const parsed = toNumber(value, fallback);
+  return parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -2503,7 +2508,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // Prefer state iteration unless config explicitly sets it (0 from config is default, not explicit)
     const configHasExplicitIteration = config.iteration > 0;
     const iteration = configHasExplicitIteration ? config.iteration : toNumber(state.iteration, 0);
-    const maxIterations = toNumber(config.max_iterations || state.max_iterations || 12, 12);
+    const configMaxIterations = toPositiveInteger(config.max_iterations, 0);
+    const stateMaxIterations = toPositiveInteger(state.max_iterations, 0);
+    const maxIterations = configMaxIterations || stateMaxIterations || 12;
     const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
     const progressReviewThreshold = toNumber(config.progress_review_threshold ?? state.progress_review_threshold, 4);
     // Default 3 rounds allows 2 fix attempts before stopping (round 1 = fix,
