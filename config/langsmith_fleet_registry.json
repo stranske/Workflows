@@ -130,6 +130,39 @@
         "seed",
         "metric_delta"
       ]
+    },
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "issue": "stranske/Travel-Plan-Permission#1238",
+      "issue_number": 1238,
+      "parent_issue": "stranske/Workflows#2150",
+      "surface": "agent-automation",
+      "operations": ["autopilot", "keepalive", "verifier"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "covered-via-langsmith-direct",
+      "required_domain_fields": ["workflow", "agent", "step", "attempt", "result"]
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "issue": "stranske/learning-management-system#334",
+      "issue_number": 334,
+      "parent_issue": "stranske/Workflows#2150",
+      "surface": "agent-automation",
+      "operations": ["autopilot", "keepalive", "verifier"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "covered-via-langsmith-direct",
+      "required_domain_fields": ["workflow", "agent", "step", "attempt", "result"]
+    },
+    {
+      "repo": "stranske/Fine-Art-Archive",
+      "issue": "stranske/Fine-Art-Archive#114",
+      "issue_number": 114,
+      "parent_issue": "stranske/Workflows#2150",
+      "surface": "agent-automation",
+      "operations": ["autopilot", "keepalive", "verifier"],
+      "artifact_name": "langsmith-fleet.ndjson",
+      "rollout_status": "covered-via-langsmith-direct",
+      "required_domain_fields": ["workflow", "agent", "step", "attempt", "result"]
     }
   ]
 }

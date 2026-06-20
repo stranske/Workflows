@@ -95,6 +95,13 @@
       "decision_anchor": "Learning-engine v1: evidence-based mastery (verbose EvidenceRecord schema, computed MasteryEstimate view), source-grounded prompts with content-hash drift detection, formative LLM interaction with local-first redaction, FSRS-4.5 scheduler with explicit evidence-adapter rule table, and the Minimum Demo Criterion as the Milestone 4 thesis-validation gate."
     },
     {
+      "repo": "stranske/Fine-Art-Archive",
+      "local_path": "Fine-Art-Archive",
+      "status": "active",
+      "cadence": "weekly",
+      "decision_anchor": "Canonical fine-art reproduction archive; consumer of stranske/Workflows. Archive/catalog integrity, metadata, and agent-automation workflow integration."
+    },
+    {
       "repo": "stranske/tim-bot",
       "local_path": "tim-bot",
       "status": "ignored",

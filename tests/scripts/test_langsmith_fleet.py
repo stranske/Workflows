@@ -166,7 +166,7 @@ def test_markdown_summary_renders_mixed_valid_invalid_missing_rows() -> None:
     )
     markdown = langsmith_fleet.format_fleet_summary(summary)
 
-    # Aggregate counts (one registry row per repo; 8 total).
+    # Aggregate counts (one registry row per repo; 11 total).
     assert "# LangSmith Fleet Artifact Status" in markdown
     assert f"- Registry entries: {len(registry['repos'])}" in markdown
     assert "- Invalid: 1" in markdown

@@ -252,7 +252,7 @@ def test_build_dashboard_from_path_includes_langsmith_fleet_status(tmp_path: Pat
 
     assert errors == 0
     assert "## LangSmith Fleet Artifact Status" in dashboard
-    assert "- Valid: 8" in dashboard
+    assert "- Valid: 11" in dashboard
     assert "- Missing: 0" in dashboard
     assert "- Stale: 0" in dashboard
     assert "- Invalid: 0" in dashboard
@@ -333,11 +333,11 @@ def test_main_langsmith_fleet_noops_without_langsmith_api_key(
     assert exit_code == 0
     content = output_path.read_text(encoding="utf-8")
     assert "## LangSmith Fleet Artifact Status" in content
-    assert "- Valid: 8" in content
+    assert "- Valid: 11" in content
 
 
 def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
-    """mixed.ndjson: 1 valid (Workflows) + 1 invalid (trip-planner) + 6 missing repos."""
+    """mixed.ndjson: 1 valid (Workflows) + 1 invalid (trip-planner) + 9 missing repos."""
     metrics_path = tmp_path / "metrics.ndjson"
     metrics_path.write_text(
         '{"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"}\n',
@@ -360,7 +360,7 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
     assert "## LangSmith Fleet Artifact Status" in dashboard
     assert "- Valid: 1" in dashboard
     assert "- Invalid: 1" in dashboard
-    assert "- Missing: 6" in dashboard
+    assert "- Missing: 9" in dashboard
     assert (
         "| stranske/Workflows | agent-automation | stranske/Workflows#2150 | valid |" in dashboard
     )
@@ -377,4 +377,4 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
         for line in fleet_section.splitlines()
         if line.startswith("| stranske/") and line.endswith(" |")
     ]
-    assert len(status_rows) == 8
+    assert len(status_rows) == 11
