@@ -40,13 +40,15 @@ REFPACK_ACTION = ".github/actions/agent-reference-packs/action.yml"
 
 def _extract_yaml_run_block(path: Path, step_name: str) -> str:
     lines = path.read_text().splitlines()
+    step_index = None
     for index, line in enumerate(lines):
         if line.strip() == f"- name: {step_name}":
+            step_index = index
             break
-    else:
+    if step_index is None:
         raise AssertionError(f"{path}: missing step named {step_name!r}")
 
-    for run_index in range(index + 1, len(lines)):
+    for run_index in range(step_index + 1, len(lines)):
         run_line = lines[run_index]
         if run_line.strip() != "run: |":
             continue
