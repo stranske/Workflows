@@ -230,6 +230,11 @@ jobs:
           fi
           python -m pip install --upgrade pip pytest pyyaml
           python -m pytest "${tests[@]}" -q
+      - name: Warn on stale managed AGENTS.md playbook refs
+        run: >-
+          python scripts/check_agents_md_freshness.py
+          --repo-root .
+          --github-annotations
 
   github-scripts-tests:
     name: github scripts tests
@@ -357,11 +362,6 @@ jobs:
         run: >-
           echo "scripts/check_deliberate_break.py not present;
           skipping opt-in deliberate-break check."
-      - name: Warn on stale managed AGENTS.md playbook refs
-        run: >-
-          python scripts/check_agents_md_freshness.py
-          --repo-root .
-          --github-annotations
       - name: Apply runtime acceptance-criteria label
         if: ${{ steps.deliberate_break.outputs.has_marker == 'true' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
