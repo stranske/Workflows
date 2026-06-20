@@ -37,6 +37,7 @@ REUSABLE_RUN_WORKFLOWS = [
 ]
 REFPACK_ACTION = ".github/actions/agent-reference-packs/action.yml"
 
+
 def _extract_yaml_run_block(path: Path, step_name: str) -> str:
     lines = path.read_text().splitlines()
     for index, line in enumerate(lines):
@@ -113,6 +114,6 @@ def test_reusable_runners_use_shared_refpack_action(workflow_rel: str) -> None:
     src = path.read_text()
     assert src.count("uses: ./.github/actions/agent-reference-packs") == 1
     assert "uses: ./.github/actions/agent-reference-packs" in src
-    assert "REFPACK_EOF" not in src, (
-        f"{workflow_rel}: reference-pack heredoc should live only in {REFPACK_ACTION}"
-    )
+    assert (
+        "REFPACK_EOF" not in src
+    ), f"{workflow_rel}: reference-pack heredoc should live only in {REFPACK_ACTION}"

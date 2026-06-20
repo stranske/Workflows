@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -129,7 +127,9 @@ def _coerce_enabled(value: Any, *, default: bool) -> bool:
     raise OrchestratorSkillConfigError("enabled must be a boolean")
 
 
-def parse_orchestrator_skill_config(payload: Any) -> tuple[bool, OrchestratorSkillCheckoutPlan | None]:
+def parse_orchestrator_skill_config(
+    payload: Any,
+) -> tuple[bool, OrchestratorSkillCheckoutPlan | None]:
     if not isinstance(payload, dict):
         raise OrchestratorSkillConfigError("orchestrator_skill.json must contain a JSON object")
 
@@ -279,22 +279,25 @@ def build_orchestrator_skill_summary(
     primary = files[0] if files else "(no files materialized)"
     pack_line = f"- **Reference pack:** `{pack_name}`\n" if pack_name else ""
     file_lines = "\n".join(f"- `{rel}`" for rel in files) or "- `(empty)`"
-    return "\n".join(
-        [
-            "This section provides **exported Orchestrator instructions** for remote Codex runs.",
-            "It is **not** a live mount of the local Orchestrator Brain, feedback database, worktrees, or credentials.",
-            "",
-            "**Read and apply the materialized Orchestrator skill files before coordinating work.**",
-            "Use the exported policy for decomposition and judgment only; do not attempt to access local Orchestrator runtime tools or state.",
-            "",
-            f"- **Location:** `{checkout_path.as_posix()}/`",
-            pack_line.rstrip(),
-            f"- **Primary entry point:** `{primary}`",
-            "",
-            "### Materialized files",
-            file_lines,
-        ]
-    ).strip() + "\n"
+    return (
+        "\n".join(
+            [
+                "This section provides **exported Orchestrator instructions** for remote Codex runs.",
+                "It is **not** a live mount of the local Orchestrator Brain, feedback database, worktrees, or credentials.",
+                "",
+                "**Read and apply the materialized Orchestrator skill files before coordinating work.**",
+                "Use the exported policy for decomposition and judgment only; do not attempt to access local Orchestrator runtime tools or state.",
+                "",
+                f"- **Location:** `{checkout_path.as_posix()}/`",
+                pack_line.rstrip(),
+                f"- **Primary entry point:** `{primary}`",
+                "",
+                "### Materialized files",
+                file_lines,
+            ]
+        ).strip()
+        + "\n"
+    )
 
 
 def write_orchestrator_skill_summary(
@@ -366,21 +369,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.format == "self-check":
         if not snapshot.exists:
             print(
-                "Orchestrator skill self-check: skipped "
-                f"({snapshot.config_path} not found).",
+                "Orchestrator skill self-check: skipped " f"({snapshot.config_path} not found).",
                 file=sys.stderr,
             )
             return 0
         if not snapshot.enabled:
             print(
-                "Orchestrator skill self-check: disabled "
-                f"({snapshot.config_path}).",
+                "Orchestrator skill self-check: disabled " f"({snapshot.config_path}).",
                 file=sys.stderr,
             )
             return 0
         print(
-            "Orchestrator skill self-check: OK "
-            f"(enabled from {snapshot.config_path}).",
+            "Orchestrator skill self-check: OK " f"(enabled from {snapshot.config_path}).",
             file=sys.stderr,
         )
         return 0
