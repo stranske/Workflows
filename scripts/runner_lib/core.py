@@ -513,7 +513,14 @@ def _parse_jsonl_output(raw_output: str) -> tuple[list[str], list[str]]:
         event_type = str(event.get("type") or event.get("status") or "").lower()
         text = _extract_text_from_json_event(event)
         if "error" in event_type or event.get("error"):
-            errors.append(text or json.dumps(event, sort_keys=True))
+            error_value = event.get("error")
+            nested_error = (
+                _extract_text_from_json_event(error_value)
+                if isinstance(error_value, dict)
+                else None
+            )
+            direct_error = error_value.strip() if isinstance(error_value, str) else None
+            errors.append(direct_error or nested_error or text or json.dumps(event, sort_keys=True))
         elif text:
             messages.append(text)
     if not parsed_any:
@@ -531,7 +538,7 @@ def parse_runner_output(provider: str, raw_output: str) -> RunnerResult:
     clipped = raw[:64000] if len(raw) > 64000 else raw
 
     messages, errors = _parse_jsonl_output(clipped) if provider == "codex" else ([], [])
-    final_message = messages[-1] if messages else ("" if errors else clipped.strip())
+    final_message = errors[0] if errors else (messages[-1] if messages else clipped.strip())
 
     if not errors and re.search(
         r"(^::error::|\bTraceback\b|\bError:|\bException\b)",
@@ -547,9 +554,6 @@ def parse_runner_output(provider: str, raw_output: str) -> RunnerResult:
             "",
         )
         errors.append(first or "runner output indicates an error")
-
-    if not final_message and errors:
-        final_message = errors[0]
 
     if not final_message:
         final_message = "No output captured"

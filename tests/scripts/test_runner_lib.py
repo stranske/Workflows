@@ -249,6 +249,22 @@ def test_parse_codex_jsonl_error_without_message_uses_error_summary() -> None:
     assert result.final_message == result.error
 
 
+def test_parse_codex_jsonl_error_prefers_error_over_progress() -> None:
+    raw = "\n".join(
+        [
+            json.dumps({"type": "step", "message": "Inspecting repository"}),
+            json.dumps({"type": "turn.failed", "error": "Codex auth failed"}),
+        ]
+    )
+
+    result = parse_runner_output("codex", raw)
+
+    assert result.success is False
+    assert result.error == "Codex auth failed"
+    assert result.final_message == "Codex auth failed"
+    assert result.summary == "Codex auth failed"
+
+
 def test_parse_runner_output_detects_error() -> None:
     result = parse_runner_output("claude", "Error: auth failed\n")
 
