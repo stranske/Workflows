@@ -585,7 +585,7 @@ class TestProviderSharedClientResolution:
         ):
             result = provider.analyze_completion("output", ["task1"])
 
-        mock_configured.assert_called_with("openai", fallback="gpt-5.1-codex")
+        mock_configured.assert_called_with("openai", fallback="gpt-5.4")
         mock_build.assert_called_once_with(provider="openai", model="gpt-configured")
         assert result.model_name == "gpt-configured"
 
@@ -612,7 +612,7 @@ class TestProviderSharedClientResolution:
         ):
             result = provider.analyze_completion("output", ["task1"])
 
-        mock_configured.assert_called_with("anthropic", fallback="claude-sonnet-4-5-20250929")
+        mock_configured.assert_called_with("anthropic", fallback="claude-sonnet-4-6")
         mock_build.assert_called_once_with(provider="anthropic", model="claude-configured")
         assert result.model_name == "claude-configured"
 
