@@ -88,6 +88,25 @@ def test_build_chat_client_anthropic_fallback(monkeypatch: pytest.MonkeyPatch) -
     assert resolved.model == "claude-sonnet-4-6"
 
 
+def test_build_chat_client_anthropic_without_openai_package(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Claude can run in Anthropic-only environments without langchain_openai."""
+    monkeypatch.setitem(sys.modules, "langchain_openai", None)
+    FakeChatAnthropic = _install_fake_langchain_anthropic(monkeypatch)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
+    monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
+
+    resolved = langchain_client.build_chat_client()
+
+    assert resolved is not None
+    assert resolved.provider == langchain_client.PROVIDER_ANTHROPIC
+    assert isinstance(resolved.client, FakeChatAnthropic)
+    assert resolved.client.kwargs["anthropic_api_key"] == "claude-token"
+
+
 def test_build_chat_client_env_provider_override(monkeypatch: pytest.MonkeyPatch) -> None:
     """Provider override env var should force OpenAI when set."""
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
@@ -522,6 +541,24 @@ def test_build_chat_clients_handles_partial_failures(
     assert len(clients) == 1
     assert clients[0].provider == langchain_client.PROVIDER_OPENAI
     assert isinstance(clients[0].client, FakeChatOpenAI)
+
+
+def test_build_chat_clients_anthropic_without_openai_package(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Multi-client resolution should not make Anthropic depend on OpenAI imports."""
+    monkeypatch.setitem(sys.modules, "langchain_openai", None)
+    FakeChatAnthropic = _install_fake_langchain_anthropic(monkeypatch)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
+    monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
+
+    clients = langchain_client.build_chat_clients()
+
+    assert len(clients) == 1
+    assert clients[0].provider == langchain_client.PROVIDER_ANTHROPIC
+    assert isinstance(clients[0].client, FakeChatAnthropic)
 
 
 # --- Reasoning model temperature handling ---

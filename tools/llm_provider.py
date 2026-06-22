@@ -49,7 +49,8 @@ def _configured_langchain_model(provider: str, *, fallback: str) -> str:
         from tools.llm_registry import configured_model_for_provider
     except ImportError:
         return fallback
-    return configured_model_for_provider(provider, fallback=fallback) or fallback
+    configured = configured_model_for_provider(provider, fallback=fallback)
+    return fallback if configured is None else configured
 
 
 def _setup_langsmith_tracing() -> bool:
@@ -601,6 +602,8 @@ class OpenAIProvider(LLMProvider):
             return None
 
         model_name = _configured_langchain_model("openai", fallback=DEFAULT_OPENAI_ANALYSIS_MODEL)
+        if not model_name:
+            return None
         resolved = build_chat_client(provider="openai", model=model_name)
         if resolved:
             self._model_name = resolved.model
@@ -674,6 +677,8 @@ class AnthropicProvider(LLMProvider):
         model_name = _configured_langchain_model(
             "anthropic", fallback=DEFAULT_ANTHROPIC_ANALYSIS_MODEL
         )
+        if not model_name:
+            return None
         resolved = build_chat_client(provider="anthropic", model=model_name)
         if resolved:
             self._model_name = resolved.model

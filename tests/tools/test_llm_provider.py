@@ -589,6 +589,18 @@ class TestProviderSharedClientResolution:
         mock_build.assert_called_once_with(provider="openai", model="gpt-configured")
         assert result.model_name == "gpt-configured"
 
+    def test_openai_provider_preserves_blocked_model_signal(self):
+        provider = OpenAIProvider()
+
+        with (
+            patch("tools.llm_registry.configured_model_for_provider", return_value=""),
+            patch("tools.langchain_client.build_chat_client") as mock_build,
+            pytest.raises(RuntimeError, match="LangChain OpenAI not available"),
+        ):
+            provider.analyze_completion("output", ["task1"])
+
+        mock_build.assert_not_called()
+
     def test_anthropic_provider_reports_configured_client_model(self):
         provider = AnthropicProvider()
         mock_client = MagicMock()
@@ -615,6 +627,18 @@ class TestProviderSharedClientResolution:
         mock_configured.assert_called_with("anthropic", fallback="claude-sonnet-4-6")
         mock_build.assert_called_once_with(provider="anthropic", model="claude-configured")
         assert result.model_name == "claude-configured"
+
+    def test_anthropic_provider_preserves_blocked_model_signal(self):
+        provider = AnthropicProvider()
+
+        with (
+            patch("tools.llm_registry.configured_model_for_provider", return_value=""),
+            patch("tools.langchain_client.build_chat_client") as mock_build,
+            pytest.raises(RuntimeError, match="LangChain Anthropic not available"),
+        ):
+            provider.analyze_completion("output", ["task1"])
+
+        mock_build.assert_not_called()
 
 
 class TestRegexFallbackProvider:
