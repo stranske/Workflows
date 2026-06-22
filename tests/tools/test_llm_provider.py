@@ -2,6 +2,7 @@
 
 import inspect
 import os
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -556,6 +557,64 @@ class TestProviderLegacyBehavior:
 
         assert result.provider_used == "regex-fallback"
         assert result.completed_tasks == ["task1"]
+
+
+class TestProviderSharedClientResolution:
+    """Provider-specific clients should still use the shared model resolver."""
+
+    def test_openai_provider_reports_configured_client_model(self):
+        provider = OpenAIProvider()
+        mock_client = MagicMock()
+        mock_client.invoke.return_value = MagicMock(content="""
+{
+    "completed": ["task1"],
+    "in_progress": [],
+    "blocked": [],
+    "confidence": 0.85,
+    "reasoning": "Configured call."
+}
+""")
+        resolved = SimpleNamespace(client=mock_client, model="gpt-configured")
+
+        with (
+            patch(
+                "tools.llm_registry.configured_model_for_provider",
+                return_value="gpt-configured",
+            ) as mock_configured,
+            patch("tools.langchain_client.build_chat_client", return_value=resolved) as mock_build,
+        ):
+            result = provider.analyze_completion("output", ["task1"])
+
+        mock_configured.assert_called_with("openai", fallback="gpt-5.1-codex")
+        mock_build.assert_called_once_with(provider="openai", model="gpt-configured")
+        assert result.model_name == "gpt-configured"
+
+    def test_anthropic_provider_reports_configured_client_model(self):
+        provider = AnthropicProvider()
+        mock_client = MagicMock()
+        mock_client.invoke.return_value = MagicMock(content="""
+{
+    "completed": ["task1"],
+    "in_progress": [],
+    "blocked": [],
+    "confidence": 0.88,
+    "reasoning": "Configured call."
+}
+""")
+        resolved = SimpleNamespace(client=mock_client, model="claude-configured")
+
+        with (
+            patch(
+                "tools.llm_registry.configured_model_for_provider",
+                return_value="claude-configured",
+            ) as mock_configured,
+            patch("tools.langchain_client.build_chat_client", return_value=resolved) as mock_build,
+        ):
+            result = provider.analyze_completion("output", ["task1"])
+
+        mock_configured.assert_called_with("anthropic", fallback="claude-sonnet-4-5-20250929")
+        mock_build.assert_called_once_with(provider="anthropic", model="claude-configured")
+        assert result.model_name == "claude-configured"
 
 
 class TestRegexFallbackProvider:

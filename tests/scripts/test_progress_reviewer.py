@@ -217,7 +217,7 @@ def test_review_progress_langsmith_trace_capture():
     mock_resolved.model = "test-model"
 
     with (
-        mock.patch("tools.langchain_client.build_chat_client", return_value=mock_resolved),
+        mock.patch("scripts.langchain._llm_client.build_client", return_value=mock_resolved),
         mock.patch.dict("os.environ", {"LANGSMITH_API_KEY": "test-key"}),
     ):
         result = review_progress_with_llm(
