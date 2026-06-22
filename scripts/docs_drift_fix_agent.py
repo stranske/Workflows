@@ -95,7 +95,9 @@ def findings_from_deterministic_report(report: dict[str, Any]) -> list[Finding]:
         kind = str(row.get("type") or "")
         path = str(row.get("path") or "")
         detail = str(row.get("detail") or "")
-        doc_path = _doc_from_detail(detail) if kind == "dangling_reference" else "docs/ci/WORKFLOWS.md"
+        doc_path = (
+            _doc_from_detail(detail) if kind == "dangling_reference" else "docs/ci/WORKFLOWS.md"
+        )
         findings.append(
             Finding(
                 source="deterministic",
@@ -141,7 +143,9 @@ def findings_from_scan_json(payload: dict[str, Any], *, repo: str) -> list[Findi
 def dedupe_findings(findings: Sequence[Finding]) -> list[Finding]:
     """Collapse obvious duplicates while preferring deterministic findings."""
     priority = {"deterministic": 0, "semantic-scan": 1}
-    ordered = sorted(findings, key=lambda f: (priority.get(f.source, 9), f.doc_path, f.kind, f.target))
+    ordered = sorted(
+        findings, key=lambda f: (priority.get(f.source, 9), f.doc_path, f.kind, f.target)
+    )
     seen: set[tuple[str, str, str]] = set()
     out: list[Finding] = []
     for finding in ordered:
@@ -254,7 +258,9 @@ def build_issue_body(
 ) -> str:
     findings = "\n".join(_finding_line(finding) for finding in batch.findings)
     docs = sorted({finding.doc_path for finding in batch.findings})
-    docs_tasks = "\n".join(f"- [ ] Update `{doc}` so its cited claims match the current tree." for doc in docs)
+    docs_tasks = "\n".join(
+        f"- [ ] Update `{doc}` so its cited claims match the current tree." for doc in docs
+    )
     check_items = "\n".join(
         f"- [ ] `{cmd}` passes after the repair." for cmd in (checks or verification_commands())
     )
@@ -320,8 +326,12 @@ def collect_findings(
     docs: Sequence[str] | None = None,
     scan_json: Path | None = None,
 ) -> list[Finding]:
-    docs_to_scan = list(docs) if docs is not None else default_docs_from_config(repo_root, repo=repo)
-    deterministic = check_docs_drift.build_report(check_docs_drift.check_docs_drift(repo_root, docs_to_scan))
+    docs_to_scan = (
+        list(docs) if docs is not None else default_docs_from_config(repo_root, repo=repo)
+    )
+    deterministic = check_docs_drift.build_report(
+        check_docs_drift.check_docs_drift(repo_root, docs_to_scan)
+    )
     findings = findings_from_deterministic_report(deterministic)
     if scan_json is not None:
         findings.extend(findings_from_scan_json(load_scan_json(scan_json), repo=repo))
@@ -336,9 +346,13 @@ def build_plan(
     scan_json: Path | None = None,
     max_per_batch: int = DEFAULT_MAX_PER_BATCH,
 ) -> dict[str, Any]:
-    docs_to_scan = list(docs) if docs is not None else default_docs_from_config(repo_root, repo=repo)
+    docs_to_scan = (
+        list(docs) if docs is not None else default_docs_from_config(repo_root, repo=repo)
+    )
     checks = verification_commands(docs_to_scan)
-    findings = collect_findings(repo_root=repo_root, repo=repo, docs=docs_to_scan, scan_json=scan_json)
+    findings = collect_findings(
+        repo_root=repo_root, repo=repo, docs=docs_to_scan, scan_json=scan_json
+    )
     batches = batch_findings(findings, max_per_batch=max_per_batch)
     return {
         "repo": repo,
@@ -404,7 +418,9 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
         if result.returncode != 0:
-            raise RuntimeError(f"gh issue create failed for {batch['batch_id']}: {result.stderr.strip()}")
+            raise RuntimeError(
+                f"gh issue create failed for {batch['batch_id']}: {result.stderr.strip()}"
+            )
     return created
 
 
@@ -430,13 +446,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         description="Build bounded docs-drift repair prompts and issue bodies."
     )
     parser.add_argument("--repo-root", type=Path, help="repository root to scan")
-    parser.add_argument("--repo", default=DEFAULT_REPO, help="GitHub repo name for issue/prompt output")
+    parser.add_argument(
+        "--repo", default=DEFAULT_REPO, help="GitHub repo name for issue/prompt output"
+    )
     parser.add_argument("--docs", nargs="+", help="repo-relative docs to scan for dangling refs")
     parser.add_argument("--scan-json", type=Path, help="optional repo_review docs-drift-scan.json")
     parser.add_argument("--out-dir", type=Path, help="write plan and per-batch prompt files")
     parser.add_argument("--max-per-batch", type=int, default=DEFAULT_MAX_PER_BATCH)
     parser.add_argument("--json", action="store_true", help="print plan JSON")
-    parser.add_argument("--apply", action="store_true", help="create one GitHub issue per repair batch")
+    parser.add_argument(
+        "--apply", action="store_true", help="create one GitHub issue per repair batch"
+    )
     return parser.parse_args(argv)
 
 

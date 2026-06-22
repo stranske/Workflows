@@ -128,7 +128,10 @@ def test_repair_prompt_includes_required_verification() -> None:
     prompt = fix_agent.build_repair_prompt(batch)
 
     assert "open one focused docs-only fix PR" in prompt
-    assert "pytest tests/workflows/test_workflow_naming.py::test_inventory_docs_list_all_workflows -q" in prompt
+    assert (
+        "pytest tests/workflows/test_workflow_naming.py::test_inventory_docs_list_all_workflows -q"
+        in prompt
+    )
     assert "Do not change workflows" in prompt
 
 
@@ -174,9 +177,7 @@ def test_cli_drift_fixture_exit_one_and_writes_outputs(tmp_path: Path, capsys) -
     assert (out_dir / "docs-drift-01-pr-plan.md").is_file()
 
 
-def test_cli_apply_creates_one_issue_per_batch(
-    tmp_path: Path, monkeypatch, capsys
-) -> None:
+def test_cli_apply_creates_one_issue_per_batch(tmp_path: Path, monkeypatch, capsys) -> None:
     root = _repo(
         tmp_path / "repo",
         workflows=("a.yml", "b.yml"),
