@@ -61,6 +61,8 @@ Auto-pilot pipeline:
 
 4. **Self-dispatch**: Auto-pilot uses `force_step` re-dispatch, not label changes, to sequence its stages. The keepalive loop is triggered independently by Gate completion, not by auto-pilot dispatch.
 
+5. **Repo playbook context**: The Orchestrator registry is the single editable owner for curated per-repo definition-of-done and gotcha rules. `repo_knowledge.py --export-agents-md <owner/repo> --repo-path <checkout> --apply` may write a small generated section in a repo's `AGENTS.md` between `<!-- BEGIN orch-playbook -->` and `<!-- END orch-playbook -->`; humans should edit the registry, not the generated block. Keepalive owns freshness validation: Gate runs `scripts/check_agents_md_freshness.py` in warning-only mode so stale cited paths or commands surface without wedging unrelated PRs while the registry is seeded.
+
 ## Key Principles
 
 1. **Task Focus**: Agents must work on PR tasks, not unrelated improvements. Tasks are explicitly injected via the task appendix.

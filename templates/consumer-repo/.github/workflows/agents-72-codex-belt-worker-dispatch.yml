@@ -37,16 +37,24 @@ on:
         required: false
         default: false
         type: boolean
-      max_parallel:
-        description: 'Maximum concurrent worker runs permitted'
-        required: false
-        default: '1'
-        type: string
       keepalive:
         description: 'True when invocation originates from a keepalive sweep'
         required: false
         default: false
         type: boolean
+      orchestrator_skill_pack:
+        description: >-
+          Optional reference-pack name override for exported Orchestrator skill context on
+          downstream Codex opener/closer runs (repo config remains primary).
+        required: false
+        default: ''
+        type: string
+      orchestrator_skill_enabled:
+        description: >-
+          Optional enabled override for exported Orchestrator skill context (true/false).
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -66,8 +74,10 @@ jobs:
       source: ${{ inputs.source }}
       dry_run: ${{ inputs.dry_run }}
       use_step_branch: ${{ inputs.use_step_branch }}
-      max_parallel: ${{ fromJSON(inputs.max_parallel) }}
+      max_parallel: 1
       keepalive: ${{ inputs.keepalive }}
+      orchestrator_skill_pack: ${{ inputs.orchestrator_skill_pack }}
+      orchestrator_skill_enabled: ${{ inputs.orchestrator_skill_enabled }}
     secrets:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}

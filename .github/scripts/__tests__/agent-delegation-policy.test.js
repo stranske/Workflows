@@ -104,10 +104,10 @@ test('checkPrerequisites with mode=any returns available=false when no secrets p
   assert.equal(result.available, false);
 });
 
-test('calculateEffectiveness returns effective=true when commits made', () => {
+test('calculateEffectiveness returns effective=true when commits made with green gate', () => {
   const history = [
     { iteration: 16, commits: 0, tasks: 0, gate: 'fail' },
-    { iteration: 17, commits: 1, tasks: 0, gate: 'pending' },
+    { iteration: 17, commits: 1, tasks: 0, gate: 'pass' },
     { iteration: 18, commits: 0, tasks: 0, gate: 'pending' },
   ];
 
@@ -116,6 +116,21 @@ test('calculateEffectiveness returns effective=true when commits made', () => {
   assert.equal(result.effective, true);
   assert.equal(result.commits, 1);
   assert.ok(result.summary.includes('1 commits'));
+});
+
+test('churn without checkbox progress is not effective', () => {
+  const history = [
+    { iteration: 16, commits: 1, tasks: 0, gate: 'fail' },
+    { iteration: 17, commits: 1, tasks: 0, gate: 'pending' },
+    { iteration: 18, commits: 1, tasks: 0, gate: 'fail' },
+  ];
+
+  const result = calculateEffectiveness({ history, lookbackRounds: 3 });
+
+  assert.equal(result.effective, false);
+  assert.equal(result.commits, 3);
+  assert.equal(result.tasks, 0);
+  assert.equal(result.gatePassed, false);
 });
 
 test('calculateEffectiveness returns effective=true when tasks completed', () => {
@@ -180,6 +195,21 @@ test('detectStall returns isStalled=true when threshold exceeded', () => {
   assert.ok(result.reason.includes('3 rounds, no progress'));
 });
 
+test('stalls after two zero-progress rounds', () => {
+  const history = [
+    { iteration: 17, commits: 0, tasks: 0, gate: 'fail' },
+    { iteration: 18, commits: 0, tasks: 0, gate: 'fail' },
+  ];
+
+  const result = detectStall({ history });
+  const explicitResult = detectStall({ history, threshold: 2 });
+
+  assert.equal(result.isStalled, true);
+  assert.equal(result.consecutiveRounds, 2);
+  assert.equal(explicitResult.isStalled, true);
+  assert.equal(explicitResult.consecutiveRounds, 2);
+});
+
 // #2268 deliberate-break gate: a 3-round zero-commit green-gate history MUST
 // produce isStalled=true. Restoring the old `|| round.gate === 'pass'` progress
 // test in detectStall makes this case come back isStalled=false (the green gates
@@ -201,7 +231,7 @@ test('detectStall returns isStalled=false when progress in last round', () => {
   const history = [
     { iteration: 16, commits: 0, tasks: 0, gate: 'fail' },
     { iteration: 17, commits: 0, tasks: 0, gate: 'fail' },
-    { iteration: 18, commits: 1, tasks: 0, gate: 'fail' },
+    { iteration: 18, commits: 1, tasks: 0, gate: 'pass' },
   ];
 
   const result = detectStall({ history, threshold: 3 });

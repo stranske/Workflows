@@ -18,8 +18,14 @@ Guidance:
 - Keep the response concise so maintainers can see the verification status at a glance.
 
 Output format (mandatory):
-- Start with `Verdict: PASS` if ALL acceptance criteria are met, otherwise `Verdict: FAIL`.
-- If ANY criterion is NOT MET, the verdict MUST be FAIL regardless of how many are met.
+- Start with a fenced JSON block containing only the machine verdict:
+
+  ```json
+  {"verdict":"PASS","reason":"all acceptance criteria verified"}
+  ```
+
+- Use `"verdict":"FAIL"` if ANY criterion is NOT MET, regardless of how many are met.
+- Do not write `Verdict: PASS` or `Verdict: FAIL` as free text; the workflow parses only the fenced JSON verdict.
 - Include a **Scope Check** section:
   ```
   ## Scope Check

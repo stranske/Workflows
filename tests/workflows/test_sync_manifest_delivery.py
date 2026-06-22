@@ -145,6 +145,15 @@ def test_copy_dependent_langchain_scripts_stay_copy_synced() -> None:
         )
 
 
+def test_langchain_client_registry_dependency_stays_copy_synced() -> None:
+    """The copy-synced LangChain client imports tools.llm_registry in consumers."""
+    manifest = _load_manifest()
+    copy_sources = _sources_in_sections(manifest, COPY_SYNCED_SECTIONS)
+
+    assert "tools/langchain_client.py" in copy_sources
+    assert "tools/llm_registry.py" in copy_sources
+
+
 def test_all_langchain_entries_have_a_delivery_channel() -> None:
     """Every scripts/langchain/* entry must declare its delivery channel."""
     manifest = _load_manifest()

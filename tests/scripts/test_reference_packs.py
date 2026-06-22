@@ -28,9 +28,14 @@ def test_sync_manifest_ships_reference_packs_before_runner_lib() -> None:
     script_sources = [entry.get("source") for entry in manifest.get("scripts", []) or []]
 
     assert (repo_root / "scripts" / "reference_packs.py").is_file()
+    assert (repo_root / "scripts" / "orchestrator_skill.py").is_file()
     assert "scripts/reference_packs.py" in script_sources
+    assert "scripts/orchestrator_skill.py" in script_sources
     assert "scripts/runner_lib/" in script_sources
     assert script_sources.index("scripts/reference_packs.py") < script_sources.index(
+        "scripts/runner_lib/"
+    )
+    assert script_sources.index("scripts/orchestrator_skill.py") < script_sources.index(
         "scripts/runner_lib/"
     )
 
@@ -153,6 +158,22 @@ def test_parse_reference_packs_list_format() -> None:
 
     assert len(packs) == 1
     assert packs[0].name == "trend-streamlit"
+
+
+def test_parse_reference_packs_rejects_nested_repo_names() -> None:
+    with pytest.raises(ReferencePackConfigError, match="repo must use owner/name format"):
+        parse_reference_packs(
+            {
+                "packs": [
+                    {
+                        "name": "trend-streamlit",
+                        "repo": "trend/research/extra",
+                        "ref": "main",
+                        "paths": ["apps/streamlit"],
+                    }
+                ]
+            }
+        )
 
 
 def test_build_checkout_plan_sets_reference_paths() -> None:

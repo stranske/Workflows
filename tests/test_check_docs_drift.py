@@ -152,6 +152,37 @@ def test_missing_backtick_repo_path_is_dangling_reference(tmp_path: Path) -> Non
     assert "docs/ci/WORKFLOWS.md" in drift[0]["detail"]
 
 
+def test_consumer_workflow_destination_path_is_not_dangling_reference(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("build.yml",),
+        workflows_doc=(
+            "Install the consumer workflow at `.github/workflows/ci.yml`, "
+            "using the template source `templates/consumer-repo/.github/workflows/ci.yml`.\n"
+            "The Workflows inventory still lists `build.yml`.\n"
+        ),
+    )
+
+    assert check_dangling_references(root) == []
+    assert check_docs_drift(root) == []
+
+
+def test_consumer_context_does_not_suppress_known_root_workflow_mention(
+    tmp_path: Path,
+) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("health-68-consumer-sync-drift.yml",),
+        workflows_doc=(
+            "Consumer sync drift is covered by "
+            "[Health 68 Consumer Sync Drift](../../.github/workflows/"
+            "health-68-consumer-sync-drift.yml).\n"
+        ),
+    )
+
+    assert check_workflow_inventory(root) == []
+
+
 def test_repo_path_glob_tokens_are_ignored(tmp_path: Path) -> None:
     root = _repo(
         tmp_path,

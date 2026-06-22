@@ -84,7 +84,7 @@ function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {},
 
   // Current agent exists - check if we should continue or switch
   const effectiveness = calculateEffectiveness({ history, lookbackRounds: 3, core });
-  const stall = detectStall({ history, threshold: 3, core });
+  const stall = detectStall({ history, threshold: 2, core });
   const roundsSinceSwitch = currentIteration - lastSwitchIteration;
   const inCooldown = roundsSinceSwitch < 5;
 
@@ -224,15 +224,13 @@ function calculateEffectiveness({ history = [], lookbackRounds = 3, core }) {
   const tasks = recentRounds.reduce((sum, round) => sum + (round.tasks || 0), 0);
   const gatePassed = recentRounds.some((round) => round.gate === 'pass');
 
-  // Agent is effective only when it produced real forward motion:
-  // - Made at least 1 commit in lookback window, OR
-  // - Completed at least 1 task in lookback window.
-  // A green Gate with zero commits and zero tasks is NOT progress: a normal
-  // `run` dispatch only happens on a green Gate (Activation Guardrail §2), so a
-  // genuinely stuck agent records `gate: 'pass'` every round. Counting that as
-  // effective made the stall detector unable to ever fire (#2268). `gatePassed`
-  // is still returned/reported below, just not treated as progress.
-  const effective = commits >= 1 || tasks >= 1;
+  // Agent is effective only when it produced verified forward motion:
+  // - Completed at least 1 task in the lookback window, OR
+  // - Made commits and has a green Gate signal in the lookback window.
+  // Bare commits with no checkbox progress and a non-green Gate are churn, not
+  // progress; otherwise an agent can commit indefinitely without advancing
+  // acceptance criteria or CI and never trip delegation.
+  const effective = tasks >= 1 || (commits >= 1 && gatePassed);
 
   const summary = [
     commits > 0 ? `${commits} commits` : null,
@@ -262,7 +260,7 @@ function calculateEffectiveness({ history = [], lookbackRounds = 3, core }) {
  * @param {Object} [options.core] - GitHub Actions core for logging
  * @returns {Object} - { isStalled, consecutiveRounds, reason }
  */
-function detectStall({ history = [], threshold = 3, core }) {
+function detectStall({ history = [], threshold = 2, core }) {
   if (history.length < threshold) {
     return {
       isStalled: false,
@@ -280,8 +278,8 @@ function detectStall({ history = [], threshold = 3, core }) {
     // keeps a green Gate while making zero commits never trips the stall
     // threshold and `agent:auto` delegation can never switch (#2268).
     const hasProgress =
-      (round.commits || 0) > 0 ||
-      (round.tasks || 0) > 0;
+      (round.tasks || 0) > 0 ||
+      ((round.commits || 0) > 0 && round.gate === 'pass');
 
     if (hasProgress) {
       break; // Found progress, stop counting

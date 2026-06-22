@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import contextlib
 import dataclasses
 import datetime as dt
 import hashlib
@@ -114,6 +115,18 @@ def _load_reference_packs_module() -> Any:
             raise RuntimeError(
                 "reference packs are not supported in this repository because "
                 "scripts/reference_packs.py was not synced"
+            ) from exc
+        raise
+
+
+def _load_orchestrator_skill_module() -> Any:
+    try:
+        return importlib.import_module("scripts.orchestrator_skill")
+    except ModuleNotFoundError as exc:
+        if exc.name == "scripts.orchestrator_skill":
+            raise RuntimeError(
+                "orchestrator skill context is not supported in this repository because "
+                "scripts/orchestrator_skill.py was not synced"
             ) from exc
         raise
 
@@ -241,6 +254,143 @@ def materialize_reference_packs(
     return summary_path
 
 
+def _materialize_single_checkout_plan(
+    workspace_path: Path,
+    *,
+    repo: str,
+    ref: str,
+    paths: list[str],
+    checkout_path: str,
+    token: str | None,
+) -> Path:
+    clone_parent = Path(tempfile.mkdtemp(prefix="orchestrator-skill-"))
+    clone_dir = clone_parent / "repo"
+    askpass_path = clone_parent / "git-askpass.sh"
+    git_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    if token:
+        askpass_path.write_text(
+            "#!/bin/sh\n"
+            'case "$1" in\n'
+            "  *Username*) printf '%s\\n' \"${GIT_ASKPASS_USERNAME:-x-access-token}\" ;;\n"
+            "  *) printf '%s\\n' \"$GIT_ASKPASS_PASSWORD\" ;;\n"
+            "esac\n",
+            encoding="utf-8",
+        )
+        askpass_path.chmod(0o700)
+        git_env.update(
+            {
+                "GIT_ASKPASS": str(askpass_path),
+                "GIT_ASKPASS_USERNAME": "x-access-token",
+                "GIT_ASKPASS_PASSWORD": token,
+            }
+        )
+
+    clone_url = f"https://github.com/{repo}.git"
+    clone_cmd = ["git", "clone", "--depth=1", "--filter=blob:none", "--sparse"]
+    is_sha = bool(re.fullmatch(r"[0-9a-fA-F]{40}", ref))
+    if not is_sha:
+        clone_cmd.extend(["--branch", ref])
+    clone_cmd.extend([clone_url, str(clone_dir)])
+    try:
+        _run_git(clone_cmd, env=git_env)
+
+        if is_sha:
+            _run_git(
+                ["git", "-C", str(clone_dir), "fetch", "origin", ref, "--depth=1"],
+                env=git_env,
+            )
+            _run_git(["git", "-C", str(clone_dir), "checkout", ref], env=git_env)
+
+        _run_git(
+            [
+                "git",
+                "-C",
+                str(clone_dir),
+                "sparse-checkout",
+                "set",
+                "--no-cone",
+                *paths,
+            ],
+            env=git_env,
+        )
+        _run_git(["git", "-C", str(clone_dir), "sparse-checkout", "reapply"], env=git_env)
+
+        destination_root = workspace_path / checkout_path
+        if destination_root.exists():
+            shutil.rmtree(destination_root)
+        destination_root.mkdir(parents=True, exist_ok=True)
+        for rel_path in paths:
+            src = clone_dir / rel_path
+            dst = destination_root / rel_path
+            if src.is_dir():
+                shutil.copytree(src, dst, dirs_exist_ok=True)
+            elif src.is_file():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+            else:
+                print(
+                    f"warning: path '{rel_path}' not found in {repo}@{ref}",
+                    file=sys.stderr,
+                )
+    finally:
+        shutil.rmtree(clone_parent, ignore_errors=True)
+
+    return destination_root
+
+
+def materialize_orchestrator_skill(
+    workspace: str | Path = ".",
+    *,
+    pack_override: str | None = None,
+    enabled_override: bool | None = None,
+    token: str | None = None,
+) -> Path | None:
+    """Validate and materialize exported Orchestrator skill context into `.reference/`."""
+    orchestrator_skill = _load_orchestrator_skill_module()
+    workspace_path = Path(workspace).resolve()
+    plan = orchestrator_skill.resolve_orchestrator_skill_plan(
+        workspace_path,
+        pack_override=pack_override,
+        enabled_override=enabled_override,
+    )
+    if plan is None:
+        return None
+
+    if plan.pack:
+        reference_packs = _load_reference_packs_module()
+        snapshot = reference_packs.load_reference_packs(workspace_path)
+        matching = [
+            entry
+            for entry in reference_packs.build_checkout_plan(snapshot.packs)
+            if entry.name == plan.pack
+        ]
+        if not matching:
+            raise ValueError(f"orchestrator skill reference pack not found: {plan.pack}")
+        checkout_path = workspace_path / matching[0].checkout_path
+        with contextlib.suppress(FileNotFoundError):
+            shutil.rmtree(checkout_path)
+        materialize_reference_packs(
+            workspace_path,
+            reference_pack_name=plan.pack,
+            token=token,
+        )
+    else:
+        checkout_path = _materialize_single_checkout_plan(
+            workspace_path,
+            repo=plan.repo,
+            ref=plan.ref,
+            paths=plan.paths,
+            checkout_path=plan.checkout_path,
+            token=token,
+        )
+
+    return orchestrator_skill.write_orchestrator_skill_summary(
+        workspace_path,
+        checkout_path,
+        pack_name=plan.pack,
+    )
+
+
 def assemble_prompt(
     reference_pack_name: str | None, context: dict[str, Any], provider: str
 ) -> RunnerPrompt:
@@ -257,12 +407,28 @@ def assemble_prompt(
     if not base_prompt.is_file():
         raise FileNotFoundError(f"base prompt file not found: {base_prompt}")
 
+    token = context.get("github_token") or context.get("token")
     if context.get("materialize_reference_packs"):
         materialize_reference_packs(
             workspace,
             reference_pack_name=reference_pack_name,
-            token=context.get("github_token") or context.get("token"),
+            token=token,
         )
+
+    if context.get("materialize_orchestrator_skill"):
+        orchestrator_summary_path = materialize_orchestrator_skill(
+            workspace,
+            pack_override=context.get("orchestrator_skill_pack") or None,
+            enabled_override=context.get("orchestrator_skill_enabled"),
+            token=token,
+        )
+    else:
+        orchestrator_summary_raw = context.get("orchestrator_skill_summary_path")
+        orchestrator_summary_path = (
+            Path(str(orchestrator_summary_raw)) if orchestrator_summary_raw else None
+        )
+        if orchestrator_summary_path and not orchestrator_summary_path.is_absolute():
+            orchestrator_summary_path = workspace / orchestrator_summary_path
 
     output_file = str(
         context.get("output_file") or _prompt_output_name(provider, context.get("pr_number"))
@@ -291,6 +457,14 @@ def assemble_prompt(
     reference_summary = workspace / ".reference" / "REFERENCE_PACKS.md"
     if reference_summary.is_file():
         parts.extend(["\n\n## Reference Packs\n", _read_text(reference_summary).rstrip()])
+
+    if orchestrator_summary_path and orchestrator_summary_path.is_file():
+        parts.extend(
+            [
+                "\n\n## Orchestrator Skill Context\n",
+                _read_text(orchestrator_summary_path).rstrip(),
+            ]
+        )
 
     text = "".join(parts).rstrip() + "\n"
     output_path.write_text(text, encoding="utf-8")
@@ -754,6 +928,17 @@ def _write_github_output(outputs: dict[str, str]) -> None:
             handle.write(f"{key}={_github_output_value(value)}\n")
 
 
+def _parse_optional_bool(raw: str) -> bool | None:
+    normalized = (raw or "").strip().lower()
+    if not normalized:
+        return None
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError("orchestrator skill enabled override must be true or false")
+
+
 def _cmd_assemble(args: argparse.Namespace) -> int:
     context = {
         "workspace": args.workspace,
@@ -764,6 +949,10 @@ def _cmd_assemble(args: argparse.Namespace) -> int:
         "output_file": args.output,
         "task_appendix_file": args.task_appendix_file,
         "materialize_reference_packs": args.materialize_reference_packs,
+        "materialize_orchestrator_skill": args.materialize_orchestrator_skill,
+        "orchestrator_skill_pack": args.orchestrator_skill_pack or None,
+        "orchestrator_skill_enabled": _parse_optional_bool(args.orchestrator_skill_enabled),
+        "orchestrator_skill_summary_path": os.environ.get("ORCHESTRATOR_SKILL_SUMMARY_PATH"),
         "github_token": os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN"),
     }
     prompt = assemble_prompt(args.reference_pack_name, context, args.provider)
@@ -860,6 +1049,9 @@ def build_parser() -> argparse.ArgumentParser:
     assemble.add_argument("--task-appendix-file", default="")
     assemble.add_argument("--reference-pack-name", default="")
     assemble.add_argument("--materialize-reference-packs", action="store_true")
+    assemble.add_argument("--orchestrator-skill-pack", default="")
+    assemble.add_argument("--orchestrator-skill-enabled", default="")
+    assemble.add_argument("--materialize-orchestrator-skill", action="store_true")
     assemble.set_defaults(func=_cmd_assemble)
 
     parse = subparsers.add_parser("parse-output", help="parse provider output")

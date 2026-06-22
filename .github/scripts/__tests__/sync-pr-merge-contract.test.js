@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   buildMarkdownSummary,
   buildMergeReport,
+  classifySyncPrChecks,
   collectDeletableSyncBranches,
   normalizeSyncHash,
   parseBooleanInput,
@@ -19,6 +20,18 @@ const pr = (number, ref, created_at) => ({
   title: `sync ${number}`,
   created_at,
   head: { ref },
+});
+
+const checkRun = ({
+  name,
+  status = 'completed',
+  conclusion = 'success',
+  started_at = '2026-04-25T01:00:00Z',
+}) => ({
+  name,
+  status,
+  conclusion,
+  started_at,
 });
 
 test('normalizeSyncHash accepts raw hashes and branch names', () => {
@@ -122,6 +135,102 @@ test('collectDeletableSyncBranches keeps open PR branches and non-sync branches'
     collectDeletableSyncBranches({ branches, openPullRequests, closedPullRequests }),
     ['sync/workflows-old'],
   );
+});
+
+test('classifySyncPrChecks ignores non-required failing checks when required contexts pass', () => {
+  const result = classifySyncPrChecks({
+    requiredContexts: ['Gate / gate'],
+    fallbackDenylist: ['Detect keepalive'],
+    checkRuns: [
+      checkRun({ name: 'Gate / gate', conclusion: 'success' }),
+      checkRun({ name: 'Resolve Context', conclusion: 'failure' }),
+    ],
+  });
+
+  assert.equal(result.status, 'ready');
+  assert.deepEqual(result.failed, []);
+  assert.deepEqual(result.pending, []);
+});
+
+test('classifySyncPrChecks fails when a required check fails', () => {
+  const result = classifySyncPrChecks({
+    requiredContexts: new Set(['Gate / gate']),
+    checkRuns: [
+      checkRun({ name: 'Gate / gate', conclusion: 'failure' }),
+      checkRun({ name: 'Resolve Context', conclusion: 'failure' }),
+    ],
+  });
+
+  assert.equal(result.status, 'checks_failed');
+  assert.deepEqual(result.failed.map((check) => check.name), ['Gate / gate']);
+  assert.deepEqual(result.pending, []);
+});
+
+test('classifySyncPrChecks uses the latest check run per name', () => {
+  const result = classifySyncPrChecks({
+    requiredContexts: ['Gate / gate'],
+    checkRuns: [
+      checkRun({
+        name: 'Gate / gate',
+        conclusion: 'failure',
+        started_at: '2026-04-25T01:00:00Z',
+      }),
+      checkRun({
+        name: 'Gate / gate',
+        conclusion: 'success',
+        started_at: '2026-04-25T02:00:00Z',
+      }),
+    ],
+  });
+
+  assert.equal(result.status, 'ready');
+  assert.deepEqual(result.failed, []);
+});
+
+test('classifySyncPrChecks reports pending when a required check is in progress', () => {
+  const result = classifySyncPrChecks({
+    requiredContexts: ['Gate / gate'],
+    checkRuns: [
+      checkRun({
+        name: 'Gate / gate',
+        status: 'in_progress',
+        conclusion: null,
+      }),
+      checkRun({ name: 'Resolve Context', conclusion: 'failure' }),
+    ],
+  });
+
+  assert.equal(result.status, 'checks_pending');
+  assert.deepEqual(result.failed, []);
+  assert.deepEqual(result.pending.map((check) => check.name), ['Gate / gate']);
+});
+
+test('classifySyncPrChecks falls back to denylist when required contexts are empty', () => {
+  const fallbackDenylist = ['Detect keepalive'];
+  const denylistedOnly = classifySyncPrChecks({
+    requiredContexts: [],
+    fallbackDenylist,
+    checkRuns: [
+      checkRun({ name: 'Gate / gate', conclusion: 'success' }),
+      checkRun({ name: 'Detect keepalive activation', conclusion: 'failure' }),
+    ],
+  });
+
+  assert.equal(denylistedOnly.status, 'ready');
+
+  const nonDenylistedFailure = classifySyncPrChecks({
+    requiredContexts: [],
+    fallbackDenylist,
+    checkRuns: [
+      checkRun({ name: 'Gate / gate', conclusion: 'success' }),
+      checkRun({ name: 'Record autofix metrics', conclusion: 'failure' }),
+    ],
+  });
+
+  assert.equal(nonDenylistedFailure.status, 'checks_failed');
+  assert.deepEqual(nonDenylistedFailure.failed.map((check) => check.name), [
+    'Record autofix metrics',
+  ]);
 });
 
 test('buildMarkdownSummary includes non-zero statuses and artifact name', () => {

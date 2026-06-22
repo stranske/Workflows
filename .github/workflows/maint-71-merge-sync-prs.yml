@@ -133,12 +133,16 @@ jobs:
             const {
               buildMarkdownSummary,
               buildMergeReport,
+              classifySyncPrChecks,
               collectDeletableSyncBranches,
               normalizeSyncHash,
               parseBooleanInput,
               selectActiveSyncPr,
+              selectSyncPrGatingChecks,
             } = require('./.github/scripts/sync_pr_merge_contract.js');
-            const { assertRuntimeAcMergeAllowed } = require('./.github/scripts/runtime_ac_merge_guard.js');
+            const {
+              assertRuntimeAcMergeAllowed,
+            } = require('./.github/scripts/runtime_ac_merge_guard.js');
             // Support repository_dispatch (no inputs) with sensible defaults
             const inputRepos =
               process.env.REPOS_INPUT ||
@@ -181,6 +185,57 @@ jobs:
                   ],
                 })
               : { github, withRetry: (fn) => fn(github) };
+            const fallbackCheckDenylist = [
+              'Detect keepalive',
+              'pr_meta',
+              'resolve_pr',
+              'Cleanup',
+              '${' + '{ matrix.',
+              'matrix.python-version',
+            ];
+
+            async function getRequiredContexts({ owner, repo, branch }) {
+              try {
+                const { data: protection } = await withRetry((client) =>
+                  client.rest.repos.getBranchProtection({
+                    owner,
+                    repo,
+                    branch,
+                  }),
+                );
+                const requiredStatusChecks = protection?.required_status_checks || {};
+                const requiredContexts = new Set();
+                for (const contextName of requiredStatusChecks.contexts || []) {
+                  const normalized = String(contextName || '').trim();
+                  if (normalized) {
+                    requiredContexts.add(normalized);
+                  }
+                }
+                for (const check of requiredStatusChecks.checks || []) {
+                  const normalized = String(check?.context || '').trim();
+                  if (normalized) {
+                    requiredContexts.add(normalized);
+                  }
+                }
+                if (requiredContexts.size === 0) {
+                  console.log(
+                    `Branch protection for ${owner}/${repo}@${branch} has no required ` +
+                      'status checks; using denylist fallback',
+                  );
+                }
+                return requiredContexts;
+              } catch (error) {
+                const status = error?.status || error?.response?.status;
+                if (status === 403 || status === 404) {
+                  console.log(
+                    `Branch protection unavailable for ${owner}/${repo}@${branch} ` +
+                      `(${status}); using denylist fallback`,
+                  );
+                  return new Set();
+                }
+                throw error;
+              }
+            }
 
             // Parse repos from previous step
             const registeredRepos = '${{ steps.repos.outputs.list }}'
@@ -277,7 +332,9 @@ jobs:
                         console.log(`✓ Deleted leftover branch ${branch}`);
                         results.push({ owner, repo, branch, status: 'branch_deleted' });
                       } catch (branchErr) {
-                        console.log(`⚠ Could not delete leftover branch ${branch}: ${branchErr.message}`);
+                        console.log(
+                          `⚠ Could not delete leftover branch ${branch}: ${branchErr.message}`,
+                        );
                         results.push({
                           owner,
                           repo,
@@ -327,7 +384,8 @@ jobs:
                 // If multiple sync PRs exist, close older ones as stale
                 if (selection.stale.length > 0) {
                   console.log(
-                    `Found ${syncPRs.length} sync PRs - closing ${selection.stale.length} stale PRs`,
+                    `Found ${syncPRs.length} sync PRs - closing ` +
+                      `${selection.stale.length} stale PRs`,
                   );
 
                   for (const stalePR of selection.stale) {
@@ -404,52 +462,39 @@ jobs:
                 // Check check runs
                 const { data: checkRuns } = await withRetry((client) =>
                   client.rest.checks.listForRef({
-                  owner,
-                  repo,
-                  ref: pr.head.sha
-                }),
+                    owner,
+                    repo,
+                    ref: pr.head.sha
+                  }),
                 );
 
                 const allChecks = checkRuns.check_runs || [];
-                const orderedChecks = [...allChecks].sort((a, b) => {
-                  const aTime = new Date(a.started_at || a.completed_at || 0).getTime();
-                  const bTime = new Date(b.started_at || b.completed_at || 0).getTime();
-                  return bTime - aTime;
+                const requiredContexts = await getRequiredContexts({
+                  owner,
+                  repo,
+                  branch: pr.base.ref,
                 });
-                const matrixPlaceholder = '${' + '{ matrix.';
-                const matrixPlaceholderPython = 'matrix.python-version';
-                const latestChecksByName = new Map();
-                for (const check of orderedChecks) {
-                  if (!latestChecksByName.has(check.name)) {
-                    latestChecksByName.set(check.name, check);
-                  }
-                }
-                const requiredChecks = [...latestChecksByName.values()].filter(c =>
-                  !c.name.includes('Detect keepalive') &&
-                  !c.name.includes('pr_meta') &&
-                  !c.name.includes('resolve_pr') &&
-                  !c.name.includes('Cleanup') &&
-                  !c.name.includes(matrixPlaceholder) &&
-                  !c.name.includes(matrixPlaceholderPython) &&
-                  c.conclusion !== 'skipped' &&
-                  c.conclusion !== 'neutral' &&
-                  c.conclusion !== 'cancelled'
-                );
-
-                const failedChecks = requiredChecks.filter(c =>
-                  c.conclusion !== 'success' && c.conclusion !== null
-                );
-
-                const pendingChecks = requiredChecks.filter(c =>
-                  c.status !== 'completed'
-                );
+                const classification = classifySyncPrChecks({
+                  checkRuns: allChecks,
+                  requiredContexts,
+                  fallbackDenylist: fallbackCheckDenylist,
+                });
+                const gatingChecks = selectSyncPrGatingChecks({
+                  checkRuns: allChecks,
+                  requiredContexts,
+                  fallbackDenylist: fallbackCheckDenylist,
+                });
+                const checkGateMode =
+                  requiredContexts.size > 0 ? 'required-contexts' : 'denylist-fallback';
+                const failedChecks = classification.failed;
+                const pendingChecks = classification.pending;
 
                 console.log(
-                  `Checks: ${requiredChecks.length} total, ${failedChecks.length} failed, ` +
-                    `${pendingChecks.length} pending`,
+                  `Checks (${checkGateMode}): ${gatingChecks.length} gating, ` +
+                    `${failedChecks.length} failed, ${pendingChecks.length} pending`,
                 );
 
-                if (failedChecks.length > 0) {
+                if (classification.status === 'checks_failed') {
                   console.log('Failed checks:');
                   failedChecks.forEach(c => console.log(`  - ${c.name}: ${c.conclusion}`));
                   results.push({
@@ -467,7 +512,7 @@ jobs:
                   continue;
                 }
 
-                if (pendingChecks.length > 0) {
+                if (classification.status === 'checks_pending') {
                   console.log('Waiting for checks to complete');
                   results.push({
                     owner,
@@ -487,7 +532,13 @@ jobs:
                 // All checks passed
                 if (!autoMerge) {
                   console.log('✓ Ready to merge (auto-merge disabled)');
-                  results.push({ owner, repo, pr: pr.number, branch: pr.head.ref, status: 'ready' });
+                  results.push({
+                    owner,
+                    repo,
+                    pr: pr.number,
+                    branch: pr.head.ref,
+                    status: 'ready',
+                  });
                   continue;
                 }
 
@@ -570,7 +621,13 @@ jobs:
                       ref: `heads/${pr.head.ref}`
                     }));
                     console.log('✓ Branch deleted');
-                    results.push({ owner, repo, pr: pr.number, branch: pr.head.ref, status: 'branch_deleted' });
+                    results.push({
+                      owner,
+                      repo,
+                      pr: pr.number,
+                      branch: pr.head.ref,
+                      status: 'branch_deleted',
+                    });
                   } catch (e) {
                     console.log(`⚠ Could not delete branch: ${e.message}`);
                     results.push({
@@ -583,7 +640,13 @@ jobs:
                     });
                   }
 
-                  results.push({ owner, repo, pr: pr.number, branch: pr.head.ref, status: 'merged' });
+                  results.push({
+                    owner,
+                    repo,
+                    pr: pr.number,
+                    branch: pr.head.ref,
+                    status: 'merged',
+                  });
                 } catch (e) {
                   console.log(`✗ Merge failed: ${e.message}`);
                   results.push({
@@ -659,7 +722,8 @@ jobs:
             console.log(`Ready (not auto-merged): ${ready}`);
             if (dryRun && blockingFailures.length > 0) {
               core.notice(
-                `Dry run observed ${blockingFailures.length} blocking result(s); report-only mode remains successful.`,
+                `Dry run observed ${blockingFailures.length} blocking result(s); ` +
+                  'report-only mode remains successful.',
               );
             }
 

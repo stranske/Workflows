@@ -220,6 +220,11 @@ jobs:
           fi
           python -m pip install --upgrade pip pytest pyyaml
           python -m pytest "${tests[@]}" -q
+      - name: Warn on stale managed AGENTS.md playbook refs
+        run: >-
+          python scripts/check_agents_md_freshness.py
+          --repo-root .
+          --github-annotations
 
   github-scripts-tests:
     name: github scripts tests
@@ -307,8 +312,12 @@ jobs:
       - environment-gate
     if: ${{ github.event_name == 'pull_request' && needs.detect.outputs.doc_only != 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -324,11 +333,43 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+      - name: Install test-quality dependencies
+        run: python -m pip install --upgrade pip pytest
       - name: Check test quality and secret diff
         run: >-
           python scripts/check_gate_diff_quality.py
           --base "refs/remotes/upstream/${{ github.event.pull_request.base.ref }}"
           --head HEAD
+      - name: Check deliberate-break acceptance criterion
+        id: deliberate_break
+        run: >-
+          python scripts/check_deliberate_break.py
+          --base "refs/remotes/upstream/${{ github.event.pull_request.base.ref }}"
+          --head HEAD
+        env:
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+      - name: Apply runtime acceptance-criteria label
+        if: ${{ steps.deliberate_break.outputs.has_marker == 'true' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const issue_number = context.payload.pull_request.number;
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+            });
+            const labels = issue.labels.map((label) =>
+              typeof label === 'string' ? label : label.name
+            );
+            if (!labels.includes('acceptance-criteria')) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                labels: ['acceptance-criteria'],
+              });
+            }
 
   docker-smoke:
     name: docker smoke
@@ -603,6 +644,7 @@ jobs:
           DOCS_GUARD_RESULT: ${{ needs.docs-guard.result || 'success' }}
           PYTHON_REQUIRED: ${{ needs.detect.outputs.is_python_code || 'true' }}
           DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
+          TEST_QUALITY_RESULT: ${{ needs.test-quality.result || 'skipped' }}
           DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
           COVERAGE_ENABLED: ${{ needs.detect.outputs.coverage || 'true' }}
         run: python .github/scripts/gate_summary.py

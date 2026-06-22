@@ -65,6 +65,85 @@ function collectDeletableSyncBranches({
     .sort();
 }
 
+function normalizeStringSet(values) {
+  if (!values) {
+    return new Set();
+  }
+  const items = values instanceof Set ? [...values] : values;
+  if (!Array.isArray(items)) {
+    return new Set();
+  }
+  return new Set(items.map((value) => String(value || '').trim()).filter(Boolean));
+}
+
+function checkRunTimestamp(check) {
+  const timestamp = new Date(
+    check?.started_at || check?.completed_at || check?.created_at || 0,
+  ).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function latestCheckRunsByName(checkRuns = []) {
+  const orderedChecks = [...(checkRuns || [])].sort(
+    (a, b) => checkRunTimestamp(b) - checkRunTimestamp(a),
+  );
+  const latestChecksByName = new Map();
+  for (const check of orderedChecks) {
+    const name = String(check?.name || '').trim();
+    if (name && !latestChecksByName.has(name)) {
+      latestChecksByName.set(name, check);
+    }
+  }
+  return [...latestChecksByName.values()];
+}
+
+function isFallbackDeniedCheck(checkName, fallbackDenylist) {
+  return [...fallbackDenylist].some((deniedName) => checkName.includes(deniedName));
+}
+
+function selectSyncPrGatingChecks({
+  checkRuns = [],
+  requiredContexts = [],
+  fallbackDenylist = [],
+} = {}) {
+  const requiredContextSet = normalizeStringSet(requiredContexts);
+  const fallbackDenylistSet = normalizeStringSet(fallbackDenylist);
+  const latestChecks = latestCheckRunsByName(checkRuns);
+  return requiredContextSet.size > 0
+    ? latestChecks.filter((check) => requiredContextSet.has(String(check?.name || '').trim()))
+    : latestChecks.filter(
+        (check) => !isFallbackDeniedCheck(String(check?.name || ''), fallbackDenylistSet),
+      );
+}
+
+function classifySyncPrChecks({
+  checkRuns = [],
+  requiredContexts = [],
+  fallbackDenylist = [],
+} = {}) {
+  const gatingChecks = selectSyncPrGatingChecks({
+    checkRuns,
+    requiredContexts,
+    fallbackDenylist,
+  });
+  const allowedConclusions = new Set(['success', 'skipped', 'neutral']);
+  const failed = gatingChecks.filter((check) => {
+    if (check?.status !== 'completed') {
+      return false;
+    }
+    return !allowedConclusions.has(String(check?.conclusion || '').toLowerCase());
+  });
+  const pending = gatingChecks.filter((check) => check?.status !== 'completed');
+
+  if (failed.length > 0) {
+    return { status: 'checks_failed', failed, pending: [] };
+  }
+  if (pending.length > 0) {
+    return { status: 'checks_pending', failed: [], pending };
+  }
+  return { status: 'ready', failed: [], pending: [] };
+}
+
 function sortSyncPrs(prs) {
   return [...(prs || [])].sort((a, b) => {
     const aTime = new Date(a.created_at || a.createdAt || 0).getTime();
@@ -180,11 +259,13 @@ module.exports = {
   REPORT_SCHEMA,
   SYNC_BRANCH_PREFIX,
   branchNameFromRef,
+  classifySyncPrChecks,
   collectDeletableSyncBranches,
   isSyncBranchName,
   normalizeSyncHash,
   syncBranchForHash,
   parseBooleanInput,
+  selectSyncPrGatingChecks,
   sortSyncPrs,
   selectActiveSyncPr,
   summarizeResults,

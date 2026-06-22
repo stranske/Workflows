@@ -139,6 +139,7 @@ def _render_prompt_with_assemble_step(
     appendix: str = "",
     mode: str = "autofix",
     pr_number: str = "",
+    orchestrator_skill_summary_path: str = "",
 ) -> str:
     assemble_step = _find_step_by_name(workflow, "Assemble prompt")
     run_script = str(assemble_step.get("run", ""))
@@ -156,6 +157,7 @@ def _render_prompt_with_assemble_step(
             "MODE": mode,
             "GITHUB_OUTPUT": str(github_output),
             "GITHUB_WORKSPACE": str(Path.cwd()),
+            "ORCHESTRATOR_SKILL_SUMMARY_PATH": orchestrator_skill_summary_path,
         }
     )
 
@@ -416,6 +418,75 @@ def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missi
 
     # Missing file should not error and should not add a reference section.
     assert "## Reference Packs\n" not in rendered
+
+
+def test_reusable_codex_prompt_step_skips_stale_orchestrator_skill_section_when_file_exists(
+    tmp_path: Path,
+) -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    orchestrator_text = (
+        "Read and apply the materialized Orchestrator skill files before coordinating work.\n"
+    )
+    orchestrator_path = tmp_path / ".reference" / "ORCHESTRATOR_SKILL.md"
+    orchestrator_path.parent.mkdir(parents=True, exist_ok=True)
+    orchestrator_path.write_text(orchestrator_text, encoding="utf-8")
+
+    rendered = _render_prompt_with_assemble_step(
+        tmp_path,
+        workflow,
+        base_prompt_text="Base prompt content\n",
+    )
+
+    assert "## Orchestrator Skill Context\n" not in rendered
+    assert "Read and apply the materialized Orchestrator skill files" not in rendered
+
+
+def test_reusable_codex_prompt_step_includes_active_orchestrator_skill_section(
+    tmp_path: Path,
+) -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    orchestrator_text = (
+        "Read and apply the materialized Orchestrator skill files before coordinating work.\n"
+    )
+    orchestrator_path = tmp_path / ".reference" / "ORCHESTRATOR_SKILL.md"
+    orchestrator_path.parent.mkdir(parents=True, exist_ok=True)
+    orchestrator_path.write_text(orchestrator_text, encoding="utf-8")
+
+    rendered = _render_prompt_with_assemble_step(
+        tmp_path,
+        workflow,
+        base_prompt_text="Base prompt content\n",
+        orchestrator_skill_summary_path=str(orchestrator_path),
+    )
+
+    assert "## Orchestrator Skill Context\n" in rendered
+    assert "Read and apply the materialized Orchestrator skill files" in rendered
+
+
+def test_reusable_codex_prompt_step_skips_orchestrator_skill_section_when_file_missing(
+    tmp_path: Path,
+) -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    rendered = _render_prompt_with_assemble_step(
+        tmp_path,
+        workflow,
+        base_prompt_text="Base prompt content\n",
+    )
+
+    assert "## Orchestrator Skill Context\n" not in rendered
+
+
+def test_reusable_codex_workflow_passes_orchestrator_skill_overrides_to_reference_pack_action() -> (
+    None
+):
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    step = _find_step_by_name(workflow, "Validate and materialize reference packs")
+    assert step.get("uses") == "./.github/actions/agent-reference-packs"
+    with_block = step.get("with") or {}
+    assert with_block.get("orchestrator_skill_pack") == "${{ inputs.orchestrator_skill_pack }}"
+    assert (
+        with_block.get("orchestrator_skill_enabled") == "${{ inputs.orchestrator_skill_enabled }}"
+    )
 
 
 def test_reusable_codex_workflow_has_reference_pack_validation_step() -> None:

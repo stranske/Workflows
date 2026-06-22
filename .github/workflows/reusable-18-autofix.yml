@@ -243,7 +243,11 @@ jobs:
           WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           set -euo pipefail
-          ref="${WORKFLOW_REF##*@}"
+          workflow_repo="${WORKFLOW_REF%%/.github/workflows/*}"
+          ref="main"
+          if [ "$workflow_repo" = "stranske/Workflows" ]; then
+            ref="${WORKFLOW_REF##*@}"
+          fi
           if [ -z "$ref" ] || [ "$ref" = "$WORKFLOW_REF" ]; then
             ref="main"
           fi

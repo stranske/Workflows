@@ -230,6 +230,11 @@ jobs:
           fi
           python -m pip install --upgrade pip pytest pyyaml
           python -m pytest "${tests[@]}" -q
+      - name: Warn on stale managed AGENTS.md playbook refs
+        run: >-
+          python scripts/check_agents_md_freshness.py
+          --repo-root .
+          --github-annotations
 
   github-scripts-tests:
     name: github scripts tests
@@ -311,6 +316,75 @@ jobs:
           echo "scripts/check_issue_consistency.py not present;
           skipping Workflows-specific issue consistency check."
 
+  test-quality:
+    name: test-quality
+    needs:
+      - detect
+      - environment-gate
+    if: ${{ github.event_name == 'pull_request' && needs.detect.outputs.doc_only != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Fetch base ref
+        run: |
+          set -euo pipefail
+          upstream="https://github.com/${{ github.event.pull_request.base.repo.full_name }}.git"
+          base_ref="${{ github.event.pull_request.base.ref }}"
+          git remote add upstream "$upstream"
+          git fetch --no-tags upstream \
+            "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.14'
+      - name: Install test-quality dependencies
+        run: python -m pip install --upgrade pip pytest
+      # Consumer repos intentionally omit Workflows-specific
+      # check_gate_diff_quality.py; only check_deliberate_break.py is synced.
+      - name: Check deliberate-break acceptance criterion
+        id: deliberate_break
+        if: ${{ hashFiles('scripts/check_deliberate_break.py') != '' }}
+        run: >-
+          python scripts/check_deliberate_break.py
+          --base "refs/remotes/upstream/${{ github.event.pull_request.base.ref }}"
+          --head HEAD
+        env:
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+      - name: Skip deliberate-break check
+        if: ${{ hashFiles('scripts/check_deliberate_break.py') == '' }}
+        run: >-
+          echo "scripts/check_deliberate_break.py not present;
+          skipping opt-in deliberate-break check."
+      - name: Apply runtime acceptance-criteria label
+        if: ${{ steps.deliberate_break.outputs.has_marker == 'true' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const issue_number = context.payload.pull_request.number;
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+            });
+            const labels = issue.labels.map((label) =>
+              typeof label === 'string' ? label : label.name
+            );
+            if (!labels.includes('acceptance-criteria')) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                labels: ['acceptance-criteria'],
+              });
+            }
+
   docker-smoke:
     name: docker smoke
     needs:
@@ -377,6 +451,7 @@ jobs:
       - docker-smoke
       - github-scripts-tests
       - issue-consistency
+      - test-quality
       - ledger-validation
     if: ${{ always() }}
     runs-on: ubuntu-latest
@@ -584,6 +659,7 @@ jobs:
           DOCS_GUARD_RESULT: ${{ needs.docs-guard.result || 'success' }}
           PYTHON_REQUIRED: ${{ needs.detect.outputs.is_python_code || 'true' }}
           DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
+          TEST_QUALITY_RESULT: ${{ needs.test-quality.result || 'skipped' }}
           DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
           COVERAGE_ENABLED: ${{ needs.detect.outputs.coverage || 'true' }}
         run: python .github/scripts/gate_summary.py

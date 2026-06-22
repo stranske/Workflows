@@ -25,16 +25,16 @@ reason = Intentional divergence (re-baselined 2026-06-14): numeric-prefixed root
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-71-codex-belt-dispatcher.yml
-main_sha256 = 86b3401b9f722e944332b253ccacb9fed796506128662b51daa48ee407a6a387
-template_sha256 = f700e45de1123973d45aa0f023c2c9c090c81854194f49742d8fcc0b4538201c
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+main_sha256 = 46baf1443fbe633a8fee20ba09e68499fbb80bb662fc2d433b463a5e5182d66c
+template_sha256 = 6354a29e2423c7b9a388ddb6a2f5ee68fc48fccd86013d06ef78bb8aad9b6ae7
+reason = Existing reviewed baseline drift re-baselined 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer dispatcher surfaces while preserving consumer action pinning and Codex-specific wording.
 
 [pair.3]
 main = .github/workflows/agents-72-codex-belt-worker.yml
 template = templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml
-main_sha256 = f48c036c500f0b201dc8cf48aa737bceaf9e37fb7049ac3d7bb02fd76687704e
-template_sha256 = 0b295d92c58dfe0599312e0e9fbcd9776c9a49fe363da0ef5a01ee47b9572bd2
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+main_sha256 = 1c61baf6bd5d3ec29df8957e6a2a56408f4330725263b3c78cc7d3f779734c68
+template_sha256 = bab184b343f99c4bb620152a07322e87c743f69d9e581083a87a3a87e1026031
+reason = Existing reviewed baseline drift re-baselined 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer worker workflow_call surfaces while preserving consumer action pinning and guarded merge wording.
 
 [pair.4]
 main = .github/workflows/agents-73-codex-belt-conveyor.yml

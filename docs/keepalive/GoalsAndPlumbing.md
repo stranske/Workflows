@@ -73,6 +73,8 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 - **Default limit:** Maximum of **1** concurrent agent run per PR.
 - **Label override:** Respect `agents:max-parallel:<K>` when present (integer 1–5).
 - **Enforcement:** Dispatch only when the count of in-progress runs is `< K`. If at cap, exit quietly after updating the run summary.
+- **Round budget:** The loop also enforces `max_iterations` as a hard per-PR round budget. The default is 12 rounds unless overridden by keepalive config.
+- **Budget exhaustion:** When the current iteration reaches `max_iterations`, keepalive stops dispatching and adds `needs-human` with reason `round-budget-exhausted`. Raise the configured budget only after reviewing the PR summary and deciding that more automated rounds are warranted.
 
 ---
 
@@ -81,6 +83,7 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 - Removing the `agent:*` label halts new dispatches until a label is re-applied and all guardrails pass again.
 - Respect the `agents:paused` label, which blocks *all* keepalive activity.
 - After repeated failures (default: 3), the loop pauses and adds `needs-human` label.
+- Agent delegation treats two consecutive zero-progress rounds as stalled. Commit churn is not progress unless it advances checklist state or reaches a green Gate.
 
 **To resume after failure:**
 1. Investigate the failure reason in the keepalive summary comment
@@ -225,6 +228,18 @@ Keepalive now has two ways to detect task completion and keep PR checkboxes in s
 - The keepalive summary comment flags when files changed but no checkboxes were updated, prompting the next iteration to reconcile tasks.
 - The reconciliation step uses the same task text from the Automated Status Summary to avoid accidental mismatch.
 - LLM analysis is optional; if unavailable, the commit/file matcher remains active.
+
+### Deliberate-Break Gate
+
+Gate runs an opt-in execution check when the PR body's Acceptance Criteria declares a deliberate-break marker:
+
+```markdown
+<!-- deliberate-break: test=tests/test_feature.py::test_runtime_contract test-file=tests/test_feature.py break-file=src/feature.py -->
+```
+
+When present, `scripts/check_deliberate_break.py` runs the named test on the PR head, archives the base ref, overlays only the named test file onto that base tree, and reruns the same test. The expected result is green on head and red on base; green on both is reported as `FAIL_HOLLOW`, and red on head is reported as `FAIL_BROKEN`. If no marker is present, the step logs `skipped: no deliberate-break marker` and exits successfully.
+
+The same Gate step applies the `acceptance-criteria` label when a marker is present. That label arms the runtime acceptance merge guard so non-CI-verifiable merge lanes defer to the local Orchestrator runtime acceptance path instead of merging on prose evidence alone.
 
 ---
 

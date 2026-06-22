@@ -142,6 +142,24 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(fallback) ? Number(fallback) : 0;
 }
 
+function toPositiveInteger(value, fallback = 0) {
+  const fallbackValue = Number.isSafeInteger(fallback) && fallback > 0 ? fallback : 0;
+
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value > 0 ? value : fallbackValue;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^[1-9]\d*$/.test(trimmed)) {
+      const parsed = Number(trimmed);
+      return Number.isSafeInteger(parsed) ? parsed : fallbackValue;
+    }
+  }
+
+  return fallbackValue;
+}
+
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -1593,7 +1611,7 @@ function normaliseConfig(config = {}) {
     ),
     autofix_enabled: toBool(cfg.autofix_enabled ?? cfg.autofix, false),
     iteration: toNumber(cfg.iteration ?? cfg.keepalive_iteration, 0),
-    max_iterations: toNumber(cfg.max_iterations ?? cfg.keepalive_max_iterations, 5),
+    max_iterations: cfg.max_iterations ?? cfg.keepalive_max_iterations,
     failure_threshold: toNumber(cfg.failure_threshold ?? cfg.keepalive_failure_threshold, 3),
     trace,
     prompt_mode: promptMode,
@@ -2503,7 +2521,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // Prefer state iteration unless config explicitly sets it (0 from config is default, not explicit)
     const configHasExplicitIteration = config.iteration > 0;
     const iteration = configHasExplicitIteration ? config.iteration : toNumber(state.iteration, 0);
-    const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
+    const configMaxIterations = toPositiveInteger(config.max_iterations, 0);
+    const stateMaxIterations = toPositiveInteger(state.max_iterations, 0);
+    const maxIterations = configMaxIterations || stateMaxIterations || 12;
     const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
     const progressReviewThreshold = toNumber(config.progress_review_threshold ?? state.progress_review_threshold, 4);
     // Default 3 rounds allows 2 fix attempts before stopping (round 1 = fix,
@@ -2595,14 +2615,11 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // An iteration is productive if it has a reasonable productivity score
     const isProductive = productivityScore >= 20 && !hasRecentFailures;
 
-    // max_iterations is a soft cap on agent runs.  Productive agents
-    // (recent file changes, no persistent failures) with remaining tasks
-    // continue in "extended mode" (reason: ready-extended) past the cap.
-    // Unproductive agents are hard-stopped to avoid wasting compute.
-    // Use the agent:retry label to force-continue regardless.
+    // max_iterations is a hard per-PR budget. Once reached, stop dispatching
+    // and require a human to raise the budget or remove the blocker.
     const hasMaxIterations = maxIterations > 0;
     const reachedMaxIterations = hasMaxIterations && iteration >= maxIterations;
-    const shouldStopForMaxIterations = reachedMaxIterations && !isProductive;
+    const shouldStopForMaxIterations = reachedMaxIterations;
 
     // Build task appendix for the agent prompt (after state load for reconciliation info)
     const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
@@ -2663,6 +2680,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     } else if (!tasksPresent) {
       action = 'stop';
       reason = 'no-checklists';
+    } else if (shouldStopForMaxIterations) {
+      action = 'stop';
+      reason = 'round-budget-exhausted';
     } else if (gateNormalized !== 'success') {
       // Handle cancelled gate first (transient — should not consume fix budget)
       if (gateNormalized === 'cancelled') {
@@ -2768,13 +2788,6 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           `Agent produced 0 file changes and 0 tasks completed for ${persistedConsecutiveZeroActivityRounds} consecutive rounds — likely infrastructure failure (auth, permissions, sandbox). Stopping.`,
         );
       }
-    } else if (shouldStopForMaxIterations && forceRetry && tasksRemaining) {
-      action = 'run';
-      reason = 'force-retry-max-iterations';
-      if (core) core.info('Force retry enabled: bypassing max-iterations stop');
-    } else if (shouldStopForMaxIterations) {
-      action = 'stop';
-      reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
     } else if (needsProgressReview) {
       // Trigger LLM-based progress review when agent is active but not completing tasks
       // This allows legitimate prep work while catching scope drift early
@@ -2783,7 +2796,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       reason = `progress-review-${roundsWithoutTaskCompletion}`;
     } else if (tasksRemaining) {
       action = 'run';
-      reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
+      reason = 'ready';
     }
 
     // Scope enforcement: if all tasks appear complete but there are scope

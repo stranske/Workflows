@@ -32,7 +32,7 @@ operational detail for the kept set.
 4. Update this guide, `docs/ci/WORKFLOWS.md`, and the overview in `docs/ci/WORKFLOW_SYSTEM.md` whenever workflows are added,
    renamed, or removed.
 
-Tests under `tests/test_workflow_naming.py` enforce the naming policy and inventory parity.
+Tests under `tests/workflows/test_workflow_naming.py` enforce the naming policy and inventory parity.
 
 ## Final Workflow Set
 

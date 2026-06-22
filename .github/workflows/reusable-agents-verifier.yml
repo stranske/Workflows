@@ -619,19 +619,34 @@ jobs:
         run: |
           set -euo pipefail
           verdict="unknown"
+          needs_attention="false"
+          verdict_json="${RUNNER_TEMP}/verdict.json"
 
           # Check if the codex step failed (continue-on-error means we still get here)
           codex_outcome="${{ steps.codex.outcome }}"
           if [ "$codex_outcome" = "failure" ]; then
             # Codex crashed - treat as error verdict for follow-up
             verdict="error"
+            needs_attention="true"
+            printf '%s\n' '{"verdict":"error","source":"codex-step-failure","needs_attention":true}' > "$verdict_json"
           elif [ -f "codex-output.md" ]; then
-            if grep -qiE 'verdict:[[:space:]]*fail' "codex-output.md"; then
-              verdict="fail"
-            elif grep -qiE 'verdict:[[:space:]]*pass' "codex-output.md"; then
-              verdict="pass"
-            fi
+            python .workflows-lib/.github/scripts/verifier_verdict_json.py \
+              --output codex-output.md \
+              --json "$verdict_json"
+            verdict="$(
+              python -c 'import json, sys; from pathlib import Path; print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("verdict", "unknown"))' "$verdict_json"
+            )"
+            needs_attention="$(
+              python -c 'import json, sys; from pathlib import Path; print("true" if json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("needs_attention") else "false")' "$verdict_json"
+            )"
+          else
+            needs_attention="true"
+            printf '%s\n' '{"verdict":"unknown","source":"missing-output","needs_attention":true}' > "$verdict_json"
           fi
+          if [ "$verdict" = "needs-review" ] || [ "${needs_attention:-false}" = "true" ]; then
+            echo "needs_human=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "verdict_json=$verdict_json" >> "$GITHUB_OUTPUT"
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
       # === LLM Evaluation Mode (when mode=evaluate) ===

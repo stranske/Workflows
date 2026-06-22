@@ -199,13 +199,13 @@ def test_build_chat_clients_env_provider_override(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
     monkeypatch.setenv(langchain_client.ENV_PROVIDER, "openai")
 
-    clients = langchain_client.build_chat_clients(model1="gpt-4o-mini", model2="gpt-4o")
+    clients = langchain_client.build_chat_clients(model1="gpt-4.1-mini", model2="gpt-4o")
 
     assert [client.provider for client in clients] == [
         langchain_client.PROVIDER_OPENAI,
         langchain_client.PROVIDER_OPENAI,
     ]
-    assert [client.model for client in clients] == ["gpt-4o-mini", "gpt-4o"]
+    assert [client.model for client in clients] == ["gpt-4.1-mini", "gpt-4o"]
     assert all(isinstance(client.client, FakeChatOpenAI) for client in clients)
 
 
@@ -233,13 +233,13 @@ def test_build_chat_clients_env_model_override(monkeypatch: pytest.MonkeyPatch) 
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
-    monkeypatch.setenv(langchain_client.ENV_MODEL, "gpt-4o-mini")
+    monkeypatch.setenv(langchain_client.ENV_MODEL, "gpt-4.1-mini")
     monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
 
     clients = langchain_client.build_chat_clients()
 
     assert [client.model for client in clients] == [
-        "gpt-4o-mini",
+        "gpt-4.1-mini",
         langchain_client.DEFAULT_MODEL,
     ]
     assert isinstance(clients[0].client, FakeChatOpenAI)
@@ -253,12 +253,12 @@ def test_build_chat_clients_env_model_with_provider_override(
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
     monkeypatch.setenv(langchain_client.ENV_PROVIDER, "openai")
-    monkeypatch.setenv(langchain_client.ENV_MODEL, "gpt-4o-mini")
+    monkeypatch.setenv(langchain_client.ENV_MODEL, "gpt-4.1-mini")
 
     clients = langchain_client.build_chat_clients()
 
     assert [client.provider for client in clients] == [langchain_client.PROVIDER_OPENAI]
-    assert [client.model for client in clients] == ["gpt-4o-mini"]
+    assert [client.model for client in clients] == ["gpt-4.1-mini"]
     assert all(isinstance(client.client, FakeChatOpenAI) for client in clients)
 
 

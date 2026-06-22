@@ -205,6 +205,41 @@ def test_artifact_names_normalized() -> None:
     delta_step = _step("Upload coverage delta artifact")
     assert delta_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}coverage-delta"
 
+    primary_step = _step("Resolve primary python version")
+    assert _normalize_expr(primary_step["if"]) == "${{always()}}"
+
+    langsmith_check_step = _step("Check LangSmith fleet telemetry artifact")
+    assert langsmith_check_step["id"] == "langsmith_fleet_artifact"
+    assert "artifacts/langsmith/langsmith-fleet.ndjson" in langsmith_check_step["run"]
+    assert "exists=true" in langsmith_check_step["run"]
+
+    langsmith_upload_step = _step("Upload LangSmith fleet telemetry artifact")
+    assert langsmith_upload_step["uses"] == "actions/upload-artifact@v7"
+    assert langsmith_upload_step["continue-on-error"] is True
+    assert (
+        langsmith_upload_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}langsmith-fleet"
+    )
+    assert (
+        langsmith_upload_step["with"]["path"]
+        == "${{ env.PROJECT_ROOT }}/artifacts/langsmith/langsmith-fleet.ndjson"
+    )
+    assert langsmith_upload_step["with"]["if-no-files-found"] == "warn"
+    assert langsmith_upload_step["with"]["retention-days"] == 90
+    assert langsmith_upload_step["with"]["overwrite"] is True
+
+    upload_if = _normalize_expr(langsmith_upload_step["if"])
+    assert "always()" in upload_if
+    assert "matrix.python-version==env.PRIMARY_PYTHON_VERSION" in upload_if
+    assert "steps.langsmith_fleet_artifact.outputs.exists=='true'" in upload_if
+
+    step_names = [step.get("name") for step in steps]
+    assert step_names.index("Check LangSmith fleet telemetry artifact") > step_names.index(
+        "Upload coverage trend history artifact"
+    )
+    assert step_names.index("Upload LangSmith fleet telemetry artifact") == (
+        step_names.index("Check LangSmith fleet telemetry artifact") + 1
+    )
+
 
 def test_workflow_uses_shared_mypy_pin_helper() -> None:
     workflow = _load_workflow()

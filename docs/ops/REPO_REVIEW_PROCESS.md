@@ -11,11 +11,12 @@ The weekly packet must answer one core question for each active repo:
 1. Read the registry decision anchor and the repo design sources.
 2. Inspect the implementation areas named by the packet.
 3. Compare design commitments to real behavior, tests, integrations, persistence, and workflow handoffs.
-4. Use archived review conversations as precedent for the review standard and known project intent.
-5. Identify gaps that block testing, live implementation, or product completeness.
-6. Draft issues only for verified gaps, with evidence and acceptance gates.
-7. Queue one human decision packet before creating remote issues.
-8. After human approval, upload approved drafts to the target repos with duplicate checks.
+4. For features, reports, dashboards, or pipelines described as implemented, wired, scheduled, or automated, query the actual sink/output and require a real recent row, artifact, smoke result, dashboard sample, or equivalent upstream-to-sink evidence.
+5. Use archived review conversations as precedent for the review standard and known project intent.
+6. Identify gaps that block testing, live implementation, or product completeness.
+7. Draft issues only for verified gaps, with evidence and acceptance gates.
+8. Queue one human decision packet before creating remote issues.
+9. After human approval, upload approved drafts to the target repos with duplicate checks.
 
 ## Registry
 
@@ -42,7 +43,9 @@ Every active repo review uses the same dimensions:
 - `implementation_coverage`: distinguish real working behavior from scaffolds, seams, fixtures, or advisory-only outputs.
 - `test_and_live_readiness`: determine whether tests or smoke paths prove the user journey required by the design.
 - `integration_and_state`: check cross-repo contracts, external providers, persistence, reload behavior, source authority, generated artifacts, and workflow handoffs.
+- `liveness_evidence`: for any feature or pipeline claimed as implemented, wired, scheduled, or automated, require real sink/output evidence before accepting the claim as done.
 - `issue_generation`: convert verified gaps into issue drafts with evidence, non-goals, tasks, acceptance criteria, and tests that would fail before the fix.
+- `dynamic_run_evidence`: real run-outcome evidence the static review cannot see — reverted/abandoned agent PRs and recurring failure patterns from the week's runs. This dimension is **automated and locally sourced**: the evaluator shells to the Orchestrator feedback Brain (`keepalive_evidence.py`) and the dimension is present only when that local store is reachable. It degrades silently (the dimension is omitted, never an error) wherever the Brain is absent, e.g. CI. A reverted PR raises a `material` gap; an abandoned PR or recurring failure raises `needs human decision`; a candidate whose linked issue is still open is flagged as already-tracked rather than net-new.
 
 ## Weekly Run
 
@@ -81,6 +84,26 @@ active maps with `gitnexus analyze <repo> --skip-agents-md` when the CLI is
 available. Use `--no-refresh-stale-gitnexus` to report stale maps without
 refreshing, or `--skip-gitnexus-preflight` only when GitNexus is deliberately
 out of scope for that run.
+
+### Docs-drift fix-agent
+
+The weekly semantic docs-drift scanner and monthly `maint-48-docs-drift-audit`
+issue find stale operational claims, but they do not repair the docs directly.
+Use the deterministic fix-agent to turn drift findings into bounded PR-ready
+repair briefs:
+
+```bash
+python scripts/docs_drift_fix_agent.py \
+    --repo-root . \
+    --scan-json docs/reports/repo-review/docs-drift-scan.json \
+    --out-dir docs/reports/docs-drift-fix-agent
+```
+
+The command is read-only by default. It writes `plan.json`, one repair prompt,
+one issue body, and one PR plan per bounded batch. Give the repair prompt to an
+agent lane to open a docs-only fix PR, or pass `--apply` only when you want the
+tool to create one GitHub issue per batch. The fix-agent composes existing scan
+outputs; it does not launch a new Claude review and it does not edit files.
 
 ### Phase-4 Components
 
@@ -153,7 +176,9 @@ If natural-language GitNexus query returns no processes and the repo map has `em
 
 `decision-brief.md` is the human review surface. It summarizes current progress against the design anchor, readiness for testing/live implementation, candidate issue set, and a compact feedback slot for approve/revise/defer/drop/deeper-review decisions.
 
-`review-execution.md` is the automated execution phase. It gathers evidence for each standard dimension and classifies obvious automated gaps such as missing design sources, missing implementation surfaces, missing tests/workflows, or absent smoke/live-readiness markers. Dimensions marked `needs human decision` still require semantic review before issue approval.
+`review-execution.md` is the automated execution phase. It gathers evidence for each standard dimension and classifies obvious automated gaps such as missing design sources, missing implementation surfaces, missing tests/workflows, or absent smoke/live-readiness markers. When the local Orchestrator feedback Brain is reachable it also adds the `dynamic_run_evidence` dimension — reverted/abandoned PRs and recurring failures observed in the week's runs — which the static design-vs-implementation pass structurally cannot detect. Dimensions marked `needs human decision` still require semantic review before issue approval.
+
+The liveness dimension exists to catch dry seams: a feature can have code, docs, tests, and a schedule while its durable sink still has zero real rows or no recent output. Do not mark such work complete until the review can trace a real upstream event into the claimed sink/output.
 
 ## Archive Use
 
@@ -212,6 +237,7 @@ No issue should be approved unless it states:
 - the design commitment or readiness goal;
 - the current evidence from code, docs, tests, or archives;
 - what behavior is missing;
+- for completion or automation claims, the real sink/output evidence that proves the data or user-visible result actually flowed;
 - non-goals that prevent scaffold-only completion claims;
 - tasks a coding agent can complete;
 - acceptance criteria with a failing test, smoke test, or documented live-verification gate.

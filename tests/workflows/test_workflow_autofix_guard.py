@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import subprocess
 from typing import Any
 
 import yaml
@@ -100,6 +101,40 @@ def test_reusable_autofix_splits_push_and_patch_paths() -> None:
     assert "env.AUTOFIX_CAN_PUSH == 'true'" in (commit_step.get("if") or "")
     # Patch fallback is for when push isn't possible (forks, dry-run, missing creds)
     assert "env.AUTOFIX_CAN_PUSH != 'true'" in (patch_step.get("if") or "")
+
+
+def _resolve_workflows_ref(workflow_ref: str, tmp_path: pathlib.Path) -> str:
+    data = _load_yaml("reusable-18-autofix.yml")
+    steps: list[dict[str, Any]] = data["jobs"]["autofix"]["steps"]
+    step = next(step for step in steps if step.get("name") == "Determine Workflows workflow ref")
+    output = tmp_path / "github-output.txt"
+    subprocess.run(
+        ["bash", "-c", step["run"]],
+        check=True,
+        env={"WORKFLOW_REF": workflow_ref, "GITHUB_OUTPUT": str(output)},
+    )
+    values = dict(
+        line.split("=", 1)
+        for line in output.read_text(encoding="utf-8").splitlines()
+        if "=" in line
+    )
+    return values["ref"]
+
+
+def test_reusable_autofix_uses_main_for_consumer_workflow_refs(tmp_path: pathlib.Path) -> None:
+    ref = _resolve_workflows_ref(
+        "stranske/Workflows-Integration-Tests/.github/workflows/autofix.yml@refs/pull/34/merge",
+        tmp_path,
+    )
+    assert ref == "main"
+
+
+def test_reusable_autofix_preserves_workflows_repo_refs(tmp_path: pathlib.Path) -> None:
+    ref = _resolve_workflows_ref(
+        "stranske/Workflows/.github/workflows/autofix.yml@refs/pull/2470/merge",
+        tmp_path,
+    )
+    assert ref == "refs/pull/2470/merge"
 
 
 def _load_helper(name: str) -> str:
