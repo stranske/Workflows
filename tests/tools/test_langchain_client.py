@@ -126,6 +126,7 @@ def test_build_chat_client_env_model_override(monkeypatch: pytest.MonkeyPatch) -
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(langchain_client.ENV_MODEL_REGISTRY_CONFIG, "/tmp/missing-registry.json")
     monkeypatch.setenv(langchain_client.ENV_MODEL, "gpt-4o-mini")
     monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
 
@@ -172,6 +173,44 @@ def test_build_chat_client_blocked_model_override_does_not_shift_provider(
     assert resolved.model == "gpt-5.4"
     assert isinstance(resolved.client, FakeChatOpenAI)
     assert not isinstance(resolved.client, FakeChatAnthropic)
+
+
+def test_build_chat_client_blocked_override_consumed_when_first_provider_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A blocked first-slot override must not shift to the next available provider."""
+    _install_fake_langchain_openai(monkeypatch)
+    FakeChatAnthropic = _install_fake_langchain_anthropic(monkeypatch)
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "models": [
+                    {
+                        "provider": "openai",
+                        "model_id": "gpt-blocked",
+                        "blocked": True,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(langchain_client.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
+    monkeypatch.setenv(langchain_client.ENV_MODEL, "gpt-blocked")
+    monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
+
+    resolved = langchain_client.build_chat_client()
+
+    assert resolved is not None
+    assert resolved.provider == langchain_client.PROVIDER_ANTHROPIC
+    assert resolved.model == "claude-sonnet-4-6"
+    assert isinstance(resolved.client, FakeChatAnthropic)
+    assert resolved.client.kwargs["model"] == "claude-sonnet-4-6"
 
 
 def test_load_model_registry_ignores_malformed_nested_values(

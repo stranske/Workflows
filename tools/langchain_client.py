@@ -280,6 +280,14 @@ def build_chat_client(
     model_override = model or os.environ.get(ENV_MODEL)
     used_override = False
     for slot in slots:
+        slot_model = model_override if model_override and not used_override else slot.model
+        if model_override and not used_override and _is_model_blocked(slot.provider, slot_model):
+            logger.warning("Skipping blocked LLM model override: %s/%s", slot.provider, slot_model)
+            used_override = True
+            slot_model = slot.model
+        if _is_model_blocked(slot.provider, slot_model):
+            logger.warning("Skipping blocked LLM model: %s/%s", slot.provider, slot_model)
+            continue
         slot_available = any(
             (
                 slot.provider == PROVIDER_OPENAI and openai_token,
@@ -289,16 +297,6 @@ def build_chat_client(
         )
         if not slot_available:
             continue
-        slot_model = model_override if model_override and not used_override else slot.model
-        if _is_model_blocked(slot.provider, slot_model):
-            logger.warning("Skipping blocked LLM model override: %s/%s", slot.provider, slot_model)
-            if model_override and not used_override:
-                used_override = True
-                slot_model = slot.model
-                if _is_model_blocked(slot.provider, slot_model):
-                    continue
-            else:
-                continue
         if slot.provider == PROVIDER_OPENAI and openai_token:
             with contextlib.suppress(Exception):
                 client = _build_openai_client(
