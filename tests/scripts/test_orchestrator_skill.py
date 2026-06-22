@@ -82,6 +82,18 @@ def test_parse_rejects_local_runtime_paths() -> None:
         )
 
 
+def test_parse_rejects_nested_repo_names() -> None:
+    with pytest.raises(OrchestratorSkillConfigError, match="repo must use owner/name format"):
+        parse_orchestrator_skill_config(
+            {
+                "enabled": True,
+                "repo": "owner/repo/extra",
+                "ref": "main",
+                "paths": ["docs/exports/orchestrator-skill/SKILL.md"],
+            }
+        )
+
+
 def test_enabled_override_can_enable_pack_without_repo_config(tmp_path: Path) -> None:
     plan = resolve_orchestrator_skill_plan(
         tmp_path,

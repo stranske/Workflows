@@ -74,7 +74,7 @@ def test_assemble_prompt_formats_codex_prompt(tmp_path: Path) -> None:
     assert (tmp_path / "codex-prompt-123.md").read_text(encoding="utf-8") == prompt.text
 
 
-def test_assemble_prompt_includes_orchestrator_skill_section_when_summary_exists(
+def test_assemble_prompt_skips_stale_orchestrator_skill_section_when_summary_exists(
     tmp_path: Path,
 ) -> None:
     _write_prompt_fixture(tmp_path)
@@ -89,6 +89,39 @@ def test_assemble_prompt_includes_orchestrator_skill_section_when_summary_exists
         {
             "workspace": tmp_path,
             "base_prompt_file": ".github/codex/prompts/task.md",
+        },
+        "codex",
+    )
+
+    assert "## Orchestrator Skill Context" not in prompt.text
+    assert "Read and apply the materialized Orchestrator skill files" not in prompt.text
+
+
+def test_assemble_prompt_includes_orchestrator_skill_section_when_materialized(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _write_prompt_fixture(tmp_path)
+
+    def fake_materialize_orchestrator_skill(*_args: Any, **_kwargs: Any) -> Path:
+        orchestrator_summary = tmp_path / ".reference" / "ORCHESTRATOR_SKILL.md"
+        orchestrator_summary.write_text(
+            "Read and apply the materialized Orchestrator skill files before coordinating work.\n",
+            encoding="utf-8",
+        )
+        return orchestrator_summary
+
+    monkeypatch.setattr(
+        runner_core,
+        "materialize_orchestrator_skill",
+        fake_materialize_orchestrator_skill,
+    )
+
+    prompt = assemble_prompt(
+        None,
+        {
+            "workspace": tmp_path,
+            "base_prompt_file": ".github/codex/prompts/task.md",
+            "materialize_orchestrator_skill": True,
         },
         "codex",
     )
@@ -374,6 +407,52 @@ def test_materialize_reference_packs_keeps_token_out_of_git_argv(
     assert (tmp_path / ".reference" / "baseline" / "README.md").is_file()
     assert calls
     assert all(env.get("GIT_ASKPASS_PASSWORD") == "secret-token" for _cmd, env in calls)
+
+
+def test_materialize_orchestrator_skill_clears_stale_pack_checkout(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    checkout = tmp_path / ".reference" / "orchestrator"
+    checkout.mkdir(parents=True)
+    stale_file = checkout / "removed-upstream.md"
+    stale_file.write_text("stale\n", encoding="utf-8")
+
+    plan = types.SimpleNamespace(name="orchestrator", checkout_path=".reference/orchestrator")
+    fake_reference_packs = types.SimpleNamespace(
+        load_reference_packs=lambda _workspace: types.SimpleNamespace(packs=[plan]),
+        build_checkout_plan=lambda _packs: [plan],
+    )
+
+    def fake_load_reference_packs_module() -> Any:
+        return fake_reference_packs
+
+    def fake_materialize_reference_packs(*_args: Any, **_kwargs: Any) -> Path:
+        assert not stale_file.exists()
+        checkout.mkdir(parents=True, exist_ok=True)
+        (checkout / "SKILL.md").write_text("# Fresh skill\n", encoding="utf-8")
+        return tmp_path / ".reference" / "REFERENCE_PACKS.md"
+
+    monkeypatch.setattr(
+        runner_core,
+        "_load_reference_packs_module",
+        fake_load_reference_packs_module,
+    )
+    monkeypatch.setattr(
+        runner_core,
+        "materialize_reference_packs",
+        fake_materialize_reference_packs,
+    )
+
+    summary = runner_core.materialize_orchestrator_skill(
+        tmp_path,
+        pack_override="orchestrator",
+        enabled_override=True,
+    )
+
+    assert summary == tmp_path / ".reference" / "ORCHESTRATOR_SKILL.md"
+    assert not stale_file.exists()
+    assert (checkout / "SKILL.md").read_text(encoding="utf-8") == "# Fresh skill\n"
+    assert "`SKILL.md`" in summary.read_text(encoding="utf-8")
 
 
 def test_pr_comment_marker_round_trips_nested_result_payload() -> None:

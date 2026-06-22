@@ -160,6 +160,22 @@ def test_parse_reference_packs_list_format() -> None:
     assert packs[0].name == "trend-streamlit"
 
 
+def test_parse_reference_packs_rejects_nested_repo_names() -> None:
+    with pytest.raises(ReferencePackConfigError, match="repo must use owner/name format"):
+        parse_reference_packs(
+            {
+                "packs": [
+                    {
+                        "name": "trend-streamlit",
+                        "repo": "trend/research/extra",
+                        "ref": "main",
+                        "paths": ["apps/streamlit"],
+                    }
+                ]
+            }
+        )
+
+
 def test_build_checkout_plan_sets_reference_paths() -> None:
     packs = parse_reference_packs(
         {

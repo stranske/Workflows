@@ -80,7 +80,8 @@ def _require_nonempty_string(value: Any, field_name: str) -> str:
 
 
 def _validate_repo(repo: str) -> str:
-    if "/" not in repo or repo.startswith("/") or repo.endswith("/"):
+    parts = repo.split("/")
+    if len(parts) != 2 or not all(parts):
         raise OrchestratorSkillConfigError("repo must use owner/name format")
     return repo
 
