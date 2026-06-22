@@ -167,6 +167,20 @@ def test_consumer_workflow_destination_path_is_not_dangling_reference(tmp_path: 
     assert check_docs_drift(root) == []
 
 
+def test_root_workflow_link_counts_before_consumer_context_suppression(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("health-68-consumer-sync-drift.yml",),
+        workflows_doc=(
+            "Consumer sync drift is covered by "
+            "[Health 68 Consumer Sync Drift](../../.github/workflows/"
+            "health-68-consumer-sync-drift.yml).\n"
+        ),
+    )
+
+    assert check_workflow_inventory(root) == []
+
+
 def test_repo_path_glob_tokens_are_ignored(tmp_path: Path) -> None:
     root = _repo(
         tmp_path,

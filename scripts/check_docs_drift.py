@@ -81,8 +81,10 @@ def _mentioned_workflow_filenames(text: str, root_workflows: set[str] | None = N
         if "/" in token:
             if not _is_root_workflow_path(token):
                 continue
-            context = _workflow_token_context(text, match.start(1), match.end(1))
-            if NON_ROOT_WORKFLOW_CONTEXT_RE.search(context):
+            filename = PurePosixPath(token).name
+            if filename not in (root_workflows or set()) and NON_ROOT_WORKFLOW_CONTEXT_RE.search(
+                _workflow_token_context(text, match.start(1), match.end(1))
+            ):
                 continue
         elif not _is_bare_workflow_reference(text, match, root_workflows):
             continue
@@ -111,7 +113,7 @@ def check_workflow_inventory(root: Path) -> list[DriftRecord]:
                 "type": "undocumented_workflow",
                 "path": filename,
                 "detail": (
-                    "Exists in .github/workflows/ but is not mentioned in " "docs/ci/WORKFLOWS.md"
+                    "Exists in .github/workflows/ but is not mentioned in docs/ci/WORKFLOWS.md"
                 ),
             }
         )

@@ -37,7 +37,6 @@ from scripts import check_docs_drift  # noqa: E402
 DEFAULT_REPO = "stranske/Workflows"
 DEFAULT_MAX_PER_BATCH = 8
 DEFAULT_DOCS_CONFIG = Path("config/source_of_truth_docs.yml")
-DEFAULT_OUTPUT_DIR = Path("docs/reports/docs-drift-fix-agent")
 WORKFLOW_INVENTORY_TEST = (
     "pytest tests/workflows/test_workflow_naming.py::test_inventory_docs_list_all_workflows -q"
 )
@@ -183,13 +182,18 @@ def _docs_arg(docs: Sequence[str] | None) -> str:
 
 
 def verification_commands(docs: Sequence[str] | None = None) -> tuple[str, ...]:
-    """Commands that validate the same deterministic docs scope as discovery."""
+    """Commands that must pass after a single repair batch."""
     docs_arg = _docs_arg(docs)
     return (
-        f"python3 scripts/docs_drift_fix_agent.py --repo-root . --json{docs_arg}",
         f"python3 scripts/check_docs_drift.py --json{docs_arg}",
         WORKFLOW_INVENTORY_TEST,
     )
+
+
+def informational_commands(docs: Sequence[str] | None = None) -> tuple[str, ...]:
+    """Commands that refresh full-plan context but may still report other batches."""
+    docs_arg = _docs_arg(docs)
+    return (f"python3 scripts/docs_drift_fix_agent.py --repo-root . --json{docs_arg}",)
 
 
 def _finding_line(finding: Finding) -> str:
@@ -209,6 +213,7 @@ def build_repair_prompt(
 ) -> str:
     finding_lines = "\n".join(_finding_line(finding) for finding in batch.findings)
     check_lines = "\n".join(f"- `{cmd}`" for cmd in (checks or verification_commands()))
+    info_lines = "\n".join(f"- `{cmd}`" for cmd in informational_commands())
     return f"""You are repairing documentation drift in {repo}.
 
 Goal: open one focused docs-only fix PR for repair batch `{batch.batch_id}`.
@@ -224,6 +229,9 @@ Rules:
 
 Required verification before opening the PR:
 {check_lines}
+
+Informational full-plan refresh:
+{info_lines}
 
 Deliverable:
 - Commit the docs-only changes.
@@ -264,6 +272,10 @@ def build_issue_body(
     check_items = "\n".join(
         f"- [ ] `{cmd}` passes after the repair." for cmd in (checks or verification_commands())
     )
+    info_items = "\n".join(
+        f"- [ ] `{cmd}` was reviewed for remaining non-batch findings."
+        for cmd in informational_commands()
+    )
     evidence = "\n".join(
         f"- `{finding.doc_path}` -> `{finding.target}` ({finding.source}/{finding.kind})"
         for finding in batch.findings
@@ -286,11 +298,17 @@ Repair only the docs named in this issue for batch `{batch.batch_id}`:
 - [ ] Keep each edit tied to one listed finding and preserve unrelated wording.
 - [ ] Include the relevant before/after claim in the pull request body.
 - [ ] Run the docs-drift and workflow-inventory verification commands.
+- [ ] Refresh the full fix-agent plan as informational context.
 
 ## Acceptance Criteria
 {check_items}
 - [ ] The pull request changes only documentation files for this batch.
 - [ ] The PR body lists each repaired finding and the source used to verify it.
+
+## Informational Checks
+These commands may still report findings for other batches and should not block this batch once the required checks pass:
+
+{info_items}
 
 ## Implementation Notes
 Use `scripts/docs_drift_fix_agent.py` output for the repair prompt and plan. Evidence trace:

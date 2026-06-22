@@ -109,6 +109,8 @@ def test_issue_body_is_agent_ready() -> None:
     assert issue_body_is_agent_ready(body)
     assert "## Why" in body
     assert "python3 scripts/check_docs_drift.py --json" in body
+    assert "## Informational Checks" in body
+    assert "was reviewed for remaining non-batch findings" in body
 
 
 def test_repair_prompt_includes_required_verification() -> None:
@@ -132,6 +134,7 @@ def test_repair_prompt_includes_required_verification() -> None:
         "pytest tests/workflows/test_workflow_naming.py::test_inventory_docs_list_all_workflows -q"
         in prompt
     )
+    assert "Informational full-plan refresh" in prompt
     assert "Do not change workflows" in prompt
 
 
