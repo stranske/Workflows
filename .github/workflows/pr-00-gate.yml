@@ -392,6 +392,8 @@ jobs:
       - environment-gate
     if: ${{ needs.detect.outputs.doc_only != 'true' }}
     runs-on: ubuntu-latest
+    env:
+      LEDGER_VALIDATE_ALLOW_SHALLOW: "1"
     steps:
       - name: Mint GitHub App Token
         id: app_token

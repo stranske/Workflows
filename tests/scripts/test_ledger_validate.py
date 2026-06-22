@@ -609,6 +609,82 @@ def test_main_reports_validated_ledgers(tmp_path: Path, monkeypatch, capsys) -> 
     assert f"Validated {ledger_path}" in capsys.readouterr().out
 
 
+def test_main_skips_prefetch_when_missing_commits_allowed(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_path = tmp_path / "ledger.yml"
+    ledger_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "issue": 1,
+                "base": "main",
+                "branch": "feature",
+                "tasks": [
+                    {
+                        "id": "task-1",
+                        "title": "Done",
+                        "status": "done",
+                        "commit": "abcdef1",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("LEDGER_VALIDATE_ALLOW_SHALLOW", "1")
+    monkeypatch.setattr(ledger_validate, "find_ledgers", lambda paths: [ledger_path])
+    monkeypatch.setattr(
+        ledger_validate,
+        "_prefetch_commits",
+        lambda ledgers: pytest.fail("prefetch should not run in allowed-missing mode"),
+    )
+
+    def raise_commit_files(_commit):
+        raise ledger_validate.LedgerError("missing")
+
+    monkeypatch.setattr(ledger_validate, "_commit_files", raise_commit_files)
+
+    exit_code = ledger_validate.main([])
+
+    assert exit_code == 0
+    assert f"Validated {ledger_path}" in capsys.readouterr().out
+
+
+def test_main_prefetches_when_missing_commits_are_strict(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_path = tmp_path / "ledger.yml"
+    ledger_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "issue": 1,
+                "base": "main",
+                "branch": "feature",
+                "tasks": [
+                    {"id": "task-1", "title": "Ok", "status": "todo"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    prefetch_calls: list[list[Path]] = []
+
+    monkeypatch.setenv("LEDGER_VALIDATE_STRICT", "1")
+    monkeypatch.setattr(ledger_validate, "find_ledgers", lambda paths: [ledger_path])
+    monkeypatch.setattr(
+        ledger_validate,
+        "_prefetch_commits",
+        lambda ledgers: prefetch_calls.append(list(ledgers)),
+    )
+
+    assert ledger_validate.main([]) == 0
+    assert prefetch_calls == [[ledger_path]]
+
+
 def test_main_reports_no_ledgers(tmp_path: Path, monkeypatch, capsys) -> None:
     ledger_validate = _load_module(monkeypatch, tmp_path)
     monkeypatch.setattr(ledger_validate, "find_ledgers", lambda paths: [])

@@ -987,6 +987,10 @@ def test_gate_workflow_uses_fork_head_for_script_tests_and_ledger():
     ), "github-scripts-tests checkout must use the contributor head commit"
 
     ledger_job = jobs.get("ledger-validation") or {}
+    ledger_env = ledger_job.get("env") or {}
+    assert (
+        ledger_env.get("LEDGER_VALIDATE_ALLOW_SHALLOW") == "1"
+    ), "Ledger validation must tolerate unreachable historical commits in PR/manual Gate runs"
     ledger_steps = ledger_job.get("steps") or []
     assert ledger_steps, "ledger-validation job must define steps"
     ledger_checkout = next(

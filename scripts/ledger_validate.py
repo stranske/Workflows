@@ -574,8 +574,11 @@ def main(argv: list[str] | None = None) -> int:
 
     ledgers = find_ledgers(args.paths)
 
-    # Pre-fetch all unique commits in bulk to avoid O(tasks) individual fetches.
-    _prefetch_commits(ledgers)
+    # Pre-fetch all unique commits in bulk when commit reachability is a hard
+    # requirement. PR/manual Gate runs can tolerate unreachable historical
+    # commits, so fetching every stale SHA only slows the job and adds noise.
+    if not _allow_missing_commit():
+        _prefetch_commits(ledgers)
 
     results: dict[str, list[str]] = {}
     for path in ledgers:
