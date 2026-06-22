@@ -111,6 +111,7 @@ def test_issue_body_is_agent_ready() -> None:
     assert "python3 scripts/check_docs_drift.py --json" in body
     assert "## Informational Checks" in body
     assert "was reviewed for remaining non-batch findings" in body
+    assert "python3 scripts/docs_drift_fix_agent.py --repo-root . --json" in body
 
 
 def test_repair_prompt_includes_required_verification() -> None:
@@ -135,6 +136,7 @@ def test_repair_prompt_includes_required_verification() -> None:
         in prompt
     )
     assert "Informational full-plan refresh" in prompt
+    assert "python3 scripts/docs_drift_fix_agent.py --repo-root . --json" in prompt
     assert "Do not change workflows" in prompt
 
 

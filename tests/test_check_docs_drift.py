@@ -167,7 +167,9 @@ def test_consumer_workflow_destination_path_is_not_dangling_reference(tmp_path: 
     assert check_docs_drift(root) == []
 
 
-def test_root_workflow_link_counts_before_consumer_context_suppression(tmp_path: Path) -> None:
+def test_consumer_context_does_not_suppress_known_root_workflow_mention(
+    tmp_path: Path,
+) -> None:
     root = _repo(
         tmp_path,
         workflows=("health-68-consumer-sync-drift.yml",),
