@@ -265,6 +265,22 @@ def test_parse_codex_jsonl_error_prefers_error_over_progress() -> None:
     assert result.summary == "Codex auth failed"
 
 
+def test_parse_codex_jsonl_error_extracts_dict_message() -> None:
+    raw = json.dumps(
+        {
+            "type": "turn.failed",
+            "error": {"message": "Codex auth failed with status 401"},
+        }
+    )
+
+    result = parse_runner_output("codex", raw)
+
+    assert result.success is False
+    assert result.error == "Codex auth failed with status 401"
+    assert result.final_message == "Codex auth failed with status 401"
+    assert result.summary == "Codex auth failed with status 401"
+
+
 def test_parse_runner_output_detects_error() -> None:
     result = parse_runner_output("claude", "Error: auth failed\n")
 
