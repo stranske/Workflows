@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.16.0](https://github.com/stranske/Workflows/compare/v1.15.2...v1.16.0) (2026-06-22)
+
+
+### Features
+
+* **langsmith:** add Travel-Plan-Permission, LMS, Fine-Art-Archive to fleet registry ([#2487](https://github.com/stranske/Workflows/issues/2487)) ([06add34](https://github.com/stranske/Workflows/commit/06add3454a981f03c2557641b2b634cb442e632e))
+* **repo-review:** surface dynamic run-evidence in the weekly evaluator ([#2474](https://github.com/stranske/Workflows/issues/2474)) ([491bc31](https://github.com/stranske/Workflows/commit/491bc31b0f686bb963d9278e808fb079402c6dae))
+
+
+### Bug Fixes
+
+* align llm provider fallback models ([#2501](https://github.com/stranske/Workflows/issues/2501)) ([f4fa438](https://github.com/stranske/Workflows/commit/f4fa43827665268e99f8c9759a1e3f80aead3131))
+* clear sync review debt at source ([#2498](https://github.com/stranske/Workflows/issues/2498)) ([8211687](https://github.com/stranske/Workflows/commit/821168725d0568cade5bb9a18fc58cab97657975))
+* consume blocked llm override before provider fallback ([#2499](https://github.com/stranske/Workflows/issues/2499)) ([6f2b9df](https://github.com/stranske/Workflows/commit/6f2b9df2c694c746ec71a1cd20fdcf6460754b6f))
+* harden orchestrator skill materialization ([#2495](https://github.com/stranske/Workflows/issues/2495)) ([1bc0f23](https://github.com/stranske/Workflows/commit/1bc0f231da20f5596199ce25d3923f9230ac4b76))
+* honor llm registry provider blocks ([#2502](https://github.com/stranske/Workflows/issues/2502)) ([9eda7b4](https://github.com/stranske/Workflows/commit/9eda7b48d198b4559dcde7d25deec18a6a917468))
+* **maint-71:** gate sync-PR merges on required checks, not a name denylist ([#2486](https://github.com/stranske/Workflows/issues/2486)) ([2a5ec86](https://github.com/stranske/Workflows/commit/2a5ec866287709970a160c950f3392e260c31abf))
+* resolve consumer autofix workflow ref fallback ([c7e690e](https://github.com/stranske/Workflows/commit/c7e690e2d0e95c7e424a5500f744c8c0b13f85f9))
+* restore shared llm client resolution ([#2500](https://github.com/stranske/Workflows/issues/2500)) ([680260c](https://github.com/stranske/Workflows/commit/680260c913e1c136e0b0ba11c07a760e23c26b0c))
+* **runners:** preserve agent run-base checkout ([9ed1ab5](https://github.com/stranske/Workflows/commit/9ed1ab5b484f619b90fa48d4c14c614b99ac7086))
+* sync llm registry helper to consumers ([#2496](https://github.com/stranske/Workflows/issues/2496)) ([0b04de7](https://github.com/stranske/Workflows/commit/0b04de717dcadc23aea9e2eca0b8679d27e90666))
+
 ## [1.15.2](https://github.com/stranske/Workflows/compare/v1.15.1...v1.15.2) (2026-06-19)
 
 
