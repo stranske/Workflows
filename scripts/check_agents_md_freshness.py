@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import shutil
 import sys
 from dataclasses import dataclass
@@ -47,7 +48,9 @@ def managed_section(text: str) -> str | None:
 
 
 def _clean_ref(value: str) -> str:
-    value = value.strip().strip("\"'")
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        value = value[1:-1]
     value = re.sub(r"[:#]L?\d+(?:-L?\d+)?$", "", value)
     return value
 
@@ -59,17 +62,38 @@ def _looks_like_path(value: str) -> bool:
     return "/" in value or path.suffix.lower() in PATH_SUFFIXES
 
 
+def _resolve_repo_path(repo_root: Path, ref: str) -> Path | None:
+    root = repo_root.resolve()
+    raw_path = Path(ref)
+    candidate = raw_path if raw_path.is_absolute() else root / raw_path
+    candidate = candidate.resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    return candidate
+
+
 def _path_exists(repo_root: Path, ref: str) -> bool:
-    return (repo_root / ref).exists()
+    candidate = _resolve_repo_path(repo_root, ref)
+    return candidate.exists() if candidate else False
+
+
+def _command_parts(ref: str) -> list[str]:
+    try:
+        return shlex.split(ref)
+    except ValueError:
+        return ref.split()
 
 
 def _command_exists(repo_root: Path, ref: str) -> bool:
-    parts = ref.split()
+    parts = _command_parts(ref)
     if not parts:
         return True
     command = parts[0]
     if command.startswith(("./", "../")) or "/" in command:
-        return (repo_root / command).exists()
+        candidate = _resolve_repo_path(repo_root, command)
+        return candidate.exists() if candidate else False
     return shutil.which(command) is not None
 
 
@@ -77,7 +101,7 @@ def _check_command_ref(repo_root: Path, ref: str) -> list[Finding]:
     findings: list[Finding] = []
     if not _command_exists(repo_root, ref):
         findings.append(Finding("command", ref, f"referenced command not found: {ref}"))
-    for arg in ref.split()[1:]:
+    for arg in _command_parts(ref)[1:]:
         arg = _clean_ref(arg)
         if "=" in arg:
             _, arg = arg.split("=", 1)
@@ -140,7 +164,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     repo_root = args.repo_root.resolve()
-    agents_md = args.agents_md.resolve() if args.agents_md else None
+    if args.agents_md:
+        agents_md = (
+            args.agents_md if args.agents_md.is_absolute() else repo_root / args.agents_md
+        ).resolve()
+    else:
+        agents_md = None
     findings = check_agents_md(repo_root, agents_md)
 
     if args.as_json:

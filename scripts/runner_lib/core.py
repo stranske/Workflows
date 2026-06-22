@@ -84,6 +84,34 @@ def _validate_provider(provider: str) -> str:
     return normalized
 
 
+def _resolve_child_path(root: Path, path: str | Path, *, description: str) -> Path:
+    root_resolved = root.resolve()
+    raw_path = Path(path)
+    candidate = raw_path if raw_path.is_absolute() else root_resolved / raw_path
+    candidate = candidate.resolve()
+    try:
+        candidate.relative_to(root_resolved)
+    except ValueError as exc:
+        raise ValueError(f"{description} must stay within {root_resolved}") from exc
+    return candidate
+
+
+def _resolve_reference_checkout_path(workspace_path: Path, checkout_path: str | Path) -> Path:
+    reference_root = (workspace_path / ".reference").resolve()
+    candidate = _resolve_child_path(
+        workspace_path,
+        checkout_path,
+        description="reference checkout path",
+    )
+    try:
+        candidate.relative_to(reference_root)
+    except ValueError as exc:
+        raise ValueError("reference checkout path must stay within .reference") from exc
+    if candidate == reference_root:
+        raise ValueError("reference checkout path must identify a child of .reference")
+    return candidate
+
+
 def _runner_key(pr_number: int, head_sha: str, provider: str) -> str:
     payload = f"{provider}:{pr_number}:{head_sha}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -315,7 +343,7 @@ def _materialize_single_checkout_plan(
         )
         _run_git(["git", "-C", str(clone_dir), "sparse-checkout", "reapply"], env=git_env)
 
-        destination_root = workspace_path / checkout_path
+        destination_root = _resolve_reference_checkout_path(workspace_path, checkout_path)
         if destination_root.exists():
             shutil.rmtree(destination_root)
         destination_root.mkdir(parents=True, exist_ok=True)
@@ -366,7 +394,10 @@ def materialize_orchestrator_skill(
         ]
         if not matching:
             raise ValueError(f"orchestrator skill reference pack not found: {plan.pack}")
-        checkout_path = workspace_path / matching[0].checkout_path
+        checkout_path = _resolve_reference_checkout_path(
+            workspace_path,
+            matching[0].checkout_path,
+        )
         with contextlib.suppress(FileNotFoundError):
             shutil.rmtree(checkout_path)
         materialize_reference_packs(
@@ -427,8 +458,12 @@ def assemble_prompt(
         orchestrator_summary_path = (
             Path(str(orchestrator_summary_raw)) if orchestrator_summary_raw else None
         )
-        if orchestrator_summary_path and not orchestrator_summary_path.is_absolute():
-            orchestrator_summary_path = workspace / orchestrator_summary_path
+        if orchestrator_summary_path:
+            orchestrator_summary_path = _resolve_child_path(
+                workspace,
+                orchestrator_summary_path,
+                description="orchestrator_skill_summary_path",
+            )
 
     output_file = str(
         context.get("output_file") or _prompt_output_name(provider, context.get("pr_number"))

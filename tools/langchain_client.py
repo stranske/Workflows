@@ -278,16 +278,27 @@ def build_chat_client(
     # Auto-select: slot order (OpenAI -> Claude -> GitHub Models by default).
     slots = _resolve_slots()
     model_override = model or os.environ.get(ENV_MODEL)
-    if model_override:
-        override_provider = selected_provider or (slots[0].provider if slots else "")
-        if override_provider and _is_model_blocked(override_provider, model_override):
-            logger.warning(
-                "Refusing blocked LLM model override: %s/%s", override_provider, model_override
-            )
-            return None
     used_override = False
     for slot in slots:
+        slot_available = any(
+            (
+                slot.provider == PROVIDER_OPENAI and openai_token,
+                slot.provider == PROVIDER_ANTHROPIC and anthropic_token and chat_anthropic_cls,
+                slot.provider == PROVIDER_GITHUB and github_token,
+            )
+        )
+        if not slot_available:
+            continue
         slot_model = model_override if model_override and not used_override else slot.model
+        if _is_model_blocked(slot.provider, slot_model):
+            logger.warning("Skipping blocked LLM model override: %s/%s", slot.provider, slot_model)
+            if model_override and not used_override:
+                used_override = True
+                slot_model = slot.model
+                if _is_model_blocked(slot.provider, slot_model):
+                    continue
+            else:
+                continue
         if slot.provider == PROVIDER_OPENAI and openai_token:
             with contextlib.suppress(Exception):
                 client = _build_openai_client(

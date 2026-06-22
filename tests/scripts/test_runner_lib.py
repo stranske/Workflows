@@ -147,6 +147,47 @@ def test_assemble_prompt_skips_orchestrator_skill_section_when_summary_missing(
     assert "## Orchestrator Skill Context" not in prompt.text
 
 
+def test_assemble_prompt_rejects_orchestrator_summary_outside_workspace(
+    tmp_path: Path,
+) -> None:
+    _write_prompt_fixture(tmp_path)
+    outside = tmp_path.parent / "outside-summary.md"
+    outside.write_text("outside\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="orchestrator_skill_summary_path"):
+        assemble_prompt(
+            None,
+            {
+                "workspace": tmp_path,
+                "base_prompt_file": ".github/codex/prompts/task.md",
+                "orchestrator_skill_summary_path": outside,
+            },
+            "codex",
+        )
+
+
+def test_assemble_prompt_resolves_relative_orchestrator_summary_from_workspace(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    _write_prompt_fixture(tmp_path)
+    summary = tmp_path / ".reference" / "ORCHESTRATOR_SKILL.md"
+    summary.write_text("orchestrator context\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path.parent)
+
+    prompt = assemble_prompt(
+        None,
+        {
+            "workspace": tmp_path,
+            "base_prompt_file": ".github/codex/prompts/task.md",
+            "orchestrator_skill_summary_path": ".reference/ORCHESTRATOR_SKILL.md",
+        },
+        "codex",
+    )
+
+    assert "orchestrator context" in prompt.text
+
+
 def test_assemble_prompt_formats_claude_prompt(tmp_path: Path) -> None:
     _write_prompt_fixture(tmp_path)
 
@@ -525,6 +566,35 @@ def test_materialize_orchestrator_skill_surfaces_stale_checkout_cleanup_errors(
     monkeypatch.setattr(runner_core.shutil, "rmtree", fake_rmtree)
 
     with pytest.raises(PermissionError, match="locked checkout"):
+        runner_core.materialize_orchestrator_skill(
+            tmp_path,
+            pack_override="orchestrator",
+            enabled_override=True,
+        )
+
+
+@pytest.mark.parametrize("checkout_path", [".reference/.", ".reference/.."])
+def test_materialize_orchestrator_skill_rejects_unsafe_pack_checkout(
+    tmp_path: Path,
+    monkeypatch: Any,
+    checkout_path: str,
+) -> None:
+    plan = types.SimpleNamespace(name="orchestrator", checkout_path=checkout_path)
+    fake_reference_packs = types.SimpleNamespace(
+        load_reference_packs=lambda _workspace: types.SimpleNamespace(packs=[plan]),
+        build_checkout_plan=lambda _packs: [plan],
+    )
+
+    def fake_load_reference_packs_module() -> Any:
+        return fake_reference_packs
+
+    monkeypatch.setattr(
+        runner_core,
+        "_load_reference_packs_module",
+        fake_load_reference_packs_module,
+    )
+
+    with pytest.raises(ValueError, match="reference checkout path"):
         runner_core.materialize_orchestrator_skill(
             tmp_path,
             pack_override="orchestrator",

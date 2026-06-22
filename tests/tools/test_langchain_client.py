@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import types
+from pathlib import Path
 
 import pytest
-from tools import langchain_client
+from tools import langchain_client, llm_registry
 
 
 def _install_fake_langchain_openai(monkeypatch: pytest.MonkeyPatch):
@@ -133,6 +135,132 @@ def test_build_chat_client_env_model_override(monkeypatch: pytest.MonkeyPatch) -
     assert resolved.model == "gpt-4o-mini"
     assert isinstance(resolved.client, FakeChatOpenAI)
     assert resolved.client.kwargs["model"] == "gpt-4o-mini"
+
+
+def test_build_chat_client_blocked_model_override_does_not_shift_provider(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A blocked global override must not be retried against later providers."""
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    FakeChatAnthropic = _install_fake_langchain_anthropic(monkeypatch)
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "models": [
+                    {
+                        "provider": "openai",
+                        "model_id": "gpt-blocked",
+                        "blocked": True,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(langchain_client.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
+    monkeypatch.setenv(langchain_client.ENV_MODEL, "gpt-blocked")
+    monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
+
+    resolved = langchain_client.build_chat_client()
+
+    assert resolved is not None
+    assert resolved.provider == langchain_client.PROVIDER_OPENAI
+    assert resolved.model == "gpt-5.4"
+    assert isinstance(resolved.client, FakeChatOpenAI)
+    assert not isinstance(resolved.client, FakeChatAnthropic)
+
+
+def test_load_model_registry_ignores_malformed_nested_values(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "models": [
+                    {
+                        "provider": "openai",
+                        "model_id": "gpt-safe",
+                        "quality": None,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(langchain_client.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+
+    entries = llm_registry.load_model_registry()
+
+    assert len(entries) == 1
+    assert entries[0].quality == {}
+
+
+def test_load_model_registry_rejects_non_list_models(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps({"models": None}), encoding="utf-8")
+    monkeypatch.setenv(langchain_client.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+
+    assert llm_registry.load_model_registry() == []
+
+
+def test_slot_env_override_reverts_to_original_when_override_blocked(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "models": [
+                    {
+                        "provider": "openai",
+                        "model_id": "gpt-blocked",
+                        "blocked": True,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(langchain_client.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(langchain_client.ENV_MODEL, "gpt-blocked")
+
+    slots = llm_registry.apply_slot_env_overrides(
+        [
+            llm_registry.SlotDefinition(
+                name="slot1",
+                provider=langchain_client.PROVIDER_OPENAI,
+                model="gpt-safe",
+            ),
+            llm_registry.SlotDefinition(
+                name="slot2",
+                provider=langchain_client.PROVIDER_ANTHROPIC,
+                model="claude-safe",
+            ),
+        ]
+    )
+
+    assert slots == [
+        llm_registry.SlotDefinition(
+            name="slot1",
+            provider=langchain_client.PROVIDER_OPENAI,
+            model="gpt-safe",
+        ),
+        llm_registry.SlotDefinition(
+            name="slot2",
+            provider=langchain_client.PROVIDER_ANTHROPIC,
+            model="claude-safe",
+        ),
+    ]
 
 
 def test_build_chat_client_env_overrides_provider_and_model(
