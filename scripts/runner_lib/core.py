@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import contextlib
 import dataclasses
 import datetime as dt
 import hashlib
@@ -366,7 +367,8 @@ def materialize_orchestrator_skill(
         if not matching:
             raise ValueError(f"orchestrator skill reference pack not found: {plan.pack}")
         checkout_path = workspace_path / matching[0].checkout_path
-        shutil.rmtree(checkout_path, ignore_errors=True)
+        with contextlib.suppress(FileNotFoundError):
+            shutil.rmtree(checkout_path)
         materialize_reference_packs(
             workspace_path,
             reference_pack_name=plan.pack,

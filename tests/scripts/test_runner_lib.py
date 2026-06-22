@@ -455,6 +455,36 @@ def test_materialize_orchestrator_skill_clears_stale_pack_checkout(
     assert "`SKILL.md`" in summary.read_text(encoding="utf-8")
 
 
+def test_materialize_orchestrator_skill_surfaces_stale_checkout_cleanup_errors(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    plan = types.SimpleNamespace(name="orchestrator", checkout_path=".reference/orchestrator")
+    fake_reference_packs = types.SimpleNamespace(
+        load_reference_packs=lambda _workspace: types.SimpleNamespace(packs=[plan]),
+        build_checkout_plan=lambda _packs: [plan],
+    )
+
+    def fake_load_reference_packs_module() -> Any:
+        return fake_reference_packs
+
+    def fake_rmtree(_path: Path) -> None:
+        raise PermissionError("locked checkout")
+
+    monkeypatch.setattr(
+        runner_core,
+        "_load_reference_packs_module",
+        fake_load_reference_packs_module,
+    )
+    monkeypatch.setattr(runner_core.shutil, "rmtree", fake_rmtree)
+
+    with pytest.raises(PermissionError, match="locked checkout"):
+        runner_core.materialize_orchestrator_skill(
+            tmp_path,
+            pack_override="orchestrator",
+            enabled_override=True,
+        )
+
+
 def test_pr_comment_marker_round_trips_nested_result_payload() -> None:
     result = parse_runner_output("claude", "Done")
     record = {
