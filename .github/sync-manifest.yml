@@ -672,6 +672,9 @@ scripts:
   - source: tools/langchain_client.py
     description: "LangChain client builder - multi-provider client with slot-based fallback and configuration"
 
+  - source: tools/llm_registry.py
+    description: "LLM model registry helper - shared slot/model selection and blocked-model enforcement"
+
   - source: tools/embedding_provider.py
     description: "Embedding provider registry used by synced semantic matching helpers"
 

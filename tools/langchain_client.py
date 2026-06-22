@@ -8,13 +8,28 @@ timeouts, retries, and environment overrides.
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
 import os
 from dataclasses import dataclass
-from pathlib import Path
 
+from tools import llm_registry as _llm_registry
 from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
+from tools.llm_registry import (
+    PROVIDER_ANTHROPIC,
+    PROVIDER_GITHUB,
+    PROVIDER_OPENAI,
+    ModelRegistryEntry,
+    SlotDefinition,
+    apply_slot_env_overrides,
+    default_slots,
+    is_model_blocked,
+    load_model_registry,
+    load_slot_config,
+    normalize_provider,
+    registry_entry_for,
+    resolve_slots,
+    select_model_for_tier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,15 +37,12 @@ ENV_PROVIDER = "LANGCHAIN_PROVIDER"
 ENV_MODEL = "LANGCHAIN_MODEL"
 ENV_TIMEOUT = "LANGCHAIN_TIMEOUT"
 ENV_MAX_RETRIES = "LANGCHAIN_MAX_RETRIES"
-ENV_SLOT_CONFIG = "LANGCHAIN_SLOT_CONFIG"
+ENV_SLOT_CONFIG = _llm_registry.ENV_SLOT_CONFIG
+ENV_MODEL_REGISTRY_CONFIG = _llm_registry.ENV_MODEL_REGISTRY_CONFIG
 ENV_SLOT_PREFIX = "LANGCHAIN_SLOT"
 ENV_ANTHROPIC_KEY = "CLAUDE_API_STRANSKE"
-
-PROVIDER_OPENAI = "openai"
-PROVIDER_ANTHROPIC = "anthropic"
-PROVIDER_GITHUB = "github-models"
-
-DEFAULT_SLOT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "llm_slots.json"
+DEFAULT_SLOT_CONFIG_PATH = _llm_registry.DEFAULT_SLOT_CONFIG_PATH
+DEFAULT_MODEL_REGISTRY_CONFIG_PATH = _llm_registry.DEFAULT_MODEL_REGISTRY_CONFIG_PATH
 
 
 def _env_int(name: str, default: int) -> int:
@@ -59,24 +71,8 @@ class ClientInfo:
         return f"{self.provider}/{self.model}"
 
 
-@dataclass(frozen=True)
-class SlotDefinition:
-    name: str
-    provider: str
-    model: str
-
-
 def _normalize_provider(value: str | None) -> str | None:
-    if not value:
-        return None
-    normalized = value.strip().lower()
-    if normalized in {"github", "github_models", "github-models"}:
-        return PROVIDER_GITHUB
-    if normalized in {"anthropic", "claude"}:
-        return PROVIDER_ANTHROPIC
-    if normalized in {"openai"}:
-        return PROVIDER_OPENAI
-    return None
+    return normalize_provider(value)
 
 
 def _resolve_provider(provider: str | None, *, force_openai: bool) -> tuple[str | None, bool]:
@@ -93,57 +89,53 @@ def _resolve_model(model: str | None) -> str:
     return model or env_model or DEFAULT_MODEL
 
 
+def _load_model_registry() -> list[ModelRegistryEntry]:
+    return load_model_registry()
+
+
+def _registry_entry_for(
+    provider: str, model: str, registry: list[ModelRegistryEntry] | None = None
+) -> ModelRegistryEntry | None:
+    return registry_entry_for(provider, model, registry=registry)
+
+
+def _is_model_blocked(
+    provider: str, model: str, registry: list[ModelRegistryEntry] | None = None
+) -> bool:
+    return is_model_blocked(provider, model, registry=registry)
+
+
+def _select_model_for_tier(
+    *,
+    provider: str,
+    tier: str,
+    registry: list[ModelRegistryEntry] | None = None,
+) -> str | None:
+    return select_model_for_tier(provider=provider, tier=tier, registry=registry)
+
+
 def _default_slots() -> list[SlotDefinition]:
-    return [
-        SlotDefinition(name="slot1", provider=PROVIDER_OPENAI, model="gpt-5.4"),
-        SlotDefinition(name="slot2", provider=PROVIDER_ANTHROPIC, model="claude-sonnet-4-6"),
-        SlotDefinition(name="slot3", provider=PROVIDER_GITHUB, model=DEFAULT_MODEL),
-    ]
+    return default_slots(github_default_model=DEFAULT_MODEL)
 
 
 def _load_slot_config() -> list[SlotDefinition]:
-    config_path = os.environ.get(ENV_SLOT_CONFIG)
-    path = Path(config_path) if config_path else DEFAULT_SLOT_CONFIG_PATH
-    if not path.is_file():
-        return _default_slots()
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return _default_slots()
-
-    slots: list[SlotDefinition] = []
-    for idx, entry in enumerate(payload.get("slots", []), start=1):
-        provider = _normalize_provider(str(entry.get("provider", "")))
-        model = str(entry.get("model", "")).strip()
-        if not provider or not model:
-            continue
-        name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
-        slots.append(SlotDefinition(name=name, provider=provider, model=model))
-
-    return slots or _default_slots()
+    return load_slot_config(github_default_model=DEFAULT_MODEL)
 
 
 def _apply_slot_env_overrides(slots: list[SlotDefinition]) -> list[SlotDefinition]:
-    updated: list[SlotDefinition] = []
-    for idx, slot in enumerate(slots, start=1):
-        provider_key = f"{ENV_SLOT_PREFIX}{idx}_PROVIDER"
-        model_key = f"{ENV_SLOT_PREFIX}{idx}_MODEL"
-        provider_override = _normalize_provider(os.environ.get(provider_key))
-        model_override = os.environ.get(model_key)
-        if idx == 1:
-            model_override = model_override or os.environ.get(ENV_MODEL)
-        updated.append(
-            SlotDefinition(
-                name=slot.name,
-                provider=provider_override or slot.provider,
-                model=(model_override or slot.model).strip(),
-            )
-        )
-    return updated
+    return apply_slot_env_overrides(
+        slots,
+        env_model_name=ENV_MODEL,
+        env_slot_prefix=ENV_SLOT_PREFIX,
+    )
 
 
 def _resolve_slots() -> list[SlotDefinition]:
-    return _apply_slot_env_overrides(_load_slot_config())
+    return resolve_slots(
+        github_default_model=DEFAULT_MODEL,
+        env_model_name=ENV_MODEL,
+        env_slot_prefix=ENV_SLOT_PREFIX,
+    )
 
 
 def _is_reasoning_model(model: str) -> bool:
@@ -234,6 +226,9 @@ def build_chat_client(
     selected_provider, provider_explicit = _resolve_provider(provider, force_openai=force_openai)
     if provider_explicit and selected_provider is None:
         return None
+    if selected_provider and _is_model_blocked(selected_provider, selected_model):
+        logger.warning("Refusing blocked LLM model: %s/%s", selected_provider, selected_model)
+        return None
 
     if selected_provider == PROVIDER_GITHUB:
         if not github_token:
@@ -283,6 +278,13 @@ def build_chat_client(
     # Auto-select: slot order (OpenAI -> Claude -> GitHub Models by default).
     slots = _resolve_slots()
     model_override = model or os.environ.get(ENV_MODEL)
+    if model_override:
+        override_provider = selected_provider or (slots[0].provider if slots else "")
+        if override_provider and _is_model_blocked(override_provider, model_override):
+            logger.warning(
+                "Refusing blocked LLM model override: %s/%s", override_provider, model_override
+            )
+            return None
     used_override = False
     for slot in slots:
         slot_model = model_override if model_override and not used_override else slot.model
@@ -358,6 +360,15 @@ def build_chat_clients(
     selected_provider, provider_explicit = _resolve_provider(provider, force_openai=False)
     if provider_explicit and selected_provider is None:
         return []
+    registry = _load_model_registry()
+    if selected_provider:
+        blocked_models = [candidate for candidate in (first_model, second_model) if candidate]
+        if any(
+            _is_model_blocked(selected_provider, candidate, registry=registry)
+            for candidate in blocked_models
+        ):
+            logger.warning("Refusing blocked LLM model for provider %s", selected_provider)
+            return []
 
     clients: list[ClientInfo] = []
 
@@ -475,6 +486,9 @@ def build_chat_clients(
     for idx, slot in enumerate(candidate_slots):
         slot_model = model_overrides[idx] if idx < len(model_overrides) else None
         slot_model = slot_model or slot.model
+        if _is_model_blocked(slot.provider, slot_model, registry=registry):
+            logger.warning("Skipping blocked LLM model override: %s/%s", slot.provider, slot_model)
+            continue
         if slot.provider == PROVIDER_OPENAI and openai_token:
             with contextlib.suppress(Exception):
                 clients.append(
