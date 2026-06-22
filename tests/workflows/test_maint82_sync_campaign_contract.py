@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 
 WORKFLOW = Path(".github/workflows/maint-82-sync-dependency-campaign.yml")
+CAMPAIGN_SCRIPT = Path(".github/scripts/sync_dependency_campaign.js")
 
 
 def _refresh_script() -> str:
@@ -35,3 +36,11 @@ def test_campaign_workflow_bot_agnostic_identity():
     assert data["name"] == "Sync/Dependency Campaign"
     # Loads the renamed campaign script.
     assert "sync_dependency_campaign.js" in _refresh_script()
+
+
+def test_campaign_tracks_renovate_as_dependency_bot():
+    script = CAMPAIGN_SCRIPT.read_text(encoding="utf-8")
+
+    assert "renovate[bot]" in script
+    assert "app/renovate" in script
+    assert "headRef.startsWith('renovate/')" in script

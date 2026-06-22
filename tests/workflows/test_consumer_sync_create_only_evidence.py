@@ -21,13 +21,12 @@ def _manifest_entries() -> dict[str, dict]:
 def test_consumer_create_only_files_are_manifested() -> None:
     entries = _manifest_entries()
 
-    # .github/dependabot.yml was intentionally dropped from the template and the
-    # manifest in #2401 (P3b of the Renovate fleet migration): create_only sync
-    # would otherwise resurrect Dependabot on every re-sync. It must no longer be
-    # manifested.
+    # Consumer-specific bootstrap files must be seeded without clobbering repos
+    # that already customized their local configuration.
     for source in (
         ".github/workflows/pr-00-gate.yml",
         ".github/workflows/ci.yml",
+        ".github/renovate.json",
     ):
         assert source in entries
         assert entries[source]["sync_mode"] == "create_only"
@@ -38,9 +37,19 @@ def test_consumer_create_only_files_are_manifested() -> None:
     ):
         assert entries[source]["overwrite_repos"] == ["stranske/Template"]
 
-    # Guard against re-adding the Dependabot config to the manifest (would
-    # resurrect Dependabot on consumers via create_only sync). See #2401.
+    # .github/dependabot.yml was intentionally dropped from the template and the
+    # manifest in #2401 (P3b of the Renovate fleet migration): create_only sync
+    # would otherwise resurrect Dependabot on every re-sync. It must no longer be
+    # manifested.
     assert ".github/dependabot.yml" not in entries
+
+
+def test_consumer_renovate_template_extends_fleet_preset() -> None:
+    template = yaml.safe_load(
+        (REPO_ROOT / "templates/consumer-repo/.github/renovate.json").read_text(encoding="utf-8")
+    )
+
+    assert template["extends"] == ["github>stranske/Workflows//renovate-presets/fleet"]
 
 
 def test_gate_manifest_entry_documents_fresh_consumer_bootstrap_risk() -> None:
