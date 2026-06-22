@@ -458,6 +458,12 @@ jobs:
             fi
           fi
 
+          if [ -d ".workflows-actions" ]; then
+            if ! grep -q "^\.workflows-actions" .git/info/exclude 2>/dev/null; then
+              echo ".workflows-actions" >> .git/info/exclude 2>/dev/null || true
+            fi
+          fi
+
           if [ -d ".reference" ]; then
             if ! grep -q "^\.reference" .git/info/exclude 2>/dev/null; then
               echo ".reference" >> .git/info/exclude 2>/dev/null || true
@@ -486,10 +492,10 @@ jobs:
           echo "Git status after cleanup:"
           git status --short || true
 
-          ignore_re='^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re='^(\.(workflows-(lib|actions)|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
           ignore_re+='claude-.*|autofix.*)$'
-          ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re+='|^(\.(workflows-(lib|actions)|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
           ignore_re+='claude-.*|autofix.*)/'
           REMAINING=$(
@@ -930,6 +936,7 @@ jobs:
             gemini-analysis*.json \
             .coverage \
             .workflows-lib \
+            .workflows-actions \
             .github/scripts/node_modules \
             .workflows-lib/.github/scripts/node_modules \
             node_modules \

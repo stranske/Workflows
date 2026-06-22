@@ -531,7 +531,7 @@ def parse_runner_output(provider: str, raw_output: str) -> RunnerResult:
     clipped = raw[:64000] if len(raw) > 64000 else raw
 
     messages, errors = _parse_jsonl_output(clipped) if provider == "codex" else ([], [])
-    final_message = messages[-1] if messages else clipped.strip()
+    final_message = messages[-1] if messages else ("" if errors else clipped.strip())
 
     if not errors and re.search(
         r"(^::error::|\bTraceback\b|\bError:|\bException\b)",
@@ -547,6 +547,9 @@ def parse_runner_output(provider: str, raw_output: str) -> RunnerResult:
             "",
         )
         errors.append(first or "runner output indicates an error")
+
+    if not final_message and errors:
+        final_message = errors[0]
 
     if not final_message:
         final_message = "No output captured"

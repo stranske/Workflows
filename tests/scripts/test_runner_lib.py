@@ -234,6 +234,21 @@ def test_parse_codex_jsonl_success() -> None:
     assert result.error is None
 
 
+def test_parse_codex_jsonl_error_without_message_uses_error_summary() -> None:
+    raw = json.dumps(
+        {
+            "type": "turn.failed",
+            "error": "Codex CLI exited before writing final output",
+        }
+    )
+
+    result = parse_runner_output("codex", raw)
+
+    assert result.success is False
+    assert "Codex CLI exited before writing final output" in result.summary
+    assert result.final_message == result.error
+
+
 def test_parse_runner_output_detects_error() -> None:
     result = parse_runner_output("claude", "Error: auth failed\n")
 

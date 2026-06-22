@@ -559,7 +559,9 @@ jobs:
 
       # Clean up workflow-generated files that would confuse Codex about git state.
       # The .workflows-lib directory is a separate checkout (NOT a submodule) for scripts
-      # and may show as untracked. Session JSONL files from previous runs may also be untracked.
+      # and may show as untracked. .workflows-actions holds the local composite
+      # action metadata needed by post-job cleanup. Session JSONL files from
+      # previous runs may also be untracked.
       # These are not user code changes and should not block the agent.
       - name: Clean workspace for Codex
         id: clean_workspace
@@ -576,6 +578,13 @@ jobs:
             # Add to .git/info/exclude to hide from git status (idempotent check)
             if ! grep -q "^\.workflows-lib" .git/info/exclude 2>/dev/null; then
               echo ".workflows-lib" >> .git/info/exclude 2>/dev/null || true
+            fi
+          fi
+
+          if [ -d ".workflows-actions" ]; then
+            echo "Handling .workflows-actions directory..."
+            if ! grep -q "^\.workflows-actions" .git/info/exclude 2>/dev/null; then
+              echo ".workflows-actions" >> .git/info/exclude 2>/dev/null || true
             fi
           fi
 
@@ -610,13 +619,14 @@ jobs:
           git status --short || true
 
           # Check if any meaningful changes remain
-          # Exclude: untracked .workflows-lib, .gitignore, node_modules, codex-*, autofix* artifacts
+          # Exclude: untracked .workflows-lib/.workflows-actions, .gitignore,
+          # node_modules, codex-*, autofix* artifacts
           # Use grep -c for count; if grep finds nothing it returns 1
           # Strip whitespace to ensure clean integer (avoids "integer expression expected" errors)
-          ignore_re='^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re='^(\.(workflows-(lib|actions)|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
           ignore_re+='codex-.*|autofix.*)$'
-          ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re+='|^(\.(workflows-(lib|actions)|gitignore)|\.github/scripts/node_modules|'
           ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
           ignore_re+='codex-.*|autofix.*)/'
           REMAINING=$(
@@ -989,12 +999,24 @@ jobs:
                     echo "Codex completed with exit code ${CODEX_EXIT}. "\
                       "Model: ${selected_model:-unknown}. Output written to $OUTPUT_FILE"
 
-          # Set outputs for downstream steps through the shared parser.
-          if [ -f "$OUTPUT_FILE" ]; then
+          # Set outputs for downstream steps through the shared parser.  Codex
+          # may fail before writing --output-last-message; in that case parse
+          # the captured JSONL/stderr stream so bookkeeping does not collapse
+          # to "No output captured".
+          PARSE_SOURCE=""
+          if [ -s "$OUTPUT_FILE" ]; then
+            PARSE_SOURCE="$OUTPUT_FILE"
+          elif [ -s "$SESSION_JSONL" ]; then
+            echo "::warning::Codex final-message file missing or empty; "\
+              "parsing session stream instead."
+            PARSE_SOURCE="$SESSION_JSONL"
+          fi
+
+          if [ -n "$PARSE_SOURCE" ]; then
             PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
               python -m scripts.runner_lib parse-output \
                 --provider codex \
-                --raw-output-file "$OUTPUT_FILE" >/tmp/codex-runner-result.json
+                --raw-output-file "$PARSE_SOURCE" >/tmp/codex-runner-result.json
           else
             printf '' | PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
               python -m scripts.runner_lib parse-output \
@@ -1246,11 +1268,11 @@ jobs:
 
           if [ "${MODE}" = "e2e-test" ]; then
             git checkout -- codex-output*.md codex-prompt*.md 2>/dev/null || true
-            ignore_re='^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+            ignore_re='^(\.(workflows-(lib|actions)|gitignore)|\.github/scripts/node_modules|'
             ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
             ignore_re+='codex-.*|autofix.*|coverage\.xml|\.coverage|pr_body\.md|'
             ignore_re+='autofix_report_enriched\.json|poetry\.lock)$'
-            ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+            ignore_re+='|^(\.(workflows-(lib|actions)|gitignore)|\.github/scripts/node_modules|'
             ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
             ignore_re+='codex-.*|autofix.*|coverage\.xml|\.coverage|pr_body\.md|'
             ignore_re+='autofix_report_enriched\.json|poetry\.lock)/'
@@ -1412,6 +1434,7 @@ jobs:
           # - autofix_report_enriched.json: Autofix workflow artifact
           # - poetry.lock: Defense against wrong package manager
           # - .workflows-lib: Separate checkout (git treats as submodule)
+          # - .workflows-actions: Local action checkout needed for post-job cleanup
           # This may unstage all changes if only artifacts were modified.
           git reset HEAD -- \
             codex-output*.md \
@@ -1435,6 +1458,7 @@ jobs:
             gemini-analysis*.json \
             .coverage \
             .workflows-lib \
+            .workflows-actions \
             .github/scripts/node_modules \
             .workflows-lib/.github/scripts/node_modules \
             node_modules \

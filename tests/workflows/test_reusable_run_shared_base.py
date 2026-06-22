@@ -88,6 +88,8 @@ def test_run_base_action_exists_and_parses() -> None:
     assert "push_allowed" in src
     assert "uses: ./.github/actions/setup-api-client" in src
     assert "sparse-checkout" in src
+    checkout_step = next(s for s in steps if s.get("name") == "Checkout")
+    assert checkout_step["with"]["clean"] is False
 
 
 @pytest.mark.parametrize("workflow_rel", REUSABLE_RUN_WORKFLOWS)
@@ -121,6 +123,7 @@ def test_extracted_setup_steps_not_duplicated_in_runners(workflow_rel: str) -> N
     checkout_with = run_base_checkout_steps[0]["with"]
     assert checkout_with["path"] == RUN_BASE_CHECKOUT_PATH
     assert ".github/actions/agent-run-base" in checkout_with["sparse-checkout"]
+    assert ".workflows-actions" in src
     assert (
         checkout_with["token"] == "${{ steps.bootstrap_app_token.outputs.token || github.token }}"
     )
