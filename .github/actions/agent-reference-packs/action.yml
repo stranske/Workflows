@@ -172,4 +172,8 @@ runs:
             print("Orchestrator skill context not materialized.")
         else:
             print(f"Generated {summary}")
+            env_path = os.environ.get("GITHUB_ENV")
+            if env_path:
+                with open(env_path, "a", encoding="utf-8") as env_file:
+                    env_file.write(f"ORCHESTRATOR_SKILL_SUMMARY_PATH={summary}\n")
         ORCHSKILL_EOF

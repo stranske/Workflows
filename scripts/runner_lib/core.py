@@ -421,7 +421,12 @@ def assemble_prompt(
             token=token,
         )
     else:
-        orchestrator_summary_path = None
+        orchestrator_summary_raw = context.get("orchestrator_skill_summary_path")
+        orchestrator_summary_path = (
+            Path(str(orchestrator_summary_raw)) if orchestrator_summary_raw else None
+        )
+        if orchestrator_summary_path and not orchestrator_summary_path.is_absolute():
+            orchestrator_summary_path = workspace / orchestrator_summary_path
 
     output_file = str(
         context.get("output_file") or _prompt_output_name(provider, context.get("pr_number"))
@@ -945,6 +950,7 @@ def _cmd_assemble(args: argparse.Namespace) -> int:
         "materialize_orchestrator_skill": args.materialize_orchestrator_skill,
         "orchestrator_skill_pack": args.orchestrator_skill_pack or None,
         "orchestrator_skill_enabled": _parse_optional_bool(args.orchestrator_skill_enabled),
+        "orchestrator_skill_summary_path": os.environ.get("ORCHESTRATOR_SKILL_SUMMARY_PATH"),
         "github_token": os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN"),
     }
     prompt = assemble_prompt(args.reference_pack_name, context, args.provider)
