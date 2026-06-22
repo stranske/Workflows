@@ -85,6 +85,26 @@ available. Use `--no-refresh-stale-gitnexus` to report stale maps without
 refreshing, or `--skip-gitnexus-preflight` only when GitNexus is deliberately
 out of scope for that run.
 
+### Docs-drift fix-agent
+
+The weekly semantic docs-drift scanner and monthly `maint-48-docs-drift-audit`
+issue find stale operational claims, but they do not repair the docs directly.
+Use the deterministic fix-agent to turn drift findings into bounded PR-ready
+repair briefs:
+
+```bash
+python scripts/docs_drift_fix_agent.py \
+    --repo-root . \
+    --scan-json docs/reports/repo-review/docs-drift-scan.json \
+    --out-dir docs/reports/docs-drift-fix-agent
+```
+
+The command is read-only by default. It writes `plan.json`, one repair prompt,
+one issue body, and one PR plan per bounded batch. Give the repair prompt to an
+agent lane to open a docs-only fix PR, or pass `--apply` only when you want the
+tool to create one GitHub issue per batch. The fix-agent composes existing scan
+outputs; it does not launch a new Claude review and it does not edit files.
+
 ### Phase-4 Components
 
 The coordinator orchestrates five Phase-4 scripts under `scripts/`:

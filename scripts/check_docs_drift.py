@@ -18,7 +18,7 @@ DriftRecord = dict[str, str]
 DEFAULT_DOCS = ("docs/ci/WORKFLOWS.md",)
 WORKFLOWS_DOC = Path("docs/ci/WORKFLOWS.md")
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
-REPO_PATH_PREFIXES = ("scripts/", ".github/workflows/", "tests/", "docs/")
+REPO_PATH_PREFIXES = ("scripts/", "tests/", "docs/")
 
 WORKFLOW_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z0-9_./-]+\.ya?ml)(?![A-Za-z0-9_])")
 INLINE_CODE_RE = re.compile(r"(?<!`)`(?!`)([^`\n]+?)(?<!`)`(?!`)")
@@ -80,6 +80,9 @@ def _mentioned_workflow_filenames(text: str, root_workflows: set[str] | None = N
         token = match.group(1)
         if "/" in token:
             if not _is_root_workflow_path(token):
+                continue
+            context = _workflow_token_context(text, match.start(1), match.end(1))
+            if NON_ROOT_WORKFLOW_CONTEXT_RE.search(context):
                 continue
         elif not _is_bare_workflow_reference(text, match, root_workflows):
             continue

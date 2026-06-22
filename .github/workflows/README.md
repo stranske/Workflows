@@ -35,7 +35,7 @@ The CI stack now routes every pull request through a single Gate workflow that o
 Legacy wrappers (`pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`) have been removed now that branch protection enforces the Gate job directly.
 
 ### 1.2 Naming policy & archive status (Issue #1669)
-- Active workflows **must** use one of the WFv1 prefixes: `pr-*`, `maint-*`, `agents-*`, or `reusable-*`. Guard tests (`tests/test_workflow_naming.py`) enforce this policy.
+- Active workflows **must** use one of the WFv1 prefixes: `pr-*`, `maint-*`, `agents-*`, or `reusable-*`. Guard tests (`tests/workflows/test_workflow_naming.py`) enforce this policy.
 - Historical directories `Old/.github/workflows/` and `.github/workflows/archive/` were removed. Reference [ARCHIVE_WORKFLOWS.md](../../ARCHIVE_WORKFLOWS.md) when you need the legacy slugs.
 - New workflows should document their purpose in this README and in [WORKFLOW_AUDIT_TEMP.md](../../WORKFLOW_AUDIT_TEMP.md) so future audits inherit a complete inventory.
 
@@ -189,7 +189,7 @@ Key traits:
 4. Uses the same cosmetic repair helper consumed by the autofix follower, ensuring identical formatting rules across automated and manual flows.
 5. Captures repair summaries and emits outputs that downstream tooling (like Gate summary jobs) can render in job summaries.
 
-Guardrails: `tests/test_workflow_naming.py` asserts the workflow remains in the inventory, and the repair helper’s behaviour is covered by tests for `scripts/ci_cosmetic_repair.py`.
+Guardrails: `tests/workflows/test_workflow_naming.py` asserts the workflow remains in the inventory, and the repair helper’s behaviour is covered by tests for `scripts/ci_cosmetic_repair.py`.
 
 ---
 ## 6. Onboarding Checklist (~7m)
