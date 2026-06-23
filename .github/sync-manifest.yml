@@ -806,6 +806,29 @@ docs:
     target: docs/SETUP_CHECKLIST.md
     description: "Consumer repo setup checklist. Includes the default_workflow_permissions=write step in section 3.3.1 that prevents a Gate startup_failure on fresh consumers (see #2157). Synced so it no longer drifts across the fleet."
 
+  # ---- Shared design system (fleet UX consistency) ----
+  # CSS tokens/components + a Streamlit adapter kit + the presentation-patterns
+  # standard, synced into each consumer's design-system/. Apps consume a PATTERN
+  # (theme / empty-state / error / dev-notice / availability-badge / no-raw-ids)
+  # rather than inventing bespoke fixes. Per-app overrides go in an app stylesheet
+  # loaded AFTER tokens.css; never fork components.css. Grouped here with the other
+  # synced reference assets (cf. the run-contract JSON schemas above).
+  - source: design-system/tokens.css
+    target: design-system/tokens.css
+    description: "Design-system theme tokens (theme-air/theme-paper + density axis). Override tokens in an app stylesheet loaded after this; do not fork."
+  - source: design-system/components.css
+    target: design-system/components.css
+    description: "Design-system component layer (.ds): panels/appbar/kpis/tables/fields + presentation-state patterns (.notice, .empty-state, .badge, .skeleton)."
+  - source: design-system/ds_streamlit.py
+    target: design-system/ds_streamlit.py
+    description: "Streamlit adapter for the design system (inject_theme/empty_state/notice/error/translate_error/dev_note/availability_badge/humanize_id) so Streamlit apps consume the same presentation patterns."
+  - source: design-system/PRESENTATION_PATTERNS.md
+    target: design-system/PRESENTATION_PATTERNS.md
+    description: "The presentation-patterns standard (P1-P6): the rule behind each pattern + per-app-type application + the finding->pattern map from the 2026-06 UX-Review fleet baseline."
+  - source: design-system/README.md
+    target: design-system/README.md
+    description: "Design-system usage guide: how to apply the theme + components/kit per app type."
+
 # Issue templates synced to consumer repos
 issue_templates:
   - source: .github/ISSUE_TEMPLATE/agent_task.yml

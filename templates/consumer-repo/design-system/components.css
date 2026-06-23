@@ -1,0 +1,95 @@
+/* components.css — component layer. Token-driven and theme-AGNOSTIC.
+ * Requires tokens.css + a theme class (.theme-air | .theme-paper) on an ancestor.
+ * Everything is scoped under .ds so it never leaks into a host app's own styles.
+ */
+.ds { color:var(--text); font-family:var(--font-body); font-size:var(--fs-base); line-height:1.5; background:var(--bg); }
+.ds *, .ds *::before, .ds *::after { box-sizing:border-box; }
+.ds h3 { font-family:var(--font-heading); font-weight:var(--heading-weight); margin:0 0 var(--space-3); font-size:15px; letter-spacing:-.005em; }
+.ds .sub { color:var(--muted); font-size:var(--fs-sm); margin:calc(-1 * var(--space-2)) 0 var(--space-3); }
+
+.ds .panel { background:var(--surface); border:var(--card-border); border-radius:var(--radius); box-shadow:var(--shadow); padding:var(--card-pad); margin-bottom:var(--space-4); }
+
+.ds .appbar { display:flex; align-items:center; gap:var(--space-4); padding:var(--control-pad-y) var(--card-pad); background:var(--surface); border:var(--card-border); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:var(--space-4); }
+.ds .appbar .brand { font-family:var(--font-heading); font-weight:700; font-size:15px; }
+.ds .appbar nav { display:flex; gap:var(--space-1); flex-wrap:wrap; }
+.ds .appbar nav a { font-size:var(--fs-sm); text-decoration:none; color:var(--muted); padding:5px 10px; border-radius:var(--radius-sm); cursor:pointer; }
+.ds .appbar nav a.active { color:var(--accent); background:var(--accent-weak); font-weight:600; }
+.ds .appbar .spacer { flex:1; }
+
+.ds .kpis { display:flex; flex-wrap:wrap; gap:var(--space-3); margin-bottom:var(--space-4); }
+.ds .kpi { flex:1; min-width:150px; background:var(--surface); border:var(--card-border); border-radius:var(--radius); box-shadow:var(--shadow); padding:var(--space-3) var(--space-4); }
+.ds .kpi .label { font-size:var(--fs-sm); color:var(--muted); }
+.ds .kpi .val { font-size:var(--kpi-size); font-weight:700; letter-spacing:-.02em; margin-top:4px; font-family:var(--font-heading); }
+.ds .kpi .delta { font-size:var(--fs-sm); font-weight:600; margin-top:2px; }
+.ds .up { color:var(--pos); }  .ds .down { color:var(--neg); }
+
+.ds .grid2 { display:grid; grid-template-columns:1.3fr 1fr; gap:var(--space-4); }
+@media (max-width:720px){ .ds .grid2 { grid-template-columns:1fr; } }
+
+.ds table { width:100%; border-collapse:collapse; font-size:var(--fs-sm); }
+.ds thead th { text-align:left; color:var(--muted); font-weight:600; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; padding:var(--row-pad-y) var(--row-pad-x); border-bottom:1px solid var(--border); }
+.ds tbody td { padding:var(--row-pad-y) var(--row-pad-x); border-bottom:1px solid var(--row-border); }
+.ds tbody tr:nth-child(even) { background:var(--zebra); }
+.ds td.num, .ds th.num { text-align:right; font-variant-numeric:tabular-nums; }
+
+.ds .field { margin-bottom:var(--space-3); }
+.ds label { display:block; font-size:var(--fs-sm); font-weight:600; margin-bottom:5px; }
+.ds label .help { font-weight:400; color:var(--muted); }
+.ds .q { display:inline-flex; width:15px; height:15px; border-radius:50%; border:1px solid var(--border); color:var(--muted); font-size:10px; align-items:center; justify-content:center; vertical-align:1px; margin-left:5px; cursor:help; }
+.ds input[type=text], .ds select { width:100%; font:inherit; font-size:var(--fs-base); padding:var(--control-pad-y) var(--control-pad-x); color:var(--text); background:var(--input-bg); border:1px solid var(--border); border-radius:var(--input-radius); }
+.ds input[type=range] { width:100%; accent-color:var(--accent); }
+
+.ds .btns { display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-1); }
+.ds button { font:inherit; font-size:var(--fs-sm); font-weight:600; padding:var(--control-pad-y) 15px; border-radius:var(--btn-radius); cursor:pointer; border:1px solid transparent; }
+.ds .b-primary { background:var(--btn-primary-bg); color:var(--btn-primary-contrast); border-color:var(--btn-primary-bg); }
+.ds .b-secondary { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+.ds .b-ghost { background:transparent; color:var(--accent); }
+.ds .b-danger { background:transparent; color:var(--neg); border:1px solid var(--neg-border); }
+.ds button[disabled] { opacity:.45; cursor:not-allowed; }
+
+.ds .callout { display:flex; gap:10px; padding:11px 13px; border-radius:var(--radius); background:var(--accent-weak); border:1px solid var(--accent-line); font-size:var(--fs-sm); }
+.ds .callout .ic { color:var(--accent); font-weight:700; }
+.ds .empty { text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:var(--radius); padding:20px; font-size:var(--fs-sm); }
+.ds .chart { color:var(--accent); display:block; }
+
+/* ============================================================================
+ *  PRESENTATION-STATE PATTERNS (added 2026-06-22 from the cross-fleet UX-Review
+ *  baseline). These standardize the recurring failure classes: empty/dead-end
+ *  views, raw errors, dev/diagnostic leaks, and unavailable features.
+ *  See PRESENTATION_PATTERNS.md for the rule behind each + per-app-type usage.
+ * ========================================================================== */
+
+/* notice — the ONE container for user-facing messages. Never render a raw
+ * exception / internal field name / filename / CLI flag; translate to a human
+ * message + remediation and put it here. Variants by semantics. */
+.ds .notice { display:flex; gap:10px; align-items:flex-start; padding:11px 13px; border-radius:var(--radius); font-size:var(--fs-sm); border:1px solid var(--border); background:var(--panel); }
+.ds .notice .ic { font-weight:700; flex:none; line-height:1.4; }
+.ds .notice .body { flex:1; }
+.ds .notice .body strong { display:block; margin-bottom:2px; }
+.ds .notice .body .act { margin-top:6px; }                 /* remediation link/button slot */
+.ds .notice--info  { background:var(--info-weak);  border-color:var(--accent-line); }
+.ds .notice--info  .ic { color:var(--info); }
+.ds .notice--warn  { background:var(--warn-weak);  border-color:var(--warn); }
+.ds .notice--warn  .ic { color:var(--warn); }
+.ds .notice--error { background:var(--neg-weak);   border-color:var(--neg-border); }
+.ds .notice--error .ic { color:var(--neg); }
+.ds .notice--ok    { background:var(--pos-weak);   border-color:var(--pos); }
+.ds .notice--ok    .ic { color:var(--pos); }
+
+/* empty-state — for "no data yet" surfaces. ALWAYS a title + one-line reason +
+ * a next-action; NEVER a bare prompt sitting above already-rendered results,
+ * and NEVER an internal filename/path. */
+.ds .empty-state { text-align:center; border:1px dashed var(--border); border-radius:var(--radius); padding:28px 20px; }
+.ds .empty-state .es-icon { font-size:22px; opacity:.6; }
+.ds .empty-state .es-title { font-family:var(--font-heading); font-weight:var(--heading-weight); font-size:15px; margin:8px 0 4px; }
+.ds .empty-state .es-desc { color:var(--muted); font-size:var(--fs-sm); max-width:42ch; margin:0 auto 12px; }
+.ds .empty-state .es-cta { display:inline-flex; gap:8px; }
+
+/* badge — small availability/status marker (e.g. "multi-period only",
+ * "needs setup") so a tab/control states its applicability up front. */
+.ds .badge { display:inline-block; font-size:var(--fs-xs); font-weight:600; padding:1px 7px; border-radius:999px; background:var(--panel); color:var(--muted); border:1px solid var(--border); vertical-align:middle; }
+.ds .badge--muted { opacity:.8; }
+
+/* skeleton — loading placeholder so a pending surface never looks empty/broken. */
+.ds .skeleton { background:linear-gradient(90deg,var(--panel) 25%,var(--border) 37%,var(--panel) 63%); background-size:400% 100%; border-radius:var(--radius-sm); animation:ds-shimmer 1.3s ease infinite; min-height:14px; }
+@keyframes ds-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }

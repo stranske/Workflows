@@ -1,0 +1,76 @@
+/* tokens.css — shared design-system tokens.
+ *
+ * One set of variable NAMES; two THEMES supply the values (.theme-air, .theme-paper);
+ * an orthogonal DENSITY axis (.density-compact) tightens spacing for data-dense screens
+ * WITHOUT changing the theme's identity.
+ *
+ * Apply on a root element:
+ *   <body class="theme-air">                     work / outward-facing (default)
+ *   <body class="theme-air density-compact">     dense data screens (e.g. Trend tables)
+ *   <body class="theme-paper">                   friendlier apps (Reader, LMS)
+ *
+ * Per-app customization: override any token in an app stylesheet loaded AFTER this file
+ * (e.g. redefine --accent). Never fork components.css.
+ */
+
+:root {
+  /* ---- spacing / density: comfortable (default) ---- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;  --space-4: 16px;  --space-6: 24px;
+  --card-pad: 18px;
+  --control-pad-y: 8px;  --control-pad-x: 10px;
+  --row-pad-y: 9px;      --row-pad-x: 10px;
+  --fs-base: 14px;  --fs-sm: 12.5px;  --fs-xs: 11.5px;
+  --kpi-size: 26px;
+
+  /* ---- shape (a theme may override) ---- */
+  --radius: 10px;  --radius-sm: 8px;  --btn-radius: 8px;  --input-radius: 8px;
+
+  /* ---- type ---- */
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-heading: var(--font-body);
+  --heading-weight: 700;
+}
+
+/* ---- density axis (orthogonal to theme) ---- */
+.density-compact {
+  --space-3: 8px;  --space-4: 10px;  --space-6: 14px;
+  --card-pad: 12px;
+  --control-pad-y: 6px;  --control-pad-x: 8px;
+  --row-pad-y: 6px;      --row-pad-x: 8px;
+  --fs-base: 13px;  --fs-sm: 12px;
+  --kpi-size: 22px;
+}
+
+/* ===== THEME: Ink & Air — default, outward-facing work ===== */
+.theme-air {
+  --bg:#ffffff;  --surface:#ffffff;  --panel:#fafafa;
+  --text:#0a0a0a;  --muted:#737373;
+  --border:#ececec;  --row-border:#f2f2f2;  --zebra:transparent;
+  --input-bg:#ffffff;
+  --accent:#4f46e5;  --accent-contrast:#ffffff;  --accent-weak:#f4f3ff;  --accent-line:#e7e5fb;
+  --btn-primary-bg:#0a0a0a;  --btn-primary-contrast:#ffffff;   /* ink buttons, indigo highlights */
+  --pos:#047857;  --neg:#dc2626;  --neg-border:#f2cccc;
+  /* ---- notice/state semantics (errors, warnings, info, empty) ---- */
+  --warn:#b45309;  --info:#4f46e5;
+  --pos-weak:#ecfdf5;  --neg-weak:#fef2f2;  --warn-weak:#fffbeb;  --info-weak:var(--accent-weak);
+  --card-border: none;  --shadow: none;                        /* borderless, whitespace-led */
+  --heading-weight:700;
+}
+
+/* ===== THEME: Warm Paper — friendlier apps ===== */
+.theme-paper {
+  --bg:#faf7f1;  --surface:#fffdf9;  --panel:#f3efe7;
+  --text:#2b2622;  --muted:#857a6c;
+  --border:#e4ddcf;  --row-border:#efe9dd;  --zebra:#fbf8f1;
+  --input-bg:#fffdf9;
+  --accent:#a85a34;  --accent-contrast:#ffffff;  --accent-weak:#f6ece4;  --accent-line:#e9d4c4;
+  --btn-primary-bg: var(--accent);  --btn-primary-contrast:#ffffff;
+  --pos:#5a7d2f;  --neg:#a3402e;  --neg-border:#e3c3bb;
+  /* ---- notice/state semantics ---- */
+  --warn:#9a6a16;  --info:var(--accent);
+  --pos-weak:#eef3e6;  --neg-weak:#f6e9e6;  --warn-weak:#f7efe1;  --info-weak:var(--accent-weak);
+  --card-border: 1px solid var(--border);  --shadow: 0 1px 2px rgba(80,60,30,.06);
+  --radius:8px;  --radius-sm:7px;  --btn-radius:7px;  --input-radius:7px;
+  --font-heading: Georgia, "Times New Roman", serif;
+  --heading-weight:600;
+}
