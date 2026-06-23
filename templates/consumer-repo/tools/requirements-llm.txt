@@ -7,9 +7,9 @@
 # - Use strict X.Y.Z pins for direct workflow dependencies.
 # - Do not pin `langchain-core` directly here; let the selected `langchain`
 #   release resolve a mutually compatible core version.
-langchain==1.3.10
+langchain==1.3.11
 langchain-community==0.4.2
-langchain-openai==1.3.2
-langchain-anthropic==1.4.6
+langchain-openai==1.3.3
+langchain-anthropic==1.4.7
 pydantic==2.13.4
 requests==2.34.2
