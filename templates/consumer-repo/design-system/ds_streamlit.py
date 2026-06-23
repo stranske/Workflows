@@ -171,16 +171,16 @@ def diagnostics_expander(label: str = "Diagnostics", *, expanded: bool = False):
         yield
 
 
-def availability_badge(label: str, *, plain: bool = False) -> str:
+def availability_badge(label: str, *, plain: bool = True) -> str:
     """P5 — availability marker for tabs/captions.
 
-    The default preserves the original HTML badge contract. Use `plain=True`
-    for Streamlit surfaces that render labels as literal text.
+    The default is safe for Streamlit surfaces that render labels as literal
+    text. Use `plain=False` only inside containers rendered as trusted HTML.
     """
-    safe_label = escape(str(label).strip())
+    text = str(label).strip()
     if plain:
-        return f" · {safe_label}"
-    return f"<span class='ds-badge'>{safe_label}</span>"
+        return f" · {text}"
+    return f"<span class='ds-badge'>{escape(text)}</span>"
 
 
 def humanize_id(raw: str, mapping: Mapping[str, str] | None = None) -> str:

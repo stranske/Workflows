@@ -52,7 +52,7 @@ content. Use logging, or at most a collapsed "Diagnostics" expander.
 **Rule:** a tab/control that isn't applicable in the current mode states so up front (a badge/label),
 rather than opening into a silent empty/disabled surface.
 - **web:** `.ds .badge` on the tab/control (e.g. "multi-period only", "needs setup").
-- **Streamlit:** `ds_streamlit.availability_badge(label)` in the tab title / disabled control caption.
+- **Streamlit:** `ds_streamlit.availability_badge(label)` in the tab title / disabled control caption; use `plain=False` only in trusted HTML containers.
 - **Fixes:** TMP #5629 (4/6 Results tabs empty — fixed by labelling, the canonical example), PA #2026
   (upload-only pages with no sample path → mark/offer the sample).
 
