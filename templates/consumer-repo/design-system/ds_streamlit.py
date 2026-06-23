@@ -25,9 +25,11 @@ Usage:
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager
 from html import escape
+from importlib import import_module
 from typing import Any
 
 logger = logging.getLogger("ds")
@@ -52,11 +54,18 @@ _NOTICE_STYLE = {
     "ok": (_POS, _POS_WEAK, "✓"),
 }
 
+_HEX_CHARS = frozenset("0123456789abcdef")
+_UUID_RE = re.compile(r"(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+def _streamlit() -> Any:
+    return import_module("streamlit")
+
 
 def inject_theme() -> None:
     """P1 — apply the light/understated theme. Pair with .streamlit/config.toml
     ([theme] base=\"light\"); this nudges spacing/headings to match the system."""
-    import streamlit as st
+    st = _streamlit()
 
     st.markdown(
         f"""<style>
@@ -88,7 +97,7 @@ def empty_state(
 ) -> bool:
     """P2 — title + reason + optional next-action. Returns True if the CTA was
     clicked. NEVER pass an internal filename/path as `desc`."""
-    import streamlit as st
+    st = _streamlit()
 
     safe_icon = escape(str(icon))
     safe_title = escape(str(title))
@@ -109,7 +118,7 @@ def empty_state(
 def notice(kind: str, title: str = "", body: str = "", action: str | None = None) -> None:
     """P3/P4 — the one container for user-facing messages. kind in
     {error,warn,info,ok}. `action` is optional literal remediation text."""
-    import streamlit as st
+    st = _streamlit()
 
     color, bg, ic = _NOTICE_STYLE.get(kind, _NOTICE_STYLE["info"])
     head = f"<strong>{escape(str(title))}</strong><br>" if title else ""
@@ -165,7 +174,7 @@ def dev_note(msg: str) -> None:
 @contextmanager
 def diagnostics_expander(label: str = "Diagnostics", *, expanded: bool = False):
     """P4 — explicit opt-in container for diagnostics that must be visible."""
-    import streamlit as st
+    st = _streamlit()
 
     with st.expander(label, expanded=expanded):
         yield
@@ -197,15 +206,35 @@ def humanize_id(raw: str, mapping: Mapping[str, str] | None = None) -> str:
 
 
 def _human_label_segment(segment: str) -> str:
+    if _is_opaque_id_segment(segment):
+        return ""
     words = [part for part in segment.replace("-", "_").split("_") if part]
     meaningful = []
     for word in words:
         lowered = word.lower()
-        if lowered.isdigit():
-            continue
-        if len(lowered) >= 8 and all(ch in "0123456789abcdef" for ch in lowered):
+        if lowered.isdigit() or _is_opaque_id_token(lowered):
             continue
         meaningful.append(word)
     if not meaningful:
         return ""
     return " ".join(meaningful).strip()
+
+
+def _is_opaque_id_segment(segment: str) -> bool:
+    value = segment.strip().lower()
+    if not value:
+        return True
+    if _UUID_RE.fullmatch(value):
+        return True
+    compact = value.replace("-", "").replace("_", "")
+    return len(compact) >= 8 and all(ch in _HEX_CHARS for ch in compact)
+
+
+def _is_opaque_id_token(value: str) -> bool:
+    if len(value) >= 8 and all(ch in _HEX_CHARS for ch in value):
+        return True
+    return (
+        len(value) == 4
+        and any(ch.isdigit() for ch in value)
+        and all(ch in _HEX_CHARS for ch in value)
+    )

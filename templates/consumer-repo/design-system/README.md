@@ -47,4 +47,4 @@ That's the "default with per-app customization" model: the base is canonical; an
 
 ## Status & next step
 
-This kit is managed from `Workflows/templates/consumer-repo/design-system/` and distributed by the Maint 68 Sync Consumer Repos GitHub Actions workflow through `.github/sync-manifest.yml`. Update it here first, then let the sync workflow replace consumer copies.
+This kit is managed from `stranske/Workflows/templates/consumer-repo/design-system/` and distributed by the Maint 68 Sync Consumer Repos GitHub Actions workflow through `.github/sync-manifest.yml`. Update the Workflows template first, then let the sync workflow replace consumer copies.
