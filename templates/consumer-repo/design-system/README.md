@@ -1,4 +1,4 @@
-# Shared Design System (staging)
+# Shared Design System
 
 Two themes on one token foundation, plus an orthogonal density axis.
 
@@ -38,8 +38,7 @@ That's the "default with per-app customization" model: the base is canonical; an
 |---|---|
 | `tokens.css` | Variables — themes + density. **Source of truth for the look.** |
 | `components.css` | Component styles, token-driven and theme-agnostic. |
-| `index.html` | Link-based reference page. Open locally, or import into Claude Design. |
-| `preview.html` | Generated self-contained snapshot for sharing (regenerate with `build_preview.py`). |
+| `ds_streamlit.py` | Streamlit-native helpers for the same presentation patterns. |
 
 ## Theme → app mapping (proposed)
 
@@ -48,4 +47,4 @@ That's the "default with per-app customization" model: the base is canonical; an
 
 ## Status & next step
 
-**STAGED** here in the tracker. Graduates to `Workflows/templates/consumer-repo/design-system/` with a `sync-manifest.yml` entry (`is_directory: true`; base tokens `template_sync: exact`) as a deliberate Workflows PR — see [`../PLAN.md`](../PLAN.md) §3.3. Claude Design imports from the Workflows path once graduated, enabling the prototype-in-Design → land-in-repo round-trip.
+This kit is managed from `Workflows/templates/consumer-repo/design-system/` and distributed by Maint 68 through `.github/sync-manifest.yml`. Update it here first, then let the sync workflow replace consumer copies.

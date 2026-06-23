@@ -38,6 +38,7 @@
 .ds .q { display:inline-flex; width:15px; height:15px; border-radius:50%; border:1px solid var(--border); color:var(--muted); font-size:10px; align-items:center; justify-content:center; vertical-align:1px; margin-left:5px; cursor:help; }
 .ds input[type=text], .ds select { width:100%; font:inherit; font-size:var(--fs-base); padding:var(--control-pad-y) var(--control-pad-x); color:var(--text); background:var(--input-bg); border:1px solid var(--border); border-radius:var(--input-radius); }
 .ds input[type=range] { width:100%; accent-color:var(--accent); }
+.ds a:focus-visible, .ds button:focus-visible, .ds input:focus-visible, .ds select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 
 .ds .btns { display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-1); }
 .ds button { font:inherit; font-size:var(--fs-sm); font-weight:600; padding:var(--control-pad-y) 15px; border-radius:var(--btn-radius); cursor:pointer; border:1px solid transparent; }
@@ -93,3 +94,6 @@
 /* skeleton — loading placeholder so a pending surface never looks empty/broken. */
 .ds .skeleton { background:linear-gradient(90deg,var(--panel) 25%,var(--border) 37%,var(--panel) 63%); background-size:400% 100%; border-radius:var(--radius-sm); animation:ds-shimmer 1.3s ease infinite; min-height:14px; }
 @keyframes ds-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
+@media (prefers-reduced-motion: reduce) {
+  .ds .skeleton { animation:none; background:var(--panel); }
+}

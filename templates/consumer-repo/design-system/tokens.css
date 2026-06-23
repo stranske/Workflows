@@ -26,7 +26,7 @@
   --radius: 10px;  --radius-sm: 8px;  --btn-radius: 8px;  --input-radius: 8px;
 
   /* ---- type ---- */
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body: system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif;
   --font-heading: var(--font-body);
   --heading-weight: 700;
 }
@@ -71,6 +71,6 @@
   --pos-weak:#eef3e6;  --neg-weak:#f6e9e6;  --warn-weak:#f7efe1;  --info-weak:var(--accent-weak);
   --card-border: 1px solid var(--border);  --shadow: 0 1px 2px rgba(80,60,30,.06);
   --radius:8px;  --radius-sm:7px;  --btn-radius:7px;  --input-radius:7px;
-  --font-heading: Georgia, "Times New Roman", serif;
+  --font-heading: "Georgia", "Times New Roman", serif;
   --heading-weight:600;
 }
