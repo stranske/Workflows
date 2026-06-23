@@ -108,7 +108,7 @@ def empty_state(
 
 def notice(kind: str, title: str = "", body: str = "", action: str | None = None) -> None:
     """P3/P4 — the one container for user-facing messages. kind in
-    {error,warn,info,ok}. `action` is optional remediation (markdown)."""
+    {error,warn,info,ok}. `action` is optional literal remediation text."""
     import streamlit as st
 
     color, bg, ic = _NOTICE_STYLE.get(kind, _NOTICE_STYLE["info"])
@@ -171,16 +171,41 @@ def diagnostics_expander(label: str = "Diagnostics", *, expanded: bool = False):
         yield
 
 
-def availability_badge(label: str) -> str:
-    """P5 — plain Streamlit-safe availability marker for tab titles/captions,
-    e.g. tab label f"Export {availability_badge('multi-period only')}"."""
-    return f" · {str(label).strip()}"
+def availability_badge(label: str, *, plain: bool = False) -> str:
+    """P5 — availability marker for tabs/captions.
+
+    The default preserves the original HTML badge contract. Use `plain=True`
+    for Streamlit surfaces that render labels as literal text.
+    """
+    safe_label = escape(str(label).strip())
+    if plain:
+        return f" · {safe_label}"
+    return f"<span class='ds-badge'>{safe_label}</span>"
 
 
 def humanize_id(raw: str, mapping: Mapping[str, str] | None = None) -> str:
     """P6 — decode an internal id to a human label; never show raw keys."""
     if mapping and raw in mapping:
         return mapping[raw]
-    # Best-effort: take a trailing human-ish segment, strip hashes.
-    tail = str(raw).replace("_", " ").split(":")[-1].strip()
-    return tail or "item"
+    # Best-effort: prefer the most specific non-opaque namespace segment.
+    segments = str(raw).replace("/", ":").split(":")
+    for segment in reversed(segments):
+        label = _human_label_segment(segment)
+        if label:
+            return label
+    return "item"
+
+
+def _human_label_segment(segment: str) -> str:
+    words = [part for part in segment.replace("-", "_").split("_") if part]
+    meaningful = []
+    for word in words:
+        lowered = word.lower()
+        if lowered.isdigit():
+            continue
+        if len(lowered) >= 8 and all(ch in "0123456789abcdef" for ch in lowered):
+            continue
+        meaningful.append(word)
+    if not meaningful:
+        return ""
+    return " ".join(meaningful).strip()
