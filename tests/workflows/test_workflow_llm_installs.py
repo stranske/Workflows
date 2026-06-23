@@ -15,8 +15,10 @@ WORKFLOWS_DIR = Path(".github/workflows")
 AUTO_PILOT = WORKFLOWS_DIR / "agents-auto-pilot.yml"
 VERIFIER = WORKFLOWS_DIR / "reusable-agents-verifier.yml"
 REUSABLE_CODEX_RUN = WORKFLOWS_DIR / "reusable-codex-run.yml"
+REUSABLE_CLAUDE_RUN = WORKFLOWS_DIR / "reusable-claude-run.yml"
 NEEDS_HUMAN_COMMENT = Path("agents/codex-1447.md")
 REFERENCE_PACK_ACTION = Path(".github/actions/agent-reference-packs/action.yml")
+REFERENCE_PACK_RUNNER_USES = "./.workflows-lib/.github/actions/agent-reference-packs"
 REFERENCE_PACK_FIXTURES = Path("tests/workflows/fixtures/reference_packs")
 MIN_CODEX_CLI_BY_RUN_MODEL = {
     "gpt-5.5": (0, 125, 0),
@@ -481,7 +483,7 @@ def test_reusable_codex_workflow_passes_orchestrator_skill_overrides_to_referenc
 ):
     workflow = _load_workflow(REUSABLE_CODEX_RUN)
     step = _find_step_by_name(workflow, "Validate and materialize reference packs")
-    assert step.get("uses") == "./.github/actions/agent-reference-packs"
+    assert step.get("uses") == REFERENCE_PACK_RUNNER_USES
     with_block = step.get("with") or {}
     assert with_block.get("orchestrator_skill_pack") == "${{ inputs.orchestrator_skill_pack }}"
     assert (
@@ -489,10 +491,13 @@ def test_reusable_codex_workflow_passes_orchestrator_skill_overrides_to_referenc
     )
 
 
-def test_reusable_codex_workflow_has_reference_pack_validation_step() -> None:
-    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+@pytest.mark.parametrize("workflow_path", [REUSABLE_CODEX_RUN, REUSABLE_CLAUDE_RUN])
+def test_reusable_runner_workflow_has_reference_pack_validation_step(
+    workflow_path: Path,
+) -> None:
+    workflow = _load_workflow(workflow_path)
     step = _find_step_by_name(workflow, "Validate and materialize reference packs")
-    assert step.get("uses") == "./.github/actions/agent-reference-packs"
+    assert step.get("uses") == REFERENCE_PACK_RUNNER_USES
     run_script = _reference_pack_action_script()
     # Shared action must validate config with reference_packs.py
     assert "reference_packs.py" in run_script
@@ -503,10 +508,11 @@ def test_reusable_codex_workflow_has_reference_pack_validation_step() -> None:
     step_names = [s.get("name", "") for s in steps]
     ref_idx = step_names.index("Validate and materialize reference packs")
     prompt_idx = step_names.index("Assemble prompt")
-    codex_idx = step_names.index("Run Codex")
+    run_step_name = "Run Codex" if workflow_path == REUSABLE_CODEX_RUN else "Run Claude"
+    run_idx = step_names.index(run_step_name)
     assert (
-        ref_idx < prompt_idx < codex_idx
-    ), "Reference pack validation must come before Assemble prompt and Run Codex"
+        ref_idx < prompt_idx < run_idx
+    ), "Reference pack validation must come before Assemble prompt and the runner"
 
 
 def test_reusable_codex_reference_pack_step_handles_sha_refs() -> None:

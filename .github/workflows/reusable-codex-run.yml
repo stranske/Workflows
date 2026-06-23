@@ -450,7 +450,7 @@ jobs:
 
       - name: Validate and materialize reference packs
         id: reference_packs
-        uses: ./.github/actions/agent-reference-packs
+        uses: ./.workflows-lib/.github/actions/agent-reference-packs
         with:
           checkout_token: ${{ steps.run_base.outputs.checkout_token }}
           orchestrator_skill_pack: ${{ inputs.orchestrator_skill_pack }}
