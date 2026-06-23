@@ -21,10 +21,12 @@ Usage:
     except Exception as exc:
         error(*translate_error(exc))    # P3 — never show the raw exception
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Mapping
+from collections.abc import Callable, Mapping
+from typing import Any
 
 logger = logging.getLogger("ds")
 
@@ -128,16 +130,24 @@ def translate_error(exc: Exception) -> tuple[str, str | None]:
     text = str(exc)
     # Known field-required cases (extend per app as needed).
     if "financing_mode" in text:
-        return ("Financing mode isn't set for this run.",
-                "Choose a financing mode (e.g. per-path) and run again.")
+        return (
+            "Financing mode isn't set for this run.",
+            "Choose a financing mode (e.g. per-path) and run again.",
+        )
     if "exceeds total capital" in text or "capital buffer" in text:
-        return ("The capital allocation isn't feasible.",
-                "Reduce the internal allocation or volatility multiple to leave margin headroom.")
+        return (
+            "The capital allocation isn't feasible.",
+            "Reduce the internal allocation or volatility multiple to leave margin headroom.",
+        )
     if "No investable funds" in text or "NO_FUNDS" in text:
-        return ("No funds matched the selection filters.",
-                "Try another preset or relax the selection settings.")
-    return ("Something went wrong running this step.",
-            "Adjust the inputs and try again; if it persists, check the run logs.")
+        return (
+            "No funds matched the selection filters.",
+            "Try another preset or relax the selection settings.",
+        )
+    return (
+        "Something went wrong running this step.",
+        "Adjust the inputs and try again; if it persists, check the run logs.",
+    )
 
 
 def dev_note(msg: str) -> None:
