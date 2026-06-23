@@ -22,6 +22,7 @@ MIN_CODEX_CLI_BY_RUN_MODEL = {
     "gpt-5.5": (0, 125, 0),
     "gpt-5.4": (0, 125, 0),
 }
+ACTIONS_CACHE_V6_REF = "actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8"
 
 
 def _load_text(path: Path) -> str:
@@ -98,14 +99,14 @@ def _assert_pip_cache(workflow: dict, hash_path: str, name: str) -> None:
     expected_hash = f"hashFiles('{hash_path}')"
     expected_hash_alt = f'hashFiles("{hash_path}")'
     for step in _iter_steps(workflow):
-        if step.get("uses") != "actions/cache@v5":
+        if step.get("uses") != ACTIONS_CACHE_V6_REF:
             continue
         with_block = step.get("with") or {}
         key = str(with_block.get("key", ""))
         if (expected_hash in key or expected_hash_alt in key) and "python-version" in key:
             return
     raise AssertionError(
-        f"{name} must include actions/cache@v5 step with key using python-version and hashFiles('{hash_path}')."
+        f"{name} must include {ACTIONS_CACHE_V6_REF} step with key using python-version and hashFiles('{hash_path}')."
     )
 
 
@@ -290,7 +291,7 @@ def test_workflow_llm_needs_human_comment_documents_blocker() -> None:
         "Label: needs-human",
         ".github/workflows/agents-auto-pilot.yml",
         ".github/workflows/reusable-agents-verifier.yml",
-        "actions/cache@v5",
+        ACTIONS_CACHE_V6_REF,
         "tools/requirements-llm.txt",
         ".workflows-lib/tools/requirements-llm.txt",
         "langchain",

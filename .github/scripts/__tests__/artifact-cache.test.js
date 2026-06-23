@@ -277,5 +277,5 @@ test('action metadata exposes required public inputs and outputs', () => {
   assert.match(metadata, /cache-hit:/);
   assert.match(metadata, /artifact-found:/);
   assert.match(metadata, /artifact-path:/);
-  assert.match(metadata, /actions\/cache@v6/);
+  assert.match(metadata, /actions\/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6/);
 });
