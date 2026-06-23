@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.17.1](https://github.com/stranske/Workflows/compare/v1.17.0...v1.17.1) (2026-06-23)
+
+
+### Bug Fixes
+
+* harden synced design system helpers ([#2511](https://github.com/stranske/Workflows/issues/2511)) ([dfe0854](https://github.com/stranske/Workflows/commit/dfe0854ae9b1ba1c616e4b57fb498f283ea3216f))
+
 ## [1.17.0](https://github.com/stranske/Workflows/compare/v1.16.0...v1.17.0) (2026-06-23)
 
 
