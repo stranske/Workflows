@@ -36,6 +36,7 @@ REUSABLE_RUN_WORKFLOWS = [
     ".github/workflows/reusable-claude-run.yml",
 ]
 REFPACK_ACTION = ".github/actions/agent-reference-packs/action.yml"
+REFPACK_RUNNER_USES = "uses: ./.workflows-lib/.github/actions/agent-reference-packs"
 
 
 def _extract_yaml_run_block(path: Path, step_name: str) -> str:
@@ -120,8 +121,8 @@ def test_reusable_runners_use_shared_refpack_action(workflow_rel: str) -> None:
     assert path.exists(), f"missing workflow file: {workflow_rel}"
 
     src = path.read_text()
-    assert src.count("uses: ./.github/actions/agent-reference-packs") == 1
-    assert "uses: ./.github/actions/agent-reference-packs" in src
+    assert src.count(REFPACK_RUNNER_USES) == 1
+    assert REFPACK_RUNNER_USES in src
     assert (
         "REFPACK_EOF" not in src
     ), f"{workflow_rel}: reference-pack heredoc should live only in {REFPACK_ACTION}"
