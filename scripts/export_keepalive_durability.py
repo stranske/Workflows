@@ -178,7 +178,7 @@ def build_fleet_record(
     if closing_refs and closing_refs[0].get("number"):
         domain["target_issue"] = f"{repo}#{closing_refs[0]['number']}"
 
-    status = "success" if durability == "durable" else "error"
+    status = {"durable": "success", "pending": "skipped"}.get(durability, "error")
     return {
         "schema_version": SCHEMA_VERSION,
         "repo": WORKFLOWS_REPO,
@@ -334,7 +334,10 @@ def main(argv: list[str] | None = None) -> int:
 
     now = datetime.now(UTC)
     if args.input_json:
-        payload = json.loads(args.input_json.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(args.input_json.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            parser.error(f"--input-json could not be read: {exc}")
         repo_payloads = payload.get("repos", []) if isinstance(payload, dict) else []
         if not isinstance(repo_payloads, list):
             parser.error("--input-json must contain a repos array")
@@ -350,6 +353,8 @@ def main(argv: list[str] | None = None) -> int:
                 errors[repo] = str(exc)
         if errors:
             print(json.dumps({"fetch_errors": errors}, indent=2, sort_keys=True), file=sys.stderr)
+            if not repo_payloads:
+                return 1
 
     records, summary = build_records(
         repo_payloads, now=now, grace_days=args.grace_days, include_pending=args.include_pending

@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from scripts import export_keepalive_durability as exporter
 from scripts import langsmith_fleet
 
@@ -78,6 +79,20 @@ def test_fleet_record_uses_workflows_surface_and_target_pr_bridge() -> None:
     assert langsmith_fleet.validate_record(record, registry=registry, schema=schema) == []
 
 
+def test_pending_fleet_record_uses_skipped_status() -> None:
+    now = datetime(2026, 6, 24, 12, 0, tzinfo=UTC)
+    record = exporter.build_fleet_record(
+        "stranske/Example",
+        _pr(13, merged_at="2026-06-23T00:00:00Z"),
+        {"durability": "pending", "reason": "inside_grace_window", "age_days": 1},
+        now=now,
+        grace_days=7,
+    )
+
+    assert record["status"] == "skipped"
+    assert record["domain"]["durability"] == "pending"
+
+
 def test_cli_writes_ndjson_from_input_payload(tmp_path: Path, capsys) -> None:
     payload = {
         "repos": [
@@ -109,3 +124,30 @@ def test_cli_writes_ndjson_from_input_payload(tmp_path: Path, capsys) -> None:
     assert summary["records"] == 1
     line = output_path.read_text(encoding="utf-8").strip()
     assert json.loads(line)["operation"] == "durability"
+
+
+def test_cli_rejects_unreadable_input_json(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing.json"
+
+    with pytest.raises(SystemExit) as excinfo:
+        exporter.main(["--input-json", str(missing_path)])
+
+    assert excinfo.value.code == 2
+
+
+def test_cli_returns_failure_when_all_live_fetches_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output_path = tmp_path / "langsmith-fleet.ndjson"
+
+    def fail_fetch(repo: str, *, since: str, limit: int) -> dict[str, object]:
+        raise RuntimeError(f"{repo} unavailable")
+
+    monkeypatch.setattr(exporter, "fetch_repo_payload", fail_fetch)
+
+    exit_code = exporter.main(
+        ["--repo", "stranske/Example", "--output", str(output_path), "--days", "1"]
+    )
+
+    assert exit_code == 1
+    assert not output_path.exists()
