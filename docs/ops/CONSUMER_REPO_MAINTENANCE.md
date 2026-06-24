@@ -29,6 +29,9 @@ Some repos cannot use the template `pr-00-gate.yml` because:
 - **trip-planner**: Installs `.github/scripts` dependencies from
   `.github/scripts/package-lock.json` with `npm ci` and has an explicit hygiene
   check that forbids tracked `node_modules/` anywhere in the repo.
+- **Fine-Art-Archive**: Keeps a fleet-preset Renovate exception for
+  `jsonschema<4.23.0` because newer non-major releases currently violate the
+  repo's supported dependency range and fail Gate.
 
 For these repos:
 - The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
@@ -37,6 +40,9 @@ For these repos:
 - `trip-planner` skips the synced `.github/scripts/package.json` and vendored
   `.github/scripts/node_modules/` entries so its lockfile-based dependency
   policy remains intact.
+- `Fine-Art-Archive` still receives the managed `.github/renovate.json`; its
+  dependency exception is centralized in `renovate-presets/fleet.json` with a
+  repository-scoped package rule, not patched directly in the consumer repo.
 - Other files listed in the sync manifest continue to sync normally.
 
 Maint 68 currently implements this by keeping an internal `custom_gate_repos` list in

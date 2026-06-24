@@ -14,6 +14,12 @@
       "enabled": false
     },
     {
+      "description": "Fine-Art-Archive currently supports jsonschema below 4.23.0; do not reopen incompatible non-major bumps",
+      "matchRepositories": ["stranske/Fine-Art-Archive"],
+      "matchPackageNames": ["jsonschema"],
+      "allowedVersions": "<4.23.0"
+    },
+    {
       "description": "Runtime/test-support minor+patch: group + automerge on green (majors stay separate for review)",
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "non-major updates",

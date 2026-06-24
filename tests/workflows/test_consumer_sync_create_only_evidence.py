@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import yaml
@@ -50,6 +51,26 @@ def test_consumer_renovate_template_extends_fleet_preset() -> None:
     )
 
     assert template["extends"] == ["github>stranske/Workflows//renovate-presets/fleet"]
+
+
+def test_fine_art_archive_jsonschema_renovate_exception_is_repo_scoped() -> None:
+    preset = json.loads((REPO_ROOT / "renovate-presets/fleet.json").read_text(encoding="utf-8"))
+
+    matching_rules = [
+        rule
+        for rule in preset["packageRules"]
+        if rule.get("matchRepositories") == ["stranske/Fine-Art-Archive"]
+        and rule.get("matchPackageNames") == ["jsonschema"]
+    ]
+
+    assert matching_rules == [
+        {
+            "description": "Fine-Art-Archive currently supports jsonschema below 4.23.0; do not reopen incompatible non-major bumps",
+            "matchRepositories": ["stranske/Fine-Art-Archive"],
+            "matchPackageNames": ["jsonschema"],
+            "allowedVersions": "<4.23.0",
+        }
+    ]
 
 
 def test_gate_manifest_entry_documents_fresh_consumer_bootstrap_risk() -> None:
