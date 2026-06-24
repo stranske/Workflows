@@ -84,6 +84,15 @@ Optional shared fields:
 | `artifact_ref` | Pointer to a safe repo artifact. |
 | `error_category` | Stable error/fallback category. |
 
+### Workflows-Owned Automation Evidence
+
+The `stranske/Workflows` / `agent-automation` surface may also emit
+`operation=durability` records for recently merged `agents:keepalive` PRs. These
+records use `github_pr` to point at the consumer PR being classified and keep
+consumer-specific details in `domain.target_repo`, `domain.target_pr`, and
+`domain.durability`. They are post-merge learning evidence only; they must not
+block or reopen the original merge path.
+
 ## Registry
 
 `config/langsmith_fleet_registry.json` maps each active repo issue to:

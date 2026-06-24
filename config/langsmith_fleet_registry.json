@@ -13,7 +13,7 @@
       "issue_number": 2150,
       "parent_issue": "stranske/Workflows#2150",
       "surface": "agent-automation",
-      "operations": ["autopilot", "keepalive", "verifier", "dashboard-ingestion"],
+      "operations": ["autopilot", "keepalive", "verifier", "dashboard-ingestion", "durability"],
       "artifact_name": "langsmith-fleet.ndjson",
       "rollout_status": "paused",
       "required_domain_fields": [

@@ -274,6 +274,7 @@ EXPECTED_NAMES = {
     "maint-82-sync-dependency-campaign.yml": "Sync/Dependency Campaign",
     "maint-83-bootstrap-consumer.yml": "Maint 83 Bootstrap Consumer",
     "maint-72-fix-pr-body-conflicts.yml": "Maint 72 Fix PR Body Conflicts",
+    "maint-85-keepalive-durability-export.yml": "Maint 85 Keepalive Durability Export",
     "maint-coverage-guard.yml": "Maint Coverage Guard",
     "maint-metrics-retention.yml": "Maint Metrics Retention",
     "pr-00-gate.yml": "Gate",

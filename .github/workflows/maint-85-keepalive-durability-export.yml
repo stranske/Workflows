@@ -1,0 +1,102 @@
+name: Maint 85 Keepalive Durability Export
+
+on:
+  schedule:
+    - cron: "45 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Merged keepalive PR lookback window"
+        required: false
+        default: "30"
+        type: string
+      grace_days:
+        description: "Days after merge before a PR can be called durable"
+        required: false
+        default: "7"
+        type: string
+      include_pending:
+        description: "Also emit records still inside the grace window"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  export:
+    name: Export keepalive durability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install validation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      - name: Export durability fleet records
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          DAYS: ${{ inputs.days || '30' }}
+          GRACE_DAYS: ${{ inputs.grace_days || '7' }}
+          INCLUDE_PENDING: ${{ inputs.include_pending || false }}
+        run: |
+          set -euo pipefail
+          include_args=()
+          if [ "${INCLUDE_PENDING}" = "true" ]; then
+            include_args+=(--include-pending)
+          fi
+          python scripts/export_keepalive_durability.py \
+            --days "$DAYS" \
+            --grace-days "$GRACE_DAYS" \
+            --output artifacts/langsmith/langsmith-fleet.ndjson \
+            --json \
+            "${include_args[@]}" \
+            | tee keepalive-durability-export.json
+
+      - name: Validate durability fleet artifact
+        run: |
+          set -euo pipefail
+          python scripts/langsmith_fleet.py artifacts/langsmith/langsmith-fleet.ndjson
+          {
+            echo "## Keepalive Durability Export"
+            echo
+            cat keepalive-durability-export.json
+            echo
+            python scripts/langsmith_fleet.py artifacts/langsmith/langsmith-fleet.ndjson \
+              --summary --format markdown
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload LangSmith fleet artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: langsmith-fleet.ndjson
+          path: artifacts/langsmith/langsmith-fleet.ndjson
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload durability export summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: keepalive-durability-export-${{ github.run_id }}
+          path: keepalive-durability-export.json
+          retention-days: 30
+          if-no-files-found: ignore
