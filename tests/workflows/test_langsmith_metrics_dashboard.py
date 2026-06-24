@@ -10,7 +10,8 @@ def test_fleet_artifact_lookup_does_not_mix_slurp_with_jq() -> None:
 
     assert "--paginate --slurp --method GET" in source
     assert "--arg artifact_name" in source
-    assert "select(.name == $artifact_name and .expired == false)" in source
+    assert "select(.name == $artifact_name or (.name | endswith($artifact_name)))" in source
+    assert "sort_by((.name == $artifact_name), .created_at)" in source
     assert "--slurp --method GET \\\n" in source
     assert '--jq "[.[].artifacts' not in source
 

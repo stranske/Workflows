@@ -62,11 +62,20 @@ jobs:
                 github.rest.actions.listArtifactsForRepo({
                   owner,
                   repo: repoName,
-                  name: entry.artifact_name,
                   per_page: 100,
                 })
               );
-              const artifact = artifacts.data.artifacts.find((item) => !item.expired);
+              const candidates = artifacts.data.artifacts.filter((item) =>
+                !item.expired &&
+                (item.name === entry.artifact_name || item.name.endsWith(entry.artifact_name))
+              );
+              const exactCandidates = candidates.filter(
+                (item) => item.name === entry.artifact_name
+              );
+              const candidatePool = exactCandidates.length ? exactCandidates : candidates;
+              const artifact = candidatePool.sort(
+                (left, right) => new Date(right.created_at) - new Date(left.created_at)
+              )[0];
               if (!artifact) {
                 core.warning(`No ${entry.artifact_name} artifact found for ${entry.repo}`);
                 continue;
