@@ -1,6 +1,11 @@
 {
   "schema_version": "langsmith-fleet-registry/v1",
   "stale_after_hours": 168,
+  "trusted_artifact_workflow_paths": [
+    ".github/workflows/pr-00-gate.yml",
+    ".github/workflows/selftest-reusable-ci.yml",
+    ".github/workflows/maint-62-integration-consumer.yml"
+  ],
   "repos": [
     {
       "repo": "stranske/Workflows",

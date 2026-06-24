@@ -10,10 +10,23 @@ def test_fleet_artifact_lookup_does_not_mix_slurp_with_jq() -> None:
 
     assert "--paginate --slurp --method GET" in source
     assert "--arg artifact_name" in source
-    assert "select(.name == $artifact_name or (.name | endswith($artifact_name)))" in source
-    assert "sort_by((.name == $artifact_name), .created_at)" in source
+    assert "select(.name == $artifact_name)" in source
+    assert "select(.name != $artifact_name and (.name | endswith($artifact_name)))" in source
+    assert "trusted_artifact_workflow_paths" in source
+    assert '"/repos/$repo/actions/runs/$candidate_run_id"' in source
+    assert "'index($path) != null'" in source
     assert "--slurp --method GET \\\n" in source
     assert '--jq "[.[].artifacts' not in source
+
+
+def test_fleet_registry_declares_trusted_artifact_workflows() -> None:
+    registry = json.loads(FLEET_REGISTRY.read_text(encoding="utf-8"))
+
+    assert registry["trusted_artifact_workflow_paths"] == [
+        ".github/workflows/pr-00-gate.yml",
+        ".github/workflows/selftest-reusable-ci.yml",
+        ".github/workflows/maint-62-integration-consumer.yml",
+    ]
 
 
 def test_dashboard_issue_uses_existing_labels() -> None:

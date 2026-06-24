@@ -13,7 +13,6 @@ def test_conformance_download_accepts_prefixed_fleet_artifacts() -> None:
         == 1
     )
     assert source.count("const exactCandidates = candidates.filter") == 1
-    assert (
-        source.count("const candidatePool = exactCandidates.length ? exactCandidates : candidates")
-        == 1
-    )
+    assert source.count("trusted_artifact_workflow_paths") == 1
+    assert source.count("github.rest.actions.getWorkflowRun") == 1
+    assert source.count("trustedWorkflowPaths.has(run.data.path)") == 1

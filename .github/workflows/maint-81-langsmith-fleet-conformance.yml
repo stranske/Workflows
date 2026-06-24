@@ -50,6 +50,9 @@ jobs:
             const registry = JSON.parse(
               fs.readFileSync('config/langsmith_fleet_registry.json', 'utf8')
             );
+            const trustedWorkflowPaths = new Set(
+              registry.trusted_artifact_workflow_paths || []
+            );
             fs.mkdirSync('.metrics-tmp/fleet', { recursive: true });
 
             for (const entry of registry.repos) {
@@ -72,10 +75,31 @@ jobs:
               const exactCandidates = candidates.filter(
                 (item) => item.name === entry.artifact_name
               );
-              const candidatePool = exactCandidates.length ? exactCandidates : candidates;
-              const artifact = candidatePool.sort(
+              let artifact = exactCandidates.sort(
                 (left, right) => new Date(right.created_at) - new Date(left.created_at)
               )[0];
+              if (!artifact) {
+                const suffixCandidates = candidates
+                  .filter((item) => item.name !== entry.artifact_name)
+                  .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+                for (const candidate of suffixCandidates) {
+                  const runId = candidate.workflow_run && candidate.workflow_run.id;
+                  if (!runId) {
+                    continue;
+                  }
+                  const run = await withRetry(() =>
+                    github.rest.actions.getWorkflowRun({
+                      owner,
+                      repo: repoName,
+                      run_id: runId,
+                    })
+                  );
+                  if (trustedWorkflowPaths.has(run.data.path)) {
+                    artifact = candidate;
+                    break;
+                  }
+                }
+              }
               if (!artifact) {
                 core.warning(`No ${entry.artifact_name} artifact found for ${entry.repo}`);
                 continue;
