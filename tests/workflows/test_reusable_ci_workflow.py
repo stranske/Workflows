@@ -209,6 +209,7 @@ def test_artifact_names_normalized() -> None:
     assert _normalize_expr(primary_step["if"]) == "${{always()}}"
 
     workflows_helper_step = _step("Checkout Workflows artifact cache action")
+    assert workflows_helper_step["with"]["persist-credentials"] is False
     helper_sparse_checkout = workflows_helper_step["with"]["sparse-checkout"]
     assert ".github/actions/artifact-cache" in helper_sparse_checkout
     assert "config/langsmith_fleet_registry.json" in helper_sparse_checkout
@@ -238,7 +239,6 @@ def test_artifact_names_normalized() -> None:
     assert (
         ".workflows-lib/scripts/ensure_langsmith_fleet_artifact.py" in langsmith_ensure_step["run"]
     )
-    assert "scripts/ensure_langsmith_fleet_artifact.py" in langsmith_ensure_step["run"]
     assert "fallback helper is unavailable" in langsmith_ensure_step["run"]
     assert (
         "::warning::LangSmith fleet fallback helper is unavailable" in langsmith_ensure_step["run"]
