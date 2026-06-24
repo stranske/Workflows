@@ -6,8 +6,9 @@ WORKFLOW = Path(".github/workflows/maint-81-langsmith-fleet-conformance.yml")
 def test_conformance_download_accepts_prefixed_fleet_artifacts() -> None:
     source = WORKFLOW.read_text(encoding="utf-8")
 
-    assert source.count("listArtifactsForRepo") == 1
+    assert source.count("github.paginate(github.rest.actions.listArtifactsForRepo") == 1
     assert source.count("name: entry.artifact_name") == 0
+    assert source.count("const candidates = artifacts.filter") == 1
     assert (
         source.count("item.name === entry.artifact_name || item.name.endsWith(entry.artifact_name)")
         == 1

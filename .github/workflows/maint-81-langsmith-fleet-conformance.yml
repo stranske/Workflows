@@ -62,13 +62,13 @@ jobs:
               fs.mkdirSync(outDir, { recursive: true });
 
               const artifacts = await withRetry(() =>
-                github.rest.actions.listArtifactsForRepo({
+                github.paginate(github.rest.actions.listArtifactsForRepo, {
                   owner,
                   repo: repoName,
                   per_page: 100,
                 })
               );
-              const candidates = artifacts.data.artifacts.filter((item) =>
+              const candidates = artifacts.filter((item) =>
                 !item.expired &&
                 (item.name === entry.artifact_name || item.name.endsWith(entry.artifact_name))
               );
