@@ -210,7 +210,7 @@ jobs:
           persist-credentials: false
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.14'
       - name: Run reusable workflow docs guards
@@ -269,7 +269,7 @@ jobs:
           node-version: '24'
       - run: node --test .github/scripts/__tests__/*.test.js
         if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
         with:
           python-version: '3.14'
@@ -298,7 +298,7 @@ jobs:
           git remote add upstream "$upstream"
           git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         if: ${{ hashFiles('scripts/check_issue_consistency.py') != '' }}
         with:
           python-version: '3.14'
@@ -341,7 +341,7 @@ jobs:
           git remote add upstream "$upstream"
           git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.14'
       - name: Install test-quality dependencies
@@ -425,7 +425,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.14'
 
