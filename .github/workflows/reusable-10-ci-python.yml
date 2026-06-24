@@ -1534,6 +1534,8 @@ jobs:
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/actions/artifact-cache
+            config/langsmith_fleet_registry.json
+            scripts/ensure_langsmith_fleet_artifact.py
           sparse-checkout-cone-mode: false
 
       - name: Install uv
@@ -2450,6 +2452,62 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
+
+      - name: Checkout Workflows LangSmith fleet helper
+        if: >-
+          ${{
+          always()
+          && !inputs.cache
+          && matrix.python-version == env.PRIMARY_PYTHON_VERSION
+          }}
+        uses: actions/checkout@v7
+        with:
+          repository: stranske/Workflows
+          # @main-only policy (issue #2346): `@main` is the single supported pin,
+          # so checking out the helper layer at `main` is intentional and correct
+          # - callers ride `@main`, hence main IS the pinned ref. The
+          # `workflows_ref` input is a vestige that defaults to 'main'; do not
+          # rely on it to pin helpers at a non-main ref (the helper layer is only
+          # validated as a unit on `main`).
+          ref: ${{ inputs.workflows_ref || 'main' }}
+          path: .workflows-lib
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          persist-credentials: false
+          sparse-checkout: |
+            config/langsmith_fleet_registry.json
+            scripts/ensure_langsmith_fleet_artifact.py
+          sparse-checkout-cone-mode: false
+
+      - name: Ensure LangSmith fleet telemetry artifact
+        if: >-
+          ${{
+          always()
+          && matrix.python-version == env.PRIMARY_PYTHON_VERSION
+          }}
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+        run: |
+          helper="${GITHUB_WORKSPACE}/.workflows-lib/scripts/ensure_langsmith_fleet_artifact.py"
+          registry="${GITHUB_WORKSPACE}/.workflows-lib/config/langsmith_fleet_registry.json"
+          if [ ! -f "$helper" ]; then
+            helper="${GITHUB_WORKSPACE}/scripts/ensure_langsmith_fleet_artifact.py"
+            registry="${GITHUB_WORKSPACE}/config/langsmith_fleet_registry.json"
+          fi
+          if [ ! -f "$helper" ]; then
+            echo "::warning ::LangSmith fleet fallback helper is unavailable; skipping fallback artifact ensure."
+            exit 0
+          fi
+          python "$helper" \
+            --registry "$registry" \
+            --project-root "${PROJECT_ROOT}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --workflow "${GITHUB_WORKFLOW}" \
+            --job "${GITHUB_JOB}" \
+            --python-version "${PYTHON_VERSION}" \
+            --sha "${GITHUB_SHA}" \
+            --event-name "${GITHUB_EVENT_NAME}"
 
       - name: Check LangSmith fleet telemetry artifact
         id: langsmith_fleet_artifact

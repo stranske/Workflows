@@ -208,6 +208,40 @@ def test_artifact_names_normalized() -> None:
     primary_step = _step("Resolve primary python version")
     assert _normalize_expr(primary_step["if"]) == "${{always()}}"
 
+    workflows_helper_step = _step("Checkout Workflows artifact cache action")
+    helper_sparse_checkout = workflows_helper_step["with"]["sparse-checkout"]
+    assert ".github/actions/artifact-cache" in helper_sparse_checkout
+    assert "config/langsmith_fleet_registry.json" in helper_sparse_checkout
+    assert "scripts/ensure_langsmith_fleet_artifact.py" in helper_sparse_checkout
+
+    langsmith_helper_step = _step("Checkout Workflows LangSmith fleet helper")
+    assert langsmith_helper_step["uses"] == "actions/checkout@v7"
+    assert langsmith_helper_step["with"]["persist-credentials"] is False
+    assert _normalize_expr(langsmith_helper_step["if"]) == (
+        "${{always()&&!inputs.cache&&matrix.python-version==env.PRIMARY_PYTHON_VERSION}}"
+    )
+    assert (
+        "config/langsmith_fleet_registry.json" in langsmith_helper_step["with"]["sparse-checkout"]
+    )
+    assert (
+        "scripts/ensure_langsmith_fleet_artifact.py"
+        in langsmith_helper_step["with"]["sparse-checkout"]
+    )
+
+    langsmith_ensure_step = _step("Ensure LangSmith fleet telemetry artifact")
+    assert _normalize_expr(langsmith_ensure_step["if"]) == (
+        "${{always()&&matrix.python-version==env.PRIMARY_PYTHON_VERSION}}"
+    )
+    assert "scripts/ensure_langsmith_fleet_artifact.py" in langsmith_ensure_step["run"]
+    assert (
+        ".workflows-lib/scripts/ensure_langsmith_fleet_artifact.py" in langsmith_ensure_step["run"]
+    )
+    assert "scripts/ensure_langsmith_fleet_artifact.py" in langsmith_ensure_step["run"]
+    assert "fallback helper is unavailable" in langsmith_ensure_step["run"]
+    assert "--registry" in langsmith_ensure_step["run"]
+    assert "--project-root" in langsmith_ensure_step["run"]
+    assert "--repository" in langsmith_ensure_step["run"]
+
     langsmith_check_step = _step("Check LangSmith fleet telemetry artifact")
     assert langsmith_check_step["id"] == "langsmith_fleet_artifact"
     assert "artifacts/langsmith/langsmith-fleet.ndjson" in langsmith_check_step["run"]
@@ -235,6 +269,12 @@ def test_artifact_names_normalized() -> None:
     step_names = [step.get("name") for step in steps]
     assert step_names.index("Check LangSmith fleet telemetry artifact") > step_names.index(
         "Upload coverage trend history artifact"
+    )
+    assert step_names.index("Ensure LangSmith fleet telemetry artifact") > step_names.index(
+        "Upload coverage trend history artifact"
+    )
+    assert step_names.index("Check LangSmith fleet telemetry artifact") == (
+        step_names.index("Ensure LangSmith fleet telemetry artifact") + 1
     )
     assert step_names.index("Upload LangSmith fleet telemetry artifact") == (
         step_names.index("Check LangSmith fleet telemetry artifact") + 1
