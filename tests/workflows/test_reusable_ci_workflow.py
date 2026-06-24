@@ -255,10 +255,7 @@ def test_artifact_names_normalized() -> None:
     langsmith_upload_step = _step("Upload LangSmith fleet telemetry artifact")
     assert langsmith_upload_step["uses"] == "actions/upload-artifact@v7"
     assert langsmith_upload_step["continue-on-error"] is True
-    assert (
-        langsmith_upload_step["with"]["name"]
-        == "${{ inputs['artifact-prefix'] }}langsmith-fleet.ndjson"
-    )
+    assert langsmith_upload_step["with"]["name"] == "langsmith-fleet.ndjson"
     assert (
         langsmith_upload_step["with"]["path"]
         == "${{ env.PROJECT_ROOT }}/artifacts/langsmith/langsmith-fleet.ndjson"
