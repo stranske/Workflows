@@ -43,6 +43,7 @@ def load_registry(path: Path) -> dict[str, Any]:
 
 
 def _artifact_has_records(path: Path) -> bool:
+    """Return whether an artifact file already contains at least one row."""
     if not path.exists() or not path.is_file():
         return False
     try:
@@ -51,15 +52,52 @@ def _artifact_has_records(path: Path) -> bool:
         return False
 
 
-def _entry_for_repo(registry: dict[str, Any], repository: str) -> dict[str, Any] | None:
+def _has_langsmith_artifact_contract(entry: dict[str, Any]) -> bool:
+    """Return whether a registry entry has the fields needed for fallback rows."""
+    operations = entry.get("operations")
+    required_domain_fields = entry.get("required_domain_fields")
+    return (
+        str(entry.get("artifact_name", "")).strip() == ARTIFACT_NAME
+        and bool(str(entry.get("surface", "")).strip())
+        and bool(str(entry.get("issue", "")).strip())
+        and isinstance(operations, list)
+        and any(str(operation).strip() for operation in operations)
+        and isinstance(required_domain_fields, list)
+        and all(str(field).strip() for field in required_domain_fields)
+    )
+
+
+def _entry_for_repo(
+    registry: dict[str, Any], repository: str
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Find one unambiguous fallback-eligible LangSmith registry entry."""
     normalized = repository.strip()
-    for entry in registry.get("repos", []):
-        if isinstance(entry, dict) and str(entry.get("repo", "")).strip() == normalized:
-            return entry
-    return None
+    repo_entries = [
+        entry
+        for entry in registry.get("repos", [])
+        if isinstance(entry, dict) and str(entry.get("repo", "")).strip() == normalized
+    ]
+    if not repo_entries:
+        return None, "repository_not_in_registry"
+    contract_entries = [entry for entry in repo_entries if _has_langsmith_artifact_contract(entry)]
+    if not contract_entries:
+        return None, "repository_missing_langsmith_artifact_contract"
+    eligible_entries = [
+        entry
+        for entry in contract_entries
+        if str(entry.get("rollout_status") or "").strip() in ELIGIBLE_ROLLOUT_STATUSES
+    ]
+    if len(eligible_entries) == 1:
+        return eligible_entries[0], None
+    if len(eligible_entries) > 1:
+        return None, "repository_langsmith_artifact_contract_ambiguous"
+    if len(contract_entries) == 1:
+        return contract_entries[0], None
+    return None, "repository_langsmith_artifact_contract_ambiguous"
 
 
 def _domain_fallback_value(field: str, *, now: datetime) -> Any:
+    """Build a schema-friendly placeholder for a required domain field."""
     lowered = field.lower()
     if lowered in {"as_of_date"} or lowered.endswith("_date"):
         return now.date().isoformat()
@@ -153,11 +191,11 @@ def ensure_artifact(
         }
 
     registry = load_registry(registry_path)
-    entry = _entry_for_repo(registry, repository)
+    entry, skipped_reason = _entry_for_repo(registry, repository)
     if entry is None:
         return {
             "status": "skipped",
-            "reason": "repository_not_in_registry",
+            "reason": skipped_reason or "repository_not_in_registry",
             "artifact_path": str(artifact_path),
             "repository": repository,
         }
@@ -200,6 +238,7 @@ def ensure_artifact(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse CLI arguments and environment defaults."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--artifact-path",
@@ -231,6 +270,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI entry point used by reusable CI."""
     args = parse_args(argv)
     artifact_path = args.artifact_path or (
         args.project_root / "artifacts" / "langsmith" / ARTIFACT_NAME
@@ -257,12 +297,13 @@ def main(argv: list[str] | None = None) -> int:
             "repository": args.repository,
         }
         print(
-            f"::warning ::LangSmith fleet fallback artifact ensure failed: {exc}", file=sys.stderr
+            f"::warning::LangSmith fleet fallback artifact ensure failed: {exc}",
+            file=sys.stderr,
         )
     print(json.dumps(result, sort_keys=True))
     if result.get("status") == "created":
         print(
-            "::notice ::Created LangSmith fleet fallback artifact because no repo-produced "
+            "::notice::Created LangSmith fleet fallback artifact because no repo-produced "
             f"records were present: {artifact_path}"
         )
     return 0

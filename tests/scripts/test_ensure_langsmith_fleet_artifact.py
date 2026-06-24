@@ -101,3 +101,90 @@ def test_ensure_artifact_skips_repos_without_implemented_artifact_rollout(tmp_pa
         "repository": "stranske/Travel-Plan-Permission",
     }
     assert not artifact.exists()
+
+
+def test_ensure_artifact_skips_ambiguous_registry_contract(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifacts" / "langsmith" / "langsmith-fleet.ndjson"
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "repos": [
+                    {
+                        "repo": "stranske/Pension-Data",
+                        "issue": "stranske/Pension-Data#445",
+                        "surface": "nl-to-sql",
+                        "operations": ["sql-generation"],
+                        "artifact_name": "langsmith-fleet.ndjson",
+                        "rollout_status": "implemented",
+                        "required_domain_fields": ["query_category"],
+                    },
+                    {
+                        "repo": "stranske/Pension-Data",
+                        "issue": "stranske/Pension-Data#446",
+                        "surface": "benefits-summary",
+                        "operations": ["summary-generation"],
+                        "artifact_name": "langsmith-fleet.ndjson",
+                        "rollout_status": "implemented",
+                        "required_domain_fields": ["summary_status"],
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = ensure_langsmith_fleet_artifact.ensure_artifact(
+        artifact_path=artifact,
+        registry_path=registry_path,
+        repository="stranske/Pension-Data",
+        run_id="28068938440",
+        run_attempt="1",
+        workflow="CI",
+        job="tests",
+        python_version="3.12",
+        sha="abc123",
+        event_name="push",
+    )
+
+    assert result == {
+        "status": "skipped",
+        "reason": "repository_langsmith_artifact_contract_ambiguous",
+        "artifact_path": str(artifact),
+        "repository": "stranske/Pension-Data",
+    }
+    assert not artifact.exists()
+
+
+def test_main_notice_uses_github_actions_annotation_prefix(tmp_path: Path, capsys) -> None:
+    artifact = tmp_path / "artifacts" / "langsmith" / "langsmith-fleet.ndjson"
+
+    rc = ensure_langsmith_fleet_artifact.main(
+        [
+            "--artifact-path",
+            str(artifact),
+            "--registry",
+            str(REGISTRY),
+            "--repository",
+            "stranske/Pension-Data",
+            "--run-id",
+            "28068938440",
+            "--run-attempt",
+            "1",
+            "--workflow",
+            "CI",
+            "--job",
+            "tests",
+            "--python-version",
+            "3.12",
+            "--sha",
+            "abc123",
+            "--event-name",
+            "push",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "::notice::Created LangSmith fleet fallback artifact" in captured.out
+    assert "::notice ::" not in captured.out

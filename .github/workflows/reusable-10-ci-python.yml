@@ -2460,7 +2460,7 @@ jobs:
           && !inputs.cache
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: stranske/Workflows
           # @main-only policy (issue #2346): `@main` is the single supported pin,
@@ -2494,7 +2494,7 @@ jobs:
             registry="${GITHUB_WORKSPACE}/config/langsmith_fleet_registry.json"
           fi
           if [ ! -f "$helper" ]; then
-            echo "::warning ::LangSmith fleet fallback helper is unavailable; skipping fallback artifact ensure."
+            echo "::warning::LangSmith fleet fallback helper is unavailable; skipping fallback artifact ensure."
             exit 0
           fi
           python "$helper" \
@@ -2536,7 +2536,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs['artifact-prefix'] }}langsmith-fleet
+          name: langsmith-fleet.ndjson
           path: ${{ env.PROJECT_ROOT }}/artifacts/langsmith/langsmith-fleet.ndjson
           if-no-files-found: warn
           retention-days: 90

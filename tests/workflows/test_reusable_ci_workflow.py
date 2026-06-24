@@ -215,7 +215,9 @@ def test_artifact_names_normalized() -> None:
     assert "scripts/ensure_langsmith_fleet_artifact.py" in helper_sparse_checkout
 
     langsmith_helper_step = _step("Checkout Workflows LangSmith fleet helper")
-    assert langsmith_helper_step["uses"] == "actions/checkout@v7"
+    assert (
+        langsmith_helper_step["uses"] == "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+    )
     assert langsmith_helper_step["with"]["persist-credentials"] is False
     assert _normalize_expr(langsmith_helper_step["if"]) == (
         "${{always()&&!inputs.cache&&matrix.python-version==env.PRIMARY_PYTHON_VERSION}}"
@@ -238,6 +240,9 @@ def test_artifact_names_normalized() -> None:
     )
     assert "scripts/ensure_langsmith_fleet_artifact.py" in langsmith_ensure_step["run"]
     assert "fallback helper is unavailable" in langsmith_ensure_step["run"]
+    assert (
+        "::warning::LangSmith fleet fallback helper is unavailable" in langsmith_ensure_step["run"]
+    )
     assert "--registry" in langsmith_ensure_step["run"]
     assert "--project-root" in langsmith_ensure_step["run"]
     assert "--repository" in langsmith_ensure_step["run"]
@@ -250,9 +255,7 @@ def test_artifact_names_normalized() -> None:
     langsmith_upload_step = _step("Upload LangSmith fleet telemetry artifact")
     assert langsmith_upload_step["uses"] == "actions/upload-artifact@v7"
     assert langsmith_upload_step["continue-on-error"] is True
-    assert (
-        langsmith_upload_step["with"]["name"] == "${{ inputs['artifact-prefix'] }}langsmith-fleet"
-    )
+    assert langsmith_upload_step["with"]["name"] == "langsmith-fleet.ndjson"
     assert (
         langsmith_upload_step["with"]["path"]
         == "${{ env.PROJECT_ROOT }}/artifacts/langsmith/langsmith-fleet.ndjson"
