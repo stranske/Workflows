@@ -24,7 +24,7 @@ MIN_CODEX_CLI_BY_RUN_MODEL = {
     "gpt-5.5": (0, 125, 0),
     "gpt-5.4": (0, 125, 0),
 }
-ACTIONS_CACHE_V6_REF = "actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8"
+ACTIONS_CACHE_V6_REF = "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
 
 
 def _load_text(path: Path) -> str:
