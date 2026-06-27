@@ -18,6 +18,11 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def test_normalize_triggers_returns_empty_for_none_and_unknown() -> None:
+    assert normalize_triggers(None) == ()
+    assert normalize_triggers(42) == ()
+
+
 def test_normalize_triggers_handles_common_shapes() -> None:
     assert normalize_triggers("pull_request") == ("pull_request",)
     assert normalize_triggers(["pull_request", "workflow_dispatch"]) == (
@@ -98,6 +103,46 @@ def test_detect_pr_context_markers_from_event_source_issue() -> None:
     assert "event.source.issue.number" in markers
 
 
+def test_detect_pr_context_markers_mixed_optional_chain_and_bracket_issue() -> None:
+    text = """
+    if (github?.event?.issue?.['pull_request']?.url) {
+      console.log("issue PR url");
+    }
+    if (context?.payload?.['issue']?.["number"]) {
+      console.log("issue number");
+    }
+    if (github.event?.['issue']?.pull_request) {
+      console.log("mixed bracket and dot");
+    }
+    """
+    markers = detect_pr_context_markers(text)
+    assert markers == (
+        "context.payload.issue.number",
+        "github.event.issue.pull_request",
+    )
+
+
+def test_detect_pr_context_markers_mixed_optional_chain_and_bracket_workflow_run() -> None:
+    text = """
+    if (github?.event?.workflow_run?.['pull_requests']?.[0]) {
+      console.log("workflow run PR");
+    }
+    if (context?.payload?.workflow_run?.["pull_requests"]) {
+      console.log("payload workflow run PRs");
+    }
+    """
+    markers = detect_pr_context_markers(text)
+    assert markers == ("workflow_run.pull_requests",)
+
+
+def test_detect_pr_context_markers_includes_pull_request_number() -> None:
+    text = """
+    const prNumber = inputs.pull_request_number;
+    """
+    markers = detect_pr_context_markers(text)
+    assert markers == ("pull_request_number",)
+
+
 def test_detect_pr_context_markers_from_bracket_notation() -> None:
     text = """
     if (github.event["pull_request"]) {
@@ -154,6 +199,32 @@ on: workflow_dispatch
 
     assert data is not None
     assert data["name"] == "Inline"
+
+
+def test_audit_workflows_reads_legacy_true_on_field(tmp_path: Path) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+
+    _write(
+        workflows_dir / "legacy-true-on.yml",
+        """
+name: Legacy True On
+true:
+  push:
+    branches: [main]
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "legacy trigger"
+""",
+    )
+
+    results = audit_workflows(workflows_dir)
+    by_name = {item.path.name: item for item in results}
+
+    assert by_name["legacy-true-on.yml"].valid is True
+    assert by_name["legacy-true-on.yml"].triggers == ("push",)
 
 
 def test_audit_workflows_reports_pr_context(tmp_path: Path) -> None:
@@ -409,3 +480,68 @@ def test_summarize_by_triggers_sorts_groups_and_aggregates_markers() -> None:
         "context.payload.pull_request",
         "github.event.pull_request",
     )
+
+
+def test_summarize_by_triggers_unions_overlapping_markers(tmp_path: Path) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+
+    _write(
+        workflows_dir / "alpha.yml",
+        """
+name: Alpha
+on: pull_request
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ github.event.pull_request.number }}"
+      - run: echo "${{ github.event.issue.number }}"
+""",
+    )
+    _write(
+        workflows_dir / "beta.yml",
+        """
+name: Beta
+on: pull_request
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ github.event.pull_request.title }}"
+      - run: echo "${{ context.payload.issue.pull_request }}"
+""",
+    )
+    _write(
+        workflows_dir / "gamma.yml",
+        """
+name: Gamma
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ context.payload.issue.number }}"
+""",
+    )
+
+    results = audit_workflows(workflows_dir)
+    summaries = summarize_by_triggers(results)
+
+    assert len(summaries) == 2
+    by_triggers = {summary.triggers: summary for summary in summaries}
+
+    pull_request_group = by_triggers[("pull_request",)]
+    assert pull_request_group.workflows == (
+        str(workflows_dir / "alpha.yml"),
+        str(workflows_dir / "beta.yml"),
+    )
+    assert pull_request_group.pr_context_markers == (
+        "context.payload.issue.pull_request",
+        "github.event.issue.number",
+        "github.event.pull_request",
+    )
+
+    dispatch_group = by_triggers[("workflow_dispatch",)]
+    assert dispatch_group.workflows == (str(workflows_dir / "gamma.yml"),)
+    assert dispatch_group.pr_context_markers == ("context.payload.issue.number",)
