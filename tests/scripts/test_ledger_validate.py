@@ -1078,3 +1078,417 @@ def test_fetch_commit_cache_miss_fetches_from_origin(tmp_path: Path, monkeypatch
     assert ledger_validate._fetch_commit("abc1234") is True
     # Should have tried to fetch from origin
     assert any("origin" in call and "abc1234" in call for call in calls)
+
+
+def test_done_task_requires_non_ledger_commit_acceptance(tmp_path: Path, monkeypatch) -> None:
+    """Acceptance test: done tasks require a real non-ledger commit."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_validate.REPO_ROOT = tmp_path
+    ledger_dir = tmp_path / ".agents"
+    ledger_dir.mkdir()
+    ledger_path = ledger_dir / "issue-1-ledger.yml"
+
+    # Mock commit that only touches ledger files
+    monkeypatch.setattr(
+        ledger_validate,
+        "_commit_files",
+        lambda commit: [".agents/issue-1-ledger.yml", ".agents/.ledger-summary.md"],
+    )
+    monkeypatch.setattr(ledger_validate, "_commit_subject", lambda commit: "fix: update")
+
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature/ledger",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Ship it",
+                "status": "done",
+                "commit": "abcdef1",
+            }
+        ],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    # Assert exact error category for ledger-only commits
+    expected_error = f"{ledger_path}: tasks[0].commit abcdef1 must include non-ledger changes"
+    assert expected_error in errors
+    assert len(errors) == 1  # Only this error should be present
+
+
+def test_done_task_allows_valid_non_ledger_commit_acceptance(tmp_path: Path, monkeypatch) -> None:
+    """Acceptance test: done tasks with valid non-ledger commits pass validation."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_validate.REPO_ROOT = tmp_path
+    ledger_dir = tmp_path / ".agents"
+    ledger_dir.mkdir()
+    ledger_path = ledger_dir / "issue-1-ledger.yml"
+
+    # Mock commit that touches both ledger and real files
+    monkeypatch.setattr(
+        ledger_validate,
+        "_commit_files",
+        lambda commit: [".agents/issue-1-ledger.yml", "src/app.py", ".agents/.ledger-summary.md"],
+    )
+    monkeypatch.setattr(
+        ledger_validate, "_commit_subject", lambda commit: "feat: implement feature"
+    )
+
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature/ledger",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Ship it",
+                "status": "done",
+                "commit": "abcdef1",
+            }
+        ],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    # Should pass validation - no errors
+    assert errors == []
+
+
+def test_todo_task_timestamp_rules_fail_deterministically(tmp_path: Path, monkeypatch) -> None:
+    """Acceptance test: todo tasks with timestamps fail deterministically."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_path = tmp_path / "ledger.yml"
+
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Todo task",
+                "status": "todo",
+                "started_at": "2024-01-01T00:00:00Z",  # todo should not have started_at
+            }
+        ],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    # Assert exact error category for invalid todo timestamp
+    expected_error = "tasks[0].started_at must be null when status is todo"
+    assert expected_error in errors
+    assert len(errors) == 1  # Only this error should be present
+
+
+def test_deferred_task_timestamp_rules_fail_deterministically(tmp_path: Path, monkeypatch) -> None:
+    """Acceptance test: deferred tasks with timestamps fail deterministically."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_path = tmp_path / "ledger.yml"
+
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Deferred task",
+                "status": "deferred",
+                "started_at": "2024-01-01T00:00:00Z",  # deferred should not have started_at
+            }
+        ],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    # Assert exact error category for invalid deferred timestamp
+    expected_error = "tasks[0].started_at must be null when status is deferred"
+    assert expected_error in errors
+    assert len(errors) == 1  # Only this error should be present
+
+
+def test_done_task_timestamp_rules_fail_deterministically(tmp_path: Path, monkeypatch) -> None:
+    """Acceptance test: done tasks with invalid timestamps fail deterministically."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_validate.REPO_ROOT = tmp_path
+    ledger_dir = tmp_path / ".agents"
+    ledger_dir.mkdir()
+    ledger_path = ledger_dir / "issue-1-ledger.yml"
+
+    # Mock commit files to avoid missing commit errors
+    monkeypatch.setattr(ledger_validate, "_commit_files", lambda commit: ["src/app.py"])
+    monkeypatch.setattr(ledger_validate, "_commit_subject", lambda commit: "feat: test")
+
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Done task",
+                "status": "done",
+                "commit": "abcdef1",
+                "finished_at": "invalid-timestamp",  # Invalid timestamp format
+            }
+        ],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    # Assert exact error category for invalid timestamp
+    expected_error = "tasks[0].finished_at must be an ISO-8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)"
+    assert expected_error in errors
+    assert len(errors) >= 1  # At least this error should be present
+
+
+def test_validate_ledger_through_fixture_files(tmp_path: Path, monkeypatch) -> None:
+    """Acceptance test: exercise validate_ledger through fixture ledger files."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_validate.REPO_ROOT = tmp_path
+
+    # Create fixture directory
+    fixtures_dir = tmp_path / "fixtures"
+    fixtures_dir.mkdir()
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir()
+
+    # Create fixture ledger file with valid data
+    valid_ledger_path = agents_dir / "issue-123-ledger.yml"
+    valid_payload = {
+        "version": 1,
+        "issue": 123,
+        "base": "main",
+        "branch": "feature/test",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Valid task",
+                "status": "todo",
+            },
+            {
+                "id": "task-2",
+                "title": "Another task",
+                "status": "doing",
+            },
+        ],
+    }
+    valid_ledger_path.write_text(yaml.safe_dump(valid_payload), encoding="utf-8")
+
+    # Mock commit lookups for deterministic testing
+    monkeypatch.setattr(ledger_validate, "_commit_files", lambda commit: ["src/app.py"])
+    monkeypatch.setattr(ledger_validate, "_commit_subject", lambda commit: "feat: test")
+
+    # Test validation through the fixture file
+    errors = ledger_validate.validate_ledger(valid_ledger_path)
+    assert errors == []  # Valid ledger should pass
+
+    # Create another fixture ledger file with invalid data
+    invalid_ledger_path = agents_dir / "issue-456-ledger.yml"
+    invalid_payload = {
+        "version": 1,
+        "issue": 456,
+        "base": "main",
+        "branch": "feature/test",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Invalid task",
+                "status": "done",
+                "commit": "abc1234",  # Will fail if commit lookup fails
+            }
+        ],
+    }
+    invalid_ledger_path.write_text(yaml.safe_dump(invalid_payload), encoding="utf-8")
+
+    # Mock commit that only touches ledger files (should fail for done task)
+    monkeypatch.setattr(
+        ledger_validate, "_commit_files", lambda commit: [".agents/issue-456-ledger.yml"]
+    )
+    monkeypatch.setattr(ledger_validate, "_commit_subject", lambda commit: "fix: update")
+
+    errors = ledger_validate.validate_ledger(invalid_ledger_path)
+    expected_error = (
+        f"{invalid_ledger_path}: tasks[0].commit abc1234 must include non-ledger changes"
+    )
+    assert expected_error in errors
+
+
+def test_mocked_commit_lookups_deterministic(tmp_path: Path, monkeypatch) -> None:
+    """Acceptance test: mock commit file and subject lookups for deterministic,
+    network-free tests."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_validate.REPO_ROOT = tmp_path
+    ledger_dir = tmp_path / ".agents"
+    ledger_dir.mkdir()
+    ledger_path = ledger_dir / "issue-1-ledger.yml"
+
+    # Set up deterministic mocks
+    def mock_commit_files(commit):
+        # Deterministic mapping based on commit hash
+        mock_data = {
+            "abc1234": [".agents/issue-1-ledger.yml"],  # ledger-only
+            "def5678": ["src/app.py", ".agents/issue-1-ledger.yml"],  # has non-ledger
+            "abcdef12": [],  # no files - valid SHA
+        }
+        return mock_data.get(commit, [])  # Default to empty list
+
+    def mock_commit_subject(commit):
+        # Deterministic subject mapping
+        mock_subjects = {
+            "abc1234": "fix: ledger update",
+            "def5678": "feat: implement feature",
+            "abcdef12": "fix: empty commit",
+        }
+        return mock_subjects.get(commit, "")
+
+    monkeypatch.setattr(ledger_validate, "_commit_files", mock_commit_files)
+    monkeypatch.setattr(ledger_validate, "_commit_subject", mock_commit_subject)
+
+    # Test case 1: ledger-only commit should fail for done task
+    payload1 = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature",
+        "tasks": [{"id": "task-1", "title": "Task", "status": "done", "commit": "abc1234"}],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload1), encoding="utf-8")
+    errors1 = ledger_validate.validate_ledger(ledger_path)
+    assert any("must include non-ledger changes" in error for error in errors1)
+
+    # Test case 2: commit with non-ledger files should pass
+    payload2 = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature",
+        "tasks": [{"id": "task-2", "title": "Task", "status": "done", "commit": "def5678"}],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload2), encoding="utf-8")
+    errors2 = ledger_validate.validate_ledger(ledger_path)
+    assert errors2 == []
+
+    # Test case 3: empty commit files should fail
+    payload3 = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature",
+        "tasks": [{"id": "task-3", "title": "Task", "status": "done", "commit": "abcdef12"}],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload3), encoding="utf-8")
+    errors3 = ledger_validate.validate_ledger(ledger_path)
+    assert any("has no changed files" in error for error in errors3)
+
+
+def test_exact_error_categories_for_ledger_only_commits(tmp_path: Path, monkeypatch) -> None:
+    """Acceptance test: assert exact error categories for ledger-only commits."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_validate.REPO_ROOT = tmp_path
+    ledger_dir = tmp_path / ".agents"
+    ledger_dir.mkdir()
+    ledger_path = ledger_dir / "issue-1-ledger.yml"
+
+    # Mock ledger-only commit
+    monkeypatch.setattr(
+        ledger_validate, "_commit_files", lambda commit: [".agents/issue-1-ledger.yml"]
+    )
+    monkeypatch.setattr(ledger_validate, "_commit_subject", lambda commit: "fix: update")
+
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Ledger-only commit",
+                "status": "done",
+                "commit": "abcdef1",
+            }
+        ],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    # Assert exact error category
+    assert len(errors) == 1
+    error = errors[0]
+    assert "tasks[0].commit abcdef1 must include non-ledger changes" in error
+    assert ledger_path.name in error  # Should contain the ledger filename
+
+
+def test_exact_error_categories_for_invalid_task_timestamps(tmp_path: Path, monkeypatch) -> None:
+    """Acceptance test: assert exact error categories for invalid task timestamps."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_path = tmp_path / "ledger.yml"
+    monkeypatch.setattr(ledger_validate, "_commit_files", lambda commit: ["src/app.py"])
+    monkeypatch.setattr(ledger_validate, "_commit_subject", lambda commit: "feat: test")
+
+    # Test invalid timestamp format
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Invalid timestamp",
+                "status": "done",
+                "commit": "abcdef1",
+                "finished_at": "not-a-timestamp",
+            }
+        ],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    # Assert exact error category for invalid timestamp format
+    assert len(errors) == 1
+    error = errors[0]
+    assert "tasks[0].finished_at must be an ISO-8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)" in error
+
+    # Test todo task with started_at (should be null)
+    payload["tasks"][0] = {
+        "id": "task-1",
+        "title": "Todo with timestamp",
+        "status": "todo",
+        "started_at": "2024-01-01T00:00:00Z",
+    }
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    # Assert exact error category for todo with started_at
+    assert len(errors) == 1
+    error = errors[0]
+    assert "tasks[0].started_at must be null when status is todo" in error
+
+    # Test deferred task with started_at (should be null)
+    payload["tasks"][0]["status"] = "deferred"
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    # Assert exact error category for deferred with started_at
+    assert len(errors) == 1
+    error = errors[0]
+    assert "tasks[0].started_at must be null when status is deferred" in error
