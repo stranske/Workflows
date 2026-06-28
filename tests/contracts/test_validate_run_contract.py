@@ -299,6 +299,121 @@ def test_consumer_reports_closest_schema_errors_when_no_ingest_matches() -> None
     assert "not-a-valid-method" in report.violations[0].message
 
 
+def test_unsafe_raw_payload_fields_rejected_via_cli(tmp_path, capsys) -> None:
+    """Acceptance: CLI main path rejects unsafe raw payload fields in strict mode (exit 1) and warns in warn-only mode (exit 0)."""
+    mod = _import_validator()
+
+    # Create a temporary run envelope with an unsafe raw payload field (prompt)
+    unsafe_envelope = {
+        "schema_version": "run-contract/v1",
+        "repo": "stranske/Pension-Data",
+        "tool": "test-tool",
+        "run_id": "sha256:test123",
+        "status": "success",
+        "actor": {"kind": "ci", "id": "test", "intent": "test"},
+        "inputs": {"prompt": "sensitive data that should not be inlined"},
+        "outputs": {"manifest_ref": "artifact:manifest.json", "summary": {}, "artifact_ids": []},
+        "provenance": {"tool_version": "0.1.0"},
+        "cost": {"usd": None, "input_tokens": 0, "output_tokens": 0},
+        "latency": {"wall_ms": 12.0},
+        "warnings": [],
+        "data_quality": {"overall_status": "ok"},
+        "evidence_refs": [],
+        "identity_refs": [],
+    }
+
+    run_json = tmp_path / "unsafe_run.json"
+    run_json.write_text(json.dumps(unsafe_envelope))
+
+    # Test strict mode: should exit 1 and report unsafe field
+    rc = mod.main(
+        [
+            str(run_json),
+            "--registry",
+            str(REGISTRY),
+            "--schema-dir",
+            str(SCHEMA_DIR),
+            "--repo",
+            PRODUCER_REPO,
+        ]
+    )
+    assert rc == 1, f"Expected exit 1 in strict mode, got {rc}"
+    captured = capsys.readouterr()
+    assert "unsafe raw payload field 'prompt' inlined" in captured.err
+    # Ensure the raw payload content is NOT echoed in the violation message
+    assert "sensitive data that should not be inlined" not in captured.err
+
+    # Test warn-only mode: same unsafe envelope should exit 0
+    rc = mod.main(
+        [
+            str(run_json),
+            "--registry",
+            str(REGISTRY),
+            "--schema-dir",
+            str(SCHEMA_DIR),
+            "--repo",
+            PRODUCER_REPO,
+            "--warn-only",
+        ]
+    )
+    assert rc == 0, f"Expected exit 0 in warn-only mode, got {rc}"
+    captured = capsys.readouterr()
+    assert "unsafe raw payload field 'prompt' inlined" in captured.err
+    # Ensure the raw payload content is NOT echoed in the violation message
+    assert "sensitive data that should not be inlined" not in captured.err
+
+
+def test_unsafe_raw_payload_validation_direct() -> None:
+    """Acceptance: validate_envelope rejects multiple unsafe raw payload fields and identifies them by name only."""
+    mod = _import_validator()
+
+    # Test envelope with multiple unsafe fields
+    unsafe_envelope = {
+        "schema_version": "run-contract/v1",
+        "repo": "stranske/Pension-Data",
+        "tool": "test-tool",
+        "run_id": "sha256:test456",
+        "status": "success",
+        "actor": {"kind": "ci", "id": "test", "intent": "test"},
+        "inputs": {"prompt": "sensitive prompt data"},
+        "outputs": {
+            "manifest_ref": "artifact:manifest.json",
+            "summary": {"model_output": "sensitive model output"},
+            "artifact_ids": [],
+        },
+        "provenance": {"tool_version": "0.1.0"},
+        "cost": {"usd": None, "input_tokens": 0, "output_tokens": 0},
+        "latency": {"wall_ms": 12.0},
+        "warnings": [],
+        "data_quality": {"overall_status": "ok"},
+        "evidence_refs": [],
+        "identity_refs": [],
+    }
+
+    report = mod.validate_envelope(
+        envelope=unsafe_envelope,
+        schema_dir=SCHEMA_DIR,
+        registry=_registry(),
+        repo=PRODUCER_REPO,
+        manifest=None,
+    )
+
+    assert not report.conformant
+    assert not report.skipped
+
+    # Check that both unsafe fields are identified by name
+    violation_messages = [v.message for v in report.violations]
+    assert any("unsafe raw payload field 'prompt' inlined" in msg for msg in violation_messages)
+    assert any(
+        "unsafe raw payload field 'model_output' inlined" in msg for msg in violation_messages
+    )
+
+    # Ensure raw payload content is not echoed in any violation message
+    for msg in violation_messages:
+        assert "sensitive prompt data" not in msg
+        assert "sensitive model output" not in msg
+
+
 def test_consumer_mixed_unknown_ingest_token_fails() -> None:
     """Unknown ingest tokens are invalid even when another declared token matches."""
     mod = _import_validator()

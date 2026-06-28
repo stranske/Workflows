@@ -1,0 +1,41 @@
+{
+  "schema_version": "run-contract/v1",
+  "repo": "stranske/Pension-Data",
+  "tool": "test-tool",
+  "run_id": "sha256:0f0e0d0c0b0a09080706050403020100ffeeddccbbaa99887766554433221100",
+  "status": "success",
+  "github_issue": "stranske/Workflows#TBD-P0",
+  "actor": {
+    "kind": "ci",
+    "id": "test-fixture",
+    "intent": "INVALID: inlines raw prompt in inputs"
+  },
+  "inputs": {
+    "validated": true,
+    "prompt": "This is a sensitive user prompt that should not be inlined"
+  },
+  "outputs": {
+    "manifest_ref": "artifact:manifest.json",
+    "summary": {
+      "result": "test completed"
+    },
+    "artifact_ids": []
+  },
+  "provenance": {
+    "tool_version": "0.1.0"
+  },
+  "cost": {
+    "usd": null,
+    "input_tokens": 0,
+    "output_tokens": 0
+  },
+  "latency": {
+    "wall_ms": 12.0
+  },
+  "warnings": [],
+  "data_quality": {
+    "overall_status": "ok"
+  },
+  "evidence_refs": [],
+  "identity_refs": []
+}
