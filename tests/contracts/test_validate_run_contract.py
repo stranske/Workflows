@@ -340,7 +340,7 @@ def test_unsafe_raw_payload_fields_rejected_via_cli(tmp_path, capsys) -> None:
     assert rc == 1, f"Expected exit 1 in strict mode, got {rc}"
     captured = capsys.readouterr()
     assert "unsafe raw payload field 'prompt' inlined" in captured.err
-    # Ensure the raw payload content is NOT echoed in the violation message
+    # Report only the unsafe field name; raw prompt content must not leak.
     assert "sensitive data that should not be inlined" not in captured.err
 
     # Test warn-only mode: same unsafe envelope should exit 0
@@ -359,7 +359,7 @@ def test_unsafe_raw_payload_fields_rejected_via_cli(tmp_path, capsys) -> None:
     assert rc == 0, f"Expected exit 0 in warn-only mode, got {rc}"
     captured = capsys.readouterr()
     assert "unsafe raw payload field 'prompt' inlined" in captured.err
-    # Ensure the raw payload content is NOT echoed in the violation message
+    # Report only the unsafe field name; raw prompt content must not leak.
     assert "sensitive data that should not be inlined" not in captured.err
 
 
