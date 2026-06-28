@@ -271,6 +271,62 @@ def test_consumer_mixed_unknown_ingest_token_fails() -> None:
     )
 
 
+def test_find_participant_helper() -> None:
+    """Test _find_participant helper independently."""
+    mod = _import_validator()
+    registry = _registry()
+
+    # Existing participant
+    entry = mod._find_participant(registry, "stranske/Pension-Data")
+    assert entry is not None
+    assert entry["repo"] == "stranske/Pension-Data"
+    assert entry["role"] == "producer"
+
+    # Absent participant
+    entry = mod._find_participant(registry, "stranske/not-a-participant")
+    assert entry is None
+
+
+def test_is_missing_envelope_a_failure_helper() -> None:
+    """Test _is_missing_envelope_a_failure helper independently."""
+    mod = _import_validator()
+
+    # Emitting producer -> should fail
+    entry = {"repo": "stranske/X", "role": "producer", "status": "emitting"}
+    assert mod._is_missing_envelope_a_failure(entry) is True
+
+    # Conformant producer -> should fail
+    entry = {"repo": "stranske/X", "role": "producer", "status": "conformant"}
+    assert mod._is_missing_envelope_a_failure(entry) is True
+
+    # Emitting bridge -> should fail
+    entry = {"repo": "stranske/X", "role": "bridge", "status": "emitting"}
+    assert mod._is_missing_envelope_a_failure(entry) is True
+
+    # Conformant consumer -> should fail
+    entry = {"repo": "stranske/X", "role": "consumer", "status": "conformant"}
+    assert mod._is_missing_envelope_a_failure(entry) is True
+
+    # Planned producer -> should skip (not fail)
+    entry = {"repo": "stranske/X", "role": "producer", "status": "planned"}
+    assert mod._is_missing_envelope_a_failure(entry) is False
+
+    # Candidate consumer -> should skip
+    entry = {"repo": "stranske/X", "role": "consumer", "status": "candidate"}
+    assert mod._is_missing_envelope_a_failure(entry) is False
+
+    # None status -> should skip
+    entry = {"repo": "stranske/X", "role": "producer", "status": "none"}
+    assert mod._is_missing_envelope_a_failure(entry) is False
+
+    # Planned bridge -> should skip
+    entry = {"repo": "stranske/X", "role": "bridge", "status": "planned"}
+    assert mod._is_missing_envelope_a_failure(entry) is False
+
+    # Absent participant (None) -> should skip
+    assert mod._is_missing_envelope_a_failure(None) is False
+
+
 def test_registry_shape_meta() -> None:
     reg = _registry()
     investment_repos = {
