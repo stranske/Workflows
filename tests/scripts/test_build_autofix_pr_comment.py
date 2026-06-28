@@ -15,6 +15,15 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def test_load_json_returns_none_for_missing_and_invalid_json(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing.json"
+    invalid_path = tmp_path / "invalid.json"
+    invalid_path.write_text("{not valid json", encoding="utf-8")
+
+    assert autofix_comment.load_json(missing_path) is None
+    assert autofix_comment.load_json(invalid_path) is None
+
+
 @pytest.mark.parametrize(
     ("value", "default", "expected"),
     [
@@ -358,4 +367,54 @@ def test_cli_entrypoint_writes_comment_and_metadata_json(tmp_path: Path) -> None
         "diagnostics_count": 2,
         "diagnostics_fixed": 1,
         "should_post": True,
+    }
+
+
+@pytest.mark.parametrize(
+    ("report_content", "trend_content"),
+    [
+        ("{not valid json", None),
+        (None, "{not valid json"),
+    ],
+)
+def test_cli_entrypoint_tolerates_missing_or_malformed_inputs(
+    tmp_path: Path, report_content: str | None, trend_content: str | None
+) -> None:
+    report_path = tmp_path / "report.json"
+    trend_path = tmp_path / "trend.json"
+    out_path = tmp_path / "out" / "autofix_pr_comment.md"
+    metadata_path = tmp_path / "out" / "autofix_pr_comment.meta.json"
+    if report_content is not None:
+        report_path.write_text(report_content, encoding="utf-8")
+    if trend_content is not None:
+        trend_path.write_text(trend_content, encoding="utf-8")
+
+    assert (
+        autofix_comment.main(
+            [
+                "--report",
+                str(report_path),
+                "--trend",
+                str(trend_path),
+                "--out",
+                str(out_path),
+                "--metadata-out",
+                str(metadata_path),
+                "--pr-number",
+                "2654",
+            ]
+        )
+        == 0
+    )
+
+    comment = out_path.read_text(encoding="utf-8")
+    assert "Status | \u2705 no new diagnostics" in comment
+    assert "Report artifact | `autofix-report-pr-2654`" in comment
+    assert "Remaining | \u2205" in comment
+    assert "New | \u2205" in comment
+    assert "No additional artifacts" in comment
+    assert json.loads(metadata_path.read_text(encoding="utf-8")) == {
+        "diagnostics_count": None,
+        "diagnostics_fixed": None,
+        "should_post": False,
     }
