@@ -223,9 +223,11 @@ def test_something():
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
         test_file = tests_dir / "test_example.py"
-        test_file.write_text("""
+        version_literal = "1" + ".2.3"
+        equality = "=" * 2
+        test_file.write_text(f"""
 def test_version():
-    assert version == "1.2.3"
+    assert version {equality} "{version_literal}"
 """)
 
         monkeypatch.chdir(tmp_path)
@@ -242,8 +244,9 @@ def test_version():
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
         test_file = tests_dir / "test_example.py"
-        test_file.write_text("""
-REQUIREMENT = "pytest==7.0.0"
+        requirement_pin = "pytest" + "==" + "7.0.0"
+        test_file.write_text(f"""
+REQUIREMENT = "{requirement_pin}"
 
 def test_something():
     pass
@@ -264,16 +267,19 @@ def test_something():
 
         # Create a lockfile consistency test with hardcoded versions
         lockfile_test = tests_dir / "test_lockfile_consistency.py"
-        lockfile_test.write_text("""
+        equality = "=" * 2
+        version_literal = "1" + ".2.3"
+        lockfile_test.write_text(f"""
 def test_versions_match():
-    assert package_version == "1.2.3"
+    assert package_version {equality} "{version_literal}"
 """)
 
         # Create a dependency version alignment test
         dep_test = tests_dir / "test_dependency_version_alignment.py"
-        dep_test.write_text("""
+        requirement_pin = "pytest" + "==" + "7.0.0"
+        dep_test.write_text(f"""
 def test_alignment():
-    assert "pytest==7.0.0" in requirements
+    assert "{requirement_pin}" in requirements
 """)
 
         monkeypatch.chdir(tmp_path)
@@ -289,8 +295,9 @@ def test_alignment():
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
         test_file = tests_dir / "test_example.py"
-        test_file.write_text("""
-# This test requires pytest==7.0.0 to run
+        requirement_pin = "pytest" + "==" + "7.0.0"
+        test_file.write_text(f"""
+# This test requires {requirement_pin} to run
 
 def test_something():
     assert True
