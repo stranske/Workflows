@@ -370,10 +370,13 @@ def _with_auth_token(base_url: str, token: str) -> str:
 
 def _git_show_files(commit: str) -> list[str]:
     """Raw git operation: get files changed by a commit."""
-    output = subprocess.check_output(
-        ["git", "show", "--pretty=format:", "--name-only", commit],
-        text=True,
-    )
+    try:
+        output = subprocess.check_output(
+            ["git", "show", "--pretty=format:", "--name-only", commit],
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise LedgerError(f"unknown commit {commit}") from exc
     stripped_lines = (line.strip() for line in output.splitlines())
     return [line for line in stripped_lines if line]
 
@@ -388,7 +391,7 @@ def _commit_files(commit: str) -> list[str]:
         files = _git_show_files(commit)
         _COMMIT_FILES_CACHE[commit] = files
         return files
-    except subprocess.CalledProcessError as exc:
+    except LedgerError as exc:
         # Commit not found locally, try to fetch it
         if _fetch_commit(commit):
             files = _git_show_files(commit)
@@ -399,10 +402,13 @@ def _commit_files(commit: str) -> list[str]:
 
 def _git_show_subject(commit: str) -> str:
     """Raw git operation: get commit subject."""
-    output = subprocess.check_output(
-        ["git", "show", "--no-patch", "--pretty=format:%s", commit],
-        text=True,
-    )
+    try:
+        output = subprocess.check_output(
+            ["git", "show", "--no-patch", "--pretty=format:%s", commit],
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise LedgerError(f"unknown commit {commit}") from exc
     return output.strip()
 
 
@@ -416,7 +422,7 @@ def _commit_subject(commit: str) -> str:
         subject = _git_show_subject(commit)
         _COMMIT_SUBJECT_CACHE[commit] = subject
         return subject
-    except subprocess.CalledProcessError as exc:
+    except LedgerError as exc:
         # Commit not found locally, try to fetch it
         if _fetch_commit(commit):
             subject = _git_show_subject(commit)
