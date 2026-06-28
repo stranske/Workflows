@@ -14,6 +14,7 @@ const {
   summarizeResults,
   syncBranchForHash,
 } = require('../sync_pr_merge_contract');
+const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
 
 const pr = (number, ref, created_at) => ({
   number,
@@ -231,6 +232,96 @@ test('classifySyncPrChecks falls back to denylist when required contexts are emp
   assert.deepEqual(nonDenylistedFailure.failed.map((check) => check.name), [
     'Record autofix metrics',
   ]);
+});
+
+test('runtime-AC sync PRs are blocked while ordinary sync PRs still merge', async () => {
+  const syncPrs = [
+    {
+      owner: 'stranske',
+      repo: 'Ready',
+      pr: pr(201, 'sync/workflows-plain', '2026-04-25T01:00:00Z'),
+      labels: [{ name: 'consumer-sync' }],
+    },
+    {
+      owner: 'stranske',
+      repo: 'Counter_Risk',
+      pr: pr(202, 'sync/workflows-runtime-ac', '2026-04-25T01:05:00Z'),
+      labels: [{ name: 'consumer-sync' }, { name: 'acceptance-criteria' }],
+    },
+  ];
+  const passingChecks = [checkRun({ name: 'Gate / gate', conclusion: 'success' })];
+  const mergeCalls = [];
+  const results = [];
+
+  for (const fixture of syncPrs) {
+    const classification = classifySyncPrChecks({
+      requiredContexts: ['Gate / gate'],
+      checkRuns: passingChecks,
+    });
+    assert.equal(classification.status, 'ready');
+
+    try {
+      await assertRuntimeAcMergeAllowed({
+        owner: fixture.owner,
+        repo: fixture.repo,
+        prNumber: fixture.pr.number,
+        labels: fixture.labels,
+        source: 'maint-71-merge-sync-prs',
+      });
+    } catch (error) {
+      results.push({
+        owner: fixture.owner,
+        repo: fixture.repo,
+        pr: fixture.pr.number,
+        branch: fixture.pr.head.ref,
+        status: 'merge_blocked_runtime_ac',
+        error: error.message,
+      });
+      continue;
+    }
+
+    mergeCalls.push({
+      owner: fixture.owner,
+      repo: fixture.repo,
+      pull_number: fixture.pr.number,
+    });
+    results.push({
+      owner: fixture.owner,
+      repo: fixture.repo,
+      pr: fixture.pr.number,
+      branch: fixture.pr.head.ref,
+      status: 'merged',
+    });
+  }
+
+  assert.deepEqual(mergeCalls, [
+    {
+      owner: 'stranske',
+      repo: 'Ready',
+      pull_number: 201,
+    },
+  ]);
+  assert.equal(results.find((result) => result.pr === 201).status, 'merged');
+  assert.equal(results.find((result) => result.pr === 202).status, 'merge_blocked_runtime_ac');
+  assert.match(
+    results.find((result) => result.pr === 202).error,
+    /require local Orchestrator runtime acceptance checks/,
+  );
+
+  const report = buildMergeReport({
+    results,
+    registeredRepos: ['stranske/Ready', 'stranske/Counter_Risk'],
+    targetRepos: ['stranske/Ready', 'stranske/Counter_Risk'],
+    autoMerge: true,
+    dryRun: false,
+    generatedAt: '2026-04-25T06:00:00Z',
+  });
+  const markdown = buildMarkdownSummary(report);
+
+  assert.equal(report.summary.merged, 1);
+  assert.equal(report.summary.merge_blocked_runtime_ac, 1);
+  assert.match(markdown, /\| merged \| 1 \|/);
+  assert.match(markdown, /\| merge_blocked_runtime_ac \| 1 \|/);
 });
 
 test('buildMarkdownSummary includes non-zero statuses and artifact name', () => {
