@@ -217,34 +217,87 @@ def test_evaluate_pr_multiple_falls_back_when_no_clients(monkeypatch) -> None:
     assert len(results) == 1
     assert results[0].used_llm is False
     assert results[0].verdict == "CONCERNS"
-    assert "unverified" in (results[0].error or "")
+    assert results[0].scores is None
+    error = results[0].error or ""
+    assert "unverified" in error
+    assert "cross-family" in error
+    assert "available families: none" in error
 
 
-def test_evaluate_pr_multiple_blocks_same_family_only(monkeypatch) -> None:
+def _assert_same_family_compare_blocked(
+    results: list[pr_verifier.EvaluationResult],
+    calls: list[str],
+    *,
+    family_label: str,
+) -> None:
+    assert calls == []
+    assert len(results) == 1
+    assert results[0].used_llm is False
+    assert results[0].verdict == "CONCERNS"
+    assert results[0].scores is None
+    error = results[0].error or ""
+    assert "unverified" in error
+    assert "cross-family" in error
+    assert f"available families: {family_label}" in error
+
+
+def _run_compare_with_clients(
+    monkeypatch,
+    clients: list[tuple[str, str, str]],
+) -> tuple[list[pr_verifier.EvaluationResult], list[str]]:
     calls: list[str] = []
-    clients = [
-        (FakeClient("first", calls), "openai/gpt-5.4", "gpt-5.4"),
-        (FakeClient("second", calls), "openai/gpt-5.5", "gpt-5.5"),
+    wired_clients = [
+        (FakeClient(name, calls), provider, model) for name, provider, model in clients
     ]
     runner = pr_verifier.ComparisonRunner(
         context="context",
         diff=None,
         prompt="prompt",
-        clients=clients,
+        clients=wired_clients,
     )
     monkeypatch.setattr(
         pr_verifier.ComparisonRunner,
         "from_environment",
         lambda context, diff, model1=None, model2=None: runner,
     )
-
     results = pr_verifier.evaluate_pr_multiple("context")
+    return results, calls
 
-    assert calls == []
-    assert len(results) == 1
-    assert results[0].used_llm is False
-    assert results[0].verdict == "CONCERNS"
-    assert "unverified" in (results[0].error or "")
+
+def test_evaluate_pr_multiple_blocks_same_family_only(monkeypatch) -> None:
+    results, calls = _run_compare_with_clients(
+        monkeypatch,
+        [
+            ("first", "openai/gpt-5.4", "gpt-5.4"),
+            ("second", "openai/gpt-5.5", "gpt-5.5"),
+        ],
+    )
+
+    _assert_same_family_compare_blocked(results, calls, family_label="openai")
+
+
+def test_evaluate_pr_multiple_blocks_anthropic_same_family(monkeypatch) -> None:
+    results, calls = _run_compare_with_clients(
+        monkeypatch,
+        [
+            ("first", "anthropic/claude-3-5-sonnet", "claude-3-5-sonnet"),
+            ("second", "claude/claude-3-opus", "claude-3-opus"),
+        ],
+    )
+
+    _assert_same_family_compare_blocked(results, calls, family_label="anthropic")
+
+
+def test_evaluate_pr_multiple_blocks_github_models_same_family(monkeypatch) -> None:
+    results, calls = _run_compare_with_clients(
+        monkeypatch,
+        [
+            ("first", "github-models/gpt-4o", "gpt-4o"),
+            ("second", "github-models/azure-openai", "azure-openai"),
+        ],
+    )
+
+    _assert_same_family_compare_blocked(results, calls, family_label="github-models")
 
 
 # Tests for refactored client selection helpers
