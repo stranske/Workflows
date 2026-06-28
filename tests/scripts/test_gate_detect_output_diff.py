@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -147,6 +149,41 @@ def test_compare_detect_outputs_rejects_malformed_workflow_shapes(
 
     with pytest.raises(ValueError, match=message):
         diff.compare_gate_detect_outputs(candidate, baseline)
+
+
+def test_cli_exits_nonzero_and_reports_invalid_step_output_references(tmp_path: Path) -> None:
+    baseline = _write(
+        tmp_path / "baseline.yml",
+        _minimal_detect_workflow("""
+      doc_only: ${{ steps.classify.outputs.doc_only }}
+"""),
+    )
+    candidate = _write(
+        tmp_path / "candidate.yml",
+        _minimal_detect_workflow("""
+      doc_only: ${{ steps.classify.outputs.doc_only }}
+      affected_consumers: ${{ steps.path_classifier.outputs.affected_consumers }}
+"""),
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/gate_detect_output_diff.py",
+            "--candidate",
+            str(candidate),
+            "--baseline",
+            str(baseline),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    report = json.loads(result.stdout)
+    assert report["invalid_step_output_references"] == {"affected_consumers": ["path_classifier"]}
 
 
 def test_main_preserves_json_report_shape_for_invalid_refs(
