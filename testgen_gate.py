@@ -16,7 +16,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
 TEST_FILES = [
-    REPO_ROOT / "tests" / "scripts" / "test_validate_dependency_test_setup.py",
+    REPO_ROOT / "tests" / "scripts" / "test_repo_review_round1_schema.py",
 ]
 
 
