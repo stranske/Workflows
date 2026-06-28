@@ -1,4 +1,5 @@
 import pathlib
+import re
 
 import yaml
 
@@ -123,6 +124,16 @@ def test_health_44_pull_requests_do_not_use_repo_variable_fingerprints():
     assert "pull-request-no-repo-variable" in source
     assert "--storage repo-variable" in source
     assert source.index("pull-request-no-repo-variable") < source.index("--storage repo-variable")
+
+
+def test_health_53_scorecard_uses_existing_semver_action_ref():
+    workflow = WORKFLOW_DIR / "health-53-scorecard.yml"
+    data = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+    uses = [step["uses"] for step in data["jobs"]["scorecard"]["steps"] if "uses" in step]
+    scorecard_refs = [action for action in uses if action.startswith("ossf/scorecard-action@")]
+
+    assert len(scorecard_refs) == 1
+    assert re.fullmatch(r"ossf/scorecard-action@v\d+\.\d+\.\d+", scorecard_refs[0])
 
 
 def test_maint_83_bootstrap_uses_published_action_versions():
