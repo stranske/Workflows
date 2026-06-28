@@ -33,9 +33,7 @@ def test_render_integration_repo_materializes_nested_files_with_explicit_ref(
     rendered_path = render_integration_repo(destination, workflow_ref=workflow_ref)
 
     assert rendered_path == destination
-    workflow = (destination / ".github" / "workflows" / "ci.yml").read_text(
-        encoding="utf-8"
-    )
+    workflow = (destination / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     guide = (destination / "docs" / "nested" / "guide.md").read_text(encoding="utf-8")
     assert WORKFLOW_PLACEHOLDER not in workflow
     assert WORKFLOW_PLACEHOLDER not in guide
@@ -54,9 +52,7 @@ def test_render_integration_repo_uses_default_workflow_ref(
 
     render_integration_repo(destination)
 
-    workflow = (destination / ".github" / "workflows" / "ci.yml").read_text(
-        encoding="utf-8"
-    )
+    workflow = (destination / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert integration_repo.DEFAULT_WORKFLOW_REF in workflow
 
 
