@@ -11,6 +11,8 @@ from typing import Any
 import yaml
 
 WORKFLOW_PATH = pathlib.Path(".github/workflows/agents-72-codex-belt-worker.yml")
+REST_CALL_RE = re.compile(r"github\.rest\.")
+PAGINATE_RE = re.compile(r"github\.paginate\b")
 
 
 def _normalise_keys(node: Any) -> Any:
@@ -45,32 +47,47 @@ def _iter_job_scripts(workflow: dict[str, Any]) -> list[tuple[str, str]]:
     return scripts
 
 
-def _rest_calls_missing_retry(script: str, step_name: str) -> list[str]:
+def _line_number(script: str, offset: int) -> int:
+    return script[:offset].count("\n") + 1
+
+
+def _format_step_location(step_name: str, line: int) -> str:
+    return f"{step_name} line {line}"
+
+
+def _detect_retry_loops(script: str, step_name: str) -> list[str]:
     failures: list[str] = []
-    for match in re.finditer(r"github\.rest\.", script):
+    for match in REST_CALL_RE.finditer(script):
         window_start = max(0, match.start() - 250)
         window = script[window_start : match.start()]
         if "withRetry" not in window:
-            line = script[: match.start()].count("\n") + 1
-            failures.append(f"{step_name} line {line}")
+            failures.append(_format_step_location(step_name, _line_number(script, match.start())))
     return failures
+
+
+def _rest_calls_missing_retry(script: str, step_name: str) -> list[str]:
+    return _detect_retry_loops(script, step_name)
 
 
 def _paginate_usages(script: str, step_name: str) -> list[str]:
     failures: list[str] = []
-    for match in re.finditer(r"github\.paginate\b", script):
-        line = script[: match.start()].count("\n") + 1
-        failures.append(f"{step_name} line {line}")
+    for match in PAGINATE_RE.finditer(script):
+        failures.append(_format_step_location(step_name, _line_number(script, match.start())))
     return failures
+
+
+def _scan_scripts(workflow: dict[str, Any]) -> tuple[list[str], list[str]]:
+    rest_failures: list[str] = []
+    paginate_failures: list[str] = []
+    for step_name, script in _iter_job_scripts(workflow):
+        rest_failures.extend(_detect_retry_loops(script, step_name))
+        paginate_failures.extend(_paginate_usages(script, step_name))
+    return rest_failures, paginate_failures
 
 
 def build_comment(workflow_path: pathlib.Path, include_label: bool = False) -> str:
     workflow = _load_workflow(workflow_path)
-    rest_failures: list[str] = []
-    paginate_failures: list[str] = []
-    for step_name, script in _iter_job_scripts(workflow):
-        rest_failures.extend(_rest_calls_missing_retry(script, step_name))
-        paginate_failures.extend(_paginate_usages(script, step_name))
+    rest_failures, paginate_failures = _scan_scripts(workflow)
 
     lines: list[str] = []
     if include_label:
