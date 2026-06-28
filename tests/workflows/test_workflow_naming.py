@@ -126,6 +126,24 @@ def test_health_44_pull_requests_do_not_use_repo_variable_fingerprints():
     assert source.index("pull-request-no-repo-variable") < source.index("--storage repo-variable")
 
 
+def test_health_40_sweep_permissions_cover_called_branch_protection_workflow():
+    sweep = yaml.safe_load((WORKFLOW_DIR / "health-40-sweep.yml").read_text(encoding="utf-8"))
+    branch_protection = yaml.safe_load(
+        (WORKFLOW_DIR / "health-44-gate-branch-protection.yml").read_text(encoding="utf-8")
+    )
+    permission_levels = {"none": 0, "read": 1, "write": 2}
+    branch_protection_job = sweep["jobs"]["branch-protection-verify"]
+    caller_permissions = branch_protection_job.get("permissions") or sweep.get("permissions") or {}
+    called_permissions = branch_protection.get("permissions") or {}
+
+    for scope, requested in called_permissions.items():
+        available = caller_permissions.get(scope, "none")
+        assert permission_levels[available] >= permission_levels[requested], (
+            "Health 40 Sweep calls Health 44 as a reusable workflow, so its effective "
+            f"`{scope}` permission must be at least `{requested}`; found `{available}`."
+        )
+
+
 def test_health_53_scorecard_uses_existing_semver_action_ref():
     workflow = WORKFLOW_DIR / "health-53-scorecard.yml"
     data = yaml.safe_load(workflow.read_text(encoding="utf-8"))
