@@ -77,6 +77,49 @@ def test_format_markdown_table_alignment_and_escaping() -> None:
     )
 
 
+def test_normalize_markdown_cell_escapes_cells() -> None:
+    assert metrics_format_utils._normalize_markdown_cell(None) == ""
+    assert metrics_format_utils._normalize_markdown_cell("alpha|beta") == r"alpha\|beta"
+    assert metrics_format_utils._normalize_markdown_cell("line1\nline2") == "line1<br>line2"
+    assert (
+        metrics_format_utils._normalize_markdown_cell("alpha|beta\nline2")
+        == r"alpha\|beta<br>line2"
+    )
+
+
+def test_alignment_marker_accepts_supported_markers() -> None:
+    assert metrics_format_utils._alignment_marker("left") == "---"
+    assert metrics_format_utils._alignment_marker(" L ") == "---"
+    assert metrics_format_utils._alignment_marker("center") == ":---:"
+    assert metrics_format_utils._alignment_marker("c") == ":---:"
+    assert metrics_format_utils._alignment_marker("right") == "---:"
+    assert metrics_format_utils._alignment_marker("R") == "---:"
+
+
+def test_alignment_marker_rejects_unknown_marker() -> None:
+    try:
+        metrics_format_utils._alignment_marker("wide")
+    except ValueError as exc:
+        assert "Unsupported alignment" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for unsupported alignment")
+
+
+def test_format_markdown_table_allows_empty_rows() -> None:
+    table = metrics_format_utils.format_markdown_table(
+        ["Metric", "Value"],
+        [],
+        alignments=["left", "right"],
+    )
+
+    assert table == "\n".join(
+        [
+            "| Metric | Value |",
+            "| --- | ---: |",
+        ]
+    )
+
+
 def test_format_markdown_table_rejects_bad_rows() -> None:
     try:
         metrics_format_utils.format_markdown_table(["A", "B"], [["only-one"]])
@@ -84,3 +127,8 @@ def test_format_markdown_table_rejects_bad_rows() -> None:
         assert "Row length" in str(exc)
     else:
         raise AssertionError("Expected ValueError for mismatched row length")
+
+
+def test_ascii_sparkline_handles_constant_series() -> None:
+    assert metrics_format_utils.ascii_sparkline([4, 4, 4, 4]) == "...."
+    assert metrics_format_utils.ascii_sparkline([2.5, 2.5], steps="xyz") == "xx"

@@ -4,6 +4,8 @@
 This module provides helper functions for formatting metrics output.
 """
 
+from collections.abc import Sequence
+
 
 def format_percentage(value: float, decimals: int = 1) -> str:
     """Format a float as a percentage string."""
@@ -56,6 +58,32 @@ def _alignment_marker(alignment: str) -> str:
     raise ValueError(f"Unsupported alignment: {alignment}")
 
 
+def _normalize_markdown_cells(values: Sequence[object]) -> list[str]:
+    """Normalize a sequence of values for Markdown table cells."""
+    return [_normalize_markdown_cell(value) for value in values]
+
+
+def _format_markdown_row(cells: Sequence[str]) -> str:
+    """Render normalized cells as one Markdown table row."""
+    return f"| {' | '.join(cells)} |"
+
+
+def _sparkline_index(
+    value: float,
+    min_value: float,
+    span: float,
+    max_index: int,
+) -> int:
+    """Return the bounded step index for one sparkline value."""
+    normalized = (value - min_value) / span
+    index = int(normalized * max_index)
+    if index < 0:
+        return 0
+    if index > max_index:
+        return max_index
+    return index
+
+
 def format_markdown_table(
     headers: list[str],
     rows: list[list[object]],
@@ -70,19 +98,19 @@ def format_markdown_table(
     if len(alignments) != column_count:
         raise ValueError("Alignment list must match header length.")
 
-    header_cells = [_normalize_markdown_cell(header) for header in headers]
+    header_cells = _normalize_markdown_cells(headers)
     alignment_cells = [_alignment_marker(alignment) for alignment in alignments]
 
     lines = [
-        f"| {' | '.join(header_cells)} |",
-        f"| {' | '.join(alignment_cells)} |",
+        _format_markdown_row(header_cells),
+        _format_markdown_row(alignment_cells),
     ]
 
     for row in rows:
         if len(row) != column_count:
             raise ValueError("Row length must match header length.")
-        row_cells = [_normalize_markdown_cell(cell) for cell in row]
-        lines.append(f"| {' | '.join(row_cells)} |")
+        row_cells = _normalize_markdown_cells(row)
+        lines.append(_format_markdown_row(row_cells))
 
     return "\n".join(lines)
 
@@ -99,11 +127,6 @@ def ascii_sparkline(series: list[float], steps: str = ".:-=+*#%@") -> str:
     max_index = len(steps) - 1
     chars: list[str] = []
     for value in series:
-        normalized = (value - min_value) / span
-        index = int(normalized * max_index)
-        if index < 0:
-            index = 0
-        elif index > max_index:
-            index = max_index
+        index = _sparkline_index(value, min_value, span, max_index)
         chars.append(steps[index])
     return "".join(chars)
