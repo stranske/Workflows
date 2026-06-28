@@ -33,9 +33,7 @@ def test_extract_report_metadata_handles_missing_and_malformed_reports() -> None
         "should_post": False,
     }
     assert (
-        autofix_comment.render_status_line(
-            {"changed": "off", "classification": "not-a-dict"}
-        )
+        autofix_comment.render_status_line({"changed": "off", "classification": "not-a-dict"})
         == "Status | \u2705 no new diagnostics"
     )
 
