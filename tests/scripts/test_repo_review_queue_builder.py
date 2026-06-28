@@ -5,13 +5,25 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.repo_review_queue_builder import build_queue
+from scripts.repo_review_queue_builder import (
+    build_queue,
+    is_uploadable_body,
+    labels_for,
+)
 from scripts.repo_review_scorecard import SCHEMA
 
 
-def _write_converged(round2_dir: Path, repo: str, title: str) -> None:
+def _write_converged(
+    round2_dir: Path,
+    repo: str,
+    title: str,
+    body: str | None = None,
+    priority: str = "normal",
+    meta_candidate: dict[str, object] | None = None,
+) -> None:
     safe = repo.replace("/", "__")
-    body = """## Why
+    if body is None:
+        body = """## Why
 
 Travel-Plan-Permission needs CI to execute the LangGraph path so orchestration coverage cannot pass by skipping the graph.
 
@@ -44,21 +56,26 @@ Relevant files: `pyproject.toml`, `.github/workflows/ci.yml`, `src/travel_plan_p
 """
     path = round2_dir / safe / "converged.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
+    data: dict[str, object] = {
+        "converged_candidates": [
             {
-                "converged_candidates": [
-                    {
-                        "title": title,
-                        "body": body,
-                        "priority": "normal",
-                    }
-                ]
+                "title": title,
+                "body": body,
+                "priority": priority,
             }
-        )
-        + "\n",
+        ]
+    }
+    if meta_candidate:
+        data["meta_candidate"] = meta_candidate
+    path.write_text(
+        json.dumps(data) + "\n",
         encoding="utf-8",
     )
+
+
+def _valid_body() -> str:
+    """Return a minimal valid body that passes is_uploadable_body checks."""
+    return "## Why\n\nReason.\n\n## Tasks\n\n- [ ] Task one"
 
 
 def _sample_scorecard_scan() -> dict[str, object]:
@@ -179,3 +196,481 @@ def test_build_queue_skips_unapproved_scorecard_findings(tmp_path: Path) -> None
 
     assert result["issues"] == []
     assert any("scorecard" in skipped["reason"] for skipped in result["skipped"])
+
+
+# =============================================================================
+# Priority normalization tests for labels_for()
+# =============================================================================
+
+
+def test_labels_for_normal_priority() -> None:
+    c = {"priority": "normal"}
+    labels = labels_for(c, is_meta=False)
+    assert labels == ["repo-review-approved", "priority:normal"]
+
+
+def test_labels_for_high_priority() -> None:
+    c = {"priority": "high"}
+    labels = labels_for(c, is_meta=False)
+    assert labels == ["repo-review-approved", "priority:high"]
+
+
+def test_labels_for_low_priority() -> None:
+    c = {"priority": "low"}
+    labels = labels_for(c, is_meta=False)
+    assert labels == ["repo-review-approved", "priority:low"]
+
+
+def test_labels_for_unexpected_priority_normalizes_to_normal() -> None:
+    c = {"priority": "critical"}
+    labels = labels_for(c, is_meta=False)
+    assert labels == ["repo-review-approved", "priority:normal"]
+
+
+def test_labels_for_empty_priority_normalizes_to_normal() -> None:
+    c = {}
+    labels = labels_for(c, is_meta=False)
+    assert labels == ["repo-review-approved", "priority:normal"]
+
+
+def test_labels_for_meta_candidate() -> None:
+    c = {"priority": "high"}
+    labels = labels_for(c, is_meta=True)
+    assert labels == ["repo-review-approved", "priority:high", "repo-review-meta-audit"]
+
+
+# =============================================================================
+# is_uploadable_body tests
+# =============================================================================
+
+
+def test_is_uploadable_body_valid() -> None:
+    ok, why = is_uploadable_body("## Why\n\nReason.\n\n## Tasks\n\n- [ ] Task")
+    assert ok is True
+    assert why == ""
+
+
+def test_is_uploadable_body_empty() -> None:
+    ok, why = is_uploadable_body(None)
+    assert ok is False
+    assert why == "empty body"
+
+
+def test_is_uploadable_body_empty_string() -> None:
+    ok, why = is_uploadable_body("")
+    assert ok is False
+    assert why == "empty body"
+
+
+def test_is_uploadable_body_insufficient_evidence() -> None:
+    ok, why = is_uploadable_body("INSUFFICIENT_EVIDENCE: need more info")
+    assert ok is False
+    assert why == "INSUFFICIENT_EVIDENCE marker"
+
+
+def test_is_uploadable_body_missing_why() -> None:
+    ok, why = is_uploadable_body("## Tasks\n\n- [ ] Task")
+    assert ok is False
+    assert why == "missing required sections"
+
+
+def test_is_uploadable_body_missing_tasks() -> None:
+    ok, why = is_uploadable_body("## Why\n\nReason.")
+    assert ok is False
+    assert why == "missing required sections"
+
+
+# =============================================================================
+# Decision routing tests for build_queue
+# =============================================================================
+
+
+def test_decision_approve_includes_candidate(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body())
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "approve"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["repo"] == repo
+    assert result["issues"][0]["title"] == "Test issue"
+    assert result["skipped"] == []
+
+
+def test_decision_revise_includes_candidate(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body())
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "revise"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["repo"] == repo
+
+
+def test_decision_defer_skips_repo(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body())
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "defer"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    assert result["issues"] == []
+    assert any(
+        skipped["repo"] == repo and skipped["reason"] == "decision=defer"
+        for skipped in result["skipped"]
+    )
+
+
+def test_decision_no_new_work_accept_skips_repo(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body())
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "no_new_work_accept"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    assert result["issues"] == []
+    assert any(
+        skipped["repo"] == repo and skipped["reason"] == "decision=no_new_work_accept"
+        for skipped in result["skipped"]
+    )
+
+
+def test_decision_unhandled_skips_repo(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body())
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "unknown_decision"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    assert result["issues"] == []
+    assert any(
+        skipped["repo"] == repo and skipped["reason"] == "unhandled decision=unknown_decision"
+        for skipped in result["skipped"]
+    )
+
+
+def test_decision_compound_revise_pipe_approve(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body())
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "revise|deeper-review"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["repo"] == repo
+
+
+# =============================================================================
+# Candidate skip tests (empty body, INSUFFICIENT_EVIDENCE)
+# =============================================================================
+
+
+def test_empty_body_candidate_skipped(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    safe = repo.replace("/", "__")
+    path = round2_dir / safe / "converged.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {"converged_candidates": [{"title": "Test issue", "body": None, "priority": "normal"}]}
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "approve"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    assert result["issues"] == []
+    assert any(
+        skipped["repo"] == repo
+        and skipped["reason"] == "empty body"
+        and skipped.get("candidate_index") == "0"
+        for skipped in result["skipped"]
+    )
+
+
+def test_insufficient_evidence_candidate_skipped(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    _write_converged(round2_dir, repo, "Test issue", body="INSUFFICIENT_EVIDENCE: need more data")
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "approve"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    assert result["issues"] == []
+    assert any(
+        skipped["repo"] == repo
+        and skipped["reason"] == "INSUFFICIENT_EVIDENCE marker"
+        and skipped.get("candidate_index") == "0"
+        for skipped in result["skipped"]
+    )
+
+
+def test_mixed_valid_and_invalid_candidates(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+
+    safe = repo.replace("/", "__")
+    path = round2_dir / safe / "converged.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "converged_candidates": [
+                    {"title": "Valid issue", "body": _valid_body(), "priority": "normal"},
+                    {"title": "Empty body", "body": None, "priority": "normal"},
+                    {
+                        "title": "Insufficient",
+                        "body": "INSUFFICIENT_EVIDENCE: stub",
+                        "priority": "normal",
+                    },
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "approve"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    assert len(result["issues"]) == 1
+    assert result["issues"][0]["title"] == "Valid issue"
+    skipped_reasons = {skipped["reason"] for skipped in result["skipped"]}
+    assert "empty body" in skipped_reasons
+    assert "INSUFFICIENT_EVIDENCE marker" in skipped_reasons
+
+
+# =============================================================================
+# Meta candidate tests (include_meta_candidate)
+# =============================================================================
+
+
+def test_include_meta_candidate_valid(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    meta = {"title": "Meta audit", "body": _valid_body(), "priority": "high"}
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body(), meta_candidate=meta)
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "approve", "include_meta_candidate": True}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    issue_titles = {item["title"] for item in result["issues"]}
+    assert "Test issue" in issue_titles
+    assert "Meta audit" in issue_titles
+    meta_issue = next(item for item in result["issues"] if item["title"] == "Meta audit")
+    assert "repo-review-meta-audit" in meta_issue["labels"]
+
+
+def test_include_meta_candidate_invalid_body_skipped(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    meta = {"title": "Meta audit", "body": None, "priority": "high"}
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body(), meta_candidate=meta)
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "approve", "include_meta_candidate": True}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    issue_titles = {item["title"] for item in result["issues"]}
+    assert "Test issue" in issue_titles
+    assert "Meta audit" not in issue_titles
+    assert any(
+        skipped["repo"] == repo
+        and skipped.get("candidate_index") == "meta"
+        and skipped["reason"] == "empty body"
+        for skipped in result["skipped"]
+    )
+
+
+def test_include_meta_candidate_false_excludes_meta(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    meta = {"title": "Meta audit", "body": _valid_body(), "priority": "high"}
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body(), meta_candidate=meta)
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "approve", "include_meta_candidate": False}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    issue_titles = {item["title"] for item in result["issues"]}
+    assert "Test issue" in issue_titles
+    assert "Meta audit" not in issue_titles
+
+
+def test_include_meta_candidate_not_specified_excludes_meta(tmp_path: Path) -> None:
+    output_dir = tmp_path / "repo-review"
+    round2_dir = output_dir / "round2"
+    output_dir.mkdir(parents=True)
+    round2_dir.mkdir(parents=True)
+    repo = "stranske/Test-Repo"
+    meta = {"title": "Meta audit", "body": _valid_body(), "priority": "high"}
+    _write_converged(round2_dir, repo, "Test issue", body=_valid_body(), meta_candidate=meta)
+
+    feedback_path = tmp_path / "feedback.json"
+    feedback_path.write_text(
+        json.dumps({"decisions": {repo: {"decision": "approve"}}}),
+        encoding="utf-8",
+    )
+    (output_dir / "scorecard-scan.json").write_text(
+        json.dumps({"schema": SCHEMA, "by_repo": []}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_queue(round2_dir, feedback_path)
+
+    issue_titles = {item["title"] for item in result["issues"]}
+    assert "Test issue" in issue_titles
+    assert "Meta audit" not in issue_titles
