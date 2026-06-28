@@ -7,9 +7,15 @@ in test failures that may indicate flaky tests or infrastructure issues.
 import json
 import re
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+# Python 3.11+ has datetime.UTC, but we need to support 3.9+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc  # noqa: UP017 - fallback for Python < 3.11
 
 # Common failure pattern signatures
 FLAKY_PATTERNS = [
@@ -145,6 +151,70 @@ def identify_flaky_tests(
     return flaky_tests
 
 
+def format_text_summary(aggregated: dict[str, int]) -> list[str]:
+    """Format summary section for text output.
+
+    Args:
+        aggregated: Dictionary mapping classification to count
+
+    Returns:
+        List of text lines for the summary section
+    """
+    lines = ["Summary:"]
+    for classification, count in sorted(aggregated.items()):
+        lines.append(f"  {classification}: {count}")
+    return lines
+
+
+def format_text_flaky_tests(flaky: list[str]) -> list[str]:
+    """Format flaky tests section for text output.
+
+    Args:
+        flaky: List of flaky test names
+
+    Returns:
+        List of text lines for the flaky tests section
+    """
+    if not flaky:
+        return []
+    lines = ["Flaky Tests:"]
+    for test in flaky:
+        lines.append(f"  - {test}")
+    return lines
+
+
+def format_markdown_summary(aggregated: dict[str, int]) -> list[str]:
+    """Format summary section for markdown output.
+
+    Args:
+        aggregated: Dictionary mapping classification to count
+
+    Returns:
+        List of markdown lines for the summary section
+    """
+    lines = ["## Summary", ""]
+    for classification, count in sorted(aggregated.items()):
+        lines.append(f"- **{classification}**: {count}")
+    return lines
+
+
+def format_markdown_flaky_tests(flaky: list[str]) -> list[str]:
+    """Format flaky tests section for markdown output.
+
+    Args:
+        flaky: List of flaky test names
+
+    Returns:
+        List of markdown lines for the flaky tests section
+    """
+    if not flaky:
+        return []
+    lines = ["## Flaky Tests", ""]
+    for test in flaky:
+        lines.append(f"- `{test}`")
+    return lines
+
+
 def generate_failure_report(
     failures: list[dict[str, Any]],
     output_format: str = "text",
@@ -166,30 +236,20 @@ def generate_failure_report(
 
     if output_format == "markdown":
         lines = ["# CI Failure Report", ""]
-        lines.append("## Summary")
+        lines.extend(format_markdown_summary(aggregated))
         lines.append("")
-        for classification, count in sorted(aggregated.items()):
-            lines.append(f"- **{classification}**: {count}")
-        lines.append("")
-
-        if flaky:
-            lines.append("## Flaky Tests")
-            lines.append("")
-            for test in flaky:
-                lines.append(f"- `{test}`")
+        flaky_lines = format_markdown_flaky_tests(flaky)
+        if flaky_lines:
+            lines.extend(flaky_lines)
         return "\n".join(lines)
     else:
         lines = ["CI Failure Report", "=" * 40]
         lines.append("")
-        lines.append("Summary:")
-        for classification, count in sorted(aggregated.items()):
-            lines.append(f"  {classification}: {count}")
+        lines.extend(format_text_summary(aggregated))
         lines.append("")
-
-        if flaky:
-            lines.append("Flaky Tests:")
-            for test in flaky:
-                lines.append(f"  - {test}")
+        flaky_lines = format_text_flaky_tests(flaky)
+        if flaky_lines:
+            lines.extend(flaky_lines)
         return "\n".join(lines)
 
 
