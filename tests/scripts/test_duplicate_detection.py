@@ -532,3 +532,269 @@ class TestCheckIssueForNoDuplicate:
         )
 
         assert result is True
+
+
+class TestFindSourceIssue:
+    """Tests for find_source_issue paginated source issue collection."""
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_stops_after_matching_page(self, mock_fetch: MagicMock) -> None:
+        matching_issue = [{"number": 42, "title": "Target issue", "body": "Found it"}]
+        mock_fetch.side_effect = [
+            [{"number": 1, "title": "No match"}],
+            matching_issue,
+        ]
+
+        result = duplicate_detection.find_source_issue(
+            repo="owner/repo",
+            token="fake-token",
+            query="Target",
+            labels=None,
+            pages=5,
+        )
+
+        assert result == duplicate_detection.SourceIssue(
+            number=42, title="Target issue", body="Found it", url=None
+        )
+        assert mock_fetch.call_count == 2
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_stops_on_empty_page(self, mock_fetch: MagicMock) -> None:
+        mock_fetch.side_effect = [
+            [{"number": 1, "title": "No match"}],
+            [],
+        ]
+
+        result = duplicate_detection.find_source_issue(
+            repo="owner/repo",
+            token="fake-token",
+            query="Target",
+            labels=None,
+            pages=5,
+        )
+
+        assert result is None
+        assert mock_fetch.call_count == 2
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_returns_none_when_no_match_in_all_pages(self, mock_fetch: MagicMock) -> None:
+        mock_fetch.return_value = [{"number": 1, "title": "No match"}]
+
+        result = duplicate_detection.find_source_issue(
+            repo="owner/repo",
+            token="fake-token",
+            query="Target",
+            labels=None,
+            pages=3,
+        )
+
+        assert result is None
+        assert mock_fetch.call_count == 3
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_respects_minimum_one_page(self, mock_fetch: MagicMock) -> None:
+        mock_fetch.return_value = [{"number": 1, "title": "No match"}]
+
+        result = duplicate_detection.find_source_issue(
+            repo="owner/repo",
+            token="fake-token",
+            query="Target",
+            labels=None,
+            pages=0,
+        )
+
+        assert result is None
+        assert mock_fetch.call_count == 1
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_passes_retry_kwargs_to_api_client(self, mock_fetch: MagicMock) -> None:
+        mock_fetch.return_value = []
+
+        duplicate_detection.find_source_issue(
+            repo="owner/repo",
+            token="fake-token",
+            query="Target",
+            labels=None,
+            pages=1,
+            retry_attempts=5,
+            retry_backoff=2.0,
+        )
+
+        mock_fetch.assert_called_once()
+        call_kwargs = mock_fetch.call_args.kwargs
+        assert call_kwargs.get("retry_attempts") == 5
+        assert call_kwargs.get("retry_backoff") == 2.0
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_filters_out_pull_requests_and_malformed_during_search(
+        self, mock_fetch: MagicMock
+    ) -> None:
+        mock_fetch.side_effect = [
+            [
+                {"number": 1, "title": "PR match", "pull_request": {}},
+                {"number": "bad", "title": "Malformed"},
+                {"number": 2, "title": "No match"},
+            ],
+            [{"number": 3, "title": "Target match"}],
+        ]
+
+        result = duplicate_detection.find_source_issue(
+            repo="owner/repo",
+            token="fake-token",
+            query="Target",
+            labels=None,
+            pages=2,
+        )
+
+        assert result == duplicate_detection.SourceIssue(
+            number=3, title="Target match", body=None, url=None
+        )
+        assert mock_fetch.call_count == 2
+
+
+class TestCollectMatchingIssues:
+    """Tests for collect_matching_issues paginated collection."""
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_collects_across_pages_until_limit(self, mock_fetch: MagicMock) -> None:
+        page1 = [
+            {"number": 1, "title": "Match alpha", "body": "alpha"},
+            {"number": 2, "title": "Match beta", "body": "beta"},
+        ]
+        page2 = [
+            {"number": 3, "title": "Match gamma", "body": "gamma"},
+            {"number": 4, "title": "No match", "body": "nope"},
+        ]
+        mock_fetch.side_effect = [page1, page2]
+
+        result = duplicate_detection.collect_matching_issues(
+            repo="owner/repo",
+            token="fake-token",
+            query="Match",
+            labels=None,
+            pages=5,
+            limit=3,
+        )
+
+        assert len(result) == 3
+        assert [r.number for r in result] == [1, 2, 3]
+        assert mock_fetch.call_count == 2
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_honors_limit_exactly(self, mock_fetch: MagicMock) -> None:
+        page1 = [
+            {"number": 1, "title": "Match alpha"},
+            {"number": 2, "title": "Match beta"},
+            {"number": 3, "title": "Match gamma"},
+        ]
+        mock_fetch.return_value = page1
+
+        result = duplicate_detection.collect_matching_issues(
+            repo="owner/repo",
+            token="fake-token",
+            query="Match",
+            labels=None,
+            pages=1,
+            limit=2,
+        )
+
+        assert len(result) == 2
+        assert [r.number for r in result] == [1, 2]
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_stops_on_empty_page(self, mock_fetch: MagicMock) -> None:
+        mock_fetch.side_effect = [
+            [{"number": 1, "title": "Match alpha"}],
+            [],
+        ]
+
+        result = duplicate_detection.collect_matching_issues(
+            repo="owner/repo",
+            token="fake-token",
+            query="Match",
+            labels=None,
+            pages=5,
+        )
+
+        assert len(result) == 1
+        assert result[0].number == 1
+        assert mock_fetch.call_count == 2
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_collects_all_matches_without_limit(self, mock_fetch: MagicMock) -> None:
+        page1 = [{"number": 1, "title": "Match alpha"}]
+        page2 = [{"number": 2, "title": "Match beta"}]
+        page3 = [{"number": 3, "title": "Something else"}]
+        mock_fetch.side_effect = [page1, page2, page3]
+
+        result = duplicate_detection.collect_matching_issues(
+            repo="owner/repo",
+            token="fake-token",
+            query="Match",
+            labels=None,
+            pages=3,
+            limit=None,
+        )
+
+        assert len(result) == 2
+        assert [r.number for r in result] == [1, 2]
+        assert mock_fetch.call_count == 3
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_respects_minimum_one_page(self, mock_fetch: MagicMock) -> None:
+        mock_fetch.return_value = []
+
+        result = duplicate_detection.collect_matching_issues(
+            repo="owner/repo",
+            token="fake-token",
+            query="Match",
+            labels=None,
+            pages=0,
+        )
+
+        assert result == []
+        assert mock_fetch.call_count == 1
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_passes_retry_kwargs_to_api_client(self, mock_fetch: MagicMock) -> None:
+        mock_fetch.return_value = []
+
+        duplicate_detection.collect_matching_issues(
+            repo="owner/repo",
+            token="fake-token",
+            query="Match",
+            labels=None,
+            pages=1,
+            limit=10,
+            retry_attempts=5,
+            retry_backoff=2.0,
+        )
+
+        mock_fetch.assert_called_once()
+        call_kwargs = mock_fetch.call_args.kwargs
+        assert call_kwargs.get("retry_attempts") == 5
+        assert call_kwargs.get("retry_backoff") == 2.0
+
+    @patch("scripts.api_client.fetch_issues")
+    def test_filters_out_pull_requests_and_malformed_during_collection(
+        self, mock_fetch: MagicMock
+    ) -> None:
+        mock_fetch.return_value = [
+            {"number": 1, "title": "Valid match", "body": "good"},
+            {"number": 2, "title": "PR match", "pull_request": {}},
+            {"number": "bad", "title": "Malformed match"},
+            {"number": 3, "title": "Another match", "body": "also good"},
+            {"number": 4, "title": "PR also", "pull_request": {"url": "..."}},
+            {"number": "also_bad", "title": "Another malformed"},
+        ]
+
+        result = duplicate_detection.collect_matching_issues(
+            repo="owner/repo",
+            token="fake-token",
+            query="match",
+            labels=None,
+            pages=1,
+        )
+
+        assert len(result) == 2
+        assert [r.number for r in result] == [1, 3]
