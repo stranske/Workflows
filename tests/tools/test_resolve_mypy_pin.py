@@ -64,6 +64,36 @@ python_version = "3.10"
     assert resolve_mypy_pin.get_mypy_python_version() == "3.10"
 
 
+def test_get_mypy_python_version_returns_none_with_no_mypy_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_pyproject(
+        tmp_path / "pyproject.toml",
+        """
+[tool.other]
+some_key = "value"
+""",
+    )
+
+    assert resolve_mypy_pin.get_mypy_python_version() is None
+
+
+def test_get_mypy_python_version_returns_none_with_mypy_section_no_python_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_pyproject(
+        tmp_path / "pyproject.toml",
+        """
+[tool.mypy]
+other_key = "value"
+""",
+    )
+
+    assert resolve_mypy_pin.get_mypy_python_version() is None
+
+
 def test_main_writes_github_output_from_pyproject(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -95,3 +125,29 @@ def test_main_defaults_to_matrix_or_fallback(
 
     assert resolve_mypy_pin.main() == 0
     assert output_path.read_text(encoding="utf-8") == "python-version=3.9\n"
+
+
+def test_main_local_print_fallback_with_matrix_python_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setenv("MATRIX_PYTHON_VERSION", "3.11")
+
+    assert resolve_mypy_pin.main() == 0
+    captured = capsys.readouterr()
+    assert "python-version=3.11" in captured.out
+
+
+def test_main_local_print_fallback_without_matrix_python_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.delenv("MATRIX_PYTHON_VERSION", raising=False)
+
+    assert resolve_mypy_pin.main() == 0
+    captured = capsys.readouterr()
+    assert "python-version=3.12" in captured.out
