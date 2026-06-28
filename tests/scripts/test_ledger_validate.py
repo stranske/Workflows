@@ -861,3 +861,220 @@ def test_commit_exists_locally(tmp_path: Path, monkeypatch) -> None:
 
     monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_fail)
     assert ledger_validate._commit_exists_locally("deadbeef") is False
+
+
+def test_git_cat_file_type_returns_type(tmp_path: Path, monkeypatch) -> None:
+    """Test raw git operation _git_cat_file_type."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_check_output(args, text=True, stderr=None):
+        return "commit\n"
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+    assert ledger_validate._git_cat_file_type("abc1234") == "commit"
+
+
+def test_git_cat_file_type_returns_none_on_error(tmp_path: Path, monkeypatch) -> None:
+    """Test raw git operation _git_cat_file_type returns None on error."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_fail(args, text=True, stderr=None):
+        raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_fail)
+    assert ledger_validate._git_cat_file_type("deadbeef") is None
+
+
+def test_git_cat_file_batch_check_returns_lines(tmp_path: Path, monkeypatch) -> None:
+    """Test raw git operation _git_cat_file_batch_check."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_run(args, input=None, capture_output=False, text=False, timeout=None, check=False):
+        result = subprocess.CompletedProcess(args, 0)
+        result.stdout = "abc1234 commit\ndeadbeef missing\n"
+        result.stderr = ""
+        return result
+
+    monkeypatch.setattr(ledger_validate.subprocess, "run", fake_run)
+    lines = ledger_validate._git_cat_file_batch_check(["abc1234", "deadbeef"])
+    assert lines == ["abc1234 commit", "deadbeef missing"]
+
+
+def test_git_cat_file_batch_check_returns_none_on_error(tmp_path: Path, monkeypatch) -> None:
+    """Test raw git operation _git_cat_file_batch_check returns None on error."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_fail(args, input=None, capture_output=False, text=False, timeout=None, check=False):
+        raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(ledger_validate.subprocess, "run", fake_fail)
+    assert ledger_validate._git_cat_file_batch_check(["abc1234"]) is None
+
+
+def test_git_show_files_returns_files(tmp_path: Path, monkeypatch) -> None:
+    """Test raw git operation _git_show_files."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_check_output(args, text=True):
+        return "file1.txt\nfile2.txt\n"
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+    assert ledger_validate._git_show_files("abc1234") == ["file1.txt", "file2.txt"]
+
+
+def test_git_show_files_raises_on_error(tmp_path: Path, monkeypatch) -> None:
+    """Test raw git operation _git_show_files raises LedgerError on error."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_fail(args, text=True):
+        raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_fail)
+    with pytest.raises(ledger_validate.LedgerError, match="unknown commit deadbeef"):
+        ledger_validate._git_show_files("deadbeef")
+
+
+def test_git_show_subject_returns_subject(tmp_path: Path, monkeypatch) -> None:
+    """Test raw git operation _git_show_subject."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_check_output(args, text=True):
+        return "fix: subject\n"
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+    assert ledger_validate._git_show_subject("abc1234") == "fix: subject"
+
+
+def test_git_show_subject_raises_on_error(tmp_path: Path, monkeypatch) -> None:
+    """Test raw git operation _git_show_subject raises LedgerError on error."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_fail(args, text=True):
+        raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_fail)
+    with pytest.raises(ledger_validate.LedgerError, match="unknown commit deadbeef"):
+        ledger_validate._git_show_subject("deadbeef")
+
+
+def test_commit_files_cache_hit_returns_cached(tmp_path: Path, monkeypatch) -> None:
+    """Test _commit_files returns cached result on cache hit."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    call_count = {"n": 0}
+
+    def fake_check_output(args, text=True):
+        call_count["n"] += 1
+        return "file.txt\n"
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+
+    # First call populates cache
+    assert ledger_validate._commit_files("abc1234") == ["file.txt"]
+    assert call_count["n"] == 1
+
+    # Second call should use cache
+    assert ledger_validate._commit_files("abc1234") == ["file.txt"]
+    assert call_count["n"] == 1  # No additional call
+
+
+def test_commit_files_cache_miss_fetches_commit(tmp_path: Path, monkeypatch) -> None:
+    """Test _commit_files fetches commit on cache miss."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    call_count = {"n": 0}
+
+    def fake_check_output(args, text=True):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise subprocess.CalledProcessError(1, args)
+        return "file.txt\n"
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+    monkeypatch.setattr(ledger_validate, "_fetch_commit", lambda commit: True)
+
+    # First call fails, fetches, then succeeds
+    assert ledger_validate._commit_files("abc1234") == ["file.txt"]
+    assert call_count["n"] == 2  # First fail, then success after fetch
+
+
+def test_commit_subject_cache_hit_returns_cached(tmp_path: Path, monkeypatch) -> None:
+    """Test _commit_subject returns cached result on cache hit."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    call_count = {"n": 0}
+
+    def fake_check_output(args, text=True):
+        call_count["n"] += 1
+        return "fix: subject\n"
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+
+    # First call populates cache
+    assert ledger_validate._commit_subject("abc1234") == "fix: subject"
+    assert call_count["n"] == 1
+
+    # Second call should use cache
+    assert ledger_validate._commit_subject("abc1234") == "fix: subject"
+    assert call_count["n"] == 1  # No additional call
+
+
+def test_commit_subject_cache_miss_fetches_commit(tmp_path: Path, monkeypatch) -> None:
+    """Test _commit_subject fetches commit on cache miss."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    call_count = {"n": 0}
+
+    def fake_check_output(args, text=True):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise subprocess.CalledProcessError(1, args)
+        return "fix: subject\n"
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+    monkeypatch.setattr(ledger_validate, "_fetch_commit", lambda commit: True)
+
+    # First call fails, fetches, then succeeds
+    assert ledger_validate._commit_subject("abc1234") == "fix: subject"
+    assert call_count["n"] == 2  # First fail, then success after fetch
+
+
+def test_fetch_commit_cache_hit_returns_cached(tmp_path: Path, monkeypatch) -> None:
+    """Test _fetch_commit returns cached result on cache hit."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    call_count = {"n": 0}
+
+    def fake_check_output(args, text=True, stderr=None):
+        call_count["n"] += 1
+        return "commit\n"
+
+    def fake_check_call(args, stdout=None, stderr=None):
+        call_count["n"] += 1
+        return 0
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+    monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
+
+    # First call populates cache
+    assert ledger_validate._fetch_commit("abc1234") is True
+    first_call_count = call_count["n"]
+
+    # Second call should use cache (no additional subprocess calls)
+    assert ledger_validate._fetch_commit("abc1234") is True
+    assert call_count["n"] == first_call_count  # No additional calls
+
+
+def test_fetch_commit_cache_miss_fetches_from_origin(tmp_path: Path, monkeypatch) -> None:
+    """Test _fetch_commit fetches from origin on cache miss."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(ledger_validate, "_commit_exists_locally", lambda _: False)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
+
+    def fake_check_call(args, stdout=None, stderr=None):
+        calls.append(args)
+        return 0
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+
+    assert ledger_validate._fetch_commit("abc1234") is True
+    # Should have tried to fetch from origin
+    assert any("origin" in call and "abc1234" in call for call in calls)
