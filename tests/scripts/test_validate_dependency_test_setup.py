@@ -52,7 +52,7 @@ class TestCheckLockFileCompleteness:
 
         # Create a pyproject.toml without optional-dependencies
         pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text("[project]\nname = \"test\"\n")
+        pyproject.write_text('[project]\nname = "test"\n')
 
         monkeypatch.chdir(tmp_path)
         passed, issues = mod.check_lock_file_completeness()
@@ -343,7 +343,10 @@ def load_and_validate_upload(data):
         passed, issues = mod.check_metadata_serialization()
 
         assert not passed
-        assert any("load_and_validate_upload may not be serializing metadata properly" in issue for issue in issues)
+        assert any(
+            "load_and_validate_upload may not be serializing metadata properly" in issue
+            for issue in issues
+        )
 
     def test_market_data_serializes_metadata(self, tmp_path, monkeypatch) -> None:
         """When market_data.py serializes metadata properly, should pass."""
@@ -382,7 +385,9 @@ def attach_metadata(data):
         passed, issues = mod.check_metadata_serialization()
 
         assert not passed
-        assert any("attach_metadata may not be serializing metadata properly" in issue for issue in issues)
+        assert any(
+            "attach_metadata may not be serializing metadata properly" in issue for issue in issues
+        )
 
     def test_data_schema_serializes_metadata(self, tmp_path, monkeypatch) -> None:
         """When data_schema.py serializes metadata properly, should pass."""
@@ -532,7 +537,7 @@ jobs:
 
         # Create invalid pyproject.toml (no optional-dependencies)
         pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text("[project]\nname = \"test\"\n")
+        pyproject.write_text('[project]\nname = "test"\n')
 
         monkeypatch.chdir(tmp_path)
         result = mod.main()
