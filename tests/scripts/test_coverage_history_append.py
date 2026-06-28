@@ -157,3 +157,148 @@ def test_main_skips_non_dict_record(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
     assert exit_code == 0
     assert not history_path.exists()
+
+
+def test_main_handles_record_without_totals_or_covered_line_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that records missing totals or covered-line data are still processed."""
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+
+    # Minimal record without coverage-specific fields
+    minimal_record = {"run_id": "test-123", "run_number": 1}
+    record_path.write_text(json.dumps(minimal_record), encoding="utf-8")
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    records = _read_ndjson(history_path)
+    assert len(records) == 1
+    assert records[0]["run_id"] == "test-123"
+    assert records[0]["run_number"] == 1
+
+
+def test_main_handles_record_without_run_id_or_run_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that records without run_id or run_number are still appended."""
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+
+    # Record with neither run_id nor run_number
+    record = {"coverage": 80.0, "other_field": "value"}
+    record_path.write_text(json.dumps(record), encoding="utf-8")
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    records = _read_ndjson(history_path)
+    assert len(records) == 1
+    assert records[0]["coverage"] == 80.0
+
+
+def test_main_uses_temporary_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a temporary file is created and used for atomic write."""
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+
+    _write_ndjson(history_path, [{"run_id": 1, "run_number": 1, "coverage": 50.0}])
+    record_path.write_text(
+        json.dumps({"run_id": 2, "run_number": 2, "coverage": 60.0}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    # Verify the tmp file was created and replaced
+    tmp_path_file = history_path.with_suffix(".tmp")
+    assert not tmp_path_file.exists()
+    records = _read_ndjson(history_path)
+    assert len(records) == 2
+
+
+def test_main_message_on_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test that the success message is printed to stdout."""
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+
+    record_path.write_text(
+        json.dumps({"run_id": "abc123", "run_number": 1, "coverage": 75.0}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "[history] appended coverage record run_id=abc123" in captured.out
+    assert str(history_path) in captured.out
+
+
+def test_main_message_on_missing_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test that the missing record message is printed to stderr."""
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "missing.json"
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert f"[history] record file missing: {record_path}" in captured.err
+
+
+def test_main_message_on_invalid_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test that the parse error message is printed to stderr."""
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+    record_path.write_text("not-json", encoding="utf-8")
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "[history] failed to parse record:" in captured.err
+
+
+def test_main_message_on_non_dict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test that the non-dict record message is printed to stderr."""
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+    record_path.write_text(json.dumps(["not-a-dict"]), encoding="utf-8")
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "[history] record must be a JSON object" in captured.err
