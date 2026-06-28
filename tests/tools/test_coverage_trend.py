@@ -24,15 +24,36 @@ def test_load_json_returns_empty_for_non_dict(tmp_path: Path) -> None:
     assert coverage_trend._load_json(path) == {}
 
 
+def test_load_json_returns_dict_payload(tmp_path: Path) -> None:
+    path = tmp_path / "payload.json"
+    payload = {"coverage": 91.25, "metadata": {"source": "unit-test"}}
+    _write_json(path, payload)
+
+    assert coverage_trend._load_json(path) == payload
+
+
 def test_extract_coverage_percent_defaults() -> None:
     assert coverage_trend._extract_coverage_percent({}) == 0.0
     assert coverage_trend._extract_coverage_percent({"totals": {}}) == 0.0
 
 
+def test_extract_coverage_percent_reads_coverage_total() -> None:
+    assert (
+        coverage_trend._extract_coverage_percent({"totals": {"percent_covered": "87.654"}})
+        == 87.654
+    )
+
+
 def test_get_hotspots_handles_missing_fields() -> None:
     coverage_json = {
         "files": {
-            "src/a.py": {"summary": {"percent_covered": 20.0, "missing_lines": 10}},
+            "src/a.py": {
+                "summary": {
+                    "percent_covered": 20.0,
+                    "missing_lines": 10,
+                    "covered_lines": 3,
+                }
+            },
             "src/b.py": {"summary": {"percent_covered": 80.0, "missing_lines": 1}},
             "src/c.py": {"summary": {}},
         }
@@ -44,6 +65,8 @@ def test_get_hotspots_handles_missing_fields() -> None:
 
     assert [spot["file"] for spot in hotspots] == ["src/c.py", "src/a.py"]
     assert [spot["file"] for spot in low_coverage] == ["src/c.py", "src/a.py"]
+    assert hotspots[0]["covered_lines"] == 0
+    assert hotspots[1]["covered_lines"] == 3
 
 
 def test_format_hotspot_table_handles_empty() -> None:
@@ -176,20 +199,30 @@ def test_main_writes_outputs_and_passes(tmp_path: Path) -> None:
     trend = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert trend["current"] == 75.5
     assert trend["baseline"] == 70.0
+    assert trend["delta"] == 5.5
+    assert trend["minimum"] == 70.0
     assert trend["passes_minimum"] is True
+    assert trend["hotspots"] == []
+    assert trend["low_coverage_files"] == []
 
     summary = summary_path.read_text(encoding="utf-8")
     assert "Coverage Trend" in summary
-    assert "75.50%" in summary
+    assert "| Current | 75.50% |" in summary
+    assert "| Delta | +5.50% |" in summary
+    assert "| Status |" in summary
+    assert "Pass |" in summary
 
     job_summary_text = job_summary.read_text(encoding="utf-8")
-    assert "Before" in job_summary_text
-    assert "Coverage Trend" in job_summary_text
+    assert job_summary_text.startswith("Before\n")
+    assert "## Coverage Trend" in job_summary_text
 
     output_text = github_output.read_text(encoding="utf-8")
     assert "coverage=75.50" in output_text
     assert "baseline=70.00" in output_text
+    assert "delta=5.50" in output_text
     assert "passes_minimum=true" in output_text
+    assert "hotspot_count=0" in output_text
+    assert "low_coverage_count=0" in output_text
 
 
 def test_main_fails_below_minimum(tmp_path: Path) -> None:
@@ -211,6 +244,8 @@ def test_main_fails_below_minimum(tmp_path: Path) -> None:
 
     assert exit_code == 1
     trend = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert trend["current"] == 60.0
+    assert trend["minimum"] == 65.0
     assert trend["passes_minimum"] is False
 
 
@@ -350,13 +385,32 @@ def test_main_includes_hotspot_tables_and_counts(tmp_path: Path) -> None:
 
     assert exit_code == 0
     summary = summary_path.read_text(encoding="utf-8")
+    assert "| Current | 88.00% |" in summary
+    assert "| Baseline | 85.00% |" in summary
+    assert "| Delta | +3.00% |" in summary
     assert "Top Coverage Hotspots" in summary
     assert "Low Coverage Files" in summary
+    assert "| `src/low.py` | 10.0% | 9 |" in summary
 
     trend = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert trend["current"] == 88.0
+    assert trend["baseline"] == 85.0
+    assert trend["delta"] == 3.0
+    assert trend["minimum"] == 70.0
+    assert trend["passes_minimum"] is True
     assert len(trend["hotspots"]) == 2
     assert len(trend["low_coverage_files"]) == 1
+    assert trend["hotspots"][0] == {
+        "file": "src/low.py",
+        "coverage": 10.0,
+        "missing_lines": 9,
+        "covered_lines": 0,
+    }
 
     output_text = github_output.read_text(encoding="utf-8")
+    assert "coverage=88.00" in output_text
+    assert "baseline=85.00" in output_text
+    assert "delta=3.00" in output_text
+    assert "passes_minimum=true" in output_text
     assert "hotspot_count=2" in output_text
     assert "low_coverage_count=1" in output_text
