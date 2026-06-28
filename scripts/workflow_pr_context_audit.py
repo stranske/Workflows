@@ -11,6 +11,9 @@ from pathlib import Path
 
 import yaml
 
+AUDIT_FIELDS = ("path", "triggers", "pr_context_markers", "valid", "error")
+TRIGGER_SUMMARY_FIELDS = ("triggers", "workflows", "pr_context_markers")
+
 PR_CONTEXT_PATHS = (
     "github.event.pull_request",
     "github.event.issue.pull_request",
@@ -59,6 +62,41 @@ class TriggerSummary:
     triggers: tuple[str, ...]
     workflows: tuple[str, ...]
     pr_context_markers: tuple[str, ...]
+
+
+def _normalize_report_value(value: object) -> object:
+    """Convert dataclass values to JSON-safe report primitives."""
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, tuple):
+        return [str(item) for item in value]
+    return value
+
+
+def _serialize_record(record: object, fields: tuple[str, ...]) -> dict[str, object]:
+    """Serialize selected dataclass-backed fields with shared normalization."""
+    return {field: _normalize_report_value(getattr(record, field)) for field in fields}
+
+
+def serialize_workflow_audit(item: WorkflowAudit) -> dict[str, object]:
+    """Serialize a workflow audit row for JSON or tabular rendering."""
+    return _serialize_record(item, AUDIT_FIELDS)
+
+
+def serialize_trigger_summary(item: TriggerSummary) -> dict[str, object]:
+    """Serialize a trigger summary row for JSON rendering."""
+    return _serialize_record(item, TRIGGER_SUMMARY_FIELDS)
+
+
+def _format_table_value(value: object) -> str:
+    """Format a serialized value for the tab-delimited report."""
+    if isinstance(value, list):
+        return ",".join(str(item) for item in value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return ""
+    return str(value)
 
 
 def load_workflow(path: Path, text: str | None = None) -> dict | None:
@@ -137,19 +175,10 @@ def audit_workflows(workflows_dir: Path) -> list[WorkflowAudit]:
 
 def format_table(results: list[WorkflowAudit]) -> str:
     """Render a tab-delimited report for easy copy/paste."""
-    lines = ["path\ttriggers\tpr_context_markers\tvalid\terror"]
+    lines = ["\t".join(AUDIT_FIELDS)]
     for item in results:
-        lines.append(
-            "\t".join(
-                [
-                    str(item.path),
-                    ",".join(item.triggers),
-                    ",".join(item.pr_context_markers),
-                    "true" if item.valid else "false",
-                    item.error or "",
-                ]
-            )
-        )
+        row = serialize_workflow_audit(item)
+        lines.append("\t".join(_format_table_value(row[field]) for field in AUDIT_FIELDS))
     return "\n".join(lines)
 
 
@@ -201,26 +230,10 @@ def main() -> int:
         results = [item for item in results if item.pr_context_markers]
 
     if args.format == "json":
-        payload = [
-            {
-                "path": str(item.path),
-                "triggers": list(item.triggers),
-                "pr_context_markers": list(item.pr_context_markers),
-                "valid": item.valid,
-                "error": item.error,
-            }
-            for item in results
-        ]
+        payload = [serialize_workflow_audit(item) for item in results]
         print(json.dumps(payload, indent=2))
     elif args.format == "summary":
-        payload = [
-            {
-                "triggers": list(item.triggers),
-                "workflows": list(item.workflows),
-                "pr_context_markers": list(item.pr_context_markers),
-            }
-            for item in summarize_by_triggers(results)
-        ]
+        payload = [serialize_trigger_summary(item) for item in summarize_by_triggers(results)]
         print(json.dumps(payload, indent=2))
     else:
         print(format_table(results))

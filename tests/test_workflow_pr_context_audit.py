@@ -1,11 +1,15 @@
 from pathlib import Path
 
 from scripts.workflow_pr_context_audit import (
+    TriggerSummary,
+    WorkflowAudit,
     audit_workflows,
     detect_pr_context_markers,
     format_table,
     load_workflow,
     normalize_triggers,
+    serialize_trigger_summary,
+    serialize_workflow_audit,
     summarize_by_triggers,
 )
 
@@ -266,6 +270,65 @@ on: [
     assert any(line.endswith("\tinvalid-yaml") for line in lines[1:])
 
 
+def test_format_table_serializes_representative_rows_byte_for_byte() -> None:
+    rows = [
+        WorkflowAudit(
+            path=Path(".github/workflows/alpha.yml"),
+            triggers=("pull_request", "workflow_dispatch"),
+            pr_context_markers=(
+                "context.payload.pull_request",
+                "github.event.pull_request",
+            ),
+            valid=True,
+            error=None,
+        ),
+        WorkflowAudit(
+            path=Path(".github/workflows/beta.yml"),
+            triggers=(),
+            pr_context_markers=(),
+            valid=False,
+            error="invalid-yaml",
+        ),
+    ]
+
+    assert format_table(rows) == (
+        "path\ttriggers\tpr_context_markers\tvalid\terror\n"
+        ".github/workflows/alpha.yml\t"
+        "pull_request,workflow_dispatch\t"
+        "context.payload.pull_request,github.event.pull_request\t"
+        "true\t\n"
+        ".github/workflows/beta.yml\t\t\tfalse\tinvalid-yaml"
+    )
+
+
+def test_serializers_normalize_dataclass_report_records() -> None:
+    audit = WorkflowAudit(
+        path=Path(".github/workflows/alpha.yml"),
+        triggers=("pull_request",),
+        pr_context_markers=("github.event.pull_request",),
+        valid=True,
+        error=None,
+    )
+    summary = TriggerSummary(
+        triggers=("pull_request",),
+        workflows=(str(Path(".github/workflows/alpha.yml")),),
+        pr_context_markers=("github.event.pull_request",),
+    )
+
+    assert serialize_workflow_audit(audit) == {
+        "path": ".github/workflows/alpha.yml",
+        "triggers": ["pull_request"],
+        "pr_context_markers": ["github.event.pull_request"],
+        "valid": True,
+        "error": None,
+    }
+    assert serialize_trigger_summary(summary) == {
+        "triggers": ["pull_request"],
+        "workflows": [".github/workflows/alpha.yml"],
+        "pr_context_markers": ["github.event.pull_request"],
+    }
+
+
 def test_summarize_by_triggers_groups_workflows(tmp_path: Path) -> None:
     workflows_dir = tmp_path / "workflows"
     workflows_dir.mkdir()
@@ -308,3 +371,41 @@ jobs:
         str(workflows_dir / "beta.yml"),
     )
     assert "github.event.pull_request" in summary.pr_context_markers
+
+
+def test_summarize_by_triggers_sorts_groups_and_aggregates_markers() -> None:
+    results = [
+        WorkflowAudit(
+            path=Path("zeta.yml"),
+            triggers=("workflow_dispatch",),
+            pr_context_markers=("github.event.pull_request",),
+            valid=True,
+            error=None,
+        ),
+        WorkflowAudit(
+            path=Path("beta.yml"),
+            triggers=("pull_request",),
+            pr_context_markers=("context.payload.pull_request",),
+            valid=True,
+            error=None,
+        ),
+        WorkflowAudit(
+            path=Path("alpha.yml"),
+            triggers=("pull_request",),
+            pr_context_markers=("github.event.pull_request",),
+            valid=True,
+            error=None,
+        ),
+    ]
+
+    summaries = summarize_by_triggers(results)
+
+    assert [summary.triggers for summary in summaries] == [
+        ("pull_request",),
+        ("workflow_dispatch",),
+    ]
+    assert summaries[0].workflows == ("alpha.yml", "beta.yml")
+    assert summaries[0].pr_context_markers == (
+        "context.payload.pull_request",
+        "github.event.pull_request",
+    )
