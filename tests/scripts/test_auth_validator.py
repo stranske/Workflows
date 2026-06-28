@@ -266,6 +266,153 @@ class TestValidateAuthPayload:
         assert result.skipped is True
         assert result.error == "missing_allowed_scopes"
 
+    @pytest.mark.parametrize(
+        (
+            "payload",
+            "options",
+            "expected_valid",
+            "expected_skipped",
+            "expected_error",
+            "expected_scopes",
+            "expected_allowed",
+            "expected_extra",
+            "expected_missing_fields",
+        ),
+        [
+            (
+                None,
+                {},
+                False,
+                False,
+                "missing_payload",
+                None,
+                None,
+                (),
+                ("payload",),
+            ),
+            (
+                ["repo"],
+                {},
+                False,
+                False,
+                "invalid_payload",
+                None,
+                None,
+                (),
+                ("payload",),
+            ),
+            (
+                {},
+                {},
+                False,
+                False,
+                "missing_fields",
+                None,
+                None,
+                (),
+                ("scopes", "allowed_scopes"),
+            ),
+            (
+                {"scopes": {"repo"}, "allowed_scopes": []},
+                {},
+                False,
+                False,
+                "missing_allowed_scopes",
+                frozenset({"repo"}),
+                frozenset(),
+                (),
+                (),
+            ),
+            (
+                {"scopes": {"repo"}, "allowed_scopes": []},
+                {"require_allowed_scopes": False},
+                True,
+                True,
+                "missing_allowed_scopes",
+                frozenset({"repo"}),
+                frozenset(),
+                (),
+                (),
+            ),
+            (
+                {"scopes": object(), "allowed_scopes": {"repo"}},
+                {},
+                True,
+                True,
+                "unknown_scopes",
+                None,
+                frozenset({"repo"}),
+                (),
+                (),
+            ),
+            (
+                {"scopes": {"repo", "admin:org"}, "allowed_scopes": {"repo"}},
+                {},
+                False,
+                False,
+                "extra_scopes",
+                frozenset({"repo", "admin:org"}),
+                frozenset({"repo"}),
+                ("admin:org",),
+                (),
+            ),
+            (
+                {"scopes": {"repo"}, "allowed_scopes": {"repo", "public_repo"}},
+                {},
+                False,
+                False,
+                "missing_scopes",
+                frozenset({"repo"}),
+                frozenset({"repo", "public_repo"}),
+                (),
+                (),
+            ),
+            (
+                {"scopes": {"repo"}, "allowed_scopes": {"repo", "public_repo"}},
+                {"require_all_scopes": False},
+                True,
+                False,
+                None,
+                frozenset({"repo"}),
+                frozenset({"repo", "public_repo"}),
+                (),
+                (),
+            ),
+            (
+                {"scopes": "repo, public_repo", "allowed_scopes": {"repo", "public_repo"}},
+                {},
+                True,
+                False,
+                None,
+                frozenset({"repo", "public_repo"}),
+                frozenset({"repo", "public_repo"}),
+                (),
+                (),
+            ),
+        ],
+    )
+    def test_validate_auth_payload_result_contract_matrix(
+        self,
+        payload: dict[str, object] | list[str] | None,
+        options: dict[str, bool],
+        expected_valid: bool,
+        expected_skipped: bool,
+        expected_error: str | None,
+        expected_scopes: frozenset[str] | None,
+        expected_allowed: frozenset[str] | None,
+        expected_extra: tuple[str, ...],
+        expected_missing_fields: tuple[str, ...],
+    ) -> None:
+        result = validate_auth_payload(payload, **options)  # type: ignore[arg-type]
+
+        assert result.valid is expected_valid
+        assert result.skipped is expected_skipped
+        assert result.error == expected_error
+        assert result.scopes == expected_scopes
+        assert result.allowed_scopes == expected_allowed
+        assert result.extra_scopes == expected_extra
+        assert result.missing_fields == expected_missing_fields
+
 
 class TestAuthValidationResult:
     """Test suite for AuthValidationResult dataclass."""
