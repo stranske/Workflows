@@ -19,14 +19,14 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Iterable
 from typing import NamedTuple
 
 # Try to import github, fall back to instructions
 try:
     from github import Github
 except ImportError:
-    print("ERROR: PyGithub not installed. Run: pip install PyGithub")
-    sys.exit(1)
+    Github = None
 
 
 class LabelInfo(NamedTuple):
@@ -213,6 +213,16 @@ BLOAT_LABELS = {
     "good first task",  # Use "good first issue" (GitHub standard) instead
 }
 
+
+def normalize_label_name(label_name: str) -> str:
+    """Normalize labels for classification without changing display output."""
+    return ":".join(part.strip() for part in str(label_name).strip().lower().split(":"))
+
+
+NORMALIZED_FUNCTIONAL_LABELS = {normalize_label_name(label) for label in FUNCTIONAL_LABELS}
+NORMALIZED_INFORMATIONAL_LABELS = {normalize_label_name(label) for label in INFORMATIONAL_LABELS}
+NORMALIZED_BLOAT_LABELS = {normalize_label_name(label) for label in BLOAT_LABELS}
+
 # Consumer repos to audit
 CONSUMER_REPOS = [
     "stranske/Manager-Database",
@@ -227,6 +237,10 @@ CONSUMER_REPOS = [
 
 def get_github_client() -> Github:
     """Get authenticated GitHub client."""
+    if Github is None:
+        print("ERROR: PyGithub not installed. Run: pip install PyGithub")
+        sys.exit(1)
+
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
         print("ERROR: GITHUB_TOKEN environment variable not set")
@@ -247,13 +261,22 @@ def get_repo_labels(gh: Github, repo_name: str) -> list[LabelInfo]:
 
 def classify_label(label_name: str) -> str:
     """Classify a label as functional, informational, bloat, or idiosyncratic."""
-    if label_name in FUNCTIONAL_LABELS:
+    normalized = normalize_label_name(label_name)
+    if normalized in NORMALIZED_FUNCTIONAL_LABELS:
         return "functional"
-    if label_name in INFORMATIONAL_LABELS:
+    if normalized in NORMALIZED_INFORMATIONAL_LABELS:
         return "informational"
-    if label_name in BLOAT_LABELS:
+    if normalized in NORMALIZED_BLOAT_LABELS:
         return "bloat"
     return "idiosyncratic"
+
+
+def classify_label_names(label_names: Iterable[str]) -> dict[str, list[str]]:
+    """Classify a sequence of label names while preserving original names."""
+    results = {"functional": [], "informational": [], "bloat": [], "idiosyncratic": []}
+    for label_name in label_names:
+        results[classify_label(label_name)].append(label_name)
+    return results
 
 
 def audit_repo(gh: Github, repo_name: str) -> dict:
@@ -273,9 +296,9 @@ def audit_repo(gh: Github, repo_name: str) -> dict:
         "idiosyncratic": [],
     }
 
-    for label in labels:
-        category = classify_label(label.name)
-        results[category].append(label.name)
+    classified = classify_label_names(label.name for label in labels)
+    for category, names in classified.items():
+        results[category].extend(names)
 
     # Print summary
     print(f"\nTotal labels: {len(labels)}")
