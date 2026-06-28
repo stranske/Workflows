@@ -11,6 +11,8 @@ Or locally with the key exported:
 """
 
 import logging
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -21,6 +23,27 @@ from tools.llm_provider import check_providers, get_llm_provider  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+SENSITIVE_ENV_VARS = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GITHUB_TOKEN",
+    "GH_TOKEN",
+    "SERVICE_BOT_PAT",
+    "ACTIONS_BOT_PAT",
+    "OWNER_PR_PAT",
+    "AGENTS_AUTOMATION_PAT",
+)
+
+
+def _redact_secrets(message: object) -> str:
+    """Return an exception message with known secret values removed."""
+    text = str(message)
+    for env_var in SENSITIVE_ENV_VARS:
+        value = os.environ.get(env_var)
+        if value:
+            text = text.replace(value, "<redacted>")
+    return re.sub(r"\bsk-[A-Za-z0-9_-]{10,}\b", "<redacted>", text)
 
 
 def test_openai_provider() -> int:
@@ -76,7 +99,7 @@ def test_openai_provider() -> int:
         return 0
 
     except Exception as e:
-        print(f"\n❌ OpenAI provider failed: {e}")
+        print(f"\n❌ OpenAI provider failed: {_redact_secrets(e)}")
         return 1
 
 
