@@ -143,11 +143,14 @@ def _render_prompt_with_assemble_step(
     mode: str = "autofix",
     pr_number: str = "",
     orchestrator_skill_summary_path: str = "",
+    agents_text: str | None = None,
 ) -> str:
     assemble_step = _find_step_by_name(workflow, "Assemble prompt")
     run_script = str(assemble_step.get("run", ""))
     base_prompt = tmp_path / "base_prompt.md"
     base_prompt.write_text(base_prompt_text, encoding="utf-8")
+    if agents_text is not None:
+        (tmp_path / "AGENTS.md").write_text(agents_text, encoding="utf-8")
     github_output = tmp_path / "github_output.txt"
     github_output.write_text("", encoding="utf-8")
 
@@ -421,6 +424,45 @@ def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missi
 
     # Missing file should not error and should not add a reference section.
     assert "## Reference Packs\n" not in rendered
+
+
+def test_reusable_codex_prompt_step_includes_repository_guidance_when_agents_md_exists(
+    tmp_path: Path,
+) -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    agents_text = (
+        "# AGENTS.md - Workflows Repository Context\n\n"
+        "<!-- BEGIN orch-playbook -->\n"
+        "## Orchestrator Repo Playbook (stranske/Workflows)\n\n"
+        "- Route-weight codemod/refactor issues must produce the requested code or "
+        "test change for the closer lane to validate.\n"
+        "<!-- END orch-playbook -->\n"
+    )
+
+    rendered = _render_prompt_with_assemble_step(
+        tmp_path,
+        workflow,
+        base_prompt_text="Base prompt content\n",
+        agents_text=agents_text,
+    )
+
+    assert "## Repository Guidance\n" in rendered
+    assert "<!-- BEGIN orch-playbook -->" in rendered
+    assert "Route-weight codemod/refactor issues" in rendered
+    assert "closer lane to validate" in rendered
+
+
+def test_reusable_codex_prompt_step_skips_repository_guidance_when_agents_md_missing(
+    tmp_path: Path,
+) -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    rendered = _render_prompt_with_assemble_step(
+        tmp_path,
+        workflow,
+        base_prompt_text="Base prompt content\n",
+    )
+
+    assert "## Repository Guidance\n" not in rendered
 
 
 def test_reusable_codex_prompt_step_skips_stale_orchestrator_skill_section_when_file_exists(

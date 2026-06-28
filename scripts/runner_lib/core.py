@@ -130,6 +130,10 @@ def _provider_instruction_path(workspace: Path, provider: str) -> Path:
     return workspace / ".github" / "claude" / "AGENT_INSTRUCTIONS.md"
 
 
+def _repository_guidance_path(workspace: Path) -> Path:
+    return workspace / "AGENTS.md"
+
+
 def _prompt_output_name(provider: str, pr_number: str | int | None) -> str:
     suffix = f"-{pr_number}" if pr_number not in (None, "") else ""
     return f"{provider}-prompt{suffix}.md"
@@ -488,6 +492,10 @@ def assemble_prompt(
 
     if appendix:
         parts.extend(["\n\n## Run context\n", appendix.rstrip()])
+
+    repository_guidance = _repository_guidance_path(workspace)
+    if repository_guidance.is_file():
+        parts.extend(["\n\n## Repository Guidance\n", _read_text(repository_guidance).rstrip()])
 
     reference_summary = workspace / ".reference" / "REFERENCE_PACKS.md"
     if reference_summary.is_file():

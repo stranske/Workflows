@@ -68,3 +68,24 @@ Start with the current docs instead of inferring behavior from old comments:
 ## Agent-Specific Note
 
 This file is the agent-generic contract. Keep it materially aligned with `CLAUDE.md`; differences between the two should only be agent-specific execution notes, not different repository rules.
+
+<!-- BEGIN orch-playbook -->
+<!-- exported by repo_knowledge.py; owner: Orchestrator; freshness owner: keepalive -->
+
+## Orchestrator Repo Playbook (stranske/Workflows)
+
+- Summary: Shared automation source for the fleet; workflow changes usually need docs and registry surfaces.
+
+### Definition Of Done
+
+- Workflow additions or renames must update docs/ci/WORKFLOWS.md, docs/ci/WORKFLOW_SYSTEM.md, and the workflow naming tests. (tasks: implement, mechanical, testgen)
+- Consumer-facing files usually need sync-manifest/template coverage, not just the root copy. (tasks: implement, mechanical)
+- Route-weight codemod/refactor issues must produce the requested code or test change for the closer lane to validate; campaign plans, backfill plans, or analysis artifacts are not completion unless the issue explicitly asks for them. (tasks: codemod)
+- Epic or cross-repo documentation issues must create the named Markdown artifact at the requested path; dry-run rollout JSON or execution plans alone do not satisfy documentation acceptance criteria. (tasks: epic, cross_repo)
+
+### Validation
+
+- Run the narrow workflow/template tests named by the touched surface; include the command/result in the PR body.
+- For testgen issues, target the issue's named test file and source surface first; adjacent helper tests or generated gate artifacts are not a substitute for the requested coverage. (tasks: testgen)
+
+<!-- END orch-playbook -->
