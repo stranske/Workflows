@@ -97,11 +97,21 @@ def extract_diagnostics_counts(report: dict | None) -> tuple[int | None, int | N
     return diagnostics_count, diagnostics_fixed
 
 
-def should_emit_comment(report: dict | None) -> bool:
+def extract_report_metadata(report: dict | None) -> dict[str, bool | int | None]:
     diagnostics_count, diagnostics_fixed = extract_diagnostics_counts(report)
     if diagnostics_count is None and diagnostics_fixed is None:
-        return False
-    return (diagnostics_count or 0) > 0 or (diagnostics_fixed or 0) > 0
+        should_post = False
+    else:
+        should_post = (diagnostics_count or 0) > 0 or (diagnostics_fixed or 0) > 0
+    return {
+        "diagnostics_count": diagnostics_count,
+        "diagnostics_fixed": diagnostics_fixed,
+        "should_post": should_post,
+    }
+
+
+def should_emit_comment(report: dict | None) -> bool:
+    return bool(extract_report_metadata(report)["should_post"])
 
 
 def _top_code_lines(codes: dict | None) -> tuple[str, ...]:
@@ -123,8 +133,10 @@ def _snapshot_code_lines(snapshot: dict | None) -> tuple[str, ...]:
     return tuple(lines)
 
 
-def _status_line(report: dict | None) -> str:
+def render_status_line(report: dict | None) -> str:
     classification = (report or {}).get("classification", {}) if isinstance(report, dict) else {}
+    if not isinstance(classification, dict):
+        classification = {}
     new_count = coerce_int(classification.get("new"), 0)
     changed = coerce_bool((report or {}).get("changed"), False)
     if changed:
@@ -132,6 +144,10 @@ def _status_line(report: dict | None) -> str:
     if new_count > 0:
         return "Status | ⚠️ new diagnostics detected"
     return "Status | ✅ no new diagnostics"
+
+
+def _status_line(report: dict | None) -> str:
+    return render_status_line(report)
 
 
 def build_comment(
@@ -147,11 +163,13 @@ def build_comment(
 
     lines = [
         MARKER,
-        _status_line(report),
+        render_status_line(report),
         f"History points | {len(history) if isinstance(history, list) else 0}",
     ]
 
     classification = report.get("classification", {}) if isinstance(report, dict) else {}
+    if not isinstance(classification, dict):
+        classification = {}
     timestamp = classification.get("timestamp")
     lines.append(f"Timestamp | {format_timestamp(timestamp)}")
 
@@ -177,12 +195,7 @@ def build_comment(
 
 
 def build_metadata(report: dict | None) -> dict:
-    diagnostics_count, diagnostics_fixed = extract_diagnostics_counts(report)
-    return {
-        "diagnostics_count": diagnostics_count,
-        "diagnostics_fixed": diagnostics_fixed,
-        "should_post": should_emit_comment(report),
-    }
+    return extract_report_metadata(report)
 
 
 def main(args: list[str] | None = None) -> int:
