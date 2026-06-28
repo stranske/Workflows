@@ -46,6 +46,12 @@ VALID_STATUSES = {
 }
 
 
+def _validate_status(status: str) -> str:
+    if status not in VALID_STATUSES:
+        raise ValueError(f"unknown status {status!r}; valid: {sorted(VALID_STATUSES)}")
+    return status
+
+
 @dataclass
 class AttemptRecord:
     started_at: str
@@ -179,7 +185,7 @@ def _state_from_dict(data: dict[str, Any]) -> RepoReviewState:
     return RepoReviewState(
         schema_version=str(data.get("schema_version", STATE_SCHEMA_VERSION)),
         repo=str(data.get("repo", "")),
-        status=str(data.get("status", "fresh")),
+        status=_validate_status(str(data.get("status", "fresh"))),
         cycle_started_at=str(data.get("cycle_started_at", now_iso())),
         cycle_updated_at=str(data.get("cycle_updated_at", now_iso())),
         last_attempt=last_attempt,
@@ -217,9 +223,7 @@ def finish_attempt(
 
 
 def transition(state: RepoReviewState, *, status: str, note: str = "") -> None:
-    if status not in VALID_STATUSES:
-        raise ValueError(f"unknown status {status!r}; valid: {sorted(VALID_STATUSES)}")
-    state.status = status
+    state.status = _validate_status(status)
     if note:
         state.notes = note
 
