@@ -2,8 +2,273 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from scripts import duplicate_detection
 from scripts.langchain import issue_dedup
+
+
+class TestIssuePayloadHelpers:
+    """Tests for issue payload and source issue helper functions."""
+
+    def test_build_issue_payload_omits_optional_fields_when_empty(self) -> None:
+        assert duplicate_detection.build_issue_payload("New issue", None, None) == {
+            "title": "New issue"
+        }
+        assert duplicate_detection.build_issue_payload("New issue", None, []) == {
+            "title": "New issue"
+        }
+
+    def test_build_issue_payload_includes_body_and_labels(self) -> None:
+        assert duplicate_detection.build_issue_payload(
+            "New issue", "Issue body", ["bug", "needs-triage"]
+        ) == {
+            "title": "New issue",
+            "body": "Issue body",
+            "labels": ["bug", "needs-triage"],
+        }
+
+    def test_format_body_with_note_appends_or_replaces_body(self) -> None:
+        assert duplicate_detection.format_body_with_note("Existing body", None) == "Existing body"
+        assert duplicate_detection.format_body_with_note("Existing body", "") == "Existing body"
+        assert (
+            duplicate_detection.format_body_with_note("Existing body", "Dedup note")
+            == "Existing body\n\nDedup note"
+        )
+        assert duplicate_detection.format_body_with_note(None, "Dedup note") == "Dedup note"
+
+    def test_parse_source_issue_accepts_numeric_string_and_html_url(self) -> None:
+        source = duplicate_detection.parse_source_issue(
+            {
+                "number": "42",
+                "title": "  Original issue  ",
+                "body": "Original body",
+                "html_url": "https://github.test/issues/42",
+                "url": "https://api.github.test/issues/42",
+            }
+        )
+
+        assert source == duplicate_detection.SourceIssue(
+            number=42,
+            title="Original issue",
+            body="Original body",
+            url="https://github.test/issues/42",
+        )
+
+    def test_parse_source_issue_uses_api_url_fallback(self) -> None:
+        source = duplicate_detection.parse_source_issue(
+            {
+                "number": 43,
+                "title": "Fallback URL",
+                "body": None,
+                "url": "https://api.github.test/issues/43",
+            }
+        )
+
+        assert source.url == "https://api.github.test/issues/43"
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"title": "Missing number"},
+            {"number": "not-a-number", "title": "Bad number"},
+            {"number": 44},
+            {"number": 45, "title": "   "},
+        ],
+    )
+    def test_parse_source_issue_rejects_missing_required_fields(
+        self, payload: dict[str, object]
+    ) -> None:
+        with pytest.raises(ValueError):
+            duplicate_detection.parse_source_issue(payload)
+
+    def test_build_duplicate_payload_applies_suffix_note_and_labels(self) -> None:
+        source = duplicate_detection.SourceIssue(
+            number=50,
+            title="Original issue",
+            body="Original body",
+            url="https://github.test/issues/50",
+        )
+
+        assert duplicate_detection.build_duplicate_payload(
+            source,
+            title_suffix=" (duplicate probe)",
+            note="Created by duplicate detection smoke test.",
+            labels=["duplicate-check"],
+        ) == {
+            "title": "Original issue (duplicate probe)",
+            "body": "Original body\n\nCreated by duplicate detection smoke test.",
+            "labels": ["duplicate-check"],
+        }
+
+
+class TestIssueQueryHelpers:
+    """Tests for in-memory issue filtering and selection helpers."""
+
+    def test_filter_issues_by_query_skips_pull_requests_and_malformed_issues(self) -> None:
+        issues = [
+            {
+                "number": 1,
+                "title": "Matching title",
+                "body": "No body match",
+                "html_url": "https://github.test/issues/1",
+            },
+            {
+                "number": 2,
+                "title": "Pull request match",
+                "body": "matching body",
+                "pull_request": {"url": "https://api.github.test/pulls/2"},
+            },
+            {"number": "bad", "title": "Matching but malformed"},
+            {
+                "number": 3,
+                "title": "Unrelated",
+                "body": "body has MATCHING keyword",
+                "url": "https://api.github.test/issues/3",
+            },
+            {"number": 4, "title": "Unrelated", "body": "No keyword"},
+        ]
+
+        matches = duplicate_detection.filter_issues_by_query(issues, "matching")
+
+        assert [match.number for match in matches] == [1, 3]
+        assert [match.title for match in matches] == ["Matching title", "Unrelated"]
+
+    def test_filter_issues_by_query_none_returns_valid_non_pull_request_issues(self) -> None:
+        issues = [
+            {"number": 10, "title": "First"},
+            {"number": 11, "title": "Second", "pull_request": {}},
+            {"number": 12, "title": ""},
+            {"number": 13, "title": "Third"},
+        ]
+
+        matches = duplicate_detection.filter_issues_by_query(issues, None)
+
+        assert [match.number for match in matches] == [10, 13]
+
+    def test_select_issue_by_query_returns_first_match_or_none(self) -> None:
+        issues = [
+            {"number": 20, "title": "Alpha match"},
+            {"number": 21, "title": "Beta match"},
+        ]
+
+        assert duplicate_detection.select_issue_by_query(issues, "match") == (
+            duplicate_detection.SourceIssue(number=20, title="Alpha match", body=None, url=None)
+        )
+        assert duplicate_detection.select_issue_by_query(issues, "missing") is None
+
+
+class TestSimilarIssueReferenceHelpers:
+    """Tests for parsing and formatting duplicate-reference helpers."""
+
+    def test_extract_similar_issue_refs_handles_links_bare_refs_titles_and_ignored_lines(
+        self,
+    ) -> None:
+        comment_body = "\n".join(
+            [
+                issue_dedup.SIMILAR_ISSUES_MARKER,
+                "This prose line should be ignored.",
+                "- **#101** - [Login error on mobile](https://github.test/issues/101) (92% similarity)",
+                "- #202 - Bare issue title (88% similarity)",
+                "- [#303](https://github.test/issues/303) - Linked reference title",
+                "- No issue number or link here",
+                "  - Nested-looking item is ignored because it is not a top-level dash",
+            ]
+        )
+
+        refs = duplicate_detection.extract_similar_issue_refs(comment_body)
+
+        assert refs == [
+            duplicate_detection.SimilarIssueRef(
+                number=101,
+                url="https://github.test/issues/101",
+                title="Login error on mobile",
+            ),
+            duplicate_detection.SimilarIssueRef(number=202, url=None, title="Bare issue title"),
+            duplicate_detection.SimilarIssueRef(
+                number=303,
+                url="https://github.test/issues/303",
+                title="Linked reference title",
+            ),
+        ]
+
+    def test_extract_similar_issue_refs_accepts_url_without_issue_number(self) -> None:
+        refs = duplicate_detection.extract_similar_issue_refs(
+            "- [External tracker](https://tracker.test/TICKET-9) - External duplicate"
+        )
+
+        assert refs == [
+            duplicate_detection.SimilarIssueRef(
+                number=None,
+                url="https://tracker.test/TICKET-9",
+                title="External duplicate",
+            )
+        ]
+
+    def test_source_issue_formatters_include_unknown_url_fallback(self) -> None:
+        source = duplicate_detection.SourceIssue(
+            number=77,
+            title="Potential duplicate",
+            body=None,
+            url=None,
+        )
+
+        assert (
+            duplicate_detection.format_source_issue_line(source)
+            == "Source issue: #77 Potential duplicate (unknown)"
+        )
+        assert (
+            duplicate_detection.format_source_confirmation(source)
+            == "Source issue confirmed: #77 Potential duplicate (unknown)"
+        )
+
+    def test_format_duplicate_confirmation_prefers_number_then_url_then_generic(self) -> None:
+        assert (
+            duplicate_detection.format_duplicate_confirmation(
+                [
+                    duplicate_detection.SimilarIssueRef(
+                        number=88, url="https://github.test/issues/88", title="Match"
+                    )
+                ]
+            )
+            == "Duplicate detected and linked to #88."
+        )
+        assert (
+            duplicate_detection.format_duplicate_confirmation(
+                [
+                    duplicate_detection.SimilarIssueRef(
+                        number=None, url="https://tracker.test/TICKET-8", title="Match"
+                    )
+                ]
+            )
+            == "Duplicate detected and linked to https://tracker.test/TICKET-8."
+        )
+        assert (
+            duplicate_detection.format_duplicate_confirmation([])
+            == "Duplicate detected and linked to similar issue(s)."
+        )
+
+    def test_matches_expected_duplicate_checks_number_url_and_empty_expectation(self) -> None:
+        refs = [
+            duplicate_detection.SimilarIssueRef(
+                number=90, url="https://github.test/issues/90/", title="First"
+            ),
+            duplicate_detection.SimilarIssueRef(
+                number=None, url="https://tracker.test/TICKET-90", title="Second"
+            ),
+        ]
+
+        assert duplicate_detection.matches_expected_duplicate(
+            refs, expected_number=None, expected_url=None
+        )
+        assert duplicate_detection.matches_expected_duplicate(
+            refs, expected_number=90, expected_url=None
+        )
+        assert duplicate_detection.matches_expected_duplicate(
+            refs, expected_number=None, expected_url="https://github.test/issues/90"
+        )
+        assert not duplicate_detection.matches_expected_duplicate(
+            refs, expected_number=91, expected_url="https://github.test/issues/91"
+        )
 
 
 class TestBackoffDelay:
