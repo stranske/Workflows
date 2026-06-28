@@ -173,6 +173,22 @@ def test_check_metadata_serialization_accepts_absent_optional_paths(
     assert issues == []
 
 
+def test_check_metadata_serialization_ignores_absent_optional_file_with_present_issues(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write(
+        tmp_path / "src/trend_analysis/io/validators.py",
+        "validated.metadata.model_dump(mode='json')\n",
+    )
+    _write(tmp_path / "src/trend_analysis/io/market_data.py", "return metadata\n")
+
+    passed, issues = validator.check_metadata_serialization()
+
+    assert not passed
+    assert issues == ["attach_metadata may not be serializing metadata properly"]
+
+
 def test_check_test_expectations_reports_attribute_and_identity_patterns(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -214,18 +230,19 @@ def test_metadata_expectations(meta, metadata):
     assert issues == []
 
 
-def test_main_returns_success_when_all_checks_pass(tmp_path: Path, monkeypatch) -> None:
+def test_main_returns_zero_and_prints_cli_success(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     _write(
         tmp_path / "pyproject.toml",
         """
 [project.optional-dependencies]
 llm = ["openai"]
+dev = ["pytest"]
 """,
     )
     _write(
         tmp_path / ".github/workflows/dependabot-auto-lock.yml",
-        "run: uv pip compile --extra llm\n",
+        "run: uv pip compile --extra llm --extra dev\n",
     )
     _write(
         tmp_path / "src/trend_analysis/io/validators.py",
@@ -247,11 +264,30 @@ def test_metadata_expectations(meta, metadata):
 """,
     )
 
-    assert validator.main() == 0
+    exit_code = validator.main()
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert "Dependency Test Setup Validation" in output
+    assert "Checking: Lock file completeness" in output
+    assert "All validation checks passed!" in output
 
 
-def test_main_returns_failure_when_a_check_reports_issue(tmp_path: Path, monkeypatch) -> None:
+def test_main_returns_one_and_prints_cli_failures(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     _write(tmp_path / "pyproject.toml", "[project]\nname = 'workflows'\n")
+    _write(
+        tmp_path / "tests/test_versions.py",
+        """
+def test_version():
+    assert version == "1.2.3"
+""",
+    )
 
-    assert validator.main() == 1
+    exit_code = validator.main()
+    output = capsys.readouterr().out
+
+    assert exit_code == 1
+    assert "Some validation checks failed:" in output
+    assert "No [project.optional-dependencies] section found" in output
+    assert "Found potential hardcoded versions in tests:" in output
