@@ -7,6 +7,7 @@ import argparse
 import re
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 TEST_FILE_RE = re.compile(r"(^|/)(test_[^/]+\.py|[^/]+_test\.(js|ts|tsx))$")
@@ -53,29 +54,35 @@ def _full_diff(base: str, head: str) -> str:
     return completed.stdout
 
 
-def _is_test_file(path: str) -> bool:
+def is_test_file(path: str) -> bool:
     return bool(TEST_FILE_RE.search(path))
 
 
-def _has_literal_expected_assertion(text: str) -> bool:
+def has_literal_expected_assertion(text: str) -> bool:
     return bool(LITERAL_ASSERTION_RE.search(text))
 
 
+def scan_weak_test_files(file_texts: Mapping[str, str]) -> list[str]:
+    return [
+        file_name
+        for file_name, text in file_texts.items()
+        if is_test_file(file_name) and not has_literal_expected_assertion(text)
+    ]
+
+
 def _weak_added_tests(files: list[str]) -> list[str]:
-    weak: list[str] = []
+    file_texts: dict[str, str] = {}
     for file_name in files:
-        if not _is_test_file(file_name):
+        if not is_test_file(file_name):
             continue
         path = Path(file_name)
         if not path.is_file():
             continue
-        text = path.read_text(encoding="utf-8")
-        if not _has_literal_expected_assertion(text):
-            weak.append(file_name)
-    return weak
+        file_texts[file_name] = path.read_text(encoding="utf-8")
+    return scan_weak_test_files(file_texts)
 
 
-def _secret_hits(diff_text: str) -> list[str]:
+def scan_secret_patterns(diff_text: str) -> list[str]:
     hits: list[str] = []
     for line in diff_text.splitlines():
         if not line.startswith("+") or line.startswith("+++"):
@@ -98,7 +105,7 @@ def check_diff_quality(base: str, head: str) -> list[str]:
     # Surface only the *count* of matched patterns: never echo secret values or
     # pattern-derived data into CI logs (clear-text-logging hardening). The gate
     # failing is the signal; the author inspects their own diff to remediate.
-    blocked_pattern_count = len(set(_secret_hits(_full_diff(base, head))))
+    blocked_pattern_count = len(set(scan_secret_patterns(_full_diff(base, head))))
     if blocked_pattern_count:
         failures.append(
             "secret-scan: complete diff contains "
