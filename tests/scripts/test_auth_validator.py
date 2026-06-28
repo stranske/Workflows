@@ -1,7 +1,30 @@
 from __future__ import annotations
 
 import pytest
-from scripts.auth_validator import AuthValidationResult, validate_auth_payload
+from scripts.auth_validator import AuthValidationResult, _normalize_scopes, validate_auth_payload
+
+
+class TestNormalizeScopes:
+    """Test suite for auth scope normalization."""
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (" repo , read , , write ", frozenset({"repo", "read", "write"})),
+            (["repo", " read ", "", None, 42], frozenset({"repo", "read", "None", "42"})),
+            (("repo", "repo", "write"), frozenset({"repo", "write"})),
+            ({"repo", "read"}, frozenset({"repo", "read"})),
+            (frozenset({"repo", "write"}), frozenset({"repo", "write"})),
+            ("", frozenset()),
+            (None, None),
+            ({"repo": True}, None),
+            (object(), None),
+        ],
+    )
+    def test_normalize_scopes_contract(
+        self, value: object, expected: frozenset[str] | None
+    ) -> None:
+        assert _normalize_scopes(value) == expected
 
 
 class TestValidateAuthPayload:
