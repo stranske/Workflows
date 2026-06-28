@@ -7,11 +7,10 @@ the live GitHub CLI (gh). All tests use synthetic data and temporary files.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-
 from scripts.repo_review_backlog_scan import (
     AGENT_LABEL_PREFIXES,
     EXCLUDE_LABEL_PREFIXES,
@@ -32,7 +31,6 @@ from scripts.repo_review_backlog_scan import (
     load_registry,
     looks_like_umbrella,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -79,17 +77,13 @@ class TestLooksLikeUmbrellaTitle:
 
     def test_title_case_insensitive(self) -> None:
         """Title detection should be case-insensitive."""
-        is_umbrella, reason = looks_like_umbrella(
-            title="EPIC: My Epic Issue", body="", labels=[]
-        )
+        is_umbrella, reason = looks_like_umbrella(title="EPIC: My Epic Issue", body="", labels=[])
         assert is_umbrella is True
         assert "epic" in reason.lower()
 
     def test_title_with_roadmap(self) -> None:
         """Title with 'roadmap' should be detected."""
-        is_umbrella, reason = looks_like_umbrella(
-            title="Q3 Roadmap", body="", labels=[]
-        )
+        is_umbrella, reason = looks_like_umbrella(title="Q3 Roadmap", body="", labels=[])
         assert is_umbrella is True
         assert "roadmap" in reason
 
@@ -103,9 +97,7 @@ class TestLooksLikeUmbrellaTitle:
 
     def test_title_no_umbrella_words(self) -> None:
         """Title without umbrella words should not trigger."""
-        is_umbrella, reason = looks_like_umbrella(
-            title="Add new feature", body="", labels=[]
-        )
+        is_umbrella, reason = looks_like_umbrella(title="Add new feature", body="", labels=[])
         assert is_umbrella is False
         assert reason == ""
 
@@ -116,17 +108,13 @@ class TestLooksLikeUmbrellaLabels:
     @pytest.mark.parametrize("label", HUMAN_DECISION_LABELS_EXACT)
     def test_label_exact_match(self, label: str) -> None:
         """Issues with exact human-decision labels should be detected."""
-        is_umbrella, reason = looks_like_umbrella(
-            title="Some issue", body="", labels=[label]
-        )
+        is_umbrella, reason = looks_like_umbrella(title="Some issue", body="", labels=[label])
         assert is_umbrella is True
         assert label in reason
 
     def test_label_case_insensitive(self) -> None:
         """Label detection should be case-insensitive."""
-        is_umbrella, reason = looks_like_umbrella(
-            title="Some issue", body="", labels=["EPIC"]
-        )
+        is_umbrella, reason = looks_like_umbrella(title="Some issue", body="", labels=["EPIC"])
         assert is_umbrella is True
         assert "epic" in reason.lower()
 
@@ -150,9 +138,7 @@ class TestLooksLikeUmbrellaLabels:
 
     def test_blocked_label(self) -> None:
         """Issue with 'blocked' label should be detected."""
-        is_umbrella, reason = looks_like_umbrella(
-            title="Some issue", body="", labels=["blocked"]
-        )
+        is_umbrella, reason = looks_like_umbrella(title="Some issue", body="", labels=["blocked"])
         assert is_umbrella is True
         assert "blocked" in reason
 
@@ -285,9 +271,7 @@ class TestLooksLikeUmbrellaConservative:
     def test_none_inputs(self) -> None:
         """None inputs should not trigger."""
         # Note: labels=None causes TypeError in the function, so we test with empty list
-        is_umbrella, reason = looks_like_umbrella(
-            title=None, body=None, labels=[]
-        )
+        is_umbrella, reason = looks_like_umbrella(title=None, body=None, labels=[])
         assert is_umbrella is False
         assert reason == ""
 
@@ -319,9 +303,7 @@ class TestDecidePriority:
     def test_very_stale_no_milestone_returns_low(self) -> None:
         """Very stale issues (>90 days) without milestone should get priority:low."""
         # 91 days ago
-        created_at = (datetime.now(tz=timezone.utc) - timedelta(days=91)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        created_at = (datetime.now(tz=UTC) - timedelta(days=91)).strftime("%Y-%m-%dT%H:%M:%SZ")
         priority = decide_priority(
             labels=["enhancement"], created_at=created_at, very_stale_days=90
         )
@@ -329,9 +311,7 @@ class TestDecidePriority:
 
     def test_very_stale_with_milestone_still_normal(self) -> None:
         """Very stale issues WITH milestone should still get normal."""
-        created_at = (datetime.now(tz=timezone.utc) - timedelta(days=100)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        created_at = (datetime.now(tz=UTC) - timedelta(days=100)).strftime("%Y-%m-%dT%H:%M:%SZ")
         priority = decide_priority(
             labels=["milestone:Q3", "enhancement"],
             created_at=created_at,
@@ -341,9 +321,7 @@ class TestDecidePriority:
 
     def test_fresh_no_milestone_returns_normal(self) -> None:
         """Fresh issues without milestone should get priority:normal."""
-        created_at = (datetime.now(tz=timezone.utc) - timedelta(days=5)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        created_at = (datetime.now(tz=UTC) - timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
         priority = decide_priority(
             labels=["enhancement"], created_at=created_at, very_stale_days=90
         )
@@ -352,7 +330,7 @@ class TestDecidePriority:
     def test_just_over_threshold(self) -> None:
         """Issue just over 90 days should get priority:low."""
         # Use 90.01 days ago to ensure it's > 90
-        created_at = (datetime.now(tz=timezone.utc) - timedelta(days=90, hours=1)).strftime(
+        created_at = (datetime.now(tz=UTC) - timedelta(days=90, hours=1)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         )
         priority = decide_priority(
@@ -363,9 +341,7 @@ class TestDecidePriority:
 
     def test_custom_very_stale_days(self) -> None:
         """Custom very_stale_days parameter should be respected."""
-        created_at = (datetime.now(tz=timezone.utc) - timedelta(days=31)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        created_at = (datetime.now(tz=UTC) - timedelta(days=31)).strftime("%Y-%m-%dT%H:%M:%SZ")
         priority = decide_priority(
             labels=["enhancement"], created_at=created_at, very_stale_days=30
         )
@@ -378,17 +354,13 @@ class TestDecidePriority:
 
     def test_empty_labels(self) -> None:
         """Empty labels list should default to normal (no milestone)."""
-        created_at = (datetime.now(tz=timezone.utc) - timedelta(days=5)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        created_at = (datetime.now(tz=UTC) - timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
         priority = decide_priority(labels=[], created_at=created_at)
         assert priority == "priority:normal"
 
     def test_invalid_created_at_defaults_to_normal(self) -> None:
         """Invalid created_at should default to normal (age=0)."""
-        priority = decide_priority(
-            labels=["enhancement"], created_at="invalid-date"
-        )
+        priority = decide_priority(labels=["enhancement"], created_at="invalid-date")
         assert priority == "priority:normal"
 
 
@@ -432,9 +404,7 @@ class TestIsExcluded:
 
     def test_multiple_exclusion_reasons_first_priority(self) -> None:
         """When multiple exclusions apply, priority label takes precedence."""
-        excluded, reason = is_excluded(
-            ["priority:high", "dependabot", "agent:test"]
-        )
+        excluded, reason = is_excluded(["priority:high", "dependabot", "agent:test"])
         assert excluded is True
         # Should report the first match in order: priority, then agent, then others
         assert "priority" in reason.lower() or "agent" in reason.lower()
@@ -563,25 +533,19 @@ class TestDaysSince:
 
     def test_days_since_recent(self) -> None:
         """Recent timestamp should return small value."""
-        ts = (datetime.now(tz=timezone.utc) - timedelta(hours=2)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        ts = (datetime.now(tz=UTC) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
         days = days_since(ts)
         assert 0 < days < 1
 
     def test_days_since_exact_days(self) -> None:
         """Timestamp from exact days ago should return that value."""
-        ts = (datetime.now(tz=timezone.utc) - timedelta(days=5)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        ts = (datetime.now(tz=UTC) - timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
         days = days_since(ts)
         assert abs(days - 5.0) < 0.01
 
     def test_days_since_with_z_suffix(self) -> None:
         """Timestamp with Z suffix should be handled."""
-        ts = (datetime.now(tz=timezone.utc) - timedelta(days=3)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        ts = (datetime.now(tz=UTC) - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
         days = days_since(ts)
         assert abs(days - 3.0) < 0.01
 
@@ -600,9 +564,7 @@ class TestDaysSince:
 
     def test_days_since_with_timezone_offset(self) -> None:
         """Timestamp with timezone offset should be handled."""
-        ts = (datetime.now(tz=timezone.utc) - timedelta(days=2)).strftime(
-            "%Y-%m-%dT%H:%M:%S+00:00"
-        )
+        ts = (datetime.now(tz=UTC) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
         days = days_since(ts)
         assert abs(days - 2.0) < 0.01
 
