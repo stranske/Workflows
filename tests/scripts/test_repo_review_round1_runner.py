@@ -138,9 +138,7 @@ class TestRound1PromptTemplatePath:
             prompt_file.write_text("# CWD prompt", encoding="utf-8")
 
             # Mock the module's __file__ to point somewhere without the prompt
-            monkeypatch.setattr(
-                runner, "__file__", str(tmp_path / "other" / "module.py")
-            )
+            monkeypatch.setattr(runner, "__file__", str(tmp_path / "other" / "module.py"))
 
             result = runner.round1_prompt_template_path()
 
@@ -158,6 +156,7 @@ class TestRound1PromptTemplatePath:
 
         # Create a mock function that returns False for is_file()
         original_is_file = Path.is_file
+
         def mock_is_file(self):
             # Return False for all paths to simulate no files exist
             return False
@@ -225,7 +224,14 @@ class TestSyncRepoToOrigin:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
-        def fake_run(args: list[str], *, check: bool = False, capture_output: bool = True, text: bool = True, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
             # Simple mock: return success for all operations
             if "fetch" in args:
                 return self._make_result(0)
@@ -250,8 +256,8 @@ class TestSyncRepoToOrigin:
         mock_subprocess = self._create_mock_subprocess(fake_run)
 
         with (
-            patch('subprocess.run', mock_subprocess.run),
-            patch('subprocess.TimeoutExpired', subprocess.TimeoutExpired)
+            patch("subprocess.run", mock_subprocess.run),
+            patch("subprocess.TimeoutExpired", subprocess.TimeoutExpired),
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
@@ -262,7 +268,14 @@ class TestSyncRepoToOrigin:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
-        def fake_run(args: list[str], *, check: bool = False, capture_output: bool = True, text: bool = True, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(1, stderr="fetch failed: network error")
             return self._make_result(0)
@@ -270,8 +283,8 @@ class TestSyncRepoToOrigin:
         mock_subprocess = self._create_mock_subprocess(fake_run)
 
         with (
-            patch('subprocess.run', mock_subprocess.run),
-            patch('subprocess.TimeoutExpired', subprocess.TimeoutExpired)
+            patch("subprocess.run", mock_subprocess.run),
+            patch("subprocess.TimeoutExpired", subprocess.TimeoutExpired),
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
@@ -283,7 +296,14 @@ class TestSyncRepoToOrigin:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
-        def fake_run(args: list[str], *, check: bool = False, capture_output: bool = True, text: bool = True, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(0)
             elif "status" in args:
@@ -296,8 +316,8 @@ class TestSyncRepoToOrigin:
         mock_subprocess = self._create_mock_subprocess(fake_run)
 
         with (
-            patch('subprocess.run', mock_subprocess.run),
-            patch('subprocess.TimeoutExpired', subprocess.TimeoutExpired)
+            patch("subprocess.run", mock_subprocess.run),
+            patch("subprocess.TimeoutExpired", subprocess.TimeoutExpired),
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
@@ -308,7 +328,14 @@ class TestSyncRepoToOrigin:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
-        def fake_run(args: list[str], *, check: bool = False, capture_output: bool = True, text: bool = True, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(0)
             elif "status" in args:
@@ -324,8 +351,8 @@ class TestSyncRepoToOrigin:
         mock_subprocess = self._create_mock_subprocess(fake_run)
 
         with (
-            patch('subprocess.run', mock_subprocess.run),
-            patch('subprocess.TimeoutExpired', subprocess.TimeoutExpired)
+            patch("subprocess.run", mock_subprocess.run),
+            patch("subprocess.TimeoutExpired", subprocess.TimeoutExpired),
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
@@ -337,7 +364,14 @@ class TestSyncRepoToOrigin:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
-        def fake_run(args: list[str], *, check: bool = False, capture_output: bool = True, text: bool = True, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(0)
             elif "status" in args:
@@ -355,8 +389,8 @@ class TestSyncRepoToOrigin:
         mock_subprocess = self._create_mock_subprocess(fake_run)
 
         with (
-            patch('subprocess.run', mock_subprocess.run),
-            patch('subprocess.TimeoutExpired', subprocess.TimeoutExpired)
+            patch("subprocess.run", mock_subprocess.run),
+            patch("subprocess.TimeoutExpired", subprocess.TimeoutExpired),
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
@@ -368,15 +402,22 @@ class TestSyncRepoToOrigin:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
-        def fake_run(args: list[str], *, check: bool = False, capture_output: bool = True, text: bool = True, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
             # This will trigger the timeout
             raise subprocess.TimeoutExpired(["git", "fetch"], timeout)
 
         mock_subprocess = self._create_mock_subprocess(fake_run)
 
         with (
-            patch('subprocess.run', mock_subprocess.run),
-            patch('subprocess.TimeoutExpired', subprocess.TimeoutExpired)
+            patch("subprocess.run", mock_subprocess.run),
+            patch("subprocess.TimeoutExpired", subprocess.TimeoutExpired),
         ):
             ok, message = runner.sync_repo_to_origin(repo_path, timeout=30)
 
@@ -387,7 +428,14 @@ class TestSyncRepoToOrigin:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
-        def fake_run(args: list[str], *, check: bool = False, capture_output: bool = True, text: bool = True, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(0)
             elif "status" in args:
@@ -407,8 +455,8 @@ class TestSyncRepoToOrigin:
         mock_subprocess = self._create_mock_subprocess(fake_run)
 
         with (
-            patch('subprocess.run', mock_subprocess.run),
-            patch('subprocess.TimeoutExpired', subprocess.TimeoutExpired)
+            patch("subprocess.run", mock_subprocess.run),
+            patch("subprocess.TimeoutExpired", subprocess.TimeoutExpired),
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
@@ -423,7 +471,14 @@ class TestSyncRepoToOrigin:
         workloop_file = repo_path / "workloop-state.md"
         workloop_file.write_text("# Untracked state", encoding="utf-8")
 
-        def fake_run(args: list[str], *, check: bool = False, capture_output: bool = True, text: bool = True, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(0)
             elif "status" in args:
@@ -445,8 +500,8 @@ class TestSyncRepoToOrigin:
         mock_subprocess = self._create_mock_subprocess(fake_run)
 
         with (
-            patch('subprocess.run', mock_subprocess.run),
-            patch('subprocess.TimeoutExpired', subprocess.TimeoutExpired)
+            patch("subprocess.run", mock_subprocess.run),
+            patch("subprocess.TimeoutExpired", subprocess.TimeoutExpired),
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
@@ -458,7 +513,14 @@ class TestSyncRepoToOrigin:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
-        def fake_run(args: list[str], *, check: bool = False, capture_output: bool = True, text: bool = True, timeout: int = 120) -> subprocess.CompletedProcess[str]:
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(0)
             elif "status" in args:
@@ -478,8 +540,8 @@ class TestSyncRepoToOrigin:
         mock_subprocess = self._create_mock_subprocess(fake_run)
 
         with (
-            patch('subprocess.run', mock_subprocess.run),
-            patch('subprocess.TimeoutExpired', subprocess.TimeoutExpired)
+            patch("subprocess.run", mock_subprocess.run),
+            patch("subprocess.TimeoutExpired", subprocess.TimeoutExpired),
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
