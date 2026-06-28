@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import time
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from scripts import api_client, duplicate_detection
+from scripts import duplicate_detection
 from scripts.langchain import issue_dedup
 
 
@@ -150,9 +147,7 @@ class TestWaitForDedupComment:
 
     @patch("scripts.duplicate_detection.time.sleep")
     @patch("scripts.api_client.fetch_issue_comments")
-    def test_sleeps_with_backoff_delay(
-        self, mock_fetch: MagicMock, mock_sleep: MagicMock
-    ) -> None:
+    def test_sleeps_with_backoff_delay(self, mock_fetch: MagicMock, mock_sleep: MagicMock) -> None:
         mock_fetch.return_value = [{"body": "No marker"}]
 
         duplicate_detection._wait_for_dedup_comment(
@@ -174,9 +169,7 @@ class TestWaitForDedupComment:
 
     @patch("scripts.duplicate_detection.time.sleep")
     @patch("scripts.api_client.fetch_issue_comments")
-    def test_zero_interval_no_sleep(
-        self, mock_fetch: MagicMock, mock_sleep: MagicMock
-    ) -> None:
+    def test_zero_interval_no_sleep(self, mock_fetch: MagicMock, mock_sleep: MagicMock) -> None:
         mock_fetch.return_value = [{"body": "No marker"}]
 
         duplicate_detection._wait_for_dedup_comment(
