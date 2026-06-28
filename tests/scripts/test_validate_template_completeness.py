@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -78,3 +79,137 @@ def test_is_consumer_workflow_classifies_expected_workflow_families(
     workflow_name: str, expected: bool
 ) -> None:
     assert validator.is_consumer_workflow(Path(workflow_name)) is expected
+
+
+def _write_workflow(directory: Path, name: str) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / name).write_text(f"name: {name}\n", encoding="utf-8")
+
+
+def _write_manifest(manifest_path: Path, workflows: list[str]) -> None:
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        yaml.safe_dump(
+            {"workflows": [{"source": f".github/workflows/{workflow}"} for workflow in workflows]}
+        ),
+        encoding="utf-8",
+    )
+
+
+def _run_main(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    workflows_dir: Path,
+    template_dir: Path,
+    manifest_path: Path,
+    strict: bool = False,
+    source: str = "template-completeness",
+    summary_path: Path | None = None,
+) -> int:
+    argv = [
+        "validate_template_completeness.py",
+        "--workflows-dir",
+        str(workflows_dir),
+        "--template-dir",
+        str(template_dir),
+        "--manifest",
+        str(manifest_path),
+        "--source",
+        source,
+    ]
+    if strict:
+        argv.append("--strict")
+
+    monkeypatch.setattr(sys, "argv", argv)
+    if summary_path is None:
+        monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    else:
+        monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_path))
+
+    return validator.main()
+
+
+def test_main_strict_returns_one_when_consumer_workflow_missing_from_template(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workflows_dir = tmp_path / "workflows"
+    template_dir = tmp_path / "template"
+    manifest_path = tmp_path / "sync-manifest.yml"
+
+    _write_workflow(workflows_dir, "agents-80-pr-event-hub.yml")
+    template_dir.mkdir()
+    _write_manifest(manifest_path, ["agents-80-pr-event-hub.yml"])
+
+    result = _run_main(
+        monkeypatch,
+        workflows_dir=workflows_dir,
+        template_dir=template_dir,
+        manifest_path=manifest_path,
+        strict=True,
+    )
+
+    assert result == 1
+    output = capsys.readouterr().out
+    assert "::warning::MISSING FROM TEMPLATE: agents-80-pr-event-hub.yml" in output
+    assert "Total issues: 1" in output
+
+
+def test_main_warns_and_writes_summary_when_template_workflow_missing_from_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workflows_dir = tmp_path / "workflows"
+    template_dir = tmp_path / "template"
+    manifest_path = tmp_path / "sync-manifest.yml"
+    summary_path = tmp_path / "summary.md"
+
+    _write_workflow(workflows_dir, "agents-80-pr-event-hub.yml")
+    _write_workflow(template_dir, "agents-80-pr-event-hub.yml")
+    _write_manifest(manifest_path, [])
+
+    result = _run_main(
+        monkeypatch,
+        workflows_dir=workflows_dir,
+        template_dir=template_dir,
+        manifest_path=manifest_path,
+        source="health-73-template-completeness",
+        summary_path=summary_path,
+    )
+
+    assert result == 0
+    output = capsys.readouterr().out
+    assert "::warning::MISSING FROM MANIFEST: agents-80-pr-event-hub.yml" in output
+    assert "Total issues: 1" in output
+
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "## Template Completeness Check (health-73-template-completeness)" in summary
+    assert "**Issues Found:** 1" in summary
+    assert "- MISSING FROM MANIFEST: agents-80-pr-event-hub.yml - exists in template" in summary
+
+
+def test_main_writes_no_issue_summary_when_template_and_manifest_are_complete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workflows_dir = tmp_path / "workflows"
+    template_dir = tmp_path / "template"
+    manifest_path = tmp_path / "sync-manifest.yml"
+    summary_path = tmp_path / "summary.md"
+
+    _write_workflow(workflows_dir, "agents-80-pr-event-hub.yml")
+    _write_workflow(template_dir, "agents-80-pr-event-hub.yml")
+    _write_manifest(manifest_path, ["agents-80-pr-event-hub.yml"])
+
+    result = _run_main(
+        monkeypatch,
+        workflows_dir=workflows_dir,
+        template_dir=template_dir,
+        manifest_path=manifest_path,
+        source="sync-manifest",
+        summary_path=summary_path,
+    )
+
+    assert result == 0
+    assert "All consumer workflows are properly templated and manifested" in capsys.readouterr().out
+
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "## Template Completeness Check (sync-manifest)" in summary
+    assert "**Issues Found:** 0" in summary
