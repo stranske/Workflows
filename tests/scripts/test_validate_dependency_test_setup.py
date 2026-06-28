@@ -162,6 +162,17 @@ def test_check_metadata_serialization_reports_present_files_without_model_dump(
     ]
 
 
+def test_check_metadata_serialization_accepts_absent_optional_paths(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    passed, issues = validator.check_metadata_serialization()
+
+    assert passed
+    assert issues == []
+
+
 def test_check_test_expectations_reports_attribute_and_identity_patterns(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -201,3 +212,46 @@ def test_metadata_expectations(meta, metadata):
 
     assert passed
     assert issues == []
+
+
+def test_main_returns_success_when_all_checks_pass(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write(
+        tmp_path / "pyproject.toml",
+        """
+[project.optional-dependencies]
+llm = ["openai"]
+""",
+    )
+    _write(
+        tmp_path / ".github/workflows/dependabot-auto-lock.yml",
+        "run: uv pip compile --extra llm\n",
+    )
+    _write(
+        tmp_path / "src/trend_analysis/io/validators.py",
+        "validated.metadata.model_dump(mode='json')\n",
+    )
+    _write(
+        tmp_path / "src/trend_analysis/io/market_data.py",
+        "metadata.model_dump(mode='json')\n",
+    )
+    _write(
+        tmp_path / "streamlit_app/components/data_schema.py",
+        "metadata.model_dump(mode='json')\n",
+    )
+    _write(
+        tmp_path / "tests/test_data_schema.py",
+        """
+def test_metadata_expectations(meta, metadata):
+    assert meta["metadata"]["mode"] == "live"
+""",
+    )
+
+    assert validator.main() == 0
+
+
+def test_main_returns_failure_when_a_check_reports_issue(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path / "pyproject.toml", "[project]\nname = 'workflows'\n")
+
+    assert validator.main() == 1
