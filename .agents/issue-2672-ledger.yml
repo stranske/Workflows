@@ -1,0 +1,12 @@
+version: 1
+issue: 2672
+base: main
+branch: codex/issue-2672
+tasks:
+  - id: task-01
+    title: Initialise durable progress ledger from issue tasks
+    status: doing
+    started_at: '2026-06-28T18:00:07Z'
+    finished_at: null
+    commit: ''
+    notes: []
