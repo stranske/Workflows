@@ -119,10 +119,7 @@ class TestValidateAuthPayload:
 
     def test_extra_scopes_detected(self) -> None:
         """Test that extra scopes are detected and returned as invalid."""
-        payload = {
-            "scopes": "repo,write,admin",
-            "allowed_scopes": "repo,read"
-        }
+        payload = {"scopes": "repo,write,admin", "allowed_scopes": "repo,read"}
         result = validate_auth_payload(payload)
 
         assert result.valid is False
@@ -136,10 +133,7 @@ class TestValidateAuthPayload:
 
     def test_missing_required_scopes_with_require_all_scopes_true(self) -> None:
         """Test that missing required scopes with require_all_scopes=True returns invalid."""
-        payload = {
-            "scopes": "repo,read",
-            "allowed_scopes": "repo,read,write"
-        }
+        payload = {"scopes": "repo,read", "allowed_scopes": "repo,read,write"}
         result = validate_auth_payload(payload, require_all_scopes=True)
 
         assert result.valid is False
@@ -152,10 +146,7 @@ class TestValidateAuthPayload:
 
     def test_missing_required_scopes_with_require_all_scopes_false(self) -> None:
         """Test that missing required scopes with require_all_scopes=False returns valid."""
-        payload = {
-            "scopes": "repo,read",
-            "allowed_scopes": "repo,read,write"
-        }
+        payload = {"scopes": "repo,read", "allowed_scopes": "repo,read,write"}
         result = validate_auth_payload(payload, require_all_scopes=False)
 
         assert result.valid is True
@@ -168,10 +159,7 @@ class TestValidateAuthPayload:
 
     def test_valid_scopes_exact_match(self) -> None:
         """Test that exact match of scopes and allowed_scopes returns valid."""
-        payload = {
-            "scopes": "repo,read,write",
-            "allowed_scopes": "repo,read,write"
-        }
+        payload = {"scopes": "repo,read,write", "allowed_scopes": "repo,read,write"}
         result = validate_auth_payload(payload)
 
         assert result.valid is True
@@ -184,10 +172,7 @@ class TestValidateAuthPayload:
 
     def test_valid_scopes_subset_when_full_scope_set_not_required(self) -> None:
         """Test that subsets are valid when require_all_scopes is disabled."""
-        payload = {
-            "scopes": "repo",
-            "allowed_scopes": "repo,read,write,admin"
-        }
+        payload = {"scopes": "repo", "allowed_scopes": "repo,read,write,admin"}
         result = validate_auth_payload(payload, require_all_scopes=False)
 
         assert result.valid is True
@@ -200,10 +185,7 @@ class TestValidateAuthPayload:
 
     def test_scopes_as_list(self) -> None:
         """Test that scopes provided as list are normalized correctly."""
-        payload = {
-            "scopes": ["repo", "read", "write"],
-            "allowed_scopes": ["repo", "read", "write"]
-        }
+        payload = {"scopes": ["repo", "read", "write"], "allowed_scopes": ["repo", "read", "write"]}
         result = validate_auth_payload(payload)
 
         assert result.valid is True
@@ -213,10 +195,7 @@ class TestValidateAuthPayload:
 
     def test_scopes_as_set(self) -> None:
         """Test that scopes provided as set are normalized correctly."""
-        payload = {
-            "scopes": {"repo", "read"},
-            "allowed_scopes": frozenset({"repo", "read"})
-        }
+        payload = {"scopes": {"repo", "read"}, "allowed_scopes": frozenset({"repo", "read"})}
         result = validate_auth_payload(payload)
 
         assert result.valid is True
@@ -226,10 +205,7 @@ class TestValidateAuthPayload:
 
     def test_scopes_with_whitespace(self) -> None:
         """Test that scopes with whitespace are normalized correctly."""
-        payload = {
-            "scopes": " repo , read , write ",
-            "allowed_scopes": "repo,read,write"
-        }
+        payload = {"scopes": " repo , read , write ", "allowed_scopes": "repo,read,write"}
         result = validate_auth_payload(payload)
 
         assert result.valid is True
@@ -239,10 +215,7 @@ class TestValidateAuthPayload:
 
     def test_scopes_with_empty_strings(self) -> None:
         """Test that empty strings in scopes are handled correctly."""
-        payload = {
-            "scopes": "repo,,read,,",
-            "allowed_scopes": "repo,read"
-        }
+        payload = {"scopes": "repo,,read,,", "allowed_scopes": "repo,read"}
         result = validate_auth_payload(payload)
 
         assert result.valid is True
@@ -252,10 +225,7 @@ class TestValidateAuthPayload:
 
     def test_empty_scopes_string_reports_missing_required_scopes(self) -> None:
         """Test that an empty scopes string is treated as no granted scopes."""
-        payload = {
-            "scopes": "",
-            "allowed_scopes": "repo,read"
-        }
+        payload = {"scopes": "", "allowed_scopes": "repo,read"}
         result = validate_auth_payload(payload)
 
         assert result.valid is False
@@ -266,10 +236,7 @@ class TestValidateAuthPayload:
 
     def test_empty_allowed_scopes_string(self) -> None:
         """Test that empty allowed_scopes string with require_allowed_scopes=False skips."""
-        payload = {
-            "scopes": "repo,read",
-            "allowed_scopes": ""
-        }
+        payload = {"scopes": "repo,read", "allowed_scopes": ""}
         result = validate_auth_payload(payload, require_allowed_scopes=False)
 
         assert result.valid is True
@@ -290,7 +257,7 @@ class TestAuthValidationResult:
             scopes=frozenset({"repo"}),
             allowed_scopes=frozenset({"repo", "read"}),
             extra_scopes=(),
-            missing_fields=()
+            missing_fields=(),
         )
 
         with pytest.raises(AttributeError):
@@ -306,7 +273,7 @@ class TestAuthValidationResult:
             scopes=frozenset({"repo"}),
             allowed_scopes=frozenset({"repo", "read"}),
             extra_scopes=(),
-            missing_fields=()
+            missing_fields=(),
         )
         result2 = AuthValidationResult(
             valid=True,
@@ -316,7 +283,7 @@ class TestAuthValidationResult:
             scopes=frozenset({"repo"}),
             allowed_scopes=frozenset({"repo", "read"}),
             extra_scopes=(),
-            missing_fields=()
+            missing_fields=(),
         )
 
         assert result1 == result2
@@ -331,7 +298,7 @@ class TestAuthValidationResult:
             scopes=frozenset({"repo"}),
             allowed_scopes=frozenset({"repo", "read"}),
             extra_scopes=(),
-            missing_fields=()
+            missing_fields=(),
         )
         result2 = AuthValidationResult(
             valid=False,
@@ -341,7 +308,7 @@ class TestAuthValidationResult:
             scopes=frozenset({"repo"}),
             allowed_scopes=frozenset({"repo", "read"}),
             extra_scopes=(),
-            missing_fields=()
+            missing_fields=(),
         )
 
         assert result1 != result2
@@ -356,7 +323,7 @@ class TestAuthValidationResult:
             scopes=frozenset({"repo"}),
             allowed_scopes=frozenset({"repo", "read"}),
             extra_scopes=(),
-            missing_fields=()
+            missing_fields=(),
         )
 
         # Should be able to use in a set
