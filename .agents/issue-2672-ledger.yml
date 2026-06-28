@@ -5,8 +5,8 @@ branch: codex/issue-2672
 tasks:
   - id: task-01
     title: Initialise durable progress ledger from issue tasks
-    status: doing
+    status: done
     started_at: '2026-06-28T18:00:07Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-06-28T18:00:19Z'
+    commit: 89acb7c2a994073deeee98c40b0eecc2aef9c72e
     notes: []
