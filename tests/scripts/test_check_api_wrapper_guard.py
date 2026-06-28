@@ -350,3 +350,300 @@ def test_main_does_not_write_stdout_when_output_requested(
     assert exit_code == 1
     assert captured == ""
     assert output.exists()
+
+
+# --- Diff collector/resolver tests ---
+
+
+def test_resolve_base_ref_remote_ref_exists(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When remote ref already exists locally, return it."""
+    monkeypatch.setattr(guard, "_rev_exists", lambda revision: revision == "origin/main")
+
+    result = guard._resolve_base_ref("main", "origin")
+
+    assert result == "origin/main"
+
+
+def test_resolve_base_ref_fetch_needed(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When remote ref doesn't exist but can be fetched, return it after fetch."""
+    call_count = [0]
+
+    def mock_rev_exists(revision: str) -> bool:
+        call_count[0] += 1
+        return call_count[0] == 2 and revision == "origin/main"
+
+    def mock_run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+        # Verify fetch was called
+        assert args == ["fetch", "--depth", "1", "origin", "main"]
+        return ""
+
+    monkeypatch.setattr(guard, "_rev_exists", mock_rev_exists)
+    monkeypatch.setattr(guard, "_run_git", mock_run_git)
+
+    result = guard._resolve_base_ref("main", "origin")
+
+    assert result == "origin/main"
+
+
+def test_resolve_base_ref_fallback_to_base_ref_only(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When remote ref doesn't exist and fetch doesn't help, but base_ref exists locally."""
+
+    def mock_rev_exists(revision: str) -> bool:
+        # origin/main doesn't exist, but main does
+        return revision == "main"
+
+    def mock_run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+        # Fetch was attempted but didn't help
+        assert args == ["fetch", "--depth", "1", "origin", "main"]
+        return ""
+
+    monkeypatch.setattr(guard, "_rev_exists", mock_rev_exists)
+    monkeypatch.setattr(guard, "_run_git", mock_run_git)
+
+    result = guard._resolve_base_ref("main", "origin")
+
+    assert result == "main"
+
+
+def test_resolve_base_ref_not_resolvable(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When neither remote ref nor base ref can be resolved."""
+
+    def mock_rev_exists(revision: str) -> bool:
+        return False
+
+    def mock_run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+        return ""
+
+    monkeypatch.setattr(guard, "_rev_exists", mock_rev_exists)
+    monkeypatch.setattr(guard, "_run_git", mock_run_git)
+
+    result = guard._resolve_base_ref("main", "origin")
+
+    assert result is None
+
+
+def test_collect_changed_files_successful_diff(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When base ref resolves and diff succeeds, return changed files."""
+    changed_file = guard_root / "scripts" / "changed.js"
+
+    def mock_resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
+        return "origin/main"
+
+    def mock_run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+        assert args == ["diff", "--name-only", "--diff-filter=d", "origin/main..HEAD"]
+        return "scripts/changed.js\n"
+
+    def mock_rev_exists(revision: str) -> bool:
+        return True
+
+    monkeypatch.setattr(guard, "_resolve_base_ref", mock_resolve_base_ref)
+    monkeypatch.setattr(guard, "_run_git", mock_run_git)
+    monkeypatch.setattr(guard, "_rev_exists", mock_rev_exists)
+
+    result = guard._collect_changed_files("main", "origin")
+
+    assert result == [changed_file]
+
+
+def test_collect_changed_files_diff_returns_deleted_files_filtered(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When diff returns deleted files, they should be filtered by --diff-filter=d."""
+    changed_file = guard_root / "scripts" / "changed.js"
+    deleted_file = guard_root / "scripts" / "deleted.js"
+
+    def mock_resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
+        return "origin/main"
+
+    def mock_run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+        # --diff-filter=d should return only deleted files, but we test the path
+        assert args == ["diff", "--name-only", "--diff-filter=d", "origin/main..HEAD"]
+        # Return both a changed and a deleted file to verify filtering
+        return "scripts/changed.js\nscripts/deleted.js\n"
+
+    def mock_rev_exists(revision: str) -> bool:
+        return True
+
+    monkeypatch.setattr(guard, "_resolve_base_ref", mock_resolve_base_ref)
+    monkeypatch.setattr(guard, "_run_git", mock_run_git)
+    monkeypatch.setattr(guard, "_rev_exists", mock_rev_exists)
+
+    result = guard._collect_changed_files("main", "origin")
+
+    # Both files should be in the result (diff-filter=d returns deleted files from the diff)
+    assert changed_file in result
+    assert deleted_file in result
+
+
+def test_collect_changed_files_fallback_to_head_minus_one(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When base ref diff fails but HEAD~1 exists, use HEAD~1..HEAD."""
+    changed_file = guard_root / "scripts" / "changed.js"
+
+    def mock_resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
+        return "origin/main"
+
+    call_count = [0]
+
+    def mock_run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+        call_count[0] += 1
+        if call_count[0] == 1:
+            # First call: diff against base ref fails
+            assert args == ["diff", "--name-only", "--diff-filter=d", "origin/main..HEAD"]
+            raise RuntimeError("diff failed")
+        # Second call: diff against HEAD~1 succeeds
+        assert args == ["diff", "--name-only", "--diff-filter=d", "HEAD~1..HEAD"]
+        return "scripts/changed.js\n"
+
+    def mock_rev_exists(revision: str) -> bool:
+        return revision in {"origin/main", "HEAD~1"}
+
+    monkeypatch.setattr(guard, "_resolve_base_ref", mock_resolve_base_ref)
+    monkeypatch.setattr(guard, "_run_git", mock_run_git)
+    monkeypatch.setattr(guard, "_rev_exists", mock_rev_exists)
+
+    result = guard._collect_changed_files("main", "origin")
+
+    assert result == [changed_file]
+
+
+def test_collect_changed_files_fallback_to_all_files(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When base ref diff fails, HEAD~1 doesn't exist, fallback to all files."""
+    all_files = [guard_root / "scripts" / "file1.js", guard_root / "scripts" / "file2.js"]
+
+    def mock_resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
+        return "origin/main"
+
+    def mock_run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+        # Both diff attempts fail
+        if "origin/main..HEAD" in " ".join(args):
+            raise RuntimeError("diff failed")
+        if "HEAD~1..HEAD" in " ".join(args):
+            raise RuntimeError("diff failed")
+        raise RuntimeError("unexpected git call")
+
+    def mock_rev_exists(revision: str) -> bool:
+        return revision == "origin/main"
+
+    def mock_collect_all_files() -> list[Path]:
+        return all_files
+
+    monkeypatch.setattr(guard, "_resolve_base_ref", mock_resolve_base_ref)
+    monkeypatch.setattr(guard, "_run_git", mock_run_git)
+    monkeypatch.setattr(guard, "_rev_exists", mock_rev_exists)
+    monkeypatch.setattr(guard, "_collect_all_files", mock_collect_all_files)
+
+    result = guard._collect_changed_files("main", "origin")
+
+    assert result == all_files
+
+
+def test_collect_changed_files_base_ref_unresolvable_raises(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When base ref cannot be resolved, raise RuntimeError."""
+
+    def mock_resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
+        return None
+
+    monkeypatch.setattr(guard, "_resolve_base_ref", mock_resolve_base_ref)
+
+    with pytest.raises(RuntimeError, match="Unable to resolve base ref"):
+        guard._collect_changed_files("nonexistent", "origin")
+
+
+def test_collect_changed_files_head_minus_one_fallback_also_fails_uses_all_files(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When HEAD~1..HEAD also fails, fallback to _collect_all_files."""
+    all_files = [guard_root / "scripts" / "file1.js"]
+
+    def mock_resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
+        return "origin/main"
+
+    call_count = [0]
+
+    def mock_run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+        call_count[0] += 1
+        if call_count[0] == 1:
+            assert args == ["diff", "--name-only", "--diff-filter=d", "origin/main..HEAD"]
+            raise RuntimeError("diff failed")
+        if call_count[0] == 2:
+            assert args == ["diff", "--name-only", "--diff-filter=d", "HEAD~1..HEAD"]
+            raise RuntimeError("diff failed")
+        raise RuntimeError("unexpected git call")
+
+    def mock_rev_exists(revision: str) -> bool:
+        return revision in {"origin/main", "HEAD~1"}
+
+    def mock_collect_all_files() -> list[Path]:
+        return all_files
+
+    monkeypatch.setattr(guard, "_resolve_base_ref", mock_resolve_base_ref)
+    monkeypatch.setattr(guard, "_run_git", mock_run_git)
+    monkeypatch.setattr(guard, "_rev_exists", mock_rev_exists)
+    monkeypatch.setattr(guard, "_collect_all_files", mock_collect_all_files)
+
+    result = guard._collect_changed_files("main", "origin")
+
+    assert result == all_files
+
+
+def test_collect_changed_files_head_minus_one_diff_returns_empty(
+    guard_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When HEAD~1..HEAD diff succeeds but returns no files, return empty list."""
+
+    def mock_resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
+        return "origin/main"
+
+    call_count = [0]
+
+    def mock_run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+        call_count[0] += 1
+        if call_count[0] == 1:
+            assert args == ["diff", "--name-only", "--diff-filter=d", "origin/main..HEAD"]
+            raise RuntimeError("diff failed")
+        if call_count[0] == 2:
+            assert args == ["diff", "--name-only", "--diff-filter=d", "HEAD~1..HEAD"]
+            return ""  # Empty output
+        raise RuntimeError("unexpected git call")
+
+    def mock_rev_exists(revision: str) -> bool:
+        return revision in ("origin/main", "HEAD~1")
+
+    def mock_collect_all_files() -> list[Path]:
+        return []
+
+    monkeypatch.setattr(guard, "_resolve_base_ref", mock_resolve_base_ref)
+    monkeypatch.setattr(guard, "_run_git", mock_run_git)
+    monkeypatch.setattr(guard, "_rev_exists", mock_rev_exists)
+    monkeypatch.setattr(guard, "_collect_all_files", mock_collect_all_files)
+
+    result = guard._collect_changed_files("main", "origin")
+
+    assert result == []
