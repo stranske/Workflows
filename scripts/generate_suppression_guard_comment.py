@@ -100,6 +100,23 @@ def _match_patterns(script: str) -> list[str]:
     return matches
 
 
+def _extract_step_hints(step: dict[str, Any]) -> list[str]:
+    """Extract all posting hints from a step (both script patterns and action hints)."""
+    hints: list[str] = []
+
+    # Extract script-based hints
+    script = _step_script(step)
+    if script:
+        hints.extend(_match_patterns(script))
+
+    # Extract action-based hints
+    action_hint = _step_action_hint(step)
+    if action_hint:
+        hints.append(action_hint)
+
+    return hints
+
+
 def _iter_posting_steps(workflow: dict[str, Any]) -> list[tuple[str, str, list[str]]]:
     findings: list[tuple[str, str, list[str]]] = []
     jobs = workflow.get("jobs") or {}
@@ -111,11 +128,7 @@ def _iter_posting_steps(workflow: dict[str, Any]) -> list[tuple[str, str, list[s
             if not isinstance(step, dict):
                 continue
             name = step.get("name") or step.get("id") or f"step-{index}"
-            script = _step_script(step)
-            hints = _match_patterns(script)
-            action_hint = _step_action_hint(step)
-            if action_hint:
-                hints.append(action_hint)
+            hints = _extract_step_hints(step)
             step_if = step.get("if")
             step_if_str = step_if if isinstance(step_if, str) else ""
             guarded = (
