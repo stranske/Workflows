@@ -261,6 +261,20 @@ def validate_envelope(
     return report
 
 
+def _find_participant(registry: dict[str, Any], repo: str) -> dict[str, Any] | None:
+    """Look up a participant by repo in the registry. Returns None if not found."""
+    return _find_entry(registry, repo)
+
+
+def _is_missing_envelope_a_failure(entry: dict[str, Any] | None) -> bool:
+    """Decide whether a missing envelope should fail (True) or skip (False).
+
+    An emitting or conformant participant MUST have an envelope; all others
+    (absent, candidate, none, planned) are opt-in skip.
+    """
+    return entry is not None and entry.get("status") in EMITTING_STATUSES
+
+
 def missing_envelope_report(registry: dict[str, Any], repo: str, run_json: Path) -> Report:
     """Decide what a MISSING run envelope means for ``repo``.
 
@@ -274,10 +288,10 @@ def missing_envelope_report(registry: dict[str, Any], repo: str, run_json: Path)
     is never failed just for lacking an envelope) without silencing a real
     regression in an active participant.
     """
-    entry = _find_entry(registry, repo)
+    entry = _find_participant(registry, repo)
     report = Report(repo=repo, role=entry.get("role", "") if entry else "")
-    is_active_participant = entry is not None and entry.get("status") in EMITTING_STATUSES
-    if is_active_participant:
+
+    if _is_missing_envelope_a_failure(entry):
         assert entry is not None
         report.fail(
             f"{repo} is an active backplane participant "

@@ -155,17 +155,38 @@ def _pull_request_head_repo_url() -> str | None:
     return clone_url
 
 
-def _commit_exists_locally(commit: str) -> bool:
-    """Fast check whether *commit* is known to the local object store."""
+def _git_cat_file_type(commit: str) -> str | None:
+    """Raw git operation: get object type for a commit."""
     try:
-        kind = subprocess.check_output(
+        return subprocess.check_output(
             ["git", "cat-file", "-t", commit],
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
-        return kind == "commit"
     except subprocess.CalledProcessError:
-        return False
+        return None
+
+
+def _commit_exists_locally(commit: str) -> bool:
+    """Fast check whether *commit* is known to the local object store."""
+    kind = _git_cat_file_type(commit)
+    return kind == "commit"
+
+
+def _git_cat_file_batch_check(shas: list[str]) -> list[str] | None:
+    """Raw git operation: batch check object types."""
+    try:
+        proc = subprocess.run(
+            ["git", "cat-file", "--batch-check"],
+            input="\n".join(shas) + "\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+        return proc.stdout.splitlines()
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None
 
 
 def _bulk_check_commits(shas: Iterable[str]) -> dict[str, bool]:
@@ -173,21 +194,12 @@ def _bulk_check_commits(shas: Iterable[str]) -> dict[str, bool]:
     unique = sorted(set(shas))
     if not unique:
         return {}
-    try:
-        proc = subprocess.run(
-            ["git", "cat-file", "--batch-check"],
-            input="\n".join(unique) + "\n",
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+    output_lines = _git_cat_file_batch_check(unique)
+    if output_lines is None:
         return dict.fromkeys(unique, False)
     # Map original input SHAs to results (handle abbreviated SHA -> full SHA expansion)
     # git cat-file --batch-check outputs lines in the same order as input
     results: dict[str, bool] = {}
-    output_lines = proc.stdout.splitlines()
     for original_sha, line in zip(unique, output_lines, strict=False):
         parts = line.split()
         if len(parts) >= 2:
@@ -356,48 +368,67 @@ def _with_auth_token(base_url: str, token: str) -> str:
     return urlunsplit((split.scheme, authed_netloc, split.path, split.query, split.fragment))
 
 
-def _commit_files(commit: str) -> list[str]:
-    if commit in _COMMIT_FILES_CACHE:
-        return _COMMIT_FILES_CACHE[commit]
+def _git_show_files(commit: str) -> list[str]:
+    """Raw git operation: get files changed by a commit."""
     try:
         output = subprocess.check_output(
             ["git", "show", "--pretty=format:", "--name-only", commit],
             text=True,
         )
     except subprocess.CalledProcessError as exc:
-        if _fetch_commit(commit):
-            output = subprocess.check_output(
-                ["git", "show", "--pretty=format:", "--name-only", commit],
-                text=True,
-            )
-        else:
-            raise LedgerError(f"unknown commit {commit}") from exc
-
+        raise LedgerError(f"unknown commit {commit}") from exc
     stripped_lines = (line.strip() for line in output.splitlines())
-    files = [line for line in stripped_lines if line]
-    _COMMIT_FILES_CACHE[commit] = files
-    return files
+    return [line for line in stripped_lines if line]
 
 
-def _commit_subject(commit: str) -> str:
-    if commit in _COMMIT_SUBJECT_CACHE:
-        return _COMMIT_SUBJECT_CACHE[commit]
+def _commit_files(commit: str) -> list[str]:
+    # Check cache first
+    if commit in _COMMIT_FILES_CACHE:
+        return _COMMIT_FILES_CACHE[commit]
+
+    # Try to get files directly
+    try:
+        files = _git_show_files(commit)
+        _COMMIT_FILES_CACHE[commit] = files
+        return files
+    except LedgerError as exc:
+        # Commit not found locally, try to fetch it
+        if _fetch_commit(commit):
+            files = _git_show_files(commit)
+            _COMMIT_FILES_CACHE[commit] = files
+            return files
+        raise LedgerError(f"unknown commit {commit}") from exc
+
+
+def _git_show_subject(commit: str) -> str:
+    """Raw git operation: get commit subject."""
     try:
         output = subprocess.check_output(
             ["git", "show", "--no-patch", "--pretty=format:%s", commit],
             text=True,
         )
     except subprocess.CalledProcessError as exc:
+        raise LedgerError(f"unknown commit {commit}") from exc
+    return output.strip()
+
+
+def _commit_subject(commit: str) -> str:
+    # Check cache first
+    if commit in _COMMIT_SUBJECT_CACHE:
+        return _COMMIT_SUBJECT_CACHE[commit]
+
+    # Try to get subject directly
+    try:
+        subject = _git_show_subject(commit)
+        _COMMIT_SUBJECT_CACHE[commit] = subject
+        return subject
+    except LedgerError as exc:
+        # Commit not found locally, try to fetch it
         if _fetch_commit(commit):
-            output = subprocess.check_output(
-                ["git", "show", "--no-patch", "--pretty=format:%s", commit],
-                text=True,
-            )
-        else:
-            raise LedgerError(f"unknown commit {commit}") from exc
-    result = output.strip()
-    _COMMIT_SUBJECT_CACHE[commit] = result
-    return result
+            subject = _git_show_subject(commit)
+            _COMMIT_SUBJECT_CACHE[commit] = subject
+            return subject
+        raise LedgerError(f"unknown commit {commit}") from exc
 
 
 def _validate_task(
