@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import pytest
-
 from scripts import repo_review_round1_schema as schema
-
 
 LONG_SUMMARY = (
     "This repo-review payload describes the Workflows automation contract, including "
