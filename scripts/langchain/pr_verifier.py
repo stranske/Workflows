@@ -842,12 +842,9 @@ def evaluate_pr_multiple(
 ) -> list[EvaluationResult]:
     change_type = _classify_change_type(_bounded_diff_for_classification(diff))
     runner = ComparisonRunner.from_environment(context, diff, model1, model2)
-    families = {_provider_family(provider) for _, provider, _ in runner.clients}
-    if len(runner.clients) < 2 or len(families) < 2:
-        result = _fallback_evaluation(
-            "unverified: compare mode requires two cross-family verifier judges; "
-            f"available families: {', '.join(sorted(families)) or 'none'}."
-        )
+    is_valid, error_message = _validate_comparison_clients(runner.clients)
+    if not is_valid:
+        result = _fallback_evaluation(error_message)
         result.change_type = change_type
         return [result]
     results: list[EvaluationResult] = []
@@ -867,6 +864,47 @@ def _provider_family(provider: str) -> str:
     if "anthropic" in label or "claude" in label:
         return "anthropic"
     return label.split("/", 1)[0].strip() or "unknown"
+
+
+def _get_provider_families(clients: list[tuple[object, str, str]]) -> set[str]:
+    """Extract the set of unique provider families from a list of clients.
+
+    Args:
+        clients: List of (client, provider, model) tuples.
+
+    Returns:
+        Set of provider family names (e.g., {"openai", "anthropic"}).
+    """
+    return {_provider_family(provider) for _, provider, _ in clients}
+
+
+def _validate_comparison_clients(clients: list[tuple[object, str, str]]) -> tuple[bool, str]:
+    """Validate that client list is sufficient for cross-family comparison.
+
+    Args:
+        clients: List of (client, provider, model) tuples.
+
+    Returns:
+        Tuple of (is_valid, error_message).
+        is_valid is True if there are >= 2 clients from >= 2 different provider families.
+        error_message describes the reason if validation fails.
+    """
+    families = _get_provider_families(clients)
+    if len(clients) < 2:
+        family_str = ", ".join(sorted(families)) or "none"
+        return (
+            False,
+            f"unverified: compare mode requires two cross-family verifier judges; "
+            f"available families: {family_str}.",
+        )
+    if len(families) < 2:
+        family_str = ", ".join(sorted(families)) or "none"
+        return (
+            False,
+            f"unverified: compare mode requires two cross-family verifier judges; "
+            f"available families: {family_str}.",
+        )
+    return True, ""
 
 
 def _normalize_text(text: str) -> str:
