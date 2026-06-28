@@ -7,8 +7,15 @@ import pytest
 from scripts import bootstrap_consumer_settings as bcs
 
 
-def test_split_repo_parses_owner_and_name() -> None:
-    assert bcs._split_repo("stranske/Foo") == ("stranske", "Foo")
+@pytest.mark.parametrize(
+    ("repo", "expected"),
+    [
+        ("stranske/Foo", ("stranske", "Foo")),
+        ("  stranske/Foo  ", ("stranske", "Foo")),
+    ],
+)
+def test_split_repo_parses_owner_and_name(repo: str, expected: tuple[str, str]) -> None:
+    assert bcs._split_repo(repo) == expected
 
 
 @pytest.mark.parametrize("bad", ["", "foo", "owner/", "/name", "a/b/c"])
@@ -19,6 +26,45 @@ def test_split_repo_rejects_malformed(bad: str) -> None:
 
 def test_default_keepalive_logins_is_owner() -> None:
     assert bcs._default_keepalive_logins("stranske/Bar") == "stranske"
+
+
+def test_workflow_permissions_command_matches_checklist() -> None:
+    assert bcs._workflow_permissions_command("stranske/Foo") == [
+        "gh",
+        "api",
+        "--method",
+        "PUT",
+        "/repos/stranske/Foo/actions/permissions/workflow",
+        "-F",
+        "default_workflow_permissions=write",
+        "-F",
+        "can_approve_pull_request_reviews=true",
+    ]
+
+
+def test_variable_command_sets_repo_variable_without_shell_execution() -> None:
+    assert bcs._variable_command("stranske/Foo", "ALLOWED_KEEPALIVE_LOGINS", "alice,bob") == [
+        "gh",
+        "variable",
+        "set",
+        "ALLOWED_KEEPALIVE_LOGINS",
+        "--repo",
+        "stranske/Foo",
+        "--body",
+        "alice,bob",
+    ]
+
+
+def test_collaborator_command_invites_push_collaborator() -> None:
+    assert bcs._collaborator_command("stranske/Foo", "custom-bot") == [
+        "gh",
+        "api",
+        "--method",
+        "PUT",
+        "/repos/stranske/Foo/collaborators/custom-bot",
+        "-f",
+        "permission=push",
+    ]
 
 
 def test_plan_has_all_four_bootstrap_operations_in_order() -> None:
@@ -389,6 +435,28 @@ def test_verify_variable_api_failure() -> None:
         result = bcs.verify_bootstrap_settings("stranske/Foo")
     assert result["var_use_consolidated_workflows"] is False
     assert result["var_allowed_keepalive_logins"] is False
+
+
+def test_verify_missing_variables_from_successful_list() -> None:
+    """A successful variable-list call still fails settings absent from the payload."""
+
+    def side_effect(*args, **kwargs):
+        cmd_str = " ".join(args[0])
+        if "actions/permissions/workflow" in cmd_str and "variable" not in cmd_str:
+            return _make_proc(_perms_json())
+        if "variable list" in cmd_str:
+            return _make_proc("[]")
+        return _make_proc("")
+
+    with patch("subprocess.run", side_effect=side_effect) as mock_run:
+        result = bcs.verify_bootstrap_settings("stranske/Foo")
+    assert result == {
+        "workflow_permissions": True,
+        "var_use_consolidated_workflows": False,
+        "var_allowed_keepalive_logins": False,
+        "bot_collaborator": True,
+    }
+    assert mock_run.call_count == 3
 
 
 def test_verify_keepalive_logins_override() -> None:
