@@ -129,6 +129,101 @@ def test_compare_detect_outputs_reports_removed_keys_and_counts(tmp_path: Path) 
     assert report["added_outputs_vs_baseline"] == []
 
 
+def test_compare_detect_outputs_treats_missing_and_non_mapping_outputs_as_empty(
+    tmp_path: Path,
+) -> None:
+    baseline = _write(
+        tmp_path / "baseline.yml",
+        """
+jobs:
+  detect:
+    outputs:
+      doc_only: ${{ steps.classify.outputs.doc_only }}
+      run_core: ${{ steps.classify.outputs.run_core }}
+    steps:
+      - id: classify
+        run: echo ok
+""",
+    )
+    missing_outputs = _write(
+        tmp_path / "missing-outputs.yml",
+        """
+jobs:
+  detect:
+    steps:
+      - id: classify
+        run: echo ok
+""",
+    )
+    non_mapping_outputs = _write(
+        tmp_path / "non-mapping-outputs.yml",
+        """
+jobs:
+  detect:
+    outputs:
+      - doc_only
+      - run_core
+    steps:
+      - id: classify
+        run: echo ok
+""",
+    )
+
+    missing_report = diff.compare_gate_detect_outputs(missing_outputs, baseline)
+    non_mapping_report = diff.compare_gate_detect_outputs(non_mapping_outputs, baseline)
+
+    for report in (missing_report, non_mapping_report):
+        assert report["candidate_output_count"] == 0
+        assert report["baseline_output_count"] == 2
+        assert report["removed_outputs_vs_baseline"] == ["doc_only", "run_core"]
+        assert report["added_outputs_vs_baseline"] == []
+        assert report["invalid_step_output_references"] == {}
+
+
+def test_compare_detect_outputs_accepts_underscore_and_hyphen_step_ids(
+    tmp_path: Path,
+) -> None:
+    baseline = _write(
+        tmp_path / "baseline.yml",
+        """
+jobs:
+  detect:
+    outputs:
+      affected_consumers: ${{ steps.path-classifier.outputs.affected_consumers }}
+    steps:
+      - id: path-classifier
+        run: echo ok
+""",
+    )
+    candidate = _write(
+        tmp_path / "candidate.yml",
+        """
+jobs:
+  detect:
+    outputs:
+      affected_consumers: ${{ steps.path-classifier.outputs.affected_consumers }}
+      classification_rationale: ${{ steps.classify_paths.outputs.classification-rationale }}
+      stale_output: ${{ steps.missing-step.outputs.value }}
+    steps:
+      - id: path-classifier
+        run: echo ok
+      - id: classify_paths
+        run: echo ok
+""",
+    )
+
+    report = diff.compare_gate_detect_outputs(candidate, baseline)
+
+    assert report["candidate_output_count"] == 3
+    assert report["baseline_output_count"] == 1
+    assert report["candidate_step_ids"] == ["classify_paths", "path-classifier"]
+    assert report["added_outputs_vs_baseline"] == [
+        "classification_rationale",
+        "stale_output",
+    ]
+    assert report["invalid_step_output_references"] == {"stale_output": ["missing-step"]}
+
+
 @pytest.mark.parametrize(
     ("candidate_body", "message"),
     [
