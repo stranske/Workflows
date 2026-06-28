@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from scripts import validate_template_completeness as validator
 
 
