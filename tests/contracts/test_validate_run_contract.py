@@ -236,6 +236,69 @@ def test_missing_envelope_decision_by_status() -> None:
     assert report.skipped and report.conformant
 
 
+def test_consumer_convention_only_ingest_passes_without_schema_validation() -> None:
+    """Convention-only ingests declare a surface but skip JSON Schema validation."""
+    mod = _import_validator()
+    document = {"note": "not a run envelope or evidence object"}
+    registry = {
+        "participants": [
+            {
+                "repo": "stranske/Identity-Consumer",
+                "role": "consumer",
+                "status": "conformant",
+                "ingests": ["identity-map-conventions"],
+            }
+        ]
+    }
+
+    report = mod.validate_envelope(
+        envelope=document,
+        schema_dir=SCHEMA_DIR,
+        registry=registry,
+        repo="stranske/Identity-Consumer",
+        manifest=None,
+    )
+
+    assert report.conformant
+    assert not report.violations
+    assert report.role == "consumer"
+
+
+def test_consumer_reports_closest_schema_errors_when_no_ingest_matches() -> None:
+    """When none of several declared schemas match, surface the fewest-error schema."""
+    mod = _import_validator()
+    document = {
+        "schema_version": "evidence-object/v1",
+        "evidence_id": "ev-1",
+        "fact_ref": "metric.alpha",
+        "source_id": "source-1",
+        "method": "not-a-valid-method",
+    }
+    registry = {
+        "participants": [
+            {
+                "repo": "stranske/Consumer",
+                "role": "consumer",
+                "status": "conformant",
+                "ingests": ["evidence-object/v1", "artifact-manifest/v1"],
+            }
+        ]
+    }
+
+    report = mod.validate_envelope(
+        envelope=document,
+        schema_dir=SCHEMA_DIR,
+        registry=registry,
+        repo="stranske/Consumer",
+        manifest=None,
+    )
+
+    assert not report.conformant
+    assert len(report.violations) == 1
+    assert report.violations[0].message.startswith("ingested-as-evidence-object/v1:")
+    assert "not-a-valid-method" in report.violations[0].message
+
+
 def test_consumer_mixed_unknown_ingest_token_fails() -> None:
     """Unknown ingest tokens are invalid even when another declared token matches."""
     mod = _import_validator()
