@@ -4,6 +4,7 @@ from scripts.workflow_pr_context_audit import (
     TriggerSummary,
     WorkflowAudit,
     audit_workflows,
+    build_path_pattern,
     detect_pr_context_markers,
     format_table,
     load_workflow,
@@ -16,6 +17,22 @@ from scripts.workflow_pr_context_audit import (
 
 def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
+
+
+def test_build_path_pattern_matches_dotted_optional_and_bracket_access() -> None:
+    pattern = build_path_pattern("github.event.issue.pull_request")
+
+    assert pattern.search("github.event.issue.pull_request")
+    assert pattern.search("github?.event?.issue?.pull_request")
+    assert pattern.search("github['event']['issue']['pull_request']")
+    assert pattern.search('github?.["event"]?.issue?.["pull_request"]')
+
+
+def test_build_path_pattern_rejects_partial_segment_matches() -> None:
+    pattern = build_path_pattern("github.event.issue.pull_request")
+
+    assert pattern.search("github.event.issue.pull_request_target") is None
+    assert pattern.search("github.event.issue_number.pull_request") is None
 
 
 def test_normalize_triggers_returns_empty_for_none_and_unknown() -> None:
@@ -199,6 +216,20 @@ on: workflow_dispatch
 
     assert data is not None
     assert data["name"] == "Inline"
+
+
+def test_load_workflow_returns_none_for_invalid_yaml(tmp_path: Path) -> None:
+    workflow = tmp_path / "invalid.yml"
+    workflow.write_text("name: Invalid\non: [\n", encoding="utf-8")
+
+    assert load_workflow(workflow) is None
+
+
+def test_load_workflow_returns_none_for_non_mapping_yaml(tmp_path: Path) -> None:
+    workflow = tmp_path / "list.yml"
+    workflow.write_text("- name: Not a workflow mapping\n", encoding="utf-8")
+
+    assert load_workflow(workflow) is None
 
 
 def test_audit_workflows_reads_legacy_true_on_field(tmp_path: Path) -> None:
