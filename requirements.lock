@@ -204,7 +204,7 @@ packaging==26.2
     #   langchain-core
     #   langsmith
     #   pytest
-pandas==3.0.3
+pandas==3.0.4
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
