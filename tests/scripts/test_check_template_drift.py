@@ -7,9 +7,13 @@ from pathlib import Path
 from scripts.check_template_drift import (
     AllowlistEntry,
     TemplateDriftAllowlist,
+    WorkflowPair,
+    check_pairs,
+    discover_workflow_pairs,
     drift_between,
     main,
     normalized_sha256,
+    read_manifest_workflow_names,
 )
 
 
@@ -154,6 +158,234 @@ def test_main_empty_argv_ignores_process_argv(tmp_path: Path, monkeypatch) -> No
     )
 
     assert main([]) == 0
+
+
+def test_read_manifest_workflow_names_returns_empty_set_when_manifest_missing(
+    tmp_path: Path,
+) -> None:
+    result = read_manifest_workflow_names(tmp_path)
+    assert result == set()
+
+
+def test_read_manifest_workflow_names_extracts_workflow_sources(tmp_path: Path) -> None:
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(
+        """
+version: 1
+workflows:
+  - source: .github/workflows/agents-issue-intake.yml
+    description: Issue intake
+  - source: .github/workflows/agents-80-pr-event-hub.yml
+    description: PR event hub
+  - source: .github/workflows/ci.yml
+    description: CI workflow
+""",
+        encoding="utf-8",
+    )
+
+    result = read_manifest_workflow_names(tmp_path)
+    assert result == {"agents-issue-intake.yml", "agents-80-pr-event-hub.yml", "ci.yml"}
+
+
+def test_read_manifest_workflow_names_ignores_non_workflow_sources(tmp_path: Path) -> None:
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(
+        """
+version: 1
+workflows:
+  - source: .github/workflows/agents-demo.yml
+    description: Agent demo
+  - source: templates/consumer-repo/AGENTS.md
+    description: Docs file
+  - source: .github/CODEOWNERS
+    description: Code owners
+""",
+        encoding="utf-8",
+    )
+
+    result = read_manifest_workflow_names(tmp_path)
+    assert result == {"agents-demo.yml"}
+
+
+def test_read_manifest_workflow_names_ignores_malformed_entries(tmp_path: Path) -> None:
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(
+        """
+version: 1
+workflows:
+  - source: .github/workflows/valid.yml
+    description: Valid entry
+  - "just a string"
+  - 123
+  - null
+  -
+    source: .github/workflows/another-valid.yml
+""",
+        encoding="utf-8",
+    )
+
+    result = read_manifest_workflow_names(tmp_path)
+    assert result == {"valid.yml", "another-valid.yml"}
+
+
+def test_read_manifest_workflow_names_ignores_missing_source(tmp_path: Path) -> None:
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(
+        """
+version: 1
+workflows:
+  - description: No source field
+  - source: .github/workflows/has-source.yml
+    description: Has source
+  - source: ""
+    description: Empty source
+""",
+        encoding="utf-8",
+    )
+
+    result = read_manifest_workflow_names(tmp_path)
+    assert result == {"has-source.yml"}
+
+
+def test_discover_workflow_pairs_uses_alias_mappings(tmp_path: Path) -> None:
+    main_dir = tmp_path / ".github" / "workflows"
+    template_dir = tmp_path / "templates" / "consumer-repo" / ".github" / "workflows"
+    main_dir.mkdir(parents=True)
+    template_dir.mkdir(parents=True)
+
+    main_workflow = main_dir / "agents-63-issue-intake.yml"
+    template_workflow = template_dir / "agents-issue-intake.yml"
+    main_workflow.write_text("name: main\n", encoding="utf-8")
+    template_workflow.write_text("name: template\n", encoding="utf-8")
+
+    pairs = discover_workflow_pairs(tmp_path)
+    assert len(pairs) == 1
+    assert pairs[0].main_path == main_dir / "agents-63-issue-intake.yml"
+    assert pairs[0].template_path == template_dir / "agents-issue-intake.yml"
+
+
+def test_discover_workflow_pairs_skips_non_manifested_workflows(tmp_path: Path) -> None:
+    main_dir = tmp_path / ".github" / "workflows"
+    template_dir = tmp_path / "templates" / "consumer-repo" / ".github" / "workflows"
+    main_dir.mkdir(parents=True)
+    template_dir.mkdir(parents=True)
+
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.write_text("version: 1\nworkflows: []\n", encoding="utf-8")
+
+    non_manifested_workflow = main_dir / "agents-custom.yml"
+    non_manifested_workflow.write_text("name: custom\n", encoding="utf-8")
+
+    pairs = discover_workflow_pairs(tmp_path)
+    assert len(pairs) == 0
+
+
+def test_discover_workflow_pairs_includes_manifested_workflows(tmp_path: Path) -> None:
+    main_dir = tmp_path / ".github" / "workflows"
+    template_dir = tmp_path / "templates" / "consumer-repo" / ".github" / "workflows"
+    main_dir.mkdir(parents=True)
+    template_dir.mkdir(parents=True)
+
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.write_text(
+        "version: 1\nworkflows:\n  - source: .github/workflows/agents-demo.yml\n",
+        encoding="utf-8",
+    )
+
+    manifested_workflow = main_dir / "agents-demo.yml"
+    template_workflow = template_dir / "agents-demo.yml"
+    manifested_workflow.write_text("name: demo\n", encoding="utf-8")
+    template_workflow.write_text("name: demo\n", encoding="utf-8")
+
+    pairs = discover_workflow_pairs(tmp_path)
+    assert len(pairs) == 1
+    assert pairs[0].main_path == main_dir / "agents-demo.yml"
+    assert pairs[0].template_path == template_dir / "agents-demo.yml"
+
+
+def test_check_pairs_reports_missing_template_hash(tmp_path: Path) -> None:
+    main_dir = tmp_path / ".github" / "workflows"
+    template_dir = tmp_path / "templates" / "consumer-repo" / ".github" / "workflows"
+    main_dir.mkdir(parents=True)
+    template_dir.mkdir(parents=True)
+
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.write_text(
+        "version: 1\nworkflows:\n  - source: .github/workflows/agents-demo.yml\n",
+        encoding="utf-8",
+    )
+
+    main_workflow = main_dir / "agents-demo.yml"
+    main_workflow.write_text("name: demo\n", encoding="utf-8")
+
+    pairs = [WorkflowPair(main_workflow, template_dir / "agents-demo.yml")]
+    allowlist = TemplateDriftAllowlist()
+
+    results = check_pairs(tmp_path, pairs, allowlist)
+    assert len(results) == 1
+    assert results[0].status == "drift"
+    assert results[0].template_sha256 == ""
+    assert results[0].reason == "template counterpart is missing"
+
+
+def test_check_pairs_reports_allowlisted_reason(tmp_path: Path) -> None:
+    main_dir = tmp_path / ".github" / "workflows"
+    template_dir = tmp_path / "templates" / "consumer-repo" / ".github" / "workflows"
+    main_dir.mkdir(parents=True)
+    template_dir.mkdir(parents=True)
+
+    main_workflow = main_dir / "agents-demo.yml"
+    template_workflow = template_dir / "agents-demo.yml"
+    main_text = "name: main\njobs:\n  check: true\n"
+    template_text = "name: template\njobs:\n  check: true\n"
+    main_workflow.write_text(main_text, encoding="utf-8")
+    template_workflow.write_text(template_text, encoding="utf-8")
+
+    allowlist = TemplateDriftAllowlist(
+        (
+            AllowlistEntry(
+                main_path=".github/workflows/agents-demo.yml",
+                template_path="templates/consumer-repo/.github/workflows/agents-demo.yml",
+                main_sha256=normalized_sha256(main_text),
+                template_sha256=normalized_sha256(template_text),
+                reason="intentional baseline drift",
+            ),
+        )
+    )
+
+    pairs = [WorkflowPair(main_workflow, template_workflow)]
+    results = check_pairs(tmp_path, pairs, allowlist)
+
+    assert len(results) == 1
+    assert results[0].status == "allowlisted"
+    assert results[0].reason == "intentional baseline drift"
+    assert results[0].main_sha256 == normalized_sha256(main_text)
+    assert results[0].template_sha256 == normalized_sha256(template_text)
+
+
+def test_check_pairs_reports_in_sync_status(tmp_path: Path) -> None:
+    main_dir = tmp_path / ".github" / "workflows"
+    template_dir = tmp_path / "templates" / "consumer-repo" / ".github" / "workflows"
+    main_dir.mkdir(parents=True)
+    template_dir.mkdir(parents=True)
+
+    main_workflow = main_dir / "agents-demo.yml"
+    template_workflow = template_dir / "agents-demo.yml"
+    content = "name: demo\n"
+    main_workflow.write_text(content, encoding="utf-8")
+    template_workflow.write_text(content, encoding="utf-8")
+
+    pairs = [WorkflowPair(main_workflow, template_workflow)]
+    allowlist = TemplateDriftAllowlist()
+
+    results = check_pairs(tmp_path, pairs, allowlist)
+    assert len(results) == 1
+    assert results[0].status == "in_sync"
+    assert results[0].reason == ""
 
 
 def _write_pair(tmp_path: Path, filename: str, main: str, template: str) -> None:
