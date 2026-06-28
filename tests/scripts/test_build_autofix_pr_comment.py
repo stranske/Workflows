@@ -63,9 +63,7 @@ def test_format_timestamp_contract_for_z_offsets_invalid_and_none(
 
     monkeypatch.setattr(autofix_comment, "datetime", FrozenDateTime)
 
-    assert autofix_comment.format_timestamp("2025-02-02T10:11:12Z") == (
-        "2025-02-02 10:11:12 UTC"
-    )
+    assert autofix_comment.format_timestamp("2025-02-02T10:11:12Z") == ("2025-02-02 10:11:12 UTC")
     assert autofix_comment.format_timestamp("2025-02-02T05:11:12-05:00") == (
         "2025-02-02 10:11:12 UTC"
     )
