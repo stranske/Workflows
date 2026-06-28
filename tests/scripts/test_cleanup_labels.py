@@ -45,6 +45,7 @@ def test_classify_label_covers_core_categories() -> None:
 def test_classify_label_normalizes_case_and_colon_spacing() -> None:
     assert cleanup_labels.classify_label(" Agent:Codex ") == "functional"
     assert cleanup_labels.classify_label("Priority : High") == "informational"
+    assert cleanup_labels.classify_label("Priority, High") == "informational"
     assert cleanup_labels.classify_label("SIZE:xs") == "bloat"
 
 

@@ -216,7 +216,8 @@ BLOAT_LABELS = {
 
 def normalize_label_name(label_name: str) -> str:
     """Normalize labels for classification without changing display output."""
-    return ":".join(part.strip() for part in str(label_name).strip().lower().split(":"))
+    normalized = str(label_name).strip().lower().replace(",", ":")
+    return ":".join(part.strip() for part in normalized.split(":"))
 
 
 NORMALIZED_FUNCTIONAL_LABELS = {normalize_label_name(label) for label in FUNCTIONAL_LABELS}
