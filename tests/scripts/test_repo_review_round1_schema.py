@@ -108,10 +108,13 @@ def test_repo_relative_path_rejects_empty_urls_and_prose(value: str) -> None:
     ],
 )
 def test_validate_implementation_piece_accepts_allowed_statuses(status: str) -> None:
-    assert schema.validate_implementation_piece(
-        _valid_implementation_piece(status=status),
-        0,
-    ) == []
+    assert (
+        schema.validate_implementation_piece(
+            _valid_implementation_piece(status=status),
+            0,
+        )
+        == []
+    )
 
 
 def test_validate_implementation_piece_requires_core_fields() -> None:
