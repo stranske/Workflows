@@ -66,7 +66,7 @@ def sample_issue_dict() -> dict:
 class TestLooksLikeUmbrellaTitle:
     """Test umbrella detection via title words."""
 
-    @pytest.mark.parametrize("title_word", UMBRELLA_TITLE_WORDS)
+    @pytest.mark.parametrize("title_word", sorted(UMBRELLA_TITLE_WORDS))
     def test_title_contains_umbrella_word(self, title_word: str) -> None:
         """Title containing any umbrella word should be detected."""
         is_umbrella, reason = looks_like_umbrella(
@@ -105,7 +105,7 @@ class TestLooksLikeUmbrellaTitle:
 class TestLooksLikeUmbrellaLabels:
     """Test umbrella detection via labels."""
 
-    @pytest.mark.parametrize("label", HUMAN_DECISION_LABELS_EXACT)
+    @pytest.mark.parametrize("label", sorted(HUMAN_DECISION_LABELS_EXACT))
     def test_label_exact_match(self, label: str) -> None:
         """Issues with exact human-decision labels should be detected."""
         is_umbrella, reason = looks_like_umbrella(title="Some issue", body="", labels=[label])
@@ -127,7 +127,7 @@ class TestLooksLikeUmbrellaLabels:
         # Should report the first sorted match
         assert any(word in reason for word in ["epic", "meta", "tracker"])
 
-    @pytest.mark.parametrize("prefix", HUMAN_DECISION_LABEL_PREFIXES)
+    @pytest.mark.parametrize("prefix", sorted(HUMAN_DECISION_LABEL_PREFIXES))
     def test_label_with_prefix(self, prefix: str) -> None:
         """Labels starting with blocked prefix should be detected."""
         is_umbrella, reason = looks_like_umbrella(
@@ -372,28 +372,28 @@ class TestDecidePriority:
 class TestIsExcluded:
     """Test exclusion filtering logic."""
 
-    @pytest.mark.parametrize("prefix", PRIORITY_LABEL_PREFIXES)
+    @pytest.mark.parametrize("prefix", sorted(PRIORITY_LABEL_PREFIXES))
     def test_priority_label_excluded(self, prefix: str) -> None:
         """Issues with priority:* labels should be excluded."""
         excluded, reason = is_excluded([f"{prefix}high"])
         assert excluded is True
         assert "priority" in reason.lower()
 
-    @pytest.mark.parametrize("prefix", AGENT_LABEL_PREFIXES)
+    @pytest.mark.parametrize("prefix", sorted(AGENT_LABEL_PREFIXES))
     def test_agent_label_excluded(self, prefix: str) -> None:
         """Issues with agent:* labels should be excluded."""
         excluded, reason = is_excluded([f"{prefix}test"])
         assert excluded is True
         assert "agent" in reason.lower()
 
-    @pytest.mark.parametrize("prefix", EXCLUDE_LABEL_PREFIXES)
+    @pytest.mark.parametrize("prefix", sorted(EXCLUDE_LABEL_PREFIXES))
     def test_exclude_label_prefix_excluded(self, prefix: str) -> None:
         """Issues with exclude-label-prefixes should be excluded."""
         excluded, reason = is_excluded([f"{prefix}something"])
         assert excluded is True
         assert "excluded prefix" in reason
 
-    @pytest.mark.parametrize("label", EXCLUDE_LABELS_EXACT)
+    @pytest.mark.parametrize("label", sorted(EXCLUDE_LABELS_EXACT))
     def test_exclude_label_exact_excluded(self, label: str) -> None:
         """Issues with exact exclude labels should be excluded."""
         excluded, reason = is_excluded([label])
@@ -448,7 +448,7 @@ class TestIsExcluded:
 class TestIsIncluded:
     """Test inclusion filtering logic."""
 
-    @pytest.mark.parametrize("label", INCLUDE_LABELS)
+    @pytest.mark.parametrize("label", sorted(INCLUDE_LABELS))
     def test_include_label_included(self, label: str) -> None:
         """Issues with enhancement or feature labels should be included."""
         assert is_included([label]) is True
