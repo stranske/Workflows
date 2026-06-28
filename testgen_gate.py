@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Orchestrator test-generation acceptance gate for stranske/Workflows#2578.
+"""Orchestrator test-generation acceptance gate for stranske/Workflows#2618.
 
 Validates that generated tests:
 1. Are syntactically correct Python
@@ -16,7 +16,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
 TEST_FILES = [
-    REPO_ROOT / "tests" / "scripts" / "test_validate_template_completeness.py",
+    REPO_ROOT / "tests" / "scripts" / "test_auth_validator.py",
 ]
 
 
@@ -77,7 +77,7 @@ def validate_test_execution(test_file: Path) -> tuple[bool, str]:
 
 def main() -> int:
     """Run the test generation acceptance gate."""
-    print("Running Orchestrator test-generation acceptance gate for stranske/Workflows#2578")
+    print("Running Orchestrator test-generation acceptance gate for stranske/Workflows#2618")
     print("=" * 80)
 
     all_passed = True
