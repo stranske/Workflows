@@ -256,7 +256,7 @@ def _api_retry_kwargs(
     return kwargs
 
 
-def check_issue_for_duplicate(
+def _wait_for_dedup_comment(
     repo: str,
     issue_number: int,
     token: str,
@@ -284,6 +284,27 @@ def check_issue_for_duplicate(
     return None
 
 
+def check_issue_for_duplicate(
+    repo: str,
+    issue_number: int,
+    token: str,
+    *,
+    attempts: int,
+    interval: float,
+    retry_attempts: int | None = None,
+    retry_backoff: float | None = None,
+) -> dict[str, Any] | None:
+    return _wait_for_dedup_comment(
+        repo,
+        issue_number,
+        token,
+        attempts=attempts,
+        interval=interval,
+        retry_attempts=retry_attempts,
+        retry_backoff=retry_backoff,
+    )
+
+
 def check_issue_for_no_duplicate(
     repo: str,
     issue_number: int,
@@ -294,18 +315,13 @@ def check_issue_for_no_duplicate(
     retry_attempts: int | None = None,
     retry_backoff: float | None = None,
 ) -> bool:
-    max_attempts = max(attempts, 1)
-    for attempt in range(max_attempts):
-        comments = api_client.fetch_issue_comments(
-            repo,
-            issue_number,
-            token,
-            **_api_retry_kwargs(retry_attempts, retry_backoff),
-        )
-        if find_dedup_comment(comments) is not None:
-            return False
-        if attempt < max_attempts - 1:
-            delay = _backoff_delay(interval, attempt)
-            if delay:
-                time.sleep(delay)
-    return True
+    result = _wait_for_dedup_comment(
+        repo,
+        issue_number,
+        token,
+        attempts=attempts,
+        interval=interval,
+        retry_attempts=retry_attempts,
+        retry_backoff=retry_backoff,
+    )
+    return result is None
