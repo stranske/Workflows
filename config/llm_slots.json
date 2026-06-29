@@ -8,7 +8,7 @@
     {
       "name": "slot2",
       "provider": "anthropic",
-      "model": "claude-sonnet-4-6"
+      "quality_tier": "T5"
     },
     {
       "name": "slot3",
