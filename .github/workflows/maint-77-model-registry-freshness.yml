@@ -1,0 +1,91 @@
+name: Maint 77 Model Registry Freshness
+
+# Detects when the canonical LLM model configuration has gone stale so old models
+# do not get stuck as the primary ones indefinitely. OFFLINE + deterministic:
+# it only reads config/model_registry.json + config/llm_slots.json (no provider
+# API calls, no secrets). On staleness it opens/refreshes a single tracking issue;
+# a human reviews + refreshes the registry, which then propagates to consumers via
+# the existing maint-68 sync (model_registry.json is copy-synced).
+#
+# This does NOT change model selection and does NOT touch the sync workflow.
+
+on:
+  schedule:
+    # Weekly, Monday 05:20 UTC (after the 05:00 maint-68 sync window).
+    - cron: '20 5 * * 1'
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - config/model_registry.json
+      - config/llm_slots.json
+      - tools/check_model_registry_freshness.py
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      # On PRs, fail the job on staleness so registry/slot changes are gated.
+      # On schedule/dispatch, never fail the run — open a tracking issue instead.
+      - name: Run freshness gate
+        id: gate
+        run: |
+          set +e
+          python3 tools/check_model_registry_freshness.py --json > freshness.json
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          cat freshness.json
+          {
+            echo '### Model registry freshness'
+            echo '```json'
+            cat freshness.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail PRs on staleness
+        if: github.event_name == 'pull_request' && steps.gate.outputs.rc != '0'
+        run: |
+          echo "::error::Model registry/slots are stale — see job summary."
+          exit 1
+
+      - name: Open or refresh tracking issue (scheduled/dispatch only)
+        if: github.event_name != 'pull_request' && steps.gate.outputs.rc != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="🧭 LLM model registry needs review (freshness gate)"
+          BODY_FILE=issue_body.md
+          {
+            echo "The model-registry freshness gate (\`tools/check_model_registry_freshness.py\`, maint-77) flagged stale or dominated model configuration."
+            echo ""
+            echo "Refresh \`config/model_registry.json\` (and \`config/llm_slots.json\` if pins are dominated/blocked), bump \`review_by\`, and merge — the update propagates to consumers via maint-68 (model_registry.json is copy-synced)."
+            echo ""
+            echo "**Findings:**"
+            echo '```json'
+            cat freshness.json
+            echo '```'
+            echo ""
+            echo "_Run:_ ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > "$BODY_FILE"
+          EXISTING=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number' 2>/dev/null)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+            echo "::warning::Refreshed existing freshness issue #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY_FILE" --label "automated"
+            echo "::warning::Opened model-registry freshness issue"
+          fi

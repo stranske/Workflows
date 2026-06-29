@@ -1,6 +1,8 @@
 {
   "version": "1.0.0",
   "last_updated": "2026-04-14",
+  "review_interval_days": 60,
+  "review_by": "2026-06-13",
   "models": [
     {
       "model_id": "gpt-5.4",

@@ -678,6 +678,9 @@ scripts:
   - source: tools/embedding_provider.py
     description: "Embedding provider registry used by synced semantic matching helpers"
 
+  - source: tools/check_model_registry_freshness.py
+    description: "Model-registry freshness gate - offline check that flags stale/blocked/dominated model pins so old models do not get stuck as primary"
+
   # Research-backplane run-contract/v1 validator (run locally + in the conformance gate)
   - source: scripts/validate_run_contract.py
     description: "Validates a repo's emitted run-contract/v1 run envelope (producer/bridge) or ingested satellite object (consumer) against the canonical Workflows schemas + opt-in participant registry. Offline/deterministic; opt-in skip for non-participants. Synced so participants can validate locally and the reusable conformance gate can invoke it."
