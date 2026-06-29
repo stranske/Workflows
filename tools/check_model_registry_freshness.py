@@ -143,21 +143,30 @@ def evaluate(
                 }
             )
             continue
-        pinned_q = _headline_quality(entry)
+        tier = str(slot.get("quality_tier", "")).strip()
+
+        def _slot_quality(model_entry: dict[str, Any], slot_tier: str = tier) -> float:
+            if not slot_tier:
+                return _headline_quality(model_entry)
+            quality = model_entry.get("quality") or {}
+            value = quality.get(slot_tier)
+            return float(value) if isinstance(value, (int, float)) else float("-inf")
+
+        pinned_q = _slot_quality(entry)
         better = [
             m
             for m in by_provider.get(prov, [])
-            if not m.get("blocked") and _headline_quality(m) > pinned_q
+            if not m.get("blocked") and _slot_quality(m) > pinned_q
         ]
         if better:
-            best = max(better, key=_headline_quality)
+            best = max(better, key=_slot_quality)
             findings.append(
                 {
                     "kind": "dominated_pin",
                     "detail": f"slot {name!r} pins {prov}/{model} "
                     f"(quality {pinned_q:.2f}) but the registry rates "
                     f"{prov}/{best.get('model_id')} higher "
-                    f"({_headline_quality(best):.2f}); the pin keeps an older model primary.",
+                    f"({_slot_quality(best):.2f}); the pin keeps an older model primary.",
                 }
             )
 
@@ -194,7 +203,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"config error: {exc}", file=sys.stderr)
         return 2
 
-    today = _parse_date(args.today) if args.today else _dt.date.today()
+    try:
+        today = _parse_date(args.today) if args.today else _dt.date.today()
+    except ValueError as exc:
+        print(f"config error: {exc}", file=sys.stderr)
+        return 2
     findings = evaluate(registry, slots, today=today, max_age_days=args.max_age_days)
 
     if args.json:

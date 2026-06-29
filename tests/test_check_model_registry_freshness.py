@@ -92,6 +92,34 @@ def test_dominated_pin_flags_better_same_provider_model():
     assert "claude-opus-4-6" in findings[0]["detail"]
 
 
+def test_dominated_pin_uses_slot_quality_tier():
+    reg = _registry()
+    reg["models"] = [
+        {
+            "model_id": "primary-for-t4",
+            "provider": "openai",
+            "quality": {"T4": 0.95, "T5": 0.80},
+        },
+        {
+            "model_id": "better-t5-only",
+            "provider": "openai",
+            "quality": {"T4": 0.90, "T5": 0.99},
+        },
+    ]
+    slots = {
+        "slots": [
+            {
+                "name": "slot1",
+                "provider": "openai",
+                "model": "primary-for-t4",
+                "quality_tier": "T4",
+            }
+        ]
+    }
+    findings = gate.evaluate(reg, slots, today=TODAY)
+    assert findings == []
+
+
 def test_tier_derived_slot_without_model_is_not_flagged():
     # A slot with no pinned model derives from the registry at runtime -> non-ossifying.
     slots = {"slots": [{"name": "slot1", "provider": "anthropic", "quality_tier": "T5"}]}
@@ -120,3 +148,5 @@ def test_main_exit_codes(tmp_path):
     reg.write_text(json.dumps(_registry(review_by="2026-12-31")))
     rc = gate.main(["--registry", str(reg), "--slots", str(slots), "--today", "2026-06-28"])
     assert rc == 0
+    rc = gate.main(["--registry", str(reg), "--slots", str(slots), "--today", "not-a-date"])
+    assert rc == 2

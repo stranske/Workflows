@@ -22,7 +22,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -31,9 +30,15 @@ concurrency:
 jobs:
   freshness:
     runs-on: ubuntu-latest
+    outputs:
+      rc: ${{ steps.gate.outputs.rc }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -47,7 +52,8 @@ jobs:
         run: |
           set +e
           python3 tools/check_model_registry_freshness.py --json > freshness.json
-          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
           cat freshness.json
           {
             echo '### Model registry freshness'
@@ -55,15 +61,51 @@ jobs:
             cat freshness.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" = "2" ]; then
+            echo "::error::Freshness gate configuration error."
+            exit 2
+          fi
 
       - name: Fail PRs on staleness
-        if: github.event_name == 'pull_request' && steps.gate.outputs.rc != '0'
+        if: github.event_name == 'pull_request' && steps.gate.outputs.rc == '1'
         run: |
           echo "::error::Model registry/slots are stale — see job summary."
           exit 1
 
+  tracking-issue:
+    if: github.event_name != 'pull_request' && needs.freshness.outputs.rc == '1'
+    needs: freshness
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Recreate freshness report
+        run: |
+          set +e
+          python3 tools/check_model_registry_freshness.py --json > freshness.json
+          rc=$?
+          cat freshness.json
+          if [ "$rc" = "2" ]; then
+            echo "::error::Freshness gate configuration error."
+            exit 2
+          fi
+          if [ "$rc" != "1" ]; then
+            echo "::notice::Freshness finding cleared before issue update."
+            exit 0
+          fi
+
       - name: Open or refresh tracking issue (scheduled/dispatch only)
-        if: github.event_name != 'pull_request' && steps.gate.outputs.rc != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
