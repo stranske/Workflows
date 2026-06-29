@@ -85,7 +85,7 @@ def test_build_chat_client_anthropic_fallback(monkeypatch: pytest.MonkeyPatch) -
     assert resolved.provider == langchain_client.PROVIDER_ANTHROPIC
     assert isinstance(resolved.client, FakeChatAnthropic)
     assert resolved.client.kwargs["anthropic_api_key"] == "claude-token"
-    assert resolved.model == "claude-sonnet-4-6"
+    assert resolved.model == "claude-opus-4-6"
 
 
 def test_build_chat_client_anthropic_without_openai_package(

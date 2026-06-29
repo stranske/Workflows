@@ -229,12 +229,18 @@ def load_slot_config(*, github_default_model: str) -> list[SlotDefinition]:
 
     registry = load_model_registry()
     slots: list[SlotDefinition] = []
+    fallback_by_position = dict(enumerate(fallback_slots, start=1))
+    fallback_by_provider = {slot.provider: slot for slot in fallback_slots}
     for idx, entry in enumerate(_slot_entries(payload, path), start=1):
         provider = normalize_provider(str(entry.get("provider", "")))
         model = str(entry.get("model", "")).strip()
         tier = str(entry.get("quality_tier") or entry.get("tier") or "").strip()
         if provider and not model and tier:
             model = select_model_for_tier(provider=provider, tier=tier, registry=registry) or ""
+        if provider and not model:
+            fallback_slot = fallback_by_position.get(idx) or fallback_by_provider.get(provider)
+            if fallback_slot and fallback_slot.provider == provider:
+                model = fallback_slot.model
         if not provider or not model:
             continue
         if is_model_blocked(provider, model, registry=registry):
