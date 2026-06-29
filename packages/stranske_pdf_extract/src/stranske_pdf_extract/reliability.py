@@ -103,9 +103,13 @@ def check_sign(
 ) -> RuleViolation | None:
     """Sign sanity (e.g. a market value should be non-negative)."""
     if expected == "non_negative" and value < 0:
-        return RuleViolation(rule=rule, message=f"{value} should be >= 0", evidence_ref=evidence_ref)
+        return RuleViolation(
+            rule=rule, message=f"{value} should be >= 0", evidence_ref=evidence_ref
+        )
     if expected == "non_positive" and value > 0:
-        return RuleViolation(rule=rule, message=f"{value} should be <= 0", evidence_ref=evidence_ref)
+        return RuleViolation(
+            rule=rule, message=f"{value} should be <= 0", evidence_ref=evidence_ref
+        )
     return None
 
 
@@ -158,9 +162,7 @@ def cross_check(
 # --- Layer 3: calibration + confidence routing -----------------------------------------
 
 
-def expected_calibration_error(
-    pairs: Sequence[tuple[float, bool]], *, n_bins: int = 10
-) -> float:
+def expected_calibration_error(pairs: Sequence[tuple[float, bool]], *, n_bins: int = 10) -> float:
     """Expected Calibration Error over (confidence, was_correct) pairs.
 
     Measure this on YOUR data before routing on confidence — LLM/OCR confidences are

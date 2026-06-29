@@ -21,7 +21,7 @@ from ..contract import (
     ProviderExtractionOutput,
     SourceLocation,
 )
-from ..provider import MultiModalExtractionProvider, register_provider
+from ..provider import register_provider
 
 
 class DoclingUnavailableError(RuntimeError):
@@ -47,9 +47,7 @@ class DoclingProvider:
         # so the Protocol-conformance test can run with the extra absent.
         self._do_ocr = do_ocr
 
-    def extract_modalities(
-        self, source_doc_id: str, content: bytes
-    ) -> ProviderExtractionOutput:
+    def extract_modalities(self, source_doc_id: str, content: bytes) -> ProviderExtractionOutput:
         if not docling_available():
             raise DoclingUnavailableError(
                 "the 'docling' extra is not installed; "
@@ -62,8 +60,8 @@ class DoclingProvider:
     ) -> ProviderExtractionOutput:  # pragma: no cover - requires the optional heavy dep
         import io
 
-        from docling.document_converter import DocumentConverter  # type: ignore[import-not-found]
         from docling.datamodel.base_models import DocumentStream  # type: ignore[import-not-found]
+        from docling.document_converter import DocumentConverter  # type: ignore[import-not-found]
 
         source = DocumentStream(name=source_doc_id, stream=io.BytesIO(content))
         document = DocumentConverter().convert(source).document

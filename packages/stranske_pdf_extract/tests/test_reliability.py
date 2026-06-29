@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-
 from stranske_pdf_extract.reliability import (
     check_date_in_period,
     check_foots,
@@ -31,7 +30,9 @@ def test_check_weights_sum():
 def test_check_date_in_period_and_sign():
     start, end = date(2026, 1, 1), date(2026, 3, 31)
     assert check_date_in_period(value=date(2026, 2, 15), period_start=start, period_end=end) is None
-    assert check_date_in_period(value=date(2026, 4, 1), period_start=start, period_end=end) is not None
+    assert (
+        check_date_in_period(value=date(2026, 4, 1), period_start=start, period_end=end) is not None
+    )
     assert check_sign(value=5.0, expected="non_negative") is None
     assert check_sign(value=-5.0, expected="non_negative") is not None
 

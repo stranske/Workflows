@@ -50,7 +50,7 @@ class ScoreReport:
     per_field: tuple[FieldScore, ...]
     macro_f1: float
 
-    def regressed_against(self, baseline: "ScoreReport", *, tol: float = 1e-9) -> tuple[str, ...]:
+    def regressed_against(self, baseline: ScoreReport, *, tol: float = 1e-9) -> tuple[str, ...]:
         """Field keys whose F1 dropped vs a baseline report (for a PR gate)."""
         base = {fs.key: fs.f1 for fs in baseline.per_field}
         return tuple(

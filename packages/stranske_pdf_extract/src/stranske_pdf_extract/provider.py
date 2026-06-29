@@ -43,9 +43,7 @@ class MultiModalExtractionProvider(Protocol):
         """Stable provider name used in orchestration logs and the registry."""
         ...
 
-    def extract_modalities(
-        self, source_doc_id: str, content: bytes
-    ) -> ProviderExtractionOutput:
+    def extract_modalities(self, source_doc_id: str, content: bytes) -> ProviderExtractionOutput:
         """Extract text, table, and image outputs from raw document bytes."""
         ...
 
@@ -71,9 +69,7 @@ def build_provider(name: str, **kwargs: object) -> object:
     try:
         factory = _PROVIDERS[name]
     except KeyError:
-        raise KeyError(
-            f"unknown provider {name!r}; registered: {sorted(_PROVIDERS)}"
-        ) from None
+        raise KeyError(f"unknown provider {name!r}; registered: {sorted(_PROVIDERS)}") from None
     return factory(**kwargs)
 
 

@@ -16,7 +16,7 @@ from ..contract import (
     ProviderExtractionOutput,
     SourceLocation,
 )
-from ..provider import OcrExtract, MultiModalExtractionProvider, register_provider
+from ..provider import MultiModalExtractionProvider, OcrExtract, register_provider
 
 _log = logging.getLogger(__name__)
 
@@ -29,9 +29,7 @@ class TextBaselineProvider:
     def __init__(self, *, ocr_extract: OcrExtract | None = None) -> None:
         self._ocr_extract = ocr_extract
 
-    def extract_modalities(
-        self, source_doc_id: str, content: bytes
-    ) -> ProviderExtractionOutput:
+    def extract_modalities(self, source_doc_id: str, content: bytes) -> ProviderExtractionOutput:
         pages = (
             self._with_pdfplumber(content)
             or self._with_pypdf(content)

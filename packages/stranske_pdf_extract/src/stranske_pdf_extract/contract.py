@@ -17,7 +17,7 @@ consumer; this module only models *where a value came from* and *how confident w
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal, Protocol, runtime_checkable
 
 # Extraction path that produced a value. Superset of Pension-Data's `method` enum

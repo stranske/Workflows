@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import pytest
-
 from stranske_pdf_extract.contract import (
     EvidenceRef,
-    ExtractedField,
     ExtractedDocumentResult,
+    ExtractedField,
     ProviderExtractionOutput,
     SourceLocation,
     validate_extracted_document_result,
@@ -17,7 +16,12 @@ from stranske_pdf_extract.contract import (
 
 def _field(**kw) -> ExtractedField:
     base = dict(
-        key="nav", value="100.0", confidence=0.9, source_doc_id="doc1", source_page=1, method="table"
+        key="nav",
+        value="100.0",
+        confidence=0.9,
+        source_doc_id="doc1",
+        source_page=1,
+        method="table",
     )
     base.update(kw)
     return ExtractedField(**base)
@@ -74,7 +78,9 @@ def test_strict_evidence_requires_ref_for_high_impact_fields():
     ok = ExtractedDocumentResult(
         source_doc_id="doc1",
         provider_name="p",
-        fields=(_field(key="funded_ratio", value="0.84", evidence=EvidenceRef("doc1", page_number=40)),),
+        fields=(
+            _field(key="funded_ratio", value="0.84", evidence=EvidenceRef("doc1", page_number=40)),
+        ),
     )
     validate_extracted_document_result(ok, strict_evidence=True)
 
