@@ -1,0 +1,48 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai/getting-started/configure-coderabbit
+# Fleet default, synced from stranske/Workflows (templates/consumer-repo/.coderabbit.yaml).
+# Tuned for the stranske autonomous-agent fleet:
+#   - assertive review of substantial agent-authored PRs
+#   - advisory / non-gating, matching the fleet rule that review never blocks a merge
+#   - maintenance-bot PRs and generated sync/draft PRs do not spend review budget
+#   - a workflow-injection guard, since workflow YAML is synced across consumer repos
+language: en-US
+reviews:
+  profile: assertive
+  request_changes_workflow: false      # advisory: never auto-block a merge (fleet rule)
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false                      # opener creates drafts; review when marked ready
+    # Skip automatic-review budget on maintenance-bot PRs (dependency bumps, CI/version
+    # syncs). agents-workflows-bot is intentionally NOT listed — it authors substantial
+    # agent code PRs (e.g. "Agent belt for #N") that should still be reviewed.
+    ignore_usernames:
+      - "renovate[bot]"
+      - "dependabot[bot]"
+      - "github-actions[bot]"
+      - "stranske-keepalive[bot]"
+    # Also skip generated maintenance / sync PRs by title and by negative label.
+    ignore_title_keywords:
+      - "chore: sync workflow templates"
+      - "sync workflow templates"
+    labels:
+      - "!sync"
+      - "!workflow:source-sync"
+      - "!workflow:source-maintenance"
+      - "!consumer-sync"
+      - "!integration-sync"
+      - "!workflows-sync"
+      - "!template-sync"
+  path_filters:
+    - "!**/*.lock"
+    - "!**/vendor/**"
+    - "!**/.workflows-lib/**"
+  path_instructions:
+    - path: ".github/workflows/**"
+      instructions: >-
+        Flag template-injection, unpinned third-party actions, and spoofable bot-actor
+        checks — this workflow YAML is synced across consumer repos, so one bug
+        replicates fleet-wide.
+chat:
+  auto_reply: true
