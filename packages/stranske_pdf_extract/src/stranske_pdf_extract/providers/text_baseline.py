@@ -31,10 +31,11 @@ class TextBaselineProvider:
 
     def extract_modalities(self, source_doc_id: str, content: bytes) -> ProviderExtractionOutput:
         pages = (
-            self._with_pdfplumber(content)
-            or self._with_pypdf(content)
-            or self._with_ocr(content)
-            or self._raw_decode(content)
+            self._usable_pages(self._with_pdfplumber(content))
+            or self._usable_pages(self._with_pypdf(content))
+            or self._usable_pages(self._with_ocr(content))
+            or self._usable_pages(self._raw_decode(content))
+            or []
         )
         blocks = tuple(
             ExtractedTextBlock(
@@ -83,6 +84,10 @@ class TextBaselineProvider:
         except Exception:  # noqa: BLE001
             _log.warning("injected OCR failed", exc_info=True)
             return []
+
+    @staticmethod
+    def _usable_pages(pages: list[str]) -> list[str]:
+        return pages if any(page.strip() for page in pages) else []
 
     @staticmethod
     def _raw_decode(content: bytes) -> list[str]:

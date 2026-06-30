@@ -41,6 +41,19 @@ def test_skips_incomplete_and_exceptions_then_succeeds():
     assert "incomplete-required-fields" in reasons
 
 
+def test_is_complete_exception_is_recorded_as_stage_failure():
+    outcome = run_fallback_chain(
+        domain="funded",
+        stages=(_stage("a", {"broken": True}), _stage("b", {"ok": 1})),
+        is_complete=lambda r: (
+            (_ for _ in ()).throw(ValueError("bad completeness")) if "broken" in r else bool(r)
+        ),
+    )
+    assert outcome.result == {"ok": 1}
+    assert outcome.attempts[0].succeeded is False
+    assert outcome.attempts[0].failure_reason == "exception:ValueError:bad completeness"
+
+
 def test_escalates_when_chain_exhausts():
     outcome = run_fallback_chain(
         domain="actuarial",

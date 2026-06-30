@@ -60,11 +60,26 @@ class DoclingProvider:
     ) -> ProviderExtractionOutput:  # pragma: no cover - requires the optional heavy dep
         import io
 
-        from docling.datamodel.base_models import DocumentStream  # type: ignore[import-not-found]
-        from docling.document_converter import DocumentConverter  # type: ignore[import-not-found]
+        from docling.datamodel.base_models import (
+            DocumentStream,  # type: ignore[import-not-found]
+            InputFormat,  # type: ignore[import-not-found]
+        )
+        from docling.datamodel.pipeline_options import (  # type: ignore[import-not-found]
+            PdfPipelineOptions,
+        )
+        from docling.document_converter import (
+            DocumentConverter,  # type: ignore[import-not-found]
+            PdfFormatOption,  # type: ignore[import-not-found]
+        )
 
         source = DocumentStream(name=source_doc_id, stream=io.BytesIO(content))
-        document = DocumentConverter().convert(source).document
+        pipeline_options = PdfPipelineOptions(do_ocr=self._do_ocr)
+        converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
+            }
+        )
+        document = converter.convert(source).document
 
         text_blocks: list[ExtractedTextBlock] = []
         tables: list[ExtractedTable] = []

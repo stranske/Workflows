@@ -102,6 +102,8 @@ def check_sign(
     evidence_ref: str | None = None,
 ) -> RuleViolation | None:
     """Sign sanity (e.g. a market value should be non-negative)."""
+    if expected not in {"non_negative", "non_positive"}:
+        raise ValueError("expected must be 'non_negative' or 'non_positive'")
     if expected == "non_negative" and value < 0:
         return RuleViolation(
             rule=rule, message=f"{value} should be >= 0", evidence_ref=evidence_ref
@@ -168,10 +170,14 @@ def expected_calibration_error(pairs: Sequence[tuple[float, bool]], *, n_bins: i
     Measure this on YOUR data before routing on confidence — LLM/OCR confidences are
     systematically overconfident. Returns 0.0 for an empty input.
     """
+    if n_bins < 1:
+        raise ValueError("n_bins must be >= 1")
     if not pairs:
         return 0.0
     bins: list[list[tuple[float, bool]]] = [[] for _ in range(n_bins)]
     for conf, correct in pairs:
+        if not 0.0 <= conf <= 1.0:
+            raise ValueError("confidence values must be within [0.0, 1.0]")
         idx = min(int(conf * n_bins), n_bins - 1)
         bins[idx].append((conf, correct))
     total = len(pairs)

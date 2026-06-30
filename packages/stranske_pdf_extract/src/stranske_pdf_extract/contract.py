@@ -231,6 +231,17 @@ def _validate_snippet_metadata(metadata: SnippetMetadata) -> None:
         raise ValueError("SnippetMetadata.char_end must be >= char_start when provided")
 
 
+def _validate_evidence_ref(
+    evidence: EvidenceRef, *, expected_source_doc_id: str, context: str
+) -> None:
+    if not evidence.source_doc_id:
+        raise ValueError(f"EvidenceRef.source_doc_id must be non-empty for {context}")
+    if evidence.source_doc_id != expected_source_doc_id:
+        raise ValueError(f"EvidenceRef.source_doc_id must match result for {context}")
+    if evidence.page_number is not None and evidence.page_number <= 0:
+        raise ValueError("EvidenceRef.page_number must be >= 1 when provided")
+
+
 def validate_provider_output(output: ProviderExtractionOutput) -> None:
     """Validate raw multimodal output emitted by an extraction provider."""
     if not output.source_doc_id:
@@ -286,6 +297,10 @@ def validate_extracted_document_result(
             )
         if f.snippet_metadata is not None:
             _validate_snippet_metadata(f.snippet_metadata)
+        if f.evidence is not None:
+            _validate_evidence_ref(
+                f.evidence, expected_source_doc_id=result.source_doc_id, context=f"field:{f.key}"
+            )
         if strict_evidence and f.evidence is None:
             family = f.key.split(".", 1)[0].split("_", 1)[0].lower()
             if family in HIGH_IMPACT_PREFIXES:

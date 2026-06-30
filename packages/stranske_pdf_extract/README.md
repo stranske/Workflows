@@ -49,4 +49,5 @@ PYTHONPATH=src python -m pytest        # core suite is deterministic and dep-fre
 ```
 
 The Docling conformance test (`tests/test_docling_provider.py::test_docling_provider_conforms_to_protocol`)
-passes with or without the `[docling]` extra; the extract path skips cleanly when absent.
+passes with or without the `[docling]` extra; when absent, `extract_modalities()` raises
+`DoclingUnavailableError`, and the test skips only if Docling is already installed.

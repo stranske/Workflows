@@ -12,6 +12,11 @@ def test_normalize_value_numbers_and_text():
     assert normalize_value("  Acme   Capital ") == "acme capital"
 
 
+def test_normalize_value_preserves_large_decimal_precision():
+    assert normalize_value("9007199254740992") != normalize_value("9007199254740993")
+    assert normalize_value("12345678901234567890.01") != normalize_value("12345678901234567890.02")
+
+
 def test_score_against_golden_perfect_and_partial():
     golden = [{"nav": "100.0", "ccy": "USD"}, {"nav": "200.0", "ccy": "EUR"}]
     perfect = score_against_golden(golden, golden)

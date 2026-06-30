@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 
 _NUMERIC_RE = re.compile(r"^[-+(]?\$?\s*\d[\d,]*(?:\.\d+)?\)?%?$")
 
@@ -28,12 +29,12 @@ def normalize_value(value: str) -> str:
         negative = raw.startswith("(") and raw.endswith(")")
         cleaned = raw.strip("()").replace("$", "").replace(",", "").replace("%", "").strip()
         try:
-            number = float(cleaned)
-        except ValueError:
+            number = Decimal(cleaned)
+        except InvalidOperation:
             return raw.casefold()
         if negative:
             number = -number
-        return repr(number)
+        return format(number.normalize(), "f")
     return " ".join(raw.casefold().split())
 
 

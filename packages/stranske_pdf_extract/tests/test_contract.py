@@ -85,6 +85,38 @@ def test_strict_evidence_requires_ref_for_high_impact_fields():
     validate_extracted_document_result(ok, strict_evidence=True)
 
 
+def test_evidence_ref_must_match_result_document():
+    result = ExtractedDocumentResult(
+        source_doc_id="doc1",
+        provider_name="p",
+        fields=(
+            _field(
+                key="funded_ratio",
+                value="0.84",
+                evidence=EvidenceRef("other-doc", page_number=40),
+            ),
+        ),
+    )
+    with pytest.raises(ValueError, match="EvidenceRef.source_doc_id"):
+        validate_extracted_document_result(result, strict_evidence=True)
+
+
+def test_evidence_ref_page_number_must_be_positive():
+    result = ExtractedDocumentResult(
+        source_doc_id="doc1",
+        provider_name="p",
+        fields=(
+            _field(
+                key="funded_ratio",
+                value="0.84",
+                evidence=EvidenceRef("doc1", page_number=0),
+            ),
+        ),
+    )
+    with pytest.raises(ValueError, match="page_number"):
+        validate_extracted_document_result(result, strict_evidence=True)
+
+
 def test_validate_provider_output_checks_locations():
     bad = ProviderExtractionOutput(
         source_doc_id="doc1",

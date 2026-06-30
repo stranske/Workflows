@@ -35,6 +35,8 @@ def test_check_date_in_period_and_sign():
     )
     assert check_sign(value=5.0, expected="non_negative") is None
     assert check_sign(value=-5.0, expected="non_negative") is not None
+    with pytest.raises(ValueError, match="expected must"):
+        check_sign(value=5.0, expected="positive")  # type: ignore[arg-type]
 
 
 def test_cross_check_flags_specific_fields():
@@ -56,6 +58,10 @@ def test_expected_calibration_error():
     overconfident = [(0.99, False), (0.98, False)]
     assert expected_calibration_error(overconfident) > 0.9
     assert expected_calibration_error([]) == 0.0
+    with pytest.raises(ValueError, match="n_bins"):
+        expected_calibration_error([(0.5, True)], n_bins=0)
+    with pytest.raises(ValueError, match="confidence"):
+        expected_calibration_error([(1.5, True)])
 
 
 def test_route_by_confidence_double_threshold():

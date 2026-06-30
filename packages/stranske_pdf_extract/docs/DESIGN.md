@@ -38,7 +38,7 @@ fleet-wide. We design it in from day one.
 
 ## 1. The shared core — what the library owns
 
-```
+```text
 stranske_pdf_extract/
   contract.py        # the one result + page-level-provenance contract (generalizes PD + IMI)
   provider.py        # ExtractionProvider / MultiModalExtractionProvider Protocols + registry + OCR seam
@@ -105,10 +105,9 @@ Per the methodology doc §5 (cheapest + most trustworthy first):
    deterministic code does the arithmetic** — never let the model do the sum.
 2. **Cross-check** — two structurally different providers → agree=auto-accept, disagree=flag the *specific*
    field for review (label-free correctness signal).
-3. **Calibration + confidence routing** — ECE measurement, a `ConfidenceCalibrator` seam
-   (temperature/Platt/isotonic), and a double-threshold router (auto-accept high / auto-reject low /
-   human-review the ambiguous middle, ~85% gate). LLMs are systematically overconfident; never route on raw
-   confidence without measuring ECE on real data first.
+3. **Confidence routing** — ECE measurement and the existing double-threshold router
+   (`accept_at=0.95`, `reject_below=0.50`). If calibration is added later, document it as future work. LLMs
+   are systematically overconfident; never route on raw confidence without measuring ECE on real data first.
 
 ### 1.5 Eval harness (`eval/harness.py`)
 

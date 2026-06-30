@@ -47,6 +47,7 @@ def run_fallback_chain[TResult](
     for stage in stages:
         try:
             parsed = stage.parse()
+            complete = is_complete(parsed)
         except Exception as exc:  # noqa: BLE001 - structured failure path is the point
             attempts.append(
                 ParserAttempt(
@@ -58,7 +59,7 @@ def run_fallback_chain[TResult](
             )
             continue
 
-        if not is_complete(parsed):
+        if not complete:
             attempts.append(
                 ParserAttempt(
                     stage_name=stage.stage_name,
