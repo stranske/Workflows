@@ -86,9 +86,9 @@ reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA
 [pair.10]
 main = .github/workflows/agents-guard.yml
 template = templates/consumer-repo/.github/workflows/agents-guard.yml
-main_sha256 = 8990b52e05bb29e332adecc61f14e10cdff7cc514d8d53c416b5744fec3ccde3
-template_sha256 = 52247fc561df900e13122f4cb51b9949341e397c5d0ce2d4aea75d57e8273daf
-reason = Intentional divergence re-baselined 2026-06-26: root and consumer guard workflows differ for pinned consumer actions/App-token setup; setup-api-client fallback pins now both point at the Workflows a525e6e digest.
+main_sha256 = 560c98027cea5c31e89551501f5e0aeae9d6c5323804931193f9031b010cf719
+template_sha256 = 3a839af1202d526237b6be61c8fc414f8db2a6169be8eba6f94e138d649021cd
+reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard workflows differ for pinned consumer actions/App-token setup; stranske/Workflows digest pins were refreshed together in root and consumer guard surfaces.
 
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
