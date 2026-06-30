@@ -1372,8 +1372,20 @@ jobs:
                 : { createTokenAwareRetry: async () => ({
                   withRetry: (fn) => fn(github),
                   paginateWithRetry: async (method, params) => {
-                    const response = await method({ ...params, per_page: params?.per_page || 100 });
-                    return response.data || [];
+                    const perPage = params?.per_page || 100;
+                    const items = [];
+                    let page = params?.page || 1;
+                    while (true) {
+                      const response = await method({ ...params, per_page: perPage, page });
+                      const data = response?.data;
+                      const pageItems = Array.isArray(data)
+                        ? data
+                        : Object.values(data || {}).find((value) => Array.isArray(value)) || [];
+                      items.push(...pageItems);
+                      if (pageItems.length < perPage) break;
+                      page += 1;
+                    }
+                    return items;
                   }
                 }) };
             const { withRetry, paginateWithRetry } = await createTokenAwareRetry({ github, core });
@@ -1577,8 +1589,20 @@ jobs:
                   createTokenAwareRetry: async () => ({
                     withRetry: (fn) => fn(github),
                     paginateWithRetry: async (method, params) => {
-                      const response = await method({ ...params, per_page: params?.per_page || 100 });
-                      return response.data || [];
+                      const perPage = params?.per_page || 100;
+                      const items = [];
+                      let page = params?.page || 1;
+                      while (true) {
+                        const response = await method({ ...params, per_page: perPage, page });
+                        const data = response?.data;
+                        const pageItems = Array.isArray(data)
+                          ? data
+                          : Object.values(data || {}).find((value) => Array.isArray(value)) || [];
+                        items.push(...pageItems);
+                        if (pageItems.length < perPage) break;
+                        page += 1;
+                      }
+                      return items;
                     },
                   }),
                 };
