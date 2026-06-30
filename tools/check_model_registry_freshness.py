@@ -56,6 +56,10 @@ def _headline_quality(entry: dict[str, Any]) -> float:
     return max(values) if values else 0.0
 
 
+def _normalize_tier(value: str) -> str:
+    return value.strip().upper()
+
+
 def _parse_date(value: str) -> _dt.date:
     return _dt.date.fromisoformat(str(value).strip())
 
@@ -143,7 +147,7 @@ def evaluate(
                 }
             )
             continue
-        tier = str(slot.get("quality_tier", "")).strip()
+        tier = _normalize_tier(str(slot.get("quality_tier", "")))
 
         def _slot_quality(model_entry: dict[str, Any], slot_tier: str = tier) -> float:
             if not slot_tier:

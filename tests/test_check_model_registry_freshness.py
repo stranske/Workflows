@@ -120,6 +120,37 @@ def test_dominated_pin_uses_slot_quality_tier():
     assert findings == []
 
 
+def test_dominated_pin_normalizes_slot_quality_tier():
+    reg = _registry()
+    reg["models"] = [
+        {
+            "model_id": "old-t3",
+            "provider": "openai",
+            "quality": {"T3": 0.50, "T5": 0.99},
+        },
+        {
+            "model_id": "new-t3",
+            "provider": "openai",
+            "quality": {"T3": 0.80, "T5": 0.10},
+        },
+    ]
+    slots = {
+        "slots": [
+            {
+                "name": "slot1",
+                "provider": "openai",
+                "model": "old-t3",
+                "quality_tier": "t3",
+            }
+        ]
+    }
+
+    findings = gate.evaluate(reg, slots, today=TODAY)
+
+    assert _kinds(findings) == ["dominated_pin"]
+    assert "new-t3" in findings[0]["detail"]
+
+
 def test_tier_derived_slot_without_model_is_not_flagged():
     # A slot with no pinned model derives from the registry at runtime -> non-ossifying.
     slots = {"slots": [{"name": "slot1", "provider": "anthropic", "quality_tier": "T5"}]}

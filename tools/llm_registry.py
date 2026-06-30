@@ -105,7 +105,7 @@ def load_model_registry() -> list[ModelRegistryEntry]:
         quality = {
             str(tier).upper(): float(score)
             for tier, score in quality_payload.items()
-            if isinstance(score, int | float)
+            if isinstance(score, (int, float))
         }
         entries.append(
             ModelRegistryEntry(
@@ -238,7 +238,10 @@ def load_slot_config(*, github_default_model: str) -> list[SlotDefinition]:
         if provider and not model and tier:
             model = select_model_for_tier(provider=provider, tier=tier, registry=registry) or ""
         if provider and not model:
-            fallback_slot = fallback_by_position.get(idx) or fallback_by_provider.get(provider)
+            fallback_slot = fallback_by_position.get(idx)
+            if fallback_slot and fallback_slot.provider != provider:
+                fallback_slot = fallback_by_provider.get(provider)
+            fallback_slot = fallback_slot or fallback_by_provider.get(provider)
             if fallback_slot and fallback_slot.provider == provider:
                 model = fallback_slot.model
         if not provider or not model:

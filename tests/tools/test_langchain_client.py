@@ -270,6 +270,28 @@ def test_load_model_registry_rejects_non_list_models(
     assert llm_registry.load_model_registry() == []
 
 
+def test_load_slot_config_uses_provider_fallback_after_position_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    slot_path = tmp_path / "slots.json"
+    slot_path.write_text(
+        json.dumps({"slots": [{"name": "primary-claude", "provider": "anthropic"}]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(langchain_client.ENV_SLOT_CONFIG, str(slot_path))
+
+    slots = llm_registry.load_slot_config(github_default_model="github-default")
+
+    assert slots == [
+        llm_registry.SlotDefinition(
+            name="primary-claude",
+            provider=langchain_client.PROVIDER_ANTHROPIC,
+            model="claude-sonnet-4-6",
+        )
+    ]
+
+
 def test_slot_env_override_reverts_to_original_when_override_blocked(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
