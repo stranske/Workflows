@@ -270,10 +270,52 @@ def test_load_model_registry_rejects_non_list_models(
     assert llm_registry.load_model_registry() == []
 
 
+def test_load_model_registry_excludes_boolean_quality_scores(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "models": [
+                    {
+                        "provider": "anthropic",
+                        "model_id": "claude-sonnet-4-6",
+                        "quality": {"T1": True, "T2": 0.8},
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(langchain_client.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+
+    [entry] = llm_registry.load_model_registry()
+
+    assert entry.quality == {"T2": 0.8}
+
+
 def test_load_slot_config_uses_provider_fallback_after_position_mismatch(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    monkeypatch.setattr(
+        llm_registry,
+        "default_slots",
+        lambda *, github_default_model: [
+            llm_registry.SlotDefinition(
+                name="slot1",
+                provider=langchain_client.PROVIDER_OPENAI,
+                model="gpt-default",
+            ),
+            llm_registry.SlotDefinition(
+                name="slot2",
+                provider=langchain_client.PROVIDER_ANTHROPIC,
+                model="claude-sonnet-4-6",
+            ),
+        ],
+    )
     slot_path = tmp_path / "slots.json"
     slot_path.write_text(
         json.dumps({"slots": [{"name": "primary-claude", "provider": "anthropic"}]}),

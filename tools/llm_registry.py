@@ -105,7 +105,7 @@ def load_model_registry() -> list[ModelRegistryEntry]:
         quality = {
             str(tier).upper(): float(score)
             for tier, score in quality_payload.items()
-            if isinstance(score, (int, float))
+            if isinstance(score, (int, float)) and not isinstance(score, bool)
         }
         entries.append(
             ModelRegistryEntry(
