@@ -296,6 +296,25 @@ def test_load_model_registry_excludes_boolean_quality_scores(
     assert entry.quality == {"T2": 0.8}
 
 
+def test_load_slot_config_ignores_tier_slot_when_registry_invalid(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(["not", "an", "object"]), encoding="utf-8")
+    slot_path = tmp_path / "slots.json"
+    slot_path.write_text(
+        json.dumps({"slots": [{"name": "primary", "provider": "openai", "quality_tier": "T3"}]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(langchain_client.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(langchain_client.ENV_SLOT_CONFIG, str(slot_path))
+
+    slots = llm_registry.load_slot_config(github_default_model=langchain_client.DEFAULT_MODEL)
+
+    assert slots == llm_registry.default_slots(github_default_model=langchain_client.DEFAULT_MODEL)
+
+
 def test_load_slot_config_uses_provider_fallback_after_position_mismatch(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

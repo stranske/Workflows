@@ -118,6 +118,21 @@ def load_model_registry() -> list[ModelRegistryEntry]:
     return entries
 
 
+def _model_registry_format_valid() -> bool:
+    config_path = os.environ.get(ENV_MODEL_REGISTRY_CONFIG)
+    path = Path(config_path) if config_path else DEFAULT_MODEL_REGISTRY_CONFIG_PATH
+    if not path.is_file():
+        return True
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    raw_models = payload.get("models", [])
+    return isinstance(raw_models, list)
+
+
 def registry_entry_for(
     provider: str, model: str, registry: list[ModelRegistryEntry] | None = None
 ) -> ModelRegistryEntry | None:
@@ -228,10 +243,18 @@ def load_slot_config(*, github_default_model: str) -> list[SlotDefinition]:
         return fallback_slots
 
     registry = load_model_registry()
+    slot_entries = _slot_entries(payload, path)
+    if not _model_registry_format_valid() and any(
+        str(entry.get("provider", "")).strip()
+        and not str(entry.get("model", "")).strip()
+        and str(entry.get("quality_tier") or entry.get("tier") or "").strip()
+        for entry in slot_entries
+    ):
+        return fallback_slots
     slots: list[SlotDefinition] = []
     fallback_by_position = dict(enumerate(fallback_slots, start=1))
     fallback_by_provider = {slot.provider: slot for slot in fallback_slots}
-    for idx, entry in enumerate(_slot_entries(payload, path), start=1):
+    for idx, entry in enumerate(slot_entries, start=1):
         provider = normalize_provider(str(entry.get("provider", "")))
         model = str(entry.get("model", "")).strip()
         tier = str(entry.get("quality_tier") or entry.get("tier") or "").strip()
