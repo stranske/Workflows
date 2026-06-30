@@ -274,6 +274,8 @@ jobs:
       - environment-gate
     if: ${{ needs.detect.outputs.doc_only != 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: packages/stranske_pdf_extract
