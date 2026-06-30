@@ -1,6 +1,8 @@
 {
   "version": "1.0.0",
-  "last_updated": "2026-04-14",
+  "last_updated": "2026-06-29",
+  "review_interval_days": 60,
+  "review_by": "2026-08-28",
   "models": [
     {
       "model_id": "gpt-5.4",
@@ -103,7 +105,7 @@
     },
     {
       "model_id": "codex-mini-latest",
-      "provider": "openai",
+      "provider": "github-models",
       "api": "chat",
       "quality": { "T1": 0.75, "T2": 0.80, "T3": 0.78, "T4": 0.72, "T5": 0.65 },
       "cost_score": 0.80,

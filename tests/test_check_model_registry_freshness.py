@@ -167,6 +167,18 @@ def test_real_repo_files_parse_and_run(tmp_path):
     assert isinstance(findings, list)
 
 
+def test_consumer_template_registry_defaults_are_fresh():
+    root = Path(__file__).resolve().parent.parent
+    reg = json.loads(
+        (root / "templates" / "consumer-repo" / "config" / "model_registry.json").read_text()
+    )
+    slots = json.loads(
+        (root / "templates" / "consumer-repo" / "config" / "llm_slots.json").read_text()
+    )
+    findings = gate.evaluate(reg, slots, today=dt.date(2026, 6, 30))
+    assert findings == []
+
+
 def test_main_exit_codes(tmp_path):
     reg = tmp_path / "reg.json"
     slots = tmp_path / "slots.json"
