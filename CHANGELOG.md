@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.18.0](https://github.com/stranske/Workflows/compare/v1.17.5...v1.18.0) (2026-06-30)
+
+
+### Features
+
+* **llm:** add model registry freshness gate ([accfd30](https://github.com/stranske/Workflows/commit/accfd30339314c08631840947a6288ecfd9c5b6f))
+* refactor duplicate detection retry helpers ([#2587](https://github.com/stranske/Workflows/issues/2587)) ([2769999](https://github.com/stranske/Workflows/commit/27699998deedd775e47128af5431ecd2fd818609))
+* split run contract missing-envelope decision helpers ([#2572](https://github.com/stranske/Workflows/issues/2572)) ([4c2b86b](https://github.com/stranske/Workflows/commit/4c2b86b898b503d514eeda6945d790bbb82306ab))
+
+
+### Bug Fixes
+
+* honor provider slot fallbacks ([#2718](https://github.com/stranske/Workflows/issues/2718)) ([5afdb2a](https://github.com/stranske/Workflows/commit/5afdb2a6a222d9834f0a62886ea60ab272405796))
+
 ## [1.17.5](https://github.com/stranske/Workflows/compare/v1.17.4...v1.17.5) (2026-06-26)
 
 
