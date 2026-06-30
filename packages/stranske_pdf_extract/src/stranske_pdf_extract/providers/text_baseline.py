@@ -90,7 +90,7 @@ class TextBaselineProvider:
         decoded = content.decode("latin-1", errors="ignore")
         normalized = decoded.replace("\r\n", "\n").replace("\r", "\n")
         if "\f" in normalized:
-            return [p for p in normalized.split("\f")]
+            return normalized.split("\f")
         return [normalized]
 
 

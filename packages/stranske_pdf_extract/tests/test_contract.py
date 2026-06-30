@@ -15,14 +15,14 @@ from stranske_pdf_extract.contract import (
 
 
 def _field(**kw) -> ExtractedField:
-    base = dict(
-        key="nav",
-        value="100.0",
-        confidence=0.9,
-        source_doc_id="doc1",
-        source_page=1,
-        method="table",
-    )
+    base = {
+        "key": "nav",
+        "value": "100.0",
+        "confidence": 0.9,
+        "source_doc_id": "doc1",
+        "source_page": 1,
+        "method": "table",
+    }
     base.update(kw)
     return ExtractedField(**base)
 
@@ -92,11 +92,6 @@ def test_validate_provider_output_checks_locations():
         text_blocks=(),
     )
     validate_provider_output(bad)  # empty is valid
-    mismatched = ProviderExtractionOutput(
-        source_doc_id="doc1",
-        provider_name="p",
-        images=(),
-    )
     # SourceLocation doc id must match the output doc id.
     loc = SourceLocation(source_doc_id="WRONG", source_page=1)
     from stranske_pdf_extract.contract import ExtractedImage
