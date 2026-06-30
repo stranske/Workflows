@@ -62,7 +62,9 @@ def _summary_env_details() -> dict[str, str]:
     return details
 
 
-def _write_failure_summary(*, error: Exception, exit_code: int, step_name: str | None) -> None:
+def _write_failure_summary(
+    *, error: BaseException, exit_code: int, step_name: str | None
+) -> None:
     summary_path = os.environ.get("AUTOPILOT_METRICS_SUMMARY_PATH")
     if not summary_path:
         return

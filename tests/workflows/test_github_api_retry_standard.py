@@ -23,6 +23,7 @@ WORKFLOW_PATHS = [
     Path("templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml"),
     Path("templates/consumer-repo/.github/workflows/agents-73-codex-belt-conveyor.yml"),
     Path("templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml"),
+    Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"),
     Path("templates/consumer-repo/.github/workflows/agents-verifier.yml"),
     Path("templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml"),
     Path("templates/consumer-repo/.github/workflows/autofix.yml"),
