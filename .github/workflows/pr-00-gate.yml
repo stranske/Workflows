@@ -267,6 +267,34 @@ jobs:
       - run: pytest tests/workflows/github_scripts
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
 
+  packages-pdf-extract:
+    name: stranske-pdf-extract package tests
+    needs:
+      - detect
+      - environment-gate
+    if: ${{ needs.detect.outputs.doc_only != 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/stranske_pdf_extract
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: packages/stranske_pdf_extract/pyproject.toml
+      - name: Install package test dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Run package test suite
+        env:
+          PYTHONPATH: src
+        run: python -m pytest tests
+
   issue-consistency:
     name: issue consistency
     needs:
@@ -438,6 +466,7 @@ jobs:
       - docs-guard
       - docker-smoke
       - github-scripts-tests
+      - packages-pdf-extract
       - issue-consistency
       - test-quality
       - ledger-validation

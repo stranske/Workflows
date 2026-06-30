@@ -4,7 +4,8 @@ This note records the release and verification evidence for Workflows issue #271
 
 ## CI gate
 
-Selftest CI includes a dedicated `stranske-pdf-extract package tests` job that runs:
+Gate includes a required `stranske-pdf-extract package tests` job, and Selftest CI mirrors
+the same package suite for repository self-checks. Both jobs run:
 
 ```bash
 cd packages/stranske_pdf_extract
