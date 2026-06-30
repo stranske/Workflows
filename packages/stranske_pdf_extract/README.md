@@ -5,6 +5,7 @@ independent, diverging implementations (Counter_Risk, Pension-Data, Inv-Man-Inta
 Manager-Database) with one installable library.
 
 > **Design, distribution decision, and migration plan: [`docs/DESIGN.md`](docs/DESIGN.md).**
+> Release and CI evidence: [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
 > Grounding audits: `Code/Audits/2026-06-28-fleet-pdf-extraction-survey.md` and
 > `…-methodology.md`.
 

@@ -7,7 +7,7 @@ name = "stranske-pdf-extract"
 version = "0.1.0"
 description = "Single-source PDF text-extraction ladder, page-level provenance contract, fallback orchestration, and reliability layer for the stranske/* fleet."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "stranske fleet platform" }]
 # Core has NO heavy/native deps: the ladder degrades gracefully and the contract,

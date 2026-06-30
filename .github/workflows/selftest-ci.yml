@@ -91,6 +91,31 @@ jobs:
             tests/scripts/test_pr_verifier_issue_creation.py \
             -v
 
+  packages-pdf-extract:
+    name: stranske-pdf-extract package tests
+    needs: classify
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.classify.outputs.is_docs_only != 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/stranske_pdf_extract
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: packages/stranske_pdf_extract/pyproject.toml
+
+      - name: Install package test dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run package test suite
+        env:
+          PYTHONPATH: src
+        run: python -m pytest tests
+
   lint-and-validate:
     name: Lint, Format & YAML Validation
     needs: classify
