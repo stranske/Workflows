@@ -183,7 +183,7 @@ mypy-extensions==1.1.0
     #   mypy
 nodeenv==1.10.0
     # via pre-commit
-numpy==2.5.0
+numpy==2.5.1
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
