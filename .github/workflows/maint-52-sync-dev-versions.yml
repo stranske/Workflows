@@ -280,11 +280,17 @@ jobs:
 
           git push --force -u origin "$branch_name"
 
+          changed_files="$(git show --name-only --format= HEAD)"
+          if printf '%s\n' "$changed_files" | grep -qx 'pyproject.toml'; then
+            pr_scope="This PR updates dev tool versions in \`pyproject.toml\` and related generated dependency files to match the central version pins from [stranske/Workflows](https://github.com/stranske/Workflows)."
+          else
+            pr_scope="This PR updates generated dev-tool pin files to match the central version pins from [stranske/Workflows](https://github.com/stranske/Workflows)."
+          fi
+
           # Create PR body
           pr_body="## Dev Tool Version Sync
 
-          This PR updates dev tool versions in \`pyproject.toml\` to match the central
-          version pins from [stranske/Workflows](https://github.com/stranske/Workflows).
+          ${pr_scope}
 
           ### Changes
           \`\`\`
