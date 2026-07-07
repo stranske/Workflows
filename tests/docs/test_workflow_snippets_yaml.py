@@ -71,7 +71,11 @@ def test_install_snippets_reference_requirements_llm(
         isinstance(step, dict)
         and isinstance(step.get("run"), str)
         and any(
-            line.strip() == f"pip install -r {requirements_path}"
+            line.strip()
+            in {
+                f"pip install -r {requirements_path}",
+                f"python -m pip install -r {requirements_path}",
+            }
             for line in step["run"].splitlines()
         )
         for step in parsed

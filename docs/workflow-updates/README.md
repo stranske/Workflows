@@ -17,7 +17,7 @@ This folder contains YAML snippets that must be manually applied to protected Gi
 11. Replace the existing `Install comparison dependencies` step with the compare install step from `docs/workflow-updates/reusable-agents-verifier-changes.yml`.
 
 **Verification**
-1. Confirm `.github/workflows/agents-auto-pilot.yml` contains `pip install -r tools/requirements-llm.txt` and no unpinned `langchain` install commands.
+1. Confirm `.github/workflows/agents-auto-pilot.yml` contains `python -m pip install -r tools/requirements-llm.txt` and no unpinned `langchain` install commands.
 2. Confirm `.github/workflows/reusable-agents-verifier.yml` contains `pip install -r .workflows-lib/tools/requirements-llm.txt` in both evaluate and compare paths.
 3. Confirm both workflows include `actions/cache@v4` steps with keys that include `python-version` and the relevant `hashFiles(...)` call.
 

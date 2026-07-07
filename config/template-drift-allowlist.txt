@@ -93,9 +93,9 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = 26806e76cd620e227c81566f4db0cb9a4eca2ddd4c3e05a941d2c4072b2fe3b5
-template_sha256 = ea5a33238a2dfc8bbc5e4661f66751dde1e9ca853b2cf77ed4eb286865fb9c93
-reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
+main_sha256 = 1e2fb1b588d00f694fd9d02816944e68a4d1a8041f4f052730b1f30f3ad696db
+template_sha256 = bbd9d30e392d3df884ebabd9738fcd5864d79754dcfc04068466132e4c2e769d
+reason = Intentional divergence re-baselined 2026-07-07: root and consumer issue-optimizer workflows keep different auth plumbing/action pin surfaces, but both now use the pinned tools/requirements-llm.txt install path with python -m pip. Do not align wholesale because that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml

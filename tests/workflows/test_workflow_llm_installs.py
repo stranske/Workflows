@@ -13,6 +13,7 @@ import yaml
 
 WORKFLOWS_DIR = Path(".github/workflows")
 AUTO_PILOT = WORKFLOWS_DIR / "agents-auto-pilot.yml"
+ISSUE_OPTIMIZER = WORKFLOWS_DIR / "agents-issue-optimizer.yml"
 VERIFIER = WORKFLOWS_DIR / "reusable-agents-verifier.yml"
 REUSABLE_CODEX_RUN = WORKFLOWS_DIR / "reusable-codex-run.yml"
 REUSABLE_CLAUDE_RUN = WORKFLOWS_DIR / "reusable-claude-run.yml"
@@ -191,10 +192,20 @@ def test_agents_auto_pilot_llm_install_is_pinned() -> None:
     text = _load_text(AUTO_PILOT)
     _assert_pinned_install(
         text,
-        "pip install -r tools/requirements-llm.txt",
+        "python -m pip install -r tools/requirements-llm.txt",
         AUTO_PILOT.name,
     )
     _assert_no_floating_langchain(text, AUTO_PILOT.name)
+
+
+def test_agents_issue_optimizer_llm_install_is_pinned() -> None:
+    text = _load_text(ISSUE_OPTIMIZER)
+    _assert_pinned_install(
+        text,
+        "python -m pip install -r tools/requirements-llm.txt",
+        ISSUE_OPTIMIZER.name,
+    )
+    _assert_no_floating_langchain(text, ISSUE_OPTIMIZER.name)
 
 
 def test_agents_auto_pilot_pip_cache_is_configured() -> None:

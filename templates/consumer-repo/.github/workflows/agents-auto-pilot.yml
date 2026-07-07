@@ -238,8 +238,7 @@ jobs:
         if: steps.check_enabled.outputs.enabled == 'true'
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install -r tools/requirements-llm.txt
+          python -m pip install -r tools/requirements-llm.txt
 
       - name: Initialize auto-pilot metrics logs
         if: steps.check_enabled.outputs.enabled == 'true'
