@@ -306,6 +306,7 @@ def test_workflow_llm_needs_human_comment_documents_blocker() -> None:
     required_phrases = [
         "Label: needs-human",
         ".github/workflows/agents-auto-pilot.yml",
+        ".github/workflows/agents-issue-optimizer.yml",
         ".github/workflows/reusable-agents-verifier.yml",
         ACTIONS_CACHE_V6_REF,
         "tools/requirements-llm.txt",

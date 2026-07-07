@@ -9,6 +9,7 @@ from pathlib import Path
 
 DEFAULT_WORKFLOWS = (
     Path(".github/workflows/agents-auto-pilot.yml"),
+    Path(".github/workflows/agents-issue-optimizer.yml"),
     Path(".github/workflows/reusable-agents-verifier.yml"),
 )
 
@@ -54,7 +55,8 @@ def _build_label_line(include_label: bool) -> list[str]:
 def _build_main_body() -> str:
     """Build the main instruction body of the comment."""
     return (
-        "Workflow updates required in .github/workflows/agents-auto-pilot.yml and "
+        "Workflow updates required in .github/workflows/agents-auto-pilot.yml, "
+        ".github/workflows/agents-issue-optimizer.yml, and "
         ".github/workflows/reusable-agents-verifier.yml. Add pinned installs "
         "(`python -m pip install -r tools/requirements-llm.txt` and "
         "`pip install -r .workflows-lib/tools/requirements-llm.txt` for evaluate/compare), "

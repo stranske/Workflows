@@ -63,23 +63,36 @@ def test_install_snippets_reference_requirements_llm(
     snippet_path: Path, requirements_path: str
 ) -> None:
     contents = snippet_path.read_text(encoding="utf-8")
-    assert requirements_path in contents
+    expected_commands = {
+        f"pip install -r {requirements_path}",
+        f"python -m pip install -r {requirements_path}",
+    }
+    assert any(command in contents for command in expected_commands), (
+        f"Expected {snippet_path} to include one of " f"{sorted(expected_commands)!r}"
+    )
 
     parsed = yaml.safe_load(contents)
     assert isinstance(parsed, list), f"{snippet_path} should contain a YAML list"
     assert any(
         isinstance(step, dict)
         and isinstance(step.get("run"), str)
-        and any(
-            line.strip()
-            in {
-                f"pip install -r {requirements_path}",
-                f"python -m pip install -r {requirements_path}",
-            }
-            for line in step["run"].splitlines()
-        )
+        and any(line.strip() in expected_commands for line in step["run"].splitlines())
         for step in parsed
     ), f"Expected install snippet to include pip install for {requirements_path}"
+
+
+def test_install_snippets_keep_literal_expected_commands() -> None:
+    auto_pilot_text = Path("docs/workflow-snippets/agents-auto-pilot-install.yml").read_text(
+        encoding="utf-8"
+    )
+    verifier_text = Path("docs/workflow-snippets/reusable-agents-verifier-install.yml").read_text(
+        encoding="utf-8"
+    )
+    auto_pilot_command = "python -m pip install -r tools/requirements-llm.txt"
+    verifier_command = "pip install -r .workflows-lib/tools/requirements-llm.txt"
+
+    assert auto_pilot_text.count(auto_pilot_command) == 1
+    assert verifier_text.count(verifier_command) == 2
 
 
 def test_pip_freeze_step_runs_python_module() -> None:

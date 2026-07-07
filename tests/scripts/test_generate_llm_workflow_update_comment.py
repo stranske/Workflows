@@ -21,6 +21,7 @@ def test_build_comment_includes_label_and_requirements() -> None:
 
     assert "Label: needs-human" in comment
     assert ".github/workflows/agents-auto-pilot.yml" in comment
+    assert ".github/workflows/agents-issue-optimizer.yml" in comment
     assert ".github/workflows/reusable-agents-verifier.yml" in comment
     assert "pip install -r tools/requirements-llm.txt" in comment
     assert "pip install -r .workflows-lib/tools/requirements-llm.txt" in comment
@@ -34,6 +35,7 @@ def test_build_comment_lists_default_workflows() -> None:
 
     assert "Affected workflows:" in comment
     assert "- .github/workflows/agents-auto-pilot.yml" in comment
+    assert "- .github/workflows/agents-issue-optimizer.yml" in comment
     assert "- .github/workflows/reusable-agents-verifier.yml" in comment
 
 
@@ -47,6 +49,7 @@ def test_build_comment_preserves_output_without_notes() -> None:
     assert "Workflow updates required" in comment
     assert "Affected workflows:" in comment
     assert "- .github/workflows/agents-auto-pilot.yml" in comment
+    assert "- .github/workflows/agents-issue-optimizer.yml" in comment
     assert "- .github/workflows/reusable-agents-verifier.yml" in comment
     # Verify no notes section is added
     assert "Notes:" not in comment
@@ -123,6 +126,7 @@ def test_build_main_body() -> None:
     """Test main body generation."""
     body = _build_main_body()
     assert "Workflow updates required" in body
+    assert ".github/workflows/agents-issue-optimizer.yml" in body
     assert "pip install -r tools/requirements-llm.txt" in body
     assert "agent-high-privilege" in body
 
