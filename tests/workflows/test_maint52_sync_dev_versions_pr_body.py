@@ -5,8 +5,15 @@ WORKFLOW = Path(".github/workflows/maint-52-sync-dev-versions.yml")
 
 def test_dev_version_sync_pr_body_matches_changed_files():
     text = WORKFLOW.read_text(encoding="utf-8")
+    pr_scope_lines = [
+        line.strip() for line in text.splitlines() if line.strip().startswith("pr_scope=")
+    ]
 
     assert 'changed_files="$(git show --name-only --format= HEAD)"' in text
     assert "grep -qx 'pyproject.toml'" in text
+    assert pr_scope_lines == [
+        'pr_scope="This PR updates dev tool versions in \\`pyproject.toml\\` and related generated dependency files to match the central version pins from [stranske/Workflows](https://github.com/stranske/Workflows)."',
+        'pr_scope="This PR updates generated dev-tool pin files to match the central version pins from [stranske/Workflows](https://github.com/stranske/Workflows)."',
+    ]
     assert "generated dev-tool pin files" in text
     assert "This PR updates dev tool versions in \\`pyproject.toml\\` to match" not in text
