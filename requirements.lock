@@ -128,7 +128,7 @@ langchain-community==0.4.2
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
-langchain-core==1.4.8
+langchain-core==1.4.9
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
