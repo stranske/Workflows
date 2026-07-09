@@ -20,7 +20,7 @@ metrics summary). Without a tracker convention each run would either:
 - Have no surfaced state at all.
 
 The trackers below solve this by reusing one issue per controller. The bot
-either appends a comment per cycle (`#1796`) or rewrites the body in place
+either appends a comment per cycle (`#2211`) or rewrites the body in place
 (`#1836`, `#1868`). Either way, **the issue itself is the dashboard** — closing
 it does not advance any work; the controller will simply re-create one on the
 next cycle.
@@ -31,13 +31,13 @@ next cycle.
 
 | Issue | Title | Source workflow | Cadence | Update style |
 |-------|-------|-----------------|---------|--------------|
-| [#1796](https://github.com/stranske/Workflows/issues/1796) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
+| [#2211](https://github.com/stranske/Workflows/issues/2211) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
 | [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependency campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 6h + Mondays 10:30 UTC | Body rewritten in place |
 | [#1868](https://github.com/stranske/Workflows/issues/1868) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 05:10 UTC | Body rewritten in place |
 
 The signal flow each tracker carries:
 
-- **#1796** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
+- **#2211** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
 - **#1836** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
 - **#1868** — fan-out drift report across registered consumer repos. Auto-resolves on the next clean `Maint 68` run; the closure happens in the workflow, not by hand.
 
@@ -70,7 +70,7 @@ same change.
 - **Read the latest comment / body**, not the original creation body. The
   original snapshot is frozen at issue creation; current state lives further
   down (or in the rewritten body for `#1836` / `#1868`).
-- **A red signal** (parse errors > 0 in `#1796`, drift count > 0 in `#1868`,
+- **A red signal** (parse errors > 0 in `#2211`, drift count > 0 in `#1868`,
   unclaimed `needs-local-codex` items in `#1836`) means the underlying system
   needs attention — but the fix lands in code or in another repo, not by
   closing the tracker.

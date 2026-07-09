@@ -96,7 +96,7 @@ which posts a **verification report comment on the PR**.
   or `verify:create-new-pr` (issue + bootstrapped PR).
 
 **Fleet/aggregate metrics** are surfaced via the weekly summary tracker (issue
-#1796, posted Mondays 06:00 UTC) and the LangSmith dashboard wired by
+#2211, posted Mondays 06:00 UTC) and the LangSmith dashboard wired by
 `maint-80-langsmith-metrics-dashboard.yml`. See the README "Verification
 Pipeline" section.
 
