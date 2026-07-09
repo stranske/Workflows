@@ -362,7 +362,9 @@ jobs:
                 issue_number: target.number,
                 body,
               }));
-              const hasLabel = target.labels.some(l => l.name === 'tracker:durable');
+              const hasLabel = (target.labels || []).some(
+                l => (typeof l === 'string' ? l : l?.name) === 'tracker:durable'
+              );
               if (!hasLabel) {
                 await withRetry(() => github.rest.issues.addLabels({
                   owner,
