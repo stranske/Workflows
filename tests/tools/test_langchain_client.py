@@ -85,7 +85,9 @@ def test_build_chat_client_anthropic_fallback(monkeypatch: pytest.MonkeyPatch) -
     assert resolved.provider == langchain_client.PROVIDER_ANTHROPIC
     assert isinstance(resolved.client, FakeChatAnthropic)
     assert resolved.client.kwargs["anthropic_api_key"] == "claude-token"
-    assert resolved.model == "claude-opus-4-6"
+    # Default cost floor (LANGCHAIN_MIN_COST_SCORE) excludes the priciest models
+    # (claude-opus-4-6/4-5), so the cost-conscious best-affordable pick is sonnet.
+    assert resolved.model == "claude-sonnet-4-6"
 
 
 def test_build_chat_client_anthropic_without_openai_package(

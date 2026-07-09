@@ -12,6 +12,15 @@ logger = logging.getLogger(__name__)
 
 ENV_MODEL_REGISTRY_CONFIG = "LANGCHAIN_MODEL_REGISTRY_CONFIG"
 ENV_SLOT_CONFIG = "LANGCHAIN_SLOT_CONFIG"
+ENV_MIN_COST_SCORE = "LANGCHAIN_MIN_COST_SCORE"
+
+# Registry `cost_score` is normalized cost-EFFICIENCY: higher = cheaper
+# (e.g. nano ~1.0, opus ~0.08). A minimum floor therefore excludes the most
+# EXPENSIVE models so tier selection does not always grab the priciest one.
+# Default 0.12 excludes only the top cost bracket (claude-opus-4-6/4-5) while
+# keeping gpt-5.4 / claude-sonnet-4-6 / codex-mini. Set 0 to disable (pure
+# max-quality). Models with no cost_score are never excluded (missing != costly).
+DEFAULT_MIN_COST_SCORE = 0.12
 
 PROVIDER_OPENAI = "openai"
 PROVIDER_ANTHROPIC = "anthropic"
@@ -29,6 +38,7 @@ class ModelRegistryEntry:
     model: str
     blocked: bool
     quality: dict[str, float]
+    cost_score: float | None = None
 
 
 @dataclass(frozen=True)
@@ -107,12 +117,19 @@ def load_model_registry() -> list[ModelRegistryEntry]:
             for tier, score in quality_payload.items()
             if isinstance(score, (int, float)) and not isinstance(score, bool)
         }
+        raw_cost = raw_entry.get("cost_score")
+        cost_score = (
+            float(raw_cost)
+            if isinstance(raw_cost, (int, float)) and not isinstance(raw_cost, bool)
+            else None
+        )
         entries.append(
             ModelRegistryEntry(
                 provider=provider,
                 model=model,
                 blocked=bool(raw_entry.get("blocked", False)),
                 quality=quality,
+                cost_score=cost_score,
             )
         )
     return entries
@@ -152,11 +169,32 @@ def is_model_blocked(
     return bool(entry and entry.blocked)
 
 
+def resolve_min_cost_score(min_cost_score: float | None = None) -> float:
+    """Effective cost-efficiency floor: explicit arg > env > default. Never negative."""
+    if min_cost_score is None:
+        raw = os.environ.get(ENV_MIN_COST_SCORE)
+        if raw is not None:
+            try:
+                min_cost_score = float(raw)
+            except ValueError:
+                logger.warning(
+                    "Invalid %s=%r; falling back to default %s",
+                    ENV_MIN_COST_SCORE,
+                    raw,
+                    DEFAULT_MIN_COST_SCORE,
+                )
+                min_cost_score = DEFAULT_MIN_COST_SCORE
+        else:
+            min_cost_score = DEFAULT_MIN_COST_SCORE
+    return max(0.0, min_cost_score)
+
+
 def select_model_for_tier(
     *,
     provider: str,
     tier: str,
     registry: list[ModelRegistryEntry] | None = None,
+    min_cost_score: float | None = None,
 ) -> str | None:
     entries = registry if registry is not None else load_model_registry()
     normalized_provider = normalize_provider(provider)
@@ -170,7 +208,16 @@ def select_model_for_tier(
     ]
     if not candidates:
         return None
-    selected = max(candidates, key=lambda entry: entry.quality[normalized_tier])
+    # Cost floor: exclude the most EXPENSIVE models (cost_score below the floor)
+    # so selection does not always grab the priciest. A missing cost_score never
+    # excludes a model. If the floor would eliminate every candidate, relax it
+    # rather than return nothing (availability beats the cost preference).
+    floor = resolve_min_cost_score(min_cost_score)
+    affordable = [
+        entry for entry in candidates if entry.cost_score is None or entry.cost_score >= floor
+    ]
+    pool = affordable or candidates
+    selected = max(pool, key=lambda entry: entry.quality[normalized_tier])
     return selected.model
 
 
@@ -221,6 +268,10 @@ def configured_model_for_provider(
 
 
 def default_slots(*, github_default_model: str) -> list[SlotDefinition]:
+    # LAST-RESORT only (used when config/llm_slots.json is absent). Values are
+    # kept consistent with the registry's cost-floored tier picks
+    # (DEFAULT_MIN_COST_SCORE): openai->gpt-5.4, anthropic->claude-sonnet-4-6.
+    # The canonical, auto-updating path is tier-based slots in llm_slots.json.
     return [
         SlotDefinition(name="slot1", provider=PROVIDER_OPENAI, model="gpt-5.4"),
         SlotDefinition(name="slot2", provider=PROVIDER_ANTHROPIC, model="claude-sonnet-4-6"),
