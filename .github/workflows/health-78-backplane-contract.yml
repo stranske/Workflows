@@ -79,6 +79,7 @@ jobs:
 
       - name: Registry lifecycle and evidence validation
         run: |
+          set -o pipefail
           python scripts/validate_backplane_registry.py --json \
             | tee artifacts/backplane-contract/registry-status.json
 

@@ -132,6 +132,38 @@ def test_reference_urls_are_field_specific_and_complete() -> None:
     )
 
 
+def test_conformant_source_issue_must_match_participant_issue() -> None:
+    registry = copy.deepcopy(_registry())
+    entry = _pension_conformant_entry(registry)
+    entry["reference_run_evidence"]["source_issue"] = "stranske/Pension-Data#707"
+
+    findings = vbr.validate_registry(registry)
+
+    assert any(
+        finding.path.endswith("reference_run_evidence.source_issue")
+        and finding.message == "must match participant issue"
+        for finding in findings
+    )
+
+
+def test_conformant_entry_requires_real_issue() -> None:
+    registry = copy.deepcopy(_registry())
+    entry = _pension_conformant_entry(registry)
+    entry["issue"] = None
+    entry["issue_deferred"] = {
+        "expires_at": "2026-08-15T00:00:00Z",
+        "reason": "invalid for conformant entries",
+    }
+
+    findings = vbr.validate_registry(registry)
+
+    assert any(
+        finding.path == "participants[0].issue"
+        and finding.message == "conformant entry needs a real issue ref"
+        for finding in findings
+    )
+
+
 def test_malformed_participant_returns_finding_instead_of_crashing() -> None:
     registry = copy.deepcopy(_registry())
     registry["participants"].append(None)

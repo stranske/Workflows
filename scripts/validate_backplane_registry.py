@@ -110,6 +110,13 @@ def _validate_reference_evidence(
             findings.append(
                 Finding(f"{prefix}.reference_run_evidence.{key}", "must be issue/PR ref")
             )
+    if _is_issue_ref(entry.get("issue")) and evidence.get("source_issue") != entry["issue"]:
+        findings.append(
+            Finding(
+                f"{prefix}.reference_run_evidence.source_issue",
+                "must match participant issue",
+            )
+        )
 
     run_url_keys = ("emit_reference_run_url", "conformance_run_url")
     for key in run_url_keys:
@@ -251,6 +258,10 @@ def validate_registry(registry: Any) -> list[Finding]:
             findings.append(Finding(f"{prefix}.issue", "issue must be a real issue ref"))
 
         if status == "conformant":
+            if not _is_issue_ref(issue):
+                findings.append(
+                    Finding(f"{prefix}.issue", "conformant entry needs a real issue ref")
+                )
             if reference_state != "valid":
                 findings.append(
                     Finding(f"{prefix}.reference_state", "conformant entries must be valid")
