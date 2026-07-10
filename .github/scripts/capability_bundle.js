@@ -4,7 +4,22 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 
 const SCHEMA_VERSION = 'capability-bundle/v1';
-const FORBIDDEN_KEY_PATTERN = /(?:raw[_-]?prompt|credential|secret|api[_-]?key|local[_-]?weight|posterior[_-]?weight)/i;
+const ALLOWED_TOP_LEVEL_KEYS = new Set([
+  'schema_version',
+  'capability_id',
+  'version',
+  'content_hash',
+  'selector',
+  'owner',
+  'fragments',
+  'gates',
+  'playbooks',
+  'expires_at',
+  'rollback',
+]);
+const CAPABILITY_ID_PATTERN = /^[a-z0-9][a-z0-9._/-]*$/;
+const VERSION_PATTERN = /^v?[0-9]+(\.[0-9]+){0,2}$/;
+const FORBIDDEN_KEY_PATTERN = /(?:raw[_-]?prompt|credential|secret|api[_-]?key|local[_-]?weight|posterior[_-]?weight|command|control|exec)/i;
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -84,15 +99,26 @@ function validateCapabilityBundle(bundle, options = {}) {
   if (normalise(bundle.schema_version) !== SCHEMA_VERSION) {
     throw new Error(`capability bundle schema_version must be ${SCHEMA_VERSION}`);
   }
+  const unknownKeys = Object.keys(bundle).filter((key) => !ALLOWED_TOP_LEVEL_KEYS.has(key));
+  if (unknownKeys.length > 0) {
+    throw new Error(`capability bundle has unknown top-level fields: ${unknownKeys.join(', ')}`);
+  }
   const capabilityId = normalise(bundle.capability_id);
   if (!capabilityId) {
     throw new Error('capability bundle missing capability_id');
   }
+  if (!CAPABILITY_ID_PATTERN.test(capabilityId)) {
+    throw new Error(`capability bundle has invalid capability_id: ${capabilityId}`);
+  }
   if (knownCapabilities.size > 0 && !knownCapabilities.has(capabilityId)) {
     throw new Error(`unknown capability id: ${capabilityId}`);
   }
-  if (!normalise(bundle.version)) {
+  const version = normalise(bundle.version);
+  if (!version) {
     throw new Error('capability bundle missing version');
+  }
+  if (!VERSION_PATTERN.test(version)) {
+    throw new Error(`capability bundle has invalid version: ${version}`);
   }
   requireNonEmpty(bundle.owner, 'owner');
   requireNonEmpty(bundle.rollback, 'rollback');
@@ -105,7 +131,7 @@ function validateCapabilityBundle(bundle, options = {}) {
   if (!normalise(bundle.fragments.task) && !normalise(bundle.fragments.acceptance)) {
     throw new Error('capability bundle must include a task or acceptance fragment');
   }
-  if (!Array.isArray(bundle.gates) || bundle.gates.length === 0) {
+  if (!Array.isArray(bundle.gates) || bundle.gates.length === 0 || bundle.gates.some((gate) => !normalise(gate))) {
     throw new Error('capability bundle must include at least one gate ref');
   }
   const forbidden = walkForbiddenKeys(bundle);

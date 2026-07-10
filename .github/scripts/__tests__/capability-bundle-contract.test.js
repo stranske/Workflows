@@ -70,6 +70,21 @@ test('unknown capability id is rejected', () => {
   );
 });
 
+test('runtime validation matches schema patterns and top-level fields', () => {
+  assert.throws(
+    () => validateCapabilityBundle(validBundle({ capability_id: 'Keepalive Static SPA' })),
+    /invalid capability_id/,
+  );
+  assert.throws(
+    () => validateCapabilityBundle(validBundle({ version: 'latest' })),
+    /invalid version/,
+  );
+  assert.throws(
+    () => validateCapabilityBundle(validBundle({ local_control: 'reroute this run' })),
+    /unknown top-level fields: local_control/,
+  );
+});
+
 test('missing required owner and rollback fields are rejected', () => {
   assert.throws(
     () => validateCapabilityBundle(validBundle({ owner: '' })),
@@ -82,8 +97,25 @@ test('missing required owner and rollback fields are rejected', () => {
 });
 
 test('unsafe inline prompt or credential fields are rejected', () => {
-  const bundle = validBundle({ raw_prompt: 'do local hidden work' });
-  assert.throws(() => validateCapabilityBundle(bundle), /unsafe inline fields: raw_prompt/);
+  const bundle = validBundle({
+    fragments: {
+      task: 'Exercise the static SPA packet upload before claiming UI parity.',
+      acceptance: 'Report the frontend_verify gate ID and the offline-bundle assertion.',
+      raw_prompt: 'do local hidden work',
+    },
+  });
+  assert.throws(() => validateCapabilityBundle(bundle), /unsafe inline fields: fragments.raw_prompt/);
+});
+
+test('unsafe command-style nested fields and blank gates are rejected', () => {
+  assert.throws(
+    () => validateCapabilityBundle(validBundle({ selector: { repo: 'stranske/Inv-Man-Intake', exec_command: 'run hidden command' } })),
+    /unsafe inline fields: selector.exec_command/,
+  );
+  assert.throws(
+    () => validateCapabilityBundle(validBundle({ gates: ['frontend_verify@1', ''] })),
+    /at least one gate ref/,
+  );
 });
 
 test('standalone bundle document loads without bundles wrapper', () => {
