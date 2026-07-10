@@ -227,6 +227,23 @@ test('resolveExecutionProfile returns registry-backed codex model contract', () 
   assert.equal(profile.runner, 'reusable-codex-run');
 });
 
+test('resolveExecutionProfile exposes the explicit Sol Terra Luna trial profiles', () => {
+  const expected = {
+    'codex-5.6-sol-high': ['gpt-5.6-sol', 'gpt-5.5'],
+    'codex-5.6-terra-high': ['gpt-5.6-terra', 'gpt-5.5'],
+    'codex-5.6-luna-high': ['gpt-5.6-luna', 'gpt-5.5'],
+  };
+  for (const [profileId, [model, fallback]] of Object.entries(expected)) {
+    const profile = resolveExecutionProfile(profileId, { registryPath: REGISTRY_PATH });
+    assert.equal(profile.agent, 'codex');
+    assert.equal(profile.model, model);
+    assert.equal(profile.fallback_model, fallback);
+    assert.equal(profile.runner, 'reusable-codex-run');
+    assert.equal(profile.capacity_pool, 'codex-standard');
+    assert.equal(profile.lifecycle, 'trial');
+  }
+});
+
 test('resolveExecutionProfile rejects unknown profiles before worker execution', () => {
   assert.throws(
     () => resolveExecutionProfile('does-not-exist', { registryPath: REGISTRY_PATH }),
