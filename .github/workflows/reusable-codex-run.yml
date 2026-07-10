@@ -743,8 +743,9 @@ jobs:
             reason="default"
           fi
 
+          IFS=' ' read -r -a fallback_models <<< "${FALLBACK_CODEX_MODELS:-}"
           candidates="$(
-            printf '%s\n' "$model" $FALLBACK_CODEX_MODELS |
+            printf '%s\n' "$model" "${fallback_models[@]}" |
               awk 'NF && !seen[$0]++ { printf "%s%s", sep, $0; sep=" " }'
           )"
 
@@ -755,7 +756,7 @@ jobs:
               model="$DEFAULT_CODEX_MODEL"
               reason="fallback-unsupported-chatgpt-codex-model"
               candidates="$(
-                printf '%s\n' "$DEFAULT_CODEX_MODEL" $FALLBACK_CODEX_MODELS |
+                printf '%s\n' "$DEFAULT_CODEX_MODEL" "${fallback_models[@]}" |
                   awk 'NF && !seen[$0]++ { printf "%s%s", sep, $0; sep=" " }'
               )"
               ;;

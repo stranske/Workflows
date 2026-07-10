@@ -74,7 +74,7 @@ test('reusable codex runner attempts selected profile fallback models', () => {
   const reusable = readWorkflow('.github/workflows/reusable-codex-run.yml');
   assert.match(
     reusable,
-    /printf '%s\\n' "\$model" \$FALLBACK_CODEX_MODELS/,
+    /printf '%s\\n' "\$model" "\$\{fallback_models\[@\]\}"/,
     'expected non-default profile fallback models to be included in candidate order',
   );
   assert.doesNotMatch(

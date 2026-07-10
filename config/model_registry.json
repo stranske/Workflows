@@ -9,7 +9,7 @@
       "model_id": "gpt-5.5",
       "provider": "openai",
       "api": "chat",
-      "quality": { "T1": 0.97, "T2": 0.97, "T3": 0.98, "T4": 0.98, "T5": 0.98 },
+      "quality": { "T1": 0.96, "T2": 0.96, "T3": 0.96, "T4": 0.96, "T5": 0.96 },
       "cost_score": 0.18,
       "speed_score": 0.58,
       "notes": "Coding-worker execution profile default. Listed here so execution profile validation can reject typos before dispatch."
