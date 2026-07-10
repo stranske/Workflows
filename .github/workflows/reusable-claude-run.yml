@@ -220,6 +220,7 @@ jobs:
           path: .workflows-actions
           sparse-checkout: |
             .github/actions/agent-run-base
+          sparse-checkout-cone-mode: false
           token: ${{ steps.bootstrap_app_token.outputs.token || github.token }}
 
       - name: Agent run base setup

@@ -123,6 +123,7 @@ def test_extracted_setup_steps_not_duplicated_in_runners(workflow_rel: str) -> N
     checkout_with = run_base_checkout_steps[0]["with"]
     assert checkout_with["path"] == RUN_BASE_CHECKOUT_PATH
     assert ".github/actions/agent-run-base" in checkout_with["sparse-checkout"]
+    assert checkout_with["sparse-checkout-cone-mode"] is False
     assert ".workflows-actions" in src
     assert (
         checkout_with["token"] == "${{ steps.bootstrap_app_token.outputs.token || github.token }}"
