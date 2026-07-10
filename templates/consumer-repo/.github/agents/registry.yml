@@ -22,6 +22,30 @@ execution_profiles:
     capacity_pool: codex-standard
     safety: standard
     lifecycle: active
+  codex-5.6-sol-high:
+    agent: codex
+    model: gpt-5.6-sol
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: trial
+  codex-5.6-terra-high:
+    agent: codex
+    model: gpt-5.6-terra
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: trial
+  codex-5.6-luna-high:
+    agent: codex
+    model: gpt-5.6-luna
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: trial
 
 agents:
   codex:
