@@ -68,6 +68,12 @@ function asArray(value) {
   return Array.isArray(value) ? value : [value];
 }
 
+function requireNonEmpty(value, fieldName) {
+  if (!normalise(value)) {
+    throw new Error(`capability bundle missing ${fieldName}`);
+  }
+}
+
 function validateCapabilityBundle(bundle, options = {}) {
   const knownCapabilities = new Set(asArray(options.knownCapabilities));
   const now = options.now instanceof Date ? options.now : new Date();
@@ -88,6 +94,8 @@ function validateCapabilityBundle(bundle, options = {}) {
   if (!normalise(bundle.version)) {
     throw new Error('capability bundle missing version');
   }
+  requireNonEmpty(bundle.owner, 'owner');
+  requireNonEmpty(bundle.rollback, 'rollback');
   if (!bundle.selector || typeof bundle.selector !== 'object' || Array.isArray(bundle.selector)) {
     throw new Error('capability bundle missing selector object');
   }
@@ -128,7 +136,11 @@ function validateCapabilityBundle(bundle, options = {}) {
 function loadCapabilityBundles(bundlePath, options = {}) {
   const raw = fs.readFileSync(bundlePath, 'utf8');
   const parsed = JSON.parse(raw);
-  const bundles = Array.isArray(parsed) ? parsed : asArray(parsed.bundles);
+  const bundles = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.bundles)
+      ? parsed.bundles
+      : [parsed];
   bundles.forEach((bundle) => validateCapabilityBundle(bundle, options));
   return bundles;
 }

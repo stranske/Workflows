@@ -815,13 +815,35 @@ function buildMetricsRecord({
     capability_bundle_ids: applied.map((bundle) => normalise(bundle.capability_id)).filter(Boolean),
     capability_bundle_hashes: applied.map((bundle) => normalise(bundle.content_hash)).filter(Boolean),
     capability_gate_versions: applied
-      .flatMap((bundle) => Array.isArray(bundle.gate_versions) ? bundle.gate_versions : [])
+      .flatMap((bundle) => [
+        ...(Array.isArray(bundle.gate_versions) ? bundle.gate_versions : []),
+        ...(Array.isArray(bundle.playbooks) ? bundle.playbooks : []),
+      ])
       .map(normalise)
       .filter(Boolean),
     capability_rejection_reasons: rejected
       .map((bundle) => normalise(bundle.reason))
       .filter(Boolean),
   };
+}
+
+function parseCapabilityBundlesInput(value) {
+  const raw = normalise(value);
+  if (!raw) {
+    return { applied: [], rejected: [] };
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { applied: [], rejected: [{ reason: 'invalid-capability-bundles-json' }] };
+    }
+    return {
+      applied: Array.isArray(parsed.applied) ? parsed.applied : [],
+      rejected: Array.isArray(parsed.rejected) ? parsed.rejected : [],
+    };
+  } catch {
+    return { applied: [], rejected: [{ reason: 'invalid-capability-bundles-json' }] };
+  }
 }
 
 function emitMetricsRecord({ core, record }) {
@@ -3372,6 +3394,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       durationMs: toOptionalNumber(inputs.duration_ms ?? inputs.durationMs),
       startTs: toOptionalNumber(inputs.start_ts ?? inputs.startTs),
     });
+    const capabilityBundles = parseCapabilityBundlesInput(
+      inputs.capability_bundles_json ?? inputs.capabilityBundlesJson,
+    );
     const metricsRecord = buildMetricsRecord({
       prNumber,
       iteration: metricsIteration,
@@ -3380,6 +3405,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       durationMs,
       tasksTotal,
       tasksComplete,
+      capabilityBundles,
     });
     emitMetricsRecord({ core, record: metricsRecord });
     await appendMetricsRecord({
@@ -4802,4 +4828,5 @@ module.exports = {
   fileMatchesScopePattern,
   validateScopeCompliance,
   buildMetricsRecord,
+  parseCapabilityBundlesInput,
 };

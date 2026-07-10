@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createPromptComposer, composePrompt } = require('../keepalive_prompt_composer');
+const { computeCapabilityBundleHash } = require('../capability_bundle');
 
 test('createPromptComposer composes segments in order with default separator', () => {
   const composer = createPromptComposer({
@@ -53,4 +54,31 @@ test('composePrompt ignores empty segment content', () => {
 
   assert.equal(result.text, 'Visible');
   assert.deepEqual(result.segments, ['ok']);
+});
+
+test('composePrompt respects an explicit empty capability bundle override', () => {
+  const bundle = {
+    schema_version: 'capability-bundle/v1',
+    capability_id: 'keepalive/default',
+    version: '1.0.0',
+    selector: { repo: 'stranske/Workflows', agent: 'codex' },
+    owner: 'stranske/Workflows',
+    fragments: { task: 'Default task fragment' },
+    gates: ['default-gate@1'],
+    rollback: 'Remove default bundle.',
+  };
+  bundle.content_hash = computeCapabilityBundleHash(bundle);
+
+  const composer = createPromptComposer({
+    capabilityBundles: [bundle],
+    segments: [{ id: 'base', text: 'Base instructions' }],
+  });
+  const result = composer.compose({
+    capabilityBundles: [],
+    context: { repo: 'stranske/Workflows', agent: 'codex' },
+  });
+
+  assert.equal(result.text, 'Base instructions');
+  assert.deepEqual(result.segments, ['base']);
+  assert.deepEqual(result.capability_bundles.applied, []);
 });

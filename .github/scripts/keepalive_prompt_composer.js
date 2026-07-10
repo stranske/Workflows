@@ -19,7 +19,7 @@ function normaliseSegmentId(value, fallback) {
 }
 
 function coerceSegments(value) {
-  if (!value) {
+  if (value === undefined || value === null) {
     return [];
   }
   if (Array.isArray(value)) {
@@ -41,7 +41,9 @@ function createPromptComposer(options = {}) {
     const rendered = [];
     const usedSegments = [];
     const capabilityResult = selectCapabilityBundles(
-      coerceSegments(params.capabilityBundles).length ? params.capabilityBundles : capabilityBundles,
+      Object.prototype.hasOwnProperty.call(params, 'capabilityBundles')
+        ? coerceSegments(params.capabilityBundles)
+        : capabilityBundles,
       { ...context, mode },
       { knownCapabilities },
     );
