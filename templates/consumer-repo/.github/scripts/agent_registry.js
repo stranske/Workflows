@@ -188,6 +188,43 @@ function validateAgentRegistry(registry) {
   for (const [agentKey, agentConfig] of Object.entries(registry.agents || {})) {
     validateAgentCapacity(agentKey, agentConfig);
   }
+
+  for (const [profileId, profile] of Object.entries(registry.execution_profiles || {})) {
+    validateExecutionProfile(profileId, profile, registry);
+  }
+}
+
+function validateExecutionProfile(profileId, profile, registry) {
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error(`Execution profile ${profileId} must be an object`);
+  }
+  const agent = String(profile.agent || '').trim();
+  if (!agent || !registry.agents?.[agent]) {
+    throw new Error(`Execution profile ${profileId} references unknown agent: ${agent || '(empty)'}`);
+  }
+  for (const field of ['model', 'runner', 'capacity_pool', 'safety', 'lifecycle']) {
+    if (!String(profile[field] || '').trim()) {
+      throw new Error(`Execution profile ${profileId} missing required field: ${field}`);
+    }
+  }
+}
+
+function resolveExecutionProfile(profileId, options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
+  const registry = loadAgentRegistry({ registryPath });
+  const id = String(profileId || '').trim() || 'codex-default';
+  const profile = registry.execution_profiles?.[id];
+  if (!profile) {
+    const known = Object.keys(registry.execution_profiles || {}).sort();
+    throw new Error(
+      `Unknown execution profile: ${id}. Known profiles: ${known.join(', ') || '(none)'}`,
+    );
+  }
+  validateExecutionProfile(id, profile, registry);
+  return {
+    id,
+    ...profile,
+  };
 }
 
 function normalizeLabel(label) {
@@ -373,6 +410,7 @@ module.exports = {
   getRunnerWorkflow,
   loadAgentRegistry,
   parseRegistryYaml,
+  resolveExecutionProfile,
   resolveAgentFromLabels,
   resolveAgentRoutingFromLabels,
   validateAgentRegistry,

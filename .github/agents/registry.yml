@@ -5,6 +5,24 @@ default_agent: codex
 # Shared keepalive marker prefix (agent-agnostic)
 keepalive_marker_prefix: agent-keepalive
 
+execution_profiles:
+  codex-default:
+    agent: codex
+    model: gpt-5.5
+    fallback_model: gpt-5.4
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: active
+  codex-fast:
+    agent: codex
+    model: gpt-5.4
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: active
+
 agents:
   codex:
     runner_workflow: .github/workflows/reusable-codex-run.yml

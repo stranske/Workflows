@@ -31,6 +31,11 @@ on:
         required: false
         default: ''
         type: string
+      execution_profile:
+        description: 'Registry-backed worker execution profile ID.'
+        required: false
+        default: 'codex-default'
+        type: string
 
 permissions:
   contents: write
@@ -71,6 +76,9 @@ jobs:
       has_high_privilege: ${{ steps.evaluate.outputs.has_high_privilege }}
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
       agent_routing_mode: ${{ steps.evaluate.outputs.agent_routing_mode }}
+      execution_profile: ${{ steps.evaluate.outputs.execution_profile }}
+      worker_requested_model: ${{ steps.evaluate.outputs.worker_requested_model }}
+      worker_fallback_model: ${{ steps.evaluate.outputs.worker_fallback_model }}
       delegation_reason: ${{ steps.evaluate.outputs.delegation_reason }}
       delegation_should_switch: ${{ steps.evaluate.outputs.delegation_should_switch }}
       # task_appendix is delivered via artifact upload (keepalive-task-appendix-<pr>)
@@ -351,6 +359,7 @@ jobs:
                  github.event.label.name == 'agent:retry') ||
                 github.event.inputs.force_retry ||
                 'false' }}
+          INPUT_EXECUTION_PROFILE: ${{ github.event.inputs.execution_profile || '' }}
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
           HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           HAS_CLAUDE_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
@@ -433,6 +442,9 @@ jobs:
               has_high_privilege: String(result.hasHighPrivilege ?? 'false'),
               agent_type: String(result.agentType || ''),
               agent_routing_mode: String(result.agentRoutingMode || ''),
+              execution_profile: String(result.executionProfile?.id || ''),
+              worker_requested_model: String(result.executionProfile?.model || ''),
+              worker_fallback_model: String(result.executionProfile?.fallback_model || ''),
               delegation_reason: String(result.delegationReason || ''),
               delegation_should_switch: String(result.delegationShouldSwitch ?? 'false'),
               trace: String(result.config?.trace || result.state?.trace || ''),
@@ -713,6 +725,9 @@ jobs:
       iteration: ${{ needs.evaluate.outputs.iteration }}
       orchestrator_skill_pack: ${{ github.event.inputs.orchestrator_skill_pack || '' }}
       orchestrator_skill_enabled: ${{ github.event.inputs.orchestrator_skill_enabled || '' }}
+      execution_profile: ${{ needs.evaluate.outputs.execution_profile }}
+      codex_model: ${{ needs.evaluate.outputs.worker_requested_model }}
+      codex_fallback_models: ${{ needs.evaluate.outputs.worker_fallback_model }}
       environment: >-
         ${{
           needs.evaluate.outputs.has_high_privilege == 'true' &&

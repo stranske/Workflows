@@ -15,6 +15,7 @@ const {
   resolveAgentRoutingFromLabels,
   getAgentEntries,
   getAgentPreflightConfigs,
+  resolveExecutionProfile,
   validateAgentRegistry,
 } = require('../agent_registry');
 
@@ -217,6 +218,22 @@ test('loadAgentRegistry exposes live and disabled planned-agent capacity blocks'
   assert.deepEqual(registry.agents.aider.capacity, { window: 'daily', limit: 1 });
 });
 
+test('resolveExecutionProfile returns registry-backed codex model contract', () => {
+  const profile = resolveExecutionProfile('codex-default', { registryPath: REGISTRY_PATH });
+  assert.equal(profile.id, 'codex-default');
+  assert.equal(profile.agent, 'codex');
+  assert.equal(profile.model, 'gpt-5.5');
+  assert.equal(profile.fallback_model, 'gpt-5.4');
+  assert.equal(profile.runner, 'reusable-codex-run');
+});
+
+test('resolveExecutionProfile rejects unknown profiles before worker execution', () => {
+  assert.throws(
+    () => resolveExecutionProfile('does-not-exist', { registryPath: REGISTRY_PATH }),
+    /Unknown execution profile: does-not-exist/,
+  );
+});
+
 test('validateAgentRegistry rejects invalid capacity entries', () => {
   assert.throws(
     () => {
@@ -242,5 +259,30 @@ test('validateAgentRegistry rejects invalid capacity entries', () => {
       });
     },
     /capacity\.limit must be a positive integer/,
+  );
+});
+
+test('validateAgentRegistry rejects profiles with unknown agents', () => {
+  assert.throws(
+    () => {
+      validateAgentRegistry({
+        agents: {
+          codex: {
+            capacity: { window: '5h', limit: 1 },
+          },
+        },
+        execution_profiles: {
+          bogus: {
+            agent: 'missing-agent',
+            model: 'gpt-5.5',
+            runner: 'reusable-codex-run',
+            capacity_pool: 'codex-standard',
+            safety: 'standard',
+            lifecycle: 'active',
+          },
+        },
+      });
+    },
+    /references unknown agent/,
   );
 });

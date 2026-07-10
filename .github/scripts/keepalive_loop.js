@@ -1604,6 +1604,9 @@ function normaliseConfig(config = {}) {
   const promptMode = normalise(cfg.prompt_mode ?? cfg.promptMode);
   const promptFile = normalise(cfg.prompt_file ?? cfg.promptFile);
   const promptScenario = normalise(cfg.prompt_scenario ?? cfg.promptScenario);
+  const executionProfile = normalise(
+    cfg.execution_profile ?? cfg.executionProfile ?? cfg.worker_profile ?? cfg.workerProfile,
+  );
   return {
     keepalive_enabled: toBool(
       cfg.keepalive_enabled ?? cfg.enable_keepalive ?? cfg.keepalive,
@@ -1617,6 +1620,7 @@ function normaliseConfig(config = {}) {
     prompt_mode: promptMode,
     prompt_file: promptFile,
     prompt_scenario: promptScenario,
+    execution_profile: executionProfile,
     verifier_agent: normalise(cfg.verifier_agent),
     progress_review_threshold: cfg.progress_review_threshold != null ? toNumber(cfg.progress_review_threshold, 4) : undefined,
     complete_gate_failure_rounds: cfg.complete_gate_failure_rounds != null ? toNumber(cfg.complete_gate_failure_rounds, 3) : undefined,
@@ -2833,6 +2837,25 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     });
     const promptMode = promptModeOverride || promptRoute.mode;
     const promptFile = promptFileOverride || promptRoute.file;
+    const requestedExecutionProfile = normalise(
+      config.execution_profile ?? process.env.INPUT_EXECUTION_PROFILE ?? '',
+    ) || 'codex-default';
+    let executionProfile = null;
+    try {
+      const { resolveExecutionProfile } = require('./agent_registry.js');
+      executionProfile = resolveExecutionProfile(requestedExecutionProfile);
+      if (executionProfile.agent !== 'codex') {
+        throw new Error(
+          `Execution profile ${executionProfile.id} routes to ${executionProfile.agent}; keepalive codex runner requires codex`,
+        );
+      }
+      core?.info?.(
+        `Resolved execution profile ${executionProfile.id}: model=${executionProfile.model}, ` +
+          `fallback=${executionProfile.fallback_model || ''}`,
+      );
+    } catch (profileError) {
+      throw new Error(`Invalid keepalive execution profile: ${profileError.message}`);
+    }
 
     // For verification steps, prefer a different agent than the one that did
     // the implementation work.  This avoids the structural problem where the
@@ -2857,6 +2880,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       reason,
       promptMode,
       promptFile,
+      executionProfile,
       gateConclusion,
       config,
       iteration,

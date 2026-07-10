@@ -1,4 +1,5 @@
 {
+  "purpose": "Auxiliary judge/evaluator slots only; do not treat these as coding-worker execution profiles.",
   "slots": [
     {
       "name": "slot1",

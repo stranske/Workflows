@@ -62,6 +62,16 @@ on:
         required: false
         default: 'gpt-5.5'
         type: string
+      codex_fallback_models:
+        description: 'Space-separated fallback Codex model IDs for the selected profile.'
+        required: false
+        default: 'gpt-5.4'
+        type: string
+      execution_profile:
+        description: 'Registry execution profile ID used by caller.'
+        required: false
+        default: 'codex-default'
+        type: string
       codex_args:
         description: 'Optional Codex CLI arguments (string or JSON array).'
         required: false
@@ -133,6 +143,18 @@ on:
       files-changed:
         description: 'Number of files changed by Codex'
         value: ${{ jobs.codex.outputs.files-changed }}
+      worker-profile-id:
+        description: 'Registry execution profile ID supplied by caller'
+        value: ${{ jobs.codex.outputs.worker-profile-id }}
+      worker-requested-model:
+        description: 'Model requested through the registry execution profile'
+        value: ${{ jobs.codex.outputs.worker-requested-model }}
+      worker-selected-model:
+        description: 'Actual Codex model selected after runner fallback'
+        value: ${{ jobs.codex.outputs.worker-selected-model }}
+      worker-model-selection-reason:
+        description: 'Reason for the selected worker model'
+        value: ${{ jobs.codex.outputs.worker-model-selection-reason }}
       error-category:
         description: 'Error category if failure occurred (transient/auth/resource/logic/unknown)'
         value: ${{ jobs.codex.outputs.error-category }}
@@ -205,6 +227,10 @@ jobs:
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
+      worker-profile-id: ${{ inputs.execution_profile }}
+      worker-requested-model: ${{ inputs.codex_model }}
+      worker-selected-model: ${{ steps.run_codex.outputs.model }}
+      worker-model-selection-reason: ${{ steps.run_codex.outputs.model-selection-reason }}
       error-category: ${{ steps.classify_failure.outputs.error_category }}
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
@@ -702,7 +728,7 @@ jobs:
         id: codex_model
         env:
           DEFAULT_CODEX_MODEL: gpt-5.5
-          FALLBACK_CODEX_MODELS: gpt-5.4
+          FALLBACK_CODEX_MODELS: ${{ inputs.codex_fallback_models }}
           REQUESTED_MODEL: ${{ inputs.codex_model }}
         run: |
           set -euo pipefail

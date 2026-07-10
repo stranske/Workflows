@@ -3,6 +3,7 @@
   "last_updated": "2026-06-29",
   "review_interval_days": 60,
   "review_by": "2026-08-28",
+  "purpose": "Auxiliary judge/evaluator model catalog. Coding-worker execution profiles live in .github/agents/registry.yml::execution_profiles.",
   "models": [
     {
       "model_id": "gpt-5.4",
