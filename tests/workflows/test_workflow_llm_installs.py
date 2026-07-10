@@ -279,8 +279,9 @@ def test_reusable_codex_run_prefers_gpt_55_with_non_codex_fallback() -> None:
     assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "${{ inputs.codex_fallback_models }}"
     assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]
     assert "*-codex*" in resolve_step["run"]
-    assert '[ "$model" = "$DEFAULT_CODEX_MODEL" ]' in resolve_step["run"]
-    assert 'candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"' in resolve_step["run"]
+    assert 'printf \'%s\\n\' "$model" "${fallback_models[@]}"' in resolve_step["run"]
+    assert 'printf \'%s\\n\' "$DEFAULT_CODEX_MODEL" "${fallback_models[@]}"' in resolve_step["run"]
+    assert "awk 'NF && !seen[$0]++" in resolve_step["run"]
     assert "gpt-5.3-codex" not in resolve_step["run"]
 
     assert "CODEX_MODEL_CANDIDATES" in run_step["env"]
