@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const path = require('node:path');
 
 const ALLOWED_CAPACITY_WINDOWS = new Set(['5h', 'weekly', 'daily']);
 
@@ -158,8 +159,36 @@ function loadAgentRegistry(options = {}) {
   if (!registry.default_agent || typeof registry.default_agent !== 'string') {
     throw new Error('Agent registry missing required "default_agent" string');
   }
-  validateAgentRegistry(registry);
+  validateAgentRegistry(registry, { registryPath: path });
   return registry;
+}
+
+function resolveModelRegistryPath(options = {}) {
+  if (options.modelRegistryPath) {
+    return options.modelRegistryPath;
+  }
+  const registryPath = options.registryPath || '.github/agents/registry.yml';
+  if (path.isAbsolute(registryPath)) {
+    return path.resolve(path.dirname(registryPath), '..', '..', 'config', 'model_registry.json');
+  }
+  return path.resolve(process.cwd(), 'config', 'model_registry.json');
+}
+
+function loadModelRegistryIds(options = {}) {
+  const modelRegistryPath = resolveModelRegistryPath(options);
+  if (!fs.existsSync(modelRegistryPath)) {
+    return null;
+  }
+  const raw = fs.readFileSync(modelRegistryPath, 'utf8');
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed.models)) {
+    throw new Error(`Model registry ${modelRegistryPath} missing required models array`);
+  }
+  return new Set(
+    parsed.models
+      .map((model) => String(model?.model_id || '').trim())
+      .filter(Boolean),
+  );
 }
 
 function validateAgentCapacity(agentKey, agentConfig) {
@@ -184,17 +213,19 @@ function validateAgentCapacity(agentKey, agentConfig) {
   }
 }
 
-function validateAgentRegistry(registry) {
+function validateAgentRegistry(registry, options = {}) {
+  const knownModelIds = loadModelRegistryIds(options);
+
   for (const [agentKey, agentConfig] of Object.entries(registry.agents || {})) {
     validateAgentCapacity(agentKey, agentConfig);
   }
 
   for (const [profileId, profile] of Object.entries(registry.execution_profiles || {})) {
-    validateExecutionProfile(profileId, profile, registry);
+    validateExecutionProfile(profileId, profile, registry, { knownModelIds });
   }
 }
 
-function validateExecutionProfile(profileId, profile, registry) {
+function validateExecutionProfile(profileId, profile, registry, options = {}) {
   if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
     throw new Error(`Execution profile ${profileId} must be an object`);
   }
@@ -205,6 +236,16 @@ function validateExecutionProfile(profileId, profile, registry) {
   for (const field of ['model', 'runner', 'capacity_pool', 'safety', 'lifecycle']) {
     if (!String(profile[field] || '').trim()) {
       throw new Error(`Execution profile ${profileId} missing required field: ${field}`);
+    }
+  }
+  if (options.knownModelIds) {
+    for (const field of ['model', 'fallback_model']) {
+      const modelId = String(profile[field] || '').trim();
+      if (modelId && !options.knownModelIds.has(modelId)) {
+        throw new Error(
+          `Execution profile ${profileId} references unknown ${field}: ${modelId}`,
+        );
+      }
     }
   }
 }

@@ -234,6 +234,42 @@ test('resolveExecutionProfile rejects unknown profiles before worker execution',
   );
 });
 
+test('validateAgentRegistry rejects unknown execution profile model ids', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-registry-models-'));
+  const modelRegistryPath = path.join(tmpDir, 'model_registry.json');
+  fs.writeFileSync(
+    modelRegistryPath,
+    JSON.stringify({ models: [{ model_id: 'gpt-known' }] }),
+  );
+
+  assert.throws(
+    () => {
+      validateAgentRegistry(
+        {
+          agents: {
+            codex: {
+              capacity: { window: '5h', limit: 1 },
+            },
+          },
+          execution_profiles: {
+            'codex-default': {
+              agent: 'codex',
+              model: 'gpt-typo',
+              fallback_model: 'gpt-known',
+              runner: 'reusable-codex-run',
+              capacity_pool: 'codex-standard',
+              safety: 'standard',
+              lifecycle: 'active',
+            },
+          },
+        },
+        { modelRegistryPath },
+      );
+    },
+    /unknown model: gpt-typo/,
+  );
+});
+
 test('validateAgentRegistry rejects invalid capacity entries', () => {
   assert.throws(
     () => {

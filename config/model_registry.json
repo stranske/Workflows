@@ -6,6 +6,15 @@
   "purpose": "Auxiliary judge/evaluator model catalog. Coding-worker execution profiles live in .github/agents/registry.yml::execution_profiles.",
   "models": [
     {
+      "model_id": "gpt-5.5",
+      "provider": "openai",
+      "api": "chat",
+      "quality": { "T1": 0.97, "T2": 0.97, "T3": 0.98, "T4": 0.98, "T5": 0.98 },
+      "cost_score": 0.18,
+      "speed_score": 0.58,
+      "notes": "Coding-worker execution profile default. Listed here so execution profile validation can reject typos before dispatch."
+    },
+    {
       "model_id": "gpt-5.4",
       "provider": "openai",
       "api": "chat",
