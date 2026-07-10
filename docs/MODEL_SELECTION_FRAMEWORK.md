@@ -1,6 +1,4 @@
-# M
-Worker-only validation entries may set `worker_profile: true` and a lifecycle while omitting quality, cost, and speed scores. Their presence proves that an execution-profile model ID is allowed; it is not evaluator evidence and must not be used to rank models.
-odel Selection Framework
+# Model Selection Framework
 
 > **Last updated**: February 7, 2026
 > **Purpose**: Define a model registry, selection algorithm, and slot-system
@@ -792,3 +790,5 @@ latency budget for the task tier.
   }
 }
 ```
+
+Worker-only validation entries may set `worker_profile: true` and a lifecycle while omitting quality, cost, and speed scores. Their presence proves that an execution-profile model ID is allowed; it is not evaluator evidence and must not be used to rank models.
