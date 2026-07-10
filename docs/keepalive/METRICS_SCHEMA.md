@@ -21,6 +21,10 @@ The metrics log supports two record types:
 - duration_ms: Integer duration in milliseconds for the iteration.
 - tasks_total: Integer total tasks detected for the PR.
 - tasks_complete: Integer completed tasks detected for the PR.
+- capability_bundle_ids: Array of applied `capability-bundle/v1` IDs.
+- capability_bundle_hashes: Array of applied bundle content hashes.
+- capability_gate_versions: Array of gate/playbook versions attached by applied bundles.
+- capability_rejection_reasons: Array of deterministic reasons bundles were not applied.
 - metric_type: Optional string. When present, set to `"keepalive"`.
 
 ## Post-Merge Summary Fields
@@ -38,7 +42,7 @@ The metrics log supports two record types:
 ## Example Record
 
 ```json
-{"pr_number":1234,"iteration":2,"timestamp":"2025-01-15T12:34:56Z","action":"retry","error_category":"none","duration_ms":4821,"tasks_total":14,"tasks_complete":6}
+{"pr_number":1234,"iteration":2,"timestamp":"2025-01-15T12:34:56Z","action":"retry","error_category":"none","duration_ms":4821,"tasks_total":14,"tasks_complete":6,"capability_bundle_ids":["keepalive/static-spa"],"capability_bundle_hashes":["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"capability_gate_versions":["frontend_verify@1"],"capability_rejection_reasons":[]}
 ```
 
 ## Example Post-Merge Record

@@ -421,6 +421,9 @@ scripts:
   - source: .github/scripts/keepalive_prompt_composer.js
     description: "Composes prompts for keepalive Codex calls"
 
+  - source: .github/scripts/capability_bundle.js
+    description: "Validates and selects capability-bundle/v1 fragments for keepalive prompts and metrics"
+
   - source: .github/scripts/autopilot_metrics.js
     description: "AutoPilot metrics collection and reporting"
 
@@ -792,6 +795,14 @@ docs:
   - source: docs/contracts/identity-map-conventions.md
     target: docs/contracts/identity-map-conventions.md
     description: "Canonical entity-ID conventions for run-contract/v1 identity_refs / evidence entity_ref - participants emit against these"
+
+  - source: docs/contracts/capability-bundle-v1.md
+    target: docs/contracts/capability-bundle-v1.md
+    description: "Capability-bundle/v1 prompt-fragment and gate metadata contract for Workflows Keepalive"
+
+  - source: docs/contracts/schemas/capability-bundle-v1.schema.json
+    target: docs/contracts/schemas/capability-bundle-v1.schema.json
+    description: "JSON Schema (draft 2020-12) for capability-bundle/v1 keepalive prompt fragments and gate metadata"
 
   - source: docs/contracts/schemas/run-contract-v1.schema.json
     target: docs/contracts/schemas/run-contract-v1.schema.json

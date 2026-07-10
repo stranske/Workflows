@@ -796,7 +796,13 @@ function buildMetricsRecord({
   durationMs,
   tasksTotal,
   tasksComplete,
+  capabilityBundles,
 }) {
+  const capabilityResult = capabilityBundles && typeof capabilityBundles === 'object'
+    ? capabilityBundles
+    : { applied: [], rejected: [] };
+  const applied = Array.isArray(capabilityResult.applied) ? capabilityResult.applied : [];
+  const rejected = Array.isArray(capabilityResult.rejected) ? capabilityResult.rejected : [];
   return {
     pr_number: toNumber(prNumber, 0),
     iteration: Math.max(1, toNumber(iteration, 0)),
@@ -806,6 +812,15 @@ function buildMetricsRecord({
     duration_ms: Math.max(0, toNumber(durationMs, 0)),
     tasks_total: Math.max(0, toNumber(tasksTotal, 0)),
     tasks_complete: Math.max(0, toNumber(tasksComplete, 0)),
+    capability_bundle_ids: applied.map((bundle) => normalise(bundle.capability_id)).filter(Boolean),
+    capability_bundle_hashes: applied.map((bundle) => normalise(bundle.content_hash)).filter(Boolean),
+    capability_gate_versions: applied
+      .flatMap((bundle) => Array.isArray(bundle.gate_versions) ? bundle.gate_versions : [])
+      .map(normalise)
+      .filter(Boolean),
+    capability_rejection_reasons: rejected
+      .map((bundle) => normalise(bundle.reason))
+      .filter(Boolean),
   };
 }
 
@@ -4786,4 +4801,5 @@ module.exports = {
   extractScopePatterns,
   fileMatchesScopePattern,
   validateScopeCompliance,
+  buildMetricsRecord,
 };

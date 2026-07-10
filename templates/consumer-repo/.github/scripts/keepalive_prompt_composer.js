@@ -1,6 +1,10 @@
 'use strict';
 
 const DEFAULT_SEPARATOR = '\n\n';
+const {
+  renderCapabilityFragments,
+  selectCapabilityBundles,
+} = require('./capability_bundle');
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -27,6 +31,8 @@ function coerceSegments(value) {
 function createPromptComposer(options = {}) {
   const segments = coerceSegments(options.segments);
   const separator = normalise(options.separator) || DEFAULT_SEPARATOR;
+  const capabilityBundles = coerceSegments(options.capabilityBundles);
+  const knownCapabilities = coerceSegments(options.knownCapabilities).map(normalise).filter(Boolean);
 
   const compose = (params = {}) => {
     const state = params.state && typeof params.state === 'object' ? params.state : {};
@@ -34,6 +40,16 @@ function createPromptComposer(options = {}) {
     const mode = normalise(params.mode);
     const rendered = [];
     const usedSegments = [];
+    const capabilityResult = selectCapabilityBundles(
+      coerceSegments(params.capabilityBundles).length ? params.capabilityBundles : capabilityBundles,
+      { ...context, mode },
+      { knownCapabilities },
+    );
+    const capabilityText = renderCapabilityFragments(capabilityResult.applied);
+    if (capabilityText) {
+      rendered.push(capabilityText);
+      usedSegments.push('capability-bundle');
+    }
 
     segments.forEach((segment, index) => {
       if (!segment || typeof segment !== 'object') {
@@ -67,6 +83,7 @@ function createPromptComposer(options = {}) {
       text: rendered.join(separator).trim(),
       segments: usedSegments,
       separator,
+      capability_bundles: capabilityResult,
     };
   };
 

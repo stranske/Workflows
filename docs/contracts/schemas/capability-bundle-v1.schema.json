@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stranske/Workflows/docs/contracts/schemas/capability-bundle-v1.schema.json",
+  "title": "capability-bundle/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capability_id",
+    "version",
+    "content_hash",
+    "selector",
+    "owner",
+    "fragments",
+    "gates",
+    "rollback"
+  ],
+  "properties": {
+    "schema_version": { "const": "capability-bundle/v1" },
+    "capability_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._/-]*$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v?[0-9]+(\\.[0-9]+){0,2}$"
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+          ]
+        },
+        "agent": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+          ]
+        },
+        "mode": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fragments": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task": { "type": "string" },
+        "acceptance": { "type": "string" }
+      },
+      "anyOf": [
+        { "required": ["task"] },
+        { "required": ["acceptance"] }
+      ]
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "playbooks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rollback": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "not": {
+    "anyOf": [
+      { "required": ["raw_prompt"] },
+      { "required": ["credentials"] },
+      { "required": ["local_weights"] },
+      { "required": ["posterior_weights"] }
+    ]
+  }
+}
