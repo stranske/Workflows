@@ -22,8 +22,10 @@ on:
       - 'docs/contracts/schemas/**'
       - 'config/backplane_participants.json'
       - 'scripts/validate_run_contract.py'
+      - 'scripts/validate_backplane_registry.py'
       - 'tests/fixtures/backplane/**'
       - 'tests/contracts/**'
+      - 'tests/test_backplane_registry.py'
       - '.github/workflows/health-78-backplane-contract.yml'
   push:
     branches: [main]
@@ -31,6 +33,7 @@ on:
       - 'docs/contracts/schemas/**'
       - 'config/backplane_participants.json'
       - 'scripts/validate_run_contract.py'
+      - 'scripts/validate_backplane_registry.py'
       - 'tests/fixtures/backplane/**'
 
 permissions:
@@ -73,6 +76,11 @@ jobs:
             --repo stranske/Workflows \
             tests/fixtures/backplane/valid_run.json \
             | tee artifacts/backplane-contract/self-smoke.txt
+
+      - name: Registry lifecycle and evidence validation
+        run: |
+          python scripts/validate_backplane_registry.py --json \
+            | tee artifacts/backplane-contract/registry-status.json
 
       - name: Documented invalid-fixture smoke (must exit 1)
         run: |
