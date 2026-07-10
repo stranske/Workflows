@@ -176,7 +176,7 @@ def test_cli_exit_codes(tmp_path, capsys) -> None:
 
 def test_missing_envelope_skips_for_candidate_and_planned_and_absent(tmp_path) -> None:
     # A missing run.json must be an opt-in SKIP (exit 0) for a candidate
-    # consumer (LMS), a not-yet-emitting "planned" producer (Pension-Data), and
+    # consumer (LMS), a not-yet-emitting "planned" producer (Trend), and
     # an absent repo -- the caller's emit-reference-run job legitimately
     # produces nothing until an emitter is wired. Regression guard for the
     # "cannot load run envelope -> exit 2" crash that gated every PR.
@@ -184,7 +184,7 @@ def test_missing_envelope_skips_for_candidate_and_planned_and_absent(tmp_path) -
     missing = tmp_path / "does-not-exist" / "run.json"
     for repo in (
         "stranske/learning-management-system",  # candidate consumer
-        PRODUCER_REPO,  # planned producer
+        "stranske/Trend_Model_Project",  # planned producer
         "stranske/not-a-participant",  # absent
     ):
         rc = mod.main(

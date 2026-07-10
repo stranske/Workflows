@@ -8,13 +8,18 @@ import json
 import re
 import sys
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 ISSUE_REF_RE = re.compile(r"^stranske/[A-Za-z0-9_.-]+#[1-9][0-9]*$")
 SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
-URL_RE = re.compile(r"^https://github.com/stranske/[A-Za-z0-9_.-]+/(actions/runs|issues|pull)/")
+RUN_JOB_URL_RE = re.compile(
+    r"^https://github\.com/stranske/[A-Za-z0-9_.-]+/actions/runs/[1-9][0-9]*/job/[1-9][0-9]*$"
+)
+ISSUE_COMMENT_URL_RE = re.compile(
+    r"^https://github\.com/stranske/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*#issuecomment-[1-9][0-9]*$"
+)
 STATUSES = {"planned", "emitting", "conformant", "candidate", "none"}
 REFERENCE_STATES = {"missing", "invalid", "stale", "valid", "not-applicable"}
 
@@ -57,6 +62,13 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
 
 
+def _parse_aware_datetime(value: Any) -> datetime | None:
+    parsed = _parse_datetime(value)
+    if parsed is None or parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(UTC)
+
+
 def _validate_deferred_issue(entry: dict[str, Any], prefix: str) -> list[Finding]:
     findings: list[Finding] = []
     deferred = entry.get("issue_deferred")
@@ -66,14 +78,22 @@ def _validate_deferred_issue(entry: dict[str, Any], prefix: str) -> list[Finding
         ]
     if not deferred.get("reason"):
         findings.append(Finding(f"{prefix}.issue_deferred.reason", "deferred issue needs a reason"))
-    if _parse_datetime(deferred.get("expires_at")) is None:
+    expires_at = _parse_aware_datetime(deferred.get("expires_at"))
+    if expires_at is None:
         findings.append(
-            Finding(f"{prefix}.issue_deferred.expires_at", "deferred issue needs ISO timestamp")
+            Finding(
+                f"{prefix}.issue_deferred.expires_at",
+                "deferred issue needs timezone-aware ISO timestamp",
+            )
         )
+    elif expires_at <= datetime.now(UTC):
+        findings.append(Finding(f"{prefix}.issue_deferred.expires_at", "deferred issue expired"))
     return findings
 
 
-def _validate_reference_evidence(entry: dict[str, Any], prefix: str) -> list[Finding]:
+def _validate_reference_evidence(
+    entry: dict[str, Any], prefix: str, stale_after_hours: int
+) -> list[Finding]:
     evidence = entry.get("reference_run_evidence")
     if not isinstance(evidence, dict):
         return [Finding(f"{prefix}.reference_run_evidence", "conformant entry needs evidence")]
@@ -91,29 +111,108 @@ def _validate_reference_evidence(entry: dict[str, Any], prefix: str) -> list[Fin
                 Finding(f"{prefix}.reference_run_evidence.{key}", "must be issue/PR ref")
             )
 
-    for key in ("emit_reference_run_url", "conformance_run_url", "disposition_comment"):
-        if not isinstance(evidence.get(key), str) or not URL_RE.match(evidence[key]):
-            findings.append(Finding(f"{prefix}.reference_run_evidence.{key}", "must be GitHub URL"))
+    run_url_keys = ("emit_reference_run_url", "conformance_run_url")
+    for key in run_url_keys:
+        if not isinstance(evidence.get(key), str) or not RUN_JOB_URL_RE.fullmatch(evidence[key]):
+            findings.append(
+                Finding(f"{prefix}.reference_run_evidence.{key}", "must be GitHub run job URL")
+            )
+
+    if not isinstance(
+        evidence.get("disposition_comment"), str
+    ) or not ISSUE_COMMENT_URL_RE.fullmatch(evidence["disposition_comment"]):
+        findings.append(
+            Finding(
+                f"{prefix}.reference_run_evidence.disposition_comment",
+                "must be GitHub issue comment URL",
+            )
+        )
 
     for key in ("reference_run_sha256", "manifest_artifact_sha256", "conformance_report_sha256"):
         if not isinstance(evidence.get(key), str) or not SHA256_RE.fullmatch(evidence[key]):
             findings.append(Finding(f"{prefix}.reference_run_evidence.{key}", "must be sha256"))
 
-    if _parse_datetime(evidence.get("generated_at")) is None:
+    generated_at = _parse_aware_datetime(evidence.get("generated_at"))
+    if generated_at is None:
         findings.append(
-            Finding(f"{prefix}.reference_run_evidence.generated_at", "must be ISO time")
+            Finding(
+                f"{prefix}.reference_run_evidence.generated_at",
+                "must be timezone-aware ISO time",
+            )
+        )
+    elif datetime.now(UTC) - generated_at > timedelta(hours=stale_after_hours):
+        findings.append(
+            Finding(f"{prefix}.reference_run_evidence.generated_at", "reference run is stale")
         )
     if not evidence.get("run_id"):
         findings.append(Finding(f"{prefix}.reference_run_evidence.run_id", "must be populated"))
     return findings
 
 
-def validate_registry(registry: dict[str, Any]) -> list[Finding]:
+def _validate_lifecycle_history(entry: dict[str, Any], prefix: str) -> list[Finding]:
+    history = entry.get("lifecycle_history")
+    if not isinstance(history, list):
+        return [Finding(f"{prefix}.lifecycle_history", "conformant entry needs lifecycle history")]
+
+    findings: list[Finding] = []
+    expected = ["planned", "emitting", "conformant"]
+    actual: list[str] = []
+    previous_at: datetime | None = None
+    for index, item in enumerate(history):
+        item_prefix = f"{prefix}.lifecycle_history[{index}]"
+        if not isinstance(item, dict):
+            findings.append(Finding(item_prefix, "lifecycle history entry must be an object"))
+            continue
+
+        status = item.get("status")
+        if isinstance(status, str):
+            actual.append(status)
+        else:
+            findings.append(Finding(f"{item_prefix}.status", "lifecycle status must be populated"))
+
+        at = _parse_aware_datetime(item.get("at"))
+        if at is None:
+            findings.append(Finding(f"{item_prefix}.at", "must be timezone-aware ISO time"))
+        elif previous_at is not None and at < previous_at:
+            findings.append(Finding(f"{item_prefix}.at", "lifecycle timestamps must be monotonic"))
+        elif at is not None:
+            previous_at = at
+
+        evidence = item.get("evidence")
+        evidence_ok = _is_issue_ref(evidence) or (
+            isinstance(evidence, str) and RUN_JOB_URL_RE.fullmatch(evidence)
+        )
+        if not evidence_ok:
+            findings.append(
+                Finding(f"{item_prefix}.evidence", "must be issue ref or GitHub run job URL")
+            )
+
+    if actual != expected:
+        findings.append(
+            Finding(
+                f"{prefix}.lifecycle_history", "must progress planned -> emitting -> conformant"
+            )
+        )
+    return findings
+
+
+def validate_registry(registry: Any) -> list[Finding]:
     findings = _walk_strings(registry)
+
+    if not isinstance(registry, dict):
+        return [Finding("registry", "registry must be an object")]
 
     parent_issue = registry.get("parent_issue")
     if not _is_issue_ref(parent_issue):
         findings.append(Finding("parent_issue", "parent_issue must be a real issue ref"))
+
+    stale_after_hours = registry.get("stale_after_hours", 168)
+    if isinstance(stale_after_hours, bool) or not isinstance(stale_after_hours, int):
+        findings.append(Finding("stale_after_hours", "stale_after_hours must be an integer"))
+        stale_after_hours = 168
+    elif stale_after_hours <= 0:
+        findings.append(Finding("stale_after_hours", "stale_after_hours must be positive"))
+        stale_after_hours = 168
 
     participants = registry.get("participants")
     if not isinstance(participants, list) or not participants:
@@ -123,6 +222,9 @@ def validate_registry(registry: dict[str, Any]) -> list[Finding]:
     seen: set[str] = set()
     for index, entry in enumerate(participants):
         prefix = f"participants[{index}]"
+        if not isinstance(entry, dict):
+            findings.append(Finding(prefix, "participant entry must be an object"))
+            continue
         repo = entry.get("repo")
         if not isinstance(repo, str) or not repo.startswith("stranske/"):
             findings.append(Finding(f"{prefix}.repo", "repo must be stranske/<repo>"))
@@ -153,7 +255,8 @@ def validate_registry(registry: dict[str, Any]) -> list[Finding]:
                 findings.append(
                     Finding(f"{prefix}.reference_state", "conformant entries must be valid")
                 )
-            findings.extend(_validate_reference_evidence(entry, prefix))
+            findings.extend(_validate_lifecycle_history(entry, prefix))
+            findings.extend(_validate_reference_evidence(entry, prefix, stale_after_hours))
         elif reference_state == "valid":
             findings.append(
                 Finding(f"{prefix}.reference_state", "valid evidence requires conformant status")
@@ -165,6 +268,20 @@ def validate_registry(registry: dict[str, Any]) -> list[Finding]:
 def _reference_rows(registry: dict[str, Any]) -> list[dict[str, Any]]:
     rows = []
     for entry in registry.get("participants", []):
+        if not isinstance(entry, dict):
+            rows.append(
+                {
+                    "repo": None,
+                    "lifecycle_status": None,
+                    "reference_state": None,
+                    "issue": None,
+                    "deferred_until": None,
+                    "run_id": None,
+                    "generated_at": None,
+                    "conformance_run_url": None,
+                }
+            )
+            continue
         evidence = entry.get("reference_run_evidence") or {}
         rows.append(
             {
@@ -190,6 +307,11 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("config/backplane_participants.json"),
     )
     parser.add_argument("--json", action="store_true", help="Emit machine-readable report")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Compatibility flag; validation is always strict.",
+    )
     args = parser.parse_args(argv)
 
     registry = _load_json(args.registry)
