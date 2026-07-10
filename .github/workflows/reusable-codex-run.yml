@@ -743,10 +743,10 @@ jobs:
             reason="default"
           fi
 
-          candidates="$model"
-          if [ "$model" = "$DEFAULT_CODEX_MODEL" ]; then
-            candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
-          fi
+          candidates="$(
+            printf '%s\n' "$model" $FALLBACK_CODEX_MODELS |
+              awk 'NF && !seen[$0]++ { printf "%s%s", sep, $0; sep=" " }'
+          )"
 
           case "$model" in
             *-codex*)
@@ -754,7 +754,10 @@ jobs:
                 "with the configured ChatGPT auth; trying '$DEFAULT_CODEX_MODEL' first."
               model="$DEFAULT_CODEX_MODEL"
               reason="fallback-unsupported-chatgpt-codex-model"
-              candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
+              candidates="$(
+                printf '%s\n' "$DEFAULT_CODEX_MODEL" $FALLBACK_CODEX_MODELS |
+                  awk 'NF && !seen[$0]++ { printf "%s%s", sep, $0; sep=" " }'
+              )"
               ;;
           esac
 
@@ -1052,6 +1055,54 @@ jobs:
 
           # Exit with original code to mark job as failed if Codex failed
           exit "$CODEX_EXIT"
+
+      - name: Write worker model attempt artifact
+        if: always()
+        env:
+          EXECUTION_PROFILE: ${{ inputs.execution_profile }}
+          WORKER_REQUESTED_MODEL: ${{ inputs.codex_model }}
+          WORKER_FALLBACK_MODELS: ${{ inputs.codex_fallback_models }}
+          WORKER_SELECTED_MODEL: ${{ steps.run_codex.outputs.model }}
+          WORKER_MODEL_SELECTION_REASON: ${{ steps.run_codex.outputs.model-selection-reason }}
+          RUNNER_WORKFLOW: reusable-codex-run
+          CODEX_CLI_VERSION: ${{ inputs.codex_cli_version }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          payload = {
+              "schema": "langsmith-fleet/v1",
+              "operation_role": "worker",
+              "agent": "codex",
+              "runner": os.environ.get("RUNNER_WORKFLOW", ""),
+              "cli_version": os.environ.get("CODEX_CLI_VERSION", ""),
+              "execution_profile": os.environ.get("EXECUTION_PROFILE", ""),
+              "requested_model": os.environ.get("WORKER_REQUESTED_MODEL", ""),
+              "fallback_models": [
+                  item for item in os.environ.get("WORKER_FALLBACK_MODELS", "").split()
+                  if item
+              ],
+              "selected_model": os.environ.get("WORKER_SELECTED_MODEL", ""),
+              "selection_reason": os.environ.get("WORKER_MODEL_SELECTION_REASON", ""),
+              "pr_number": os.environ.get("PR_NUMBER", ""),
+              "emitted_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+          }
+          with open("langsmith-fleet-worker-attempt.json", "w", encoding="utf-8") as fh:
+              json.dump(payload, fh, indent=2, sort_keys=True)
+              fh.write("\n")
+          PY
+
+      - name: Upload worker model attempt artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: langsmith-fleet-v1-worker-attempt-${{ inputs.pr_number || github.run_id }}
+          path: langsmith-fleet-worker-attempt.json
+          retention-days: 30
 
       - name: Analyze Codex session
         id: analyze_session

@@ -2837,26 +2837,6 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     });
     const promptMode = promptModeOverride || promptRoute.mode;
     const promptFile = promptFileOverride || promptRoute.file;
-    const requestedExecutionProfile = normalise(
-      config.execution_profile ?? process.env.INPUT_EXECUTION_PROFILE ?? '',
-    ) || 'codex-default';
-    let executionProfile = null;
-    try {
-      const { resolveExecutionProfile } = require('./agent_registry.js');
-      executionProfile = resolveExecutionProfile(requestedExecutionProfile);
-      if (executionProfile.agent !== 'codex') {
-        throw new Error(
-          `Execution profile ${executionProfile.id} routes to ${executionProfile.agent}; keepalive codex runner requires codex`,
-        );
-      }
-      core?.info?.(
-        `Resolved execution profile ${executionProfile.id}: model=${executionProfile.model}, ` +
-          `fallback=${executionProfile.fallback_model || ''}`,
-      );
-    } catch (profileError) {
-      throw new Error(`Invalid keepalive execution profile: ${profileError.message}`);
-    }
-
     // For verification steps, prefer a different agent than the one that did
     // the implementation work.  This avoids the structural problem where the
     // same model that produced the work also verifies it — a conflict of
@@ -2869,6 +2849,34 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       if (verifierAgentType !== agentType && core) {
         core.info(`Verification step: switching agent from ${agentType} to ${verifierAgentType} for independent verification`);
       }
+    }
+    const resolvedAgentType = isVerificationReason ? verifierAgentType : agentType;
+
+    const requestedExecutionProfile = normalise(config.execution_profile)
+      || normalise(process.env.INPUT_EXECUTION_PROFILE)
+      || 'codex-default';
+    let executionProfile = null;
+    if (AGENT_EXECUTION_ACTIONS.has(action) && resolvedAgentType === 'codex') {
+      try {
+        const { resolveExecutionProfile } = require('./agent_registry.js');
+        executionProfile = resolveExecutionProfile(requestedExecutionProfile);
+        if (executionProfile.agent !== 'codex') {
+          throw new Error(
+            `Execution profile ${executionProfile.id} routes to ${executionProfile.agent}; keepalive codex runner requires codex`,
+          );
+        }
+        core?.info?.(
+          `Resolved execution profile ${executionProfile.id}: model=${executionProfile.model}, ` +
+            `fallback=${executionProfile.fallback_model || ''}`,
+        );
+      } catch (profileError) {
+        throw new Error(`Invalid keepalive execution profile: ${profileError.message}`);
+      }
+    } else if (core && requestedExecutionProfile !== 'codex-default') {
+      core.info(
+        `Skipping execution profile validation for non-Codex/non-execution action ` +
+          `${resolvedAgentType || '(none)'}/${action || '(none)'}`,
+      );
     }
 
     return {
@@ -2889,7 +2897,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       checkboxCounts,
       hasAgentLabel,
       hasHighPrivilege,
-      agentType: isVerificationReason ? verifierAgentType : agentType,
+      agentType: resolvedAgentType,
       agentRoutingMode,
       delegationReason,
       delegationShouldSwitch,
