@@ -22,6 +22,7 @@ ISSUE_COMMENT_URL_RE = re.compile(
 )
 STATUSES = {"planned", "emitting", "conformant", "candidate", "none"}
 REFERENCE_STATES = {"missing", "invalid", "stale", "valid", "not-applicable"}
+MAX_STALE_AFTER_HOURS = 24 * 365
 
 
 @dataclass(frozen=True)
@@ -76,7 +77,8 @@ def _validate_deferred_issue(entry: dict[str, Any], prefix: str) -> list[Finding
         return [
             Finding(f"{prefix}.issue", "issue must be a real issue ref or carry issue_deferred")
         ]
-    if not deferred.get("reason"):
+    reason = deferred.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
         findings.append(Finding(f"{prefix}.issue_deferred.reason", "deferred issue needs a reason"))
     expires_at = _parse_aware_datetime(deferred.get("expires_at"))
     if expires_at is None:
@@ -140,6 +142,7 @@ def _validate_reference_evidence(
             findings.append(Finding(f"{prefix}.reference_run_evidence.{key}", "must be sha256"))
 
     generated_at = _parse_aware_datetime(evidence.get("generated_at"))
+    now = datetime.now(UTC)
     if generated_at is None:
         findings.append(
             Finding(
@@ -147,11 +150,16 @@ def _validate_reference_evidence(
                 "must be timezone-aware ISO time",
             )
         )
-    elif datetime.now(UTC) - generated_at > timedelta(hours=stale_after_hours):
+    elif generated_at > now:
+        findings.append(
+            Finding(f"{prefix}.reference_run_evidence.generated_at", "must not be in the future")
+        )
+    elif now - generated_at > timedelta(hours=stale_after_hours):
         findings.append(
             Finding(f"{prefix}.reference_run_evidence.generated_at", "reference run is stale")
         )
-    if not evidence.get("run_id"):
+    run_id = evidence.get("run_id")
+    if not isinstance(run_id, str) or not run_id.strip():
         findings.append(Finding(f"{prefix}.reference_run_evidence.run_id", "must be populated"))
     return findings
 
@@ -219,6 +227,14 @@ def validate_registry(registry: Any) -> list[Finding]:
         stale_after_hours = 168
     elif stale_after_hours <= 0:
         findings.append(Finding("stale_after_hours", "stale_after_hours must be positive"))
+        stale_after_hours = 168
+    elif stale_after_hours > MAX_STALE_AFTER_HOURS:
+        findings.append(
+            Finding(
+                "stale_after_hours",
+                f"stale_after_hours must be <= {MAX_STALE_AFTER_HOURS}",
+            )
+        )
         stale_after_hours = 168
 
     participants = registry.get("participants")
