@@ -48,9 +48,17 @@ def _workflow_call_inputs(workflow: dict) -> dict:
     return on_block["workflow_call"]["inputs"]
 
 
-def _codex_run_model_candidates(resolve_step: dict) -> list[str]:
+def _resolve_codex_fallback_models(resolve_step: dict, inputs: dict) -> list[str]:
+    fallback_value = resolve_step["env"]["FALLBACK_CODEX_MODELS"]
+    input_expression = "${{ inputs.codex_fallback_models }}"
+    if fallback_value == input_expression:
+        fallback_value = inputs["codex_fallback_models"]["default"]
+    return fallback_value.split()
+
+
+def _codex_run_model_candidates(resolve_step: dict, inputs: dict) -> list[str]:
     default_model = resolve_step["env"]["DEFAULT_CODEX_MODEL"]
-    fallback_models = resolve_step["env"]["FALLBACK_CODEX_MODELS"].split()
+    fallback_models = _resolve_codex_fallback_models(resolve_step, inputs)
     return [default_model, *fallback_models]
 
 
@@ -267,7 +275,8 @@ def test_reusable_codex_run_prefers_gpt_55_with_non_codex_fallback() -> None:
     assert inputs["codex_cli_version"]["default"] == "0.125.0"
     assert resolve_step.get("id") == "codex_model"
     assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.5"
-    assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.4"
+    assert inputs["codex_fallback_models"]["default"] == "gpt-5.4"
+    assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "${{ inputs.codex_fallback_models }}"
     assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]
     assert "*-codex*" in resolve_step["run"]
     assert '[ "$model" = "$DEFAULT_CODEX_MODEL" ]' in resolve_step["run"]
@@ -286,7 +295,7 @@ def test_reusable_codex_run_model_cli_compatibility_contract() -> None:
     resolve_step = _find_step_by_name(workflow, "Resolve Codex run model")
 
     installed_cli = _parse_version_tuple(inputs["codex_cli_version"]["default"])
-    candidates = _codex_run_model_candidates(resolve_step)
+    candidates = _codex_run_model_candidates(resolve_step, inputs)
     unreviewed_models = [model for model in candidates if model not in MIN_CODEX_CLI_BY_RUN_MODEL]
     assert not unreviewed_models, (
         "Reusable Codex run model candidates need an explicit reviewed minimum CLI mapping: "

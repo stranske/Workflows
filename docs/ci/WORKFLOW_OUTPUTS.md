@@ -83,6 +83,10 @@ reusable workflow in the no-output section.
 | `reusable-codex-run.yml` | `changes-made` | string (boolean-like) | Whether Codex made file changes (true/false) | `needs.codex.outputs.changes-made` |
 | `reusable-codex-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.codex.outputs.commit-sha` |
 | `reusable-codex-run.yml` | `files-changed` | string (number-like) | Number of files changed by Codex | `needs.codex.outputs.files-changed` |
+| `reusable-codex-run.yml` | `worker-profile-id` | string | Registry execution profile ID supplied by caller | `needs.codex.outputs.worker-profile-id` |
+| `reusable-codex-run.yml` | `worker-requested-model` | string | Model requested through the registry execution profile | `needs.codex.outputs.worker-requested-model` |
+| `reusable-codex-run.yml` | `worker-selected-model` | string | Actual Codex model selected after runner fallback | `needs.codex.outputs.worker-selected-model` |
+| `reusable-codex-run.yml` | `worker-model-selection-reason` | string | Reason for the selected worker model | `needs.codex.outputs.worker-model-selection-reason` |
 | `reusable-codex-run.yml` | `error-category` | string | Error category if failure occurred (transient/auth/resource/logic/unknown) | `needs.codex.outputs.error-category` |
 | `reusable-codex-run.yml` | `error-type` | string | Error type if failure occurred (codex/infrastructure/auth/unknown) | `needs.codex.outputs.error-type` |
 | `reusable-codex-run.yml` | `error-recovery` | string | Suggested recovery action if failure occurred | `needs.codex.outputs.error-recovery` |
