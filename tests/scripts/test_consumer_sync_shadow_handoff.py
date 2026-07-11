@@ -137,7 +137,7 @@ def test_workflow_has_no_write_or_apply_surface() -> None:
     assert "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0" in workflow
     assert "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1" in workflow
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
-    assert 'pyyaml==6.0.2' in workflow
+    assert "pyyaml==6.0.2" in workflow
     assert (
         "consumer-sync-shadow-evidence-${{ github.run_id }}-${{ github.run_attempt }}" in workflow
     )
