@@ -117,7 +117,8 @@ tasks:
     notes: []
   - id: task-14
     title: _(2 further sub-tasks elided; split this issue)_
-    status: todo
+    # Source-format marker, not an actionable belt task.
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
@@ -173,7 +174,8 @@ tasks:
     notes: []
   - id: task-21
     title: _(5 further sub-tasks elided; split this issue)_
-    status: todo
+    # Source-format marker, not an actionable belt task.
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
@@ -248,7 +250,8 @@ tasks:
     notes: []
   - id: task-30
     title: _(11 further sub-tasks elided; split this issue)_
-    status: todo
+    # Source-format marker, not an actionable belt task.
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
@@ -466,11 +469,16 @@ tasks:
     notes: []
   - id: task-54
     title: _(2 further criteria elided; split this issue)_
-    status: todo
+    # Source-format marker, not an actionable belt task.
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
     notes: []
+# Quoted original-issue requirements are retained for traceability only. They
+# duplicate the actionable tasks and acceptance criteria above, so the belt
+# must not select them as work items.
+original_issue_requirements:
   - id: task-55
     title: Extend the orchestrator completion-event adapter to parse the new evidence
       fields from runner completion payloads and attach them to an existing candidate/shadow
