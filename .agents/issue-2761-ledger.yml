@@ -1,0 +1,804 @@
+version: 1
+issue: 2761
+base: main
+branch: codex/issue-2761
+tasks:
+  - id: task-01
+    title: Implement strict consumer-sync plan schema validation in the main processing
+      rail in `src/consumer_sync/rail.*`, `src/consumer_sync/schema.*`, and `src/consumer_sync/adapter.*`
+      so non-conforming payloads return a rejection result with an error log entry
+      before downstream effects.
+    status: doing
+    started_at: '2026-07-11T11:36:37Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define the strict consumer-sync plan JSON schema in `src/consumer_sync/schema.*`
+      with all required fields (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define the strict consumer-sync plan JSON schema in `src/consumer_sync/schema.*`
+      with validation rules (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement schema validation logic in `src/consumer_sync/rail.*` that parses
+      incoming payloads against the defined schema (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Create rejection result types (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'error logging in `src/consumer_sync/adapter.*` for non-conforming payloads
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Integrate validation into the main processing entry point to reject invalid
+      inputs before downstream effects (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add automated validation rejection tests in `tests/consumer_sync/rail_validation.*`
+      using `tests/fixtures/consumer_sync/invalid_*.*` for prose payloads, arbitrary
+      command payloads, and malformed JSON objects, and verify no downstream effects
+      execute.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Implement ledger-backed idempotency in the consumer-sync processing path
+      in `src/consumer_sync/rail.*`, `src/consumer_sync/idempotency.*`, and `src/ledger/*`
+      by persisting or reading a stable plan identity and replaying recorded results
+      for duplicate submissions.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement stable plan identity computation in `src/consumer_sync/idempotency.*`
+      using deterministic hashing of plan content (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Create ledger storage methods in `src/ledger/*` to persist plan identities
+      with execution outcomes (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement ledger query methods in `src/ledger/*` to retrieve prior execution
+      results by plan identity (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Add replay logic in `src/consumer_sync/rail.*` to return recorded results
+      for duplicate plan submissions (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Extend durable ledger persistence in `src/ledger/*` and `src/consumer_sync/heartbeat.*`
+      to store consumer-sync plan identities, execution outcomes, and capability heartbeat
+      events for duplicate detection and reporting.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define ledger schema for consumer-sync plan identities (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'execution outcomes in `src/ledger/*` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Implement persistence methods in `src/ledger/*` to store plan identities
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'execution outcomes durably (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Define capability heartbeat event schema in `src/consumer_sync/heartbeat.*`
+      with required metadata (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Implement heartbeat event persistence in `src/consumer_sync/heartbeat.*`
+      to enable post-processing queries (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Add duplicate submission tests in `tests/consumer_sync/idempotency.*`,
+      `tests/ledger/consumer_sync_*.*`, and `tests/fixtures/consumer_sync/duplicate_plan_*.*`
+      that run the same plan twice and verify identical output, no new side effects,
+      and ledger record reuse.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Implement a machine-readable report command in `src/consumer_sync/report_command.*`,
+      `src/consumer_sync/reporting.*`, and `src/cli/*` that reads storage/ledger evidence
+      and classifies each candidate as `no-data`, `healthy-shadow-evidence`, or `failed-evidence-ingestion`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Implement evidence retrieval logic in `src/consumer_sync/reporting.*`
+      to query storage (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'ledger for candidate data (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Create classification logic in `src/consumer_sync/reporting.*` to categorize
+      candidates into the three defined states (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Define machine-readable output format for the report command with structured
+      candidate classifications (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Implement CLI command interface in `src/cli/*` (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: '`src/consumer_sync/report_command.*` to invoke reporting logic (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Add report command tests in `tests/consumer_sync/report_command.*` using
+      `tests/fixtures/consumer_sync/report_*.*` for no-data, healthy evidence, and
+      failed ingestion scenarios.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: Implement promotion-gate evaluation logic in `src/consumer_sync/promotion_gate.*`
+      and `src/consumer_sync/policy.*` that checks minimum volume, success rate, harm
+      limit, rollback-path presence, TTL validity, and human-attention flags, and
+      returns blocked decisions with unmet checks.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Implement minimum evidence volume check in `src/consumer_sync/promotion_gate.*`
+      with configurable threshold (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Implement success rate validation in `src/consumer_sync/promotion_gate.*`
+      against configured minimum percentage (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Implement harm limit check in `src/consumer_sync/promotion_gate.*` to
+      enforce maximum acceptable harm threshold (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Implement rollback-path presence validation in `src/consumer_sync/promotion_gate.*`
+      using rollback metadata (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Implement TTL validity check in `src/consumer_sync/promotion_gate.*` to
+      reject expired candidates (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: _(2 further sub-tasks elided; split this issue)_
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: Add promotion-gate unit tests in `tests/consumer_sync/promotion_gate.*`
+      and `tests/fixtures/consumer_sync/promotion_gate_*.*` for allow and blocked
+      outcomes, including failing cases for insufficient volume, low success rate,
+      excessive harm, missing rollback path, expired TTL, and required human-attention
+      flags.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: Implement executable rollback-path enforcement in `src/consumer_sync/rollback.*`
+      so candidates lacking a defined rollback handler or rollback metadata are ineligible
+      for promotion.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: Add kill-switch handling in candidate processing in `src/consumer_sync/kill_switch.*`
+      and `src/consumer_sync/rail.*` so an active kill-switch stops further effect
+      application and returns a terminated status.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: Implement expiry handling in `src/consumer_sync/expiry.*` and `src/consumer_sync/rail.*`
+      so expired plans or candidates are rejected or halted before promotion or effect
+      application with explicit status and logged reason.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: Add safety-control tests in `tests/consumer_sync/kill_switch.*` and `tests/consumer_sync/expiry.*`
+      that verify interruption, blocked promotion, and absence of downstream side
+      effects.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: Implement persistent counterexample storage in `src/consumer_sync/counterexamples.*`,
+      `src/storage/*`, and `src/ledger/*` so ingested counterexamples remain queryable
+      after processing runs complete.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Define counterexample data schema in `src/consumer_sync/counterexamples.*`
+      with required fields (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Define counterexample data schema in `src/consumer_sync/counterexamples.*`
+      with candidate linkage (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Implement counterexample persistence methods in `src/storage/*` for durable
+      storage (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Add counterexample ledger integration in `src/ledger/*` to enable cross-session
+      queries (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Create query interface in `src/consumer_sync/counterexamples.*` to retrieve
+      stored counterexamples by candidate (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Add candidate retirement logic in `src/consumer_sync/candidate_state.*`
+      and the reporting/query layer so candidates are marked `retired` when stored
+      counterexamples meet the retirement condition and that state is exposed through
+      queries.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Implement retirement condition evaluation in `src/consumer_sync/candidate_state.*`
+      based on stored counterexample records (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Create candidate state update methods in `src/consumer_sync/candidate_state.*`
+      to mark candidates as retired (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Integrate retirement state into the reporting layer to expose retired
+      status in queries (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Add retirement state filtering to query interfaces for candidate visibility
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: Add persistence and retirement tests in `tests/consumer_sync/counterexamples.*`,
+      `tests/consumer_sync/candidate_retirement.*`, and `tests/fixtures/consumer_sync/counterexample_*.*`
+      to verify stored counterexamples remain visible and retirement triggers only
+      when the condition is met.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: The main consumer-sync processing entry point rejects any input not valid
+      against the strict consumer-sync plan JSON schema, including plain prose payloads,
+      arbitrary command payloads, and malformed JSON objects, and returns a rejection
+      result without invoking any downstream effect executor.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: For each rejected non-schema consumer-sync input, the system writes exactly
+      one error-level log entry containing the validation failure reason and does
+      not write any success or execution log for the same request.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: Submitting the same schema-valid consumer-sync plan twice returns the same
+      recorded output on the second submission and produces no additional downstream
+      side effects on the second run.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: A stable plan identity is persisted to the ledger with the consumer-sync
+      execution outcome on first execution, and the second execution of the same plan
+      reuses the existing ledger record rather than creating a new execution record.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Ledger persistence stores capability heartbeat events durably so they can
+      be queried after processing completes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: The report command emits a machine-readable summary in which every reported
+      candidate is classified into exactly one of `no-data`, `healthy-shadow-evidence`,
+      or `failed-evidence-ingestion`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: Given ledger or storage fixtures for no evidence, healthy evidence, and
+      failed ingestion, the report command returns the expected category for each
+      scenario with no fallback labels or category ambiguity.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: 'The promotion-gate evaluator returns `allow` only when all configured
+      checks pass: minimum evidence volume, minimum success rate, maximum harm limit,
+      rollback-path presence, non-expired TTL, and required human-attention conditions.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: The promotion-gate evaluator returns `blocked` with an explicit unmet-check
+      identifier list when any threshold fails, and tests include separate failing
+      cases for insufficient volume, low success rate, excessive harm, missing rollback
+      path, expired TTL, and required human-attention flags.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: A candidate lacking a defined rollback handler or required rollback metadata
+      is marked ineligible for promotion by executable rollback-path enforcement and
+      cannot receive an `allow` decision.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: When the kill-switch is active before or during candidate processing, the
+      processing rail stops further effect application immediately and returns a terminal
+      status of `terminated` or the repository's equivalent explicit terminated status.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: When a plan TTL is expired before execution, the rail rejects the plan
+      before any effect application; when evidence or candidate TTL is expired during
+      promotion evaluation, promotion is blocked and the returned result includes
+      an explicit expiry reason.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: The repository contains clearly named automated tests for kill-switch activation
+      behavior and expiry behavior, and both tests assert absence of downstream side
+      effects.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: Counterexamples ingested for a candidate are persisted to storage or ledger
+      and remain queryable after the original processing run completes or a new process
+      or session reads the same candidate record.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: When stored counterexamples for a candidate meet the configured retirement
+      condition, the candidate state is updated to `retired` and that state is exposed
+      by the same reporting or query layer used for candidate visibility.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: _(1 further criteria elided; split this issue)_
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: Wire strict consumer-sync plan schema validation into the main processing
+      rail so inputs are parsed only from the defined JSON schema and non-conforming
+      payloads return a rejection result with an error log entry.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: Add automated tests covering invalid consumer-sync inputs, including prose
+      payloads, arbitrary command payloads, and malformed JSON objects, and assert
+      that each is rejected without executing downstream effects.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: Implement idempotency in the consumer-sync processing path by computing
+      or reading a stable plan identity, checking the ledger for prior execution,
+      and returning the recorded result without reapplying effects for duplicate submissions.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: Extend ledger persistence to record consumer-sync plan identities, execution
+      outcomes, and capability heartbeat events needed for duplicate detection and
+      later reporting.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: Add tests for duplicate plan submission that execute the same plan twice
+      and verify the second run returns the same output, does not emit new side effects,
+      and reuses the existing ledger record.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: Implement a report command that reads processed evidence from storage/ledger
+      and emits a machine-readable summary classifying each candidate into no-data,
+      healthy-shadow-evidence, or failed-evidence-ingestion.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: Add tests for the report command covering no-data, healthy evidence, and
+      failed ingestion scenarios, using fixtures that populate the ledger with representative
+      evidence records.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: Implement promotion-gate evaluation logic that checks configured evidence
+      thresholds for minimum volume, success rate, harm limit, rollback-path presence,
+      TTL validity, and human-attention flags, and returns a blocked decision listing
+      unmet checks.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: Add unit tests for promotion-gate decisions covering both allow and block
+      outcomes, including separate failing cases for insufficient volume, low success
+      rate, excessive harm, missing rollback path, expired TTL, and required human-attention
+      flags.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: Implement executable rollback-path enforcement used by the promotion gate
+      so candidates lacking a defined rollback handler or rollback metadata are marked
+      ineligible for promotion.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: Add kill-switch handling in candidate processing so an active kill-switch
+      immediately stops further effect application and returns a terminated status.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: Add expiry handling so plans or candidates with expired TTL are rejected
+      or halted before promotion/effect application, with explicit status and logged
+      reason.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: Create clearly named automated tests for kill-switch activation and expiry
+      scenarios that verify interruption, blocked promotion, and absence of downstream
+      side effects.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: Implement persistent counterexample storage tied to candidate records so
+      ingested counterexamples remain queryable after processing runs complete.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: Add a code path to mark a candidate as retired when stored counterexamples
+      cross the retirement condition, and expose that state through the same reporting/query
+      layer.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: Add tests verifying that counterexamples remain visible after ingestion
+      and that a candidate can be retired based on stored counterexample records.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: 'The main consumer-sync processing entry point rejects any input that is
+      not valid against the strict consumer-sync plan JSON schema, including: (a)
+      plain prose payloads, (b) arbitrary command payloads, and (c) malformed JSON
+      objects, and returns a rejection result without invoking any downstream effect
+      executor.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: For each rejected non-schema consumer-sync input, the system writes exactly
+      one error-level log entry containing the validation failure reason and does
+      not write any success/execution log for the same request.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: Submitting the same schema-valid consumer-sync plan twice results in the
+      second submission returning the same recorded output/result as the first submission
+      while producing no additional downstream side effects on the second run.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-89
+    title: A stable plan identity is persisted to the ledger together with the consumer-sync
+      execution outcome on first execution, and the second execution of the same plan
+      reuses the existing ledger record rather than creating a new execution record.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-90
+    title: Ledger persistence stores capability heartbeat events in a durable form
+      that can be queried after processing completes.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-91
+    title: 'The report command emits a machine-readable summary in which every reported
+      candidate is classified into exactly one of these categories: `no-data`, `healthy-shadow-evidence`,
+      or'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-92
+    title: 'Ensure CI fully executes the relevant workflows and test suites for this
+      work before merge. (Agent cannot retry CI pipelines or modify workflow configurations
+      in .github/workflows/*.yml (protected files). Agent can only write tests that
+      CI will execute. | Replace with: ''Add all new test files to existing test discovery
+      patterns so CI automatically executes them'' or mark as manual verification
+      step for human reviewer.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
