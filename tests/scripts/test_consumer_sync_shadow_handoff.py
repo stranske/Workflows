@@ -108,3 +108,7 @@ def test_workflow_has_no_write_or_apply_surface() -> None:
     assert "gh pr" not in workflow
     assert "write_authority" not in workflow.lower() or "Write authority: false" in workflow
     assert "actions/upload-artifact@v7" in workflow
+    assert (
+        "consumer-sync-shadow-evidence-${{ github.run_id }}-${{ github.run_attempt }}" in workflow
+    )
+    assert "github.run_id }}:${{ github.run_attempt" in workflow

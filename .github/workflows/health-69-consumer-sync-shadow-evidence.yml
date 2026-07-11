@@ -45,7 +45,7 @@ jobs:
       - name: Build non-authorizing Orchestrator handoff
         env:
           SHADOW_RUN_REF: >-
-            github-actions:${{ github.repository }}:${{ github.run_id }}
+            github-actions:${{ github.repository }}:${{ github.run_id }}:${{ github.run_attempt }}
         run: |
           python scripts/build_consumer_sync_shadow_handoff.py \
             --plan consumer-sync-shadow-evidence/consumer-sync-plan.json \
@@ -55,7 +55,7 @@ jobs:
       - name: Upload shadow evidence
         uses: actions/upload-artifact@v7
         with:
-          name: consumer-sync-shadow-evidence-${{ github.run_id }}
+          name: consumer-sync-shadow-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: consumer-sync-shadow-evidence/
           retention-days: 30
 
