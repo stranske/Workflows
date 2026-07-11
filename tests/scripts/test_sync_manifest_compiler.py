@@ -11,6 +11,7 @@ from scripts.sync_manifest_compiler import (
     PLAN_SCHEMA,
     ManifestCompileError,
     compile_manifest,
+    resolve_source_path,
 )
 
 
@@ -118,8 +119,11 @@ workflows:
     [
         ("source", "../secret"),
         ("source", "/absolute"),
+        ("source", "a/./b"),
+        ("source", "..\\\\secret"),
         ("target", "../../escape"),
         ("target", "./ambiguous"),
+        ("target", "."),
     ],
 )
 def test_unsafe_paths_are_rejected(tmp_path: Path, field: str, value: str) -> None:
@@ -136,6 +140,67 @@ def test_unsafe_paths_are_rejected(tmp_path: Path, field: str, value: str) -> No
     )
 
     with pytest.raises(ManifestCompileError, match="safe repository-relative"):
+        compile_manifest(manifest)
+
+
+@pytest.mark.parametrize("yaml_value", ["123", "null", "false"])
+def test_non_string_paths_are_rejected(tmp_path: Path, yaml_value: str) -> None:
+    write_source(tmp_path, "scripts/tool.py", template=False)
+    manifest = write_manifest(
+        tmp_path,
+        "version: 1\nscripts:\n"
+        f"  - source: {yaml_value}\n"
+        "    description: Tool\n",
+    )
+
+    with pytest.raises(ManifestCompileError, match="safe repository-relative"):
+        compile_manifest(manifest)
+
+
+def test_resolver_preserves_legacy_fallback_and_rejects_unsafe_paths(tmp_path: Path) -> None:
+    root_file = write_source(tmp_path, "docs/contract.md", template=False)
+    assert resolve_source_path("docs/contract.md", None, repo_root=tmp_path) == root_file
+    assert resolve_source_path("../outside", None, repo_root=tmp_path) is None
+    assert resolve_source_path("/etc/passwd", None, repo_root=tmp_path) is None
+
+
+def test_sources_escaping_via_symlink_are_rejected(tmp_path: Path) -> None:
+    outside = tmp_path.parent / "outside-source.txt"
+    outside.write_text("outside\n", encoding="utf-8")
+    symlink = tmp_path / "scripts" / "outside.py"
+    symlink.parent.mkdir(parents=True)
+    symlink.symlink_to(outside)
+    manifest = write_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: scripts/outside.py
+    description: Outside
+""",
+    )
+
+    with pytest.raises(ManifestCompileError, match="escapes repository root"):
+        compile_manifest(manifest)
+
+
+def test_directories_with_escaping_symlinks_are_rejected(tmp_path: Path) -> None:
+    outside = tmp_path.parent / "outside-child.txt"
+    outside.write_text("outside\n", encoding="utf-8")
+    directory = tmp_path / "scripts" / "bundle"
+    directory.mkdir(parents=True)
+    (directory / "safe.py").write_text("safe\n", encoding="utf-8")
+    (directory / "outside.py").symlink_to(outside)
+    manifest = write_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: scripts/bundle
+    description: Bundle
+    is_directory: true
+""",
+    )
+
+    with pytest.raises(ManifestCompileError, match="symlink that escapes repository root"):
         compile_manifest(manifest)
 
 

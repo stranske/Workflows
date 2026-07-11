@@ -205,7 +205,7 @@ def probe_targets(compiled: CompiledManifest, sections: list[str]) -> list[str]:
             if entry.sync_mode == "create_only":
                 continue
             local_path = Path(entry.resolved_source)
-            if not local_path:
+            if not local_path.exists():
                 continue
             if entry.is_directory or local_path.is_dir():
                 first_child = next(
@@ -810,7 +810,7 @@ def main() -> int:
     for section in sections:
         for entry in compiled.section(section):
             local_path = Path(entry.resolved_source)
-            if not local_path:
+            if not local_path.exists():
                 errors.add(f"{section}: missing local file for {entry.source}")
                 continue
 

@@ -13,9 +13,13 @@ from pathlib import Path
 # Ensure the scripts package is importable when run as a subprocess from any cwd.
 sys.path.insert(0, str(Path(__file__).parent))
 
-import hashlib
+import hashlib  # noqa: E402
 
-from sync_manifest_compiler import CompiledManifest, ManifestCompileError, compile_manifest
+from sync_manifest_compiler import (  # noqa: E402
+    CompiledManifest,
+    ManifestCompileError,
+    compile_manifest,
+)
 
 
 def hash_file(path: Path) -> str:

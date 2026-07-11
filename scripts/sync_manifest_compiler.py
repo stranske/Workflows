@@ -158,12 +158,15 @@ def _content_hash(path: Path) -> str:
 
 
 def _safe_relative_path(raw: Any, field: str, context: str) -> tuple[str, str | None]:
-    value = str(raw or "").strip().replace("\\", "/")
+    if not isinstance(raw, str):
+        return "", f"{context}: {field} must be a safe repository-relative path"
+    value = raw.strip()
     path = PurePosixPath(value)
     if (
         not value
+        or "\\" in value
         or path.is_absolute()
-        or ".." in path.parts
+        or any(part in {".", ".."} for part in value.split("/"))
         or value.startswith("./")
         or "//" in value
     ):
@@ -244,7 +247,23 @@ def _resolve_source(
                 f"{context}: source {source!r} is not deliverable; searched {searched}",
             ],
         )
+    root = repo_root.resolve()
     chosen = next(candidate for candidate in candidates if candidate.exists())
+    try:
+        chosen.resolve().relative_to(root)
+    except ValueError:
+        return "", None, [*errors, f"{context}: source {source!r} escapes repository root"]
+    if chosen.is_dir():
+        for child in chosen.rglob("*"):
+            if not child.is_symlink():
+                continue
+            try:
+                child.resolve().relative_to(root)
+            except ValueError:
+                return "", None, [
+                    *errors,
+                    f"{context}: source {source!r} contains a symlink that escapes repository root",
+                ]
     return chosen.relative_to(repo_root).as_posix(), chosen, errors
 
 
@@ -258,14 +277,17 @@ def resolve_source_path(
     Manifest compilation always supplies a section and therefore remains bound
     to the explicit ownership policy.
     """
+    source, error = _safe_relative_path(source, "source", "source resolution")
+    if error:
+        return None
+    root = repo_root.resolve()
     if section is None:
-        root = repo_root.resolve()
         for candidate in (root / "templates" / "consumer-repo" / source, root / source):
-            if candidate.exists():
+            if candidate.exists() and candidate.resolve().is_relative_to(root):
                 return candidate
         return None
     _resolved, path, errors = _resolve_source(
-        repo_root=repo_root.resolve(),
+        repo_root=root,
         source=source,
         section=section,
         context=f"section '{section}'",
