@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import types
 from pathlib import Path
@@ -90,6 +91,11 @@ def test_capability_effect_evidence_rejects_spoofed_or_secret_bearing_values() -
         normalize_capability_effect_evidence(
             **{**valid, "evidence_artifact_ref": "artifact:secret-token:123"}
         )
+    for credential_like_ref in ("ghp_example", "github_pat_example", "sk-example"):
+        with pytest.raises(ValueError, match="credential-like prefix"):
+            normalize_capability_effect_evidence(
+                **{**valid, "evidence_artifact_ref": credential_like_ref}
+            )
     with pytest.raises(ValueError, match="supervision_mode"):
         normalize_capability_effect_evidence(**{**valid, "supervision_mode": "owner-will-fix-it"})
 
@@ -117,7 +123,7 @@ def test_normalize_evidence_cli_writes_github_outputs(tmp_path: Path) -> None:
     completed = subprocess.run(
         command,
         cwd=Path(__file__).parents[2],
-        env={"GITHUB_OUTPUT": str(output)},
+        env={**os.environ, "GITHUB_OUTPUT": str(output)},
         check=True,
         capture_output=True,
         text=True,

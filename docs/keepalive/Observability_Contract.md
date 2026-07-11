@@ -143,9 +143,11 @@ Required report fields:
 Registry-backed runners may additionally expose the v1.1 agent-runner outputs
 `capability-id`, `effect-fingerprint`, `evidence-artifact-ref`,
 `supervision-mode`, `capability-evidence-status`, and `terminal-disposition`.
-These values are typed evidence for the existing Orchestrator completion-event
-plane; they do not create a second terminal-disposition record or authorize a
-capability transition. Empty values mean no capability evidence was supplied.
+These values are typed evidence intended for the existing Orchestrator
+completion-event plane. Runner validation and emission do not themselves add
+Orchestrator-side ingestion, create a second terminal-disposition record, or
+authorize a capability transition. Empty values mean no capability evidence was
+supplied.
 
 ---
 

@@ -41,6 +41,7 @@ TRUSTED_MARKER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
 CAPABILITY_ID_RE = re.compile(r"^capability:[a-z0-9][a-z0-9-]{2,127}$")
 SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 EVIDENCE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,255}$")
+SECRET_LIKE_EVIDENCE_PREFIXES = ("ghp_", "github_pat_", "sk-")
 SUPERVISION_MODES = {
     "shadow",
     "human-reviewed",
@@ -145,6 +146,8 @@ def normalize_capability_effect_evidence(
     if not EVIDENCE_REF_RE.fullmatch(artifact_ref):
         raise ValueError("evidence_artifact_ref must be a bounded durable logical reference")
     lowered_ref = artifact_ref.lower()
+    if lowered_ref.startswith(SECRET_LIKE_EVIDENCE_PREFIXES):
+        raise ValueError("evidence_artifact_ref has a credential-like prefix")
     if any(
         marker in lowered_ref for marker in ("token", "secret", "password", "api-key", "apikey")
     ):
