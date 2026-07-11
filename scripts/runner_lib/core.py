@@ -86,6 +86,11 @@ class DebounceDecision:
 
 
 def _validate_capability_effect_evidence_values(values: dict[str, str]) -> None:
+    non_strings = [name for name, value in values.items() if not isinstance(value, str)]
+    if non_strings:
+        raise ValueError(
+            "capability evidence fields must be strings; invalid " + ", ".join(non_strings)
+        )
     if not any(values.values()):
         return
     missing = [name for name, value in values.items() if not value]
@@ -101,7 +106,7 @@ def _validate_capability_effect_evidence_values(values: dict[str, str]) -> None:
     if not EVIDENCE_REF_RE.fullmatch(artifact_ref):
         raise ValueError("evidence_artifact_ref must be a bounded durable logical reference")
     lowered_ref = artifact_ref.lower()
-    if lowered_ref.startswith(SECRET_LIKE_EVIDENCE_PREFIXES):
+    if any(prefix in lowered_ref for prefix in SECRET_LIKE_EVIDENCE_PREFIXES):
         raise ValueError("evidence_artifact_ref has a credential-like prefix")
     if any(
         marker in lowered_ref for marker in ("token", "secret", "password", "api-key", "apikey")
