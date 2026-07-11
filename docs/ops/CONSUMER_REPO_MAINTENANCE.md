@@ -214,6 +214,14 @@ stable `effect_fingerprint`; the plan adds `manifest_sha256` and `plan_id`.
 Directory content hashes are computed from a sorted relative-path/content
 inventory, so identical inputs produce byte-identical JSON.
 
+`health-69-consumer-sync-shadow-evidence.yml` publishes that plan with a
+`workflows.consumer-sync-shadow-handoff/v1` envelope for the existing local
+Orchestrator capability `capability:reference-sync-hygiene-test-gate`. The
+handoff is explicitly `shadow`, `write_authority=false`, and
+`promotion_allowed=false`; classification, counterexamples, expiry, rollback,
+and promotion blockers remain owned by Orchestrator's
+`consumer_sync_shadow.py` dashboard.
+
 To validate the manifest locally:
 
 ```bash

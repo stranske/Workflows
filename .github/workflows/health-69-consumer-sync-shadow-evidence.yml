@@ -1,0 +1,78 @@
+name: Health 69 Consumer Sync Shadow Evidence
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 8 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - '.github/sync-manifest.yml'
+      - 'scripts/sync_manifest_compiler.py'
+      - 'scripts/build_consumer_sync_shadow_handoff.py'
+      - 'templates/consumer-repo/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: consumer-sync-shadow-evidence
+  cancel-in-progress: false
+
+jobs:
+  produce:
+    name: Produce read-only shadow evidence
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install compiler dependency
+        run: python -m pip install pyyaml
+
+      - name: Compile typed consumer sync plan
+        run: |
+          mkdir -p consumer-sync-shadow-evidence
+          python scripts/sync_manifest_compiler.py \
+            --manifest .github/sync-manifest.yml \
+            --output-json consumer-sync-shadow-evidence/consumer-sync-plan.json
+
+      - name: Build non-authorizing Orchestrator handoff
+        env:
+          SHADOW_RUN_REF: >-
+            github-actions:${{ github.repository }}:${{ github.run_id }}
+        run: |
+          python scripts/build_consumer_sync_shadow_handoff.py \
+            --plan consumer-sync-shadow-evidence/consumer-sync-plan.json \
+            --run-ref "$SHADOW_RUN_REF" \
+            --output consumer-sync-shadow-evidence/handoff.json
+
+      - name: Upload shadow evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: consumer-sync-shadow-evidence-${{ github.run_id }}
+          path: consumer-sync-shadow-evidence/
+          retention-days: 30
+
+      - name: Summarize shadow boundary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          handoff = json.loads(
+              Path('consumer-sync-shadow-evidence/handoff.json').read_text()
+          )
+          print('## Consumer sync shadow evidence')
+          print(f"- Plan: {handoff['plan_id']}")
+          print(f"- Copy entries: {handoff['entry_count']}")
+          print(f"- Removals: {handoff['removal_count']}")
+          print('- Supervision: shadow')
+          print('- Write authority: false')
+          print('- Promotion allowed: false')
+          PY
