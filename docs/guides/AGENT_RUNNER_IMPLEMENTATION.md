@@ -15,7 +15,8 @@ This guide covers the implementation patterns that every agent runner workflow (
 4. [Commit and Push Step](#4-commit-and-push-step)
 5. [Push Retry with Rebase](#5-push-retry-with-rebase)
 6. [Output Encoding](#6-output-encoding)
-7. [Common Pitfalls](#7-common-pitfalls)
+7. [Capability Effect Evidence](#7-capability-effect-evidence)
+8. [Common Pitfalls](#8-common-pitfalls)
 
 ---
 
@@ -298,7 +299,28 @@ Set both `final-message` (full, encoded) and `final-message-summary` (first 500 
 
 ---
 
-## 7. Common Pitfalls
+## 7. Capability Effect Evidence
+
+All registry-backed runners expose the same optional capability/effect fields.
+Validate them before invoking the agent:
+
+```bash
+PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
+  python -m scripts.runner_lib normalize-evidence \
+    --capability-id "$CAPABILITY_ID" \
+    --effect-fingerprint "$EFFECT_FINGERPRINT" \
+    --evidence-artifact-ref "$EVIDENCE_ARTIFACT_REF" \
+    --supervision-mode "$SUPERVISION_MODE" \
+    --capability-evidence-status "$CAPABILITY_EVIDENCE_STATUS" \
+    --terminal-disposition "$TERMINAL_DISPOSITION"
+```
+
+An entirely empty record is valid for backwards compatibility. Partial,
+malformed, oversized, or secret-like records fail closed. Do not parse these
+values from the final message: the caller supplies typed intent and the runner
+only validates and relays it. Downstream promotion remains Orchestrator-owned.
+
+## 8. Common Pitfalls
 
 ### Silent loss of agent work
 

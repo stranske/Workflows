@@ -83,6 +83,12 @@ reusable workflow in the no-output section.
 | `reusable-codex-run.yml` | `changes-made` | string (boolean-like) | Whether Codex made file changes (true/false) | `needs.codex.outputs.changes-made` |
 | `reusable-codex-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.codex.outputs.commit-sha` |
 | `reusable-codex-run.yml` | `files-changed` | string (number-like) | Number of files changed by Codex | `needs.codex.outputs.files-changed` |
+| `reusable-codex-run.yml` | `capability-id` | string | Validated existing capability identifier; empty when evidence is absent. | `needs.codex.outputs.capability-id` |
+| `reusable-codex-run.yml` | `effect-fingerprint` | string | Validated lowercase sha256 fingerprint of the bounded effect. | `needs.codex.outputs.effect-fingerprint` |
+| `reusable-codex-run.yml` | `evidence-artifact-ref` | string | Validated durable logical reference to supporting evidence. | `needs.codex.outputs.evidence-artifact-ref` |
+| `reusable-codex-run.yml` | `supervision-mode` | string enum | Validated supervision mode for this result. | `needs.codex.outputs.supervision-mode` |
+| `reusable-codex-run.yml` | `capability-evidence-status` | string enum | Validated capability evidence status. | `needs.codex.outputs.capability-evidence-status` |
+| `reusable-codex-run.yml` | `terminal-disposition` | string enum | Validated terminal disposition for the result. | `needs.codex.outputs.terminal-disposition` |
 | `reusable-codex-run.yml` | `worker-profile-id` | string | Registry execution profile ID supplied by caller | `needs.codex.outputs.worker-profile-id` |
 | `reusable-codex-run.yml` | `worker-requested-model` | string | Model requested through the registry execution profile | `needs.codex.outputs.worker-requested-model` |
 | `reusable-codex-run.yml` | `worker-selected-model` | string | Actual Codex model selected after runner fallback | `needs.codex.outputs.worker-selected-model` |
@@ -109,6 +115,12 @@ reusable workflow in the no-output section.
 | `reusable-claude-run.yml` | `changes-made` | string (boolean-like) | Whether Claude made file changes (true/false) | `needs.claude.outputs.changes-made` |
 | `reusable-claude-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.claude.outputs.commit-sha` |
 | `reusable-claude-run.yml` | `files-changed` | string (number-like) | Number of files changed by Claude | `needs.claude.outputs.files-changed` |
+| `reusable-claude-run.yml` | `capability-id` | string | Validated existing capability identifier; empty when evidence is absent. | `needs.claude.outputs.capability-id` |
+| `reusable-claude-run.yml` | `effect-fingerprint` | string | Validated lowercase sha256 fingerprint of the bounded effect. | `needs.claude.outputs.effect-fingerprint` |
+| `reusable-claude-run.yml` | `evidence-artifact-ref` | string | Validated durable logical reference to supporting evidence. | `needs.claude.outputs.evidence-artifact-ref` |
+| `reusable-claude-run.yml` | `supervision-mode` | string enum | Validated supervision mode for this result. | `needs.claude.outputs.supervision-mode` |
+| `reusable-claude-run.yml` | `capability-evidence-status` | string enum | Validated capability evidence status. | `needs.claude.outputs.capability-evidence-status` |
+| `reusable-claude-run.yml` | `terminal-disposition` | string enum | Validated terminal disposition for the result. | `needs.claude.outputs.terminal-disposition` |
 | `reusable-claude-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed | `needs.claude.outputs.llm-analysis-run` |
 | `reusable-claude-run.yml` | `llm-provider` | string | LLM provider used for analysis (placeholder for compatibility) | `needs.claude.outputs.llm-provider` |
 | `reusable-claude-run.yml` | `llm-model` | string | Specific model used for analysis (placeholder for compatibility) | `needs.claude.outputs.llm-model` |
@@ -125,6 +137,12 @@ reusable workflow in the no-output section.
 | `reusable-cursor-run.yml` | `changes-made` | string (boolean-like) | Whether Cursor made file changes (true/false) | `needs.cursor.outputs.changes-made` |
 | `reusable-cursor-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.cursor.outputs.commit-sha` |
 | `reusable-cursor-run.yml` | `files-changed` | string (number-like) | Number of files changed by Cursor | `needs.cursor.outputs.files-changed` |
+| `reusable-cursor-run.yml` | `capability-id` | string | Validated existing capability identifier; empty when evidence is absent. | `needs.cursor.outputs.capability-id` |
+| `reusable-cursor-run.yml` | `effect-fingerprint` | string | Validated lowercase sha256 fingerprint of the bounded effect. | `needs.cursor.outputs.effect-fingerprint` |
+| `reusable-cursor-run.yml` | `evidence-artifact-ref` | string | Validated durable logical reference to supporting evidence. | `needs.cursor.outputs.evidence-artifact-ref` |
+| `reusable-cursor-run.yml` | `supervision-mode` | string enum | Validated supervision mode for this result. | `needs.cursor.outputs.supervision-mode` |
+| `reusable-cursor-run.yml` | `capability-evidence-status` | string enum | Validated capability evidence status. | `needs.cursor.outputs.capability-evidence-status` |
+| `reusable-cursor-run.yml` | `terminal-disposition` | string enum | Validated terminal disposition for the result. | `needs.cursor.outputs.terminal-disposition` |
 | `reusable-cursor-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed | `needs.cursor.outputs.llm-analysis-run` |
 | `reusable-cursor-run.yml` | `llm-provider` | string | LLM provider used for analysis (placeholder for compatibility) | `needs.cursor.outputs.llm-provider` |
 | `reusable-cursor-run.yml` | `llm-model` | string | Specific model used for analysis (placeholder for compatibility) | `needs.cursor.outputs.llm-model` |
@@ -141,6 +159,12 @@ reusable workflow in the no-output section.
 | `reusable-gemini-run.yml` | `changes-made` | string (boolean-like) | Whether Gemini made file changes (true/false) | `needs.gemini.outputs.changes-made` |
 | `reusable-gemini-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.gemini.outputs.commit-sha` |
 | `reusable-gemini-run.yml` | `files-changed` | string (number-like) | Number of files changed by Gemini | `needs.gemini.outputs.files-changed` |
+| `reusable-gemini-run.yml` | `capability-id` | string | Validated existing capability identifier; empty when evidence is absent. | `needs.gemini.outputs.capability-id` |
+| `reusable-gemini-run.yml` | `effect-fingerprint` | string | Validated lowercase sha256 fingerprint of the bounded effect. | `needs.gemini.outputs.effect-fingerprint` |
+| `reusable-gemini-run.yml` | `evidence-artifact-ref` | string | Validated durable logical reference to supporting evidence. | `needs.gemini.outputs.evidence-artifact-ref` |
+| `reusable-gemini-run.yml` | `supervision-mode` | string enum | Validated supervision mode for this result. | `needs.gemini.outputs.supervision-mode` |
+| `reusable-gemini-run.yml` | `capability-evidence-status` | string enum | Validated capability evidence status. | `needs.gemini.outputs.capability-evidence-status` |
+| `reusable-gemini-run.yml` | `terminal-disposition` | string enum | Validated terminal disposition for the result. | `needs.gemini.outputs.terminal-disposition` |
 | `reusable-gemini-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed | `needs.gemini.outputs.llm-analysis-run` |
 | `reusable-gemini-run.yml` | `llm-provider` | string | LLM provider used for analysis (placeholder for compatibility) | `needs.gemini.outputs.llm-provider` |
 | `reusable-gemini-run.yml` | `llm-model` | string | Specific model used for analysis (placeholder for compatibility) | `needs.gemini.outputs.llm-model` |
@@ -223,3 +247,13 @@ jobs:
     steps:
       - run: echo "${{ needs.codex.outputs.final-message-summary }}"
 ```
+## Provider-neutral optional capability evidence
+
+All four registry-backed runners (`reusable-codex-run.yml`,
+`reusable-claude-run.yml`, `reusable-cursor-run.yml`, and
+`reusable-gemini-run.yml`) expose the same optional outputs:
+`capability-id`, `effect-fingerprint`, `evidence-artifact-ref`,
+`supervision-mode`, `capability-evidence-status`, and
+`terminal-disposition`. Values are empty unless the caller supplies a complete
+record accepted by `scripts.runner_lib normalize-evidence`; partial or invalid
+records fail before agent execution.

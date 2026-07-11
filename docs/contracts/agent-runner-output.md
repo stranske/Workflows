@@ -1,8 +1,8 @@
 # Agent Runner Output Contract
 
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Canonical specification
-**Last Updated:** February 17, 2026
+**Last Updated:** July 10, 2026
 
 ## Purpose
 
@@ -103,6 +103,26 @@ All runners MUST support LLM-based task completion analysis:
 | `llm-completed-tasks` | string | JSON array of completed task descriptions | `'["Add tests", "Fix bug"]'` |
 | `llm-has-completions` | string | Whether any task completions were detected (`"true"` \| `"false"`) | `"true"` |
 
+### Optional Capability Effect Evidence
+
+These provider-neutral outputs are empty by default. A caller MAY supply a
+complete evidence record when the run is exercising an existing bounded
+capability. Runners MUST validate the record through the shared runner library;
+they MUST NOT infer capability identity or effects from free-form agent prose.
+
+| Output | Type | Description | Example |
+|--------|------|-------------|---------|
+| `capability-id` | string | Existing lowercase kebab capability identifier | `capability:consumer-sync` |
+| `effect-fingerprint` | string | Lowercase `sha256:` fingerprint of the bounded effect | `sha256:...` |
+| `evidence-artifact-ref` | string | Secret-safe durable logical evidence reference | `github-actions:owner/repo:123:consumer-sync-plan` |
+| `supervision-mode` | string | `shadow` \| `human-reviewed` \| `human-on-exception` \| `unattended` | `shadow` |
+| `capability-evidence-status` | string | `accepted` \| `rejected` \| `not-evaluated` | `accepted` |
+| `terminal-disposition` | string | `success` \| `failure` \| `no-change` \| `blocked` \| `cancelled` | `no-change` |
+
+Evidence is all-or-none: if any field is non-empty, every field is required.
+Invalid or partial evidence fails before agent execution. Empty evidence retains
+the v1.0 behavior and is not interpreted as a rejected capability outcome.
+
 ---
 
 ## Output Semantics
@@ -200,6 +220,10 @@ New optional outputs MAY be added without breaking compatibility:
 - Add output with default empty string value
 - Update this document
 - Update all existing runners to provide the output
+
+Capability evidence added in v1.1 follows this rule: all existing runners
+provide the outputs, and all values remain empty unless a caller supplies one
+complete validated record.
 
 ### Deprecating Outputs
 

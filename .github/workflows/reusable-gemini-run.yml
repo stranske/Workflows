@@ -87,6 +87,40 @@ on:
         required: false
         default: 'agent-standard'
         type: string
+      capability_id:
+        description: 'Optional existing capability ID for bounded outcome evidence.'
+        required: false
+        default: ''
+        type: string
+      effect_fingerprint:
+        description: 'Optional lowercase sha256 fingerprint of the bounded effect.'
+        required: false
+        default: ''
+        type: string
+      evidence_artifact_ref:
+        description: 'Optional durable logical reference to supporting evidence.'
+        required: false
+        default: ''
+        type: string
+      supervision_mode:
+        description: >-
+          Optional supervision mode (shadow, human-reviewed,
+          human-on-exception, unattended).
+        required: false
+        default: ''
+        type: string
+      capability_evidence_status:
+        description: 'Optional evidence status (accepted, rejected, not-evaluated).'
+        required: false
+        default: ''
+        type: string
+      terminal_disposition:
+        description: >-
+          Optional terminal disposition (success, failure, no-change, blocked,
+          cancelled).
+        required: false
+        default: ''
+        type: string
     secrets:
       GEMINI_API_KEY:
         description: >-
@@ -127,6 +161,24 @@ on:
       files-changed:
         description: 'Number of files changed by Gemini'
         value: ${{ jobs.gemini.outputs.files-changed }}
+      capability-id:
+        description: 'Validated existing capability identifier; empty when evidence is absent.'
+        value: ${{ jobs.gemini.outputs.capability-id }}
+      effect-fingerprint:
+        description: 'Validated lowercase sha256 fingerprint of the bounded effect.'
+        value: ${{ jobs.gemini.outputs.effect-fingerprint }}
+      evidence-artifact-ref:
+        description: 'Validated durable logical reference to supporting evidence.'
+        value: ${{ jobs.gemini.outputs.evidence-artifact-ref }}
+      supervision-mode:
+        description: 'Validated supervision mode for this result.'
+        value: ${{ jobs.gemini.outputs.supervision-mode }}
+      capability-evidence-status:
+        description: 'Validated capability evidence status.'
+        value: ${{ jobs.gemini.outputs.capability-evidence-status }}
+      terminal-disposition:
+        description: 'Validated terminal disposition for the result.'
+        value: ${{ jobs.gemini.outputs.terminal-disposition }}
       llm-analysis-run:
         description: 'Whether LLM analysis was performed'
         value: ${{ jobs.gemini.outputs.llm-analysis-run }}
@@ -179,6 +231,13 @@ jobs:
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
+      capability-id: ${{ steps.capability_evidence.outputs.capability-id }}
+      effect-fingerprint: ${{ steps.capability_evidence.outputs.effect-fingerprint }}
+      evidence-artifact-ref: ${{ steps.capability_evidence.outputs.evidence-artifact-ref }}
+      supervision-mode: ${{ steps.capability_evidence.outputs.supervision-mode }}
+      capability-evidence-status: >-
+        ${{ steps.capability_evidence.outputs.capability-evidence-status }}
+      terminal-disposition: ${{ steps.capability_evidence.outputs.terminal-disposition }}
       error-summary: ${{ steps.run_gemini.outputs.error-summary }}
       llm-analysis-run: ${{ steps.compat.outputs.llm-analysis-run }}
       llm-provider: ${{ steps.compat.outputs.llm-provider }}
@@ -411,6 +470,25 @@ jobs:
               echo "::notice::LLM dependencies not installed, will fall back to regex analysis"
             }
           fi
+
+      - name: Validate optional capability effect evidence
+        id: capability_evidence
+        env:
+          CAPABILITY_ID: ${{ inputs.capability_id }}
+          EFFECT_FINGERPRINT: ${{ inputs.effect_fingerprint }}
+          EVIDENCE_ARTIFACT_REF: ${{ inputs.evidence_artifact_ref }}
+          SUPERVISION_MODE: ${{ inputs.supervision_mode }}
+          CAPABILITY_EVIDENCE_STATUS: ${{ inputs.capability_evidence_status }}
+          TERMINAL_DISPOSITION: ${{ inputs.terminal_disposition }}
+        run: |
+          PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
+            python -m scripts.runner_lib normalize-evidence \
+              --capability-id "${CAPABILITY_ID}" \
+              --effect-fingerprint "${EFFECT_FINGERPRINT}" \
+              --evidence-artifact-ref "${EVIDENCE_ARTIFACT_REF}" \
+              --supervision-mode "${SUPERVISION_MODE}" \
+              --capability-evidence-status "${CAPABILITY_EVIDENCE_STATUS}" \
+              --terminal-disposition "${TERMINAL_DISPOSITION}"
 
       - name: Validate prompt template integrity
         id: guard

@@ -138,6 +138,15 @@ Required report fields:
   and `artifact_family` when the emitting workflow uploads them as Actions
   artifacts
 
+### Optional runner capability evidence
+
+Registry-backed runners may additionally expose the v1.1 agent-runner outputs
+`capability-id`, `effect-fingerprint`, `evidence-artifact-ref`,
+`supervision-mode`, `capability-evidence-status`, and `terminal-disposition`.
+These values are typed evidence for the existing Orchestrator completion-event
+plane; they do not create a second terminal-disposition record or authorize a
+capability transition. Empty values mean no capability evidence was supplied.
+
 ---
 
 ## 7) Lane Behavior (Dispatch Contract)

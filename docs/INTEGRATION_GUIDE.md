@@ -151,6 +151,13 @@ jobs:
 
 Caller-facing outputs are available only from a subset of reusable workflows. The quick index below highlights the most common `workflow_call` outputs and artifact-only reusable workflows; consult the exhaustive catalog before assuming an unlisted workflow has no caller-facing outputs.
 
+All registry-backed agent runners expose the optional provider-neutral
+capability evidence outputs `capability-id`, `effect-fingerprint`,
+`evidence-artifact-ref`, `supervision-mode`,
+`capability-evidence-status`, and `terminal-disposition`. They are empty by
+default and are accepted only as one complete validated record; callers must
+not derive them from free-form agent output.
+
 The exhaustive output reference is [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_OUTPUTS.md). It documents each exported `workflow_call` output with its type, description, and usage expression, and it also lists reusable workflows that intentionally publish artifacts or logs without job outputs. Use that page as the source of truth when wiring dependent jobs; the table below is a quick index for the most common chaining surfaces.
 
 Coverage evidence: `tests/workflows/test_reusable_workflow_outputs_doc.py` loads every `.github/workflows/reusable-*.yml` declaration, compares each `on.workflow_call.outputs` key and description against the catalog table, and verifies reusable workflows with no caller-facing outputs appear in the no-output list. That test is the audit guard for the acceptance requirement that all reusable workflow outputs are documented.
@@ -242,6 +249,12 @@ Reusable workflows with caller-facing `workflow_call` outputs:
 | `reusable-codex-run.yml` | `changes-made` | string (boolean-like) | Whether Codex made file changes. | `needs.codex.outputs.changes-made` |
 | `reusable-codex-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed. | `needs.codex.outputs.commit-sha` |
 | `reusable-codex-run.yml` | `files-changed` | string (number-like) | Number of files changed by Codex. | `needs.codex.outputs.files-changed` |
+| `reusable-codex-run.yml` | `capability-id` | string | Validated existing capability identifier; empty when evidence is absent. | `needs.codex.outputs.capability-id` |
+| `reusable-codex-run.yml` | `effect-fingerprint` | string | Validated lowercase sha256 fingerprint of the bounded effect. | `needs.codex.outputs.effect-fingerprint` |
+| `reusable-codex-run.yml` | `evidence-artifact-ref` | string | Validated durable logical reference to supporting evidence. | `needs.codex.outputs.evidence-artifact-ref` |
+| `reusable-codex-run.yml` | `supervision-mode` | string enum | Validated supervision mode for this result. | `needs.codex.outputs.supervision-mode` |
+| `reusable-codex-run.yml` | `capability-evidence-status` | string enum | Validated capability evidence status. | `needs.codex.outputs.capability-evidence-status` |
+| `reusable-codex-run.yml` | `terminal-disposition` | string enum | Validated terminal disposition for the result. | `needs.codex.outputs.terminal-disposition` |
 | `reusable-codex-run.yml` | `error-category` | string | Error category if failure occurred. | `needs.codex.outputs.error-category` |
 | `reusable-codex-run.yml` | `error-type` | string | Error type if failure occurred. | `needs.codex.outputs.error-type` |
 | `reusable-codex-run.yml` | `error-recovery` | string | Suggested recovery action if failure occurred. | `needs.codex.outputs.error-recovery` |
@@ -264,6 +277,12 @@ Reusable workflows with caller-facing `workflow_call` outputs:
 | `reusable-claude-run.yml` | `changes-made` | string (boolean-like) | Whether Claude made file changes. | `needs.claude.outputs.changes-made` |
 | `reusable-claude-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed. | `needs.claude.outputs.commit-sha` |
 | `reusable-claude-run.yml` | `files-changed` | string (number-like) | Number of files changed by Claude. | `needs.claude.outputs.files-changed` |
+| `reusable-claude-run.yml` | `capability-id` | string | Validated existing capability identifier; empty when evidence is absent. | `needs.claude.outputs.capability-id` |
+| `reusable-claude-run.yml` | `effect-fingerprint` | string | Validated lowercase sha256 fingerprint of the bounded effect. | `needs.claude.outputs.effect-fingerprint` |
+| `reusable-claude-run.yml` | `evidence-artifact-ref` | string | Validated durable logical reference to supporting evidence. | `needs.claude.outputs.evidence-artifact-ref` |
+| `reusable-claude-run.yml` | `supervision-mode` | string enum | Validated supervision mode for this result. | `needs.claude.outputs.supervision-mode` |
+| `reusable-claude-run.yml` | `capability-evidence-status` | string enum | Validated capability evidence status. | `needs.claude.outputs.capability-evidence-status` |
+| `reusable-claude-run.yml` | `terminal-disposition` | string enum | Validated terminal disposition for the result. | `needs.claude.outputs.terminal-disposition` |
 | `reusable-claude-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed. | `needs.claude.outputs.llm-analysis-run` |
 | `reusable-claude-run.yml` | `llm-provider` | string | LLM provider used for analysis. | `needs.claude.outputs.llm-provider` |
 | `reusable-claude-run.yml` | `llm-model` | string | Specific model used for analysis. | `needs.claude.outputs.llm-model` |

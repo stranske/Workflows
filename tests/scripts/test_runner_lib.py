@@ -10,6 +10,7 @@ import pytest
 import scripts.runner_lib.core as runner_core
 from scripts.runner_lib import (
     assemble_prompt,
+    normalize_capability_effect_evidence,
     parse_runner_output,
     record_completion,
     should_dispatch,
@@ -29,6 +30,104 @@ class MemoryRunnerStorage:
     def write_record(self, pr_number: int, provider: str, record: dict[str, Any]) -> None:
         self.records[(pr_number, provider)] = dict(record)
         self.writes.append(dict(record))
+
+
+def test_capability_effect_evidence_is_optional_and_empty() -> None:
+    evidence = normalize_capability_effect_evidence()
+
+    assert set(evidence.github_outputs().values()) == {""}
+
+
+def test_capability_effect_evidence_normalizes_provider_neutral_fields() -> None:
+    evidence = normalize_capability_effect_evidence(
+        capability_id=" CAPABILITY:CONSUMER-SYNC ",
+        effect_fingerprint="SHA256:" + "a" * 64,
+        evidence_artifact_ref="github-actions:owner/repo:123:consumer-sync-plan",
+        supervision_mode="HUMAN-ON-EXCEPTION",
+        capability_evidence_status="ACCEPTED",
+        terminal_disposition="SUCCESS",
+    )
+
+    assert evidence.github_outputs() == {
+        "capability-id": "capability:consumer-sync",
+        "effect-fingerprint": "sha256:" + "a" * 64,
+        "evidence-artifact-ref": "github-actions:owner/repo:123:consumer-sync-plan",
+        "supervision-mode": "human-on-exception",
+        "capability-evidence-status": "accepted",
+        "terminal-disposition": "success",
+    }
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"effect_fingerprint": "sha256:" + "a" * 64}, "partial capability evidence"),
+        ({"capability_id": "consumer sync"}, "partial capability evidence"),
+        ({"capability_id": "capability:Consumer_Sync"}, "partial capability evidence"),
+    ],
+)
+def test_capability_effect_evidence_rejects_partial_records(
+    overrides: dict[str, str], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        normalize_capability_effect_evidence(**overrides)
+
+
+def test_capability_effect_evidence_rejects_spoofed_or_secret_bearing_values() -> None:
+    valid = {
+        "capability_id": "capability:consumer-sync",
+        "effect_fingerprint": "sha256:" + "b" * 64,
+        "evidence_artifact_ref": "artifact:consumer-sync:123",
+        "supervision_mode": "shadow",
+        "capability_evidence_status": "accepted",
+        "terminal_disposition": "no-change",
+    }
+    with pytest.raises(ValueError, match="lowercase sha256"):
+        normalize_capability_effect_evidence(
+            **{**valid, "effect_fingerprint": "sha256:not-a-digest"}
+        )
+    with pytest.raises(ValueError, match="secret-like"):
+        normalize_capability_effect_evidence(
+            **{**valid, "evidence_artifact_ref": "artifact:secret-token:123"}
+        )
+    with pytest.raises(ValueError, match="supervision_mode"):
+        normalize_capability_effect_evidence(
+            **{**valid, "supervision_mode": "owner-will-fix-it"}
+        )
+
+
+def test_normalize_evidence_cli_writes_github_outputs(tmp_path: Path) -> None:
+    output = tmp_path / "github-output"
+    command = [
+        "python3",
+        "-m",
+        "scripts.runner_lib",
+        "normalize-evidence",
+        "--capability-id",
+        "capability:consumer-sync",
+        "--effect-fingerprint",
+        "sha256:" + "c" * 64,
+        "--evidence-artifact-ref",
+        "artifact:consumer-sync:123",
+        "--supervision-mode",
+        "shadow",
+        "--capability-evidence-status",
+        "accepted",
+        "--terminal-disposition",
+        "no-change",
+    ]
+    completed = subprocess.run(
+        command,
+        cwd=Path(__file__).parents[2],
+        env={"GITHUB_OUTPUT": str(output)},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(completed.stdout)
+    assert payload["capability-id"] == "capability:consumer-sync"
+    assert "effect-fingerprint=sha256:" in output.read_text(encoding="utf-8")
 
 
 def _write_prompt_fixture(root: Path) -> None:

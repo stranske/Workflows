@@ -38,6 +38,23 @@ TRUSTED_MARKER_AUTHORS = {
     "stranske-automation-bot",
 }
 TRUSTED_MARKER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
+CAPABILITY_ID_RE = re.compile(r"^capability:[a-z0-9][a-z0-9-]{2,127}$")
+SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+EVIDENCE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,255}$")
+SUPERVISION_MODES = {
+    "shadow",
+    "human-reviewed",
+    "human-on-exception",
+    "unattended",
+}
+CAPABILITY_EVIDENCE_STATUSES = {"accepted", "rejected", "not-evaluated"}
+TERMINAL_DISPOSITIONS = {
+    "success",
+    "failure",
+    "no-change",
+    "blocked",
+    "cancelled",
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -65,6 +82,78 @@ class DebounceDecision:
     key: str
     prior_status: str | None = None
     prior_head_sha: str | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class CapabilityEffectEvidence:
+    """Bounded, provider-neutral evidence carried by a runner result.
+
+    Empty evidence is valid for backwards compatibility. Once any capability
+    field is present, the identity, effect fingerprint, durable artifact
+    reference, supervision mode, evidence status, and terminal disposition
+    must all be present and valid.
+    """
+
+    capability_id: str = ""
+    effect_fingerprint: str = ""
+    evidence_artifact_ref: str = ""
+    supervision_mode: str = ""
+    capability_evidence_status: str = ""
+    terminal_disposition: str = ""
+
+    def github_outputs(self) -> dict[str, str]:
+        return {
+            "capability-id": self.capability_id,
+            "effect-fingerprint": self.effect_fingerprint,
+            "evidence-artifact-ref": self.evidence_artifact_ref,
+            "supervision-mode": self.supervision_mode,
+            "capability-evidence-status": self.capability_evidence_status,
+            "terminal-disposition": self.terminal_disposition,
+        }
+
+
+def normalize_capability_effect_evidence(
+    *,
+    capability_id: str = "",
+    effect_fingerprint: str = "",
+    evidence_artifact_ref: str = "",
+    supervision_mode: str = "",
+    capability_evidence_status: str = "",
+    terminal_disposition: str = "",
+) -> CapabilityEffectEvidence:
+    """Validate optional runner capability evidence without inferring from prose."""
+    values = {
+        "capability_id": str(capability_id or "").strip().lower(),
+        "effect_fingerprint": str(effect_fingerprint or "").strip().lower(),
+        "evidence_artifact_ref": str(evidence_artifact_ref or "").strip(),
+        "supervision_mode": str(supervision_mode or "").strip().lower(),
+        "capability_evidence_status": str(capability_evidence_status or "").strip().lower(),
+        "terminal_disposition": str(terminal_disposition or "").strip().lower(),
+    }
+    if not any(values.values()):
+        return CapabilityEffectEvidence()
+    missing = [name for name, value in values.items() if not value]
+    if missing:
+        raise ValueError(
+            "partial capability evidence is not allowed; missing " + ", ".join(missing)
+        )
+    if not CAPABILITY_ID_RE.fullmatch(values["capability_id"]):
+        raise ValueError("capability_id must match capability:<lowercase-kebab-id>")
+    if not SHA256_RE.fullmatch(values["effect_fingerprint"]):
+        raise ValueError("effect_fingerprint must be a lowercase sha256 digest")
+    artifact_ref = values["evidence_artifact_ref"]
+    if not EVIDENCE_REF_RE.fullmatch(artifact_ref):
+        raise ValueError("evidence_artifact_ref must be a bounded durable logical reference")
+    lowered_ref = artifact_ref.lower()
+    if any(marker in lowered_ref for marker in ("token", "secret", "password", "api-key", "apikey")):
+        raise ValueError("evidence_artifact_ref contains a secret-like marker")
+    if values["supervision_mode"] not in SUPERVISION_MODES:
+        raise ValueError("unsupported supervision_mode")
+    if values["capability_evidence_status"] not in CAPABILITY_EVIDENCE_STATUSES:
+        raise ValueError("unsupported capability_evidence_status")
+    if values["terminal_disposition"] not in TERMINAL_DISPOSITIONS:
+        raise ValueError("unsupported terminal_disposition")
+    return CapabilityEffectEvidence(**values)
 
 
 class RunnerDispatchStorage(Protocol):
@@ -1084,6 +1173,21 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_normalize_evidence(args: argparse.Namespace) -> int:
+    evidence = normalize_capability_effect_evidence(
+        capability_id=args.capability_id,
+        effect_fingerprint=args.effect_fingerprint,
+        evidence_artifact_ref=args.evidence_artifact_ref,
+        supervision_mode=args.supervision_mode,
+        capability_evidence_status=args.capability_evidence_status,
+        terminal_disposition=args.terminal_disposition,
+    )
+    outputs = evidence.github_outputs()
+    _write_github_output(outputs)
+    print(json.dumps(outputs, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1129,6 +1233,17 @@ def build_parser() -> argparse.ArgumentParser:
     complete.add_argument("--summary", default="")
     complete.add_argument("--exit-code", default=None)
     complete.set_defaults(func=_cmd_record_completion)
+
+    evidence = subparsers.add_parser(
+        "normalize-evidence", help="validate optional capability/effect evidence"
+    )
+    evidence.add_argument("--capability-id", default="")
+    evidence.add_argument("--effect-fingerprint", default="")
+    evidence.add_argument("--evidence-artifact-ref", default="")
+    evidence.add_argument("--supervision-mode", default="")
+    evidence.add_argument("--capability-evidence-status", default="")
+    evidence.add_argument("--terminal-disposition", default="")
+    evidence.set_defaults(func=_cmd_normalize_evidence)
     return parser
 
 
