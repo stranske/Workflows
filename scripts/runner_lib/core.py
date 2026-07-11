@@ -38,7 +38,9 @@ TRUSTED_MARKER_AUTHORS = {
     "stranske-automation-bot",
 }
 TRUSTED_MARKER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
-CAPABILITY_ID_RE = re.compile(r"^capability:[a-z0-9][a-z0-9-]{2,127}$")
+CAPABILITY_ID_RE = re.compile(
+    r"^capability:(?=[a-z0-9-]{3,128}$)[a-z0-9]+(?:-[a-z0-9]+)*$"
+)
 SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 EVIDENCE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,255}$")
 SECRET_LIKE_EVIDENCE_PREFIXES = ("ghp_", "github_pat_", "sk-")
@@ -85,6 +87,36 @@ class DebounceDecision:
     prior_head_sha: str | None = None
 
 
+def _validate_capability_effect_evidence_values(values: dict[str, str]) -> None:
+    if not any(values.values()):
+        return
+    missing = [name for name, value in values.items() if not value]
+    if missing:
+        raise ValueError(
+            "partial capability evidence is not allowed; missing " + ", ".join(missing)
+        )
+    if not CAPABILITY_ID_RE.fullmatch(values["capability_id"]):
+        raise ValueError("capability_id must match capability:<lowercase-kebab-id>")
+    if not SHA256_RE.fullmatch(values["effect_fingerprint"]):
+        raise ValueError("effect_fingerprint must be a lowercase sha256 digest")
+    artifact_ref = values["evidence_artifact_ref"]
+    if not EVIDENCE_REF_RE.fullmatch(artifact_ref):
+        raise ValueError("evidence_artifact_ref must be a bounded durable logical reference")
+    lowered_ref = artifact_ref.lower()
+    if lowered_ref.startswith(SECRET_LIKE_EVIDENCE_PREFIXES):
+        raise ValueError("evidence_artifact_ref has a credential-like prefix")
+    if any(
+        marker in lowered_ref for marker in ("token", "secret", "password", "api-key", "apikey")
+    ):
+        raise ValueError("evidence_artifact_ref contains a secret-like marker")
+    if values["supervision_mode"] not in SUPERVISION_MODES:
+        raise ValueError("unsupported supervision_mode")
+    if values["capability_evidence_status"] not in CAPABILITY_EVIDENCE_STATUSES:
+        raise ValueError("unsupported capability_evidence_status")
+    if values["terminal_disposition"] not in TERMINAL_DISPOSITIONS:
+        raise ValueError("unsupported terminal_disposition")
+
+
 @dataclasses.dataclass(frozen=True)
 class CapabilityEffectEvidence:
     """Bounded, provider-neutral evidence carried by a runner result.
@@ -101,6 +133,18 @@ class CapabilityEffectEvidence:
     supervision_mode: str = ""
     capability_evidence_status: str = ""
     terminal_disposition: str = ""
+
+    def __post_init__(self) -> None:
+        _validate_capability_effect_evidence_values(
+            {
+                "capability_id": self.capability_id,
+                "effect_fingerprint": self.effect_fingerprint,
+                "evidence_artifact_ref": self.evidence_artifact_ref,
+                "supervision_mode": self.supervision_mode,
+                "capability_evidence_status": self.capability_evidence_status,
+                "terminal_disposition": self.terminal_disposition,
+            }
+        )
 
     def github_outputs(self) -> dict[str, str]:
         return {
@@ -131,33 +175,7 @@ def normalize_capability_effect_evidence(
         "capability_evidence_status": str(capability_evidence_status or "").strip().lower(),
         "terminal_disposition": str(terminal_disposition or "").strip().lower(),
     }
-    if not any(values.values()):
-        return CapabilityEffectEvidence()
-    missing = [name for name, value in values.items() if not value]
-    if missing:
-        raise ValueError(
-            "partial capability evidence is not allowed; missing " + ", ".join(missing)
-        )
-    if not CAPABILITY_ID_RE.fullmatch(values["capability_id"]):
-        raise ValueError("capability_id must match capability:<lowercase-kebab-id>")
-    if not SHA256_RE.fullmatch(values["effect_fingerprint"]):
-        raise ValueError("effect_fingerprint must be a lowercase sha256 digest")
-    artifact_ref = values["evidence_artifact_ref"]
-    if not EVIDENCE_REF_RE.fullmatch(artifact_ref):
-        raise ValueError("evidence_artifact_ref must be a bounded durable logical reference")
-    lowered_ref = artifact_ref.lower()
-    if lowered_ref.startswith(SECRET_LIKE_EVIDENCE_PREFIXES):
-        raise ValueError("evidence_artifact_ref has a credential-like prefix")
-    if any(
-        marker in lowered_ref for marker in ("token", "secret", "password", "api-key", "apikey")
-    ):
-        raise ValueError("evidence_artifact_ref contains a secret-like marker")
-    if values["supervision_mode"] not in SUPERVISION_MODES:
-        raise ValueError("unsupported supervision_mode")
-    if values["capability_evidence_status"] not in CAPABILITY_EVIDENCE_STATUSES:
-        raise ValueError("unsupported capability_evidence_status")
-    if values["terminal_disposition"] not in TERMINAL_DISPOSITIONS:
-        raise ValueError("unsupported terminal_disposition")
+    _validate_capability_effect_evidence_values(values)
     return CapabilityEffectEvidence(**values)
 
 

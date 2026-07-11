@@ -803,7 +803,7 @@ jobs:
 
       - name: Run Cursor
         id: run_cursor
-        if: always()
+        if: always() && steps.capability_evidence.outcome != 'failure'
         env:
           PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
           PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
@@ -968,7 +968,7 @@ jobs:
 
       - name: Commit and push changes
         id: commit
-        if: always()
+        if: always() && steps.capability_evidence.outcome != 'failure'
         env:
           PUSH_TOKEN: ${{ steps.auth_token.outputs.push_token || '' }}
           PUSH_ALLOWED: ${{ steps.auth_token.outputs.push_allowed }}

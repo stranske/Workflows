@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 import scripts.runner_lib.core as runner_core
 from scripts.runner_lib import (
+    CapabilityEffectEvidence,
     assemble_prompt,
     normalize_capability_effect_evidence,
     parse_runner_output,
@@ -64,7 +65,6 @@ def test_capability_effect_evidence_normalizes_provider_neutral_fields() -> None
     [
         ({"effect_fingerprint": "sha256:" + "a" * 64}, "partial capability evidence"),
         ({"capability_id": "consumer sync"}, "partial capability evidence"),
-        ({"capability_id": "capability:Consumer_Sync"}, "partial capability evidence"),
     ],
 )
 def test_capability_effect_evidence_rejects_partial_records(
@@ -87,6 +87,17 @@ def test_capability_effect_evidence_rejects_spoofed_or_secret_bearing_values() -
         normalize_capability_effect_evidence(
             **{**valid, "effect_fingerprint": "sha256:not-a-digest"}
         )
+    for invalid_capability_id in (
+        "capability:Consumer_Sync",
+        "capability:foo-",
+        "capability:foo--bar",
+    ):
+        with pytest.raises(ValueError, match="capability_id"):
+            normalize_capability_effect_evidence(
+                **{**valid, "capability_id": invalid_capability_id}
+            )
+    with pytest.raises(ValueError, match="partial capability evidence"):
+        CapabilityEffectEvidence(capability_id="capability:consumer-sync")
     with pytest.raises(ValueError, match="secret-like"):
         normalize_capability_effect_evidence(
             **{**valid, "evidence_artifact_ref": "artifact:secret-token:123"}

@@ -714,7 +714,7 @@ jobs:
 
       - name: Run Claude
         id: run_claude
-        if: always()
+        if: always() && steps.capability_evidence.outcome != 'failure'
         env:
           PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
           PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
@@ -860,7 +860,7 @@ jobs:
 
       - name: Commit and push changes
         id: commit
-        if: always()
+        if: always() && steps.capability_evidence.outcome != 'failure'
         env:
           PUSH_TOKEN: ${{ steps.run_base.outputs.push_token || '' }}
           PUSH_ALLOWED: ${{ steps.run_base.outputs.push_allowed }}
