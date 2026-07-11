@@ -95,6 +95,32 @@ def test_cli_writes_handoff(tmp_path: Path) -> None:
     assert json.loads(completed.stdout)["write_authority"] is False
 
 
+def test_cli_reports_invalid_plan_without_writing_handoff(tmp_path: Path) -> None:
+    plan_path = tmp_path / "invalid-plan.json"
+    output = tmp_path / "handoff.json"
+    plan_path.write_text(json.dumps({"schema": "raw-prose"}), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "scripts/build_consumer_sync_shadow_handoff.py",
+            "--plan",
+            str(plan_path),
+            "--run-ref",
+            "artifact:consumer-sync:123",
+            "--output",
+            str(output),
+        ],
+        cwd=Path(__file__).parents[2],
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 2
+    assert "invalid_consumer_sync_plan_fields" in completed.stderr
+    assert not output.exists()
+
+
 def test_workflow_has_no_write_or_apply_surface() -> None:
     root = Path(__file__).parents[2]
     workflow = (
@@ -107,7 +133,11 @@ def test_workflow_has_no_write_or_apply_surface() -> None:
     assert "git push" not in workflow
     assert "gh pr" not in workflow
     assert "write_authority" not in workflow.lower() or "Write authority: false" in workflow
-    assert "actions/upload-artifact@v7" in workflow
+    assert "persist-credentials: false" in workflow
+    assert "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0" in workflow
+    assert "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1" in workflow
+    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
+    assert 'pyyaml==6.0.2' in workflow
     assert (
         "consumer-sync-shadow-evidence-${{ github.run_id }}-${{ github.run_attempt }}" in workflow
     )
