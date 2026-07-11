@@ -198,7 +198,27 @@ scripts:
 """,
     )
 
-    with pytest.raises(ManifestCompileError, match="symlink that escapes repository root"):
+    with pytest.raises(ManifestCompileError, match="invalid symlink"):
+        compile_manifest(manifest)
+
+
+def test_directories_with_cyclic_symlinks_are_rejected(tmp_path: Path) -> None:
+    directory = tmp_path / "scripts" / "bundle"
+    directory.mkdir(parents=True)
+    (directory / "safe.py").write_text("safe\n", encoding="utf-8")
+    (directory / "first").symlink_to(directory / "second")
+    (directory / "second").symlink_to(directory / "first")
+    manifest = write_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: scripts/bundle
+    description: Bundle
+    is_directory: true
+""",
+    )
+
+    with pytest.raises(ManifestCompileError, match="invalid symlink"):
         compile_manifest(manifest)
 
 
