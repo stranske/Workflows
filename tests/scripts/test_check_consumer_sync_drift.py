@@ -553,6 +553,25 @@ def test_local_path_for_falls_back_to_root_for_template_sections(tmp_path, monke
     assert resolved.resolve() == root_doc
 
 
+def test_local_path_for_without_section_preserves_legacy_fallback(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    root_doc = tmp_path / "docs" / "contract.md"
+    template_doc = tmp_path / "templates" / "consumer-repo" / "docs" / "contract.md"
+    root_doc.parent.mkdir(parents=True)
+    template_doc.parent.mkdir(parents=True)
+    root_doc.write_text("root\n", encoding="utf-8")
+    template_doc.write_text("template\n", encoding="utf-8")
+
+    resolved = check_consumer_sync_drift.local_path_for("docs/contract.md")
+    assert resolved is not None
+    assert resolved.resolve() == template_doc
+
+    template_doc.unlink()
+    resolved = check_consumer_sync_drift.local_path_for("docs/contract.md")
+    assert resolved is not None
+    assert resolved.resolve() == root_doc
+
+
 def test_record_content_error_skips_after_threshold() -> None:
     errors: set[str] = set()
     counts: dict[str, int] = {}

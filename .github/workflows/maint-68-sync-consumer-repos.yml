@@ -79,6 +79,9 @@ jobs:
           sparse-checkout: |
             templates/consumer-repo
             .github/sync-manifest.yml
+            .github/templates
+            .github/PULL_REQUEST_TEMPLATE.md
+            .github/path-classification.yml
             .github/scripts
             scripts
             tools

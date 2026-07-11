@@ -248,8 +248,22 @@ def _resolve_source(
     return chosen.relative_to(repo_root).as_posix(), chosen, errors
 
 
-def resolve_source_path(source: str, section: str, *, repo_root: Path = Path(".")) -> Path | None:
-    """Resolve one source using the compiler's canonical ownership policy."""
+def resolve_source_path(
+    source: str, section: str | None, *, repo_root: Path = Path(".")
+) -> Path | None:
+    """Resolve one source using the compiler's canonical ownership policy.
+
+    ``section=None`` preserves the drift checker's legacy compatibility lookup:
+    prefer the consumer template and then fall back to the repository root.
+    Manifest compilation always supplies a section and therefore remains bound
+    to the explicit ownership policy.
+    """
+    if section is None:
+        root = repo_root.resolve()
+        for candidate in (root / "templates" / "consumer-repo" / source, root / source):
+            if candidate.exists():
+                return candidate
+        return None
     _resolved, path, errors = _resolve_source(
         repo_root=repo_root.resolve(),
         source=source,

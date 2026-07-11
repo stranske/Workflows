@@ -91,7 +91,7 @@ def resolve_repos(raw: str | None) -> list[str]:
 
 def local_path_for(source: str, section: str | None = None) -> Path | None:
     """Compatibility wrapper around the compiler's canonical resolver."""
-    return resolve_source_path(source, section or "", repo_root=Path("."))
+    return resolve_source_path(source, section, repo_root=Path("."))
 
 
 def git_blob_hash(content: bytes) -> str:

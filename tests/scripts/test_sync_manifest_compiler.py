@@ -321,3 +321,6 @@ def test_maint_sync_consumes_compiled_plan_for_paths_and_hash() -> None:
     assert "item['resolved_source']" in workflow
     assert "workflows.consumer-sync-plan/v1" in workflow
     assert "find templates/consumer-repo -type f" not in workflow
+    assert ".github/templates" in workflow
+    assert ".github/PULL_REQUEST_TEMPLATE.md" in workflow
+    assert ".github/path-classification.yml" in workflow
