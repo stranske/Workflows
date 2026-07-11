@@ -38,9 +38,7 @@ TRUSTED_MARKER_AUTHORS = {
     "stranske-automation-bot",
 }
 TRUSTED_MARKER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
-CAPABILITY_ID_RE = re.compile(
-    r"^capability:(?=[a-z0-9-]{3,128}$)[a-z0-9]+(?:-[a-z0-9]+)*$"
-)
+CAPABILITY_ID_RE = re.compile(r"^capability:(?=[a-z0-9-]{3,128}$)[a-z0-9]+(?:-[a-z0-9]+)*$")
 SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 EVIDENCE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,255}$")
 SECRET_LIKE_EVIDENCE_PREFIXES = ("ghp_", "github_pat_", "sk-")
