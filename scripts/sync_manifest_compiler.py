@@ -258,8 +258,17 @@ def _resolve_source(
             if not child.is_symlink():
                 continue
             try:
-                child.resolve().relative_to(root)
+                Path(os.path.realpath(child, strict=True)).relative_to(root)
             except (RuntimeError, ValueError):
+                return (
+                    "",
+                    None,
+                    [
+                        *errors,
+                        f"{context}: source {source!r} contains an invalid symlink",
+                    ],
+                )
+            except OSError:
                 return (
                     "",
                     None,
