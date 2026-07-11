@@ -148,9 +148,7 @@ def test_non_string_paths_are_rejected(tmp_path: Path, yaml_value: str) -> None:
     write_source(tmp_path, "scripts/tool.py", template=False)
     manifest = write_manifest(
         tmp_path,
-        "version: 1\nscripts:\n"
-        f"  - source: {yaml_value}\n"
-        "    description: Tool\n",
+        "version: 1\nscripts:\n" f"  - source: {yaml_value}\n" "    description: Tool\n",
     )
 
     with pytest.raises(ManifestCompileError, match="safe repository-relative"):

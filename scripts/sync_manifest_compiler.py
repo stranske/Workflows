@@ -260,10 +260,14 @@ def _resolve_source(
             try:
                 child.resolve().relative_to(root)
             except ValueError:
-                return "", None, [
-                    *errors,
-                    f"{context}: source {source!r} contains a symlink that escapes repository root",
-                ]
+                return (
+                    "",
+                    None,
+                    [
+                        *errors,
+                        f"{context}: source {source!r} contains a symlink that escapes repository root",
+                    ],
+                )
     return chosen.relative_to(repo_root).as_posix(), chosen, errors
 
 
