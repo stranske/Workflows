@@ -91,9 +91,7 @@ def test_capability_effect_evidence_rejects_spoofed_or_secret_bearing_values() -
             **{**valid, "evidence_artifact_ref": "artifact:secret-token:123"}
         )
     with pytest.raises(ValueError, match="supervision_mode"):
-        normalize_capability_effect_evidence(
-            **{**valid, "supervision_mode": "owner-will-fix-it"}
-        )
+        normalize_capability_effect_evidence(**{**valid, "supervision_mode": "owner-will-fix-it"})
 
 
 def test_normalize_evidence_cli_writes_github_outputs(tmp_path: Path) -> None:

@@ -145,7 +145,9 @@ def normalize_capability_effect_evidence(
     if not EVIDENCE_REF_RE.fullmatch(artifact_ref):
         raise ValueError("evidence_artifact_ref must be a bounded durable logical reference")
     lowered_ref = artifact_ref.lower()
-    if any(marker in lowered_ref for marker in ("token", "secret", "password", "api-key", "apikey")):
+    if any(
+        marker in lowered_ref for marker in ("token", "secret", "password", "api-key", "apikey")
+    ):
         raise ValueError("evidence_artifact_ref contains a secret-like marker")
     if values["supervision_mode"] not in SUPERVISION_MODES:
         raise ValueError("unsupported supervision_mode")
