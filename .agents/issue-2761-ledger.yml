@@ -8,10 +8,10 @@ tasks:
       rail in `src/consumer_sync/rail.*`, `src/consumer_sync/schema.*`, and `src/consumer_sync/adapter.*`
       so non-conforming payloads return a rejection result with an error log entry
       before downstream effects.
-    status: doing
+    status: done
     started_at: '2026-07-11T11:36:37Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-07-11T11:36:47Z'
+    commit: 8e833fd364f64f438dcf1f5a6a617f1553989d22
     notes: []
   - id: task-02
     title: 'Define the strict consumer-sync plan JSON schema in `src/consumer_sync/schema.*`
