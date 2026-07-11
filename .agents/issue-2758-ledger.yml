@@ -1,0 +1,737 @@
+version: 1
+issue: 2758
+base: main
+branch: codex/issue-2758
+tasks:
+  - id: task-01
+    title: Extend the orchestrator completion-event adapter to parse the new evidence
+      fields from runner completion payloads and attach them to an existing candidate/shadow
+      capability instead of creating or promoting capabilities from raw prompt text.
+    status: doing
+    started_at: '2026-07-11T05:37:43Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Update the orchestrator completion-event adapter to parse structured evidence
+      fields from runner completion payloads into typed evidence objects. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement orchestrator logic to attach parsed evidence to existing candidate
+      capabilities referenced by valid capability identifiers. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Add orchestrator validation to prevent capability creation when only raw
+      prompt text is present without structured evidence fields. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Add orchestrator validation to prevent automatic capability promotion
+      when evidence is attached to shadow capabilities. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Implement duplicate-evidence detection in the orchestrator by deriving
+      or reusing a stable evidence identity key and short-circuiting processing when
+      the same evidence has already been recorded.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add orchestrator handling to persist and carry forward counterexamples
+      when accepted evidence is linked to a candidate/shadow capability.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add schema and content validation in the orchestrator evidence ingestion
+      path that rejects raw prompts, generic runner prose, and malformed evidence
+      before any activation, dispatch, or promotion logic runs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement orchestrator schema validation to reject evidence payloads that
+      fail structural type checking before processing. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement orchestrator content validation to detect (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'reject raw prompt text submitted as evidence. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'reject generic runner prose submitted as evidence. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Refactor orchestrator evidence ingestion to invoke all validation checks
+      before calling activation logic. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: _(2 further sub-tasks elided; split this issue)_
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add explicit rejection paths for invalid evidence cases, including spoofed
+      capability IDs, unstable fingerprints, oversized refs, and missing provenance,
+      and emit distinct diagnostics without mutating capability state.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement orchestrator validation to detect (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'reject evidence payloads with spoofed capability IDs that reference nonexistent
+      capabilities. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'reject evidence payloads with unstable fingerprints that fail stability
+      checks. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'reject evidence payloads with oversized ref values exceeding schema limits.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'reject evidence payloads missing required provenance fields. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: _(5 further sub-tasks elided; split this issue)_
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Update runner output schemas and normalization logic so new evidence fields
+      remain optional and existing consumers continue to validate successfully when
+      those fields are absent.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Add log redaction for sensitive evidence fields before writing GitHub Actions
+      summaries or orchestrator logs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Add end-to-end integration tests covering runner completion payload ingestion
+      through orchestrator processing, including accepted evidence linkage, duplicate
+      replay idempotency, counterexample preservation, and invalid-evidence rejection
+      diagnostics.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Create integration test verifying orchestrator attaches valid evidence
+      to existing candidate capabilities (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'updates ledger correctly. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Create integration test verifying orchestrator attaches valid evidence
+      to existing shadow capabilities without automatic promotion. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Create integration test verifying orchestrator processes duplicate evidence
+      payloads idempotently without creating duplicate ledger entries. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Create integration test verifying orchestrator preserves existing counterexamples
+      when new evidence omits them. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: _(11 further sub-tasks elided; split this issue)_
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Add deliberate-break test fixtures for spoofed capability IDs, unstable
+      fingerprints, oversized refs, missing provenance, raw prompt evidence, and duplicate
+      evidence replay.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Create deliberate-break test fixture containing evidence payload with
+      spoofed capability ID referencing nonexistent capability. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Create deliberate-break test fixture containing evidence payload with
+      unstable fingerprint that fails stability validation. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Create deliberate-break test fixture containing evidence payload with
+      oversized ref value exceeding configured schema limit. (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Create deliberate-break test fixture containing evidence payload missing
+      required provenance fields. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Create deliberate-break test fixture containing raw prompt text submitted
+      as evidence without structured fields. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Create deliberate-break test fixture containing duplicate evidence replay
+      with identical semantic content but different envelope metadata. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: Standardize evidence output wiring in reusable-codex-run.yml to match the
+      other runner workflows and pass the same optional evidence fields through to
+      downstream consumers.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: Given a runner completion payload containing structured evidence fields
+      for an existing candidate capability ID, the orchestrator completion-event adapter
+      attaches the evidence to that existing candidate capability and does not create
+      any new capability record.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: Given a runner completion payload containing structured evidence fields
+      for an existing shadow capability ID, the orchestrator completion-event adapter
+      attaches the evidence to that existing shadow capability and does not promote
+      the shadow capability to active solely because the evidence payload was processed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: When a completion payload contains only raw prompt text or generic runner
+      prose and no valid structured evidence object, the orchestrator rejects the
+      payload for capability evidence processing and performs no capability creation,
+      activation, dispatch, or promotion.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: When the same accepted evidence payload is submitted twice with the same
+      stable evidence identity key, the first submission records exactly one evidence
+      association and the second submission produces no additional capability-state
+      mutation and no additional ledger entry for that evidence.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: The orchestrator derives the same evidence identity key for semantically
+      identical replayed evidence payloads that differ only in transport-level envelope
+      fields not used for evidence identity.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: If accepted evidence includes one or more counterexamples, the orchestrator
+      persists those counterexamples on the linked candidate/shadow capability and
+      includes them in the serialized ledger/event record for that evidence-processing
+      operation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: If accepted evidence does not include counterexamples, the orchestrator
+      must not remove or overwrite any pre-existing counterexamples already stored
+      on the target candidate/shadow capability.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: Evidence ingestion rejects a payload with a spoofed or nonexistent capability
+      ID before any capability association logic runs, emits a distinct invalid-evidence
+      diagnostic code for spoofed_capability_id, and leaves capability state and ledger
+      contents unchanged.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: Evidence ingestion rejects a payload with an unstable fingerprint, emits
+      a distinct invalid-evidence diagnostic code for unstable_fingerprint, and performs
+      no capability-state or ledger mutation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Evidence ingestion rejects a payload containing an oversized ref value
+      beyond the configured schema limit, emits a distinct invalid-evidence diagnostic
+      code for oversized_ref, and performs no capability-state or ledger mutation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: Evidence ingestion rejects a payload missing required provenance fields,
+      emits a distinct invalid-evidence diagnostic code for missing_provenance, and
+      performs no capability-state or ledger mutation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: Malformed evidence that fails orchestrator schema validation is rejected
+      before any activation, dispatch, promotion, or capability-linking function is
+      invoked.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: Runner output schemas and normalization logic accept payloads where all
+      newly introduced evidence fields are absent, and those payloads continue to
+      validate under the legacy-compatible path without requiring default values for
+      the new fields.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: A payload produced by reusable-codex-run.yml includes the same optional
+      evidence output field names and output wiring as the other standardized runner
+      workflows.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: Sensitive evidence fields configured for redaction are masked in orchestrator
+      logs and GitHub Actions summaries, and the raw unredacted values do not appear
+      in emitted log lines or summary output.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: _(2 further criteria elided; split this issue)_
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: Extend the orchestrator completion-event adapter to parse the new evidence
+      fields from runner completion payloads and attach them to an existing candidate/shadow
+      capability instead of creating or promoting capabilities from raw prompt text.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: Implement duplicate-evidence detection in the orchestrator by deriving
+      or reusing a stable evidence identity key and short-circuiting processing when
+      the same evidence has already been recorded.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: Add orchestrator handling to persist and carry forward counterexamples
+      when accepted evidence is linked to a candidate/shadow capability.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Add schema and content validation in the orchestrator evidence ingestion
+      path that rejects raw prompts, generic runner prose, and malformed evidence
+      before any activation, dispatch, or promotion logic runs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: Add explicit rejection paths for invalid evidence cases, including spoofed
+      capability IDs, unstable fingerprints, oversized refs, and missing provenance,
+      and emit distinct diagnostics without mutating capability state.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: Update runner output schemas and normalization logic so new evidence fields
+      remain optional and existing consumers continue to validate successfully when
+      those fields are absent.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: Add log redaction for sensitive evidence fields before writing GitHub Actions
+      summaries or orchestrator logs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: Add end-to-end integration tests covering runner completion payload ingestion
+      through orchestrator processing, including accepted evidence linkage, duplicate
+      replay idempotency, counterexample preservation, and invalid-evidence rejection
+      diagnostics.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: Add deliberate-break test fixtures for spoofed capability IDs, unstable
+      fingerprints, oversized refs, missing provenance, raw prompt evidence, and duplicate
+      evidence replay.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: Standardize evidence output wiring in reusable-codex-run.yml to match the
+      other runner workflows and pass the same optional evidence fields through to
+      downstream consumers.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: Given a runner completion payload containing structured evidence fields
+      for an existing candidate capability ID, the orchestrator completion-event adapter
+      attaches the evidence to that existing candidate capability and does not create
+      any new capability record.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: Given a runner completion payload containing structured evidence fields
+      for an existing shadow capability ID, the orchestrator completion-event adapter
+      attaches the evidence to that existing shadow capability and does not promote
+      the shadow capability to active solely because the evidence payload was processed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: When a completion payload contains only raw prompt text or generic runner
+      prose and no valid structured evidence object, the orchestrator rejects the
+      payload for capability evidence processing and performs no capability creation,
+      activation, dispatch, or promotion.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: When the same accepted evidence payload is submitted twice with the same
+      stable evidence identity key, the first submission records exactly one evidence
+      association and the second submission produces no additional capability-state
+      mutation and no additional ledger entry for that evidence.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: The orchestrator derives the same evidence identity key for semantically
+      identical replayed evidence payloads that differ only in transport-level envelope
+      fields not used for evidence identity.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: If accepted evidence includes one or more counterexamples, the orchestrator
+      persists those counterexamples on the linked candidate/shadow capability and
+      includes them in the serialized ledger/event record for that evidence-processing
+      operation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: If accepted evidence does not include counterexamples, the orchestrator
+      must not remove or overwrite any pre-existing counterexamples already stored
+      on the target candidate/shadow capability.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: Evidence ingestion rejects a payload with a spoofed or nonexistent capability
+      ID before any capability association logic runs, emits a distinct invalid-evidence
+      diagnostic code for spoofed_capability_id, and leaves capability state and ledger
+      contents unchanged.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: Evidence ingestion rejects a payload with an unstable fingerprint, emits
+      a distinct invalid-evidence diagnostic code for unstable_fingerprint, and performs
+      no capability-state or ledger mutation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: Evidence ingestion rejects a payload containing an oversized ref value
+      beyond the configured schema limit, emits a distinct invalid-evidence diagnostic
+      code for oversized_ref, and performs no capability-state or ledger mutation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: Evidence ingestion rejects a payload missing required provenance fields,
+      emits a distinct invalid-evidence diagnostic code for missing_provenance, and
+      performs no capability-state or ledger mutation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: Malformed evidence that fails orchestrator schema validation is rejected
+      before any activation, dispatch, promotion, or capability-linking function is
+      invoked.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: Runner output schemas and normalization logic accept payloads where all
+      newly introduced evidence fields are absent, and those payloads continue to
+      validate under the legacy-compatible path without requiring default values for
+      the new fields.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: A payload produced by reusable-codex-run.yml includes the same optional
+      evidence output field names and output wiring as the other standardized runner
+      workflows.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: Sensitive evidence fields configured for redaction are masked in orchestrator
+      logs and GitHub Actions summaries, and the raw unredacted values do not appear
+      in emitted log lines or summary output.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: 'The end-to-end integration suite contains executable coverage for all
+      of the following scenarios: valid evidence linkage to an existing candidate
+      capability, valid evidence linkage to an existing shadow capability, duplicate
+      replay idempotency, counterexample preservation, raw-prompt rejection, spoofed
+      capability ID rejection, unstable fingerprint rejection, oversized ref rejection,
+      and missing provenance rejection.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: The deliberate-break fixture set includes dedicated fixtures for spoofed
+      capability IDs, unstable fingerprints, oversized refs, missing provenance, raw
+      prompt evidence, and duplicate evidence replay, and each fixture is referenced
+      by at least one orchestrator validator or integration test.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: Standardize evidence output wiring in reusable-codex-run.yml to match the
+      other runner workflows and pass the same optional evidence fields through to
+      downstream consumers. (Agent cannot modify .github/workflows/*.yml files (protected
+      per AGENT_LIMITATIONS). | Mark this task with MANUAL_REQUIRED label and document
+      the required changes in implementation notes for human review and manual application.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
