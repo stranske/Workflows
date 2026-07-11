@@ -60,7 +60,10 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml
       - name: Validate manifest schema
-        run: python scripts/sync_manifest_compiler.py --validate .github/sync-manifest.yml
+        run: >-
+          python scripts/sync_manifest_compiler.py
+          --manifest .github/sync-manifest.yml
+          --output-json /tmp/consumer-sync-plan.json
       - name: Validate manifest
         id: validate
         run: |

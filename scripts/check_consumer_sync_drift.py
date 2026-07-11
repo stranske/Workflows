@@ -19,6 +19,7 @@ try:
         ManifestCompileError,
         ManifestEntry,
         compile_manifest,
+        resolve_source_path,
     )
 except ImportError:
     from scripts.sync_manifest_compiler import (  # type: ignore[no-redef]
@@ -27,6 +28,7 @@ except ImportError:
         ManifestCompileError,
         ManifestEntry,
         compile_manifest,
+        resolve_source_path,
     )
 
 REPORT_SCHEMA = "workflows-consumer-sync-drift/v1"
@@ -87,35 +89,9 @@ def resolve_repos(raw: str | None) -> list[str]:
     return repos
 
 
-ROOT_SOURCE_SECTIONS = {"scripts", "templates"}
-TEMPLATE_SOURCE_SECTIONS = {
-    "workflows",
-    "prompts",
-    "codex_config",
-    "copilot_config",
-    "docs",
-    "actions",
-    "llm_config",
-    "git_config",
-    "issue_templates",
-    "user_docs",
-}
-
-
 def local_path_for(source: str, section: str | None = None) -> Path | None:
-    root_candidate = Path(source)
-    template_candidate = Path("templates/consumer-repo") / source
-    if section in ROOT_SOURCE_SECTIONS:
-        candidates = [root_candidate, template_candidate]
-    elif section in TEMPLATE_SOURCE_SECTIONS:
-        candidates = [template_candidate, root_candidate]
-    else:
-        candidates = [template_candidate, root_candidate]
-
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return None
+    """Compatibility wrapper around the compiler's canonical resolver."""
+    return resolve_source_path(source, section or "", repo_root=Path("."))
 
 
 def git_blob_hash(content: bytes) -> str:
@@ -228,7 +204,7 @@ def probe_targets(compiled: CompiledManifest, sections: list[str]) -> list[str]:
         for entry in compiled.section(section):
             if entry.sync_mode == "create_only":
                 continue
-            local_path = local_path_for(entry.source, section)
+            local_path = Path(entry.resolved_source)
             if not local_path:
                 continue
             if entry.is_directory or local_path.is_dir():
@@ -833,7 +809,7 @@ def main() -> int:
 
     for section in sections:
         for entry in compiled.section(section):
-            local_path = local_path_for(entry.source, section)
+            local_path = Path(entry.resolved_source)
             if not local_path:
                 errors.add(f"{section}: missing local file for {entry.source}")
                 continue

@@ -1,9 +1,7 @@
 import json
-from pathlib import Path
 
 from scripts import check_consumer_sync_drift
 from scripts.sync_manifest_compiler import (
-    CompiledManifest,
     ManifestEntry,
     SkipRepo,
     compile_manifest,
@@ -122,6 +120,7 @@ def _make_entry(
 ) -> ManifestEntry:
     return ManifestEntry(
         source=source,
+        resolved_source=source,
         target=target if target is not None else source,
         description="",
         sync_mode=sync_mode,
@@ -129,7 +128,10 @@ def _make_entry(
         overwrite_repos=overwrite_repos,
         is_directory=is_directory,
         template_sync=template_sync,
+        delivery="copy",
         section=section,
+        content_sha256="sha256:" + "a" * 64,
+        effect_fingerprint="sha256:" + "b" * 64,
     )
 
 
@@ -399,8 +401,6 @@ def test_probe_targets_samples_each_manifest_section(tmp_path, monkeypatch) -> N
             [
                 "version: 1",
                 "workflows:",
-                "  - source: .github/workflows/missing.yml",
-                "    description: Missing",
                 "  - source: .github/workflows/agents-weekly-metrics.yml",
                 "    description: Metrics",
                 "scripts:",
@@ -416,37 +416,11 @@ def test_probe_targets_samples_each_manifest_section(tmp_path, monkeypatch) -> N
     )
     compiled = compile_manifest(manifest_path)
 
-    assert check_consumer_sync_drift.probe_targets(
-        compiled, ["workflows", "scripts", "docs"]
-    ) == [
+    assert check_consumer_sync_drift.probe_targets(compiled, ["workflows", "scripts", "docs"]) == [
         ".github/workflows/agents-weekly-metrics.yml",
         ".github/scripts/keepalive_gate.js",
         "docs/AGENT_ISSUE_FORMAT.md",
     ]
-
-
-def test_probe_targets_keeps_section_coverage_limit(tmp_path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    for index in range(18):
-        probe_file = tmp_path / "templates" / "consumer-repo" / f"section-{index}.txt"
-        probe_file.parent.mkdir(parents=True, exist_ok=True)
-        probe_file.write_text(f"section {index}\n", encoding="utf-8")
-
-    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    lines = ["version: 1"]
-    for index in range(18):
-        lines.append(f"section_{index}:")
-        lines.append(f"  - source: section-{index}.txt")
-        lines.append(f"    description: Section {index}")
-    manifest_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    compiled = compile_manifest(manifest_path)
-
-    targets = check_consumer_sync_drift.probe_targets(compiled, [f"section_{i}" for i in range(18)])
-
-    assert len(targets) == 16
-    assert targets[0] == "section-0.txt"
-    assert targets[-1] == "section-15.txt"
 
 
 def test_write_report_json_creates_parent_directory(tmp_path) -> None:

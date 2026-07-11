@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stranske/Workflows/docs/contracts/schemas/consumer-sync-plan-v1.schema.json",
+  "title": "Workflows Consumer Sync Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "plan_id",
+    "manifest_sha256",
+    "entries",
+    "removals"
+  ],
+  "properties": {
+    "schema": {"const": "workflows.consumer-sync-plan/v1"},
+    "version": {"const": 1},
+    "plan_id": {"$ref": "#/$defs/sha256"},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "entries": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/copyEntry"}
+    },
+    "removals": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/removalEntry"}
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "safePath": {
+      "type": "string",
+      "minLength": 1,
+      "not": {"pattern": "(^/|(^|/)\\.\\.(/|$)|^\\./|//)"}
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "copyEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "section",
+        "source",
+        "resolved_source",
+        "target",
+        "description",
+        "sync_mode",
+        "is_directory",
+        "skip_repos",
+        "skip_reasons",
+        "overwrite_repos",
+        "template_sync",
+        "delivery",
+        "content_sha256",
+        "effect_fingerprint"
+      ],
+      "properties": {
+        "section": {"type": "string", "minLength": 1},
+        "source": {"$ref": "#/$defs/safePath"},
+        "resolved_source": {"$ref": "#/$defs/safePath"},
+        "target": {"$ref": "#/$defs/safePath"},
+        "description": {"type": "string", "minLength": 1},
+        "sync_mode": {
+          "oneOf": [{"const": "create_only"}, {"type": "null"}]
+        },
+        "is_directory": {"type": "boolean"},
+        "skip_repos": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/repository"}
+        },
+        "skip_reasons": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "overwrite_repos": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/repository"}
+        },
+        "template_sync": {
+          "oneOf": [{"const": "exact"}, {"type": "null"}]
+        },
+        "delivery": {"const": "copy"},
+        "content_sha256": {"$ref": "#/$defs/sha256"},
+        "effect_fingerprint": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "removalEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "description", "effect_fingerprint"],
+      "properties": {
+        "target": {"$ref": "#/$defs/safePath"},
+        "description": {"type": "string", "minLength": 1},
+        "effect_fingerprint": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

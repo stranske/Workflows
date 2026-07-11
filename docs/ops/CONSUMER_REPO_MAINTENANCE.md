@@ -45,11 +45,9 @@ For these repos:
   repository-scoped package rule, not patched directly in the consumer repo.
 - Other files listed in the sync manifest continue to sync normally.
 
-Maint 68 currently implements this by keeping an internal `custom_gate_repos` list in
-its sync script and skipping any manifest entry whose `source` contains
-`pr-00-gate` for those repos, plus a repo-specific `AGENTS.md` skip for
-`Trend_Model_Project` and manifest-level package/dependency skips for
-`trip-planner`.
+Maint 68 implements these exceptions through each entry's typed manifest
+`skip_repos` rules. There is no separate hard-coded custom-Gate list in the
+sync script.
 
 ---
 
@@ -187,29 +185,41 @@ Maint 68 is manifest-driven:
 
 `.github/sync-manifest.yml` is parsed by a **typed, deterministic compiler**
 (`scripts/sync_manifest_compiler.py`) before any consumer mutation can happen.
-The compiler validates every entry and raises `ManifestCompileError` on the first
-bad batch so that invalid entries never reach the sync or drift-check loops.
+The compiler resolves source ownership once, validates every entry, and raises
+one aggregated `ManifestCompileError` before sync fan-out so invalid entries
+never reach the sync or drift-check loops. It emits the deterministic
+`workflows.consumer-sync-plan/v1` JSON consumed by sync, drift, validation, and
+template hashing. Its machine-readable schema is
+[`consumer-sync-plan-v1.schema.json`](../contracts/schemas/consumer-sync-plan-v1.schema.json).
 
 Validated fields for each sync entry:
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `source` | str, required | Must be non-empty |
-| `target` | str, optional | Defaults to `source` |
-| `description` | str, optional | Recommended for docs |
+| `source` | safe relative path, required | Resolved once using section ownership policy |
+| `target` | safe relative path, optional | Defaults to `source`; effective targets must be unique |
+| `description` | str, required | Included in the plan for operator summaries |
 | `sync_mode` | `"create_only"` or absent | `None` = always overwrite |
 | `skip_repos` | list of str or `{repo, reason}` dicts | Repo-specific exclusions |
 | `overwrite_repos` | list of str | Repos that ignore `create_only` |
 | `is_directory` | bool, optional | Defaults to `False` |
 | `template_sync` | `"exact"` or absent | Controls template validator |
+| `delivery` | `"copy"` or absent | Runtime-fetched files belong under `runtime_fetched`, not a copy section |
 
-Non-copy sections (`excluded:`, `removals:`, `runtime_fetched:`) use their own
-schemas and are not validated as sync entries.
+Removal targets are typed separately and cannot collide with a copy target.
+`excluded:` and `runtime_fetched:` remain metadata-only sections.
+
+Each normalized copy record adds `resolved_source`, `content_sha256`, and a
+stable `effect_fingerprint`; the plan adds `manifest_sha256` and `plan_id`.
+Directory content hashes are computed from a sorted relative-path/content
+inventory, so identical inputs produce byte-identical JSON.
 
 To validate the manifest locally:
 
 ```bash
-python scripts/sync_manifest_compiler.py --validate .github/sync-manifest.yml
+python scripts/sync_manifest_compiler.py \
+  --manifest .github/sync-manifest.yml \
+  --output-json /tmp/consumer-sync-plan.json
 ```
 
 This is also run automatically as the first step of both `maint-68-sync-consumer-repos.yml`

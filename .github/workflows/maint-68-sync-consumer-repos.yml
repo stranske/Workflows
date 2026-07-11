@@ -71,8 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       repos: ${{ steps.repos.outputs.matrix }}
-      template_hash: ${{ steps.hash.outputs.hash }}
-      manifest_json: ${{ steps.manifest.outputs.json }}
+      template_hash: ${{ steps.manifest.outputs.template_hash }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -93,70 +92,13 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml
 
-      - name: Validate manifest schema
-        run: python scripts/sync_manifest_compiler.py --validate .github/sync-manifest.yml
-
-      - name: Load and validate manifest
+      - name: Compile typed consumer sync plan
         id: manifest
         run: |
-          python3 << 'MANIFEST_SCRIPT'
-          import yaml
-          import json
-          import os
-          import sys
-
-          manifest_path = '.github/sync-manifest.yml'
-          if not os.path.exists(manifest_path):
-              print("::error::sync-manifest.yml not found!")
-              sys.exit(1)
-
-          with open(manifest_path) as f:
-              manifest = yaml.safe_load(f)
-
-          # Validate required sections exist
-          required_sections = ['workflows', 'prompts', 'scripts', 'actions']
-          for section in required_sections:
-              if section not in manifest:
-                  print(f"::warning::Manifest missing '{section}' section")
-                  manifest[section] = []
-
-          # Convert to JSON for workflow consumption
-          manifest_json = json.dumps(manifest, separators=(',', ':'))
-
-          # GitHub has output size limits, so we'll write to file too
-          with open('manifest.json', 'w') as f:
-              json.dump(manifest, f)
-
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f"json={manifest_json}\n")
-
-          print(f"Loaded manifest with:")
-          print(f"  - {len(manifest.get('workflows', []))} workflows")
-          print(f"  - {len(manifest.get('prompts', []))} prompts")
-          print(f"  - {len(manifest.get('scripts', []))} scripts")
-          print(f"  - {len(manifest.get('codex_config', []))} codex configs")
-          print(f"  - {len(manifest.get('actions', []))} actions")
-          print(f"  - {len(manifest.get('docs', []))} docs")
-          print(f"  - {len(manifest.get('llm_config', []))} llm configs")
-          print(f"  - {len(manifest.get('git_config', []))} git configs")
-          print(f"  - {len(manifest.get('issue_templates', []))} issue templates")
-          print(f"  - {len(manifest.get('user_docs', []))} user docs")
-          MANIFEST_SCRIPT
-
-      - name: Compute template hash
-        id: hash
-        run: |
-          # Hash includes all directories that contain synced files
-          hash=$({
-            find templates/consumer-repo -type f -exec sha256sum {} \;
-            find tools -name "*.py" -type f -exec sha256sum {} \; 2>/dev/null || true
-            find scripts -name "*.py" -type f -exec sha256sum {} \; 2>/dev/null || true
-            find scripts -name "*.sh" -type f -exec sha256sum {} \; 2>/dev/null || true
-            find .github/scripts -type f -exec sha256sum {} \;
-            sha256sum .github/sync-manifest.yml
-          } | sort | sha256sum | cut -d' ' -f1)
-          echo "hash=${hash:0:12}" >> "$GITHUB_OUTPUT"
-          echo "Template hash: ${hash:0:12}"
+          python scripts/sync_manifest_compiler.py \
+            --manifest .github/sync-manifest.yml \
+            --output-json manifest.json \
+            --github-output "$GITHUB_OUTPUT"
 
       - name: Build repo matrix
         id: repos
@@ -217,8 +159,10 @@ jobs:
           import json
           with open('manifest.json') as f:
               m = json.load(f)
-          for s in m.get('scripts', []):
-              src = s.get('source', '')
+          for s in m.get('entries', []):
+              if s.get('section') != 'scripts':
+                  continue
+              src = s.get('resolved_source', '')
               if src.endswith('.py'):
                   print(src)
           ")
@@ -250,17 +194,18 @@ jobs:
           import json
           with open('manifest.json') as f:
               m = json.load(f)
-          for w in m.get('workflows', []):
-              src = w.get('source', '')
+          for w in m.get('entries', []):
+              if w.get('section') != 'workflows':
+                  continue
+              src = w.get('resolved_source', '')
               if src.endswith('.yml') or src.endswith('.yaml'):
                   print(src)
           ")
 
           for workflow in $workflows; do
-            template_path="templates/consumer-repo/$workflow"
-            if [ -f "$template_path" ]; then
-              echo "Validating $template_path..."
-              python3 -c "import yaml; yaml.safe_load(open('$template_path'))"
+            if [ -f "$workflow" ]; then
+              echo "Validating $workflow..."
+              python3 -c "import yaml; yaml.safe_load(open('$workflow'))"
             fi
           done
           echo "✓ All workflow YAML is valid"
@@ -328,62 +273,36 @@ jobs:
           with open('manifest.json') as f:
               manifest = json.load(f)
 
+          if manifest.get('schema') != 'workflows.consumer-sync-plan/v1':
+              raise ValueError('unsupported consumer sync plan schema')
+          entries = manifest.get('entries')
+          removals = manifest.get('removals')
+          if not isinstance(entries, list) or not isinstance(removals, list):
+              raise ValueError('consumer sync plan entries/removals must be arrays')
+
           # Write the complete list of manifest-declared sync targets so the PR
           # creation step can stage ONLY intended files.
           #
           # This prevents sync PRs from accidentally including consumer repo
           # artifacts (e.g., requirements.lock, *.pyc, *.egg-info) that may be
           # tracked in some repos or generated by CI/autofix.
-          targets = set()
-
-          def add_target(path: str) -> None:
-              if not path:
-                  return
-              targets.add(path)
-
-          for item in manifest.get('workflows', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('prompts', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('scripts', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('codex_config', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('copilot_config', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('templates', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('actions', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('docs', []):
-              add_target(item.get('target', item.get('source', '')))
-
-          for item in manifest.get('llm_config', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('git_config', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('issue_templates', []):
-              add_target(item.get('source', ''))
-
-          for item in manifest.get('user_docs', []):
-              add_target(item.get('target', item.get('source', '')))
-
-          for item in manifest.get('removals', []) or []:
-              add_target(item.get('target', ''))
+          targets = {
+              item['target']
+              for item in [*entries, *removals]
+              if item.get('target')
+          }
 
           Path('sync_targets.txt').write_text(
               ''.join(f"{path}\n" for path in sorted(targets) if path),
               encoding='utf-8',
           )
+
+          # Preserve the established section-specific copy behavior while making
+          # the compiler's normalized plan the only source of path resolution.
+          by_section = {}
+          for entry in entries:
+              by_section.setdefault(entry['section'], []).append(entry)
+          manifest = {**by_section, 'removals': removals}
 
           current_repo = os.environ.get('CURRENT_REPO', '')
           dry_run = os.environ.get('DRY_RUN', 'false') == 'true'
@@ -394,16 +313,9 @@ jobs:
 
           def manifest_skip_reason(item, repo):
               """Return the manifest-declared skip reason for this repo, if any."""
-              for rule in item.get('skip_repos', []) or []:
-                  if isinstance(rule, str):
-                      if rule == repo:
-                          return 'Manifest skip for repo'
-                      continue
-                  if not isinstance(rule, dict):
-                      continue
-                  if str(rule.get('repo', '')).strip() != repo:
-                      continue
-                  return str(rule.get('reason', '')).strip() or 'Manifest skip for repo'
+              if repo in (item.get('skip_repos') or []):
+                  reasons = item.get('skip_reasons') or {}
+                  return str(reasons.get(repo) or 'Manifest skip for repo')
               return ''
 
           def repo_overwrites_create_only(item, repo):
@@ -518,8 +430,8 @@ jobs:
               sync_mode = item.get('sync_mode', 'sync')
 
               # Build paths
-              template_src = Path('workflows/templates/consumer-repo') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
 
               # Skip conditions
               def skip_create_only():
@@ -542,8 +454,8 @@ jobs:
           for item in manifest.get('prompts', []):
               source = item.get('source', '')
               description = item.get('description', 'No description')
-              template_src = Path('workflows/templates/consumer-repo') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
               sync_file(template_src, consumer_dst, description, item=item)
 
           # Process scripts
@@ -553,8 +465,8 @@ jobs:
               description = item.get('description', 'No description')
               is_directory = item.get('is_directory', False)
               # Scripts come from .github/scripts/, not templates
-              template_src = Path('workflows') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
               if is_directory:
                   sync_directory(template_src, consumer_dst, description, item)
               else:
@@ -565,8 +477,8 @@ jobs:
           for item in manifest.get('codex_config', []):
               source = item.get('source', '')
               description = item.get('description', 'No description')
-              template_src = Path('workflows/templates/consumer-repo') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
               sync_file(template_src, consumer_dst, description, item=item)
 
           # Process copilot_config
@@ -575,8 +487,8 @@ jobs:
               source = item.get('source', '')
               description = item.get('description', 'No description')
               is_directory = item.get('is_directory', False)
-              template_src = Path('workflows/templates/consumer-repo') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
 
               if is_directory:
                   sync_directory(template_src, consumer_dst, description, item)
@@ -589,8 +501,8 @@ jobs:
               source = item.get('source', '')
               description = item.get('description', 'No description')
               # Templates come from .github/templates/, same as scripts pattern
-              template_src = Path('workflows') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
               sync_file(template_src, consumer_dst, description, item=item)
 
           # Process actions
@@ -599,8 +511,8 @@ jobs:
               source = item.get('source', '')
               description = item.get('description', 'No description')
               is_directory = item.get('is_directory', False)
-              template_src = Path('workflows/templates/consumer-repo') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
 
               if is_directory:
                   sync_directory(template_src, consumer_dst, description, item)
@@ -613,7 +525,7 @@ jobs:
               source = item.get('source', '')
               target = item.get('target', source)
               description = item.get('description', 'No description')
-              template_src = Path('workflows/templates/consumer-repo') / source
+              template_src = Path('workflows') / item['resolved_source']
               consumer_dst = Path('consumer') / target
               sync_file(template_src, consumer_dst, description, item=item)
 
@@ -623,11 +535,14 @@ jobs:
               source = item.get('source', '')
               description = item.get('description', 'No description')
               sync_mode = item.get('sync_mode', 'sync')
-              template_src = Path('workflows/templates/consumer-repo') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
               skip_fn = None
               if sync_mode == 'create_only':
-                  skip_fn = lambda: consumer_dst.exists()
+                  skip_fn = lambda: (
+                      consumer_dst.exists()
+                      and not repo_overwrites_create_only(item, current_repo)
+                  )
               sync_file(template_src, consumer_dst, description, skip_fn, item)
 
           # Process git_config
@@ -635,8 +550,8 @@ jobs:
           for item in manifest.get('git_config', []):
               source = item.get('source', '')
               description = item.get('description', 'No description')
-              template_src = Path('workflows/templates/consumer-repo') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
               sync_file(template_src, consumer_dst, description, item=item)
 
           # Process issue_templates
@@ -644,8 +559,8 @@ jobs:
           for item in manifest.get('issue_templates', []):
               source = item.get('source', '')
               description = item.get('description', 'No description')
-              template_src = Path('workflows/templates/consumer-repo') / source
-              consumer_dst = Path('consumer') / source
+              template_src = Path('workflows') / item['resolved_source']
+              consumer_dst = Path('consumer') / item['target']
               sync_file(template_src, consumer_dst, description, item=item)
 
           # Process user_docs
@@ -654,7 +569,7 @@ jobs:
               source = item.get('source', '')
               target = item.get('target', source)
               description = item.get('description', 'No description')
-              template_src = Path('workflows/templates/consumer-repo') / source
+              template_src = Path('workflows') / item['resolved_source']
               consumer_dst = Path('consumer') / target
               sync_file(template_src, consumer_dst, description, item=item)
 
