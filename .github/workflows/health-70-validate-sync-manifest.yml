@@ -59,6 +59,8 @@ jobs:
           python-version: '3.14'
       - name: Install dependencies
         run: pip install pyyaml
+      - name: Validate manifest schema
+        run: python scripts/sync_manifest_compiler.py --validate .github/sync-manifest.yml
       - name: Validate manifest
         id: validate
         run: |

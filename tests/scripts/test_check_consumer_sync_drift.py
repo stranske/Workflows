@@ -1,6 +1,13 @@
 import json
+from pathlib import Path
 
 from scripts import check_consumer_sync_drift
+from scripts.sync_manifest_compiler import (
+    CompiledManifest,
+    ManifestEntry,
+    SkipRepo,
+    compile_manifest,
+)
 
 
 def test_comparable_lines_ignores_leading_comment_and_blank_headers() -> None:
@@ -103,16 +110,34 @@ def test_token_candidates_deduplicates_without_exposing_values() -> None:
     ]
 
 
+def _make_entry(
+    source: str = "AGENTS.md",
+    target: str | None = None,
+    sync_mode: str | None = None,
+    skip_repos: tuple = (),
+    overwrite_repos: tuple = (),
+    is_directory: bool = False,
+    template_sync: str | None = None,
+    section: str = "workflows",
+) -> ManifestEntry:
+    return ManifestEntry(
+        source=source,
+        target=target if target is not None else source,
+        description="",
+        sync_mode=sync_mode,
+        skip_repos=skip_repos,
+        overwrite_repos=overwrite_repos,
+        is_directory=is_directory,
+        template_sync=template_sync,
+        section=section,
+    )
+
+
 def test_manifest_skip_reason_supports_repo_specific_policy() -> None:
-    entry = {
-        "source": "AGENTS.md",
-        "skip_repos": [
-            {
-                "repo": "owner/custom",
-                "reason": "Uses historical Agents.md casing",
-            }
-        ],
-    }
+    entry = _make_entry(
+        source="AGENTS.md",
+        skip_repos=(SkipRepo(repo="owner/custom", reason="Uses historical Agents.md casing"),),
+    )
 
     assert (
         check_consumer_sync_drift.manifest_skip_reason(entry, "owner/custom")
@@ -121,23 +146,22 @@ def test_manifest_skip_reason_supports_repo_specific_policy() -> None:
     assert check_consumer_sync_drift.manifest_skip_reason(entry, "owner/standard") == ""
 
 
+def test_manifest_skip_reason_uses_default_for_empty_reason() -> None:
+    entry = _make_entry(
+        source="AGENTS.md",
+        skip_repos=(SkipRepo(repo="owner/custom", reason=""),),
+    )
+    assert (
+        check_consumer_sync_drift.manifest_skip_reason(entry, "owner/custom")
+        == "Manifest skip for repo"
+    )
+
+
 def test_repo_overwrites_create_only_supports_template_override() -> None:
-    entry = {
-        "sync_mode": "create_only",
-        "overwrite_repos": ["stranske/Template"],
-    }
+    entry = _make_entry(sync_mode="create_only", overwrite_repos=("stranske/Template",))
 
     assert check_consumer_sync_drift.repo_overwrites_create_only(entry, "stranske/Template")
     assert not check_consumer_sync_drift.repo_overwrites_create_only(entry, "stranske/Counter_Risk")
-
-
-def test_repo_overwrites_create_only_fails_closed_for_malformed_value() -> None:
-    entry = {
-        "sync_mode": "create_only",
-        "overwrite_repos": "stranske/Template",
-    }
-
-    assert not check_consumer_sync_drift.repo_overwrites_create_only(entry, "stranske/Template")
 
 
 def test_build_report_surfaces_manifest_skips_without_failing() -> None:
@@ -368,16 +392,33 @@ def test_probe_targets_samples_each_manifest_section(tmp_path, monkeypatch) -> N
     script.write_text("script\n", encoding="utf-8")
     docs.write_text("docs\n", encoding="utf-8")
 
-    manifest = {
-        "workflows": [
-            {"source": ".github/workflows/missing.yml"},
-            {"source": ".github/workflows/agents-weekly-metrics.yml"},
-        ],
-        "scripts": [{"source": ".github/scripts/keepalive_gate.js"}],
-        "docs": [{"source": "docs/AGENT_ISSUE_FORMAT.md"}],
-    }
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "version: 1",
+                "workflows:",
+                "  - source: .github/workflows/missing.yml",
+                "    description: Missing",
+                "  - source: .github/workflows/agents-weekly-metrics.yml",
+                "    description: Metrics",
+                "scripts:",
+                "  - source: .github/scripts/keepalive_gate.js",
+                "    description: Gate",
+                "docs:",
+                "  - source: docs/AGENT_ISSUE_FORMAT.md",
+                "    description: Format",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    compiled = compile_manifest(manifest_path)
 
-    assert check_consumer_sync_drift.probe_targets(manifest, ["workflows", "scripts", "docs"]) == [
+    assert check_consumer_sync_drift.probe_targets(
+        compiled, ["workflows", "scripts", "docs"]
+    ) == [
         ".github/workflows/agents-weekly-metrics.yml",
         ".github/scripts/keepalive_gate.js",
         "docs/AGENT_ISSUE_FORMAT.md",
@@ -391,9 +432,17 @@ def test_probe_targets_keeps_section_coverage_limit(tmp_path, monkeypatch) -> No
         probe_file.parent.mkdir(parents=True, exist_ok=True)
         probe_file.write_text(f"section {index}\n", encoding="utf-8")
 
-    manifest = {f"section_{index}": [{"source": f"section-{index}.txt"}] for index in range(18)}
+    manifest_path = tmp_path / ".github" / "sync-manifest.yml"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["version: 1"]
+    for index in range(18):
+        lines.append(f"section_{index}:")
+        lines.append(f"  - source: section-{index}.txt")
+        lines.append(f"    description: Section {index}")
+    manifest_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    compiled = compile_manifest(manifest_path)
 
-    targets = check_consumer_sync_drift.probe_targets(manifest, list(manifest))
+    targets = check_consumer_sync_drift.probe_targets(compiled, [f"section_{i}" for i in range(18)])
 
     assert len(targets) == 16
     assert targets[0] == "section-0.txt"

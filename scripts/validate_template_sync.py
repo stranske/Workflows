@@ -7,11 +7,15 @@ into templates/consumer-repo/ without updating the matching template files,
 which causes sync PRs to consumer repos to miss the source change.
 """
 
-import hashlib
 import sys
 from pathlib import Path
 
-import yaml
+# Ensure the scripts package is importable when run as a subprocess from any cwd.
+sys.path.insert(0, str(Path(__file__).parent))
+
+import hashlib
+
+from sync_manifest_compiler import CompiledManifest, ManifestCompileError, compile_manifest
 
 
 def hash_file(path: Path) -> str:
@@ -30,15 +34,14 @@ def hash_directory(path: Path) -> str:
     return h.hexdigest()
 
 
-def _manifest_template_sync_sources(manifest: dict) -> list[str]:
+def _manifest_template_sync_sources(compiled: CompiledManifest) -> list[str]:
     sources: list[str] = []
-    for entry in manifest.get("scripts", []) or []:
-        source = entry.get("source", "")
-        if source.startswith(".github/scripts/"):
-            sources.append(source)
+    for entry in compiled.section("scripts"):
+        if entry.source.startswith(".github/scripts/"):
+            sources.append(entry.source)
             continue
-        if entry.get("template_sync") == "exact":
-            sources.append(source)
+        if entry.template_sync == "exact":
+            sources.append(entry.source)
     return sorted(set(sources))
 
 
@@ -65,8 +68,13 @@ def main() -> int:
         print(f"❌ sync-manifest.yml not found: {manifest_path}")
         return 1
 
-    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-    manifest_sources = _manifest_template_sync_sources(manifest)
+    try:
+        compiled = compile_manifest(manifest_path)
+    except ManifestCompileError as exc:
+        print(f"❌ Manifest is invalid:\n{exc}")
+        return 1
+
+    manifest_sources = _manifest_template_sync_sources(compiled)
 
     mismatches = []
     for source in manifest_sources:

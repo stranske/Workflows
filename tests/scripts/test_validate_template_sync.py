@@ -13,10 +13,11 @@ def create_test_structure(tmp_path: Path) -> tuple[Path, Path]:
     source.mkdir(parents=True)
     template.mkdir(parents=True)
 
-    # Copy validator script to tmp_path so it can find paths relative to cwd
+    # Copy validator and its dependency so they are importable when run from tmp_path
     script_dir = tmp_path / "scripts"
     script_dir.mkdir(parents=True)
     shutil.copy("scripts/validate_template_sync.py", script_dir / "validate_template_sync.py")
+    shutil.copy("scripts/sync_manifest_compiler.py", script_dir / "sync_manifest_compiler.py")
 
     return source, template
 

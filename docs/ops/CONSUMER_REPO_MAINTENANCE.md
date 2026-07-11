@@ -183,6 +183,39 @@ Maint 68 is manifest-driven:
   repository-level directories like `.github/scripts/` (for shared scripts).
 - **Which repos** receive updates are listed in `REGISTERED_CONSUMER_REPOS`.
 
+#### Manifest Schema and Compiler
+
+`.github/sync-manifest.yml` is parsed by a **typed, deterministic compiler**
+(`scripts/sync_manifest_compiler.py`) before any consumer mutation can happen.
+The compiler validates every entry and raises `ManifestCompileError` on the first
+bad batch so that invalid entries never reach the sync or drift-check loops.
+
+Validated fields for each sync entry:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `source` | str, required | Must be non-empty |
+| `target` | str, optional | Defaults to `source` |
+| `description` | str, optional | Recommended for docs |
+| `sync_mode` | `"create_only"` or absent | `None` = always overwrite |
+| `skip_repos` | list of str or `{repo, reason}` dicts | Repo-specific exclusions |
+| `overwrite_repos` | list of str | Repos that ignore `create_only` |
+| `is_directory` | bool, optional | Defaults to `False` |
+| `template_sync` | `"exact"` or absent | Controls template validator |
+
+Non-copy sections (`excluded:`, `removals:`, `runtime_fetched:`) use their own
+schemas and are not validated as sync entries.
+
+To validate the manifest locally:
+
+```bash
+python scripts/sync_manifest_compiler.py --validate .github/sync-manifest.yml
+```
+
+This is also run automatically as the first step of both `maint-68-sync-consumer-repos.yml`
+(before any PR creation) and `health-70-validate-sync-manifest.yml` (on every PR
+that touches the manifest).
+
 Custom Gate repos are a special-case skip: their `pr-00-gate.yml` stays local.
 
 The `Template` repository is the canonical source for new consumer repos, so it

@@ -11,7 +11,23 @@ import os
 from pathlib import Path
 
 import requests
-import yaml
+
+try:
+    from sync_manifest_compiler import (
+        COPY_SYNCED_SECTIONS,
+        CompiledManifest,
+        ManifestCompileError,
+        ManifestEntry,
+        compile_manifest,
+    )
+except ImportError:
+    from scripts.sync_manifest_compiler import (  # type: ignore[no-redef]
+        COPY_SYNCED_SECTIONS,
+        CompiledManifest,
+        ManifestCompileError,
+        ManifestEntry,
+        compile_manifest,
+    )
 
 REPORT_SCHEMA = "workflows-consumer-sync-drift/v1"
 SUMMARY_ITEM_LIMIT = 50
@@ -143,29 +159,17 @@ def sorted_items(values: set[str]) -> list[str]:
     return sorted(values)
 
 
-def manifest_skip_reason(entry: dict[str, object], repo: str) -> str:
+def manifest_skip_reason(entry: ManifestEntry, repo: str) -> str:
     """Return the manifest-declared skip reason for a repo, if any."""
-    rules = entry.get("skip_repos", [])
-    if not isinstance(rules, list):
-        return ""
-    for rule in rules:
-        if isinstance(rule, str):
-            if rule == repo:
-                return "Manifest skip for repo"
-            continue
-        if not isinstance(rule, dict):
-            continue
-        if str(rule.get("repo", "")).strip() != repo:
-            continue
-        reason = str(rule.get("reason", "")).strip()
-        return reason or "Manifest skip for repo"
+    for skip in entry.skip_repos:
+        if skip.repo == repo:
+            return skip.reason or "Manifest skip for repo"
     return ""
 
 
-def repo_overwrites_create_only(entry: dict[str, object], repo: str) -> bool:
+def repo_overwrites_create_only(entry: ManifestEntry, repo: str) -> bool:
     """Return whether repo should be drift-checked for create_only entries."""
-    overwrite_repos = entry.get("overwrite_repos", [])
-    return isinstance(overwrite_repos, list) and repo in overwrite_repos
+    return repo in entry.overwrite_repos
 
 
 def token_candidates(env: dict[str, str] | None = None) -> list[dict[str, str]]:
@@ -217,31 +221,26 @@ def session_for_token(token: str, session_factory=requests.Session) -> requests.
     return session
 
 
-def probe_targets(manifest: dict[str, object], sections: list[str]) -> list[str]:
+def probe_targets(compiled: CompiledManifest, sections: list[str]) -> list[str]:
     targets: list[str] = []
     for section in sections:
-        entries = manifest.get(section, [])
-        if not isinstance(entries, list):
-            continue
         section_target = ""
-        for entry in entries:
-            if not isinstance(entry, dict):
+        for entry in compiled.section(section):
+            if entry.sync_mode == "create_only":
                 continue
-            source = entry.get("source")
-            if not source or entry.get("sync_mode") == "create_only":
-                continue
-            target = str(entry.get("target", source))
-            local_path = local_path_for(str(source), section)
+            local_path = local_path_for(entry.source, section)
             if not local_path:
                 continue
-            if entry.get("is_directory") or local_path.is_dir():
+            if entry.is_directory or local_path.is_dir():
                 first_child = next(
                     (child for child in sorted(local_path.rglob("*")) if child.is_file()), None
                 )
                 if first_child:
-                    section_target = join_remote_path(target, first_child.relative_to(local_path))
+                    section_target = join_remote_path(
+                        entry.target, first_child.relative_to(local_path)
+                    )
             else:
-                section_target = target
+                section_target = entry.target
             if section_target:
                 targets.append(section_target)
                 break
@@ -746,26 +745,28 @@ def main() -> int:
         )
         return 1
 
-    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-    sections = [
-        "workflows",
-        "prompts",
-        "scripts",
-        "codex_config",
-        "docs",
-        "copilot_config",
-        "templates",
-        "actions",
-        "llm_config",
-        "git_config",
-        "issue_templates",
-        "user_docs",
-    ]
+    try:
+        compiled = compile_manifest(manifest_path)
+    except ManifestCompileError as exc:
+        print(f"::error::Manifest is invalid — refusing to run drift check:\n{exc}")
+        write_report_json(
+            args.report_json,
+            build_report(
+                repos=repos,
+                drift=set(),
+                missing=set(),
+                errors={f"Invalid manifest: {exc.problems[0]}"},
+                obsolete=set(),
+            ),
+        )
+        return 1
+
+    sections = list(COPY_SYNCED_SECTIONS)
 
     session, token_diagnostics = select_read_token(
         candidates=candidates,
         repos=repos,
-        paths=probe_targets(manifest, sections),
+        paths=probe_targets(compiled, sections),
     )
     if session is None:
         print("::error::No usable GitHub token available for consumer repo contents reads")
@@ -831,43 +832,35 @@ def main() -> int:
             drift.add(f"{repo}: {remote_target}")
 
     for section in sections:
-        for entry in manifest.get(section, []) or []:
-            source = entry.get("source")
-            if not source:
-                continue
-            target = entry.get("target", source)
-            is_directory = entry.get("is_directory", False)
-            local_path = local_path_for(source, section)
+        for entry in compiled.section(section):
+            local_path = local_path_for(entry.source, section)
             if not local_path:
-                errors.add(f"{section}: missing local file for {source}")
+                errors.add(f"{section}: missing local file for {entry.source}")
                 continue
 
             for repo in remote_trees:
-                if entry.get("sync_mode") == "create_only" and not repo_overwrites_create_only(
+                if entry.sync_mode == "create_only" and not repo_overwrites_create_only(
                     entry, repo
                 ):
                     continue
                 skip_reason = manifest_skip_reason(entry, repo)
                 if skip_reason:
-                    skipped.add(f"{repo}: {target} ({skip_reason})")
+                    skipped.add(f"{repo}: {entry.target} ({skip_reason})")
                     continue
-                if is_directory or local_path.is_dir():
+                if entry.is_directory or local_path.is_dir():
                     # Recursively compare all files within the directory
                     for child in sorted(local_path.rglob("*")):
                         if child.is_file():
                             rel = child.relative_to(local_path)
-                            remote_target = join_remote_path(target, rel)
+                            remote_target = join_remote_path(entry.target, rel)
                             _check_file(child, remote_target, repo)
                 else:
-                    _check_file(local_path, target, repo)
+                    _check_file(local_path, entry.target, repo)
 
-    for entry in manifest.get("removals", []) or []:
-        target = entry.get("target")
-        if not target:
-            continue
+    for removal in compiled.removals:
         for repo, remote_tree in remote_trees.items():
-            if target in remote_tree:
-                obsolete.add(f"{repo}: {target}")
+            if removal.target in remote_tree:
+                obsolete.add(f"{repo}: {removal.target}")
 
     report = build_report(
         repos=repos,
