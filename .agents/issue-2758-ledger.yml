@@ -7,10 +7,10 @@ tasks:
     title: Extend the orchestrator completion-event adapter to parse the new evidence
       fields from runner completion payloads and attach them to an existing candidate/shadow
       capability instead of creating or promoting capabilities from raw prompt text.
-    status: doing
+    status: done
     started_at: '2026-07-11T05:37:43Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-07-11T05:37:57Z'
+    commit: ca7f239177fef2a5c73e88319b6e320b511d7ffa
     notes: []
   - id: task-02
     title: 'Update the orchestrator completion-event adapter to parse structured evidence
