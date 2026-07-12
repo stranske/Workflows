@@ -1,7 +1,7 @@
 {
   "agent": "codex",
   "cli_version": "0.125.0",
-  "emitted_at": "2026-07-12T11:48:41.456261Z",
+  "emitted_at": "2026-07-12T12:43:45.501558Z",
   "execution_profile": "codex-default",
   "fallback_models": [
     "gpt-5.4"
@@ -11,6 +11,6 @@
   "requested_model": "gpt-5.5",
   "runner": "reusable-codex-run",
   "schema": "langsmith-fleet/v1",
-  "selected_model": "",
-  "selection_reason": ""
+  "selected_model": "gpt-5.5",
+  "selection_reason": "input"
 }
