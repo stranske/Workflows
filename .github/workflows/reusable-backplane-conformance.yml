@@ -19,13 +19,20 @@ on:
   workflow_call:
     inputs:
       run_json_path:
-        description: 'Path to the emitted run.json (producer/bridge) or ingested object (consumer) to validate'
+        description: >-
+          Path to the emitted run.json (producer/bridge) or ingested object
+          (consumer) to validate
         required: true
         type: string
       manifest_path:
         description: 'Path to the run manifest.json (enables artifact cross-check; producers only)'
         required: false
         default: ''
+        type: string
+      reference_artifact_name:
+        description: 'Caller-workflow artifact containing the emitted run envelope and manifest'
+        required: false
+        default: 'reference-run'
         type: string
       repo:
         description: 'Participant repo slug (defaults to calling repo)'
@@ -65,6 +72,17 @@ jobs:
       # The participant's own checkout (carries the emitted run.json/manifest).
       - name: Checkout participant
         uses: actions/checkout@v7
+
+      # A reusable workflow runs in a fresh job. Restore the caller's emitted
+      # reference-run artifact before validating its configured paths. Some
+      # planned/non-emitting participants intentionally have no artifact; let
+      # the validator apply its existing opt-in skip policy in that case.
+      - name: Restore emitted reference run
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ inputs.reference_artifact_name }}
+          path: artifacts/reference
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -137,7 +155,9 @@ jobs:
             let detail = '(no machine-readable report produced)';
             try {
               const r = JSON.parse(fs.readFileSync('conformance-report.json', 'utf8'));
-              detail = (r.violations || []).map((v) => `- \`${v.path || ''}\` ${v.message}`).join('\n');
+              detail = (r.violations || [])
+                .map((v) => `- \`${v.path || ''}\` ${v.message}`)
+                .join('\n');
             } catch (e) { /* leave default */ }
             const body = [
               '## Backplane Conformance Failed',

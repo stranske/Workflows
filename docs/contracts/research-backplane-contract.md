@@ -44,6 +44,17 @@ Participating repos own:
   `run.json` (+ `manifest.json`), and/or their ingest adapter,
 - their entity-resolution algorithm (for identity-authoritative repos).
 
+## Reference-run artifact handoff
+
+A participant caller emits its reference `run.json` and `manifest.json` in one
+job, uploads them as the `reference-run` artifact, and then invokes the reusable
+conformance workflow. The reusable workflow restores that artifact to
+`artifacts/reference` before running the canonical validator. Callers that use
+a different artifact name must pass it through `reference_artifact_name`. A
+caller that intentionally has no emitted artifact remains an opt-in skip: the
+restore failure is non-fatal and the validator decides whether that participant
+is absent/planned or should fail for a missing required envelope.
+
 ## Roles: producer / consumer / bridge
 
 Participation is **not binary in/out**. Each registry entry declares a `role`, and
