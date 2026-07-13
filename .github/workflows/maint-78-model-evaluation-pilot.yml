@@ -41,7 +41,8 @@ jobs:
             echo 'The pilot narrows candidates only; approval still requires the 75-case corpus.'
             echo '```json'
             jq '{schema, corpus_version, rows:(.results|length),
-              errors:([.results[]|select(.schema_valid == false)]|length)}' \
+              errors:([.results[]|select(.schema_valid == false)]|length),
+              category_report:.summary.candidates}' \
               pilot-results.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
@@ -51,4 +52,5 @@ jobs:
           name: verifier-model-pilot-${{ github.run_id }}
           path: |
             pilot-results.json
+            pilot-preflight.json
           if-no-files-found: warn
