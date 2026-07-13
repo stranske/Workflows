@@ -379,6 +379,30 @@ def test_summarize_skipped_python_without_records_is_pending(tmp_path: Path) -> 
     assert "Python CI skipped; waiting for rerun." in result.description
 
 
+@pytest.mark.parametrize("python_result", ["cancelled", "abandoned"])
+def test_summarize_superseded_python_is_pending_without_autofix(
+    tmp_path: Path, python_result: str
+) -> None:
+    write_summary(tmp_path, "3.12")
+    context = gate_summary.SummaryContext(
+        doc_only=False,
+        run_core=True,
+        reason="",
+        python_result=python_result,
+        docker_result="skipped",
+        docker_changed=False,
+        artifacts_root=tmp_path,
+        summary_path=None,
+        output_path=None,
+    )
+
+    result = gate_summary.summarize(context)
+
+    assert result.state == "pending"
+    assert result.cosmetic_failure is False
+    assert f"Python CI {python_result}; waiting for rerun." == result.description
+
+
 def test_summarize_accepts_path_classified_python_skip(tmp_path: Path) -> None:
     context = gate_summary.SummaryContext(
         doc_only=False,
