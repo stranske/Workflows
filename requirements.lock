@@ -10,7 +10,7 @@ annotated-types==0.7.0
     # via pydantic
 anthropic==0.116.0
     # via langchain-anthropic
-anyio==4.14.1
+anyio==4.14.2
     # via
     #   anthropic
     #   httpx
@@ -32,7 +32,7 @@ certifi==2026.6.17
     #   requests
 cfgv==3.5.0
     # via pre-commit
-charset-normalizer==3.4.7
+charset-normalizer==3.4.9
     # via
     #   docformatter
     #   requests
@@ -64,7 +64,7 @@ faiss-cpu==1.14.3
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
-filelock==3.29.5
+filelock==3.29.7
     # via
     #   python-discovery
     #   virtualenv
@@ -88,7 +88,7 @@ httpx==0.28.1
     #   openai
 httpx-sse==0.4.3
     # via langchain-community
-hypothesis==6.156.1
+hypothesis==6.156.6
     # via workflows (pyproject.toml)
 identify==2.6.19
     # via pre-commit
@@ -152,7 +152,7 @@ langchain-protocol==0.0.18
     #   langgraph-sdk
 langchain-text-splitters==1.1.2
     # via langchain-classic
-langgraph==1.2.7
+langgraph==1.2.9
     # via langchain
 langgraph-checkpoint==4.1.1
     # via
@@ -162,12 +162,12 @@ langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.4.2
     # via langgraph
-langsmith==0.9.7
+langsmith==0.10.2
     # via
     #   langchain-classic
     #   langchain-community
     #   langchain-core
-librt==0.12.0 ; platform_python_implementation != 'PyPy'
+librt==0.13.0 ; platform_python_implementation != 'PyPy'
     # via mypy
 mccabe==0.7.0
     # via flake8
@@ -263,7 +263,7 @@ pytest-xdist==3.8.0
     # via workflows (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via pandas
-python-discovery==1.4.3
+python-discovery==1.4.4
     # via virtualenv
 python-dotenv==1.2.2
     # via pydantic-settings
@@ -281,7 +281,7 @@ referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-regex==2026.6.28
+regex==2026.7.10
     # via tiktoken
 requests==2.34.2
     # via
@@ -323,7 +323,7 @@ tomlkit==0.15.0
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
-tqdm==4.68.3
+tqdm==4.68.4
     # via openai
 typing-extensions==4.16.0
     # via
@@ -345,21 +345,21 @@ typing-inspection==0.4.2
     # via
     #   pydantic
     #   pydantic-settings
-tzdata==2026.2 ; sys_platform == 'emscripten' or sys_platform == 'win32'
+tzdata==2026.3 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
 urllib3==2.7.0
     # via requests
-uuid-utils==0.16.2
+uuid-utils==0.17.0
     # via
     #   langchain-core
     #   langsmith
-virtualenv==21.5.1
+virtualenv==21.6.1
     # via pre-commit
 websockets==15.0.1
     # via
     #   langgraph-sdk
     #   langsmith
-xxhash==3.8.0
+xxhash==3.8.1
     # via
     #   langgraph
     #   langsmith
