@@ -78,6 +78,7 @@ def _request_response(
     token: str,
     payload: dict[str, Any] | None,
     *,
+    accept: str = "application/vnd.github+json",
     max_attempts: int = DEFAULT_RETRY_ATTEMPTS,
     backoff: float = DEFAULT_RETRY_BACKOFF,
 ) -> _Response:
@@ -87,7 +88,7 @@ def _request_response(
             request_kwargs: dict[str, Any] = {
                 "headers": {
                     "Authorization": f"Bearer {token}",
-                    "Accept": "application/vnd.github+json",
+                    "Accept": accept,
                 },
                 "timeout": DEFAULT_TIMEOUT,
             }
@@ -159,6 +160,49 @@ def fetch_issue(
     if parser is not None:
         return parser(data)
     return data
+
+
+def fetch_pull_request(
+    repo: str,
+    pull_number: int,
+    token: str,
+    *,
+    retry_attempts: int | None = None,
+    retry_backoff: float | None = None,
+) -> dict[str, Any]:
+    """Fetch pull-request metadata through the shared retrying API client."""
+    url = f"{GITHUB_API}/repos/{repo}/pulls/{pull_number}"
+    data = _request_json(
+        "GET",
+        url,
+        token,
+        payload=None,
+        **_retry_kwargs(retry_attempts, retry_backoff),
+    )
+    if not isinstance(data, dict):
+        raise RuntimeError("GitHub API did not return a JSON object for the pull request.")
+    return data
+
+
+def fetch_pull_request_diff(
+    repo: str,
+    pull_number: int,
+    token: str,
+    *,
+    retry_attempts: int | None = None,
+    retry_backoff: float | None = None,
+) -> str:
+    """Fetch a pull-request diff through the shared retrying API client."""
+    url = f"{GITHUB_API}/repos/{repo}/pulls/{pull_number}"
+    response = _request_response(
+        "GET",
+        url,
+        token,
+        payload=None,
+        accept="application/vnd.github.diff",
+        **_retry_kwargs(retry_attempts, retry_backoff),
+    )
+    return response.text
 
 
 def fetch_issues(
