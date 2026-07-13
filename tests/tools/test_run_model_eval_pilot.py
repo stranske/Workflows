@@ -131,7 +131,7 @@ def test_fetch_pr_includes_linked_source_issue_context(monkeypatch) -> None:
     assert diff == "diff"
 
 
-def test_fetch_pr_skips_inaccessible_linked_issue(monkeypatch) -> None:
+def test_fetch_pr_skips_inaccessible_linked_issue(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         pilot.api_client,
         "fetch_pull_request",
@@ -148,6 +148,7 @@ def test_fetch_pr_skips_inaccessible_linked_issue(monkeypatch) -> None:
 
     assert "Repository: owner/repo" in context
     assert "Linked source issues" not in context
+    assert "pilot: skipping linked issue #12: forbidden" in capsys.readouterr().err
 
 
 def test_linked_issue_numbers_accepts_inline_references_and_deduplicates() -> None:

@@ -52,6 +52,8 @@ def fetch_pr(repo: str, number: int, token: str) -> tuple[str, str]:
     source_issues: list[str] = []
     remaining_context = MAX_LINKED_ISSUE_CONTEXT_CHARS
     for issue_number in _linked_issue_numbers(pr_body, pr_number=number):
+        if remaining_context <= 0:
+            break
         try:
             issue = api_client.fetch_issue(repo, issue_number, token)
             disposition_comments = [
@@ -80,10 +82,9 @@ def fetch_pr(repo: str, number: int, token: str) -> tuple[str, str]:
                     ),
                 )
             )
-        except Exception:
+        except Exception as exc:
+            print(f"pilot: skipping linked issue #{issue_number}: {exc}", file=sys.stderr)
             continue
-        if remaining_context <= 0:
-            break
         source_issues.append(source_issue[:remaining_context])
         remaining_context -= len(source_issues[-1])
     context = "\n\n".join(
