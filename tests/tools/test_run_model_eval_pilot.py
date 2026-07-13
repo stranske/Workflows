@@ -7,8 +7,20 @@ def test_run_pilot_records_paired_verdicts() -> None:
     corpus = {
         "corpus_version": "v1",
         "cases": [
-            {"case_id": "a", "repo": "o/r", "pr": 1, "category": "clean-pass", "expected_verdict": "PASS"},
-            {"case_id": "b", "repo": "o/r", "pr": 2, "category": "follow-up-required", "expected_verdict": "NON_PASS"},
+            {
+                "case_id": "a",
+                "repo": "o/r",
+                "pr": 1,
+                "category": "clean-pass",
+                "expected_verdict": "PASS",
+            },
+            {
+                "case_id": "b",
+                "repo": "o/r",
+                "pr": 2,
+                "category": "follow-up-required",
+                "expected_verdict": "NON_PASS",
+            },
         ],
     }
     candidates = {"candidates": [{"provider": "openai", "model_id": "model-a"}]}

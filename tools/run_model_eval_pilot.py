@@ -7,32 +7,19 @@ import argparse
 import json
 import os
 import time
-import urllib.request
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
+from scripts import api_client
 from scripts.langchain import pr_verifier
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def fetch_pr(repo: str, number: int, token: str) -> tuple[str, str]:
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {token}",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    request = urllib.request.Request(
-        f"https://api.github.com/repos/{repo}/pulls/{number}", headers=headers
-    )
-    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
-        payload = json.load(response)
-    diff_request = urllib.request.Request(
-        f"https://api.github.com/repos/{repo}/pulls/{number}",
-        headers={**headers, "Accept": "application/vnd.github.diff"},
-    )
-    with urllib.request.urlopen(diff_request, timeout=30) as response:  # noqa: S310
-        diff = response.read().decode("utf-8", errors="replace")
+    payload = api_client.fetch_pull_request(repo, number, token)
+    diff = api_client.fetch_pull_request_diff(repo, number, token)
     context = f"Repository: {repo}\nPR: #{number}\nTitle: {payload['title']}\n\n{payload.get('body') or ''}"
     return context, diff
 
