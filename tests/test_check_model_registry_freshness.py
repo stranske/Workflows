@@ -6,6 +6,7 @@ import datetime as dt
 import json
 from pathlib import Path
 
+import pytest
 from tools import check_model_registry_freshness as gate
 
 TODAY = dt.date(2026, 7, 10)
@@ -159,6 +160,54 @@ def test_slot_requires_profile_selection():
     assert "missing_selection" in _kinds(findings)
 
 
+@pytest.mark.parametrize(
+    ("kind", "mutate"),
+    [
+        ("missing_source", lambda value: value.update(sources=[])),
+        (
+            "missing_pricing_date",
+            lambda value: value["models"][0].pop("pricing"),
+        ),
+        (
+            "invalid_selection_status",
+            lambda value: value["selections"][0].update(status="reviewed"),
+        ),
+        (
+            "unknown_profile",
+            lambda value: value["selections"][0].update(profile="unknown"),
+        ),
+        (
+            "inactive_selection",
+            lambda value: value["models"][0].update(lifecycle="compatibility"),
+        ),
+        (
+            "missing_evidence",
+            lambda value: value["selections"][0].update(evidence_ids=[]),
+        ),
+        (
+            "duplicate_selection",
+            lambda value: value["selections"].append(dict(value["selections"][0])),
+        ),
+    ],
+)
+def test_selection_and_fact_gate_branches(kind, mutate):
+    registry = _registry()
+    mutate(registry)
+    assert kind in _kinds(gate.evaluate(registry, _slots(), today=TODAY, policy=_policy()))
+
+
+@pytest.mark.parametrize(
+    ("kind", "slots"),
+    [
+        ("unknown_pin", _slots("absent")),
+        ("blocked_pin", _slots("model-blocked")),
+        ("missing_profile", {"slots": [{"name": "slot1", "provider": "openai"}]}),
+    ],
+)
+def test_slot_pin_and_profile_gate_branches(kind, slots):
+    assert kind in _kinds(gate.evaluate(_registry(), slots, today=TODAY, policy=_policy()))
+
+
 def test_real_repo_files_are_fresh():
     root = Path(__file__).resolve().parent.parent
     registry = json.loads((root / "config" / "model_registry.json").read_text())
@@ -185,4 +234,6 @@ def test_main_exit_codes(tmp_path: Path):
         "2026-07-10",
     ]
     assert gate.main(common) == 0
+    registry_path.write_text(json.dumps(_registry(review_by="2026-07-01")), encoding="utf-8")
+    assert gate.main(common) == 1
     assert gate.main([*common[:-1], "not-a-date"]) == 2

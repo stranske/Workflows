@@ -67,8 +67,14 @@ def _metrics(cases: list[dict[str, Any]]) -> dict[str, Any]:
         false_pass += int(expected == "NON_PASS" and actual == "PASS")
         false_fail += int(expected == "PASS" and actual == "NON_PASS")
         categories[category] = categories.get(category, 0) + 1
-        total_cost += float(case.get("total_cost_usd", 0.0))
-        latencies.append(float(case.get("latency_ms", 0.0)))
+        cost = float(case.get("total_cost_usd", 0.0))
+        latency = float(case.get("latency_ms", 0.0))
+        if not math.isfinite(cost) or cost < 0:
+            raise ValueError(f"case {case_id} has invalid total_cost_usd")
+        if not math.isfinite(latency) or latency < 0:
+            raise ValueError(f"case {case_id} has invalid latency_ms")
+        total_cost += cost
+        latencies.append(latency)
 
     count = len(cases)
     success_interval = wilson_interval(success, count)
@@ -93,9 +99,11 @@ def _metrics(cases: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _validate_paired_cases(candidates: list[dict[str, Any]]) -> None:
+def _validate_paired_cases(candidates: list[Any]) -> None:
     expected_ids: set[str] | None = None
     for candidate in candidates:
+        if not isinstance(candidate, dict):
+            raise ValueError("each candidate must be an object")
         cases = candidate.get("cases")
         if not isinstance(cases, list):
             raise ValueError("each candidate requires a cases list")

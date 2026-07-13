@@ -4,7 +4,6 @@
 > score proposal and stale model examples. The authoritative, implemented policy
 > is [`MODEL_SELECTION_POLICY.md`](MODEL_SELECTION_POLICY.md), which requires
 > paired workload evidence and constrained selection rather than weighted scores.
-
 > **Last updated**: February 7, 2026
 > **Purpose**: Define a model registry, selection algorithm, and slot-system
 > integration that enables task-aware, performance-driven model selection.

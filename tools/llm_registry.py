@@ -270,16 +270,23 @@ def configured_model_for_provider(
             slot_provider = normalize_provider(str(slot.get("provider", "")))
             if slot_provider != normalized_provider:
                 continue
-            model = str(slot.get("model", "")).strip()
+            explicit_model = str(slot.get("model", "")).strip()
             slot_profile = str(slot.get("profile") or profile).strip()
-            if not model:
-                model = (
-                    select_model_for_profile(
-                        provider=slot_provider or "",
-                        profile=slot_profile,
-                        registry=entries,
-                    )
-                    or ""
+            model = (
+                select_model_for_profile(
+                    provider=slot_provider or "",
+                    profile=slot_profile,
+                    registry=entries,
+                )
+                or ""
+            )
+            if explicit_model and explicit_model != model:
+                logger.warning(
+                    "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
+                    slot_provider,
+                    explicit_model,
+                    slot_profile,
+                    model or "unavailable",
                 )
             if model and not is_model_blocked(slot_provider or "", model, registry=entries):
                 return model
@@ -329,12 +336,21 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
     fallback_by_provider = {slot.provider: slot for slot in fallback_slots}
     for idx, entry in enumerate(slot_entries, start=1):
         provider = normalize_provider(str(entry.get("provider", "")))
-        model = str(entry.get("model", "")).strip()
+        explicit_model = str(entry.get("model", "")).strip()
         profile = str(entry.get("profile") or DEFAULT_SELECTION_PROFILE).strip()
-        if provider and not model:
+        model = ""
+        if provider:
             model = (
                 select_model_for_profile(provider=provider, profile=profile, registry=registry)
                 or ""
+            )
+        if provider and explicit_model and explicit_model != model:
+            logger.warning(
+                "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
+                provider,
+                explicit_model,
+                profile,
+                model or "unavailable",
             )
         if provider and not model:
             fallback_slot = fallback_by_provider.get(provider)

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import math
+
+import pytest
 from tools import evaluate_model_benchmark as evaluator
 
 CATEGORIES = [
@@ -120,3 +123,28 @@ def test_unpaired_candidate_cases_are_rejected():
         assert "paired case IDs" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("unpaired benchmark should fail")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("total_cost_usd", math.nan),
+        ("total_cost_usd", math.inf),
+        ("total_cost_usd", -0.01),
+        ("latency_ms", math.nan),
+        ("latency_ms", math.inf),
+        ("latency_ms", -1),
+    ],
+)
+def test_nonfinite_or_negative_metrics_are_rejected(field, value):
+    payload = _payload()
+    payload["candidates"][1]["cases"][0][field] = value
+    with pytest.raises(ValueError, match=f"invalid {field}"):
+        evaluator.evaluate_benchmark(payload, _policy())
+
+
+def test_nonobject_candidate_is_rejected_as_configuration_error():
+    payload = _payload()
+    payload["candidates"][1] = None
+    with pytest.raises(ValueError, match="candidate must be an object"):
+        evaluator.evaluate_benchmark(payload, _policy())

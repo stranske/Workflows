@@ -39,19 +39,16 @@ def _write_registry(path: Path, *, selected: str = "model-balanced") -> None:
     )
 
 
-def _write_slots(path: Path) -> None:
+def _write_slots(path: Path, *, model: str | None = None) -> None:
+    slot = {
+        "name": "slot1",
+        "provider": "openai",
+        "profile": "verifier-balanced",
+    }
+    if model:
+        slot["model"] = model
     path.write_text(
-        json.dumps(
-            {
-                "slots": [
-                    {
-                        "name": "slot1",
-                        "provider": "openai",
-                        "profile": "verifier-balanced",
-                    }
-                ]
-            }
-        ),
+        json.dumps({"slots": [slot]}),
         encoding="utf-8",
     )
 
@@ -98,6 +95,20 @@ def test_registry_decision_update_changes_slot_without_slot_edit(
     assert before[0].model == "model-balanced"
     assert after[0].model == "model-frontier"
     assert "model" not in json.loads(slots_path.read_text())["slots"][0]
+
+
+def test_legacy_slot_pin_cannot_override_reviewed_selection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    _write_slots(slots_path, model="model-frontier")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
+
+    assert registry.load_slot_config()[0].model == "model-balanced"
+    assert registry.configured_model_for_provider("openai") == "model-balanced"
 
 
 def test_noncurrent_selected_model_fails_closed(
