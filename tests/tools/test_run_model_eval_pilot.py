@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from tools.run_model_eval_pilot import run_pilot
+from tools.run_model_eval_pilot import run_pilot, unusable_candidates
 
 
 def test_run_pilot_records_paired_verdicts() -> None:
@@ -77,3 +77,15 @@ def test_run_pilot_captures_failure_with_case_and_candidate_metadata() -> None:
             "error": "fetch failed",
         }
     ]
+
+
+def test_unusable_candidates_requires_valid_evidence_per_candidate() -> None:
+    report = {
+        "results": [
+            {"provider": "openai", "model_id": "working", "schema_valid": True},
+            {"provider": "openai", "model_id": "working", "schema_valid": False},
+            {"provider": "anthropic", "model_id": "broken", "schema_valid": False},
+        ]
+    }
+
+    assert unusable_candidates(report) == ["anthropic/broken"]

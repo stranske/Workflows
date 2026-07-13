@@ -14,6 +14,7 @@ def test_model_eval_pilot_runs_as_importable_module() -> None:
     upload = next(step for step in steps if "actions/upload-artifact@" in step.get("uses", ""))
 
     assert pilot["run"].count("python -m tools.run_model_eval_pilot") == 1
+    assert pilot["run"].count("--extra langchain") == 1
     assert "python tools/run_model_eval_pilot.py" not in pilot["run"]
     assert summary["if"] == "always()"
     assert "if [ ! -f pilot-results.json ]" in summary["run"]

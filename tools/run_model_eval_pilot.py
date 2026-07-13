@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -75,6 +76,17 @@ def run_pilot(
     }
 
 
+def unusable_candidates(report: dict[str, Any]) -> list[str]:
+    """Return candidates that produced no schema-valid evaluation row."""
+    health: dict[tuple[str, str], bool] = {}
+    for row in report.get("results", []):
+        if not isinstance(row, dict):
+            continue
+        key = (str(row.get("provider", "")), str(row.get("model_id", "")))
+        health[key] = health.get(key, False) or row.get("schema_valid") is True
+    return [f"{provider}/{model}" for (provider, model), usable in health.items() if not usable]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus", type=Path, default=ROOT / "config/model_eval_pilot.json")
@@ -92,6 +104,13 @@ def main() -> int:
         token=token,
     )
     args.output.write_text(json.dumps(payload, indent=2) + "\n")
+    unusable = unusable_candidates(payload)
+    if unusable:
+        print(
+            "pilot error: candidates produced no schema-valid rows: " + ", ".join(unusable),
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

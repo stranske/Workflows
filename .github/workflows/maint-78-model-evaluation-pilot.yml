@@ -24,7 +24,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: |
-          uv run --extra dev python -m tools.run_model_eval_pilot --output pilot-results.json
+          uv run --extra dev --extra langchain \
+            python -m tools.run_model_eval_pilot --output pilot-results.json
       - name: Summarize pilot
         if: always()
         run: |
