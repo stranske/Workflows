@@ -280,6 +280,13 @@ def configured_model_for_provider(
                 )
                 or ""
             )
+            if not model:
+                logger.warning(
+                    "No reviewed model selection for slot profile %s/%s",
+                    slot_profile,
+                    slot_provider,
+                )
+                return ""
             if explicit_model and explicit_model != model:
                 logger.warning(
                     "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
@@ -337,7 +344,8 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
     for idx, entry in enumerate(slot_entries, start=1):
         provider = normalize_provider(str(entry.get("provider", "")))
         explicit_model = str(entry.get("model", "")).strip()
-        profile = str(entry.get("profile") or DEFAULT_SELECTION_PROFILE).strip()
+        configured_profile = str(entry.get("profile") or "").strip()
+        profile = configured_profile or DEFAULT_SELECTION_PROFILE
         model = ""
         if provider:
             model = (
@@ -352,6 +360,13 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
                 profile,
                 model or "unavailable",
             )
+        if provider and configured_profile and not model:
+            logger.warning(
+                "Skipping slot with unresolved reviewed profile: %s/%s",
+                configured_profile,
+                provider,
+            )
+            continue
         if provider and not model:
             fallback_slot = fallback_by_provider.get(provider)
             model = fallback_slot.model if fallback_slot else ""
@@ -362,7 +377,7 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
             continue
         name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
         slots.append(SlotDefinition(name=name, provider=provider, model=model))
-    return slots or fallback_slots
+    return slots if slot_entries else fallback_slots
 
 
 def apply_slot_env_overrides(

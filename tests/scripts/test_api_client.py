@@ -218,6 +218,15 @@ def test_fetch_pull_request_and_diff_use_shared_client(monkeypatch: pytest.Monke
     assert calls == [{"payload": None, "accept": "application/vnd.github.diff"}]
 
 
+def test_fetch_pull_request_rejects_nonobject_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        api_client, "_request_json", lambda *args, **kwargs: ["not", "an", "object"]
+    )
+
+    with pytest.raises(RuntimeError, match="JSON object for the pull request"):
+        api_client.fetch_pull_request("owner/repo", 7, "tok")
+
+
 def test_fetch_issues_validates_shape_and_encodes_labels(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

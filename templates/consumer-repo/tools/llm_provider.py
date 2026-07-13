@@ -333,7 +333,10 @@ class GitHubModelsProvider(LLMProvider):
         return "github-models"
 
     def is_available(self) -> bool:
-        return bool(os.environ.get("GITHUB_TOKEN"))
+        return bool(
+            os.environ.get("GITHUB_TOKEN")
+            and _configured_langchain_model("github-models", fallback=DEFAULT_MODEL)
+        )
 
     def supports_quality_context(self) -> bool:
         return True
@@ -590,7 +593,10 @@ class OpenAIProvider(LLMProvider):
         return "openai"
 
     def is_available(self) -> bool:
-        return bool(os.environ.get("OPENAI_API_KEY"))
+        return bool(
+            os.environ.get("OPENAI_API_KEY")
+            and _configured_langchain_model("openai", fallback=DEFAULT_OPENAI_ANALYSIS_MODEL)
+        )
 
     def supports_quality_context(self) -> bool:
         return True
@@ -664,7 +670,10 @@ class AnthropicProvider(LLMProvider):
         return "anthropic"
 
     def is_available(self) -> bool:
-        return bool(os.environ.get(ANTHROPIC_API_KEY_ENV))
+        return bool(
+            os.environ.get(ANTHROPIC_API_KEY_ENV)
+            and _configured_langchain_model("anthropic", fallback=DEFAULT_ANTHROPIC_ANALYSIS_MODEL)
+        )
 
     def supports_quality_context(self) -> bool:
         return True

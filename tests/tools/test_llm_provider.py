@@ -57,6 +57,21 @@ class TestProviderAvailability:
             provider = OpenAIProvider()
             assert provider.is_available() is False
 
+    @pytest.mark.parametrize(
+        ("provider", "environment"),
+        [
+            (GitHubModelsProvider, {"GITHUB_TOKEN": "test-token"}),
+            (OpenAIProvider, {"OPENAI_API_KEY": "sk-test"}),
+            (AnthropicProvider, {"CLAUDE_API_STRANSKE": "test-key"}),
+        ],
+    )
+    def test_provider_unavailable_when_model_selection_cannot_resolve(self, provider, environment):
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch("tools.llm_provider._configured_langchain_model", return_value=""),
+        ):
+            assert provider().is_available() is False
+
     def test_regex_always_available(self):
         """Regex fallback is always available."""
         provider = RegexFallbackProvider()

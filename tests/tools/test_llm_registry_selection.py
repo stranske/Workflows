@@ -39,11 +39,16 @@ def _write_registry(path: Path, *, selected: str = "model-balanced") -> None:
     )
 
 
-def _write_slots(path: Path, *, model: str | None = None) -> None:
+def _write_slots(
+    path: Path,
+    *,
+    model: str | None = None,
+    profile: str = "verifier-balanced",
+) -> None:
     slot = {
         "name": "slot1",
         "provider": "openai",
-        "profile": "verifier-balanced",
+        "profile": profile,
     }
     if model:
         slot["model"] = model
@@ -109,6 +114,20 @@ def test_legacy_slot_pin_cannot_override_reviewed_selection(
 
     assert registry.load_slot_config()[0].model == "model-balanced"
     assert registry.configured_model_for_provider("openai") == "model-balanced"
+
+
+def test_unknown_explicit_profile_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    _write_slots(slots_path, profile="misspelled-profile")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
+
+    assert registry.load_slot_config() == []
+    assert registry.configured_model_for_provider("openai") == ""
 
 
 def test_noncurrent_selected_model_fails_closed(
