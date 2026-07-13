@@ -89,3 +89,4 @@ def test_unusable_candidates_requires_valid_evidence_per_candidate() -> None:
     }
 
     assert unusable_candidates(report) == ["anthropic/broken"]
+    assert unusable_candidates({"results": []}) == ["<no-results>"]

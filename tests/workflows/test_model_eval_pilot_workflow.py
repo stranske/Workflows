@@ -15,6 +15,8 @@ def test_model_eval_pilot_runs_as_importable_module() -> None:
 
     assert pilot["run"].count("python -m tools.run_model_eval_pilot") == 1
     assert pilot["run"].count("--extra langchain") == 1
+    assert pilot["env"]["GH_TOKEN"] == "${{ secrets.OWNER_PR_PAT }}"
+    assert pilot["env"]["GITHUB_TOKEN"] == "${{ github.token }}"
     assert "python tools/run_model_eval_pilot.py" not in pilot["run"]
     assert summary["if"] == "always()"
     assert "if [ ! -f pilot-results.json ]" in summary["run"]

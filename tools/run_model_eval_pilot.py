@@ -78,6 +78,8 @@ def run_pilot(
 
 def unusable_candidates(report: dict[str, Any]) -> list[str]:
     """Return candidates that produced no schema-valid evaluation row."""
+    if not report.get("results"):
+        return ["<no-results>"]
     health: dict[tuple[str, str], bool] = {}
     for row in report.get("results", []):
         if not isinstance(row, dict):

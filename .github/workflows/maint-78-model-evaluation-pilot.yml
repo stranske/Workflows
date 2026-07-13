@@ -21,6 +21,7 @@ jobs:
         env:
           # Cross-repo read token; github.token is scoped to Workflows only.
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: |
