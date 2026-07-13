@@ -682,7 +682,13 @@ scripts:
     description: "Embedding provider registry used by synced semantic matching helpers"
 
   - source: tools/check_model_registry_freshness.py
-    description: "Model-registry freshness gate - offline check that flags stale/blocked/dominated model pins so old models do not get stuck as primary"
+    description: "Model-registry freshness gate - validates dated decisions, evidence, lifecycle, and profile-based slots"
+
+  - source: tools/discover_model_catalog.py
+    description: "Advisory provider-catalog discovery - proposes new model candidates without changing reviewed selections"
+
+  - source: tools/evaluate_model_benchmark.py
+    description: "Deterministic paired model benchmark evaluator - computes confidence-bound quality gates and cost/latency ranking"
 
   # Research-backplane run-contract/v1 validator (run locally + in the conformance gate)
   - source: scripts/validate_run_contract.py
@@ -747,8 +753,15 @@ llm_config:
   - source: config/model_registry.json
     description: "Model registry - available LLM models and their capabilities"
 
+  - source: config/model_selection_policy.json
+    description: "Model selection policy - benchmark gates, measurements, optimization order, and review triggers"
+
 # Documentation synced to consumer repos
 docs:
+  - source: docs/MODEL_SELECTION_POLICY.md
+    target: docs/MODEL_SELECTION_POLICY.md
+    description: "Auditable auxiliary-model evaluation, selection, and refresh policy"
+
   - source: docs/AGENT_ISSUE_FORMAT.md
     target: docs/AGENT_ISSUE_FORMAT.md
     description: "Format specification for agent-compatible issues"

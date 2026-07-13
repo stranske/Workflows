@@ -1,0 +1,45 @@
+name: Maint 78 Model Evaluation Pilot
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: read
+  models: read
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - name: Run paired 30-case pilot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+        run: |
+          uv run --extra dev python tools/run_model_eval_pilot.py --output pilot-results.json
+      - name: Summarize pilot
+        if: always()
+        run: |
+          {
+            echo '## Verifier model pilot'
+            echo 'The pilot narrows candidates only; approval still requires the 75-case corpus.'
+            echo '```json'
+            jq '{schema, corpus_version, rows:(.results|length),
+              errors:([.results[]|select(.schema_valid == false)]|length)}' \
+              pilot-results.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: verifier-model-pilot-${{ github.run_id }}
+          path: |
+            pilot-results.json
+          if-no-files-found: error
