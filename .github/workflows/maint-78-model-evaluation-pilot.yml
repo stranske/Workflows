@@ -1,0 +1,56 @@
+name: Maint 78 Model Evaluation Pilot
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: read
+  models: read
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+      - name: Run paired 30-case pilot
+        env:
+          # Cross-repo read token; github.token is scoped to Workflows only.
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+        run: |
+          uv run --extra dev --extra langchain \
+            python -m tools.run_model_eval_pilot --output pilot-results.json
+      - name: Summarize pilot
+        if: always()
+        run: |
+          if [ ! -f pilot-results.json ]; then
+            echo '## Verifier model pilot' >> "$GITHUB_STEP_SUMMARY"
+            echo 'The pilot failed before producing a results artifact; inspect the run step.' \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo '## Verifier model pilot'
+            echo 'The pilot narrows candidates only; approval still requires the 75-case corpus.'
+            echo '```json'
+            jq '{schema, corpus_version, rows:(.results|length),
+              errors:([.results[]|select(.schema_valid == false)]|length),
+              category_report:.summary.candidates}' \
+              pilot-results.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: verifier-model-pilot-${{ github.run_id }}
+          path: |
+            pilot-results.json
+            pilot-preflight.json
+          if-no-files-found: warn

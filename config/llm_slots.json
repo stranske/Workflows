@@ -1,20 +1,20 @@
 {
-  "purpose": "Auxiliary judge/evaluator slots only; do not treat these as coding-worker execution profiles.",
+  "purpose": "Auxiliary judge/evaluator provider preferences. Model versions resolve from explicit, reviewed registry decisions.",
   "slots": [
     {
       "name": "slot1",
       "provider": "openai",
-      "model": "gpt-5.4"
+      "profile": "verifier-balanced"
     },
     {
       "name": "slot2",
       "provider": "anthropic",
-      "quality_tier": "T5"
+      "profile": "verifier-balanced"
     },
     {
       "name": "slot3",
       "provider": "github-models",
-      "model": "codex-mini-latest"
+      "profile": "verifier-balanced"
     }
   ]
 }

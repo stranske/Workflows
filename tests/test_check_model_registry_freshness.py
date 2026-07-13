@@ -1,4 +1,4 @@
-"""Tests for the model-registry freshness gate (tools/check_model_registry_freshness.py)."""
+"""Tests for tools/check_model_registry_freshness.py."""
 
 from __future__ import annotations
 
@@ -6,190 +6,234 @@ import datetime as dt
 import json
 from pathlib import Path
 
+import pytest
 from tools import check_model_registry_freshness as gate
 
-TODAY = dt.date(2026, 6, 28)
+TODAY = dt.date(2026, 7, 10)
 
 
 def _registry(**over):
     base = {
-        "version": "1.0.0",
-        "review_by": "2026-12-31",
-        "models": [
-            {"model_id": "gpt-5.4", "provider": "openai", "quality": {"T5": 0.97}},
-            {"model_id": "gpt-5.1", "provider": "openai", "quality": {"T5": 0.93}},
-            {"model_id": "claude-sonnet-4-6", "provider": "anthropic", "quality": {"T5": 0.95}},
+        "schema_version": "2.0.0",
+        "as_of": "2026-07-10",
+        "review_by": "2026-07-24",
+        "sources": [
             {
-                "model_id": "old-blocked",
+                "source_id": "models-1",
+                "checked_at": "2026-07-10",
+                "url": "https://example.test/models",
+            }
+        ],
+        "models": [
+            {
+                "model_id": "model-current",
                 "provider": "openai",
-                "quality": {"T5": 0.30},
-                "blocked": True,
+                "lifecycle": "current",
+                "source_ids": ["models-1"],
+                "pricing": {"as_of": "2026-07-10"},
             },
+            {
+                "model_id": "model-blocked",
+                "provider": "openai",
+                "lifecycle": "current",
+                "blocked": True,
+                "source_ids": ["models-1"],
+                "pricing": {"as_of": "2026-07-10"},
+            },
+        ],
+        "selections": [
+            {
+                "profile": "verifier-balanced",
+                "provider": "openai",
+                "model_id": "model-current",
+                "status": "provisional",
+                "review_by": "2026-07-24",
+                "evidence_ids": ["catalog-1"],
+            }
+        ],
+        "evidence": [
+            {
+                "evidence_id": "catalog-1",
+                "kind": "provider-catalog-review",
+                "status": "catalog-only",
+                "source_ids": ["models-1"],
+            }
         ],
     }
     base.update(over)
     return base
 
 
-def _slots(*pairs):
-    return {
-        "slots": [
-            {"name": f"slot{i+1}", "provider": p, "model": m} for i, (p, m) in enumerate(pairs)
-        ]
+def _slots(model: str | None = None):
+    slot = {
+        "name": "slot1",
+        "provider": "openai",
+        "profile": "verifier-balanced",
     }
+    if model:
+        slot["model"] = model
+    return {"slots": [slot]}
+
+
+def _policy():
+    return {"policy_id": "test-policy", "profiles": {"verifier-balanced": {}}}
 
 
 def _kinds(findings):
-    return sorted(f["kind"] for f in findings)
+    return sorted(finding["kind"] for finding in findings)
 
 
-def test_fresh_registry_has_no_findings():
-    findings = gate.evaluate(_registry(), _slots(("openai", "gpt-5.4")), today=TODAY)
-    assert findings == []
+def test_fresh_provisional_decision_has_no_findings():
+    assert gate.evaluate(_registry(), _slots(), today=TODAY, policy=_policy()) == []
 
 
-def test_review_overdue_explicit_review_by():
-    reg = _registry(review_by="2026-05-01")
-    findings = gate.evaluate(reg, _slots(("openai", "gpt-5.4")), today=TODAY)
-    assert _kinds(findings) == ["review_overdue"]
-    assert "overdue" in findings[0]["detail"]
-
-
-def test_review_overdue_derived_from_last_updated():
-    reg = _registry()
-    reg.pop("review_by")
-    reg["last_updated"] = "2026-04-14"  # +60d -> 2026-06-13 < today
-    findings = gate.evaluate(reg, _slots(("openai", "gpt-5.4")), today=TODAY, max_age_days=60)
+def test_review_overdue_is_reported():
+    findings = gate.evaluate(
+        _registry(review_by="2026-07-01"), _slots(), today=TODAY, policy=_policy()
+    )
     assert "review_overdue" in _kinds(findings)
 
 
-def test_review_not_overdue_within_window():
-    reg = _registry()
-    reg.pop("review_by")
-    reg["last_updated"] = "2026-06-20"  # +60d in the future
-    findings = gate.evaluate(reg, _slots(("openai", "gpt-5.4")), today=TODAY, max_age_days=60)
-    assert "review_overdue" not in _kinds(findings)
+def test_provisional_selection_must_be_resolved_by_review_date():
+    registry = _registry()
+    registry["selections"][0]["review_by"] = "2026-07-01"
+    findings = gate.evaluate(registry, _slots(), today=TODAY, policy=_policy())
+    assert "provisional_overdue" in _kinds(findings)
 
 
-def test_blocked_pin():
-    findings = gate.evaluate(_registry(), _slots(("openai", "old-blocked")), today=TODAY)
-    assert _kinds(findings) == ["blocked_pin"]
+def test_unknown_and_blocked_selections_are_reported():
+    unknown = _registry()
+    unknown["selections"][0]["model_id"] = "missing"
+    blocked = _registry()
+    blocked["selections"][0]["model_id"] = "model-blocked"
 
-
-def test_unknown_pin():
-    findings = gate.evaluate(_registry(), _slots(("openai", "gpt-9-imaginary")), today=TODAY)
-    assert _kinds(findings) == ["unknown_pin"]
-
-
-def test_dominated_pin_flags_better_same_provider_model():
-    # Pin sonnet-4-6 (0.95) while registry also has a higher claude model.
-    reg = _registry()
-    reg["models"].append(
-        {"model_id": "claude-opus-4-6", "provider": "anthropic", "quality": {"T5": 0.98}}
+    assert "unknown_selection" in _kinds(
+        gate.evaluate(unknown, _slots(), today=TODAY, policy=_policy())
     )
-    findings = gate.evaluate(reg, _slots(("anthropic", "claude-sonnet-4-6")), today=TODAY)
-    assert _kinds(findings) == ["dominated_pin"]
-    assert "claude-opus-4-6" in findings[0]["detail"]
+    assert "blocked_selection" in _kinds(
+        gate.evaluate(blocked, _slots(), today=TODAY, policy=_policy())
+    )
 
 
-def test_dominated_pin_uses_slot_quality_tier():
-    reg = _registry()
-    reg["models"] = [
+def test_approved_selection_requires_passed_workload_benchmark():
+    registry = _registry()
+    registry["selections"][0]["status"] = "approved"
+    findings = gate.evaluate(registry, _slots(), today=TODAY, policy=_policy())
+    assert "unproved_approval" in _kinds(findings)
+
+    registry["evidence"].append(
         {
-            "model_id": "primary-for-t4",
-            "provider": "openai",
-            "quality": {"T4": 0.95, "T5": 0.80},
-        },
-        {
-            "model_id": "better-t5-only",
-            "provider": "openai",
-            "quality": {"T4": 0.90, "T5": 0.99},
-        },
-    ]
-    slots = {
-        "slots": [
-            {
-                "name": "slot1",
-                "provider": "openai",
-                "model": "primary-for-t4",
-                "quality_tier": "T4",
-            }
-        ]
-    }
-    findings = gate.evaluate(reg, slots, today=TODAY)
-    assert findings == []
+            "evidence_id": "bench-1",
+            "schema": "workflows-model-benchmark-evidence/v1",
+            "kind": "workload-benchmark",
+            "status": "passed",
+            "measured_at": "2026-07-10",
+            "policy_id": "test-policy",
+            "profile": "verifier-balanced",
+            "corpus_version": "corpus-v1",
+            "prompt_version": "prompt-v1",
+            "model_id": "model-current",
+            "gate_results": {"all": True},
+        }
+    )
+    registry["selections"][0]["evidence_ids"].append("bench-1")
+    findings = gate.evaluate(registry, _slots(), today=TODAY, policy=_policy())
+    assert "unproved_approval" not in _kinds(findings)
 
 
-def test_dominated_pin_normalizes_slot_quality_tier():
-    reg = _registry()
-    reg["models"] = [
-        {
-            "model_id": "old-t3",
-            "provider": "openai",
-            "quality": {"T3": 0.50, "T5": 0.99},
-        },
-        {
-            "model_id": "new-t3",
-            "provider": "openai",
-            "quality": {"T3": 0.80, "T5": 0.10},
-        },
-    ]
-    slots = {
-        "slots": [
-            {
-                "name": "slot1",
-                "provider": "openai",
-                "model": "old-t3",
-                "quality_tier": "t3",
-            }
-        ]
-    }
-
-    findings = gate.evaluate(reg, slots, today=TODAY)
-
-    assert _kinds(findings) == ["dominated_pin"]
-    assert "new-t3" in findings[0]["detail"]
+def test_explicit_old_pin_is_flagged_against_reviewed_selection():
+    registry = _registry()
+    registry["models"].append(
+        {"model_id": "model-old", "provider": "openai", "lifecycle": "compatibility"}
+    )
+    findings = gate.evaluate(registry, _slots("model-old"), today=TODAY, policy=_policy())
+    assert "selection_override" in _kinds(findings)
 
 
-def test_tier_derived_slot_without_model_is_not_flagged():
-    # A slot with no pinned model derives from the registry at runtime -> non-ossifying.
-    slots = {"slots": [{"name": "slot1", "provider": "anthropic", "quality_tier": "T5"}]}
-    findings = gate.evaluate(_registry(), slots, today=TODAY)
-    assert findings == []
+def test_slot_requires_profile_selection():
+    findings = gate.evaluate(
+        _registry(),
+        {"slots": [{"name": "slot2", "provider": "anthropic", "profile": "missing"}]},
+        today=TODAY,
+        policy=_policy(),
+    )
+    assert "missing_selection" in _kinds(findings)
 
 
-def test_real_repo_files_parse_and_run(tmp_path):
-    # The shipped config must at least load and evaluate without raising.
+@pytest.mark.parametrize(
+    ("kind", "mutate"),
+    [
+        ("missing_source", lambda value: value.update(sources=[])),
+        (
+            "missing_pricing_date",
+            lambda value: value["models"][0].pop("pricing"),
+        ),
+        (
+            "invalid_selection_status",
+            lambda value: value["selections"][0].update(status="reviewed"),
+        ),
+        (
+            "unknown_profile",
+            lambda value: value["selections"][0].update(profile="unknown"),
+        ),
+        (
+            "inactive_selection",
+            lambda value: value["models"][0].update(lifecycle="compatibility"),
+        ),
+        (
+            "missing_evidence",
+            lambda value: value["selections"][0].update(evidence_ids=[]),
+        ),
+        (
+            "duplicate_selection",
+            lambda value: value["selections"].append(dict(value["selections"][0])),
+        ),
+    ],
+)
+def test_selection_and_fact_gate_branches(kind, mutate):
+    registry = _registry()
+    mutate(registry)
+    assert kind in _kinds(gate.evaluate(registry, _slots(), today=TODAY, policy=_policy()))
+
+
+@pytest.mark.parametrize(
+    ("kind", "slots"),
+    [
+        ("unknown_pin", _slots("absent")),
+        ("blocked_pin", _slots("model-blocked")),
+        ("missing_profile", {"slots": [{"name": "slot1", "provider": "openai"}]}),
+    ],
+)
+def test_slot_pin_and_profile_gate_branches(kind, slots):
+    assert kind in _kinds(gate.evaluate(_registry(), slots, today=TODAY, policy=_policy()))
+
+
+def test_real_repo_files_are_fresh():
     root = Path(__file__).resolve().parent.parent
-    reg = json.loads((root / "config" / "model_registry.json").read_text())
+    registry = json.loads((root / "config" / "model_registry.json").read_text())
     slots = json.loads((root / "config" / "llm_slots.json").read_text())
-    findings = gate.evaluate(reg, slots, today=TODAY)
-    assert isinstance(findings, list)
+    policy = json.loads((root / "config" / "model_selection_policy.json").read_text())
+    assert gate.evaluate(registry, slots, today=TODAY, policy=policy) == []
 
 
-def test_consumer_template_registry_defaults_are_fresh():
-    root = Path(__file__).resolve().parent.parent
-    reg = json.loads(
-        (root / "templates" / "consumer-repo" / "config" / "model_registry.json").read_text()
-    )
-    slots = json.loads(
-        (root / "templates" / "consumer-repo" / "config" / "llm_slots.json").read_text()
-    )
-    findings = gate.evaluate(reg, slots, today=dt.date(2026, 6, 30))
-    assert findings == []
-
-
-def test_main_exit_codes(tmp_path):
-    reg = tmp_path / "reg.json"
-    slots = tmp_path / "slots.json"
-    reg.write_text(json.dumps(_registry(review_by="2026-05-01")))
-    slots.write_text(json.dumps(_slots(("openai", "gpt-5.4"))))
-    rc = gate.main(
-        ["--registry", str(reg), "--slots", str(slots), "--today", "2026-06-28", "--json"]
-    )
-    assert rc == 1  # overdue
-    reg.write_text(json.dumps(_registry(review_by="2026-12-31")))
-    rc = gate.main(["--registry", str(reg), "--slots", str(slots), "--today", "2026-06-28"])
-    assert rc == 0
-    rc = gate.main(["--registry", str(reg), "--slots", str(slots), "--today", "not-a-date"])
-    assert rc == 2
+def test_main_exit_codes(tmp_path: Path):
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    policy_path = tmp_path / "policy.json"
+    registry_path.write_text(json.dumps(_registry()), encoding="utf-8")
+    slots_path.write_text(json.dumps(_slots()), encoding="utf-8")
+    policy_path.write_text(json.dumps(_policy()), encoding="utf-8")
+    common = [
+        "--registry",
+        str(registry_path),
+        "--slots",
+        str(slots_path),
+        "--policy",
+        str(policy_path),
+        "--today",
+        "2026-07-10",
+    ]
+    assert gate.main(common) == 0
+    registry_path.write_text(json.dumps(_registry(review_by="2026-07-01")), encoding="utf-8")
+    assert gate.main(common) == 1
+    assert gate.main([*common[:-1], "not-a-date"]) == 2

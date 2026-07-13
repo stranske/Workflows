@@ -57,6 +57,21 @@ class TestProviderAvailability:
             provider = OpenAIProvider()
             assert provider.is_available() is False
 
+    @pytest.mark.parametrize(
+        ("provider", "environment"),
+        [
+            (GitHubModelsProvider, {"GITHUB_TOKEN": "test-token"}),
+            (OpenAIProvider, {"OPENAI_API_KEY": "sk-test"}),
+            (AnthropicProvider, {"CLAUDE_API_STRANSKE": "test-key"}),
+        ],
+    )
+    def test_provider_unavailable_when_model_selection_cannot_resolve(self, provider, environment):
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch("tools.llm_provider._configured_langchain_model", return_value=""),
+        ):
+            assert provider().is_available() is False
+
     def test_regex_always_available(self):
         """Regex fallback is always available."""
         provider = RegexFallbackProvider()
@@ -585,7 +600,7 @@ class TestProviderSharedClientResolution:
         ):
             result = provider.analyze_completion("output", ["task1"])
 
-        mock_configured.assert_called_with("openai", fallback="gpt-5.4")
+        mock_configured.assert_called_with("openai", fallback="")
         mock_build.assert_called_once_with(provider="openai", model="gpt-configured")
         assert result.model_name == "gpt-configured"
 
@@ -624,7 +639,7 @@ class TestProviderSharedClientResolution:
         ):
             result = provider.analyze_completion("output", ["task1"])
 
-        mock_configured.assert_called_with("anthropic", fallback="claude-sonnet-4-6")
+        mock_configured.assert_called_with("anthropic", fallback="")
         mock_build.assert_called_once_with(provider="anthropic", model="claude-configured")
         assert result.model_name == "claude-configured"
 

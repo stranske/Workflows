@@ -361,9 +361,9 @@ def summarize(context: SummaryContext) -> SummaryResult:
     # files changed.
     elif not context.python_required and python_result == "skipped":
         lines.append("- Python CI skipped: no Python-code changes detected.")
-    elif python_result == "cancelled":
+    elif python_result in {"cancelled", "abandoned"}:
         state = "pending"
-        description = "Python CI cancelled; waiting for rerun."
+        description = f"Python CI {python_result}; waiting for rerun."
     elif python_result not in ("success", "skipped") or (
         python_result == "skipped" and context.run_core
     ):

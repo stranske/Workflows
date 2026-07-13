@@ -173,8 +173,37 @@ def test_build_chat_client_blocked_model_override_does_not_shift_provider(
                         "provider": "openai",
                         "model_id": "gpt-blocked",
                         "blocked": True,
-                    }
-                ]
+                        "lifecycle": "current",
+                    },
+                    {
+                        "provider": "openai",
+                        "model_id": "gpt-safe",
+                        "lifecycle": "current",
+                    },
+                    {
+                        "provider": "anthropic",
+                        "model_id": "claude-safe",
+                        "lifecycle": "current",
+                    },
+                ],
+                "selections": [
+                    {
+                        "profile": "verifier-balanced",
+                        "provider": "openai",
+                        "model_id": "gpt-safe",
+                        "status": "approved",
+                        "review_by": "2026-12-31",
+                        "evidence_ids": ["test"],
+                    },
+                    {
+                        "profile": "verifier-balanced",
+                        "provider": "anthropic",
+                        "model_id": "claude-safe",
+                        "status": "approved",
+                        "review_by": "2026-12-31",
+                        "evidence_ids": ["test"],
+                    },
+                ],
             }
         ),
         encoding="utf-8",
@@ -189,7 +218,7 @@ def test_build_chat_client_blocked_model_override_does_not_shift_provider(
 
     assert resolved is not None
     assert resolved.provider == langchain_client.PROVIDER_OPENAI
-    assert resolved.model == "gpt-5.4"
+    assert resolved.model == "gpt-safe"
     assert isinstance(resolved.client, FakeChatOpenAI)
     assert not isinstance(resolved.client, FakeChatAnthropic)
 
@@ -210,8 +239,37 @@ def test_build_chat_client_blocked_override_consumed_when_first_provider_unavail
                         "provider": "openai",
                         "model_id": "gpt-blocked",
                         "blocked": True,
-                    }
-                ]
+                        "lifecycle": "current",
+                    },
+                    {
+                        "provider": "openai",
+                        "model_id": "gpt-safe",
+                        "lifecycle": "current",
+                    },
+                    {
+                        "provider": "anthropic",
+                        "model_id": "claude-safe",
+                        "lifecycle": "current",
+                    },
+                ],
+                "selections": [
+                    {
+                        "profile": "verifier-balanced",
+                        "provider": "openai",
+                        "model_id": "gpt-safe",
+                        "status": "approved",
+                        "review_by": "2026-12-31",
+                        "evidence_ids": ["test"],
+                    },
+                    {
+                        "profile": "verifier-balanced",
+                        "provider": "anthropic",
+                        "model_id": "claude-safe",
+                        "status": "approved",
+                        "review_by": "2026-12-31",
+                        "evidence_ids": ["test"],
+                    },
+                ],
             }
         ),
         encoding="utf-8",
@@ -227,9 +285,9 @@ def test_build_chat_client_blocked_override_consumed_when_first_provider_unavail
 
     assert resolved is not None
     assert resolved.provider == langchain_client.PROVIDER_ANTHROPIC
-    assert resolved.model == "claude-sonnet-4-6"
+    assert resolved.model == "claude-safe"
     assert isinstance(resolved.client, FakeChatAnthropic)
-    assert resolved.client.kwargs["model"] == "claude-sonnet-4-6"
+    assert resolved.client.kwargs["model"] == "claude-safe"
 
 
 def test_load_model_registry_ignores_malformed_nested_values(
@@ -270,7 +328,7 @@ def test_load_model_registry_rejects_non_list_models(
     assert llm_registry.load_model_registry() == []
 
 
-def test_load_model_registry_excludes_boolean_quality_scores(
+def test_load_model_registry_ignores_v1_quality_scores(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -293,7 +351,7 @@ def test_load_model_registry_excludes_boolean_quality_scores(
 
     [entry] = llm_registry.load_model_registry()
 
-    assert entry.quality == {"T2": 0.8}
+    assert entry.quality == {}
 
 
 def test_load_slot_config_ignores_tier_slot_when_registry_invalid(
@@ -336,11 +394,14 @@ def test_load_slot_config_uses_provider_fallback_after_position_mismatch(
         ],
     )
     slot_path = tmp_path / "slots.json"
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(["invalid"]), encoding="utf-8")
     slot_path.write_text(
         json.dumps({"slots": [{"name": "primary-claude", "provider": "anthropic"}]}),
         encoding="utf-8",
     )
     monkeypatch.setenv(langchain_client.ENV_SLOT_CONFIG, str(slot_path))
+    monkeypatch.setenv(langchain_client.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
 
     slots = llm_registry.load_slot_config(github_default_model="github-default")
 
@@ -509,7 +570,7 @@ def test_build_chat_clients_env_model_override(monkeypatch: pytest.MonkeyPatch) 
 
     assert [client.model for client in clients] == [
         "gpt-4.1-mini",
-        langchain_client.DEFAULT_MODEL,
+        "codex-mini-latest",
     ]
     assert isinstance(clients[0].client, FakeChatOpenAI)
 

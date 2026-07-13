@@ -1,11 +1,8 @@
 name: Maint 77 Model Registry Freshness
 
-# Detects when the canonical LLM model configuration has gone stale so old models
-# do not get stuck as the primary ones indefinitely. OFFLINE + deterministic:
-# it only reads config/model_registry.json + config/llm_slots.json (no provider
-# API calls, no secrets). On staleness it opens/refreshes a single tracking issue;
-# a human reviews + refreshes the registry, which then propagates to consumers via
-# the existing maint-68 sync (model_registry.json is copy-synced).
+# The PR gate validates registry decisions, evidence, and slots offline. Scheduled
+# and manual runs additionally query provider catalogs when credentials exist.
+# Catalog changes are advisory candidates; they never change a selection.
 #
 # This does NOT change model selection and does NOT touch the sync workflow.
 
@@ -17,8 +14,11 @@ on:
   pull_request:
     paths:
       - config/model_registry.json
+      - config/model_selection_policy.json
       - config/llm_slots.json
       - tools/check_model_registry_freshness.py
+      - tools/discover_model_catalog.py
+      - tools/evaluate_model_benchmark.py
 
 permissions:
   contents: read
@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rc: ${{ steps.gate.outputs.rc }}
+      discovery_drift: ${{ steps.discovery.outputs.drift || 'false' }}
     permissions:
       contents: read
     steps:
@@ -72,8 +73,45 @@ jobs:
           echo "::error::Model registry/slots are stale — see job summary."
           exit 1
 
+      - name: Discover provider catalog drift
+        if: github.event_name != 'pull_request'
+        id: discovery
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+        run: |
+          set +e
+          python3 tools/discover_model_catalog.py --output catalog-discovery.json
+          rc=$?
+          if [ "$rc" = "1" ]; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$rc" = "2" ]; then
+            echo "::error::Catalog discovery configuration error."
+            exit 2
+          fi
+          {
+            echo '### Provider catalog discovery'
+            echo '```json'
+            cat catalog-discovery.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload catalog discovery
+        if: github.event_name != 'pull_request' && always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: model-catalog-discovery-${{ github.run_id }}
+          path: catalog-discovery.json
+          if-no-files-found: ignore
+
   tracking-issue:
-    if: github.event_name != 'pull_request' && needs.freshness.outputs.rc == '1'
+    if: >-
+      github.event_name != 'pull_request' &&
+      (needs.freshness.outputs.rc == '1' || needs.freshness.outputs.discovery_drift == 'true')
     needs: freshness
     runs-on: ubuntu-latest
     permissions:
@@ -91,17 +129,25 @@ jobs:
           python-version: '3.14'
 
       - name: Recreate freshness report
+        id: reports
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: |
           set +e
           python3 tools/check_model_registry_freshness.py --json > freshness.json
-          rc=$?
+          freshness_rc=$?
+          python3 tools/discover_model_catalog.py --output catalog-discovery.json
+          discovery_rc=$?
           cat freshness.json
-          if [ "$rc" = "2" ]; then
+          cat catalog-discovery.json
+          if [ "$freshness_rc" = "2" ] || [ "$discovery_rc" = "2" ]; then
             echo "::error::Freshness gate configuration error."
             exit 2
           fi
-          if [ "$rc" != "1" ]; then
-            echo "::notice::Freshness finding cleared before issue update."
+          if [ "$freshness_rc" != "1" ] && [ "$discovery_rc" != "1" ]; then
+            echo "::notice::Freshness and catalog findings cleared before issue update."
             exit 0
           fi
 
@@ -109,21 +155,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TITLE="🧭 LLM model registry needs review (freshness gate)"
+          TITLE="LLM model registry needs evidence review"
           BODY_FILE=issue_body.md
           {
-            echo "The model-registry freshness gate (\`tools/check_model_registry_freshness.py\`, maint-77) flagged stale or dominated model configuration."
+            echo "Maint-77 found an overdue/unproved selection or provider catalog drift."
+            echo "Catalog additions are candidates only and must not be auto-selected."
             echo ""
-            echo "Refresh \`config/model_registry.json\` (and \`config/llm_slots.json\` if pins are dominated/blocked), bump \`review_by\`, and merge — the update propagates to consumers via maint-68 (model_registry.json is copy-synced)."
+            echo "Follow \`docs/MODEL_SELECTION_POLICY.md\`: refresh facts, run the paired"
+            echo "adjudicated benchmark, attach evidence, and update the explicit selection"
+            echo "and review date. Maint-68 then propagates the registry."
             echo ""
             echo "**Findings:**"
             echo '```json'
             cat freshness.json
             echo '```'
             echo ""
-            echo "_Run:_ ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "**Catalog discovery:**"
+            echo '```json'
+            cat catalog-discovery.json
+            echo '```'
+            echo ""
+            echo "_Run:_ ${{ github.server_url }}/${{ github.repository }}/actions/runs/"
+            echo "${{ github.run_id }}"
           } > "$BODY_FILE"
-          EXISTING=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number' 2>/dev/null)
+          EXISTING=$(gh issue list --search "$TITLE in:title" --state open \
+            --json number --jq '.[0].number' 2>/dev/null)
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body-file "$BODY_FILE"
             echo "::warning::Refreshed existing freshness issue #$EXISTING"

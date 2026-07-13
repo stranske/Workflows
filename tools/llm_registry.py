@@ -1,4 +1,8 @@
-"""Shared LLM slot and model-registry resolution helpers."""
+"""Shared LLM slot and model-registry resolution helpers.
+
+The registry records model facts separately from explicit workload-profile
+selection decisions. Runtime selection never manufactures quality or cost scores.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +20,7 @@ ENV_SLOT_CONFIG = "LANGCHAIN_SLOT_CONFIG"
 PROVIDER_OPENAI = "openai"
 PROVIDER_ANTHROPIC = "anthropic"
 PROVIDER_GITHUB = "github-models"
+DEFAULT_SELECTION_PROFILE = "verifier-balanced"
 
 DEFAULT_SLOT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "llm_slots.json"
 DEFAULT_MODEL_REGISTRY_CONFIG_PATH = (
@@ -28,7 +33,21 @@ class ModelRegistryEntry:
     provider: str
     model: str
     blocked: bool
-    quality: dict[str, float]
+    lifecycle: str = "unknown"
+    # Retained as empty compatibility attributes for callers migrating from v1.
+    # They are deliberately not inputs to model selection.
+    quality: dict[str, float] | None = None
+    cost_score: float | None = None
+
+
+@dataclass(frozen=True)
+class SelectionDecision:
+    profile: str
+    provider: str
+    model: str
+    status: str
+    review_by: str
+    evidence_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -51,6 +70,30 @@ def normalize_provider(value: str | None) -> str | None:
     return None
 
 
+def _registry_path() -> Path:
+    configured = os.environ.get(ENV_MODEL_REGISTRY_CONFIG)
+    return Path(configured) if configured else DEFAULT_MODEL_REGISTRY_CONFIG_PATH
+
+
+def _slot_path() -> Path:
+    configured = os.environ.get(ENV_SLOT_CONFIG)
+    return Path(configured) if configured else DEFAULT_SLOT_CONFIG_PATH
+
+
+def _load_object(path: Path, *, label: str) -> dict[str, object] | None:
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.warning("Could not read %s %s", label, path)
+        return None
+    if not isinstance(payload, dict):
+        logger.warning("Invalid %s format in %s; expected object", label, path)
+        return None
+    return payload
+
+
 def _slot_entries(payload: dict[str, object], path: Path) -> list[dict[str, object]]:
     raw_slots = payload.get("slots", [])
     if not isinstance(raw_slots, list):
@@ -66,19 +109,10 @@ def _slot_entries(payload: dict[str, object], path: Path) -> list[dict[str, obje
 
 
 def load_model_registry() -> list[ModelRegistryEntry]:
-    config_path = os.environ.get(ENV_MODEL_REGISTRY_CONFIG)
-    path = Path(config_path) if config_path else DEFAULT_MODEL_REGISTRY_CONFIG_PATH
-    if not path.is_file():
+    path = _registry_path()
+    payload = _load_object(path, label="model registry")
+    if payload is None:
         return []
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        logger.warning("Could not read model registry %s; continuing without registry", path)
-        return []
-    if not isinstance(payload, dict):
-        logger.warning("Invalid model registry format in %s; expected object", path)
-        return []
-
     raw_models = payload.get("models", [])
     if not isinstance(raw_models, list):
         logger.warning("Invalid model registry format in %s; expected models list", path)
@@ -93,44 +127,58 @@ def load_model_registry() -> list[ModelRegistryEntry]:
         model = str(raw_entry.get("model_id", "")).strip()
         if not provider or not model:
             continue
-        quality_payload = raw_entry.get("quality", {})
-        if not isinstance(quality_payload, dict):
-            logger.warning(
-                "Ignoring invalid quality scores for %s/%s in %s; expected object",
-                provider,
-                model,
-                path,
-            )
-            quality_payload = {}
-        quality = {
-            str(tier).upper(): float(score)
-            for tier, score in quality_payload.items()
-            if isinstance(score, (int, float)) and not isinstance(score, bool)
-        }
         entries.append(
             ModelRegistryEntry(
                 provider=provider,
                 model=model,
                 blocked=bool(raw_entry.get("blocked", False)),
-                quality=quality,
+                lifecycle=str(raw_entry.get("lifecycle", "unknown")).strip().lower(),
+                quality={},
             )
         )
     return entries
 
 
+def load_selection_decisions() -> list[SelectionDecision]:
+    path = _registry_path()
+    payload = _load_object(path, label="model registry")
+    if payload is None:
+        return []
+    raw_selections = payload.get("selections", [])
+    if not isinstance(raw_selections, list):
+        logger.warning("Invalid model registry format in %s; expected selections list", path)
+        return []
+
+    decisions: list[SelectionDecision] = []
+    for raw in raw_selections:
+        if not isinstance(raw, dict):
+            continue
+        provider = normalize_provider(str(raw.get("provider", "")))
+        profile = str(raw.get("profile", "")).strip()
+        model = str(raw.get("model_id", "")).strip()
+        evidence = raw.get("evidence_ids", [])
+        if not provider or not profile or not model or not isinstance(evidence, list):
+            continue
+        decisions.append(
+            SelectionDecision(
+                profile=profile,
+                provider=provider,
+                model=model,
+                status=str(raw.get("status", "")).strip().lower(),
+                review_by=str(raw.get("review_by", "")).strip(),
+                evidence_ids=tuple(str(item) for item in evidence if str(item).strip()),
+            )
+        )
+    return decisions
+
+
 def _model_registry_format_valid() -> bool:
-    config_path = os.environ.get(ENV_MODEL_REGISTRY_CONFIG)
-    path = Path(config_path) if config_path else DEFAULT_MODEL_REGISTRY_CONFIG_PATH
-    if not path.is_file():
-        return True
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    if not isinstance(payload, dict):
-        return False
-    raw_models = payload.get("models", [])
-    return isinstance(raw_models, list)
+    payload = _load_object(_registry_path(), label="model registry")
+    return bool(
+        payload is not None
+        and isinstance(payload.get("models"), list)
+        and isinstance(payload.get("selections"), list)
+    )
 
 
 def registry_entry_for(
@@ -139,10 +187,14 @@ def registry_entry_for(
     entries = registry if registry is not None else load_model_registry()
     normalized_provider = normalize_provider(provider)
     normalized_model = model.strip()
-    for entry in entries:
-        if entry.provider == normalized_provider and entry.model == normalized_model:
-            return entry
-    return None
+    return next(
+        (
+            entry
+            for entry in entries
+            if entry.provider == normalized_provider and entry.model == normalized_model
+        ),
+        None,
+    )
 
 
 def is_model_blocked(
@@ -152,94 +204,127 @@ def is_model_blocked(
     return bool(entry and entry.blocked)
 
 
+def select_model_for_profile(
+    *,
+    provider: str,
+    profile: str = DEFAULT_SELECTION_PROFILE,
+    registry: list[ModelRegistryEntry] | None = None,
+    decisions: list[SelectionDecision] | None = None,
+) -> str | None:
+    """Resolve the one explicit reviewed decision for provider/profile."""
+    entries = registry if registry is not None else load_model_registry()
+    selections = decisions if decisions is not None else load_selection_decisions()
+    normalized_provider = normalize_provider(provider)
+    matches = [
+        decision
+        for decision in selections
+        if decision.provider == normalized_provider and decision.profile == profile
+    ]
+    if len(matches) != 1:
+        if matches:
+            logger.warning(
+                "Ambiguous model selections for %s/%s; expected exactly one",
+                normalized_provider,
+                profile,
+            )
+        return None
+    decision = matches[0]
+    entry = registry_entry_for(decision.provider, decision.model, registry=entries)
+    if entry is None or entry.blocked or entry.lifecycle != "current":
+        return None
+    if decision.status not in {"provisional", "approved"}:
+        return None
+    return decision.model
+
+
 def select_model_for_tier(
     *,
     provider: str,
     tier: str,
     registry: list[ModelRegistryEntry] | None = None,
+    **_ignored: object,
 ) -> str | None:
-    entries = registry if registry is not None else load_model_registry()
-    normalized_provider = normalize_provider(provider)
-    normalized_tier = tier.strip().upper()
-    candidates = [
-        entry
-        for entry in entries
-        if entry.provider == normalized_provider
-        and not entry.blocked
-        and normalized_tier in entry.quality
-    ]
-    if not candidates:
-        return None
-    selected = max(candidates, key=lambda entry: entry.quality[normalized_tier])
-    return selected.model
+    """Compatibility adapter for v1 callers; tiers no longer rank models."""
+    logger.warning(
+        "quality tier %s is deprecated; resolving profile %s",
+        tier,
+        DEFAULT_SELECTION_PROFILE,
+    )
+    return select_model_for_profile(provider=provider, registry=registry)
 
 
 def configured_model_for_provider(
     provider: str,
     *,
-    fallback: str,
-    tier: str = "T3",
+    fallback: str = "",
+    profile: str = DEFAULT_SELECTION_PROFILE,
+    tier: str | None = None,
     registry: list[ModelRegistryEntry] | None = None,
 ) -> str:
     normalized_provider = normalize_provider(provider)
     entries = registry if registry is not None else load_model_registry()
-
-    config_path = os.environ.get(ENV_SLOT_CONFIG)
-    path = Path(config_path) if config_path else DEFAULT_SLOT_CONFIG_PATH
-    if path.is_file():
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            payload = {}
-        if not isinstance(payload, dict):
-            logger.warning("Invalid slot config format in %s; expected object", path)
-            payload = {}
+    path = _slot_path()
+    payload = _load_object(path, label="slot config")
+    if payload is not None:
         for slot in _slot_entries(payload, path):
             slot_provider = normalize_provider(str(slot.get("provider", "")))
             if slot_provider != normalized_provider:
                 continue
-            model = str(slot.get("model", "")).strip()
-            slot_tier = str(slot.get("quality_tier") or slot.get("tier") or tier).strip()
-            if not model and slot_tier:
-                model = (
-                    select_model_for_tier(
-                        provider=slot_provider or "",
-                        tier=slot_tier,
-                        registry=entries,
-                    )
-                    or ""
+            explicit_model = str(slot.get("model", "")).strip()
+            slot_profile = str(slot.get("profile") or profile).strip()
+            model = (
+                select_model_for_profile(
+                    provider=slot_provider or "",
+                    profile=slot_profile,
+                    registry=entries,
+                )
+                or ""
+            )
+            if not model:
+                logger.warning(
+                    "No reviewed model selection for slot profile %s/%s",
+                    slot_profile,
+                    slot_provider,
+                )
+                return ""
+            if explicit_model and explicit_model != model:
+                logger.warning(
+                    "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
+                    slot_provider,
+                    explicit_model,
+                    slot_profile,
+                    model or "unavailable",
                 )
             if model and not is_model_blocked(slot_provider or "", model, registry=entries):
                 return model
 
-    selected = select_model_for_tier(provider=provider, tier=tier, registry=entries)
+    selected = select_model_for_profile(provider=provider, profile=profile, registry=entries)
     if selected:
         return selected
-    if not is_model_blocked(provider, fallback, registry=entries):
+    if fallback and not is_model_blocked(provider, fallback, registry=entries):
         return fallback
     return ""
 
 
-def default_slots(*, github_default_model: str) -> list[SlotDefinition]:
-    return [
-        SlotDefinition(name="slot1", provider=PROVIDER_OPENAI, model="gpt-5.4"),
-        SlotDefinition(name="slot2", provider=PROVIDER_ANTHROPIC, model="claude-sonnet-4-6"),
-        SlotDefinition(name="slot3", provider=PROVIDER_GITHUB, model=github_default_model),
-    ]
+def default_slots(*, github_default_model: str = "") -> list[SlotDefinition]:
+    """Build no-slot-config defaults from registry decisions, never version constants."""
+    slots: list[SlotDefinition] = []
+    for index, provider in enumerate(
+        (PROVIDER_OPENAI, PROVIDER_ANTHROPIC, PROVIDER_GITHUB), start=1
+    ):
+        model = select_model_for_profile(provider=provider)
+        if not model and provider == PROVIDER_GITHUB:
+            model = github_default_model.strip()
+        if model:
+            slots.append(SlotDefinition(name=f"slot{index}", provider=provider, model=model))
+    return slots
 
 
-def load_slot_config(*, github_default_model: str) -> list[SlotDefinition]:
-    config_path = os.environ.get(ENV_SLOT_CONFIG)
-    path = Path(config_path) if config_path else DEFAULT_SLOT_CONFIG_PATH
+def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
+    path = _slot_path()
+    payload = _load_object(path, label="slot config")
     fallback_slots = default_slots(github_default_model=github_default_model)
-    if not path.is_file():
-        return fallback_slots
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return fallback_slots
-    if not isinstance(payload, dict):
-        logger.warning("Invalid slot config format in %s; expected object", path)
+    if payload is None:
         return fallback_slots
 
     registry = load_model_registry()
@@ -247,26 +332,44 @@ def load_slot_config(*, github_default_model: str) -> list[SlotDefinition]:
     if not _model_registry_format_valid() and any(
         str(entry.get("provider", "")).strip()
         and not str(entry.get("model", "")).strip()
-        and str(entry.get("quality_tier") or entry.get("tier") or "").strip()
+        and str(
+            entry.get("profile") or entry.get("quality_tier") or entry.get("tier") or ""
+        ).strip()
         for entry in slot_entries
     ):
         return fallback_slots
+
     slots: list[SlotDefinition] = []
-    fallback_by_position = dict(enumerate(fallback_slots, start=1))
     fallback_by_provider = {slot.provider: slot for slot in fallback_slots}
     for idx, entry in enumerate(slot_entries, start=1):
         provider = normalize_provider(str(entry.get("provider", "")))
-        model = str(entry.get("model", "")).strip()
-        tier = str(entry.get("quality_tier") or entry.get("tier") or "").strip()
-        if provider and not model and tier:
-            model = select_model_for_tier(provider=provider, tier=tier, registry=registry) or ""
+        explicit_model = str(entry.get("model", "")).strip()
+        configured_profile = str(entry.get("profile") or "").strip()
+        profile = configured_profile or DEFAULT_SELECTION_PROFILE
+        model = ""
+        if provider:
+            model = (
+                select_model_for_profile(provider=provider, profile=profile, registry=registry)
+                or ""
+            )
+        if provider and explicit_model and explicit_model != model:
+            logger.warning(
+                "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
+                provider,
+                explicit_model,
+                profile,
+                model or "unavailable",
+            )
+        if provider and configured_profile and not model:
+            logger.warning(
+                "Skipping slot with unresolved reviewed profile: %s/%s",
+                configured_profile,
+                provider,
+            )
+            continue
         if provider and not model:
-            fallback_slot = fallback_by_position.get(idx)
-            if fallback_slot and fallback_slot.provider != provider:
-                fallback_slot = fallback_by_provider.get(provider)
-            fallback_slot = fallback_slot or fallback_by_provider.get(provider)
-            if fallback_slot and fallback_slot.provider == provider:
-                model = fallback_slot.model
+            fallback_slot = fallback_by_provider.get(provider)
+            model = fallback_slot.model if fallback_slot else ""
         if not provider or not model:
             continue
         if is_model_blocked(provider, model, registry=registry):
@@ -274,8 +377,7 @@ def load_slot_config(*, github_default_model: str) -> list[SlotDefinition]:
             continue
         name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
         slots.append(SlotDefinition(name=name, provider=provider, model=model))
-
-    return slots or fallback_slots
+    return slots if slot_entries else fallback_slots
 
 
 def apply_slot_env_overrides(
@@ -287,10 +389,8 @@ def apply_slot_env_overrides(
     registry = load_model_registry()
     updated: list[SlotDefinition] = []
     for idx, slot in enumerate(slots, start=1):
-        provider_key = f"{env_slot_prefix}{idx}_PROVIDER"
-        model_key = f"{env_slot_prefix}{idx}_MODEL"
-        provider_override = normalize_provider(os.environ.get(provider_key))
-        model_override = os.environ.get(model_key)
+        provider_override = normalize_provider(os.environ.get(f"{env_slot_prefix}{idx}_PROVIDER"))
+        model_override = os.environ.get(f"{env_slot_prefix}{idx}_MODEL")
         if idx == 1:
             model_override = model_override or os.environ.get(env_model_name)
         provider = provider_override or slot.provider
@@ -303,24 +403,29 @@ def apply_slot_env_overrides(
             ):
                 updated.append(slot)
             continue
-        updated.append(
-            SlotDefinition(
-                name=slot.name,
-                provider=provider,
-                model=model,
-            )
-        )
+        updated.append(SlotDefinition(name=slot.name, provider=provider, model=model))
     return updated
 
 
 def resolve_slots(
     *,
-    github_default_model: str,
+    github_default_model: str = "",
     env_model_name: str = "LANGCHAIN_MODEL",
     env_slot_prefix: str = "LANGCHAIN_SLOT",
 ) -> list[SlotDefinition]:
+    slots = load_slot_config(github_default_model=github_default_model)
+    # Preserve an explicit runtime override as an emergency bootstrap when the
+    # registry file is unavailable. Empty models are never invoked directly;
+    # langchain_client skips them when the override cannot serve that provider.
+    if not slots and os.environ.get(env_model_name):
+        slots = [
+            SlotDefinition(name=f"slot{index}", provider=provider, model="")
+            for index, provider in enumerate(
+                (PROVIDER_OPENAI, PROVIDER_ANTHROPIC, PROVIDER_GITHUB), start=1
+            )
+        ]
     return apply_slot_env_overrides(
-        load_slot_config(github_default_model=github_default_model),
+        slots,
         env_model_name=env_model_name,
         env_slot_prefix=env_slot_prefix,
     )

@@ -287,6 +287,8 @@ def build_chat_client(
             logger.warning("Skipping blocked LLM model override: %s/%s", slot.provider, slot_model)
             used_override = True
             slot_model = slot.model
+        if not slot_model:
+            continue
         if _is_model_blocked(slot.provider, slot_model):
             logger.warning("Skipping blocked LLM model: %s/%s", slot.provider, slot_model)
             continue
@@ -499,6 +501,8 @@ def build_chat_clients(
     for idx, slot in enumerate(candidate_slots):
         slot_model = model_overrides[idx] if idx < len(model_overrides) else None
         slot_model = slot_model or slot.model
+        if not slot_model:
+            continue
         if _is_model_blocked(slot.provider, slot_model, registry=registry):
             logger.warning("Skipping blocked LLM model override: %s/%s", slot.provider, slot_model)
             continue
