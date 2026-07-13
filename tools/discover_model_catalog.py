@@ -13,11 +13,11 @@ import datetime as dt
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import requests
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REGISTRY_PATH = _REPO_ROOT / "config" / "model_registry.json"
@@ -31,9 +31,9 @@ class CatalogModel:
 
 
 def _request_json(url: str, headers: dict[str, str]) -> Any:
-    request = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
-        return json.load(response)
+    response = requests.get(url, headers=headers, timeout=30)
+    response.raise_for_status()
+    return response.json()
 
 
 def _parse_timestamp(value: object) -> dt.datetime | None:
@@ -131,7 +131,7 @@ def fetch_provider(provider: str) -> tuple[list[CatalogModel] | None, str | None
         else:  # pragma: no cover - argparse constrains values
             raise ValueError(f"unsupported provider: {provider}")
         return parse_catalog(provider, payload), None
-    except (OSError, ValueError, urllib.error.URLError) as exc:
+    except (OSError, ValueError, requests.RequestException) as exc:
         return None, str(exc)
 
 

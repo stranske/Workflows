@@ -1,8 +1,32 @@
 from __future__ import annotations
 
 import datetime as dt
+from types import SimpleNamespace
 
 from tools import discover_model_catalog as discovery
+
+
+def test_request_json_uses_http_only_client(monkeypatch):
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {"data": []},
+    )
+    calls = []
+    monkeypatch.setattr(
+        discovery.requests,
+        "get",
+        lambda url, **kwargs: calls.append((url, kwargs)) or response,
+    )
+
+    assert discovery._request_json("https://provider.example/models", {"X-Test": "yes"}) == {
+        "data": []
+    }
+    assert calls == [
+        (
+            "https://provider.example/models",
+            {"headers": {"X-Test": "yes"}, "timeout": 30},
+        )
+    ]
 
 
 def test_github_catalog_parser_filters_non_chat_entries():
