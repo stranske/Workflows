@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 from tools import run_model_eval_pilot as pilot
@@ -88,9 +89,15 @@ def test_run_pilot_captures_failure_with_case_and_candidate_metadata() -> None:
 def test_unusable_candidates_requires_valid_evidence_per_candidate() -> None:
     report = {
         "results": [
-            {"provider": "openai", "model_id": "working", "schema_valid": True},
-            {"provider": "openai", "model_id": "working", "schema_valid": False},
-            {"provider": "anthropic", "model_id": "broken", "schema_valid": False},
+            {"case_id": "one", "provider": "openai", "model_id": "working", "schema_valid": True},
+            {"case_id": "two", "provider": "openai", "model_id": "working", "schema_valid": True},
+            {"case_id": "one", "provider": "anthropic", "model_id": "broken", "schema_valid": True},
+            {
+                "case_id": "two",
+                "provider": "anthropic",
+                "model_id": "broken",
+                "schema_valid": False,
+            },
         ]
     }
 
@@ -122,6 +129,56 @@ def test_fetch_pr_includes_linked_source_issue_context(monkeypatch) -> None:
     assert "acceptance context" in context
     assert "Verifier disposition: PASS after comparison." in context
     assert diff == "diff"
+
+
+def test_fetch_pr_skips_inaccessible_linked_issue(monkeypatch) -> None:
+    monkeypatch.setattr(
+        pilot.api_client,
+        "fetch_pull_request",
+        lambda *_: {"title": "PR", "body": "Closes #12"},
+    )
+    monkeypatch.setattr(pilot.api_client, "fetch_pull_request_diff", lambda *_: "diff")
+    monkeypatch.setattr(
+        pilot.api_client,
+        "fetch_issue",
+        lambda *_: (_ for _ in ()).throw(RuntimeError("forbidden")),
+    )
+
+    context, _ = pilot.fetch_pr("owner/repo", 13, "token")
+
+    assert "Repository: owner/repo" in context
+    assert "Linked source issues" not in context
+
+
+def test_linked_issue_numbers_accepts_inline_references_and_deduplicates() -> None:
+    assert pilot._linked_issue_numbers(
+        "This closes #12; related to: #12 and fixes #13. Resolves #99.", pr_number=99
+    ) == [12, 13]
+
+
+def test_fetch_pr_bounds_and_guards_linked_issue_text(monkeypatch) -> None:
+    monkeypatch.setattr(
+        pilot.api_client,
+        "fetch_pull_request",
+        lambda *_: {"title": "PR", "body": "Closes #12"},
+    )
+    monkeypatch.setattr(pilot.api_client, "fetch_pull_request_diff", lambda *_: "diff")
+    monkeypatch.setattr(
+        pilot.api_client,
+        "fetch_issue",
+        lambda *_: {"title": "Source", "body": "unsafe body"},
+    )
+    monkeypatch.setattr(pilot.api_client, "fetch_issue_comments", lambda *_: [])
+    monkeypatch.setattr(
+        pilot,
+        "check_prompt_injection",
+        lambda text: {"blocked": text == "unsafe body", "code": "INSTRUCTION_OVERRIDE"},
+    )
+
+    context, _ = pilot.fetch_pr("owner/repo", 13, "token")
+
+    assert "unsafe body" not in context
+    assert "INSTRUCTION_OVERRIDE" in context
 
 
 def test_preflight_uses_one_case_per_candidate_and_stops_unusable_candidate() -> None:
@@ -228,4 +285,32 @@ def test_summary_reports_category_agreement_errors_and_latency() -> None:
         "false_pass": 1,
         "false_fail": 0,
         "schema_errors": 1,
+        "latency_ms": 5.0,
     }
+
+
+def test_main_reports_malformed_corpus_without_traceback(monkeypatch, tmp_path, capsys) -> None:
+    corpus = tmp_path / "corpus.json"
+    candidates = tmp_path / "candidates.json"
+    output = tmp_path / "report.json"
+    corpus.write_text(json.dumps({"corpus_version": "v1", "cases": []}))
+    candidates.write_text(json.dumps({"candidates": []}))
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        pilot.sys,
+        "argv",
+        [
+            "run_model_eval_pilot.py",
+            "--corpus",
+            str(corpus),
+            "--candidates",
+            str(candidates),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert pilot.main() == 1
+    assert (
+        "pilot preflight error: pilot corpus requires at least one case" in capsys.readouterr().err
+    )

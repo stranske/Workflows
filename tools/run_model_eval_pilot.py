@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from collections.abc import Callable
@@ -14,19 +15,34 @@ from typing import Any
 
 from scripts import api_client
 from scripts.langchain import pr_verifier
+from scripts.langchain.injection_guard import check_prompt_injection
 
 ROOT = Path(__file__).resolve().parent.parent
+MAX_LINKED_ISSUE_BODY_CHARS = 4_000
+MAX_LINKED_ISSUE_COMMENT_CHARS = 1_200
+MAX_LINKED_ISSUE_CONTEXT_CHARS = 8_000
 
 
 def _linked_issue_numbers(body: str, *, pr_number: int) -> list[int]:
     """Return issue references that state an explicit PR-to-issue relationship."""
-    import re
-
     numbers = [
         int(match.group(1))
-        for match in re.finditer(r"(?im)^\s*(?:closes|fixes|resolves|related to)\s+#(\d+)\b", body)
+        for match in re.finditer(
+            r"(?i)\b(?:closes|fixes|resolves|related to)\s*:?\s+#(\d+)\b", body
+        )
     ]
     return [number for number in dict.fromkeys(numbers) if number != pr_number]
+
+
+def _bounded_linked_issue_text(value: object, *, limit: int) -> str:
+    """Keep untrusted linked-issue text safe and bounded for verifier context."""
+    text = str(value or "").strip()
+    guard = check_prompt_injection(text)
+    if guard["blocked"]:
+        return f"[linked issue text omitted by prompt-injection guard: {guard['code']}]"
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "\n[truncated linked issue context]"
 
 
 def fetch_pr(repo: str, number: int, token: str) -> tuple[str, str]:
@@ -34,21 +50,28 @@ def fetch_pr(repo: str, number: int, token: str) -> tuple[str, str]:
     diff = api_client.fetch_pull_request_diff(repo, number, token)
     pr_body = str(payload.get("body") or "")
     source_issues: list[str] = []
+    remaining_context = MAX_LINKED_ISSUE_CONTEXT_CHARS
     for issue_number in _linked_issue_numbers(pr_body, pr_number=number):
-        issue = api_client.fetch_issue(repo, issue_number, token)
-        disposition_comments = [
-            str(comment.get("body") or "")
-            for comment in api_client.fetch_issue_comments(repo, issue_number, token)
-            if any(
-                marker in str(comment.get("body") or "").casefold()
-                for marker in ("verifier", "verify:compare", "disposition", "terminal")
-            )
-        ][-3:]
-        source_issues.append(
-            "\n".join(
+        try:
+            issue = api_client.fetch_issue(repo, issue_number, token)
+            disposition_comments = [
+                _bounded_linked_issue_text(
+                    comment.get("body"), limit=MAX_LINKED_ISSUE_COMMENT_CHARS
+                )
+                for comment in api_client.fetch_issue_comments(repo, issue_number, token)
+                if any(
+                    marker in str(comment.get("body") or "").casefold()
+                    for marker in ("verifier", "verify:compare", "disposition", "terminal")
+                )
+            ][-3:]
+            source_issue = "\n".join(
                 (
-                    f"Source issue: #{issue_number} — {issue.get('title') or ''}",
-                    str(issue.get("body") or ""),
+                    "Source issue: "
+                    f"#{issue_number} — "
+                    + _bounded_linked_issue_text(issue.get("title"), limit=300),
+                    _bounded_linked_issue_text(
+                        issue.get("body"), limit=MAX_LINKED_ISSUE_BODY_CHARS
+                    ),
                     "## Durable verifier/disposition context",
                     (
                         "\n\n---\n\n".join(disposition_comments)
@@ -57,7 +80,12 @@ def fetch_pr(repo: str, number: int, token: str) -> tuple[str, str]:
                     ),
                 )
             )
-        )
+        except Exception:
+            continue
+        if remaining_context <= 0:
+            break
+        source_issues.append(source_issue[:remaining_context])
+        remaining_context -= len(source_issues[-1])
     context = "\n\n".join(
         part
         for part in (
@@ -153,7 +181,14 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         )
         category = candidate["categories"].setdefault(
             row["category"],
-            {"rows": 0, "agreement": 0, "false_pass": 0, "false_fail": 0, "schema_errors": 0},
+            {
+                "rows": 0,
+                "agreement": 0,
+                "false_pass": 0,
+                "false_fail": 0,
+                "schema_errors": 0,
+                "latency_ms": 0.0,
+            },
         )
         expected = row["expected_verdict"]
         actual = row["actual_verdict"]
@@ -166,8 +201,11 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         category["false_pass"] += int(expected == "NON_PASS" and actual == "PASS")
         category["false_fail"] += int(expected == "PASS" and actual == "NON_PASS")
         category["schema_errors"] += int(not schema_valid)
+        category["latency_ms"] += float(row["latency_ms"])
     for candidate in candidates.values():
         candidate["latency_ms"] = round(candidate["latency_ms"], 3)
+        for category in candidate["categories"].values():
+            category["latency_ms"] = round(category["latency_ms"], 3)
     return {"candidates": list(candidates.values())}
 
 
@@ -196,16 +234,23 @@ def run_preflight(
 
 
 def unusable_candidates(report: dict[str, Any]) -> list[str]:
-    """Return candidates that produced no schema-valid evaluation row."""
-    if not report.get("results"):
+    """Return candidates without a schema-valid row for every corpus case."""
+    results = [row for row in report.get("results", []) if isinstance(row, dict)]
+    if not results:
         return ["<no-results>"]
-    health: dict[tuple[str, str], bool] = {}
-    for row in report.get("results", []):
-        if not isinstance(row, dict):
-            continue
+    expected_case_ids = {str(row.get("case_id", "")) for row in results}
+    valid_case_ids: dict[tuple[str, str], set[str]] = {}
+    candidates: set[tuple[str, str]] = set()
+    for row in results:
         key = (str(row.get("provider", "")), str(row.get("model_id", "")))
-        health[key] = health.get(key, False) or row.get("schema_valid") is True
-    return [f"{provider}/{model}" for (provider, model), usable in health.items() if not usable]
+        candidates.add(key)
+        if row.get("schema_valid") is True:
+            valid_case_ids.setdefault(key, set()).add(str(row.get("case_id", "")))
+    return [
+        f"{provider}/{model}"
+        for provider, model in sorted(candidates)
+        if valid_case_ids.get((provider, model), set()) != expected_case_ids
+    ]
 
 
 def main() -> int:
@@ -222,11 +267,15 @@ def main() -> int:
         raise SystemExit("GITHUB_TOKEN is required")
     corpus = json.loads(args.corpus.read_text())
     candidates = json.loads(args.candidates.read_text())
-    preflight = run_preflight(
-        corpus,
-        candidates,
-        token=token,
-    )
+    try:
+        preflight = run_preflight(
+            corpus,
+            candidates,
+            token=token,
+        )
+    except ValueError as exc:
+        print(f"pilot preflight error: {exc}", file=sys.stderr)
+        return 1
     preflight_output = args.preflight_output or args.output.with_name("pilot-preflight.json")
     preflight_output.write_text(json.dumps(preflight, indent=2) + "\n")
     unusable = unusable_candidates(preflight)
