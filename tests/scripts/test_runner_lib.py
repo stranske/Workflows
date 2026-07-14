@@ -111,9 +111,12 @@ def test_capability_effect_evidence_rejects_spoofed_or_secret_bearing_values() -
             normalize_capability_effect_evidence(
                 **{**valid, "evidence_artifact_ref": credential_like_ref}
             )
-    assert normalize_capability_effect_evidence(
-        **{**valid, "evidence_artifact_ref": "github-actions:owner/repo:123:task-skipped"}
-    ).evidence_artifact_ref == "github-actions:owner/repo:123:task-skipped"
+    assert (
+        normalize_capability_effect_evidence(
+            **{**valid, "evidence_artifact_ref": "github-actions:owner/repo:123:task-skipped"}
+        ).evidence_artifact_ref
+        == "github-actions:owner/repo:123:task-skipped"
+    )
     with pytest.raises(ValueError, match="supervision_mode"):
         normalize_capability_effect_evidence(**{**valid, "supervision_mode": "owner-will-fix-it"})
 
