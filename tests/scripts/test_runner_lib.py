@@ -106,6 +106,8 @@ def test_capability_effect_evidence_rejects_spoofed_or_secret_bearing_values() -
         "ghp_example",
         "github_pat_example",
         "sk-example",
+        "artifact:ghp_example",
+        "github-actions:owner/repo:sk-example",
     ):
         with pytest.raises(ValueError, match="credential-like prefix"):
             normalize_capability_effect_evidence(

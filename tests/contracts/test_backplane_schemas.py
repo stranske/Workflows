@@ -73,3 +73,15 @@ def test_evidence_object_requires_method_and_excerpt_present() -> None:
     assert "excerpt" in schema["required"]
     # excerpt must be PRESENT (string or explicit null) -> nullable string type.
     assert schema["properties"]["excerpt"]["type"] == ["string", "null"]
+
+    validator = Draft202012Validator(schema)
+    evidence = {
+        "schema_version": "evidence-object/v1",
+        "evidence_id": "ev-1",
+        "fact_ref": "metric.alpha",
+        "source_id": "source-1",
+        "method": "computed",
+    }
+    assert any(error.validator == "required" for error in validator.iter_errors(evidence))
+    evidence["excerpt"] = None
+    assert not list(validator.iter_errors(evidence))

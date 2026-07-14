@@ -141,6 +141,7 @@ def test_consumer_validates_ingested_schema_without_run_envelope() -> None:
         "fact_ref": "metric.alpha",
         "source_id": "source-1",
         "method": "computed",
+        "excerpt": "Computed from source-1.",
     }
     registry = _registry(
         _participant(
