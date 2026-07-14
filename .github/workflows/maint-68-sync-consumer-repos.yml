@@ -81,6 +81,7 @@ jobs:
             .github/sync-manifest.yml
             .github/templates
             .github/actions
+            .github/agents
             .github/PULL_REQUEST_TEMPLATE.md
             .github/path-classification.yml
             .github/scripts
