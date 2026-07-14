@@ -272,6 +272,7 @@ def test_consumer_reports_closest_schema_errors_when_no_ingest_matches() -> None
         "evidence_id": "ev-1",
         "fact_ref": "metric.alpha",
         "source_id": "source-1",
+        "excerpt": "The metric record has an invalid validation method.",
         "method": "not-a-valid-method",
     }
     registry = {
