@@ -337,6 +337,14 @@ jobs:
               ? fs.readFileSync(summaryPath, 'utf8')
               : 'No metrics available.';
             const title = 'Agent metrics weekly summary';
+            const repoLabels = await paginateWithRetry(
+              github,
+              github.rest.issues.listLabelsForRepo,
+              { owner, repo, per_page: 100 },
+            );
+            const hasDurableTrackerLabel = repoLabels.some(
+              (label) => label.name === 'tracker:durable',
+            );
 
             const issues = await paginateWithRetry(github, github.rest.issues.listForRepo, {
               owner,
@@ -352,7 +360,9 @@ jobs:
                 repo,
                 title,
                 body: 'Tracking issue for weekly agent workflow metrics.\n\n' + body,
-                labels: ['tracker:durable', 'automated'],
+                labels: hasDurableTrackerLabel
+                  ? ['tracker:durable', 'automated']
+                  : ['automated'],
               }));
               target = created.data;
             } else {
@@ -365,7 +375,7 @@ jobs:
               const hasLabel = (target.labels || []).some(
                 l => (typeof l === 'string' ? l : l?.name) === 'tracker:durable'
               );
-              if (!hasLabel) {
+              if (hasDurableTrackerLabel && !hasLabel) {
                 await withRetry(() => github.rest.issues.addLabels({
                   owner,
                   repo,

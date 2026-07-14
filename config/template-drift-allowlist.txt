@@ -121,6 +121,6 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.15]
 main = .github/workflows/agents-weekly-metrics.yml
 template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
-main_sha256 = 152a66c3c5e9ce08b8f7dc8f4699e016af139eae8f3d48c621fae0ebf4f240b0
-template_sha256 = b068950b9726e7fbc006ff100673f70ed785919c6361df4c0ea2ac701764633b
-reason = Intentional divergence (re-baselined 2026-07-09): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2738 (tracker:durable label fix). Do not align: would strip consumer action pins.
+main_sha256 = 3046679fc57febb2897d93b894a952ccd7e2fb3df8f48de3282d0b1edede321b
+template_sha256 = aa6798871dfbd9d6b0a8fa327bff77920595dae5302e8d551d4dbbc7d9f40dd2
+reason = Intentional divergence (re-baselined 2026-07-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after the durable-label guard was added to the template. Do not align: would strip consumer action pins.
