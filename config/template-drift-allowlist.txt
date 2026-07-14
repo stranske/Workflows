@@ -121,6 +121,6 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.15]
 main = .github/workflows/agents-weekly-metrics.yml
 template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
-main_sha256 = 2d8217bac48327849dd0fd6cc68ffabe4d71e2ff7965f9703b931adaec903978
-template_sha256 = f1e1ba73472547e3dc8bdd05f6b741481c4c99ae985c940fab206d11fb6ce556
+main_sha256 = 152a66c3c5e9ce08b8f7dc8f4699e016af139eae8f3d48c621fae0ebf4f240b0
+template_sha256 = b068950b9726e7fbc006ff100673f70ed785919c6361df4c0ea2ac701764633b
 reason = Intentional divergence (re-baselined 2026-07-09): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2738 (tracker:durable label fix). Do not align: would strip consumer action pins.
