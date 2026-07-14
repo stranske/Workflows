@@ -80,9 +80,12 @@ jobs:
             templates/consumer-repo
             .github/sync-manifest.yml
             .github/templates
+            .github/actions
             .github/PULL_REQUEST_TEMPLATE.md
             .github/path-classification.yml
             .github/scripts
+            config
+            docs
             scripts
             tools
           sparse-checkout-cone-mode: false
