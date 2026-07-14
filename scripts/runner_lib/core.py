@@ -106,7 +106,7 @@ def _validate_capability_effect_evidence_values(values: dict[str, str]) -> None:
     if not EVIDENCE_REF_RE.fullmatch(artifact_ref):
         raise ValueError("evidence_artifact_ref must be a bounded durable logical reference")
     lowered_ref = artifact_ref.lower()
-    if any(prefix in lowered_ref for prefix in SECRET_LIKE_EVIDENCE_PREFIXES):
+    if lowered_ref.startswith(SECRET_LIKE_EVIDENCE_PREFIXES):
         raise ValueError("evidence_artifact_ref has a credential-like prefix")
     if any(
         marker in lowered_ref for marker in ("token", "secret", "password", "api-key", "apikey")

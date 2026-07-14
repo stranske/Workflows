@@ -82,3 +82,13 @@ test('composePrompt respects an explicit empty capability bundle override', () =
   assert.deepEqual(result.segments, ['base']);
   assert.deepEqual(result.capability_bundles.applied, []);
 });
+
+test('composePrompt treats empty-string capability bundles as absent', () => {
+  const result = composePrompt({
+    capabilityBundles: '',
+    segments: [{ id: 'base', text: 'Base instructions' }],
+  });
+
+  assert.equal(result.text, 'Base instructions');
+  assert.deepEqual(result.capability_bundles.applied, []);
+});

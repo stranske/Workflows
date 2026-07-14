@@ -1,253 +1,284 @@
 {
-  "version": "1.0.0",
-  "last_updated": "2026-07-10",
-  "review_interval_days": 60,
-  "review_by": "2026-09-08",
-  "purpose": "Auxiliary judge/evaluator catalog plus explicit coding-worker IDs required for execution-profile validation. Trial worker entries intentionally carry no quality or cost claims.",
+  "schema_version": "2.0.0",
+  "as_of": "2026-07-10",
+  "review_by": "2026-07-24",
+  "purpose": "Auditable model facts and auxiliary judge/evaluator selections. Coding-worker execution profiles remain in .github/agents/registry.yml::execution_profiles.",
+  "selection_policy": "config/model_selection_policy.json",
+  "catalog_baselines": {
+    "openai": {
+      "checked_at": "2026-07-10T00:00:00Z",
+      "model_ids": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]
+    },
+    "anthropic": {
+      "checked_at": "2026-07-10T00:00:00Z",
+      "model_ids": [
+        "claude-fable-5",
+        "claude-opus-4-8",
+        "claude-sonnet-5",
+        "claude-haiku-4-5-20251001"
+      ]
+    },
+    "github-models": {
+      "checked_at": "2026-07-10T00:00:00Z",
+      "model_ids": [
+        "openai/gpt-4.1",
+        "openai/gpt-4.1-mini",
+        "openai/gpt-4.1-nano",
+        "openai/gpt-4o",
+        "openai/gpt-4o-mini",
+        "openai/gpt-5",
+        "openai/gpt-5-chat",
+        "openai/gpt-5-mini",
+        "openai/gpt-5-nano",
+        "openai/o1",
+        "openai/o1-mini",
+        "openai/o1-preview",
+        "openai/o3",
+        "openai/o3-mini",
+        "openai/o4-mini"
+      ]
+    }
+  },
+  "sources": [
+    {
+      "source_id": "openai-current-models-2026-07-10",
+      "provider": "openai",
+      "checked_at": "2026-07-10",
+      "url": "https://developers.openai.com/api/docs/guides/latest-model"
+    },
+    {
+      "source_id": "openai-pricing-2026-07-10",
+      "provider": "openai",
+      "checked_at": "2026-07-10",
+      "url": "https://developers.openai.com/api/docs/pricing"
+    },
+    {
+      "source_id": "anthropic-current-models-2026-07-10",
+      "provider": "anthropic",
+      "checked_at": "2026-07-10",
+      "url": "https://platform.claude.com/docs/en/about-claude/models/overview"
+    },
+    {
+      "source_id": "github-models-catalog-2026-07-10",
+      "provider": "github-models",
+      "checked_at": "2026-07-10",
+      "url": "https://models.github.ai/catalog/models"
+    }
+  ],
   "models": [
-    {
-      "model_id": "gpt-5.5",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.96, "T2": 0.96, "T3": 0.96, "T4": 0.96, "T5": 0.96 },
-      "cost_score": 0.18,
-      "speed_score": 0.58,
-      "notes": "Coding-worker execution profile default. Listed here so execution profile validation can reject typos before dispatch."
-    },
-    {
-      "model_id": "gpt-5.4",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.96, "T2": 0.96, "T3": 0.96, "T4": 0.96, "T5": 0.97 },
-      "cost_score": 0.25,
-      "speed_score": 0.64,
-      "notes": "Current flagship verifier default. Highest-quality general evaluator."
-    },
     {
       "model_id": "gpt-5.6-sol",
       "provider": "openai",
       "api": "chat",
-      "worker_profile": true,
-      "lifecycle": "trial",
-      "quality": {},
-      "notes": "Coding-worker trial profile gpt-5.6-sol; do not use as evaluator evidence. Worker requested/selected identity must be recorded separately from verifier telemetry."
+      "lifecycle": "current",
+      "positioning": "frontier",
+      "source_ids": [
+        "openai-current-models-2026-07-10",
+        "openai-pricing-2026-07-10"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 30.0,
+        "as_of": "2026-07-10"
+      }
     },
     {
       "model_id": "gpt-5.6-terra",
       "provider": "openai",
       "api": "chat",
-      "worker_profile": true,
-      "lifecycle": "trial",
-      "quality": {},
-      "notes": "Coding-worker trial profile gpt-5.6-terra; do not use as evaluator evidence. Worker requested/selected identity must be recorded separately from verifier telemetry."
+      "lifecycle": "current",
+      "positioning": "balanced",
+      "source_ids": [
+        "openai-current-models-2026-07-10",
+        "openai-pricing-2026-07-10"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 15.0,
+        "as_of": "2026-07-10"
+      }
     },
     {
       "model_id": "gpt-5.6-luna",
       "provider": "openai",
       "api": "chat",
-      "worker_profile": true,
-      "lifecycle": "trial",
-      "quality": {},
-      "notes": "Coding-worker trial profile gpt-5.6-luna; do not use as evaluator evidence. Worker requested/selected identity must be recorded separately from verifier telemetry."
+      "lifecycle": "current",
+      "positioning": "efficient",
+      "source_ids": [
+        "openai-current-models-2026-07-10",
+        "openai-pricing-2026-07-10"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 6.0,
+        "as_of": "2026-07-10"
+      }
     },
     {
-      "model_id": "gpt-5.1",
-      "provider": "openai",
+      "model_id": "claude-fable-5",
+      "provider": "anthropic",
       "api": "chat",
-      "quality": { "T1": 0.90, "T2": 0.90, "T3": 0.92, "T4": 0.92, "T5": 0.93 },
-      "cost_score": 0.40,
-      "speed_score": 0.72,
-      "notes": "Nov 2025 flagship. Reasoning defaults to none — set effort explicitly."
+      "lifecycle": "current",
+      "positioning": "frontier",
+      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "as_of": "2026-07-10"
+      }
     },
     {
-      "model_id": "gpt-5.1-codex",
-      "provider": "openai",
+      "model_id": "claude-opus-4-8",
+      "provider": "anthropic",
       "api": "chat",
-      "quality": { "T1": 0.88, "T2": 0.92, "T3": 0.95, "T4": 0.93, "T5": 0.94 },
-      "cost_score": 0.38,
-      "speed_score": 0.70,
-      "notes": "Code-optimized GPT-5.1. Strong candidate for Codex session analysis."
+      "lifecycle": "current",
+      "positioning": "high-capability",
+      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "as_of": "2026-07-10"
+      }
     },
     {
-      "model_id": "gpt-5.1-mini",
-      "provider": "openai",
+      "model_id": "claude-sonnet-5",
+      "provider": "anthropic",
       "api": "chat",
-      "quality": { "T1": 0.82, "T2": 0.80, "T3": 0.75, "T4": 0.72, "T5": 0.68 },
-      "cost_score": 0.82,
-      "speed_score": 0.92,
-      "notes": "Lightweight 5.1. Risk of leniency on analysis tasks."
+      "lifecycle": "current",
+      "positioning": "balanced",
+      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "as_of": "2026-07-10",
+        "notes": "Standard price; temporary introductory pricing is not used for durable decisions."
+      }
     },
     {
-      "model_id": "gpt-5",
-      "provider": "openai",
+      "model_id": "claude-haiku-4-5-20251001",
+      "provider": "anthropic",
       "api": "chat",
-      "quality": { "T1": 0.88, "T2": 0.88, "T3": 0.90, "T4": 0.90, "T5": 0.90 },
-      "cost_score": 0.45,
-      "speed_score": 0.75,
-      "notes": "Aug 2025 flagship. Proven, superseded by 5.1+."
+      "lifecycle": "current",
+      "positioning": "efficient",
+      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 5.0,
+        "as_of": "2026-07-10"
+      }
     },
     {
-      "model_id": "gpt-5-mini",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.78, "T2": 0.75, "T3": 0.70, "T4": 0.68, "T5": 0.62 },
-      "cost_score": 0.85,
-      "speed_score": 0.93,
-      "notes": "Budget GPT-5. Good speed/cost, but not chosen for verifier-critical tasks."
-    },
-    {
-      "model_id": "gpt-5.4-mini",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.84, "T2": 0.82, "T3": 0.78, "T4": 0.76, "T5": 0.72 },
-      "cost_score": 0.88,
-      "speed_score": 0.94,
-      "notes": "High-quality mini. Default for progress review where speed still matters."
-    },
-    {
-      "model_id": "gpt-5-nano",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.70, "T2": 0.65, "T3": 0.55, "T4": 0.50, "T5": 0.40 },
-      "cost_score": 0.95,
-      "speed_score": 0.98,
-      "notes": "Smallest GPT-5. Only suitable for T1 tasks."
-    },
-    {
-      "model_id": "gpt-4.1",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.88, "T2": 0.88, "T3": 0.88, "T4": 0.87, "T5": 0.88 },
-      "cost_score": 0.55,
-      "speed_score": 0.80,
-      "notes": "Battle-tested (Apr 2025). Excellent stability and structured output."
-    },
-    {
-      "model_id": "gpt-4.1-mini",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.80, "T2": 0.78, "T3": 0.72, "T4": 0.70, "T5": 0.65 },
-      "cost_score": 0.90,
-      "speed_score": 0.95,
-      "notes": "Lightweight 4.1. Good for T1/T2, risky for T3+."
-    },
-    {
-      "model_id": "gpt-4.1-nano",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.68, "T2": 0.63, "T3": 0.52, "T4": 0.48, "T5": 0.38 },
-      "cost_score": 1.00,
-      "speed_score": 1.00,
-      "notes": "Cheapest and fastest. Only for trivial classification."
-    },
-    {
-      "model_id": "codex-mini-latest",
+      "model_id": "openai/gpt-5",
       "provider": "github-models",
       "api": "chat",
-      "quality": { "T1": 0.75, "T2": 0.80, "T3": 0.78, "T4": 0.72, "T5": 0.65 },
-      "cost_score": 0.80,
-      "speed_score": 0.88,
-      "notes": "Rolling Codex alias. Good for code-centric extraction."
+      "lifecycle": "current",
+      "positioning": "catalog-fallback",
+      "source_ids": ["github-models-catalog-2026-07-10"],
+      "pricing": {
+        "basis": "GitHub Models quota and rate limits",
+        "as_of": "2026-07-10"
+      }
     },
     {
-      "model_id": "o4-mini",
+      "model_id": "gpt-5.5",
       "provider": "openai",
       "api": "chat",
-      "quality": { "T1": 0.85, "T2": 0.88, "T3": 0.92, "T4": 0.88, "T5": 0.93 },
-      "cost_score": 0.30,
-      "speed_score": 0.35,
-      "notes": "Reasoning model. High quality but 5-15s latency. Use for high-stakes only."
+      "lifecycle": "compatibility",
+      "positioning": "coding-worker-profile",
+      "notes": "Retained only because .github/agents/registry.yml still references this coding-worker model. It is not eligible for auxiliary evaluator selection."
     },
     {
-      "model_id": "o3",
+      "model_id": "gpt-5.4",
       "provider": "openai",
       "api": "chat",
-      "quality": { "T1": 0.90, "T2": 0.92, "T3": 0.95, "T4": 0.92, "T5": 0.96 },
-      "cost_score": 0.15,
-      "speed_score": 0.15,
-      "notes": "Deep reasoning. 10-30s response. Generally too slow for CI/CD."
-    },
-    {
-      "model_id": "o3-mini",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.83, "T2": 0.85, "T3": 0.88, "T4": 0.85, "T5": 0.90 },
-      "cost_score": 0.35,
-      "speed_score": 0.30,
-      "notes": "Legacy reasoning mini. Superseded by o4-mini."
-    },
-    {
-      "model_id": "gpt-4o",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.85, "T2": 0.85, "T3": 0.85, "T4": 0.84, "T5": 0.84 },
-      "cost_score": 0.55,
-      "speed_score": 0.80,
-      "notes": "Legacy — currently used as DEFAULT_MODEL. Two generations behind."
-    },
-    {
-      "model_id": "gpt-4o-mini",
-      "provider": "openai",
-      "api": "chat",
-      "quality": { "T1": 0.60, "T2": 0.55, "T3": 0.45, "T4": 0.40, "T5": 0.30 },
-      "cost_score": 0.78,
-      "speed_score": 0.88,
-      "blocked": true,
-      "notes": "BLOCKED: Documented as too lenient, passes obvious deficiencies."
+      "lifecycle": "current",
+      "positioning": "incumbent-verifier",
+      "source_ids": ["openai-current-models-2026-07-10"],
+      "pricing": {
+        "basis": "Observed billed cost is captured by the paired pilot",
+        "as_of": "2026-07-12"
+      },
+      "notes": "Incumbent OpenAI verifier baseline. Remains selected until paired benchmark evidence approves a replacement."
     },
     {
       "model_id": "claude-opus-4-6",
       "provider": "anthropic",
       "api": "chat",
-      "quality": { "T1": 0.93, "T2": 0.94, "T3": 0.96, "T4": 0.96, "T5": 0.98 },
-      "cost_score": 0.08,
-      "speed_score": 0.38,
-      "notes": "Just released Feb 5, 2026. Highest quality, very expensive."
+      "lifecycle": "current",
+      "positioning": "incumbent-verifier",
+      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "pricing": {
+        "basis": "Observed billed cost is captured by the paired pilot",
+        "as_of": "2026-07-12"
+      },
+      "notes": "Incumbent Anthropic verifier baseline. Remains selected until paired benchmark evidence approves a replacement."
     },
     {
-      "model_id": "claude-opus-4-5",
-      "provider": "anthropic",
+      "model_id": "codex-mini-latest",
+      "provider": "github-models",
       "api": "chat",
-      "quality": { "T1": 0.92, "T2": 0.93, "T3": 0.95, "T4": 0.95, "T5": 0.97 },
-      "cost_score": 0.10,
-      "speed_score": 0.40,
-      "notes": "Opus tier. Overkill for most tasks, great for T5."
+      "lifecycle": "current",
+      "positioning": "incumbent-verifier",
+      "source_ids": ["github-models-catalog-2026-07-10"],
+      "pricing": {
+        "basis": "GitHub Models quota and rate limits",
+        "as_of": "2026-07-12"
+      },
+      "notes": "Incumbent GitHub Models verifier fallback. Remains selected until paired benchmark evidence approves a replacement."
+    }
+  ],
+  "selections": [
+    {
+      "profile": "verifier-balanced",
+      "provider": "openai",
+      "model_id": "gpt-5.4",
+      "status": "provisional",
+      "decided_at": "2026-07-10",
+      "review_by": "2026-07-24",
+      "evidence_ids": ["catalog-review-2026-07-10"],
+      "rationale": "Incumbent baseline retained until a paired repository benchmark proves a replacement meets every quality gate."
     },
     {
-      "model_id": "claude-sonnet-4-6",
+      "profile": "verifier-balanced",
       "provider": "anthropic",
-      "api": "chat",
-      "quality": { "T1": 0.91, "T2": 0.91, "T3": 0.93, "T4": 0.93, "T5": 0.95 },
-      "cost_score": 0.35,
-      "speed_score": 0.63,
-      "notes": "Current Anthropic compare-mode default. Strong cross-provider verifier."
+      "model_id": "claude-opus-4-6",
+      "status": "provisional",
+      "decided_at": "2026-07-10",
+      "review_by": "2026-07-24",
+      "evidence_ids": ["catalog-review-2026-07-10"],
+      "rationale": "Incumbent baseline retained until a paired repository benchmark proves a replacement meets every quality gate."
     },
     {
-      "model_id": "claude-sonnet-4-0",
-      "provider": "anthropic",
-      "api": "chat",
-      "quality": { "T1": 0.85, "T2": 0.85, "T3": 0.88, "T4": 0.88, "T5": 0.90 },
-      "cost_score": 0.40,
-      "speed_score": 0.65,
-      "notes": "Previous Sonnet. Proven but superseded by 4-5."
-    },
+      "profile": "verifier-balanced",
+      "provider": "github-models",
+      "model_id": "codex-mini-latest",
+      "status": "provisional",
+      "decided_at": "2026-07-10",
+      "review_by": "2026-07-24",
+      "evidence_ids": ["catalog-review-2026-07-10"],
+      "rationale": "Incumbent fallback retained until catalog availability and paired repository evidence approve a replacement."
+    }
+  ],
+  "evidence": [
     {
-      "model_id": "claude-haiku-4-5",
-      "provider": "anthropic",
-      "api": "chat",
-      "quality": { "T1": 0.80, "T2": 0.78, "T3": 0.72, "T4": 0.70, "T5": 0.62 },
-      "cost_score": 0.75,
-      "speed_score": 0.90,
-      "notes": "Fast and cheap Claude. Good for T1/T2, untested for T3+."
-    },
-    {
-      "model_id": "claude-3-7-sonnet-latest",
-      "provider": "anthropic",
-      "api": "chat",
-      "quality": { "T1": 0.82, "T2": 0.82, "T3": 0.85, "T4": 0.85, "T5": 0.87 },
-      "cost_score": 0.42,
-      "speed_score": 0.65,
-      "notes": "Legacy Claude 3.7. Superseded by Claude 4 Sonnet."
+      "evidence_id": "catalog-review-2026-07-10",
+      "kind": "provider-catalog-review",
+      "measured_at": "2026-07-10",
+      "status": "catalog-only",
+      "source_ids": [
+        "openai-current-models-2026-07-10",
+        "openai-pricing-2026-07-10",
+        "anthropic-current-models-2026-07-10",
+        "github-models-catalog-2026-07-10"
+      ],
+      "notes": "Confirms availability and list pricing only. It is not repository workload quality evidence and cannot approve a selection."
     }
   ]
 }

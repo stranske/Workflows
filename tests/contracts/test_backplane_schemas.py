@@ -70,5 +70,6 @@ def test_manifest_path_rejects_traversal() -> None:
 def test_evidence_object_requires_method_and_excerpt_present() -> None:
     schema = _load("evidence-object-v1.schema.json")
     assert "method" in schema["required"]
+    assert "excerpt" in schema["required"]
     # excerpt must be PRESENT (string or explicit null) -> nullable string type.
     assert schema["properties"]["excerpt"]["type"] == ["string", "null"]

@@ -28,7 +28,7 @@ DEFAULT_MODEL_REGISTRY_CONFIG_PATH = (
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ModelRegistryEntry:
     provider: str
     model: str
@@ -40,7 +40,7 @@ class ModelRegistryEntry:
     cost_score: float | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SelectionDecision:
     profile: str
     provider: str
@@ -50,7 +50,7 @@ class SelectionDecision:
     evidence_ids: tuple[str, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SlotDefinition:
     name: str
     provider: str
