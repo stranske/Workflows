@@ -1,4 +1,7 @@
-from tools import ci_failure_triage
+import sys
+import types
+
+from tools import ci_failure_triage, llm_registry
 
 
 def test_extract_pytest_failures_parses_unique() -> None:
@@ -32,3 +35,23 @@ def test_triage_report_includes_failed_tests() -> None:
         "tests/workflows/test_keepalive_workflow.py::test_keepalive_requires_dispatch_token"
     ]
     assert "Pytest failures: 1" in report.summary
+
+
+def test_llm_triage_does_not_fall_back_outside_slot_allowlist(monkeypatch) -> None:
+    created: list[object] = []
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            created.append(kwargs)
+
+    monkeypatch.setitem(
+        sys.modules, "langchain_openai", types.SimpleNamespace(ChatOpenAI=FakeChatOpenAI)
+    )
+    monkeypatch.setenv("GITHUB_TOKEN", "github-token")
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
+    monkeypatch.setattr(
+        llm_registry, "configured_model_for_provider", lambda _provider: ""
+    )
+
+    assert ci_failure_triage._get_llm_client() is None
+    assert created == []

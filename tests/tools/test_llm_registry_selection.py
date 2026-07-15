@@ -128,7 +128,7 @@ def test_unknown_explicit_profile_fails_closed(
 
     # A present slot config is an allowlist; an unresolved profile fails closed.
     assert registry.load_slot_config() == []
-    assert registry.configured_model_for_provider("openai") == "model-balanced"
+    assert registry.configured_model_for_provider("openai") == ""
 
 
 def test_all_unusable_slot_entries_fail_closed(
@@ -142,6 +142,20 @@ def test_all_unusable_slot_entries_fail_closed(
     monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
 
     assert registry.load_slot_config() == []
+
+
+def test_empty_slot_config_does_not_broaden_to_default_providers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    slots_path.write_text(json.dumps({"slots": []}), encoding="utf-8")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
+
+    assert registry.load_slot_config() == []
+    assert registry.configured_model_for_provider("openai") == ""
 
 
 def test_noncurrent_selected_model_fails_closed(

@@ -278,6 +278,12 @@ def configured_model_for_provider(
         ):
             return slot.model
 
+    # A readable slot config is an execution allowlist.  Do not broaden to a
+    # provider-level registry decision when that config has no usable slot for
+    # this provider (including an empty or invalid-only slots list).
+    if _load_object(_slot_path(), label="slot config") is not None:
+        return ""
+
     selected = select_model_for_profile(provider=provider, profile=profile, registry=entries)
     if selected:
         return selected
@@ -368,7 +374,7 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
         slots.append(SlotDefinition(name=name, provider=provider, model=model))
     # A present slot file is an allowlist.  If every configured slot is
     # unusable, fail closed instead of broadening execution to default providers.
-    return slots if slot_entries else fallback_slots
+    return slots
 
 
 def apply_slot_env_overrides(

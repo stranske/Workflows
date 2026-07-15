@@ -164,6 +164,26 @@ def test_explicit_pin_without_profile_is_flagged_against_default_selection():
     assert "selection_override" in _kinds(findings)
 
 
+def test_current_unblocked_legacy_pin_is_compatible_with_default_selection():
+    registry = _registry()
+    registry["models"].append(
+        {
+            "model_id": "model-frontier",
+            "provider": "openai",
+            "lifecycle": "current",
+            "source_ids": ["models-1"],
+            "pricing": {"as_of": "2026-07-10"},
+        }
+    )
+    findings = gate.evaluate(
+        registry,
+        {"slots": [{"name": "slot1", "provider": "openai", "model": "model-frontier"}]},
+        today=TODAY,
+        policy=_policy(),
+    )
+    assert "selection_override" not in _kinds(findings)
+
+
 def test_slot_requires_profile_selection():
     findings = gate.evaluate(
         _registry(),
