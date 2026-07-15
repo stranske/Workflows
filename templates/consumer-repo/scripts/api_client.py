@@ -199,7 +199,7 @@ def fetch_pull_request_diff(
         url,
         token,
         payload=None,
-        accept="application/vnd.github.diff",
+        accept="application/vnd.github.v3.diff",
         **_retry_kwargs(retry_attempts, retry_backoff),
     )
     return response.text

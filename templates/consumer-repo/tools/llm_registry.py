@@ -332,7 +332,12 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
                 select_model_for_profile(provider=provider, profile=profile, registry=registry)
                 or ""
             )
-        if provider and explicit_model and explicit_model != model:
+        explicit_entry = registry_entry_for(provider, explicit_model, registry=registry)
+        if provider and explicit_model and not configured_profile and explicit_entry and not (
+            explicit_entry.blocked or explicit_entry.lifecycle != "current"
+        ):
+            model = explicit_model
+        elif provider and explicit_model and explicit_model != model:
             logger.warning(
                 "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
                 provider,
@@ -357,11 +362,9 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
             continue
         name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
         slots.append(SlotDefinition(name=name, provider=provider, model=model))
-    # A syntactically valid config can still yield no usable entries (for
-    # example, every profile was retired or every model was blocked).  That is
-    # equivalent to no usable slot configuration; retain the reviewed defaults
-    # instead of silently disabling every provider.
-    return slots or fallback_slots
+    # A present slot file is an allowlist.  If every configured slot is
+    # unusable, fail closed instead of broadening execution to default providers.
+    return slots if slot_entries else fallback_slots
 
 
 def apply_slot_env_overrides(

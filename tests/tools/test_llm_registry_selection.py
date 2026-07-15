@@ -102,18 +102,18 @@ def test_registry_decision_update_changes_slot_without_slot_edit(
     assert "model" not in json.loads(slots_path.read_text())["slots"][0]
 
 
-def test_legacy_slot_pin_cannot_override_reviewed_selection(
+def test_legacy_slot_pin_is_honored_when_current_and_unblocked(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     registry_path = tmp_path / "registry.json"
     slots_path = tmp_path / "slots.json"
     _write_registry(registry_path)
-    _write_slots(slots_path, model="model-frontier")
+    _write_slots(slots_path, model="model-frontier", profile="")
     monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
     monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
 
-    assert registry.load_slot_config()[0].model == "model-balanced"
-    assert registry.configured_model_for_provider("openai") == "model-balanced"
+    assert registry.load_slot_config()[0].model == "model-frontier"
+    assert registry.configured_model_for_provider("openai") == "model-frontier"
 
 
 def test_unknown_explicit_profile_fails_closed(
@@ -126,13 +126,12 @@ def test_unknown_explicit_profile_fails_closed(
     monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
     monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
 
-    # An unresolved slot profile must not disable the provider-level reviewed
-    # selection used as the safe fallback.
-    assert registry.load_slot_config()[0].model == "model-balanced"
+    # A present slot config is an allowlist; an unresolved profile fails closed.
+    assert registry.load_slot_config() == []
     assert registry.configured_model_for_provider("openai") == "model-balanced"
 
 
-def test_all_unusable_slot_entries_fall_back_to_reviewed_defaults(
+def test_all_unusable_slot_entries_fail_closed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     registry_path = tmp_path / "registry.json"
@@ -142,7 +141,7 @@ def test_all_unusable_slot_entries_fall_back_to_reviewed_defaults(
     monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
     monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
 
-    assert registry.load_slot_config()[0].model == "model-balanced"
+    assert registry.load_slot_config() == []
 
 
 def test_noncurrent_selected_model_fails_closed(

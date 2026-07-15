@@ -215,7 +215,7 @@ def test_fetch_pull_request_and_diff_use_shared_client(monkeypatch: pytest.Monke
 
     assert api_client.fetch_pull_request("owner/repo", 7, "tok") == {"title": "PR"}
     assert api_client.fetch_pull_request_diff("owner/repo", 7, "tok") == response.text
-    assert calls == [{"payload": None, "accept": "application/vnd.github.diff"}]
+    assert calls == [{"payload": None, "accept": "application/vnd.github.v3.diff"}]
 
 
 def test_fetch_pull_request_rejects_nonobject_payload(monkeypatch: pytest.MonkeyPatch) -> None:

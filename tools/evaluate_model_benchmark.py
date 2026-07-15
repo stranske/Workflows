@@ -153,7 +153,7 @@ def evaluate_benchmark(payload: dict[str, Any], policy: dict[str, Any]) -> dict[
     noninferiority_margin = float(gates["paired_success_noninferiority_margin"])
 
     for candidate in candidates:
-        model_id = str(candidate["model_id"])
+        model_id = str(candidate["model_id"]).strip()
         metrics = metrics_by_model[model_id]
         gate_results = {
             "minimum_adjudicated_cases": metrics["sample_count"] >= minimum_cases,
