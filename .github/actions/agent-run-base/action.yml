@@ -66,7 +66,7 @@ runs:
     - name: Mint GitHub App token
       id: app_token
       continue-on-error: true
-      uses: actions/create-github-app-token@v3
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
       with:
         app-id: ${{ inputs.workflows_app_id || '0' }}
         private-key: ${{ inputs.workflows_app_private_key || 'dummy' }}
@@ -109,7 +109,7 @@ runs:
         printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
 
     - name: Checkout
-      uses: actions/checkout@v7
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         fetch-depth: 0
         ref: ${{ inputs.checkout_ref || github.ref }}
@@ -132,7 +132,7 @@ runs:
         github_token: ${{ inputs.github_token }}
 
     - name: Checkout Workflows scripts
-      uses: actions/checkout@v7
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         repository: stranske/Workflows
         ref: ${{ inputs.workflows_ref }}

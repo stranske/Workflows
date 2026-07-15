@@ -127,7 +127,9 @@ def test_unknown_explicit_profile_fails_closed(
     monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
 
     assert registry.load_slot_config() == []
-    assert registry.configured_model_for_provider("openai") == ""
+    # An unresolved slot profile must not mask the provider-level reviewed
+    # selection used as the compatibility fallback.
+    assert registry.configured_model_for_provider("openai") == "model-balanced"
 
 
 def test_noncurrent_selected_model_fails_closed(

@@ -286,7 +286,9 @@ def configured_model_for_provider(
                     slot_profile,
                     slot_provider,
                 )
-                return ""
+                # A malformed slot must not mask a later valid slot or the
+                # provider-level reviewed selection/fallback.
+                continue
             if explicit_model and explicit_model != model:
                 logger.warning(
                     "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
