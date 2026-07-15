@@ -49,9 +49,7 @@ def test_llm_triage_does_not_fall_back_outside_slot_allowlist(monkeypatch) -> No
     )
     monkeypatch.setenv("GITHUB_TOKEN", "github-token")
     monkeypatch.setenv("OPENAI_API_KEY", "openai-token")
-    monkeypatch.setattr(
-        llm_registry, "configured_model_for_provider", lambda _provider: ""
-    )
+    monkeypatch.setattr(llm_registry, "configured_model_for_provider", lambda _provider: "")
 
     assert ci_failure_triage._get_llm_client() is None
     assert created == []
