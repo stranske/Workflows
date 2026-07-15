@@ -229,6 +229,13 @@ def select_model_for_profile(
             )
         return None
     decision = matches[0]
+    if not decision.evidence_ids:
+        logger.warning(
+            "Model selection %s/%s has no evidence; refusing to use it",
+            normalized_provider,
+            profile,
+        )
+        return None
     entry = registry_entry_for(decision.provider, decision.model, registry=entries)
     if entry is None or entry.blocked or entry.lifecycle != "current":
         return None
@@ -263,42 +270,13 @@ def configured_model_for_provider(
 ) -> str:
     normalized_provider = normalize_provider(provider)
     entries = registry if registry is not None else load_model_registry()
-    path = _slot_path()
-    payload = _load_object(path, label="slot config")
-    if payload is not None:
-        for slot in _slot_entries(payload, path):
-            slot_provider = normalize_provider(str(slot.get("provider", "")))
-            if slot_provider != normalized_provider:
-                continue
-            explicit_model = str(slot.get("model", "")).strip()
-            slot_profile = str(slot.get("profile") or profile).strip()
-            model = (
-                select_model_for_profile(
-                    provider=slot_provider or "",
-                    profile=slot_profile,
-                    registry=entries,
-                )
-                or ""
-            )
-            if not model:
-                logger.warning(
-                    "No reviewed model selection for slot profile %s/%s",
-                    slot_profile,
-                    slot_provider,
-                )
-                # A malformed slot must not mask a later valid slot or the
-                # provider-level reviewed selection/fallback.
-                continue
-            if explicit_model and explicit_model != model:
-                logger.warning(
-                    "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
-                    slot_provider,
-                    explicit_model,
-                    slot_profile,
-                    model or "unavailable",
-                )
-            if model and not is_model_blocked(slot_provider or "", model, registry=entries):
-                return model
+    # Use the same resolution path as runtime callers so emergency environment
+    # overrides cannot be ignored by this convenience helper.
+    for slot in resolve_slots():
+        if slot.provider == normalized_provider and not is_model_blocked(
+            slot.provider, slot.model, registry=entries
+        ):
+            return slot.model
 
     selected = select_model_for_profile(provider=provider, profile=profile, registry=entries)
     if selected:

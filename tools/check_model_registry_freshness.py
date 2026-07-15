@@ -318,13 +318,17 @@ def evaluate(
             findings.append(_finding("invalid_slot", f"slot {name!r} has no provider."))
             continue
         if explicit_model:
-            selected = selection_by_key.get((profile, provider)) if profile else None
+            # A slot without an explicit profile still resolves through the
+            # default reviewed profile at runtime. Compare it against that
+            # decision so an old model pin cannot silently bypass review.
+            effective_profile = profile or "verifier-balanced"
+            selected = selection_by_key.get((effective_profile, provider))
             if selected and selected.get("model_id") != explicit_model:
                 findings.append(
                     _finding(
                         "selection_override",
                         f"slot {name!r} pins {provider}/{explicit_model} instead of reviewed "
-                        f"selection {selected.get('model_id')}.",
+                        f"selection {selected.get('model_id')} for {effective_profile}.",
                     )
                 )
             model = model_by_key.get((provider, explicit_model))

@@ -173,6 +173,33 @@ def test_duplicate_profile_decisions_fail_closed(
     assert registry.select_model_for_profile(provider="openai") is None
 
 
+def test_selection_without_evidence_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    _write_registry(registry_path)
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["selections"][0]["evidence_ids"] = []
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+
+    assert registry.select_model_for_profile(provider="openai") is None
+
+
+def test_configured_model_honors_runtime_slot_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    _write_slots(slots_path)
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
+    monkeypatch.setenv("LANGCHAIN_MODEL", "emergency-model")
+
+    assert registry.configured_model_for_provider("openai") == "emergency-model"
+
+
 def test_runtime_helpers_contain_no_model_version_literals() -> None:
     root = Path(__file__).resolve().parents[2]
     for relative in ("tools/llm_registry.py", "tools/llm_provider.py"):
