@@ -6,9 +6,9 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from statistics import NormalDist
 import sys
 from pathlib import Path
+from statistics import NormalDist
 from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent

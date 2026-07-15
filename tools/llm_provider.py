@@ -370,7 +370,9 @@ class GitHubModelsProvider(LLMProvider):
     ) -> CompletionAnalysis:
         client = self._get_client()
         if not client:
-            raise RuntimeError("GitHub Models client unavailable or no reviewed model is configured")
+            raise RuntimeError(
+                "GitHub Models client unavailable or no reviewed model is configured"
+            )
 
         prompt = self._build_analysis_prompt(session_output, tasks, context)
 
