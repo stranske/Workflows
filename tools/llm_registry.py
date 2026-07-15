@@ -333,8 +333,12 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
                 or ""
             )
         explicit_entry = registry_entry_for(provider, explicit_model, registry=registry)
-        if provider and explicit_model and not configured_profile and explicit_entry and not (
-            explicit_entry.blocked or explicit_entry.lifecycle != "current"
+        if (
+            provider
+            and explicit_model
+            and not configured_profile
+            and explicit_entry
+            and not (explicit_entry.blocked or explicit_entry.lifecycle != "current")
         ):
             model = explicit_model
         elif provider and explicit_model and explicit_model != model:
