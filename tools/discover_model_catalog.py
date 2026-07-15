@@ -22,6 +22,13 @@ from urllib.request import Request, urlopen
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REGISTRY_PATH = _REPO_ROOT / "config" / "model_registry.json"
 PROVIDERS = ("openai", "anthropic", "github-models")
+CATALOG_URLS = frozenset(
+    {
+        "https://models.github.ai/catalog/models",
+        "https://api.openai.com/v1/models",
+        "https://api.anthropic.com/v1/models?limit=1000",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -31,8 +38,10 @@ class CatalogModel:
 
 
 def _request_json(url: str, headers: dict[str, str]) -> Any:
+    if url not in CATALOG_URLS:
+        raise ValueError(f"unsupported catalog URL: {url}")
     request = Request(url, headers=headers)
-    with urlopen(request, timeout=30) as response:  # noqa: S310 - caller URLs are fixed
+    with urlopen(request, timeout=30) as response:  # noqa: S310 - validated static catalog URL
         return json.load(response)
 
 

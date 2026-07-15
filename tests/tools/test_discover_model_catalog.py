@@ -16,10 +16,10 @@ def test_request_json_uses_http_only_client(monkeypatch):
         lambda request, **kwargs: calls.append((request, kwargs)) or nullcontext(response),
     )
 
-    assert discovery._request_json("https://provider.example/models", {"X-Test": "yes"}) == {
+    assert discovery._request_json("https://models.github.ai/catalog/models", {"X-Test": "yes"}) == {
         "data": []
     }
-    assert calls[0][0].full_url == "https://provider.example/models"
+    assert calls[0][0].full_url == "https://models.github.ai/catalog/models"
     assert calls[0][0].headers["X-test"] == "yes"
     assert calls[0][1] == {"timeout": 30}
 
