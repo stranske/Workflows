@@ -84,7 +84,8 @@ def test_run_base_action_exists_and_parses() -> None:
     # The shared block must still reach setup-api-client and the sparse
     # Workflows scripts checkout — the whole point of the extraction.
     src = path.read_text()
-    assert "uses: actions/create-github-app-token@v3" in src
+    app_token_step = next(s for s in steps if s.get("name") == "Mint GitHub App token")
+    assert _uses_base(app_token_step) == "actions/create-github-app-token"
     assert "push_allowed" in src
     assert "uses: ./.github/actions/setup-api-client" in src
     assert "sparse-checkout" in src
@@ -145,7 +146,13 @@ def test_extracted_setup_steps_not_duplicated_in_runners(workflow_rel: str) -> N
     # the composite; only the pre-checkout for the composite definition remains
     # in the runners.
     assert "repository: stranske/Workflows" in src
-    assert src.count("uses: actions/create-github-app-token@v3") == 1, (
+    assert (
+        sum(
+            _uses_base(step) == "actions/create-github-app-token"
+            for step in steps
+        )
+        == 1
+    ), (
         f"{workflow_rel}: only the run-base bootstrap checkout may mint an App "
         "token in the runner; shared runtime auth still belongs in "
         f"{RUN_BASE_ACTION}"
