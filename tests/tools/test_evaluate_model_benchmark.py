@@ -21,6 +21,7 @@ def _policy():
             "verifier-balanced": {
                 "candidate_stage": {"required_case_categories": CATEGORIES},
                 "approval_stage": {
+                    "confidence_level": 0.95,
                     "minimum_adjudicated_cases": 75,
                     "minimum_cases_per_category": 10,
                     "quality_gates": {
@@ -95,6 +96,13 @@ def test_wilson_interval_is_conservative_for_zero_errors():
     lower, upper = evaluator.wilson_interval(0, 80)
     assert lower == 0.0
     assert 0.04 < upper < 0.05
+
+
+def test_invalid_confidence_level_is_rejected():
+    policy = _policy()
+    policy["profiles"]["verifier-balanced"]["approval_stage"]["confidence_level"] = 1.0
+    with pytest.raises(ValueError, match="confidence_level"):
+        evaluator.evaluate_benchmark(_payload(), policy)
 
 
 def test_passing_models_rank_by_cost_after_quality_gates():

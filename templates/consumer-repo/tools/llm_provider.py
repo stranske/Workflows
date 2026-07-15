@@ -351,6 +351,7 @@ class GitHubModelsProvider(LLMProvider):
 
         model_name = _configured_langchain_model("github-models", fallback=DEFAULT_MODEL)
         if not model_name:
+            logger.warning("No reviewed GitHub Models selection is configured")
             return None
         self._model_name = model_name
         return ChatOpenAI(
