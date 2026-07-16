@@ -271,11 +271,14 @@ def configured_model_for_provider(
     normalized_provider = normalize_provider(provider)
     entries = registry if registry is not None else load_model_registry()
     slot_path = _slot_path()
-    # A present slot config is an execution allowlist, including one that is
-    # malformed. Never broaden execution because a configured allowlist cannot
-    # be read or does not contain this provider.
-    if slot_path.is_file():
-        for slot in resolve_slots():
+    # An explicit slot config is an execution allowlist, including when its
+    # path is missing or malformed. Never broaden execution because a
+    # configured allowlist cannot be read or does not contain this provider.
+    if os.environ.get(ENV_SLOT_CONFIG):
+        configured_slots = load_slot_config()
+        if not configured_slots:
+            return ""
+        for slot in apply_slot_env_overrides(configured_slots):
             if (
                 slot.provider == normalized_provider
                 and slot.model
@@ -311,9 +314,9 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
     payload = _load_object(path, label="slot config")
     fallback_slots = default_slots(github_default_model=github_default_model)
     if payload is None:
-        # An unreadable configured slot file must fail closed. Only a missing
-        # file means no allowlist was configured and permits default slots.
-        if path.is_file():
+        # An unreadable or missing explicitly configured slot file must fail
+        # closed. Only an unconfigured default path permits default slots.
+        if os.environ.get(ENV_SLOT_CONFIG):
             return []
         return fallback_slots
 
@@ -425,7 +428,7 @@ def resolve_slots(
     # Preserve an explicit runtime override as an emergency bootstrap when the
     # registry file is unavailable. Empty models are never invoked directly;
     # langchain_client skips them when the override cannot serve that provider.
-    if not slots and os.environ.get(env_model_name):
+    if not slots and not os.environ.get(ENV_SLOT_CONFIG) and os.environ.get(env_model_name):
         slots = [
             SlotDefinition(name=f"slot{index}", provider=provider, model="")
             for index, provider in enumerate(

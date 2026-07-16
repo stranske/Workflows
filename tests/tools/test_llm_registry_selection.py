@@ -170,6 +170,19 @@ def test_invalid_slot_config_fails_closed(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert registry.configured_model_for_provider("openai") == ""
 
 
+def test_missing_explicit_slot_config_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    _write_registry(registry_path)
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(tmp_path / "missing-slots.json"))
+    monkeypatch.setenv("LANGCHAIN_MODEL", "emergency-model")
+
+    assert registry.load_slot_config() == []
+    assert registry.configured_model_for_provider("openai") == ""
+
+
 def test_unresolved_explicit_slot_pin_fails_closed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
