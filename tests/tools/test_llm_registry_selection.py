@@ -158,6 +158,34 @@ def test_empty_slot_config_does_not_broaden_to_default_providers(
     assert registry.configured_model_for_provider("openai") == ""
 
 
+def test_invalid_slot_config_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    slots_path.write_text("{not-json", encoding="utf-8")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
+
+    assert registry.load_slot_config() == []
+    assert registry.configured_model_for_provider("openai") == ""
+
+
+def test_unresolved_explicit_slot_pin_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    _write_slots(slots_path, model="retired-model", profile="")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
+
+    assert registry.load_slot_config() == []
+    assert registry.configured_model_for_provider("openai") == ""
+
+
 def test_noncurrent_selected_model_fails_closed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -371,7 +371,7 @@ class GitHubModelsProvider(LLMProvider):
         client = self._get_client()
         if not client:
             raise RuntimeError(
-                "GitHub Models client unavailable or no reviewed model is configured"
+                "GitHub Models client unavailable: install langchain-openai or configure a reviewed model"
             )
 
         prompt = self._build_analysis_prompt(session_output, tasks, context)

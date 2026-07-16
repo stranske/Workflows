@@ -370,7 +370,9 @@ class GitHubModelsProvider(LLMProvider):
     ) -> CompletionAnalysis:
         client = self._get_client()
         if not client:
-            raise RuntimeError("LangChain OpenAI not available")
+            raise RuntimeError(
+                "GitHub Models client unavailable: install langchain-openai or configure a reviewed model"
+            )
 
         prompt = self._build_analysis_prompt(session_output, tasks, context)
 

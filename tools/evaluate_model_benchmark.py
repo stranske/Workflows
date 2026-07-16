@@ -128,7 +128,10 @@ def evaluate_benchmark(payload: dict[str, Any], policy: dict[str, Any]) -> dict[
     confidence_level = float(approval.get("confidence_level", 0.95))
     if not 0.0 < confidence_level < 1.0:
         raise ValueError("approval_stage.confidence_level must be between 0 and 1")
-    z = NormalDist().inv_cdf((1.0 + confidence_level) / 2.0)
+    # Keep the inverse CDF strictly inside its finite domain even when a
+    # valid float extremely close to 0 or 1 rounds at machine precision.
+    probability = min(1.0 - 1e-15, max(1e-15, (1.0 + confidence_level) / 2.0))
+    z = NormalDist().inv_cdf(probability)
     candidates = payload.get("candidates")
     if not isinstance(candidates, list) or len(candidates) < 2:
         raise ValueError("benchmark requires a baseline and at least one candidate")

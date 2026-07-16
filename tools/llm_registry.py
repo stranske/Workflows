@@ -270,18 +270,18 @@ def configured_model_for_provider(
 ) -> str:
     normalized_provider = normalize_provider(provider)
     entries = registry if registry is not None else load_model_registry()
-    # Use the same resolution path as runtime callers so emergency environment
-    # overrides cannot be ignored by this convenience helper.
-    for slot in resolve_slots():
-        if slot.provider == normalized_provider and not is_model_blocked(
-            slot.provider, slot.model, registry=entries
-        ):
-            return slot.model
-
-    # A readable slot config is an execution allowlist.  Do not broaden to a
-    # provider-level registry decision when that config has no usable slot for
-    # this provider (including an empty or invalid-only slots list).
-    if _load_object(_slot_path(), label="slot config") is not None:
+    slot_path = _slot_path()
+    # A present slot config is an execution allowlist, including one that is
+    # malformed. Never broaden execution because a configured allowlist cannot
+    # be read or does not contain this provider.
+    if slot_path.is_file():
+        for slot in resolve_slots():
+            if (
+                slot.provider == normalized_provider
+                and slot.model
+                and not is_model_blocked(slot.provider, slot.model, registry=entries)
+            ):
+                return slot.model
         return ""
 
     selected = select_model_for_profile(provider=provider, profile=profile, registry=entries)
@@ -311,6 +311,10 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
     payload = _load_object(path, label="slot config")
     fallback_slots = default_slots(github_default_model=github_default_model)
     if payload is None:
+        # An unreadable configured slot file must fail closed. Only a missing
+        # file means no allowlist was configured and permits default slots.
+        if path.is_file():
+            return []
         return fallback_slots
 
     registry = load_model_registry()
@@ -338,7 +342,11 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
                 select_model_for_profile(provider=provider, profile=profile, registry=registry)
                 or ""
             )
-        explicit_entry = registry_entry_for(provider, explicit_model, registry=registry)
+        explicit_entry = (
+            registry_entry_for(provider, explicit_model, registry=registry)
+            if provider and explicit_model
+            else None
+        )
         if (
             provider
             and explicit_model
@@ -349,12 +357,15 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
             model = explicit_model
         elif provider and explicit_model and explicit_model != model:
             logger.warning(
-                "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
+                "Skipping unresolved slot model pin %s/%s; reviewed %s selection is %s",
                 provider,
                 explicit_model,
                 profile,
                 model or "unavailable",
             )
+            # An explicit legacy pin is also an allowlist decision. Do not
+            # silently substitute a newer reviewed selection for it.
+            continue
         if provider and configured_profile and not model:
             logger.warning(
                 "Skipping slot with unresolved reviewed profile: %s/%s",
