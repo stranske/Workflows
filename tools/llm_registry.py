@@ -85,7 +85,7 @@ def _load_object(path: Path, *, label: str) -> dict[str, object] | None:
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         logger.warning("Could not read %s %s", label, path)
         return None
     if not isinstance(payload, dict):
@@ -270,7 +270,6 @@ def configured_model_for_provider(
 ) -> str:
     normalized_provider = normalize_provider(provider)
     entries = registry if registry is not None else load_model_registry()
-    slot_path = _slot_path()
     # An explicit slot config is an execution allowlist, including when its
     # path is missing or malformed. Never broaden execution because a
     # configured allowlist cannot be read or does not contain this provider.
@@ -330,7 +329,7 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
         ).strip()
         for entry in slot_entries
     ):
-        return fallback_slots
+        return [] if os.environ.get(ENV_SLOT_CONFIG) else fallback_slots
 
     slots: list[SlotDefinition] = []
     fallback_by_provider = {slot.provider: slot for slot in fallback_slots}
