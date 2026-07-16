@@ -107,9 +107,13 @@ def test_invalid_confidence_level_is_rejected():
 
 def test_near_one_confidence_level_has_finite_interval():
     policy = _policy()
-    policy["profiles"]["verifier-balanced"]["approval_stage"]["confidence_level"] = math.nextafter(1.0, 0.0)
+    policy["profiles"]["verifier-balanced"]["approval_stage"]["confidence_level"] = math.nextafter(
+        1.0, 0.0
+    )
     report = evaluator.evaluate_benchmark(_payload(), policy)
-    assert all(math.isfinite(result["metrics"]["task_success_rate"]) for result in report["results"])
+    assert all(
+        math.isfinite(result["metrics"]["task_success_rate"]) for result in report["results"]
+    )
 
 
 def test_passing_models_rank_by_cost_after_quality_gates():
