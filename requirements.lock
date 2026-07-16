@@ -43,7 +43,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   click
     #   pytest
     #   tqdm
-coverage==7.15.1
+coverage==7.15.2
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov
@@ -175,7 +175,7 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==2.1.0
+mypy==2.3.0
     # via workflows (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -298,7 +298,7 @@ rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.20
+ruff==0.15.21
     # via workflows (pyproject.toml)
 six==1.17.0
     # via python-dateutil
