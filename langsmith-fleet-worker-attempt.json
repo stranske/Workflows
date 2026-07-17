@@ -11,6 +11,6 @@
   "requested_model": "gpt-5.5",
   "runner": "reusable-codex-run",
   "schema": "langsmith-fleet/v1",
-  "selected_model": "",
-  "selection_reason": ""
+  "selected_model": "gpt-5.5",
+  "selection_reason": "input"
 }
