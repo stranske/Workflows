@@ -87,6 +87,26 @@ def test_sync_lockfile_preserves_comments_and_whitespace(tmp_path: Path) -> None
     assert "black==2.0.0" in updated
 
 
+def test_sync_pyproject_normalizes_minimum_pin_at_target_version(
+    tmp_path: Path,
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project.optional-dependencies]\ndev = [\n  "black>=2.0.0",\n]\n',
+        encoding="utf-8",
+    )
+
+    changes, errors = sdd.sync_pyproject(
+        pyproject,
+        {"BLACK_VERSION": "2.0.0"},
+        apply=True,
+    )
+
+    assert errors == []
+    assert changes == ["black: >=2.0.0 -> ==2.0.0"]
+    assert '"black==2.0.0"' in pyproject.read_text(encoding="utf-8")
+
+
 def test_main_apply_updates_pyproject_and_lockfile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -115,6 +135,36 @@ def test_main_apply_updates_pyproject_and_lockfile(
     assert exit_code == 0
     assert "ruff==1.0.0" in pyproject_path.read_text(encoding="utf-8")
     assert "ruff==1.0.0" in lockfile.read_text(encoding="utf-8")
+
+
+def test_main_apply_updates_all_present_requirements_lockfiles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    requirements_lock = tmp_path / "requirements.lock"
+    requirements_dev_lock = tmp_path / "requirements-dev.lock"
+    pins = {"RUFF_VERSION": "1.0.0", "BLACK_VERSION": "2.0.0"}
+
+    _write_env_file(env_path, pins)
+    _write_pyproject(pyproject_path, "0.9.0", "2.0.0")
+    requirements_lock.write_text("ruff==0.9.0\n", encoding="utf-8")
+    requirements_dev_lock.write_text("ruff==0.8.0\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    exit_code = sdd.main(
+        [
+            "--apply",
+            "--pin-file",
+            str(env_path),
+            "--pyproject",
+            str(pyproject_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert requirements_lock.read_text(encoding="utf-8") == "ruff==1.0.0\n"
+    assert requirements_dev_lock.read_text(encoding="utf-8") == "ruff==1.0.0\n"
 
 
 def test_main_check_reports_lockfile_mismatch(

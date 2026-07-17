@@ -13,7 +13,7 @@ Usage:
     python sync_dev_dependencies.py --check           # Verify versions match
     python sync_dev_dependencies.py --apply           # Update pyproject.toml
     python sync_dev_dependencies.py --apply --create-if-missing  # Create dev deps if missing
-    python sync_dev_dependencies.py --apply  # Syncs requirements.lock automatically if it exists
+    python sync_dev_dependencies.py --apply  # Syncs supported requirements lockfiles when present
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from pathlib import Path
 # Default paths (can be overridden for testing)
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
-LOCKFILE_FILE = Path("requirements.lock")
+LOCKFILE_FILES = (Path("requirements.lock"), Path("requirements-dev.lock"))
 
 # Map env file keys to package names
 # Format: ENV_KEY -> (package_name, optional_alternative_names)
@@ -280,8 +280,12 @@ def sync_pyproject(
             if pkg_lower in current_packages:
                 actual_pkg, current_op, current_ver = current_packages[pkg_lower]
 
-                # Check if version differs
-                if current_ver != target_version:
+                # Normalize both the version and the operator. A dependency that
+                # already has the target version but still uses ">=" is not in
+                # sync with the reproducible, exact-pin contract.
+                if current_ver != target_version or (
+                    use_exact_pins and current_op != "=="
+                ):
                     new_section, changed = update_dependency_in_section(
                         new_section, actual_pkg, target_version, use_exact_pins
                     )
@@ -336,7 +340,9 @@ def sync_lockfile(
         version = match.group("version")
         target_version = targets.get(name.lower())
         if target_version and version != target_version:
-            changes.append(f"requirements.lock:{name}: {version} -> =={target_version}")
+            changes.append(
+                f"{lockfile_path.name}:{name}: {version} -> =={target_version}"
+            )
             if apply:
                 updated_lines.append(
                     f"{match.group('lead')}{name}=={target_version}{match.group('trail')}"
@@ -421,11 +427,13 @@ def main(argv: list[str] | None = None) -> int:
         create_if_missing=args.create_if_missing,
     )
 
-    lockfile_enabled = args.lockfile or LOCKFILE_FILE.exists()
-    if lockfile_enabled:
-        lock_changes, lock_errors = sync_lockfile(LOCKFILE_FILE, pins, apply=args.apply)
-        changes.extend(lock_changes)
-        errors.extend(lock_errors)
+    for lockfile_path in LOCKFILE_FILES:
+        if args.lockfile or lockfile_path.exists():
+            lock_changes, lock_errors = sync_lockfile(
+                lockfile_path, pins, apply=args.apply
+            )
+            changes.extend(lock_changes)
+            errors.extend(lock_errors)
 
     if errors:
         for err in errors:

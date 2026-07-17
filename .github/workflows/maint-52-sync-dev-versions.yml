@@ -265,9 +265,10 @@ jobs:
 
           # Create branch and commit
           git checkout -b "$branch_name"
-          # Add lockfile if it exists and was modified
+          # Add supported lockfiles if they exist and were modified.
           git add pyproject.toml .github/workflows/autofix-versions.env
           if [ -f requirements.lock ]; then git add requirements.lock; fi
+          if [ -f requirements-dev.lock ]; then git add requirements-dev.lock; fi
 
           # Commit with multi-line message
           commit_msg="deps: sync dev tool versions from Workflows
