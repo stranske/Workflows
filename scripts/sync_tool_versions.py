@@ -14,6 +14,8 @@ from re import Pattern
 
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
+# Consumer-template pins are intentionally repo-specific; see AGENTS.md.
+# They must not be overwritten or compared to Workflows' own pins.
 TEMPLATE_FILE = Path("templates/consumer-repo/.github/workflows/autofix-versions.env")
 INTEGRATION_TEMPLATE_FILE = Path(
     "templates/integration-repo/.github/workflows/autofix-versions.env"
@@ -241,7 +243,7 @@ def main(argv: Iterable[str]) -> int:
     source_content = PIN_FILE.read_text(encoding="utf-8")
     template_mismatches: dict[str, str] = {}
     template_updates = False
-    for template_file in (TEMPLATE_FILE, INTEGRATION_TEMPLATE_FILE):
+    for template_file in (INTEGRATION_TEMPLATE_FILE,):
         mismatches, updated = ensure_template(source_content, template_file, apply_changes)
         template_mismatches.update(mismatches)
         template_updates = template_updates or updated

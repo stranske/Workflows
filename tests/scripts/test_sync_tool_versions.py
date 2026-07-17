@@ -241,6 +241,27 @@ def test_main_check_ok(
     assert captured.err == ""
 
 
+def test_main_allows_consumer_template_pin_divergence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    consumer_template = tmp_path / "consumer.env"
+    env_versions = {cfg.env_key: "6.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+    consumer_versions = env_versions | {"RUFF_VERSION": "5.0"}
+
+    _write_env_file(env_path, env_versions)
+    _write_env_file(consumer_template, consumer_versions)
+    pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
+
+    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
+    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
+    monkeypatch.setattr(sync_tool_versions, "TEMPLATE_FILE", consumer_template)
+
+    assert sync_tool_versions.main(["--check"]) == 0
+    assert capsys.readouterr().err == ""
+
+
 def test_main_apply_no_changes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -286,10 +307,10 @@ def test_main_rejects_check_and_apply_together() -> None:
         sync_tool_versions.main(["--check", "--apply"])
 
 
-def test_template_sync_detects_mismatch(
+def test_managed_integration_template_sync_detects_mismatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Test that template file mismatch is detected."""
+    """Test that the managed integration template mismatch is detected."""
     env_path = tmp_path / "pins.env"
     pyproject_path = tmp_path / "pyproject.toml"
     template_path = tmp_path / "templates" / "autofix-versions.env"
@@ -303,7 +324,7 @@ def test_template_sync_detects_mismatch(
 
     monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
     monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
-    monkeypatch.setattr(sync_tool_versions, "TEMPLATE_FILE", template_path)
+    monkeypatch.setattr(sync_tool_versions, "INTEGRATION_TEMPLATE_FILE", template_path)
 
     exit_code = sync_tool_versions.main(["--check"])
     captured = capsys.readouterr()
@@ -312,10 +333,10 @@ def test_template_sync_detects_mismatch(
     assert "template" in captured.err
 
 
-def test_template_sync_apply_updates_template(
+def test_integration_template_sync_apply_updates_template(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Test that --apply syncs template from source."""
+    """Test that --apply syncs the managed integration template from source."""
     env_path = tmp_path / "pins.env"
     pyproject_path = tmp_path / "pyproject.toml"
     template_path = tmp_path / "templates" / "autofix-versions.env"
@@ -329,7 +350,7 @@ def test_template_sync_apply_updates_template(
 
     monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
     monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
-    monkeypatch.setattr(sync_tool_versions, "TEMPLATE_FILE", template_path)
+    monkeypatch.setattr(sync_tool_versions, "INTEGRATION_TEMPLATE_FILE", template_path)
 
     exit_code = sync_tool_versions.main(["--apply"])
     captured = capsys.readouterr()
