@@ -21,11 +21,11 @@ def test_dev_version_sync_pr_body_matches_changed_files():
 
 def test_wave_hash_includes_the_sync_implementation():
     text = WORKFLOW.read_text(encoding="utf-8")
+    hash_start = text.index("hash=$(\n")
+    hash_block = text[hash_start : text.index("\n          )", hash_start)]
 
     assert "Compute wave hash" in text
-    assert "scripts/sync_dev_dependencies.py" in text
-    assert (
-        "hash=$(sha256sum .github/workflows/autofix-versions.env | cut -d' ' -f1)"
-        not in text
-    )
-    assert text.count("sha256sum") >= 2
+    assert ".github/workflows/autofix-versions.env" in hash_block
+    assert "scripts/sync_dev_dependencies.py" in hash_block
+    assert "| sha256sum" in hash_block
+    assert "| cut -d' ' -f1" in hash_block

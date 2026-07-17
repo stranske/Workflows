@@ -320,7 +320,7 @@ def _build_lockfile_targets(pins: dict[str, str]) -> dict[str, str]:
 def sync_lockfile(
     lockfile_path: Path, pins: dict[str, str], apply: bool = False
 ) -> tuple[list[str], list[str]]:
-    """Sync versions from pin file to requirements.lock."""
+    """Sync direct tool pins in one supported requirements lockfile."""
     if not lockfile_path.exists():
         return [], []
 
@@ -374,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Apply version updates to pyproject.toml",
+        help="Apply version updates to pyproject.toml and supported requirements lockfiles",
     )
     parser.add_argument(
         "--create-if-missing",
@@ -389,7 +389,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--lockfile",
         action="store_true",
-        help="Force lockfile sync even if requirements.lock doesn't exist (no-op)",
+        help="Compatibility flag; supported requirements lockfiles are always checked",
     )
     parser.add_argument(
         "--pin-file",
@@ -428,12 +428,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     for lockfile_path in LOCKFILE_FILES:
-        if args.lockfile or lockfile_path.exists():
-            lock_changes, lock_errors = sync_lockfile(
-                lockfile_path, pins, apply=args.apply
-            )
-            changes.extend(lock_changes)
-            errors.extend(lock_errors)
+        lock_changes, lock_errors = sync_lockfile(lockfile_path, pins, apply=args.apply)
+        changes.extend(lock_changes)
+        errors.extend(lock_errors)
 
     if errors:
         for err in errors:
