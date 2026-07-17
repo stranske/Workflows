@@ -87,6 +87,9 @@ def test_run_base_action_exists_and_parses() -> None:
     app_token_step = next(s for s in steps if s.get("name") == "Mint GitHub App token")
     assert _uses_base(app_token_step) == "actions/create-github-app-token"
     assert "push_allowed" in src
+    assert "env_name_pattern='^[A-Za-z_][A-Za-z0-9_]*$'" in src
+    assert '[[ ! "$MODE_ENV_NAME" =~ $env_name_pattern ]]' in src
+    assert '[[ ! "$PR_NUMBER_ENV_NAME" =~ $env_name_pattern ]]' in src
     assert "uses: ./.github/actions/setup-api-client" in src
     assert "sparse-checkout" in src
     checkout_step = next(s for s in steps if s.get("name") == "Checkout")

@@ -92,3 +92,14 @@ test('composePrompt treats empty-string capability bundles as absent', () => {
   assert.equal(result.text, 'Base instructions');
   assert.deepEqual(result.capability_bundles.applied, []);
 });
+
+test('composePrompt treats false capability inputs as absent', () => {
+  const result = composePrompt({
+    capabilityBundles: false,
+    knownCapabilities: false,
+    segments: [{ id: 'base', text: 'Base instructions' }],
+  });
+
+  assert.equal(result.text, 'Base instructions');
+  assert.deepEqual(result.capability_bundles.applied, []);
+});

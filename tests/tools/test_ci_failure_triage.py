@@ -80,3 +80,20 @@ def test_llm_triage_falls_back_from_github_models_to_openai(monkeypatch) -> None
     assert provider == "openai"
     assert isinstance(client, FakeChatOpenAI)
     assert created == [{"model": "gpt-5-mini", "api_key": "openai-token", "temperature": 0.1}]
+
+
+def test_llm_triage_does_not_use_empty_openai_token(monkeypatch) -> None:
+    created: list[object] = []
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            created.append(kwargs)
+
+    monkeypatch.setitem(
+        sys.modules, "langchain_openai", types.SimpleNamespace(ChatOpenAI=FakeChatOpenAI)
+    )
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    assert ci_failure_triage._get_llm_client() is None
+    assert created == []

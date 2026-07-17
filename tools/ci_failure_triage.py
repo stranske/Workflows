@@ -310,7 +310,7 @@ def _get_llm_client() -> tuple[_LLMClient, str] | None:
                 ),
                 "github-models",
             )
-    if openai_token is None:
+    if not openai_token:
         return None
     model = configured_model_for_provider("openai")
     if not model:

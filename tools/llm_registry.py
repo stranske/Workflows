@@ -166,7 +166,9 @@ def load_selection_decisions() -> list[SelectionDecision]:
                 model=model,
                 status=str(raw.get("status", "")).strip().lower(),
                 review_by=str(raw.get("review_by", "")).strip(),
-                evidence_ids=tuple(str(item) for item in evidence if str(item).strip()),
+                evidence_ids=tuple(
+                    str(item).strip() for item in evidence if str(item).strip()
+                ),
             )
         )
     return decisions
@@ -303,8 +305,9 @@ def default_slots(*, github_default_model: str = "") -> list[SlotDefinition]:
         model = select_model_for_profile(provider=provider)
         if not model and provider == PROVIDER_GITHUB:
             model = github_default_model.strip()
-        if model:
-            slots.append(SlotDefinition(name=f"slot{index}", provider=provider, model=model))
+        slots.append(
+            SlotDefinition(name=f"slot{index}", provider=provider, model=model or "")
+        )
     return slots
 
 
@@ -365,9 +368,11 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
                 profile,
                 model or "unavailable",
             )
-            # An explicit legacy pin is also an allowlist decision. Do not
-            # silently substitute a newer reviewed selection for it.
-            continue
+            # A caller-supplied slot file is an allowlist and must fail closed.
+            # The repository's bundled legacy file is advisory: ignore a stale
+            # pin and retain the reviewed registry selection for that provider.
+            if os.environ.get(ENV_SLOT_CONFIG):
+                continue
         if provider and configured_profile and not model:
             logger.warning(
                 "Skipping slot with unresolved reviewed profile: %s/%s",

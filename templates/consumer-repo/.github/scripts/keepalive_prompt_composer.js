@@ -19,7 +19,7 @@ function normaliseSegmentId(value, fallback) {
 }
 
 function coerceSegments(value) {
-  if (value === undefined || value === null || value === '') {
+  if (value === undefined || value === null || value === '' || value === false) {
     return [];
   }
   if (Array.isArray(value)) {

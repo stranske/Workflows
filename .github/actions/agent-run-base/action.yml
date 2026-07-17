@@ -93,6 +93,16 @@ runs:
           push_allowed="false"
         fi
 
+        env_name_pattern='^[A-Za-z_][A-Za-z0-9_]*$'
+        if [[ ! "$MODE_ENV_NAME" =~ $env_name_pattern ]]; then
+          echo "Invalid mode_env_name: expected a shell environment variable name" >&2
+          exit 1
+        fi
+        if [[ ! "$PR_NUMBER_ENV_NAME" =~ $env_name_pattern ]]; then
+          echo "Invalid pr_number_env_name: expected a shell environment variable name" >&2
+          exit 1
+        fi
+
         {
           echo "checkout_token=${checkout_token}"
           echo "push_token=${push_token}"

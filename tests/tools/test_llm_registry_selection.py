@@ -224,6 +224,28 @@ def test_unresolved_explicit_slot_pin_fails_closed(
     assert registry.configured_model_for_provider("openai") == ""
 
 
+def test_bundled_stale_slot_pin_uses_reviewed_registry_selection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    _write_slots(slots_path, model="retired-model", profile="")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.delenv(registry.ENV_SLOT_CONFIG, raising=False)
+    monkeypatch.setattr(registry, "DEFAULT_SLOT_CONFIG_PATH", slots_path)
+
+    slots = registry.load_slot_config()
+
+    assert slots == [
+        registry.SlotDefinition(
+            name="slot1",
+            provider="openai",
+            model="model-balanced",
+        )
+    ]
+
+
 def test_noncurrent_selected_model_fails_closed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -263,6 +285,40 @@ def test_selection_without_evidence_fails_closed(
     monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
 
     assert registry.select_model_for_profile(provider="openai") is None
+
+
+def test_selection_evidence_ids_are_normalized(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    _write_registry(registry_path)
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["selections"][0]["evidence_ids"] = ["  benchmark-1  "]
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+
+    [decision] = registry.load_selection_decisions()
+    assert decision.evidence_ids == ("benchmark-1",)
+
+
+def test_default_slots_keep_provider_positions_when_a_selection_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        registry,
+        "select_model_for_profile",
+        lambda *, provider, profile=registry.DEFAULT_SELECTION_PROFILE, registry_entries=None: (
+            "claude-reviewed" if provider == registry.PROVIDER_ANTHROPIC else None
+        ),
+    )
+
+    slots = registry.default_slots()
+
+    assert [(slot.name, slot.provider, slot.model) for slot in slots] == [
+        ("slot1", registry.PROVIDER_OPENAI, ""),
+        ("slot2", registry.PROVIDER_ANTHROPIC, "claude-reviewed"),
+        ("slot3", registry.PROVIDER_GITHUB, ""),
+    ]
 
 
 def test_configured_model_honors_runtime_slot_override(

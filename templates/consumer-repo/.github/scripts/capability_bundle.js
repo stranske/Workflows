@@ -45,7 +45,6 @@ function sha256Hex(value) {
 function bundleHashPayload(bundle) {
   const {
     content_hash: _contentHash,
-    contentHash: _contentHashCamel,
     ...payload
   } = bundle || {};
   return payload;
