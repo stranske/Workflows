@@ -24,6 +24,8 @@ longer carry their own copy of the extracted ``actions/checkout`` /
 
 from __future__ import annotations
 
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -94,6 +96,47 @@ def test_run_base_action_exists_and_parses() -> None:
     assert "sparse-checkout" in src
     checkout_step = next(s for s in steps if s.get("name") == "Checkout")
     assert checkout_step["with"]["clean"] is False
+
+
+@pytest.mark.parametrize(
+    ("mode_env_name", "pr_number_env_name", "expected_returncode", "expected_error"),
+    [
+        ("RUNNER_MODE", "RUNNER_PR_NUMBER", 0, ""),
+        ("MODE-NAME", "RUNNER_PR_NUMBER", 1, "Invalid mode_env_name"),
+        ("RUNNER_MODE", "PR-NUMBER", 1, "Invalid pr_number_env_name"),
+    ],
+)
+def test_run_base_auth_token_step_validates_environment_variable_names(
+    tmp_path: Path,
+    mode_env_name: str,
+    pr_number_env_name: str,
+    expected_returncode: int,
+    expected_error: str,
+) -> None:
+    """Execute the composite's shell step to protect its env-name guard."""
+    action = yaml.safe_load((ROOT / RUN_BASE_ACTION).read_text())
+    step = next(item for item in action["runs"]["steps"] if item.get("id") == "auth_token")
+    env = os.environ | {
+        "APP_TOKEN": "",
+        "GITHUB_TOKEN_VALUE": "github-token",
+        "RUNNER_MODE": "codex",
+        "RUNNER_PR_NUMBER": "123",
+        "MODE_ENV_NAME": mode_env_name,
+        "PR_NUMBER_ENV_NAME": pr_number_env_name,
+        "GITHUB_OUTPUT": str(tmp_path / "github-output"),
+        "GITHUB_ENV": str(tmp_path / "github-env"),
+    }
+
+    result = subprocess.run(
+        ["bash", "-c", step["run"]],
+        check=False,
+        capture_output=True,
+        env=env,
+        text=True,
+    )
+
+    assert result.returncode == expected_returncode
+    assert expected_error in result.stderr
 
 
 @pytest.mark.parametrize("workflow_rel", REUSABLE_RUN_WORKFLOWS)

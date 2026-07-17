@@ -62,6 +62,20 @@ def test_sync_lockfile_apply_updates_versions(tmp_path: Path) -> None:
     assert "requests==2.0.0" in updated
 
 
+def test_sync_lockfile_reports_requirements_dev_lockfile_name(tmp_path: Path) -> None:
+    lockfile = tmp_path / "requirements-dev.lock"
+    lockfile.write_text("ruff==0.1.0\n", encoding="utf-8")
+
+    changes, errors = sdd.sync_lockfile(
+        lockfile,
+        {"RUFF_VERSION": "1.0.0"},
+        apply=False,
+    )
+
+    assert errors == []
+    assert changes == ["requirements-dev.lock:ruff: 0.1.0 -> ==1.0.0"]
+
+
 def test_sync_lockfile_preserves_comments_and_whitespace(tmp_path: Path) -> None:
     lockfile = tmp_path / "requirements.lock"
     lockfile.write_text(
