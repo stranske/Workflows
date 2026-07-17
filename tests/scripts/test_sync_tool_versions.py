@@ -247,16 +247,21 @@ def test_main_allows_consumer_template_pin_divergence(
     env_path = tmp_path / "pins.env"
     pyproject_path = tmp_path / "pyproject.toml"
     consumer_template = tmp_path / "consumer.env"
+    integration_template = tmp_path / "integration.env"
     env_versions = {cfg.env_key: "6.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
     consumer_versions = env_versions | {"RUFF_VERSION": "5.0"}
 
     _write_env_file(env_path, env_versions)
     _write_env_file(consumer_template, consumer_versions)
+    _write_env_file(integration_template, env_versions)
     pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
 
     monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
     monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
     monkeypatch.setattr(sync_tool_versions, "TEMPLATE_FILE", consumer_template)
+    monkeypatch.setattr(
+        sync_tool_versions, "INTEGRATION_TEMPLATE_FILE", integration_template
+    )
 
     assert sync_tool_versions.main(["--check"]) == 0
     assert capsys.readouterr().err == ""
