@@ -11,7 +11,7 @@ pyyaml==6.0.3
 pydantic==2.13.4
 numpy==2.5.1
 pandas==3.0.4
-tomlkit==0.15.0
+tomlkit==0.15.1
 
 # LangChain integration
 langchain==1.3.14
