@@ -55,7 +55,7 @@
         "verifier_followup_issue": "stranske/Pension-Data#707",
         "verifier_followup_pr": "stranske/Pension-Data#708",
         "run_id": "pension-data-one-pdf-reference",
-        "generated_at": "2026-07-10T08:33:19+00:00",
+        "generated_at": "2026-07-17T14:29:00Z",
         "producer_git_sha": "d0318317e89b1ca721fc01aff007e3e7a5b38640",
         "emit_reference_run_url": "https://github.com/stranske/Pension-Data/actions/runs/29080121547/job/86320785773",
         "conformance_run_url": "https://github.com/stranske/Pension-Data/actions/runs/29080121547/job/86320867619",
