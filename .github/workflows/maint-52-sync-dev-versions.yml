@@ -86,12 +86,20 @@ jobs:
             scripts/sync_dev_dependencies.py
           sparse-checkout-cone-mode: false
 
-      - name: Compute versions hash
+      - name: Compute wave hash
         id: hash
         run: |
-          hash=$(sha256sum .github/workflows/autofix-versions.env | cut -d' ' -f1)
+          # Include the propagation implementation so a script-only repair opens
+          # a replacement wave instead of skipping PRs from the prior behavior.
+          hash=$(
+            sha256sum \
+              .github/workflows/autofix-versions.env \
+              scripts/sync_dev_dependencies.py \
+              | sha256sum \
+              | cut -d' ' -f1
+          )
           echo "hash=${hash:0:12}" >> "$GITHUB_OUTPUT"
-          echo "Versions hash: ${hash:0:12}"
+          echo "Wave hash: ${hash:0:12}"
           echo ""
           echo "Current versions:"
           grep -v '^#' .github/workflows/autofix-versions.env | grep '='
