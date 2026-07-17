@@ -283,9 +283,7 @@ def sync_pyproject(
                 # Normalize both the version and the operator. A dependency that
                 # already has the target version but still uses ">=" is not in
                 # sync with the reproducible, exact-pin contract.
-                if current_ver != target_version or (
-                    use_exact_pins and current_op != "=="
-                ):
+                if current_ver != target_version or (use_exact_pins and current_op != "=="):
                     new_section, changed = update_dependency_in_section(
                         new_section, actual_pkg, target_version, use_exact_pins
                     )
@@ -340,9 +338,7 @@ def sync_lockfile(
         version = match.group("version")
         target_version = targets.get(name.lower())
         if target_version and version != target_version:
-            changes.append(
-                f"{lockfile_path.name}:{name}: {version} -> =={target_version}"
-            )
+            changes.append(f"{lockfile_path.name}:{name}: {version} -> =={target_version}")
             if apply:
                 updated_lines.append(
                     f"{match.group('lead')}{name}=={target_version}{match.group('trail')}"
