@@ -158,12 +158,14 @@ def test_main_apply_updates_all_present_requirements_lockfiles(
     pyproject_path = tmp_path / "pyproject.toml"
     requirements_lock = tmp_path / "requirements.lock"
     requirements_dev_lock = tmp_path / "requirements-dev.lock"
+    requirements_dev_txt = tmp_path / "requirements-dev.txt"
     pins = {"RUFF_VERSION": "1.0.0", "BLACK_VERSION": "2.0.0"}
 
     _write_env_file(env_path, pins)
     _write_pyproject(pyproject_path, "0.9.0", "2.0.0")
     requirements_lock.write_text("ruff==0.9.0\n", encoding="utf-8")
     requirements_dev_lock.write_text("ruff==0.8.0\n", encoding="utf-8")
+    requirements_dev_txt.write_text("ruff==0.7.0\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
 
     exit_code = sdd.main(
@@ -179,6 +181,7 @@ def test_main_apply_updates_all_present_requirements_lockfiles(
     assert exit_code == 0
     assert requirements_lock.read_text(encoding="utf-8") == "ruff==1.0.0\n"
     assert requirements_dev_lock.read_text(encoding="utf-8") == "ruff==1.0.0\n"
+    assert requirements_dev_txt.read_text(encoding="utf-8") == "ruff==1.0.0\n"
 
 
 def test_main_check_reports_lockfile_mismatch(

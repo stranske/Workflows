@@ -26,7 +26,13 @@ from pathlib import Path
 # Default paths (can be overridden for testing)
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
-LOCKFILE_FILES = (Path("requirements.lock"), Path("requirements-dev.lock"))
+# Direct requirement files can be installed by CI independently of pyproject.
+# Keep every supported dev-tool surface aligned with the canonical pin file.
+LOCKFILE_FILES = (
+    Path("requirements.lock"),
+    Path("requirements-dev.lock"),
+    Path("requirements-dev.txt"),
+)
 
 # Map env file keys to package names
 # Format: ENV_KEY -> (package_name, optional_alternative_names)
