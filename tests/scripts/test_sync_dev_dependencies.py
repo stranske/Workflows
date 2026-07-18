@@ -121,8 +121,7 @@ def test_sync_lockfile_normalizes_non_exact_and_unversioned_requirements(tmp_pat
         "requirements-dev.txt:mypy: ~=1.2.0 -> ==1.3.0",
     ]
     assert lockfile.read_text(encoding="utf-8") == (
-        "black==2.0.0\nruff==1.0.0\n"
-        "mypy[reports]==1.3.0 ; python_version >= '3.10'\n"
+        "black==2.0.0\nruff==1.0.0\n" "mypy[reports]==1.3.0 ; python_version >= '3.10'\n"
     )
 
 

@@ -351,8 +351,7 @@ def sync_lockfile(
             if current_version.startswith("=="):
                 current_version = current_version[2:]
             changes.append(
-                f"{lockfile_path.name}:{name}: "
-                f"{current_version} -> =={target_version}"
+                f"{lockfile_path.name}:{name}: " f"{current_version} -> =={target_version}"
             )
             if apply:
                 updated_lines.append(
