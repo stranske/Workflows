@@ -190,3 +190,16 @@ def test_runtime_fetched_section_is_not_copy_processed() -> None:
     assert (
         "runtime_fetched" not in drift_text
     ), "check_consumer_sync_drift must not probe the runtime_fetched section"
+
+
+def test_prepare_checkout_includes_manifest_owned_github_roots() -> None:
+    """Maint-68 must hash root-owned manifest sources, not stale template copies."""
+    workflow = yaml.safe_load(SYNC_WORKFLOW_PATH.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["prepare"]["steps"]
+    checkout = next(step for step in steps if step.get("name") == "Checkout")
+    sparse_checkout = checkout["with"]["sparse-checkout"]
+
+    # The registry is owned at the Workflows root even though a consumer template
+    # copy also exists. Without this root, the manifest compiler silently reads
+    # the stale template copy during a sync run.
+    assert ".github/agents" in sparse_checkout

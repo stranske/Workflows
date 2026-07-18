@@ -17,6 +17,9 @@ on:
       # Tune per repo: source that affects the run envelope + emitter.
       - 'src/**'
       - 'artifacts/**'
+      - 'scripts/**'
+      - 'docs/contracts/**'
+      - 'config/backplane_participants.json'
 
 jobs:
   emit-reference-run:

@@ -21,6 +21,7 @@ from tools.llm_registry import (
     ModelRegistryEntry,
     SlotDefinition,
     apply_slot_env_overrides,
+    configured_model_for_provider,
     default_slots,
     is_model_blocked,
     load_model_registry,
@@ -227,6 +228,11 @@ def build_chat_client(
 
     selected_provider, provider_explicit = _resolve_provider(provider, force_openai=force_openai)
     if provider_explicit and selected_provider is None:
+        return None
+    if selected_provider and not selected_model:
+        selected_model = configured_model_for_provider(selected_provider)
+    if selected_provider and not selected_model:
+        logger.warning("No reviewed model is configured for provider %s", selected_provider)
         return None
     if selected_provider and _is_model_blocked(selected_provider, selected_model):
         logger.warning("Refusing blocked LLM model: %s/%s", selected_provider, selected_model)

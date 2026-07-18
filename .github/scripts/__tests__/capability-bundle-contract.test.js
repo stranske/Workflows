@@ -83,6 +83,10 @@ test('runtime validation matches schema patterns and top-level fields', () => {
     () => validateCapabilityBundle(validBundle({ local_control: 'reroute this run' })),
     /unknown top-level fields: local_control/,
   );
+  assert.throws(
+    () => validateCapabilityBundle(validBundle({ contentHash: 'sha256:deadbeef' })),
+    /unknown top-level fields: contentHash/,
+  );
 });
 
 test('missing required owner and rollback fields are rejected', () => {

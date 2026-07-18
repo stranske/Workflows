@@ -591,21 +591,20 @@ curl -o .github/workflows/agents-70-orchestrator.yml \
 
 ### 4.2 Autofix Versions Configuration
 
-> **Important**: Each repository maintains its own `autofix-versions.env` file
-> with dependency versions matching its lock files. This file is NOT synced.
+> **Important**: `autofix-versions.env` is not part of the general template sync.
+> Registered first-party consumers receive the canonical shared tool pins through
+> `maint-52-sync-dev-versions.yml`, together with matching dependency-file updates.
 
 Create `.github/workflows/autofix-versions.env`:
 
 ```bash
-# Tool versions for autofix - match your project's lock files
-RUFF_VERSION=0.8.1
-MYPY_VERSION=1.14.0
-BLACK_VERSION=24.10.0
-ISORT_VERSION=5.13.2
+curl -fsSL \
+  https://raw.githubusercontent.com/stranske/Workflows/main/.github/workflows/autofix-versions.env \
+  -o .github/workflows/autofix-versions.env
 ```
 
 - [ ] `autofix-versions.env` file created
-- [ ] Versions match project's dependency versions
+- [ ] Shared tool versions match the canonical Workflows pins and project lock files
 
 To find your current versions:
 ```bash

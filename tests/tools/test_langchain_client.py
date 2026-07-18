@@ -140,6 +140,27 @@ def test_build_chat_client_env_provider_override_github(
     assert resolved.client.kwargs["base_url"] == langchain_client.GITHUB_MODELS_BASE_URL
 
 
+def test_explicit_github_provider_uses_reviewed_model_when_model_is_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+    monkeypatch.delenv(langchain_client.ENV_MODEL, raising=False)
+    monkeypatch.setattr(
+        langchain_client,
+        "configured_model_for_provider",
+        lambda provider: "github-reviewed" if provider == "github-models" else "",
+    )
+
+    resolved = langchain_client.build_chat_client(provider="github-models")
+
+    assert resolved is not None
+    assert resolved.provider == langchain_client.PROVIDER_GITHUB
+    assert resolved.model == "github-reviewed"
+    assert isinstance(resolved.client, FakeChatOpenAI)
+    assert resolved.client.kwargs["model"] == "github-reviewed"
+
+
 def test_build_chat_client_env_model_override(monkeypatch: pytest.MonkeyPatch) -> None:
     """Model override env var should update the constructed model."""
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
@@ -370,7 +391,7 @@ def test_load_slot_config_ignores_tier_slot_when_registry_invalid(
 
     slots = llm_registry.load_slot_config(github_default_model=langchain_client.DEFAULT_MODEL)
 
-    assert slots == llm_registry.default_slots(github_default_model=langchain_client.DEFAULT_MODEL)
+    assert slots == []
 
 
 def test_load_slot_config_uses_provider_fallback_after_position_mismatch(

@@ -10,7 +10,8 @@
     "evidence_id",
     "fact_ref",
     "source_id",
-    "method"
+    "method",
+    "excerpt"
   ],
   "properties": {
     "schema_version": {

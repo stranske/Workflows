@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -91,7 +92,7 @@ def test_reference_run_id_must_be_non_empty_string(bad_run_id: object) -> None:
 def test_strict_cli_flag_matches_documented_invocation(tmp_path: Path) -> None:
     registry = copy.deepcopy(_registry())
     entry = _pension_conformant_entry(registry)
-    entry["reference_run_evidence"]["generated_at"] = "2026-07-10T08:33:31Z"
+    entry["reference_run_evidence"]["generated_at"] = datetime.now(UTC).isoformat()
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
 

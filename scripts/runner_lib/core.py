@@ -42,6 +42,10 @@ CAPABILITY_ID_RE = re.compile(r"^capability:(?=[a-z0-9-]{3,128}$)[a-z0-9]+(?:-[a
 SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 EVIDENCE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,255}$")
 SECRET_LIKE_EVIDENCE_PREFIXES = ("ghp_", "github_pat_", "sk-")
+SECRET_LIKE_EVIDENCE_SEGMENT_RE = re.compile(
+    r"(?:^|[:/#@])(?:" + "|".join(SECRET_LIKE_EVIDENCE_PREFIXES) + r")",
+    re.IGNORECASE,
+)
 SUPERVISION_MODES = {
     "shadow",
     "human-reviewed",
@@ -106,7 +110,7 @@ def _validate_capability_effect_evidence_values(values: dict[str, str]) -> None:
     if not EVIDENCE_REF_RE.fullmatch(artifact_ref):
         raise ValueError("evidence_artifact_ref must be a bounded durable logical reference")
     lowered_ref = artifact_ref.lower()
-    if any(prefix in lowered_ref for prefix in SECRET_LIKE_EVIDENCE_PREFIXES):
+    if SECRET_LIKE_EVIDENCE_SEGMENT_RE.search(artifact_ref):
         raise ValueError("evidence_artifact_ref has a credential-like prefix")
     if any(
         marker in lowered_ref for marker in ("token", "secret", "password", "api-key", "apikey")

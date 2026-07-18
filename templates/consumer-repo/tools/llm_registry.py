@@ -28,7 +28,7 @@ DEFAULT_MODEL_REGISTRY_CONFIG_PATH = (
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ModelRegistryEntry:
     provider: str
     model: str
@@ -40,7 +40,7 @@ class ModelRegistryEntry:
     cost_score: float | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SelectionDecision:
     profile: str
     provider: str
@@ -50,7 +50,7 @@ class SelectionDecision:
     evidence_ids: tuple[str, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SlotDefinition:
     name: str
     provider: str
@@ -85,7 +85,7 @@ def _load_object(path: Path, *, label: str) -> dict[str, object] | None:
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         logger.warning("Could not read %s %s", label, path)
         return None
     if not isinstance(payload, dict):
@@ -229,6 +229,13 @@ def select_model_for_profile(
             )
         return None
     decision = matches[0]
+    if not decision.evidence_ids:
+        logger.warning(
+            "Model selection %s/%s has no evidence; refusing to use it",
+            normalized_provider,
+            profile,
+        )
+        return None
     entry = registry_entry_for(decision.provider, decision.model, registry=entries)
     if entry is None or entry.blocked or entry.lifecycle != "current":
         return None
@@ -263,40 +270,21 @@ def configured_model_for_provider(
 ) -> str:
     normalized_provider = normalize_provider(provider)
     entries = registry if registry is not None else load_model_registry()
-    path = _slot_path()
-    payload = _load_object(path, label="slot config")
-    if payload is not None:
-        for slot in _slot_entries(payload, path):
-            slot_provider = normalize_provider(str(slot.get("provider", "")))
-            if slot_provider != normalized_provider:
-                continue
-            explicit_model = str(slot.get("model", "")).strip()
-            slot_profile = str(slot.get("profile") or profile).strip()
-            model = (
-                select_model_for_profile(
-                    provider=slot_provider or "",
-                    profile=slot_profile,
-                    registry=entries,
-                )
-                or ""
-            )
-            if not model:
-                logger.warning(
-                    "No reviewed model selection for slot profile %s/%s",
-                    slot_profile,
-                    slot_provider,
-                )
-                return ""
-            if explicit_model and explicit_model != model:
-                logger.warning(
-                    "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
-                    slot_provider,
-                    explicit_model,
-                    slot_profile,
-                    model or "unavailable",
-                )
-            if model and not is_model_blocked(slot_provider or "", model, registry=entries):
-                return model
+    # An explicit slot config is an execution allowlist, including when its
+    # path is missing or malformed. Never broaden execution because a
+    # configured allowlist cannot be read or does not contain this provider.
+    if os.environ.get(ENV_SLOT_CONFIG):
+        configured_slots = load_slot_config()
+        if not configured_slots:
+            return ""
+        for slot in apply_slot_env_overrides(configured_slots):
+            if (
+                slot.provider == normalized_provider
+                and slot.model
+                and not is_model_blocked(slot.provider, slot.model, registry=entries)
+            ):
+                return slot.model
+        return ""
 
     selected = select_model_for_profile(provider=provider, profile=profile, registry=entries)
     if selected:
@@ -325,6 +313,10 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
     payload = _load_object(path, label="slot config")
     fallback_slots = default_slots(github_default_model=github_default_model)
     if payload is None:
+        # An unreadable or missing explicitly configured slot file must fail
+        # closed. Only an unconfigured default path permits default slots.
+        if os.environ.get(ENV_SLOT_CONFIG):
+            return []
         return fallback_slots
 
     registry = load_model_registry()
@@ -337,7 +329,7 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
         ).strip()
         for entry in slot_entries
     ):
-        return fallback_slots
+        return [] if os.environ.get(ENV_SLOT_CONFIG) else fallback_slots
 
     slots: list[SlotDefinition] = []
     fallback_by_provider = {slot.provider: slot for slot in fallback_slots}
@@ -352,14 +344,30 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
                 select_model_for_profile(provider=provider, profile=profile, registry=registry)
                 or ""
             )
-        if provider and explicit_model and explicit_model != model:
+        explicit_entry = (
+            registry_entry_for(provider, explicit_model, registry=registry)
+            if provider and explicit_model
+            else None
+        )
+        if (
+            provider
+            and explicit_model
+            and not configured_profile
+            and explicit_entry
+            and not (explicit_entry.blocked or explicit_entry.lifecycle != "current")
+        ):
+            model = explicit_model
+        elif provider and explicit_model and explicit_model != model:
             logger.warning(
-                "Ignoring slot model pin %s/%s; reviewed %s selection is %s",
+                "Skipping unresolved slot model pin %s/%s; reviewed %s selection is %s",
                 provider,
                 explicit_model,
                 profile,
                 model or "unavailable",
             )
+            # An explicit legacy pin is also an allowlist decision. Do not
+            # silently substitute a newer reviewed selection for it.
+            continue
         if provider and configured_profile and not model:
             logger.warning(
                 "Skipping slot with unresolved reviewed profile: %s/%s",
@@ -377,7 +385,9 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
             continue
         name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
         slots.append(SlotDefinition(name=name, provider=provider, model=model))
-    return slots if slot_entries else fallback_slots
+    # A present slot file is an allowlist.  If every configured slot is
+    # unusable, fail closed instead of broadening execution to default providers.
+    return slots
 
 
 def apply_slot_env_overrides(
@@ -417,7 +427,7 @@ def resolve_slots(
     # Preserve an explicit runtime override as an emergency bootstrap when the
     # registry file is unavailable. Empty models are never invoked directly;
     # langchain_client skips them when the override cannot serve that provider.
-    if not slots and os.environ.get(env_model_name):
+    if not slots and not os.environ.get(ENV_SLOT_CONFIG) and os.environ.get(env_model_name):
         slots = [
             SlotDefinition(name=f"slot{index}", provider=provider, model="")
             for index, provider in enumerate(

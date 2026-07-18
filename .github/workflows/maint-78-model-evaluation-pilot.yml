@@ -21,19 +21,28 @@ jobs:
         env:
           # Cross-repo read token; github.token is scoped to Workflows only.
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: |
-          uv run --extra dev python tools/run_model_eval_pilot.py --output pilot-results.json
+          uv run --extra dev --extra langchain \
+            python -m tools.run_model_eval_pilot --output pilot-results.json
       - name: Summarize pilot
         if: always()
         run: |
+          if [ ! -f pilot-results.json ]; then
+            echo '## Verifier model pilot' >> "$GITHUB_STEP_SUMMARY"
+            echo 'The pilot failed before producing a results artifact; inspect the run step.' \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           {
             echo '## Verifier model pilot'
             echo 'The pilot narrows candidates only; approval still requires the 75-case corpus.'
             echo '```json'
             jq '{schema, corpus_version, rows:(.results|length),
-              errors:([.results[]|select(.schema_valid == false)]|length)}' \
+              errors:([.results[]|select(.schema_valid == false)]|length),
+              category_report:.summary.candidates}' \
               pilot-results.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
@@ -43,4 +52,5 @@ jobs:
           name: verifier-model-pilot-${{ github.run_id }}
           path: |
             pilot-results.json
-          if-no-files-found: error
+            pilot-preflight.json
+          if-no-files-found: warn

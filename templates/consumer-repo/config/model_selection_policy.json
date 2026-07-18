@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "auxiliary-verifier-model-selection-v1",
+  "as_of": "2026-07-10",
+  "profiles": {
+    "verifier-balanced": {
+      "workload": "Issue-completion and provider-comparison judgments where false PASS is the highest-cost error.",
+      "candidate_stage": {
+        "minimum_adjudicated_cases": 30,
+        "required_case_categories": [
+          "clean-pass",
+          "missing-acceptance-criterion",
+          "stale-verifier-claim",
+          "review-thread-debt",
+          "follow-up-required"
+        ]
+      },
+      "approval_stage": {
+        "minimum_adjudicated_cases": 75,
+        "minimum_cases_per_category": 10,
+        "confidence_level": 0.95,
+        "quality_gates": {
+          "task_success_rate_wilson_lower_bound": 0.85,
+          "false_pass_rate_wilson_upper_bound": 0.05,
+          "false_fail_rate_wilson_upper_bound": 0.1,
+          "schema_error_rate_wilson_upper_bound": 0.05,
+          "paired_success_noninferiority_margin": 0.02
+        }
+      },
+      "optimization_order": [
+        "pass_all_quality_gates",
+        "minimize_observed_cost_per_accepted_review",
+        "minimize_observed_p95_latency_ms"
+      ],
+      "required_measurements": [
+        "adjudicated_outcome",
+        "false_pass",
+        "false_fail",
+        "schema_error",
+        "input_tokens",
+        "output_tokens",
+        "total_cost_usd",
+        "latency_ms"
+      ],
+      "promotion_rules": {
+        "paired_corpus_required": true,
+        "provider_marketing_claims_are_quality_evidence": false,
+        "new_catalog_models_auto_promote": false,
+        "human_approval_required": true
+      },
+      "review_triggers": {
+        "maximum_days_between_reviews": 30,
+        "catalog_change": true,
+        "pricing_change": true,
+        "material_prompt_or_workload_change": true,
+        "quality_gate_breach": true
+      }
+    }
+  }
+}

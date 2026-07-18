@@ -13,7 +13,7 @@ Usage:
     python sync_dev_dependencies.py --check           # Verify versions match
     python sync_dev_dependencies.py --apply           # Update pyproject.toml
     python sync_dev_dependencies.py --apply --create-if-missing  # Create dev deps if missing
-    python sync_dev_dependencies.py --apply  # Syncs requirements.lock automatically if it exists
+    python sync_dev_dependencies.py --apply  # Syncs supported requirements lockfiles when present
 """
 
 from __future__ import annotations
@@ -26,7 +26,13 @@ from pathlib import Path
 # Default paths (can be overridden for testing)
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
-LOCKFILE_FILE = Path("requirements.lock")
+# Direct requirement files can be installed by CI independently of pyproject.
+# Keep every supported dev-tool surface aligned with the canonical pin file.
+LOCKFILE_FILES = (
+    Path("requirements.lock"),
+    Path("requirements-dev.lock"),
+    Path("requirements-dev.txt"),
+)
 
 # Map env file keys to package names
 # Format: ENV_KEY -> (package_name, optional_alternative_names)
@@ -53,7 +59,9 @@ CORE_DEV_TOOLS = [
 ]
 
 LOCKFILE_PATTERN = re.compile(
-    r"^(?P<lead>\s*)(?P<name>[A-Za-z0-9_.-]+)==(?P<version>[^\s#]+)(?P<trail>\s*(?:#.*)?)$"
+    r"^(?P<lead>\s*)(?P<name>[A-Za-z0-9_.-]+)(?P<extras>\[[^]]+\])?"
+    r"(?P<specifier>(?:===|==|!=|<=|>=|~=|<|>)[^\s;#]+)?"
+    r"(?P<marker>\s*;[^#]+?)?(?P<trail>\s*(?:#.*)?)$"
 )
 
 
@@ -280,8 +288,10 @@ def sync_pyproject(
             if pkg_lower in current_packages:
                 actual_pkg, current_op, current_ver = current_packages[pkg_lower]
 
-                # Check if version differs
-                if current_ver != target_version:
+                # Normalize both the version and the operator. A dependency that
+                # already has the target version but still uses ">=" is not in
+                # sync with the reproducible, exact-pin contract.
+                if current_ver != target_version or (use_exact_pins and current_op != "=="):
                     new_section, changed = update_dependency_in_section(
                         new_section, actual_pkg, target_version, use_exact_pins
                     )
@@ -316,7 +326,7 @@ def _build_lockfile_targets(pins: dict[str, str]) -> dict[str, str]:
 def sync_lockfile(
     lockfile_path: Path, pins: dict[str, str], apply: bool = False
 ) -> tuple[list[str], list[str]]:
-    """Sync versions from pin file to requirements.lock."""
+    """Sync direct tool pins in one supported requirements lockfile."""
     if not lockfile_path.exists():
         return [], []
 
@@ -333,13 +343,20 @@ def sync_lockfile(
             continue
 
         name = match.group("name")
-        version = match.group("version")
         target_version = targets.get(name.lower())
-        if target_version and version != target_version:
-            changes.append(f"requirements.lock:{name}: {version} -> =={target_version}")
+        current_requirement = f"{match.group('specifier') or ''}{match.group('marker') or ''}"
+        target_requirement = f"=={target_version}{match.group('marker') or ''}"
+        if target_version and current_requirement != target_requirement:
+            current_version = match.group("specifier") or "(unversioned)"
+            if current_version.startswith("=="):
+                current_version = current_version[2:]
+            changes.append(
+                f"{lockfile_path.name}:{name}: " f"{current_version} -> =={target_version}"
+            )
             if apply:
                 updated_lines.append(
-                    f"{match.group('lead')}{name}=={target_version}{match.group('trail')}"
+                    f"{match.group('lead')}{name}{match.group('extras') or ''}"
+                    f"=={target_version}{match.group('marker') or ''}{match.group('trail')}"
                 )
             else:
                 updated_lines.append(line)
@@ -368,7 +385,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Apply version updates to pyproject.toml",
+        help="Apply version updates to pyproject.toml and supported requirements lockfiles",
     )
     parser.add_argument(
         "--create-if-missing",
@@ -383,7 +400,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--lockfile",
         action="store_true",
-        help="Force lockfile sync even if requirements.lock doesn't exist (no-op)",
+        help="Compatibility flag; supported requirements lockfiles are always checked",
     )
     parser.add_argument(
         "--pin-file",
@@ -421,9 +438,8 @@ def main(argv: list[str] | None = None) -> int:
         create_if_missing=args.create_if_missing,
     )
 
-    lockfile_enabled = args.lockfile or LOCKFILE_FILE.exists()
-    if lockfile_enabled:
-        lock_changes, lock_errors = sync_lockfile(LOCKFILE_FILE, pins, apply=args.apply)
+    for lockfile_path in LOCKFILE_FILES:
+        lock_changes, lock_errors = sync_lockfile(lockfile_path, pins, apply=args.apply)
         changes.extend(lock_changes)
         errors.extend(lock_errors)
 

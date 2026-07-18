@@ -1,32 +1,27 @@
 from __future__ import annotations
 
 import datetime as dt
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 from tools import discover_model_catalog as discovery
 
 
 def test_request_json_uses_http_only_client(monkeypatch):
-    response = SimpleNamespace(
-        raise_for_status=lambda: None,
-        json=lambda: {"data": []},
-    )
+    response = SimpleNamespace(read=lambda: b'{"data": []}')
     calls = []
     monkeypatch.setattr(
-        discovery.requests,
-        "get",
-        lambda url, **kwargs: calls.append((url, kwargs)) or response,
+        discovery,
+        "urlopen",
+        lambda request, **kwargs: calls.append((request, kwargs)) or nullcontext(response),
     )
 
-    assert discovery._request_json("https://provider.example/models", {"X-Test": "yes"}) == {
-        "data": []
-    }
-    assert calls == [
-        (
-            "https://provider.example/models",
-            {"headers": {"X-Test": "yes"}, "timeout": 30},
-        )
-    ]
+    assert discovery._request_json(
+        "https://models.github.ai/catalog/models", {"X-Test": "yes"}
+    ) == {"data": []}
+    assert calls[0][0].full_url == "https://models.github.ai/catalog/models"
+    assert calls[0][0].headers["X-test"] == "yes"
+    assert calls[0][1] == {"timeout": 30}
 
 
 def test_github_catalog_parser_filters_non_chat_entries():

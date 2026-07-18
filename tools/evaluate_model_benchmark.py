@@ -8,6 +8,7 @@ import json
 import math
 import sys
 from pathlib import Path
+from statistics import NormalDist
 from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -43,7 +44,7 @@ def _case_outcome(case: dict[str, Any]) -> tuple[str, str, bool]:
     return expected, actual, schema_valid
 
 
-def _metrics(cases: list[dict[str, Any]]) -> dict[str, Any]:
+def _metrics(cases: list[dict[str, Any]], *, z: float = Z_95) -> dict[str, Any]:
     success = false_pass = false_fail = schema_error = 0
     expected_pass = expected_non_pass = 0
     categories: dict[str, int] = {}
@@ -77,10 +78,10 @@ def _metrics(cases: list[dict[str, Any]]) -> dict[str, Any]:
         latencies.append(latency)
 
     count = len(cases)
-    success_interval = wilson_interval(success, count)
-    false_pass_interval = wilson_interval(false_pass, expected_non_pass)
-    false_fail_interval = wilson_interval(false_fail, expected_pass)
-    schema_interval = wilson_interval(schema_error, count)
+    success_interval = wilson_interval(success, count, z=z)
+    false_pass_interval = wilson_interval(false_pass, expected_non_pass, z=z)
+    false_fail_interval = wilson_interval(false_fail, expected_pass, z=z)
+    schema_interval = wilson_interval(schema_error, count, z=z)
     return {
         "sample_count": count,
         "category_counts": categories,
@@ -124,6 +125,13 @@ def evaluate_benchmark(payload: dict[str, Any], policy: dict[str, Any]) -> dict[
     profile_policy = profiles[profile]
     approval = profile_policy["approval_stage"]
     gates = approval["quality_gates"]
+    confidence_level = float(approval.get("confidence_level", 0.95))
+    if not 0.0 < confidence_level < 1.0:
+        raise ValueError("approval_stage.confidence_level must be between 0 and 1")
+    # Keep the inverse CDF strictly inside its finite domain even when a
+    # valid float extremely close to 0 or 1 rounds at machine precision.
+    probability = min(1.0 - 1e-15, max(1e-15, (1.0 + confidence_level) / 2.0))
+    z = NormalDist().inv_cdf(probability)
     candidates = payload.get("candidates")
     if not isinstance(candidates, list) or len(candidates) < 2:
         raise ValueError("benchmark requires a baseline and at least one candidate")
@@ -137,7 +145,7 @@ def evaluate_benchmark(payload: dict[str, Any], policy: dict[str, Any]) -> dict[
         provider = str(candidate.get("provider", "")).strip()
         if not model_id or not provider or model_id in metrics_by_model:
             raise ValueError("candidate provider/model_id values must be non-empty and unique")
-        metrics_by_model[model_id] = _metrics(candidate["cases"])
+        metrics_by_model[model_id] = _metrics(candidate["cases"], z=z)
     if baseline_model not in metrics_by_model:
         raise ValueError("baseline_model_id must identify one candidate")
 
@@ -148,7 +156,7 @@ def evaluate_benchmark(payload: dict[str, Any], policy: dict[str, Any]) -> dict[
     noninferiority_margin = float(gates["paired_success_noninferiority_margin"])
 
     for candidate in candidates:
-        model_id = str(candidate["model_id"])
+        model_id = str(candidate["model_id"]).strip()
         metrics = metrics_by_model[model_id]
         gate_results = {
             "minimum_adjudicated_cases": metrics["sample_count"] >= minimum_cases,

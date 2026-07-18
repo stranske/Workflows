@@ -24,6 +24,8 @@ longer carry their own copy of the extracted ``actions/checkout`` /
 
 from __future__ import annotations
 
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -84,12 +86,57 @@ def test_run_base_action_exists_and_parses() -> None:
     # The shared block must still reach setup-api-client and the sparse
     # Workflows scripts checkout — the whole point of the extraction.
     src = path.read_text()
-    assert "uses: actions/create-github-app-token@v3" in src
+    app_token_step = next(s for s in steps if s.get("name") == "Mint GitHub App token")
+    assert _uses_base(app_token_step) == "actions/create-github-app-token"
     assert "push_allowed" in src
+    assert "env_name_pattern='^[A-Za-z_][A-Za-z0-9_]*$'" in src
+    assert '[[ ! "$MODE_ENV_NAME" =~ $env_name_pattern ]]' in src
+    assert '[[ ! "$PR_NUMBER_ENV_NAME" =~ $env_name_pattern ]]' in src
     assert "uses: ./.github/actions/setup-api-client" in src
     assert "sparse-checkout" in src
     checkout_step = next(s for s in steps if s.get("name") == "Checkout")
     assert checkout_step["with"]["clean"] is False
+
+
+@pytest.mark.parametrize(
+    ("mode_env_name", "pr_number_env_name", "expected_returncode", "expected_error"),
+    [
+        ("RUNNER_MODE", "RUNNER_PR_NUMBER", 0, ""),
+        ("MODE-NAME", "RUNNER_PR_NUMBER", 1, "Invalid mode_env_name"),
+        ("RUNNER_MODE", "PR-NUMBER", 1, "Invalid pr_number_env_name"),
+    ],
+)
+def test_run_base_auth_token_step_validates_environment_variable_names(
+    tmp_path: Path,
+    mode_env_name: str,
+    pr_number_env_name: str,
+    expected_returncode: int,
+    expected_error: str,
+) -> None:
+    """Execute the composite's shell step to protect its env-name guard."""
+    action = yaml.safe_load((ROOT / RUN_BASE_ACTION).read_text())
+    step = next(item for item in action["runs"]["steps"] if item.get("id") == "auth_token")
+    env = os.environ | {
+        "APP_TOKEN": "",
+        "GITHUB_TOKEN_VALUE": "github-token",
+        "RUNNER_MODE": "codex",
+        "RUNNER_PR_NUMBER": "123",
+        "MODE_ENV_NAME": mode_env_name,
+        "PR_NUMBER_ENV_NAME": pr_number_env_name,
+        "GITHUB_OUTPUT": str(tmp_path / "github-output"),
+        "GITHUB_ENV": str(tmp_path / "github-env"),
+    }
+
+    result = subprocess.run(
+        ["bash", "-c", step["run"]],
+        check=False,
+        capture_output=True,
+        env=env,
+        text=True,
+    )
+
+    assert result.returncode == expected_returncode
+    assert expected_error in result.stderr
 
 
 @pytest.mark.parametrize("workflow_rel", REUSABLE_RUN_WORKFLOWS)
@@ -145,7 +192,7 @@ def test_extracted_setup_steps_not_duplicated_in_runners(workflow_rel: str) -> N
     # the composite; only the pre-checkout for the composite definition remains
     # in the runners.
     assert "repository: stranske/Workflows" in src
-    assert src.count("uses: actions/create-github-app-token@v3") == 1, (
+    assert sum(_uses_base(step) == "actions/create-github-app-token" for step in steps) == 1, (
         f"{workflow_rel}: only the run-base bootstrap checkout may mint an App "
         "token in the runner; shared runtime auth still belongs in "
         f"{RUN_BASE_ACTION}"

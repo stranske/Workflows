@@ -290,7 +290,7 @@ jobs:
           token: ${{ steps.auth_token.outputs.checkout_token }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 

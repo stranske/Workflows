@@ -318,16 +318,30 @@ def evaluate(
             findings.append(_finding("invalid_slot", f"slot {name!r} has no provider."))
             continue
         if explicit_model:
-            selected = selection_by_key.get((profile, provider)) if profile else None
-            if selected and selected.get("model_id") != explicit_model:
+            model = model_by_key.get((provider, explicit_model))
+            # Explicit-profile pins must match their reviewed decision.  A
+            # legacy pin without a profile is also valid at runtime when the
+            # pin is a current, unblocked catalog model.
+            effective_profile = profile or "verifier-balanced"
+            selected = selection_by_key.get((effective_profile, provider))
+            legacy_pin_is_current = bool(
+                not profile
+                and model is not None
+                and not model.get("blocked")
+                and str(model.get("lifecycle", "")).strip().lower() == "current"
+            )
+            if (
+                selected
+                and selected.get("model_id") != explicit_model
+                and not legacy_pin_is_current
+            ):
                 findings.append(
                     _finding(
                         "selection_override",
                         f"slot {name!r} pins {provider}/{explicit_model} instead of reviewed "
-                        f"selection {selected.get('model_id')}.",
+                        f"selection {selected.get('model_id')} for {effective_profile}.",
                     )
                 )
-            model = model_by_key.get((provider, explicit_model))
             if model is None:
                 findings.append(
                     _finding(
