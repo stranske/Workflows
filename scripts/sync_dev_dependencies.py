@@ -59,7 +59,9 @@ CORE_DEV_TOOLS = [
 ]
 
 LOCKFILE_PATTERN = re.compile(
-    r"^(?P<lead>\s*)(?P<name>[A-Za-z0-9_.-]+)==(?P<version>[^\s#]+)(?P<trail>\s*(?:#.*)?)$"
+    r"^(?P<lead>\s*)(?P<name>[A-Za-z0-9_.-]+)(?P<extras>\[[^]]+\])?"
+    r"(?P<specifier>(?:===|==|!=|<=|>=|~=|<|>)[^\s;#]+)?"
+    r"(?P<marker>\s*;[^#]+?)?(?P<trail>\s*(?:#.*)?)$"
 )
 
 
@@ -341,13 +343,21 @@ def sync_lockfile(
             continue
 
         name = match.group("name")
-        version = match.group("version")
         target_version = targets.get(name.lower())
-        if target_version and version != target_version:
-            changes.append(f"{lockfile_path.name}:{name}: {version} -> =={target_version}")
+        current_requirement = f"{match.group('specifier') or ''}{match.group('marker') or ''}"
+        target_requirement = f"=={target_version}{match.group('marker') or ''}"
+        if target_version and current_requirement != target_requirement:
+            current_version = match.group("specifier") or "(unversioned)"
+            if current_version.startswith("=="):
+                current_version = current_version[2:]
+            changes.append(
+                f"{lockfile_path.name}:{name}: "
+                f"{current_version} -> =={target_version}"
+            )
             if apply:
                 updated_lines.append(
-                    f"{match.group('lead')}{name}=={target_version}{match.group('trail')}"
+                    f"{match.group('lead')}{name}{match.group('extras') or ''}"
+                    f"=={target_version}{match.group('marker') or ''}{match.group('trail')}"
                 )
             else:
                 updated_lines.append(line)

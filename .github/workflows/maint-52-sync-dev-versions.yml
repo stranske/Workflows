@@ -183,18 +183,33 @@ jobs:
         id: sync
         if: steps.check.outputs.has_dev_deps == 'true'
         run: |
-          set -o pipefail  # Ensure pipeline returns first failing command's exit code
+          set -euo pipefail
           # Copy pin file to expected location
           mkdir -p consumer/.github/workflows
           cp .github/workflows/autofix-versions.env consumer/.github/workflows/
 
           cd consumer
 
+          uv_lock_stale=false
+          if [ -f uv.lock ]; then
+            python -m pip install --disable-pip-version-check 'uv>=0.5'
+            if ! uv lock --check; then
+              uv_lock_stale=true
+            fi
+          fi
+
           # Run sync check first
           if python ../scripts/sync_dev_dependencies.py \
             --check 2>&1 \
             | tee /tmp/sync_output.txt; then
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            if [ "$uv_lock_stale" = "true" ]; then
+              echo "has_changes=true" >> "$GITHUB_OUTPUT"
+              if [ "${{ inputs.dry_run }}" != "true" ]; then
+                uv lock
+              fi
+            else
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
 
@@ -202,7 +217,6 @@ jobs:
             if [ "${{ inputs.dry_run }}" != "true" ]; then
               python ../scripts/sync_dev_dependencies.py --apply
               if [ -f uv.lock ]; then
-                python -m pip install --disable-pip-version-check 'uv>=0.5'
                 uv lock
               fi
             fi
@@ -217,7 +231,7 @@ jobs:
           steps.check.outputs.has_pyproject == 'true'
           && steps.check.outputs.has_dev_deps != 'true'
         run: |
-          set -o pipefail
+          set -euo pipefail
           # Copy pin file to expected location
           mkdir -p consumer/.github/workflows
           cp .github/workflows/autofix-versions.env consumer/.github/workflows/
@@ -236,13 +250,12 @@ jobs:
             else
               echo "has_changes=false" >> "$GITHUB_OUTPUT"
             fi
+            if [ "${{ inputs.dry_run }}" != "true" ] && [ -f uv.lock ]; then
+              python -m pip install --disable-pip-version-check 'uv>=0.5'
+              uv lock
+            fi
           else
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
-          fi
-
-          if [ "${{ inputs.dry_run }}" != "true" ] && [ -f uv.lock ]; then
-            python -m pip install --disable-pip-version-check 'uv>=0.5'
-            uv lock
+            exit 1
           fi
 
           # Save output for PR body

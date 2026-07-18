@@ -101,6 +101,31 @@ def test_sync_lockfile_preserves_comments_and_whitespace(tmp_path: Path) -> None
     assert "black==2.0.0" in updated
 
 
+def test_sync_lockfile_normalizes_non_exact_and_unversioned_requirements(tmp_path: Path) -> None:
+    lockfile = tmp_path / "requirements-dev.txt"
+    lockfile.write_text(
+        "black>=0.2.0\nruff\nmypy[reports]~=1.2.0 ; python_version >= '3.10'\n",
+        encoding="utf-8",
+    )
+
+    changes, errors = sdd.sync_lockfile(
+        lockfile,
+        {"BLACK_VERSION": "2.0.0", "RUFF_VERSION": "1.0.0", "MYPY_VERSION": "1.3.0"},
+        apply=True,
+    )
+
+    assert errors == []
+    assert changes == [
+        "requirements-dev.txt:black: >=0.2.0 -> ==2.0.0",
+        "requirements-dev.txt:ruff: (unversioned) -> ==1.0.0",
+        "requirements-dev.txt:mypy: ~=1.2.0 -> ==1.3.0",
+    ]
+    assert lockfile.read_text(encoding="utf-8") == (
+        "black==2.0.0\nruff==1.0.0\n"
+        "mypy[reports]==1.3.0 ; python_version >= '3.10'\n"
+    )
+
+
 def test_sync_pyproject_normalizes_minimum_pin_at_target_version(
     tmp_path: Path,
 ) -> None:

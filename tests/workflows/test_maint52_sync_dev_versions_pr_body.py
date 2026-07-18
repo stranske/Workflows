@@ -29,3 +29,11 @@ def test_wave_hash_includes_the_sync_implementation():
     assert "scripts/sync_dev_dependencies.py" in hash_block
     assert "| sha256sum" in hash_block
     assert "| cut -d' ' -f1" in hash_block
+
+
+def test_dev_version_sync_fails_fast_and_checks_uv_lockfiles():
+    text = WORKFLOW.read_text(encoding="utf-8")
+
+    assert text.count("set -euo pipefail") >= 2
+    assert "if ! uv lock --check; then" in text
+    assert "uv_lock_stale=true" in text
