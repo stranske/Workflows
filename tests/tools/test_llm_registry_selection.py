@@ -246,6 +246,23 @@ def test_bundled_stale_slot_pin_uses_reviewed_registry_selection(
     ]
 
 
+def test_bundled_stale_slot_pin_is_debug_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    _write_slots(slots_path, model="retired-model", profile="")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.delenv(registry.ENV_SLOT_CONFIG, raising=False)
+    monkeypatch.setattr(registry, "DEFAULT_SLOT_CONFIG_PATH", slots_path)
+
+    with caplog.at_level("WARNING"):
+        registry.load_slot_config()
+
+    assert "Skipping unresolved slot model pin" not in caplog.text
+
+
 def test_noncurrent_selected_model_fails_closed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

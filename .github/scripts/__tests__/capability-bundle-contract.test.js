@@ -205,6 +205,25 @@ test('keepalive metrics carry applied bundle metadata and rejection reasons', ()
   assert.deepEqual(record.capability_rejection_reasons, ['repo']);
 });
 
+test('keepalive metrics ignore malformed capability bundle entries', () => {
+  const record = buildMetricsRecord({
+    prNumber: 123,
+    iteration: 2,
+    action: 'run',
+    errorCategory: 'none',
+    durationMs: 10,
+    tasksTotal: 3,
+    tasksComplete: 1,
+    capabilityBundles: {
+      applied: [null, 'invalid', [], { capability_id: 'keepalive/static-spa' }],
+      rejected: [null, 'invalid', [], { reason: 'repo' }],
+    },
+  });
+
+  assert.deepEqual(record.capability_bundle_ids, ['keepalive/static-spa']);
+  assert.deepEqual(record.capability_rejection_reasons, ['repo']);
+});
+
 test('capability bundle metrics input parser preserves applied and rejected arrays', () => {
   const parsed = parseCapabilityBundlesInput(JSON.stringify({
     applied: [{ capability_id: 'keepalive/static-spa' }],

@@ -801,8 +801,12 @@ function buildMetricsRecord({
   const capabilityResult = capabilityBundles && typeof capabilityBundles === 'object'
     ? capabilityBundles
     : { applied: [], rejected: [] };
-  const applied = Array.isArray(capabilityResult.applied) ? capabilityResult.applied : [];
-  const rejected = Array.isArray(capabilityResult.rejected) ? capabilityResult.rejected : [];
+  const applied = Array.isArray(capabilityResult.applied)
+    ? capabilityResult.applied.filter((bundle) => bundle && typeof bundle === 'object' && !Array.isArray(bundle))
+    : [];
+  const rejected = Array.isArray(capabilityResult.rejected)
+    ? capabilityResult.rejected.filter((bundle) => bundle && typeof bundle === 'object' && !Array.isArray(bundle))
+    : [];
   return {
     pr_number: toNumber(prNumber, 0),
     iteration: Math.max(1, toNumber(iteration, 0)),

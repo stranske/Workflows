@@ -357,18 +357,25 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
         ):
             model = explicit_model
         elif provider and explicit_model and explicit_model != model:
-            logger.warning(
-                "Skipping unresolved slot model pin %s/%s; reviewed %s selection is %s",
+            # A caller-supplied slot file is an allowlist and must fail closed.
+            # The repository's bundled legacy file is advisory: ignore a stale
+            # pin and retain the reviewed registry selection for that provider.
+            if os.environ.get(ENV_SLOT_CONFIG):
+                logger.warning(
+                    "Skipping unresolved slot model pin %s/%s; reviewed %s selection is %s",
+                    provider,
+                    explicit_model,
+                    profile,
+                    model or "unavailable",
+                )
+                continue
+            logger.debug(
+                "Ignoring advisory bundled slot model pin %s/%s; reviewed %s selection is %s",
                 provider,
                 explicit_model,
                 profile,
                 model or "unavailable",
             )
-            # A caller-supplied slot file is an allowlist and must fail closed.
-            # The repository's bundled legacy file is advisory: ignore a stale
-            # pin and retain the reviewed registry selection for that provider.
-            if os.environ.get(ENV_SLOT_CONFIG):
-                continue
         if provider and configured_profile and not model:
             logger.warning(
                 "Skipping slot with unresolved reviewed profile: %s/%s",
