@@ -257,9 +257,10 @@ def test_bundled_stale_slot_pin_is_debug_only(
     monkeypatch.delenv(registry.ENV_SLOT_CONFIG, raising=False)
     monkeypatch.setattr(registry, "DEFAULT_SLOT_CONFIG_PATH", slots_path)
 
-    with caplog.at_level("WARNING"):
+    with caplog.at_level("DEBUG"):
         registry.load_slot_config()
 
+    assert "Ignoring advisory bundled slot model pin" in caplog.text
     assert "Skipping unresolved slot model pin" not in caplog.text
 
 
