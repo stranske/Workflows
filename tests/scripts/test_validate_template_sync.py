@@ -232,3 +232,39 @@ def test_validator_checks_exact_template_sync_script_entries(tmp_path):
     assert result.returncode == 1
     assert "scripts/aggregate_agent_metrics.py" in result.stdout
     assert "git add templates/consumer-repo/scripts/aggregate_agent_metrics.py" in result.stdout
+
+
+def test_validator_checks_exact_template_sync_tool_entries(tmp_path):
+    """Validator should detect drift in exact-synced consumer tools."""
+    create_test_structure(tmp_path)
+    source = tmp_path / "tools"
+    template = tmp_path / "templates" / "consumer-repo" / "tools"
+    source.mkdir(parents=True, exist_ok=True)
+    template.mkdir(parents=True, exist_ok=True)
+
+    (source / "llm_registry.py").write_text("MODEL = 'reviewed'\n", encoding="utf-8")
+    (template / "llm_registry.py").write_text("MODEL = 'stale'\n", encoding="utf-8")
+    write_raw_manifest(
+        tmp_path,
+        "\n".join(
+            [
+                "version: 1",
+                "scripts:",
+                "  - source: tools/llm_registry.py",
+                "    description: test",
+                "    template_sync: exact",
+                "",
+            ]
+        ),
+    )
+
+    result = subprocess.run(
+        [sys.executable, "scripts/validate_template_sync.py"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "tools/llm_registry.py" in result.stdout
+    assert "git add templates/consumer-repo/tools/llm_registry.py" in result.stdout

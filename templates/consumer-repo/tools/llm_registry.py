@@ -166,7 +166,7 @@ def load_selection_decisions() -> list[SelectionDecision]:
                 model=model,
                 status=str(raw.get("status", "")).strip().lower(),
                 review_by=str(raw.get("review_by", "")).strip(),
-                evidence_ids=tuple(str(item) for item in evidence if str(item).strip()),
+                evidence_ids=tuple(str(item).strip() for item in evidence if str(item).strip()),
             )
         )
     return decisions
@@ -303,8 +303,7 @@ def default_slots(*, github_default_model: str = "") -> list[SlotDefinition]:
         model = select_model_for_profile(provider=provider)
         if not model and provider == PROVIDER_GITHUB:
             model = github_default_model.strip()
-        if model:
-            slots.append(SlotDefinition(name=f"slot{index}", provider=provider, model=model))
+        slots.append(SlotDefinition(name=f"slot{index}", provider=provider, model=model or ""))
     return slots
 
 
