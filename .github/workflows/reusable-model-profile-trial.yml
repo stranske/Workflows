@@ -65,7 +65,7 @@ jobs:
       ZERO_SOURCE_MANIFEST: sha256:0000000000000000000000000000000000000000000000000000000000000000
     steps:
       - name: Checkout immutable trial runner
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: stranske/Workflows
           ref: ${{ inputs.runner_sha }}
@@ -100,7 +100,7 @@ jobs:
           fi
 
       - name: Checkout exact trial source
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: stranske/Workflows
           ref: ${{ inputs.expected_source_sha }}
