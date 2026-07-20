@@ -71,13 +71,15 @@ def normalize_provider(value: str | None) -> str | None:
 
 
 def _registry_path() -> Path:
-    configured = os.environ.get(ENV_MODEL_REGISTRY_CONFIG)
-    return Path(configured) if configured else DEFAULT_MODEL_REGISTRY_CONFIG_PATH
+    if ENV_MODEL_REGISTRY_CONFIG in os.environ:
+        return Path(os.environ[ENV_MODEL_REGISTRY_CONFIG])
+    return DEFAULT_MODEL_REGISTRY_CONFIG_PATH
 
 
 def _slot_path() -> Path:
-    configured = os.environ.get(ENV_SLOT_CONFIG)
-    return Path(configured) if configured else DEFAULT_SLOT_CONFIG_PATH
+    if ENV_SLOT_CONFIG in os.environ:
+        return Path(os.environ[ENV_SLOT_CONFIG])
+    return DEFAULT_SLOT_CONFIG_PATH
 
 
 def _load_object(path: Path, *, label: str) -> dict[str, object] | None:
@@ -272,7 +274,7 @@ def configured_model_for_provider(
     # An explicit slot config is an execution allowlist, including when its
     # path is missing or malformed. Never broaden execution because a
     # configured allowlist cannot be read or does not contain this provider.
-    if os.environ.get(ENV_SLOT_CONFIG):
+    if ENV_SLOT_CONFIG in os.environ:
         configured_slots = load_slot_config()
         if not configured_slots:
             return ""
@@ -313,7 +315,7 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
     if payload is None:
         # An unreadable or missing explicitly configured slot file must fail
         # closed. Only an unconfigured default path permits default slots.
-        if os.environ.get(ENV_SLOT_CONFIG):
+        if ENV_SLOT_CONFIG in os.environ:
             return []
         return fallback_slots
 
@@ -327,7 +329,7 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
         ).strip()
         for entry in slot_entries
     ):
-        return [] if os.environ.get(ENV_SLOT_CONFIG) else fallback_slots
+        return [] if ENV_SLOT_CONFIG in os.environ else fallback_slots
 
     slots: list[SlotDefinition] = []
     fallback_by_provider = {slot.provider: slot for slot in fallback_slots}
@@ -359,7 +361,7 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
             # A caller-supplied slot file is an allowlist and must fail closed.
             # The repository's bundled legacy file is advisory: ignore a stale
             # pin and retain the reviewed registry selection for that provider.
-            if os.environ.get(ENV_SLOT_CONFIG):
+            if ENV_SLOT_CONFIG in os.environ:
                 logger.warning(
                     "Skipping unresolved slot model pin %s/%s; reviewed %s selection is %s",
                     provider,
@@ -431,21 +433,6 @@ def resolve_slots(
     env_slot_prefix: str = "LANGCHAIN_SLOT",
 ) -> list[SlotDefinition]:
     slots = load_slot_config(github_default_model=github_default_model)
-    # Preserve LANGCHAIN_MODEL as an emergency bootstrap only when neither an
-    # explicit ENV_SLOT_CONFIG/LANGCHAIN_SLOT_CONFIG allowlist nor the bundled
-    # default slot file is available. Otherwise empty resolved slots fail closed.
-    if (
-        not slots
-        and not os.environ.get(ENV_SLOT_CONFIG)
-        and not _slot_path().exists()
-        and os.environ.get(env_model_name)
-    ):
-        slots = [
-            SlotDefinition(name=f"slot{index}", provider=provider, model="")
-            for index, provider in enumerate(
-                (PROVIDER_OPENAI, PROVIDER_ANTHROPIC, PROVIDER_GITHUB), start=1
-            )
-        ]
     return apply_slot_env_overrides(
         slots,
         env_model_name=env_model_name,
