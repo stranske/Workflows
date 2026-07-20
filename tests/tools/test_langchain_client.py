@@ -335,7 +335,7 @@ def test_load_model_registry_ignores_malformed_nested_values(
     entries = llm_registry.load_model_registry()
 
     assert len(entries) == 1
-    assert entries[0].quality == {}
+    assert entries[0].quality is None
 
 
 def test_load_model_registry_rejects_non_list_models(
@@ -372,7 +372,7 @@ def test_load_model_registry_ignores_v1_quality_scores(
 
     [entry] = llm_registry.load_model_registry()
 
-    assert entry.quality == {}
+    assert entry.quality is None
 
 
 def test_load_slot_config_ignores_tier_slot_when_registry_invalid(

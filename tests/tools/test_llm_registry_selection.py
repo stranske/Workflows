@@ -68,14 +68,14 @@ def test_profile_selection_uses_explicit_decision_not_model_position(
     assert registry.select_model_for_profile(provider="openai") == "model-balanced"
 
 
-def test_loaded_registry_entries_keep_empty_compatibility_quality(
+def test_loaded_registry_entries_leave_compatibility_quality_unset(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     registry_path = tmp_path / "registry.json"
     _write_registry(registry_path)
     monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
 
-    assert registry.load_model_registry()[0].quality == {}
+    assert registry.load_model_registry()[0].quality is None
 
 
 def test_new_catalog_model_does_not_auto_promote(
@@ -207,7 +207,7 @@ def test_missing_explicit_slot_config_fails_closed(
     assert registry.configured_model_for_provider("openai") == ""
 
 
-def test_unusable_bundled_slot_config_bootstraps_explicit_env_model(
+def test_unusable_bundled_slot_config_fails_closed_despite_env_model(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     registry_path = tmp_path / "registry.json"
@@ -219,11 +219,7 @@ def test_unusable_bundled_slot_config_bootstraps_explicit_env_model(
     monkeypatch.setattr(registry, "DEFAULT_SLOT_CONFIG_PATH", slots_path)
     monkeypatch.setenv("LANGCHAIN_MODEL", "emergency-model")
 
-    assert [slot.provider for slot in registry.resolve_slots()] == [
-        "openai",
-        "anthropic",
-        "github-models",
-    ]
+    assert registry.resolve_slots() == []
 
 
 def test_invalid_registry_with_explicit_profile_slot_fails_closed(
