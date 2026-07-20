@@ -133,6 +133,7 @@ def load_model_registry() -> list[ModelRegistryEntry]:
                 model=model,
                 blocked=bool(raw_entry.get("blocked", False)),
                 lifecycle=str(raw_entry.get("lifecycle", "unknown")).strip().lower(),
+                quality={},
             )
         )
     return entries
@@ -434,12 +435,7 @@ def resolve_slots(
     # Preserve an explicit runtime override as an emergency bootstrap when the
     # registry file is unavailable. Empty models are never invoked directly;
     # langchain_client skips them when the override cannot serve that provider.
-    if (
-        not slots
-        and not os.environ.get(ENV_SLOT_CONFIG)
-        and not _slot_path().exists()
-        and os.environ.get(env_model_name)
-    ):
+    if not slots and not os.environ.get(ENV_SLOT_CONFIG) and os.environ.get(env_model_name):
         slots = [
             SlotDefinition(name=f"slot{index}", provider=provider, model="")
             for index, provider in enumerate(
