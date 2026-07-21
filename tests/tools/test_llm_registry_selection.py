@@ -230,6 +230,16 @@ def test_empty_explicit_registry_config_does_not_use_default_registry(
     assert registry.select_model_for_profile(provider="openai") is None
 
 
+def test_whitespace_explicit_config_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, "  \t")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, "  \t")
+
+    assert registry.load_slot_config() == []
+    assert registry.load_model_registry() == []
+
+
 def test_unusable_bundled_slot_config_fails_closed_despite_env_model(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

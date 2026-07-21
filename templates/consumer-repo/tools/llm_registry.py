@@ -70,19 +70,26 @@ def normalize_provider(value: str | None) -> str | None:
     return None
 
 
-def _registry_path() -> Path:
-    if ENV_MODEL_REGISTRY_CONFIG in os.environ:
-        return Path(os.environ[ENV_MODEL_REGISTRY_CONFIG])
-    return DEFAULT_MODEL_REGISTRY_CONFIG_PATH
+def _configured_path(env_name: str, default: Path) -> Path | None:
+    configured = os.environ.get(env_name)
+    if configured is None:
+        return default
+    configured = configured.strip()
+    return Path(configured) if configured else None
 
 
-def _slot_path() -> Path:
-    if ENV_SLOT_CONFIG in os.environ:
-        return Path(os.environ[ENV_SLOT_CONFIG])
-    return DEFAULT_SLOT_CONFIG_PATH
+def _registry_path() -> Path | None:
+    return _configured_path(ENV_MODEL_REGISTRY_CONFIG, DEFAULT_MODEL_REGISTRY_CONFIG_PATH)
 
 
-def _load_object(path: Path, *, label: str) -> dict[str, object] | None:
+def _slot_path() -> Path | None:
+    return _configured_path(ENV_SLOT_CONFIG, DEFAULT_SLOT_CONFIG_PATH)
+
+
+def _load_object(path: Path | None, *, label: str) -> dict[str, object] | None:
+    if path is None:
+        logger.warning("Cannot load %s: explicit configuration is empty", label)
+        return None
     if not path.is_file():
         return None
     try:
