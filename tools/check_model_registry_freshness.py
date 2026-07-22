@@ -247,8 +247,13 @@ def evaluate(
                 )
             )
 
-        evidence_ids = raw.get("evidence_ids")
-        if not isinstance(evidence_ids, list) or not evidence_ids:
+        raw_evidence_ids = raw.get("evidence_ids")
+        evidence_ids = (
+            [item.strip() for item in raw_evidence_ids if isinstance(item, str) and item.strip()]
+            if isinstance(raw_evidence_ids, list)
+            else []
+        )
+        if not evidence_ids:
             findings.append(
                 _finding(
                     "missing_evidence",
@@ -327,9 +332,6 @@ def evaluate(
             continue
         if explicit_model:
             model = model_by_key.get((provider, explicit_model))
-            # A legacy pin without a profile may be honored only while it
-            # points at a current, unblocked model. Otherwise runtime falls
-            # back to the reviewed default selection.
             effective_profile = profile or DEFAULT_SELECTION_PROFILE
             selected = selection_by_key.get((effective_profile, provider))
             if not selected:
@@ -340,9 +342,9 @@ def evaluate(
                     )
                 )
                 continue
-            # Unprofiled pins predate the reviewed-selection contract. Runtime
-            # falls back to the default selection when one is stale or blocked,
-            # so they remain advisory while consumers migrate to profiles.
+            # Unprofiled pins predate the reviewed-selection contract. They are
+            # advisory while consumers migrate to profiles, so runtime uses the
+            # reviewed default selection regardless of the legacy pin value.
             if not profile:
                 continue
             if model is None:
