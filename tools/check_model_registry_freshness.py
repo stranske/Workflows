@@ -340,6 +340,11 @@ def evaluate(
                     )
                 )
                 continue
+            # Unprofiled pins predate the reviewed-selection contract. Runtime
+            # falls back to the default selection when one is stale or blocked,
+            # so they remain advisory while consumers migrate to profiles.
+            if not profile:
+                continue
             if model is None:
                 findings.append(
                     _finding(
@@ -355,27 +360,11 @@ def evaluate(
                     )
                 )
             if selected.get("model_id") != explicit_model:
-                if not profile:
-                    continue
                 findings.append(
                     _finding(
                         "selection_override",
                         f"slot {name!r} pins {provider}/{explicit_model} instead of reviewed "
                         f"selection {selected.get('model_id')} for {effective_profile}.",
-                    )
-                )
-            if profile and model is None:
-                findings.append(
-                    _finding(
-                        "unknown_pin",
-                        f"slot {name!r} pins absent model {provider}/{explicit_model}.",
-                    )
-                )
-            elif profile and model.get("blocked"):
-                findings.append(
-                    _finding(
-                        "blocked_pin",
-                        f"slot {name!r} pins blocked model {provider}/{explicit_model}.",
                     )
                 )
             continue

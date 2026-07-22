@@ -112,7 +112,7 @@ they MUST NOT infer capability identity or effects from free-form agent prose.
 
 | Output | Type | Description | Example |
 |--------|------|-------------|---------|
-| `capability-id` | string | Existing lowercase kebab capability identifier | `capability:consumer-sync` |
+| `capability-id` | string | Existing `capability:<lowercase-kebab-id>` identifier | `capability:consumer-sync` |
 | `effect-fingerprint` | string | Lowercase `sha256:` fingerprint of the bounded effect | `sha256:0000000000000000000000000000000000000000000000000000000000000000` |
 | `evidence-artifact-ref` | string | Secret-safe durable logical evidence reference | `github-actions:owner/repo:123:consumer-sync-plan` |
 | `supervision-mode` | string | `shadow` \| `human-reviewed` \| `human-on-exception` \| `unattended` | `shadow` |

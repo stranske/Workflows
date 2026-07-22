@@ -166,24 +166,24 @@ def test_explicit_pin_without_profile_is_advisory():
     assert "selection_override" not in _kinds(findings)
 
 
-def test_unknown_legacy_pin_is_rejected():
+def test_unknown_legacy_pin_is_advisory():
     findings = gate.evaluate(
         _registry(),
         {"slots": [{"name": "slot1", "provider": "openai", "model": "absent"}]},
         today=TODAY,
         policy=_policy(),
     )
-    assert "unknown_pin" in _kinds(findings)
+    assert "unknown_pin" not in _kinds(findings)
 
 
-def test_blocked_legacy_pin_is_rejected():
+def test_blocked_legacy_pin_is_advisory():
     findings = gate.evaluate(
         _registry(),
         {"slots": [{"name": "slot1", "provider": "openai", "model": "model-blocked"}]},
         today=TODAY,
         policy=_policy(),
     )
-    assert "blocked_pin" in _kinds(findings)
+    assert "blocked_pin" not in _kinds(findings)
 
 
 def test_legacy_pin_requires_default_selection():

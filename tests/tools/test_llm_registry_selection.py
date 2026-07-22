@@ -234,23 +234,23 @@ def test_empty_explicit_slot_config_fails_closed(
     assert registry.configured_model_for_provider("openai") == ""
 
 
-def test_empty_explicit_registry_config_does_not_use_default_registry(
+def test_empty_explicit_registry_config_uses_default_registry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, "")
 
-    assert registry.load_model_registry() == []
-    assert registry.select_model_for_profile(provider="openai") is None
+    assert registry.load_model_registry()
+    assert registry.select_model_for_profile(provider="openai")
 
 
-def test_whitespace_explicit_config_fails_closed(
+def test_whitespace_slot_config_fails_closed_but_registry_uses_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(registry.ENV_SLOT_CONFIG, "  \t")
     monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, "  \t")
 
     assert registry.load_slot_config() == []
-    assert registry.load_model_registry() == []
+    assert registry.load_model_registry()
 
 
 def test_unusable_bundled_slot_config_fails_closed_despite_env_model(
@@ -383,6 +383,20 @@ def test_selection_evidence_ids_are_normalized(
     _write_registry(registry_path)
     payload = json.loads(registry_path.read_text(encoding="utf-8"))
     payload["selections"][0]["evidence_ids"] = ["  benchmark-1  "]
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+
+    [decision] = registry.load_selection_decisions()
+    assert decision.evidence_ids == ("benchmark-1",)
+
+
+def test_selection_evidence_ids_ignore_non_strings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    _write_registry(registry_path)
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["selections"][0]["evidence_ids"] = [" benchmark-1 ", 7, {"id": "bad"}, ""]
     registry_path.write_text(json.dumps(payload), encoding="utf-8")
     monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
 

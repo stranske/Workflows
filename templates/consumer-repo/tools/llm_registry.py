@@ -70,16 +70,24 @@ def normalize_provider(value: str | None) -> str | None:
     return None
 
 
-def _configured_path(env_name: str, default: Path) -> Path | None:
+def _configured_path(
+    env_name: str, default: Path, *, empty_uses_default: bool = False
+) -> Path | None:
     configured = os.environ.get(env_name)
     if configured is None:
         return default
     configured = configured.strip()
-    return Path(configured) if configured else None
+    if configured:
+        return Path(configured)
+    return default if empty_uses_default else None
 
 
 def _registry_path() -> Path | None:
-    return _configured_path(ENV_MODEL_REGISTRY_CONFIG, DEFAULT_MODEL_REGISTRY_CONFIG_PATH)
+    return _configured_path(
+        ENV_MODEL_REGISTRY_CONFIG,
+        DEFAULT_MODEL_REGISTRY_CONFIG_PATH,
+        empty_uses_default=True,
+    )
 
 
 def _slot_path() -> Path | None:
@@ -175,7 +183,9 @@ def load_selection_decisions() -> list[SelectionDecision]:
                 model=model,
                 status=str(raw.get("status", "")).strip().lower(),
                 review_by=str(raw.get("review_by", "")).strip(),
-                evidence_ids=tuple(str(item).strip() for item in evidence if str(item).strip()),
+                evidence_ids=tuple(
+                    item.strip() for item in evidence if isinstance(item, str) and item.strip()
+                ),
             )
         )
     return decisions
