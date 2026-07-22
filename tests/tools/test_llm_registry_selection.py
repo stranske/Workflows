@@ -68,6 +68,16 @@ def test_profile_selection_uses_explicit_decision_not_model_position(
     assert registry.select_model_for_profile(provider="openai") == "model-balanced"
 
 
+def test_profile_selection_normalizes_whitespace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    _write_registry(registry_path)
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+
+    assert registry.select_model_for_profile(provider="openai", profile=" verifier-balanced ") == "model-balanced"
+
+
 def test_loaded_registry_entries_leave_compatibility_quality_unset(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

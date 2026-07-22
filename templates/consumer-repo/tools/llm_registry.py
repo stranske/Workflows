@@ -34,7 +34,7 @@ class ModelRegistryEntry:
     model: str
     blocked: bool
     lifecycle: str = "unknown"
-    # Retained as empty compatibility attributes for callers migrating from v1.
+    # Retained as optional compatibility attributes for callers migrating from v1.
     # They are deliberately not inputs to model selection.
     quality: dict[str, float] | None = None
     cost_score: float | None = None
@@ -224,17 +224,18 @@ def select_model_for_profile(
     entries = registry if registry is not None else load_model_registry()
     selections = decisions if decisions is not None else load_selection_decisions()
     normalized_provider = normalize_provider(provider)
+    normalized_profile = profile.strip() or DEFAULT_SELECTION_PROFILE
     matches = [
         decision
         for decision in selections
-        if decision.provider == normalized_provider and decision.profile == profile
+        if decision.provider == normalized_provider and decision.profile == normalized_profile
     ]
     if len(matches) != 1:
         if matches:
             logger.warning(
                 "Ambiguous model selections for %s/%s; expected exactly one",
                 normalized_provider,
-                profile,
+                normalized_profile,
             )
         return None
     decision = matches[0]
@@ -242,7 +243,7 @@ def select_model_for_profile(
         logger.warning(
             "Model selection %s/%s has no evidence; refusing to use it",
             normalized_provider,
-            profile,
+            normalized_profile,
         )
         return None
     entry = registry_entry_for(decision.provider, decision.model, registry=entries)
@@ -328,8 +329,11 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
         return fallback_slots
 
     registry = load_model_registry()
-    # payload is non-null here, so the configured path is also non-null.
-    assert path is not None
+    # Keep the type and fail-closed contract explicit even though a non-null
+    # payload normally implies a configured path.
+    if path is None:
+        logger.warning("Cannot load slot config: configured path is unavailable")
+        return []
     slot_entries = _slot_entries(payload, path)
     if not _model_registry_format_valid() and any(
         str(entry.get("provider", "")).strip()
@@ -369,8 +373,8 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
             model = explicit_model
         elif provider and explicit_model and explicit_model != model:
             # A caller-supplied slot file is an allowlist and must fail closed.
-            # The repository's bundled legacy file is advisory: ignore a stale
-            # pin and retain the reviewed registry selection for that provider.
+            # The repository's bundled legacy file is advisory: retain a
+            # current, unblocked pin; otherwise use the reviewed selection.
             if ENV_SLOT_CONFIG in os.environ:
                 logger.warning(
                     "Skipping unresolved slot model pin %s/%s; reviewed %s selection is %s",

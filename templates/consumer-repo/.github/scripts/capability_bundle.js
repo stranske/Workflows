@@ -130,8 +130,11 @@ function validateCapabilityBundle(bundle, options = {}) {
   if (!normalise(bundle.fragments.task) && !normalise(bundle.fragments.acceptance)) {
     throw new Error('capability bundle must include a task or acceptance fragment');
   }
-  if (!Array.isArray(bundle.gates) || bundle.gates.length === 0 || bundle.gates.some((gate) => !normalise(gate))) {
+  if (!Array.isArray(bundle.gates) || bundle.gates.length === 0 || bundle.gates.some((gate) => typeof gate !== 'string' || !normalise(gate))) {
     throw new Error('capability bundle must include at least one gate ref');
+  }
+  if (bundle.playbooks !== undefined && (!Array.isArray(bundle.playbooks) || bundle.playbooks.some((playbook) => typeof playbook !== 'string' || !normalise(playbook)))) {
+    throw new Error('capability bundle playbooks must be non-empty strings');
   }
   const forbidden = walkForbiddenKeys(bundle);
   if (forbidden.length > 0) {

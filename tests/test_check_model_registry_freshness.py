@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -164,14 +166,24 @@ def test_explicit_pin_without_profile_is_advisory():
     assert "selection_override" not in _kinds(findings)
 
 
-def test_unknown_legacy_pin_is_advisory():
+def test_unknown_legacy_pin_is_rejected():
     findings = gate.evaluate(
         _registry(),
         {"slots": [{"name": "slot1", "provider": "openai", "model": "absent"}]},
         today=TODAY,
         policy=_policy(),
     )
-    assert "unknown_pin" not in _kinds(findings)
+    assert "unknown_pin" in _kinds(findings)
+
+
+def test_blocked_legacy_pin_is_rejected():
+    findings = gate.evaluate(
+        _registry(),
+        {"slots": [{"name": "slot1", "provider": "openai", "model": "model-blocked"}]},
+        today=TODAY,
+        policy=_policy(),
+    )
+    assert "blocked_pin" in _kinds(findings)
 
 
 def test_legacy_pin_requires_default_selection():
@@ -293,3 +305,15 @@ def test_main_exit_codes(tmp_path: Path):
     registry_path.write_text(json.dumps(_registry(review_by="2026-07-01")), encoding="utf-8")
     assert gate.main(common) == 1
     assert gate.main([*common[:-1], "not-a-date"]) == 2
+
+
+def test_direct_script_execution_uses_shared_default_profile():
+    root = Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        [sys.executable, "tools/check_model_registry_freshness.py", "--json"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

@@ -120,6 +120,14 @@ test('unsafe command-style nested fields and blank gates are rejected', () => {
     () => validateCapabilityBundle(validBundle({ gates: ['frontend_verify@1', ''] })),
     /at least one gate ref/,
   );
+  assert.throws(
+    () => validateCapabilityBundle(validBundle({ gates: ['frontend_verify@1', { version: '1' }] })),
+    /at least one gate ref/,
+  );
+  assert.throws(
+    () => validateCapabilityBundle(validBundle({ playbooks: ['docs/runbook.md', 1] })),
+    /playbooks must be non-empty strings/,
+  );
 });
 
 test('standalone bundle document loads without bundles wrapper', () => {
