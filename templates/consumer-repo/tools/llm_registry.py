@@ -91,6 +91,7 @@ def _load_object(path: Path | None, *, label: str) -> dict[str, object] | None:
         logger.warning("Cannot load %s: explicit configuration is empty", label)
         return None
     if not path.is_file():
+        logger.warning("Cannot load %s: %s is not a file", label, path)
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -327,6 +328,8 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
         return fallback_slots
 
     registry = load_model_registry()
+    # payload is non-null here, so the configured path is also non-null.
+    assert path is not None
     slot_entries = _slot_entries(payload, path)
     if not _model_registry_format_valid() and any(
         str(entry.get("provider", "")).strip()

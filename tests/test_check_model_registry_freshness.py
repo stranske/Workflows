@@ -150,7 +150,7 @@ def test_explicit_old_pin_is_flagged_against_reviewed_selection():
     assert "selection_override" in _kinds(findings)
 
 
-def test_explicit_pin_without_profile_is_flagged_against_default_selection():
+def test_explicit_pin_without_profile_is_advisory():
     registry = _registry()
     registry["models"].append(
         {"model_id": "model-old", "provider": "openai", "lifecycle": "compatibility"}
@@ -161,7 +161,17 @@ def test_explicit_pin_without_profile_is_flagged_against_default_selection():
         today=TODAY,
         policy=_policy(),
     )
-    assert "selection_override" in _kinds(findings)
+    assert "selection_override" not in _kinds(findings)
+
+
+def test_unknown_legacy_pin_is_advisory():
+    findings = gate.evaluate(
+        _registry(),
+        {"slots": [{"name": "slot1", "provider": "openai", "model": "absent"}]},
+        today=TODAY,
+        policy=_policy(),
+    )
+    assert "unknown_pin" not in _kinds(findings)
 
 
 def test_current_unblocked_legacy_pin_is_compatible_with_default_selection():
