@@ -174,6 +174,18 @@ def test_unknown_legacy_pin_is_advisory():
     assert "unknown_pin" not in _kinds(findings)
 
 
+def test_legacy_pin_requires_default_selection():
+    registry = _registry()
+    registry["selections"] = []
+    findings = gate.evaluate(
+        registry,
+        {"slots": [{"name": "slot1", "provider": "openai", "model": "absent"}]},
+        today=TODAY,
+        policy=_policy(),
+    )
+    assert "missing_selection" in _kinds(findings)
+
+
 def test_current_unblocked_legacy_pin_is_compatible_with_default_selection():
     registry = _registry()
     registry["models"].append(

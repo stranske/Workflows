@@ -320,16 +320,26 @@ def evaluate(
         if explicit_model:
             model = model_by_key.get((provider, explicit_model))
             # A legacy pin without a profile is advisory: runtime resolves a
-            # reviewed selection and ignores stale bundled model pins. Only a
-            # profile-bearing slot asserts selection intent and needs a
-            # freshness finding when it diverges from the reviewed decision.
-            selected = selection_by_key.get((profile, provider)) if profile else None
+            # reviewed default selection and ignores stale bundled model pins.
+            # It still needs that fallback selection to be usable.
+            effective_profile = profile or "verifier-balanced"
+            selected = selection_by_key.get((effective_profile, provider))
+            if not selected:
+                findings.append(
+                    _finding(
+                        "missing_selection",
+                        f"slot {name!r} has no selection for {effective_profile}/{provider}.",
+                    )
+                )
+                continue
             if selected and selected.get("model_id") != explicit_model:
+                if not profile:
+                    continue
                 findings.append(
                     _finding(
                         "selection_override",
                         f"slot {name!r} pins {provider}/{explicit_model} instead of reviewed "
-                        f"selection {selected.get('model_id')} for {profile}.",
+                        f"selection {selected.get('model_id')} for {effective_profile}.",
                     )
                 )
             if profile and model is None:
