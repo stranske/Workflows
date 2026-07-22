@@ -183,7 +183,7 @@ def test_legacy_pin_requires_default_selection():
         today=TODAY,
         policy=_policy(),
     )
-    assert "missing_selection" in _kinds(findings)
+    assert _kinds(findings) == ["missing_selection"]
 
 
 def test_current_unblocked_legacy_pin_is_compatible_with_default_selection():
