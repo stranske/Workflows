@@ -125,6 +125,10 @@ test('unsafe command-style nested fields and blank gates are rejected', () => {
     /at least one gate ref/,
   );
   assert.throws(
+    () => validateCapabilityBundle(validBundle({ gates: [] })),
+    /at least one gate ref/,
+  );
+  assert.throws(
     () => validateCapabilityBundle(validBundle({ playbooks: ['docs/runbook.md', 1] })),
     /playbooks must be non-empty strings/,
   );
