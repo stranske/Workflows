@@ -23,6 +23,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from tools.llm_registry import DEFAULT_SELECTION_PROFILE
+
 DEFAULT_REGISTRY_PATH = _REPO_ROOT / "config" / "model_registry.json"
 DEFAULT_SLOTS_PATH = _REPO_ROOT / "config" / "llm_slots.json"
 DEFAULT_POLICY_PATH = _REPO_ROOT / "config" / "model_selection_policy.json"
