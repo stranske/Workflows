@@ -15,15 +15,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    # Package import for tests and callers that import this checker.
-    from tools.llm_registry import DEFAULT_SELECTION_PROFILE
-except ModuleNotFoundError:  # pragma: no cover - exercised by the CI script entrypoint.
-    # Direct execution (`python tools/check_model_registry_freshness.py`) puts
-    # tools/, rather than the repository root, on sys.path.
-    from llm_registry import DEFAULT_SELECTION_PROFILE
-
 _REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Direct execution puts tools/, rather than the repository root, on sys.path.
+# Always import through the package so type checking sees one symbol definition.
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from tools.llm_registry import DEFAULT_SELECTION_PROFILE
 DEFAULT_REGISTRY_PATH = _REPO_ROOT / "config" / "model_registry.json"
 DEFAULT_SLOTS_PATH = _REPO_ROOT / "config" / "llm_slots.json"
 DEFAULT_POLICY_PATH = _REPO_ROOT / "config" / "model_selection_policy.json"
