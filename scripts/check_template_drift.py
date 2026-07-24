@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import configparser
 import hashlib
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -80,16 +81,50 @@ class PairResult:
     reason: str = ""
 
 
+# Matches a GitHub Actions `uses:` line and captures the action path (owner/repo,
+# owner/repo/subpath, or a reusable-workflow path) separately from its `@<ref>`
+# pin and any trailing `# vX.Y.Z` comment. Optional surrounding quotes on the
+# value are tolerated. Local `./path` actions have no `@ref` and never match.
+_USES_REF_RE = re.compile(
+    r"""^(?P<prefix>\s*(?:-\s*)?uses:\s*['"]?)
+        (?P<action>[^@'"\s]+)
+        @(?P<ref>[^\s'"#]+)
+        (?P<rest>['"]?\s*(?:\#.*)?)$""",
+    re.VERBOSE,
+)
+
+# Canonical placeholder that a pinned/floating action ref collapses to, so that a
+# Renovate SHA bump or a pinned-vs-floating difference is not seen as drift.
+_PINNED_REF = "<pinned>"
+
+
+def _canonicalize_action_refs(line: str) -> str:
+    """Collapse a `uses: <action>@<ref>` pin to `<action>@<pinned>`.
+
+    The action PATH is preserved (so swapping to a different action is still
+    drift); only the mutable `@<ref>` + trailing version comment is canonicalized.
+    This makes action-pin bumps (Renovate) and the intentional pinned-vs-floating
+    divergence between root and consumer templates invisible to the drift check,
+    while genuine logic changes still register.
+    """
+
+    match = _USES_REF_RE.match(line)
+    if not match:
+        return line
+    return f"{match.group('prefix')}{match.group('action')}@{_PINNED_REF}"
+
+
 def normalize_text(text: str) -> str:
     """Normalize text before drift comparison.
 
     The old shell guard counted unified-diff header lines and raw line counts.
     This checker compares actual content after stabilizing line endings and
-    trailing whitespace.
+    trailing whitespace, and after canonicalizing GitHub Actions `uses:` pins so
+    that action-version bumps do not read as functional drift.
     """
 
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
-    lines = [line.rstrip() for line in normalized.split("\n")]
+    lines = [_canonicalize_action_refs(line.rstrip()) for line in normalized.split("\n")]
     while lines and lines[-1] == "":
         lines.pop()
     if not lines:
