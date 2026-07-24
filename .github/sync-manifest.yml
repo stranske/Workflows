@@ -330,6 +330,9 @@ scripts:
   - source: .github/scripts/agent_delegation_policy.js
     description: "Agent delegation policy - system-driven routing for agent:auto label"
 
+  - source: .github/scripts/agent_stall_rotation.js
+    description: "Auto-pilot stall rotation - registry-driven bounded belt-agent rotation before needs-human"
+
   - source: .github/scripts/node_modules/minimatch/
     is_directory: true
     description: "Vendored minimatch dependency for .github scripts"

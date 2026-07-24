@@ -2535,6 +2535,91 @@ jobs:
               return stallCount;
             }
 
+            // Systemic stall rotation for the BELT (create-PR) lane. Before the stall
+            // cap escalates to needs-human, rotate to another eligible, untried
+            // belt-capable agent (registry-driven & bounded) and re-dispatch the belt.
+            // Pure decision lives in agent_stall_rotation.js; this performs the side
+            // effects. Returns true only if a rotation was fully actioned — callers
+            // fall through to the existing needs-human escalation otherwise (fail-safe).
+            async function tryBeltStallRotation({ issueNumber, stallCount, warnMsg }) {
+              try {
+                const { decideStallRotation } = require('./.github/scripts/agent_stall_rotation.js');
+                const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
+                const rotationRegistry = loadAgentRegistry();
+                const { data: rotIssue } = await withRetry((client) => client.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                }));
+                const rotLabels = (rotIssue.labels || [])
+                  .map((l) => (typeof l === 'string' ? l : l && l.name))
+                  .filter(Boolean);
+                const decision = decideStallRotation({
+                  registry: rotationRegistry,
+                  labels: rotLabels,
+                  capability: 'belt',
+                });
+                if (!decision.rotate) {
+                  core.info(`Belt stall rotation unavailable (${decision.reason}); escalating`);
+                  return false;
+                }
+                // Record the stalled agent as tried and switch the explicit agent label.
+                if (decision.currentAgent) {
+                  try {
+                    await withRetry((client) => client.rest.issues.removeLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issueNumber,
+                      name: `agent:${decision.currentAgent}`,
+                    }));
+                  } catch (labelErr) {
+                    core.info(`(agent:${decision.currentAgent} label not present: ${labelErr?.message})`);
+                  }
+                }
+                await withRetry((client) => client.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  labels: [`agent:${decision.nextAgent}`, decision.triedMarker].filter(Boolean),
+                }));
+                // Re-dispatch the belt for the NEW agent (same mechanism as backoff).
+                const { data: repoInfo } = await withRetry((client) => client.rest.repos.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                }));
+                const dispatchRef = repoInfo.default_branch || 'main';
+                await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'agents-71-codex-belt-dispatcher.yml',
+                  ref: dispatchRef,
+                  inputs: {
+                    agent_key: decision.nextAgent,
+                    force_issue: String(issueNumber),
+                    dry_run: 'false',
+                  },
+                }));
+                // NOTE: the leading "🤖 **Auto-pilot step**" marker is deliberate — it
+                // makes countConsecutiveWaits() treat this comment as a boundary and
+                // reset the stall counter, so the newly-rotated agent gets its own full
+                // maxStallRetries budget instead of inheriting the prior agent's count.
+                await withRetry((client) => client.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `🤖 **Auto-pilot step ${typeof stepCount !== 'undefined' ? stepCount : '?'}**: rotating agent after stall\n\n` +
+                    `\`${decision.currentAgent || 'current agent'}\` stalled after ${stallCount} attempts (${warnMsg}). ` +
+                    `Switching to \`${decision.nextAgent}\` and re-dispatching the belt.\n\n` +
+                    `\`needs-human\` is withheld until every eligible agent has been tried.`,
+                }));
+                core.info(`Belt stall rotation: ${decision.currentAgent || '(none)'} -> ${decision.nextAgent}`);
+                return true;
+              } catch (rotationErr) {
+                core.warning(`Belt stall rotation failed, falling back to needs-human: ${rotationErr?.message}`);
+                return false;
+              }
+            }
+
             // Check if branch exists
             let branchExists = false;
             try {
@@ -2562,34 +2647,45 @@ jobs:
                 const warnMsg = `Stall: ${stallCount} attempts without branch creation`;
                 core.warning(warnMsg);
 
-                await withRetry((client) => client.rest.issues.addLabels({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  labels: ['agents:auto-pilot-pause', 'needs-human']
-                }));
+                // Systemic stall rotation (fail-safe): before escalating to a human,
+                // try another eligible, untried belt-capable agent and re-dispatch.
+                // needs-human is withheld ONLY if a rotation is successfully actioned;
+                // any error or "no untried agent left" falls through to escalation.
+                const rotated = await tryBeltStallRotation({
+                  withRetry, context, core, issueNumber, stallCount, warnMsg,
+                });
 
-                await withRetry((client) => client.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  body: `## ⚠️ Auto-Pilot Stalled
+                if (!rotated) {
+                  await withRetry((client) => client.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    labels: ['agents:auto-pilot-pause', 'needs-human']
+                  }));
 
-                    **Reason:** Branch was not created after ${stallCount} attempts.
+                  await withRetry((client) => client.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: `## ⚠️ Auto-Pilot Stalled
 
-                    Expected branch: \`${branchName}\`
+                      **Reason:** Branch was not created after ${stallCount} attempts.
 
-                    **Possible causes:**
-                    - Agent failed before branch creation
-                    - Workflow dispatch failed silently
-                    - Permissions or token issues
+                      Expected branch: \`${branchName}\`
 
-                    **To resume:** Remove \`agents:auto-pilot-pause\` and
-                    \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
-                }));
+                      **Possible causes:**
+                      - Agent failed before branch creation
+                      - Workflow dispatch failed silently
+                      - Permissions or token issues
+                      - Every eligible agent has already been tried
 
-                const failMsg = `Auto-pilot stalled: ${stallCount} branch creation attempts`;
-                core.setFailed(failMsg);
+                      **To resume:** Remove \`agents:auto-pilot-pause\` and
+                      \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
+                  }));
+
+                  const failMsg = `Auto-pilot stalled: ${stallCount} branch creation attempts`;
+                  core.setFailed(failMsg);
+                }
                 return;
               }
 
@@ -2785,18 +2881,23 @@ jobs:
                   const warnMsg = `Stall: ${stallCount} attempts without commits`;
                   core.warning(warnMsg);
 
-                  await withRetry((client) => client.rest.issues.addLabels({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: issueNumber,
-                    labels: ['agents:auto-pilot-pause', 'needs-human']
-                  }));
+                  // Systemic stall rotation (fail-safe): try another eligible, untried
+                  // belt-capable agent before escalating to a human (see helper above).
+                  const rotated = await tryBeltStallRotation({ issueNumber, stallCount, warnMsg });
 
-                  await withRetry((client) => client.rest.issues.createComment({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: issueNumber,
-                    body: `## ⚠️ Auto-Pilot Stalled
+                  if (!rotated) {
+                    await withRetry((client) => client.rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issueNumber,
+                      labels: ['agents:auto-pilot-pause', 'needs-human']
+                    }));
+
+                    await withRetry((client) => client.rest.issues.createComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issueNumber,
+                      body: `## ⚠️ Auto-Pilot Stalled
 
             **Reason:** Belt worker failed to generate commits after ${stallCount} attempts.
 
@@ -2806,6 +2907,7 @@ jobs:
             - Issue requirements are unclear or too complex
             - Agent encountered an error during execution
             - Belt worker workflow failed silently
+            - Every eligible agent has already been tried
 
             **To investigate:**
             1. Check recent workflow runs for belt worker failures
@@ -2814,10 +2916,11 @@ jobs:
 
             **To resume:** Remove \`agents:auto-pilot-pause\` and \`needs-human\` labels,
             then re-add \`agents:auto-pilot\`.`
-              }));
+                }));
 
-                  const failMsg = `Auto-pilot stalled: ${stallCount} failed dispatches`;
-                  core.setFailed(failMsg);
+                    const failMsg = `Auto-pilot stalled: ${stallCount} failed dispatches`;
+                    core.setFailed(failMsg);
+                  }
                   return;
                 }
 
@@ -3143,29 +3246,97 @@ jobs:
               const warnMsg = `Stall: ${stallCount} monitor-pr attempts without completion`;
               core.warning(warnMsg);
 
-              await withRetry((client) => client.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                labels: ['agents:auto-pilot-pause', 'needs-human']
-              }));
+              // Systemic stall rotation (fail-safe): a PR exists here, so hand off to
+              // the EXISTING registry-driven keepalive delegation policy
+              // (agent_delegation_policy.js, engaged by the `agent:auto` label) rather
+              // than rebuilding rotation. That policy rotates across the fuller
+              // keepalive-capable set (codex/claude/cursor/gemini). We only do this once:
+              // if `agent:auto` is already present, the policy has had its chance and
+              // still stalled, so we escalate. Any error falls through to needs-human.
+              let handedOff = false;
+              try {
+                const { eligibleAgents } = require('./.github/scripts/agent_stall_rotation.js');
+                const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
+                const { data: rotIssue } = await withRetry((client) => client.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                }));
+                const rotLabels = (rotIssue.labels || [])
+                  .map((l) => (typeof l === 'string' ? l : l && l.name))
+                  .filter(Boolean);
+                const hasAuto = rotLabels.some((l) => String(l).trim().toLowerCase() === 'agent:auto');
+                const keepaliveAgents = eligibleAgents({
+                  registry: loadAgentRegistry(),
+                  capability: 'pr_keepalive',
+                });
+                if (!hasAuto && keepaliveAgents.length > 1) {
+                  // Add agent:auto to the issue AND the PR so the keepalive delegation
+                  // policy picks an alternative agent on its next round.
+                  await withRetry((client) => client.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    labels: ['agent:auto'],
+                  }));
+                  if (prNumber) {
+                    try {
+                      await withRetry((client) => client.rest.issues.addLabels({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: parseInt(prNumber, 10),
+                        labels: ['agent:auto'],
+                      }));
+                    } catch (prLabelErr) {
+                      core.info(`(could not label PR #${prNumber} with agent:auto: ${prLabelErr?.message})`);
+                    }
+                  }
+                  // Leading "🤖 **Auto-pilot step**" marker resets countConsecutiveWaits()
+                  // (see belt-rotation note above) so a later monitor round starts fresh.
+                  await withRetry((client) => client.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: `🤖 **Auto-pilot step ${typeof stepCount !== 'undefined' ? stepCount : '?'}**: handing off to agent delegation after stall\n\n` +
+                      `PR monitoring stalled after ${stallCount} attempts. Added \`agent:auto\` so the ` +
+                      `keepalive delegation policy can rotate to an alternative agent ` +
+                      `(eligible: ${keepaliveAgents.join(', ')}).\n\n` +
+                      `\`needs-human\` is withheld until delegation has also been exhausted.`,
+                  }));
+                  core.info(`Monitor-pr stall handed off to delegation policy (agent:auto added)`);
+                  handedOff = true;
+                }
+              } catch (rotationErr) {
+                core.warning(`Monitor-pr stall handoff failed, falling back to needs-human: ${rotationErr?.message}`);
+              }
 
-              await withRetry((client) => client.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                body: `## ⚠️ Auto-Pilot Stalled
+              if (!handedOff) {
+                await withRetry((client) => client.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  labels: ['agents:auto-pilot-pause', 'needs-human']
+                }));
+
+                await withRetry((client) => client.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `## ⚠️ Auto-Pilot Stalled
 
             **Reason:** PR monitoring exceeded ${stallCount} attempts without completion.
 
-            PR #${prNumber} exists but auto-pilot did not reach a completion state.
+            PR #${prNumber} exists but auto-pilot did not reach a completion state
+            (agent delegation, if attempted, was also exhausted).
 
             **To resume:** Remove \`agents:auto-pilot-pause\` and
             \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
-              }));
+                }));
+
+                core.setFailed(warnMsg);
+              }
 
               core.setOutput('stop_autopilot', 'true');
-              core.setFailed(warnMsg);
               return;
             }
 
