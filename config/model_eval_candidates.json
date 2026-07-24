@@ -4,7 +4,8 @@
     {"provider":"openai","model_id":"gpt-5.6-terra","role":"candidate"},
     {"provider":"openai","model_id":"gpt-5.6-sol","role":"candidate"},
     {"provider":"anthropic","model_id":"claude-opus-4-6","role":"incumbent"},
-    {"provider":"anthropic","model_id":"claude-sonnet-4-6","role":"candidate"},
+    {"provider":"anthropic","model_id":"claude-opus-4-8","role":"candidate"},
+    {"provider":"anthropic","model_id":"claude-sonnet-5","role":"candidate"},
     {"provider":"github-models","model_id":"codex-mini-latest","role":"incumbent"}
   ]
 }
