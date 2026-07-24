@@ -60,6 +60,50 @@ def test_structural_defects_remain_blocking_despite_staleness_carveout() -> None
     assert vbr.blocking_findings(findings)
 
 
+def _write_stale_registry(tmp_path: Path) -> Path:
+    registry = copy.deepcopy(_registry())
+    entry = _pension_conformant_entry(registry)
+    entry["reference_run_evidence"]["generated_at"] = "2026-01-01T00:00:00Z"
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    return registry_path
+
+
+def test_cli_staleness_is_warning_only_by_default(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    registry_path = _write_stale_registry(tmp_path)
+
+    # Warning-only: a stale-but-structurally-valid registry must not fail the job,
+    # so an expired freshness window can't wedge unrelated CI.
+    assert vbr.main(["--json", str(registry_path)]) == 0
+
+    report = json.loads(capsys.readouterr().out)
+    assert report["stale_count"] >= 1
+    assert report["blocking_count"] == 0
+    assert report["blocking_ok"] is True
+    assert report["ok"] is False  # not fully clean; freshness is surfaced
+
+
+def test_cli_enforce_freshness_makes_staleness_blocking(tmp_path: Path) -> None:
+    registry_path = _write_stale_registry(tmp_path)
+
+    assert vbr.main(["--enforce-freshness", str(registry_path)]) == 1
+
+
+def test_cli_emits_github_warning_annotation_for_staleness(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    registry_path = _write_stale_registry(tmp_path)
+
+    vbr.main([str(registry_path)])
+
+    # Warning annotation is emitted on stderr so it surfaces even in --json mode.
+    err = capsys.readouterr().err
+    assert "::warning::" in err
+    assert "reference run is stale" in err
+
+
 def test_parent_issue_and_inactive_participants_are_explicit() -> None:
     registry = _registry()
 

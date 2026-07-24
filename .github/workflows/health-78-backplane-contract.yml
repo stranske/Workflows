@@ -35,6 +35,18 @@ on:
       - 'scripts/validate_run_contract.py'
       - 'scripts/validate_backplane_registry.py'
       - 'tests/fixtures/backplane/**'
+  # Weekly warning-only freshness surfacing (mirrors the langsmith contract's
+  # scheduled path). Reference-run staleness is a ::warning:: here, not a failure,
+  # so an aged reference baseline is visible on cadence without wedging CI. Use the
+  # manual dispatch (enforce_freshness=true) for a deliberate freshness gate.
+  schedule:
+    - cron: '43 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      enforce_freshness:
+        description: 'Fail the run on reference-run staleness (default: warning-only)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -78,9 +90,18 @@ jobs:
             | tee artifacts/backplane-contract/self-smoke.txt
 
       - name: Registry lifecycle and evidence validation
+        # Structural defects always fail. Reference-run staleness is warning-only
+        # (surfaced as a ::warning:: annotation) unless a manual dispatch opts into
+        # enforcement, so an expired freshness window never wedges the fleet.
+        env:
+          ENFORCE_FRESHNESS: ${{ github.event.inputs.enforce_freshness == 'true' }}
         run: |
           set -o pipefail
-          python scripts/validate_backplane_registry.py --json \
+          enforce_flag=""
+          if [ "${ENFORCE_FRESHNESS}" = "true" ]; then
+            enforce_flag="--enforce-freshness"
+          fi
+          python scripts/validate_backplane_registry.py --json ${enforce_flag} \
             | tee artifacts/backplane-contract/registry-status.json
 
       - name: Documented invalid-fixture smoke (must exit 1)

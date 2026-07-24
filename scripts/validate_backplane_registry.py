@@ -362,30 +362,58 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Compatibility flag; validation is always strict.",
+        help="Compatibility flag; structural validation is always strict.",
+    )
+    parser.add_argument(
+        "--enforce-freshness",
+        action="store_true",
+        help=(
+            "Also fail on reference-run staleness. Default is warning-only: staleness "
+            "is an operational freshness signal (a human-reviewed reference baseline "
+            "aging past the window), surfaced but non-blocking, so an expired window "
+            "does not wedge unrelated CI. Set this for a deliberate freshness gate "
+            "(mirrors the langsmith contract's opt-in enforce_block)."
+        ),
     )
     args = parser.parse_args(argv)
 
     registry = _load_json(args.registry)
     findings = validate_registry(registry)
+    blocking = blocking_findings(findings)
+    stale = [f for f in findings if f.severity == STALE_SEVERITY]
+    fail = bool(blocking) or (args.enforce_freshness and bool(stale))
     report = {
         "generated_at": datetime.now(UTC).isoformat(),
         "ok": not findings,
+        "blocking_ok": not blocking,
         "finding_count": len(findings),
-        "findings": [{"path": f.path, "message": f.message} for f in findings],
+        "blocking_count": len(blocking),
+        "stale_count": len(stale),
+        "findings": [
+            {"path": f.path, "message": f.message, "severity": f.severity} for f in findings
+        ],
         "participants": _reference_rows(registry),
     }
 
+    # Emit staleness as a GitHub Actions warning annotation on stderr regardless of
+    # output mode, so the freshness signal surfaces in the Actions UI even when the
+    # JSON report is piped to a file. Non-blocking unless --enforce-freshness.
+    for finding in stale:
+        print(f"::warning::{finding.path}: {finding.message}", file=sys.stderr)
+
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
-    elif findings:
-        print("Backplane registry validation failed:", file=sys.stderr)
-        for finding in findings:
-            print(f"- {finding.path}: {finding.message}", file=sys.stderr)
     else:
-        print("Backplane registry validation passed.")
+        if blocking:
+            print("Backplane registry validation failed:", file=sys.stderr)
+            for finding in blocking:
+                print(f"- {finding.path}: {finding.message}", file=sys.stderr)
+        if not findings:
+            print("Backplane registry validation passed.")
+        elif not blocking and not args.enforce_freshness:
+            print("Backplane registry structurally valid (reference-run freshness warnings only).")
 
-    return 0 if not findings else 1
+    return 1 if fail else 0
 
 
 if __name__ == "__main__":
