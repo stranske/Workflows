@@ -837,6 +837,8 @@ def test_build_github_client_preserves_already_namespaced():
         _CaptureChatOpenAI, model="openai/gpt-5", token="t", timeout=30, max_retries=2
     )
     assert client.kwargs["model"] == "openai/gpt-5"
+
+
 def _build_anthropic(model: str):
     return langchain_client._build_anthropic_client(
         _CaptureChatAnthropic, model=model, token="t", timeout=30, max_retries=2
