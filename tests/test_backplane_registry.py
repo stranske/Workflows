@@ -26,8 +26,38 @@ def test_registry_has_no_tbd_placeholders_and_validates() -> None:
     registry = _registry()
     findings = vbr.validate_registry(registry)
 
-    assert findings == []
+    # The live registry must be STRUCTURALLY valid. Operational freshness (a
+    # reference run aging past the 7-day window) is a non-blocking "stale" finding:
+    # it is surfaced by the dedicated backplane lane (health-78) but must not fail
+    # this structural check, which runs in the required suite for every unrelated PR.
+    assert vbr.blocking_findings(findings) == []
     assert "TBD" not in json.dumps(registry)
+
+
+def test_stale_reference_run_is_non_blocking_severity() -> None:
+    registry = copy.deepcopy(_registry())
+    entry = _pension_conformant_entry(registry)
+    entry["reference_run_evidence"]["generated_at"] = "2026-01-01T00:00:00Z"
+
+    findings = vbr.validate_registry(registry)
+
+    stale = [f for f in findings if f.message == "reference run is stale"]
+    assert stale
+    assert all(f.severity == vbr.STALE_SEVERITY for f in stale)
+    # Staleness alone must not block: no structural (error-severity) findings remain.
+    assert vbr.blocking_findings(findings) == []
+
+
+def test_structural_defects_remain_blocking_despite_staleness_carveout() -> None:
+    # Deliberate-break guard: the freshness carve-out must not weaken structural
+    # validation. A malformed reference run (missing sha256) still blocks.
+    registry = copy.deepcopy(_registry())
+    entry = _pension_conformant_entry(registry)
+    del entry["reference_run_evidence"]["reference_run_sha256"]
+
+    findings = vbr.validate_registry(registry)
+
+    assert vbr.blocking_findings(findings)
 
 
 def test_parent_issue_and_inactive_participants_are_explicit() -> None:
@@ -315,9 +345,9 @@ def test_conformant_rejects_decreasing_lifecycle_timestamps() -> None:
 def test_conformant_rejects_invalid_lifecycle_evidence() -> None:
     registry = copy.deepcopy(_registry())
     entry = _pension_conformant_entry(registry)
-    entry["lifecycle_history"][1][
-        "evidence"
-    ] = "https://github.com/stranske/Pension-Data/issues/703"
+    entry["lifecycle_history"][1]["evidence"] = (
+        "https://github.com/stranske/Pension-Data/issues/703"
+    )
 
     findings = vbr.validate_registry(registry)
 

@@ -25,10 +25,31 @@ REFERENCE_STATES = {"missing", "invalid", "stale", "valid", "not-applicable"}
 MAX_STALE_AFTER_HOURS = 24 * 365
 
 
+# Findings default to "error" severity (structural defects that must block
+# everywhere). "stale" severity marks an OPERATIONAL freshness lapse (a reference
+# run aged past the freshness window) — real signal, surfaced by the dedicated
+# backplane lane (health-78) and the CLI, but it must not fail the general
+# structural validity suite, or the required `summary` check would go red for every
+# unrelated PR the moment the window lapses.
+ERROR_SEVERITY = "error"
+STALE_SEVERITY = "stale"
+
+
 @dataclass(frozen=True)
 class Finding:
     path: str
     message: str
+    severity: str = ERROR_SEVERITY
+
+
+def blocking_findings(findings: list[Finding]) -> list[Finding]:
+    """Structural findings that must block validation everywhere.
+
+    Operational freshness findings (``severity == STALE_SEVERITY``) are excluded:
+    they are surfaced (CLI / health-78) but do not gate unrelated work.
+    """
+
+    return [finding for finding in findings if finding.severity != STALE_SEVERITY]
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -156,7 +177,11 @@ def _validate_reference_evidence(
         )
     elif now - generated_at > timedelta(hours=stale_after_hours):
         findings.append(
-            Finding(f"{prefix}.reference_run_evidence.generated_at", "reference run is stale")
+            Finding(
+                f"{prefix}.reference_run_evidence.generated_at",
+                "reference run is stale",
+                severity=STALE_SEVERITY,
+            )
         )
     run_id = evidence.get("run_id")
     if not isinstance(run_id, str) or not run_id.strip():
