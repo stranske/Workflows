@@ -179,11 +179,26 @@ def _build_anthropic_client(
     )
 
 
+def _github_model_id(model: str) -> str:
+    """Return a GitHub Models GA-compatible model id (``publisher/model``).
+
+    The GA endpoint (``models.github.ai/inference``) requires publisher-namespaced ids
+    such as ``openai/gpt-5``. A bare id (e.g. ``codex-mini-latest``) 404s ("page not
+    found") there. Default a bare id to the ``openai/`` publisher; already-namespaced
+    ids (containing ``/``) are returned unchanged. (If a bare id maps to a model the
+    GitHub Models catalog does not offer at all, the durable fix is an owner-reviewed
+    change of the github-models selection to a catalogued id — this only normalizes
+    the id format.)
+    """
+    name = model.strip()
+    return name if "/" in name else f"openai/{name}"
+
+
 def _build_github_client(
     chat_openai: type, *, model: str, token: str, timeout: int, max_retries: int
 ) -> object:
     kwargs: dict = {
-        "model": model,
+        "model": _github_model_id(model),
         "base_url": GITHUB_MODELS_BASE_URL,
         "api_key": token,
         "timeout": timeout,

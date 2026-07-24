@@ -158,7 +158,8 @@ def test_explicit_github_provider_uses_reviewed_model_when_model_is_omitted(
     assert resolved.provider == langchain_client.PROVIDER_GITHUB
     assert resolved.model == "github-reviewed"
     assert isinstance(resolved.client, FakeChatOpenAI)
-    assert resolved.client.kwargs["model"] == "github-reviewed"
+    # github-models GA namespaces bare ids with the openai/ publisher
+    assert resolved.client.kwargs["model"] == "openai/github-reviewed"
 
 
 def test_build_chat_client_env_model_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -175,7 +176,7 @@ def test_build_chat_client_env_model_override(monkeypatch: pytest.MonkeyPatch) -
     assert resolved is not None
     assert resolved.model == "gpt-4o-mini"
     assert isinstance(resolved.client, FakeChatOpenAI)
-    assert resolved.client.kwargs["model"] == "gpt-4o-mini"
+    assert resolved.client.kwargs["model"] == "openai/gpt-4o-mini"
 
 
 def test_build_chat_client_blocked_model_override_does_not_shift_provider(
@@ -799,3 +800,35 @@ def test_build_openai_client_normal_model_has_temperature(
     assert resolved is not None
     assert isinstance(resolved.client, FakeChatOpenAI)
     assert resolved.client.kwargs["temperature"] == 0.1
+
+
+class _CaptureChatOpenAI:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+
+def test_github_model_id_namespaces_bare_ids():
+    assert langchain_client._github_model_id("codex-mini-latest") == "openai/codex-mini-latest"
+    assert langchain_client._github_model_id("gpt-5") == "openai/gpt-5"
+
+
+def test_github_model_id_leaves_namespaced_ids_unchanged():
+    assert langchain_client._github_model_id("openai/gpt-5") == "openai/gpt-5"
+    assert (
+        langchain_client._github_model_id("mistral-ai/mistral-large") == "mistral-ai/mistral-large"
+    )
+
+
+def test_build_github_client_sends_namespaced_model():
+    client = langchain_client._build_github_client(
+        _CaptureChatOpenAI, model="codex-mini-latest", token="t", timeout=30, max_retries=2
+    )
+    assert client.kwargs["model"] == "openai/codex-mini-latest"
+    assert client.kwargs["base_url"] == langchain_client.GITHUB_MODELS_BASE_URL
+
+
+def test_build_github_client_preserves_already_namespaced():
+    client = langchain_client._build_github_client(
+        _CaptureChatOpenAI, model="openai/gpt-5", token="t", timeout=30, max_retries=2
+    )
+    assert client.kwargs["model"] == "openai/gpt-5"
