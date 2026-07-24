@@ -2576,6 +2576,37 @@ jobs:
                     core.info(`(agent:${decision.currentAgent} label not present: ${labelErr?.message})`);
                   }
                 }
+                // A stalled belt item may still carry agent:auto from an earlier
+                // keepalive handoff. Auto and explicit routing labels are mutually
+                // exclusive, so remove the former before assigning the next agent.
+                try {
+                  await withRetry((client) => client.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    name: 'agent:auto',
+                  }));
+                } catch (labelErr) {
+                  core.info(`(agent:auto label not present: ${labelErr?.message})`);
+                }
+                if (decision.triedMarker) {
+                  try {
+                    await withRetry((client) => client.rest.issues.getLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      name: decision.triedMarker,
+                    }));
+                  } catch (labelErr) {
+                    if (labelErr?.status !== 404) throw labelErr;
+                    await withRetry((client) => client.rest.issues.createLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      name: decision.triedMarker,
+                      color: '1d76db',
+                      description: 'Records an agent already tried during bounded stall rotation',
+                    }));
+                  }
+                }
                 await withRetry((client) => client.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -3195,6 +3226,11 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
           MAX_STALL_RETRIES: '5'
+          HAS_CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          HAS_CLAUDE_AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
+          HAS_CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY != '' }}
+          HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -3266,9 +3302,17 @@ jobs:
                   .map((l) => (typeof l === 'string' ? l : l && l.name))
                   .filter(Boolean);
                 const hasAuto = rotLabels.some((l) => String(l).trim().toLowerCase() === 'agent:auto');
+                const availableSecrets = {
+                  CODEX_AUTH_JSON: process.env.HAS_CODEX_AUTH_JSON === 'true',
+                  CLAUDE_CODE_OAUTH_TOKEN: process.env.HAS_CLAUDE_CODE_OAUTH_TOKEN === 'true',
+                  CLAUDE_AUTH_JSON: process.env.HAS_CLAUDE_AUTH_JSON === 'true',
+                  CURSOR_API_KEY: process.env.HAS_CURSOR_API_KEY === 'true',
+                  GEMINI_API_KEY: process.env.HAS_GEMINI_API_KEY === 'true',
+                };
                 const keepaliveAgents = eligibleAgents({
                   registry: loadAgentRegistry(),
                   capability: 'pr_keepalive',
+                  secrets: availableSecrets,
                 });
                 if (!hasAuto && keepaliveAgents.length > 1) {
                   // Add agent:auto to the issue AND the PR so the keepalive delegation
@@ -3291,6 +3335,20 @@ jobs:
                       core.info(`(could not label PR #${prNumber} with agent:auto: ${prLabelErr?.message})`);
                     }
                   }
+                  const { data: repoInfo } = await withRetry((client) => client.rest.repos.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                  }));
+                  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    workflow_id: 'agents-81-gate-followups.yml',
+                    ref: repoInfo.default_branch || 'main',
+                    inputs: {
+                      pr_number: String(prNumber),
+                      force_retry: 'true',
+                    },
+                  }));
                   // Leading "🤖 **Auto-pilot step**" marker resets countConsecutiveWaits()
                   // (see belt-rotation note above) so a later monitor round starts fresh.
                   await withRetry((client) => client.rest.issues.createComment({
