@@ -254,6 +254,50 @@ def unusable_candidates(report: dict[str, Any]) -> list[str]:
     ]
 
 
+def _cand_key(entry: dict[str, Any]) -> str:
+    return f"{entry.get('provider', '')}/{entry.get('model_id', '')}"
+
+
+def partition_usable_candidates(
+    candidates: dict[str, Any], unusable: list[str]
+) -> tuple[dict[str, Any], list[str], str | None]:
+    """Drop unusable candidates per provider so one bad model/provider can't abort the pilot.
+
+    A provider is retained only if its incumbent AND at least one candidate are usable
+    (you cannot benchmark a provider without a working baseline or without something to
+    compare). Returns ``(remaining_candidates, dropped_notes, fatal_reason_or_None)``;
+    ``fatal_reason`` is set only when no provider has a usable incumbent+candidate pair.
+    """
+    unusable_set = set(unusable)
+    by_provider: dict[str, list[dict[str, Any]]] = {}
+    for entry in candidates.get("candidates", []):
+        by_provider.setdefault(str(entry.get("provider", "")), []).append(entry)
+
+    kept: list[dict[str, Any]] = []
+    dropped: list[str] = []
+    for provider, group in by_provider.items():
+        incumbents = [e for e in group if e.get("role") == "incumbent"]
+        cands = [e for e in group if e.get("role") != "incumbent"]
+        usable_incumbents = [e for e in incumbents if _cand_key(e) not in unusable_set]
+        usable_cands = [e for e in cands if _cand_key(e) not in unusable_set]
+        if not usable_incumbents:
+            dropped.append(
+                f"{provider}: incumbent unusable ({', '.join(_cand_key(e) for e in incumbents) or 'none'})"
+            )
+            continue
+        if not usable_cands:
+            dropped.append(f"{provider}: no usable candidate")
+            continue
+        newly = [_cand_key(e) for e in group if _cand_key(e) in unusable_set]
+        if newly:
+            dropped.append(f"{provider}: dropped {', '.join(newly)}")
+        kept.extend(usable_incumbents + usable_cands)
+
+    remaining = {**candidates, "candidates": kept}
+    fatal = None if kept else "no provider has a usable incumbent + candidate pair"
+    return remaining, dropped, fatal
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus", type=Path, default=ROOT / "config/model_eval_pilot.json")
@@ -281,21 +325,24 @@ def main() -> int:
     preflight_output.write_text(json.dumps(preflight, indent=2) + "\n")
     unusable = unusable_candidates(preflight)
     if unusable:
-        print(
-            "pilot preflight error: candidates produced no schema-valid rows: "
-            + ", ".join(unusable),
-            file=sys.stderr,
-        )
-        return 1
+        candidates, dropped, fatal = partition_usable_candidates(candidates, unusable)
+        for note in dropped:
+            print(f"pilot preflight: skipping {note}", file=sys.stderr)
+        if fatal:
+            print(
+                f"pilot preflight error: {fatal} (unusable: {', '.join(unusable)})", file=sys.stderr
+            )
+            return 1
     payload = run_pilot(corpus, candidates, token=token)
     args.output.write_text(json.dumps(payload, indent=2) + "\n")
     unusable = unusable_candidates(payload)
     if unusable:
-        print(
-            "pilot error: candidates produced no schema-valid rows: " + ", ".join(unusable),
-            file=sys.stderr,
-        )
-        return 1
+        _, dropped, fatal = partition_usable_candidates(candidates, unusable)
+        for note in dropped:
+            print(f"pilot: {note} (post-run)", file=sys.stderr)
+        if fatal:
+            print(f"pilot error: {fatal} (unusable: {', '.join(unusable)})", file=sys.stderr)
+            return 1
     return 0
 
 

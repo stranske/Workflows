@@ -28,6 +28,58 @@ def test_drift_between_detects_genuine_content_change() -> None:
     assert drift_between("jobs:\n  check: old\n", "jobs:\n  check: new\n") is True
 
 
+def test_action_pin_sha_bump_is_not_drift() -> None:
+    """A Renovate SHA bump on the same action must not read as drift.
+
+    This is the recurrence Health 74 kept firing on: consumer templates SHA-pin
+    actions, so every pin bump changed the fingerprint until a human re-baselined.
+    """
+    before = "    steps:\n      - uses: actions/checkout@9c091bb # v7.0.0\n"
+    after = "    steps:\n      - uses: actions/checkout@3d3c42e # v7.0.1\n"
+    assert drift_between(before, after) is False
+
+
+def test_pinned_and_floating_action_refs_are_equivalent() -> None:
+    """Root floats major tags; templates SHA-pin. That divergence is intentional
+    and must not count as drift once pins are canonicalized."""
+    floating = "      - uses: actions/checkout@v7\n"
+    pinned = "      - uses: actions/checkout@3d3c42e5aac5ba8058 # v7.0.1\n"
+    assert drift_between(floating, pinned) is False
+
+
+def test_different_action_path_is_still_drift() -> None:
+    """Only the @ref is canonicalized; swapping the action itself must still drift."""
+    original = "      - uses: actions/checkout@v7\n"
+    swapped = "      - uses: someone-else/checkout@v7\n"
+    assert drift_between(original, swapped) is True
+
+
+def test_reusable_workflow_ref_bump_is_not_drift_but_path_change_is() -> None:
+    same_path_bump_a = "    uses: stranske/Workflows/.github/workflows/reusable-x.yml@main\n"
+    same_path_bump_b = (
+        "    uses: stranske/Workflows/.github/workflows/reusable-x.yml@abc123 # pin\n"
+    )
+    different_path = "    uses: stranske/Workflows/.github/workflows/reusable-y.yml@abc123 # pin\n"
+    assert drift_between(same_path_bump_a, same_path_bump_b) is False
+    assert drift_between(same_path_bump_a, different_path) is True
+
+
+def test_genuine_logic_change_still_drifts_despite_pin_canonicalization() -> None:
+    """Deliberate-break guard: canonicalizing pins must not mask real logic drift."""
+    base = (
+        "    steps:\n"
+        "      - uses: actions/checkout@v7\n"
+        "        if: github.event.action == 'labeled'\n"
+    )
+    broken = (
+        "    steps:\n"
+        "      - uses: actions/checkout@3d3c42e # v7.0.1\n"
+        "        if: github.event.action == 'closed'\n"
+    )
+    # Same-action pin differs (ignored) but the `if:` logic differs (must drift).
+    assert drift_between(base, broken) is True
+
+
 def test_drift_between_honors_matching_fingerprinted_allowlist() -> None:
     main = "name: main\njobs:\n  check: true\n"
     template = "name: template\njobs:\n  check: true\n"

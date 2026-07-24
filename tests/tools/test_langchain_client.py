@@ -807,6 +807,11 @@ class _CaptureChatOpenAI:
         self.kwargs = kwargs
 
 
+class _CaptureChatAnthropic:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+
 def test_github_model_id_namespaces_bare_ids():
     assert langchain_client._github_model_id("codex-mini-latest") == "openai/codex-mini-latest"
     assert langchain_client._github_model_id("gpt-5") == "openai/gpt-5"
@@ -832,3 +837,35 @@ def test_build_github_client_preserves_already_namespaced():
         _CaptureChatOpenAI, model="openai/gpt-5", token="t", timeout=30, max_retries=2
     )
     assert client.kwargs["model"] == "openai/gpt-5"
+def _build_anthropic(model: str):
+    return langchain_client._build_anthropic_client(
+        _CaptureChatAnthropic, model=model, token="t", timeout=30, max_retries=2
+    )
+
+
+def test_anthropic_rejects_temperature_matches_newer_generation():
+    # Confirmed-rejecting (maint-78 pilot 2026-07-24) + Claude 5 family.
+    assert langchain_client._anthropic_rejects_temperature("claude-opus-4-8")
+    assert langchain_client._anthropic_rejects_temperature("claude-sonnet-5")
+    assert langchain_client._anthropic_rejects_temperature("claude-fable-5")
+    assert langchain_client._anthropic_rejects_temperature("claude-opus-5")
+
+
+def test_anthropic_incumbent_and_minor5_still_accept_temperature():
+    # Incumbent opus-4-6 and minor-version -5 suffixes must NOT be treated as rejecting.
+    assert not langchain_client._anthropic_rejects_temperature("claude-opus-4-6")
+    assert not langchain_client._anthropic_rejects_temperature("claude-haiku-4-5-20251001")
+    assert not langchain_client._anthropic_rejects_temperature("claude-sonnet-4-6")
+
+
+def test_build_anthropic_omits_temperature_for_newer_models():
+    # These previously 400'd on `temperature`; now the param must be omitted.
+    for model in ("claude-opus-4-8", "claude-sonnet-5"):
+        client = _build_anthropic(model)
+        assert "temperature" not in client.kwargs, model
+        assert client.kwargs["model"] == model
+
+
+def test_build_anthropic_keeps_temperature_for_incumbent():
+    client = _build_anthropic("claude-opus-4-6")
+    assert client.kwargs["temperature"] == 0.1

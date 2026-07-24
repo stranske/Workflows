@@ -315,3 +315,73 @@ def test_main_reports_malformed_corpus_without_traceback(monkeypatch, tmp_path, 
     assert (
         "pilot preflight error: pilot corpus requires at least one case" in capsys.readouterr().err
     )
+
+
+# --- per-provider preflight tolerance (partition_usable_candidates) --------------
+
+
+def _cands(*triples):
+    return {"candidates": [{"provider": p, "model_id": m, "role": r} for p, m, r in triples]}
+
+
+def test_partition_drops_provider_whose_incumbent_is_unusable():
+    # github incumbent 404s -> drop github entirely, keep openai/anthropic.
+    cands = _cands(
+        ("openai", "gpt-5.4", "incumbent"),
+        ("openai", "gpt-5.6-terra", "candidate"),
+        ("anthropic", "claude-opus-4-6", "incumbent"),
+        ("anthropic", "claude-opus-4-8", "candidate"),
+        ("github-models", "codex-mini-latest", "incumbent"),
+    )
+    remaining, dropped, fatal = pilot.partition_usable_candidates(
+        cands, ["github-models/codex-mini-latest"]
+    )
+    assert fatal is None
+    keys = {pilot._cand_key(e) for e in remaining["candidates"]}
+    assert keys == {
+        "openai/gpt-5.4",
+        "openai/gpt-5.6-terra",
+        "anthropic/claude-opus-4-6",
+        "anthropic/claude-opus-4-8",
+    }
+    assert any("github-models" in d for d in dropped)
+
+
+def test_partition_drops_provider_with_no_usable_candidate():
+    # anthropic incumbent ok but its only candidate is unusable -> drop anthropic; openai remains.
+    cands = _cands(
+        ("openai", "gpt-5.4", "incumbent"),
+        ("openai", "gpt-5.6-terra", "candidate"),
+        ("anthropic", "claude-opus-4-6", "incumbent"),
+        ("anthropic", "claude-opus-4-8", "candidate"),
+    )
+    remaining, dropped, fatal = pilot.partition_usable_candidates(
+        cands, ["anthropic/claude-opus-4-8"]
+    )
+    assert fatal is None
+    keys = {pilot._cand_key(e) for e in remaining["candidates"]}
+    assert keys == {"openai/gpt-5.4", "openai/gpt-5.6-terra"}
+    assert any("anthropic: no usable candidate" in d for d in dropped)
+
+
+def test_partition_fatal_when_no_provider_pair_survives():
+    cands = _cands(
+        ("openai", "gpt-5.4", "incumbent"),
+        ("openai", "gpt-5.6-terra", "candidate"),
+    )
+    remaining, dropped, fatal = pilot.partition_usable_candidates(
+        cands, ["openai/gpt-5.6-terra"]  # incumbent ok, only candidate dead -> nothing to compare
+    )
+    assert fatal is not None
+    assert remaining["candidates"] == []
+
+
+def test_partition_noop_when_all_usable():
+    cands = _cands(
+        ("openai", "gpt-5.4", "incumbent"),
+        ("openai", "gpt-5.6-terra", "candidate"),
+    )
+    remaining, dropped, fatal = pilot.partition_usable_candidates(cands, [])
+    assert fatal is None
+    assert dropped == []
+    assert len(remaining["candidates"]) == 2
