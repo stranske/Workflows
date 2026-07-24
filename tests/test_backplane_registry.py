@@ -345,9 +345,9 @@ def test_conformant_rejects_decreasing_lifecycle_timestamps() -> None:
 def test_conformant_rejects_invalid_lifecycle_evidence() -> None:
     registry = copy.deepcopy(_registry())
     entry = _pension_conformant_entry(registry)
-    entry["lifecycle_history"][1]["evidence"] = (
-        "https://github.com/stranske/Pension-Data/issues/703"
-    )
+    entry["lifecycle_history"][1][
+        "evidence"
+    ] = "https://github.com/stranske/Pension-Data/issues/703"
 
     findings = vbr.validate_registry(registry)
 
