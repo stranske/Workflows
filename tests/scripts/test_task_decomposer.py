@@ -508,10 +508,13 @@ def test_get_llm_client_github_token_defaults(monkeypatch) -> None:
     client, provider = client_info
     assert provider == "github-models"
     assert isinstance(client, FakeChatOpenAI)
+    from tools.langchain_client import _github_model_id
     from tools.llm_provider import GITHUB_MODELS_BASE_URL
     from tools.llm_registry import configured_model_for_provider
 
-    assert client.kwargs["model"] == configured_model_for_provider("github-models")
+    assert client.kwargs["model"] == _github_model_id(
+        configured_model_for_provider("github-models")
+    )
     assert client.kwargs["base_url"] == GITHUB_MODELS_BASE_URL
 
 
