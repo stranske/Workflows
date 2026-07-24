@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import configparser
 import hashlib
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,49 @@ import yaml
 WORKFLOW_ALIAS_MAPPINGS = {
     "agents-63-issue-intake.yml": "agents-issue-intake.yml",
 }
+
+# Canonical placeholder substituted for an action's git ref (tag or SHA digest)
+# and any trailing version comment. See canonicalize_action_refs().
+ACTION_REF_PLACEHOLDER = "<pinned>"
+
+# Matches a workflow `uses:` step that references a remote action or reusable
+# workflow by git ref, e.g.:
+#   uses: actions/checkout@3d3c42e5... # v7.0.1
+#   uses: actions/checkout@v7
+#   uses: stranske/Workflows/.github/actions/foo@main
+#   uses: "anthropics/claude-code-action@fa7e2f0 # v1"
+# Local references (uses: ./...) have no "@ref" and are intentionally left as-is.
+_USES_ACTION_RE = re.compile(
+    r"^(?P<prefix>\s*(?:-\s+)?uses:\s*)"
+    r"(?P<quote>[\"']?)"
+    r"(?P<action>[A-Za-z0-9._\-/]+)"
+    r"@[^\s\"'#]+"
+    r"(?P=quote)"
+    r"(?:\s*#.*)?"
+    r"\s*$"
+)
+
+
+def canonicalize_action_refs(line: str) -> str:
+    """Collapse a remote-action ``uses:`` ref to a stable placeholder.
+
+    The root and consumer-template workflows intentionally pin actions
+    differently (root floats major tags like ``@v7``; consumer templates
+    SHA-pin with a ``# vX.Y.Z`` comment per the fleet action-pin contract), and
+    Renovate bumps each side independently. Those ref differences are not
+    functional template drift, so they must not force a Health 74 re-baseline.
+    This normalizes the ``@<ref>`` (tag or digest) plus any trailing version
+    comment to ``@<pinned>`` while preserving the action name, so a genuine
+    action swap is still detected but a pin bump is invisible to the hash.
+    """
+
+    match = _USES_ACTION_RE.match(line)
+    if not match:
+        return line
+    prefix = match.group("prefix")
+    action = match.group("action")
+    quote = match.group("quote")
+    return f"{prefix}{quote}{action}@{ACTION_REF_PLACEHOLDER}{quote}"
 
 
 @dataclass(frozen=True)
@@ -85,11 +129,13 @@ def normalize_text(text: str) -> str:
 
     The old shell guard counted unified-diff header lines and raw line counts.
     This checker compares actual content after stabilizing line endings and
-    trailing whitespace.
+    trailing whitespace, and after canonicalizing remote-action ``uses:`` refs
+    (see canonicalize_action_refs) so that Renovate action-pin bumps do not
+    register as template drift.
     """
 
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
-    lines = [line.rstrip() for line in normalized.split("\n")]
+    lines = [canonicalize_action_refs(line.rstrip()) for line in normalized.split("\n")]
     while lines and lines[-1] == "":
         lines.pop()
     if not lines:

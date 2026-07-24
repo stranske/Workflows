@@ -8,13 +8,98 @@ from scripts.check_template_drift import (
     AllowlistEntry,
     TemplateDriftAllowlist,
     WorkflowPair,
+    canonicalize_action_refs,
     check_pairs,
     discover_workflow_pairs,
     drift_between,
     main,
+    normalize_text,
     normalized_sha256,
     read_manifest_workflow_names,
 )
+
+
+def test_canonicalize_action_refs_collapses_tag_and_digest_to_placeholder() -> None:
+    floating = "        uses: actions/checkout@v7"
+    pinned = "        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" " # v7.0.1"
+    bumped = "        uses: actions/checkout@deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" " # v7.9.9"
+
+    canonical = "        uses: actions/checkout@<pinned>"
+    assert canonicalize_action_refs(floating) == canonical
+    assert canonicalize_action_refs(pinned) == canonical
+    assert canonicalize_action_refs(bumped) == canonical
+
+
+def test_canonicalize_action_refs_handles_quotes_and_reusable_workflows() -> None:
+    # Real repo pattern: quoted value with the version comment OUTSIDE the quotes
+    # (e.g. agents-guard.yml's pinned setup-api-client composite action).
+    quoted = (
+        '        uses: "stranske/Workflows/.github/actions/setup-api-client'
+        '@ebef44a616c1da319b1dc96658978fd8f621a00c" # v1'
+    )
+    assert (
+        canonicalize_action_refs(quoted)
+        == '        uses: "stranske/Workflows/.github/actions/setup-api-client@<pinned>"'
+    )
+
+    reusable = "        uses: stranske/Workflows/.github/actions/foo@main"
+    assert (
+        canonicalize_action_refs(reusable)
+        == "        uses: stranske/Workflows/.github/actions/foo@<pinned>"
+    )
+
+
+def test_canonicalize_action_refs_leaves_local_and_non_uses_lines_untouched() -> None:
+    local = "        uses: ./.github/actions/setup-api-client"
+    assert canonicalize_action_refs(local) == local
+
+    not_a_uses = "          run: echo actions/checkout@v7"
+    assert canonicalize_action_refs(not_a_uses) == not_a_uses
+
+
+def test_canonicalize_action_refs_detects_action_swap() -> None:
+    original = canonicalize_action_refs("        uses: actions/checkout@v7")
+    swapped = canonicalize_action_refs("        uses: malicious/checkout@v7")
+    assert original != swapped
+
+
+def test_normalize_text_ignores_action_pin_bumps() -> None:
+    before = (
+        "jobs:\n"
+        "  build:\n"
+        "    steps:\n"
+        "      - uses: actions/checkout@1111111111111111111111111111111111111111 # v7.0.0\n"
+        "      - uses: actions/setup-python@v6\n"
+    )
+    after = (
+        "jobs:\n"
+        "  build:\n"
+        "    steps:\n"
+        "      - uses: actions/checkout@2222222222222222222222222222222222222222 # v7.0.1\n"
+        "      - uses: actions/setup-python@v6\n"
+    )
+    assert normalize_text(before) == normalize_text(after)
+    assert normalized_sha256(before) == normalized_sha256(after)
+
+
+def test_drift_between_ignores_action_pin_style_between_root_and_template() -> None:
+    root = "jobs:\n  build:\n    steps:\n      - uses: actions/checkout@v7\n      - run: make\n"
+    template = (
+        "jobs:\n  build:\n    steps:\n"
+        "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n"
+        "      - run: make\n"
+    )
+    assert drift_between(root, template) is False
+
+
+def test_drift_between_still_detects_functional_change_with_same_pins() -> None:
+    root = (
+        "jobs:\n  build:\n    steps:\n      - uses: actions/checkout@v7\n      - run: make test\n"
+    )
+    template = (
+        "jobs:\n  build:\n    steps:\n      - uses: actions/checkout@v7\n      - run: make build\n"
+    )
+    assert drift_between(root, template) is True
 
 
 def test_drift_between_false_for_identical_normalized_content() -> None:
