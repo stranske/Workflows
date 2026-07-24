@@ -56,7 +56,9 @@ def test_different_action_path_is_still_drift() -> None:
 
 def test_reusable_workflow_ref_bump_is_not_drift_but_path_change_is() -> None:
     same_path_bump_a = "    uses: stranske/Workflows/.github/workflows/reusable-x.yml@main\n"
-    same_path_bump_b = "    uses: stranske/Workflows/.github/workflows/reusable-x.yml@abc123 # pin\n"
+    same_path_bump_b = (
+        "    uses: stranske/Workflows/.github/workflows/reusable-x.yml@abc123 # pin\n"
+    )
     different_path = "    uses: stranske/Workflows/.github/workflows/reusable-y.yml@abc123 # pin\n"
     assert drift_between(same_path_bump_a, same_path_bump_b) is False
     assert drift_between(same_path_bump_a, different_path) is True
