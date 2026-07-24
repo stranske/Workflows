@@ -167,16 +167,37 @@ def _build_openai_client(
     return chat_openai(**kwargs)
 
 
+def _anthropic_rejects_temperature(model: str) -> bool:
+    """Return True for Anthropic models that reject an explicit ``temperature``.
+
+    The newer "thinking" generation returns HTTP 400 ``invalid_request_error`` when a
+    custom ``temperature`` is set. Confirmed via the maint-78 verifier pilot
+    (2026-07-24): ``claude-opus-4-8`` and ``claude-sonnet-5`` (while ``claude-opus-4-6``
+    still accepts ``temperature=0.1``). Matches Opus 4.8 explicitly plus the Claude 5
+    family (``claude-<name>-5...``); minor-version ``-5`` suffixes like
+    ``claude-haiku-4-5`` are NOT matched. Interim, evidence-based guard; the durable
+    capability-aware handling (e.g. retry-on-400) is tracked in stranske/Workflows#2819.
+    """
+    name = model.lower().strip()
+    if name == "claude-opus-4-8":
+        return True
+    return any(
+        name.startswith(f"claude-{family}-5") for family in ("opus", "sonnet", "haiku", "fable")
+    )
+
+
 def _build_anthropic_client(
     chat_anthropic: type, *, model: str, token: str, timeout: int, max_retries: int
 ) -> object:
-    return chat_anthropic(
-        model=model,
-        anthropic_api_key=token,
-        temperature=0.1,
-        timeout=timeout,
-        max_retries=max_retries,
-    )
+    kwargs: dict = {
+        "model": model,
+        "anthropic_api_key": token,
+        "timeout": timeout,
+        "max_retries": max_retries,
+    }
+    if not _anthropic_rejects_temperature(model):
+        kwargs["temperature"] = 0.1
+    return chat_anthropic(**kwargs)
 
 
 def _build_github_client(
