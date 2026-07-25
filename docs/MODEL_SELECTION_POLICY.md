@@ -64,6 +64,25 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
 An approved evidence record uses `kind: workload-benchmark` and
 `status: passed`. The freshness gate rejects an approved decision without it.
 
+### Advisory vs. blocking findings
+
+`tools/check_model_registry_freshness.py` separates its findings into two
+classes, and by default only one of them fails the gate:
+
+- **Blocking (structural):** a malformed registry, a selection or slot that
+  points at an absent or blocked model, or an *approved* selection with no
+  passing workload-benchmark evidence. These mean work could be wrong, so they
+  fail the gate (exit 1).
+- **Advisory (cadence):** a review whose `review_by` date has simply passed
+  (`review_overdue`, `provisional_overdue`, `selection_review_overdue`). A due
+  review is not a danger signal — the provisional incumbents remain a valid
+  runtime baseline — so it never fails the default gate and never blocks
+  unrelated work. It is surfaced instead by the `maint-77` scheduled run, which
+  opens a non-blocking tracking issue.
+
+Pass `--strict` to fail on *any* finding (used where a PR itself edits model
+configuration and should be proven fresh before merging).
+
 ## Incumbents and Candidates
 
 The existing OpenAI, Anthropic, and GitHub Models verifier choices are recorded

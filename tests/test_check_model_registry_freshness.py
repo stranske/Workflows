@@ -319,7 +319,16 @@ def test_main_exit_codes(tmp_path: Path):
         "2026-07-10",
     ]
     assert gate.main(common) == 0
+    # An overdue review is advisory: it must NOT fail the default gate (so it
+    # cannot block unrelated fleet-wide work)...
     registry_path.write_text(json.dumps(_registry(review_by="2026-07-01")), encoding="utf-8")
+    assert gate.main(common) == 0
+    # ...but --strict still fails on it, for callers gating a model-config change.
+    assert gate.main([*common, "--strict"]) == 1
+    # A structural finding (selection references an absent model) always blocks.
+    structural = _registry()
+    structural["selections"][0]["model_id"] = "missing"
+    registry_path.write_text(json.dumps(structural), encoding="utf-8")
     assert gate.main(common) == 1
     assert gate.main([*common[:-1], "not-a-date"]) == 2
 

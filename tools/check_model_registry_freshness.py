@@ -30,6 +30,30 @@ DEFAULT_POLICY_PATH = _REPO_ROOT / "config" / "model_selection_policy.json"
 DEFAULT_MAX_AGE_DAYS = 30
 VALID_SELECTION_STATUSES = {"provisional", "approved"}
 
+# Time-cadence findings mean "a review is due", NOT "this work is dangerous".
+# They are advisory: reported and surfaced as a tracking issue, but they never
+# fail the gate (and so never block unrelated fleet-wide work). Only structural
+# findings — a malformed registry, an absent/blocked model, an APPROVED
+# selection with no passing evidence — indicate work could be wrong, and those
+# still block. Use --strict to fail on any finding (e.g. gating a PR that itself
+# edits model config).
+ADVISORY_FINDING_KINDS = frozenset(
+    {
+        "review_overdue",
+        "provisional_overdue",
+        "selection_review_overdue",
+    }
+)
+
+
+def partition_findings(
+    findings: list[dict[str, str]],
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Split findings into (blocking, advisory)."""
+    advisory = [f for f in findings if f.get("kind") in ADVISORY_FINDING_KINDS]
+    blocking = [f for f in findings if f.get("kind") not in ADVISORY_FINDING_KINDS]
+    return blocking, advisory
+
 
 def _normalize_provider(provider: str) -> str:
     normalized = (provider or "").strip().lower()
@@ -403,6 +427,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-age-days", type=int, default=DEFAULT_MAX_AGE_DAYS)
     parser.add_argument("--today", type=str, default=None)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail (exit 1) on ANY finding, including advisory cadence findings.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -421,15 +450,34 @@ def main(argv: list[str] | None = None) -> int:
         max_age_days=args.max_age_days,
         policy=policy,
     )
+    blocking, advisory = partition_findings(findings)
     if args.json:
-        print(json.dumps({"fresh": not findings, "findings": findings}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "fresh": not findings,
+                    "ok": not blocking,
+                    "blocking": blocking,
+                    "advisory": advisory,
+                    "findings": findings,
+                },
+                indent=2,
+            )
+        )
     elif findings:
-        print(f"Model registry freshness: {len(findings)} finding(s):")
-        for finding in findings:
-            print(f"  [{finding['kind']}] {finding['detail']}")
+        print(f"Model registry freshness: {len(blocking)} blocking, {len(advisory)} advisory:")
+        for finding in blocking:
+            print(f"  [BLOCK] [{finding['kind']}] {finding['detail']}")
+        for finding in advisory:
+            print(f"  [advisory] [{finding['kind']}] {finding['detail']}")
     else:
         print("Model registry is fresh: decisions, evidence, and slots are consistent.")
-    return 1 if findings else 0
+
+    if args.strict:
+        return 1 if findings else 0
+    # Default: only structural/dangerous findings fail the gate. A merely-overdue
+    # review is advisory and must never block unrelated work.
+    return 1 if blocking else 0
 
 
 if __name__ == "__main__":  # pragma: no cover

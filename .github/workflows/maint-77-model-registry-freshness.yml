@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rc: ${{ steps.gate.outputs.rc }}
+      has_advisory: ${{ steps.gate.outputs.has_advisory }}
       discovery_drift: ${{ steps.discovery.outputs.drift || 'false' }}
     permissions:
       contents: read
@@ -47,6 +48,8 @@ jobs:
           python-version: '3.14'
 
       # On PRs, fail the job on staleness so registry/slot changes are gated.
+      # The default gate fails only on structural findings (danger); a merely
+      # overdue review is advisory and never fails, so it cannot block work.
       # On schedule/dispatch, never fail the run — open a tracking issue instead.
       - name: Run freshness gate
         id: gate
@@ -55,6 +58,8 @@ jobs:
           python3 tools/check_model_registry_freshness.py --json > freshness.json
           rc=$?
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          has_advisory=$(python3 -c "import json;print('true' if json.load(open('freshness.json')).get('advisory') else 'false')")
+          echo "has_advisory=$has_advisory" >> "$GITHUB_OUTPUT"
           cat freshness.json
           {
             echo '### Model registry freshness'
@@ -67,10 +72,12 @@ jobs:
             exit 2
           fi
 
-      - name: Fail PRs on staleness
+      # Only structural/dangerous findings fail a model-config PR. An overdue
+      # review is advisory and is surfaced by the scheduled tracking issue.
+      - name: Fail PRs on structural findings
         if: github.event_name == 'pull_request' && steps.gate.outputs.rc == '1'
         run: |
-          echo "::error::Model registry/slots are stale — see job summary."
+          echo "::error::Model registry/slots have a structural problem — see job summary."
           exit 1
 
       - name: Discover provider catalog drift
@@ -111,7 +118,9 @@ jobs:
   tracking-issue:
     if: >-
       github.event_name != 'pull_request' &&
-      (needs.freshness.outputs.rc == '1' || needs.freshness.outputs.discovery_drift == 'true')
+      (needs.freshness.outputs.rc == '1' ||
+       needs.freshness.outputs.has_advisory == 'true' ||
+       needs.freshness.outputs.discovery_drift == 'true')
     needs: freshness
     runs-on: ubuntu-latest
     permissions:
