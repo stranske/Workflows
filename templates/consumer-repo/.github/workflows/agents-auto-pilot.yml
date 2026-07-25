@@ -3291,7 +3291,10 @@ jobs:
               // still stalled, so we escalate. Any error falls through to needs-human.
               let handedOff = false;
               try {
-                const { eligibleAgents } = require('./.github/scripts/agent_stall_rotation.js');
+                const {
+                  eligibleAgents,
+                  currentAgentFromLabels,
+                } = require('./.github/scripts/agent_stall_rotation.js');
                 const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
                 const { data: rotIssue } = await withRetry((client) => client.rest.issues.get({
                   owner: context.repo.owner,
@@ -3302,19 +3305,48 @@ jobs:
                   .map((l) => (typeof l === 'string' ? l : l && l.name))
                   .filter(Boolean);
                 const hasAuto = rotLabels.some((l) => String(l).trim().toLowerCase() === 'agent:auto');
-                const availableSecrets = {
-                  CODEX_AUTH_JSON: process.env.HAS_CODEX_AUTH_JSON === 'true',
-                  CLAUDE_CODE_OAUTH_TOKEN: process.env.HAS_CLAUDE_CODE_OAUTH_TOKEN === 'true',
-                  CLAUDE_AUTH_JSON: process.env.HAS_CLAUDE_AUTH_JSON === 'true',
-                  CURSOR_API_KEY: process.env.HAS_CURSOR_API_KEY === 'true',
-                  GEMINI_API_KEY: process.env.HAS_GEMINI_API_KEY === 'true',
-                };
+                const rotationRegistry = loadAgentRegistry();
+                // Derive the credential surface from the registry. The Actions API
+                // exposes secret names (not values), so newly registered keepalive
+                // agents are considered without another provider-specific edit here.
+                const requiredSecretNames = [...new Set(
+                  Object.values(rotationRegistry.agents || {})
+                    .filter((config) => config?.capabilities?.pr_keepalive === true)
+                    .flatMap((config) => config.required_secrets || [])
+                )];
+                const availableSecrets = Object.fromEntries(
+                  requiredSecretNames.map((name) => [name, process.env[`HAS_${name}`] === 'true'])
+                );
+                try {
+                  const { data: secretData } = await withRetry((client) =>
+                    client.rest.actions.listRepoSecrets({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      per_page: 100,
+                    })
+                  );
+                  for (const secret of secretData.secrets || []) {
+                    if (Object.hasOwn(availableSecrets, secret.name)) {
+                      availableSecrets[secret.name] = true;
+                    }
+                  }
+                } catch (secretLookupError) {
+                  core.warning(
+                    `Could not list repository secret names; using exported availability flags: ` +
+                    `${secretLookupError?.message || secretLookupError}`
+                  );
+                }
                 const keepaliveAgents = eligibleAgents({
-                  registry: loadAgentRegistry(),
+                  registry: rotationRegistry,
                   capability: 'pr_keepalive',
                   secrets: availableSecrets,
                 });
-                if (!hasAuto && keepaliveAgents.length > 1) {
+                const currentAgent = currentAgentFromLabels(
+                  rotLabels,
+                  Object.keys(rotationRegistry.agents || {})
+                ) || rotationRegistry.default_agent || '';
+                const hasAlternative = keepaliveAgents.some((agent) => agent !== currentAgent);
+                if (!hasAuto && hasAlternative) {
                   // Add agent:auto to the issue AND the PR so the keepalive delegation
                   // policy picks an alternative agent on its next round.
                   await withRetry((client) => client.rest.issues.addLabels({
@@ -3339,16 +3371,37 @@ jobs:
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                   }));
-                  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    workflow_id: 'agents-81-gate-followups.yml',
-                    ref: repoInfo.default_branch || 'main',
-                    inputs: {
-                      pr_number: String(prNumber),
-                      force_retry: 'true',
-                    },
-                  }));
+                  let dispatchedWorkflow = '';
+                  const dispatchFailures = [];
+                  for (const workflowId of [
+                    'agents-81-gate-followups.yml',
+                    'agents-keepalive-loop.yml',
+                  ]) {
+                    try {
+                      await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        workflow_id: workflowId,
+                        ref: repoInfo.default_branch || 'main',
+                        inputs: {
+                          pr_number: String(prNumber),
+                          force_retry: 'true',
+                        },
+                      }));
+                      dispatchedWorkflow = workflowId;
+                      break;
+                    } catch (dispatchError) {
+                      dispatchFailures.push(
+                        `${workflowId}: ${dispatchError?.message || dispatchError}`
+                      );
+                      if (dispatchError?.status !== 404) break;
+                    }
+                  }
+                  if (!dispatchedWorkflow) {
+                    throw new Error(
+                      `No keepalive handoff workflow could be dispatched: ${dispatchFailures.join('; ')}`
+                    );
+                  }
                   // Leading "🤖 **Auto-pilot step**" marker resets countConsecutiveWaits()
                   // (see belt-rotation note above) so a later monitor round starts fresh.
                   await withRetry((client) => client.rest.issues.createComment({
@@ -3361,7 +3414,9 @@ jobs:
                       `(eligible: ${keepaliveAgents.join(', ')}).\n\n` +
                       `\`needs-human\` is withheld until delegation has also been exhausted.`,
                   }));
-                  core.info(`Monitor-pr stall handed off to delegation policy (agent:auto added)`);
+                  core.info(
+                    `Monitor-pr stall handed off via ${dispatchedWorkflow} (agent:auto added)`
+                  );
                   handedOff = true;
                 }
               } catch (rotationErr) {
