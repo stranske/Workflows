@@ -277,10 +277,10 @@ jobs:
 
           branch_name="deps/sync-dev-versions-${{ needs.prepare.outputs.versions_hash }}"
 
-          # Preserve the PR for this wave when it already exists, but always
-          # rebuild its branch from current main. A previous generated branch
-          # can become conflicted after an unrelated consumer fix; merely
-          # detecting it here would otherwise leave the sync permanently stale.
+          # Preserve the PR for this wave when it already exists, but rebuild
+          # its branch from current main if either the base or generated tree
+          # has changed. This avoids needlessly restarting checks on an
+          # unchanged open PR while still repairing a stale/conflicted branch.
           existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
 
           # Configure git
@@ -292,7 +292,8 @@ jobs:
           credential_helper+=' }; f'
           git config credential.helper "$credential_helper"
 
-          # Create branch and commit
+          # Create the desired generated tree from the current default branch.
+          base_sha=$(git rev-parse HEAD)
           git checkout -B "$branch_name"
           # Add supported lockfiles if they exist and were modified.
           git add pyproject.toml .github/workflows/autofix-versions.env
@@ -300,6 +301,18 @@ jobs:
           if [ -f requirements-dev.lock ]; then git add requirements-dev.lock; fi
           if [ -f requirements-dev.txt ]; then git add requirements-dev.txt; fi
           if [ -f uv.lock ]; then git add uv.lock; fi
+
+          if [ -n "$existing_pr" ]; then
+            git fetch origin "$branch_name"
+            existing_head=$(git rev-parse FETCH_HEAD)
+            existing_base=$(git rev-parse "${existing_head}^")
+            existing_tree=$(git rev-parse "${existing_head}^{tree}")
+            desired_tree=$(git write-tree)
+            if [ "$existing_base" = "$base_sha" ] && [ "$existing_tree" = "$desired_tree" ]; then
+              echo "Existing PR #$existing_pr already matches current main and generated files"
+              exit 0
+            fi
+          fi
 
           # Commit with multi-line message
           commit_msg="deps: sync dev tool versions from Workflows
