@@ -277,12 +277,11 @@ jobs:
 
           branch_name="deps/sync-dev-versions-${{ needs.prepare.outputs.versions_hash }}"
 
-          # Check if PR already exists
+          # Preserve the PR for this wave when it already exists, but always
+          # rebuild its branch from current main. A previous generated branch
+          # can become conflicted after an unrelated consumer fix; merely
+          # detecting it here would otherwise leave the sync permanently stale.
           existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
-          if [ -n "$existing_pr" ]; then
-            echo "PR #$existing_pr already exists"
-            exit 0
-          fi
 
           # Configure git
           git config user.name "github-actions[bot]"
@@ -294,7 +293,7 @@ jobs:
           git config credential.helper "$credential_helper"
 
           # Create branch and commit
-          git checkout -b "$branch_name"
+          git checkout -B "$branch_name"
           # Add supported lockfiles if they exist and were modified.
           git add pyproject.toml .github/workflows/autofix-versions.env
           if [ -f requirements.lock ]; then git add requirements.lock; fi
@@ -312,6 +311,11 @@ jobs:
           git commit -m "$commit_msg"
 
           git push --force -u origin "$branch_name"
+
+          if [ -n "$existing_pr" ]; then
+            echo "Updated existing PR #$existing_pr for this wave"
+            exit 0
+          fi
 
           changed_files="$(git show --name-only --format= HEAD)"
           if printf '%s\n' "$changed_files" | grep -qx 'pyproject.toml'; then
