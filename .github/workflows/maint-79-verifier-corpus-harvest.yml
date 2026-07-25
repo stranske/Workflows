@@ -1,0 +1,106 @@
+name: Maint 79 Verifier Corpus Harvest
+
+# Grows the frozen verifier evaluation corpus from realized PR outcomes
+# (stranske/Workflows#2819, move 2). High-confidence cases (stable merges,
+# reverts, resolved verifier follow-ups) auto-promote via an auto-merging PR;
+# ambiguous cases land in an FYI-only, auto-expiring staging file. No human
+# action is required — the PR is the audit trail, not a gate.
+#
+# On pull_request touching the harvester/config it only runs the unit tests
+# (the corpus is grown from live data, so there is no deterministic drift gate).
+
+on:
+  schedule:
+    # Weekly, Monday 05:40 UTC (after maint-68 sync + maint-77 freshness).
+    - cron: "40 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      write:
+        description: "Persist and open a PR (false = dry-run summary only)."
+        type: boolean
+        default: true
+  pull_request:
+    paths:
+      - tools/harvest_verifier_corpus.py
+      - tests/tools/test_harvest_verifier_corpus.py
+      - config/model_selection_policy.json
+      - config/model_eval_corpus_staging.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Unit tests
+        run: python -m pytest tests/tools/test_harvest_verifier_corpus.py -q
+
+  harvest:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Harvest realized-outcome cases
+        env:
+          # Cross-repo read; github.token is scoped to Workflows only.
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+        run: |
+          mode=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.write }}" != "true" ]; then
+            mode="dry-run"
+            python -m tools.harvest_verifier_corpus | tee harvest.log
+          else
+            python -m tools.harvest_verifier_corpus --write | tee harvest.log
+          fi
+          {
+            echo '## Verifier corpus harvest'
+            echo '```'
+            cat harvest.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Open auto-merging corpus-growth PR
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.write)
+        id: cpr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.OWNER_PR_PAT }}
+          branch: verifier-corpus-harvest/auto
+          base: main
+          title: "corpus: harvest realized-outcome verifier cases"
+          commit-message: "corpus: grow verifier eval corpus from realized PR outcomes"
+          labels: "automation,model-selection"
+          delete-branch: true
+          body: |
+            Automated corpus growth (stranske/Workflows#2819 move 2).
+
+            High-confidence cases derived from realized PR outcomes — see the run
+            summary for the promoted case list. Ambiguous cases were routed to the
+            auto-expiring staging file, not here.
+
+            Expected verdicts here come from what the world already adjudicated by
+            merging or reverting each PR. The semantic NON_PASS categories
+            (stale-verifier-claim, review-thread-debt, missing-acceptance-criterion)
+            remain owner-sourced and are never machine-added.
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+        run: gh pr merge "${{ steps.cpr.outputs.pull-request-number }}" --squash --auto

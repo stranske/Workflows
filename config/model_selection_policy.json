@@ -54,6 +54,34 @@
         "pricing_change": true,
         "material_prompt_or_workload_change": true,
         "quality_gate_breach": true
+      },
+      "corpus_growth": {
+        "enabled": true,
+        "stability_days": 30,
+        "staging_expiry_days": 60,
+        "harvest_window_days": 60,
+        "max_corpus_size": 150,
+        "auto_promote_confidence": "high",
+        "category_caps": {
+          "clean-pass": 40,
+          "regression-after-merge": 20,
+          "follow-up-required": 20
+        },
+        "note": "Move 2 of #2819. High-confidence realized-outcome cases (stable merges, reverts, resolved verifier follow-ups) auto-grow the frozen corpus; ambiguous cases stage FYI-only and auto-expire. The stale-verifier-claim / review-thread-debt / missing-acceptance-criterion categories are NOT machine-labelable and remain owner-sourced.",
+        "source_repos": [
+          "stranske/Workflows",
+          "stranske/Travel-Plan-Permission",
+          "stranske/Trend_Model_Project",
+          "stranske/Portable-Alpha-Extension-Model",
+          "stranske/Counter_Risk",
+          "stranske/Manager-Database",
+          "stranske/Inv-Man-Intake",
+          "stranske/Pension-Data",
+          "stranske/Ready",
+          "stranske/trip-planner",
+          "stranske/learning-management-system",
+          "stranske/Fine-Art-Archive"
+        ]
       }
     }
   }

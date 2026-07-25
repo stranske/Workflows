@@ -1,0 +1,5 @@
+{
+  "schema": "verifier-corpus-staging/v1",
+  "note": "FYI-only. Auto-expiring candidate cases pending stability or adjudication; nothing here gates anything.",
+  "cases": []
+}
