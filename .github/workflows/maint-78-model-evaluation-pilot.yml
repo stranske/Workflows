@@ -2,6 +2,16 @@ name: Maint 78 Model Evaluation Pilot
 
 on:
   workflow_dispatch: {}
+  # Auto-run when the catalog changes so a newly-current model is piloted without
+  # anyone editing the candidate list (stranske/Workflows#2819, move 1).
+  push:
+    branches: [main]
+    paths:
+      - config/model_registry.json
+      - config/model_eval_candidates.json
+  # Weekly safety net in case a catalog change landed via a path the push filter missed.
+  schedule:
+    - cron: "17 6 * * 1"
 
 permissions:
   contents: read
@@ -17,6 +27,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Refresh candidates from the registry
+        # Derive the candidate set from the current catalog so the pilot always
+        # tests every now-current model, even if the committed file lagged.
+        run: python -m tools.refresh_model_eval_candidates --write
       - name: Run paired 30-case pilot
         env:
           # Cross-repo read token; github.token is scoped to Workflows only.
