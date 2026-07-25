@@ -19,12 +19,6 @@ on:
         description: "Persist and open a PR (false = dry-run summary only)."
         type: boolean
         default: true
-  pull_request:
-    paths:
-      - tools/harvest_verifier_corpus.py
-      - tests/tools/test_harvest_verifier_corpus.py
-      - config/model_selection_policy.json
-      - config/model_eval_corpus_staging.json
 
 permissions:
   contents: read
@@ -33,22 +27,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# The harvester's unit tests run in the standard python-ci suite
+# (tests/tools/test_harvest_verifier_corpus.py); this workflow only runs the
+# scheduled/dispatch harvest.
 jobs:
-  test:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
-      - name: Unit tests
-        run: python -m pytest tests/tools/test_harvest_verifier_corpus.py -q
-
   harvest:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -63,9 +46,7 @@ jobs:
           # Cross-repo read; github.token is scoped to Workflows only.
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
         run: |
-          mode=""
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.write }}" != "true" ]; then
-            mode="dry-run"
             python -m tools.harvest_verifier_corpus | tee harvest.log
           else
             python -m tools.harvest_verifier_corpus --write | tee harvest.log
