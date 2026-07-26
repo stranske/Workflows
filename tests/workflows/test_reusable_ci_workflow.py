@@ -127,6 +127,14 @@ def test_workflow_inputs_include_python_version_defaults() -> None:
     assert "pytest_args" not in dispatch_inputs
 
 
+def test_ruff_lint_keeps_the_legacy_default_rule_family() -> None:
+    workflow = _load_workflow()
+    steps = workflow["jobs"]["lint-ruff"]["steps"]
+    ruff_step = next(step for step in steps if step.get("name") == "Ruff (lint)")
+
+    assert "ruff check --select E4,E7,E9,F" in ruff_step["run"]
+
+
 def test_default_input_contract_fixture_matches_artifacts() -> None:
     fixture = _contract_fixture("default_inputs.json")
     inputs = _merged_inputs(fixture)

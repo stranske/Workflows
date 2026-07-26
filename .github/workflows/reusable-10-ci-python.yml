@@ -1088,9 +1088,10 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          # Use extend-exclude to add to ruff's defaults (which include .venv)
-          # Exclude .workflows-lib since it's synced from source repo with different ruff config
-          ruff check --output-format github --extend-exclude .workflows-lib .
+          # Keep the pre-0.16 default rule family stable for consumers that do
+          # not declare their own Ruff selection. Exclude .workflows-lib since
+          # it is synced from the source repo with different Ruff configuration.
+          ruff check --select E4,E7,E9,F --output-format github --extend-exclude .workflows-lib .
 
       - name: Finalize lint
         id: finalize
