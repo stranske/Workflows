@@ -288,6 +288,8 @@ def configured_model_for_provider(
     tier: str | None = None,
     registry: list[ModelRegistryEntry] | None = None,
 ) -> str:
+    # Preserve the compatibility keyword while selection remains profile-based.
+    del tier
     normalized_provider = normalize_provider(provider)
     entries = registry if registry is not None else load_model_registry()
     # An explicit slot config is an execution allowlist, including when its
