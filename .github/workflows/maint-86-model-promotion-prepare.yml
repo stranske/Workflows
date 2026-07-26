@@ -1,0 +1,88 @@
+name: Maint 86 Model Promotion Prepare
+
+# Turns a passing benchmark into a *prepared* verifier-model promotion
+# (stranske/Workflows#2819, move 3). It evaluates a benchmark artifact, and if a
+# same-family, non-inferior, cost<= candidate qualifies (or an active model
+# breached its gates), it opens a PR that changes the registry selection. A human
+# merges the PR — that IS the approval, so `human_approval_required` stays true.
+#
+# Dispatch-only for now: it must be pointed at a real benchmark evidence file, and
+# a trustworthy one does not exist until the corpus reaches the approval minimum
+# (grown by maint-79) and the pilot runs on it. The schedule trigger + the
+# pilot->benchmark bridge are the final wiring step, deliberately deferred so this
+# cannot fabricate a promotion from thin data.
+
+on:
+  workflow_dispatch:
+    inputs:
+      benchmark_path:
+        description: "Path to an evaluate_model_benchmark.py output JSON in the repo."
+        required: true
+      mode:
+        description: "promote | rollback | auto"
+        type: choice
+        options: [auto, promote, rollback]
+        default: auto
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Prepare promotion/rollback
+        id: prep
+        env:
+          BENCHMARK_PATH: ${{ inputs.benchmark_path }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set +e
+          python -m tools.prepare_model_promotion \
+            --benchmark "$BENCHMARK_PATH" \
+            --mode "$MODE" \
+            --write config/model_registry.json | tee prepare.log
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          {
+            echo '## Model promotion prepare'
+            echo '```'
+            cat prepare.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" = "2" ]; then
+            echo "::error::prepare_model_promotion input error."
+            exit 2
+          fi
+          exit 0
+      - name: Open promotion PR (human merges to approve)
+        if: steps.prep.outputs.rc == '10'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.OWNER_PR_PAT }}
+          branch: model-promotion/prepared
+          base: main
+          title: "model: prepared verifier selection change (review + merge to approve)"
+          commit-message: "model: apply prepared verifier selection change (#2819 move 3)"
+          labels: "model-selection,needs-human-approval"
+          delete-branch: true
+          body: |
+            Automated **preparation** of a verifier model selection change
+            (stranske/Workflows#2819 move 3). See the run summary for the exact
+            promotion/rollback and its evidence.
+
+            This PR is intentionally **not** auto-merged: merging it is the human
+            approval the policy requires (`human_approval_required=true`). Review the
+            attached benchmark evidence before merging. To reject, close the PR — the
+            live selection is unchanged until merge.
