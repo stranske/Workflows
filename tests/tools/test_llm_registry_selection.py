@@ -81,6 +81,27 @@ def test_profile_selection_normalizes_whitespace(
     )
 
 
+def test_configured_model_ignores_legacy_tier_when_profile_is_explicit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    _write_registry(registry_path)
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+
+    assert (
+        registry.configured_model_for_provider(
+            "openai", profile="verifier-balanced", tier="legacy-low"
+        )
+        == "model-balanced"
+    )
+    assert (
+        registry.configured_model_for_provider(
+            "openai", profile="verifier-balanced", tier="legacy-high"
+        )
+        == "model-balanced"
+    )
+
+
 def test_loaded_registry_entries_leave_compatibility_quality_unset(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
