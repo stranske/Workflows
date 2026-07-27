@@ -39,7 +39,7 @@ def test_autofix_pipeline_resolves_lint_and_typing(
     src_dir.mkdir()
     tests_dir.mkdir()
     (tmp_path / "pyproject.toml").write_text(
-        "[tool.ruff.lint]\nselect = [\"E4\", \"E7\", \"E9\", \"F\"]\n",
+        '[tool.ruff.lint]\nselect = ["E4", "E7", "E9", "F"]\n',
         encoding="utf-8",
     )
 
