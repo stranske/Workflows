@@ -143,10 +143,7 @@ def test_ruff_lint_preserves_consumer_rule_selection() -> None:
         "ruff check --select E4,E7,E9,F --output-format github "
         "--extend-exclude .workflows-lib ." in commands
     )
-    assert (
-        "ruff check --output-format github --extend-exclude .workflows-lib ."
-        in commands
-    )
+    assert "ruff check --output-format github --extend-exclude .workflows-lib ." in commands
 
 
 def test_default_input_contract_fixture_matches_artifacts() -> None:
