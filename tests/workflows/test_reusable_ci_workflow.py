@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -137,11 +139,43 @@ def test_ruff_lint_preserves_consumer_rule_selection() -> None:
     assert 'SELECT_KEYS = ("select", "extend-select")' in script
     assert "import tomli as tomllib" in script
     assert "text_has_selection(" in script
+    assert "Path.cwd().parents" in script
     assert (
         "ruff check --select E4,E7,E9,F --output-format github "
         "--extend-exclude .workflows-lib ." in script
     )
     assert "ruff check --output-format github --extend-exclude .workflows-lib ." in script
+
+
+def test_ruff_selection_probe_uses_nearest_config_and_parent_discovery(
+    tmp_path: Path,
+) -> None:
+    workflow = _load_workflow()
+    steps = workflow["jobs"]["lint-ruff"]["steps"]
+    script = next(step for step in steps if step.get("name") == "Ruff (lint)")["run"]
+    probe = script.split("if python - <<'PY'\n", 1)[1].split("\nPY\n", 1)[0]
+
+    explicit = tmp_path / "explicit"
+    explicit.mkdir()
+    (explicit / "ruff.toml").write_text(
+        "[lint]\nextend-select = [\"I\"]\n", encoding="utf-8"
+    )
+    assert subprocess.run([sys.executable, "-c", probe], cwd=explicit).returncode == 0
+
+    no_selection = tmp_path / "no-selection"
+    no_selection.mkdir()
+    (no_selection / "pyproject.toml").write_text(
+        "[tool.ruff]\nline-length = 88\n", encoding="utf-8"
+    )
+    assert subprocess.run([sys.executable, "-c", probe], cwd=no_selection).returncode == 1
+
+    inherited = tmp_path / "inherited"
+    nested = inherited / "src" / "package"
+    nested.mkdir(parents=True)
+    (inherited / "pyproject.toml").write_text(
+        "[tool.ruff.lint]\nselect = [\"E4\"]\n", encoding="utf-8"
+    )
+    assert subprocess.run([sys.executable, "-c", probe], cwd=nested).returncode == 0
 
 
 def test_default_input_contract_fixture_matches_artifacts() -> None:

@@ -1123,22 +1123,30 @@ jobs:
                           return True
               return False
 
-          for name in ("pyproject.toml", "ruff.toml", ".ruff.toml"):
-              path = Path(name)
-              if not path.is_file():
-                  continue
-              if tomllib is None:
-                  if text_has_selection(
-                      path.read_text(encoding="utf-8"),
-                      pyproject=(name == "pyproject.toml"),
-                  ):
-                      sys.exit(0)
-                  continue
-              with path.open("rb") as handle:
-                  data = tomllib.load(handle)
-              config = data.get("tool", {}).get("ruff", {}) if name == "pyproject.toml" else data
-              if has_explicit_selection(config):
-                  sys.exit(0)
+          def pyproject_has_ruff_config(text):
+              return bool(re.search(r"(?m)^\[tool\.ruff(?:\.|\])", text))
+
+          # Ruff discovers the nearest configuration from the directory of the
+          # files being linted. Stop at the first usable config so a parent
+          # selection is not incorrectly inherited through a child config.
+          for directory in (Path.cwd(), *Path.cwd().parents):
+              for name in (".ruff.toml", "ruff.toml", "pyproject.toml"):
+                  path = directory / name
+                  if not path.is_file():
+                      continue
+                  text = path.read_text(encoding="utf-8")
+                  if name == "pyproject.toml" and not pyproject_has_ruff_config(text):
+                      continue
+                  if tomllib is None:
+                      sys.exit(
+                          0
+                          if text_has_selection(text, pyproject=(name == "pyproject.toml"))
+                          else 1
+                      )
+                  with path.open("rb") as handle:
+                      data = tomllib.load(handle)
+                  config = data.get("tool", {}).get("ruff", {}) if name == "pyproject.toml" else data
+                  sys.exit(0 if has_explicit_selection(config) else 1)
           sys.exit(1)
           PY
           then
