@@ -1,5 +1,42 @@
 {
   "schema": "verifier-corpus-staging/v1",
   "note": "FYI-only. Auto-expiring candidate cases pending stability or adjudication; nothing here gates anything.",
-  "cases": []
+  "cases": [
+    {
+      "case_id": "workflows-2541",
+      "repo": "stranske/Workflows",
+      "pr": 2541,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-07-27"
+    },
+    {
+      "case_id": "trend_model_project-5667",
+      "repo": "stranske/Trend_Model_Project",
+      "pr": 5667,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-07-27"
+    },
+    {
+      "case_id": "portable-alpha-extension-model-2046",
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2046,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-07-27"
+    },
+    {
+      "case_id": "fine-art-archive-169",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 169,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-07-27"
+    }
+  ]
 }
