@@ -32,6 +32,9 @@ COVERAGE_VERSION=7.12.0
 - Sources `autofix-versions.env` before installing tools
 - Runs `black --check`, `ruff check`, `mypy`, and `pytest`
 - Falls back to latest versions if version file is missing
+- Uses the shared Ruff `E4,E7,E9,F` default family only when a consumer does
+  not declare its own Ruff selection, so a tool upgrade cannot silently
+  broaden consumer lint requirements.
 
 ### 2. PR Autofix (`reusable-18-autofix.yml`)
 - Reads version file to install Black and Ruff

@@ -38,6 +38,10 @@ def test_autofix_pipeline_resolves_lint_and_typing(
     tests_dir = tmp_path / "tests"
     src_dir.mkdir()
     tests_dir.mkdir()
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.ruff.lint]\nselect = ["E4", "E7", "E9", "F"]\n',
+        encoding="utf-8",
+    )
 
     sample = src_dir / "autofix_target.py"
     sample.write_text(
@@ -138,6 +142,9 @@ def test_autofix_pipeline_resolves_lint_and_typing(
     )
     exit_code = mypy_autofix.main(["--paths", str(sample)])
     assert exit_code == 0
+
+    # The type-hygiene pass can add imports after the initial formatter pass.
+    _run([sys.executable, "-m", "black", str(sample)], cwd=tmp_path)
 
     for cmd in (
         [sys.executable, "-m", "isort", str(sample)],

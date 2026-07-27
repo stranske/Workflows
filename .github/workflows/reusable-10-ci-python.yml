@@ -1088,9 +1088,32 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          # Use extend-exclude to add to ruff's defaults (which include .venv)
-          # Exclude .workflows-lib since it's synced from source repo with different ruff config
-          ruff check --output-format github --extend-exclude .workflows-lib .
+          # Keep the pre-0.16 default rule family stable for consumers that do
+          # not declare their own Ruff selection. A consumer's explicit
+          # selection remains authoritative. Exclude .workflows-lib since it
+          # is synced from the source repo with different Ruff configuration.
+          if python - <<'PY'
+          from pathlib import Path
+          import sys
+          import tomllib
+
+          for name in ("pyproject.toml", "ruff.toml", ".ruff.toml"):
+              path = Path(name)
+              if not path.is_file():
+                  continue
+              with path.open("rb") as handle:
+                  data = tomllib.load(handle)
+              config = data.get("tool", {}).get("ruff", {}) if name == "pyproject.toml" else data
+              lint = config.get("lint", {})
+              if "select" in lint or "select" in config:
+                  sys.exit(0)
+          sys.exit(1)
+          PY
+          then
+            ruff check --output-format github --extend-exclude .workflows-lib .
+          else
+            ruff check --select E4,E7,E9,F --output-format github --extend-exclude .workflows-lib .
+          fi
 
       - name: Finalize lint
         id: finalize

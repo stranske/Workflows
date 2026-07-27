@@ -127,6 +127,28 @@ def test_workflow_inputs_include_python_version_defaults() -> None:
     assert "pytest_args" not in dispatch_inputs
 
 
+def test_ruff_lint_preserves_consumer_rule_selection() -> None:
+    workflow = _load_workflow()
+    steps = workflow["jobs"]["lint-ruff"]["steps"]
+    ruff_step = next(step for step in steps if step.get("name") == "Ruff (lint)")
+
+    commands = [
+        line.strip()
+        for line in ruff_step["run"].splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert "if python - <<'PY'" in commands
+    assert 'if "select" in lint or "select" in config:' in commands
+    assert (
+        "ruff check --select E4,E7,E9,F --output-format github "
+        "--extend-exclude .workflows-lib ." in commands
+    )
+    assert (
+        "ruff check --output-format github --extend-exclude .workflows-lib ."
+        in commands
+    )
+
+
 def test_default_input_contract_fixture_matches_artifacts() -> None:
     fixture = _contract_fixture("default_inputs.json")
     inputs = _merged_inputs(fixture)
