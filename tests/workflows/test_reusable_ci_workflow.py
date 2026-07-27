@@ -157,9 +157,7 @@ def test_ruff_selection_probe_uses_nearest_config_and_parent_discovery(
 
     explicit = tmp_path / "explicit"
     explicit.mkdir()
-    (explicit / "ruff.toml").write_text(
-        "[lint]\nextend-select = [\"I\"]\n", encoding="utf-8"
-    )
+    (explicit / "ruff.toml").write_text('[lint]\nextend-select = ["I"]\n', encoding="utf-8")
     assert subprocess.run([sys.executable, "-c", probe], cwd=explicit).returncode == 0
 
     no_selection = tmp_path / "no-selection"
@@ -173,7 +171,7 @@ def test_ruff_selection_probe_uses_nearest_config_and_parent_discovery(
     nested = inherited / "src" / "package"
     nested.mkdir(parents=True)
     (inherited / "pyproject.toml").write_text(
-        "[tool.ruff.lint]\nselect = [\"E4\"]\n", encoding="utf-8"
+        '[tool.ruff.lint]\nselect = ["E4"]\n', encoding="utf-8"
     )
     assert subprocess.run([sys.executable, "-c", probe], cwd=nested).returncode == 0
 
