@@ -2,13 +2,13 @@
 #    uv pip compile --python-version=3.12 --extra=dev --extra=langchain --universal --output-file=requirements.lock pyproject.toml requirements.txt
 aiohappyeyeballs==2.7.1
     # via aiohttp
-aiohttp==3.14.1
+aiohttp==3.14.3
     # via langchain-community
 aiosignal==1.4.0
     # via aiohttp
-annotated-types==0.7.0
+annotated-types==0.8.0
     # via pydantic
-anthropic==0.116.0
+anthropic==0.120.0
     # via langchain-anthropic
 anyio==4.14.2
     # via
@@ -25,7 +25,7 @@ attrs==26.1.0
     #   referencing
 black==26.5.1
     # via workflows (pyproject.toml)
-certifi==2026.6.17
+certifi==2026.7.22
     # via
     #   httpcore
     #   httpx
@@ -64,7 +64,7 @@ faiss-cpu==1.14.3
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
-filelock==3.29.7
+filelock==3.32.0
     # via
     #   python-discovery
     #   virtualenv
@@ -74,7 +74,7 @@ frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-greenlet==3.5.3 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
+greenlet==3.5.4 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
     # via sqlalchemy
 h11==0.16.0
     # via httpcore
@@ -88,7 +88,7 @@ httpx==0.28.1
     #   openai
 httpx-sse==0.4.3
     # via langchain-community
-hypothesis==6.156.6
+hypothesis==6.161.5
     # via workflows (pyproject.toml)
 identify==2.6.19
     # via pre-commit
@@ -162,7 +162,7 @@ langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.4.2
     # via langgraph
-langsmith==0.10.2
+langsmith==0.10.10
     # via
     #   langchain-classic
     #   langchain-community
@@ -190,7 +190,7 @@ numpy==2.5.1
     #   faiss-cpu
     #   langchain-community
     #   pandas
-openai==2.45.0
+openai==2.48.0
     # via langchain-openai
 orjson==3.11.9
     # via
@@ -214,7 +214,7 @@ pathspec==1.1.1
     # via
     #   black
     #   mypy
-platformdirs==4.10.0
+platformdirs==4.11.0
     # via
     #   black
     #   python-discovery
@@ -263,7 +263,7 @@ pytest-xdist==3.8.0
     # via workflows (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via pandas
-python-discovery==1.4.4
+python-discovery==1.5.0
     # via virtualenv
 python-dotenv==1.2.2
     # via pydantic-settings
@@ -281,7 +281,7 @@ referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-regex==2026.7.10
+regex==2026.7.19
     # via tiktoken
 requests==2.34.2
     # via
@@ -323,7 +323,7 @@ tomlkit==0.15.1
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
-tqdm==4.68.4
+tqdm==4.69.1
     # via openai
 typing-extensions==4.16.0
     # via
@@ -353,7 +353,7 @@ uuid-utils==0.17.0
     # via
     #   langchain-core
     #   langsmith
-virtualenv==21.6.1
+virtualenv==21.7.0
     # via pre-commit
 websockets==15.0.1
     # via
@@ -363,7 +363,7 @@ xxhash==3.8.1
     # via
     #   langgraph
     #   langsmith
-yarl==1.24.2
+yarl==1.24.5
     # via aiohttp
 zstandard==0.25.0
     # via langsmith
