@@ -1094,18 +1094,50 @@ jobs:
           # is synced from the source repo with different Ruff configuration.
           if python - <<'PY'
           from pathlib import Path
+          import re
           import sys
-          import tomllib
+
+          try:
+              import tomllib
+          except ModuleNotFoundError:  # Python < 3.11
+              try:
+                  import tomli as tomllib
+              except ModuleNotFoundError:
+                  tomllib = None
+
+          SELECT_KEYS = ("select", "extend-select")
+          SELECT_LINE = re.compile(r"(?m)^\s*(?:extend-)?select\s*=")
+
+          def has_explicit_selection(config):
+              lint = config.get("lint", {}) if isinstance(config, dict) else {}
+              return any(key in lint or key in config for key in SELECT_KEYS)
+
+          def text_has_selection(text, *, pyproject):
+              if not pyproject:
+                  return bool(SELECT_LINE.search(text))
+              for part in re.split(r"(?m)^\[", text):
+                  header, _, body = part.partition("]")
+                  header = header.strip()
+                  if header == "tool.ruff" or header.startswith("tool.ruff."):
+                      if SELECT_LINE.search(body):
+                          return True
+              return False
 
           for name in ("pyproject.toml", "ruff.toml", ".ruff.toml"):
               path = Path(name)
               if not path.is_file():
                   continue
+              if tomllib is None:
+                  if text_has_selection(
+                      path.read_text(encoding="utf-8"),
+                      pyproject=(name == "pyproject.toml"),
+                  ):
+                      sys.exit(0)
+                  continue
               with path.open("rb") as handle:
                   data = tomllib.load(handle)
               config = data.get("tool", {}).get("ruff", {}) if name == "pyproject.toml" else data
-              lint = config.get("lint", {})
-              if "select" in lint or "select" in config:
+              if has_explicit_selection(config):
                   sys.exit(0)
           sys.exit(1)
           PY
