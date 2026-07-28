@@ -118,7 +118,7 @@ langchain==1.3.14
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
-langchain-anthropic==1.5.2
+langchain-anthropic==1.5.3
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
@@ -128,7 +128,7 @@ langchain-community==0.4.2
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
-langchain-core==1.5.1
+langchain-core==1.5.2
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
