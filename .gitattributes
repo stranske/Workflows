@@ -13,3 +13,6 @@ ci/autofix/history.json merge=ours linguist-generated
 # Agent ledger files are metadata, not reviewable code
 # Mark as generated to exclude from Copilot/Codex code reviews
 .agents/*.yml linguist-generated
+
+# Windows command launchers must retain native line endings after checkout.
+*.cmd text eol=crlf
