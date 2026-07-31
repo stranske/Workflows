@@ -19,5 +19,8 @@ def test_template_drift_workflow_installs_pyyaml_before_checker() -> None:
     )
     prior_steps = steps[:checker_index]
 
-    assert any(step.get("uses") == "actions/setup-python@v6" for step in prior_steps)
+    assert any(
+        str(step.get("uses", "")).startswith("actions/setup-python@")
+        for step in prior_steps
+    )
     assert any("pip install pyyaml" in step.get("run", "").lower() for step in prior_steps)

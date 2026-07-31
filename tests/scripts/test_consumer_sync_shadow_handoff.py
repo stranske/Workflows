@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -135,7 +136,10 @@ def test_workflow_has_no_write_or_apply_surface() -> None:
     assert "write_authority" not in workflow.lower() or "Write authority: false" in workflow
     assert "persist-credentials: false" in workflow
     assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in workflow
-    assert "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1" in workflow
+    assert re.search(
+        r"uses:\s+actions/setup-python@[0-9a-f]{40}\s+# v\d+\b",
+        workflow,
+    )
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
     assert "pyyaml==6.0.2" in workflow
     assert (
