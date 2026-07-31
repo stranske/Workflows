@@ -51,13 +51,27 @@ def _normalize_provider(provider: str) -> str:
     return normalized
 
 
+def _openai_style_family(model_id: str) -> str:
+    """Collapse an OpenAI-style id to ``<head>-<major>`` (``gpt-5.6-terra`` -> ``gpt-5``)."""
+    parts = model_id.split("-")
+    head = parts[0] if parts else model_id  # "gpt", then version token in parts[1]
+    if len(parts) >= 2:
+        major = parts[1].split(".")[0]
+        return f"{head}-{major}"
+    return model_id
+
+
 def model_family(provider: str, model_id: str) -> str:
     """Return a conservative model-family key used to gate same-family promotions.
 
     anthropic ``claude-opus-4-8`` -> ``claude-opus``; openai ``gpt-5.6-terra`` ->
-    ``gpt-5``. For any other provider the family is the exact model id, so an
-    unrecognised provider never yields a same-family candidate (auto-preparation
-    stays off until a human teaches it the family rule).
+    ``gpt-5``. github-models ids are publisher-namespaced, so the publisher is
+    preserved and the OpenAI-style rule is applied to the remainder:
+    ``openai/gpt-5-mini`` -> ``openai/gpt-5``. A bare github-models id with no
+    publisher (e.g. ``codex-mini-latest``) keeps its exact id, and for any other
+    provider the family is the exact model id, so an unrecognised provider never
+    yields a same-family candidate (auto-preparation stays off until a human
+    teaches it the family rule).
     """
     provider = _normalize_provider(provider)
     model_id = (model_id or "").strip()
@@ -65,11 +79,13 @@ def model_family(provider: str, model_id: str) -> str:
         parts = model_id.split("-")
         return "-".join(parts[:2]) if len(parts) >= 2 else model_id
     if provider == "openai":
-        parts = model_id.split("-")
-        head = parts[0] if parts else model_id  # "gpt", then version token in parts[1]
-        if len(parts) >= 2:
-            major = parts[1].split(".")[0]
-            return f"{head}-{major}"
+        return _openai_style_family(model_id)
+    if provider == "github-models" and "/" in model_id:
+        publisher, _, remainder = model_id.partition("/")
+        publisher = publisher.strip()
+        remainder = remainder.strip()
+        if publisher and remainder:
+            return f"{publisher}/{_openai_style_family(remainder)}"
         return model_id
     return model_id
 

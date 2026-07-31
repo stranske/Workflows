@@ -59,8 +59,23 @@ def test_model_family_rules():
     assert pmp.model_family("anthropic", "claude-sonnet-5") == "claude-sonnet"
     assert pmp.model_family("openai", "gpt-5.6-terra") == "gpt-5"
     assert pmp.model_family("openai", "gpt-5.4") == "gpt-5"
-    # Unknown provider -> exact id, so nothing is ever "same family" by accident.
+    # github-models ids are publisher-namespaced: keep the publisher and apply the
+    # OpenAI-style rule to the remainder, so a future openai/gpt-5.x is a
+    # same-family successor to the reviewed openai/gpt-5 selection.
+    assert pmp.model_family("github-models", "openai/gpt-5") == "openai/gpt-5"
+    assert pmp.model_family("github-models", "openai/gpt-5-mini") == "openai/gpt-5"
+    assert pmp.model_family("github-models", "openai/gpt-5.1") == "openai/gpt-5"
+    # A different major line stays a different family.
+    assert pmp.model_family("github-models", "openai/gpt-4.1") == "openai/gpt-4"
+    # A bare (unpublished) github-models id keeps its exact id, so the superseded
+    # codex-mini-latest is never "same family" as openai/gpt-5 by accident.
     assert pmp.model_family("github-models", "codex-mini-latest") == "codex-mini-latest"
+    assert pmp.model_family("github-models", "codex-mini-latest") != pmp.model_family(
+        "github-models", "openai/gpt-5"
+    )
+    # Unknown provider -> exact id, so nothing is ever "same family" by accident.
+    # (azure-openai is NOT unknown: it normalizes to openai and uses that rule.)
+    assert pmp.model_family("mistral", "some-model-7") == "some-model-7"
 
 
 def test_same_family_cheaper_pass_is_prepared():
