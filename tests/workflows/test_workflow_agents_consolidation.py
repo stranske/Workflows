@@ -381,6 +381,23 @@ def test_auto_label_uses_retry_paginate_with_github_client_first():
     ), "Auto-label should use the create-github-app-token v3 client-id input"
 
 
+def test_consumer_auto_label_preserves_campaign_guards_and_query_bound():
+    text = Path(
+        "templates/consumer-repo/.github/workflows/agents-auto-label.yml"
+    ).read_text(encoding="utf-8")
+    assert (
+        "agents-auto-label-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}"
+        in text
+    ), "Consumer auto-label should serialize work per issue"
+    assert (
+        "!contains(join(github.event.issue.labels.*.name, ','), 'campaign:')" in text
+    ), "Consumer auto-label must skip machine-managed campaign issues"
+    assert (
+        "AUTO_LABEL_QUERY_MAX_CHARS" in text
+        and "Truncated issue query to {query_max_chars} characters" in text
+    ), "Consumer auto-label must bound issue text sent to semantic label matching"
+
+
 def test_consumer_sync_diff_keeps_functional_lines_in_comparison():
     text = (WORKFLOWS_DIR / "maint-68-sync-consumer-repos.yml").read_text(encoding="utf-8")
     assert (
