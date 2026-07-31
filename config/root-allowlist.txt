@@ -1,8 +1,10 @@
+.coderabbit.yaml
 .flake8
 .gitattributes
 .gitignore
 .langsmith-smoke-test.txt
 .pre-commit-config.yaml
+.release-please-manifest.json
 AGENTS.md
 CHANGELOG.md
 CLAUDE.md
@@ -24,6 +26,8 @@ find_duplicate_tokens.sh
 input.txt
 manage_sync_prs.sh
 pyproject.toml
+release-please-config.json
+renovate.json
 requirements.lock
 requirements.txt
 sitecustomize.py
