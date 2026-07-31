@@ -385,17 +385,27 @@ def test_consumer_auto_label_preserves_campaign_guards_and_query_bound():
     text = Path("templates/consumer-repo/.github/workflows/agents-auto-label.yml").read_text(
         encoding="utf-8"
     )
+    query_slice = "query = query[:query_max_chars]"
+    match_call = "matches = find_similar_labels(store, query"
     assert (
         "agents-auto-label-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}"
         in text
     ), "Consumer auto-label should serialize work per issue"
     assert (
+        "concurrency:" in text and "cancel-in-progress: false" in text
+    ), "Consumer auto-label should keep queued work instead of cancelling an active issue run"
+    assert (
         "!contains(join(github.event.issue.labels.*.name, ','), 'campaign:')" in text
     ), "Consumer auto-label must skip machine-managed campaign issues"
     assert (
-        "AUTO_LABEL_QUERY_MAX_CHARS" in text
+        'AUTO_LABEL_QUERY_MAX_CHARS: "6000"' in text
+        and "query_max_chars = 6000" in text
+        and query_slice in text
         and "Truncated issue query to {query_max_chars} characters" in text
     ), "Consumer auto-label must bound issue text sent to semantic label matching"
+    assert text.index(query_slice) < text.index(
+        match_call
+    ), "Consumer auto-label must truncate the query before semantic matching"
 
 
 def test_consumer_sync_diff_keeps_functional_lines_in_comparison():

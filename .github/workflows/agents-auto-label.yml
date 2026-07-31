@@ -161,9 +161,20 @@ jobs:
           # Get issue content
           issue_title = os.environ.get('ISSUE_TITLE', '')
           issue_body = os.environ.get('ISSUE_BODY', '')
-          query_max_chars = int(os.environ.get('AUTO_LABEL_QUERY_MAX_CHARS', '6000'))
+          query_max_chars_raw = os.environ.get('AUTO_LABEL_QUERY_MAX_CHARS', '6000')
+          try:
+              query_max_chars = int(query_max_chars_raw)
+          except ValueError:
+              query_max_chars = 6000
+              print(
+                  "Invalid AUTO_LABEL_QUERY_MAX_CHARS value "
+                  f"{query_max_chars_raw!r}; using 6000"
+              )
+          if query_max_chars <= 0:
+              query_max_chars = 6000
+              print("AUTO_LABEL_QUERY_MAX_CHARS must be positive; using 6000")
           query = f"{issue_title}\n\n{issue_body}"
-          if query_max_chars > 0 and len(query) > query_max_chars:
+          if len(query) > query_max_chars:
               query = query[:query_max_chars]
               print(f"Truncated issue query to {query_max_chars} characters")
 
