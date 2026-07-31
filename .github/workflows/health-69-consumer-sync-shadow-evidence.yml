@@ -2,11 +2,19 @@ name: Health 69 Consumer Sync Shadow Evidence
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/health-69-consumer-sync-shadow-evidence.yml'
+      - '.github/sync-manifest.yml'
+      - 'scripts/sync_manifest_compiler.py'
+      - 'scripts/build_consumer_sync_shadow_handoff.py'
+      - 'templates/consumer-repo/**'
   schedule:
     - cron: '17 8 * * 1'
   push:
     branches: [main]
     paths:
+      - '.github/workflows/health-69-consumer-sync-shadow-evidence.yml'
       - '.github/sync-manifest.yml'
       - 'scripts/sync_manifest_compiler.py'
       - 'scripts/build_consumer_sync_shadow_handoff.py'

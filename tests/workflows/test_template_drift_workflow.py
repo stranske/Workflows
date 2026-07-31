@@ -20,6 +20,13 @@ def test_template_drift_workflow_installs_pyyaml_before_checker() -> None:
     )
     prior_steps = steps[:checker_index]
 
+    setup_python_steps = [
+        step
+        for step in prior_steps
+        if re.fullmatch(r"actions/setup-python@v\d+", str(step.get("uses", "")))
+    ]
+
+    assert len(setup_python_steps) == 1
     assert any(
         re.fullmatch(r"actions/setup-python@v\d+", str(step.get("uses", "")))
         for step in prior_steps
