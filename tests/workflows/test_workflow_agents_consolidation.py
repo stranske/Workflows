@@ -382,9 +382,9 @@ def test_auto_label_uses_retry_paginate_with_github_client_first():
 
 
 def test_consumer_auto_label_preserves_campaign_guards_and_query_bound():
-    text = Path(
-        "templates/consumer-repo/.github/workflows/agents-auto-label.yml"
-    ).read_text(encoding="utf-8")
+    text = Path("templates/consumer-repo/.github/workflows/agents-auto-label.yml").read_text(
+        encoding="utf-8"
+    )
     assert (
         "agents-auto-label-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}"
         in text
