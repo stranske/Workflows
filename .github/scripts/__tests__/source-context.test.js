@@ -206,6 +206,27 @@ test('malformed dependency repair promotion marker does not authorize source con
   assert.equal(context.isValid, false);
 });
 
+test('promotion marker casing must match the dependency repair contract', () => {
+  const context = resolvePrSourceContext({
+    body: [
+      '<!-- Dependency-Repair-Promotion:v1 ',
+      JSON.stringify({
+        schema: 'dependency-repair-promotion/v1',
+        source_repo: 'stranske/Workflows',
+        source_pr: 2795,
+        source_head_sha: 'a'.repeat(40),
+        promotion_base_sha: 'b'.repeat(40),
+        classification: 'coupled-repair',
+      }),
+      ' -->',
+    ].join(''),
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.UNKNOWN);
+  assert.equal(context.isExplicit, false);
+  assert.equal(context.isValid, false);
+});
+
 test('sourceTypeFromCheckedTemplate reads direct GitHub PR source choice', () => {
   const body = `
 ## Workflow Source

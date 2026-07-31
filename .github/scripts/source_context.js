@@ -51,7 +51,7 @@ const CHECKBOX_SOURCE_PATTERNS = Object.freeze([
 
 const NO_AUTOMATION_CHECKBOX_PATTERN = /\bdo\s+not\s+automate\b|\bhuman[- ]only\b/i;
 const DEPENDENCY_REPAIR_PROMOTION_PATTERN =
-  /<!--\s*dependency-repair-promotion:v1\s+(\{[^\n]*\})\s*-->/i;
+  /<!--\s*dependency-repair-promotion:v1\s+(\{[^\n]*\})\s*-->/;
 
 function cleanString(value) {
   return String(value || '').trim();
