@@ -203,3 +203,6 @@ def test_prepare_checkout_includes_manifest_owned_github_roots() -> None:
     # copy also exists. Without this root, the manifest compiler silently reads
     # the stale template copy during a sync run.
     assert ".github/agents" in sparse_checkout
+    assert ".gitattributes" in {
+        line.strip() for line in sparse_checkout.splitlines() if line.strip()
+    }

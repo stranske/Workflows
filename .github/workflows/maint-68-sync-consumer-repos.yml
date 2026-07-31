@@ -78,6 +78,7 @@ jobs:
         with:
           sparse-checkout: |
             templates/consumer-repo
+            .gitattributes
             .github/sync-manifest.yml
             .github/templates
             .github/actions
