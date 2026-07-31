@@ -79,6 +79,7 @@ jobs:
             .github/scripts/github-api-with-retry.js
             .github/scripts/terminal_disposition.js
             .github/scripts/token_load_balancer.js
+            config
             scripts/langchain
             tools
           sparse-checkout-cone-mode: false

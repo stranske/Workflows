@@ -125,6 +125,7 @@ jobs:
             .github/agents/registry.yml
             .github/scripts
             .github/codex/prompts
+            config
             scripts
             tools
           sparse-checkout-cone-mode: false
