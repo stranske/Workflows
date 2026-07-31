@@ -182,7 +182,7 @@ jobs:
           DEFAULT_BRANCH: >-
             ${{ steps.default-branch.outputs.name || github.event.repository.default_branch }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         if: steps.fingerprint.outputs.should_run == 'true'
         with:
           python-version: '3.14'
