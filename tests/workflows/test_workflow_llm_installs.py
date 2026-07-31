@@ -31,7 +31,17 @@ LLM_REGISTRY_MODULE = "tools/llm_registry.py"
 LLM_CONFIG_PATHS = (Path("config/llm_slots.json"), Path("config/model_registry.json"))
 LANGCHAIN_ENTRYPOINT_DIR = "scripts/langchain"
 VERIFY_TO_NEW_PR = WORKFLOWS_DIR / "agents-verify-to-new-pr.yml"
-KNOWN_LLM_CLIENT_WORKFLOWS = (VERIFIER, VERIFY_TO_ISSUE, VERIFY_TO_NEW_PR)
+CONSUMER_WORKFLOWS_DIR = Path("templates/consumer-repo/.github/workflows")
+CONSUMER_VERIFY_TO_NEW_PR = CONSUMER_WORKFLOWS_DIR / "agents-verify-to-new-pr.yml"
+CONSUMER_ISSUE_OPTIMIZER = CONSUMER_WORKFLOWS_DIR / "agents-issue-optimizer.yml"
+LLM_CLIENT_WORKFLOW_DIRS = (WORKFLOWS_DIR, CONSUMER_WORKFLOWS_DIR)
+KNOWN_LLM_CLIENT_WORKFLOWS = (
+    VERIFIER,
+    VERIFY_TO_ISSUE,
+    VERIFY_TO_NEW_PR,
+    CONSUMER_VERIFY_TO_NEW_PR,
+    CONSUMER_ISSUE_OPTIMIZER,
+)
 
 
 def _load_text(path: Path) -> str:
@@ -114,10 +124,17 @@ def _discover_llm_client_workflows() -> list[Path]:
     """Workflows that vendor `tools` and then run the LangChain client from it.
 
     Discovery rather than an explicit list: any future workflow that vendors the
-    client inherits the config-vendoring requirement automatically.
+    client inherits the config-vendoring requirement automatically. The consumer
+    template directory is scanned too, because those workflows are synced into
+    the consumer repos and vendor the same client from the same remote tree.
     """
+    candidates: list[Path] = []
+    for directory in LLM_CLIENT_WORKFLOW_DIRS:
+        candidates.extend(sorted(directory.glob("*.yml")))
+        candidates.extend(sorted(directory.glob("*.yaml")))
+
     matches = []
-    for path in sorted(WORKFLOWS_DIR.glob("*.yml")) + sorted(WORKFLOWS_DIR.glob("*.yaml")):
+    for path in candidates:
         text = path.read_text(encoding="utf-8")
         if LANGCHAIN_ENTRYPOINT_DIR not in text:
             continue
@@ -285,7 +302,7 @@ def test_reusable_agents_verifier_pip_cache_is_configured() -> None:
 
 def test_llm_client_workflow_discovery_covers_the_known_verifier_surfaces() -> None:
     discovered = set(_discover_llm_client_workflows())
-    missing = [path.name for path in KNOWN_LLM_CLIENT_WORKFLOWS if path not in discovered]
+    missing = [path.as_posix() for path in KNOWN_LLM_CLIENT_WORKFLOWS if path not in discovered]
     assert not missing, (
         f"Discovery no longer sees {missing}; the config-vendoring guard below would "
         "silently stop covering them."
@@ -293,12 +310,12 @@ def test_llm_client_workflow_discovery_covers_the_known_verifier_surfaces() -> N
 
 
 @pytest.mark.parametrize(
-    "workflow_path", _discover_llm_client_workflows(), ids=lambda path: path.name
+    "workflow_path", _discover_llm_client_workflows(), ids=lambda path: path.as_posix()
 )
 def test_llm_workflows_vendor_the_model_registry_config(workflow_path: Path) -> None:
     workflow = _load_workflow(workflow_path)
     checkouts = _workflows_library_checkout_steps(workflow)
-    assert checkouts, f"{workflow_path.name} must sparse-checkout stranske/Workflows"
+    assert checkouts, f"{workflow_path.as_posix()} must sparse-checkout stranske/Workflows"
 
     vendors_tools = False
     for step in checkouts:
@@ -308,13 +325,13 @@ def test_llm_workflows_vendor_the_model_registry_config(workflow_path: Path) -> 
         vendors_tools = True
         missing = [entry for entry in ("config",) if entry not in paths]
         assert not missing, (
-            f"{workflow_path.name} vendors `tools` but not {missing}; "
+            f"{workflow_path.as_posix()} vendors `tools` but not {missing}; "
             f"{LLM_REGISTRY_MODULE} resolves {', '.join(str(p) for p in LLM_CONFIG_PATHS)} "
             "relative to the vendored tree, so every judge slot resolves to no model and "
             'compare mode reports "available families: none".'
         )
 
-    assert vendors_tools, f"{workflow_path.name} must vendor `tools` for the LLM client"
+    assert vendors_tools, f"{workflow_path.as_posix()} must vendor `tools` for the LLM client"
 
 
 def test_bundled_llm_config_resolves_two_cross_family_judges(

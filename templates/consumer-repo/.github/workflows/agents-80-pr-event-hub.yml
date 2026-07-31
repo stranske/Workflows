@@ -319,6 +319,7 @@ jobs:
           repository: stranske/Workflows
           token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
           sparse-checkout: |
+            config
             scripts/langchain
             tools
             .github/scripts/error_classifier.js

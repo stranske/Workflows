@@ -126,6 +126,7 @@ jobs:
           repository: stranske/Workflows
           path: workflows-scripts
           sparse-checkout: |
+            config
             scripts/langchain
             tools
           sparse-checkout-cone-mode: false
