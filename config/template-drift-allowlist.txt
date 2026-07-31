@@ -66,9 +66,9 @@ reason = Existing reviewed baseline drift re-baselined 2026-06-19: runtime AC me
 [pair.5]
 main = .github/workflows/agents-auto-label.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
-main_sha256 = 6f88039b65073cac04b163def45f33b41e3981fd8ad08e87becc6524e7087887
-template_sha256 = 2e9ed1cf287520e196f5c9379203cc058c7e259d13f787574d466481136e97cf
-reason = Intentional divergence updated 2026-07-31: consumer template now shares the campaign-label guard, bounded semantic-label query, and per-issue concurrency from root while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
+main_sha256 = 6276b24994010fab62c79085cc41d67ca2d0031580df2f5892c5ed2c7d1e7eba
+template_sha256 = c351fecad5ee3bc4231fc33d7e0c3edbcf539f57105d649601bfbf435561b1f3
+reason = Intentional divergence updated 2026-07-31: root and consumer queries now reject non-positive or invalid bounds and share executable guard tests while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
 
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml
