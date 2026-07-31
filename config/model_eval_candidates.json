@@ -2,7 +2,7 @@
   "candidates": [
     {
       "provider": "anthropic",
-      "model_id": "claude-opus-4-6",
+      "model_id": "claude-sonnet-5",
       "role": "incumbent"
     },
     {
@@ -12,37 +12,37 @@
     },
     {
       "provider": "anthropic",
-      "model_id": "claude-opus-4-8",
+      "model_id": "claude-opus-4-6",
       "role": "candidate"
     },
     {
       "provider": "anthropic",
-      "model_id": "claude-sonnet-5",
+      "model_id": "claude-opus-4-8",
       "role": "candidate"
-    },
-    {
-      "provider": "github-models",
-      "model_id": "codex-mini-latest",
-      "role": "incumbent"
     },
     {
       "provider": "github-models",
       "model_id": "openai/gpt-5",
-      "role": "candidate"
-    },
-    {
-      "provider": "openai",
-      "model_id": "gpt-5.4",
       "role": "incumbent"
     },
     {
-      "provider": "openai",
-      "model_id": "gpt-5.6-sol",
+      "provider": "github-models",
+      "model_id": "codex-mini-latest",
       "role": "candidate"
     },
     {
       "provider": "openai",
       "model_id": "gpt-5.6-terra",
+      "role": "incumbent"
+    },
+    {
+      "provider": "openai",
+      "model_id": "gpt-5.4",
+      "role": "candidate"
+    },
+    {
+      "provider": "openai",
+      "model_id": "gpt-5.6-sol",
       "role": "candidate"
     }
   ]

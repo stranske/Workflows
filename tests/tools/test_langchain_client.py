@@ -11,6 +11,18 @@ import pytest
 from tools import langchain_client, llm_registry
 
 
+def _reviewed_model(provider: str) -> str:
+    """Return the registry's reviewed selection for ``provider``.
+
+    Tests assert the resolver serves the *reviewed selection*, not a hardcoded
+    model id. Pinning literals here made every selection change — including an
+    auto-prepared maint-86 promotion PR — fail CI for no real defect.
+    """
+    model = llm_registry.select_model_for_profile(provider=provider)
+    assert model, f"no reviewed selection for {provider}; registry/policy is misconfigured"
+    return model
+
+
 def _install_fake_langchain_openai(monkeypatch: pytest.MonkeyPatch):
     fake_module = types.ModuleType("langchain_openai")
 
@@ -50,7 +62,7 @@ def test_build_chat_client_prefers_openai_slot(monkeypatch: pytest.MonkeyPatch) 
     assert isinstance(resolved.client, FakeChatOpenAI)
     assert resolved.client.kwargs["api_key"] == "oa-token"
     assert "base_url" not in resolved.client.kwargs
-    assert resolved.model == "gpt-5.4"
+    assert resolved.model == _reviewed_model(langchain_client.PROVIDER_OPENAI)
 
 
 def test_build_chat_client_github_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -85,7 +97,7 @@ def test_build_chat_client_anthropic_fallback(monkeypatch: pytest.MonkeyPatch) -
     assert resolved.provider == langchain_client.PROVIDER_ANTHROPIC
     assert isinstance(resolved.client, FakeChatAnthropic)
     assert resolved.client.kwargs["anthropic_api_key"] == "claude-token"
-    assert resolved.model == "claude-opus-4-6"
+    assert resolved.model == _reviewed_model(langchain_client.PROVIDER_ANTHROPIC)
 
 
 def test_build_chat_client_anthropic_without_openai_package(
@@ -592,7 +604,7 @@ def test_build_chat_clients_env_model_override(monkeypatch: pytest.MonkeyPatch) 
 
     assert [client.model for client in clients] == [
         "gpt-4.1-mini",
-        "codex-mini-latest",
+        _reviewed_model(langchain_client.PROVIDER_GITHUB),
     ]
     assert isinstance(clients[0].client, FakeChatOpenAI)
 

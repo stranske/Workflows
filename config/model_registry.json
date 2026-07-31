@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0.0",
   "as_of": "2026-07-10",
-  "review_by": "2026-07-24",
+  "review_by": "2026-08-30",
   "purpose": "Auditable model facts and auxiliary judge/evaluator selections. Coding-worker execution profiles remain in .github/agents/registry.yml::execution_profiles.",
   "selection_policy": "config/model_selection_policy.json",
   "catalog_baselines": {
@@ -238,12 +238,47 @@
     {
       "profile": "verifier-balanced",
       "provider": "openai",
+      "model_id": "gpt-5.6-terra",
+      "status": "provisional",
+      "decided_at": "2026-07-31",
+      "review_by": "2026-08-30",
+      "evidence_ids": ["catalog-review-2026-07-10"],
+      "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or for the superseded incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
+    },
+    {
+      "profile": "verifier-balanced",
+      "provider": "anthropic",
+      "model_id": "claude-sonnet-5",
+      "status": "provisional",
+      "decided_at": "2026-07-31",
+      "review_by": "2026-08-30",
+      "evidence_ids": ["catalog-review-2026-07-10"],
+      "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. Cross-family relative to the superseded claude-opus incumbent, so it was human-initiated rather than auto-prepared. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or the incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
+    },
+    {
+      "profile": "verifier-balanced",
+      "provider": "github-models",
+      "model_id": "openai/gpt-5",
+      "status": "provisional",
+      "decided_at": "2026-07-31",
+      "review_by": "2026-08-30",
+      "evidence_ids": ["catalog-review-2026-07-10"],
+      "rationale": "Provisional catalog fallback advanced to a model confirmed present in the 2026-07-10 GitHub Models catalog baseline. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or the superseded codex-mini-latest, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
+    }
+  ],
+  "selection_history": [
+    {
+      "profile": "verifier-balanced",
+      "provider": "openai",
       "model_id": "gpt-5.4",
       "status": "provisional",
       "decided_at": "2026-07-10",
       "review_by": "2026-07-24",
       "evidence_ids": ["catalog-review-2026-07-10"],
-      "rationale": "Incumbent baseline retained until a paired repository benchmark proves a replacement meets every quality gate."
+      "rationale": "Incumbent baseline retained until a paired repository benchmark proves a replacement meets every quality gate.",
+      "superseded_at": "2026-07-31",
+      "superseded_by": "gpt-5.6-terra",
+      "supersede_reason": "Manual provisional refresh to the current catalog generation; not a benchmark-proven promotion."
     },
     {
       "profile": "verifier-balanced",
@@ -253,7 +288,10 @@
       "decided_at": "2026-07-10",
       "review_by": "2026-07-24",
       "evidence_ids": ["catalog-review-2026-07-10"],
-      "rationale": "Incumbent baseline retained until a paired repository benchmark proves a replacement meets every quality gate."
+      "rationale": "Incumbent baseline retained until a paired repository benchmark proves a replacement meets every quality gate.",
+      "superseded_at": "2026-07-31",
+      "superseded_by": "claude-sonnet-5",
+      "supersede_reason": "Manual provisional refresh to the current catalog generation; not a benchmark-proven promotion."
     },
     {
       "profile": "verifier-balanced",
@@ -263,7 +301,10 @@
       "decided_at": "2026-07-10",
       "review_by": "2026-07-24",
       "evidence_ids": ["catalog-review-2026-07-10"],
-      "rationale": "Incumbent fallback retained until catalog availability and paired repository evidence approve a replacement."
+      "rationale": "Incumbent fallback retained until catalog availability and paired repository evidence approve a replacement.",
+      "superseded_at": "2026-07-31",
+      "superseded_by": "openai/gpt-5",
+      "supersede_reason": "Manual provisional refresh to the current catalog generation; not a benchmark-proven promotion."
     }
   ],
   "evidence": [
