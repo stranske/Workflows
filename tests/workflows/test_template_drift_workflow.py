@@ -18,17 +18,17 @@ def test_template_drift_workflow_installs_pyyaml_before_checker() -> None:
         for index, step in enumerate(steps)
         if "scripts/check_template_drift.py" in step.get("run", "")
     )
-    prior_steps = steps[:checker_index]
-
-    setup_python_steps = [
-        step
-        for step in prior_steps
+    setup_python_indexes = [
+        index
+        for index, step in enumerate(steps)
         if re.fullmatch(r"actions/setup-python@v\d+", str(step.get("uses", "")))
     ]
+    pyyaml_install_indexes = [
+        index
+        for index, step in enumerate(steps)
+        if "pip install pyyaml" in step.get("run", "").lower()
+    ]
 
-    assert len(setup_python_steps) == 1
-    assert any(
-        re.fullmatch(r"actions/setup-python@v\d+", str(step.get("uses", "")))
-        for step in prior_steps
-    )
-    assert any("pip install pyyaml" in step.get("run", "").lower() for step in prior_steps)
+    assert len(setup_python_indexes) == 1
+    assert len(pyyaml_install_indexes) == 1
+    assert setup_python_indexes[0] < pyyaml_install_indexes[0] < checker_index

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from scripts.build_consumer_sync_shadow_handoff import (
     CAPABILITY_ID,
     HANDOFF_SCHEMA,
@@ -125,26 +126,45 @@ def test_cli_reports_invalid_plan_without_writing_handoff(tmp_path: Path) -> Non
 def test_workflow_has_no_write_or_apply_surface() -> None:
     root = Path(__file__).parents[2]
     workflow_path = root / ".github" / "workflows" / "health-69-consumer-sync-shadow-evidence.yml"
-    workflow = workflow_path.read_text(encoding="utf-8")
+    workflow_source = workflow_path.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(workflow_source)
+    steps = workflow["jobs"]["produce"]["steps"]
+    action_refs = [
+        str(step["uses"])
+        for step in steps
+        if isinstance(step, dict) and isinstance(step.get("uses"), str)
+    ]
+    third_party_action_refs = [ref for ref in action_refs if not ref.startswith("./")]
+    setup_python_refs = [ref for ref in action_refs if ref.startswith("actions/setup-python@")]
+    events = workflow.get("on", workflow.get(True))
 
-    assert "contents: read" in workflow
-    assert "contents: write" not in workflow
-    assert "pull-requests: write" not in workflow
-    assert "git push" not in workflow
-    assert "gh pr" not in workflow
-    assert "write_authority" not in workflow.lower() or "Write authority: false" in workflow
-    assert "persist-credentials: false" in workflow
-    assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in workflow
-    setup_python_refs = re.findall(
-        r"uses:\s+actions/setup-python@[0-9a-f]{40}\s+# v\d+\b",
-        workflow,
-    )
-    assert len(setup_python_refs) == 1
-    assert "pull_request:" in workflow
-    assert f"- '{workflow_path.relative_to(root).as_posix()}'" in workflow
-    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
-    assert "pyyaml==6.0.2" in workflow
+    assert workflow["permissions"] == {"contents": "read"}
+    assert "contents: write" not in workflow_source
+    assert "pull-requests: write" not in workflow_source
+    assert "git push" not in workflow_source
+    assert "gh pr" not in workflow_source
     assert (
-        "consumer-sync-shadow-evidence-${{ github.run_id }}-${{ github.run_attempt }}" in workflow
+        "write_authority" not in workflow_source.lower()
+        or "Write authority: false" in workflow_source
     )
-    assert "github.run_id }}:${{ github.run_attempt" in workflow
+    assert steps[0]["with"]["persist-credentials"] is False
+    assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in action_refs
+    assert len(setup_python_refs) == 1
+    assert re.fullmatch(r"actions/setup-python@[0-9a-f]{40}", setup_python_refs[0])
+    assert len(third_party_action_refs) == 3
+    for action_ref in third_party_action_refs:
+        assert re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", action_ref)
+        assert re.search(
+            rf"^\s*uses:\s*{re.escape(action_ref)}\s+# v\d+(?:[.\w-]+)?\s*$",
+            workflow_source,
+            re.MULTILINE,
+        )
+    assert "pull_request" in events
+    assert workflow_path.relative_to(root).as_posix() in events["pull_request"]["paths"]
+    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in action_refs
+    assert "pyyaml==6.0.2" in workflow_source
+    assert (
+        "consumer-sync-shadow-evidence-${{ github.run_id }}-${{ github.run_attempt }}"
+        in workflow_source
+    )
+    assert "github.run_id }}:${{ github.run_attempt" in workflow_source
