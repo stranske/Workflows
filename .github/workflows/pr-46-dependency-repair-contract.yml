@@ -1,0 +1,25 @@
+name: PR 46 Dependency Repair Contract
+
+on:
+  # zizmor: ignore[dangerous-triggers] trusted reusable workflow reads only
+  # PR metadata and git objects
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: dependency-repair-contract-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    if: >-
+      github.event.pull_request.user.login == 'renovate[bot]' ||
+      github.event.pull_request.user.login == 'dependabot[bot]' ||
+      startsWith(github.event.pull_request.head.ref, 'renovate/') ||
+      startsWith(github.event.pull_request.head.ref, 'dependabot/') ||
+      contains(github.event.pull_request.body || '', 'dependency-repair-promotion:v1')
+    uses: stranske/Workflows/.github/workflows/reusable-19-dependency-repair-contract.yml@main

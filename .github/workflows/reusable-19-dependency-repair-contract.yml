@@ -1,0 +1,94 @@
+name: Reusable 19 Dependency Repair Contract
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  contract:
+    name: dependency-repair-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Resolve selected source pull request
+        id: source
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const body = context.payload.pull_request?.body || '';
+            const match = body.match(
+              /<!--\s*dependency-repair-promotion:v1\s+(\{[^\n]*\})\s*-->/
+            );
+            let sourcePr = context.payload.pull_request?.number || '';
+            if (match) {
+              try {
+                sourcePr = JSON.parse(match[1]).source_pr || sourcePr;
+              } catch (error) {
+                core.warning(`Promotion marker JSON is malformed: ${error.message}`);
+              }
+            }
+            core.setOutput('source_pr', String(sourcePr));
+
+      - name: Checkout pull request repository without executing it
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: subject
+          persist-credentials: true
+
+      - name: Checkout trusted contract implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: |
+            .github/scripts/dependency-repair-contract.js
+            .github/scripts/error_classifier.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+          path: contract-source
+          persist-credentials: false
+
+      - name: Fetch source pull request history
+        working-directory: subject
+        env:
+          SOURCE_PR: ${{ steps.source.outputs.source_pr }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "+refs/pull/${SOURCE_PR}/head:refs/remotes/pull/${SOURCE_PR}"
+
+      - name: Validate dependency repair provenance
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const path = require('path');
+            const sourceRoot = path.join(process.env.GITHUB_WORKSPACE, 'contract-source');
+            const contract = require(path.join(
+              sourceRoot,
+              '.github/scripts/dependency-repair-contract.js'
+            ));
+            const { createTokenAwareRetry } = require(path.join(
+              sourceRoot,
+              '.github/scripts/github-api-with-retry.js'
+            ));
+            const retry = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'dependency-repair-contract',
+              capabilities: ['contents:read', 'pull-requests:read'],
+            });
+            await contract.runDependencyRepairContract({
+              github: retry.github,
+              context,
+              core,
+              repoPath: path.join(process.env.GITHUB_WORKSPACE, 'subject'),
+              withRetry: retry.withRetry,
+              paginateWithRetry: retry.paginateWithRetry,
+            });

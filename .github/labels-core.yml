@@ -88,6 +88,9 @@
 - name: workflow:source-dependabot
   color: 0366d6
   description: PR source is Dependabot or dependency automation
+- name: dependency:repair-promotion
+  color: 5319e7
+  description: Agent-owned replacement preserving a dependency-bot delta
 - name: workflow:source-review-followup
   color: 5319e7
   description: PR source is follow-up from review feedback

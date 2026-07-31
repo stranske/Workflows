@@ -48,6 +48,9 @@ workflows:
   - source: .github/workflows/autofix.yml
     description: "Autofix workflow - automatically fixes lint/format issues"
 
+  - source: .github/workflows/pr-46-dependency-repair-contract.yml
+    description: "Dependency repair contract - keeps bot PRs bot-owned and validates agent repair promotion provenance"
+
   - source: .github/workflows/agents-issue-intake.yml
     description: "Issue intake - processes new issues for agent assignment"
 

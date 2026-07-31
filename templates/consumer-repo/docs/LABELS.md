@@ -406,6 +406,7 @@ Workflows source classification without forcing a GitHub issue.
 | `workflow:source-automation` | Pull Requests | PR source is an automation or workflow run.
 | `workflow:source-sync` | Pull Requests | PR source is a sync or maintenance campaign.
 | `workflow:source-dependabot` | Pull Requests | PR source is Dependabot or dependency automation.
+| `dependency:repair-promotion` | Pull Requests | Agent-owned replacement whose first commit reproduces a classified dependency-bot delta.
 | `workflow:source-review-followup` | Pull Requests | PR source is review feedback follow-up.
 | `workflow:source-direct-pr` | Pull Requests | PR was started directly on GitHub without a source issue.
 | `workflow:no-automation` | Pull Requests | Fully opts the PR out of automation management and automation-triggered follow-up actions.
