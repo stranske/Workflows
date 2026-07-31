@@ -65,6 +65,11 @@ branch. The PR remains attributable to dependency automation through
 `workflow:source-dependabot` and identifiable through
 `dependency:repair-promotion`.
 
+A structurally valid promotion marker is itself explicit dependency source
+context, so keepalive can dispatch the coding agent without a linked issue or a
+manually applied source label. PR 46 still validates the referenced bot PR,
+commit ancestry, and patch identity before the promotion can merge.
+
 ## Machine-enforced contract
 
 `PR 46 Dependency Repair Contract` runs only for dependency-bot PRs and marked

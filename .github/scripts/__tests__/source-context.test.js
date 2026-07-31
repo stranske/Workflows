@@ -7,6 +7,7 @@ const {
   SOURCE_TYPES,
   extractIssueNumberFromPull,
   normalizeSourceType,
+  parseDependencyRepairPromotionSource,
   parseWorkflowSourceBlock,
   hasNoAutomationWorkflowContext,
   resolvePrSourceContext,
@@ -166,6 +167,43 @@ automation: verifier_required
     lifecycle: 'substantive_delivery',
     automation: 'verifier_required',
   });
+});
+
+test('dependency repair promotion marker supplies explicit dependency source context', () => {
+  const marker = [
+    '<!-- dependency-repair-promotion:v1 ',
+    JSON.stringify({
+      source_pr: 2795,
+      source_base_sha: 'a'.repeat(40),
+      source_head_sha: 'b'.repeat(40),
+      promotion_base_sha: 'c'.repeat(40),
+    }),
+    ' -->',
+  ].join('');
+  const context = resolvePrSourceContext({
+    body: marker,
+    head: { ref: 'agent/deps-repair-2795' },
+    title: 'fix(deps): repair setup-python v7 compatibility',
+  });
+
+  assert.equal(parseDependencyRepairPromotionSource(marker).source_pr, 2795);
+  assert.equal(context.sourceType, SOURCE_TYPES.DEPENDABOT);
+  assert.equal(context.sourceRef, 'dependency-pr:#2795');
+  assert.equal(context.isExplicit, true);
+  assert.equal(context.isValid, true);
+  assert.equal(context.requiresIssue, false);
+});
+
+test('malformed dependency repair promotion marker does not authorize source context', () => {
+  const context = resolvePrSourceContext({
+    body: '<!-- dependency-repair-promotion:v1 {"source_pr":2795} -->',
+    head: { ref: 'agent/deps-repair-2795' },
+    title: 'fix(deps): repair setup-python v7 compatibility',
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.UNKNOWN);
+  assert.equal(context.isExplicit, false);
+  assert.equal(context.isValid, false);
 });
 
 test('sourceTypeFromCheckedTemplate reads direct GitHub PR source choice', () => {

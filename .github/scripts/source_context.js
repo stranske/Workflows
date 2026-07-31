@@ -50,6 +50,8 @@ const CHECKBOX_SOURCE_PATTERNS = Object.freeze([
 ]);
 
 const NO_AUTOMATION_CHECKBOX_PATTERN = /\bdo\s+not\s+automate\b|\bhuman[- ]only\b/i;
+const DEPENDENCY_REPAIR_PROMOTION_PATTERN =
+  /<!--\s*dependency-repair-promotion:v1\s+(\{[^\n]*\})\s*-->/i;
 
 function cleanString(value) {
   return String(value || '').trim();
@@ -281,6 +283,29 @@ function parseWorkflowSourceBlock(body) {
   return result;
 }
 
+function parseDependencyRepairPromotionSource(body) {
+  const match = String(body || '').match(DEPENDENCY_REPAIR_PROMOTION_PATTERN);
+  if (!match) {
+    return null;
+  }
+
+  try {
+    const metadata = JSON.parse(match[1]);
+    const sourcePr = Number(metadata?.source_pr);
+    const validShas = [
+      metadata?.source_base_sha,
+      metadata?.source_head_sha,
+      metadata?.promotion_base_sha,
+    ].every((value) => /^[0-9a-f]{40}$/i.test(String(value || '')));
+    if (!Number.isInteger(sourcePr) || sourcePr <= 0 || !validShas) {
+      return null;
+    }
+    return { ...metadata, source_pr: sourcePr };
+  } catch {
+    return null;
+  }
+}
+
 function sourceTypeFromCheckedTemplate(body) {
   const sectionLines = workflowSourceSectionLines(body);
   if (!sectionLines.length) {
@@ -355,6 +380,7 @@ function inferredSourceType(pull = {}) {
 function resolvePrSourceContext(pull = {}) {
   const body = String(pull?.body || '');
   const block = parseWorkflowSourceBlock(body);
+  const dependencyRepairPromotion = parseDependencyRepairPromotionSource(body);
   const issueNumber = extractIssueNumberFromPull(pull);
   const noAutomation = hasNoAutomationWorkflowContext(pull);
 
@@ -363,7 +389,9 @@ function resolvePrSourceContext(pull = {}) {
   const checkboxType = sourceTypeFromCheckedTemplate(body);
   const labelType = sourceTypeFromLabels(pull);
   const inferredType = inferredSourceType(pull);
-  const detectedSourceType = issueNumber
+  const detectedSourceType = dependencyRepairPromotion
+    ? SOURCE_TYPES.DEPENDABOT
+    : issueNumber
     ? SOURCE_TYPES.GITHUB_ISSUE
     : [markerType, blockType, checkboxType, labelType, inferredType].find((type) => type !== SOURCE_TYPES.UNKNOWN)
       || SOURCE_TYPES.UNKNOWN;
@@ -372,6 +400,9 @@ function resolvePrSourceContext(pull = {}) {
     : detectedSourceType;
 
   const sourceRef =
+    (dependencyRepairPromotion
+      ? `dependency-pr:#${dependencyRepairPromotion.source_pr}`
+      : '') ||
     cleanString(parseHtmlMarker(body, 'workflow-source-ref')) ||
     cleanString(block.source_ref || block.ref || block.reference) ||
     (issueNumber ? `#${issueNumber}` : '');
@@ -392,6 +423,7 @@ function resolvePrSourceContext(pull = {}) {
     isValid: VALID_SOURCE_TYPES.has(sourceType),
     isExplicit: Boolean(
       issueNumber ||
+        dependencyRepairPromotion ||
         markerType !== SOURCE_TYPES.UNKNOWN ||
         blockType !== SOURCE_TYPES.UNKNOWN ||
         checkboxType !== SOURCE_TYPES.UNKNOWN ||
@@ -433,6 +465,7 @@ module.exports = {
   extractIssueNumbersFromText,
   extractIssueNumberFromPull,
   parseWorkflowSourceBlock,
+  parseDependencyRepairPromotionSource,
   sourceTypeFromCheckedTemplate,
   sourceTypeFromLabels,
   hasNoAutomationWorkflowContext,
