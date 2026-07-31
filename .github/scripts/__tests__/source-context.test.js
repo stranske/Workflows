@@ -194,6 +194,28 @@ test('dependency repair promotion marker supplies explicit dependency source con
   assert.equal(context.requiresIssue, false);
 });
 
+test('dependency repair promotion marker suppresses incidental issue references', () => {
+  const marker = [
+    '<!-- dependency-repair-promotion:v1 ',
+    JSON.stringify({
+      source_pr: 2795,
+      source_base_sha: 'a'.repeat(40),
+      source_head_sha: 'b'.repeat(40),
+      promotion_base_sha: 'c'.repeat(40),
+    }),
+    ' -->',
+  ].join('');
+  const context = resolvePrSourceContext({
+    body: `${marker}\nFixes #99`,
+    head: { ref: 'agent/deps-repair-2795' },
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.DEPENDABOT);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.sourceRef, 'dependency-pr:#2795');
+  assert.equal(context.requiresIssue, false);
+});
+
 test('malformed dependency repair promotion marker does not authorize source context', () => {
   const context = resolvePrSourceContext({
     body: '<!-- dependency-repair-promotion:v1 {"source_pr":2795} -->',
