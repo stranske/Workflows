@@ -381,7 +381,10 @@ function resolvePrSourceContext(pull = {}) {
   const body = String(pull?.body || '');
   const block = parseWorkflowSourceBlock(body);
   const dependencyRepairPromotion = parseDependencyRepairPromotionSource(body);
-  const issueNumber = extractIssueNumberFromPull(pull);
+  const extractedIssueNumber = extractIssueNumberFromPull(pull);
+  // Promotion provenance is authoritative: a coincidental issue reference must
+  // not route the PR through issue-body synchronization.
+  const issueNumber = dependencyRepairPromotion ? null : extractedIssueNumber;
   const noAutomation = hasNoAutomationWorkflowContext(pull);
 
   const markerType = normalizeSourceType(parseHtmlMarker(body, 'workflow-source'));
