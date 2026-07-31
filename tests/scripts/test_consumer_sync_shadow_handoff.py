@@ -124,9 +124,7 @@ def test_cli_reports_invalid_plan_without_writing_handoff(tmp_path: Path) -> Non
 
 def test_workflow_has_no_write_or_apply_surface() -> None:
     root = Path(__file__).parents[2]
-    workflow_path = (
-        root / ".github" / "workflows" / "health-69-consumer-sync-shadow-evidence.yml"
-    )
+    workflow_path = root / ".github" / "workflows" / "health-69-consumer-sync-shadow-evidence.yml"
     workflow = workflow_path.read_text(encoding="utf-8")
 
     assert "contents: read" in workflow
