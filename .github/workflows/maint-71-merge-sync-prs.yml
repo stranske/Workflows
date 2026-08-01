@@ -140,7 +140,7 @@ jobs:
               generatedDeliveryLane,
               normalizeSyncHash,
               parseBooleanInput,
-              isTrustedSyncPr,
+              isTrustedGeneratedDeliveryPr,
               selectMergeEligibleSyncPr,
               selectSyncPrGatingChecks,
             } = require('./.github/scripts/sync_pr_merge_contract.js');
@@ -332,7 +332,7 @@ jobs:
                   per_page: 20
                 }));
 
-                const syncPRs = prs.filter((pr) => isTrustedSyncPr(pr, trustedSyncActors));
+                const syncPRs = prs.filter((pr) => isTrustedGeneratedDeliveryPr(pr, trustedSyncActors));
 
                 if (cleanupBranches) {
                   try {

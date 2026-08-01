@@ -67,7 +67,11 @@ function classifyGeneratedPr({ pr = {}, checkState = {}, activeReviewThreadCount
   if (!eligibility.eligible) {
     return { disposition: 'superseded', blocker_owner: 'maint-71', next_command: 'close-or-refresh-delivery' };
   }
-  if (Number(activeReviewThreadCount) > 0) {
+  const reviewThreadCount = Number(activeReviewThreadCount);
+  if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
+    return { disposition: 'review-blocked', blocker_owner: 'closer', next_command: 'retry-review-thread-query' };
+  }
+  if (reviewThreadCount > 0) {
     return { disposition: 'review-blocked', blocker_owner: 'closer', next_command: 'resolve-active-review-threads' };
   }
   if (checkState.status === 'checks_pending') {
@@ -268,13 +272,16 @@ function summarizeResults(results) {
 
 function buildDeliveryHandoff(result = {}) {
   if (!result.pr) return null;
+  const headSha = String(result.head_sha || '');
+  const deliveryGeneration = String(result.delivery_generation || '');
+  if (!headSha || !deliveryGeneration) return null;
   return {
     schema: 'workflows-generated-delivery-handoff/v1',
     repository: `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, ''),
     pr: Number(result.pr),
     branch: branchNameFromRef(result.branch),
-    head_sha: String(result.head_sha || ''),
-    delivery_generation: String(result.delivery_generation || ''),
+    head_sha: headSha,
+    delivery_generation: deliveryGeneration,
     lane: generatedDeliveryLane(result.branch),
     disposition: String(result.delivery_disposition || result.status || ''),
     blocker_owner: String(result.blocker_owner || ''),

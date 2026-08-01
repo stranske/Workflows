@@ -83,6 +83,7 @@ test('generated delivery classification gives sync and dev-tool lanes identical 
   for (const candidate of [sync, devTool]) {
     assert.equal(classifyGeneratedPr({ pr: candidate, now: '2026-08-01T00:00:00Z' }).disposition, 'current');
     assert.equal(classifyGeneratedPr({ pr: candidate, activeReviewThreadCount: 1, now: '2026-08-01T00:00:00Z' }).disposition, 'review-blocked');
+    assert.equal(classifyGeneratedPr({ pr: candidate, activeReviewThreadCount: -1, now: '2026-08-01T00:00:00Z' }).next_command, 'retry-review-thread-query');
     assert.equal(classifyGeneratedPr({ pr: candidate, checkState: { status: 'checks_failed' }, now: '2026-08-01T00:00:00Z' }).disposition, 'repo-local-failure');
   }
 });
@@ -177,6 +178,10 @@ test('buildDeliveryHandoff preserves the restart fields for a generated PR', () 
     lane: 'dev-tool-sync', disposition: 'review-blocked', blocker_owner: 'closer',
     next_command: 'resolve-active-review-threads',
   });
+});
+
+test('buildDeliveryHandoff rejects results that lack required restart fields', () => {
+  assert.equal(buildDeliveryHandoff({ owner: 'stranske', repo: 'Ready', pr: 11, branch: 'sync/workflows-current' }), null);
 });
 
 test('collectDeletableSyncBranches keeps open PR branches and non-sync branches', () => {

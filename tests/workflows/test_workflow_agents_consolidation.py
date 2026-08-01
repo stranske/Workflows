@@ -312,6 +312,9 @@ def test_merge_sync_prs_uploads_machine_readable_report_and_hash_input():
     assert (
         "selectMergeEligibleSyncPr" in text
     ), "Maint 71 must select the active PR with the lease-aware merge contract"
+    assert (
+        "isTrustedGeneratedDeliveryPr" in text
+    ), "Maint 71 must route both sync and dev-tool generated deliveries through the contract"
     assert "cleanup_branches:" in text, "Maint 71 must expose sync branch cleanup control"
     assert (
         "collectDeletableSyncBranches" in text and "branch_delete_failed" in text
