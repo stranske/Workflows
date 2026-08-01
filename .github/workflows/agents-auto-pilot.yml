@@ -3239,7 +3239,7 @@ jobs:
               core,
               env: process.env,
               task: 'auto-pilot-monitor-pr',
-              capabilities: ['issues:write', 'contents:read']
+              capabilities: ['issues:write', 'contents:read', 'actions:write']
             });
             const prNumber = '${{ steps.context.outputs.linked_pr }}';
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
