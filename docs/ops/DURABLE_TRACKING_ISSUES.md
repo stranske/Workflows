@@ -103,8 +103,8 @@ same change.
   original snapshot is frozen at issue creation; current state lives further
   down (or in the rewritten body for `#1836` / `#2210` / `#2470`).
 - **A red signal** (parse errors > 0 in `#2211`, an actionable
-  `stale`/`blocked`/`untracked_drift` repo listed in `#2210` — a raw drift count
-  is not one, since `covered` drift is expected,
+  `stale`/`blocked`/`untracked_drift` state or a global comparison error listed
+  in `#2210` — a raw drift count is not one, since `covered` drift is expected,
   a stuck-window marker present in `#2470`,
   unclaimed `needs-local-codex` items in `#1836`) means the underlying system
   needs attention — but the fix lands in code or in another repo, not by

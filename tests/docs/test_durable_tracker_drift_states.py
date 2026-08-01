@@ -17,6 +17,20 @@ TRACKER_DOC = REPO_ROOT / "docs" / "ops" / "DURABLE_TRACKING_ISSUES.md"
 CHECKER = REPO_ROOT / "scripts" / "check_consumer_sync_drift.py"
 HEALTH_68 = REPO_ROOT / ".github" / "workflows" / "health-68-consumer-sync-drift.yml"
 
+_SECTION_2210 = re.compile(
+    r"- \*\*#2210\*\* —.*?(?=\n- \*\*#|\n### |\n## |\Z)",
+    re.DOTALL,
+)
+_ROW_2210 = re.compile(
+    r"\| \[#2210\].*?\|.*?\|.*?\| (.*?) \|",
+)
+
+
+def _section_2210(text: str) -> str:
+    match = _SECTION_2210.search(text)
+    assert match, "DURABLE_TRACKING_ISSUES.md is missing the #2210 signal-flow section"
+    return match.group(0)
+
 
 def _per_repo_states() -> set[str]:
     """Every value the checker assigns to a per-repo `state` key."""
@@ -25,7 +39,8 @@ def _per_repo_states() -> set[str]:
 
 
 def test_tracker_doc_documents_every_state_the_checker_emits() -> None:
-    documented = set(re.findall(r"\| `([a-z_]+)` \|", TRACKER_DOC.read_text(encoding="utf-8")))
+    section = _section_2210(TRACKER_DOC.read_text(encoding="utf-8"))
+    documented = set(re.findall(r"\| `([a-z_]+)` \|", section))
     emitted = _per_repo_states() | {"converged"}
 
     assert emitted == {
@@ -35,25 +50,42 @@ def test_tracker_doc_documents_every_state_the_checker_emits() -> None:
         "stale",
         "untracked_drift",
     }, "the checker state contract changed; update this gate and the durable tracker documentation"
-    assert (
-        emitted <= documented
-    ), f"states missing from DURABLE_TRACKING_ISSUES.md: {sorted(emitted - documented)}"
+    assert documented == emitted, (
+        f"doc/code state mismatch in the #2210 table: "
+        f"extra={sorted(documented - emitted)} missing={sorted(emitted - documented)}"
+    )
 
 
 def test_tracker_doc_does_not_promise_a_cron_health_68_no_longer_has() -> None:
     text = TRACKER_DOC.read_text(encoding="utf-8")
     workflow = HEALTH_68.read_text(encoding="utf-8")
+    row = _ROW_2210.search(text)
+    assert row, "missing #2210 cadence row in the durable tracker table"
+    cadence = row.group(1)
 
     assert "schedule:" not in workflow, "Health 68 regained a cron; update the tracker doc row"
-    assert "05:10" not in text, "the tracker row still advertises the removed daily 05:10 cron"
-    assert "Merge Sync PRs" in text
+    assert "05:10" not in cadence and "cron" not in cadence.lower()
+    assert "Merge Sync PRs" in cadence
+    assert "successful main-branch" in cadence
+    assert "qualifying" in cadence and "push" in cadence
+    assert "manual dispatch" in cadence
 
 
 def test_tracker_doc_states_that_covered_drift_is_silent() -> None:
-    text = TRACKER_DOC.read_text(encoding="utf-8")
+    section = _section_2210(TRACKER_DOC.read_text(encoding="utf-8"))
+    covered_row = re.search(r"\| `covered` \|.*?\|.*?\|.*?\|", section)
+    assert covered_row, "missing `covered` row in the #2210 state table"
+    assert "| 0 |" in covered_row.group(0)
+    assert "| No |" in covered_row.group(0)
+    assert "silent" in section
+    assert "nothing actionable" in section
+    assert "CONSUMER_REPO_MAINTENANCE.md#drift-coverage-states" in section
 
-    # The whole point of #2878: a covered run exits zero and appends nothing, so
-    # a quiet tracker must not be read as a broken workflow.
-    assert "covered" in text
-    assert "actionable" in text
-    assert "CONSUMER_REPO_MAINTENANCE.md#drift-coverage-states" in text
+
+def test_tracker_doc_red_signal_includes_global_comparison_errors() -> None:
+    text = TRACKER_DOC.read_text(encoding="utf-8")
+    assert "global comparison error" in text
+    assert re.search(
+        r"stale`/`blocked`/`untracked_drift` state or a global comparison error",
+        text,
+    )
