@@ -4,7 +4,7 @@
 > `config/llm_slots.json`
 > **Policy version:** `auxiliary-verifier-model-selection-v1`
 > **Reviewed:** 2026-07-10
-> **Next decision review:** 2026-07-24
+> **Next decision review:** 2026-08-30
 
 ## Decision Principle
 
