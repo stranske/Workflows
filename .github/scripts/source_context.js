@@ -381,10 +381,18 @@ function resolvePrSourceContext(pull = {}) {
   const body = String(pull?.body || '');
   const block = parseWorkflowSourceBlock(body);
   const dependencyRepairPromotion = parseDependencyRepairPromotionSource(body);
+  const labels = labelNames(pull).map((label) => label.toLowerCase());
+  // The marker is supplied in untrusted PR text. Promotion labels are applied
+  // by the controlled promotion workflow after it has established provenance.
+  const trustedDependencyRepairPromotion = Boolean(
+    dependencyRepairPromotion &&
+      labels.includes('dependency:repair-promotion') &&
+      labels.includes('workflow:source-dependabot'),
+  );
   const extractedIssueNumber = extractIssueNumberFromPull(pull);
   // Promotion provenance is authoritative: a coincidental issue reference must
   // not route the PR through issue-body synchronization.
-  const issueNumber = dependencyRepairPromotion ? null : extractedIssueNumber;
+  const issueNumber = trustedDependencyRepairPromotion ? null : extractedIssueNumber;
   const noAutomation = hasNoAutomationWorkflowContext(pull);
 
   const markerType = normalizeSourceType(parseHtmlMarker(body, 'workflow-source'));
@@ -392,7 +400,7 @@ function resolvePrSourceContext(pull = {}) {
   const checkboxType = sourceTypeFromCheckedTemplate(body);
   const labelType = sourceTypeFromLabels(pull);
   const inferredType = inferredSourceType(pull);
-  const detectedSourceType = dependencyRepairPromotion
+  const detectedSourceType = trustedDependencyRepairPromotion
     ? SOURCE_TYPES.DEPENDABOT
     : issueNumber
     ? SOURCE_TYPES.GITHUB_ISSUE
@@ -403,7 +411,7 @@ function resolvePrSourceContext(pull = {}) {
     : detectedSourceType;
 
   const sourceRef =
-    (dependencyRepairPromotion
+    (trustedDependencyRepairPromotion
       ? `dependency-pr:#${dependencyRepairPromotion.source_pr}`
       : '') ||
     cleanString(parseHtmlMarker(body, 'workflow-source-ref')) ||
@@ -426,7 +434,7 @@ function resolvePrSourceContext(pull = {}) {
     isValid: VALID_SOURCE_TYPES.has(sourceType),
     isExplicit: Boolean(
       issueNumber ||
-        dependencyRepairPromotion ||
+        trustedDependencyRepairPromotion ||
         markerType !== SOURCE_TYPES.UNKNOWN ||
         blockType !== SOURCE_TYPES.UNKNOWN ||
         checkboxType !== SOURCE_TYPES.UNKNOWN ||

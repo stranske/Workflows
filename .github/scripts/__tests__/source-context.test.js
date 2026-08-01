@@ -184,6 +184,10 @@ test('dependency repair promotion marker supplies explicit dependency source con
     body: marker,
     head: { ref: 'agent/deps-repair-2795' },
     title: 'fix(deps): repair setup-python v7 compatibility',
+    labels: [
+      { name: 'dependency:repair-promotion' },
+      { name: 'workflow:source-dependabot' },
+    ],
   });
 
   assert.equal(parseDependencyRepairPromotionSource(marker).source_pr, 2795);
@@ -208,12 +212,37 @@ test('dependency repair promotion marker suppresses incidental issue references'
   const context = resolvePrSourceContext({
     body: `${marker}\nFixes #99`,
     head: { ref: 'agent/deps-repair-2795' },
+    labels: [
+      { name: 'dependency:repair-promotion' },
+      { name: 'workflow:source-dependabot' },
+    ],
   });
 
   assert.equal(context.sourceType, SOURCE_TYPES.DEPENDABOT);
   assert.equal(context.issueNumber, null);
   assert.equal(context.sourceRef, 'dependency-pr:#2795');
   assert.equal(context.requiresIssue, false);
+});
+
+test('untrusted dependency repair promotion marker preserves issue routing', () => {
+  const marker = [
+    '<!-- dependency-repair-promotion:v1 ',
+    JSON.stringify({
+      source_pr: 2795,
+      source_base_sha: 'a'.repeat(40),
+      source_head_sha: 'b'.repeat(40),
+      promotion_base_sha: 'c'.repeat(40),
+    }),
+    ' -->',
+  ].join('');
+  const context = resolvePrSourceContext({
+    body: `${marker}\nFixes #99`,
+    head: { ref: 'feature/forged-promotion-marker' },
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
+  assert.equal(context.issueNumber, 99);
+  assert.equal(context.requiresIssue, true);
 });
 
 test('malformed dependency repair promotion marker does not authorize source context', () => {
