@@ -25,7 +25,7 @@ def test_efficiency_workflow_collects_fixture_backed_report_and_dedupes_tracker_
     assert "workflows-consumer-sync:v1" in text
     assert "dependency-sync-efficiency:v1 fingerprint=" in text
     assert 'metrics_output="$(python scripts/dependency_sync_efficiency_metrics.py' in text
-    assert 'awk -F= \'/^fingerprint=/{print $2}\'' in text
+    assert "awk -F= '/^fingerprint=/{print $2}'" in text
     assert "from scripts.dependency_sync_efficiency_metrics import fingerprint" not in text
     assert "issues.createComment" in text
     assert "EFFICIENCY_TRACKER_ISSUE: '2897'" in text
