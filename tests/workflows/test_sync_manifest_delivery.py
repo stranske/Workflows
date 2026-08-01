@@ -171,9 +171,9 @@ def test_all_langchain_entries_have_a_delivery_channel() -> None:
                 "runtime",
             }:
                 missing.append(source)
-    assert (
-        not missing
-    ), f"scripts/langchain/* entries missing a delivery: channel: {sorted(missing)}"
+    assert not missing, (
+        f"scripts/langchain/* entries missing a delivery: channel: {sorted(missing)}"
+    )
 
 
 def test_runtime_fetched_section_is_not_copy_processed() -> None:
@@ -185,12 +185,12 @@ def test_runtime_fetched_section_is_not_copy_processed() -> None:
     """
     sync_text = SYNC_WORKFLOW_PATH.read_text(encoding="utf-8")
     drift_text = DRIFT_CHECK_PATH.read_text(encoding="utf-8")
-    assert (
-        "runtime_fetched" not in sync_text
-    ), "maint-68 must not process the runtime_fetched section (would copy-deliver it)"
-    assert (
-        "runtime_fetched" not in drift_text
-    ), "check_consumer_sync_drift must not probe the runtime_fetched section"
+    assert "runtime_fetched" not in sync_text, (
+        "maint-68 must not process the runtime_fetched section (would copy-deliver it)"
+    )
+    assert "runtime_fetched" not in drift_text, (
+        "check_consumer_sync_drift must not probe the runtime_fetched section"
+    )
 
 
 def test_prepare_checkout_includes_manifest_owned_github_roots() -> None:
@@ -219,10 +219,17 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     assert dispatch_inputs["phase"]["default"] == "canary"
     assert set(dispatch_inputs["phase"]["options"]) == {"preview", "canary", "promote"}
     assert "canary_evidence_json" in dispatch_inputs
-    assert prepare["outputs"]["phase"] == "${{ steps.phase.outputs.phase }}"
+    assert prepare["outputs"]["phase"] == "${{ steps.repos.outputs.phase }}"
     assert sync["if"] == "needs.prepare.outputs.phase != 'preview'"
     assert "select_consumer_sync_phase.py" in source
-    assert "sync-plan-and-prospective-diffs" in source
+    upload = next(
+        step for step in prepare["steps"] if step.get("uses") == "actions/upload-artifact@v7"
+    )
+    download = next(
+        step for step in sync["steps"] if step.get("uses") == "actions/download-artifact@v8"
+    )
+    assert upload["with"]["name"] == "sync-plan-and-prospective-diffs"
+    assert download["with"]["name"] == upload["with"]["name"]
 
     config = json.loads((REPO_ROOT / "config" / "consumer_sync_canaries.json").read_text())
     assert config["schema"] == "workflows.consumer-sync-canaries/v1"

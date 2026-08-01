@@ -83,6 +83,29 @@ def test_promotion_requires_green_review_clear_evidence_for_each_canary() -> Non
         )
 
 
+def test_promotion_rejects_missing_or_duplicate_canary_evidence() -> None:
+    compiled = plan()
+    evidence = green_evidence(compiled["plan_id"])
+
+    with pytest.raises(PhaseSelectionError, match="missing_canary_evidence"):
+        select_phase(
+            compiled,
+            phase="promote",
+            registered_repos=REGISTERED,
+            canaries=CANARIES,
+            evidence=evidence[:-1],
+        )
+
+    with pytest.raises(PhaseSelectionError, match="duplicate_canary_evidence"):
+        select_phase(
+            compiled,
+            phase="promote",
+            registered_repos=REGISTERED,
+            canaries=CANARIES,
+            evidence=[*evidence, evidence[0]],
+        )
+
+
 def test_promotion_targets_only_non_canary_repos() -> None:
     compiled = plan()
     result = select_phase(
@@ -94,6 +117,18 @@ def test_promotion_targets_only_non_canary_repos() -> None:
     )
 
     assert result["selected_repos"] == ["stranske/Manager-Database", "stranske/Ready"]
+
+
+def test_filtered_manual_canary_run_preserves_requested_repositories() -> None:
+    result = select_phase(
+        plan(),
+        phase="canary",
+        registered_repos=REGISTERED,
+        selected_repos=["stranske/Ready"],
+        canaries=CANARIES,
+    )
+
+    assert result["selected_repos"] == ["stranske/Ready"]
 
 
 def test_checked_in_canary_config_covers_distinct_consumer_shapes() -> None:

@@ -122,6 +122,7 @@ jobs:
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
           SYNC_HASH_INPUT: ${{ inputs.sync_hash || '' }}
           CLEANUP_BRANCHES_INPUT: ${{ inputs.cleanup_branches }}
+          TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-merge-report.json
         with:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
@@ -137,6 +138,7 @@ jobs:
               collectDeletableSyncBranches,
               normalizeSyncHash,
               parseBooleanInput,
+              isTrustedSyncPr,
               selectActiveSyncPr,
               selectSyncPrGatingChecks,
             } = require('./.github/scripts/sync_pr_merge_contract.js');
@@ -250,8 +252,11 @@ jobs:
             const requestedSyncHash = normalizeSyncHash(
               process.env.SYNC_HASH_INPUT ||
                 (context.payload.client_payload && context.payload.client_payload.sync_hash) ||
-                '',
+              '',
             );
+            const trustedSyncActors = process.env.TRUSTED_SYNC_ACTORS.split(',')
+              .map((actor) => actor.trim())
+              .filter(Boolean);
 
             console.log(`Registered consumer repos: ${registeredRepos.join(', ')}`);
             console.log(`Processing repos: ${targetRepos.join(', ')}`);
@@ -283,6 +288,7 @@ jobs:
                     repository(owner: $owner, name: $repo) {
                       pullRequest(number: $number) {
                         reviewThreads(first: 100) {
+                          pageInfo { hasNextPage }
                           nodes { isResolved isOutdated }
                         }
                       }
@@ -290,7 +296,14 @@ jobs:
                   }`,
                   { owner, repo, number },
                 );
-                return data.repository.pullRequest.reviewThreads.nodes.filter(
+                const reviewThreads = data.repository.pullRequest.reviewThreads;
+                if (reviewThreads.pageInfo.hasNextPage) {
+                  core.warning(
+                    `Review-thread pagination exceeded the safe evidence window for ${owner}/${repo}#${number}`,
+                  );
+                  return -1;
+                }
+                return reviewThreads.nodes.filter(
                   (thread) => !thread.isResolved && !thread.isOutdated,
                 ).length;
               } catch (error) {
@@ -317,7 +330,7 @@ jobs:
                   per_page: 20
                 }));
 
-                const syncPRs = prs.filter(pr => pr.head.ref.startsWith('sync/workflows-'));
+                const syncPRs = prs.filter((pr) => isTrustedSyncPr(pr, trustedSyncActors));
 
                 if (cleanupBranches) {
                   try {

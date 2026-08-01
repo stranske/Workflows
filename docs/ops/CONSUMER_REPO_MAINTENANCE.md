@@ -246,7 +246,9 @@ Do not wait for consumer CI in that workflow. Run Maint 71 later to publish
 `sync-canary-evidence.json`, then invoke Maint 68 with `phase=promote` and that
 artifact's JSON as `canary_evidence_json`. Promotion rejects absent, stale or
 mixed-plan evidence, failed required checks, and active non-outdated review
-threads. A successful promotion targets only affected non-canary repositories.
+threads. A successful promotion targets all registered non-canary repositories
+once every configured canary has current, green, review-clear evidence for the
+same plan.
 Use `preview` to produce the plan/evidence artifact without a write matrix.
 Emergency direct promotion remains an explicit audited operator action and is
 limited to a security or production-break fix.

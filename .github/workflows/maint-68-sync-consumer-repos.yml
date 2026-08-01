@@ -82,7 +82,7 @@ jobs:
       repos: ${{ steps.repos.outputs.matrix }}
       template_hash: ${{ steps.manifest.outputs.template_hash }}
       plan_id: ${{ steps.manifest.outputs.plan_id }}
-      phase: ${{ steps.phase.outputs.phase }}
+      phase: ${{ steps.repos.outputs.phase }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -123,9 +123,10 @@ jobs:
         id: repos
         env:
           CANARY_EVIDENCE_JSON: ${{ inputs.canary_evidence_json || '' }}
+          REPOS_INPUT: ${{ inputs.repos }}
         run: |
-          if [ -n "${{ inputs.repos }}" ]; then
-            repos='${{ inputs.repos }}'
+          if [ -n "$REPOS_INPUT" ]; then
+            repos="$REPOS_INPUT"
           else
             repos=$(echo "$REGISTERED_CONSUMER_REPOS" | tr '\n' ',' | sed 's/,$//')
           fi
@@ -134,20 +135,22 @@ jobs:
           # a later explicit run with Maint 71's plan-bound evidence; no workflow waits
           # for cross-repo CI inside this run.
           phase='${{ inputs.phase || 'canary' }}'
+          selected_repos_args=()
+          if [ -n "$REPOS_INPUT" ]; then
+            selected_repos_args=(--selected-repos "$repos")
+          fi
           python scripts/select_consumer_sync_phase.py \
             --plan manifest.json \
             --phase "$phase" \
-            --registered-repos "$repos" \
+            --registered-repos "$(echo "$REGISTERED_CONSUMER_REPOS" | tr '\n' ',' | sed 's/,$//')" \
+            "${selected_repos_args[@]}" \
             --canaries config/consumer_sync_canaries.json \
             --canary-evidence-json "$CANARY_EVIDENCE_JSON" \
             --output sync-phase-selection.json
           echo "matrix=$(jq -c '.matrix' sync-phase-selection.json)" >> "$GITHUB_OUTPUT"
+          echo "phase=$phase" >> "$GITHUB_OUTPUT"
           echo "Selected phase: $phase"
           jq -r '.selected_repos[]' sync-phase-selection.json
-
-      - name: Record selected phase
-        id: phase
-        run: echo "phase=${{ inputs.phase || 'canary' }}" >> "$GITHUB_OUTPUT"
 
       - name: Upload plan and prospective-diff evidence
         uses: actions/upload-artifact@v7
@@ -280,7 +283,7 @@ jobs:
       - name: Download manifest
         uses: actions/download-artifact@v8
         with:
-          name: sync-manifest
+          name: sync-plan-and-prospective-diffs
 
       - name: Setup Python
         uses: actions/setup-python@v7

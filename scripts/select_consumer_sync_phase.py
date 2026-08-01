@@ -99,8 +99,14 @@ def _evidence_rows(raw: str) -> list[dict[str, Any]]:
 def _promotion_rejections(
     *, plan_id: str, canary_repos: list[str], evidence: list[dict[str, Any]]
 ) -> list[str]:
-    by_repo = {str(item.get("repo", "")): item for item in evidence}
+    by_repo: dict[str, dict[str, Any]] = {}
     reasons: list[str] = []
+    for item in evidence:
+        repo = str(item.get("repo", ""))
+        if repo in canary_repos and repo in by_repo:
+            reasons.append(f"duplicate_canary_evidence:{repo}")
+            continue
+        by_repo[repo] = item
     for repo in canary_repos:
         item = by_repo.get(repo)
         if item is None:
@@ -122,12 +128,16 @@ def select_phase(
     registered_repos: list[str],
     canaries: list[dict[str, Any]],
     evidence: list[dict[str, Any]] | None = None,
+    selected_repos: list[str] | None = None,
 ) -> dict[str, Any]:
     """Return a deterministic matrix plus the evidence needed to audit it."""
     if phase not in PHASES:
         raise PhaseSelectionError("unsupported_sync_phase")
     plan = _validate_plan(plan)
     canary_repos = [item["repo"] for item in canaries]
+    if selected_repos is not None and not set(selected_repos) <= set(registered_repos):
+        raise PhaseSelectionError("selected_repos_must_be_registered")
+    target_repos = selected_repos if selected_repos is not None else registered_repos
     paths = sorted(
         {str(entry.get("target")) for entry in plan["entries"] if entry.get("target")}
         | {str(removal.get("target")) for removal in plan["removals"] if removal.get("target")}
@@ -139,12 +149,12 @@ def select_phase(
             "affected_paths": paths,
             "canary": repo in canary_repos,
         }
-        for repo in registered_repos
+        for repo in target_repos
     ]
     if phase == "preview":
         selected = []
     elif phase == "canary":
-        selected = canary_repos
+        selected = target_repos if selected_repos is not None else canary_repos
     else:
         reasons = _promotion_rejections(
             plan_id=plan["plan_id"],
@@ -153,7 +163,7 @@ def select_phase(
         )
         if reasons:
             raise PhaseSelectionError("promotion_rejected:" + ",".join(reasons))
-        selected = [repo for repo in registered_repos if repo not in canary_repos]
+        selected = [repo for repo in target_repos if repo not in canary_repos]
     return {
         "schema": "workflows.consumer-sync-phase-selection/v1",
         "version": 1,
@@ -172,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--phase", choices=sorted(PHASES), required=True)
     parser.add_argument("--registered-repos", required=True)
+    parser.add_argument("--selected-repos", default="")
     parser.add_argument("--canaries", type=Path, required=True)
     parser.add_argument("--canary-evidence-json", default="")
     parser.add_argument("--output", type=Path, required=True)
@@ -183,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
             registered_repos=_parse_repos(args.registered_repos),
             canaries=_load_canaries(args.canaries, _parse_repos(args.registered_repos)),
             evidence=_evidence_rows(args.canary_evidence_json),
+            selected_repos=_parse_repos(args.selected_repos) if args.selected_repos else None,
         )
     except PhaseSelectionError as exc:
         parser.error(str(exc))

@@ -8,6 +8,7 @@ const {
   buildMergeReport,
   classifySyncPrChecks,
   collectDeletableSyncBranches,
+  isTrustedSyncPr,
   normalizeSyncHash,
   parseBooleanInput,
   selectActiveSyncPr,
@@ -58,6 +59,12 @@ test('selectActiveSyncPr falls back to newest sync PR without a target hash', ()
   assert.equal(selection.active.number, 2);
   assert.deepEqual(selection.stale.map((item) => item.number), [1]);
   assert.equal(selection.missingExpected, false);
+});
+
+test('isTrustedSyncPr requires the configured actor and sync branch', () => {
+  const trusted = { ...pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z'), user: { login: 'stranske' } };
+  assert.equal(isTrustedSyncPr(trusted, ['stranske']), true);
+  assert.equal(isTrustedSyncPr({ ...trusted, user: { login: 'untrusted' } }, ['stranske']), false);
 });
 
 test('selectActiveSyncPr honors target hash instead of newest PR', () => {

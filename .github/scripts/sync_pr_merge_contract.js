@@ -27,6 +27,11 @@ function isSyncBranchName(value) {
   return branchNameFromRef(value).startsWith(SYNC_BRANCH_PREFIX);
 }
 
+function isTrustedSyncPr(pr, trustedActors = []) {
+  const actor = String(pr?.user?.login || '').trim();
+  return isSyncBranchName(pr?.head?.ref) && new Set(trustedActors).has(actor);
+}
+
 function parseBooleanInput(value, defaultValue = false) {
   if (value === undefined || value === null || String(value).trim() === '') {
     return Boolean(defaultValue);
@@ -262,6 +267,7 @@ module.exports = {
   classifySyncPrChecks,
   collectDeletableSyncBranches,
   isSyncBranchName,
+  isTrustedSyncPr,
   normalizeSyncHash,
   syncBranchForHash,
   parseBooleanInput,
