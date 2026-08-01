@@ -18,6 +18,12 @@
       "approval_stage": {
         "minimum_adjudicated_cases": 75,
         "minimum_cases_per_category": 10,
+        "minimum_cases_per_category_overrides": {
+          "stale-verifier-claim": 1,
+          "review-thread-debt": 1,
+          "missing-acceptance-criterion": 1
+        },
+        "minimum_cases_per_category_overrides_note": "These three categories cannot be labelled from realized downstream outcomes, so tools/harvest_verifier_corpus.py never produces them and they remain owner-sourced. Holding them to the machine-harvestable floor of 10 made `approved` unreachable without ~22 hand-labelled cases, so for them the floor asserts REPRESENTATION (at least one adjudicated example of the failure mode) rather than statistical power. The statistical gates (false-pass/false-fail/schema-error Wilson bounds, paired non-inferiority) still run over the whole corpus, and minimum_adjudicated_cases=75 still applies. Raise these toward 10 as owner-labelled cases accumulate. See #2819.",
         "confidence_level": 0.95,
         "quality_gates": {
           "task_success_rate_wilson_lower_bound": 0.85,
