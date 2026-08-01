@@ -98,3 +98,29 @@ For promotion PRs, it verifies:
 Later commits are deliberately allowed: those commits are where local coding
 agents provide the repair. Normal CI, active review-thread checks, shared
 template ownership, and dependency security review still apply.
+
+### Why authorization lives in the caller workflow
+
+`reusable-19-dependency-repair-contract.yml` cannot decline its own invocation:
+a `workflow_call` workflow runs whenever the caller's job runs. The decision of
+*whether* a PR is entitled to the contract therefore has to be a job-level `if:`
+in the caller, `pr-46-dependency-repair-contract.yml`, where the consumer's own
+`pull_request_target` payload (author, head repository, body marker, labels) is
+available. This is not a consumer-template exception: the root copy and
+`templates/consumer-repo/.github/workflows/pr-46-dependency-repair-contract.yml`
+are byte-identical and kept that way by `.github/sync-manifest.yml`, so every
+consumer evaluates the same authorization rule against its own PRs.
+
+Two properties of that caller-side condition are load-bearing:
+
+- **It must re-evaluate on label changes.** The promotion labels are applied
+  after the PR is opened, so the caller subscribes to `labeled` and `unlabeled`
+  in addition to `opened`/`reopened`/`synchronize`/`edited`. Without them the
+  `opened` run would skip the job while the marker was still unlabeled, the
+  required check would stay satisfied, and none of the verification above would
+  ever run.
+- **It must require a same-repository head.** Marker text and labels are both
+  reachable from a fork PR, but the contract checks out the head SHA from the
+  base repository, so the marker path is gated on
+  `head.repo.full_name == github.repository` exactly like the branch-prefix
+  path.
