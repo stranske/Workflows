@@ -28,12 +28,16 @@ def test_tracker_doc_documents_every_state_the_checker_emits() -> None:
     documented = set(re.findall(r"\| `([a-z_]+)` \|", TRACKER_DOC.read_text(encoding="utf-8")))
     emitted = _per_repo_states() | {"converged"}
 
-    assert emitted == {"blocked", "converged", "covered", "stale", "untracked_drift"}, (
-        "the checker state contract changed; update this gate and the durable tracker documentation"
-    )
-    assert emitted <= documented, (
-        f"states missing from DURABLE_TRACKING_ISSUES.md: {sorted(emitted - documented)}"
-    )
+    assert emitted == {
+        "blocked",
+        "converged",
+        "covered",
+        "stale",
+        "untracked_drift",
+    }, "the checker state contract changed; update this gate and the durable tracker documentation"
+    assert (
+        emitted <= documented
+    ), f"states missing from DURABLE_TRACKING_ISSUES.md: {sorted(emitted - documented)}"
 
 
 def test_tracker_doc_does_not_promise_a_cron_health_68_no_longer_has() -> None:
