@@ -32,3 +32,28 @@ jobs:
        (contains(github.event.pull_request.labels.*.name, 'workflow:source-dependabot') ||
         contains(github.event.pull_request.labels.*.name, 'workflow_source_dependabot')))
     uses: stranske/Workflows/.github/workflows/reusable-19-dependency-repair-contract.yml@main
+
+  # `contract` is gated on the two trust labels, and a skipped job reports
+  # success. Without this guard a same-repository promotion marker whose labels
+  # were never applied — or were removed again — would merge with no provenance
+  # validation at all. Fail closed instead.
+  unauthorized-promotion-marker:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'renovate[bot]' &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      contains(github.event.pull_request.body || '', '<!-- dependency-repair-promotion:v1') &&
+      !(contains(github.event.pull_request.labels.*.name, 'dependency:repair-promotion') &&
+        (contains(github.event.pull_request.labels.*.name, 'workflow:source-dependabot') ||
+         contains(github.event.pull_request.labels.*.name, 'workflow_source_dependabot')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reject an unauthorized promotion marker
+        run: |
+          echo "::error::This pull request carries a dependency-repair-promotion marker" \
+            "without both controlled promotion labels (dependency:repair-promotion and" \
+            "workflow:source-dependabot). The provenance contract therefore cannot run." \
+            "Remove the marker, or let the controlled promotion workflow apply the trust" \
+            "labels so PR 46 can validate the source PR, ancestry, and patch identity."
+          exit 1
