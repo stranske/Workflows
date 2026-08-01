@@ -518,8 +518,44 @@ jobs:
                 if (!selection.eligibility?.eligible) {
                   const reason = selection.eligibility?.reason || 'missing_delivery_record';
                   console.log(`Delivery contract blocks merge: ${reason}`);
-                  results.push({ owner, repo, pr: selection.active.number, branch: selection.active.head.ref,
-                    status: 'delivery_contract_blocked', delivery_reason: reason });
+                  const deliveryDisposition = reason === 'lease_expired'
+                    ? 'expired'
+                    : selection.deliveryRecord
+                      ? 'superseded'
+                      : 'owner-decision';
+                  const deliveryContext = {
+                    owner,
+                    repo,
+                    pr: selection.active.number,
+                    branch: selection.active.head.ref,
+                    head_sha: selection.active.head.sha,
+                    delivery_generation: selection.deliveryRecord?.generation || '',
+                    delivery_lane: generatedDeliveryLane(selection.active.head.ref),
+                    delivery_disposition: deliveryDisposition,
+                    blocker_owner: deliveryDisposition === 'owner-decision' ? 'source' : 'maint-71',
+                    next_command: deliveryDisposition === 'expired'
+                      ? 'close-expired-delivery'
+                      : deliveryDisposition === 'superseded'
+                        ? 'close-or-refresh-delivery'
+                        : 'attach-or-infer-delivery-record',
+                  };
+                  if (deliveryDisposition === 'expired' || deliveryDisposition === 'superseded') {
+                    if (!dryRun) {
+                      await withRetry((client) => client.rest.pulls.update({
+                        owner,
+                        repo,
+                        pull_number: selection.active.number,
+                        state: 'closed',
+                      }));
+                    }
+                    results.push({ ...deliveryContext, status: 'stale_closed', dry_run: dryRun });
+                    continue;
+                  }
+                  results.push({
+                    ...deliveryContext,
+                    status: 'delivery_contract_blocked',
+                    delivery_reason: reason,
+                  });
                   continue;
                 }
 
