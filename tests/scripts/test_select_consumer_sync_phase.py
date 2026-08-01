@@ -131,6 +131,19 @@ def test_filtered_manual_canary_run_preserves_requested_repositories() -> None:
     assert result["selected_repos"] == ["stranske/Ready"]
 
 
+def test_manual_selection_cannot_target_an_unregistered_repository() -> None:
+    # A manual filtered run must not become a fan-out escape hatch: one unregistered
+    # entry alongside valid ones has to reject the whole selection, not silently drop it.
+    with pytest.raises(PhaseSelectionError, match="selected_repos_must_be_registered"):
+        select_phase(
+            plan(),
+            phase="canary",
+            registered_repos=REGISTERED,
+            selected_repos=["stranske/Ready", "stranske/Not-A-Consumer"],
+            canaries=CANARIES,
+        )
+
+
 def test_checked_in_canary_config_covers_distinct_consumer_shapes() -> None:
     config = json.loads((ROOT / "config" / "consumer_sync_canaries.json").read_text())
     covered = {tag for canary in config["canaries"] for tag in canary["capabilities"]}
