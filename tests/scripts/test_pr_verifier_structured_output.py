@@ -107,6 +107,65 @@ def test_comparison_runner_handles_structured_response_content() -> None:
     assert result.raw_content == payload
 
 
+def test_comparison_runner_concatenates_split_text_blocks() -> None:
+    payload = json.dumps(_valid_payload())
+    # Split inside the summary string literal, where an inserted newline would
+    # be an unescaped control character and invalidate the JSON.
+    split = payload.index("Looks good.") + 5
+    response = _response_with(
+        [
+            {"type": "text", "text": payload[:split]},
+            {"type": "text", "text": payload[split:]},
+        ]
+    )
+    mock_client = mock.MagicMock()
+    mock_client.invoke.return_value = response
+
+    runner = pr_verifier.ComparisonRunner(
+        context="context",
+        diff=None,
+        prompt="prompt",
+        clients=[(mock_client, "anthropic", "claude-sonnet")],
+    )
+
+    result = runner.run_single(mock_client, "anthropic", "claude-sonnet")
+
+    assert result.verdict == "PASS"
+    assert result.raw_content == payload
+    assert mock_client.invoke.call_count == 1
+
+
+def test_comparison_runner_normalizes_structured_repair_response() -> None:
+    payload = json.dumps(_valid_payload())
+    malformed = _response_with(
+        [
+            {"type": "thinking", "thinking": "reviewing", "signature": "opaque"},
+            {"type": "text", "text": "```json\n" + payload + "\n```"},
+        ]
+    )
+    repaired = _response_with(
+        [
+            {"type": "thinking", "thinking": "repairing", "signature": "opaque"},
+            {"type": "text", "text": payload},
+        ]
+    )
+    mock_client = mock.MagicMock()
+    mock_client.invoke.side_effect = [malformed, repaired]
+
+    runner = pr_verifier.ComparisonRunner(
+        context="context",
+        diff=None,
+        prompt="prompt",
+        clients=[(mock_client, "anthropic", "claude-sonnet")],
+    )
+
+    result = runner.run_single(mock_client, "anthropic", "claude-sonnet")
+
+    assert result.verdict == "PASS"
+    assert result.raw_content == payload
+    assert mock_client.invoke.call_count == 2
+
+
 def test_evaluate_pr_valid_output_no_repair(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = _valid_payload()
     good = json.dumps(payload)

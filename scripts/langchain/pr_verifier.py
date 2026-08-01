@@ -686,7 +686,10 @@ def _coerce_response_content(content: object) -> str:
             if isinstance(block, dict) and isinstance(block.get("text"), str)
         ]
         if text_blocks:
-            return "\n".join(text_blocks)
+            # Concatenate without a separator: a provider may split one JSON
+            # document across blocks, and an inserted newline inside a string
+            # literal would make the reassembled payload invalid JSON.
+            return "".join(text_blocks)
     return json.dumps(content, default=str)
 
 
@@ -741,11 +744,14 @@ def _build_verifier_repair_callback(client: object) -> Callable[[str, str, str],
     repair = build_repair_callback(client)
 
     def _repair(schema_json: str, validation_errors: str, raw_response: str) -> str | None:
-        return repair(
+        repaired = repair(
             schema_json,
             validation_errors,
             _cap_prompt_text(raw_response, EVAL_SCHEMA_REPAIR_BUDGET_TOKENS),
         )
+        if not repaired:
+            return None
+        return _coerce_response_content(repaired)
 
     return _repair
 
