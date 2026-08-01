@@ -7,7 +7,7 @@ lets the orchestrator **join entities across tools**.
 
 > **Status: P0 landing (under human review).** Part of the `run-contract/v1`
 > contract set. See [`run-contract-v1.md`](./run-contract-v1.md) for the
-> envelope spec and [`research-backplane-contract.md`](./research-backplane-contract.md)
+> envelope spec and [`research-backplane-contract.md`](https://github.com/stranske/Workflows/blob/main/docs/contracts/research-backplane-contract.md)
 > for ownership. These are *conventions*, not central code: resolution stays in
 > the authoritative repos.
 

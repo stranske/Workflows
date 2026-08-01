@@ -8,8 +8,10 @@ rollup.
 
 > **Status: P0 landing (under human review).** This is the wire-format spec.
 > Schema: [`run-contract-v1.schema.json`](./schemas/run-contract-v1.schema.json).
-> Program/ownership doc: [`research-backplane-contract.md`](./research-backplane-contract.md).
-> Sibling observability contract: [`langsmith-fleet-v1.md`](./langsmith-fleet-v1.md).
+> Program/ownership doc: [`research-backplane-contract.md`](https://github.com/stranske/Workflows/blob/main/docs/contracts/research-backplane-contract.md)
+> (Workflows-only; not synced to participants).
+> Sibling observability contract: [`langsmith-fleet-v1.md`](https://github.com/stranske/Workflows/blob/main/docs/contracts/langsmith-fleet-v1.md)
+> (Workflows-only; not synced to participants).
 > The contract is **opt-in**: a repo participates only via an entry in
 > `config/backplane_participants.json`. No participant emits an envelope yet
 > (that is P1+); nothing here is wired into any repo's CI.
