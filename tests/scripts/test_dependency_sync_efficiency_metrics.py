@@ -1,0 +1,61 @@
+import importlib.util
+from datetime import UTC, datetime
+from pathlib import Path
+
+
+SPEC = importlib.util.spec_from_file_location(
+    "dependency_sync_efficiency_metrics", "scripts/dependency_sync_efficiency_metrics.py"
+)
+metrics = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(metrics)
+
+
+def test_fixture_classifies_all_generated_lanes_and_excludes_collab_admin():
+    report = metrics.calculate(
+        {
+            "collection": {"history_complete": False, "limitations": ["fixture window"]},
+            "pulls": [
+                {"repo": "stranske/App", "number": 1, "author": "renovate[bot]", "head_ref": "renovate/x", "state": "merged", "source_commit": "a"},
+                {"repo": "stranske/App", "number": 2, "head_ref": "sync/workflows-a", "state": "open", "updated_at": "2026-01-01T00:00:00Z", "source_commit": "a"},
+                {"repo": "stranske/App", "number": 3, "head_ref": "deps/sync-dev-versions-a", "state": "closed", "body": "Supersedes #1", "source_commit": "b"},
+                {"repo": "stranske/Collab-Admin", "number": 4, "head_ref": "sync/workflows-a", "state": "open"},
+            ],
+            "workflow_runs": [{"head_sha": "a"}, {"head_sha": "a"}],
+        },
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+    result = report["metrics"]
+    assert result["lane_counts"] == {"dependency-bot": 1, "sync-generated": 1, "dev-tool-sync": 1, "traditional": 0}
+    assert result["generated_prs"] == 3
+    assert result["stale"]["sync-generated"] == 1
+    assert result["replacement"]["dev-tool-sync"] == 1
+    assert result["collab_admin_excluded"] == 1
+    assert result["source_change_to_consumer_pr_amplification"] == {"a": 2, "b": 1}
+    assert result["actions_runs_per_source_change"]["a"] == 2
+    assert report["collection"]["history_complete"] is False
+
+
+def test_fingerprint_ignores_generation_timestamp_but_tracks_material_evidence():
+    snapshot = {"collection": {}, "pulls": [{"repo": "stranske/App", "number": 1, "head_ref": "sync/workflows-a", "state": "open", "updated_at": "2026-01-10T00:00:00Z", "check_failure_cluster": ["Gate"]}]}
+    first = metrics.calculate(snapshot, datetime(2026, 1, 10, tzinfo=UTC))
+    second = metrics.calculate(snapshot, datetime(2026, 1, 11, tzinfo=UTC))
+    assert metrics.fingerprint(first) == metrics.fingerprint(second)
+    snapshot["pulls"][0]["check_failure_cluster"] = ["Gate", "Python Tests"]
+    changed = metrics.calculate(snapshot, datetime(2026, 1, 11, tzinfo=UTC))
+    assert metrics.fingerprint(changed) != metrics.fingerprint(second)
+
+
+def test_markdown_includes_denominators_limits_and_threshold_breach():
+    report = metrics.calculate(
+        {"collection": {"limitations": ["last 100 PRs per repo"]}, "pulls": [
+            {"repo": "stranske/App", "number": number, "head_ref": f"sync/workflows-{number}", "state": "open", "updated_at": "2026-01-01T00:00:00Z"}
+            for number in range(41)
+        ]},
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+    text = metrics.markdown(report)
+    assert report["advisory_slo"]["state"] == "breach"
+    assert "Generated PRs: **41**" in text
+    assert "Complete GitHub history: **false**" in text
+    assert "last 100 PRs per repo" in text
