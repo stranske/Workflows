@@ -3318,14 +3318,14 @@ jobs:
                   requiredSecretNames.map((name) => [name, process.env[`HAS_${name}`] === 'true'])
                 );
                 try {
-                  const { data: secretData } = await withRetry((client) =>
-                    client.rest.actions.listRepoSecrets({
+                  const repoSecrets = await withRetry((client) =>
+                    client.paginate(client.rest.actions.listRepoSecrets, {
                       owner: context.repo.owner,
                       repo: context.repo.repo,
                       per_page: 100,
                     })
                   );
-                  for (const secret of secretData.secrets || []) {
+                  for (const secret of repoSecrets) {
                     if (Object.hasOwn(availableSecrets, secret.name)) {
                       availableSecrets[secret.name] = true;
                     }
@@ -3349,24 +3349,6 @@ jobs:
                 if (!hasAuto && hasAlternative) {
                   // Add agent:auto to the issue AND the PR so the keepalive delegation
                   // policy picks an alternative agent on its next round.
-                  await withRetry((client) => client.rest.issues.addLabels({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: issueNumber,
-                    labels: ['agent:auto'],
-                  }));
-                  if (prNumber) {
-                    try {
-                      await withRetry((client) => client.rest.issues.addLabels({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        issue_number: parseInt(prNumber, 10),
-                        labels: ['agent:auto'],
-                      }));
-                    } catch (prLabelErr) {
-                      core.info(`(could not label PR #${prNumber} with agent:auto: ${prLabelErr?.message})`);
-                    }
-                  }
                   const { data: repoInfo } = await withRetry((client) => client.rest.repos.get({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
@@ -3401,6 +3383,26 @@ jobs:
                     throw new Error(
                       `No keepalive handoff workflow could be dispatched: ${dispatchFailures.join('; ')}`
                     );
+                  }
+                  // Switch routing only after a dispatch succeeds, so a transient
+                  // dispatch failure leaves the existing concrete route retryable.
+                  await withRetry((client) => client.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    labels: ['agent:auto'],
+                  }));
+                  if (prNumber) {
+                    try {
+                      await withRetry((client) => client.rest.issues.addLabels({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: parseInt(prNumber, 10),
+                        labels: ['agent:auto'],
+                      }));
+                    } catch (prLabelErr) {
+                      core.info(`(could not label PR #${prNumber} with agent:auto: ${prLabelErr?.message})`);
+                    }
                   }
                   // Leading "🤖 **Auto-pilot step**" marker resets countConsecutiveWaits()
                   // (see belt-rotation note above) so a later monitor round starts fresh.
