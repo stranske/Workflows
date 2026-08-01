@@ -13,7 +13,7 @@ on:
       - 'scripts/**'
       - 'tools/**'
   schedule:
-    - cron: '10 5 * * *'  # Daily at 5:10 UTC
+    - cron: '40 5 * * *'  # Daily after Maint 68 and the 05:30 UTC janitor
   workflow_dispatch:
     inputs:
       repos:

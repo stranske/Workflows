@@ -122,12 +122,16 @@ function formatIssueBody(report, options = {}) {
   const runLink = runUrl && runNumber ? `[Run #${runNumber}](${runUrl})` : runUrl || 'current run';
   const openSyncPrs = formatOpenSyncPrs(report);
 
+  const remediation = report && report.sync_remediation ? report.sync_remediation : {};
+  const isCovered = report && report.status === 'covered';
   const lines = [
     '## Consumer Repo Drift Detected',
     '',
     '> **Durable tracker** — see [`docs/ops/DURABLE_TRACKING_ISSUES.md`](https://github.com/stranske/Workflows/blob/main/docs/ops/DURABLE_TRACKING_ISSUES.md). The body below is regenerated each cycle by `health-68-consumer-sync-drift.yml`; auto-resolves on the next clean run.',
     '',
-    'One or more consumer repos have drifted from the Workflows templates or manifest entries.',
+    isCovered
+      ? 'Detected drift is covered by current, unexpired compiler-plan sync PRs; no tracker comment is needed.'
+      : 'One or more consumer repos have actionable drift from the Workflows templates or manifest entries.',
     '',
     `**Check Details:** ${runLink}`,
     `**Counts:** ${countsLine(report)}`,
@@ -144,6 +148,13 @@ function formatIssueBody(report, options = {}) {
     '- Close this issue when Health 68 passes.',
     '',
   ];
+  if (remediation.expected_branch) {
+    lines.splice(lines.indexOf('### Required Actions'), 0,
+      '### Remediation state',
+      `- Current plan branch: \`${remediation.expected_branch}\``,
+      `- Coverage lease: ${remediation.coverage_lease_hours || 0} hours`,
+      '');
+  }
   if (openSyncPrs.length > 0) {
     lines.push(
       '### Open sync PRs',
@@ -175,6 +186,9 @@ function mergeIssueBody(existingBody, report, options = {}) {
 }
 
 function formatIssueComment(report, options = {}) {
+  if (report && report.status === 'covered') {
+    return '';
+  }
   const runUrl = options.runUrl || '';
   const runNumber = options.runNumber || '';
   const runLink = runUrl && runNumber ? `[run #${runNumber}](${runUrl})` : runUrl || 'latest run';

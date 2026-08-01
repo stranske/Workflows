@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 
 from scripts import check_consumer_sync_drift
 from scripts.sync_manifest_compiler import (
@@ -79,15 +80,8 @@ def test_build_report_returns_machine_readable_counts() -> None:
         ),
     }
     assert report["summary_limits"]["content_error_threshold_per_repo"] == 5
-    assert report["sync_remediation"] == {
-        "state": "needs_sync",
-        "open_pr_count": 0,
-        "repo_count": 0,
-        "latest_open_pr": None,
-        "stale_open_pr_count": 0,
-        "open_prs": [],
-        "lookup_errors": [],
-    }
+    assert report["sync_remediation"]["state"] == "drift"
+    assert report["sync_remediation"]["repo_states"]["owner/a"]["state"] == "untracked_drift"
     assert report["drift"] == ["owner/b: .github/workflows/a.yml"]
     assert report["token_diagnostics"] == token_diagnostics
 
@@ -176,14 +170,14 @@ def test_build_report_surfaces_manifest_skips_without_failing() -> None:
         skipped={"owner/custom: AGENTS.md (Uses historical Agents.md casing)"},
     )
 
-    assert report["status"] == "pass"
+    assert report["status"] == "converged"
     assert report["counts"] == {"drift": 0, "missing": 0, "errors": 0, "obsolete": 0}
     assert report["skip_count"] == 1
     assert report["skipped"] == ["owner/custom: AGENTS.md (Uses historical Agents.md casing)"]
-    assert report["sync_remediation"]["state"] == "pass"
+    assert report["sync_remediation"]["state"] == "converged"
 
 
-def test_build_report_surfaces_pending_sync_prs() -> None:
+def test_build_report_marks_current_sync_pr_as_covered() -> None:
     report = check_consumer_sync_drift.build_report(
         repos=["owner/repo"],
         drift={"owner/repo: .github/workflows/a.yml"},
@@ -195,33 +189,17 @@ def test_build_report_surfaces_pending_sync_prs() -> None:
                 "repo": "owner/repo",
                 "number": 12,
                 "url": "https://github.com/owner/repo/pull/12",
-                "branch": "sync/workflows-abc123",
+                "branch": "sync/workflows-aaaaaaaaaaaa",
+                "updated_at": "2026-04-26T01:00:00Z",
             }
         ],
-        sync_pr_lookup_errors=["owner/other: sync PR lookup failed (HTTP 403)"],
+        current_plan_id="sha256:" + "a" * 64,
+        now=datetime(2026, 4, 26, 2, 0, tzinfo=UTC),
     )
 
-    assert report["sync_remediation"] == {
-        "state": "pending_sync_prs",
-        "open_pr_count": 1,
-        "repo_count": 1,
-        "latest_open_pr": {
-            "repo": "owner/repo",
-            "number": 12,
-            "url": "https://github.com/owner/repo/pull/12",
-            "branch": "sync/workflows-abc123",
-        },
-        "stale_open_pr_count": 0,
-        "open_prs": [
-            {
-                "repo": "owner/repo",
-                "number": 12,
-                "url": "https://github.com/owner/repo/pull/12",
-                "branch": "sync/workflows-abc123",
-            }
-        ],
-        "lookup_errors": ["owner/other: sync PR lookup failed (HTTP 403)"],
-    }
+    assert report["status"] == "covered"
+    assert report["sync_remediation"]["expected_branch"] == "sync/workflows-aaaaaaaaaaaa"
+    assert report["sync_remediation"]["repo_states"]["owner/repo"]["state"] == "covered"
 
 
 def test_fetch_open_sync_prs_filters_to_workflows_sync_branches() -> None:
@@ -437,7 +415,7 @@ def test_write_report_json_creates_parent_directory(tmp_path) -> None:
 
     loaded = json.loads(output.read_text(encoding="utf-8"))
     assert loaded["schema"] == "workflows-consumer-sync-drift/v1"
-    assert loaded["status"] == "pass"
+    assert loaded["status"] == "converged"
 
 
 def test_write_summary_markdown_groups_and_bounds_items(tmp_path) -> None:

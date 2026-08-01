@@ -13,6 +13,15 @@ The list of registered repos lives in that workflow (env var
 `REGISTERED_CONSUMER_REPOS`). Avoid duplicating the list here; it changes over time and
 the workflow is the source of truth.
 
+### Drift coverage states
+
+Health 68 evaluates only after Maint 68 and the Maint 71 janitor. It classifies each
+consumer as `converged`, `covered`, `blocked`, `untracked_drift`, or `stale`. An open
+sync PR covers drift only when its `sync/workflows-<template-hash>` branch matches the
+current compiled plan and it is within the 36-hour coverage lease. Fully covered drift
+exits zero and does not append a durable-tracker comment; stale, blocked, and untracked
+states remain actionable failures.
+
 ### Adding a New Consumer Repo
 
 1. Add the repo to `REGISTERED_CONSUMER_REPOS` in `maint-68-sync-consumer-repos.yml`.

@@ -105,6 +105,10 @@ test('compactMarkerPayload exposes the current drift checkpoint', () => {
   assert.equal(payload.follow_up.workflow, 'maint-68-sync-consumer-repos.yml');
 });
 
+test('formatIssueComment suppresses covered-state noise', () => {
+  assert.equal(formatIssueComment({ ...report, status: 'covered' }), '');
+});
+
 test('mergeIssueBody refreshes generated issue bodies', () => {
   const oldBody = formatIssueBody({
     counts: { drift: 1, missing: 0, errors: 0, obsolete: 0 },

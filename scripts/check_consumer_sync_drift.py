@@ -8,6 +8,7 @@ import base64
 import hashlib
 import json
 import os
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -35,6 +36,7 @@ REPORT_SCHEMA = "workflows-consumer-sync-drift/v1"
 SUMMARY_ITEM_LIMIT = 50
 CONTENT_ERROR_THRESHOLD = 5
 SYNC_BRANCH_PREFIX = "sync/workflows-"
+SYNC_COVERAGE_MAX_AGE = timedelta(hours=36)
 TOKEN_ENV_ORDER = (
     "DRIFT_TOKEN",
     "SERVICE_BOT_PAT",
@@ -394,6 +396,95 @@ def fetch_open_sync_prs(
     return prs, None
 
 
+def parse_github_timestamp(value: object) -> datetime | None:
+    """Parse GitHub's UTC timestamp shape without making malformed data current."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+    except ValueError:
+        return None
+
+
+def build_remediation_states(
+    *,
+    repos: list[str],
+    drift: set[str],
+    missing: set[str],
+    errors: set[str],
+    obsolete: set[str],
+    open_sync_prs: list[dict[str, object]],
+    sync_pr_lookup_errors: list[str],
+    expected_branch: str,
+    now: datetime | None = None,
+) -> dict[str, dict[str, object]]:
+    """Classify drift using the current compiler-plan branch, not PR presence alone."""
+    current_time = now or datetime.now(UTC)
+    gaps_by_repo: dict[str, list[str]] = {repo: [] for repo in repos}
+    for category, items in (
+        ("drift", drift),
+        ("missing", missing),
+        ("errors", errors),
+        ("obsolete", obsolete),
+    ):
+        for item in items:
+            repo, _detail = split_report_item(item)
+            if repo in gaps_by_repo:
+                gaps_by_repo[repo].append(category)
+
+    lookup_failed = {item.split(":", 1)[0] for item in sync_pr_lookup_errors}
+    prs_by_repo: dict[str, list[dict[str, object]]] = {repo: [] for repo in repos}
+    for pr in open_sync_prs:
+        repo = str(pr.get("repo", ""))
+        if repo in prs_by_repo:
+            prs_by_repo[repo].append(pr)
+
+    states: dict[str, dict[str, object]] = {}
+    for repo in repos:
+        categories = sorted(set(gaps_by_repo[repo]))
+        if not categories:
+            states[repo] = {"state": "converged", "reason": "no drift detected"}
+            continue
+        if repo in lookup_failed or "errors" in categories:
+            states[repo] = {
+                "state": "blocked",
+                "reason": "lookup or content error",
+                "categories": categories,
+            }
+            continue
+
+        current = [pr for pr in prs_by_repo[repo] if pr.get("branch") == expected_branch]
+        fresh = []
+        for pr in current:
+            updated = parse_github_timestamp(pr.get("updated_at"))
+            if updated is not None and current_time - updated <= SYNC_COVERAGE_MAX_AGE:
+                fresh.append(pr)
+        if fresh:
+            states[repo] = {
+                "state": "covered",
+                "reason": "current compiler-plan sync PR is open",
+                "expected_branch": expected_branch,
+                "pr": fresh[0],
+                "categories": categories,
+            }
+        elif current:
+            states[repo] = {
+                "state": "stale",
+                "reason": "current compiler-plan sync PR exceeded coverage lease",
+                "expected_branch": expected_branch,
+                "pr": current[0],
+                "categories": categories,
+            }
+        else:
+            states[repo] = {
+                "state": "untracked_drift",
+                "reason": "no open sync PR matches the current compiler plan",
+                "expected_branch": expected_branch,
+                "categories": categories,
+            }
+    return states
+
+
 def record_content_error(
     *,
     errors: set[str],
@@ -428,6 +519,8 @@ def build_report(
     open_sync_prs: list[dict[str, object]] | None = None,
     sync_pr_lookup_errors: list[str] | None = None,
     token_diagnostics: dict[str, object] | None = None,
+    current_plan_id: str = "",
+    now: datetime | None = None,
 ) -> dict[str, object]:
     skipped = skipped or set()
     open_sync_prs = open_sync_prs or []
@@ -438,7 +531,27 @@ def build_report(
         "errors": len(errors),
         "obsolete": len(obsolete),
     }
-    status = "pass" if all(value == 0 for value in counts.values()) else "drift"
+    expected_branch = ""
+    if current_plan_id.startswith("sha256:"):
+        expected_branch = f"{SYNC_BRANCH_PREFIX}{current_plan_id.split(':', 1)[1][:12]}"
+    remediation_states = build_remediation_states(
+        repos=repos,
+        drift=drift,
+        missing=missing,
+        errors=errors,
+        obsolete=obsolete,
+        open_sync_prs=open_sync_prs,
+        sync_pr_lookup_errors=sync_pr_lookup_errors,
+        expected_branch=expected_branch,
+        now=now,
+    )
+    state_values = {str(item["state"]) for item in remediation_states.values()}
+    if state_values <= {"converged"}:
+        status = "converged"
+    elif state_values <= {"converged", "covered"}:
+        status = "covered"
+    else:
+        status = "drift"
     repo_summaries = build_repo_summaries(
         repos=repos,
         drift=drift,
@@ -450,9 +563,7 @@ def build_report(
     targeted_repos = [str(item["repo"]) for item in top_repo_gaps]
     open_sync_repo_count = len({str(item.get("repo", "")) for item in open_sync_prs if item})
     latest_open_sync_pr = open_sync_prs[0] if open_sync_prs else None
-    remediation_state = "pass"
-    if status != "pass":
-        remediation_state = "pending_sync_prs" if open_sync_prs else "needs_sync"
+    remediation_state = status
     report: dict[str, object] = {
         "schema": REPORT_SCHEMA,
         "status": status,
@@ -487,6 +598,10 @@ def build_report(
         },
         "sync_remediation": {
             "state": remediation_state,
+            "plan_id": current_plan_id,
+            "expected_branch": expected_branch,
+            "coverage_lease_hours": int(SYNC_COVERAGE_MAX_AGE.total_seconds() // 3600),
+            "repo_states": remediation_states,
             "open_pr_count": len(open_sync_prs),
             "repo_count": open_sync_repo_count,
             "latest_open_pr": latest_open_sync_pr,
@@ -738,6 +853,7 @@ def main() -> int:
         return 1
 
     sections = list(COPY_SYNCED_SECTIONS)
+    current_plan_id = str(compiled.to_plan()["plan_id"])
 
     session, token_diagnostics = select_read_token(
         candidates=candidates,
@@ -848,11 +964,12 @@ def main() -> int:
         open_sync_prs=open_sync_prs,
         sync_pr_lookup_errors=sync_pr_lookup_errors,
         token_diagnostics=token_diagnostics,
+        current_plan_id=current_plan_id,
     )
     write_report_json(args.report_json, report)
     write_summary_markdown(args.summary, report)
 
-    if report["status"] != "pass":
+    if report["status"] not in {"converged", "covered"}:
         print("::warning::Consumer repo drift detected")
         return 1
 
