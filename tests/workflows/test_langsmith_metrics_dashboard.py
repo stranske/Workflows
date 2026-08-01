@@ -29,12 +29,13 @@ def test_fleet_registry_declares_trusted_artifact_workflows() -> None:
     ]
 
 
-def test_dashboard_issue_uses_existing_labels() -> None:
+def test_dashboard_issue_uses_durable_tracker_labels() -> None:
     source = WORKFLOW.read_text(encoding="utf-8")
 
-    assert '--label "metrics,automated"' in source
+    assert '--label "metrics,automated,tracker:durable"' in source
+    assert '--add-label "tracker:durable"' in source
     assert "metrics,langsmith,automated" not in source
-    assert "labels 'metrics,automated'" in source
+    assert "labels 'metrics,automated,tracker:durable'" in source
 
 
 def test_run_discovery_targets_workflows_with_runs() -> None:

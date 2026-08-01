@@ -444,14 +444,15 @@ jobs:
               --title "$ISSUE_TITLE" \
               --body-file .metrics-tmp/issue-body.md \
               --add-label "metrics" \
-              --add-label "automated"
+              --add-label "automated" \
+              --add-label "tracker:durable"
             echo "LANGSMITH_DASHBOARD_ISSUE=$DASHBOARD_ISSUE" >> "$GITHUB_ENV"
             echo "Updated LangSmith dashboard issue #$DASHBOARD_ISSUE"
           else
             DASHBOARD_URL=$(gh issue create \
               --title "$ISSUE_TITLE" \
               --body-file .metrics-tmp/issue-body.md \
-              --label "metrics,automated")
+              --label "metrics,automated,tracker:durable")
             echo "LANGSMITH_DASHBOARD_ISSUE_URL=$DASHBOARD_URL" >> "$GITHUB_ENV"
             echo "Created LangSmith dashboard issue $DASHBOARD_URL"
           fi
@@ -544,7 +545,7 @@ jobs:
             echo "  - Dashboard file: docs/dashboards/langsmith-metrics.md"
             if [ "${{ github.event_name }}" == "schedule" ] || \
                [ "${{ inputs.create_issue }}" == "true" ]; then
-              echo "  - Issue: Upserted with labels 'metrics,automated'"
+              echo "  - Issue: Upserted with labels 'metrics,automated,tracker:durable'"
             fi
           else
             echo "⚠️ No metrics data available for the specified period"

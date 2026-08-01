@@ -93,8 +93,8 @@ For bugs affecting multiple repos, create a tracking issue with:
 
 > Not to be confused with the **durable tracker** for consumer-sync drift
 > ([#2210](https://github.com/stranske/Workflows/issues/2210)), which the
-> `Health 68 Consumer Sync Drift` workflow re-uses across cycles and resolves
-> automatically when drift clears. See
+> `Health 68 Consumer Sync Drift` workflow re-uses across cycles and refreshes
+> when drift is detected. A clean run does not close the tracker. See
 > [`DURABLE_TRACKING_ISSUES.md`](DURABLE_TRACKING_ISSUES.md).
 
 ---

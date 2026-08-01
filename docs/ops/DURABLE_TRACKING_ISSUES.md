@@ -21,9 +21,10 @@ metrics summary). Without a tracker convention each run would either:
 
 The trackers below solve this by reusing one issue per controller. The bot
 either appends a comment per cycle (`#2211`) or rewrites the body in place
-(`#1836`, `#2210`, `#2470`). Either way, **the issue itself is the dashboard** —
-closing it does not advance any work; the controller will simply re-create one
-on the next cycle.
+(`#1836`, `#2210`, `#2470`). Either way, **the issue itself is the dashboard**:
+do not close it during routine triage. Each controller has its own lifecycle;
+for example, closing the active `#1836` campaign queue stops that controller's
+work, while `#2470` is recreated only through its failure-notification path.
 
 ---
 
@@ -34,14 +35,15 @@ on the next cycle.
 | [#2211](https://github.com/stranske/Workflows/issues/2211) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
 | [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependabot campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 6h + Mondays 10:30 UTC | Body rewritten in place |
 | [#2210](https://github.com/stranske/Workflows/issues/2210) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 05:10 UTC | Body rewritten in place |
-| [#2470](https://github.com/stranske/Workflows/issues/2470) | 🚨 Integration-Tests Sync Failed - Action Required | [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) | On push to `templates/integration-repo/**` | Stuck-window marker in body + recovery comment |
+| [#2470](https://github.com/stranske/Workflows/issues/2470) | 🚨 Integration-Tests Sync Failed - Action Required | [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) | On qualifying template/config pushes or manual dispatch | Stuck-window marker in body + recovery comment |
+| [#2415](https://github.com/stranske/Workflows/issues/2415) | 📊 LangSmith Trace Coverage Dashboard | [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) | Mondays 09:00 UTC + manual dispatch | Body rewritten in place |
 
 The signal flow each tracker carries:
 
 - **#2211** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
 - **#1836** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
-- **#2210** — fan-out drift report across registered consumer repos. Auto-resolves on the next clean `Maint 68` run; the closure happens in the workflow, not by hand.
-- **#2470** — stuck-window marker for the integration-repo template sync. A `<!-- sync-tracker-stuck-window:v1 ... -->` marker in the body means the sync is currently failing. The next successful run strips the marker and appends a `✅ Integration sync recovered` comment, but never closes the issue, so a marker-free body carrying a recovery comment is the healthy resting state. The `Resolution Steps` list in the issue body still says "Close this issue once the next run succeeds"; that line predates the stuck-window marker and does not reflect how `maint-69` actually treats the tracker.
+- **#2210** — fan-out drift report across registered consumer repos. `Health 68` creates or refreshes it when drift is detected; a clean run does not close it, so its latest body must be read as the last detected signal rather than an automatic current-status promise.
+- **#2470** — stuck-window marker for the integration-repo template sync. A `<!-- sync-tracker-stuck-window:v1 ... -->` marker in the body means the sync is currently failing. The next successful non-dry run with a sync token strips the marker and appends a `✅ Integration sync recovered` comment, but never closes the issue, so a marker-free body carrying a recovery comment is the healthy resting state. The `Resolution Steps` list in the issue body still says "Close this issue once the next run succeeds"; that line predates the stuck-window marker and does not reflect how `maint-69` actually treats the tracker.
 
 ### Superseded tracker numbers
 
