@@ -216,6 +216,17 @@ def test_build_report_blocks_unattributed_errors_and_empty_repo_sets() -> None:
     assert report["sync_remediation"]["repo_states"]["owner/repo"]["state"] == "blocked"
     assert report["sync_remediation"]["global_errors"] == ["sync-manifest.yml not found"]
 
+    # A global error must outrank the "no attributed gaps -> converged" branch,
+    # otherwise an unattributable comparison failure reads as a clean repo.
+    no_local_drift = check_consumer_sync_drift.build_report(
+        repos=["owner/repo"],
+        drift=set(),
+        missing=set(),
+        errors={"sync-manifest.yml not found"},
+        obsolete=set(),
+    )
+    assert no_local_drift["sync_remediation"]["repo_states"]["owner/repo"]["state"] == "blocked"
+
     empty = check_consumer_sync_drift.build_report(
         repos=[], drift=set(), missing=set(), errors=set(), obsolete=set()
     )
