@@ -169,7 +169,9 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         if replacement(pr):
             replacements[lane] += 1
         source = str(
-            first(pr, "source_commit", "sourceCommit", "wave_id", "batch_id", "head_sha", "headRefOid")
+            first(
+                pr, "source_commit", "sourceCommit", "wave_id", "batch_id", "head_sha", "headRefOid"
+            )
             or "unknown"
         )
         source_to_prs[source].add(
@@ -218,7 +220,9 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
             continue
         repo = str(first(pr, "repo", "repository", "repository_name") or "unknown")
         batch = str(
-            first(pr, "source_commit", "sourceCommit", "wave_id", "batch_id", "head_sha", "headRefOid")
+            first(
+                pr, "source_commit", "sourceCommit", "wave_id", "batch_id", "head_sha", "headRefOid"
+            )
             or "unknown"
         )
         avoidable_replacements[f"{repo}/{batch}"] += 1

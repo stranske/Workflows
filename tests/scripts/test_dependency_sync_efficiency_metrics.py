@@ -143,7 +143,11 @@ def test_markdown_includes_denominators_limits_and_threshold_breach():
 def test_weekly_event_counts_use_reporting_window_timestamps():
     report = metrics.calculate(
         {
-            "period": {"kind": "trailing-7-day-window", "start": "2026-01-03T00:00:00Z", "end": "2026-01-10T00:00:00Z"},
+            "period": {
+                "kind": "trailing-7-day-window",
+                "start": "2026-01-03T00:00:00Z",
+                "end": "2026-01-10T00:00:00Z",
+            },
             "pulls": [
                 {
                     "repo": "stranske/App",
