@@ -21,13 +21,16 @@ HEALTH_68 = REPO_ROOT / ".github" / "workflows" / "health-68-consumer-sync-drift
 def _per_repo_states() -> set[str]:
     """Every value the checker assigns to a per-repo `state` key."""
     source = CHECKER.read_text(encoding="utf-8")
-    return set(re.findall(r'"state":\s*"([a-z_]+)"', source))
+    return set(re.findall(r"[\"']state[\"']:\s*[\"']([a-z_]+)[\"']", source))
 
 
 def test_tracker_doc_documents_every_state_the_checker_emits() -> None:
     documented = set(re.findall(r"\| `([a-z_]+)` \|", TRACKER_DOC.read_text(encoding="utf-8")))
     emitted = _per_repo_states() | {"converged"}
 
+    assert emitted == {"blocked", "converged", "covered", "stale", "untracked_drift"}, (
+        "the checker state contract changed; update this gate and the durable tracker documentation"
+    )
     assert emitted <= documented, (
         f"states missing from DURABLE_TRACKING_ISSUES.md: {sorted(emitted - documented)}"
     )
