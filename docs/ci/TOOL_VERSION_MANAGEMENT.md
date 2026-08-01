@@ -214,6 +214,25 @@ To ensure CI validation and autofix produce identical output, both must use the 
 2. More mature and stable
 3. Explicit formatting rules prevent ambiguity
 
+## Renovate vs Maint 68 File Ownership
+
+Dev-tool pins are excluded from Renovate (see the fleet preset) because
+`autofix-versions.env` owns them. A second, path-level boundary applies to
+consumer repos: Maint 68 overwrites every manifest-managed file on each sync, so
+a consumer Renovate PR editing one of those files is reverted on the next sync.
+
+`renovate-presets/consumer-managed-paths.json` is generated from
+`.github/sync-manifest.yml` and disables dependency extraction for exactly those
+paths, per repo. Renovate stays enabled for `create_only`/`skip_repos` paths the
+consumer owns and for every canonical source file in `stranske/Workflows`, which
+means action and dependency bumps still land here first and reach consumers
+through the sync.
+
+Regenerate with `python scripts/generate_consumer_renovate_ownership.py` after
+changing the manifest; `--check` runs in `scripts/dev_check.sh` and fails on
+drift. Full ownership table:
+[Consumer Repository Maintenance](../ops/CONSUMER_REPO_MAINTENANCE.md#renovate-vs-maint-68-path-ownership).
+
 ## Related Documentation
 
 - [Autofix System](AUTOFIX.md) - How automatic fixes work

@@ -328,6 +328,46 @@ exist, but continues syncing the canonical pins from Workflows. The
 `maint-auto-update-pypi-versions.yml` workflow owns opening source bump PRs for
 freshness updates.
 
+### Renovate vs Maint 68 Path Ownership
+
+Maint 68 overwrites every manifest-managed path in a consumer on each sync. If
+that consumer's own Renovate opens a PR touching one of those paths, the change
+is discarded on the next sync — consumer Renovate PRs against
+`.github/workflows/agents-guard.yml` and
+`.github/workflows/maint-76-claude-code-review.yml` (Inv-Man-Intake#838,
+Manager-Database#1347) were both closed unmerged for exactly this reason.
+
+`renovate-presets/consumer-managed-paths.json` encodes the boundary. It is
+**generated** from `.github/sync-manifest.yml` and the registered consumer list,
+and `renovate-presets/fleet.json` extends it, so every consumer inherits it
+without a re-sync. Ownership follows the same rules Maint 68 applies:
+
+| Manifest state | Owner | Renovate |
+| --- | --- | --- |
+| No `sync_mode` (overwrite-managed) | Workflows | disabled in consumers |
+| `sync_mode: create_only` | consumer, after first seed | enabled |
+| `sync_mode: create_only` + repo in `overwrite_repos` | Workflows | disabled in that repo |
+| Repo listed in `skip_repos` | consumer | enabled in that repo |
+
+The preset matches consumer repositories only. `stranske/Workflows` is the sync
+source, so its canonical files stay fully Renovate-managed and dependency bumps
+still land here first, then reach consumers through Maint 68.
+
+Note that `.github/workflows/autofix.yml` has no `sync_mode`, which makes it
+overwrite-managed and therefore disabled for consumer Renovate. `ci.yml` and
+`pr-00-gate.yml` are `create_only` and stay consumer-owned.
+
+Regenerate after any manifest change:
+
+```bash
+python scripts/generate_consumer_renovate_ownership.py          # rewrite the preset
+python scripts/generate_consumer_renovate_ownership.py --check  # fail on drift
+```
+
+`scripts/dev_check.sh` runs `--check` (and regenerates under `--fix`), and
+`tests/scripts/test_generate_consumer_renovate_ownership.py` fails when a new
+overwrite-managed path becomes visible to consumer Renovate.
+
 ### Monorepo Package Dependencies (`app-baseline-kit`)
 
 Shared packages that live in this repo under `packages/` (currently

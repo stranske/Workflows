@@ -137,6 +137,18 @@ if [[ "$DEV_CHECK_ACTIONLINT_ONLY" != true ]]; then
             exit 1
         fi
     fi
+
+    # A stale ownership preset lets consumer Renovate edit Maint 68-owned paths.
+    if ! python scripts/generate_consumer_renovate_ownership.py --check >/dev/null 2>&1; then
+        if [[ "$FIX_MODE" == true ]]; then
+            echo -e "${YELLOW}Regenerating renovate-presets/consumer-managed-paths.json${NC}"
+            python scripts/generate_consumer_renovate_ownership.py >/dev/null
+        else
+            echo -e "${RED}✗ renovate-presets/consumer-managed-paths.json is stale. Run 'python scripts/generate_consumer_renovate_ownership.py' or re-run with --fix.${NC}" >&2
+            python scripts/generate_consumer_renovate_ownership.py --check
+            exit 1
+        fi
+    fi
 fi
 
 # Guarantee the Python scripts directory (where flake8 entry point lives) is on PATH.
