@@ -39,6 +39,22 @@ def test_trusted_action_digests_are_grouped() -> None:
     assert rule["automerge"] is True
 
 
+def test_fleet_preset_keeps_workflows_owned_dev_tool_pins_out_of_renovate() -> None:
+    rule = _rule(_preset(), enabled=False)
+
+    assert rule["matchPackageNames"] == [
+        "ruff",
+        "black",
+        "mypy",
+        "pytest",
+        "pytest-cov",
+        "pytest-xdist",
+        "coverage",
+        "isort",
+        "docformatter",
+    ]
+
+
 def test_vulnerability_alerts_bypass_routine_intake_delays() -> None:
     alerts = _preset()["vulnerabilityAlerts"]
 

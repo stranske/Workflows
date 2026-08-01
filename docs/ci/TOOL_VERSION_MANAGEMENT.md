@@ -12,7 +12,7 @@ All CI and autofix workflows use tool versions defined in a single source of tru
 
 Renovate owns routine dependency updates, while `autofix-versions.env` remains the
 source for the dev-tool pins it explicitly excludes. The fleet preset uses a bounded
-weekly intake window, conservative branch/PR budgets, release-age and pending-check
+weekly intake window, conservative branch/PR budgets, release-age and update-branch-check
 gates, a grouped trusted GitHub Actions lane, and Dependency Dashboard approval for
 majors. Vulnerability alerts bypass the routine window and age gate.
 
