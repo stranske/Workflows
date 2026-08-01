@@ -139,6 +139,7 @@ jobs:
               normalizeSyncHash,
               parseBooleanInput,
               isTrustedSyncPr,
+              selectMergeEligibleSyncPr,
               selectActiveSyncPr,
               selectSyncPrGatingChecks,
             } = require('./.github/scripts/sync_pr_merge_contract.js');
@@ -410,7 +411,11 @@ jobs:
                   continue;
                 }
 
-                const selection = selectActiveSyncPr(syncPRs, requestedSyncHash);
+                const selection = selectMergeEligibleSyncPr(syncPRs, {
+                  syncHash: requestedSyncHash,
+                  now: new Date().toISOString(),
+                  repository: `${owner}/${repo}`,
+                });
                 if (selection.missingExpected) {
                   console.log(
                     `Expected sync PR branch ${selection.expectedBranch} was not found; leaving ` +
@@ -427,6 +432,14 @@ jobs:
                       url: item.html_url,
                     })),
                   });
+                  continue;
+                }
+
+                if (!selection.eligibility?.eligible) {
+                  const reason = selection.eligibility?.reason || 'missing_delivery_record';
+                  console.log(`Delivery contract blocks merge: ${reason}`);
+                  results.push({ owner, repo, pr: selection.active.number, branch: selection.active.head.ref,
+                    status: 'delivery_contract_blocked', delivery_reason: reason });
                   continue;
                 }
 

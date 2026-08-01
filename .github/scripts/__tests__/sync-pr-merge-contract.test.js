@@ -12,6 +12,7 @@ const {
   normalizeSyncHash,
   parseBooleanInput,
   selectActiveSyncPr,
+  selectMergeEligibleSyncPr,
   summarizeResults,
   syncBranchForHash,
 } = require('../sync_pr_merge_contract');
@@ -92,6 +93,11 @@ test('selectActiveSyncPr reports missing target without marking stale PRs', () =
   assert.equal(selection.missingExpected, true);
 });
 
+test('selectMergeEligibleSyncPr refuses legacy and expired delivery attempts', () => {
+  const legacy = pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z');
+  assert.equal(selectMergeEligibleSyncPr([legacy]).eligibility.reason, 'missing_delivery_record');
+});
+
 test('buildMergeReport provides machine-readable summary counts', () => {
   const report = buildMergeReport({
     generatedAt: '2026-04-25T06:00:00Z',
@@ -122,6 +128,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     merge_blocked_runtime_ac: 0,
     merged: 0,
     merge_failed: 0,
+    delivery_contract_blocked: 0,
     error: 0,
   });
 });

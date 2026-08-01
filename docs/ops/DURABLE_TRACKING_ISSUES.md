@@ -45,6 +45,15 @@ The signal flow each tracker carries:
 
 - **#2211** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
 - **#1836** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
+
+### Leased generated delivery attempts
+
+Maint 68 consumer sync and Maint 52 dev-tool sync PRs carry a
+`sync-pr-delivery-record/v1` marker. The marker names the durable campaign
+issue, plan/generation, consumer repository, desired tree hash, source commit,
+and a 72-hour lease. Maint 71 may merge only a current, unexpired record;
+markerless, stale, or expired attempts are reported for terminal disposition
+rather than becoming an immortal coordination queue.
 - **#2210** — fan-out drift report across registered consumer repos. `Health 68` creates or refreshes it when drift is **actionable**; a clean run does not close it, so its latest body must be read as the last detected signal rather than an automatic current-status promise. Since #2878 the checker classifies each consumer as `converged`, `covered`, `blocked`, `untracked_drift`, or `stale`, and only the actionable states reach this tracker:
 
   | State | Meaning | Exit code | Touches #2210 |
