@@ -30,8 +30,10 @@ def resolve_api_root(explicit: str | None = None) -> str:
 
 
 DEFAULT_CONTEXTS = (
+    # Only universally-posted contexts may be required. "Health 45 Agents Guard /
+    # guard" is posted by agents-guard.yml ONLY for agent-labelled PRs, so requiring
+    # it would block every other PR forever (issue #2858).
     "Gate / gate",
-    "Health 45 Agents Guard / guard",
 )
 
 DEFAULT_CONFIG_PATH = Path(".github/config/required-contexts.json")
@@ -248,7 +250,7 @@ def _fetch_ruleset_status_checks(
 
     Example return values:
         - None: No rulesets found, or no rulesets apply to the branch, or no status checks required.
-        - StatusCheckState(strict=False, contexts=['Gate / gate', 'Health 45 Agents Guard / guard']):
+        - StatusCheckState(strict=False, contexts=['Gate / gate', 'summary']):
             Required status checks found for the branch, with strict mode disabled.
         - StatusCheckState(strict=True, contexts=['ci/test', 'lint']):
             Required status checks found for the branch, with strict mode enabled.
@@ -643,7 +645,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         help=(
             "Status check context to require. May be passed multiple times. Defaults to"
-            " 'Gate / gate' and 'Health 45 Agents Guard / guard'."
+            " 'Gate / gate'."
         ),
     )
     parser.add_argument(

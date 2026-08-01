@@ -119,7 +119,6 @@ jobs:
             --apply \
             --branch "${DEFAULT_BRANCH}" \
             --context "Gate / gate" \
-            --context "Health 45 Agents Guard / guard" \
             --no-clean
 
       - name: Snapshot branch protection state
@@ -134,7 +133,6 @@ jobs:
             --require-strict \
             --branch "${DEFAULT_BRANCH}" \
             --context "Gate / gate" \
-            --context "Health 45 Agents Guard / guard" \
             --no-clean \
             --snapshot repo-health-branch-protection.json
 
@@ -403,6 +401,14 @@ jobs:
             core.setOutput('branch_fetch_error', branchFetchError || '');
 
       - name: Root allowlist guard
+        # `always()` so an earlier failure (e.g. the branch-protection snapshot)
+        # cannot silently skip this guard. That is how six unlisted root files
+        # accumulated undetected for a month — see #2858. NOTE: this only rescues
+        # THIS step; "Collect repository signals" and "Aggregate & Summarize"
+        # still skip when an earlier step fails, because the aggregate depends on
+        # the collect step's outputs. Making the whole job resilient needs a
+        # different shape than a per-step always().
+        if: always()
         # Fail when a tracked file appears at the repo root (depth 0) that is
         # not on the reviewed allowlist (config/root-allowlist.txt). Keeps
         # one-off debris (stray fixer scripts, per-run CI snapshots, *.patch)

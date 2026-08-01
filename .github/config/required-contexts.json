@@ -1,6 +1,6 @@
 {
   "required_contexts": [
-    "Gate / gate",
-    "Health 45 Agents Guard / guard"
-  ]
+    "Gate / gate"
+  ],
+  "_note": "Only universally-posted contexts belong here: health-44 can pass this file to enforce_gate_branch_protection.py --apply, so any context listed becomes a REQUIRED status check. 'Health 45 Agents Guard / guard' is deliberately absent: agents-guard.yml posts that status only when the PR carries an agent label (agent:codex, agents:auto-pilot, ...), so requiring it would leave every other PR permanently un-mergeable. See issue #2858."
 }
