@@ -278,7 +278,7 @@ jobs:
         run: |
           cd consumer
 
-          branch_name="deps/sync-dev-versions-${{ needs.prepare.outputs.versions_hash }}"
+          branch_name="deps/sync-dev-versions-$DELIVERY_GENERATION"
 
           # Preserve the PR for this wave when it already exists, but rebuild
           # its branch from current main if either the base or generated tree
@@ -323,7 +323,7 @@ jobs:
             commit_msg="deps: sync dev tool versions from Workflows
 
             Automated sync from stranske/Workflows autofix-versions.env
-            Versions hash: ${{ needs.prepare.outputs.versions_hash }}
+            Versions hash: $DELIVERY_GENERATION
 
             This ensures consistent dev tool versions across all repos."
             git commit -m "$commit_msg"
