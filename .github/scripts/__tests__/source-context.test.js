@@ -15,6 +15,10 @@ const {
   sourceTypeFromLabels,
 } = require('../source_context.js');
 
+const {
+  resolvePrSourceContext: templateResolvePrSourceContext,
+} = require('../../../templates/consumer-repo/.github/scripts/source_context.js');
+
 test('normalizeSourceType maps human aliases to canonical origin types', () => {
   assert.equal(normalizeSourceType('GitHub Issue'), SOURCE_TYPES.GITHUB_ISSUE);
   assert.equal(normalizeSourceType('local Codex request'), SOURCE_TYPES.LOCAL_REQUEST);
@@ -256,6 +260,109 @@ test('malformed dependency repair promotion marker does not authorize source con
   assert.equal(context.sourceType, SOURCE_TYPES.UNKNOWN);
   assert.equal(context.isExplicit, false);
   assert.equal(context.isValid, false);
+});
+
+test('partial promotion label sets do not authorize suppression of issue routing', () => {
+  const marker = [
+    '<!-- dependency-repair-promotion:v1 ',
+    JSON.stringify({
+      source_pr: 2795,
+      source_base_sha: 'a'.repeat(40),
+      source_head_sha: 'b'.repeat(40),
+      promotion_base_sha: 'c'.repeat(40),
+    }),
+    ' -->',
+  ].join('');
+  const partialLabelSets = [
+    [{ name: 'dependency:repair-promotion' }],
+    [{ name: 'workflow:source-dependabot' }],
+    [{ name: 'dependency:repair-promotion' }, { name: 'workflow:source-sync' }],
+  ];
+
+  for (const labels of partialLabelSets) {
+    const context = resolvePrSourceContext({
+      body: `${marker}\nFixes #99`,
+      head: { ref: 'agent/deps-repair-2795' },
+      labels,
+    });
+
+    assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
+    assert.equal(context.issueNumber, 99);
+    assert.equal(context.sourceRef, '#99');
+    assert.equal(context.requiresIssue, true);
+  }
+});
+
+test('mismatched promotion payloads preserve issue routing even when both labels are present', () => {
+  const mismatchedPayloads = [
+    {
+      source_pr: 0,
+      source_base_sha: 'a'.repeat(40),
+      source_head_sha: 'b'.repeat(40),
+      promotion_base_sha: 'c'.repeat(40),
+    },
+    {
+      source_pr: 2795,
+      source_base_sha: 'a'.repeat(40),
+      source_head_sha: 'not-a-sha',
+      promotion_base_sha: 'c'.repeat(40),
+    },
+    {
+      source_pr: 2795,
+      source_base_sha: 'a'.repeat(40),
+      source_head_sha: 'b'.repeat(40),
+    },
+  ];
+
+  for (const payload of mismatchedPayloads) {
+    const marker = `<!-- dependency-repair-promotion:v1 ${JSON.stringify(payload)} -->`;
+    assert.equal(parseDependencyRepairPromotionSource(marker), null);
+
+    const context = resolvePrSourceContext({
+      body: `${marker}\nFixes #99`,
+      head: { ref: 'agent/deps-repair-2795' },
+      labels: [
+        { name: 'dependency:repair-promotion' },
+        { name: 'workflow:source-dependabot' },
+      ],
+    });
+
+    assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
+    assert.equal(context.issueNumber, 99);
+    assert.equal(context.requiresIssue, true);
+  }
+});
+
+test('consumer template resolver stays behaviorally synchronized on promotion trust', () => {
+  const marker = [
+    '<!-- dependency-repair-promotion:v1 ',
+    JSON.stringify({
+      source_pr: 2795,
+      source_base_sha: 'a'.repeat(40),
+      source_head_sha: 'b'.repeat(40),
+      promotion_base_sha: 'c'.repeat(40),
+    }),
+    ' -->',
+  ].join('');
+  const labelSets = [
+    [{ name: 'dependency:repair-promotion' }, { name: 'workflow:source-dependabot' }],
+    [{ name: 'dependency:repair-promotion' }],
+    [{ name: 'workflow:source-dependabot' }],
+    [],
+  ];
+
+  for (const labels of labelSets) {
+    const pull = {
+      body: `${marker}\nFixes #99`,
+      head: { ref: 'agent/deps-repair-2795' },
+      labels,
+    };
+
+    assert.deepEqual(
+      templateResolvePrSourceContext(pull),
+      resolvePrSourceContext(pull),
+    );
+  }
 });
 
 test('promotion marker casing must match the dependency repair contract', () => {
