@@ -62,7 +62,36 @@ def test_fixture_classifies_all_generated_lanes_and_excludes_collab_admin():
     assert result["collab_admin_excluded"] == 1
     assert result["source_change_to_consumer_pr_amplification"] == {"a": 2, "b": 1}
     assert result["actions_runs_per_source_change"]["a"] == 2
+    assert result["avoidable_replacements_per_repo_batch"] == {"stranske/App/b": 1}
+    assert report["advisory_slo"]["breaches"]["avoidable_replacements_per_repo_batch"] is True
     assert report["collection"]["history_complete"] is False
+
+
+def test_labels_accepts_mapping_and_string_shapes():
+    assert metrics.labels({"labels": [{"name": "Dependencies"}, "sync", None]}) == {
+        "dependencies",
+        "sync",
+    }
+
+
+def test_stale_and_replacement_rate_counts_one_pr_once():
+    report = metrics.calculate(
+        {
+            "pulls": [
+                {
+                    "repo": "stranske/App",
+                    "number": 1,
+                    "head_ref": "sync/workflows-a",
+                    "state": "open",
+                    "updated_at": "2026-01-01T00:00:00Z",
+                    "body": "Supersedes #0",
+                }
+            ]
+        },
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+    assert report["metrics"]["stale_or_replacement_numerator"] == 1
+    assert report["metrics"]["stale_or_replacement_rate"] == 1.0
 
 
 def test_fingerprint_ignores_generation_timestamp_but_tracks_material_evidence():

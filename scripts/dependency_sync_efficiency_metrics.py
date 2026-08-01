@@ -40,7 +40,13 @@ def first(value: dict[str, Any], *keys: str) -> Any:
 
 
 def labels(pr: dict[str, Any]) -> set[str]:
-    return {str(item.get("name", item)).lower() for item in pr.get("labels", []) if item}
+    result: set[str] = set()
+    for item in pr.get("labels", []):
+        if not item:
+            continue
+        name = item.get("name", item) if isinstance(item, dict) else item
+        result.add(str(name).lower())
+    return result
 
 
 def lane_for(pr: dict[str, Any]) -> str:
@@ -143,17 +149,23 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         source = str(first(run, "source_commit", "head_sha", "headSha") or "unknown")
         runs_by_source[source] += 1
     generated_total = len(generated_prs)
-    stale_or_replacement = sum(stale.values()) + sum(replacements.values())
-    replacement_rate = stale_or_replacement / generated_total if generated_total else 0.0
+    stale_or_replacement = {
+        f"{first(pr, 'repo', 'repository', 'repository_name')}#{pr.get('number', '?')}"
+        for pr in generated_prs
+        if is_stale(pr, now) or replacement(pr)
+    }
+    replacement_rate = len(stale_or_replacement) / generated_total if generated_total else 0.0
     amplification = {
         source: len(prs) for source, prs in sorted(source_to_prs.items()) if source != "unknown"
     }
     actions_per_source = {source: runs_by_source.get(source, 0) for source in amplification}
-    avoidable_replacements = Counter(
-        str(first(pr, "repo", "repository", "repository_name") or "unknown")
-        for pr in generated_prs
-        if replacement(pr)
-    )
+    avoidable_replacements: Counter[str] = Counter()
+    for pr in generated_prs:
+        if not replacement(pr):
+            continue
+        repo = str(first(pr, "repo", "repository", "repository_name") or "unknown")
+        batch = str(first(pr, "source_commit", "sourceCommit", "wave_id", "batch_id") or "unknown")
+        avoidable_replacements[f"{repo}/{batch}"] += 1
     metrics = {
         "period": snapshot.get("period", {}),
         "lane_counts": {lane: lane_counts[lane] for lane in LANES},
@@ -163,6 +175,7 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         "stale": {lane: stale[lane] for lane in LANES},
         "replacement": {lane: replacements[lane] for lane in LANES},
         "generated_prs": generated_total,
+        "stale_or_replacement_numerator": len(stale_or_replacement),
         "stale_or_replacement_rate": replacement_rate,
         "source_change_to_consumer_pr_amplification": amplification,
         "actions_runs_per_source_change": actions_per_source,
@@ -234,7 +247,7 @@ def markdown(report: dict[str, Any]) -> str:
             *rows,
             "",
             f"Generated PRs: **{metrics['generated_prs']}** (target ≤ {THRESHOLDS['generated_prs']})",
-            f"Stale/replacement rate: **{metrics['stale_or_replacement_rate']:.1%}** (target < 5%)",
+            f"Stale/replacement rate: **{metrics['stale_or_replacement_rate']:.1%}** ({metrics['stale_or_replacement_numerator']}/{metrics['generated_prs']}; target < 5%)",
             f"Agent-exception episodes: **{metrics['agent_exception_episodes']}** (target ≤ 5)",
             f"Collab-Admin excluded: **{metrics['collab_admin_excluded']}**",
             "",
