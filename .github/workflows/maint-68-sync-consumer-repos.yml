@@ -36,6 +36,15 @@ on:
         description: 'Force sync even if no changes detected'
         type: boolean
         default: false
+      phase:
+        description: 'Run preview (read-only), canary, or promote after green canary evidence'
+        type: choice
+        options: [preview, canary, promote]
+        default: canary
+      canary_evidence_json:
+        description: 'Maint 71 canary evidence JSON for the exact plan ID (required to promote)'
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -72,6 +81,8 @@ jobs:
     outputs:
       repos: ${{ steps.repos.outputs.matrix }}
       template_hash: ${{ steps.manifest.outputs.template_hash }}
+      plan_id: ${{ steps.manifest.outputs.plan_id }}
+      phase: ${{ steps.phase.outputs.phase }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -108,30 +119,43 @@ jobs:
             --output-json manifest.json \
             --github-output "$GITHUB_OUTPUT"
 
-      - name: Build repo matrix
+      - name: Build phase-gated repo matrix
         id: repos
+        env:
+          CANARY_EVIDENCE_JSON: ${{ inputs.canary_evidence_json || '' }}
         run: |
           if [ -n "${{ inputs.repos }}" ]; then
             repos='${{ inputs.repos }}'
           else
             repos=$(echo "$REGISTERED_CONSUMER_REPOS" | tr '\n' ',' | sed 's/,$//')
           fi
-          json_array=$(echo "$repos" \
-            | tr ',' '\n' \
-            | grep -v '^$' \
-            | jq -R -s -c '
-              split("\n")
-              | map(select(. != ""))
-              | map(gsub("^\\s+|\\s+$"; ""))
-            ')
-          echo "matrix={\"repo\":$json_array}" >> "$GITHUB_OUTPUT"
-          echo "Repos to sync: $json_array"
 
-      - name: Upload manifest artifact
+          # Scheduled and release runs intentionally begin with canaries. Promotion is
+          # a later explicit run with Maint 71's plan-bound evidence; no workflow waits
+          # for cross-repo CI inside this run.
+          phase='${{ inputs.phase || 'canary' }}'
+          python scripts/select_consumer_sync_phase.py \
+            --plan manifest.json \
+            --phase "$phase" \
+            --registered-repos "$repos" \
+            --canaries config/consumer_sync_canaries.json \
+            --canary-evidence-json "$CANARY_EVIDENCE_JSON" \
+            --output sync-phase-selection.json
+          echo "matrix=$(jq -c '.matrix' sync-phase-selection.json)" >> "$GITHUB_OUTPUT"
+          echo "Selected phase: $phase"
+          jq -r '.selected_repos[]' sync-phase-selection.json
+
+      - name: Record selected phase
+        id: phase
+        run: echo "phase=${{ inputs.phase || 'canary' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload plan and prospective-diff evidence
         uses: actions/upload-artifact@v7
         with:
-          name: sync-manifest
-          path: manifest.json
+          name: sync-plan-and-prospective-diffs
+          path: |
+            manifest.json
+            sync-phase-selection.json
           retention-days: 1
 
   # ============================================================================
@@ -156,7 +180,7 @@ jobs:
       - name: Download manifest
         uses: actions/download-artifact@v8
         with:
-          name: sync-manifest
+          name: sync-plan-and-prospective-diffs
 
       - name: Validate Python scripts
         run: |
@@ -224,6 +248,7 @@ jobs:
   sync:
     name: Sync ${{ matrix.repo }}
     needs: [prepare, validate]
+    if: needs.prepare.outputs.phase != 'preview'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -231,6 +256,8 @@ jobs:
     env:
       # Job-level alias for repo token (uses OWNER_PR_PAT or SERVICE_BOT_PAT)
       REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+      PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
+      SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
     steps:
       - name: Compute result artifact name
         id: repo_meta
@@ -812,6 +839,8 @@ jobs:
             --arg source_repository "$GITHUB_REPOSITORY" \
             --arg source_sha "$GITHUB_SHA" \
             --arg template_hash "${{ needs.prepare.outputs.template_hash }}" \
+            --arg plan_id "$PLAN_ID" \
+            --arg sync_phase "$SYNC_PHASE" \
             --arg sync_branch "$branch_name" \
             --arg manifest ".github/sync-manifest.yml" \
             --arg lifecycle_state "opened" \
@@ -824,6 +853,8 @@ jobs:
               source_repository: $source_repository,
               source_sha: $source_sha,
               template_hash: $template_hash,
+              plan_id: $plan_id,
+              sync_phase: $sync_phase,
               sync_branch: $sync_branch,
               manifest: $manifest,
               lifecycle_state: $lifecycle_state,
@@ -843,6 +874,8 @@ jobs:
           **Source:** stranske/Workflows
           **Source SHA:** \`$GITHUB_SHA\`
           **Template hash:** \`${{ needs.prepare.outputs.template_hash }}\`
+          **Consumer-sync plan ID:** \`$PLAN_ID\`
+          **Sync phase:** \`$SYNC_PHASE\`
           **Sync branch:** \`$branch_name\`
           **Consumer repo:** \`${{ matrix.repo }}\`
           **Manifest:** \`.github/sync-manifest.yml\`
@@ -878,6 +911,8 @@ jobs:
         env:
           REPO: ${{ matrix.repo }}
           TEMPLATE_HASH: ${{ needs.prepare.outputs.template_hash }}
+          PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
+          SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           FORCE: ${{ inputs.force || 'false' }}
           SYNC_OUTCOME: ${{ steps.sync.outcome || 'skipped' }}
@@ -923,6 +958,8 @@ jobs:
               "repo": repo,
               "status": status,
               "template_hash": os.environ.get("TEMPLATE_HASH", ""),
+              "plan_id": os.environ.get("PLAN_ID", ""),
+              "sync_phase": os.environ.get("SYNC_PHASE", ""),
               "expected_branch": (
                   f"sync/workflows-{os.environ.get('TEMPLATE_HASH', '')}"
                   if os.environ.get("TEMPLATE_HASH", "")

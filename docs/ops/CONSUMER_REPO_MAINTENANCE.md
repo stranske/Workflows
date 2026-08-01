@@ -233,6 +233,24 @@ handoff is explicitly `shadow`, `write_authority=false`, and
 and promotion blockers remain owned by Orchestrator's
 `consumer_sync_shadow.py` dashboard.
 
+#### Canary-Gated Fan-out
+
+Maint 68 separates a sync plan into `preview`, `canary`, and `promote` phases.
+An ordinary scheduled, release, or manual no-filter run defaults to `canary`:
+it can open sync PRs only for the 2-3 representative repositories declared in
+`config/consumer_sync_canaries.json`. The selection artifact records the exact
+compiled `plan_id`, desired hash, and prospective affected paths for every
+registered repository before any consumer write.
+
+Do not wait for consumer CI in that workflow. Run Maint 71 later to publish
+`sync-canary-evidence.json`, then invoke Maint 68 with `phase=promote` and that
+artifact's JSON as `canary_evidence_json`. Promotion rejects absent, stale or
+mixed-plan evidence, failed required checks, and active non-outdated review
+threads. A successful promotion targets only affected non-canary repositories.
+Use `preview` to produce the plan/evidence artifact without a write matrix.
+Emergency direct promotion remains an explicit audited operator action and is
+limited to a security or production-break fix.
+
 To validate the manifest locally:
 
 ```bash

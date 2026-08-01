@@ -1,0 +1,18 @@
+{
+  "schema": "workflows.consumer-sync-canaries/v1",
+  "version": 1,
+  "canaries": [
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "capabilities": ["standard", "custom-gate"]
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "capabilities": ["lock-heavy", "node-tooling"]
+    },
+    {
+      "repo": "stranske/Manager-Database",
+      "capabilities": ["standard", "python-consumer"]
+    }
+  ]
+}

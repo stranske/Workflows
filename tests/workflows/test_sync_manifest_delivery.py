@@ -28,6 +28,7 @@ re-create the double delivery this issue removes).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import yaml
@@ -206,3 +207,34 @@ def test_prepare_checkout_includes_manifest_owned_github_roots() -> None:
     assert ".gitattributes" in {
         line.strip() for line in sparse_checkout.splitlines() if line.strip()
     }
+
+
+def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
+    workflow = yaml.safe_load(SYNC_WORKFLOW_PATH.read_text(encoding="utf-8"))
+    dispatch_inputs = workflow.get("on", workflow.get(True))["workflow_dispatch"]["inputs"]
+    prepare = workflow["jobs"]["prepare"]
+    sync = workflow["jobs"]["sync"]
+    source = SYNC_WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    assert dispatch_inputs["phase"]["default"] == "canary"
+    assert set(dispatch_inputs["phase"]["options"]) == {"preview", "canary", "promote"}
+    assert "canary_evidence_json" in dispatch_inputs
+    assert prepare["outputs"]["phase"] == "${{ steps.phase.outputs.phase }}"
+    assert sync["if"] == "needs.prepare.outputs.phase != 'preview'"
+    assert "select_consumer_sync_phase.py" in source
+    assert "sync-plan-and-prospective-diffs" in source
+
+    config = json.loads((REPO_ROOT / "config" / "consumer_sync_canaries.json").read_text())
+    assert config["schema"] == "workflows.consumer-sync-canaries/v1"
+    assert 2 <= len(config["canaries"]) <= 3
+
+
+def test_maint_71_emits_canary_evidence_with_review_debt() -> None:
+    source = (
+        REPO_ROOT / ".github" / "workflows" / "maint-71-merge-sync-prs.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "sync-canary-evidence.json" in source
+    assert "active_review_thread_count" in source
+    assert "required_check_state" in source
+    assert "plan_id" in source
