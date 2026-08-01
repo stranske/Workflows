@@ -570,6 +570,13 @@ else
     echo -e "${YELLOW}⚠ Node.js not available; skipping keepalive harness tests${NC}"
 fi
 
+echo -e "${BLUE}7. Renovate configuration...${NC}"
+if command -v npx >/dev/null 2>&1; then
+    quick_check "Renovate configuration" "npx --yes --package renovate@43.285.3 -- renovate-config-validator --no-global renovate.json renovate-presets/fleet.json templates/consumer-repo/.github/renovate.json" ""
+else
+    echo -e "${YELLOW}⚠ npx not available; skipping Renovate configuration validation${NC}"
+fi
+
 echo ""
 echo -e "${CYAN}=== Quick Check Complete ===${NC}"
 echo -e "${BLUE}For comprehensive validation, run: ./scripts/check_branch.sh${NC}"

@@ -60,6 +60,16 @@ Maint 68 implements these exceptions through each entry's typed manifest
 `skip_repos` rules. There is no separate hard-coded custom-Gate list in the
 sync script.
 
+### Fleet Renovate intake policy
+
+All registered consumers extend `renovate-presets/fleet.json`. Routine dependency
+work is limited to Monday 01:00–05:00 America/Chicago, two commits per hour, and
+three concurrent branches/PRs. Routine releases wait three days and for non-pending
+base checks; vulnerability alerts bypass each routine delay. Trusted GitHub Actions
+digest, pin, minor, and patch updates are grouped for green automerge, while majors
+stay visible in the Dependency Dashboard until explicitly approved. Lock-file
+maintenance is grouped into the same weekly maintenance window.
+
 ---
 
 ## Bug Triage Process
