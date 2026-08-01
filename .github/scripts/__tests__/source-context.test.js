@@ -242,6 +242,7 @@ test('untrusted dependency repair promotion marker preserves issue routing', () 
 
   assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
   assert.equal(context.issueNumber, 99);
+  assert.equal(context.sourceRef, '#99');
   assert.equal(context.requiresIssue, true);
 });
 
