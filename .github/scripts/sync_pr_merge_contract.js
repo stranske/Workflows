@@ -2,6 +2,8 @@
 
 const REPORT_SCHEMA = 'workflows-sync-pr-merge/v1';
 const SYNC_BRANCH_PREFIX = 'sync/workflows-';
+const DEV_TOOL_SYNC_BRANCH_PREFIX = 'deps/sync-dev-versions-';
+const GENERATED_DELIVERY_BRANCH_PREFIXES = [SYNC_BRANCH_PREFIX, DEV_TOOL_SYNC_BRANCH_PREFIX];
 const { parseDeliveryRecord, mergeEligibility } = require('./sync_pr_lease_contract');
 
 function normalizeSyncHash(value) {
@@ -28,9 +30,53 @@ function isSyncBranchName(value) {
   return branchNameFromRef(value).startsWith(SYNC_BRANCH_PREFIX);
 }
 
+function generatedDeliveryLane(value) {
+  const branch = branchNameFromRef(value);
+  if (branch.startsWith(SYNC_BRANCH_PREFIX)) return 'sync';
+  if (branch.startsWith(DEV_TOOL_SYNC_BRANCH_PREFIX)) return 'dev-tool-sync';
+  return '';
+}
+
+function isGeneratedDeliveryBranchName(value) {
+  return Boolean(generatedDeliveryLane(value));
+}
+
 function isTrustedSyncPr(pr, trustedActors = []) {
   const actor = String(pr?.user?.login || '').trim();
   return isSyncBranchName(pr?.head?.ref) && new Set(trustedActors).has(actor);
+}
+
+function isTrustedGeneratedDeliveryPr(pr, trustedActors = []) {
+  const actor = String(pr?.user?.login || '').trim();
+  return isGeneratedDeliveryBranchName(pr?.head?.ref) && new Set(trustedActors).has(actor);
+}
+
+function classifyGeneratedPr({ pr = {}, checkState = {}, activeReviewThreadCount = 0, now } = {}) {
+  const record = parseDeliveryRecord(pr.body || '');
+  const lane = generatedDeliveryLane(pr?.head?.ref || pr?.headRefName);
+  if (!lane) return { disposition: 'owner-decision', blocker_owner: 'source', next_command: '' };
+  if (!record) return {
+    disposition: 'owner-decision',
+    blocker_owner: 'source',
+    next_command: 'attach-or-infer-delivery-record',
+  };
+  const eligibility = mergeEligibility(record, { now });
+  if (eligibility.reason === 'lease_expired') {
+    return { disposition: 'expired', blocker_owner: 'maint-71', next_command: 'close-expired-delivery' };
+  }
+  if (!eligibility.eligible) {
+    return { disposition: 'superseded', blocker_owner: 'maint-71', next_command: 'close-or-refresh-delivery' };
+  }
+  if (Number(activeReviewThreadCount) > 0) {
+    return { disposition: 'review-blocked', blocker_owner: 'closer', next_command: 'resolve-active-review-threads' };
+  }
+  if (checkState.status === 'checks_pending') {
+    return { disposition: 'awaiting-checks', blocker_owner: 'ci', next_command: 'await-required-checks' };
+  }
+  if (checkState.status === 'checks_failed') {
+    return { disposition: 'repo-local-failure', blocker_owner: 'repo', next_command: 'repair-required-checks' };
+  }
+  return { disposition: 'current', blocker_owner: 'maint-71', next_command: 'merge-current-delivery' };
 }
 
 function parseBooleanInput(value, defaultValue = false) {
@@ -55,17 +101,17 @@ function collectDeletableSyncBranches({
   const openBranches = new Set(
     (openPullRequests || [])
       .map((pr) => branchNameFromRef(pr?.head?.ref || pr?.headRefName || pr?.branch))
-      .filter(isSyncBranchName),
+      .filter(isGeneratedDeliveryBranchName),
   );
   const closedBranches = new Set(
     (closedPullRequests || [])
       .map((pr) => branchNameFromRef(pr?.head?.ref || pr?.headRefName || pr?.branch))
-      .filter(isSyncBranchName),
+      .filter(isGeneratedDeliveryBranchName),
   );
 
   return (branches || [])
     .map((branch) => branchNameFromRef(branch?.name || branch?.ref || branch))
-    .filter(isSyncBranchName)
+    .filter(isGeneratedDeliveryBranchName)
     .filter((branch) => !openBranches.has(branch))
     .filter((branch) => closedBranches.has(branch))
     .sort();
@@ -203,6 +249,7 @@ function summarizeResults(results) {
     branch_delete_failed: 0,
     checks_failed: 0,
     checks_pending: 0,
+    review_blocked: 0,
     ready: 0,
     dry_run_merge: 0,
     merge_blocked_runtime_ac: 0,
@@ -217,6 +264,22 @@ function summarizeResults(results) {
     }
   }
   return counts;
+}
+
+function buildDeliveryHandoff(result = {}) {
+  if (!result.pr) return null;
+  return {
+    schema: 'workflows-generated-delivery-handoff/v1',
+    repository: `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, ''),
+    pr: Number(result.pr),
+    branch: branchNameFromRef(result.branch),
+    head_sha: String(result.head_sha || ''),
+    delivery_generation: String(result.delivery_generation || ''),
+    lane: generatedDeliveryLane(result.branch),
+    disposition: String(result.delivery_disposition || result.status || ''),
+    blocker_owner: String(result.blocker_owner || ''),
+    next_command: String(result.next_command || ''),
+  };
 }
 
 function buildMergeReport({
@@ -244,6 +307,7 @@ function buildMergeReport({
     },
     summary: summarizeResults(results),
     results,
+    handoff_records: (results || []).map(buildDeliveryHandoff).filter(Boolean),
   };
 }
 
@@ -278,10 +342,16 @@ function buildMarkdownSummary(report) {
 module.exports = {
   REPORT_SCHEMA,
   SYNC_BRANCH_PREFIX,
+  DEV_TOOL_SYNC_BRANCH_PREFIX,
+  GENERATED_DELIVERY_BRANCH_PREFIXES,
   branchNameFromRef,
+  classifyGeneratedPr,
   classifySyncPrChecks,
   collectDeletableSyncBranches,
+  generatedDeliveryLane,
+  isGeneratedDeliveryBranchName,
   isSyncBranchName,
+  isTrustedGeneratedDeliveryPr,
   isTrustedSyncPr,
   normalizeSyncHash,
   syncBranchForHash,
@@ -292,5 +362,6 @@ module.exports = {
   selectMergeEligibleSyncPr,
   summarizeResults,
   buildMergeReport,
+  buildDeliveryHandoff,
   buildMarkdownSummary,
 };

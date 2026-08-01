@@ -134,8 +134,10 @@ jobs:
             const {
               buildMarkdownSummary,
               buildMergeReport,
+              classifyGeneratedPr,
               classifySyncPrChecks,
               collectDeletableSyncBranches,
+              generatedDeliveryLane,
               normalizeSyncHash,
               parseBooleanInput,
               isTrustedSyncPr,
@@ -564,6 +566,29 @@ jobs:
                   requiredContexts.size > 0 ? 'required-contexts' : 'denylist-fallback';
                 const failedChecks = classification.failed;
                 const pendingChecks = classification.pending;
+                const activeReviewThreads = await activeReviewThreadCount(
+                  owner,
+                  repo,
+                  pr.number,
+                );
+                const deliveryState = classifyGeneratedPr({
+                  pr,
+                  checkState: classification,
+                  activeReviewThreadCount: activeReviewThreads,
+                  now: new Date().toISOString(),
+                });
+                const deliveryContext = {
+                  owner,
+                  repo,
+                  pr: pr.number,
+                  branch: pr.head.ref,
+                  head_sha: pr.head.sha,
+                  delivery_generation: selection.deliveryRecord?.generation || '',
+                  delivery_lane: generatedDeliveryLane(pr.head.ref),
+                  delivery_disposition: deliveryState.disposition,
+                  blocker_owner: deliveryState.blocker_owner,
+                  next_command: deliveryState.next_command,
+                };
 
                 if (metadata?.sync_phase === 'canary' && metadata?.plan_id) {
                   canaryEvidence.push({
@@ -572,7 +597,7 @@ jobs:
                     pr: pr.number,
                     required_check_state:
                       classification.status === 'ready' ? 'success' : classification.status,
-                    active_review_thread_count: await activeReviewThreadCount(owner, repo, pr.number),
+                    active_review_thread_count: activeReviewThreads,
                   });
                 }
 
@@ -581,14 +606,21 @@ jobs:
                     `${failedChecks.length} failed, ${pendingChecks.length} pending`,
                 );
 
+                if (deliveryState.disposition === 'review-blocked') {
+                  console.log(`Active review threads block merge: ${activeReviewThreads}`);
+                  results.push({
+                    ...deliveryContext,
+                    status: 'review_blocked',
+                    active_review_thread_count: activeReviewThreads,
+                  });
+                  continue;
+                }
+
                 if (classification.status === 'checks_failed') {
                   console.log('Failed checks:');
                   failedChecks.forEach(c => console.log(`  - ${c.name}: ${c.conclusion}`));
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'checks_failed',
                     failed_checks: failedChecks.map((check) => ({
                       name: check.name,
@@ -602,10 +634,7 @@ jobs:
                 if (classification.status === 'checks_pending') {
                   console.log('Waiting for checks to complete');
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'checks_pending',
                     pending_checks: pendingChecks.map((check) => ({
                       name: check.name,
@@ -620,10 +649,7 @@ jobs:
                 if (!autoMerge) {
                   console.log('✓ Ready to merge (auto-merge disabled)');
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'ready',
                   });
                   continue;
@@ -632,10 +658,7 @@ jobs:
                 if (dryRun) {
                   console.log('✓ Would merge (dry run)');
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'dry_run_merge',
                   });
                   continue;
@@ -656,10 +679,7 @@ jobs:
                   const message = String(guardError?.message || guardError);
                   console.log(`Runtime AC merge guard blocked PR #${pr.number}: ${message}`);
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'merge_blocked_runtime_ac',
                     error: message,
                   });
@@ -709,38 +729,26 @@ jobs:
                     }));
                     console.log('✓ Branch deleted');
                     results.push({
-                      owner,
-                      repo,
-                      pr: pr.number,
-                      branch: pr.head.ref,
+                      ...deliveryContext,
                       status: 'branch_deleted',
                     });
                   } catch (e) {
                     console.log(`⚠ Could not delete branch: ${e.message}`);
                     results.push({
-                      owner,
-                      repo,
-                      pr: pr.number,
-                      branch: pr.head.ref,
+                      ...deliveryContext,
                       status: 'branch_delete_failed',
                       error: e.message,
                     });
                   }
 
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'merged',
                   });
                 } catch (e) {
                   console.log(`✗ Merge failed: ${e.message}`);
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'merge_failed',
                     error: e.message,
                   });

@@ -14,6 +14,7 @@ const LABEL_CAMPAIGN = 'campaign:sync-dependabot';
 const LABEL_ACTIVE = 'campaign:active';
 const LABEL_NEEDS_LOCAL_CODEX = 'campaign:needs-local-codex';
 const SYNC_BRANCH_PREFIX = 'sync/workflows-';
+const DEV_TOOL_SYNC_BRANCH_PREFIX = 'deps/sync-dev-versions-';
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_MAX_RETAINED_ITEMS = 120;
 const DEFAULT_MAX_SOURCE_REVIEW_HISTORY = 80;
@@ -92,6 +93,7 @@ function isSyncPullRequest(pr = {}) {
   const labels = labelsForPullRequest(pr).map((label) => label.toLowerCase());
   return (
     headRef.startsWith(SYNC_BRANCH_PREFIX) ||
+    headRef.startsWith(DEV_TOOL_SYNC_BRANCH_PREFIX) ||
     title.startsWith('chore: sync workflow templates') ||
     labels.includes('sync') ||
     body.includes('workflows-sync-lifecycle')

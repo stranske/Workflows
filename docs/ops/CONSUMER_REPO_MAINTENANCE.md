@@ -441,3 +441,11 @@ After fixing a template bug:
 | Date | Change |
 |------|--------|
 | 2025-12-27 | Initial document based on trip-planner/Manager-Database setup learnings |
+# Generated delivery ownership
+
+For dependency and consumer-sync delivery, the campaign issue is durable and
+each generated PR is a leased attempt. Maint 71 alone decides merge or close
+disposition for `sync/workflows-*` and `deps/sync-dev-versions-*`; operators
+and local watchers must consume its recorded owner/next-command handoff rather
+than reimplementing that policy. See
+[`SYNC_DEPENDENCY_CAMPAIGN.md`](SYNC_DEPENDENCY_CAMPAIGN.md).
