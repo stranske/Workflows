@@ -230,9 +230,9 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
 
 
 def test_maint_71_emits_canary_evidence_with_review_debt() -> None:
-    source = (
-        REPO_ROOT / ".github" / "workflows" / "maint-71-merge-sync-prs.yml"
-    ).read_text(encoding="utf-8")
+    source = (REPO_ROOT / ".github" / "workflows" / "maint-71-merge-sync-prs.yml").read_text(
+        encoding="utf-8"
+    )
 
     assert "sync-canary-evidence.json" in source
     assert "active_review_thread_count" in source

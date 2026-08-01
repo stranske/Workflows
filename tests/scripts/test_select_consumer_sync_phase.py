@@ -38,9 +38,7 @@ def green_evidence(plan_id: str) -> list[dict]:
 
 
 def test_canary_phase_selects_only_representative_repos() -> None:
-    result = select_phase(
-        plan(), phase="canary", registered_repos=REGISTERED, canaries=CANARIES
-    )
+    result = select_phase(plan(), phase="canary", registered_repos=REGISTERED, canaries=CANARIES)
 
     assert result["selected_repos"] == [item["repo"] for item in CANARIES]
     assert len(result["prospective_diffs"]) == len(REGISTERED)
