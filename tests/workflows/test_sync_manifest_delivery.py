@@ -171,9 +171,9 @@ def test_all_langchain_entries_have_a_delivery_channel() -> None:
                 "runtime",
             }:
                 missing.append(source)
-    assert not missing, (
-        f"scripts/langchain/* entries missing a delivery: channel: {sorted(missing)}"
-    )
+    assert (
+        not missing
+    ), f"scripts/langchain/* entries missing a delivery: channel: {sorted(missing)}"
 
 
 def test_runtime_fetched_section_is_not_copy_processed() -> None:
@@ -185,12 +185,12 @@ def test_runtime_fetched_section_is_not_copy_processed() -> None:
     """
     sync_text = SYNC_WORKFLOW_PATH.read_text(encoding="utf-8")
     drift_text = DRIFT_CHECK_PATH.read_text(encoding="utf-8")
-    assert "runtime_fetched" not in sync_text, (
-        "maint-68 must not process the runtime_fetched section (would copy-deliver it)"
-    )
-    assert "runtime_fetched" not in drift_text, (
-        "check_consumer_sync_drift must not probe the runtime_fetched section"
-    )
+    assert (
+        "runtime_fetched" not in sync_text
+    ), "maint-68 must not process the runtime_fetched section (would copy-deliver it)"
+    assert (
+        "runtime_fetched" not in drift_text
+    ), "check_consumer_sync_drift must not probe the runtime_fetched section"
 
 
 def test_prepare_checkout_includes_manifest_owned_github_roots() -> None:
