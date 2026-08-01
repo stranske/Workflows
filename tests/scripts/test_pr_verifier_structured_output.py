@@ -83,6 +83,30 @@ def test_comparison_runner_repairs_malformed_output() -> None:
     assert mock_client.invoke.call_count == 2
 
 
+def test_comparison_runner_handles_structured_response_content() -> None:
+    payload = json.dumps(_valid_payload())
+    response = _response_with(
+        [
+            {"type": "thinking", "thinking": "reviewing", "signature": "opaque"},
+            {"type": "text", "text": payload},
+        ]
+    )
+    mock_client = mock.MagicMock()
+    mock_client.invoke.return_value = response
+
+    runner = pr_verifier.ComparisonRunner(
+        context="context",
+        diff=None,
+        prompt="prompt",
+        clients=[(mock_client, "anthropic", "claude-sonnet")],
+    )
+
+    result = runner.run_single(mock_client, "anthropic", "claude-sonnet")
+
+    assert result.verdict == "PASS"
+    assert result.raw_content == payload
+
+
 def test_evaluate_pr_valid_output_no_repair(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = _valid_payload()
     good = json.dumps(payload)
