@@ -190,6 +190,7 @@ def test_build_report_marks_current_sync_pr_as_covered() -> None:
                 "number": 12,
                 "url": "https://github.com/owner/repo/pull/12",
                 "branch": "sync/workflows-aaaaaaaaaaaa",
+                "head_repo": "owner/repo",
                 "updated_at": "2026-04-26T01:00:00Z",
             }
         ],
@@ -202,6 +203,70 @@ def test_build_report_marks_current_sync_pr_as_covered() -> None:
     assert report["sync_remediation"]["repo_states"]["owner/repo"]["state"] == "covered"
 
 
+def test_build_report_blocks_unattributed_errors_and_empty_repo_sets() -> None:
+    report = check_consumer_sync_drift.build_report(
+        repos=["owner/repo"],
+        drift={"owner/repo: .github/workflows/a.yml"},
+        missing=set(),
+        errors={"sync-manifest.yml not found"},
+        obsolete=set(),
+    )
+
+    assert report["status"] == "drift"
+    assert report["sync_remediation"]["repo_states"]["owner/repo"]["state"] == "blocked"
+    assert report["sync_remediation"]["global_errors"] == ["sync-manifest.yml not found"]
+
+    empty = check_consumer_sync_drift.build_report(
+        repos=[], drift=set(), missing=set(), errors=set(), obsolete=set()
+    )
+    assert empty["status"] == "drift"
+    assert empty["sync_remediation"]["global_errors"] == [
+        "no registered consumer repositories supplied"
+    ]
+
+
+def test_build_report_rejects_stale_or_untrusted_coverage() -> None:
+    base_pr = {
+        "repo": "owner/repo",
+        "number": 12,
+        "branch": "sync/workflows-aaaaaaaaaaaa",
+        "head_repo": "owner/repo",
+    }
+    report = check_consumer_sync_drift.build_report(
+        repos=["owner/repo"],
+        drift={"owner/repo: .github/workflows/a.yml"},
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        open_sync_prs=[{**base_pr, "updated_at": "2026-04-24T01:00:00Z"}],
+        current_plan_id="sha256:" + "a" * 64,
+        now=datetime(2026, 4, 26, 2, 0, tzinfo=UTC),
+    )
+    assert report["sync_remediation"]["repo_states"]["owner/repo"]["state"] == "stale"
+
+    untrusted = check_consumer_sync_drift.build_report(
+        repos=["owner/repo"],
+        drift={"owner/repo: .github/workflows/a.yml"},
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        open_sync_prs=[
+            {
+                **base_pr,
+                "head_repo": "fork/repo",
+                "updated_at": "2026-04-26T01:00:00Z",
+            }
+        ],
+        current_plan_id="sha256:" + "a" * 64,
+        now=datetime(2026, 4, 26, 2, 0, tzinfo=UTC),
+    )
+    assert untrusted["sync_remediation"]["repo_states"]["owner/repo"]["state"] == "untracked_drift"
+
+
+def test_parse_github_timestamp_rejects_naive_values() -> None:
+    assert check_consumer_sync_drift.parse_github_timestamp("2026-04-26T01:00:00") is None
+
+
 def test_fetch_open_sync_prs_filters_to_workflows_sync_branches() -> None:
     class Response:
         status_code = 200
@@ -212,13 +277,13 @@ def test_fetch_open_sync_prs_filters_to_workflows_sync_branches() -> None:
                     "number": 5,
                     "title": "ordinary",
                     "html_url": "https://github.com/owner/repo/pull/5",
-                    "head": {"ref": "feature/example", "sha": "bad"},
+                    "head": {"ref": "feature/example", "sha": "bad", "repo": {"full_name": "owner/repo"}},
                 },
                 {
                     "number": 6,
                     "title": "sync",
                     "html_url": "https://github.com/owner/repo/pull/6",
-                    "head": {"ref": "sync/workflows-abc123", "sha": "good"},
+                    "head": {"ref": "sync/workflows-abc123", "sha": "good", "repo": {"full_name": "owner/repo"}},
                     "created_at": "2026-04-26T01:00:00Z",
                     "updated_at": "2026-04-26T02:00:00Z",
                 },
@@ -226,7 +291,7 @@ def test_fetch_open_sync_prs_filters_to_workflows_sync_branches() -> None:
                     "number": 7,
                     "title": "newer sync",
                     "html_url": "https://github.com/owner/repo/pull/7",
-                    "head": {"ref": "sync/workflows-def456", "sha": "newer"},
+                    "head": {"ref": "sync/workflows-def456", "sha": "newer", "repo": {"full_name": "owner/repo"}},
                     "created_at": "2026-04-26T03:00:00Z",
                     "updated_at": "2026-04-26T04:00:00Z",
                 },
@@ -255,6 +320,7 @@ def test_fetch_open_sync_prs_filters_to_workflows_sync_branches() -> None:
             "url": "https://github.com/owner/repo/pull/7",
             "branch": "sync/workflows-def456",
             "head_sha": "newer",
+            "head_repo": "owner/repo",
             "created_at": "2026-04-26T03:00:00Z",
             "updated_at": "2026-04-26T04:00:00Z",
         },
@@ -265,6 +331,7 @@ def test_fetch_open_sync_prs_filters_to_workflows_sync_branches() -> None:
             "url": "https://github.com/owner/repo/pull/6",
             "branch": "sync/workflows-abc123",
             "head_sha": "good",
+            "head_repo": "owner/repo",
             "created_at": "2026-04-26T01:00:00Z",
             "updated_at": "2026-04-26T02:00:00Z",
         },

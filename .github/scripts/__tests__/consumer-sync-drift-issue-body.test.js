@@ -109,6 +109,25 @@ test('formatIssueComment suppresses covered-state noise', () => {
   assert.equal(formatIssueComment({ ...report, status: 'covered' }), '');
 });
 
+test('formatIssueBody renders coverage details while preserving actionable output', () => {
+  const covered = formatIssueBody({
+    ...report,
+    status: 'covered',
+    sync_remediation: {
+      ...report.sync_remediation,
+      expected_branch: 'sync/workflows-aaaaaaaaaaaa',
+      coverage_lease_hours: 36,
+    },
+  });
+  assert.match(covered, /covered by current, unexpired compiler-plan sync PRs/);
+  assert.match(covered, /Current plan branch: `sync\/workflows-aaaaaaaaaaaa`/);
+  assert.match(covered, /Coverage lease: 36 hours/);
+
+  const actionable = formatIssueBody(report);
+  assert.match(actionable, /One or more consumer repos have actionable drift/);
+  assert.doesNotMatch(actionable, /Current plan branch:/);
+});
+
 test('mergeIssueBody refreshes generated issue bodies', () => {
   const oldBody = formatIssueBody({
     counts: { drift: 1, missing: 0, errors: 0, obsolete: 0 },

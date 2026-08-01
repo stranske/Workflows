@@ -20,8 +20,8 @@ name: Merge Sync PRs
 on:
   schedule:
     # Daily janitor pass: auto-merge ready sync PRs, close superseded ones, and prune
-    # leftover branches without waiting for a manual dispatch. Runs just after Health 68's
-    # drift scan (cron '10 5') so it acts on a fresh picture. A schedule event carries no
+    # leftover branches without waiting for a manual dispatch. Health 68 runs from this
+    # workflow's successful completion, so it evaluates the post-janitor state. A schedule event carries no
     # inputs, so the script's parseBooleanInput defaults apply unchanged:
     # auto_merge=true, dry_run=false, cleanup_branches=true, repos=all.
     - cron: '30 5 * * *'

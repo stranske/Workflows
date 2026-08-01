@@ -373,6 +373,7 @@ def fetch_open_sync_prs(
         branch = str(head.get("ref", "")).strip()
         if not branch.startswith(SYNC_BRANCH_PREFIX):
             continue
+        head_repo = head.get("repo") if isinstance(head.get("repo"), dict) else {}
         prs.append(
             {
                 "repo": repo,
@@ -381,6 +382,7 @@ def fetch_open_sync_prs(
                 "url": item.get("html_url", ""),
                 "branch": branch,
                 "head_sha": head.get("sha", ""),
+                "head_repo": head_repo.get("full_name", ""),
                 "created_at": item.get("created_at", ""),
                 "updated_at": item.get("updated_at", ""),
             }
@@ -401,9 +403,12 @@ def parse_github_timestamp(value: object) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(UTC)
 
 
 def build_remediation_states(
@@ -416,6 +421,7 @@ def build_remediation_states(
     open_sync_prs: list[dict[str, object]],
     sync_pr_lookup_errors: list[str],
     expected_branch: str,
+    global_errors: list[str] | None = None,
     now: datetime | None = None,
 ) -> dict[str, dict[str, object]]:
     """Classify drift using the current compiler-plan branch, not PR presence alone."""
@@ -432,6 +438,7 @@ def build_remediation_states(
             if repo in gaps_by_repo:
                 gaps_by_repo[repo].append(category)
 
+    global_errors = global_errors or []
     lookup_failed = {item.split(":", 1)[0] for item in sync_pr_lookup_errors}
     prs_by_repo: dict[str, list[dict[str, object]]] = {repo: [] for repo in repos}
     for pr in open_sync_prs:
@@ -442,6 +449,14 @@ def build_remediation_states(
     states: dict[str, dict[str, object]] = {}
     for repo in repos:
         categories = sorted(set(gaps_by_repo[repo]))
+        if global_errors:
+            states[repo] = {
+                "state": "blocked",
+                "reason": "global comparison error",
+                "categories": categories,
+                "global_errors": global_errors,
+            }
+            continue
         if not categories:
             states[repo] = {"state": "converged", "reason": "no drift detected"}
             continue
@@ -453,7 +468,11 @@ def build_remediation_states(
             }
             continue
 
-        current = [pr for pr in prs_by_repo[repo] if pr.get("branch") == expected_branch]
+        current = [
+            pr
+            for pr in prs_by_repo[repo]
+            if pr.get("branch") == expected_branch and pr.get("head_repo") == repo
+        ]
         fresh = []
         for pr in current:
             updated = parse_github_timestamp(pr.get("updated_at"))
@@ -534,6 +553,14 @@ def build_report(
     expected_branch = ""
     if current_plan_id.startswith("sha256:"):
         expected_branch = f"{SYNC_BRANCH_PREFIX}{current_plan_id.split(':', 1)[1][:12]}"
+    known_repos = set(repos)
+    global_errors = sorted(
+        item
+        for item in [*errors, *sync_pr_lookup_errors]
+        if split_report_item(item)[0] not in known_repos
+    )
+    if not repos:
+        global_errors.append("no registered consumer repositories supplied")
     remediation_states = build_remediation_states(
         repos=repos,
         drift=drift,
@@ -543,10 +570,13 @@ def build_report(
         open_sync_prs=open_sync_prs,
         sync_pr_lookup_errors=sync_pr_lookup_errors,
         expected_branch=expected_branch,
+        global_errors=global_errors,
         now=now,
     )
     state_values = {str(item["state"]) for item in remediation_states.values()}
-    if state_values <= {"converged"}:
+    if global_errors:
+        status = "drift"
+    elif state_values <= {"converged"}:
         status = "converged"
     elif state_values <= {"converged", "covered"}:
         status = "covered"
@@ -602,6 +632,7 @@ def build_report(
             "expected_branch": expected_branch,
             "coverage_lease_hours": int(SYNC_COVERAGE_MAX_AGE.total_seconds() // 3600),
             "repo_states": remediation_states,
+            "global_errors": global_errors,
             "open_pr_count": len(open_sync_prs),
             "repo_count": open_sync_repo_count,
             "latest_open_pr": latest_open_sync_pr,

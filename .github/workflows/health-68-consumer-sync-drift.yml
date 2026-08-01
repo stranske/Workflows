@@ -12,8 +12,9 @@ on:
       - '.github/scripts/**'
       - 'scripts/**'
       - 'tools/**'
-  schedule:
-    - cron: '40 5 * * *'  # Daily after Maint 68 and the 05:30 UTC janitor
+  workflow_run:
+    workflows: [Merge Sync PRs]
+    types: [completed]
   workflow_dispatch:
     inputs:
       repos:
@@ -32,6 +33,9 @@ concurrency:
 jobs:
   check-drift:
     name: Validate consumer repo drift
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Workflows repo
@@ -183,15 +187,20 @@ jobs:
                 return;
               }
               console.log(`Refreshed drift issue body for #${tracker.number}`);
+              const comment = formatIssueComment(report, {
+                runUrl,
+                runId: process.env.GITHUB_RUN_ID,
+                runNumber: process.env.GITHUB_RUN_NUMBER,
+              });
+              if (!comment.trim()) {
+                console.log(`Skipped empty comment for existing issue #${tracker.number}`);
+                return;
+              }
               const commentResult = await skipOnRateLimit('comment', () => appendTrackerComment({
                 github,
                 context,
                 tracker,
-                comment: formatIssueComment(report, {
-                  runUrl,
-                  runId: process.env.GITHUB_RUN_ID,
-                  runNumber: process.env.GITHUB_RUN_NUMBER,
-                }),
+                comment,
                 core,
                 withRetry,
               }));
