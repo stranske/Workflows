@@ -35,8 +35,17 @@ routine cadence violations merely because they bypass the weekly update window.
 
 The workflow uploads JSON and Markdown artifacts for every run. Its current
 collector deliberately reads the latest 100 updated PRs and workflow runs per
-repository, so it writes `history_complete: false` and names that limitation in
-every report; rates are never presented as complete historical truth when the
-input is bounded. The durable campaign issue receives a comment only when the
-report's material-evidence fingerprint changes. A timestamp-only refresh therefore
-does not create another tracker comment or agent handoff.
+repository, applies an explicit trailing seven-day reporting window, and writes
+`history_complete: false` with that limitation named in every report; rates are
+never presented as complete historical truth when the input is bounded.
+
+Weekly `created` / `merged` / `closed` counts use event timestamps inside the
+reporting window. The Markdown report always shows rate numerator/denominator
+evidence plus any avoidable-replacement repository/batch keys that drive a
+breach.
+
+The dedicated durable tracker
+([#2897](https://github.com/stranske/Workflows/issues/2897)) receives a comment
+only when the report's material-evidence fingerprint changes. Health 83 must not
+post onto `#1836` (Sync/Dependabot campaign queue). A timestamp-only refresh
+therefore does not create another tracker comment or agent handoff.

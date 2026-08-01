@@ -58,9 +58,14 @@ jobs:
                 return fallback;
               }
             };
+            const registered = String(process.env.REGISTERED_REPOS || '')
+              .split(',')
+              .map((repo) => repo.trim())
+              .filter(Boolean)
+              .map((repo) => (repo.includes('/') ? repo : `${context.repo.owner}/${repo}`));
             const repos = [...new Set([
-              context.repo.repo,
-              ...String(process.env.REGISTERED_REPOS || '').split(',').filter(Boolean),
+              `${context.repo.owner}/${context.repo.repo}`,
+              ...registered,
               `${context.repo.owner}/Collab-Admin`,
             ])];
             const pulls = [];
@@ -101,6 +106,8 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           FINGERPRINT: ${{ steps.metrics.outputs.fingerprint }}
+          # Dedicated durable tracker (#2897). Never post efficiency evidence onto #1836.
+          EFFICIENCY_TRACKER_ISSUE: '2897'
         with:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
@@ -111,11 +118,16 @@ jobs:
               task: 'health-83-dependency-sync-efficiency',
               capabilities: ['issues:write'],
             });
+            const tracker = Number(process.env.EFFICIENCY_TRACKER_ISSUE || '');
+            if (!Number.isInteger(tracker) || tracker <= 0 || tracker === 1836) {
+              core.setFailed(`Health 83 refuses to comment: set EFFICIENCY_TRACKER_ISSUE to the dedicated efficiency tracker (got ${process.env.EFFICIENCY_TRACKER_ISSUE}).`);
+              return;
+            }
             const marker = `dependency-sync-efficiency:v1 fingerprint=${process.env.FINGERPRINT}`;
-            const comments = await paginateWithRetry(github.rest.issues.listComments, {owner: context.repo.owner, repo: context.repo.repo, issue_number: 1836, per_page: 100});
+            const comments = await paginateWithRetry(github.rest.issues.listComments, {owner: context.repo.owner, repo: context.repo.repo, issue_number: tracker, per_page: 100});
             const latestHealth83 = [...comments].reverse().find((comment) => comment.body.includes('dependency-sync-efficiency:v1 fingerprint='));
             if (!latestHealth83?.body.includes(marker)) {
-              await withRetry((client) => client.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: 1836, body: `<!-- ${marker} -->\n${fs.readFileSync('dependency-sync-efficiency.md', 'utf8')}`}));
+              await withRetry((client) => client.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: tracker, body: `<!-- ${marker} -->\n${fs.readFileSync('dependency-sync-efficiency.md', 'utf8')}`}));
             }
 
       - name: Upload report artifacts

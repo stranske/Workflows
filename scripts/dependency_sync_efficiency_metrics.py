@@ -104,8 +104,24 @@ def exception_fingerprint(pr: dict[str, Any]) -> str | None:
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
+def reporting_window(snapshot: dict[str, Any], now: datetime) -> tuple[datetime, datetime]:
+    """Return inclusive-start/exclusive-end bounds for weekly event counts."""
+    period = snapshot.get("period") or {}
+    start = parse_time(period.get("start"))
+    end = parse_time(period.get("end"))
+    if start and end:
+        return start, end
+    return now - timedelta(days=7), now
+
+
+def in_window(value: str | None, start: datetime, end: datetime) -> bool:
+    stamp = parse_time(value)
+    return bool(stamp and start <= stamp < end)
+
+
 def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
     pulls = list(snapshot.get("pulls", []))
+    window_start, window_end = reporting_window(snapshot, now)
     lane_counts: Counter[str] = Counter()
     created: Counter[str] = Counter()
     merged: Counter[str] = Counter()
@@ -115,6 +131,7 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
     source_to_prs: dict[str, set[str]] = defaultdict(set)
     exception_fingerprints: set[str] = set()
     generated_prs: list[dict[str, Any]] = []
+    timestamped_snapshot = False
 
     for pr in pulls:
         lane = lane_for(pr)
@@ -125,17 +142,36 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         if not generated(lane):
             continue
         generated_prs.append(pr)
-        created[lane] += 1
+        created_at = first(pr, "created_at", "createdAt")
+        merged_at = first(pr, "merged_at", "mergedAt")
+        closed_at = first(pr, "closed_at", "closedAt")
+        pr_has_times = bool(created_at or merged_at or closed_at)
+        timestamped_snapshot = timestamped_snapshot or pr_has_times
         pr_state = state(pr)
-        if pr.get("merged_at") or pr.get("mergedAt") or pr_state == "merged":
-            merged[lane] += 1
-        elif pr_state == "closed":
-            closed[lane] += 1
+
+        if pr_has_times:
+            if in_window(created_at, window_start, window_end):
+                created[lane] += 1
+            if in_window(merged_at, window_start, window_end):
+                merged[lane] += 1
+            elif in_window(closed_at, window_start, window_end) and pr_state == "closed":
+                closed[lane] += 1
+        else:
+            # Legacy fixtures omit event times; treat snapshot membership as the week.
+            created[lane] += 1
+            if merged_at or pr_state == "merged":
+                merged[lane] += 1
+            elif pr_state == "closed":
+                closed[lane] += 1
+
         if is_stale(pr, now):
             stale[lane] += 1
         if replacement(pr):
             replacements[lane] += 1
-        source = str(first(pr, "source_commit", "sourceCommit", "wave_id", "batch_id") or "unknown")
+        source = str(
+            first(pr, "source_commit", "sourceCommit", "wave_id", "batch_id", "head_sha", "headRefOid")
+            or "unknown"
+        )
         source_to_prs[source].add(
             f"{first(pr, 'repo', 'repository', 'repository_name')}#{pr.get('number', '?')}"
         )
@@ -148,10 +184,27 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
     for run in snapshot.get("workflow_runs", []):
         source = str(first(run, "source_commit", "head_sha", "headSha") or "unknown")
         runs_by_source[source] += 1
-    generated_total = len(generated_prs)
+    if timestamped_snapshot:
+        generated_total = sum(created[lane] for lane in LANES)
+        rate_universe = [
+            pr
+            for pr in generated_prs
+            if in_window(first(pr, "created_at", "createdAt"), window_start, window_end)
+            or (
+                not first(pr, "created_at", "createdAt")
+                and (
+                    in_window(first(pr, "merged_at", "mergedAt"), window_start, window_end)
+                    or in_window(first(pr, "closed_at", "closedAt"), window_start, window_end)
+                    or in_window(first(pr, "updated_at", "updatedAt"), window_start, window_end)
+                )
+            )
+        ]
+    else:
+        generated_total = len(generated_prs)
+        rate_universe = generated_prs
     stale_or_replacement = {
         f"{first(pr, 'repo', 'repository', 'repository_name')}#{pr.get('number', '?')}"
-        for pr in generated_prs
+        for pr in rate_universe
         if is_stale(pr, now) or replacement(pr)
     }
     replacement_rate = len(stale_or_replacement) / generated_total if generated_total else 0.0
@@ -164,10 +217,20 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         if not replacement(pr):
             continue
         repo = str(first(pr, "repo", "repository", "repository_name") or "unknown")
-        batch = str(first(pr, "source_commit", "sourceCommit", "wave_id", "batch_id") or "unknown")
+        batch = str(
+            first(pr, "source_commit", "sourceCommit", "wave_id", "batch_id", "head_sha", "headRefOid")
+            or "unknown"
+        )
         avoidable_replacements[f"{repo}/{batch}"] += 1
+    period = dict(snapshot.get("period") or {})
+    # Persist concrete bounds only when the collector supplied them so fingerprints
+    # stay stable across generation timestamps for otherwise identical evidence.
+    if "start" not in period and snapshot.get("period"):
+        period["start"] = window_start.isoformat().replace("+00:00", "Z")
+    if "end" not in period and snapshot.get("period"):
+        period["end"] = window_end.isoformat().replace("+00:00", "Z")
     metrics = {
-        "period": snapshot.get("period", {}),
+        "period": period,
         "lane_counts": {lane: lane_counts[lane] for lane in LANES},
         "created": {lane: created[lane] for lane in LANES},
         "merged": {lane: merged[lane] for lane in LANES},
@@ -238,16 +301,26 @@ def markdown(report: dict[str, Any]) -> str:
             )
         )
     limitations = report["collection"]["limitations"] or ["No collection limitations reported."]
+    avoidable = metrics.get("avoidable_replacements_per_repo_batch") or {}
+    avoidable_lines = [
+        f"Avoidable replacement repository/batches: **{len(avoidable)}** (target = 0)",
+        *[f"- Avoidable replacement: {key} ({count})" for key, count in avoidable.items()],
+    ]
+    period = metrics.get("period") or {}
+    period_line = ""
+    if period.get("start") and period.get("end"):
+        period_line = f"Reporting window: **{period['start']}** → **{period['end']}**"
     return "\n".join(
         [
             "# Dependency/sync maintenance efficiency",
             "",
             f"Advisory SLO state: **{report['advisory_slo']['state']}**.",
-            "",
+            *([period_line, ""] if period_line else []),
             *rows,
             "",
             f"Generated PRs: **{metrics['generated_prs']}** (target ≤ {THRESHOLDS['generated_prs']})",
             f"Stale/replacement rate: **{metrics['stale_or_replacement_rate']:.1%}** ({metrics['stale_or_replacement_numerator']}/{metrics['generated_prs']}; target < 5%)",
+            *avoidable_lines,
             f"Agent-exception episodes: **{metrics['agent_exception_episodes']}** (target ≤ 5)",
             f"Collab-Admin excluded: **{metrics['collab_admin_excluded']}**",
             "",

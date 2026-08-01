@@ -138,3 +138,79 @@ def test_markdown_includes_denominators_limits_and_threshold_breach():
     assert "Generated PRs: **41**" in text
     assert "Complete GitHub history: **false**" in text
     assert "last 100 PRs per repo" in text
+
+
+def test_weekly_event_counts_use_reporting_window_timestamps():
+    report = metrics.calculate(
+        {
+            "period": {"kind": "trailing-7-day-window", "start": "2026-01-03T00:00:00Z", "end": "2026-01-10T00:00:00Z"},
+            "pulls": [
+                {
+                    "repo": "stranske/App",
+                    "number": 1,
+                    "head_ref": "sync/workflows-a",
+                    "state": "open",
+                    "created_at": "2026-01-05T00:00:00Z",
+                    "updated_at": "2026-01-05T00:00:00Z",
+                    "source_commit": "a",
+                },
+                {
+                    "repo": "stranske/App",
+                    "number": 2,
+                    "head_ref": "sync/workflows-b",
+                    "state": "merged",
+                    "created_at": "2025-12-01T00:00:00Z",
+                    "merged_at": "2026-01-06T00:00:00Z",
+                    "source_commit": "b",
+                },
+                {
+                    "repo": "stranske/App",
+                    "number": 3,
+                    "head_ref": "sync/workflows-old",
+                    "state": "closed",
+                    "created_at": "2025-11-01T00:00:00Z",
+                    "closed_at": "2025-11-02T00:00:00Z",
+                    "updated_at": "2026-01-09T00:00:00Z",
+                    "source_commit": "c",
+                },
+            ],
+        },
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+    assert report["metrics"]["created"]["sync-generated"] == 1
+    assert report["metrics"]["merged"]["sync-generated"] == 1
+    assert report["metrics"]["closed"]["sync-generated"] == 0
+    assert report["metrics"]["generated_prs"] == 1
+
+
+def test_markdown_lists_avoidable_replacement_breach_keys():
+    report = metrics.calculate(
+        {
+            "pulls": [
+                {
+                    "repo": "stranske/App",
+                    "number": 1,
+                    "head_ref": "sync/workflows-a",
+                    "state": "closed",
+                    "body": "Supersedes #0",
+                    "source_commit": "batch-1",
+                }
+            ]
+            + [
+                {
+                    "repo": "stranske/App",
+                    "number": number,
+                    "head_ref": f"sync/workflows-{number}",
+                    "state": "merged",
+                    "source_commit": f"ok-{number}",
+                }
+                for number in range(2, 41)
+            ],
+        },
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+    text = metrics.markdown(report)
+    assert report["advisory_slo"]["breaches"]["avoidable_replacements_per_repo_batch"] is True
+    assert "Avoidable replacement repository/batches: **1**" in text
+    assert "Avoidable replacement: stranske/App/batch-1 (1)" in text
+    assert "Stale/replacement rate:" in text

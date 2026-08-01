@@ -37,6 +37,7 @@ failure-notification path.
 |-------|-------|-----------------|---------|--------------|
 | [#2211](https://github.com/stranske/Workflows/issues/2211) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
 | [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependabot campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 6h + Mondays 10:30 UTC | Body rewritten in place |
+| [#2897](https://github.com/stranske/Workflows/issues/2897) | Dependency/sync maintenance-efficiency advisory report | [`health-83-dependency-sync-efficiency.yml`](../../.github/workflows/health-83-dependency-sync-efficiency.yml) | Weekly Mondays 11:15 UTC + `workflow_dispatch` | Comment appended only on material-evidence fingerprint change |
 | [#2210](https://github.com/stranske/Workflows/issues/2210) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | After each successful main-branch `Merge Sync PRs` run, qualifying manifest/template/script/tool pushes, or manual dispatch | Body rewritten in place, but only for actionable states |
 | [#2470](https://github.com/stranske/Workflows/issues/2470) | 🚨 Integration-Tests Sync Failed - Action Required | [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) | On qualifying template/config pushes or manual dispatch | Stuck-window marker in body + recovery comment |
 | [#2415](https://github.com/stranske/Workflows/issues/2415) | 📊 LangSmith Trace Coverage Dashboard | [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) | Mondays 09:00 UTC + manual dispatch | Body rewritten in place |
@@ -45,6 +46,7 @@ The signal flow each tracker carries:
 
 - **#2211** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
 - **#1836** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
+- **#2897** — Health 83 dependency/sync maintenance-efficiency advisory evidence. Comments append only when the material-evidence fingerprint changes; do not redirect this signal onto `#1836`.
 
 ### Leased generated delivery attempts
 
