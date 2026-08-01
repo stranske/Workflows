@@ -817,7 +817,7 @@ jobs:
           git push --quiet -u origin "$branch_name"
 
           # Create PR
-          desired_tree_hash=$(git rev-parse HEAD^{tree})
+          desired_tree_hash=$(git rev-parse 'HEAD^{tree}')
           lease_expires_at=$(date -u -d '+72 hours' +%Y-%m-%dT%H:%M:%SZ)
           sync_marker=$(jq -nc \
             --arg schema "workflows-consumer-sync-pr/v1" \

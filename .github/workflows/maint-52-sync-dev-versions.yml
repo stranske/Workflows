@@ -340,7 +340,7 @@ jobs:
 
           # Create PR body.  Each generated PR is a leased delivery attempt;
           # the durable campaign issue keeps the coordination history.
-          desired_tree_hash=${desired_tree:-$(git rev-parse HEAD^{tree})}
+          desired_tree_hash=${desired_tree:-$(git rev-parse 'HEAD^{tree}')}
           lease_expires_at=$(date -u -d '+72 hours' +%Y-%m-%dT%H:%M:%SZ)
           delivery_marker=$(jq -nc \
             --arg schema "sync-pr-delivery-record/v1" \
