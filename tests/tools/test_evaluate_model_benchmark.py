@@ -175,3 +175,139 @@ def test_nonobject_candidate_is_rejected_as_configuration_error():
     payload["candidates"][1] = None
     with pytest.raises(ValueError, match="candidate must be an object"):
         evaluator.evaluate_benchmark(payload, _policy())
+
+
+def _thin_owner_cases(*, cost: float, latency: float):
+    """Corpus shaped like the real one: owner-sourced categories are thin.
+
+    clean-pass is at its harvest cap and follow-up-required is machine-grown, but
+    the three owner-sourced categories only ever get hand-labelled examples.
+    """
+    counts = {
+        "clean-pass": 50,
+        "follow-up-required": 20,
+        "stale-verifier-claim": 5,
+        "review-thread-debt": 2,
+        "missing-acceptance-criterion": 1,
+    }
+    cases = []
+    index = 0
+    for category, count in counts.items():
+        expected = "PASS" if category == "clean-pass" else "NON_PASS"
+        for _ in range(count):
+            cases.append(
+                {
+                    "case_id": f"thin-{index}",
+                    "category": category,
+                    "expected_verdict": expected,
+                    "actual_verdict": expected,
+                    "schema_valid": True,
+                    "input_tokens": 100,
+                    "output_tokens": 10,
+                    "total_cost_usd": cost,
+                    "latency_ms": latency,
+                }
+            )
+            index += 1
+    return cases
+
+
+def _thin_payload():
+    payload = _payload()
+    payload["candidates"] = [
+        {
+            "provider": "openai",
+            "model_id": "baseline",
+            "cases": _thin_owner_cases(cost=0.02, latency=900),
+        },
+        {
+            "provider": "openai",
+            "model_id": "candidate",
+            "cases": _thin_owner_cases(cost=0.01, latency=800),
+        },
+    ]
+    return payload
+
+
+def _gate(report, model_id, gate_name):
+    result = next(r for r in report["results"] if r["model_id"] == model_id)
+    return result["gate_results"][gate_name]
+
+
+def test_owner_sourced_categories_block_approval_without_overrides():
+    """Without overrides the thin owner-sourced categories fail the floor."""
+    report = evaluator.evaluate_benchmark(_thin_payload(), _policy())
+
+    assert _gate(report, "candidate", "minimum_cases_per_category") is False
+    assert _gate(report, "candidate", "minimum_adjudicated_cases") is True
+
+
+def test_per_category_overrides_admit_thin_owner_sourced_categories():
+    """Overrides let the un-harvestable categories assert representation only."""
+    policy = _policy()
+    policy["profiles"]["verifier-balanced"]["approval_stage"][
+        "minimum_cases_per_category_overrides"
+    ] = {
+        "stale-verifier-claim": 1,
+        "review-thread-debt": 1,
+        "missing-acceptance-criterion": 1,
+    }
+
+    report = evaluator.evaluate_benchmark(_thin_payload(), policy)
+
+    assert _gate(report, "candidate", "minimum_cases_per_category") is True
+    # The machine-harvestable floor is untouched.
+    assert (
+        policy["profiles"]["verifier-balanced"]["approval_stage"]["minimum_cases_per_category"]
+        == 10
+    )
+
+
+def test_override_still_requires_each_category_to_be_represented():
+    """A category with zero cases fails even at the lowest legal floor of 1."""
+    policy = _policy()
+    policy["profiles"]["verifier-balanced"]["approval_stage"][
+        "minimum_cases_per_category_overrides"
+    ] = {"missing-acceptance-criterion": 1}
+    payload = _thin_payload()
+    for candidate in payload["candidates"]:
+        candidate["cases"] = [
+            case
+            for case in candidate["cases"]
+            if case["category"] != "missing-acceptance-criterion"
+        ]
+
+    report = evaluator.evaluate_benchmark(payload, policy)
+
+    assert _gate(report, "candidate", "minimum_cases_per_category") is False
+
+
+@pytest.mark.parametrize("floor", [0, -1])
+def test_override_floor_below_one_is_rejected(floor):
+    policy = _policy()
+    policy["profiles"]["verifier-balanced"]["approval_stage"][
+        "minimum_cases_per_category_overrides"
+    ] = {"review-thread-debt": floor}
+
+    with pytest.raises(ValueError, match="must be >= 1"):
+        evaluator.evaluate_benchmark(_thin_payload(), policy)
+
+
+def test_override_for_unknown_category_is_rejected():
+    policy = _policy()
+    policy["profiles"]["verifier-balanced"]["approval_stage"][
+        "minimum_cases_per_category_overrides"
+    ] = {"not-a-category": 1}
+
+    with pytest.raises(ValueError, match="not.*required"):
+        evaluator.evaluate_benchmark(_thin_payload(), policy)
+
+
+def test_override_must_be_an_object():
+    policy = _policy()
+    policy["profiles"]["verifier-balanced"]["approval_stage"][
+        "minimum_cases_per_category_overrides"
+    ] = ["stale-verifier-claim"]
+
+    with pytest.raises(ValueError, match="must be an object"):
+        evaluator.evaluate_benchmark(_thin_payload(), policy)

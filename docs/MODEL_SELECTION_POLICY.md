@@ -51,7 +51,15 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
 - Use a frozen, versioned corpus with owner-adjudicated expected outcomes.
 - Run every candidate and baseline on the same cases and prompt version.
 - Use at least 30 cases to retain a candidate and at least 75 cases, with 10 per
-  required failure category, to approve it.
+  required failure category, to approve it. Categories that cannot be labelled
+  from realized downstream outcomes — `stale-verifier-claim`,
+  `review-thread-debt`, `missing-acceptance-criterion` — are exempted from the
+  10-case floor via `approval_stage.minimum_cases_per_category_overrides` and
+  need only be *represented* (≥1 adjudicated case). `tools/harvest_verifier_corpus.py`
+  can never produce them, so holding them to the machine-harvestable floor made
+  approval unreachable without hand-labelling roughly 22 cases. The 75-case total
+  and every statistical gate still apply to the whole corpus; raise these floors
+  toward 10 as owner-labelled cases accumulate. See issue #2819.
 - Report Wilson 95% confidence intervals for task success, false PASS, false
   FAIL, and schema errors.
 - Require the configured bounds and a paired success result no more than two

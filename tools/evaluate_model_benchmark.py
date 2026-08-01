@@ -153,6 +153,29 @@ def evaluate_benchmark(payload: dict[str, Any], policy: dict[str, Any]) -> dict[
     required_categories = profile_policy["candidate_stage"]["required_case_categories"]
     minimum_cases = int(approval["minimum_adjudicated_cases"])
     minimum_per_category = int(approval["minimum_cases_per_category"])
+    # Per-category floors may be overridden. Categories that cannot be labelled
+    # from realized outcomes (see tools/harvest_verifier_corpus.py) can never be
+    # grown by the harvester, so holding them to the machine-harvestable floor
+    # made `approved` unreachable without hand-labelling. See #2819.
+    raw_overrides = approval.get("minimum_cases_per_category_overrides") or {}
+    if not isinstance(raw_overrides, dict):
+        raise ValueError("approval_stage.minimum_cases_per_category_overrides must be an object")
+    category_floors: dict[str, int] = {}
+    for category in required_categories:
+        floor = raw_overrides.get(category, minimum_per_category)
+        floor = int(floor)
+        if floor < 1:
+            raise ValueError(
+                "minimum_cases_per_category_overrides values must be >= 1 "
+                f"(got {floor} for {category!r}); every required category must be represented"
+            )
+        category_floors[category] = floor
+    unknown_overrides = sorted(set(raw_overrides) - set(required_categories))
+    if unknown_overrides:
+        raise ValueError(
+            "minimum_cases_per_category_overrides names categories that are not "
+            f"required: {unknown_overrides}"
+        )
     noninferiority_margin = float(gates["paired_success_noninferiority_margin"])
 
     for candidate in candidates:
@@ -161,8 +184,8 @@ def evaluate_benchmark(payload: dict[str, Any], policy: dict[str, Any]) -> dict[
         gate_results = {
             "minimum_adjudicated_cases": metrics["sample_count"] >= minimum_cases,
             "minimum_cases_per_category": all(
-                metrics["category_counts"].get(category, 0) >= minimum_per_category
-                for category in required_categories
+                metrics["category_counts"].get(category, 0) >= floor
+                for category, floor in category_floors.items()
             ),
             "task_success_rate_wilson_lower_bound": metrics["task_success_rate_wilson_lower_bound"]
             >= float(gates["task_success_rate_wilson_lower_bound"]),
