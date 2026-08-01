@@ -174,6 +174,7 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
             )
             or "unknown"
         )
+        pr["_source"] = source
         source_to_prs[source].add(
             f"{first(pr, 'repo', 'repository', 'repository_name')}#{pr.get('number', '?')}"
         )
@@ -181,7 +182,7 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         if fingerprint:
             exception_fingerprints.add(fingerprint)
 
-    collab_admin = [pr for pr in pulls if lane_for(pr) == "collab-admin-excluded"]
+    collab_admin = [pr for pr in pulls if pr.get("_lane") == "collab-admin-excluded"]
     runs_by_source: Counter[str] = Counter()
     for run in snapshot.get("workflow_runs", []):
         source = str(first(run, "source_commit", "head_sha", "headSha") or "unknown")
@@ -219,12 +220,7 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         if not replacement(pr):
             continue
         repo = str(first(pr, "repo", "repository", "repository_name") or "unknown")
-        batch = str(
-            first(
-                pr, "source_commit", "sourceCommit", "wave_id", "batch_id", "head_sha", "headRefOid"
-            )
-            or "unknown"
-        )
+        batch = str(pr["_source"])
         avoidable_replacements[f"{repo}/{batch}"] += 1
     period = dict(snapshot.get("period") or {})
     # Persist concrete bounds only when the collector supplied them so fingerprints
@@ -253,7 +249,7 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
     }
     breaches = {
         "generated_prs": generated_total > THRESHOLDS["generated_prs"],
-        "stale_or_replacement_rate": replacement_rate > THRESHOLDS["stale_or_replacement_rate"],
+        "stale_or_replacement_rate": replacement_rate >= THRESHOLDS["stale_or_replacement_rate"],
         "avoidable_replacements_per_repo_batch": any(
             count > THRESHOLDS["avoidable_replacements_per_repo_batch"]
             for count in avoidable_replacements.values()

@@ -95,11 +95,14 @@ jobs:
 
       - name: Calculate advisory SLOs
         run: |
-          python scripts/dependency_sync_efficiency_metrics.py \
+          metrics_output="$(python scripts/dependency_sync_efficiency_metrics.py \
             --input dependency-sync-efficiency-input.json \
             --json-out dependency-sync-efficiency.json \
-            --markdown-out dependency-sync-efficiency.md
-          echo "fingerprint=$(python -c 'import json; from scripts.dependency_sync_efficiency_metrics import fingerprint; print(fingerprint(json.load(open("dependency-sync-efficiency.json"))))')" >> "$GITHUB_OUTPUT"
+            --markdown-out dependency-sync-efficiency.md)"
+          printf '%s\n' "$metrics_output"
+          fingerprint="$(printf '%s\n' "$metrics_output" | awk -F= '/^fingerprint=/{print $2}')"
+          test -n "$fingerprint"
+          echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"
         id: metrics
 
       - name: Comment only on material tracker evidence changes

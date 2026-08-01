@@ -94,6 +94,26 @@ def test_stale_and_replacement_rate_counts_one_pr_once():
     assert report["metrics"]["stale_or_replacement_rate"] == 1.0
 
 
+def test_stale_or_replacement_rate_breaches_at_five_percent_boundary():
+    report = metrics.calculate(
+        {
+            "pulls": [
+                {
+                    "repo": "stranske/App",
+                    "number": number,
+                    "head_ref": f"sync/workflows-{number}",
+                    "state": "closed" if number < 3 else "merged",
+                    "body": "Supersedes #0" if number < 3 else "",
+                }
+                for number in range(1, 41)
+            ]
+        },
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+    assert report["metrics"]["stale_or_replacement_rate"] == 0.05
+    assert report["advisory_slo"]["breaches"]["stale_or_replacement_rate"] is True
+
+
 def test_fingerprint_ignores_generation_timestamp_but_tracks_material_evidence():
     snapshot = {
         "collection": {},
