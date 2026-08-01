@@ -300,7 +300,12 @@ function parseDependencyRepairPromotionSource(body) {
     if (!Number.isInteger(sourcePr) || sourcePr <= 0 || !validShas) {
       return null;
     }
-    return { ...metadata, source_pr: sourcePr };
+    return {
+      source_pr: sourcePr,
+      source_base_sha: metadata.source_base_sha,
+      source_head_sha: metadata.source_head_sha,
+      promotion_base_sha: metadata.promotion_base_sha,
+    };
   } catch {
     return null;
   }
@@ -387,7 +392,8 @@ function resolvePrSourceContext(pull = {}) {
   const trustedDependencyRepairPromotion = Boolean(
     dependencyRepairPromotion &&
       labels.includes('dependency:repair-promotion') &&
-      labels.includes('workflow:source-dependabot'),
+      (labels.includes('workflow:source-dependabot') ||
+        labels.includes('workflow_source_dependabot')),
   );
   const extractedIssueNumber = extractIssueNumberFromPull(pull);
   // Promotion provenance is authoritative: a coincidental issue reference must

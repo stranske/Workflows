@@ -324,6 +324,7 @@ jobs:
             tools
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
 
       - name: Set up Python
         if: steps.check-merged.outputs.merged == 'true'

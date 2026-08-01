@@ -19,7 +19,11 @@ jobs:
     if: >-
       github.event.pull_request.user.login == 'renovate[bot]' ||
       github.event.pull_request.user.login == 'dependabot[bot]' ||
-      startsWith(github.event.pull_request.head.ref, 'renovate/') ||
-      startsWith(github.event.pull_request.head.ref, 'dependabot/') ||
-      contains(github.event.pull_request.body || '', 'dependency-repair-promotion:v1')
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       (startsWith(github.event.pull_request.head.ref, 'renovate/') ||
+        startsWith(github.event.pull_request.head.ref, 'dependabot/'))) ||
+      (contains(github.event.pull_request.body || '', '<!-- dependency-repair-promotion:v1') &&
+       contains(github.event.pull_request.labels.*.name, 'dependency:repair-promotion') &&
+       (contains(github.event.pull_request.labels.*.name, 'workflow:source-dependabot') ||
+        contains(github.event.pull_request.labels.*.name, 'workflow_source_dependabot')))
     uses: stranske/Workflows/.github/workflows/reusable-19-dependency-repair-contract.yml@main

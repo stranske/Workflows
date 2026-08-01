@@ -570,11 +570,11 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return finalise();
   }
 
-  const issueNumber = extractIssueNumberFromPull(pull);
+  const sourceContext = resolvePrSourceContext(pull);
+  const issueNumber = sourceContext.issueNumber;
   if (issueNumber) {
     outputs.issue = String(issueNumber);
   }
-  const sourceContext = resolvePrSourceContext(pull);
   if (sourceContext.isKnown) {
     outputs.source_type = sourceContext.sourceType;
   }

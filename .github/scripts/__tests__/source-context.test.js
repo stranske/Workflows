@@ -181,6 +181,7 @@ test('dependency repair promotion marker supplies explicit dependency source con
       source_base_sha: 'a'.repeat(40),
       source_head_sha: 'b'.repeat(40),
       promotion_base_sha: 'c'.repeat(40),
+      ignored_untrusted_field: '__proto__',
     }),
     ' -->',
   ].join('');
@@ -194,12 +195,36 @@ test('dependency repair promotion marker supplies explicit dependency source con
     ],
   });
 
-  assert.equal(parseDependencyRepairPromotionSource(marker).source_pr, 2795);
+  assert.deepEqual(parseDependencyRepairPromotionSource(marker), {
+    source_pr: 2795,
+    source_base_sha: 'a'.repeat(40),
+    source_head_sha: 'b'.repeat(40),
+    promotion_base_sha: 'c'.repeat(40),
+  });
   assert.equal(context.sourceType, SOURCE_TYPES.DEPENDABOT);
   assert.equal(context.sourceRef, 'dependency-pr:#2795');
   assert.equal(context.isExplicit, true);
   assert.equal(context.isValid, true);
   assert.equal(context.requiresIssue, false);
+});
+
+test('underscore dependency source label authorizes a valid promotion marker', () => {
+  const marker = `<!-- dependency-repair-promotion:v1 ${JSON.stringify({
+    source_pr: 2795,
+    source_base_sha: 'a'.repeat(40),
+    source_head_sha: 'b'.repeat(40),
+    promotion_base_sha: 'c'.repeat(40),
+  })} -->`;
+  const context = resolvePrSourceContext({
+    body: `${marker}\nFixes #99`,
+    labels: [
+      { name: 'dependency:repair-promotion' },
+      { name: 'workflow_source_dependabot' },
+    ],
+  });
+
+  assert.equal(context.sourceType, SOURCE_TYPES.DEPENDABOT);
+  assert.equal(context.issueNumber, null);
 });
 
 test('dependency repair promotion marker suppresses incidental issue references', () => {
