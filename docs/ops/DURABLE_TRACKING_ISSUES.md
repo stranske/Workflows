@@ -21,10 +21,13 @@ metrics summary). Without a tracker convention each run would either:
 
 The trackers below solve this by reusing one issue per controller. The bot
 either appends a comment per cycle (`#2211`) or rewrites the body in place
-(`#1836`, `#2210`, `#2470`). Either way, **the issue itself is the dashboard**:
-do not close it during routine triage. Each controller has its own lifecycle;
-for example, closing the active `#1836` campaign queue stops that controller's
-work, while `#2470` is recreated only through its failure-notification path.
+(`#1836`, `#2210`, `#2415`); `#2470` is a hybrid that stamps a marker into the
+body and appends a recovery comment. Check the `Update style` column before
+assuming append-versus-rewrite handling. Either way, **the issue itself is the
+dashboard**: do not close it during routine triage. Each controller has its own
+lifecycle; for example, closing the active `#1836` campaign queue stops that
+controller's work, while `#2470` is recreated only through its
+failure-notification path.
 
 ---
 
