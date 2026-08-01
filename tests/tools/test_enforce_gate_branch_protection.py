@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -256,3 +257,54 @@ def test_state_from_branch_payload_preserves_explicit_strict_value() -> None:
     )
 
     assert state == gate.StatusCheckState(strict=False, contexts=["Gate / gate"])
+
+
+def test_allow_non_strict_accepts_a_deliberately_non_strict_policy(monkeypatch, capsys):
+    """A non-strict ruleset is not drift when the reviewed policy is non-strict."""
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        gate,
+        "fetch_status_checks",
+        lambda *a, **k: gate.StatusCheckState(strict=False, contexts=["summary"]),
+    )
+    monkeypatch.setattr(gate, "_build_session", lambda token: SimpleNamespace())
+
+    exit_code = gate.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--check",
+            "--allow-non-strict",
+            "--no-clean",
+            "--context",
+            "summary",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert "No changes required." in out
+    assert "Desired 'require up to date': False" in out
+
+
+def test_without_allow_non_strict_a_non_strict_policy_is_still_drift(monkeypatch, capsys):
+    """The default is unchanged: non-strict counts as drift unless opted out."""
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        gate,
+        "fetch_status_checks",
+        lambda *a, **k: gate.StatusCheckState(strict=False, contexts=["summary"]),
+    )
+    monkeypatch.setattr(gate, "_build_session", lambda token: SimpleNamespace())
+
+    exit_code = gate.main(["--repo", "octo/repo", "--check", "--no-clean", "--context", "summary"])
+
+    out = capsys.readouterr().out
+    assert exit_code == 1
+    assert "Would enable 'require branches to be up to date'." in out
+
+
+def test_allow_non_strict_conflicts_with_require_strict(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    with pytest.raises(SystemExit):
+        gate.main(["--repo", "octo/repo", "--check", "--allow-non-strict", "--require-strict"])

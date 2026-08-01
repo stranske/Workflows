@@ -1,6 +1,6 @@
 {
   "required_contexts": [
-    "Gate / gate"
+    "summary"
   ],
-  "_note": "Only universally-posted contexts belong here: health-44 can pass this file to enforce_gate_branch_protection.py --apply, so any context listed becomes a REQUIRED status check. 'Health 45 Agents Guard / guard' is deliberately absent: agents-guard.yml posts that status only when the PR carries an agent label (agent:codex, agents:auto-pilot, ...), so requiring it would leave every other PR permanently un-mergeable. See issue #2858."
+  "_note": "`summary` is the Gate workflow's own aggregate job (pr-00-gate.yml): it `needs` every other Gate job with `if: always()`, so requiring it gates all of Gate. Only universally-posted, self-healing contexts belong here, because health-44 can pass this file to enforce_gate_branch_protection.py --apply and anything listed becomes a REQUIRED check. Deliberately absent: 'Gate / gate' (a commit STATUS posted by that same summary job — a duplicate verdict that can be left `pending` or stale-`failure` after cancelled concurrent runs, blocking merges with no real defect) and 'Health 45 Agents Guard / guard' (posted only for agent-labelled PRs). See issue #2858."
 }

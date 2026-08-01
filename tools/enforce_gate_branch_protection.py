@@ -30,10 +30,13 @@ def resolve_api_root(explicit: str | None = None) -> str:
 
 
 DEFAULT_CONTEXTS = (
-    # Only universally-posted contexts may be required. "Health 45 Agents Guard /
-    # guard" is posted by agents-guard.yml ONLY for agent-labelled PRs, so requiring
-    # it would block every other PR forever (issue #2858).
-    "Gate / gate",
+    # `summary` is the Gate workflow's aggregate job: it needs every other Gate
+    # job, so requiring it gates all of Gate. Do NOT add "Gate / gate" — that is a
+    # commit status posted by the same job (duplicate verdict) which can be left
+    # pending or stale-failure after cancelled runs, and "Health 45 Agents Guard /
+    # guard" is only posted for agent-labelled PRs. Both would block PRs with no
+    # real defect (issue #2858).
+    "summary",
 )
 
 DEFAULT_CONFIG_PATH = Path(".github/config/required-contexts.json")
@@ -676,6 +679,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Exit with a non-zero status if changes would be required without applying them.",
     )
     parser.add_argument(
+        "--allow-non-strict",
+        action="store_true",
+        help=(
+            "Do not treat a disabled 'require branches to be up to date' setting as"
+            " drift. Use when the reviewed policy is deliberately non-strict (e.g. a"
+            " repo with no merge queue, where strict would strand PRs behind base)."
+        ),
+    )
+    parser.add_argument(
         "--require-strict",
         action="store_true",
         help=(
@@ -694,6 +706,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+    if args.allow_non_strict and args.require_strict:
+        parser.error("--allow-non-strict and --require-strict are contradictory")
 
     if args.apply and args.check:
         parser.error("--check cannot be combined with --apply.")
@@ -719,6 +733,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     api_root = resolve_api_root(args.api_url)
     token = require_token(args.token)
     session = _build_session(token)
+    desired_strict = not args.allow_non_strict
 
     try:
         current_state = fetch_status_checks(session, args.repo, args.branch, api_root=api_root)
@@ -735,13 +750,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         label = "Target contexts" if args.no_clean else "Desired contexts"
         print(f"{label}: {format_contexts(desired_contexts)}")
         print("Current 'require up to date': False")
-        print("Desired 'require up to date': True")
+        print(f"Desired 'require up to date': {desired_strict}")
 
         if snapshot is not None:
             snapshot.update(
                 {
                     "current": None,
-                    "desired": {"strict": True, "contexts": list(desired_contexts)},
+                    "desired": {"strict": desired_strict, "contexts": list(desired_contexts)},
                     "changes_required": True,
                     "require_strict": bool(args.require_strict),
                     "strict_unknown": False,
@@ -757,7 +772,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.repo,
                     args.branch,
                     contexts=desired_contexts,
-                    strict=True,
+                    strict=desired_strict,
                     api_root=api_root,
                 )
             except BranchProtectionError as exc:
@@ -803,7 +818,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     to_add, to_remove = diff_contexts(current_state.contexts, target_contexts)
     strict_is_unknown = current_state.strict is None
-    strict_change = current_state.strict is False
+    strict_change = desired_strict and current_state.strict is False
 
     if snapshot is not None:
         snapshot["desired"] = {"strict": True, "contexts": list(target_contexts)}
@@ -821,7 +836,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("Current 'require up to date': (unknown - supply BRANCH_PROTECTION_TOKEN to verify)")
     else:
         print(f"Current 'require up to date': {current_state.strict}")
-    print("Desired 'require up to date': True")
+    print(f"Desired 'require up to date': {desired_strict}")
 
     if strict_is_unknown:
         if args.require_strict:
@@ -836,7 +851,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "The check will pass, but rerun with BRANCH_PROTECTION_TOKEN to audit."
             )
 
-    if args.require_strict and strict_is_unknown:
+    if args.require_strict and strict_is_unknown and desired_strict:
         strict_change = True
 
     no_changes_required = not to_add and (args.no_clean or not to_remove) and not strict_change
@@ -874,7 +889,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.repo,
             args.branch,
             contexts=target_contexts,
-            strict=True,
+            strict=desired_strict,
             api_root=api_root,
         )
     except BranchProtectionError as exc:

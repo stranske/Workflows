@@ -220,6 +220,7 @@ jobs:
           python tools/enforce_gate_branch_protection.py \
             --apply \
             --config .github/config/required-contexts.json \
+            --allow-non-strict \
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/enforcement.json"
 
@@ -236,8 +237,8 @@ jobs:
         run: |
           timeout 5m python tools/enforce_gate_branch_protection.py \
             --check \
-            --require-strict \
             --config .github/config/required-contexts.json \
+            --allow-non-strict \
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 
@@ -255,6 +256,7 @@ jobs:
           python tools/enforce_gate_branch_protection.py \
             --check \
             --config .github/config/required-contexts.json \
+            --allow-non-strict \
             --no-clean \
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 

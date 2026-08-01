@@ -118,7 +118,8 @@ jobs:
           python tools/enforce_gate_branch_protection.py \
             --apply \
             --branch "${DEFAULT_BRANCH}" \
-            --context "Gate / gate" \
+            --context "summary" \
+            --allow-non-strict \
             --no-clean
 
       - name: Snapshot branch protection state
@@ -130,9 +131,9 @@ jobs:
         run: |
           python tools/enforce_gate_branch_protection.py \
             --check \
-            --require-strict \
             --branch "${DEFAULT_BRANCH}" \
-            --context "Gate / gate" \
+            --context "summary" \
+            --allow-non-strict \
             --no-clean \
             --snapshot repo-health-branch-protection.json
 
