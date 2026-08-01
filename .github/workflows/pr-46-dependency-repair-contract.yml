@@ -4,7 +4,11 @@ on:
   # zizmor: ignore[dangerous-triggers] trusted reusable workflow reads only
   # PR metadata and git objects
   pull_request_target:
-    types: [opened, reopened, synchronize, edited]
+    # `labeled`/`unlabeled` are required: the controlled promotion workflow
+    # applies the two trust labels after the PR is opened, so without them the
+    # `opened` run skips the contract and the required check stays satisfied
+    # while provenance is never validated.
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -22,7 +26,8 @@ jobs:
       (github.event.pull_request.head.repo.full_name == github.repository &&
        (startsWith(github.event.pull_request.head.ref, 'renovate/') ||
         startsWith(github.event.pull_request.head.ref, 'dependabot/'))) ||
-      (contains(github.event.pull_request.body || '', '<!-- dependency-repair-promotion:v1') &&
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(github.event.pull_request.body || '', '<!-- dependency-repair-promotion:v1') &&
        contains(github.event.pull_request.labels.*.name, 'dependency:repair-promotion') &&
        (contains(github.event.pull_request.labels.*.name, 'workflow:source-dependabot') ||
         contains(github.event.pull_request.labels.*.name, 'workflow_source_dependabot')))
