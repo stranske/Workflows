@@ -329,7 +329,22 @@ test('mismatched promotion payloads preserve issue routing even when both labels
 
     assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
     assert.equal(context.issueNumber, 99);
+    assert.equal(context.sourceRef, '#99');
     assert.equal(context.requiresIssue, true);
+
+    const templateContext = templateResolvePrSourceContext({
+      body: `${marker}\nFixes #99`,
+      head: { ref: 'agent/deps-repair-2795' },
+      labels: [
+        { name: 'dependency:repair-promotion' },
+        { name: 'workflow:source-dependabot' },
+      ],
+    });
+
+    assert.equal(templateContext.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
+    assert.equal(templateContext.issueNumber, 99);
+    assert.equal(templateContext.sourceRef, '#99');
+    assert.equal(templateContext.requiresIssue, true);
   }
 });
 
