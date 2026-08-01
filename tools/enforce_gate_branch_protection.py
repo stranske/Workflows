@@ -821,9 +821,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     to_add, to_remove = diff_contexts(current_state.contexts, target_contexts)
     strict_is_unknown = current_state.strict is None
     strict_change = desired_strict and current_state.strict is False
+    # --allow-non-strict accepts a non-strict floor; an already-strict policy is
+    # still in sync. Report that accepted current value as the snapshot target so
+    # health_summarize does not show "✅ In sync" next to a True → False transition.
+    snapshot_desired_strict = desired_strict
+    if args.allow_non_strict and current_state.strict is True:
+        snapshot_desired_strict = True
 
     if snapshot is not None:
-        snapshot["desired"] = {"strict": desired_strict, "contexts": list(target_contexts)}
+        snapshot["desired"] = {"strict": snapshot_desired_strict, "contexts": list(target_contexts)}
         snapshot["strict_unknown"] = strict_is_unknown
         snapshot["require_strict"] = bool(args.require_strict)
         snapshot["to_add"] = list(to_add)
