@@ -2310,7 +2310,7 @@ jobs:
               core,
               env: process.env,
               task: 'auto-pilot-create-pr',
-              capabilities: ['issues:write', 'contents:read']
+              capabilities: ['issues:write', 'contents:read', 'actions:write']
             });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const issueTitle = process.env.ISSUE_TITLE || `Issue #${issueNumber}`;
