@@ -21,9 +21,9 @@ metrics summary). Without a tracker convention each run would either:
 
 The trackers below solve this by reusing one issue per controller. The bot
 either appends a comment per cycle (`#2211`) or rewrites the body in place
-(`#1836`, `#1868`). Either way, **the issue itself is the dashboard** — closing
-it does not advance any work; the controller will simply re-create one on the
-next cycle.
+(`#1836`, `#2210`, `#2470`). Either way, **the issue itself is the dashboard** —
+closing it does not advance any work; the controller will simply re-create one
+on the next cycle.
 
 ---
 
@@ -32,14 +32,29 @@ next cycle.
 | Issue | Title | Source workflow | Cadence | Update style |
 |-------|-------|-----------------|---------|--------------|
 | [#2211](https://github.com/stranske/Workflows/issues/2211) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
-| [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependency campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 6h + Mondays 10:30 UTC | Body rewritten in place |
-| [#1868](https://github.com/stranske/Workflows/issues/1868) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 05:10 UTC | Body rewritten in place |
+| [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependabot campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 6h + Mondays 10:30 UTC | Body rewritten in place |
+| [#2210](https://github.com/stranske/Workflows/issues/2210) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 05:10 UTC | Body rewritten in place |
+| [#2470](https://github.com/stranske/Workflows/issues/2470) | 🚨 Integration-Tests Sync Failed - Action Required | [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) | On push to `templates/integration-repo/**` | Stuck-window marker in body + recovery comment |
 
 The signal flow each tracker carries:
 
 - **#2211** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
 - **#1836** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
-- **#1868** — fan-out drift report across registered consumer repos. Auto-resolves on the next clean `Maint 68` run; the closure happens in the workflow, not by hand.
+- **#2210** — fan-out drift report across registered consumer repos. Auto-resolves on the next clean `Maint 68` run; the closure happens in the workflow, not by hand.
+- **#2470** — stuck-window marker for the integration-repo template sync. A `<!-- sync-tracker-stuck-window:v1 ... -->` marker in the body means the sync is currently failing. The next successful run strips the marker and appends a `✅ Integration sync recovered` comment, but never closes the issue, so a marker-free body carrying a recovery comment is the healthy resting state. The `Resolution Steps` list in the issue body still says "Close this issue once the next run succeeds"; that line predates the stuck-window marker and does not reflect how `maint-69` actually treats the tracker.
+
+### Superseded tracker numbers
+
+A controller re-mints its tracker if the previous one is closed, so tracker
+numbers change over time. Numbers that appear in older comments and commits:
+
+| Controller | Superseded | Current |
+|------------|-----------|---------|
+| `agents-weekly-metrics.yml` | [#1796](https://github.com/stranske/Workflows/issues/1796) — closed 2026-08-01 as a duplicate; last comment 2026-05-25 | [#2211](https://github.com/stranske/Workflows/issues/2211) |
+| `health-68-consumer-sync-drift.yml` | [#1868](https://github.com/stranske/Workflows/issues/1868) — closed 2026-05-14 | [#2210](https://github.com/stranske/Workflows/issues/2210) |
+
+When a controller's tracker is replaced, update the table above in the same
+change so this page never points at a closed issue.
 
 ---
 
@@ -66,11 +81,14 @@ same change.
 
 - **Do not close them as part of routine triage**, even if the latest comment
   looks "stale" — the controller may have nothing to report on a quiet day.
-  Close only when retiring the underlying controller.
+  Close only when retiring the underlying controller, or when the tracker is a
+  proven duplicate of a newer one for the same controller (see *Superseded
+  tracker numbers* above — the surviving tracker must stay open).
 - **Read the latest comment / body**, not the original creation body. The
   original snapshot is frozen at issue creation; current state lives further
-  down (or in the rewritten body for `#1836` / `#1868`).
-- **A red signal** (parse errors > 0 in `#2211`, drift count > 0 in `#1868`,
+  down (or in the rewritten body for `#1836` / `#2210` / `#2470`).
+- **A red signal** (parse errors > 0 in `#2211`, drift count > 0 in `#2210`,
+  a stuck-window marker present in `#2470`,
   unclaimed `needs-local-codex` items in `#1836`) means the underlying system
   needs attention — but the fix lands in code or in another repo, not by
   closing the tracker.
@@ -89,6 +107,13 @@ addressed. Examples:
   expiry window. Close after token rotation.
 - `🔴 Integration CI failed (run N)` — single-incident issue, close after the
   branch / fix lands.
+- `📊 LangSmith Trace Coverage Report - Week of <date>` — **retired format.**
+  `maint-80-langsmith-metrics-dashboard.yml` used to mint one issue per
+  schedule; it now upserts the single
+  [#2415](https://github.com/stranske/Workflows/issues/2415)
+  `📊 LangSmith Trace Coverage Dashboard` instead. The dashboard lookup matches
+  that exact title, so leftover `Report - Week of …` issues are unreachable by
+  the controller and were closed on 2026-08-01 (#2213, #2247; #2194 earlier).
 
 Rule of thumb: if the title carries a counter or a fixed timestamp ("expires
 in 39 hours", "run 235"), it is **transient**. If the title is generic and the
@@ -99,5 +124,5 @@ body is a recurring snapshot ("queue", "summary", "drift detected"), it is
 
 ## See also
 
-- [`CONSUMER_REPO_MAINTENANCE.md`](CONSUMER_REPO_MAINTENANCE.md) — context for `#1868` (consumer drift) and the `Maint 68` sync surface.
+- [`CONSUMER_REPO_MAINTENANCE.md`](CONSUMER_REPO_MAINTENANCE.md) — context for `#2210` (consumer drift) and the `Maint 68` sync surface.
 - [`REPO_REVIEW_PROCESS.md`](REPO_REVIEW_PROCESS.md) — the repo-review pipeline emits its own evidence trail; it does not currently use a durable tracker, but the same "do not triage automated review evidence as work" rule applies.
