@@ -166,6 +166,53 @@ def test_comparison_runner_normalizes_structured_repair_response() -> None:
     assert mock_client.invoke.call_count == 2
 
 
+@pytest.mark.parametrize(
+    "empty_repair_content",
+    [
+        pytest.param([{"type": "text", "text": ""}], id="empty-text-block"),
+        pytest.param([{"type": "text", "text": "   \n"}], id="whitespace-text-block"),
+        pytest.param(
+            [{"type": "thinking", "thinking": "still thinking", "signature": "opaque"}],
+            id="thinking-only",
+        ),
+    ],
+)
+def test_comparison_runner_treats_a_textless_repair_as_no_repair(empty_repair_content) -> None:
+    payload = json.dumps(_valid_payload())
+    malformed_text = "```json\n" + payload + "\n```"
+    mock_client = mock.MagicMock()
+    mock_client.invoke.side_effect = [
+        _response_with(malformed_text),
+        _response_with(empty_repair_content),
+    ]
+
+    runner = pr_verifier.ComparisonRunner(
+        context="context",
+        diff=None,
+        prompt="prompt",
+        clients=[(mock_client, "anthropic", "claude-sonnet")],
+    )
+
+    result = runner.run_single(mock_client, "anthropic", "claude-sonnet")
+
+    # A textless repair must not be reported as a repair attempt: serializing the
+    # block metadata would make the failure read as if the provider had returned
+    # thinking/signature envelope keys as its answer.
+    assert result.verdict == "CONCERNS"
+    assert result.error
+    assert result.raw_content == malformed_text
+    assert "signature" not in result.error
+    assert "still thinking" not in result.error
+    assert mock_client.invoke.call_count == 2
+
+
+def test_coerce_response_content_falls_back_to_json_for_unblocked_payloads() -> None:
+    payload = _valid_payload()
+
+    assert pr_verifier._coerce_response_content(payload) == json.dumps(payload, default=str)
+    assert pr_verifier._text_from_response_content(payload) is None
+
+
 def test_evaluate_pr_valid_output_no_repair(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = _valid_payload()
     good = json.dumps(payload)

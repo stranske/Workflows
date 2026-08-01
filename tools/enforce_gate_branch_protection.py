@@ -648,7 +648,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         help=(
             "Status check context to require. May be passed multiple times. Defaults to"
-            " 'Gate / gate'."
+            " 'summary' (see DEFAULT_CONTEXTS); 'Gate / gate' is deliberately not required."
         ),
     )
     parser.add_argument(
@@ -804,7 +804,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         if snapshot is not None:
             snapshot["error"] = str(exc)
-            snapshot.setdefault("desired", {"strict": True, "contexts": list(desired_contexts)})
+            snapshot.setdefault(
+                "desired", {"strict": desired_strict, "contexts": list(desired_contexts)}
+            )
             snapshot.setdefault("to_add", list(desired_contexts))
             snapshot.setdefault("to_remove", [])
             _write_snapshot(args.snapshot, snapshot)
@@ -821,7 +823,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     strict_change = desired_strict and current_state.strict is False
 
     if snapshot is not None:
-        snapshot["desired"] = {"strict": True, "contexts": list(target_contexts)}
+        snapshot["desired"] = {"strict": desired_strict, "contexts": list(target_contexts)}
         snapshot["strict_unknown"] = strict_is_unknown
         snapshot["require_strict"] = bool(args.require_strict)
         snapshot["to_add"] = list(to_add)

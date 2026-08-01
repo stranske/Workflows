@@ -675,8 +675,8 @@ def _fallback_evaluation(
     )
 
 
-def _coerce_response_content(content: object) -> str:
-    """Return text from provider response blocks without losing a safe fallback."""
+def _text_from_response_content(content: object) -> str | None:
+    """Return provider text, or None when the payload carries no text blocks."""
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -690,6 +690,14 @@ def _coerce_response_content(content: object) -> str:
             # document across blocks, and an inserted newline inside a string
             # literal would make the reassembled payload invalid JSON.
             return "".join(text_blocks)
+    return None
+
+
+def _coerce_response_content(content: object) -> str:
+    """Return text from provider response blocks without losing a safe fallback."""
+    text = _text_from_response_content(content)
+    if text is not None:
+        return text
     return json.dumps(content, default=str)
 
 
@@ -751,7 +759,14 @@ def _build_verifier_repair_callback(client: object) -> Callable[[str, str, str],
         )
         if not repaired:
             return None
-        return _coerce_response_content(repaired)
+        # The repair path must be stricter than the parse path. A reply of only
+        # thinking/metadata blocks, or of empty text blocks, is still truthy, and
+        # serializing it would hand the parser block metadata dressed up as a
+        # repair attempt — burning the one retry on noise.
+        text = _text_from_response_content(repaired)
+        if text is None or not text.strip():
+            return None
+        return text
 
     return _repair
 
