@@ -17,7 +17,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-
 LANES = ("dependency-bot", "sync-generated", "dev-tool-sync", "traditional")
 THRESHOLDS = {
     "generated_prs": 40,
@@ -41,11 +40,7 @@ def first(value: dict[str, Any], *keys: str) -> Any:
 
 
 def labels(pr: dict[str, Any]) -> set[str]:
-    return {
-        str(item.get("name", item)).lower()
-        for item in pr.get("labels", [])
-        if item
-    }
+    return {str(item.get("name", item)).lower() for item in pr.get("labels", []) if item}
 
 
 def lane_for(pr: dict[str, Any]) -> str:
@@ -135,7 +130,9 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         if replacement(pr):
             replacements[lane] += 1
         source = str(first(pr, "source_commit", "sourceCommit", "wave_id", "batch_id") or "unknown")
-        source_to_prs[source].add(f"{first(pr, 'repo', 'repository', 'repository_name')}#{pr.get('number', '?')}")
+        source_to_prs[source].add(
+            f"{first(pr, 'repo', 'repository', 'repository_name')}#{pr.get('number', '?')}"
+        )
         fingerprint = exception_fingerprint(pr)
         if fingerprint:
             exception_fingerprints.add(fingerprint)
@@ -151,9 +148,7 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
     amplification = {
         source: len(prs) for source, prs in sorted(source_to_prs.items()) if source != "unknown"
     }
-    actions_per_source = {
-        source: runs_by_source.get(source, 0) for source in amplification
-    }
+    actions_per_source = {source: runs_by_source.get(source, 0) for source in amplification}
     avoidable_replacements = Counter(
         str(first(pr, "repo", "repository", "repository_name") or "unknown")
         for pr in generated_prs
@@ -183,7 +178,8 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
             count > THRESHOLDS["avoidable_replacements_per_repo_batch"]
             for count in avoidable_replacements.values()
         ),
-        "agent_exception_episodes": len(exception_fingerprints) > THRESHOLDS["agent_exception_episodes"],
+        "agent_exception_episodes": len(exception_fingerprints)
+        > THRESHOLDS["agent_exception_episodes"],
     }
     collection = snapshot.get("collection", {})
     return {
@@ -195,7 +191,10 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         },
         "metrics": metrics,
         "thresholds": THRESHOLDS,
-        "advisory_slo": {"breaches": breaches, "state": "breach" if any(breaches.values()) else "baseline-pass"},
+        "advisory_slo": {
+            "breaches": breaches,
+            "state": "breach" if any(breaches.values()) else "baseline-pass",
+        },
     }
 
 
@@ -210,35 +209,44 @@ def fingerprint(report: dict[str, Any]) -> str:
 
 def markdown(report: dict[str, Any]) -> str:
     metrics = report["metrics"]
-    rows = ["| Lane | Created | Merged | Closed | Stale | Replacements |", "| --- | ---: | ---: | ---: | ---: | ---: |"]
+    rows = [
+        "| Lane | Created | Merged | Closed | Stale | Replacements |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
     for lane in LANES:
-        rows.append("| {lane} | {created} | {merged} | {closed} | {stale} | {replacement} |".format(
-            lane=lane,
-            created=metrics["created"][lane], merged=metrics["merged"][lane],
-            closed=metrics["closed"][lane], stale=metrics["stale"][lane],
-            replacement=metrics["replacement"][lane],
-        ))
+        rows.append(
+            "| {lane} | {created} | {merged} | {closed} | {stale} | {replacement} |".format(
+                lane=lane,
+                created=metrics["created"][lane],
+                merged=metrics["merged"][lane],
+                closed=metrics["closed"][lane],
+                stale=metrics["stale"][lane],
+                replacement=metrics["replacement"][lane],
+            )
+        )
     limitations = report["collection"]["limitations"] or ["No collection limitations reported."]
-    return "\n".join([
-        "# Dependency/sync maintenance efficiency",
-        "",
-        f"Advisory SLO state: **{report['advisory_slo']['state']}**.",
-        "",
-        *rows,
-        "",
-        f"Generated PRs: **{metrics['generated_prs']}** (target ≤ {THRESHOLDS['generated_prs']})",
-        f"Stale/replacement rate: **{metrics['stale_or_replacement_rate']:.1%}** (target < 5%)",
-        f"Agent-exception episodes: **{metrics['agent_exception_episodes']}** (target ≤ 5)",
-        f"Collab-Admin excluded: **{metrics['collab_admin_excluded']}**",
-        "",
-        "## Collection limits",
-        "",
-        f"Complete GitHub history: **{str(report['collection']['history_complete']).lower()}**.",
-        *[f"- {item}" for item in limitations],
-        "",
-        f"Evidence fingerprint: `{fingerprint(report)}`",
-        "",
-    ])
+    return "\n".join(
+        [
+            "# Dependency/sync maintenance efficiency",
+            "",
+            f"Advisory SLO state: **{report['advisory_slo']['state']}**.",
+            "",
+            *rows,
+            "",
+            f"Generated PRs: **{metrics['generated_prs']}** (target ≤ {THRESHOLDS['generated_prs']})",
+            f"Stale/replacement rate: **{metrics['stale_or_replacement_rate']:.1%}** (target < 5%)",
+            f"Agent-exception episodes: **{metrics['agent_exception_episodes']}** (target ≤ 5)",
+            f"Collab-Admin excluded: **{metrics['collab_admin_excluded']}**",
+            "",
+            "## Collection limits",
+            "",
+            f"Complete GitHub history: **{str(report['collection']['history_complete']).lower()}**.",
+            *[f"- {item}" for item in limitations],
+            "",
+            f"Evidence fingerprint: `{fingerprint(report)}`",
+            "",
+        ]
+    )
 
 
 def main() -> int:
