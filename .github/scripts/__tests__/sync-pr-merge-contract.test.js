@@ -93,9 +93,21 @@ test('selectActiveSyncPr reports missing target without marking stale PRs', () =
   assert.equal(selection.missingExpected, true);
 });
 
-test('selectMergeEligibleSyncPr refuses legacy and expired delivery attempts', () => {
+test('selectMergeEligibleSyncPr refuses legacy delivery attempts', () => {
   const legacy = pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z');
   assert.equal(selectMergeEligibleSyncPr([legacy]).eligibility.reason, 'missing_delivery_record');
+});
+
+test('selectMergeEligibleSyncPr rejects a PR whose head no longer matches its lease', () => {
+  const leased = {
+    ...pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z'),
+    body: '<!-- sync-pr-delivery-record:v1 {"schema":"sync-pr-delivery-record/v1","durable_issue_url":"https://github.com/stranske/Workflows/issues/1836","plan_id":"plan-abc","generation":"template-abc","repository":"stranske/Ready","desired_tree_hash":"tree-abc","source_commit":"source-abc","lease_expires_at":"2026-08-02T00:00:00Z","predecessor_prs":[],"successor_prs":[]} -->',
+  };
+  assert.equal(selectMergeEligibleSyncPr([leased], {
+    now: '2026-08-01T22:00:00Z',
+    repository: 'stranske/Ready',
+    desiredTreeHash: 'tree-other',
+  }).eligibility.reason, 'desired_tree_mismatch');
 });
 
 test('buildMergeReport provides machine-readable summary counts', () => {

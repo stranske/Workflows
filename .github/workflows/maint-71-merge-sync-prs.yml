@@ -140,7 +140,6 @@ jobs:
               parseBooleanInput,
               isTrustedSyncPr,
               selectMergeEligibleSyncPr,
-              selectActiveSyncPr,
               selectSyncPrGatingChecks,
             } = require('./.github/scripts/sync_pr_merge_contract.js');
             const {
@@ -411,7 +410,7 @@ jobs:
                   continue;
                 }
 
-                const selection = selectMergeEligibleSyncPr(syncPRs, {
+                let selection = selectMergeEligibleSyncPr(syncPRs, {
                   syncHash: requestedSyncHash,
                   now: new Date().toISOString(),
                   repository: `${owner}/${repo}`,
@@ -435,13 +434,19 @@ jobs:
                   continue;
                 }
 
-                if (!selection.eligibility?.eligible) {
-                  const reason = selection.eligibility?.reason || 'missing_delivery_record';
-                  console.log(`Delivery contract blocks merge: ${reason}`);
-                  results.push({ owner, repo, pr: selection.active.number, branch: selection.active.head.ref,
-                    status: 'delivery_contract_blocked', delivery_reason: reason });
-                  continue;
-                }
+                const { data: selectedHeadCommit } = await withRetry((client) =>
+                  client.rest.git.getCommit({
+                    owner,
+                    repo,
+                    commit_sha: selection.active.head.sha,
+                  }),
+                );
+                selection = selectMergeEligibleSyncPr(syncPRs, {
+                  syncHash: requestedSyncHash,
+                  now: new Date().toISOString(),
+                  repository: `${owner}/${repo}`,
+                  desiredTreeHash: selectedHeadCommit?.tree?.sha || '',
+                });
 
                 // If multiple sync PRs exist, close older ones as stale
                 if (selection.stale.length > 0) {
@@ -506,6 +511,14 @@ jobs:
                       });
                     }
                   }
+                }
+
+                if (!selection.eligibility?.eligible) {
+                  const reason = selection.eligibility?.reason || 'missing_delivery_record';
+                  console.log(`Delivery contract blocks merge: ${reason}`);
+                  results.push({ owner, repo, pr: selection.active.number, branch: selection.active.head.ref,
+                    status: 'delivery_contract_blocked', delivery_reason: reason });
+                  continue;
                 }
 
                 // Process the selected active PR

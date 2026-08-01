@@ -22,7 +22,7 @@ const current = {
   successor_prs: [],
 };
 
-test('only a newest unexpired matching delivery record is merge eligible', () => {
+test('an unexpired matching delivery record is merge eligible', () => {
   const marker = formatDeliveryRecord(current);
   const parsed = parseDeliveryRecord(`summary\n${marker}`);
   assert.deepEqual(parsed, { ...current, terminal_disposition: '' });

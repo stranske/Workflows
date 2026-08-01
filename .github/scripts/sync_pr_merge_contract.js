@@ -180,12 +180,15 @@ function selectActiveSyncPr(prs, syncHash = '') {
   };
 }
 
-function selectMergeEligibleSyncPr(prs, { syncHash = '', now, planId = '', repository = '' } = {}) {
+function selectMergeEligibleSyncPr(
+  prs,
+  { syncHash = '', now, planId = '', repository = '', desiredTreeHash = '' } = {},
+) {
   const selection = selectActiveSyncPr(prs, syncHash);
   if (!selection.active) return { ...selection, eligibility: null };
   const record = parseDeliveryRecord(selection.active.body || '');
   const eligibility = record
-    ? mergeEligibility(record, { now, planId, repository })
+    ? mergeEligibility(record, { now, planId, repository, desiredTreeHash })
     : { eligible: false, reason: 'missing_delivery_record' };
   return { ...selection, deliveryRecord: record, eligibility };
 }

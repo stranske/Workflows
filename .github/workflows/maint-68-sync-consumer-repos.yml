@@ -735,38 +735,18 @@ jobs:
         if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
-          EXISTING_SYNC_PR: ${{ steps.open_pr.outputs.exists || 'false' }}
+          DELIVERY_GENERATION: ${{ needs.prepare.outputs.template_hash }}
+          DELIVERY_REPOSITORY: ${{ matrix.repo }}
         run: |
           cd consumer
 
           branch_name="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
 
-          if [ "$EXISTING_SYNC_PR" = "true" ]; then
-            existing_pr=$(
-              gh pr list --head "$branch_name" --json number -q '.[0].number' || echo ""
-            )
-            echo "PR #$existing_pr already exists for this sync"
-            echo "::notice::Existing PR: #$existing_pr"
-            {
-              echo "status=existing_pr"
-              echo "pr_number=$existing_pr"
-              echo "pr_url=https://github.com/${{ matrix.repo }}/pull/$existing_pr"
-            } >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Race-condition backstop: another run may have opened the PR after
-          # the shared open-PR check completed.
+          # Keep an existing generated PR current instead of treating it as a
+          # terminal delivery attempt: rebuild its branch and refresh its lease.
           existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
           if [ -n "$existing_pr" ]; then
-            echo "PR #$existing_pr already exists for this sync"
-            echo "::notice::Existing PR: #$existing_pr"
-            {
-              echo "status=existing_pr"
-              echo "pr_number=$existing_pr"
-              echo "pr_url=https://github.com/${{ matrix.repo }}/pull/$existing_pr"
-            } >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "Refreshing existing sync PR #$existing_pr"
           fi
 
           # Configure git for push authentication using credential helper
@@ -782,7 +762,7 @@ jobs:
 
           # Remote branch exists but no PR was found
           # (likely from a failed previous run) - deleting and recreating
-          if git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then
+          if [ -z "$existing_pr" ] && git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then
               echo "Remote branch $branch_name exists but no PR was found."
               echo "Deleting and recreating branch from previous failed run."
             # Delete the remote branch so we can push fresh
@@ -800,7 +780,7 @@ jobs:
           fi
 
           # Create branch and commit
-          git checkout -b "$branch_name"
+          git checkout -B "$branch_name"
 
           # Stage ONLY manifest-declared targets, to avoid accidentally committing
           # consumer-specific artifacts (e.g. requirements.lock, *.pyc, *.egg-info).
@@ -872,8 +852,8 @@ jobs:
             --arg schema "sync-pr-delivery-record/v1" \
             --arg durable_issue_url "$DURABLE_ISSUE_URL" \
             --arg plan_id "$PLAN_ID" \
-            --arg generation "${{ needs.prepare.outputs.template_hash }}" \
-            --arg repository "${{ matrix.repo }}" \
+            --arg generation "$DELIVERY_GENERATION" \
+            --arg repository "$DELIVERY_REPOSITORY" \
             --arg desired_tree_hash "$desired_tree_hash" \
             --arg source_commit "$GITHUB_SHA" \
             --arg lease_expires_at "$lease_expires_at" \
@@ -899,14 +879,22 @@ jobs:
           <!-- workflows-consumer-sync:v1 $sync_marker -->
           <!-- sync-pr-delivery-record:v1 $delivery_marker -->"
 
-          pr_url=$(gh pr create \
-            --head "$branch_name" \
-            --title "chore: sync workflow templates" \
-            --body "$pr_body" \
-            --label "sync,automated")
-          pr_number=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --body "$pr_body"
+            pr_number="$existing_pr"
+            pr_url="https://github.com/${{ matrix.repo }}/pull/$existing_pr"
+            status="refreshed_pr"
+          else
+            pr_url=$(gh pr create \
+              --head "$branch_name" \
+              --title "chore: sync workflow templates" \
+              --body "$pr_body" \
+              --label "sync,automated")
+            pr_number=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+            status="created_pr"
+          fi
           {
-            echo "status=created_pr"
+            echo "status=$status"
             echo "pr_number=$pr_number"
             echo "pr_url=$pr_url"
           } >> "$GITHUB_OUTPUT"
