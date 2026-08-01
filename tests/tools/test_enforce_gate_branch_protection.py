@@ -319,6 +319,40 @@ def test_snapshot_desired_strict_tracks_allow_non_strict(monkeypatch, tmp_path):
     assert snapshot["desired"]["strict"] is False
 
 
+def test_allow_non_strict_snapshot_keeps_already_strict_as_accepted_target(monkeypatch, tmp_path):
+    """Already-strict + --allow-non-strict must not report a True→False 'In sync' target."""
+    import json
+
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        gate,
+        "fetch_status_checks",
+        lambda *a, **k: gate.StatusCheckState(strict=True, contexts=["summary"]),
+    )
+    monkeypatch.setattr(gate, "_build_session", lambda token: SimpleNamespace())
+    snapshot_path = tmp_path / "snapshot.json"
+
+    exit_code = gate.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--check",
+            "--allow-non-strict",
+            "--no-clean",
+            "--context",
+            "summary",
+            "--snapshot",
+            str(snapshot_path),
+        ]
+    )
+
+    snapshot = json.loads(snapshot_path.read_text())
+    assert exit_code == 0
+    assert snapshot["changes_required"] is False
+    assert snapshot["current"]["strict"] is True
+    assert snapshot["desired"]["strict"] is True
+
+
 def test_without_allow_non_strict_a_non_strict_policy_is_still_drift(monkeypatch, capsys):
     """The default is unchanged: non-strict counts as drift unless opted out."""
     monkeypatch.setenv("GITHUB_TOKEN", "token")
