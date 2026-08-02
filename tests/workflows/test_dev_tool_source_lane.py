@@ -25,7 +25,9 @@ def test_source_lane_validates_pins_before_create_pr_even_for_security_override(
 
     assert validate_at < create_at < supersede_at
     assert "python scripts/sync_tool_versions.py --check" in text[validate_at:create_at]
-    assert "python scripts/sync_dev_dependencies.py --check --lockfile" in text[validate_at:create_at]
+    assert (
+        "python scripts/sync_dev_dependencies.py --check --lockfile" in text[validate_at:create_at]
+    )
     assert "security_override" in text
     assert "gh pr close" in text[supersede_at:]
     assert "dependabot|renovate" in text[supersede_at:]
