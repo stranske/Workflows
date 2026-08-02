@@ -742,33 +742,67 @@ jobs:
 
           branch_name="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
 
+          # Configure git for push/fetch authentication using credential helper
+          # This avoids exposing token in git remote URL or command output.
+          # Must be configured before any git operations that need auth
+          # (including the early fetch of an existing sync branch).
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # shellcheck disable=SC2016 # GH_TOKEN expands at runtime
+          credential_helper='!f() { echo "username=x-access-token";'
+          credential_helper+=" echo \"password=${GH_TOKEN}\";"
+          credential_helper+=' }; f'
+          git config credential.helper "$credential_helper"
+
           # Keep an existing generated PR current instead of treating it as a
-          # terminal delivery attempt: rebuild its branch and refresh its lease.
+          # terminal delivery attempt: rebuild its branch and refresh its lease
+          # only when the existing attempt still has a current delivery record.
           existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
           existing_head=""
           existing_base=""
           existing_tree=""
+          existing_refreshable=false
+          existing_refresh_reason="none"
           if [ -n "$existing_pr" ]; then
-            echo "Refreshing existing sync PR #$existing_pr"
-            # Keep the current-generation PR when the rebuilt delivery has the
-            # same base and tree.  Capture the remote head now so a later force
-            # push cannot overwrite an intervening consumer edit.
+            echo "Inspecting existing sync PR #$existing_pr for same-generation refresh"
+            # Capture the remote head now so a later force push cannot overwrite
+            # an intervening consumer edit.
             git fetch origin "$branch_name"
             existing_head=$(git rev-parse FETCH_HEAD)
             existing_base=$(git rev-parse "${existing_head}^")
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
+            existing_body_file=$(mktemp)
+            gh pr view "$existing_pr" --json body -q .body >"$existing_body_file" || true
+            refresh_check=$(
+              EXISTING_BODY_FILE="$existing_body_file" \
+              DELIVERY_GENERATION="$DELIVERY_GENERATION" \
+              PLAN_ID="$PLAN_ID" \
+              DELIVERY_REPOSITORY="$DELIVERY_REPOSITORY" \
+              node -e '
+                const fs = require("fs");
+                const { parseDeliveryRecord, mergeEligibility } = require("../workflows/.github/scripts/sync_pr_lease_contract");
+                const body = fs.readFileSync(process.env.EXISTING_BODY_FILE || "", "utf8");
+                const record = parseDeliveryRecord(body);
+                if (!record) {
+                  process.stdout.write("false missing_or_invalid");
+                  process.exit(0);
+                }
+                if (record.generation !== (process.env.DELIVERY_GENERATION || "")) {
+                  process.stdout.write("false generation_mismatch");
+                  process.exit(0);
+                }
+                const result = mergeEligibility(record, {
+                  planId: process.env.PLAN_ID || "",
+                  repository: process.env.DELIVERY_REPOSITORY || "",
+                });
+                process.stdout.write(`${result.eligible ? "true" : "false"} ${result.reason}`);
+              '
+            )
+            rm -f "$existing_body_file"
+            existing_refreshable=${refresh_check%% *}
+            existing_refresh_reason=${refresh_check#* }
+            echo "Existing PR #$existing_pr refreshable=${existing_refreshable} reason=${existing_refresh_reason}"
           fi
-
-          # Configure git for push authentication using credential helper
-          # This avoids exposing token in git remote URL or command output
-          # Must be configured before any git operations that need auth
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-            # shellcheck disable=SC2016 # GH_TOKEN expands at runtime
-            credential_helper='!f() { echo "username=x-access-token";'
-            credential_helper+=" echo \"password=${GH_TOKEN}\";"
-            credential_helper+=' }; f'
-            git config credential.helper "$credential_helper"
 
           # Remote branch exists but no PR was found
           # (likely from a failed previous run) - deleting and recreating
@@ -814,9 +848,19 @@ jobs:
 
           desired_tree_hash=$(git write-tree)
           matching_existing=false
-          if [ -n "$existing_pr" ] && [ "$existing_base" = "$base_sha" ] && [ "$existing_tree" = "$desired_tree_hash" ]; then
+          if [ -n "$existing_pr" ] \
+            && [ "$existing_refreshable" = "true" ] \
+            && [ "$existing_base" = "$base_sha" ] \
+            && [ "$existing_tree" = "$desired_tree_hash" ]; then
             matching_existing=true
-            echo "Existing PR #$existing_pr already matches this base and desired tree; refreshing only its lease"
+            echo "Existing PR #$existing_pr already matches this base and desired tree with a current lease; refreshing only its lease"
+          elif [ -n "$existing_pr" ] \
+            && [ "$existing_base" = "$base_sha" ] \
+            && [ "$existing_tree" = "$desired_tree_hash" ] \
+            && [ "$existing_refreshable" != "true" ]; then
+            echo "Existing PR #$existing_pr matches base/tree but is not refreshable (${existing_refresh_reason}); leaving it for Maint 71 disposition."
+            echo "status=existing_pr_not_refreshable" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           if git diff --cached --quiet && [ "$matching_existing" != "true" ]; then

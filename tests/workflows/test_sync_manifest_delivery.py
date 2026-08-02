@@ -251,13 +251,20 @@ def test_maint68_refreshes_only_a_same_base_and_tree_delivery_attempt() -> None:
     """A current generation reuses its PR; a changed base/tree must be replaced safely."""
     source = SYNC_WORKFLOW_PATH.read_text(encoding="utf-8")
 
+    credential_idx = source.index('git config credential.helper "$credential_helper"')
+    fetch_idx = source.index('git fetch origin "$branch_name"')
+    assert credential_idx < fetch_idx
+
     assert 'git fetch origin "$branch_name"' in source
     assert 'existing_base=$(git rev-parse "${existing_head}^")' in source
     assert 'existing_tree=$(git rev-parse "${existing_head}^{tree}")' in source
     assert "desired_tree_hash=$(git write-tree)" in source
-    assert (
-        '[ "$existing_base" = "$base_sha" ] && [ "$existing_tree" = "$desired_tree_hash" ]'
-        in source
-    )
+    assert "existing_refreshable=false" in source
+    assert "parseDeliveryRecord" in source
+    assert "mergeEligibility" in source
+    assert "status=existing_pr_not_refreshable" in source
+    assert '[ "$existing_refreshable" = "true" ]' in source
+    assert '[ "$existing_base" = "$base_sha" ]' in source
+    assert '[ "$existing_tree" = "$desired_tree_hash" ]' in source
     assert "matching_existing=true" in source
     assert 'git push --quiet --force-with-lease="refs/heads/$branch_name:$existing_head"' in source
