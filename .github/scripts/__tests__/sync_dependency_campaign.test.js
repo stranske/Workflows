@@ -16,6 +16,7 @@ const {
   isSyncPullRequest,
   mergeCampaignState,
   mergeDeliveryHandoffs,
+  normalizeDeliveryHandoff,
   paginateWithRetry,
   parseCampaignMarker,
   replaceCampaignMarker,
@@ -27,14 +28,24 @@ test('mergeDeliveryHandoffs retains one current record per generated PR', () => 
   const stale = {
     schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
     head_sha: 'old', delivery_generation: 'g1', disposition: 'awaiting-checks',
+    blocker_owner: 'ci', next_command: 'await-required-checks',
+    check_state: 'checks_pending', review_state: 'clear',
   };
   const current = {
     ...stale, head_sha: 'new', delivery_generation: 'g2', disposition: 'review-blocked',
-    next_command: 'resolve-active-review-threads',
+    blocker_owner: 'closer', next_command: 'resolve-active-review-threads',
+    check_state: 'ready', review_state: 'blocked',
   };
   assert.deepEqual(mergeDeliveryHandoffs([stale], [current], '2026-08-02T00:00:00Z'), [{
-    ...current, branch: '', lane: '', blocker_owner: '', observed_at: '2026-08-02T00:00:00Z',
+    ...current, branch: '', lane: '', observed_at: '2026-08-02T00:00:00Z',
   }]);
+});
+
+test('normalizeDeliveryHandoff rejects incomplete restart fields', () => {
+  assert.equal(normalizeDeliveryHandoff({
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
+    head_sha: 'abc', delivery_generation: 'g1', disposition: 'current',
+  }), null);
 });
 
 test('mergeCampaignState persists Maint 71 handoffs in the durable marker state', () => {
@@ -42,11 +53,33 @@ test('mergeCampaignState persists Maint 71 handoffs in the durable marker state'
     deliveryHandoffRecords: [{
       schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
       head_sha: 'abc', delivery_generation: 'g1', disposition: 'current',
+      blocker_owner: 'maint-71', next_command: 'merge-current-delivery',
+      check_state: 'ready', review_state: 'clear',
     }],
   });
   assert.equal(state.stats.delivery_handoffs_observed, 1);
-  assert.equal(state.delivery_handoffs[0].next_command, '');
+  assert.equal(state.delivery_handoffs[0].next_command, 'merge-current-delivery');
   assert.equal(parseCampaignMarker(formatCampaignMarker(state)).delivery_handoffs[0].pr, 11);
+});
+
+test('mergeCampaignState counts observed handoffs from the current payload only', () => {
+  const previous = {
+    delivery_handoffs: [{
+      schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 10,
+      head_sha: 'prev', delivery_generation: 'g0', disposition: 'merged',
+      blocker_owner: 'none', next_command: 'none', check_state: 'ready', review_state: 'clear',
+    }],
+  };
+  const state = mergeCampaignState(previous, [], '2026-08-02T00:00:00Z', {
+    deliveryHandoffRecords: [{
+      schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
+      head_sha: 'abc', delivery_generation: 'g1', disposition: 'current',
+      blocker_owner: 'maint-71', next_command: 'merge-current-delivery',
+      check_state: 'ready', review_state: 'clear',
+    }],
+  });
+  assert.equal(state.stats.delivery_handoffs_observed, 1);
+  assert.equal(state.delivery_handoffs.length, 2);
 });
 
 test('formats and parses campaign marker', () => {

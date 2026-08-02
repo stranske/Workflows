@@ -355,7 +355,14 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
   const pr = cleanInteger(record.pr);
   const headSha = cleanString(record.head_sha);
   const generation = cleanString(record.delivery_generation);
+  const disposition = cleanString(record.disposition);
+  const blockerOwner = cleanString(record.blocker_owner);
+  const nextCommand = cleanString(record.next_command);
+  const checkState = cleanString(record.check_state);
+  const reviewState = cleanString(record.review_state);
   if (!repository || !pr || !headSha || !generation) return null;
+  // Require the full restart/routing contract so durable records can classify exceptions.
+  if (!disposition || !blockerOwner || !nextCommand || !checkState || !reviewState) return null;
   return {
     schema: DELIVERY_HANDOFF_SCHEMA,
     repository,
@@ -364,9 +371,11 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
     head_sha: headSha,
     delivery_generation: generation,
     lane: cleanString(record.lane),
-    disposition: cleanString(record.disposition),
-    blocker_owner: cleanString(record.blocker_owner),
-    next_command: cleanString(record.next_command),
+    disposition,
+    blocker_owner: blockerOwner,
+    next_command: nextCommand,
+    check_state: checkState,
+    review_state: reviewState,
     observed_at: cleanString(observedAt || record.observed_at),
   };
 }
@@ -485,9 +494,12 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
 
   const items = pruneItems(nextItems, options.maxRetainedItems || DEFAULT_MAX_RETAINED_ITEMS)
     .map(annotateLocalCodexQueueState);
+  const observedIncomingHandoffs = cleanArray(options.deliveryHandoffRecords)
+    .map((record) => normalizeDeliveryHandoff(record, now))
+    .filter(Boolean);
   const deliveryHandoffs = mergeDeliveryHandoffs(
     previousState.delivery_handoffs,
-    options.deliveryHandoffRecords,
+    observedIncomingHandoffs,
     now,
     options.maxDeliveryHandoffs,
   );
@@ -499,7 +511,8 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     current_sync_hash: normalizeSyncHash(options.currentSyncHash || previousState.current_sync_hash),
     stats: {
       ...buildStats(items, discoveredItems, options),
-      delivery_handoffs_observed: deliveryHandoffs.length,
+      // Count only this run's payload observations, not the retained durable total.
+      delivery_handoffs_observed: observedIncomingHandoffs.length,
     },
     source_review_history: sourceReviewHistory,
     delivery_handoffs: deliveryHandoffs,

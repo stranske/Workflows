@@ -828,15 +828,24 @@ jobs:
             );
             await core.summary.addRaw(buildMarkdownSummary(report)).write();
             if (!dryRun && report.handoff_records.length > 0) {
-              await withRetry((client) => client.rest.repos.createDispatchEvent({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                event_type: 'sync-dependabot-campaign',
-                client_payload: {
-                  repos: targetRepos.join(','),
-                  delivery_handoff_records: report.handoff_records,
-                },
-              }));
+              // Fleet-wide refresh: a targeted Maint 71 repos filter must not cause
+              // Maint 82 to stale unscanned repos. Dispatch is best-effort so a
+              // permissions/transient failure does not fail the reconciler run.
+              try {
+                await withRetry((client) => client.rest.repos.createDispatchEvent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  event_type: 'sync-dependabot-campaign',
+                  client_payload: {
+                    repos: registeredRepos.join(','),
+                    delivery_handoff_records: report.handoff_records,
+                  },
+                }));
+              } catch (dispatchError) {
+                core.notice(
+                  `Maint 71 handoff dispatch failed (non-blocking): ${dispatchError.message}`,
+                );
+              }
             }
 
             const merged = report.summary.merged;

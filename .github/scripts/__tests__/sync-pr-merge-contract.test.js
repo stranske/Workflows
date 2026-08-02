@@ -172,12 +172,32 @@ test('buildDeliveryHandoff preserves the restart fields for a generated PR', () 
     owner: 'stranske', repo: 'Ready', pr: 11, branch: 'deps/sync-dev-versions-20260801',
     head_sha: 'abc', delivery_generation: 'g2', delivery_disposition: 'review-blocked',
     blocker_owner: 'closer', next_command: 'resolve-active-review-threads',
+    status: 'review_blocked', active_review_thread_count: 2,
   }), {
     schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
     branch: 'deps/sync-dev-versions-20260801', head_sha: 'abc', delivery_generation: 'g2',
     lane: 'dev-tool-sync', disposition: 'review-blocked', blocker_owner: 'closer',
     next_command: 'resolve-active-review-threads',
+    check_state: 'ready', review_state: 'blocked',
   });
+});
+
+test('buildDeliveryHandoff rewrites terminal merge outcomes', () => {
+  assert.deepEqual(buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Ready', pr: 11, branch: 'sync/workflows-abc',
+    head_sha: 'abc', delivery_generation: 'g2', delivery_disposition: 'current',
+    blocker_owner: 'maint-71', next_command: 'merge-current-delivery',
+    status: 'merged',
+  }), {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
+    branch: 'sync/workflows-abc', head_sha: 'abc', delivery_generation: 'g2',
+    lane: 'sync', disposition: 'merged', blocker_owner: 'none', next_command: 'none',
+    check_state: 'ready', review_state: 'clear',
+  });
+  assert.equal(buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Ready', pr: 11, branch: 'sync/workflows-abc',
+    head_sha: 'abc', delivery_generation: 'g2', status: 'branch_deleted',
+  }), null);
 });
 
 test('buildDeliveryHandoff rejects results that lack required restart fields', () => {

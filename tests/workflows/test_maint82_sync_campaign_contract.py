@@ -43,6 +43,9 @@ def test_maint71_dispatches_machine_readable_handoffs_to_campaign():
 
     assert "event_type: 'sync-dependabot-campaign'" in workflow
     assert "delivery_handoff_records: report.handoff_records" in workflow
+    # Targeted Maint 71 runs must still refresh the full registered fleet.
+    assert "repos: registeredRepos.join(',')" in workflow
+    assert "Maint 71 handoff dispatch failed (non-blocking)" in workflow
 
 
 def test_campaign_workflow_bot_agnostic_identity():

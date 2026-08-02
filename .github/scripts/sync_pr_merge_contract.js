@@ -54,7 +54,13 @@ function isTrustedGeneratedDeliveryPr(pr, trustedActors = []) {
 function classifyGeneratedPr({ pr = {}, checkState = {}, activeReviewThreadCount = 0, now } = {}) {
   const record = parseDeliveryRecord(pr.body || '');
   const lane = generatedDeliveryLane(pr?.head?.ref || pr?.headRefName);
-  if (!lane) return { disposition: 'owner-decision', blocker_owner: 'source', next_command: '' };
+  if (!lane) {
+    return {
+      disposition: 'owner-decision',
+      blocker_owner: 'source',
+      next_command: 'owner-decision-required',
+    };
+  }
   if (!record) return {
     disposition: 'owner-decision',
     blocker_owner: 'source',
@@ -270,11 +276,78 @@ function summarizeResults(results) {
   return counts;
 }
 
+function deriveHandoffCheckState(result = {}) {
+  const explicit = String(result.check_state || '').trim();
+  if (explicit) return explicit;
+  const status = String(result.status || '');
+  if (status === 'checks_pending') return 'checks_pending';
+  if (status === 'checks_failed') return 'checks_failed';
+  if (
+    status === 'ready'
+    || status === 'dry_run_merge'
+    || status === 'merged'
+    || status === 'review_blocked'
+    || status === 'merge_blocked_runtime_ac'
+  ) {
+    return 'ready';
+  }
+  if (status === 'stale_closed' || status === 'delivery_contract_blocked') {
+    return 'not-applicable';
+  }
+  return status || 'unknown';
+}
+
+function deriveHandoffReviewState(result = {}) {
+  const explicit = String(result.review_state || '').trim();
+  if (explicit) return explicit;
+  const status = String(result.status || '');
+  const threadCount = Number(result.active_review_thread_count);
+  if (status === 'review_blocked' || (Number.isFinite(threadCount) && threadCount > 0)) {
+    return 'blocked';
+  }
+  if (status === 'stale_closed' || status === 'delivery_contract_blocked') {
+    return 'not-applicable';
+  }
+  return 'clear';
+}
+
 function buildDeliveryHandoff(result = {}) {
   if (!result.pr) return null;
+  const status = String(result.status || '');
+  // Branch-delete rows are companions to the merged row; emit one terminal handoff only.
+  if (status === 'branch_deleted' || status === 'branch_delete_failed') {
+    return null;
+  }
   const headSha = String(result.head_sha || '');
   const deliveryGeneration = String(result.delivery_generation || '');
   if (!headSha || !deliveryGeneration) return null;
+
+  let disposition = String(result.delivery_disposition || status || '');
+  let blockerOwner = String(result.blocker_owner || '');
+  let nextCommand = String(result.next_command || '');
+  let checkState = deriveHandoffCheckState(result);
+  let reviewState = deriveHandoffReviewState(result);
+
+  // After a successful merge/close, rewrite pre-merge restart fields so consumers
+  // do not keep seeing merge-current-delivery for an already-terminal PR.
+  if (status === 'merged') {
+    disposition = 'merged';
+    blockerOwner = 'none';
+    nextCommand = 'none';
+    checkState = checkState === 'unknown' ? 'ready' : checkState;
+    reviewState = reviewState === 'not-applicable' ? 'clear' : reviewState;
+  } else if (status === 'stale_closed') {
+    if (!disposition || disposition === 'stale_closed') {
+      disposition = 'closed';
+    }
+    blockerOwner = 'none';
+    nextCommand = 'none';
+  }
+
+  if (!disposition || !blockerOwner || !nextCommand || !checkState || !reviewState) {
+    return null;
+  }
+
   return {
     schema: 'workflows-generated-delivery-handoff/v1',
     repository: `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, ''),
@@ -283,9 +356,11 @@ function buildDeliveryHandoff(result = {}) {
     head_sha: headSha,
     delivery_generation: deliveryGeneration,
     lane: generatedDeliveryLane(result.branch),
-    disposition: String(result.delivery_disposition || result.status || ''),
-    blocker_owner: String(result.blocker_owner || ''),
-    next_command: String(result.next_command || ''),
+    disposition,
+    blocker_owner: blockerOwner,
+    next_command: nextCommand,
+    check_state: checkState,
+    review_state: reviewState,
   };
 }
 
