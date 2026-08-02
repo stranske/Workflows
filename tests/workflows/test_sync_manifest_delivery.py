@@ -267,4 +267,17 @@ def test_maint68_refreshes_only_a_same_base_and_tree_delivery_attempt() -> None:
     assert '[ "$existing_base" = "$base_sha" ]' in source
     assert '[ "$existing_tree" = "$desired_tree_hash" ]' in source
     assert "matching_existing=true" in source
-    assert 'git push --quiet --force-with-lease="refs/heads/$branch_name:$existing_head"' in source
+    commit_push_guard = source.index('if [ "$matching_existing" != "true" ]; then')
+    assert (
+        source.index(
+            'git commit -m "chore: sync workflow templates from Workflows repo', commit_push_guard
+        )
+        > commit_push_guard
+    )
+    assert (
+        source.index(
+            'git push --quiet --force-with-lease="refs/heads/$branch_name:$existing_head"',
+            commit_push_guard,
+        )
+        > commit_push_guard
+    )

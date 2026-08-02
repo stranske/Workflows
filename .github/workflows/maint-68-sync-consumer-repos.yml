@@ -748,10 +748,7 @@ jobs:
           # (including the early fetch of an existing sync branch).
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # shellcheck disable=SC2016 # GH_TOKEN expands at runtime
-          credential_helper='!f() { echo "username=x-access-token";'
-          credential_helper+=" echo \"password=${GH_TOKEN}\";"
-          credential_helper+=' }; f'
+          credential_helper="!f() { echo \"username=x-access-token\"; echo \"password=\$GH_TOKEN\"; }; f"
           git config credential.helper "$credential_helper"
 
           # Keep an existing generated PR current instead of treating it as a
@@ -773,6 +770,7 @@ jobs:
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
             existing_body_file=$(mktemp)
             gh pr view "$existing_pr" --json body -q .body >"$existing_body_file" || true
+            # shellcheck disable=SC2016 # The embedded Node source must remain literal.
             refresh_check=$(
               EXISTING_BODY_FILE="$existing_body_file" \
               DELIVERY_GENERATION="$DELIVERY_GENERATION" \

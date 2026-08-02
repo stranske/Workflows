@@ -44,7 +44,7 @@ test('only the newest matching generation is selected for merge', () => {
     number: 10,
     created_at: '2026-08-01T20:00:00Z',
     head: { ref: 'sync/workflows-old' },
-    body: formatDeliveryRecord({ ...current, generation: 'old', desired_tree_hash: 'tree-old' }),
+    body: formatDeliveryRecord({ ...current, generation: 'new', desired_tree_hash: 'tree-new' }),
   };
   const newest = {
     number: 11,
