@@ -1,9 +1,13 @@
+import builtins
 import os
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+import scripts.check_deliberate_break as deliberate_break
 from scripts.check_deliberate_break import (
+    PYTEST_RUNTIME_DEPENDENCIES,
     VERDICT_BROKEN,
     VERDICT_HOLLOW,
     VERDICT_PASS,
@@ -217,3 +221,108 @@ def test_cli_skips_without_marker(tmp_path) -> None:
 
     assert completed.returncode == 0
     assert "skipped: no deliberate-break marker" in completed.stdout
+
+
+def test_runtime_dependency_installer_uses_locked_pyyaml(monkeypatch) -> None:
+    real_import = builtins.__import__
+    calls: list[tuple[object, dict[str, object]]] = []
+
+    def missing_yaml(name, *args, **kwargs):
+        if name == "yaml":
+            raise ImportError("PyYAML missing")
+        return real_import(name, *args, **kwargs)
+
+    def record_install(*args, **kwargs):
+        calls.append((args, kwargs))
+        return subprocess.CompletedProcess(args[0], 0, "", "")
+
+    monkeypatch.setattr(builtins, "__import__", missing_yaml)
+    monkeypatch.setattr(deliberate_break.subprocess, "run", record_install)
+
+    deliberate_break._ensure_pytest_runtime_deps()
+
+    assert calls == [
+        (
+            (
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "--upgrade",
+                    *PYTEST_RUNTIME_DEPENDENCIES,
+                ],
+            ),
+            {
+                "check": True,
+                "text": True,
+                "capture_output": True,
+                "timeout": deliberate_break.DEFAULT_TIMEOUT_SECONDS,
+            },
+        )
+    ]
+
+
+def _sound_spec(repo: Path) -> tuple[str, object]:
+    _write_app(repo, 0)
+    base = _commit(repo, "base behavior")
+    _write_app(repo, 1)
+    _write_test(repo, 1)
+    _commit(repo, "implementation and test")
+    spec = parse_deliberate_break_spec(
+        "<!-- deliberate-break: "
+        "test=tests/test_app.py::test_value "
+        "test-file=tests/test_app.py "
+        "break-file=app.py -->"
+    )
+    assert spec is not None
+    return base, spec
+
+
+def test_dependency_install_timeout_is_broken(tmp_path, monkeypatch) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    base, spec = _sound_spec(repo)
+    command = [sys.executable, "-m", "pip", "install", *PYTEST_RUNTIME_DEPENDENCIES]
+
+    def timed_out() -> None:
+        raise subprocess.TimeoutExpired(command, 17)
+
+    monkeypatch.setattr(deliberate_break, "_ensure_pytest_runtime_deps", timed_out)
+
+    result = verify_spec(spec, base=base, cwd=repo, enforce_tamper=False)
+
+    assert result == {
+        "verdict": VERDICT_BROKEN,
+        "reason": "command-timeout",
+        "command": command,
+        "timeout": 17,
+    }
+
+
+@pytest.mark.parametrize(
+    ("error", "reason", "detail"),
+    [
+        (
+            subprocess.CalledProcessError(1, ["pip"], stderr="pip denied"),
+            "dependency-install-failed",
+            "pip denied",
+        ),
+        (OSError("pip unavailable"), "dependency-install-unavailable", "pip unavailable"),
+    ],
+)
+def test_dependency_install_errors_are_broken(tmp_path, monkeypatch, error, reason, detail) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    base, spec = _sound_spec(repo)
+
+    def failed() -> None:
+        raise error
+
+    monkeypatch.setattr(deliberate_break, "_ensure_pytest_runtime_deps", failed)
+
+    result = verify_spec(spec, base=base, cwd=repo, enforce_tamper=False)
+
+    assert result == {"verdict": VERDICT_BROKEN, "reason": reason, "detail": detail}
