@@ -254,7 +254,10 @@ def test_maint68_refreshes_only_a_same_base_and_tree_delivery_attempt() -> None:
     assert 'git fetch origin "$branch_name"' in source
     assert 'existing_base=$(git rev-parse "${existing_head}^")' in source
     assert 'existing_tree=$(git rev-parse "${existing_head}^{tree}")' in source
-    assert 'desired_tree_hash=$(git write-tree)' in source
-    assert '[ "$existing_base" = "$base_sha" ] && [ "$existing_tree" = "$desired_tree_hash" ]' in source
-    assert 'matching_existing=true' in source
+    assert "desired_tree_hash=$(git write-tree)" in source
+    assert (
+        '[ "$existing_base" = "$base_sha" ] && [ "$existing_tree" = "$desired_tree_hash" ]'
+        in source
+    )
+    assert "matching_existing=true" in source
     assert 'git push --quiet --force-with-lease="refs/heads/$branch_name:$existing_head"' in source
