@@ -827,6 +827,17 @@ jobs:
               'utf8',
             );
             await core.summary.addRaw(buildMarkdownSummary(report)).write();
+            if (!dryRun && report.handoff_records.length > 0) {
+              await withRetry((client) => client.rest.repos.createDispatchEvent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                event_type: 'sync-dependabot-campaign',
+                client_payload: {
+                  repos: targetRepos.join(','),
+                  delivery_handoff_records: report.handoff_records,
+                },
+              }));
+            }
 
             const merged = report.summary.merged;
             const stale = report.summary.stale_closed;

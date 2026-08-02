@@ -15,12 +15,39 @@ const {
   isDependabotPullRequest,
   isSyncPullRequest,
   mergeCampaignState,
+  mergeDeliveryHandoffs,
   paginateWithRetry,
   parseCampaignMarker,
   replaceCampaignMarker,
   verboseDryRunLoggingEnabled,
   validateCampaignState,
 } = require('../sync_dependency_campaign.js');
+
+test('mergeDeliveryHandoffs retains one current record per generated PR', () => {
+  const stale = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
+    head_sha: 'old', delivery_generation: 'g1', disposition: 'awaiting-checks',
+  };
+  const current = {
+    ...stale, head_sha: 'new', delivery_generation: 'g2', disposition: 'review-blocked',
+    next_command: 'resolve-active-review-threads',
+  };
+  assert.deepEqual(mergeDeliveryHandoffs([stale], [current], '2026-08-02T00:00:00Z'), [{
+    ...current, branch: '', lane: '', blocker_owner: '', observed_at: '2026-08-02T00:00:00Z',
+  }]);
+});
+
+test('mergeCampaignState persists Maint 71 handoffs in the durable marker state', () => {
+  const state = mergeCampaignState({}, [], '2026-08-02T00:00:00Z', {
+    deliveryHandoffRecords: [{
+      schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
+      head_sha: 'abc', delivery_generation: 'g1', disposition: 'current',
+    }],
+  });
+  assert.equal(state.stats.delivery_handoffs_observed, 1);
+  assert.equal(state.delivery_handoffs[0].next_command, '');
+  assert.equal(parseCampaignMarker(formatCampaignMarker(state)).delivery_handoffs[0].pr, 11);
+});
 
 test('formats and parses campaign marker', () => {
   const state = {

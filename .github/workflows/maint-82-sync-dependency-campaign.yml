@@ -113,6 +113,8 @@ jobs:
             const dryRun = '${{ steps.inputs.outputs.dry_run }}' === 'true';
             const maxRepos = Number('${{ steps.inputs.outputs.max_repos }}') || 0;
             const currentSyncHash = '${{ steps.hash.outputs.hash }}';
+            const deliveryHandoffRecords =
+              context.payload.client_payload?.delivery_handoff_records || [];
 
             const result = await runCampaign({
               github,
@@ -122,6 +124,7 @@ jobs:
               dryRun,
               maxRepos,
               currentSyncHash,
+              deliveryHandoffRecords,
             });
 
             const stats = result.state.stats || {};
@@ -153,6 +156,7 @@ jobs:
                 `Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
                 `Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
                 `Source sync states: ${sourceSyncStates}`,
+                `Maint 71 handoffs observed: ${stats.delivery_handoffs_observed || 0}`,
                 `Finished local results without published source changes: ${unpublishedResults}`,
                 `Campaign issue: ${result.issue?.html_url || '(dry run)'}`,
               ])
