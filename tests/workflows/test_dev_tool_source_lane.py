@@ -12,7 +12,8 @@ def test_auto_updater_is_the_single_weekly_source_proposal_lane():
     assert 'scripts/dev_tool_update_policy.py "${args[@]}"' in text
     assert "auto/weekly-dev-tool-update-$(date +%G-W%V)" in text
     assert 'existing_pr=$(gh pr list --head "$branch"' in text
-    assert 'git fetch origin "$branch"' in text
+    assert 'git fetch origin "$branch:refs/remotes/origin/$branch"' in text
+    assert 'git push --force-with-lease="refs/heads/$branch:$expected_sha"' in text
     assert 'gh pr edit "$existing_pr"' in text
 
 

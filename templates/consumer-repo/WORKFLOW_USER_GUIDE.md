@@ -781,17 +781,16 @@ The Workflows repository includes maintenance workflows that handle sync, update
 ---
 
 ### `maint-52-sync-dev-versions.yml` - Sync Dev Versions
-**Purpose:** Updates development environment versions
+**Purpose:** Central Workflows propagation workflow; it has no consumer-template counterpart.
 
-**Trigger:** On push to main or manual
+**Trigger:** Runs only in the central Workflows repository after a settled source commit
 
 **What It Does:**
-- Syncs Python version from `.python-version`
-- Updates Node.js version in workflows
-- Updates action versions in workflows
-- Commits version bumps
+- Uses the central `autofix-versions.env` pin set
+- Opens at most one propagation PR per consumer repository
+- Records the settled canonical source commit in each delivery marker
 
-**Use When:** After dependency updates
+**Use When:** Observe central propagation; do not copy or configure this workflow in a consumer repo
 
 ---
 
@@ -830,17 +829,16 @@ The Workflows repository includes maintenance workflows that handle sync, update
 ---
 
 ### `maint-auto-update-pypi-versions.yml` - Auto-Update PyPI Packages
-**Purpose:** Automatically updates Python package versions
+**Purpose:** Central Workflows source-proposal workflow; it has no consumer-template counterpart.
 
-**Trigger:** Daily scheduled
+**Trigger:** Monday 03:00 UTC or an explicit central security override
 
 **What It Does:**
-- Checks PyPI for latest versions
-- Updates minor/patch versions automatically
-- Creates PR for major version updates
-- Runs CI to validate
+- Checks PyPI for the central dev-tool pin set
+- Batches routine changes into one mutable weekly source PR
+- Runs source validation before the consumer propagation lane can start
 
-**Safety:** Only auto-merges patch versions
+**Safety:** Consumer repos must not create partial copies of the central pin update
 
 ---
 
@@ -1117,9 +1115,9 @@ The Workflows repository includes maintenance workflows that handle sync, update
 ---
 
 ### `maint-50-tool-version-check.yml` - Tool Version Audit
-**Purpose:** Checks versions of all development tools
+**Purpose:** Central read-only freshness audit; it has no consumer-template counterpart.
 
-**Trigger:** Weekly scheduled
+**Trigger:** Weekly in the central Workflows repository
 
 **Checks:**
 - Python version
@@ -1130,7 +1128,7 @@ The Workflows repository includes maintenance workflows that handle sync, update
 - docker version
 - Action versions
 
-**Result:** Report on outdated tools
+**Result:** Freshness evidence only; it never creates a competing update issue or PR
 
 ---
 

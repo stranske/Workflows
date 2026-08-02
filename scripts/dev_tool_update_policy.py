@@ -27,7 +27,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     now = datetime.fromisoformat(args.at.replace("Z", "+00:00")) if args.at else datetime.now(UTC)
     allowed = should_propose_update(now, security_override=args.security_override)
-    reason = "security_override" if args.security_override else "weekly_window"
+    if args.security_override:
+        reason = "security_override"
+    elif allowed:
+        reason = "weekly_window"
+    else:
+        reason = "outside_weekly_window"
     print(f"should_propose={'true' if allowed else 'false'}")
     print(f"reason={reason}")
     return 0

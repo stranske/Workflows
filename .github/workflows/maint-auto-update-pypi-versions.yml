@@ -48,10 +48,12 @@ jobs:
 
       - name: Enforce the canonical source proposal policy
         id: policy
+        env:
+          SECURITY_OVERRIDE: ${{ inputs.security_override }}
         run: |
           set -euo pipefail
           args=()
-          if [ "${{ inputs.security_override }}" = "true" ]; then
+          if [ "$SECURITY_OVERRIDE" = "true" ]; then
             args+=(--security-override)
           fi
           python scripts/dev_tool_update_policy.py "${args[@]}" | tee /tmp/source_policy.txt
@@ -125,8 +127,13 @@ jobs:
           # the same branch if the routine window already has a proposal.
           branch="auto/weekly-dev-tool-update-$(date +%G-W%V)"
           existing_pr=$(gh pr list --head "$branch" --state open --json number -q '.[0].number' || true)
-          if [ -n "$existing_pr" ]; then
-            git fetch origin "$branch"
+          # A prior run can leave the weekly branch behind without an open PR.
+          # Capture its remote tip when present so the force-with-lease below
+          # is both retry-safe and able to refresh that branch.
+          git fetch origin "$branch:refs/remotes/origin/$branch" 2>/dev/null || true
+          expected_sha=""
+          if git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+            expected_sha=$(git rev-parse "refs/remotes/origin/$branch")
           fi
           git checkout -B "$branch"
 
@@ -144,7 +151,11 @@ jobs:
           ${{ steps.update.outputs.summary }}"
 
           # Push and create or refresh the one source PR for this window.
-          git push --force-with-lease -u origin "$branch"
+          if [ -n "$expected_sha" ]; then
+            git push --force-with-lease="refs/heads/$branch:$expected_sha" -u origin "$branch"
+          else
+            git push --force-with-lease -u origin "$branch"
+          fi
 
           pr_body="## Summary
 
