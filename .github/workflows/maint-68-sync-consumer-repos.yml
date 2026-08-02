@@ -745,8 +745,18 @@ jobs:
           # Keep an existing generated PR current instead of treating it as a
           # terminal delivery attempt: rebuild its branch and refresh its lease.
           existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+          existing_head=""
+          existing_base=""
+          existing_tree=""
           if [ -n "$existing_pr" ]; then
             echo "Refreshing existing sync PR #$existing_pr"
+            # Keep the current-generation PR when the rebuilt delivery has the
+            # same base and tree.  Capture the remote head now so a later force
+            # push cannot overwrite an intervening consumer edit.
+            git fetch origin "$branch_name"
+            existing_head=$(git rev-parse FETCH_HEAD)
+            existing_base=$(git rev-parse "${existing_head}^")
+            existing_tree=$(git rev-parse "${existing_head}^{tree}")
           fi
 
           # Configure git for push authentication using credential helper
@@ -779,7 +789,8 @@ jobs:
             }
           fi
 
-          # Create branch and commit
+          # Create the current-generation branch from the current consumer base.
+          base_sha=$(git rev-parse HEAD)
           git checkout -B "$branch_name"
 
           # Stage ONLY manifest-declared targets, to avoid accidentally committing
@@ -801,23 +812,35 @@ jobs:
             git add --force -A
           fi
 
-          if git diff --cached --quiet; then
+          desired_tree_hash=$(git write-tree)
+          matching_existing=false
+          if [ -n "$existing_pr" ] && [ "$existing_base" = "$base_sha" ] && [ "$existing_tree" = "$desired_tree_hash" ]; then
+            matching_existing=true
+            echo "Existing PR #$existing_pr already matches this base and desired tree; refreshing only its lease"
+          fi
+
+          if git diff --cached --quiet && [ "$matching_existing" != "true" ]; then
             echo "No changes to commit after sync; skipping PR creation."
             echo "status=no_committed_changes" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          git commit -m "chore: sync workflow templates from Workflows repo
+          if [ "$matching_existing" != "true" ]; then
+            git commit -m "chore: sync workflow templates from Workflows repo
 
-          Automated sync from stranske/Workflows
-          Template hash: ${{ needs.prepare.outputs.template_hash }}
+            Automated sync from stranske/Workflows
+            Template hash: ${{ needs.prepare.outputs.template_hash }}
 
-          Changes synced from sync-manifest.yml"
+            Changes synced from sync-manifest.yml"
 
-          git push --quiet -u origin "$branch_name"
+            if [ -n "$existing_pr" ]; then
+              git push --quiet --force-with-lease="refs/heads/$branch_name:$existing_head" -u origin "$branch_name"
+            else
+              git push --quiet -u origin "$branch_name"
+            fi
+          fi
 
           # Create PR
-          desired_tree_hash=$(git rev-parse 'HEAD^{tree}')
           lease_expires_at=$(date -u -d '+72 hours' +%Y-%m-%dT%H:%M:%SZ)
           sync_marker=$(jq -nc \
             --arg schema "workflows-consumer-sync-pr/v1" \
