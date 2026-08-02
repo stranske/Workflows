@@ -82,6 +82,136 @@ test('mergeCampaignState counts observed handoffs from the current payload only'
   assert.equal(state.delivery_handoffs.length, 2);
 });
 
+test('three consecutive identical exceptions create one claim generation and one agent handoff', () => {
+  const item = buildQueueItem({
+    repoFullName: 'stranske/Ready',
+    pr: {
+      number: 42,
+      title: 'sync workflows',
+      html_url: 'https://github.com/stranske/Ready/pull/42',
+      head: { sha: 'abc123', ref: 'sync/workflows-deadbeef' },
+      base: { ref: 'main' },
+    },
+    threads: [{ id: 'thread-1', isResolved: false, isOutdated: false, comments_count: 1 }],
+    classification: 'sync',
+    now: '2026-08-02T00:00:00Z',
+    defaultOwner: 'stranske',
+  });
+
+  let state = {};
+  const observedAts = [
+    '2026-08-02T00:00:00Z',
+    '2026-08-02T01:00:00Z',
+    '2026-08-02T02:00:00Z',
+  ];
+  for (const observedAt of observedAts) {
+    state = mergeCampaignState(state, [{ ...item }], observedAt);
+  }
+
+  const matching = state.items.filter((entry) => entry.id === item.id);
+  assert.equal(matching.length, 1);
+  assert.equal(matching[0].attempts, 0);
+  assert.equal(matching[0].status, 'needs-local-codex');
+  assert.equal(state.stats.items_claimable_local_codex, 1);
+  assert.equal(state.stats.exception_lifecycle.new, 0);
+  assert.equal(state.stats.exception_lifecycle.unchanged, 1);
+  assert.equal(state.stats.exception_lifecycle.resolved, 0);
+  assert.equal(state.stats.exception_lifecycle.re_opened, 0);
+  assert.match(
+    formatCampaignBody(state),
+    /Exception lifecycle \(new\/unchanged\/resolved\/re-opened\): 0\/1\/0\/0/,
+  );
+});
+
+test('deliberate-break: timestamp-only identity creates duplicate handoffs; real fingerprint does not', () => {
+  const base = buildQueueItem({
+    repoFullName: 'stranske/Ready',
+    pr: {
+      number: 77,
+      title: 'sync workflows',
+      html_url: 'https://github.com/stranske/Ready/pull/77',
+      head: { sha: 'fff111', ref: 'sync/workflows-cafe' },
+      base: { ref: 'main' },
+    },
+    threads: [{ id: 'thread-a', isResolved: false, isOutdated: false, comments_count: 2 }],
+    classification: 'sync',
+    now: '2026-08-02T00:00:00Z',
+    defaultOwner: 'stranske',
+  });
+
+  // Broken identity wrongly folds updated_at into the fingerprint/id.
+  const brokenDiscoveries = [
+    { ...base, id: `${base.id}:2026-08-02T00:00:00Z` },
+    { ...base, id: `${base.id}:2026-08-02T01:00:00Z` },
+    { ...base, id: `${base.id}:2026-08-02T02:00:00Z` },
+  ];
+  let broken = {};
+  for (let i = 0; i < brokenDiscoveries.length; i += 1) {
+    broken = mergeCampaignState(broken, [brokenDiscoveries[i]], `2026-08-02T0${i}:00:00Z`);
+  }
+  assert.equal(
+    broken.items.filter((entry) => entry.id.startsWith(`${base.id}:`)).length,
+    3,
+    'timestamp-in-id break must surface as duplicate handoffs',
+  );
+  assert.equal(broken.stats.exception_lifecycle.new, 1);
+
+  // Correct fingerprint ignores wall-clock updated_at.
+  let good = {};
+  for (const observedAt of ['2026-08-02T00:00:00Z', '2026-08-02T01:00:00Z', '2026-08-02T02:00:00Z']) {
+    good = mergeCampaignState(good, [{ ...base }], observedAt);
+  }
+  assert.equal(good.items.filter((entry) => entry.id === base.id).length, 1);
+  assert.equal(good.stats.items_claimable_local_codex, 1);
+  assert.equal(good.stats.exception_lifecycle.unchanged, 1);
+});
+
+test('exception lifecycle counts new, resolved, and re-opened transitions', () => {
+  const first = buildQueueItem({
+    repoFullName: 'stranske/Ready',
+    pr: {
+      number: 9,
+      title: 'sync',
+      html_url: 'https://github.com/stranske/Ready/pull/9',
+      head: { sha: 'aaa', ref: 'sync/workflows-aaa' },
+      base: { ref: 'main' },
+    },
+    threads: [{ id: 't1', isResolved: false, isOutdated: false, comments_count: 1 }],
+    classification: 'sync',
+    now: '2026-08-02T00:00:00Z',
+    defaultOwner: 'stranske',
+  });
+  const second = buildQueueItem({
+    repoFullName: 'stranske/Ready',
+    pr: {
+      number: 10,
+      title: 'sync',
+      html_url: 'https://github.com/stranske/Ready/pull/10',
+      head: { sha: 'bbb', ref: 'sync/workflows-bbb' },
+      base: { ref: 'main' },
+    },
+    threads: [{ id: 't2', isResolved: false, isOutdated: false, comments_count: 1 }],
+    classification: 'sync',
+    now: '2026-08-02T00:00:00Z',
+    defaultOwner: 'stranske',
+  });
+
+  const opened = mergeCampaignState({}, [first, second], '2026-08-02T00:00:00Z');
+  assert.deepEqual(opened.stats.exception_lifecycle, {
+    new: 2, unchanged: 0, resolved: 0, re_opened: 0,
+  });
+
+  const resolvedOne = mergeCampaignState(opened, [first], '2026-08-02T01:00:00Z');
+  assert.deepEqual(resolvedOne.stats.exception_lifecycle, {
+    new: 0, unchanged: 1, resolved: 1, re_opened: 0,
+  });
+
+  const reopened = mergeCampaignState(resolvedOne, [first, second], '2026-08-02T02:00:00Z');
+  assert.deepEqual(reopened.stats.exception_lifecycle, {
+    new: 0, unchanged: 1, resolved: 0, re_opened: 1,
+  });
+});
+
 test('formats and parses campaign marker', () => {
   const state = {
     schema: 'sync-dependabot-campaign/v1',

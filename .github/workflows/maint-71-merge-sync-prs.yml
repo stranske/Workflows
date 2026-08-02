@@ -11,7 +11,7 @@
 # - Repository dispatch (event_type: merge-sync-prs) for Codespace triggers
 #
 # Safety:
-# - Only merges PRs with sync/workflows-* branch names
+# - Merges trusted generated delivery PRs (sync/workflows-* and deps/sync-dev-versions-*)
 # - Requires all checks to pass
 # - Uses merge commit (not squash) to preserve sync history
 

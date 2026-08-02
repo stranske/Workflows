@@ -412,11 +412,18 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
   );
   const failedRepos = new Set(parseCsv(options.failedRepos));
   const nextItems = [];
+  const exceptionLifecycle = {
+    new: 0,
+    unchanged: 0,
+    resolved: 0,
+    re_opened: 0,
+  };
 
   for (const discovered of discoveredItems) {
     const previous = previousById.get(discovered.id);
     const sourceFixedCandidate = sourceFixedCandidateFor(discovered, finishedBySourceReviewKey);
     if (!previous) {
+      exceptionLifecycle.new += 1;
       const item = {
         ...discovered,
         status: discovered.status || 'needs-local-codex',
@@ -431,6 +438,11 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
         ...item,
       });
       continue;
+    }
+    if (ACTIVE_STATUSES.has(previous.status)) {
+      exceptionLifecycle.unchanged += 1;
+    } else {
+      exceptionLifecycle.re_opened += 1;
     }
 
     let status = previous.status || 'needs-local-codex';
@@ -480,6 +492,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
         updated_at: now,
       });
     } else if (ACTIVE_STATUSES.has(previous.status)) {
+      exceptionLifecycle.resolved += 1;
       nextItems.push({
         ...previous,
         status: 'stale',
@@ -513,6 +526,8 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
       ...buildStats(items, discoveredItems, options),
       // Count only this run's payload observations, not the retained durable total.
       delivery_handoffs_observed: observedIncomingHandoffs.length,
+      // Per-run exception lifecycle (new / unchanged / resolved / re-opened).
+      exception_lifecycle: exceptionLifecycle,
     },
     source_review_history: sourceReviewHistory,
     delivery_handoffs: deliveryHandoffs,
@@ -1014,6 +1029,11 @@ function formatCampaignBody(state) {
     `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Exception lifecycle (new/unchanged/resolved/re-opened): ` +
+      `${Number(stats.exception_lifecycle?.new || 0)}/` +
+      `${Number(stats.exception_lifecycle?.unchanged || 0)}/` +
+      `${Number(stats.exception_lifecycle?.resolved || 0)}/` +
+      `${Number(stats.exception_lifecycle?.re_opened || 0)}`,
     `- Source sync states: ${formatSourceSyncStatusCounts(stats.source_sync_status_counts)}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Claimed local Codex items: ${claims.count || 0}`,
@@ -1185,6 +1205,11 @@ function formatCompactCampaignBody(state) {
     `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Exception lifecycle (new/unchanged/resolved/re-opened): ` +
+      `${Number(stats.exception_lifecycle?.new || 0)}/` +
+      `${Number(stats.exception_lifecycle?.unchanged || 0)}/` +
+      `${Number(stats.exception_lifecycle?.resolved || 0)}/` +
+      `${Number(stats.exception_lifecycle?.re_opened || 0)}`,
     `- Source sync states: ${formatSourceSyncStatusCounts(stats.source_sync_status_counts)}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Claimed local Codex items: ${claims.count || 0}`,
@@ -1555,6 +1580,11 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Exception lifecycle (new/unchanged/resolved/re-opened): ` +
+      `${Number(stats.exception_lifecycle?.new || 0)}/` +
+      `${Number(stats.exception_lifecycle?.unchanged || 0)}/` +
+      `${Number(stats.exception_lifecycle?.resolved || 0)}/` +
+      `${Number(stats.exception_lifecycle?.re_opened || 0)}`,
     `- Source sync states: ${formatSourceSyncStatusCounts(stats.source_sync_status_counts)}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Items claimed: ${stats.items_claimed || 0}`,
