@@ -388,7 +388,9 @@ def test_fetch_error_snapshot_under_allow_non_strict_records_non_strict_desired(
     assert snapshot["desired"]["strict"] is False
 
 
-def test_apply_allow_non_strict_preserves_already_strict_during_context_drift(monkeypatch, tmp_path):
+def test_apply_allow_non_strict_preserves_already_strict_during_context_drift(
+    monkeypatch, tmp_path
+):
     """Context updates under --allow-non-strict must not disable an already-strict policy."""
     import json
 
