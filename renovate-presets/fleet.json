@@ -4,6 +4,24 @@
   "extends": ["config:recommended"],
   "platformAutomerge": true,
   "labels": ["dependencies"],
+  "timezone": "America/Chicago",
+  "schedule": ["after 1am and before 5am on monday"],
+  "commitHourlyLimit": 2,
+  "prConcurrentLimit": 3,
+  "branchConcurrentLimit": 3,
+  "minimumReleaseAge": "3 days",
+  "prCreation": "not-pending",
+  "dependencyDashboard": true,
+  "vulnerabilityAlerts": {
+    "schedule": [],
+    "minimumReleaseAge": null,
+    "prCreation": "immediate"
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "groupName": "weekly lock file maintenance",
+    "schedule": ["after 1am and before 5am on monday"]
+  },
   "pip-compile": {
     "managerFilePatterns": ["/(^|/)requirements\\.lock$/"]
   },
@@ -27,11 +45,17 @@
       "automergeType": "pr"
     },
     {
-      "description": "GitHub Actions minor+patch: group + automerge on green",
+      "description": "Trusted GitHub Actions digest, pin, minor, and patch updates: group + automerge on green",
       "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": ["digest", "pin", "minor", "patch"],
       "groupName": "github-actions",
       "automerge": true
+    },
+    {
+      "description": "Major updates remain visible in the Dependency Dashboard until a maintainer approves the specific upgrade",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
     },
     {
       "description": "Vendored minimatch cascade — keep minimatch, brace-expansion, balanced-match in one PR",

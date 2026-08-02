@@ -14,9 +14,12 @@ const LABEL_CAMPAIGN = 'campaign:sync-dependabot';
 const LABEL_ACTIVE = 'campaign:active';
 const LABEL_NEEDS_LOCAL_CODEX = 'campaign:needs-local-codex';
 const SYNC_BRANCH_PREFIX = 'sync/workflows-';
+const DEV_TOOL_SYNC_BRANCH_PREFIX = 'deps/sync-dev-versions-';
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_MAX_RETAINED_ITEMS = 120;
 const DEFAULT_MAX_SOURCE_REVIEW_HISTORY = 80;
+const DELIVERY_HANDOFF_SCHEMA = 'workflows-generated-delivery-handoff/v1';
+const DEFAULT_MAX_DELIVERY_HANDOFFS = 80;
 const MAX_ISSUE_BODY_LENGTH = 60000;
 const MAX_MARKER_ITEMS = 80;
 const MAX_QUEUE_ROWS = 15;
@@ -92,6 +95,7 @@ function isSyncPullRequest(pr = {}) {
   const labels = labelsForPullRequest(pr).map((label) => label.toLowerCase());
   return (
     headRef.startsWith(SYNC_BRANCH_PREFIX) ||
+    headRef.startsWith(DEV_TOOL_SYNC_BRANCH_PREFIX) ||
     title.startsWith('chore: sync workflow templates') ||
     labels.includes('sync') ||
     body.includes('workflows-sync-lifecycle')
@@ -345,6 +349,52 @@ function isLeaseExpired(item = {}, now = new Date()) {
   return new Date(expiresAt).getTime() <= now.getTime();
 }
 
+function normalizeDeliveryHandoff(record = {}, observedAt = '') {
+  if (cleanString(record.schema) !== DELIVERY_HANDOFF_SCHEMA) return null;
+  const repository = cleanString(record.repository);
+  const pr = cleanInteger(record.pr);
+  const headSha = cleanString(record.head_sha);
+  const generation = cleanString(record.delivery_generation);
+  const disposition = cleanString(record.disposition);
+  const blockerOwner = cleanString(record.blocker_owner);
+  const nextCommand = cleanString(record.next_command);
+  const checkState = cleanString(record.check_state);
+  const reviewState = cleanString(record.review_state);
+  if (!repository || !pr || !headSha || !generation) return null;
+  // Require the full restart/routing contract so durable records can classify exceptions.
+  if (!disposition || !blockerOwner || !nextCommand || !checkState || !reviewState) return null;
+  return {
+    schema: DELIVERY_HANDOFF_SCHEMA,
+    repository,
+    pr,
+    branch: cleanString(record.branch),
+    head_sha: headSha,
+    delivery_generation: generation,
+    lane: cleanString(record.lane),
+    disposition,
+    blocker_owner: blockerOwner,
+    next_command: nextCommand,
+    check_state: checkState,
+    review_state: reviewState,
+    observed_at: cleanString(observedAt || record.observed_at),
+  };
+}
+
+function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', limit = DEFAULT_MAX_DELIVERY_HANDOFFS) {
+  const byKey = new Map();
+  for (const record of cleanArray(previous)) {
+    const normalized = normalizeDeliveryHandoff(record);
+    if (normalized) byKey.set(`${normalized.repository}#${normalized.pr}`, normalized);
+  }
+  for (const record of cleanArray(incoming)) {
+    const normalized = normalizeDeliveryHandoff(record, observedAt);
+    if (normalized) byKey.set(`${normalized.repository}#${normalized.pr}`, normalized);
+  }
+  return [...byKey.values()]
+    .sort((a, b) => cleanString(b.observed_at).localeCompare(cleanString(a.observed_at)))
+    .slice(0, limit);
+}
+
 function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, options = {}) {
   const now = cleanString(nowValue) || new Date().toISOString();
   const nowDate = new Date(now);
@@ -362,11 +412,18 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
   );
   const failedRepos = new Set(parseCsv(options.failedRepos));
   const nextItems = [];
+  const exceptionLifecycle = {
+    new: 0,
+    unchanged: 0,
+    resolved: 0,
+    re_opened: 0,
+  };
 
   for (const discovered of discoveredItems) {
     const previous = previousById.get(discovered.id);
     const sourceFixedCandidate = sourceFixedCandidateFor(discovered, finishedBySourceReviewKey);
     if (!previous) {
+      exceptionLifecycle.new += 1;
       const item = {
         ...discovered,
         status: discovered.status || 'needs-local-codex',
@@ -382,8 +439,17 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
       });
       continue;
     }
+    if (ACTIVE_STATUSES.has(previous.status)) {
+      exceptionLifecycle.unchanged += 1;
+    } else {
+      exceptionLifecycle.re_opened += 1;
+    }
 
-    let status = previous.status || 'needs-local-codex';
+    // A rediscovered inactive exception is actionable again. Retaining `stale`
+    // would report it as re-opened while silently keeping it out of the claim queue.
+    let status = ACTIVE_STATUSES.has(previous.status)
+      ? previous.status
+      : 'needs-local-codex';
     let lease = previous.lease || null;
     const attempts = Number(previous.attempts || 0);
 
@@ -411,7 +477,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
       attempts,
       lease: status === 'local-codex-claimed' ? lease : null,
       result: previous.result || null,
-      source_fixed_candidate: sourceFixedCandidate || previous.source_fixed_candidate || null,
+      source_fixed_candidate: sourceFixedCandidate || null,
     };
     item.status = localCodexClaimableStatus(item, item.status);
     nextItems.push({
@@ -430,6 +496,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
         updated_at: now,
       });
     } else if (ACTIVE_STATUSES.has(previous.status)) {
+      exceptionLifecycle.resolved += 1;
       nextItems.push({
         ...previous,
         status: 'stale',
@@ -444,14 +511,30 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
 
   const items = pruneItems(nextItems, options.maxRetainedItems || DEFAULT_MAX_RETAINED_ITEMS)
     .map(annotateLocalCodexQueueState);
+  const observedIncomingHandoffs = cleanArray(options.deliveryHandoffRecords)
+    .map((record) => normalizeDeliveryHandoff(record, now))
+    .filter(Boolean);
+  const deliveryHandoffs = mergeDeliveryHandoffs(
+    previousState.delivery_handoffs,
+    observedIncomingHandoffs,
+    now,
+    options.maxDeliveryHandoffs,
+  );
   return {
     schema: CAMPAIGN_SCHEMA,
     updated_at: now,
     run_id: cleanString(options.runId || previousState.run_id),
     controller: 'maint-82-sync-dependabot-campaign',
     current_sync_hash: normalizeSyncHash(options.currentSyncHash || previousState.current_sync_hash),
-    stats: buildStats(items, discoveredItems, options),
+    stats: {
+      ...buildStats(items, discoveredItems, options),
+      // Count only this run's payload observations, not the retained durable total.
+      delivery_handoffs_observed: observedIncomingHandoffs.length,
+      // Per-run exception lifecycle (new / unchanged / resolved / re-opened).
+      exception_lifecycle: exceptionLifecycle,
+    },
     source_review_history: sourceReviewHistory,
+    delivery_handoffs: deliveryHandoffs,
     items,
   };
 }
@@ -791,6 +874,7 @@ function compactStateForMarker(state = {}) {
     source_review_history: cleanArray(state.source_review_history)
       .map(compactSourceReviewHistoryEntry)
       .filter(Boolean),
+    delivery_handoffs: cleanArray(state.delivery_handoffs).slice(0, DEFAULT_MAX_DELIVERY_HANDOFFS),
     marker_item_filter: 'actionable-claimed-blocked-unpublished',
     items: markerItems.map(compactQueueItemForMarker),
   };
@@ -949,6 +1033,11 @@ function formatCampaignBody(state) {
     `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Exception lifecycle (new/unchanged/resolved/re-opened): ` +
+      `${Number(stats.exception_lifecycle?.new || 0)}/` +
+      `${Number(stats.exception_lifecycle?.unchanged || 0)}/` +
+      `${Number(stats.exception_lifecycle?.resolved || 0)}/` +
+      `${Number(stats.exception_lifecycle?.re_opened || 0)}`,
     `- Source sync states: ${formatSourceSyncStatusCounts(stats.source_sync_status_counts)}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Claimed local Codex items: ${claims.count || 0}`,
@@ -1120,6 +1209,11 @@ function formatCompactCampaignBody(state) {
     `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Exception lifecycle (new/unchanged/resolved/re-opened): ` +
+      `${Number(stats.exception_lifecycle?.new || 0)}/` +
+      `${Number(stats.exception_lifecycle?.unchanged || 0)}/` +
+      `${Number(stats.exception_lifecycle?.resolved || 0)}/` +
+      `${Number(stats.exception_lifecycle?.re_opened || 0)}`,
     `- Source sync states: ${formatSourceSyncStatusCounts(stats.source_sync_status_counts)}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Claimed local Codex items: ${claims.count || 0}`,
@@ -1490,6 +1584,11 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Claimable local Codex items: ${stats.items_claimable_local_codex || 0}`,
     `- Source-fixed candidates: ${stats.items_source_fixed_candidates || 0}`,
     `- Superseded sync candidates: ${stats.items_superseded_sync_candidates || 0}`,
+    `- Exception lifecycle (new/unchanged/resolved/re-opened): ` +
+      `${Number(stats.exception_lifecycle?.new || 0)}/` +
+      `${Number(stats.exception_lifecycle?.unchanged || 0)}/` +
+      `${Number(stats.exception_lifecycle?.resolved || 0)}/` +
+      `${Number(stats.exception_lifecycle?.re_opened || 0)}`,
     `- Source sync states: ${formatSourceSyncStatusCounts(stats.source_sync_status_counts)}`,
     `- Finished local results without published source changes: ${stats.items_unpublished_source_results || 0}`,
     `- Items claimed: ${stats.items_claimed || 0}`,
@@ -1522,6 +1621,7 @@ async function runCampaign({
   botAuthors = DEFAULT_BOT_AUTHORS,
   ignoredPaths = DEFAULT_IGNORED_PATHS,
   currentSyncHash = '',
+  deliveryHandoffRecords = [],
   now = new Date().toISOString(),
 } = {}) {
   if (!github || !context?.repo) {
@@ -1577,6 +1677,7 @@ async function runCampaign({
     syncPrsOpen,
     dependabotPrsOpen,
     failedRepos: errors.map((error) => error.repo),
+    deliveryHandoffRecords,
   });
   if (errors.length) {
     state.errors = errors.slice(0, 20);
@@ -1644,6 +1745,7 @@ module.exports = {
   CAMPAIGN_SCHEMA,
   CAMPAIGN_MARKER,
   CAMPAIGN_TITLE,
+  DELIVERY_HANDOFF_SCHEMA,
   LABEL_CAMPAIGN,
   LABEL_ACTIVE,
   LABEL_NEEDS_LOCAL_CODEX,
@@ -1660,6 +1762,8 @@ module.exports = {
   isDependabotPullRequest,
   isSyncPullRequest,
   mergeCampaignState,
+  mergeDeliveryHandoffs,
+  normalizeDeliveryHandoff,
   paginateWithRetry,
   parseCampaignMarker,
   replaceCampaignMarker,

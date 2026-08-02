@@ -272,10 +272,13 @@ jobs:
           && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
+          DELIVERY_PLAN_ID: dev-tool-${{ needs.prepare.outputs.versions_hash }}
+          DELIVERY_GENERATION: ${{ needs.prepare.outputs.versions_hash }}
+          DELIVERY_REPOSITORY: ${{ matrix.repo }}
         run: |
           cd consumer
 
-          branch_name="deps/sync-dev-versions-${{ needs.prepare.outputs.versions_hash }}"
+          branch_name="deps/sync-dev-versions-$DELIVERY_GENERATION"
 
           # Preserve the PR for this wave when it already exists, but rebuild
           # its branch from current main if either the base or generated tree
@@ -302,6 +305,7 @@ jobs:
           if [ -f requirements-dev.txt ]; then git add requirements-dev.txt; fi
           if [ -f uv.lock ]; then git add uv.lock; fi
 
+          matching_existing=false
           if [ -n "$existing_pr" ]; then
             git fetch origin "$branch_name"
             existing_head=$(git rev-parse FETCH_HEAD)
@@ -309,25 +313,22 @@ jobs:
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
             desired_tree=$(git write-tree)
             if [ "$existing_base" = "$base_sha" ] && [ "$existing_tree" = "$desired_tree" ]; then
-              echo "Existing PR #$existing_pr already matches current main and generated files"
-              exit 0
+              matching_existing=true
+              echo "Existing PR #$existing_pr already matches current main and generated files; refreshing lease"
             fi
           fi
 
-          # Commit with multi-line message
-          commit_msg="deps: sync dev tool versions from Workflows
+          if [ "$matching_existing" != "true" ]; then
+            # Commit with multi-line message
+            commit_msg="deps: sync dev tool versions from Workflows
 
-          Automated sync from stranske/Workflows autofix-versions.env
-          Versions hash: ${{ needs.prepare.outputs.versions_hash }}
+            Automated sync from stranske/Workflows autofix-versions.env
+            Versions hash: $DELIVERY_GENERATION
 
-          This ensures consistent dev tool versions across all repos."
-          git commit -m "$commit_msg"
+            This ensures consistent dev tool versions across all repos."
+            git commit -m "$commit_msg"
 
-          git push --force -u origin "$branch_name"
-
-          if [ -n "$existing_pr" ]; then
-            echo "Updated existing PR #$existing_pr for this wave"
-            exit 0
+            git push --force -u origin "$branch_name"
           fi
 
           changed_files="$(git show --name-only --format= HEAD)"
@@ -337,7 +338,20 @@ jobs:
             pr_scope="This PR updates generated dev-tool pin files to match the central version pins from [stranske/Workflows](https://github.com/stranske/Workflows)."
           fi
 
-          # Create PR body
+          # Create PR body.  Each generated PR is a leased delivery attempt;
+          # the durable campaign issue keeps the coordination history.
+          desired_tree_hash=${desired_tree:-$(git rev-parse 'HEAD^{tree}')}
+          lease_expires_at=$(date -u -d '+72 hours' +%Y-%m-%dT%H:%M:%SZ)
+          delivery_marker=$(jq -nc \
+            --arg schema "sync-pr-delivery-record/v1" \
+            --arg durable_issue_url "https://github.com/stranske/Workflows/issues/1836" \
+            --arg plan_id "$DELIVERY_PLAN_ID" \
+            --arg generation "$DELIVERY_GENERATION" \
+            --arg repository "$DELIVERY_REPOSITORY" \
+            --arg desired_tree_hash "$desired_tree_hash" \
+            --arg source_commit "$GITHUB_SHA" \
+            --arg lease_expires_at "$lease_expires_at" \
+            '{schema:$schema,durable_issue_url:$durable_issue_url,plan_id:$plan_id,generation:$generation,repository:$repository,desired_tree_hash:$desired_tree_hash,source_commit:$source_commit,lease_expires_at:$lease_expires_at,predecessor_prs:[],successor_prs:[]}')
           pr_body="## Dev Tool Version Sync
 
           ${pr_scope}
@@ -354,12 +368,19 @@ jobs:
           - Easier debugging when tools behave the same everywhere
 
           ---
-          **Source:** \`.github/workflows/autofix-versions.env\`"
+          **Source:** \`.github/workflows/autofix-versions.env\`
 
-          gh pr create \
-            --head "$branch_name" \
-            --title "deps: sync dev tool versions" \
-            --body "$pr_body"
+          <!-- sync-pr-delivery-record:v1 $delivery_marker -->"
+
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --body "$pr_body"
+            echo "Refreshed delivery lease for existing PR #$existing_pr"
+          else
+            gh pr create \
+              --head "$branch_name" \
+              --title "deps: sync dev tool versions" \
+              --body "$pr_body"
+          fi
 
       - name: Dry run summary
         if: >-

@@ -5,13 +5,18 @@ const assert = require('node:assert/strict');
 
 const {
   buildMarkdownSummary,
+  buildDeliveryHandoff,
   buildMergeReport,
+  classifyGeneratedPr,
   classifySyncPrChecks,
   collectDeletableSyncBranches,
+  generatedDeliveryLane,
+  isTrustedGeneratedDeliveryPr,
   isTrustedSyncPr,
   normalizeSyncHash,
   parseBooleanInput,
   selectActiveSyncPr,
+  selectMergeEligibleSyncPr,
   summarizeResults,
   syncBranchForHash,
 } = require('../sync_pr_merge_contract');
@@ -67,6 +72,69 @@ test('isTrustedSyncPr requires the configured actor and sync branch', () => {
   assert.equal(isTrustedSyncPr({ ...trusted, user: { login: 'untrusted' } }, ['stranske']), false);
 });
 
+test('generated delivery classification gives sync and dev-tool lanes identical check and review dispositions', () => {
+  const record = '<!-- sync-pr-delivery-record:v1 {"schema":"sync-pr-delivery-record/v1","durable_issue_url":"https://github.com/stranske/Workflows/issues/1836","plan_id":"plan-abc","generation":"generation-1","repository":"stranske/Ready","desired_tree_hash":"tree-abc","source_commit":"source-abc","lease_expires_at":"2026-08-02T00:00:00Z","predecessor_prs":[],"successor_prs":[]} -->';
+  const sync = { ...pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z'), body: record, user: { login: 'stranske' } };
+  const devTool = { ...pr(2, 'deps/sync-dev-versions-20260801', '2026-04-25T01:00:00Z'), body: record, user: { login: 'stranske' } };
+
+  assert.equal(generatedDeliveryLane(sync.head.ref), 'sync');
+  assert.equal(generatedDeliveryLane(devTool.head.ref), 'dev-tool-sync');
+  assert.equal(isTrustedGeneratedDeliveryPr(devTool, ['stranske']), true);
+  for (const candidate of [sync, devTool]) {
+    assert.equal(classifyGeneratedPr({ pr: candidate, now: '2026-08-01T00:00:00Z' }).disposition, 'current');
+    assert.equal(classifyGeneratedPr({ pr: candidate, activeReviewThreadCount: 1, now: '2026-08-01T00:00:00Z' }).disposition, 'review-blocked');
+    assert.equal(classifyGeneratedPr({ pr: candidate, activeReviewThreadCount: -1, now: '2026-08-01T00:00:00Z' }).next_command, 'retry-review-thread-query');
+    assert.equal(classifyGeneratedPr({ pr: candidate, checkState: { status: 'checks_failed' }, now: '2026-08-01T00:00:00Z' }).disposition, 'repo-local-failure');
+    assert.equal(
+      classifyGeneratedPr({
+        pr: candidate,
+        checkState: { status: 'checks_failed', failure_scope: 'shared-source' },
+        now: '2026-08-01T00:00:00Z',
+      }).disposition,
+      'shared-source-failure',
+    );
+  }
+
+  const sharedHealth = classifySyncPrChecks({
+    checkRuns: [checkRun({ name: 'Health 40 Sweep', conclusion: 'failure' })],
+    requiredContexts: ['Health 40 Sweep'],
+  });
+  assert.equal(sharedHealth.status, 'checks_failed');
+  assert.equal(sharedHealth.failure_scope, 'shared-source');
+  assert.equal(
+    classifyGeneratedPr({ pr: sync, checkState: sharedHealth, now: '2026-08-01T00:00:00Z' }).disposition,
+    'shared-source-failure',
+  );
+
+  const aggregateGate = classifySyncPrChecks({
+    checkRuns: [checkRun({ name: 'Gate / gate', conclusion: 'failure' })],
+    requiredContexts: ['Gate / gate'],
+  });
+  assert.equal(aggregateGate.failure_scope, 'repo-local');
+
+  const localWorkflowCheck = classifySyncPrChecks({
+    checkRuns: [checkRun({ name: 'workflow integration tests', conclusion: 'failure' })],
+    requiredContexts: ['workflow integration tests'],
+  });
+  assert.equal(localWorkflowCheck.failure_scope, 'repo-local');
+
+  const explicitlyShared = classifySyncPrChecks({
+    checkRuns: [{ ...checkRun({ name: 'Gate / gate', conclusion: 'failure' }), shared_source: true }],
+    requiredContexts: ['Gate / gate'],
+  });
+  assert.equal(explicitlyShared.failure_scope, 'shared-source');
+
+  const localFail = classifySyncPrChecks({
+    checkRuns: [checkRun({ name: 'unit-tests', conclusion: 'failure' })],
+    requiredContexts: ['unit-tests'],
+  });
+  assert.equal(localFail.failure_scope, 'repo-local');
+  assert.equal(
+    classifyGeneratedPr({ pr: sync, checkState: localFail, now: '2026-08-01T00:00:00Z' }).disposition,
+    'repo-local-failure',
+  );
+});
+
 test('selectActiveSyncPr honors target hash instead of newest PR', () => {
   const selection = selectActiveSyncPr(
     [
@@ -90,6 +158,23 @@ test('selectActiveSyncPr reports missing target without marking stale PRs', () =
   assert.equal(selection.active, null);
   assert.deepEqual(selection.stale, []);
   assert.equal(selection.missingExpected, true);
+});
+
+test('selectMergeEligibleSyncPr refuses legacy delivery attempts', () => {
+  const legacy = pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z');
+  assert.equal(selectMergeEligibleSyncPr([legacy]).eligibility.reason, 'missing_delivery_record');
+});
+
+test('selectMergeEligibleSyncPr rejects a PR whose head no longer matches its lease', () => {
+  const leased = {
+    ...pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z'),
+    body: '<!-- sync-pr-delivery-record:v1 {"schema":"sync-pr-delivery-record/v1","durable_issue_url":"https://github.com/stranske/Workflows/issues/1836","plan_id":"plan-abc","generation":"template-abc","repository":"stranske/Ready","desired_tree_hash":"tree-abc","source_commit":"source-abc","lease_expires_at":"2026-08-02T00:00:00Z","predecessor_prs":[],"successor_prs":[]} -->',
+  };
+  assert.equal(selectMergeEligibleSyncPr([leased], {
+    now: '2026-08-01T22:00:00Z',
+    repository: 'stranske/Ready',
+    desiredTreeHash: 'tree-other',
+  }).eligibility.reason, 'desired_tree_mismatch');
 });
 
 test('buildMergeReport provides machine-readable summary counts', () => {
@@ -117,13 +202,53 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     branch_delete_failed: 0,
     checks_failed: 0,
     checks_pending: 0,
+    review_blocked: 0,
     ready: 0,
     dry_run_merge: 1,
     merge_blocked_runtime_ac: 0,
     merged: 0,
     merge_failed: 0,
+    delivery_contract_blocked: 0,
     error: 0,
   });
+  assert.deepEqual(report.handoff_records, []);
+});
+
+test('buildDeliveryHandoff preserves the restart fields for a generated PR', () => {
+  assert.deepEqual(buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Ready', pr: 11, branch: 'deps/sync-dev-versions-20260801',
+    head_sha: 'abc', delivery_generation: 'g2', delivery_disposition: 'review-blocked',
+    blocker_owner: 'closer', next_command: 'resolve-active-review-threads',
+    status: 'review_blocked', active_review_thread_count: 2,
+  }), {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
+    branch: 'deps/sync-dev-versions-20260801', head_sha: 'abc', delivery_generation: 'g2',
+    lane: 'dev-tool-sync', disposition: 'review-blocked', blocker_owner: 'closer',
+    next_command: 'resolve-active-review-threads',
+    check_state: 'ready', review_state: 'blocked',
+  });
+});
+
+test('buildDeliveryHandoff rewrites terminal merge outcomes', () => {
+  assert.deepEqual(buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Ready', pr: 11, branch: 'sync/workflows-abc',
+    head_sha: 'abc', delivery_generation: 'g2', delivery_disposition: 'current',
+    blocker_owner: 'maint-71', next_command: 'merge-current-delivery',
+    status: 'merged',
+  }), {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
+    branch: 'sync/workflows-abc', head_sha: 'abc', delivery_generation: 'g2',
+    lane: 'sync', disposition: 'merged', blocker_owner: 'none', next_command: 'none',
+    check_state: 'ready', review_state: 'clear',
+  });
+  assert.equal(buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Ready', pr: 11, branch: 'sync/workflows-abc',
+    head_sha: 'abc', delivery_generation: 'g2', status: 'branch_deleted',
+  }), null);
+});
+
+test('buildDeliveryHandoff rejects results that lack required restart fields', () => {
+  assert.equal(buildDeliveryHandoff({ owner: 'stranske', repo: 'Ready', pr: 11, branch: 'sync/workflows-current' }), null);
 });
 
 test('collectDeletableSyncBranches keeps open PR branches and non-sync branches', () => {

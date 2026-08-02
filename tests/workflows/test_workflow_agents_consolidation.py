@@ -310,8 +310,12 @@ def test_merge_sync_prs_uploads_machine_readable_report_and_hash_input():
         "sync_pr_merge_contract.js" in text
     ), "Maint 71 must use the structured sync PR merge contract helper"
     assert (
-        "selectActiveSyncPr" in text
-    ), "Maint 71 must select the active PR with the hash-aware contract"
+        "selectMergeEligibleSyncPr" in text
+    ), "Maint 71 must select the active PR with the lease-aware merge contract"
+    assert (
+        "isTrustedGeneratedDeliveryPr" in text
+    ), "Maint 71 must route both sync and dev-tool generated deliveries through the contract"
+    assert "close-expired-delivery" in text and "close-or-refresh-delivery" in text
     assert "cleanup_branches:" in text, "Maint 71 must expose sync branch cleanup control"
     assert (
         "collectDeletableSyncBranches" in text and "branch_delete_failed" in text

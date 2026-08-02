@@ -1,0 +1,143 @@
+name: Health 83 Dependency Sync Efficiency
+
+on:
+  schedule:
+    - cron: '15 11 * * 1'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+
+      - name: Load registered consumers
+        id: consumers
+        run: echo "repos=$(python scripts/list_registered_consumer_repos.py --separator ',')" >> "$GITHUB_OUTPUT"
+
+      - name: Collect bounded GitHub evidence
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          REGISTERED_REPOS: ${{ steps.consumers.outputs.repos }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { github: api, withRetry } = await createTokenAwareRetry({
+              github, core, env: process.env,
+              task: 'health-83-dependency-sync-efficiency',
+              capabilities: ['actions:read', 'pull-requests:read'],
+            });
+            const windowEnd = new Date();
+            const windowStart = new Date(windowEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const inWindow = (value) => value && new Date(value) >= windowStart;
+            const sourceByPr = new Map();
+            const sourceFromBody = (body, fallback) => {
+              const marker = String(body || '').match(/<!--\s*workflows-consumer-sync:v1\s+({.*?})\s*-->/s);
+              if (!marker) return fallback;
+              try {
+                const parsed = JSON.parse(marker[1]);
+                return parsed.source_sha || parsed.plan_id || fallback;
+              } catch {
+                return fallback;
+              }
+            };
+            const registered = String(process.env.REGISTERED_REPOS || '')
+              .split(',')
+              .map((repo) => repo.trim())
+              .filter(Boolean)
+              .map((repo) => (repo.includes('/') ? repo : `${context.repo.owner}/${repo}`));
+            const repos = [...new Set([
+              `${context.repo.owner}/${context.repo.repo}`,
+              ...registered,
+              `${context.repo.owner}/Collab-Admin`,
+            ])];
+            const pulls = [];
+            const workflow_runs = [];
+            for (const repo of repos) {
+              const [owner, name] = repo.includes('/') ? repo.split('/') : [context.repo.owner, repo];
+              const prPage = await withRetry((client) => client.rest.pulls.list({owner, repo: name, state: 'all', sort: 'updated', direction: 'desc', per_page: 100}));
+              for (const pr of prPage.data) {
+                if (!inWindow(pr.created_at) && !inWindow(pr.updated_at) && !inWindow(pr.merged_at) && !inWindow(pr.closed_at)) continue;
+                const source_commit = sourceFromBody(pr.body, pr.head?.sha);
+                sourceByPr.set(`${owner}/${name}#${pr.number}`, source_commit);
+                pulls.push({repo: `${owner}/${name}`, number: pr.number, title: pr.title, body: pr.body, labels: pr.labels, state: pr.state, author: pr.user?.login, head_ref: pr.head?.ref, head_sha: pr.head?.sha, source_commit, created_at: pr.created_at, updated_at: pr.updated_at, merged_at: pr.merged_at, closed_at: pr.closed_at});
+              }
+              const runPage = await withRetry((client) => client.rest.actions.listWorkflowRunsForRepo({owner, repo: name, per_page: 100}));
+              for (const run of runPage.data.workflow_runs) {
+                if (!inWindow(run.created_at)) continue;
+                const linkedPr = run.pull_requests?.[0]?.number;
+                const source_commit = linkedPr ? sourceByPr.get(`${owner}/${name}#${linkedPr}`) : null;
+                workflow_runs.push({repo: `${owner}/${name}`, source_commit, status: run.status, conclusion: run.conclusion, created_at: run.created_at});
+              }
+            }
+            fs.writeFileSync('dependency-sync-efficiency-input.json', JSON.stringify({
+              period: {kind: 'trailing-7-day-window', start: windowStart.toISOString(), end: windowEnd.toISOString()},
+              collection: {history_complete: false, limitations: ['Each repository is bounded to its latest 100 updated PRs and workflow runs before applying the explicit trailing seven-day reporting window; historical pagination is intentionally not claimed.']},
+              pulls, workflow_runs,
+            }, null, 2));
+
+      - name: Calculate advisory SLOs
+        run: |
+          metrics_output="$(python scripts/dependency_sync_efficiency_metrics.py \
+            --input dependency-sync-efficiency-input.json \
+            --json-out dependency-sync-efficiency.json \
+            --markdown-out dependency-sync-efficiency.md)"
+          printf '%s\n' "$metrics_output"
+          fingerprint="$(printf '%s\n' "$metrics_output" | awk -F= '/^fingerprint=/{print $2}')"
+          test -n "$fingerprint"
+          echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"
+        id: metrics
+
+      - name: Comment only on material tracker evidence changes
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          FINGERPRINT: ${{ steps.metrics.outputs.fingerprint }}
+          # Dedicated durable tracker (#2897). Never post efficiency evidence onto #1836.
+          EFFICIENCY_TRACKER_ISSUE: '2897'
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { paginateWithRetry, withRetry } = await createTokenAwareRetry({
+              github, core, env: process.env,
+              task: 'health-83-dependency-sync-efficiency',
+              capabilities: ['issues:write'],
+            });
+            const tracker = Number(process.env.EFFICIENCY_TRACKER_ISSUE || '');
+            if (!Number.isInteger(tracker) || tracker <= 0 || tracker === 1836) {
+              core.setFailed(`Health 83 refuses to comment: set EFFICIENCY_TRACKER_ISSUE to the dedicated efficiency tracker (got ${process.env.EFFICIENCY_TRACKER_ISSUE}).`);
+              return;
+            }
+            const marker = `dependency-sync-efficiency:v1 fingerprint=${process.env.FINGERPRINT}`;
+            const comments = await paginateWithRetry(github.rest.issues.listComments, {owner: context.repo.owner, repo: context.repo.repo, issue_number: tracker, per_page: 100});
+            const latestHealth83 = [...comments].reverse().find((comment) => comment.body.includes('dependency-sync-efficiency:v1 fingerprint='));
+            if (!latestHealth83?.body.includes(marker)) {
+              await withRetry((client) => client.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: tracker, body: `<!-- ${marker} -->\n${fs.readFileSync('dependency-sync-efficiency.md', 'utf8')}`}));
+            }
+
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dependency-sync-efficiency-${{ github.run_id }}
+          path: |
+            dependency-sync-efficiency-input.json
+            dependency-sync-efficiency.json
+            dependency-sync-efficiency.md

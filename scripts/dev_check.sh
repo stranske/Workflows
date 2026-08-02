@@ -164,9 +164,23 @@ if [[ "$CHANGED_ONLY" == true ]]; then
     UNSTAGED_FILES=$(git diff --name-only 2>/dev/null | grep -E '\.(py)$' 2>/dev/null | grep -v -E '^(archive/|\.extraction/)' 2>/dev/null || echo "")
     ALL_FILES=$(echo -e "$PYTHON_FILES\n$UNSTAGED_FILES" | sort -u | grep -v '^$' 2>/dev/null || echo "")
 
-    if [[ -z "$ALL_FILES" ]]; then
+    # Renovate settings are JSON, so they are deliberately absent from the
+    # Python formatter/linter target list. They must still keep this command
+    # running long enough to reach the dedicated validator below.
+    RENOVATE_CONFIG_CHANGED=$( {
+        git diff --name-only HEAD~1 2>/dev/null
+        git diff --name-only 2>/dev/null
+    } | grep -E '^(renovate\.json|renovate-presets/.*\.json|templates/consumer-repo/\.github/renovate\.json)$' | sort -u || echo "")
+
+    if [[ -z "$ALL_FILES" && -z "$RENOVATE_CONFIG_CHANGED" ]]; then
         echo -e "${GREEN}No Python files changed (excluding old folders) - nothing to check${NC}"
         exit 0
+    fi
+
+    if [[ -n "$RENOVATE_CONFIG_CHANGED" && -z "$ALL_FILES" ]]; then
+        echo -e "${BLUE}Renovate configuration changed; continuing to its dedicated validator:${NC}"
+        echo "$RENOVATE_CONFIG_CHANGED" | sed 's/^/  /'
+        echo ""
     fi
 
     echo -e "${BLUE}Checking only changed files (excluding old folders):${NC}"
@@ -568,6 +582,13 @@ if command -v node >/dev/null 2>&1; then
     quick_check "Keepalive JS tests" "node --test .github/scripts/__tests__/keepalive*.test.js 2>/dev/null || true" ""
 else
     echo -e "${YELLOW}⚠ Node.js not available; skipping keepalive harness tests${NC}"
+fi
+
+echo -e "${BLUE}7. Renovate configuration...${NC}"
+if command -v npx >/dev/null 2>&1; then
+    quick_check "Renovate configuration" "npx --yes --package renovate@43.285.3 -- renovate-config-validator --no-global renovate.json renovate-presets/fleet.json templates/consumer-repo/.github/renovate.json" ""
+else
+    echo -e "${YELLOW}⚠ npx not available; skipping Renovate configuration validation${NC}"
 fi
 
 echo ""

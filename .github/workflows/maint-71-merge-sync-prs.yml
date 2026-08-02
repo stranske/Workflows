@@ -11,7 +11,7 @@
 # - Repository dispatch (event_type: merge-sync-prs) for Codespace triggers
 #
 # Safety:
-# - Only merges PRs with sync/workflows-* branch names
+# - Merges trusted generated delivery PRs (sync/workflows-* and deps/sync-dev-versions-*)
 # - Requires all checks to pass
 # - Uses merge commit (not squash) to preserve sync history
 
@@ -134,12 +134,14 @@ jobs:
             const {
               buildMarkdownSummary,
               buildMergeReport,
+              classifyGeneratedPr,
               classifySyncPrChecks,
               collectDeletableSyncBranches,
+              generatedDeliveryLane,
               normalizeSyncHash,
               parseBooleanInput,
-              isTrustedSyncPr,
-              selectActiveSyncPr,
+              isTrustedGeneratedDeliveryPr,
+              selectMergeEligibleSyncPr,
               selectSyncPrGatingChecks,
             } = require('./.github/scripts/sync_pr_merge_contract.js');
             const {
@@ -330,7 +332,7 @@ jobs:
                   per_page: 20
                 }));
 
-                const syncPRs = prs.filter((pr) => isTrustedSyncPr(pr, trustedSyncActors));
+                const syncPRs = prs.filter((pr) => isTrustedGeneratedDeliveryPr(pr, trustedSyncActors));
 
                 if (cleanupBranches) {
                   try {
@@ -410,7 +412,11 @@ jobs:
                   continue;
                 }
 
-                const selection = selectActiveSyncPr(syncPRs, requestedSyncHash);
+                let selection = selectMergeEligibleSyncPr(syncPRs, {
+                  syncHash: requestedSyncHash,
+                  now: new Date().toISOString(),
+                  repository: `${owner}/${repo}`,
+                });
                 if (selection.missingExpected) {
                   console.log(
                     `Expected sync PR branch ${selection.expectedBranch} was not found; leaving ` +
@@ -429,6 +435,20 @@ jobs:
                   });
                   continue;
                 }
+
+                const { data: selectedHeadCommit } = await withRetry((client) =>
+                  client.rest.git.getCommit({
+                    owner,
+                    repo,
+                    commit_sha: selection.active.head.sha,
+                  }),
+                );
+                selection = selectMergeEligibleSyncPr(syncPRs, {
+                  syncHash: requestedSyncHash,
+                  now: new Date().toISOString(),
+                  repository: `${owner}/${repo}`,
+                  desiredTreeHash: selectedHeadCommit?.tree?.sha || '',
+                });
 
                 // If multiple sync PRs exist, close older ones as stale
                 if (selection.stale.length > 0) {
@@ -495,6 +515,50 @@ jobs:
                   }
                 }
 
+                if (!selection.eligibility?.eligible) {
+                  const reason = selection.eligibility?.reason || 'missing_delivery_record';
+                  console.log(`Delivery contract blocks merge: ${reason}`);
+                  const deliveryDisposition = reason === 'lease_expired'
+                    ? 'expired'
+                    : selection.deliveryRecord
+                      ? 'superseded'
+                      : 'owner-decision';
+                  const deliveryContext = {
+                    owner,
+                    repo,
+                    pr: selection.active.number,
+                    branch: selection.active.head.ref,
+                    head_sha: selection.active.head.sha,
+                    delivery_generation: selection.deliveryRecord?.generation || '',
+                    delivery_lane: generatedDeliveryLane(selection.active.head.ref),
+                    delivery_disposition: deliveryDisposition,
+                    blocker_owner: deliveryDisposition === 'owner-decision' ? 'source' : 'maint-71',
+                    next_command: deliveryDisposition === 'expired'
+                      ? 'close-expired-delivery'
+                      : deliveryDisposition === 'superseded'
+                        ? 'close-or-refresh-delivery'
+                        : 'attach-or-infer-delivery-record',
+                  };
+                  if (deliveryDisposition === 'expired' || deliveryDisposition === 'superseded') {
+                    if (!dryRun) {
+                      await withRetry((client) => client.rest.pulls.update({
+                        owner,
+                        repo,
+                        pull_number: selection.active.number,
+                        state: 'closed',
+                      }));
+                    }
+                    results.push({ ...deliveryContext, status: 'stale_closed', dry_run: dryRun });
+                    continue;
+                  }
+                  results.push({
+                    ...deliveryContext,
+                    status: 'delivery_contract_blocked',
+                    delivery_reason: reason,
+                  });
+                  continue;
+                }
+
                 // Process the selected active PR
                 const pr = selection.active;
                 const metadata = syncMetadata(pr);
@@ -538,6 +602,29 @@ jobs:
                   requiredContexts.size > 0 ? 'required-contexts' : 'denylist-fallback';
                 const failedChecks = classification.failed;
                 const pendingChecks = classification.pending;
+                const activeReviewThreads = await activeReviewThreadCount(
+                  owner,
+                  repo,
+                  pr.number,
+                );
+                const deliveryState = classifyGeneratedPr({
+                  pr,
+                  checkState: classification,
+                  activeReviewThreadCount: activeReviewThreads,
+                  now: new Date().toISOString(),
+                });
+                const deliveryContext = {
+                  owner,
+                  repo,
+                  pr: pr.number,
+                  branch: pr.head.ref,
+                  head_sha: pr.head.sha,
+                  delivery_generation: selection.deliveryRecord?.generation || '',
+                  delivery_lane: generatedDeliveryLane(pr.head.ref),
+                  delivery_disposition: deliveryState.disposition,
+                  blocker_owner: deliveryState.blocker_owner,
+                  next_command: deliveryState.next_command,
+                };
 
                 if (metadata?.sync_phase === 'canary' && metadata?.plan_id) {
                   canaryEvidence.push({
@@ -546,7 +633,7 @@ jobs:
                     pr: pr.number,
                     required_check_state:
                       classification.status === 'ready' ? 'success' : classification.status,
-                    active_review_thread_count: await activeReviewThreadCount(owner, repo, pr.number),
+                    active_review_thread_count: activeReviewThreads,
                   });
                 }
 
@@ -555,14 +642,21 @@ jobs:
                     `${failedChecks.length} failed, ${pendingChecks.length} pending`,
                 );
 
+                if (deliveryState.disposition === 'review-blocked') {
+                  console.log(`Active review threads block merge: ${activeReviewThreads}`);
+                  results.push({
+                    ...deliveryContext,
+                    status: 'review_blocked',
+                    active_review_thread_count: activeReviewThreads,
+                  });
+                  continue;
+                }
+
                 if (classification.status === 'checks_failed') {
                   console.log('Failed checks:');
                   failedChecks.forEach(c => console.log(`  - ${c.name}: ${c.conclusion}`));
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'checks_failed',
                     failed_checks: failedChecks.map((check) => ({
                       name: check.name,
@@ -576,10 +670,7 @@ jobs:
                 if (classification.status === 'checks_pending') {
                   console.log('Waiting for checks to complete');
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'checks_pending',
                     pending_checks: pendingChecks.map((check) => ({
                       name: check.name,
@@ -594,10 +685,7 @@ jobs:
                 if (!autoMerge) {
                   console.log('✓ Ready to merge (auto-merge disabled)');
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'ready',
                   });
                   continue;
@@ -606,10 +694,7 @@ jobs:
                 if (dryRun) {
                   console.log('✓ Would merge (dry run)');
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'dry_run_merge',
                   });
                   continue;
@@ -630,10 +715,7 @@ jobs:
                   const message = String(guardError?.message || guardError);
                   console.log(`Runtime AC merge guard blocked PR #${pr.number}: ${message}`);
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'merge_blocked_runtime_ac',
                     error: message,
                   });
@@ -683,38 +765,26 @@ jobs:
                     }));
                     console.log('✓ Branch deleted');
                     results.push({
-                      owner,
-                      repo,
-                      pr: pr.number,
-                      branch: pr.head.ref,
+                      ...deliveryContext,
                       status: 'branch_deleted',
                     });
                   } catch (e) {
                     console.log(`⚠ Could not delete branch: ${e.message}`);
                     results.push({
-                      owner,
-                      repo,
-                      pr: pr.number,
-                      branch: pr.head.ref,
+                      ...deliveryContext,
                       status: 'branch_delete_failed',
                       error: e.message,
                     });
                   }
 
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'merged',
                   });
                 } catch (e) {
                   console.log(`✗ Merge failed: ${e.message}`);
                   results.push({
-                    owner,
-                    repo,
-                    pr: pr.number,
-                    branch: pr.head.ref,
+                    ...deliveryContext,
                     status: 'merge_failed',
                     error: e.message,
                   });
@@ -757,6 +827,26 @@ jobs:
               'utf8',
             );
             await core.summary.addRaw(buildMarkdownSummary(report)).write();
+            if (!dryRun && report.handoff_records.length > 0) {
+              // Fleet-wide refresh: a targeted Maint 71 repos filter must not cause
+              // Maint 82 to stale unscanned repos. Dispatch is best-effort so a
+              // permissions/transient failure does not fail the reconciler run.
+              try {
+                await withRetry((client) => client.rest.repos.createDispatchEvent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  event_type: 'sync-dependabot-campaign',
+                  client_payload: {
+                    repos: registeredRepos.join(','),
+                    delivery_handoff_records: report.handoff_records,
+                  },
+                }));
+              } catch (dispatchError) {
+                core.notice(
+                  `Maint 71 handoff dispatch failed (non-blocking): ${dispatchError.message}`,
+                );
+              }
+            }
 
             const merged = report.summary.merged;
             const stale = report.summary.stale_closed;

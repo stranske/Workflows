@@ -291,6 +291,7 @@ EXPECTED_NAMES = {
     "health-75-api-rate-diagnostic.yml": "Health 75 API Rate Diagnostic",
     "health-76-codex-cli-freshness.yml": "Health 76 Codex CLI Freshness",
     "health-78-backplane-contract.yml": "Backplane Contract Integrity",
+    "health-83-dependency-sync-efficiency.yml": "Health 83 Dependency Sync Efficiency",
     "maint-68-sync-consumer-repos.yml": "Maint 68 Sync Consumer Repos",
     "maint-69-sync-integration-repo.yml": "Maint 69 Sync Integration Repo",
     "maint-69-sync-labels.yml": "Maint 69 Sync Labels",

@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 
 WORKFLOW = Path(".github/workflows/maint-82-sync-dependency-campaign.yml")
+MERGE_WORKFLOW = Path(".github/workflows/maint-71-merge-sync-prs.yml")
 CAMPAIGN_SCRIPT = Path(".github/scripts/sync_dependency_campaign.js")
 
 
@@ -27,6 +28,24 @@ def test_campaign_refresh_passes_current_sync_hash_to_runner():
 
     assert "const currentSyncHash = '${{ steps.hash.outputs.hash }}';" in script
     assert "currentSyncHash," in script
+
+
+def test_campaign_refresh_consumes_maint71_delivery_handoffs():
+    script = _refresh_script()
+
+    assert "context.payload.client_payload?.delivery_handoff_records || []" in script
+    assert "deliveryHandoffRecords," in script
+    assert "Maint 71 handoffs observed:" in script
+
+
+def test_maint71_dispatches_machine_readable_handoffs_to_campaign():
+    workflow = MERGE_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "event_type: 'sync-dependabot-campaign'" in workflow
+    assert "delivery_handoff_records: report.handoff_records" in workflow
+    # Targeted Maint 71 runs must still refresh the full registered fleet.
+    assert "repos: registeredRepos.join(',')" in workflow
+    assert "Maint 71 handoff dispatch failed (non-blocking)" in workflow
 
 
 def test_campaign_workflow_bot_agnostic_identity():

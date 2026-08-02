@@ -60,6 +60,16 @@ Maint 68 implements these exceptions through each entry's typed manifest
 `skip_repos` rules. There is no separate hard-coded custom-Gate list in the
 sync script.
 
+### Fleet Renovate intake policy
+
+All registered consumers extend `renovate-presets/fleet.json`. Routine dependency
+work is limited to Monday 01:00–05:00 America/Chicago, two commits per hour, and
+three concurrent branches/PRs. Routine releases wait three days and for non-pending
+update-branch checks; vulnerability alerts bypass each routine delay. Trusted GitHub Actions
+digest, pin, minor, and patch updates are grouped for green automerge, while majors
+stay visible in the Dependency Dashboard until explicitly approved. Lock-file
+maintenance is grouped into the same weekly maintenance window.
+
 ---
 
 ## Bug Triage Process
@@ -431,3 +441,12 @@ After fixing a template bug:
 | Date | Change |
 |------|--------|
 | 2025-12-27 | Initial document based on trip-planner/Manager-Database setup learnings |
+
+## Generated delivery ownership
+
+For dependency and consumer-sync delivery, the campaign issue is durable and
+each generated PR is a leased attempt. Maint 71 alone decides merge or close
+disposition for `sync/workflows-*` and `deps/sync-dev-versions-*`; operators
+and local watchers must consume its recorded owner/next-command handoff rather
+than reimplementing that policy. See
+[`SYNC_DEPENDENCY_CAMPAIGN.md`](SYNC_DEPENDENCY_CAMPAIGN.md).

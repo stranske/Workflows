@@ -261,6 +261,7 @@ jobs:
       REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
       PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
       SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
+      DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
     steps:
       - name: Compute result artifact name
         id: repo_meta
@@ -734,54 +735,76 @@ jobs:
         if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
-          EXISTING_SYNC_PR: ${{ steps.open_pr.outputs.exists || 'false' }}
+          DELIVERY_GENERATION: ${{ needs.prepare.outputs.template_hash }}
+          DELIVERY_REPOSITORY: ${{ matrix.repo }}
         run: |
           cd consumer
 
           branch_name="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
 
-          if [ "$EXISTING_SYNC_PR" = "true" ]; then
-            existing_pr=$(
-              gh pr list --head "$branch_name" --json number -q '.[0].number' || echo ""
-            )
-            echo "PR #$existing_pr already exists for this sync"
-            echo "::notice::Existing PR: #$existing_pr"
-            {
-              echo "status=existing_pr"
-              echo "pr_number=$existing_pr"
-              echo "pr_url=https://github.com/${{ matrix.repo }}/pull/$existing_pr"
-            } >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Race-condition backstop: another run may have opened the PR after
-          # the shared open-PR check completed.
-          existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
-          if [ -n "$existing_pr" ]; then
-            echo "PR #$existing_pr already exists for this sync"
-            echo "::notice::Existing PR: #$existing_pr"
-            {
-              echo "status=existing_pr"
-              echo "pr_number=$existing_pr"
-              echo "pr_url=https://github.com/${{ matrix.repo }}/pull/$existing_pr"
-            } >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Configure git for push authentication using credential helper
-          # This avoids exposing token in git remote URL or command output
+          # Configure git for push/fetch authentication using credential helper
+          # This avoids exposing token in git remote URL or command output.
           # Must be configured before any git operations that need auth
+          # (including the early fetch of an existing sync branch).
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-            # shellcheck disable=SC2016 # GH_TOKEN expands at runtime
-            credential_helper='!f() { echo "username=x-access-token";'
-            credential_helper+=" echo \"password=${GH_TOKEN}\";"
-            credential_helper+=' }; f'
-            git config credential.helper "$credential_helper"
+          credential_helper="!f() { echo \"username=x-access-token\"; echo \"password=\$GH_TOKEN\"; }; f"
+          git config credential.helper "$credential_helper"
+
+          # Keep an existing generated PR current instead of treating it as a
+          # terminal delivery attempt: rebuild its branch and refresh its lease
+          # only when the existing attempt still has a current delivery record.
+          existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+          existing_head=""
+          existing_base=""
+          existing_tree=""
+          existing_refreshable=false
+          existing_refresh_reason="none"
+          if [ -n "$existing_pr" ]; then
+            echo "Inspecting existing sync PR #$existing_pr for same-generation refresh"
+            # Capture the remote head now so a later force push cannot overwrite
+            # an intervening consumer edit.
+            git fetch origin "$branch_name"
+            existing_head=$(git rev-parse FETCH_HEAD)
+            existing_base=$(git rev-parse "${existing_head}^")
+            existing_tree=$(git rev-parse "${existing_head}^{tree}")
+            existing_body_file=$(mktemp)
+            gh pr view "$existing_pr" --json body -q .body >"$existing_body_file" || true
+            # shellcheck disable=SC2016 # The embedded Node source must remain literal.
+            refresh_check=$(
+              EXISTING_BODY_FILE="$existing_body_file" \
+              DELIVERY_GENERATION="$DELIVERY_GENERATION" \
+              PLAN_ID="$PLAN_ID" \
+              DELIVERY_REPOSITORY="$DELIVERY_REPOSITORY" \
+              node -e '
+                const fs = require("fs");
+                const { parseDeliveryRecord, mergeEligibility } = require("../workflows/.github/scripts/sync_pr_lease_contract");
+                const body = fs.readFileSync(process.env.EXISTING_BODY_FILE || "", "utf8");
+                const record = parseDeliveryRecord(body);
+                if (!record) {
+                  process.stdout.write("false missing_or_invalid");
+                  process.exit(0);
+                }
+                if (record.generation !== (process.env.DELIVERY_GENERATION || "")) {
+                  process.stdout.write("false generation_mismatch");
+                  process.exit(0);
+                }
+                const result = mergeEligibility(record, {
+                  planId: process.env.PLAN_ID || "",
+                  repository: process.env.DELIVERY_REPOSITORY || "",
+                });
+                process.stdout.write(`${result.eligible ? "true" : "false"} ${result.reason}`);
+              '
+            )
+            rm -f "$existing_body_file"
+            existing_refreshable=${refresh_check%% *}
+            existing_refresh_reason=${refresh_check#* }
+            echo "Existing PR #$existing_pr refreshable=${existing_refreshable} reason=${existing_refresh_reason}"
+          fi
 
           # Remote branch exists but no PR was found
           # (likely from a failed previous run) - deleting and recreating
-          if git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then
+          if [ -z "$existing_pr" ] && git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then
               echo "Remote branch $branch_name exists but no PR was found."
               echo "Deleting and recreating branch from previous failed run."
             # Delete the remote branch so we can push fresh
@@ -798,8 +821,9 @@ jobs:
             }
           fi
 
-          # Create branch and commit
-          git checkout -b "$branch_name"
+          # Create the current-generation branch from the current consumer base.
+          base_sha=$(git rev-parse HEAD)
+          git checkout -B "$branch_name"
 
           # Stage ONLY manifest-declared targets, to avoid accidentally committing
           # consumer-specific artifacts (e.g. requirements.lock, *.pyc, *.egg-info).
@@ -820,22 +844,46 @@ jobs:
             git add --force -A
           fi
 
-          if git diff --cached --quiet; then
+          desired_tree_hash=$(git write-tree)
+          matching_existing=false
+          if [ -n "$existing_pr" ] \
+            && [ "$existing_refreshable" = "true" ] \
+            && [ "$existing_base" = "$base_sha" ] \
+            && [ "$existing_tree" = "$desired_tree_hash" ]; then
+            matching_existing=true
+            echo "Existing PR #$existing_pr already matches this base and desired tree with a current lease; refreshing only its lease"
+          elif [ -n "$existing_pr" ] \
+            && [ "$existing_base" = "$base_sha" ] \
+            && [ "$existing_tree" = "$desired_tree_hash" ] \
+            && [ "$existing_refreshable" != "true" ]; then
+            echo "Existing PR #$existing_pr matches base/tree but is not refreshable (${existing_refresh_reason}); leaving it for Maint 71 disposition."
+            echo "status=existing_pr_not_refreshable" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --cached --quiet && [ "$matching_existing" != "true" ]; then
             echo "No changes to commit after sync; skipping PR creation."
             echo "status=no_committed_changes" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          git commit -m "chore: sync workflow templates from Workflows repo
+          if [ "$matching_existing" != "true" ]; then
+            git commit -m "chore: sync workflow templates from Workflows repo
 
-          Automated sync from stranske/Workflows
-          Template hash: ${{ needs.prepare.outputs.template_hash }}
+            Automated sync from stranske/Workflows
+            Template hash: ${{ needs.prepare.outputs.template_hash }}
 
-          Changes synced from sync-manifest.yml"
+            Changes synced from sync-manifest.yml"
 
-          git push --quiet -u origin "$branch_name"
+            if [ -n "$existing_pr" ]; then
+              git push --quiet --force-with-lease="refs/heads/$branch_name:$existing_head" -u origin "$branch_name"
+            else
+              git push --quiet -u origin "$branch_name"
+            fi
+          fi
 
           # Create PR
+          lease_expires_at=$(date -u -d '+72 hours' +%Y-%m-%dT%H:%M:%SZ)
           sync_marker=$(jq -nc \
             --arg schema "workflows-consumer-sync-pr/v1" \
             --arg consumer_repo "${{ matrix.repo }}" \
@@ -865,6 +913,16 @@ jobs:
               run_attempt: $run_attempt,
               changes_count: $changes_count
             }')
+          delivery_marker=$(jq -nc \
+            --arg schema "sync-pr-delivery-record/v1" \
+            --arg durable_issue_url "$DURABLE_ISSUE_URL" \
+            --arg plan_id "$PLAN_ID" \
+            --arg generation "$DELIVERY_GENERATION" \
+            --arg repository "$DELIVERY_REPOSITORY" \
+            --arg desired_tree_hash "$desired_tree_hash" \
+            --arg source_commit "$GITHUB_SHA" \
+            --arg lease_expires_at "$lease_expires_at" \
+            '{schema:$schema,durable_issue_url:$durable_issue_url,plan_id:$plan_id,generation:$generation,repository:$repository,desired_tree_hash:$desired_tree_hash,source_commit:$source_commit,lease_expires_at:$lease_expires_at,predecessor_prs:[],successor_prs:[]}')
           pr_body=$(cat ../sync_summary.md)
           pr_body="$pr_body
 
@@ -883,16 +941,25 @@ jobs:
           **Consumer repo:** \`${{ matrix.repo }}\`
           **Manifest:** \`.github/sync-manifest.yml\`
 
-          <!-- workflows-consumer-sync:v1 $sync_marker -->"
+          <!-- workflows-consumer-sync:v1 $sync_marker -->
+          <!-- sync-pr-delivery-record:v1 $delivery_marker -->"
 
-          pr_url=$(gh pr create \
-            --head "$branch_name" \
-            --title "chore: sync workflow templates" \
-            --body "$pr_body" \
-            --label "sync,automated")
-          pr_number=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --body "$pr_body"
+            pr_number="$existing_pr"
+            pr_url="https://github.com/${{ matrix.repo }}/pull/$existing_pr"
+            status="refreshed_pr"
+          else
+            pr_url=$(gh pr create \
+              --head "$branch_name" \
+              --title "chore: sync workflow templates" \
+              --body "$pr_body" \
+              --label "sync,automated")
+            pr_number=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+            status="created_pr"
+          fi
           {
-            echo "status=created_pr"
+            echo "status=$status"
             echo "pr_number=$pr_number"
             echo "pr_url=$pr_url"
           } >> "$GITHUB_OUTPUT"

@@ -37,7 +37,8 @@ failure-notification path.
 |-------|-------|-----------------|---------|--------------|
 | [#2211](https://github.com/stranske/Workflows/issues/2211) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
 | [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependabot campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 6h + Mondays 10:30 UTC | Body rewritten in place |
-| [#2210](https://github.com/stranske/Workflows/issues/2210) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 05:10 UTC | Body rewritten in place |
+| [#2897](https://github.com/stranske/Workflows/issues/2897) | Dependency/sync maintenance-efficiency advisory report | [`health-83-dependency-sync-efficiency.yml`](../../.github/workflows/health-83-dependency-sync-efficiency.yml) | Weekly Mondays 11:15 UTC + `workflow_dispatch` | Comment appended only on material-evidence fingerprint change |
+| [#2210](https://github.com/stranske/Workflows/issues/2210) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | After each successful main-branch `Merge Sync PRs` run, qualifying manifest/template/script/tool pushes, or manual dispatch | Body rewritten in place, but only for actionable states |
 | [#2470](https://github.com/stranske/Workflows/issues/2470) | 🚨 Integration-Tests Sync Failed - Action Required | [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) | On qualifying template/config pushes or manual dispatch | Stuck-window marker in body + recovery comment |
 | [#2415](https://github.com/stranske/Workflows/issues/2415) | 📊 LangSmith Trace Coverage Dashboard | [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) | Mondays 09:00 UTC + manual dispatch | Body rewritten in place |
 
@@ -45,7 +46,27 @@ The signal flow each tracker carries:
 
 - **#2211** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
 - **#1836** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
-- **#2210** — fan-out drift report across registered consumer repos. `Health 68` creates or refreshes it when drift is detected; a clean run does not close it, so its latest body must be read as the last detected signal rather than an automatic current-status promise.
+- **#2897** — Health 83 dependency/sync maintenance-efficiency advisory evidence. Comments append only when the material-evidence fingerprint changes; do not redirect this signal onto `#1836`.
+
+### Leased generated delivery attempts
+
+Maint 68 consumer sync and Maint 52 dev-tool sync PRs carry a
+`sync-pr-delivery-record/v1` marker. The marker names the durable campaign
+issue, plan/generation, consumer repository, desired tree hash, source commit,
+and a 72-hour lease. Maint 71 may merge only a current, unexpired record;
+markerless, stale, or expired attempts are reported for terminal disposition
+rather than becoming an immortal coordination queue.
+- **#2210** — fan-out drift report across registered consumer repos. `Health 68` creates or refreshes it when drift is **actionable**; a clean run does not close it, so its latest body must be read as the last detected signal rather than an automatic current-status promise. Since #2878 the checker classifies each consumer as `converged`, `covered`, `blocked`, `untracked_drift`, or `stale`, and only the actionable states reach this tracker:
+
+  | State | Meaning | Exit code | Touches #2210 |
+  |-------|---------|-----------|---------------|
+  | `converged` | No drift against the compiled plan | 0 | No |
+  | `covered` | Drift exists, but an open `sync/workflows-<template-hash>` PR matches the current plan and is inside the 36-hour coverage lease | 0 | No |
+  | `stale` | A plan-matching sync PR is open but has not been updated inside the lease | non-zero | Yes |
+  | `blocked` | A global comparison error, or a per-repo lookup/content error, prevented classification | non-zero | Yes |
+  | `untracked_drift` | Drift with no open PR on the current plan's branch (including a superseded hash) | non-zero | Yes |
+
+  Two consequences for anyone reading this tracker. **Drift alone is no longer a red signal** — expected in-flight propagation is `covered`, exits zero, and is deliberately silent, which is what stopped the 249-runs-zero-successes / 223-comments pattern that motivated #2878. And **an unchanged covered state appends nothing**, so a gap in comments now means "nothing actionable", not "the workflow stopped running". Confirm liveness from the workflow run history, not from tracker activity. The full state and SLO contract lives in [`CONSUMER_REPO_MAINTENANCE.md`](CONSUMER_REPO_MAINTENANCE.md#drift-coverage-states).
 - **#2470** — stuck-window marker for the integration-repo template sync. A `<!-- sync-tracker-stuck-window:v1 ... -->` marker in the body means the sync is currently failing. The next successful non-dry run with a sync token strips the marker and appends a `✅ Integration sync recovered` comment, but never closes the issue, so a marker-free body carrying a recovery comment is the healthy resting state. The `Resolution Steps` list in the issue body still says "Close this issue once the next run succeeds"; that line predates the stuck-window marker and does not reflect how `maint-69` actually treats the tracker.
 
 ### Superseded tracker numbers
@@ -92,7 +113,9 @@ same change.
 - **Read the latest comment / body**, not the original creation body. The
   original snapshot is frozen at issue creation; current state lives further
   down (or in the rewritten body for `#1836` / `#2210` / `#2470`).
-- **A red signal** (parse errors > 0 in `#2211`, drift count > 0 in `#2210`,
+- **A red signal** (parse errors > 0 in `#2211`, an actionable
+  `stale`/`blocked`/`untracked_drift` state or a global comparison error listed
+  in `#2210` — a raw drift count is not one, since `covered` drift is expected,
   a stuck-window marker present in `#2470`,
   unclaimed `needs-local-codex` items in `#1836`) means the underlying system
   needs attention — but the fix lands in code or in another repo, not by
