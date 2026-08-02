@@ -100,7 +100,20 @@ jobs:
           python scripts/sync_tool_versions.py --apply
           python scripts/sync_dev_dependencies.py --apply --lockfile
 
+      # security_override may bypass the weekly window, but never this gate.
+      - name: Validate synchronized pins before proposal
+        if: >-
+          steps.check.outputs.has_updates == 'true'
+          && steps.policy.outputs.should_propose == 'true'
+          && inputs.dry_run != true
+        run: |
+          set -euo pipefail
+          echo "🧪 Validating synchronized pin surfaces before opening a source PR..."
+          python scripts/sync_tool_versions.py --check
+          python scripts/sync_dev_dependencies.py --check --lockfile
+
       - name: Create PR
+        id: create_pr
         if: >-
           steps.check.outputs.has_updates == 'true'
           && steps.policy.outputs.should_propose == 'true'
@@ -178,13 +191,60 @@ jobs:
 
           if [ -n "$existing_pr" ]; then
             gh pr edit "$existing_pr" --title "chore: update dev tool versions from PyPI" --body "$pr_body"
+            echo "source_pr=$existing_pr" >> "$GITHUB_OUTPUT"
           else
-            gh pr create \
+            new_pr=$(gh pr create \
               --title "chore: update dev tool versions from PyPI" \
               --body "$pr_body" \
               --label "dependencies" \
-              --label "automation"
+              --label "automation")
+            # gh pr create prints the URL; extract the trailing number.
+            echo "source_pr=${new_pr##*/}" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Supersede overlapping dependency-bot PRs
+        if: >-
+          steps.check.outputs.has_updates == 'true'
+          && steps.policy.outputs.should_propose == 'true'
+          && inputs.dry_run != true
+          && steps.create_pr.outputs.source_pr != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_PR: ${{ steps.create_pr.outputs.source_pr }}
+        run: |
+          set -euo pipefail
+          # Close open Dependabot/Renovate PRs that touch the Workflows-owned
+          # pin surfaces only after the canonical source proposal exists.
+          managed_paths=(
+            ".github/workflows/autofix-versions.env"
+            "pyproject.toml"
+            "requirements.lock"
+            "templates/consumer-repo/.github/workflows/autofix-versions.env"
+            "templates/integration-repo/.github/workflows/autofix-versions.env"
+          )
+          mapfile -t bot_prs < <(
+            gh pr list --state open --limit 100 \
+              --json number,author,headRefName,files \
+              --jq '.[] | select(
+                  (.author.login | test("dependabot|renovate"; "i"))
+                  or (.headRefName | test("^(dependabot|renovate)/"))
+                ) | .number'
+          )
+          for pr in "${bot_prs[@]:-}"; do
+            [ -n "$pr" ] || continue
+            files=$(gh pr view "$pr" --json files --jq '[.files[].path] | join("\n")')
+            overlap=false
+            for path in "${managed_paths[@]}"; do
+              if printf '%s\n' "$files" | grep -Fxq "$path"; then
+                overlap=true
+                break
+              fi
+            done
+            if [ "$overlap" = true ]; then
+              gh pr close "$pr" --comment "Superseded by canonical dev-tool source proposal #$SOURCE_PR. Workflows-owned pin updates land only through maint-auto-update-pypi-versions.yml."
+              echo "Closed overlapping dependency-bot PR #$pr"
+            fi
+          done
 
       - name: Dry run summary
         if: inputs.dry_run == true

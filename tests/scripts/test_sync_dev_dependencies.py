@@ -211,6 +211,7 @@ def test_main_apply_updates_all_present_requirements_lockfiles(
 def test_main_check_reports_lockfile_mismatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Deliberate-break AC: mismatched managed pin fails with exact path:tool."""
     env_path = tmp_path / "pins.env"
     pyproject_path = tmp_path / "pyproject.toml"
     lockfile = tmp_path / "requirements.lock"
@@ -236,6 +237,7 @@ def test_main_check_reports_lockfile_mismatch(
 
     assert exit_code == 1
     assert "requirements.lock:ruff" in captured.out
+    assert "0.9.0 -> ==1.0.0" in captured.out
 
 
 def test_main_check_auto_syncs_lockfile_when_present(

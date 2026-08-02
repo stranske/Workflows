@@ -17,6 +17,20 @@ def test_auto_updater_is_the_single_weekly_source_proposal_lane():
     assert 'gh pr edit "$existing_pr"' in text
 
 
+def test_source_lane_validates_pins_before_create_pr_even_for_security_override():
+    text = AUTO_UPDATE.read_text(encoding="utf-8")
+    validate_at = text.index("Validate synchronized pins before proposal")
+    create_at = text.index("Create PR", validate_at)
+    supersede_at = text.index("Supersede overlapping dependency-bot PRs", create_at)
+
+    assert validate_at < create_at < supersede_at
+    assert "python scripts/sync_tool_versions.py --check" in text[validate_at:create_at]
+    assert "python scripts/sync_dev_dependencies.py --check --lockfile" in text[validate_at:create_at]
+    assert "security_override" in text
+    assert "gh pr close" in text[supersede_at:]
+    assert "dependabot|renovate" in text[supersede_at:]
+
+
 def test_maint50_reports_freshness_without_creating_competing_work():
     text = MAINT50.read_text(encoding="utf-8")
 
@@ -32,3 +46,5 @@ def test_maint52_records_the_settled_canonical_source_commit():
     assert "canonical_source_sha" in text
     assert "git rev-parse HEAD" in text
     assert "needs.prepare.outputs.canonical_source_sha" in text
+    assert "**Settled source commit:**" in text
+    assert "update_versions_from_pypi.py --apply" not in text

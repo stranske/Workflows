@@ -37,3 +37,14 @@ def test_dev_version_sync_fails_fast_and_checks_uv_lockfiles():
     assert text.count("set -euo pipefail") >= 2
     assert "if ! uv lock --check; then" in text
     assert "uv_lock_stale=true" in text
+
+
+def test_maint52_pr_body_reports_canonical_source_commit_and_never_proposes_upstream():
+    """AC: Maint 52 reports the settled source commit and never opens an upstream bump."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "CANONICAL_SOURCE_SHA" in text
+    assert "**Settled source commit:** \\`$CANONICAL_SOURCE_SHA\\`" in text
+    assert "source_commit:$source_commit" in text or "source_commit:$CANONICAL_SOURCE_SHA" in text or '"source_commit"' in text
+    assert "update_versions_from_pypi.py --apply" not in text
+    assert "python scripts/update_versions_from_pypi.py --check" in text

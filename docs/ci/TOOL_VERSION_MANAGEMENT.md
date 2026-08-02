@@ -76,6 +76,13 @@ COVERAGE_VERSION=7.12.0
 - Uses one mutable `auto/weekly-dev-tool-update-YYYY-Www` PR per weekly window
 - An operator may use the explicit `security_override` dispatch input for an
   urgent security update outside that window
+- Always runs `sync_tool_versions.py --check` and
+  `sync_dev_dependencies.py --check --lockfile` after applying pin updates and
+  before opening or refreshing the source PR (`security_override` cannot skip
+  this gate)
+- After the canonical source PR exists, closes open Dependabot/Renovate PRs that
+  touch the same Workflows-owned pin surfaces so overlapping bot proposals are
+  superseded rather than raced
 
 ## Update Process
 
