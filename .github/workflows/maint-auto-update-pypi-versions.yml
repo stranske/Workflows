@@ -215,34 +215,58 @@ jobs:
           set -euo pipefail
           # Close open Dependabot/Renovate PRs that touch the Workflows-owned
           # pin surfaces only after the canonical source proposal exists.
-          managed_paths=(
-            ".github/workflows/autofix-versions.env"
-            "pyproject.toml"
-            "requirements.lock"
-            "templates/consumer-repo/.github/workflows/autofix-versions.env"
-            "templates/integration-repo/.github/workflows/autofix-versions.env"
-          )
+          source_patches=$(mktemp)
+          bot_patches=$(mktemp)
+          trap 'rm -f "$source_patches" "$bot_patches"' EXIT
+          gh pr diff "$SOURCE_PR" > "$source_patches"
           mapfile -t bot_prs < <(
             gh pr list --state open --limit 100 \
-              --json number,author,headRefName,files \
+              --json number,author \
               --jq '.[] | select(
-                  (.author.login | test("dependabot|renovate"; "i"))
-                  or (.headRefName | test("^(dependabot|renovate)/"))
+                  .author.login == "dependabot[bot]"
+                  or .author.login == "renovate[bot]"
                 ) | .number'
           )
           for pr in "${bot_prs[@]:-}"; do
             [ -n "$pr" ] || continue
-            files=$(gh pr view "$pr" --json files --jq '[.files[].path] | join("\n")')
-            overlap=false
-            for path in "${managed_paths[@]}"; do
-              if printf '%s\n' "$files" | grep -Fxq "$path"; then
-                overlap=true
-                break
-              fi
-            done
-            if [ "$overlap" = true ]; then
+            gh pr diff "$pr" > "$bot_patches"
+            if python - "$source_patches" "$bot_patches" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          MANAGED_PATHS = {
+              ".github/workflows/autofix-versions.env",
+              "pyproject.toml",
+              "requirements.lock",
+              "templates/consumer-repo/.github/workflows/autofix-versions.env",
+              "templates/integration-repo/.github/workflows/autofix-versions.env",
+          }
+
+
+          def changed_pin_keys(path: str) -> set[str]:
+              keys: set[str] = set()
+              current_path = None
+              for raw_line in Path(path).read_text(encoding="utf-8").splitlines():
+                  if raw_line.startswith("diff --git a/"):
+                      current_path = raw_line.split(" b/", 1)[-1]
+                      continue
+                  if current_path not in MANAGED_PATHS:
+                      continue
+                  if not raw_line.startswith(("+", "-")) or raw_line.startswith(("+++", "---")):
+                      continue
+                  line = raw_line[1:].strip()
+                  match = re.match(r"([A-Za-z0-9_.-]+)(?:\[[^]]+\])?\s*(?:==|!=|~=|>=|<=|>|<|=)", line)
+                  if match:
+                      keys.add(match.group(1).lower().replace("_", "-"))
+              return keys
+
+
+          sys.exit(not bool(changed_pin_keys(sys.argv[1]) & changed_pin_keys(sys.argv[2])))
+          PY
+            then
               gh pr close "$pr" --comment "Superseded by canonical dev-tool source proposal #$SOURCE_PR. Workflows-owned pin updates land only through maint-auto-update-pypi-versions.yml."
-              echo "Closed overlapping dependency-bot PR #$pr"
+              echo "Closed dependency-bot PR #$pr with an overlapping canonical pin update"
             fi
           done
 

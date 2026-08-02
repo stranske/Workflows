@@ -45,10 +45,7 @@ def test_maint52_pr_body_reports_canonical_source_commit_and_never_proposes_upst
 
     assert "CANONICAL_SOURCE_SHA" in text
     assert "**Settled source commit:** \\`$CANONICAL_SOURCE_SHA\\`" in text
-    assert (
-        "source_commit:$source_commit" in text
-        or "source_commit:$CANONICAL_SOURCE_SHA" in text
-        or '"source_commit"' in text
-    )
+    assert '--arg source_commit "$CANONICAL_SOURCE_SHA"' in text
+    assert "source_commit:$source_commit" in text
     assert "update_versions_from_pypi.py --apply" not in text
     assert "python scripts/update_versions_from_pypi.py --check" in text

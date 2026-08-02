@@ -30,7 +30,14 @@ def test_source_lane_validates_pins_before_create_pr_even_for_security_override(
     )
     assert "security_override" in text
     assert "gh pr close" in text[supersede_at:]
-    assert "dependabot|renovate" in text[supersede_at:]
+    assert 'echo "source_pr=$existing_pr" >> "$GITHUB_OUTPUT"' in text[create_at:supersede_at]
+    assert 'echo "source_pr=${new_pr##*/}" >> "$GITHUB_OUTPUT"' in text[create_at:supersede_at]
+    assert "steps.create_pr.outputs.source_pr != ''" in text[supersede_at:]
+    assert '.author.login == "dependabot[bot]"' in text[supersede_at:]
+    assert '.author.login == "renovate[bot]"' in text[supersede_at:]
+    assert "headRefName" not in text[supersede_at:]
+    assert "changed_pin_keys" in text[supersede_at:]
+    assert "gh api" not in text[supersede_at:]
 
 
 def test_maint50_reports_freshness_without_creating_competing_work():
