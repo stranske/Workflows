@@ -364,7 +364,7 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install test-quality dependencies
-        run: python -m pip install --upgrade pip pytest pyyaml
+        run: python -m pip install --upgrade pip pytest
       - name: Check test quality and secret diff
         run: >-
           python scripts/check_gate_diff_quality.py
