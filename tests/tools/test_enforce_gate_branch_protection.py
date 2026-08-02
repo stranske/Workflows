@@ -353,6 +353,84 @@ def test_allow_non_strict_snapshot_keeps_already_strict_as_accepted_target(monke
     assert snapshot["desired"]["strict"] is True
 
 
+def test_fetch_error_snapshot_under_allow_non_strict_records_non_strict_desired(
+    monkeypatch, tmp_path
+):
+    """Error-path snapshots must keep desired.strict=False under --allow-non-strict."""
+    import json
+
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+
+    def _raise(*_a, **_k):
+        raise gate.BranchProtectionError("status checks unavailable")
+
+    monkeypatch.setattr(gate, "fetch_status_checks", _raise)
+    monkeypatch.setattr(gate, "_build_session", lambda token: SimpleNamespace())
+    snapshot_path = tmp_path / "snapshot.json"
+
+    exit_code = gate.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--check",
+            "--allow-non-strict",
+            "--no-clean",
+            "--context",
+            "summary",
+            "--snapshot",
+            str(snapshot_path),
+        ]
+    )
+
+    snapshot = json.loads(snapshot_path.read_text())
+    assert exit_code == 1
+    assert snapshot["error"] == "status checks unavailable"
+    assert snapshot["desired"]["strict"] is False
+
+
+def test_apply_allow_non_strict_preserves_already_strict_during_context_drift(monkeypatch, tmp_path):
+    """Context updates under --allow-non-strict must not disable an already-strict policy."""
+    import json
+
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(
+        gate,
+        "fetch_status_checks",
+        lambda *a, **k: gate.StatusCheckState(strict=True, contexts=["summary"]),
+    )
+    monkeypatch.setattr(gate, "_build_session", lambda token: SimpleNamespace())
+    captured: dict[str, Any] = {}
+
+    def _update(_session, _repo, _branch, *, contexts, strict, api_root=None):
+        captured["contexts"] = list(contexts)
+        captured["strict"] = strict
+        return gate.StatusCheckState(strict=strict, contexts=list(contexts))
+
+    monkeypatch.setattr(gate, "update_status_checks", _update)
+    snapshot_path = tmp_path / "snapshot.json"
+
+    exit_code = gate.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--apply",
+            "--allow-non-strict",
+            "--no-clean",
+            "--context",
+            "Gate / gate",
+            "--snapshot",
+            str(snapshot_path),
+        ]
+    )
+
+    snapshot = json.loads(snapshot_path.read_text())
+    assert exit_code == 0
+    assert captured["strict"] is True
+    assert "Gate / gate" in captured["contexts"]
+    assert snapshot["desired"]["strict"] is True
+    assert snapshot["after"]["strict"] is True
+
+
 def test_without_allow_non_strict_a_non_strict_policy_is_still_drift(monkeypatch, capsys):
     """The default is unchanged: non-strict counts as drift unless opted out."""
     monkeypatch.setenv("GITHUB_TOKEN", "token")
