@@ -183,9 +183,9 @@ When the canonical source lane opens a PR:
 **Cause**: Workflow may be disabled or scheduled incorrectly
 
 **Solution**:
-1. Check workflow is enabled in Actions UI
-2. Verify cron schedule is correct (`0 8 * * 1`)
-3. Manually trigger with workflow_dispatch to test
+1. Check `maint-auto-update-pypi-versions.yml` is enabled in Actions UI
+2. Verify the source-lane cron schedule is correct (`0 3 * * 1`, Mondays 03:00 UTC)
+3. Manually trigger that workflow with workflow_dispatch to test
 
 ## Architecture Decisions
 

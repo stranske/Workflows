@@ -1120,13 +1120,8 @@ The Workflows repository includes maintenance workflows that handle sync, update
 **Trigger:** Weekly in the central Workflows repository
 
 **Checks:**
-- Python version
-- Node.js version
-- pip version
-- git version
-- gh version
-- docker version
-- Action versions
+- PyPI freshness for the central developer-tool pin set (`black`, `ruff`, `mypy`, `pytest`, related tooling)
+- Canonical pin alignment evidence only (no runtime/CLI/Action version inventory)
 
 **Result:** Freshness evidence only; it never creates a competing update issue or PR
 
