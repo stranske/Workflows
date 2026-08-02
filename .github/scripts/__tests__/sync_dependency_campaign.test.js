@@ -210,6 +210,7 @@ test('exception lifecycle counts new, resolved, and re-opened transitions', () =
   assert.deepEqual(reopened.stats.exception_lifecycle, {
     new: 0, unchanged: 1, resolved: 0, re_opened: 1,
   });
+  assert.equal(reopened.items.find((item) => item.id === second.id).status, 'needs-local-codex');
 });
 
 test('formats and parses campaign marker', () => {

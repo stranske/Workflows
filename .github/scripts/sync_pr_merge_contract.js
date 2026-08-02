@@ -187,12 +187,17 @@ function selectSyncPrGatingChecks({
 }
 
 // Workflows-owned / template-propagated gates. Consumer app test names stay repo-local.
+// Keep these identities deliberately narrow: an aggregate Gate only reports that a
+// consumer required context failed; it does not identify the failed Gate leg.
 const SHARED_SOURCE_CHECK_RE =
-  /\b(gate(?:\s*\/\s*gate)?|health(?:\s*\d+)?|workflow|template|consumer\s*sync|sync\s*templates?)\b/i;
+  /^(?:health\s+\d+(?:\s|$)|consumer\s+sync(?:\s|$)|sync\s+templates?(?:\s|$))/i;
 
 function isSharedSourceFailedCheck(check = {}) {
   const name = String(check?.name || check?.context || '').trim();
-  return Boolean(name) && SHARED_SOURCE_CHECK_RE.test(name);
+  const explicitScope = String(check?.failure_scope || check?.source || '').trim().toLowerCase();
+  return check?.shared_source === true ||
+    explicitScope === 'shared-source' ||
+    (Boolean(name) && SHARED_SOURCE_CHECK_RE.test(name));
 }
 
 function classifySyncPrChecks({

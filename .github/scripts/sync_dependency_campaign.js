@@ -445,7 +445,11 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
       exceptionLifecycle.re_opened += 1;
     }
 
-    let status = previous.status || 'needs-local-codex';
+    // A rediscovered inactive exception is actionable again. Retaining `stale`
+    // would report it as re-opened while silently keeping it out of the claim queue.
+    let status = ACTIVE_STATUSES.has(previous.status)
+      ? previous.status
+      : 'needs-local-codex';
     let lease = previous.lease || null;
     const attempts = Number(previous.attempts || 0);
 
@@ -473,7 +477,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
       attempts,
       lease: status === 'local-codex-claimed' ? lease : null,
       result: previous.result || null,
-      source_fixed_candidate: sourceFixedCandidate || previous.source_fixed_candidate || null,
+      source_fixed_candidate: sourceFixedCandidate || null,
     };
     item.status = localCodexClaimableStatus(item, item.status);
     nextItems.push({

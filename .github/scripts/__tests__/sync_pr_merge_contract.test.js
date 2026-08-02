@@ -95,16 +95,34 @@ test('generated delivery classification gives sync and dev-tool lanes identical 
     );
   }
 
-  const sharedGate = classifySyncPrChecks({
+  const sharedHealth = classifySyncPrChecks({
+    checkRuns: [checkRun({ name: 'Health 40 Sweep', conclusion: 'failure' })],
+    requiredContexts: ['Health 40 Sweep'],
+  });
+  assert.equal(sharedHealth.status, 'checks_failed');
+  assert.equal(sharedHealth.failure_scope, 'shared-source');
+  assert.equal(
+    classifyGeneratedPr({ pr: sync, checkState: sharedHealth, now: '2026-08-01T00:00:00Z' }).disposition,
+    'shared-source-failure',
+  );
+
+  const aggregateGate = classifySyncPrChecks({
     checkRuns: [checkRun({ name: 'Gate / gate', conclusion: 'failure' })],
     requiredContexts: ['Gate / gate'],
   });
-  assert.equal(sharedGate.status, 'checks_failed');
-  assert.equal(sharedGate.failure_scope, 'shared-source');
-  assert.equal(
-    classifyGeneratedPr({ pr: sync, checkState: sharedGate, now: '2026-08-01T00:00:00Z' }).disposition,
-    'shared-source-failure',
-  );
+  assert.equal(aggregateGate.failure_scope, 'repo-local');
+
+  const localWorkflowCheck = classifySyncPrChecks({
+    checkRuns: [checkRun({ name: 'workflow integration tests', conclusion: 'failure' })],
+    requiredContexts: ['workflow integration tests'],
+  });
+  assert.equal(localWorkflowCheck.failure_scope, 'repo-local');
+
+  const explicitlyShared = classifySyncPrChecks({
+    checkRuns: [{ ...checkRun({ name: 'Gate / gate', conclusion: 'failure' }), shared_source: true }],
+    requiredContexts: ['Gate / gate'],
+  });
+  assert.equal(explicitlyShared.failure_scope, 'shared-source');
 
   const localFail = classifySyncPrChecks({
     checkRuns: [checkRun({ name: 'unit-tests', conclusion: 'failure' })],
