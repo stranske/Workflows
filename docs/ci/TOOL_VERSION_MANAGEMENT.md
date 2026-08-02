@@ -66,25 +66,39 @@ COVERAGE_VERSION=7.12.0
 ### 4. Version Check (`maint-50-tool-version-check.yml`)
 - Runs weekly on Mondays at 8:00 AM UTC
 - Checks PyPI for latest versions of all tools
-- Creates/updates issue when updates are available
-- Manual dispatch available with `force_issue` option
+- Publishes read-only freshness evidence; it never opens or comments on a
+  competing update issue or PR
+
+### 5. Canonical Source Proposal (`maint-auto-update-pypi-versions.yml`)
+- Runs Mondays at 03:00 UTC, before consumer propagation
+- Is the only routine workflow allowed to open or refresh a Workflows dev-tool
+  source PR
+- Uses one mutable `auto/weekly-dev-tool-update-YYYY-Www` PR per weekly window
+- An operator may use the explicit `security_override` dispatch input for an
+  urgent security update outside that window
 
 ## Update Process
 
 ### Automated Monitoring
 
-The `maint-50-tool-version-check.yml` workflow automatically:
-1. Checks PyPI weekly for new tool versions
-2. Compares with current pinned versions
-3. Creates an issue titled "🔧 CI/Autofix Tool Updates Available"
-4. Lists all available updates in the issue
-5. Updates the issue if already exists (doesn't spam with duplicates)
+The source lane is deliberately single-writer:
+
+1. `maint-50-tool-version-check.yml` reports PyPI freshness only.
+2. `maint-auto-update-pypi-versions.yml` checks the canonical pin file in the
+   Monday batch window and opens or refreshes one source PR for all routine
+   updates found together.
+3. After that source PR merges and its normal validation succeeds, the
+   `maint-52-sync-dev-versions.yml` push trigger propagates the exact settled
+   source commit to consumers. Its delivery marker and PR body record that SHA.
+4. A security-sensitive update may be manually dispatched with
+   `security_override=true`; it remains on the same source lane and still runs
+   the normal source validation before propagation.
 
 ### Manual Update Steps
 
-When an update issue is created:
+When the canonical source lane opens a PR:
 
-1. **Review the update issue** to see which tools have new versions
+1. **Review the canonical source PR** to see which tools have new versions
 
 2. **Update the version file**:
    ```bash
@@ -241,6 +255,8 @@ drift. Full ownership table:
 
 ## Maintenance Schedule
 
-- **Weekly**: Automated version check (Mondays 8:00 AM UTC)
-- **As Needed**: Manual updates when security issues arise
+- **Weekly**: One source proposal window (Mondays 03:00 UTC) and read-only
+  freshness report (Mondays 08:00 UTC)
+- **As Needed**: Explicit `security_override` source-lane dispatch for reviewed
+  security updates
 - **Quarterly**: Review and update this documentation

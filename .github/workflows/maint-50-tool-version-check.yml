@@ -1,21 +1,16 @@
 name: Maint 50 Tool Version Check
 
-# Check for new versions of CI/autofix tools and create an issue if updates are available
-# Runs weekly on Mondays at 8:00 AM UTC
+# Read-only freshness evidence for CI/autofix tools.
+# Source proposals belong to maint-auto-update-pypi-versions.yml, which owns
+# the weekly batch window and any explicit security override.
 
 on:
   schedule:
     - cron: '0 8 * * 1'  # Weekly on Mondays
   workflow_dispatch:
-    inputs:
-      force_issue:
-        description: 'Force issue creation even if versions are current'
-        required: false
-        default: 'false'
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -85,71 +80,9 @@ jobs:
         run: |
           python scripts/maint_tool_version_check.py compare
 
-      - name: Create or update issue
-        if: steps.compare.outputs.has_updates == 'true' || github.event.inputs.force_issue == 'true'
-        uses: actions/github-script@v9
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            const fs = require('fs');
-            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
-            const retryHelpers = fs.existsSync(retryHelperPath)
-              ? require(retryHelperPath)
-              : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
-                };
-            const { withRetry } = retryHelpers;
-            const body = fs.readFileSync('tool-version-issue-body.md', 'utf8');
-
-            const title = '🔧 CI/Autofix Tool Updates Available';
-
-            // Search for existing open issues with this title
-            const issues = await withRetry(() =>
-              github.rest.issues.listForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'open',
-                labels: 'maintenance,dependencies',
-                per_page: 100,
-              })
-            );
-
-            const existingIssue = issues.data.find(issue => issue.title === title);
-
-            if (existingIssue) {
-              // Update existing issue
-              await withRetry(() => github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existingIssue.number,
-                body: body
-              }));
-
-              await withRetry(() => github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existingIssue.number,
-                body: `🔄 Updated with latest version check results.`
-              }));
-
-              core.notice(`Updated existing issue #${existingIssue.number}`);
-            } else {
-              // Create new issue
-              const issue = await withRetry(() => github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: title,
-                body: body,
-                labels: ['maintenance', 'dependencies']
-              }));
-
-              core.notice(`Created issue #${issue.data.number}`);
-            }
-
       - name: Summary
         run: |
+          echo "Source proposals belong to maint-auto-update-pypi-versions.yml." >> "$GITHUB_STEP_SUMMARY"
           cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
           ${{ steps.compare.outputs.report }}
           EOF

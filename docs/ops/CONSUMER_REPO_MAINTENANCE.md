@@ -325,8 +325,11 @@ path instead. Runtime dependency bumps remain normal Dependabot work.
 Consumer alignment must not wait for unrelated PyPI freshness. The
 `maint-52-sync-dev-versions.yml` workflow reports whether newer PyPI versions
 exist, but continues syncing the canonical pins from Workflows. The
-`maint-auto-update-pypi-versions.yml` workflow owns opening source bump PRs for
-freshness updates.
+`maint-auto-update-pypi-versions.yml` workflow is the sole source-proposal lane:
+it batches routine updates into one Monday UTC PR and accepts a reviewed manual
+security override when needed. Maint 50 reports freshness but never creates a
+competing issue or proposal. Each consumer wave records the settled Workflows
+source commit so propagation can be traced back to the validated source change.
 
 ### Renovate vs Maint 68 Path Ownership
 

@@ -75,6 +75,7 @@ jobs:
     outputs:
       repos: ${{ steps.repos.outputs.matrix }}
       versions_hash: ${{ steps.hash.outputs.hash }}
+      canonical_source_sha: ${{ steps.source.outputs.sha }}
     steps:
       - name: Checkout Workflows
         uses: actions/checkout@v7
@@ -103,6 +104,11 @@ jobs:
           echo ""
           echo "Current versions:"
           grep -v '^#' .github/workflows/autofix-versions.env | grep '='
+
+      - name: Record settled canonical source commit
+        id: source
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build repo matrix
         id: repos
@@ -349,7 +355,7 @@ jobs:
             --arg generation "$DELIVERY_GENERATION" \
             --arg repository "$DELIVERY_REPOSITORY" \
             --arg desired_tree_hash "$desired_tree_hash" \
-            --arg source_commit "$GITHUB_SHA" \
+            --arg source_commit "${{ needs.prepare.outputs.canonical_source_sha }}" \
             --arg lease_expires_at "$lease_expires_at" \
             '{schema:$schema,durable_issue_url:$durable_issue_url,plan_id:$plan_id,generation:$generation,repository:$repository,desired_tree_hash:$desired_tree_hash,source_commit:$source_commit,lease_expires_at:$lease_expires_at,predecessor_prs:[],successor_prs:[]}')
           pr_body="## Dev Tool Version Sync
@@ -369,6 +375,7 @@ jobs:
 
           ---
           **Source:** \`.github/workflows/autofix-versions.env\`
+          **Settled source commit:** \`${{ needs.prepare.outputs.canonical_source_sha }}\`
 
           <!-- sync-pr-delivery-record:v1 $delivery_marker -->"
 
@@ -411,6 +418,7 @@ jobs:
             echo "## Dev Version Sync Summary"
             echo ""
             echo "**Versions Hash:** ${{ needs.prepare.outputs.versions_hash }}"
+            echo "**Settled source commit:** ${{ needs.prepare.outputs.canonical_source_sha }}"
             echo "**Dry Run:** ${{ inputs.dry_run || 'false' }}"
             echo ""
             echo "### Repos Processed"
