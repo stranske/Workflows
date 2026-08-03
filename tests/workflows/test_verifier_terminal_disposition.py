@@ -63,7 +63,9 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         == "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'"
     )
     assert install_step["env"]["CODEX_CLI_PACKAGE"] == "@openai/codex@0.144.1"
-    assert "npm ci --prefix .github/actions/verifier-codex-cli --ignore-scripts" in install_step["run"]
+    assert (
+        "npm ci --prefix .github/actions/verifier-codex-cli --ignore-scripts" in install_step["run"]
+    )
     assert "node_modules/.bin/codex" in install_step["run"]
     assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.6-terra"
     assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.5"
@@ -74,7 +76,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert 'candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"' in resolve_step["run"]
     assert "Candidate order" in resolve_step["run"]
     assert '[ "${VERIFIER_MODE:-}" = "checkbox" ]' in resolve_step["run"]
-    assert 'json.load(open(sys.argv[1]))' in parse_step["run"]
+    assert "json.load(open(sys.argv[1]))" in parse_step["run"]
     assert "from pathlib import Path" not in parse_step["run"]
     assert "CODEX_MODEL_CANDIDATES" in run_step["env"]
     assert 'for codex_model in "${codex_models[@]}"; do' in run_step["run"]
