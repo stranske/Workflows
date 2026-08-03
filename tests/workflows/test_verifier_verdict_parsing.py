@@ -1,6 +1,10 @@
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 SCRIPT = Path(__file__).parents[2] / ".github" / "scripts" / "verifier_verdict_json.py"
 spec = importlib.util.spec_from_file_location("verifier_verdict_json", SCRIPT)
@@ -114,3 +118,34 @@ def test_needs_review_maps_to_concerns_contract():
     assert result["verdict"] == "concerns"
     assert result["source"] == "structured-json"
     assert result["needs_attention"] is True
+
+
+@pytest.mark.parametrize(
+    ("output_text", "expected_verdict", "expected_attention"),
+    [
+        (
+            '    ```json\n    {"verdict": "PASS", "needs_attention": false}\n    ```\n',
+            "pass",
+            False,
+        ),
+        ('```json\n{"verdict": "FAIL", "needs_attention": null}\n```\n', "fail", True),
+        ('```json\n{"verdict": "PASS", "needs_attention": "false"}\n```\n', "pass", False),
+        ('```json\n{"verdict":\n```\n', "error", True),
+        ("```json\n{}\n```\n", "error", True),
+    ],
+)
+def test_cli_handles_indented_and_incomplete_verdict_json(
+    tmp_path, output_text, expected_verdict, expected_attention
+):
+    output = tmp_path / "codex-output.md"
+    destination = tmp_path / "verdict.json"
+    output.write_text(output_text, encoding="utf-8")
+
+    subprocess.run(
+        [sys.executable, str(SCRIPT), "--output", str(output), "--json", str(destination)],
+        check=True,
+    )
+    data = json.loads(destination.read_text(encoding="utf-8"))
+
+    assert data["verdict"] == expected_verdict
+    assert data["needs_attention"] is expected_attention

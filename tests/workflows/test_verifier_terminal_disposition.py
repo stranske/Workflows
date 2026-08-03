@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 
@@ -21,13 +22,16 @@ def _parse_version_tuple(value: str) -> tuple[int, int, int]:
     return tuple(int(part) for part in match.groups())
 
 
-def _extract_codex_cli_pin(install_step: dict) -> tuple[int, int, int]:
-    match = re.search(
-        r"@openai/codex@([0-9]+\.[0-9]+\.[0-9]+)",
-        install_step["env"]["CODEX_CLI_PACKAGE"],
-    )
-    assert match, "Install Codex CLI step must pin @openai/codex to an explicit version"
-    return _parse_version_tuple(match.group(1))
+def _extract_codex_cli_pin() -> tuple[int, int, int]:
+    package_root = ROOT / ".github/actions/verifier-codex-cli"
+    package = json.loads((package_root / "package.json").read_text(encoding="utf-8"))
+    lockfile = json.loads((package_root / "package-lock.json").read_text(encoding="utf-8"))
+    declared = package["dependencies"]["@openai/codex"]
+    locked = lockfile["packages"]["node_modules/@openai/codex"]["version"]
+    assert (
+        declared == locked
+    ), "package.json and package-lock.json must agree on the Codex CLI version"
+    return _parse_version_tuple(declared)
 
 
 def _model_candidates(resolve_step: dict) -> list[str]:
@@ -152,7 +156,10 @@ def test_reusable_verifier_codex_model_cli_compatibility_contract() -> None:
     )
     install_step = next(step for step in steps if step.get("name") == "Install Codex CLI")
 
-    installed_cli = _extract_codex_cli_pin(install_step)
+    installed_cli = _extract_codex_cli_pin()
+    assert install_step["env"]["CODEX_CLI_PACKAGE"] == (
+        "@openai/codex@" + ".".join(map(str, installed_cli))
+    )
     candidates = _model_candidates(resolve_step)
     unreviewed_models = [model for model in candidates if model not in MIN_CODEX_CLI_BY_MODEL]
     assert not unreviewed_models, (
