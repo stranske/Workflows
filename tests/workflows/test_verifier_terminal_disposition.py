@@ -76,7 +76,13 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert 'echo "$codex_bin_dir" >> "$GITHUB_PATH"' in install_step["run"]
     assert 'codex_bin_dir="${codex_cli_prefix}/node_modules/.bin"' in install_step["run"]
     assert 'codex_cli="${codex_bin_dir}/codex"' in install_step["run"]
+    assert 'echo "CODEX_CLI=${codex_cli}" >> "$GITHUB_ENV"' in install_step["run"]
     assert "CODEX_CLI_PACKAGE" in install_step["run"]  # env used, not dead
+    # Run verifier must invoke the pinned local binary, not bare `codex`.
+    assert '"$CODEX_CLI" exec' in run_step["run"]
+    assert "node_modules/.bin/codex" in run_step["run"]
+    assert '[ -z "${CODEX_CLI:-}" ] || [ ! -x "${CODEX_CLI}" ]' in run_step["run"]
+    assert re.search(r"(?m)^(?:\s*)codex exec\b", run_step["run"]) is None
     checkout_step = next(
         step
         for step in steps

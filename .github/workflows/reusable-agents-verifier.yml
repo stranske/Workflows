@@ -508,8 +508,13 @@ jobs:
           npm ci --prefix "$codex_cli_prefix" --ignore-scripts
           codex_bin_dir="${codex_cli_prefix}/node_modules/.bin"
           codex_cli="${codex_bin_dir}/codex"
-          # Export for later steps (Run verifier still invokes bare `codex exec`).
+          if [ ! -x "$codex_cli" ]; then
+            echo "::error::Pinned Codex CLI binary missing at ${codex_cli}"
+            exit 1
+          fi
+          # Export PATH + absolute CLI path so Run verifier cannot fall back to bare `codex`.
           echo "$codex_bin_dir" >> "$GITHUB_PATH"
+          echo "CODEX_CLI=${codex_cli}" >> "$GITHUB_ENV"
           codex_cli_version="$("$codex_cli" --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
           echo "version=$codex_cli_version" >> "$GITHUB_OUTPUT"
           echo "Installed Codex CLI version: $codex_cli_version" >> "$GITHUB_STEP_SUMMARY"
@@ -580,6 +585,11 @@ jobs:
         run: |
           set -euo pipefail
           PROMPT_FILE="${{ steps.prepare.outputs.prompt_file }}"
+          if [ -z "${CODEX_CLI:-}" ] || [ ! -x "${CODEX_CLI}" ]; then
+            echo "::error::CODEX_CLI unset/not executable" \
+              "(expected pinned node_modules/.bin/codex from Install Codex CLI)"
+            exit 1
+          fi
 
           selected_model=""
           selected_reason="${CODEX_MODEL_SELECTION_REASON:-input}"
@@ -594,7 +604,8 @@ jobs:
             echo "Running Codex verifier with model '${codex_model}' (${attempt}/${model_count})..."
 
             set +e
-            codex exec \
+            # Invoke the pinned local binary exported by Install Codex CLI (not bare PATH `codex`).
+            "$CODEX_CLI" exec \
               --sandbox read-only \
               --skip-git-repo-check \
               --model "$codex_model" \
