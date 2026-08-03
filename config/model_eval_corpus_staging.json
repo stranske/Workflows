@@ -37,6 +37,105 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27"
+    },
+    {
+      "case_id": "workflows-2727",
+      "repo": "stranske/Workflows",
+      "pr": 2727,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "manager-database-1386",
+      "repo": "stranske/Manager-Database",
+      "pr": 1386,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "manager-database-1384",
+      "repo": "stranske/Manager-Database",
+      "pr": 1384,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "inv-man-intake-735",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 735,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "inv-man-intake-734",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 734,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "pension-data-687",
+      "repo": "stranske/Pension-Data",
+      "pr": 687,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "pension-data-685",
+      "repo": "stranske/Pension-Data",
+      "pr": 685,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "pension-data-684",
+      "repo": "stranske/Pension-Data",
+      "pr": 684,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "trip-planner-1513",
+      "repo": "stranske/trip-planner",
+      "pr": 1513,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "fine-art-archive-239",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 239,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "fine-art-archive-238",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 238,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-03"
     }
   ]
 }
