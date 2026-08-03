@@ -122,6 +122,7 @@ jobs:
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/actions/verifier-codex-cli
             .github/agents/registry.yml
             .github/scripts
             .github/codex/prompts
@@ -481,8 +482,34 @@ jobs:
           CODEX_CLI_PACKAGE: "@openai/codex@0.144.1"
         run: |
           set -euo pipefail
-          npm ci --prefix .github/actions/verifier-codex-cli --ignore-scripts
-          codex_cli=".github/actions/verifier-codex-cli/node_modules/.bin/codex"
+          # Install from the Workflows sparse checkout so consumer callers (whose
+          # workspace lacks this package) still get the locked CLI.
+          codex_cli_prefix=".workflows-lib/.github/actions/verifier-codex-cli"
+          package_json="${codex_cli_prefix}/package.json"
+          if [ ! -f "$package_json" ]; then
+            echo "::error::Missing locked Codex CLI package at ${package_json}" \
+              "(expected in Workflows sparse-checkout)."
+            exit 1
+          fi
+          # Keep CODEX_CLI_PACKAGE in lockstep with package.json (avoids unused-env drift).
+          expected_version="${CODEX_CLI_PACKAGE##*@}"
+          locked_version="$(
+            sed -n 's/.*"@openai\/codex": "\([^"]*\)".*/\1/p' "$package_json" | head -1
+          )"
+          if [ -z "$locked_version" ]; then
+            echo "::error::Could not read @openai/codex from ${package_json}"
+            exit 1
+          fi
+          if [ "$locked_version" != "$expected_version" ]; then
+            echo "::error::CODEX_CLI_PACKAGE=${CODEX_CLI_PACKAGE} but" \
+              "${package_json} locks @openai/codex@${locked_version}"
+            exit 1
+          fi
+          npm ci --prefix "$codex_cli_prefix" --ignore-scripts
+          codex_bin_dir="${codex_cli_prefix}/node_modules/.bin"
+          codex_cli="${codex_bin_dir}/codex"
+          # Export for later steps (Run verifier still invokes bare `codex exec`).
+          echo "$codex_bin_dir" >> "$GITHUB_PATH"
           codex_cli_version="$("$codex_cli" --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
           echo "version=$codex_cli_version" >> "$GITHUB_OUTPUT"
           echo "Installed Codex CLI version: $codex_cli_version" >> "$GITHUB_STEP_SUMMARY"

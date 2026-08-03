@@ -64,9 +64,27 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     )
     assert install_step["env"]["CODEX_CLI_PACKAGE"] == "@openai/codex@0.144.1"
     assert (
-        "npm ci --prefix .github/actions/verifier-codex-cli --ignore-scripts" in install_step["run"]
+        'npm ci --prefix "$codex_cli_prefix" --ignore-scripts' in install_step["run"]
+        or "npm ci --prefix .workflows-lib/.github/actions/verifier-codex-cli --ignore-scripts"
+        in install_step["run"]
     )
-    assert "node_modules/.bin/codex" in install_step["run"]
+    assert ".workflows-lib/.github/actions/verifier-codex-cli" in install_step["run"]
+    assert 'echo "$codex_bin_dir" >> "$GITHUB_PATH"' in install_step["run"]
+    assert 'codex_bin_dir="${codex_cli_prefix}/node_modules/.bin"' in install_step["run"]
+    assert 'codex_cli="${codex_bin_dir}/codex"' in install_step["run"]
+    assert "CODEX_CLI_PACKAGE" in install_step["run"]  # env used, not dead
+    checkout_step = next(
+        step
+        for step in steps
+        if step.get("name") == "Checkout Workflows scripts"
+        or (
+            isinstance(step.get("with"), dict)
+            and step["with"].get("repository") == "stranske/Workflows"
+            and "sparse-checkout" in step["with"]
+        )
+    )
+    sparse = str((checkout_step.get("with") or {}).get("sparse-checkout", ""))
+    assert ".github/actions/verifier-codex-cli" in sparse
     assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.6-terra"
     assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.5"
     assert resolve_step["env"]["VERIFIER_MODE"] == "${{ inputs.mode }}"
