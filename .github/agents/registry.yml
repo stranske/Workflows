@@ -27,8 +27,8 @@ model_profile_trial_contract:
 execution_profiles:
   codex-default:
     agent: codex
-    model: gpt-5.5
-    fallback_model: gpt-5.4
+    model: gpt-5.6-terra
+    fallback_model: gpt-5.5
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard

@@ -222,8 +222,8 @@ test('resolveExecutionProfile returns registry-backed codex model contract', () 
   const profile = resolveExecutionProfile('codex-default', { registryPath: REGISTRY_PATH });
   assert.equal(profile.id, 'codex-default');
   assert.equal(profile.agent, 'codex');
-  assert.equal(profile.model, 'gpt-5.5');
-  assert.equal(profile.fallback_model, 'gpt-5.4');
+  assert.equal(profile.model, 'gpt-5.6-terra');
+  assert.equal(profile.fallback_model, 'gpt-5.5');
   assert.equal(profile.runner, 'reusable-codex-run');
 });
 

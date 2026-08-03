@@ -143,7 +143,7 @@ The keepalive loop routes to agent workflows through `.github/agents/registry.ym
 
 | Label | Agent | Workflow |
 |-------|-------|----------|
-| `agent:codex` | Codex CLI (gpt-5.5; fallback gpt-5.4) | `reusable-codex-run.yml` |
+| `agent:codex` | Codex CLI (gpt-5.6-terra; fallback gpt-5.5) | `reusable-codex-run.yml` |
 | `agent:claude` | Claude CLI | `reusable-claude-run.yml` |
 | `agent:cursor` | Cursor | `reusable-cursor-run.yml` |
 | `agent:gemini` | Gemini | `reusable-gemini-run.yml` |

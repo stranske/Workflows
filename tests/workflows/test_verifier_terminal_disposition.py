@@ -6,8 +6,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 MIN_CODEX_CLI_BY_MODEL = {
+    "gpt-5.6-terra": (0, 144, 1),
     "gpt-5.5": (0, 125, 0),
-    "gpt-5.4": (0, 125, 0),
 }
 
 
@@ -56,9 +56,9 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         resolve_step.get("if")
         == "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'"
     )
-    assert 'npm install -g "@openai/codex@0.125.0"' in install_step["run"]
-    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.5"
-    assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.4"
+    assert 'npm install -g "@openai/codex@0.144.1"' in install_step["run"]
+    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.6-terra"
+    assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "gpt-5.5"
     assert resolve_step["env"]["VERIFIER_MODE"] == "${{ inputs.mode }}"
     assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]
     assert "*-codex*" in resolve_step["run"]
@@ -74,7 +74,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert collect_step["env"]["CODEX_MODEL"] == (
         "${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}"
     )
-    assert collect_step["env"]["CODEX_MODEL_SELECTION_REASON"] == (
+    assert " ".join(collect_step["env"]["CODEX_MODEL_SELECTION_REASON"].split()) == (
         "${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}"
     )
     assert collect_step["env"]["CODEX_CLI_VERSION"] == "${{ steps.codex_cli.outputs.version }}"
@@ -83,7 +83,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert write_step["env"]["CODEX_MODEL"] == (
         "${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}"
     )
-    assert write_step["env"]["CODEX_MODEL_SELECTION_REASON"] == (
+    assert " ".join(write_step["env"]["CODEX_MODEL_SELECTION_REASON"].split()) == (
         "${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}"
     )
     assert write_step["env"]["CODEX_CLI_VERSION"] == "${{ steps.codex_cli.outputs.version }}"

@@ -23,8 +23,8 @@ REFERENCE_PACK_ACTION = Path(".github/actions/agent-reference-packs/action.yml")
 REFERENCE_PACK_RUNNER_USES = "./.workflows-lib/.github/actions/agent-reference-packs"
 REFERENCE_PACK_FIXTURES = Path("tests/workflows/fixtures/reference_packs")
 MIN_CODEX_CLI_BY_RUN_MODEL = {
+    "gpt-5.6-terra": (0, 144, 1),
     "gpt-5.5": (0, 125, 0),
-    "gpt-5.4": (0, 125, 0),
 }
 ACTIONS_CACHE_V6_REF = "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
 LLM_REGISTRY_MODULE = "tools/llm_registry.py"
@@ -383,17 +383,17 @@ def test_reusable_codex_run_persists_refreshed_auth_bundle_with_app_token() -> N
     assert not missing, f"Persist step missing required snippets: {missing}"
 
 
-def test_reusable_codex_run_prefers_gpt_55_with_non_codex_fallback() -> None:
+def test_reusable_codex_run_prefers_gpt_56_terra_with_non_codex_fallback() -> None:
     workflow = _load_workflow(REUSABLE_CODEX_RUN)
     inputs = _workflow_call_inputs(workflow)
     resolve_step = _find_step_by_name(workflow, "Resolve Codex run model")
     run_step = _find_step_by_name(workflow, "Run Codex")
 
-    assert inputs["codex_model"]["default"] == "gpt-5.5"
-    assert inputs["codex_cli_version"]["default"] == "0.125.0"
+    assert inputs["codex_model"]["default"] == "gpt-5.6-terra"
+    assert inputs["codex_cli_version"]["default"] == "0.144.1"
     assert resolve_step.get("id") == "codex_model"
-    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.5"
-    assert inputs["codex_fallback_models"]["default"] == "gpt-5.4"
+    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.6-terra"
+    assert inputs["codex_fallback_models"]["default"] == "gpt-5.5"
     assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "${{ inputs.codex_fallback_models }}"
     assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]
     assert "*-codex*" in resolve_step["run"]

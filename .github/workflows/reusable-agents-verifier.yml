@@ -183,7 +183,8 @@ jobs:
             const baseRef = pr.base?.ref || '';
             if (baseRef && baseRef !== defaultBranch) {
               core.info(
-                `PR base ref ${baseRef} does not match default branch ${defaultBranch}; skipping CI wait.`,
+                `PR base ref ${baseRef} does not match default branch ` +
+                  `${defaultBranch}; skipping CI wait.`,
               );
               return;
             }
@@ -251,7 +252,8 @@ jobs:
                     state.found = true;
                     const conclusion = run.conclusion || 'pending';
                     core.info(
-                      `${workflowFile}: status=${run.status}, conclusion=${conclusion}, sha=${run.head_sha}`,
+                      `${workflowFile}: status=${run.status}, conclusion=${conclusion}, ` +
+                        `sha=${run.head_sha}`,
                     );
                     state.completed = run.status === 'completed';
                   }
@@ -303,7 +305,8 @@ jobs:
                 emptyPolls += 1;
                 if (emptyPolls >= 2) {
                   core.info(
-                    `No CI runs matched configured workflows (${ciWorkflows.join(', ')}) for SHAs ` +
+                    `No CI runs matched configured workflows ` +
+                      `(${ciWorkflows.join(', ')}) for SHAs ` +
                       `${targetShas.join(', ')}; skipping CI wait.`,
                   );
                   return;
@@ -318,7 +321,9 @@ jobs:
                   `waiting for running workflows (${pendingFoundWorkflows.join(', ')}) ` +
                   `and missing workflows (${missingWorkflows.join(', ')})`;
               } else if (pendingFoundWorkflows.length > 0) {
-                waitReason = `waiting for workflows still running: ${pendingFoundWorkflows.join(', ')}`;
+                waitReason =
+                  `waiting for workflows still running: ` +
+                  pendingFoundWorkflows.join(', ');
               } else if (missingWorkflows.length > 0) {
                 waitReason = `waiting for workflows to start: ${missingWorkflows.join(', ')}`;
               }
@@ -474,7 +479,7 @@ jobs:
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         run: |
           set -euo pipefail
-          npm install -g "@openai/codex@0.125.0"
+          npm install -g "@openai/codex@0.144.1"
           codex_cli_version="$(codex --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
           echo "version=$codex_cli_version" >> "$GITHUB_OUTPUT"
           echo "Installed Codex CLI version: $codex_cli_version" >> "$GITHUB_STEP_SUMMARY"
@@ -483,8 +488,8 @@ jobs:
         id: codex_model
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         env:
-          DEFAULT_CODEX_MODEL: gpt-5.5
-          FALLBACK_CODEX_MODELS: gpt-5.4
+          DEFAULT_CODEX_MODEL: gpt-5.6-terra
+          FALLBACK_CODEX_MODELS: gpt-5.5
           REQUESTED_MODEL: ${{ inputs.model }}
           VERIFIER_MODE: ${{ inputs.mode }}
         run: |
@@ -512,7 +517,8 @@ jobs:
 
           case "$model" in
             *-codex*)
-              echo "::warning::Codex model '$model' is not compatible with the configured ChatGPT auth; trying '$DEFAULT_CODEX_MODEL' first."
+              echo "::warning::Codex model '$model' is not compatible" \
+                "with the configured ChatGPT auth; trying '$DEFAULT_CODEX_MODEL' first."
               model="$DEFAULT_CODEX_MODEL"
               reason="fallback-unsupported-chatgpt-codex-model"
               candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
@@ -585,10 +591,16 @@ jobs:
               break
             fi
 
+            unsupported_model_pattern="$(
+              printf '%s' \
+                'model.*(not supported|not available|unsupported|' \
+                'unavailable)|not compatible'
+            )"
             if [ "$attempt" -lt "$model_count" ] &&
-              grep -Eiq "model.*(not supported|not available|unsupported|unavailable)|not compatible" \
+              grep -Eiq "$unsupported_model_pattern" \
                 codex-stdout.log codex-stderr.log; then
-              echo "::warning::Codex model '${codex_model}' was unavailable; trying the next verifier model."
+              echo "::warning::Codex model '${codex_model}' was unavailable; " \
+                "trying the next verifier model."
               selected_reason="runtime-fallback-model-unavailable"
               continue
             fi
@@ -629,20 +641,36 @@ jobs:
             # Codex crashed - treat as error verdict for follow-up
             verdict="error"
             needs_attention="true"
-            printf '%s\n' '{"verdict":"error","source":"codex-step-failure","needs_attention":true}' > "$verdict_json"
+            printf '%s\n' \
+              '{"verdict":"error","source":"codex-step-failure","needs_attention":true}' \
+              > "$verdict_json"
           elif [ -f "codex-output.md" ]; then
             python .workflows-lib/.github/scripts/verifier_verdict_json.py \
               --output codex-output.md \
               --json "$verdict_json"
             verdict="$(
-              python -c 'import json, sys; from pathlib import Path; print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("verdict", "unknown"))' "$verdict_json"
+              python -c '
+              import json
+              import sys
+              from pathlib import Path
+              payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+              print(payload.get("verdict", "unknown"))
+              ' "$verdict_json"
             )"
             needs_attention="$(
-              python -c 'import json, sys; from pathlib import Path; print("true" if json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("needs_attention") else "false")' "$verdict_json"
+              python -c '
+              import json
+              import sys
+              from pathlib import Path
+              payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+              print("true" if payload.get("needs_attention") else "false")
+              ' "$verdict_json"
             )"
           else
             needs_attention="true"
-            printf '%s\n' '{"verdict":"unknown","source":"missing-output","needs_attention":true}' > "$verdict_json"
+            printf '%s\n' \
+              '{"verdict":"unknown","source":"missing-output","needs_attention":true}' \
+              > "$verdict_json"
           fi
           if [ "$verdict" = "needs-review" ] || [ "${needs_attention:-false}" = "true" ]; then
             echo "needs_human=true" >> "$GITHUB_OUTPUT"
@@ -935,7 +963,11 @@ jobs:
               flags=re.MULTILINE,
           )
           if count == 0:
-              text = '## LLM Evaluation Report\n\n**Verdict:** CONCERNS (CI failure hard gate)\n\n' + text
+              text = (
+                  '## LLM Evaluation Report\n\n'
+                  '**Verdict:** CONCERNS (CI failure hard gate)\n\n'
+                  + text
+              )
           if '**CI failure hard gate:**' not in text:
               text = text.replace('\n\n', '\n\n' + banner, 1)
           path.write_text(text, encoding='utf-8')
@@ -1160,7 +1192,11 @@ jobs:
           from pathlib import Path
 
           path = Path('comparison-comment.md')
-          text = path.read_text(encoding='utf-8') if path.exists() else '## Provider Comparison Report\n'
+          text = (
+              path.read_text(encoding='utf-8')
+              if path.exists()
+              else '## Provider Comparison Report\n'
+          )
           banner = (
               '> **CI failure hard gate:** CI concluded `failure` on the merge commit. '
               'Provider rows below are preserved for auditability, but the posted '
@@ -1168,7 +1204,10 @@ jobs:
               'treated as PASS.\n\n'
           )
           if 'CI failure hard gate' not in text:
-              text = text.replace('\n\n', '\n\n' + banner, 1) if '\n\n' in text else text + '\n\n' + banner
+              if '\n\n' in text:
+                  text = text.replace('\n\n', '\n\n' + banner, 1)
+              else:
+                  text += '\n\n' + banner
           path.write_text(text, encoding='utf-8')
           PY
 
@@ -1229,8 +1268,11 @@ jobs:
           # never verify PASS, regardless of the LLM's acceptance review.
           ci_failed="${{ steps.context.outputs.ci_failed }}"
           lc_verdict="$(printf '%s' "$final_verdict" | tr '[:upper:]' '[:lower:]')"
-          if [ "$ci_failed" = "true" ] && { [ "$lc_verdict" = "pass" ] || [ "$lc_verdict" = "passed" ]; }; then
-            echo "::warning::CI concluded failure on the merge commit; overriding ${final_verdict} verdict to CONCERNS (issue #2271)."
+          if [ "$ci_failed" = "true" ] && {
+            [ "$lc_verdict" = "pass" ] || [ "$lc_verdict" = "passed" ];
+          }; then
+            echo "::warning::CI concluded failure on the merge commit; " \
+              "overriding ${final_verdict} verdict to CONCERNS (issue #2271)."
             final_verdict="concerns"
           fi
 
@@ -1406,7 +1448,9 @@ jobs:
           ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
           SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
           CODEX_MODEL: ${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}
-          CODEX_MODEL_SELECTION_REASON: ${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}
+          CODEX_MODEL_SELECTION_REASON: >-
+            ${{ steps.codex.outputs.selection_reason ||
+                steps.codex_model.outputs.selection_reason }}
           CODEX_CLI_VERSION: ${{ steps.codex_cli.outputs.version }}
           VERIFIER_MODE: ${{ inputs.mode }}
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
@@ -1527,7 +1571,9 @@ jobs:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
           SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
           CODEX_MODEL: ${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}
-          CODEX_MODEL_SELECTION_REASON: ${{ steps.codex.outputs.selection_reason || steps.codex_model.outputs.selection_reason }}
+          CODEX_MODEL_SELECTION_REASON: >-
+            ${{ steps.codex.outputs.selection_reason ||
+                steps.codex_model.outputs.selection_reason }}
           CODEX_CLI_VERSION: ${{ steps.codex_cli.outputs.version }}
           VERIFIER_MODE: ${{ inputs.mode }}
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
@@ -1549,7 +1595,12 @@ jobs:
             normalizeTerminalDisposition: (value) => value,
             normalizeVerifierFollowupLedger: (value) => value,
             formatTerminalDispositionMarkdown: (records) =>
-              records.map((record) => `- ${record.source_type}:${record.source_id} ${record.disposition}`).join('\n'),
+              records
+                .map((record) => (
+                  `- ${record.source_type}:${record.source_id} ` +
+                  record.disposition
+                ))
+                .join('\n'),
           };
           const {
             normalizeTerminalDisposition,
@@ -1614,7 +1665,9 @@ jobs:
             policyTrigger = 'verifier-concerns';
           } else if (disposition === 'needs-human' || disposition === 'verifier-error') {
             policyAction = 'needs-human';
-            policyTrigger = disposition === 'verifier-error' ? 'verifier-error' : 'verifier-concerns';
+            policyTrigger = disposition === 'verifier-error'
+              ? 'verifier-error'
+              : 'verifier-concerns';
           } else if (!shouldRun) {
             policyTrigger = 'verifier-skipped';
           }
