@@ -1,0 +1,9 @@
+{
+  "name": "workflows-verifier-codex-cli",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Locked Codex CLI runtime for the reusable verifier.",
+  "dependencies": {
+    "@openai/codex": "0.144.1"
+  }
+}

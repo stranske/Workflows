@@ -477,10 +477,13 @@ jobs:
       - name: Install Codex CLI
         id: codex_cli
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
+        env:
+          CODEX_CLI_PACKAGE: "@openai/codex@0.144.1"
         run: |
           set -euo pipefail
-          npm install -g "@openai/codex@0.144.1"
-          codex_cli_version="$(codex --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
+          npm ci --prefix .github/actions/verifier-codex-cli --ignore-scripts
+          codex_cli=".github/actions/verifier-codex-cli/node_modules/.bin/codex"
+          codex_cli_version="$("$codex_cli" --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
           echo "version=$codex_cli_version" >> "$GITHUB_OUTPUT"
           echo "Installed Codex CLI version: $codex_cli_version" >> "$GITHUB_STEP_SUMMARY"
 
@@ -649,22 +652,14 @@ jobs:
               --output codex-output.md \
               --json "$verdict_json"
             verdict="$(
-              python -c '
-              import json
-              import sys
-              from pathlib import Path
-              payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-              print(payload.get("verdict", "unknown"))
-              ' "$verdict_json"
+              python -c \
+                'import json,sys; print(json.load(open(sys.argv[1])).get("verdict","unknown"))' \
+                "$verdict_json"
             )"
             needs_attention="$(
-              python -c '
-              import json
-              import sys
-              from pathlib import Path
-              payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-              print("true" if payload.get("needs_attention") else "false")
-              ' "$verdict_json"
+              python -c \
+                'import json,sys; print(json.load(open(sys.argv[1]))["needs_attention"])' \
+                "$verdict_json" | tr '[:upper:]' '[:lower:]'
             )"
           else
             needs_attention="true"
