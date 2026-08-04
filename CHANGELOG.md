@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.19.8](https://github.com/stranske/Workflows/compare/v1.19.7...v1.19.8) (2026-08-04)
+
+
+### Bug Fixes
+
+* **gate:** harden runtime review fallbacks ([1c42c38](https://github.com/stranske/Workflows/commit/1c42c385a407602720dd4c608108c065e20dd2a0))
+* **gate:** harden runtime review fallbacks ([#2928](https://github.com/stranske/Workflows/issues/2928)) ([1c42c38](https://github.com/stranske/Workflows/commit/1c42c385a407602720dd4c608108c065e20dd2a0))
+
 ## [1.19.7](https://github.com/stranske/Workflows/compare/v1.19.6...v1.19.7) (2026-08-04)
 
 
