@@ -951,9 +951,7 @@ def test_uv_pyyaml_probe_preserves_python_shebang_flags(tmp_path, monkeypatch) -
     )
 
 
-def test_uv_pyyaml_probe_omits_interactive_python_shebang_flag(
-    tmp_path, monkeypatch
-) -> None:
+def test_uv_pyyaml_probe_omits_interactive_python_shebang_flag(tmp_path, monkeypatch) -> None:
     pytest_launcher = tmp_path / "global" / "bin" / "pytest"
     pytest_launcher.parent.mkdir(parents=True)
     pytest_launcher.write_text("#!/usr/bin/python3 -i\n", encoding="utf-8")
