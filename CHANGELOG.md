@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.19.7](https://github.com/stranske/Workflows/compare/v1.19.6...v1.19.7) (2026-08-04)
+
+
+### Bug Fixes
+
+* **gate:** attribute base setup failures accurately ([a78adc1](https://github.com/stranske/Workflows/commit/a78adc1c89b5378953c5e0192720ac5aa01f9535))
+* **gate:** mirror and distinguish command launch errors ([cc6ce7a](https://github.com/stranske/Workflows/commit/cc6ce7a55de76998217fd0959de777313ca7c876))
+* **gate:** mirror error-attribution repair to consumers ([c19a139](https://github.com/stranske/Workflows/commit/c19a13909d08dac89329a3f0f1dded3368f6e52e))
+* **gate:** satisfy consumer mypy ([b56d9d6](https://github.com/stranske/Workflows/commit/b56d9d6270550f1a73c9a553e8ab5a87c9443366))
+
 ## [1.19.6](https://github.com/stranske/Workflows/compare/v1.19.5...v1.19.6) (2026-08-04)
 
 
