@@ -165,7 +165,8 @@ def _supported_pyyaml_version(installed_version: str | None) -> bool:
     if installed_version is None:
         return False
     installed_match = re.fullmatch(
-        r"(\d+(?:\.\d+)*)(?:\.post\d+)?(?:\+[\w.-]+)?", installed_version
+        r"(\d+(?:\.\d+)*)(?P<pre>(?:a|b|rc)\d+)?" r"(?:\.post\d+)?(?P<dev>\.dev\d+)?(?:\+[\w.-]+)?",
+        installed_version,
     )
     floor_match = re.fullmatch(r"(\d+(?:\.\d+)*)", PYYAML_VERSION)
     if installed_match is None or floor_match is None:
@@ -173,9 +174,11 @@ def _supported_pyyaml_version(installed_version: str | None) -> bool:
     installed_release = tuple(int(part) for part in installed_match.group(1).split("."))
     floor_release = tuple(int(part) for part in floor_match.group(1).split("."))
     width = max(len(installed_release), len(floor_release))
-    return installed_release + (0,) * (width - len(installed_release)) >= floor_release + (0,) * (
-        width - len(floor_release)
-    )
+    normalized_installed = installed_release + (0,) * (width - len(installed_release))
+    normalized_floor = floor_release + (0,) * (width - len(floor_release))
+    if normalized_installed != normalized_floor:
+        return normalized_installed > normalized_floor
+    return installed_match.group("pre") is None and installed_match.group("dev") is None
 
 
 def _ensure_pytest_runtime_deps() -> None:
@@ -694,8 +697,8 @@ def _runtime_dependency_error_result(error: Exception) -> dict[str, object]:
             reason="dependency-install-failed",
             command=list(error.cmd) if isinstance(error.cmd, (tuple, list)) else str(error.cmd),
             returncode=error.returncode,
-            stdout=error.stdout,
-            stderr=error.stderr,
+            stdout=_subprocess_output_text(error.stdout),
+            stderr=_subprocess_output_text(error.stderr),
         )
     if isinstance(error, ImportError):
         return _json_result(

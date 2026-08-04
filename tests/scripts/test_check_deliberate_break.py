@@ -376,8 +376,11 @@ def test_runtime_dependency_installer_accepts_exact_locked_pyyaml(monkeypatch) -
         ("6.0.2.post1", False),
         ("6.0.3+local.1", True),
         ("6.0.4", True),
+        ("6.0.4rc1", True),
+        ("6.0.4.dev0", True),
         ("99.0.0", True),
         ("6.0.3rc1", False),
+        ("6.0.3.dev0", False),
         ("not-a-version", False),
     ],
 )
@@ -1410,6 +1413,37 @@ def test_dependency_install_failure_preserves_subprocess_context(tmp_path, monke
         "stdout": "resolver output",
         "stderr": "pip denied",
     }
+
+
+def test_dependency_install_failure_normalizes_byte_output(tmp_path, monkeypatch) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    base, spec = _sound_spec(repo)
+    error = subprocess.CalledProcessError(
+        17,
+        ["pip", "install", "pyyaml==6.0.3"],
+        output=b"resolver \xff output",
+        stderr=b"pip denied",
+    )
+
+    monkeypatch.setattr(
+        deliberate_break,
+        "_run_with_runtime_deps",
+        lambda *_args: (_ for _ in ()).throw(deliberate_break.RuntimeDependencyError(error)),
+    )
+
+    result = verify_spec(spec, base=base, cwd=repo, enforce_tamper=False)
+
+    assert result == {
+        "verdict": VERDICT_BROKEN,
+        "reason": "dependency-install-failed",
+        "command": ["pip", "install", "pyyaml==6.0.3"],
+        "returncode": 17,
+        "stdout": "resolver \ufffd output",
+        "stderr": "pip denied",
+    }
+    json.dumps(result)
 
 
 def test_dependency_install_unavailable_is_broken(tmp_path, monkeypatch) -> None:
