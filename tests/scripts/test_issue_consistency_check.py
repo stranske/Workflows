@@ -90,8 +90,12 @@ def test_is_autofix_context_detects_hyphenated_title() -> None:
 
 
 def test_is_release_context_recognizes_release_please_title() -> None:
-    assert check_issue_consistency.is_release_context("chore(main): release 1.19.19") is True
-    assert check_issue_consistency.is_release_context("fix: release parser") is False
+    title = "chore(main): release 1.19.19"
+    head_ref = "release-please--branches--main--components--workflows"
+
+    assert check_issue_consistency.is_release_context(title, head_ref) is True
+    assert check_issue_consistency.is_release_context(title, "manual/release") is False
+    assert check_issue_consistency.is_release_context("fix: release parser", head_ref) is False
 
 
 def test_resolve_pr_context_reads_event_payload(tmp_path: Path) -> None:

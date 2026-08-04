@@ -106,6 +106,7 @@ def resolve_head_ref_issue_number(head_ref: str) -> tuple[int | None, bool]:
 
 AUTO_FIX_PATTERN = re.compile(r"auto[\s-]?fix", re.IGNORECASE)
 RELEASE_PR_PATTERN = re.compile(r"^chore\([^)]*\):\s*release\b", re.IGNORECASE)
+RELEASE_PLEASE_HEAD_PATTERN = re.compile(r"^release-please--branches--", re.IGNORECASE)
 
 
 def _load_event_payload(event_path: str | None) -> dict:
@@ -157,9 +158,11 @@ def is_autofix_context(pr_title: str, head_ref: str, event_path: str | None = No
     return _has_autofix_label(event_path)
 
 
-def is_release_context(pr_title: str) -> bool:
-    """Return whether the PR is an automated release without issue lineage."""
-    return RELEASE_PR_PATTERN.search(pr_title or "") is not None
+def is_release_context(pr_title: str, head_ref: str) -> bool:
+    """Return whether title and head identify an automated release-please PR."""
+    return RELEASE_PR_PATTERN.match(pr_title or "") is not None and bool(
+        RELEASE_PLEASE_HEAD_PATTERN.match(head_ref or "")
+    )
 
 
 def resolve_pr_context(
@@ -498,7 +501,7 @@ def main() -> int:
     base_sha = (args.base_sha or "").strip() or None
     base_remote = _resolve_base_remote(args.base_remote)
     pr_title, head_ref = resolve_pr_context(args.pr_title, args.head_ref)
-    if is_release_context(pr_title):
+    if is_release_context(pr_title, head_ref):
         print("Skipping issue consistency check: automated release PR.")
         return 0
     autofix_context = is_autofix_context(pr_title, head_ref)
