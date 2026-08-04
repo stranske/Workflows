@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.19.19](https://github.com/stranske/Workflows/compare/v1.19.18...v1.19.19) (2026-08-04)
+
+
+### Bug Fixes
+
+* accept newer PyYAML prereleases safely ([#2953](https://github.com/stranske/Workflows/issues/2953)) ([e46735e](https://github.com/stranske/Workflows/commit/e46735ebef7bd98f91ddab2bfe7168580e790e10))
+* harden release and verifier automation ([#2955](https://github.com/stranske/Workflows/issues/2955)) ([ecda8dd](https://github.com/stranske/Workflows/commit/ecda8dd48e776e547216a9fa927e8ebd0e4dbafb))
+
 ## [1.19.18](https://github.com/stranske/Workflows/compare/v1.19.17...v1.19.18) (2026-08-04)
 
 
