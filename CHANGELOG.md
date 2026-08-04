@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.19.3](https://github.com/stranske/Workflows/compare/v1.19.2...v1.19.3) (2026-08-04)
+
+
+### Bug Fixes
+
+* **sync:** clarify generated validation contracts ([802706a](https://github.com/stranske/Workflows/commit/802706a6a61c45f9c13db81038772d0c30a57490))
+* **sync:** repair broken PyYAML runtime installs ([c86c08e](https://github.com/stranske/Workflows/commit/c86c08e7c064026cece23be5a205464e49531d76))
+* **sync:** repair broken PyYAML runtime installs ([65fdd93](https://github.com/stranske/Workflows/commit/65fdd9390a2bf8be86565751ea58806affdd707b))
+
 ## [1.19.2](https://github.com/stranske/Workflows/compare/v1.19.1...v1.19.2) (2026-08-04)
 
 
