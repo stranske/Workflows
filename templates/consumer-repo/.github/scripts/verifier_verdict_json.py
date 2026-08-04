@@ -79,11 +79,17 @@ def build_verdict(output: str) -> dict[str, Any]:
         verdict = _normalize_verdict(candidate.get("verdict"))
         if not verdict:
             continue
+        candidate_needs_attention = candidate.get("needs_attention")
+        needs_attention = (
+            candidate_needs_attention
+            if isinstance(candidate_needs_attention, bool)
+            else verdict != "pass"
+        )
         return {
             **candidate,
             "verdict": verdict,
             "source": "structured-json",
-            "needs_attention": bool(candidate.get("needs_attention", verdict != "pass")),
+            "needs_attention": needs_attention,
         }
 
     return {

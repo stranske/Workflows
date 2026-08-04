@@ -279,6 +279,15 @@ def verify_spec(
             command=list(exc.cmd) if isinstance(exc.cmd, (tuple, list)) else str(exc.cmd),
             timeout=exc.timeout,
         )
+    except subprocess.CalledProcessError as exc:
+        return _json_result(
+            VERDICT_BROKEN,
+            reason="tamper-check-failed",
+            command=list(exc.cmd) if isinstance(exc.cmd, (tuple, list)) else str(exc.cmd),
+            returncode=exc.returncode,
+            stdout=exc.stdout,
+            stderr=exc.stderr,
+        )
 
     try:
         _ensure_pytest_runtime_deps()

@@ -303,11 +303,15 @@ def test_override_for_unknown_category_is_rejected():
         evaluator.evaluate_benchmark(_thin_payload(), policy)
 
 
-def test_override_must_be_an_object():
+@pytest.mark.parametrize(
+    "invalid_overrides",
+    [["stale-verifier-claim"], [], ""],
+)
+def test_override_must_be_an_object(invalid_overrides):
     policy = _policy()
     policy["profiles"]["verifier-balanced"]["approval_stage"][
         "minimum_cases_per_category_overrides"
-    ] = ["stale-verifier-claim"]
+    ] = invalid_overrides
 
     with pytest.raises(ValueError, match="must be an object"):
         evaluator.evaluate_benchmark(_thin_payload(), policy)
