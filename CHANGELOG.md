@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.19.18](https://github.com/stranske/Workflows/compare/v1.19.17...v1.19.18) (2026-08-04)
+
+
+### Bug Fixes
+
+* harden probes and verifier content ([#2951](https://github.com/stranske/Workflows/issues/2951)) ([65dd1de](https://github.com/stranske/Workflows/commit/65dd1de0e2da68ad2cb0d788b9fec27108230a39))
+
 ## [1.19.17](https://github.com/stranske/Workflows/compare/v1.19.16...v1.19.17) (2026-08-04)
 
 
