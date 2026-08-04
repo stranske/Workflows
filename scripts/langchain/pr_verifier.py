@@ -17,7 +17,7 @@ import logging
 import os
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -679,10 +679,16 @@ def _text_from_response_content(content: object) -> str | None:
     """Return provider text, or None when the payload carries no text blocks."""
     if isinstance(content, str):
         return content
-    if isinstance(content, dict):
+    if isinstance(content, Mapping):
         for key in ("text", "content"):
             text = content.get(key)
             if isinstance(text, str):
+                if key == "content" and content.get("type") not in (
+                    None,
+                    "text",
+                    "output_text",
+                ):
+                    continue
                 return text
         return None
     if isinstance(content, list):
@@ -690,14 +696,18 @@ def _text_from_response_content(content: object) -> str | None:
         for block in content:
             if isinstance(block, str):
                 text = block
-            elif isinstance(block, dict):
+            elif isinstance(block, Mapping):
                 text = block.get("text")
                 if not isinstance(text, str):
                     text = block.get("content")
+                    if block.get("type") not in (None, "text", "output_text"):
+                        text = None
             else:
                 text = getattr(block, "text", None)
                 if not isinstance(text, str):
                     text = getattr(block, "content", None)
+                    if getattr(block, "type", None) not in (None, "text", "output_text"):
+                        text = None
             if isinstance(text, str):
                 text_blocks.append(text)
         if any(block and not block.isspace() for block in text_blocks):
