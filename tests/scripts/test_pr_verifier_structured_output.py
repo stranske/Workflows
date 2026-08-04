@@ -292,6 +292,19 @@ def test_text_from_response_content_ignores_blank_text_blocks() -> None:
     assert pr_verifier._coerce_response_content(blocks) == json.dumps(blocks, default=str)
 
 
+@pytest.mark.parametrize(
+    "content",
+    (
+        "",
+        "  \n",
+        {"type": "text", "text": "  \n"},
+        {"type": "output_text", "content": ""},
+    ),
+)
+def test_text_from_response_content_ignores_blank_root_content(content: object) -> None:
+    assert pr_verifier._text_from_response_content(content) is None
+
+
 def test_text_from_response_content_does_not_copy_blocks_to_check_whitespace() -> None:
     class NoStripText(str):
         def strip(self, *args, **kwargs):
@@ -331,8 +344,9 @@ def test_text_from_response_content_supports_content_blocks() -> None:
 def test_text_from_response_content_ignores_non_text_content_blocks() -> None:
     blocks = [
         {"type": "thinking", "content": "internal analysis"},
+        {"type": "reasoning", "text": "private reasoning"},
         {"type": "output_text", "content": '{"summary":"safe"}'},
-        SimpleNamespace(type="metadata", content="request-id"),
+        SimpleNamespace(type="metadata", text="request-id"),
     ]
 
     assert pr_verifier._text_from_response_content(blocks) == '{"summary":"safe"}'

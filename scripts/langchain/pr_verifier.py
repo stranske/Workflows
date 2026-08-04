@@ -678,17 +678,17 @@ def _fallback_evaluation(
 def _text_from_response_content(content: object) -> str | None:
     """Return provider text, or None when the payload carries no text blocks."""
     if isinstance(content, str):
-        return content
+        return content if content and not content.isspace() else None
     if isinstance(content, Mapping):
+        block_type = content.get("type")
         for key in ("text", "content"):
             text = content.get(key)
-            if isinstance(text, str):
-                if key == "content" and content.get("type") not in (
-                    None,
-                    "text",
-                    "output_text",
-                ):
-                    continue
+            if (
+                isinstance(text, str)
+                and text
+                and not text.isspace()
+                and block_type in (None, "text", "output_text")
+            ):
                 return text
         return None
     if isinstance(content, list):
@@ -697,17 +697,19 @@ def _text_from_response_content(content: object) -> str | None:
             if isinstance(block, str):
                 text = block
             elif isinstance(block, Mapping):
-                text = block.get("text")
-                if not isinstance(text, str):
-                    text = block.get("content")
-                    if block.get("type") not in (None, "text", "output_text"):
-                        text = None
+                if block.get("type") not in (None, "text", "output_text"):
+                    text = None
+                else:
+                    text = block.get("text")
+                    if not isinstance(text, str):
+                        text = block.get("content")
             else:
-                text = getattr(block, "text", None)
-                if not isinstance(text, str):
-                    text = getattr(block, "content", None)
-                    if getattr(block, "type", None) not in (None, "text", "output_text"):
-                        text = None
+                if getattr(block, "type", None) not in (None, "text", "output_text"):
+                    text = None
+                else:
+                    text = getattr(block, "text", None)
+                    if not isinstance(text, str):
+                        text = getattr(block, "content", None)
             if isinstance(text, str):
                 text_blocks.append(text)
         if any(block and not block.isspace() for block in text_blocks):
