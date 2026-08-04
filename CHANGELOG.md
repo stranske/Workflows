@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.19.5](https://github.com/stranske/Workflows/compare/v1.19.4...v1.19.5) (2026-08-04)
+
+
+### Bug Fixes
+
+* **gate:** force reinstall broken PyYAML ([5f87a7d](https://github.com/stranske/Workflows/commit/5f87a7dae1cb3b0b6b311e260d19ee6560b05e1f))
+* **sync:** address generated review findings ([38cf00e](https://github.com/stranske/Workflows/commit/38cf00ec4f70e1a58259392f0576c664d51960a1))
+* **sync:** address generated review findings ([561bbce](https://github.com/stranske/Workflows/commit/561bbced179fadfb7afaa2ccc74998c4e230b946))
+* **sync:** address generated review follow-ups ([33e634e](https://github.com/stranske/Workflows/commit/33e634e67ed8ec936ca9eb78e88133b51c6f0857))
+* **sync:** address generated review follow-ups ([4d0a2d4](https://github.com/stranske/Workflows/commit/4d0a2d4208cf6657a2e624abb0e65a3a5c739d63))
+
 ## [1.19.4](https://github.com/stranske/Workflows/compare/v1.19.3...v1.19.4) (2026-08-04)
 
 
