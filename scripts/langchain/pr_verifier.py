@@ -679,6 +679,12 @@ def _text_from_response_content(content: object) -> str | None:
     """Return provider text, or None when the payload carries no text blocks."""
     if isinstance(content, str):
         return content
+    if isinstance(content, dict):
+        for key in ("text", "content"):
+            text = content.get(key)
+            if isinstance(text, str):
+                return text
+        return None
     if isinstance(content, list):
         text_blocks: list[str] = []
         for block in content:
@@ -686,8 +692,12 @@ def _text_from_response_content(content: object) -> str | None:
                 text = block
             elif isinstance(block, dict):
                 text = block.get("text")
+                if not isinstance(text, str):
+                    text = block.get("content")
             else:
                 text = getattr(block, "text", None)
+                if not isinstance(text, str):
+                    text = getattr(block, "content", None)
             if isinstance(text, str):
                 text_blocks.append(text)
         if any(block and not block.isspace() for block in text_blocks):

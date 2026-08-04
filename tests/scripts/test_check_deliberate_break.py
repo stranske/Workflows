@@ -1032,6 +1032,23 @@ def test_plain_pytest_with_active_python_shebang_is_managed(tmp_path, monkeypatc
     assert deliberate_break._uses_pytest_runtime(("pytest", "-q"))
 
 
+def test_plain_pytest_with_interactive_shebang_is_managed(tmp_path, monkeypatch) -> None:
+    pytest_launcher = tmp_path / "pytest"
+    pytest_launcher.write_text(f"#!{sys.executable} -i\n", encoding="utf-8")
+    monkeypatch.setattr(
+        deliberate_break.shutil,
+        "which",
+        lambda name: str(pytest_launcher) if name == "pytest" else None,
+    )
+
+    assert deliberate_break._uses_pytest_runtime(("pytest", "-q"))
+    assert deliberate_break._pyyaml_probe_command(("pytest", "-q"), tmp_path) == (
+        sys.executable,
+        "-c",
+        deliberate_break.PYYAML_PROBE_CODE,
+    )
+
+
 def test_plain_pytest_with_changed_import_context_is_not_managed(tmp_path, monkeypatch) -> None:
     pytest_launcher = tmp_path / "pytest"
     pytest_launcher.write_text(f"#!{sys.executable} -I\n", encoding="utf-8")

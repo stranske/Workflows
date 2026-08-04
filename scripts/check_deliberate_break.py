@@ -259,7 +259,12 @@ def _uses_pytest_runtime(command: tuple[str, ...]) -> bool:
         launcher = _python_shebang_launcher(Path(pytest_path), shutil.which)
         if launcher is None:
             return False
-        launcher_probe = (*launcher, "-c", PYYAML_PROBE_CODE)
+        launcher_probe = (
+            launcher[0],
+            *_drop_interactive_python_flags(launcher[1:]),
+            "-c",
+            PYYAML_PROBE_CODE,
+        )
         return Path(launcher[0]).resolve() == Path(
             sys.executable
         ).resolve() and not _python_probe_changes_import_context(launcher_probe)
@@ -581,11 +586,21 @@ def _pyyaml_probe_command(command: tuple[str, ...], cwd: Path) -> tuple[str, ...
     if (uv_prefix := _uv_run_pytest_prefix(command)) and (
         launcher := _uv_pytest_python_launcher(uv_prefix, cwd)
     ):
-        return (*launcher, "-c", PYYAML_PROBE_CODE)
+        return (
+            launcher[0],
+            *_drop_interactive_python_flags(launcher[1:]),
+            "-c",
+            PYYAML_PROBE_CODE,
+        )
     if command and Path(command[0]).name == "pytest":
         pytest_path = shutil.which(command[0])
         if pytest_path and (launcher := _python_shebang_launcher(Path(pytest_path), shutil.which)):
-            return (*launcher, "-c", PYYAML_PROBE_CODE)
+            return (
+                launcher[0],
+                *_drop_interactive_python_flags(launcher[1:]),
+                "-c",
+                PYYAML_PROBE_CODE,
+            )
     return None
 
 
