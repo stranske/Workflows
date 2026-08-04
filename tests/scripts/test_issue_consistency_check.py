@@ -89,6 +89,11 @@ def test_is_autofix_context_detects_hyphenated_title() -> None:
     assert check_issue_consistency.is_autofix_context("Auto-fix from CI failure", "") is True
 
 
+def test_is_release_context_recognizes_release_please_title() -> None:
+    assert check_issue_consistency.is_release_context("chore(main): release 1.19.19") is True
+    assert check_issue_consistency.is_release_context("fix: release parser") is False
+
+
 def test_resolve_pr_context_reads_event_payload(tmp_path: Path) -> None:
     payload = {
         "pull_request": {
@@ -309,6 +314,34 @@ def test_main_skips_ambiguous_head_ref(monkeypatch, capsys) -> None:
     assert check_issue_consistency.main() == 0
     captured = capsys.readouterr()
     assert "Skipping issue consistency check: no issue references found." in captured.out
+
+
+def test_main_skips_automated_release_before_issue_collection(monkeypatch, capsys) -> None:
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.setenv("PR_TITLE", "chore(main): release 1.19.19")
+    monkeypatch.setenv("HEAD_REF", "release-please--branches--main--components--workflows")
+    monkeypatch.setenv("BASE_REF", "main")
+    monkeypatch.setenv("BASE_SHA", "deadbeef")
+    monkeypatch.setenv("BASE_REMOTE", "origin")
+    monkeypatch.setattr(sys, "argv", ["check_issue_consistency.py"])
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "collect_commit_messages",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("release PR must skip commit issue collection")
+        ),
+    )
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "collect_changed_files",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("release PR must skip header issue collection")
+        ),
+    )
+
+    assert check_issue_consistency.main() == 0
+    captured = capsys.readouterr()
+    assert "Skipping issue consistency check: automated release PR." in captured.out
 
 
 def test_main_autofix_title_hash_prefers_head_ref(monkeypatch, capsys) -> None:
