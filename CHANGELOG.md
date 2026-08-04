@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.19.2](https://github.com/stranske/Workflows/compare/v1.19.1...v1.19.2) (2026-08-04)
+
+
+### Bug Fixes
+
+* **sync:** address generated review findings ([561019a](https://github.com/stranske/Workflows/commit/561019a98c90df8f5411de1277c0fb1409081fe0))
+* **sync:** preserve CRLF for consumer command launchers ([5874c5e](https://github.com/stranske/Workflows/commit/5874c5e42f10f7735895f2f58a269b7f7481c2cd))
+* **sync:** preserve CRLF for consumer command launchers ([a593776](https://github.com/stranske/Workflows/commit/a59377687f3d936d4f335edce632cf2f32e83343))
+* **verifier:** preserve split-block whitespace ([76c9383](https://github.com/stranske/Workflows/commit/76c9383ea7c4c4e7f90e7ecc17c70139640004de))
+
 ## [1.19.1](https://github.com/stranske/Workflows/compare/v1.19.0...v1.19.1) (2026-08-04)
 
 
