@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.19.9](https://github.com/stranske/Workflows/compare/v1.19.8...v1.19.9) (2026-08-04)
+
+
+### Bug Fixes
+
+* **gate:** distinguish YAML test failures ([0bffde5](https://github.com/stranske/Workflows/commit/0bffde53c64727f8343f3fe3573efe0cf0f694ac))
+* **gate:** handle uv pytest module mode ([9cde407](https://github.com/stranske/Workflows/commit/9cde40759eb28097061e5e8937a8a4809f6b9f7b))
+* **gate:** probe nested uv python pytest ([f565934](https://github.com/stranske/Workflows/commit/f565934c5f2d7c5ed6c9ad9fa918b4f9871e57ba))
+* **gate:** resolve general pytest launchers ([1dfb886](https://github.com/stranske/Workflows/commit/1dfb886ad4a1882b96b5186184c5a4bd90ff7daa))
+* **gate:** stop at python program selector ([a2c82d4](https://github.com/stranske/Workflows/commit/a2c82d44f8c402a0bc61e1fe1331cc8acd682712))
+
 ## [1.19.8](https://github.com/stranske/Workflows/compare/v1.19.7...v1.19.8) (2026-08-04)
 
 
