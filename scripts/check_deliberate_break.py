@@ -279,6 +279,13 @@ def verify_spec(
             command=list(exc.cmd) if isinstance(exc.cmd, (tuple, list)) else str(exc.cmd),
             timeout=exc.timeout,
         )
+    except subprocess.CalledProcessError as exc:
+        return _json_result(
+            VERDICT_BROKEN,
+            reason="git-diff-failed",
+            command=list(exc.cmd) if isinstance(exc.cmd, (tuple, list)) else str(exc.cmd),
+            detail=exc.stderr or str(exc),
+        )
 
     try:
         _ensure_pytest_runtime_deps()

@@ -252,6 +252,13 @@ def verify_spec(
             command=list(exc.cmd) if isinstance(exc.cmd, (tuple, list)) else str(exc.cmd),
             timeout=exc.timeout,
         )
+    except subprocess.CalledProcessError as exc:
+        return _json_result(
+            VERDICT_BROKEN,
+            reason="git-diff-failed",
+            command=list(exc.cmd) if isinstance(exc.cmd, (tuple, list)) else str(exc.cmd),
+            detail=exc.stderr or str(exc),
+        )
 
     if head_run.returncode != 0:
         return _json_result(

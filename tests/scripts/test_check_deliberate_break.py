@@ -144,6 +144,28 @@ def test_assertion_tamper_is_flagged(tmp_path, monkeypatch) -> None:
     assert result["reason"] == "test-assertion-tamper"
 
 
+def test_tamper_git_failure_is_structured_broken_result(tmp_path, monkeypatch) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    base, spec = _sound_spec(repo)
+    command = ["git", "diff", "--name-status", f"{base}...HEAD"]
+
+    def git_failed(*_args, **_kwargs):
+        raise subprocess.CalledProcessError(128, command, stderr="bad revision")
+
+    monkeypatch.setattr(deliberate_break, "_changed_assertions", git_failed)
+
+    result = verify_spec(spec, base=base, cwd=repo)
+
+    assert result == {
+        "verdict": VERDICT_BROKEN,
+        "reason": "git-diff-failed",
+        "command": command,
+        "detail": "bad revision",
+    }
+
+
 def test_new_assertion_in_existing_test_file_is_not_tamper(tmp_path, monkeypatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()

@@ -157,7 +157,9 @@ def evaluate_benchmark(payload: dict[str, Any], policy: dict[str, Any]) -> dict[
     # from realized outcomes (see tools/harvest_verifier_corpus.py) can never be
     # grown by the harvester, so holding them to the machine-harvestable floor
     # made `approved` unreachable without hand-labelling. See #2819.
-    raw_overrides = approval.get("minimum_cases_per_category_overrides") or {}
+    raw_overrides = approval.get("minimum_cases_per_category_overrides")
+    if raw_overrides is None:
+        raw_overrides = {}
     if not isinstance(raw_overrides, dict):
         raise ValueError("approval_stage.minimum_cases_per_category_overrides must be an object")
     category_floors: dict[str, int] = {}
