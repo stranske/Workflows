@@ -91,6 +91,10 @@ workflows:
   - source: .github/workflows/agents-issue-optimizer.yml
     description: "Issue optimizer - LangChain-based issue formatting and optimization (Phase 1)"
 
+  - source: .github/workflows/agents-issue-format-guard.yml
+    description: "Issue format guard - validates every issue on open/edit against AGENT_ISSUE_FORMAT and applies agents:format so the optimizer repairs it. Closes the hole where an UNLABELLED, non-conforming issue is invisible to every lane (nothing validates, optimises or claims it). Requires .github/scripts/issue_format.py."
+    template_sync: exact
+
   - source: .github/workflows/agents-verify-to-new-pr.yml
     description: "Verify to new PR - creates follow-up issue and immediately dispatches auto-pilot to prepare a replacement PR (bridge inlined)"
 
@@ -217,6 +221,9 @@ scripts:
     description: "Syncs dev dependency versions from autofix-versions.env to pyproject.toml"
   - source: scripts/check_agents_md_freshness.py
     description: "Warns when the generated Orchestrator AGENTS.md playbook section cites stale repo paths or commands"
+    template_sync: exact
+  - source: .github/scripts/issue_format.py
+    description: "Pure-stdlib validator for AGENT_ISSUE_FORMAT compliance. Single fleet definition of agent-processable; used by agents-issue-format-guard.yml and callable directly by local filers to pre-flight before gh issue create (non-zero exit = unfit). Do not fork per repo."
     template_sync: exact
   - source: tools/resolve_mypy_pin.py
     description: "Resolves mypy version pinning - required by reusable CI workflow"
