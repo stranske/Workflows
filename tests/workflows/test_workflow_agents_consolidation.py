@@ -309,9 +309,7 @@ def test_consumer_sync_drift_uploads_machine_readable_report():
 
 def test_merge_sync_prs_uploads_machine_readable_report_and_hash_input():
     text = (WORKFLOWS_DIR / "maint-71-merge-sync-prs.yml").read_text(encoding="utf-8")
-    executor_text = Path(".github/scripts/maint71_merge_sync_prs.js").read_text(
-        encoding="utf-8"
-    )
+    executor_text = Path(".github/scripts/maint71_merge_sync_prs.js").read_text(encoding="utf-8")
     contract_text = text + executor_text
     assert "sync_hash:" in text, "Maint 71 must expose a target sync hash input"
     assert (
@@ -323,7 +321,9 @@ def test_merge_sync_prs_uploads_machine_readable_report_and_hash_input():
     assert (
         "isTrustedGeneratedDeliveryPr" in contract_text
     ), "Maint 71 must route both sync and dev-tool generated deliveries through the contract"
-    assert "close-expired-delivery" in contract_text and "close-or-refresh-delivery" in contract_text
+    assert (
+        "close-expired-delivery" in contract_text and "close-or-refresh-delivery" in contract_text
+    )
     assert "cleanup_branches:" in text, "Maint 71 must expose sync branch cleanup control"
     assert (
         "collectDeletableSyncBranches" in contract_text and "branch_delete_failed" in contract_text
