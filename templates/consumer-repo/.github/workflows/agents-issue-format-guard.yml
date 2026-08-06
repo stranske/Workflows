@@ -51,16 +51,28 @@ jobs:
         run: |
           set -euo pipefail
           gh issue view "$NUM" --repo "$GITHUB_REPOSITORY" \
-            --json number,body,labels,state > issue.json
+            --json number,body,labels,state,author > issue.json
+          jq -r '.body // ""' issue.json > body.md
+          # Not every issue is meant to be a work order, and a guard that nags on
+          # ones that never will be is a guard people learn to ignore. Exempt:
+          #   * tracker:durable / wontfix — deliberately long-lived records
+          #   * bot authors (Renovate's Dependency Dashboard, Dependabot)
+          #   * bodies that declare themselves undispatchable
+          EXEMPT=false
+          if jq -e '[.labels[].name] | any(. == "tracker:durable" or . == "wontfix")' \
+               issue.json >/dev/null; then EXEMPT=true; fi
+          if jq -er '.author.login // ""' issue.json 2>/dev/null \
+               | grep -qiE '(\[bot\]|^renovate$|^dependabot$)'; then EXEMPT=true; fi
+          if grep -qiE 'do not dispatch|not a (repo|cloud) coding task' body.md; then EXEMPT=true; fi
           {
             echo "number=$NUM"
+            echo "exempt=$EXEMPT"
             echo "formatted=$(jq -r '[.labels[].name] | index("agents:formatted") != null' issue.json)"
           } >> "$GITHUB_OUTPUT"
-          jq -r '.body // ""' issue.json > body.md
 
       - name: Validate against AGENT_ISSUE_FORMAT
         id: validate
-        if: steps.iss.outputs.formatted != 'true'
+        if: steps.iss.outputs.formatted != 'true' && steps.iss.outputs.exempt != 'true'
         run: |
           set +e
           if [[ ! -f .github/scripts/issue_format.py ]]; then
@@ -75,7 +87,7 @@ jobs:
           cat report.md
 
       - name: Route non-conforming issue to the optimizer
-        if: steps.iss.outputs.formatted != 'true' && steps.validate.outputs.rc == '1'
+        if: steps.iss.outputs.formatted != 'true' && steps.iss.outputs.exempt != 'true' && steps.validate.outputs.rc == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           NUM: ${{ steps.iss.outputs.number }}
@@ -101,7 +113,7 @@ jobs:
             || echo "::warning::could not apply agents:format (label missing in this repo?)"
 
       - name: Clear the flag when an issue now conforms
-        if: steps.iss.outputs.formatted != 'true' && steps.validate.outputs.rc == '0'
+        if: steps.iss.outputs.formatted != 'true' && steps.iss.outputs.exempt != 'true' && steps.validate.outputs.rc == '0'
         env:
           GH_TOKEN: ${{ github.token }}
           NUM: ${{ steps.iss.outputs.number }}
