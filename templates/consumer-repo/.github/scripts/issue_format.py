@@ -24,9 +24,14 @@ Used at both ends:
 
 Rules mirror docs/AGENT_ISSUE_FORMAT.md rather than inventing a parallel
 standard: Tasks and Acceptance Criteria are REQUIRED; Why / Scope /
-Implementation Notes / Non-Goals are recommended; and at least one acceptance
-criterion must name a real test, runnable command, or observable verification
-gate.
+Implementation Notes / Non-Goals are reported as recommended; and at least one
+acceptance criterion must name a real test, runnable command, or observable
+verification gate.
+
+Recommended sections are advisory: their absence is reported to help authors
+improve an issue, but does not change the exit code or route an otherwise valid
+work order through the optimizer. Keeping that distinction prevents the guard
+from flagging well-formed work orders solely for an optional heading.
 
 `_headings()` skips fenced code blocks, and that is load-bearing rather than
 cosmetic. Without it a body whose ONLY "Tasks" and "Acceptance Criteria" lines
@@ -172,9 +177,7 @@ def validate(body: str) -> Report:
                 + ", ".join(sorted(hits))
                 + "); replace with a measurable check."
             )
-    report.ok = (
-        not report.missing_required and not report.missing_recommended and not report.problems
-    )
+    report.ok = not report.missing_required and not report.problems
     return report
 
 
