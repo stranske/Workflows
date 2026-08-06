@@ -651,7 +651,8 @@ async function run({ github, context, core }) {
               commit_title: pr.title,
               commit_message:
                 `Automated merge of sync PR\n\n` +
-                `Sync hash: ${pr.head.ref.split('-').pop()}`
+                `Sync hash: ${requestedSyncHash || metadata?.sync_hash || 'unknown'}\n` +
+                `Delivery generation: ${selection.deliveryRecord?.generation || 'unknown'}`
             }));
             console.log(`✓ Merged successfully (method=${merge_method})`);
             merged = true;
