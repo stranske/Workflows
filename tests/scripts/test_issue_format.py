@@ -4,6 +4,8 @@ import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
+import pytest
+
 
 def _validator():
     path = Path(".github/scripts/issue_format.py")
@@ -41,10 +43,20 @@ def test_runner_and_curl_are_accepted_gates() -> None:
     assert report.ok
 
 
-def test_api_status_sentence_is_an_accepted_gate() -> None:
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "API returns 400 status for invalid input",
+        "endpoint returns 400 status for invalid input",
+        "request returns 400 status for invalid input",
+        "response returns 400 status for invalid input",
+        "API responds with 400 status for invalid input",
+    ],
+)
+def test_api_status_sentence_is_an_accepted_gate(criterion: str) -> None:
     validator = _validator()
     report = validator.validate(
-        "## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- API returns 400 status for invalid input\n"
+        f"## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- {criterion}\n"
     )
     assert report.ok
 

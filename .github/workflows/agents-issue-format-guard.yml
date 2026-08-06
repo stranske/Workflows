@@ -88,6 +88,11 @@ jobs:
           NUMBER: ${{ steps.issue.outputs.number }}
         run: |
           set -euo pipefail
+          if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
+              --jq '[.labels[].name] | any(. == "agents:auto-pilot-pause" or . == "needs-human")' | grep -qx true; then
+            echo "Issue is now held — skipping optimizer dispatch."
+            exit 0
+          fi
           fingerprint="$(sha256sum body.md | cut -c1-12)"
           if ! gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
               --jq '.comments[].body' | grep -qF "format-guard:$fingerprint"; then
@@ -104,6 +109,21 @@ jobs:
           # GITHUB_TOKEN label edits do not start issues:labeled workflows; dispatch is explicit.
           gh workflow run agents-issue-optimizer.yml --repo "$GITHUB_REPOSITORY" \
             -f issue_number="$NUMBER" -f phase=format
+
+      - name: Restore format completion after an unheld revalidation
+        if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held == 'true' && steps.validate.outputs.rc == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          set -euo pipefail
+          if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
+              --jq '[.labels[].name] | any(. == "agents:auto-pilot-pause" or . == "needs-human")' | grep -qx true; then
+            echo "Issue remains held — leaving agents:formatted cleared."
+            exit 0
+          fi
+          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agents:formatted"
+          echo "Held edit revalidated after resume — restored agents:formatted."
 
       - name: Clear the stale format trigger
         if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true' && steps.validate.outputs.rc == '0'
