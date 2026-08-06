@@ -168,8 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     if report["startup_failures"]:
         return 0
     print(
-        "No matching startup_failure check-runs or zero-job approval hold found "
-        "for this run.",
+        "No matching startup_failure check-runs or zero-job approval hold found " "for this run.",
         file=sys.stderr,
     )
     return 2
