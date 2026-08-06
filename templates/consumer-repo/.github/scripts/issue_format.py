@@ -22,6 +22,7 @@ GATE = re.compile(
     r"|\bpytest\b|\bnpm test\b|\bmake test\b"
     r"|\bgh workflow run\b|\bgh run\b"
     r"|\bcurl\b|\bHTTP [1-5]\d\d\b"
+    r"|\b(?:API|endpoint|request|response)\s+(?:returns?|responds with)\s+[1-5]\d\d(?:\s+status)?\b"
     r"|\bsmoke\b|\bverif)",
     re.I,
 )
@@ -117,12 +118,7 @@ def validate(body: str) -> Report:
         )
 
     acceptance_at = _find(body, REQUIRED["Acceptance Criteria"])
-    if acceptance_at is None:
-        report.problems.append(
-            "No `Acceptance Criteria` section, so there is no named test gate "
-            "(Definition of Ready / Quality Bar §2 requires at least one)."
-        )
-    else:
+    if acceptance_at is not None:
         acceptance = _section_text(body, acceptance_at)
         if not GATE.search(acceptance):
             report.problems.append(

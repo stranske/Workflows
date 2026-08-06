@@ -41,6 +41,21 @@ def test_runner_and_curl_are_accepted_gates() -> None:
     assert report.ok
 
 
+def test_api_status_sentence_is_an_accepted_gate() -> None:
+    validator = _validator()
+    report = validator.validate(
+        "## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- API returns 400 status for invalid input\n"
+    )
+    assert report.ok
+
+
+def test_missing_acceptance_criteria_is_reported_once() -> None:
+    validator = _validator()
+    report = validator.validate("## Tasks\n- [ ] Implement it\n")
+    assert report.missing_required == ["Acceptance Criteria"]
+    assert "No `Acceptance Criteria` section" not in report.as_markdown()
+
+
 def test_implementation_notes_is_a_recommended_section() -> None:
     validator = _validator()
     report = validator.validate(

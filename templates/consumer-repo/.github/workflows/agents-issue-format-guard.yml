@@ -2,7 +2,7 @@ name: Agents Issue Format Guard
 
 on:
   issues:
-    types: [opened, edited, reopened]
+    types: [opened, edited, reopened, labeled, unlabeled]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -38,12 +38,15 @@ jobs:
             --json number,body,labels,state,author > issue.json
           jq -r '.body // ""' issue.json > body.md
           exempt=false
-          if jq -e '[.labels[].name] | any(. == "tracker:durable" or . == "wontfix" or . == "agents:auto-pilot-pause" or . == "needs-human")' issue.json >/dev/null; then exempt=true; fi
+          held=false
+          if jq -e '[.labels[].name] | any(. == "tracker:durable" or . == "wontfix")' issue.json >/dev/null; then exempt=true; fi
+          if jq -e '[.labels[].name] | any(. == "agents:auto-pilot-pause" or . == "needs-human")' issue.json >/dev/null; then held=true; fi
           if jq -er '.author.login // ""' issue.json | grep -qiE '(\[bot\]|^renovate$|^dependabot$)'; then exempt=true; fi
           if grep -qiE 'do not dispatch|not a (repo|cloud) coding task' body.md; then exempt=true; fi
           {
             echo "number=$NUMBER"
             echo "exempt=$exempt"
+            echo "held=$held"
           } >> "$GITHUB_OUTPUT"
 
       - name: Validate against AGENT_ISSUE_FORMAT
@@ -57,11 +60,29 @@ jobs:
             exit 0
           fi
           python3 .github/scripts/issue_format.py body.md > report.md
-          echo "rc=$?" >> "$GITHUB_OUTPUT"
-          cat report.md
+          rc=$?
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          cat report.md || true
+          if [[ "$rc" -ne 0 && "$rc" -ne 1 ]]; then
+            exit "$rc"
+          fi
+
+      - name: Invalidate stale format completion while held
+        if: github.event.action == 'edited' && steps.issue.outputs.held == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          set -euo pipefail
+          if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
+              --jq '.labels[].name' | grep -qx 'agents:formatted'; then
+            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted"
+            echo "Held issue was edited — cleared agents:formatted so resume revalidates it."
+          fi
 
       - name: Route non-conforming issue to the optimizer
-        if: steps.issue.outputs.exempt != 'true' && steps.validate.outputs.rc == '1'
+        if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true' && steps.validate.outputs.rc == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.issue.outputs.number }}
@@ -85,7 +106,7 @@ jobs:
             -f issue_number="$NUMBER" -f phase=format
 
       - name: Clear the stale format trigger
-        if: steps.issue.outputs.exempt != 'true' && steps.validate.outputs.rc == '0'
+        if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true' && steps.validate.outputs.rc == '0'
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.issue.outputs.number }}

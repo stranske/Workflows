@@ -92,7 +92,7 @@ workflows:
     description: "Issue optimizer - LangChain-based issue formatting and optimization (Phase 1)"
 
   - source: .github/workflows/agents-issue-format-guard.yml
-    description: "Issue format guard - validates every issue on open/edit against AGENT_ISSUE_FORMAT and applies agents:format so the optimizer repairs it. Closes the hole where an UNLABELLED, non-conforming issue is invisible to every lane (nothing validates, optimises or claims it). Requires .github/scripts/issue_format.py."
+    description: "Issue format guard - validates issues on open/edit/reopen and hold-label changes against AGENT_ISSUE_FORMAT, while durable/wontfix and bot issues remain exempt. Pause and needs-human labels hold dispatch, clear stale agents:formatted state on held edits, and revalidate on resume. Non-conforming unheld work gets agents:format so the optimizer repairs it. Requires .github/scripts/issue_format.py."
     template_sync: exact
 
   - source: .github/workflows/agents-verify-to-new-pr.yml
