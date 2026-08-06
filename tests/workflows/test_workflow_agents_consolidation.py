@@ -310,30 +310,28 @@ def test_consumer_sync_drift_uploads_machine_readable_report():
 def test_merge_sync_prs_uploads_machine_readable_report_and_hash_input():
     text = (WORKFLOWS_DIR / "maint-71-merge-sync-prs.yml").read_text(encoding="utf-8")
     executor_text = Path(".github/scripts/maint71_merge_sync_prs.js").read_text(encoding="utf-8")
-    contract_text = text + executor_text
     assert "sync_hash:" in text, "Maint 71 must expose a target sync hash input"
     assert (
-        "sync_pr_merge_contract.js" in contract_text
+        "sync_pr_merge_contract.js" in executor_text
     ), "Maint 71 must use the structured sync PR merge contract helper"
     assert (
-        "selectMergeEligibleSyncPr" in contract_text
+        "selectMergeEligibleSyncPr" in executor_text
     ), "Maint 71 must select the active PR with the lease-aware merge contract"
     assert (
-        "isTrustedGeneratedDeliveryPr" in contract_text
+        "isTrustedGeneratedDeliveryPr" in executor_text
     ), "Maint 71 must route both sync and dev-tool generated deliveries through the contract"
-    assert (
-        "close-expired-delivery" in contract_text and "close-or-refresh-delivery" in contract_text
-    )
+    assert "close-expired-delivery" in executor_text and "close-or-refresh-delivery" in executor_text
     assert "cleanup_branches:" in text, "Maint 71 must expose sync branch cleanup control"
     assert (
-        "collectDeletableSyncBranches" in contract_text and "branch_delete_failed" in contract_text
+        "collectDeletableSyncBranches" in executor_text
+        and "branch_delete_failed" in executor_text
     ), "Maint 71 must delete leftover sync branches and report deletion failures"
     assert (
-        "parseBooleanInput" in contract_text and "AUTO_MERGE_INPUT" in text
+        "parseBooleanInput" in executor_text and "AUTO_MERGE_INPUT" in text
     ), "Maint 71 must preserve explicit false boolean inputs"
     assert "SYNC_PR_MERGE_REPORT_JSON" in text, "Maint 71 must configure a JSON merge report path"
     assert (
-        "report-only mode remains successful" in contract_text
+        "report-only mode remains successful" in executor_text
     ), "Maint 71 dry-run mode must report blocking statuses without failing the workflow"
     assert (
         "sync-pr-merge-report" in text

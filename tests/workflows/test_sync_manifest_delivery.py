@@ -254,12 +254,10 @@ def test_maint_71_emits_canary_evidence_with_review_debt() -> None:
     executor = (REPO_ROOT / ".github" / "scripts" / "maint71_merge_sync_prs.js").read_text(
         encoding="utf-8"
     )
-    source = workflow + executor
-
-    assert "sync-canary-evidence.json" in source
-    assert "active_review_thread_count" in source
-    assert "required_check_state" in source
-    assert "plan_id" in source
+    assert "sync-canary-evidence.json" in workflow
+    assert "active_review_thread_count" in executor
+    assert "required_check_state" in executor
+    assert "plan_id" in executor
 
 
 def test_maint68_refreshes_only_a_same_base_and_tree_delivery_attempt() -> None:

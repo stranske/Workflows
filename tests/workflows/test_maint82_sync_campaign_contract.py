@@ -43,14 +43,12 @@ def test_maint71_dispatches_machine_readable_handoffs_to_campaign():
     # (expression-size limit). Contract assertions must follow the executable.
     workflow = MERGE_WORKFLOW.read_text(encoding="utf-8")
     executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text(encoding="utf-8")
-    contract = workflow + executor
-
     assert "maint71_merge_sync_prs.js" in workflow
-    assert "event_type: 'sync-dependabot-campaign'" in contract
-    assert "delivery_handoff_records: report.handoff_records" in contract
+    assert "event_type: 'sync-dependabot-campaign'" in executor
+    assert "delivery_handoff_records: report.handoff_records" in executor
     # Targeted Maint 71 runs must still refresh the full registered fleet.
-    assert "repos: registeredRepos.join(',')" in contract
-    assert "Maint 71 handoff dispatch failed (non-blocking)" in contract
+    assert "repos: registeredRepos.join(',')" in executor
+    assert "Maint 71 handoff dispatch failed (non-blocking)" in executor
 
 
 def test_campaign_workflow_bot_agnostic_identity():
