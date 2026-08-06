@@ -709,10 +709,14 @@ This inspects check-runs for the same head SHA/run ID and prints the parser erro
 title/summary text that is not visible in `actions/runs/<id>/jobs`.
 
 The same diagnostic also recognizes `action_required` runs with zero jobs.
-GitHub may hold a public-repository workflow before job creation under its
-unproven-workflow protection. Review the workflow file and use **Approve and
-run** from an authenticated GitHub web session; the REST approval endpoint for
-fork pull-request runs does not approve this class of hold.
+When the run event is a public-fork `pull_request` and `head_repository.fork`
+is true, classify it as a fork contributor approval hold (REST
+`/actions/runs/{id}/approve` can recover it). Otherwise treat it as GitHub's
+unproven-workflow protection: review the workflow file and use **Approve and
+run** from an authenticated GitHub web session; the fork-PR REST approval
+endpoint does not cover that class of hold. If the event is `pull_request` but
+fork status cannot be determined, report an unspecified approval hold and
+inspect `event` + `head_repository` before choosing remediation.
 
 
 ### Startup Failure (Caller Workflow Permissions)
