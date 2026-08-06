@@ -413,6 +413,7 @@ async function run({ github, context, core }) {
           delivery_generation: selection.deliveryRecord?.generation || '',
           delivery_lane: generatedDeliveryLane(selection.active.head.ref),
           delivery_disposition: deliveryDisposition,
+          delivery_reason: reason,
           blocker_owner: deliveryDisposition === 'owner-decision' ? 'source' : 'maint-71',
           next_command: deliveryDisposition === 'expired'
             ? 'close-expired-delivery'
@@ -422,6 +423,17 @@ async function run({ github, context, core }) {
         };
         if (deliveryDisposition === 'expired' || deliveryDisposition === 'superseded') {
           if (!dryRun) {
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: selection.active.number,
+              body: [
+                'Closing this generated delivery as no longer current.',
+                `delivery_reason: ${reason}`,
+                `delivery_disposition: ${deliveryDisposition}`,
+                `next_command: ${deliveryContext.next_command}`,
+              ].join('\n'),
+            }));
             await withRetry((client) => client.rest.pulls.update({
               owner,
               repo,
@@ -729,11 +741,13 @@ async function run({ github, context, core }) {
       sha: context.sha,
     },
   });
-  const reportPath = process.env.SYNC_PR_MERGE_REPORT_JSON;
+  const reportPath = process.env.SYNC_PR_MERGE_REPORT_JSON || 'artifacts/sync-pr-merge-report.json';
+  const canaryEvidencePath = 'artifacts/sync-canary-evidence.json';
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.mkdirSync(path.dirname(canaryEvidencePath), { recursive: true });
   fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   fs.writeFileSync(
-    'artifacts/sync-canary-evidence.json',
+    canaryEvidencePath,
     `${JSON.stringify({
       schema: 'workflows.consumer-sync-canary-evidence/v1',
       version: 1,

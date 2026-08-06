@@ -2,6 +2,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const {
   buildMarkdownSummary,
@@ -21,6 +24,7 @@ const {
   syncBranchForHash,
 } = require('../sync_pr_merge_contract');
 const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
+const { run } = require('../maint71_merge_sync_prs');
 
 const pr = (number, ref, created_at) => ({
   number,
@@ -39,6 +43,76 @@ const checkRun = ({
   status,
   conclusion,
   started_at,
+});
+
+test('maint71 run writes reports and records a no-PR result with fake action clients', async () => {
+  const originalCwd = process.cwd();
+  const originalEnv = {
+    REGISTERED_REPOS_INPUT: process.env.REGISTERED_REPOS_INPUT,
+    CLEANUP_BRANCHES_INPUT: process.env.CLEANUP_BRANCHES_INPUT,
+    DRY_RUN_INPUT: process.env.DRY_RUN_INPUT,
+    AUTO_MERGE_INPUT: process.env.AUTO_MERGE_INPUT,
+    SYNC_PR_MERGE_REPORT_JSON: process.env.SYNC_PR_MERGE_REPORT_JSON,
+  };
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-run-'));
+  const reportPath = path.join(tempDir, 'reports', 'merge-report.json');
+  const summaries = [];
+  const failures = [];
+  const paginateCalls = [];
+  const github = {
+    paginate: async (method, params) => {
+      paginateCalls.push({ method, params });
+      return [];
+    },
+    rest: {
+      pulls: { list: () => {} },
+      repos: { createDispatchEvent: () => {} },
+    },
+  };
+  const core = {
+    addRaw: () => ({ write: async () => {} }),
+    notice: (message) => summaries.push(message),
+    setFailed: (message) => failures.push(message),
+    warning: (message) => summaries.push(message),
+    summary: { addRaw: () => ({ write: async () => {} }) },
+  };
+
+  try {
+    process.chdir(tempDir);
+    process.env.REGISTERED_REPOS_INPUT = 'stranske/Ready';
+    process.env.CLEANUP_BRANCHES_INPUT = 'false';
+    process.env.DRY_RUN_INPUT = 'true';
+    process.env.AUTO_MERGE_INPUT = 'false';
+    process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
+
+    await run({
+      github,
+      core,
+      context: {
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        payload: {},
+        runId: 1,
+        runNumber: 1,
+        workflow: 'Maint 71',
+        ref: 'refs/heads/main',
+        sha: 'abc',
+      },
+    });
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(paginateCalls.length, 1);
+    assert.equal(paginateCalls[0].params.repo, 'Ready');
+    assert.equal(report.summary.no_prs, 1);
+    assert.equal(fs.existsSync(path.join(tempDir, 'artifacts', 'sync-canary-evidence.json')), true);
+    assert.deepEqual(failures, []);
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test('normalizeSyncHash accepts raw hashes and branch names', () => {
