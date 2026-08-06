@@ -202,13 +202,15 @@ async function run({ github, context, core }) {
     console.log(`\n=== ${owner}/${repo} ===`);
   
     try {
-      // Find open sync PRs
-      const { data: prs } = await withRetry((client) => client.rest.pulls.list({
-        owner,
-        repo,
-        state: 'open',
-        per_page: 20
-      }));
+      // Find open sync PRs (paginate — first page alone can miss open sync heads).
+      const prs = await withRetry((client) =>
+        client.paginate(client.rest.pulls.list, {
+          owner,
+          repo,
+          state: 'open',
+          per_page: 100,
+        }),
+      );
   
       const syncPRs = prs.filter((pr) => isTrustedGeneratedDeliveryPr(pr, trustedSyncActors));
   
@@ -229,7 +231,8 @@ async function run({ github, context, core }) {
           ]);
           const branchesToDelete = collectDeletableSyncBranches({
             branches,
-            openPullRequests: syncPRs,
+            // Pass every open PR so an open sync head beyond the filtered set is never deleted.
+            openPullRequests: prs,
             closedPullRequests: closedPRs,
           });
   
@@ -444,33 +447,66 @@ async function run({ github, context, core }) {
       console.log(`Branch: ${pr.head.ref}`);
       console.log(`Created: ${pr.created_at}`);
   
-      // Check PR status
-      await withRetry((client) => client.rest.repos.getCombinedStatusForRef({
-        owner,
-        repo,
-        ref: pr.head.sha
-      }));
-  
-      // Check check runs
-      const { data: checkRuns } = await withRetry((client) =>
-        client.rest.checks.listForRef({
+      // Combined legacy statuses + every check-run page (paginate returns a flat array).
+      const { data: combinedStatus } = await withRetry((client) =>
+        client.rest.repos.getCombinedStatusForRef({
           owner,
           repo,
-          ref: pr.head.sha
+          ref: pr.head.sha,
         }),
       );
-  
-      const allChecks = checkRuns.check_runs || [];
+      const paginatedCheckRuns = await withRetry((client) =>
+        client.paginate(client.rest.checks.listForRef, {
+          owner,
+          repo,
+          ref: pr.head.sha,
+          per_page: 100,
+        }),
+      );
+      const statusAsChecks = (combinedStatus.statuses || []).map((status) => {
+        const state = String(status.state || '').toLowerCase();
+        return {
+          name: status.context,
+          status: state === 'pending' ? 'in_progress' : 'completed',
+          conclusion:
+            state === 'success'
+              ? 'success'
+              : state === 'pending'
+                ? null
+                : 'failure',
+        };
+      });
+      const checkNames = new Set(
+        paginatedCheckRuns.map((check) => String(check?.name || '').trim()).filter(Boolean),
+      );
+      const allChecks = [
+        ...paginatedCheckRuns,
+        ...statusAsChecks.filter((status) => !checkNames.has(String(status.name || '').trim())),
+      ];
       const requiredContexts = await getRequiredContexts({
         owner,
         repo,
         branch: pr.base.ref,
       });
-      const classification = classifySyncPrChecks({
+      let classification = classifySyncPrChecks({
         checkRuns: allChecks,
         requiredContexts,
         fallbackDenylist: fallbackCheckDenylist,
       });
+      // Fail closed: a required context absent from both checks and statuses is not "ready".
+      if (requiredContexts.size > 0 && classification.status === 'ready') {
+        const seenNames = new Set(
+          allChecks.map((check) => String(check?.name || '').trim()).filter(Boolean),
+        );
+        const missingRequired = [...requiredContexts].filter((ctx) => !seenNames.has(ctx));
+        if (missingRequired.length > 0) {
+          classification = {
+            status: 'checks_pending',
+            failed: [],
+            pending: missingRequired.map((name) => ({ name, status: 'queued' })),
+          };
+        }
+      }
       const gatingChecks = selectSyncPrGatingChecks({
         checkRuns: allChecks,
         requiredContexts,
@@ -738,9 +774,15 @@ async function run({ github, context, core }) {
     (r) =>
       r.status === 'merge_failed' ||
       r.status === 'stale_close_failed' ||
-      r.status === 'branch_delete_failed' ||
       r.status === 'target_missing',
   );
+  const branchDeleteFailures = results.filter((r) => r.status === 'branch_delete_failed');
+  if (branchDeleteFailures.length > 0) {
+    core.notice(
+      `${branchDeleteFailures.length} sync branch(es) could not be deleted; ` +
+        'the next scheduled run retries the cleanup.',
+    );
+  }
   const checksFailed = results.filter((r) => r.status === 'checks_failed');
   if (checksFailed.length > 0) {
     core.notice(
@@ -766,7 +808,9 @@ async function run({ github, context, core }) {
   }
   
   if (failed > 0) {
-    core.setFailed(`${failed} PRs failed to merge`);
+    core.setFailed(
+      `${failed} blocking sync-system failure(s): merge_failed, stale_close_failed, or target_missing`,
+    );
   }
 }
 
