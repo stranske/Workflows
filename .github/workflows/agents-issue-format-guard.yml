@@ -111,7 +111,11 @@ jobs:
             -f issue_number="$NUMBER" -f phase=format
 
       - name: Restore format completion after an unheld revalidation
-        if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held == 'true' && steps.validate.outputs.rc == '0'
+        if: >-
+          steps.issue.outputs.exempt != 'true' && steps.validate.outputs.rc == '0' &&
+          (steps.issue.outputs.held == 'true' ||
+          (github.event.action == 'unlabeled' &&
+          (github.event.label.name == 'agents:auto-pilot-pause' || github.event.label.name == 'needs-human')))
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.issue.outputs.number }}
