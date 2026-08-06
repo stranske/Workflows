@@ -38,7 +38,7 @@ jobs:
             --json number,body,labels,state,author > issue.json
           jq -r '.body // ""' issue.json > body.md
           exempt=false
-          if jq -e '[.labels[].name] | any(. == "tracker:durable" or . == "wontfix")' issue.json >/dev/null; then exempt=true; fi
+          if jq -e '[.labels[].name] | any(. == "tracker:durable" or . == "wontfix" or . == "agents:auto-pilot-pause" or . == "needs-human")' issue.json >/dev/null; then exempt=true; fi
           if jq -er '.author.login // ""' issue.json | grep -qiE '(\[bot\]|^renovate$|^dependabot$)'; then exempt=true; fi
           if grep -qiE 'do not dispatch|not a (repo|cloud) coding task' body.md; then exempt=true; fi
           {

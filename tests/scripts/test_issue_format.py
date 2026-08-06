@@ -39,3 +39,11 @@ def test_runner_and_curl_are_accepted_gates() -> None:
         "## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- gh run watch succeeds\n- curl endpoint returns 200\n"
     )
     assert report.ok
+
+
+def test_implementation_notes_is_a_recommended_section() -> None:
+    validator = _validator()
+    report = validator.validate(
+        "## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert "Implementation Notes" in report.missing_recommended
