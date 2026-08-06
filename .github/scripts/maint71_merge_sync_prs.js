@@ -4,7 +4,9 @@ async function run({ github, context, core }) {
   const defaultOwner = context.repo.owner;
   const fs = require('fs');
   const path = require('path');
-  const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+  // Sibling-relative paths: this module lives under .github/scripts/, so
+  // require('./.github/scripts/...') would resolve to a nested non-existent path.
+  const retryHelperPath = path.join(__dirname, 'github-api-with-retry.js');
   const {
     buildMarkdownSummary,
     buildMergeReport,
@@ -17,10 +19,10 @@ async function run({ github, context, core }) {
     isTrustedGeneratedDeliveryPr,
     selectMergeEligibleSyncPr,
     selectSyncPrGatingChecks,
-  } = require('./.github/scripts/sync_pr_merge_contract.js');
+  } = require('./sync_pr_merge_contract.js');
   const {
     assertRuntimeAcMergeAllowed,
-  } = require('./.github/scripts/runtime_ac_merge_guard.js');
+  } = require('./runtime_ac_merge_guard.js');
   // Support repository_dispatch (no inputs) with sensible defaults
   const inputRepos =
     process.env.REPOS_INPUT ||
@@ -44,7 +46,8 @@ async function run({ github, context, core }) {
   const retryHelpers = fs.existsSync(retryHelperPath)
     ? require(retryHelperPath)
     : {
-        withRetry: (fn) => fn(),
+        // Call sites pass (client) => client.rest...; match that contract.
+        withRetry: (fn) => fn(github),
         paginateWithRetry: (githubInstance, method, params) =>
           githubInstance.paginate(method, params),
       };
@@ -130,7 +133,8 @@ async function run({ github, context, core }) {
       (context.payload.client_payload && context.payload.client_payload.sync_hash) ||
     '',
   );
-  const trustedSyncActors = process.env.TRUSTED_SYNC_ACTORS.split(',')
+  const trustedSyncActors = String(process.env.TRUSTED_SYNC_ACTORS || '')
+    .split(',')
     .map((actor) => actor.trim())
     .filter(Boolean);
   
