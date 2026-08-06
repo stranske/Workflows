@@ -11,6 +11,7 @@ VALID_CONTEXT = (
     "## Implementation Notes\nDetails\n\n## Non-Goals\nNo expansion\n\n"
 )
 
+
 def _validator():
     path = Path(".github/scripts/issue_format.py")
     spec = spec_from_file_location("issue_format", path)

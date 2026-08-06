@@ -99,9 +99,7 @@ def _find(body: str, aliases: tuple[str, ...]) -> int | None:
 def _section_text(body: str, start: int) -> str:
     lines = body.splitlines()
     start_level = next(level for _, idx, level in _headings(body) if idx == start)
-    following = [
-        idx for _, idx, level in _headings(body) if idx > start and level <= start_level
-    ]
+    following = [idx for _, idx, level in _headings(body) if idx > start and level <= start_level]
     end = following[0] if following else len(lines)
     return "\n".join(lines[start + 1 : end])
 
@@ -174,7 +172,9 @@ def validate(body: str) -> Report:
                 + ", ".join(sorted(hits))
                 + "); replace with a measurable check."
             )
-    report.ok = not report.missing_required and not report.missing_recommended and not report.problems
+    report.ok = (
+        not report.missing_required and not report.missing_recommended and not report.problems
+    )
     return report
 
 
