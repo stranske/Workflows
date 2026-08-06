@@ -10,6 +10,11 @@
 # divergence no longer change these fingerprints, so this allowlist stops going
 # stale on dependency bumps; only a genuine logic change to a root workflow will.
 #
+# 2026-08-05 re-baseline: auto-label now isolates the preliminary eligibility
+# sparse checkout under eligibility-source/ in both root and consumer workflows.
+# The remaining root/template differences are the already-reviewed consumer
+# action-pin and auth-plumbing contract.
+#
 # 2026-07-24 re-baseline: refreshed fingerprints for 13 entries (belt 71/72/73,
 # auto-label, autofix-dispatcher, capability-check, decompose, dedup, guard,
 # issue-optimizer, keepalive-loop-reporter, verifier, weekly-metrics) that went
@@ -66,9 +71,9 @@ reason = Existing reviewed baseline drift re-baselined 2026-06-19: runtime AC me
 [pair.5]
 main = .github/workflows/agents-auto-label.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
-main_sha256 = 6276b24994010fab62c79085cc41d67ca2d0031580df2f5892c5ed2c7d1e7eba
-template_sha256 = c351fecad5ee3bc4231fc33d7e0c3edbcf539f57105d649601bfbf435561b1f3
-reason = Intentional divergence updated 2026-07-31: root and consumer queries now reject non-positive or invalid bounds and share executable guard tests while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
+main_sha256 = 2b69ddf783e49273b966ab87f0caaf65c0a3c2b803bf46eba240d0637eeda00b
+template_sha256 = 60a5f4bff00adcf4ab9fe967f6f0d4b53d8be8d1111c545aa0778c7424ff69b9
+reason = Intentional divergence updated 2026-08-05: root and consumer workflows both isolate the eligibility sparse checkout under eligibility-source/ while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
 
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml

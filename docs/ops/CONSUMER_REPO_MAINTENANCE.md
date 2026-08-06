@@ -138,6 +138,21 @@ For bugs affecting multiple repos, create a tracking issue with:
 **Example**: `workflow_run` trigger without handler job  
 **Detection**: Search for trigger in `on:` block, verify matching job exists
 
+### Sparse checkout state leaking into a later checkout
+
+**Pattern**: A job checks out one local action with `sparse-checkout`, then runs a
+second `actions/checkout` into the same workspace and expects the complete
+repository to be present.
+
+**Problem**: The later checkout can retain the first checkout's sparse worktree
+configuration. A subsequent local action then fails before useful work begins
+with `Can't find 'action.yml'`, even though the action is present on the
+repository's default branch.
+
+**Fix**: Put the preliminary sparse checkout in a dedicated `path:` and invoke
+the local action from that path. Reserve the workspace root for the later full
+checkout. The auto-label workflows use `eligibility-source/` for this reason.
+
 ### Hardcoded Values
 
 **Pattern**: Repository-specific values in templates  

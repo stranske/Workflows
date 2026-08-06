@@ -114,6 +114,7 @@ def test_diagnose_startup_failure_collects_output_fields(monkeypatch) -> None:
     report = diag.diagnose_startup_failure("owner/repo", 555)
 
     assert report["jobs_count"] == 0
+    assert report["approval_hold"] is None
     assert report["head_sha"] == "abc123"
     assert len(report["startup_failures"]) == 1
     finding = report["startup_failures"][0]
@@ -199,7 +200,61 @@ def test_main_returns_2_when_no_startup_failure(monkeypatch, capsys) -> None:
     exit_code = diag.main(["--repo", "owner/repo", "--run-id", "111"])
 
     assert exit_code == 2
-    assert "No matching startup_failure check-runs found" in capsys.readouterr().err
+    assert "No matching startup_failure check-runs or zero-job approval hold" in (
+        capsys.readouterr().err
+    )
+
+
+def test_diagnose_zero_job_action_required_as_web_approval_hold(monkeypatch) -> None:
+    responses = [
+        {
+            "head_sha": "abc123",
+            "name": "Auto-Label Issues",
+            "conclusion": "action_required",
+            "status": "completed",
+        },
+        {"jobs": []},
+        {"check_runs": []},
+    ]
+
+    def fake_gh_api(path: str, token: str | None = None) -> dict[str, Any]:
+        return responses.pop(0)
+
+    monkeypatch.setattr(diag, "_gh_api", fake_gh_api)
+    report = diag.diagnose_startup_failure("owner/repo", 555)
+
+    assert report["approval_hold"] == {
+        "failure_phase": "pre_job_workflow_approval",
+        "suspected_root_cause": "github_unproven_workflow_protection",
+        "approval_url": "https://github.com/owner/repo/actions/runs/555",
+        "remediation": (
+            "Review the workflow file, then use Approve and run from an "
+            "authenticated GitHub web session. The workflow-run approval "
+            "REST endpoint does not cover this protection."
+        ),
+    }
+
+
+def test_main_accepts_zero_job_action_required_hold(monkeypatch, capsys) -> None:
+    responses = [
+        {
+            "head_sha": "abc123",
+            "name": "Auto-Label Issues",
+            "conclusion": "action_required",
+            "status": "completed",
+        },
+        {"jobs": []},
+        {"check_runs": []},
+    ]
+
+    def fake_gh_api(path: str, token: str | None = None) -> dict[str, Any]:
+        return responses.pop(0)
+
+    monkeypatch.setattr(diag, "_gh_api", fake_gh_api)
+    exit_code = diag.main(["--repo", "owner/repo", "--run-id", "555"])
+
+    assert exit_code == 0
+    assert "pre_job_workflow_approval" in capsys.readouterr().out
 
 
 def test_main_returns_1_when_diagnosis_raises(monkeypatch, capsys) -> None:

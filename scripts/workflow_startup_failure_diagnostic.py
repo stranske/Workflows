@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture startup_failure details for a workflow run via GitHub check-runs."""
+"""Diagnose zero-job workflow startup failures and approval holds."""
 
 from __future__ import annotations
 
@@ -98,6 +98,18 @@ def diagnose_startup_failure(repo: str, run_id: int) -> dict[str, Any]:
 
     jobs = jobs_payload.get("jobs", [])
     jobs_count = len(jobs) if isinstance(jobs, list) else 0
+    approval_hold = None
+    if run_payload.get("conclusion") == "action_required" and jobs_count == 0:
+        approval_hold = {
+            "failure_phase": "pre_job_workflow_approval",
+            "suspected_root_cause": "github_unproven_workflow_protection",
+            "approval_url": f"https://github.com/{repo}/actions/runs/{run_id}",
+            "remediation": (
+                "Review the workflow file, then use Approve and run from an "
+                "authenticated GitHub web session. The workflow-run approval "
+                "REST endpoint does not cover this protection."
+            ),
+        }
     return {
         "repo": repo,
         "run_id": run_id,
@@ -106,6 +118,7 @@ def diagnose_startup_failure(repo: str, run_id: int) -> dict[str, Any]:
         "run_status": run_payload.get("status", ""),
         "head_sha": head_sha,
         "jobs_count": jobs_count,
+        "approval_hold": approval_hold,
         "startup_failures": findings,
     }
 
@@ -148,11 +161,17 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(json.dumps(report, indent=2))
+    if report["approval_hold"]:
+        return 0
     if report["jobs_count"] == 0 and report["startup_failures"]:
         return 0
     if report["startup_failures"]:
         return 0
-    print("No matching startup_failure check-runs found for this run.", file=sys.stderr)
+    print(
+        "No matching startup_failure check-runs or zero-job approval hold found "
+        "for this run.",
+        file=sys.stderr,
+    )
     return 2
 
 

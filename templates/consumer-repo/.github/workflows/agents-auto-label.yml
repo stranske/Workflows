@@ -50,11 +50,12 @@ jobs:
             github.event.workflow_run.repository.default_branch }}
           sparse-checkout: .github/actions/agent-event-eligibility
           sparse-checkout-cone-mode: false
+          path: eligibility-source
 
       # Escape hatch: set mode: warning if false-negative skips appear post-merge.
       - name: Check event eligibility
         id: eligibility
-        uses: ./.github/actions/agent-event-eligibility
+        uses: ./eligibility-source/.github/actions/agent-event-eligibility
         with:
           expected-actions: opened,reopened,edited
           custom-predicate: >-

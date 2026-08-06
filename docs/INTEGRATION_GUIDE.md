@@ -708,6 +708,12 @@ python scripts/workflow_startup_failure_diagnostic.py --repo OWNER/REPO --run-id
 This inspects check-runs for the same head SHA/run ID and prints the parser error
 title/summary text that is not visible in `actions/runs/<id>/jobs`.
 
+The same diagnostic also recognizes `action_required` runs with zero jobs.
+GitHub may hold a public-repository workflow before job creation under its
+unproven-workflow protection. Review the workflow file and use **Approve and
+run** from an authenticated GitHub web session; the REST approval endpoint for
+fork pull-request runs does not approve this class of hold.
+
 
 ### Startup Failure (Caller Workflow Permissions)
 
