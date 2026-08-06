@@ -236,6 +236,7 @@ EXPECTED_NAMES = {
     "maint-auto-lock-deps.yml": "Auto-lock dependency PRs",
     "agents-63-issue-intake.yml": "Agents 63 Issue Intake",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
+    "agents-issue-format-guard.yml": "Agents Issue Format Guard",
     "agents-issue-optimizer.yml": "Agents Issue Optimizer",
     "agents-verifier.yml": "Agents Verifier",
     "agents-verify-to-issue-v2.yml": "Create Issue from Verification (Enhanced)",
