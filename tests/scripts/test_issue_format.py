@@ -6,6 +6,10 @@ from pathlib import Path
 
 import pytest
 
+VALID_CONTEXT = (
+    "## Why\nCurrent evidence\n\n## Scope\nBounded scope\n\n"
+    "## Implementation Notes\nDetails\n\n## Non-Goals\nNo expansion\n\n"
+)
 
 def _validator():
     path = Path(".github/scripts/issue_format.py")
@@ -38,7 +42,8 @@ def test_checkbox_and_subjective_errors_are_non_conforming() -> None:
 def test_runner_and_curl_are_accepted_gates() -> None:
     validator = _validator()
     report = validator.validate(
-        "## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- gh run watch succeeds\n- curl endpoint returns 200\n"
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- gh run watch succeeds\n- curl endpoint returns 200\n"
     )
     assert report.ok
 
@@ -56,7 +61,7 @@ def test_runner_and_curl_are_accepted_gates() -> None:
 def test_api_status_sentence_is_an_accepted_gate(criterion: str) -> None:
     validator = _validator()
     report = validator.validate(
-        f"## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- {criterion}\n"
+        VALID_CONTEXT + f"## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- {criterion}\n"
     )
     assert report.ok
 
@@ -74,3 +79,35 @@ def test_implementation_notes_is_a_recommended_section() -> None:
         "## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
     )
     assert "Implementation Notes" in report.missing_recommended
+    assert not report.ok
+
+
+def test_implementation_notes_does_not_satisfy_tasks() -> None:
+    validator = _validator()
+    report = validator.validate(
+        "## Implementation Notes\n- [ ] Not a task\n\n"
+        "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert "Tasks" in report.missing_required
+
+
+def test_nested_headings_remain_inside_their_parent_section() -> None:
+    validator = _validator()
+    report = validator.validate(
+        "## Why\nCurrent evidence\n\n## Scope\nBounded scope\n\n"
+        "## Tasks\n### Backend\n- [ ] Implement it\n\n"
+        "## Acceptance Criteria\n### Verification\n- pytest tests/test_x.py passes\n\n"
+        "## Implementation Notes\nDetails\n\n## Non-Goals\nNo expansion\n"
+    )
+    assert report.ok
+
+
+def test_verify_is_an_accepted_gate() -> None:
+    validator = _validator()
+    report = validator.validate(
+        "## Why\nCurrent evidence\n\n## Scope\nBounded scope\n\n"
+        "## Tasks\n- [ ] Implement it\n\n"
+        "## Acceptance Criteria\n- Verify the endpoint response\n\n"
+        "## Implementation Notes\nDetails\n\n## Non-Goals\nNo expansion\n"
+    )
+    assert report.ok

@@ -21,6 +21,14 @@ concurrency:
 
 jobs:
   check:
+    if: >-
+      github.event_name != 'issues' ||
+      github.event.action == 'opened' || github.event.action == 'edited' ||
+      github.event.action == 'reopened' ||
+      ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
+      (github.event.label.name == 'agents:auto-pilot-pause' ||
+      github.event.label.name == 'needs-human' ||
+      github.event.label.name == 'tracker:durable' || github.event.label.name == 'wontfix'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -68,8 +76,10 @@ jobs:
             exit "$rc"
           fi
 
-      - name: Invalidate stale format completion while held
-        if: github.event.action == 'edited' && steps.issue.outputs.held == 'true'
+      - name: Invalidate stale format completion after an invalid edit
+        if: >-
+          steps.issue.outputs.exempt != 'true' && github.event.action == 'edited' &&
+          steps.validate.outputs.rc == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.issue.outputs.number }}
@@ -78,7 +88,7 @@ jobs:
           if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
               --jq '.labels[].name' | grep -qx 'agents:formatted'; then
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted"
-            echo "Held issue was edited — cleared agents:formatted so resume revalidates it."
+            echo "Invalid issue edit — cleared agents:formatted before rerouting."
           fi
 
       - name: Route non-conforming issue to the optimizer
@@ -104,6 +114,11 @@ jobs:
               echo "<!-- format-guard:$fingerprint -->"
             } | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file -
           fi
+          if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
+              --jq '.labels[].name' | grep -qx 'agents:formatted'; then
+            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted" \
+              || echo "::warning::could not remove agents:formatted"
+          fi
           gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agents:format" \
             || echo "::warning::could not apply agents:format (label missing in this repo?)"
           # GITHUB_TOKEN label edits do not start issues:labeled workflows; dispatch is explicit.
@@ -113,9 +128,8 @@ jobs:
       - name: Restore format completion after an unheld revalidation
         if: >-
           steps.issue.outputs.exempt != 'true' && steps.validate.outputs.rc == '0' &&
-          (steps.issue.outputs.held == 'true' ||
-          (github.event.action == 'unlabeled' &&
-          (github.event.label.name == 'agents:auto-pilot-pause' || github.event.label.name == 'needs-human')))
+          github.event.action == 'unlabeled' &&
+          (github.event.label.name == 'agents:auto-pilot-pause' || github.event.label.name == 'needs-human')
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.issue.outputs.number }}
@@ -126,8 +140,9 @@ jobs:
             echo "Issue remains held — leaving agents:formatted cleared."
             exit 0
           fi
-          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agents:formatted"
-          echo "Held edit revalidated after resume — restored agents:formatted."
+          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agents:formatted" \
+            || echo "::warning::could not apply agents:formatted (label missing in this repo?)"
+          echo "Unheld issue revalidated — restored agents:formatted."
 
       - name: Clear the stale format trigger
         if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true' && steps.validate.outputs.rc == '0'
