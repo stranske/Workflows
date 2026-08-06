@@ -1,4 +1,42 @@
-"""Validate a GitHub issue body against the fleet AGENT_ISSUE_FORMAT contract."""
+"""Validate a GitHub issue body against the fleet's AGENT_ISSUE_FORMAT contract.
+
+Synced to every consumer repo by `maint-68-sync-consumer-repos.yml`. This is the
+single definition of "agent-processable" for the whole fleet — do not fork it
+per repo.
+
+Why it exists: every automated lane reaches an issue through a LABEL. An issue
+filed with no label and no Tasks/Acceptance block is invisible to the entire
+pipeline — nothing validates it, nothing optimises it, nothing claims it. Local
+automation that files *findings* rather than *work orders* therefore produces
+issues no agent can ever pick up: good evidence, permanently unactionable.
+(Observed in Fine-Art-Archive #406-409: four well-evidenced audit findings, zero
+labels, no Tasks section between them.)
+
+Used at both ends:
+  * `agents-issue-format-guard.yml` validates every issue on open/edit and, on
+    failure, applies `agents:format` — the label the existing Agents Issue
+    Optimizer already listens for — so a bad issue is ROUTED to the machinery
+    that repairs it rather than merely flagged;
+  * any local script that files issues can pre-flight with
+    `python .github/scripts/issue_format.py <body-file>` and refuse to file junk
+    (non-zero exit means unfit).
+
+Rules mirror docs/AGENT_ISSUE_FORMAT.md rather than inventing a parallel
+standard: Tasks and Acceptance Criteria are REQUIRED; Why / Scope /
+Implementation Notes / Non-Goals are recommended; and at least one acceptance
+criterion must name a real test, runnable command, or observable verification
+gate.
+
+`_headings()` skips fenced code blocks, and that is load-bearing rather than
+cosmetic. Without it a body whose ONLY "Tasks" and "Acceptance Criteria" lines
+sit inside a ```bash fence validates as conforming — a false negative that lets
+an unactionable issue through the guard. Well-written issues quote commands and
+expected output in fences constantly, so this is the common case, not an edge
+one. Any change to heading detection must keep a fenced-heading case in
+tests/scripts/test_issue_format.py.
+
+Pure stdlib on purpose — it must run on a bare runner with no install step.
+"""
 
 from __future__ import annotations
 
