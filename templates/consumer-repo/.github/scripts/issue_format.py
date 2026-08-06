@@ -48,12 +48,12 @@ RECOMMENDED: dict[str, tuple[str, ...]] = {
 # token. Deliberately conservative and string-based, matching the guide's
 # "Enforcement note".
 GATE = re.compile(
-    r"(tests?/[\w./-]+\.py(::[\w:\[\]-]+)?"          # a test path, optionally ::id
-    r"|\btest_[\w]+"                                  # a test function name
-    r"|\bpytest\b|\bnpm test\b|\bmake test\b"         # runners
-    r"|gh workflow run\b|gh run \b"                   # CI invocation
-    r"|\bcurl\b.*\bHTTP\b|\bHTTP [1-5]\d\d\b"         # observable HTTP result
-    r"|\bsmoke\b|\bverif)",                           # smoke / verify tokens
+    r"(tests?/[\w./-]+\.py(::[\w:\[\]-]+)?"  # a test path, optionally ::id
+    r"|\btest_[\w]+"  # a test function name
+    r"|\bpytest\b|\bnpm test\b|\bmake test\b"  # runners
+    r"|gh workflow run\b|gh run \b"  # CI invocation
+    r"|\bcurl\b.*\bHTTP\b|\bHTTP [1-5]\d\d\b"  # observable HTTP result
+    r"|\bsmoke\b|\bverif)",  # smoke / verify tokens
     re.I,
 )
 # Subjective words the guide bans as acceptance criteria.
@@ -98,17 +98,22 @@ class Report:
     def as_markdown(self) -> str:
         if self.ok and not self.missing_recommended:
             return "Issue body conforms to `docs/AGENT_ISSUE_FORMAT.md`."
-        out = ["This issue is **not yet agent-processable**. "
-               "See `docs/AGENT_ISSUE_FORMAT.md`.", ""]
+        out = [
+            "This issue is **not yet agent-processable**. " "See `docs/AGENT_ISSUE_FORMAT.md`.",
+            "",
+        ]
         if self.missing_required:
-            out.append("**Missing required sections:** "
-                       + ", ".join(f"`{s}`" for s in self.missing_required))
+            out.append(
+                "**Missing required sections:** "
+                + ", ".join(f"`{s}`" for s in self.missing_required)
+            )
         for p in self.problems:
             out.append(f"- {p}")
         if self.missing_recommended:
             out.append("")
-            out.append("_Recommended but absent:_ "
-                       + ", ".join(f"`{s}`" for s in self.missing_recommended))
+            out.append(
+                "_Recommended but absent:_ " + ", ".join(f"`{s}`" for s in self.missing_recommended)
+            )
         return "\n".join(out)
 
 
