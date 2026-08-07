@@ -43,7 +43,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   click
     #   pytest
     #   tqdm
-coverage==7.15.3
+coverage==7.15.4
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov
