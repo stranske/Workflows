@@ -31,6 +31,26 @@ def test_fenced_headings_do_not_satisfy_required_sections() -> None:
     assert set(report.missing_required) == {"Tasks", "Acceptance Criteria"}
 
 
+def test_fence_with_language_marker_does_not_close_a_code_block() -> None:
+    validator = _validator()
+    report = validator.validate(
+        "```markdown\n## Tasks\n- [ ] pretend\n```python\n"
+        "## Acceptance Criteria\n- pytest tests/test_x.py\n````\n"
+    )
+    assert not report.ok
+    assert "Acceptance Criteria" in report.missing_required
+
+
+def test_heading_with_trailing_qualifier_matches_required_section() -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks (in order)\n- [ ] Implement it\n\n"
+        + "## Acceptance Criteria (all must hold)\n- pytest tests/test_x.py passes\n"
+    )
+    assert report.ok
+
+
 def test_checkbox_and_subjective_errors_are_non_conforming() -> None:
     validator = _validator()
     report = validator.validate(

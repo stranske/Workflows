@@ -76,10 +76,9 @@ jobs:
             exit "$rc"
           fi
 
-      - name: Invalidate stale format completion after an invalid edit
+      - name: Invalidate stale format completion after an invalid issue change
         if: >-
-          steps.issue.outputs.exempt != 'true' && github.event.action == 'edited' &&
-          steps.validate.outputs.rc == '1'
+          steps.issue.outputs.exempt != 'true' && steps.validate.outputs.rc == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.issue.outputs.number }}
@@ -87,8 +86,9 @@ jobs:
           set -euo pipefail
           if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
               --jq '.labels[].name' | grep -qx 'agents:formatted'; then
-            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted"
-            echo "Invalid issue edit — cleared agents:formatted before rerouting."
+            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted" \
+              || echo "::warning::could not remove stale agents:formatted"
+            echo "Invalid issue body — cleared agents:formatted before rerouting."
           fi
 
       - name: Route non-conforming issue to the optimizer

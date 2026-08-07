@@ -38,8 +38,8 @@ cosmetic. Without it a body whose ONLY "Tasks" and "Acceptance Criteria" lines
 sit inside a ```bash fence validates as conforming — a false negative that lets
 an unactionable issue through the guard. Well-written issues quote commands and
 expected output in fences constantly, so this is the common case, not an edge
-one. Any change to heading detection must keep a fenced-heading case in
-tests/scripts/test_issue_format.py.
+one. Any change to heading detection must keep a fenced-heading case in the
+upstream Workflows test `tests/scripts/test_issue_format.py`.
 
 Pure stdlib on purpose — it must run on a bare runner with no install step.
 """
@@ -83,7 +83,11 @@ def _headings(body: str) -> list[tuple[str, int, int]]:
             marker = fence_match.group(1)
             if fence is None:
                 fence = (marker[0], len(marker))
-            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+            elif (
+                marker[0] == fence[0]
+                and len(marker) >= fence[1]
+                and re.fullmatch(r"\s{0,3}(?:`{%d,}|~{%d,})\s*" % (fence[1], fence[1]), line)
+            ):
                 fence = None
             continue
         if fence is not None:
@@ -96,7 +100,7 @@ def _headings(body: str) -> list[tuple[str, int, int]]:
 
 def _find(body: str, aliases: tuple[str, ...]) -> int | None:
     for text, idx, _ in _headings(body):
-        if text in aliases:
+        if any(text == alias or text.startswith(f"{alias} (") for alias in aliases):
             return idx
     return None
 
