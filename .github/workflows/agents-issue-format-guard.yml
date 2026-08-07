@@ -87,7 +87,7 @@ jobs:
           if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
               --jq '.labels[].name' | grep -qx 'agents:formatted'; then
             if gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted"; then
-              echo "Invalid issue body — cleared agents:formatted before rerouting."
+              echo "Invalid issue body — cleared stale agents:formatted."
             else
               echo "::warning::could not remove stale agents:formatted"
             fi
