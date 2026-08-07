@@ -298,7 +298,7 @@ rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
-ruff==0.16.1
+ruff==0.16.2
     # via workflows (pyproject.toml)
 six==1.17.0
     # via python-dateutil
