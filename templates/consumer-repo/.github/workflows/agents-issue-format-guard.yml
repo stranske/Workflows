@@ -86,9 +86,11 @@ jobs:
           set -euo pipefail
           if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
               --jq '.labels[].name' | grep -qx 'agents:formatted'; then
-            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted" \
-              || echo "::warning::could not remove stale agents:formatted"
-            echo "Invalid issue body — cleared agents:formatted before rerouting."
+            if gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted"; then
+              echo "Invalid issue body — cleared agents:formatted before rerouting."
+            else
+              echo "::warning::could not remove stale agents:formatted"
+            fi
           fi
 
       - name: Route non-conforming issue to the optimizer
