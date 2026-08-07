@@ -86,7 +86,10 @@ def _headings(body: str) -> list[tuple[str, int, int]]:
             elif (
                 marker[0] == fence[0]
                 and len(marker) >= fence[1]
-                and re.fullmatch(r"\s{0,3}(?:`{%d,}|~{%d,})\s*" % (fence[1], fence[1]), line)
+                and re.fullmatch(
+                    rf"\s{{0,3}}(?:`{{{fence[1]},}}|~{{{fence[1]},}})\s*",
+                    line,
+                )
             ):
                 fence = None
             continue
