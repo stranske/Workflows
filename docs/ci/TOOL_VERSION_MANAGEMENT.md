@@ -32,15 +32,15 @@ npx --yes --package renovate@43.285.3 -- renovate-config-validator --no-global \
 This file contains pinned versions for all formatting, linting, and testing tools:
 
 ```bash
-BLACK_VERSION=25.11.0
-RUFF_VERSION=0.14.7
-ISORT_VERSION=7.0.0
-DOCFORMATTER_VERSION=1.7.7
-MYPY_VERSION=1.19.0
-PYTEST_VERSION=9.0.1
-PYTEST_COV_VERSION=7.0.0
+BLACK_VERSION=26.5.1
+RUFF_VERSION=0.16.1
+ISORT_VERSION=8.0.1
+DOCFORMATTER_VERSION=1.7.8
+MYPY_VERSION=2.3.0
+PYTEST_VERSION=9.1.1
+PYTEST_COV_VERSION=7.1.0
 PYTEST_XDIST_VERSION=3.8.0
-COVERAGE_VERSION=7.12.0
+COVERAGE_VERSION=7.15.4
 ```
 
 ## Workflows Using Version File
