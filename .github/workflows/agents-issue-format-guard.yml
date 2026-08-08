@@ -61,6 +61,14 @@ jobs:
           jq -r '.body // ""' issue.json > body.md
           exempt=false
           held=false
+          # A closed issue has nothing left to format. Routing one to the optimizer
+          # produces a body edit, that edit re-fires this guard, and the pair loops
+          # against work that is already delivered — see Fine-Art-Archive#464, which
+          # kept formatting for 17.5 hours after it was closed.
+          if [[ "$(jq -r '.state // "" | ascii_downcase' issue.json)" == "closed" ]]; then
+            echo "Issue is closed — nothing to format."
+            exempt=true
+          fi
           if jq -e '[.labels[].name] | any(. == "tracker:durable" or . == "wontfix")' issue.json >/dev/null; then exempt=true; fi
           if jq -e '[.labels[].name] | any(. == "agents:auto-pilot-pause" or . == "needs-human")' issue.json >/dev/null; then held=true; fi
           if jq -er '.author.login // ""' issue.json | grep -qiE '(\[bot\]|^renovate$|^dependabot$)'; then exempt=true; fi
