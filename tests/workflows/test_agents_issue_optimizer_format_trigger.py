@@ -81,6 +81,10 @@ def test_format_lease_is_required_and_released_after_failure() -> None:
         assert "exit 1" in text[lease_idx:dispatch_idx]
         # Dispatch must stay inside the success path after lease acquisition.
         assert '--add-label "agents:format"' in text[:dispatch_idx]
+        assert '--remove-label "agents:format"' in text[dispatch_idx:]
+        assert text.index('--remove-label "agents:format"', dispatch_idx) < text.index(
+            "no completion marker written so later runs can retry", dispatch_idx
+        )
 
     for text in (
         WORKFLOW_PATH.read_text(encoding="utf-8"),

@@ -348,6 +348,7 @@ jobs:
           });
           NODE
 
+          set +e
           python - <<'PY'
           import json
           import sys
@@ -386,6 +387,7 @@ jobs:
                   out.write(comment)
           PY
           dedup_rc=$?
+          set -e
           if [[ $dedup_rc -ne 0 ]]; then
             echo "::warning::issue dedup python exited with $dedup_rc; continuing without similar-issues comment"
           fi

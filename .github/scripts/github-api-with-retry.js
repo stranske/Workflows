@@ -170,7 +170,7 @@ function logWithCore(core, level, message) {
     core[level](message);
     return;
   }
-  const logFn = level === 'error' ? console.error : level === 'warning' ? console.warn : console.error;
+  const logFn = level === 'error' ? console.error : level === 'warning' ? console.warn : console.log;
   logFn(message);
 }
 
