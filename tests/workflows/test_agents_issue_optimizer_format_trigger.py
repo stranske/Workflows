@@ -142,9 +142,10 @@ def test_format_guard_revalidates_before_clearing_state_and_skips_closed_issues(
         resolve_idx = text.index("- name: Resolve issue")
         setup_idx = text.index("- name: Setup API client")
         assert resolve_idx < setup_idx
-        assert "steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true'" in text[
-            setup_idx : setup_idx + 250
-        ]
+        assert (
+            "steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true'"
+            in text[setup_idx : setup_idx + 250]
+        )
         invalidate_idx = text.index("- name: Invalidate stale format completion")
         route_idx = text.index("- name: Route non-conforming issue to the optimizer")
         invalidate = text[invalidate_idx:route_idx]
