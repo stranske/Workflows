@@ -202,8 +202,32 @@ jobs:
           # GITHUB_TOKEN label edits do not start issues:labeled workflows; dispatch is explicit.
           # Persist the completion marker only after a successful workflow_dispatch so a
           # failed run remains retryable on the next guard pass.
+          # Capture the attempt clock before dispatch: gh workflow run can exit non-zero
+          # after GitHub has already accepted the request.
+          dispatch_attempted_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           if ! gh workflow run agents-issue-optimizer.yml --repo "$GITHUB_REPOSITORY" \
               -f issue_number="$NUMBER" -f phase=format; then
+            accepted=false
+            for _try in 1 2 3 4 5; do
+              sleep 2
+              # shellcheck disable=SC2016
+              match_count=$(gh run list --repo "$GITHUB_REPOSITORY" \
+                --workflow=agents-issue-optimizer.yml \
+                --event workflow_dispatch \
+                --limit 20 \
+                --json createdAt,displayTitle \
+                | jq --arg since "$dispatch_attempted_at" --arg issue "#$NUMBER" \
+                  '[.[] | select(.createdAt >= $since and (.displayTitle | contains($issue)))] | length')
+              if [[ "${match_count:-0}" -gt 0 ]]; then
+                accepted=true
+                break
+              fi
+            done
+            if [[ "$accepted" == true ]]; then
+              echo "::warning::optimizer dispatch CLI failed but a matching run was accepted; preserving agents:format lease"
+              echo "::error::optimizer dispatch status ambiguous; no completion marker written"
+              exit 1
+            fi
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:format" \
               || echo "::warning::could not release failed agents:format lease"
             echo "::error::optimizer dispatch failed; no completion marker written so later runs can retry"
