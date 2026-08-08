@@ -574,6 +574,10 @@ jobs:
           print('Issue formatted successfully')
           " || exit 1
 
+          # Do not advertise a formatted issue until it satisfies the same
+          # fleet contract enforced by the issue-event guard.
+          python .github/scripts/issue_format.py /tmp/formatted_body.md
+
           # Update issue body with formatted version
           node - <<'NODE'
           (async () => {

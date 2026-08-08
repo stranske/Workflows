@@ -16,8 +16,12 @@ permissions:
   issues: write
 
 concurrency:
-  group: issue-format-guard-${{ github.event.issue.number || inputs.issue_number }}
-  cancel-in-progress: true
+  # `inputs` only exists for workflow_dispatch/workflow_call.  Event inputs are
+  # null for issue events, so retain the manual fallback without making normal
+  # issue-triggered runs depend on the dispatch-only context.
+  group: issue-format-guard-${{ github.event.issue.number || github.event.inputs.issue_number || inputs.issue_number }}
+  # A skipped label event must never cancel an in-flight opened/edited check.
+  cancel-in-progress: false
 
 jobs:
   check:
@@ -117,6 +121,7 @@ jobs:
             exit 0
           fi
           fingerprint="$(sha256sum body.md | cut -c1-12)"
+          dispatch=true
           if ! gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
               --jq '.comments[].body' | grep -qF "format-guard:$fingerprint"; then
             {
@@ -126,6 +131,9 @@ jobs:
               echo
               echo "<!-- format-guard:$fingerprint -->"
             } | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file -
+          else
+            echo "Identical invalid body was already routed; skipping duplicate dispatch."
+            dispatch=false
           fi
           if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
               --jq '.labels[].name' | grep -qx 'agents:formatted'; then
@@ -134,6 +142,9 @@ jobs:
           fi
           gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agents:format" \
             || echo "::warning::could not apply agents:format (label missing in this repo?)"
+          if [[ "$dispatch" != true ]]; then
+            exit 0
+          fi
           # GITHUB_TOKEN label edits do not start issues:labeled workflows; dispatch is explicit.
           gh workflow run agents-issue-optimizer.yml --repo "$GITHUB_REPOSITORY" \
             -f issue_number="$NUMBER" -f phase=format

@@ -10,8 +10,6 @@ filed with no label and no Tasks/Acceptance block is invisible to the entire
 pipeline — nothing validates it, nothing optimises it, nothing claims it. Local
 automation that files *findings* rather than *work orders* therefore produces
 issues no agent can ever pick up: good evidence, permanently unactionable.
-(Observed in Fine-Art-Archive #406-409: four well-evidenced audit findings, zero
-labels, no Tasks section between them.)
 
 Used at both ends:
   * `agents-issue-format-guard.yml` validates every issue on open/edit and, on
@@ -63,14 +61,30 @@ RECOMMENDED: dict[str, tuple[str, ...]] = {
 GATE = re.compile(
     r"(tests?/[\w./-]+\.py(::[\w:\[\]-]+)?"
     r"|\btest_[\w]+"
-    r"|\bpytest\b|\bnpm test\b|\bmake test\b"
+    r"|\bpytest\b|\b(?:python(?:3)?\s+-m\s+(?:unittest|pytest)\b)"
+    r"|\bnode\s+--test\b|\b(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b"
+    r"|\b(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b"
     r"|\bgh workflow run\b|\bgh run\b"
     r"|\bcurl\b|\bHTTP [1-5]\d\d\b"
     r"|\b(?:API|endpoint|request|response)\s+(?:returns?|responds with)\s+[1-5]\d\d(?:\s+status)?\b"
     r"|\bsmoke\b|\bverif\w*)",
     re.I,
 )
-BANNED_ADJECTIVES = ("clean", "nice", "good", "fast", "better", "intuitive", "polished")
+BANNED_ADJECTIVES = (
+    "clean",
+    "nice",
+    "good",
+    "fast",
+    "better",
+    "intuitive",
+    "polished",
+    "performant",
+)
+TASK_TARGET = re.compile(
+    r"(?:`[^`]+`|[\w./-]+\.(?:py|js|jsx|ts|tsx|yml|yaml|json|toml|md|sh)\b"
+    r"|\b(?:file|function|class|method|path|config(?:uration)?|key|job|workflow|command)\b)",
+    re.I,
+)
 
 
 def _headings(body: str) -> list[tuple[str, int, int]]:
@@ -165,12 +179,16 @@ def validate(body: str) -> Report:
             report.missing_recommended.append(name)
 
     tasks_at = _find(body, REQUIRED["Tasks"])
-    if tasks_at is not None and not re.search(
-        r"^\s*[-*]\s*\[[ xX]\]", _section_text(body, tasks_at), re.M
-    ):
-        report.problems.append(
-            "`Tasks` has no checkbox items (`- [ ] …`); agents track progress by them."
-        )
+    if tasks_at is not None:
+        task_items = re.findall(r"^\s*[-*]\s*\[[ xX]\]\s*(.+)$", _section_text(body, tasks_at), re.M)
+        if not task_items:
+            report.problems.append(
+                "`Tasks` has no checkbox items (`- [ ] …`); agents track progress by them."
+            )
+        elif any(not TASK_TARGET.search(item) for item in task_items):
+            report.problems.append(
+                "`Tasks` must name a concrete file, symbol, path, config key, job, or command."
+            )
 
     acceptance_at = _find(body, REQUIRED["Acceptance Criteria"])
     if acceptance_at is not None:

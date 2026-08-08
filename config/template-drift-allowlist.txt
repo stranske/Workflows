@@ -113,9 +113,9 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = 77eecd57e1a7637628bc16faedb6ef50f8cb5a810f94e286eaffd8dc50e02409
-template_sha256 = a5f02fc1c8909466a254e4ec4ab85819644dd8a9008522e4a232f426c67e6435
-reason = Intentional divergence re-baselined 2026-07-31: root and consumer issue-optimizer workflows keep different auth plumbing/action pin surfaces, and the consumer template installs LLM deps from checked-out workflows-scripts/tools/requirements-llm.txt with python -m pip. The template additionally sparse-checks out `config` alongside `scripts/langchain` and `tools`, which the root workflow does not need because it runs in-tree where config/ is already present; without it tools/llm_registry.py resolves no model registry in the vendored tree (see #2850, #2861). Do not align wholesale because that would strip consumer action pins/token setup.
+main_sha256 = f2bd3840b7b5fe9ad063329045df8a9c01c9c70983b33c25e94cbe64b80172e4
+template_sha256 = a5ab1ee062f6e73885779e730278691976ed5d42e6fb7e83746f3bfc55177549
+reason = Intentional divergence re-baselined 2026-08-08: root and consumer issue-optimizer workflows keep different auth plumbing/action pin surfaces. Both validate format output before adding agents:formatted; the consumer explicitly sparse-checks out .github/scripts/issue_format.py plus config/scripts/langchain/tools from Workflows, while root runs those files in-tree. Do not align wholesale because that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml

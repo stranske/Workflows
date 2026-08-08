@@ -44,7 +44,7 @@ def test_heading_with_trailing_qualifier_matches_required_section() -> None:
     validator = _validator()
     report = validator.validate(
         VALID_CONTEXT
-        + "## Tasks (in order)\n- [ ] Implement it\n\n"
+        + "## Tasks (in order)\n- [ ] Update `.github/workflows/guard.yml`\n\n"
         + "## Acceptance Criteria (all must hold)\n- pytest tests/test_x.py passes\n"
     )
     assert report.ok
@@ -64,7 +64,7 @@ def test_heading_with_spaced_trailing_qualifier_matches_required_section(
     validator = _validator(validator_path)
     report = validator.validate(
         VALID_CONTEXT
-        + f"## Tasks {separator} in order\n- [ ] Implement it\n\n"
+        + f"## Tasks {separator} in order\n- [ ] Update `.github/workflows/guard.yml`\n\n"
         + f"## Acceptance Criteria {separator} all must hold\n- pytest tests/test_x.py passes\n"
     )
     assert report.ok
@@ -83,7 +83,7 @@ def test_runner_and_curl_are_accepted_gates() -> None:
     validator = _validator()
     report = validator.validate(
         VALID_CONTEXT
-        + "## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- gh run watch succeeds\n- curl endpoint returns 200\n"
+        + "## Tasks\n- [ ] Update `.github/workflows/guard.yml`\n\n## Acceptance Criteria\n- gh run watch succeeds\n- curl endpoint returns 200\n"
     )
     assert report.ok
 
@@ -101,7 +101,8 @@ def test_runner_and_curl_are_accepted_gates() -> None:
 def test_api_status_sentence_is_an_accepted_gate(criterion: str) -> None:
     validator = _validator()
     report = validator.validate(
-        VALID_CONTEXT + f"## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- {criterion}\n"
+        VALID_CONTEXT
+        + f"## Tasks\n- [ ] Update `src/client.py`\n\n## Acceptance Criteria\n- {criterion}\n"
     )
     assert report.ok
 
@@ -116,7 +117,7 @@ def test_missing_acceptance_criteria_is_reported_once() -> None:
 def test_implementation_notes_is_a_recommended_section() -> None:
     validator = _validator()
     report = validator.validate(
-        "## Tasks\n- [ ] Implement it\n\n## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+        "## Tasks\n- [ ] Update `src/client.py`\n\n## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
     )
     assert "Implementation Notes" in report.missing_recommended
     assert report.ok
@@ -135,7 +136,7 @@ def test_nested_headings_remain_inside_their_parent_section() -> None:
     validator = _validator()
     report = validator.validate(
         "## Why\nCurrent evidence\n\n## Scope\nBounded scope\n\n"
-        "## Tasks\n### Backend\n- [ ] Implement it\n\n"
+        "## Tasks\n### Backend\n- [ ] Update `src/client.py`\n\n"
         "## Acceptance Criteria\n### Verification\n- pytest tests/test_x.py passes\n\n"
         "## Implementation Notes\nDetails\n\n## Non-Goals\nNo expansion\n"
     )
@@ -146,8 +147,48 @@ def test_verify_is_an_accepted_gate() -> None:
     validator = _validator()
     report = validator.validate(
         "## Why\nCurrent evidence\n\n## Scope\nBounded scope\n\n"
-        "## Tasks\n- [ ] Implement it\n\n"
+        "## Tasks\n- [ ] Update `src/client.py`\n\n"
         "## Acceptance Criteria\n- Verify the endpoint response\n\n"
         "## Implementation Notes\nDetails\n\n## Non-Goals\nNo expansion\n"
     )
     assert report.ok
+
+
+def test_task_without_concrete_target_is_non_conforming() -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Fix bugs\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert not report.ok
+    assert "concrete file" in report.as_markdown()
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "python -m unittest tests.guard passes",
+        "node --test tests/guard.js passes",
+        "pnpm vitest tests/guard.test.ts passes",
+    ],
+)
+def test_named_non_pytest_commands_are_accepted_gates(criterion: str) -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `src/client.py`\n\n"
+        + f"## Acceptance Criteria\n- {criterion}\n"
+    )
+    assert report.ok
+
+
+def test_performant_is_subjective_acceptance_wording() -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `src/client.py`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes and is performant\n"
+    )
+    assert not report.ok
+    assert "performant" in report.as_markdown()

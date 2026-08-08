@@ -126,6 +126,7 @@ jobs:
           repository: stranske/Workflows
           path: workflows-scripts
           sparse-checkout: |
+            .github/scripts/issue_format.py
             config
             scripts/langchain
             tools
@@ -503,6 +504,11 @@ jobs:
               f.write(formatted)
           print('Issue formatted successfully')
           " || exit 1
+
+          # Keep the format-result label truthful: the generated issue must
+          # pass the canonical Workflows validator before it can be marked
+          # agents:formatted below.
+          python workflows-scripts/.github/scripts/issue_format.py /tmp/formatted_body.md
 
           # Update issue body with formatted version
           gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/formatted_body.md
