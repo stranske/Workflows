@@ -42,7 +42,8 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # This guard only reads issue comments with the workflow token. Do not
+          # expose the repository-wide secret bundle to the composite action.
           github_token: ${{ github.token }}
 
       - name: Resolve issue

@@ -60,6 +60,8 @@ def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
         assert "paginateWithRetry" in text
         assert "github.rest.issues.listComments" in text
         assert "per_page: 100" in text
+        assert "github_token: ${{ github.token }}" in text
+        assert "secrets: ${{ toJSON(secrets) }}" not in text
         assert '"$trusted_marker" == true && "$has_format_label" == true' in text
         assert "already routed and in flight; skipping duplicate dispatch" in text
         # Trusted marker is written only after a successful workflow_dispatch.
