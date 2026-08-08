@@ -131,13 +131,18 @@ jobs:
     if: >
       (
         github.event_name != 'issues' ||
-        contains(toJson(github.event.issue.labels.*.name), 'agent:') ||
-        contains(toJson(github.event.issue.labels.*.name), 'agents:') ||
         (
-          github.event.action == 'unlabeled' &&
+          github.event.issue.state != 'closed' &&
           (
-            startsWith(github.event.label.name, 'agent:') ||
-            startsWith(github.event.label.name, 'agents:')
+            contains(toJson(github.event.issue.labels.*.name), 'agent:') ||
+            contains(toJson(github.event.issue.labels.*.name), 'agents:') ||
+            (
+              github.event.action == 'unlabeled' &&
+              (
+                startsWith(github.event.label.name, 'agent:') ||
+                startsWith(github.event.label.name, 'agents:')
+              )
+            )
           )
         )
       ) &&

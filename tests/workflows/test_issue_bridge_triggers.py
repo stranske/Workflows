@@ -139,6 +139,25 @@ class TestIssueBridgeTriggers(unittest.TestCase):
             "Condition must verify the unlabeled event is for an agent:* label",
         )
 
+    def test_closed_issues_do_not_start_the_bridge(self) -> None:
+        """Closed sources must not create a new bootstrap PR from status labels."""
+        source = self.intake_workflow.read_text(encoding="utf-8")
+        template = (
+            self.project_root
+            / "templates"
+            / "consumer-repo"
+            / ".github"
+            / "workflows"
+            / "agents-issue-intake.yml"
+        ).read_text(encoding="utf-8")
+
+        for workflow in (source, template):
+            self.assertIn(
+                "github.event.issue.state != 'closed'",
+                workflow,
+                "Closed issue label events must not start the agent bridge",
+            )
+
     def test_condition_logic_structure(self) -> None:
         """Validate the logical structure of the condition."""
         data = self._load_workflow()
