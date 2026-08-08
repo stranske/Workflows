@@ -180,7 +180,9 @@ def validate(body: str) -> Report:
 
     tasks_at = _find(body, REQUIRED["Tasks"])
     if tasks_at is not None:
-        task_items = re.findall(r"^\s*[-*]\s*\[[ xX]\]\s*(.+)$", _section_text(body, tasks_at), re.M)
+        task_items = re.findall(
+            r"^\s*[-*]\s*\[[ xX]\]\s*(.+)$", _section_text(body, tasks_at), re.M
+        )
         if not task_items:
             report.problems.append(
                 "`Tasks` has no checkbox items (`- [ ] …`); agents track progress by them."
