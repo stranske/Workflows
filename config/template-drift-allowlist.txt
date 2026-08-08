@@ -113,9 +113,9 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = f3f6c4a885ff989c27de1ac032da092d4bc56dfa82f4c65e15624aa7b4273601
-template_sha256 = 617ff055673ec97fac8eaf9adf14630622ccb2ab8f45dfb651fd5ef725f29e20
-reason = Intentional divergence re-baselined 2026-08-08: root and consumer issue-optimizer workflows keep different auth plumbing/action pin surfaces. Both validate format output with python3 before adding agents:formatted; the consumer explicitly sparse-checks out .github/scripts/issue_format.py plus config/scripts/langchain/tools from Workflows, while root runs those files in-tree. Do not align wholesale because that would strip consumer action pins/token setup.
+main_sha256 = 3ad86a30a866167dc78ec21150fc2dba475dc70b2504cfe3373906ed95a2502d
+template_sha256 = 3f76718542ab27978fc819118a9e671a9f34439e388fa0ea6f0359937e7bbb57
+reason = Intentional divergence re-baselined 2026-08-08: root and consumer issue-optimizer workflows keep different auth plumbing/action pin surfaces. Both validate format output with python3, require the agents:format lease before dispatch, and release that lease on a failed format run; the consumer explicitly sparse-checks out .github/scripts/issue_format.py plus config/scripts/langchain/tools from Workflows, while root runs those files in-tree. Do not align wholesale because that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml

@@ -48,3 +48,21 @@ def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
     ).read_text(encoding="utf-8")
     assert "no completion marker written so later runs can retry" in consumer
     assert '"$trusted_marker" == true && "$has_format_label" == true' in consumer
+
+
+def test_format_lease_is_required_and_released_after_failure() -> None:
+    guard = Path(".github/workflows/agents-issue-format-guard.yml").read_text(encoding="utf-8")
+    consumer_guard = Path(
+        "templates/consumer-repo/.github/workflows/agents-issue-format-guard.yml"
+    ).read_text(encoding="utf-8")
+    for text in (guard, consumer_guard):
+        assert "could not acquire agents:format lease" in text
+        assert text.index("could not acquire agents:format lease") < text.index(
+            "gh workflow run agents-issue-optimizer.yml"
+        )
+    consumer_optimizer = Path(
+        "templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml"
+    ).read_text(encoding="utf-8")
+    for text in (WORKFLOW_PATH.read_text(encoding="utf-8"), consumer_optimizer):
+        assert "Release failed format lease" in text
+        assert "failure() && steps.check.outputs.should_run == 'true'" in text

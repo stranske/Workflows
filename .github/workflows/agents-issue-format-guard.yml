@@ -161,8 +161,12 @@ jobs:
           if [[ "$dispatch" != true ]]; then
             exit 0
           fi
-          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agents:format" \
-            || echo "::warning::could not apply agents:format (label missing in this repo?)"
+          # Acquiring the label is the handoff lease. Do not dispatch without it:
+          # otherwise a trusted marker alone could repeat the optimizer dispatch.
+          if ! gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agents:format"; then
+            echo "::error::could not acquire agents:format lease; refusing optimizer dispatch"
+            exit 1
+          fi
           # GITHUB_TOKEN label edits do not start issues:labeled workflows; dispatch is explicit.
           # Persist the completion marker only after a successful workflow_dispatch so a
           # failed run remains retryable on the next guard pass.
