@@ -36,14 +36,8 @@ def test_issue_optimizer_validates_format_and_apply_bodies() -> None:
     consumer_text = CONSUMER_WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "python3 .github/scripts/issue_format.py /tmp/formatted_body.md" in text
     assert "python3 .github/scripts/issue_format.py /tmp/updated_body.md" in text
-    assert (
-        "python3 workflows-scripts/.github/scripts/issue_format.py /tmp/formatted_body.md"
-        in consumer_text
-    )
-    assert (
-        "python3 workflows-scripts/.github/scripts/issue_format.py /tmp/updated_body.md"
-        in consumer_text
-    )
+    assert "python3 .github/scripts/issue_format.py /tmp/formatted_body.md" in consumer_text
+    assert "python3 .github/scripts/issue_format.py /tmp/updated_body.md" in consumer_text
 
 
 def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
@@ -53,8 +47,12 @@ def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
         assert "Re-fetch before side effects" in text
         assert "no completion marker written so later runs can retry" in text
         assert 'marker="<!-- format-guard:$fingerprint -->"' in text
-        assert '(.user.login // "") == "github-actions[bot]"' in text
-        assert "(.user.id == null) or (.user.id == 41898282)" in text
+        assert "comment.user?.login === 'github-actions[bot]'" in text
+        assert "comment.user?.id == null || comment.user.id === 41898282" in text
+        assert "createTokenAwareRetry" in text
+        assert "paginateWithRetry" in text
+        assert "github.rest.issues.listComments" in text
+        assert "per_page: 100" in text
         assert '"$trusted_marker" == true && "$has_format_label" == true' in text
         assert "already routed and in flight; skipping duplicate dispatch" in text
         # Trusted marker is written only after a successful workflow_dispatch.
