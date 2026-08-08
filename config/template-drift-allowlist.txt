@@ -113,9 +113,9 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = d14dacb2a76447d35295a5d8a4da1e9a56a545323f87413fd76cf0654e8cf116
-template_sha256 = 05ad7bff15067f0827e136559145e3c13e0372b538889ac78281ce47658cefce
-reason = Intentional divergence re-baselined 2026-08-08c: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract this round: concurrency includes inputs.issue_number for workflow_dispatch dedupe, cancel-safe (failure()||cancelled()) agents:format lease release, issue_dedup wrapped in set +e/set -e so advisory failures cannot abort under bash -e, and visible non-zero exit warnings. Do not align wholesale — that would strip consumer action pins/token setup.
+main_sha256 = ae9a2d80a47ad995f4ce1a0681a7c8b236518b2c1337370d11578e4059ae7489
+template_sha256 = d5469b188c5e757d2f8a289e40c066961047d8a9625ae32413c2959c7a824c21
+reason = Intentional divergence re-baselined 2026-08-08c: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract this round: concurrency includes inputs.issue_number for workflow_dispatch dedupe, cancel-safe (failure()||cancelled()) agents:format lease release, issue_dedup wrapped in set +e/set -e so advisory failures cannot abort under bash -e, and visible non-zero exit warnings. Re-baselined 2026-08-08d: both surfaces now set a `run-name` carrying `#<issue>` so the recursion guard can correlate workflow_dispatch runs, match prior runs with `endswith` instead of `contains`, and pass `--limit 100` to `gh run list` (see #2991). Do not align wholesale — that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
