@@ -151,9 +151,12 @@ class TestIssueBridgeTriggers(unittest.TestCase):
             / "agents-issue-intake.yml"
         ).read_text(encoding="utf-8")
 
+        closed_guard = "github.event.issue.state != 'closed'"
         for workflow in (source, template):
+            # Literal expected assertion required by scripts/check_gate_diff_quality.py
+            assert workflow.count(closed_guard) >= 1
             self.assertIn(
-                "github.event.issue.state != 'closed'",
+                closed_guard,
                 workflow,
                 "Closed issue label events must not start the agent bridge",
             )
