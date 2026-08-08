@@ -80,9 +80,7 @@ BANNED_ADJECTIVES = (
     "polished",
     "performant",
 )
-_TASK_CATEGORY = (
-    r"(?:file|function|class|method|path|config(?:uration)?|key|job|workflow|command)"
-)
+_TASK_CATEGORY = r"(?:file|function|class|method|path|config(?:uration)?|key|job|workflow|command)"
 _TASK_EXTENSION = (
     r"py|js|jsx|ts|tsx|yml|yaml|json|toml|md|sh|go|rs|java|kt|rb|php|css|html|sql|"
     r"xml|txt|ini|cfg|conf|lock|gradle|swift|c|cc|cpp|h|hpp|cs|fs|r|jl"
