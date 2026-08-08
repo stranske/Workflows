@@ -132,10 +132,14 @@ jobs:
           fi
           fingerprint="$(sha256sum body.md | cut -c1-12)"
           marker="<!-- format-guard:$fingerprint -->"
-          # Only trust exact HTML markers authored by automation bots (not user text).
+          # Only trust exact HTML markers authored by github-actions[bot]
+          # (immutable account id 41898282 when the REST payload includes user.id).
           trusted_marker=false
-          if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
-              --jq '.comments[] | select((.author.login // "") | test("\\[bot\\]$|github-actions"; "i")) | .body' \
+          if gh api "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" \
+              --jq '.[] | select(
+                (.user.login // "") == "github-actions[bot]"
+                and ((.user.id == null) or (.user.id == 41898282))
+              ) | .body' \
               | grep -qF "$marker"; then
             trusted_marker=true
           fi
