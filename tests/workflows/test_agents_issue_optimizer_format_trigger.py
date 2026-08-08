@@ -83,21 +83,14 @@ def test_format_lease_is_required_and_released_after_failure() -> None:
         assert '--add-label "agents:format"' in text[:dispatch_idx]
         # Clock capture precedes the dispatch so an accepted-but-errored CLI can be
         # reconciled; lease release stays inside the failure block only after that probe.
-        failure_start = text.index(
-            "if ! gh workflow run agents-issue-optimizer.yml"
-        )
+        failure_start = text.index("if ! gh workflow run agents-issue-optimizer.yml")
         assert "dispatch_attempted_at=" in text[dispatch_idx - 200 : failure_start]
         failure_end = text.index("\n          fi", failure_start)
         failure_block = text[failure_start:failure_end]
         assert "preserving agents:format lease" in failure_block
         assert '--remove-label "agents:format"' in failure_block
-        assert (
-            '|| echo "::warning::could not release failed agents:format lease"'
-            in failure_block
-        )
-        assert (
-            "no completion marker written so later runs can retry" in failure_block
-        )
+        assert '|| echo "::warning::could not release failed agents:format lease"' in failure_block
+        assert "no completion marker written so later runs can retry" in failure_block
 
     for text in (
         WORKFLOW_PATH.read_text(encoding="utf-8"),
