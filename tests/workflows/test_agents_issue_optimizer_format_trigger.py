@@ -36,8 +36,15 @@ def test_issue_optimizer_validates_format_and_apply_bodies() -> None:
     consumer_text = CONSUMER_WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "python3 .github/scripts/issue_format.py /tmp/formatted_body.md" in text
     assert "python3 .github/scripts/issue_format.py /tmp/updated_body.md" in text
-    assert "python3 .github/scripts/issue_format.py /tmp/formatted_body.md" in consumer_text
-    assert "python3 .github/scripts/issue_format.py /tmp/updated_body.md" in consumer_text
+    # Consumer template vendors issue_format.py from the Workflows sparse checkout.
+    assert (
+        "python workflows-scripts/.github/scripts/issue_format.py /tmp/formatted_body.md"
+        in consumer_text
+    )
+    assert (
+        "python workflows-scripts/.github/scripts/issue_format.py /tmp/updated_body.md"
+        in consumer_text
+    )
 
 
 def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:

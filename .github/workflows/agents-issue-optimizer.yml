@@ -22,7 +22,7 @@ concurrency:
   group: >-
     agents-issue-optimizer-${{
     github.repository }}-${{
-    github.event.issue.number || github.run_id }}
+    github.event.issue.number || inputs.issue_number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -106,11 +106,6 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install load balancer dependencies
-        if: steps.check.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
 
       - name: Setup API client
         if: steps.check.outputs.should_run == 'true'
@@ -354,7 +349,7 @@ jobs:
           });
           NODE
 
-          python - <<'PY' || true
+          python - <<'PY'
           import json
           from scripts.langchain import issue_dedup
 
@@ -362,33 +357,37 @@ jobs:
               issue = json.load(f)
           with open('/tmp/open_issues.json', encoding='utf-8') as f:
               open_issues = json.load(f)
-            with open('/tmp/dedup_comments.json', encoding='utf-8') as f:
+          with open('/tmp/dedup_comments.json', encoding='utf-8') as f:
               comments = json.load(f)
 
-            marker = issue_dedup.SIMILAR_ISSUES_MARKER
-            for comment in comments or []:
+          marker = issue_dedup.SIMILAR_ISSUES_MARKER
+          for comment in comments or []:
               body = (comment or {}).get('body') or ''
               if marker in body:
-                raise SystemExit(0)
+                  raise SystemExit(0)
 
           # Conservative defaults; can be tuned later.
           threshold = 0.82
-            store = issue_dedup.build_issue_vector_store(open_issues)
-            if store is None:
+          store = issue_dedup.build_issue_vector_store(open_issues)
+          if store is None:
               raise SystemExit(0)
 
-            title = (issue.get('title') or '').strip()
-            body = (issue.get('body') or '').strip()
-            query = f"{title}\n{body}".strip() if body else title
-            if not query:
+          title = (issue.get('title') or '').strip()
+          body = (issue.get('body') or '').strip()
+          query = f"{title}\n{body}".strip() if body else title
+          if not query:
               raise SystemExit(0)
 
-            matches = issue_dedup.find_similar_issues(store, query, threshold=threshold, k=5)
-            comment = issue_dedup.format_similar_issues_comment(matches, max_items=5)
-            if comment:
+          matches = issue_dedup.find_similar_issues(store, query, threshold=threshold, k=5)
+          comment = issue_dedup.format_similar_issues_comment(matches, max_items=5)
+          if comment:
               with open('/tmp/dedup_comment.md', 'w', encoding='utf-8') as out:
-                out.write(comment)
+                  out.write(comment)
           PY
+          dedup_rc=$?
+          if [[ $dedup_rc -ne 0 ]]; then
+            echo "::warning::issue dedup python exited with $dedup_rc; continuing without similar-issues comment"
+          fi
 
           if [[ -f /tmp/dedup_comment.md ]]; then
             node - <<'NODE'
