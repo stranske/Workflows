@@ -135,18 +135,32 @@ jobs:
             exit 0
           fi
           if [[ -f .github/scripts/issue_format.py ]]; then
+            error_file="$(mktemp)"
             set +e
-            python3 .github/scripts/issue_format.py body.md > report.md
+            python3 .github/scripts/issue_format.py body.md > report.md 2> "$error_file"
             revalidate_rc=$?
             set -e
             if [[ "$revalidate_rc" -eq 0 ]]; then
               echo "Live body now conforms — skipping optimizer dispatch."
+              rm -f "$error_file"
               exit 0
+            fi
+            # Exit 1 is used for both non-conformance and Python crashes; stderr
+            # distinguishes a validator runtime error (fail closed) from a normal
+            # non-conforming body (continue to fingerprint/optimizer).
+            if [[ "$revalidate_rc" -eq 1 && -s "$error_file" ]]; then
+              echo "::error::issue-format validator failed unexpectedly during revalidation"
+              cat "$error_file" >&2
+              rm -f "$error_file"
+              exit 1
             fi
             if [[ "$revalidate_rc" -ne 1 ]]; then
               echo "::error::issue-format validator failed unexpectedly during revalidation (exit $revalidate_rc)"
+              cat "$error_file" >&2
+              rm -f "$error_file"
               exit "$revalidate_rc"
             fi
+            rm -f "$error_file"
           fi
           fingerprint="$(sha256sum body.md | cut -c1-12)"
           marker="<!-- format-guard:$fingerprint -->"
