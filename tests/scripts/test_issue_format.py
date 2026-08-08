@@ -172,6 +172,8 @@ def test_task_without_concrete_target_is_non_conforming() -> None:
         "Fix bugs `later`",
         "Fix file handling",
         "Update the configuration",
+        "Update the GitHub configuration",
+        "Update the JavaScript documentation",
     ],
 )
 def test_vague_task_targets_are_non_conforming(task: str) -> None:

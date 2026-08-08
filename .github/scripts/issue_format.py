@@ -133,6 +133,10 @@ def _task_has_concrete_target(item: str) -> bool:
         if _concrete_span(match.group(1)):
             return True
     for token in re.findall(r"\b[A-Za-z][A-Za-z0-9_]*\b", item):
+        # Unquoted: only unambiguous lowerCamelCase (calculateDiscount).
+        # Brand/prose capitals (GitHub, JavaScript, OpenAI) must not satisfy.
+        if not re.fullmatch(r"[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]+", token):
+            continue
         if _concrete_span(token):
             return True
     if re.search(rf"(?:^|[\s])({_TASK_KNOWN_BASENAME})\b", item, re.I):
