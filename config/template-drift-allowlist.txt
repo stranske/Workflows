@@ -113,9 +113,9 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = ccf1cd3ccdba84c54743d2950367308df15c5928b95c1e7400a5d2858b7c1fa5
-template_sha256 = a4d50beb165724ff9266a18390d738105538fe0c13a5eb3a620fb8c9297fe80f
-reason = Intentional divergence re-baselined 2026-08-08b: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract this round: concurrency includes inputs.issue_number for workflow_dispatch dedupe, cancel-safe (failure()||cancelled()) agents:format lease release, and fixed issue_dedup Python indentation with visible non-zero exit warnings. Do not align wholesale — that would strip consumer action pins/token setup.
+main_sha256 = 128b60e2af8e3957209849c7f20502a1b9a971e0c8c347e25a0d501a868bc484
+template_sha256 = f7987a566c15971ae9039bb3d1a53f0bb654378e6c1dc3103f5692f5abca022d
+reason = Intentional divergence re-baselined 2026-08-08c: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract this round: concurrency includes inputs.issue_number for workflow_dispatch dedupe, cancel-safe (failure()||cancelled()) agents:format lease release, issue_dedup wrapped in set +e/set -e so advisory failures cannot abort under bash -e, and visible non-zero exit warnings. Do not align wholesale — that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
