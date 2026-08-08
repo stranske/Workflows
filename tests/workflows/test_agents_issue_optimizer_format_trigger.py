@@ -132,3 +132,25 @@ def test_format_guard_uses_event_inputs_and_fails_closed_on_revalidation_errors(
         assert (
             "github.event.issue.number || github.event.inputs.issue_number || github.run_id" in text
         )
+
+
+def test_format_guard_revalidates_before_clearing_state_and_skips_closed_issues() -> None:
+    for text in (
+        GUARD_PATH.read_text(encoding="utf-8"),
+        CONSUMER_GUARD_PATH.read_text(encoding="utf-8"),
+    ):
+        resolve_idx = text.index("- name: Resolve issue")
+        setup_idx = text.index("- name: Setup API client")
+        assert resolve_idx < setup_idx
+        assert "steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true'" in text[
+            setup_idx : setup_idx + 250
+        ]
+        invalidate_idx = text.index("- name: Invalidate stale format completion")
+        route_idx = text.index("- name: Route non-conforming issue to the optimizer")
+        invalidate = text[invalidate_idx:route_idx]
+        assert "steps.issue.outputs.state == 'OPEN'" in invalidate
+        assert "Live body now conforms — preserving agents:formatted." in invalidate
+        assert "validator failed unexpectedly during label revalidation" in invalidate
+        route = text[route_idx:]
+        assert "steps.issue.outputs.state == 'OPEN'" in route
+        assert "Issue is now closed — skipping optimizer dispatch." in route

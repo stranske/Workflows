@@ -115,8 +115,10 @@ def _concrete_span(span: str) -> bool:
         return True
     if "_" in span or "." in span:
         return True
-    # Multi-segment CamelCase / PascalCase symbols (e.g. IssueFormatter).
-    return re.fullmatch(r"[A-Z][a-zA-Z0-9]*(?:[A-Z][a-zA-Z0-9]+)+", span) is not None
+    # Multi-segment PascalCase or lowerCamelCase symbols (e.g. IssueFormatter,
+    # calculateDiscount). A capitalized interior segment distinguishes them from
+    # generic lowercase prose.
+    return re.fullmatch(r"[A-Za-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]+", span) is not None
 
 
 def _task_has_concrete_target(item: str) -> bool:
@@ -129,6 +131,9 @@ def _task_has_concrete_target(item: str) -> bool:
             return True
     for match in re.finditer(r"`([^`]+)`", item):
         if _concrete_span(match.group(1)):
+            return True
+    for token in re.findall(r"\b[A-Za-z][A-Za-z0-9_]*\b", item):
+        if _concrete_span(token):
             return True
     if re.search(rf"(?:^|[\s])({_TASK_KNOWN_BASENAME})\b", item, re.I):
         return True

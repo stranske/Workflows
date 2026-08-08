@@ -42,13 +42,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup API client
-        uses: ./.github/actions/setup-api-client
-        with:
-          # This guard only reads issue comments with the workflow token. Do not
-          # expose the repository-wide secret bundle to the composite action.
-          github_token: ${{ github.token }}
-
       - name: Resolve issue
         id: issue
         env:
@@ -77,7 +70,16 @@ jobs:
             echo "number=$NUMBER"
             echo "exempt=$exempt"
             echo "held=$held"
+            echo "state=$(jq -r '.state' issue.json)"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Setup API client
+        if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true'
+        uses: ./.github/actions/setup-api-client
+        with:
+          # This guard only reads issue comments with the workflow token. Do not
+          # expose the repository-wide secret bundle to the composite action.
+          github_token: ${{ github.token }}
 
       - name: Validate against AGENT_ISSUE_FORMAT
         id: validate
@@ -111,12 +113,36 @@ jobs:
 
       - name: Invalidate stale format completion after an invalid issue change
         if: >-
-          steps.issue.outputs.exempt != 'true' && steps.validate.outputs.rc == '1'
+          steps.issue.outputs.exempt != 'true' && steps.issue.outputs.state == 'OPEN' &&
+          steps.validate.outputs.rc == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.issue.outputs.number }}
         run: |
           set -euo pipefail
+          live_issue="$(mktemp)"
+          live_body="$(mktemp)"
+          error_file="$(mktemp)"
+          trap 'rm -f "$live_issue" "$live_body" "$error_file"' EXIT
+          gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json body,state > "$live_issue"
+          if [[ "$(jq -r '.state' "$live_issue")" != "OPEN" ]]; then
+            echo "Issue is now closed — preserving agents:formatted."
+            exit 0
+          fi
+          jq -r '.body // ""' "$live_issue" > "$live_body"
+          set +e
+          python3 .github/scripts/issue_format.py "$live_body" > /dev/null 2> "$error_file"
+          live_rc=$?
+          set -e
+          if [[ "$live_rc" -eq 0 ]]; then
+            echo "Live body now conforms — preserving agents:formatted."
+            exit 0
+          fi
+          if [[ "$live_rc" -ne 1 || -s "$error_file" ]]; then
+            echo "::error::issue-format validator failed unexpectedly during label revalidation"
+            cat "$error_file" >&2
+            exit "$live_rc"
+          fi
           if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
               --jq '.labels[].name' | grep -qx 'agents:formatted'; then
             if gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted"; then
@@ -127,7 +153,7 @@ jobs:
           fi
 
       - name: Route non-conforming issue to the optimizer
-        if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true' && steps.validate.outputs.rc == '1'
+        if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true' && steps.issue.outputs.state == 'OPEN' && steps.validate.outputs.rc == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.issue.outputs.number }}
@@ -138,6 +164,10 @@ jobs:
           gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" \
             --json number,body,labels,state,author > live.json
           jq -r '.body // ""' live.json > body.md
+          if [[ "$(jq -r '.state' live.json)" != "OPEN" ]]; then
+            echo "Issue is now closed — skipping optimizer dispatch."
+            exit 0
+          fi
           if jq -e '[.labels[].name] | any(. == "agents:auto-pilot-pause" or . == "needs-human")' live.json >/dev/null; then
             echo "Issue is now held — skipping optimizer dispatch."
             exit 0

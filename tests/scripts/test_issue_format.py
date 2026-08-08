@@ -192,6 +192,7 @@ def test_vague_task_targets_are_non_conforming(task: str) -> None:
         "Update pom.xml",
         "Update Dockerfile",
         "Wire `IssueFormatter` into the guard",
+        "Write unit tests for calculateDiscount function",
         "Touch file `src/client.py`",
         "Run pytest tests/scripts/test_issue_format.py",
     ],
