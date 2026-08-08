@@ -102,3 +102,20 @@ def test_format_lease_is_required_and_released_after_failure() -> None:
             "&& steps.check.outputs.phase == 'format'"
         ) in text
         assert 'gh issue edit "$ISSUE_NUMBER" --remove-label "agents:format"' in text
+
+
+def test_format_guard_uses_event_inputs_and_fails_closed_on_revalidation_errors() -> None:
+    for text in (
+        GUARD_PATH.read_text(encoding="utf-8"),
+        CONSUMER_GUARD_PATH.read_text(encoding="utf-8"),
+    ):
+        assert "github.event.inputs.issue_number ||\n    github.run_id" in text
+        assert "github.event.issue.number || github.event.inputs.issue_number" in text
+        assert "revalidate_rc=$?" in text
+        assert 'if [[ "$revalidate_rc" -ne 1 ]]; then' in text
+
+    for text in (
+        WORKFLOW_PATH.read_text(encoding="utf-8"),
+        CONSUMER_WORKFLOW_PATH.read_text(encoding="utf-8"),
+    ):
+        assert "github.event.inputs.issue_number || github.run_id" in text

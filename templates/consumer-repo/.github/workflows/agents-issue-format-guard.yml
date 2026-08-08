@@ -16,10 +16,13 @@ permissions:
   issues: write
 
 concurrency:
-  # `inputs` only exists for workflow_dispatch/workflow_call.  Event inputs are
-  # null for issue events, so retain the manual fallback without making normal
-  # issue-triggered runs depend on the dispatch-only context.
-  group: issue-format-guard-${{ github.event.issue.number || github.event.inputs.issue_number || inputs.issue_number }}
+  # Event inputs are null for issue events, so retain the manual fallback
+  # without making normal issue-triggered runs depend on the dispatch-only
+  # `inputs` context.
+  group: >-
+    issue-format-guard-${{
+    github.event.issue.number || github.event.inputs.issue_number ||
+    github.run_id }}
   # A skipped label event must never cancel an in-flight opened/edited check.
   cancel-in-progress: false
 
@@ -50,7 +53,7 @@ jobs:
         id: issue
         env:
           GH_TOKEN: ${{ github.token }}
-          NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
         run: |
           set -euo pipefail
           gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" \
@@ -132,9 +135,17 @@ jobs:
             exit 0
           fi
           if [[ -f .github/scripts/issue_format.py ]]; then
-            if python3 .github/scripts/issue_format.py body.md > report.md; then
+            set +e
+            python3 .github/scripts/issue_format.py body.md > report.md
+            revalidate_rc=$?
+            set -e
+            if [[ "$revalidate_rc" -eq 0 ]]; then
               echo "Live body now conforms — skipping optimizer dispatch."
               exit 0
+            fi
+            if [[ "$revalidate_rc" -ne 1 ]]; then
+              echo "::error::issue-format validator failed unexpectedly during revalidation (exit $revalidate_rc)"
+              exit "$revalidate_rc"
             fi
           fi
           fingerprint="$(sha256sum body.md | cut -c1-12)"

@@ -113,8 +113,8 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = 128b60e2af8e3957209849c7f20502a1b9a971e0c8c347e25a0d501a868bc484
-template_sha256 = f7987a566c15971ae9039bb3d1a53f0bb654378e6c1dc3103f5692f5abca022d
+main_sha256 = d14dacb2a76447d35295a5d8a4da1e9a56a545323f87413fd76cf0654e8cf116
+template_sha256 = 05ad7bff15067f0827e136559145e3c13e0372b538889ac78281ce47658cefce
 reason = Intentional divergence re-baselined 2026-08-08c: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract this round: concurrency includes inputs.issue_number for workflow_dispatch dedupe, cancel-safe (failure()||cancelled()) agents:format lease release, issue_dedup wrapped in set +e/set -e so advisory failures cannot abort under bash -e, and visible non-zero exit warnings. Do not align wholesale — that would strip consumer action pins/token setup.
 
 [pair.12]
