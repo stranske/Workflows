@@ -134,8 +134,8 @@ jobs:
           marker="<!-- format-guard:$fingerprint -->"
           # Only trust exact HTML markers authored by automation bots (not user text).
           trusted_marker=false
-          if gh api "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" --paginate \
-              --jq '.[] | select((.user.login // "") | test("\\[bot\\]$|github-actions"; "i")) | .body' \
+          if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
+              --jq '.comments[] | select((.author.login // "") | test("\\[bot\\]$|github-actions"; "i")) | .body' \
               | grep -qF "$marker"; then
             trusted_marker=true
           fi

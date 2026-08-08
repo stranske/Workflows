@@ -113,8 +113,8 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = f2bd3840b7b5fe9ad063329045df8a9c01c9c70983b33c25e94cbe64b80172e4
-template_sha256 = a5ab1ee062f6e73885779e730278691976ed5d42e6fb7e83746f3bfc55177549
+main_sha256 = d99f29c3433fa3430c68338cffe0c9ad7c6e22801303fea1916ddeab4040dc90
+template_sha256 = a4ab5b6f0039c1c20d3fb3133fed3a38902f7943cd46c951cf7695a0d3e41858
 reason = Intentional divergence re-baselined 2026-08-08: root and consumer issue-optimizer workflows keep different auth plumbing/action pin surfaces. Both validate format output before adding agents:formatted; the consumer explicitly sparse-checks out .github/scripts/issue_format.py plus config/scripts/langchain/tools from Workflows, while root runs those files in-tree. Do not align wholesale because that would strip consumer action pins/token setup.
 
 [pair.12]

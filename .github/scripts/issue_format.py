@@ -116,9 +116,7 @@ def _concrete_span(span: str) -> bool:
     if "_" in span or "." in span:
         return True
     # Multi-segment CamelCase / PascalCase symbols (e.g. IssueFormatter).
-    if re.fullmatch(r"[A-Z][a-zA-Z0-9]*(?:[A-Z][a-zA-Z0-9]+)+", span):
-        return True
-    return False
+    return re.fullmatch(r"[A-Z][a-zA-Z0-9]*(?:[A-Z][a-zA-Z0-9]+)+", span) is not None
 
 
 def _task_has_concrete_target(item: str) -> bool:
@@ -139,9 +137,7 @@ def _task_has_concrete_target(item: str) -> bool:
     # Unquoted path with a directory separator (src/main.go, .github/workflows/x.yml).
     if re.search(r"(?:^|[\s])((?:\./)?[\w.-]+(?:/[\w./-]+)+)", item):
         return True
-    if re.search(rf"\b{_TASK_COMMAND}\b", item, re.I):
-        return True
-    return False
+    return re.search(rf"\b{_TASK_COMMAND}\b", item, re.I) is not None
 
 
 def _headings(body: str) -> list[tuple[str, int, int]]:
