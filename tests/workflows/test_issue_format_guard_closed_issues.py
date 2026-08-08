@@ -118,4 +118,6 @@ def test_closed_state_is_matched_case_insensitively(tmp_path: Path, guard_path: 
 def test_both_guard_copies_carry_the_closed_check() -> None:
     """Root and consumer template must not drift on this check."""
     for path in GUARD_PATHS:
-        assert "ascii_downcase" in _resolve_step_script(path), f"{path} lacks the closed-state check"
+        assert "ascii_downcase" in _resolve_step_script(
+            path
+        ), f"{path} lacks the closed-state check"
