@@ -32,14 +32,19 @@ def test_issue_optimizer_validates_format_and_apply_bodies() -> None:
     consumer_text = consumer.read_text(encoding="utf-8")
     assert "issue_format.py /tmp/formatted_body.md" in consumer_text
     assert "issue_format.py /tmp/updated_body.md" in consumer_text
+    assert "python3 .github/scripts/issue_format.py" in text
+    assert "python3 workflows-scripts/.github/scripts/issue_format.py" in consumer_text
 
 
-def test_format_guard_retries_incomplete_optimizer_dispatch() -> None:
+def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
     guard = Path(".github/workflows/agents-issue-format-guard.yml").read_text(encoding="utf-8")
     assert "Re-fetch before side effects" in guard
     assert "no completion marker written so later runs can retry" in guard
     assert 'marker="<!-- format-guard:$fingerprint -->"' in guard
+    assert '"$trusted_marker" == true && "$has_format_label" == true' in guard
+    assert "already routed and in flight; skipping duplicate dispatch" in guard
     consumer = Path(
         "templates/consumer-repo/.github/workflows/agents-issue-format-guard.yml"
     ).read_text(encoding="utf-8")
     assert "no completion marker written so later runs can retry" in consumer
+    assert '"$trusted_marker" == true && "$has_format_label" == true' in consumer

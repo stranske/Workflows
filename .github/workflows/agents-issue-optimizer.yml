@@ -510,7 +510,7 @@ jobs:
 
           # Do not publish agents:formatted for apply-phase output that fails
           # the same fleet contract enforced by the issue-event guard.
-          python .github/scripts/issue_format.py /tmp/updated_body.md
+          python3 .github/scripts/issue_format.py /tmp/updated_body.md
 
           # Update issue body
           node - <<'NODE'
@@ -580,7 +580,7 @@ jobs:
 
           # Do not advertise a formatted issue until it satisfies the same
           # fleet contract enforced by the issue-event guard.
-          python .github/scripts/issue_format.py /tmp/formatted_body.md
+          python3 .github/scripts/issue_format.py /tmp/formatted_body.md
 
           # Update issue body with formatted version
           node - <<'NODE'

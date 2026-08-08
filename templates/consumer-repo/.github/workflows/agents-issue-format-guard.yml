@@ -143,24 +143,26 @@ jobs:
           if jq -e '[.labels[].name] | any(. == "agents:format")' live.json >/dev/null; then
             has_format_label=true
           fi
-          # Dedup completed handoffs, but retry when a prior dispatch/optimizer run
-          # left agents:format set (marker without a finished optimizer pass).
+          # The marker is written only after dispatch succeeds.  Keep the label as
+          # the in-flight lease: a repeated guard run must not enqueue another
+          # optimizer while that lease is still present.  If the label was removed,
+          # retry the dispatch because the earlier handoff no longer owns the work.
           dispatch=true
-          if [[ "$trusted_marker" == true && "$has_format_label" != true ]]; then
-            echo "Identical invalid body was already routed; skipping duplicate dispatch."
+          if [[ "$trusted_marker" == true && "$has_format_label" == true ]]; then
+            echo "Identical invalid body is already routed and in flight; skipping duplicate dispatch."
             dispatch=false
-          elif [[ "$trusted_marker" == true && "$has_format_label" == true ]]; then
-            echo "Prior format-guard marker present but agents:format still set — retrying optimizer dispatch."
+          elif [[ "$trusted_marker" == true ]]; then
+            echo "Prior format-guard marker present but agents:format is absent — retrying optimizer dispatch."
           fi
           if jq -e '[.labels[].name] | any(. == "agents:formatted")' live.json >/dev/null; then
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted" \
               || echo "::warning::could not remove agents:formatted"
           fi
-          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agents:format" \
-            || echo "::warning::could not apply agents:format (label missing in this repo?)"
           if [[ "$dispatch" != true ]]; then
             exit 0
           fi
+          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agents:format" \
+            || echo "::warning::could not apply agents:format (label missing in this repo?)"
           # GITHUB_TOKEN label edits do not start issues:labeled workflows; dispatch is explicit.
           # Persist the completion marker only after a successful workflow_dispatch so a
           # failed run remains retryable on the next guard pass.
