@@ -519,3 +519,186 @@ def test_backticked_make_test_is_a_concrete_target() -> None:
         + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
     )
     assert report.ok
+
+
+# --- Addressability ---------------------------------------------------------
+#
+# Regression cover for Fine-Art-Archive #406-409: perfectly-formatted issues,
+# `agents:formatted` awarded, and every path they name existing only in a local
+# workspace that is not on GitHub. A lane tried, could not find the files, and
+# paused. Format and addressability are different axes; these pin the second.
+
+# The six paths #409 actually instructed an agent to modify. None is in the repo.
+FAA_409_PATHS = (
+    "scripts/automation_audit.py",
+    "automation_state.json",
+    "scripts/audit_checks/state_integrity.py",
+    "scripts/acquire.py",
+    "discovery_frontier.json",
+    "scripts/promote_acquisitions.py",
+)
+
+
+def _body_citing(*paths: str) -> str:
+    tasks = "\n".join(f"- [ ] Update `{p}`" for p in paths)
+    return (
+        VALID_CONTEXT
+        + f"## Tasks\n{tasks}\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+
+
+def test_issue_citing_only_absent_paths_is_not_addressable(tmp_path) -> None:
+    validator = _validator()
+    report = validator.validate(_body_citing(*FAA_409_PATHS), repo_root=tmp_path)
+    assert not report.ok
+    assert "None of the 6 paths" in report.as_markdown()
+
+
+def test_one_resolving_path_is_enough_to_be_addressable(tmp_path) -> None:
+    validator = _validator()
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "acquire.py").write_text("x = 1\n")
+    report = validator.validate(_body_citing(*FAA_409_PATHS), repo_root=tmp_path)
+    assert report.ok
+    assert "do not exist yet" in report.as_markdown()
+
+
+def test_new_files_alone_do_not_fail_below_the_threshold(tmp_path) -> None:
+    """Naming a file to be created is normal; two of them must not fail."""
+    validator = _validator()
+    report = validator.validate(
+        _body_citing("src/brand_new.py", "tests/test_brand_new.py"), repo_root=tmp_path
+    )
+    assert report.ok
+
+
+def test_explicit_create_paths_do_not_trigger_wrong_repository_failure(tmp_path) -> None:
+    validator = _validator()
+    body = (
+        VALID_CONTEXT
+        + "## Tasks\n"
+        + "- [ ] Create `src/new_a.py`\n"
+        + "- [ ] Add src/new_b.py\n"
+        + "- [ ] Generate `tests/test_new_c.py`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert validator.validate(body, repo_root=tmp_path).ok
+
+
+def test_all_paths_resolving_produces_no_advisory(tmp_path) -> None:
+    validator = _validator()
+    (tmp_path / "src").mkdir()
+    for name in ("a.py", "b.py", "c.py"):
+        (tmp_path / "src" / name).write_text("x = 1\n")
+    report = validator.validate(
+        _body_citing("src/a.py", "src/b.py", "src/c.py"), repo_root=tmp_path
+    )
+    assert report.ok
+    assert "do not exist yet" not in report.as_markdown()
+
+
+def test_repo_root_is_optional_and_off_by_default(tmp_path) -> None:
+    """Callers without a checkout keep the old pure-body behaviour."""
+    validator = _validator()
+    report = validator.validate(_body_citing(*FAA_409_PATHS))
+    assert report.ok
+
+
+@pytest.mark.parametrize(
+    ("span", "expected"),
+    [
+        ("`src/app.py:42`", ["src/app.py"]),  # file:line suffix stripped
+        ("`src/app.py:10-20`", ["src/app.py"]),  # range suffix stripped
+        ("`./src/app.py`", ["src/app.py"]),  # leading ./ normalised
+        ("`.github/workflows/gate.yml`", [".github/workflows/gate.yml"]),
+        ("`../src/app.py`", []),  # parent-relative paths are never repo evidence
+        ("`/etc/passwd`", []),  # absolute paths are never repo evidence
+        ("`https://example.com/x.py`", []),  # URLs are not repo paths
+        ("`src/*.py`", []),  # globs are ambiguous
+        ("`--flag`", []),  # CLI flags
+        ("`pytest -q tests/x.py`", []),  # commands contain spaces
+        ("`SomeClass`", []),  # bare symbols
+        ("`config.yaml`", ["config.yaml"]),  # extension alone qualifies
+    ],
+)
+def test_path_extraction_edges(span: str, expected: list[str]) -> None:
+    validator = _validator()
+    assert validator._cited_paths(f"prose {span} prose") == expected
+
+
+def test_duplicate_citations_are_counted_once(tmp_path) -> None:
+    validator = _validator()
+    body = _body_citing("a/x.py", "a/x.py", "a/x.py", "a/x.py")
+    assert validator._cited_paths(body) == ["a/x.py"]
+    # one distinct path is below the judging threshold, so it cannot fail
+    assert validator.validate(body, repo_root=tmp_path).ok
+
+
+def test_unquoted_task_paths_are_checked_for_addressability(tmp_path) -> None:
+    validator = _validator()
+    body = (
+        VALID_CONTEXT
+        + "## Tasks\n"
+        + "- [ ] Update scripts/missing_a.py\n"
+        + "- [ ] Update .github/workflows/missing_b.yml\n"
+        + "- [ ] Update tests/missing_c.py\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert validator._cited_paths(body) == [
+        "scripts/missing_a.py",
+        ".github/workflows/missing_b.yml",
+        "tests/missing_c.py",
+    ]
+    assert not validator.validate(body, repo_root=tmp_path).ok
+
+
+def test_pytest_node_ids_normalise_to_their_file() -> None:
+    """`tests/x.py::test_a` and `::test_b` are one path, not two unknowns."""
+    validator = _validator()
+    body = "See `tests/test_gate.py::test_alpha` and `tests/test_gate.py::test_beta`."
+    assert validator._cited_paths(body) == ["tests/test_gate.py"]
+
+
+def test_format_contract_reference_is_not_counted_as_evidence(tmp_path) -> None:
+    """Boilerplate every issue cites must not single-handedly pass the gate.
+
+    Measured on Fine-Art-Archive #409: `docs/AGENT_ISSUE_FORMAT.md` was the only
+    path that resolved, so counting it flipped a wholly-unaddressable issue to
+    'addressable'.
+    """
+    validator = _validator()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "AGENT_ISSUE_FORMAT.md").write_text("contract\n")
+    body = _body_citing(*FAA_409_PATHS) + "\nPer `docs/AGENT_ISSUE_FORMAT.md`.\n"
+    assert "docs/AGENT_ISSUE_FORMAT.md" not in validator._cited_paths(body)
+    report = validator.validate(body, repo_root=tmp_path)
+    assert not report.ok
+    assert "None of the 6 paths" in report.as_markdown()
+
+
+def test_package_relative_citations_resolve(tmp_path) -> None:
+    """`collect/quality.py` should find `src/pkg/collect/quality.py`.
+
+    Issues cite package-relative paths constantly. Counting them as missing
+    would both spam the advisory and undercount `resolved`, which is what the
+    failure rule keys on.
+    """
+    validator = _validator()
+    pkg = tmp_path / "src" / "mypkg" / "collect"
+    pkg.mkdir(parents=True)
+    (pkg / "quality.py").write_text("x = 1\n")
+    resolved, unresolved = validator._resolve_citations("cites `collect/quality.py`", tmp_path)
+    assert resolved == ["collect/quality.py"]
+    assert unresolved == []
+
+
+def test_search_roots_stay_bounded(tmp_path) -> None:
+    """A wide src/ must not turn resolution into an unbounded walk."""
+    validator = _validator()
+    base = tmp_path / "src"
+    base.mkdir()
+    for i in range(40):
+        (base / f"pkg{i:02d}").mkdir()
+    roots = validator._search_roots(tmp_path)
+    assert len(roots) <= 1 + 1 + 12  # repo root + src + capped children
