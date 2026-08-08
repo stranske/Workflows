@@ -508,6 +508,10 @@ jobs:
           print('Suggestions applied successfully')
           " || exit 1
 
+          # Do not publish agents:formatted for apply-phase output that fails
+          # the same fleet contract enforced by the issue-event guard.
+          python .github/scripts/issue_format.py /tmp/updated_body.md
+
           # Update issue body
           node - <<'NODE'
           (async () => {

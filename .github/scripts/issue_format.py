@@ -80,11 +80,70 @@ BANNED_ADJECTIVES = (
     "polished",
     "performant",
 )
-TASK_TARGET = re.compile(
-    r"(?:`[^`]+`|[\w./-]+\.(?:py|js|jsx|ts|tsx|yml|yaml|json|toml|md|sh)\b"
-    r"|\b(?:file|function|class|method|path|config(?:uration)?|key|job|workflow|command)\b)",
-    re.I,
+_TASK_CATEGORY = (
+    r"(?:file|function|class|method|path|config(?:uration)?|key|job|workflow|command)"
 )
+_TASK_EXTENSION = (
+    r"py|js|jsx|ts|tsx|yml|yaml|json|toml|md|sh|go|rs|java|kt|rb|php|css|html|sql|"
+    r"xml|txt|ini|cfg|conf|lock|gradle|swift|c|cc|cpp|h|hpp|cs|fs|r|jl"
+)
+_TASK_KNOWN_BASENAME = (
+    r"(?:Dockerfile|Makefile|Justfile|Procfile|Gemfile|Rakefile|"
+    r"Cargo\.toml|pyproject\.toml|package\.json|go\.mod|go\.sum|pom\.xml|"
+    r"build\.gradle|CMakeLists\.txt|README(?:\.(?:md|rst|txt))?|"
+    r"LICENSE(?:\.(?:md|txt))?|\.gitignore|\.editorconfig)"
+)
+_TASK_COMMAND = (
+    r"(?:python(?:3)?|pytest|npm|pnpm|yarn|make|just|cargo|go|dotnet|gh|curl|"
+    r"node|vitest|jest|playwright)"
+)
+
+
+def _concrete_span(span: str) -> bool:
+    """Return True when a backticked/unquoted token names a real work target."""
+    span = span.strip()
+    if not span:
+        return False
+    if re.fullmatch(_TASK_CATEGORY, span, re.I):
+        return False
+    # Bare lowercase English words (`bugs`, `later`) are not actionable targets.
+    if re.fullmatch(r"[a-z]{2,24}", span):
+        return False
+    if "/" in span or span.startswith("."):
+        return True
+    if re.fullmatch(_TASK_KNOWN_BASENAME, span, re.I):
+        return True
+    if re.fullmatch(rf"[\w.-]+\.(?:{_TASK_EXTENSION})", span, re.I):
+        return True
+    if "_" in span or "." in span:
+        return True
+    # Multi-segment CamelCase / PascalCase symbols (e.g. IssueFormatter).
+    if re.fullmatch(r"[A-Z][a-zA-Z0-9]*(?:[A-Z][a-zA-Z0-9]+)+", span):
+        return True
+    return False
+
+
+def _task_has_concrete_target(item: str) -> bool:
+    """True when a task checkbox names a file, path, symbol, config, job, or command."""
+    # Category word must be followed by a concrete identifier (not "file handling").
+    for match in re.finditer(rf"\b{_TASK_CATEGORY}\s+(`[^`]+`|[^\s]+)", item, re.I):
+        token = match.group(1)
+        span = token[1:-1] if token.startswith("`") and token.endswith("`") else token.strip("'\"")
+        if _concrete_span(span):
+            return True
+    for match in re.finditer(r"`([^`]+)`", item):
+        if _concrete_span(match.group(1)):
+            return True
+    if re.search(rf"(?:^|[\s])({_TASK_KNOWN_BASENAME})\b", item, re.I):
+        return True
+    if re.search(rf"(?:^|[\s])([\w.-]+\.(?:{_TASK_EXTENSION}))\b", item, re.I):
+        return True
+    # Unquoted path with a directory separator (src/main.go, .github/workflows/x.yml).
+    if re.search(r"(?:^|[\s])((?:\./)?[\w.-]+(?:/[\w./-]+)+)", item):
+        return True
+    if re.search(rf"\b{_TASK_COMMAND}\b", item, re.I):
+        return True
+    return False
 
 
 def _headings(body: str) -> list[tuple[str, int, int]]:
@@ -187,7 +246,7 @@ def validate(body: str) -> Report:
             report.problems.append(
                 "`Tasks` has no checkbox items (`- [ ] …`); agents track progress by them."
             )
-        elif any(not TASK_TARGET.search(item) for item in task_items):
+        elif any(not _task_has_concrete_target(item) for item in task_items):
             report.problems.append(
                 "`Tasks` must name a concrete file, symbol, path, config key, job, or command."
             )

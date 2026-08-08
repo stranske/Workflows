@@ -22,3 +22,24 @@ def test_issue_optimizer_checks_for_format_label() -> None:
     text = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "agents:format" in text
     assert "phase=format" in text
+
+
+def test_issue_optimizer_validates_format_and_apply_bodies() -> None:
+    text = WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert "issue_format.py /tmp/formatted_body.md" in text
+    assert "issue_format.py /tmp/updated_body.md" in text
+    consumer = Path("templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml")
+    consumer_text = consumer.read_text(encoding="utf-8")
+    assert "issue_format.py /tmp/formatted_body.md" in consumer_text
+    assert "issue_format.py /tmp/updated_body.md" in consumer_text
+
+
+def test_format_guard_retries_incomplete_optimizer_dispatch() -> None:
+    guard = Path(".github/workflows/agents-issue-format-guard.yml").read_text(encoding="utf-8")
+    assert "Re-fetch before side effects" in guard
+    assert "no completion marker written so later runs can retry" in guard
+    assert 'marker="<!-- format-guard:$fingerprint -->"' in guard
+    consumer = Path(
+        "templates/consumer-repo/.github/workflows/agents-issue-format-guard.yml"
+    ).read_text(encoding="utf-8")
+    assert "no completion marker written so later runs can retry" in consumer

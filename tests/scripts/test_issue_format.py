@@ -166,6 +166,47 @@ def test_task_without_concrete_target_is_non_conforming() -> None:
 
 
 @pytest.mark.parametrize(
+    "task",
+    [
+        "Fix `bugs`",
+        "Fix bugs `later`",
+        "Fix file handling",
+        "Update the configuration",
+    ],
+)
+def test_vague_task_targets_are_non_conforming(task: str) -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + f"## Tasks\n- [ ] {task}\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert not report.ok
+    assert "concrete file" in report.as_markdown()
+
+
+@pytest.mark.parametrize(
+    "task",
+    [
+        "Update src/main.go",
+        "Update pom.xml",
+        "Update Dockerfile",
+        "Wire `IssueFormatter` into the guard",
+        "Touch file `src/client.py`",
+        "Run pytest tests/scripts/test_issue_format.py",
+    ],
+)
+def test_concrete_unquoted_and_symbol_task_targets_are_accepted(task: str) -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + f"## Tasks\n- [ ] {task}\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert report.ok, report.as_markdown()
+
+
+@pytest.mark.parametrize(
     "criterion",
     [
         "python -m unittest tests.guard passes",

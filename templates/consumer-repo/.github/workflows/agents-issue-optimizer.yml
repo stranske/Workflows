@@ -467,6 +467,9 @@ jobs:
           print('Suggestions applied successfully')
           " || exit 1
 
+          # Keep agents:formatted truthful for apply-phase output too.
+          python workflows-scripts/.github/scripts/issue_format.py /tmp/updated_body.md
+
           # Update issue body
           gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/updated_body.md
 
