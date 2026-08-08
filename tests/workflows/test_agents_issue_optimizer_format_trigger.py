@@ -112,16 +112,15 @@ def test_format_guard_uses_event_inputs_and_fails_closed_on_revalidation_errors(
         assert "github.event.inputs.issue_number ||\n    github.run_id" in text
         assert "github.event.issue.number || github.event.inputs.issue_number" in text
         assert "revalidate_rc=$?" in text
-        assert 'python3 .github/scripts/issue_format.py body.md > report.md 2> "$error_file"' in text
+        assert (
+            'python3 .github/scripts/issue_format.py body.md > report.md 2> "$error_file"' in text
+        )
         # Exit 0: live body now conforms — skip optimizer dispatch.
         assert 'if [[ "$revalidate_rc" -eq 0 ]]; then' in text
         assert "Live body now conforms — skipping optimizer dispatch." in text
         # Exit 1 + stderr: validator crash — fail closed before fingerprint/dispatch.
         assert 'if [[ "$revalidate_rc" -eq 1 && -s "$error_file" ]]; then' in text
-        assert (
-            "::error::issue-format validator failed unexpectedly during revalidation"
-            in text
-        )
+        assert "::error::issue-format validator failed unexpectedly during revalidation" in text
         # Other non-zero: propagate; exit 1 with empty stderr continues to fingerprint.
         assert 'if [[ "$revalidate_rc" -ne 1 ]]; then' in text
         assert 'fingerprint="$(sha256sum body.md | cut -c1-12)"' in text
@@ -131,6 +130,5 @@ def test_format_guard_uses_event_inputs_and_fails_closed_on_revalidation_errors(
         CONSUMER_WORKFLOW_PATH.read_text(encoding="utf-8"),
     ):
         assert (
-            "github.event.issue.number || github.event.inputs.issue_number || github.run_id"
-            in text
+            "github.event.issue.number || github.event.inputs.issue_number || github.run_id" in text
         )
