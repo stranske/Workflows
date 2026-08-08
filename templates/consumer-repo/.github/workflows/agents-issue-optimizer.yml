@@ -1,5 +1,13 @@
 name: Agents Issue Optimizer
 
+# The recursion guard below correlates prior runs by issue number via `displayTitle`.
+# workflow_dispatch runs otherwise display the bare workflow name, so the guard matched
+# nothing and reported 0 for an issue it was re-running every minute. Pin the issue
+# number into the run name so both trigger types are correlatable.
+run-name: >-
+  Agents Issue Optimizer #${{
+  github.event.issue.number || inputs.issue_number }}
+
 on:
   issues:
     types: [labeled]
@@ -171,14 +179,17 @@ jobs:
             '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
             || date -u -v-1H '+%Y-%m-%dT%H:%M:%SZ')
 
+          # `gh run list` defaults to 20 runs, which a tight loop exhausts inside the
+          # window; ask for enough history to actually see the recursion.
           # shellcheck disable=SC2016
           count=$(gh run list \
             --workflow=agents-issue-optimizer.yml \
+            --limit 100 \
             --json conclusion,createdAt,displayTitle \
             | jq --arg cutoff "$one_hour_ago" \
               --arg issue "#$ISSUE_NUMBER" \
               '[.[] | select(.createdAt > $cutoff
-              and (.displayTitle | contains($issue)))
+              and (.displayTitle | endswith($issue)))
               ] | length')
 
           echo "Optimizer runs for issue #$ISSUE_NUMBER in last hour: $count"
