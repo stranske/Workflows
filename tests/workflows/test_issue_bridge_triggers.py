@@ -141,15 +141,17 @@ class TestIssueBridgeTriggers(unittest.TestCase):
 
     def test_closed_issues_do_not_start_the_bridge(self) -> None:
         """Closed sources must not create a new bootstrap PR from status labels."""
-        source = self.intake_workflow.read_text(encoding="utf-8")
-        template = (
+        source_path = self.intake_workflow
+        template_path = (
             self.project_root
             / "templates"
             / "consumer-repo"
             / ".github"
             / "workflows"
             / "agents-issue-intake.yml"
-        ).read_text(encoding="utf-8")
+        )
+        source = source_path.read_text(encoding="utf-8")
+        template = template_path.read_text(encoding="utf-8")
 
         closed_guard = "github.event.issue.state != 'closed'"
         for workflow in (source, template):
@@ -160,6 +162,27 @@ class TestIssueBridgeTriggers(unittest.TestCase):
                 workflow,
                 "Closed issue label events must not start the agent bridge",
             )
+
+        # Parsed job-condition checks (not raw-text only): prove the guard is
+        # wired into the bridge entry jobs, not merely present as a comment.
+        source_jobs = yaml.safe_load(source).get("jobs", {})
+        template_jobs = yaml.safe_load(template).get("jobs", {})
+        source_condition = " ".join(
+            str(source_jobs.get("normalize_inputs", {}).get("if", "")).split()
+        )
+        template_condition = " ".join(
+            str(template_jobs.get("check_labels", {}).get("if", "")).split()
+        )
+        self.assertIn(
+            closed_guard,
+            source_condition,
+            "jobs.normalize_inputs.if must reject closed issues",
+        )
+        self.assertIn(
+            closed_guard,
+            template_condition,
+            "jobs.check_labels.if must reject closed issues",
+        )
 
     def test_condition_logic_structure(self) -> None:
         """Validate the logical structure of the condition."""
