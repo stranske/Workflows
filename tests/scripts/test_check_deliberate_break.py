@@ -140,6 +140,19 @@ def test_issue_3007_acceptance_wording_is_supported() -> None:
     assert spec.break_file == ".github/workflows/maint-69-sync-labels.yml"
 
 
+def test_fallback_marker_ignores_backticked_curl_command_and_keeps_trailing_colon_path() -> None:
+    spec = parse_deliberate_break_spec(
+        """## Acceptance Criteria
+- [ ] Deliberate break: change `src/example.py:` and prove the named test fails.
+- [ ] Named test: run `tests/test_example.py` with `test_example`.
+- [ ] Verify with `curl https://example.test/health`.
+"""
+    )
+
+    assert spec is not None
+    assert spec.break_file == "src/example.py"
+
+
 def test_assertion_tamper_is_flagged(tmp_path, monkeypatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()

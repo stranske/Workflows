@@ -870,9 +870,9 @@ def test_reuse_sets_needs_refinement_when_validator_fails() -> None:
     assert result["needs_refinement"] is True
 
 
-def test_curl_is_not_a_safe_verify_command() -> None:
+def test_curl_requires_a_target_for_safe_verify_command() -> None:
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl") is None
-    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl https://example.test/health") is None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl https://example.test/health") is not None
 
 
 def test_append_raw_issue_recovers_tilde_fenced_original_issue() -> None:

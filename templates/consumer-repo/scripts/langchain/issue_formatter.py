@@ -181,6 +181,7 @@ SAFE_VERIFY_COMMAND_RE = re.compile(
     r"|(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b"
     r"|(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b"
     r"|gh\s+(?:workflow\s+run|run)\s+\S+"
+    r"|curl\s+\S+"
     r")",
     re.IGNORECASE,
 )

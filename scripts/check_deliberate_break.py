@@ -160,10 +160,12 @@ def _infer_break_file(break_line: str, named_line: str, markdown: str) -> str | 
     def _candidate_paths(text: str) -> list[str]:
         paths: list[str] = []
         for path in re.findall(r"`([^`]+)`", text):
-            normalized = path.strip()
-            if not normalized or normalized.endswith(":"):
+            normalized = path.strip().rstrip(":")
+            if not normalized:
                 continue
             if re.fullmatch(r"[A-Za-z][\w-]*:\s*.+", normalized):
+                continue
+            if re.search(r"\s", normalized):
                 continue
             if "/" in normalized or normalized.endswith((".py", ".yml", ".yaml", ".js")):
                 paths.append(normalized.split(":", 1)[0])
