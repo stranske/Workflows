@@ -150,6 +150,13 @@ def test_fallback_marker_ignores_backticked_curl_command_and_keeps_trailing_colo
     assert spec is not None
     assert spec.break_file == "src/example.py"
 
+    curl_only = parse_deliberate_break_spec("""## Acceptance Criteria
+- [ ] Deliberate break: change `curl https://example.test/health` and prove the named test fails.
+- [ ] Named test: run `tests/test_example.py` with `test_example`.
+""")
+
+    assert curl_only is None or curl_only.break_file != "curl https://example.test/health"
+
 
 def test_assertion_tamper_is_flagged(tmp_path, monkeypatch) -> None:
     repo = tmp_path / "repo"
