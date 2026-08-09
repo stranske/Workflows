@@ -75,3 +75,15 @@ def test_label_sync_fails_the_job_when_any_label_write_errors() -> None:
     failure_index = script.index("core.setFailed", aggregate_index)
     assert failure_index > aggregate_index
     assert "label sync error(s)" in script[failure_index:]
+
+
+def test_label_sync_records_fetch_errors_before_failing_the_aggregate() -> None:
+    script = _step(SYNC_STEP)["with"]["script"]
+
+    fetch_index = script.index("github.rest.issues.listLabelsForRepo")
+    fetch_error_index = script.index("Failed to fetch labels", fetch_index)
+    increment_index = script.index("totalErrors++", fetch_error_index)
+    summary_index = script.index("await core.summary.addRaw(summary.join('')).write()")
+    failure_index = script.index("core.setFailed", summary_index)
+
+    assert fetch_index < fetch_error_index < increment_index < summary_index < failure_index
