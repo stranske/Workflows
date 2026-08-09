@@ -92,10 +92,10 @@ _TASK_KNOWN_BASENAME = (
     r"LICENSE(?:\.(?:md|txt))?|\.gitignore|\.editorconfig)"
 )
 _TASK_COMMAND = (
-    r"(?:python(?:3)?\s+-m\s+(?:pytest|unittest)|pytest\b|node\s+--test\b|"
+    r"(?:python(?:3)?\s+-m\s+(?:pytest|unittest)\b|pytest\b|node\s+--test\b|"
     r"(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b|"
     r"(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b|"
-    r"gh\s+(?:workflow\s+run|run)\b|curl\s+\S+)"
+    r"gh\s+(?:workflow\s+run|run)\s+\S+|curl\s+\S+)"
 )
 
 
