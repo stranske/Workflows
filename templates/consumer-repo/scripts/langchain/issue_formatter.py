@@ -10,27 +10,95 @@ Run with:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 try:
+    from scripts.langchain._llm_client import get_llm_client as _get_llm_client
     from scripts.langchain.checklist_utils import is_placeholder_checklist_text
     from scripts.langchain.injection_guard import check_prompt_injection
-    from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
+    from scripts.langchain.issue_pr_context import (
+        ContextOptions,
+        already_conformant,
+        build_formatted_body_marker,
+        build_issue_context,
+        reuse_formatted_body,
+    )
     from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ImportError:  # pragma: no cover - fallback for direct invocation
+    from _llm_client import get_llm_client as _get_llm_client
     from checklist_utils import is_placeholder_checklist_text
     from injection_guard import check_prompt_injection
-    from issue_pr_context import ContextOptions, build_issue_context
+    from issue_pr_context import (
+        ContextOptions,
+        already_conformant,
+        build_formatted_body_marker,
+        build_issue_context,
+        reuse_formatted_body,
+    )
     from trace_utils import TraceInfo, invoke_with_trace
 
 # Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
 # ~4 chars per token, so 50k chars ≈ 12.5k tokens, leaving headroom for prompt + output
 MAX_ISSUE_BODY_SIZE = 50000
+
+
+@lru_cache(maxsize=1)
+def _issue_format_validator() -> Any:
+    """Load the fleet's single issue-format definition without forking it."""
+    validator_path = Path(__file__).resolve().parents[2] / ".github/scripts/issue_format.py"
+    spec = importlib.util.spec_from_file_location("_fleet_issue_format", validator_path)
+    if spec is None or spec.loader is None:  # pragma: no cover - repository invariant
+        raise RuntimeError(f"Cannot load canonical issue-format validator: {validator_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+# Workflow tags written into the reuse marker. Tagging every stage of the
+# auto-pilot format -> optimize -> apply chain lets any stage detect a body it (or
+# a sibling stage) already formatted and skip re-deriving it, which is the
+# primary defense against re-run amplification.
+REUSE_MARKER_WORKFLOWS = (
+    "agents-auto-pilot",
+    "agents-issue-optimizer",
+    "agents-63-issue-intake",
+    "issue_formatter",
+    "issue_optimizer",
+)
+
+
+def _with_reuse_marker(formatted: str) -> str:
+    """Append (or refresh) the reuse marker that lets later stages skip re-formatting.
+
+    The marker stores a sha256 fingerprint of the formatted body (hash-only). A
+    stale marker (body edited after formatting) simply fails the hash check
+    downstream and is ignored, so this is always safe to (re)write.
+    """
+    body = _strip_reuse_marker(formatted).rstrip()
+    marker = build_formatted_body_marker(
+        workflows=list(REUSE_MARKER_WORKFLOWS),
+        formatted_body=body,
+        embed_body=False,  # hash-only: the formatted body is written back in full anyway
+    )
+    return f"{body}\n\n{marker}\n"
+
+
+def _strip_reuse_marker(text: str) -> str:
+    try:
+        from scripts.langchain.issue_pr_context import MARKER_RE
+    except ImportError:  # pragma: no cover - fallback for direct invocation
+        from issue_pr_context import MARKER_RE
+
+    return MARKER_RE.sub("", text).rstrip()
+
 
 ISSUE_FORMATTER_PROMPT = """
 You are a formatting assistant. Convert the raw GitHub issue body into the
@@ -51,6 +119,14 @@ Rules:
 - If a section lacks content, use "_Not provided._" (or "- [ ] _Not provided._"
   for Tasks/Acceptance).
 - Output ONLY the formatted markdown with these sections (no extra commentary).
+
+Length & scope discipline (improve clarity, do NOT inflate):
+- Improve clarity WITHOUT increasing total length. Do not add a task, criterion,
+  or sentence unless it fills a genuinely missing mandatory section.
+- Preserve scope; do NOT invent file paths, functions, tests, or criteria the
+  source does not imply, and do NOT manufacture prose to fill placeholders.
+- Never restate the same point under two headings; never split a task that is
+  already a single ~10-minute action.
 
 Raw issue body:
 {issue_body}
@@ -91,6 +167,7 @@ SECTION_TITLES = {
 
 LIST_ITEM_REGEX = re.compile(r"^(\s*)([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
+VERIFY_HINT_REGEX = re.compile(r"\(verify:\s*([^\n)]+)\)", re.IGNORECASE)
 
 
 def _context_token_budget() -> int:
@@ -124,24 +201,6 @@ def _load_prompt() -> str:
         if feedback:
             return f"{base_prompt}\n\n{feedback}\n"
     return base_prompt
-
-
-def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
-    """Get LLM client, trying GitHub Models first (cheaper), then OpenAI.
-
-    Args:
-        force_openai: If True, skip GitHub Models and use OpenAI directly.
-                      Use this for retry after GitHub Models 401 error.
-    """
-    try:
-        from tools.langchain_client import build_chat_client
-    except ImportError:
-        return None
-
-    resolved = build_chat_client(force_openai=force_openai)
-    if not resolved:
-        return None
-    return resolved.client, resolved.provider
 
 
 def _normalize_heading(text: str) -> str:
@@ -313,6 +372,17 @@ def _format_issue_fallback(issue_body: str) -> str:
     impl_text = join_or_placeholder(impl_lines, "_Not provided._")
     tasks_text = join_or_placeholder(tasks_lines, "- [ ] _Not provided._")
     acceptance_text = join_or_placeholder(acceptance_lines, "- [ ] _Not provided._")
+    validator = _issue_format_validator()
+    if not validator.GATE.search(acceptance_text):
+        verify_hint = VERIFY_HINT_REGEX.search(tasks_text)
+        if verify_hint:
+            command = verify_hint.group(1).strip().strip("`")
+            if command.startswith("pytest "):
+                command = f"python3 -m {command}"
+            acceptance_text = (
+                f"{acceptance_text}\n"
+                f"- [ ] Run `{command}` and capture the command output in PR validation evidence."
+            )
 
     parts = [
         "## Why",
@@ -343,10 +413,7 @@ def _format_issue_fallback(issue_body: str) -> str:
 
 
 def _formatted_output_valid(text: str) -> bool:
-    if not text:
-        return False
-    required = ["## Tasks", "## Acceptance Criteria"]
-    return all(section in text for section in required)
+    return bool(text and _issue_format_validator().validate(text).ok)
 
 
 def _select_code_fence(text: str) -> str:
@@ -355,14 +422,76 @@ def _select_code_fence(text: str) -> str:
     return "`" * fence_len
 
 
+ORIGINAL_ISSUE_SUMMARY = "<summary>Original Issue</summary>"
+# Matches an Original-Issue <details> block (and trailing whitespace) so it can
+# be replaced rather than nested. Non-greedy body, anchored to the closing tag.
+_ORIGINAL_ISSUE_BLOCK_RE = re.compile(
+    r"<details>\s*<summary>Original Issue</summary>.*?</details>[ \t]*\n?",
+    re.DOTALL | re.IGNORECASE,
+)
+# Captures the verbatim text fenced inside an Original-Issue block, so an
+# already-embedded original can be recovered (and re-embedded once) instead of
+# being wrapped again.
+_ORIGINAL_ISSUE_INNER_RE = re.compile(
+    r"<details>\s*<summary>Original Issue</summary>\s*"
+    r"(?P<fence>`{3,})text\n(?P<inner>.*?)\n(?P=fence)\s*</details>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _strip_original_issue_blocks(text: str) -> str:
+    """Remove any embedded Original-Issue <details> block(s) from ``text``."""
+    return _ORIGINAL_ISSUE_BLOCK_RE.sub("", text).rstrip()
+
+
+def _innermost_original_issue(text: str) -> str | None:
+    """Return the deepest verbatim Original-Issue payload embedded in ``text``.
+
+    Nested blocks (from prior runaway cycles) are unwrapped layer by layer so the
+    true original is recovered, not a copy-of-a-copy.
+    """
+    inner: str | None = None
+    current = text
+    while True:
+        match = _ORIGINAL_ISSUE_INNER_RE.search(current)
+        if not match:
+            break
+        inner = match.group("inner")
+        current = inner
+    return inner
+
+
 def _append_raw_issue_section(formatted: str, issue_body: str) -> str:
-    raw = issue_body.strip()
+    """Embed the verbatim original issue once, idempotently.
+
+    Earlier behavior only checked whether the *input* already contained an
+    Original-Issue block, which let the block nest across auto-pilot cycles
+    (each pass re-wrapped the whole prior body — the 5-level nesting seen in
+    incident #1135). This version is idempotent: it recovers the innermost
+    verbatim original (from either the raw source or an already-embedded block),
+    strips every Original-Issue block from the formatted output, then appends
+    exactly one fresh block. Re-running on already-embedded output reproduces the
+    same single block.
+    """
+    # Recover the verbatim original, preferring the most authoritative source:
+    #   1. the innermost embedded original in the raw source (the canonical input),
+    #   2. the raw source minus any Original-Issue wrapper,
+    #   3. the innermost embedded original in the formatted output (covers the
+    #      edge where the output already carries a block but the raw arg does not
+    #      — the exact pre-fix nesting vector).
+    # This preserves the true original instead of re-embedding reformatted text.
+    raw = _innermost_original_issue(issue_body)
+    if raw is None:
+        raw = _strip_original_issue_blocks(issue_body.strip())
+    raw = raw.strip()
     if not raw:
-        return formatted
-    marker = "<summary>Original Issue</summary>"
-    # Check INPUT body, not output - if input already has Original Issue, don't nest another
-    if marker in raw:
-        return formatted
+        recovered = _innermost_original_issue(formatted)
+        raw = recovered.strip() if recovered else ""
+    formatted_wo_block = _strip_original_issue_blocks(formatted)
+    if not raw:
+        # Nothing to embed. If the formatted body already had a block it has been
+        # stripped above; return the cleaned form so no stale nested copy remains.
+        return formatted_wo_block if ORIGINAL_ISSUE_SUMMARY in formatted else formatted
     fence = _select_code_fence(raw)
     details = (
         "\n\n<details>\n"
@@ -370,7 +499,7 @@ def _append_raw_issue_section(formatted: str, issue_body: str) -> str:
         f"{fence}text\n{raw}\n{fence}\n"
         "</details>"
     )
-    return f"{formatted.rstrip()}{details}\n"
+    return f"{formatted_wo_block.rstrip()}{details}\n"
 
 
 def _extract_tasks_from_formatted(body: str) -> list[str]:
@@ -473,6 +602,39 @@ def _is_github_models_auth_error(exc: Exception) -> bool:
     return "401" in exc_str and "models" in exc_str
 
 
+def _reuse_already_formatted(issue_body: str, workflow: str) -> dict[str, Any] | None:
+    """Return a short-circuit result if ``issue_body`` is already formatted.
+
+    Two idempotency signals, in order of trust:
+
+    1. A reuse marker whose embedded hash matches the visible body — the body is
+       byte-identical to a prior formatter output for this workflow chain.
+    2. The body is structurally conformant (all template sections + an embedded
+       Original-Issue block).
+
+    In either case the body is returned unchanged (modulo a refreshed marker) so
+    no LLM rewrite occurs. Returns ``None`` when the body still needs formatting.
+    """
+    reused = reuse_formatted_body({"body": issue_body}, workflow)
+    if reused is not None:
+        return {
+            "formatted_body": _with_reuse_marker(reused),
+            "provider_used": None,
+            "used_llm": False,
+            "skipped": "reused_marker",
+            "validation_audit": None,
+        }
+    if already_conformant(issue_body):
+        return {
+            "formatted_body": _with_reuse_marker(issue_body),
+            "provider_used": None,
+            "used_llm": False,
+            "skipped": "already_conformant",
+            "validation_audit": None,
+        }
+    return None
+
+
 def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any]:
     if not issue_body:
         issue_body = ""
@@ -487,7 +649,17 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
             "guard_reason": guard_result["reason"],
         }
 
-    issue_body = _capped_issue_body(issue_body, _context_workflow("issue_formatter"))
+    # Idempotency / anti-amplification: before re-deriving anything, check whether
+    # this body has already been formatted. Re-formatting an already-conformant
+    # body only paraphrases prior output and is the primary runaway-expansion
+    # vector (incidents #1135/#1143). Done on the *uncapped* body so detection
+    # still works on large already-formatted issues.
+    workflow = _context_workflow("issue_formatter")
+    reuse = _reuse_already_formatted(issue_body, workflow)
+    if reuse is not None:
+        return reuse
+
+    issue_body = _capped_issue_body(issue_body, workflow)
 
     # Check size before processing to avoid rate limit errors
     if len(issue_body) > MAX_ISSUE_BODY_SIZE:
@@ -544,6 +716,7 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                     # splitting here - it causes task explosion (issue #805, #1143).
                     formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
                     formatted = _append_raw_issue_section(formatted, issue_body)
+                    formatted = _with_reuse_marker(formatted)
                     result = {
                         "formatted_body": formatted,
                         "provider_used": provider,
@@ -557,16 +730,19 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 pass
 
     formatted = _format_issue_fallback(issue_body)
+    needs_refinement = not _formatted_output_valid(formatted)
     # NOTE: Task decomposition is now handled by agents:optimize step
     # which uses LLM for intelligent splitting. Don't do heuristic
     # splitting here - it causes task explosion (issue #805, #1143).
     formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
     formatted = _append_raw_issue_section(formatted, issue_body)
+    formatted = _with_reuse_marker(formatted)
     return {
         "formatted_body": formatted,
         "provider_used": None,
         "used_llm": False,
         "validation_audit": audit,
+        "needs_refinement": needs_refinement,
     }
 
 

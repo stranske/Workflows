@@ -80,6 +80,7 @@ def test_format_issue_fallback_adds_acceptance_gate_when_only_tasks_have_verify_
     acceptance = _extract_section(formatted, "Acceptance Criteria")
 
     assert "python3 -m pytest tests/scripts/test_issue_formatter.py" in acceptance
+    assert "Formatter preserves the source acceptance prose." in acceptance
     assert _canonical_issue_format().GATE.search(acceptance)
     assert _canonical_issue_format().validate(formatted).ok is True
 
@@ -133,7 +134,9 @@ def test_format_issue_fallback_uses_placeholders() -> None:
 
     assert tasks == "- [ ] _Not provided._"
     assert acceptance.startswith("- [ ] _Not provided._")
-    assert "python3 -m pytest tests/scripts/test_issue_formatter.py" in acceptance
+    assert "python3 -m pytest" not in acceptance
+    assert _canonical_issue_format().validate(formatted).ok is False
+    assert result["needs_refinement"] is True
 
 
 def test_normalize_checklist_lines_drops_placeholder_checkboxes() -> None:

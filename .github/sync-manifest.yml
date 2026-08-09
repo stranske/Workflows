@@ -584,6 +584,7 @@ scripts:
     # (format step: `python scripts/langchain/issue_formatter.py`), which does NOT
     # runtime-fetch scripts/langchain. Must stay copy-synced.
     delivery: copy
+    template_sync: exact
 
   - source: scripts/langchain/issue_pr_context.py
     description: "Issue/PR context assembly helper with shared token budget caps"

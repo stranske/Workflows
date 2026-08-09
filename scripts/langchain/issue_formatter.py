@@ -167,6 +167,7 @@ SECTION_TITLES = {
 
 LIST_ITEM_REGEX = re.compile(r"^(\s*)([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
+VERIFY_HINT_REGEX = re.compile(r"\(verify:\s*([^\n)]+)\)", re.IGNORECASE)
 
 
 def _context_token_budget() -> int:
@@ -373,11 +374,15 @@ def _format_issue_fallback(issue_body: str) -> str:
     acceptance_text = join_or_placeholder(acceptance_lines, "- [ ] _Not provided._")
     validator = _issue_format_validator()
     if not validator.GATE.search(acceptance_text):
-        acceptance_text = (
-            f"{acceptance_text}\n"
-            "- [ ] Run `python3 -m pytest tests/scripts/test_issue_formatter.py` after formatting; "
-            "it passes, with the command output captured in the PR validation evidence."
-        )
+        verify_hint = VERIFY_HINT_REGEX.search(tasks_text)
+        if verify_hint:
+            command = verify_hint.group(1).strip().strip("`")
+            if command.startswith("pytest "):
+                command = f"python3 -m {command}"
+            acceptance_text = (
+                f"{acceptance_text}\n"
+                f"- [ ] Run `{command}` and capture the command output in PR validation evidence."
+            )
 
     parts = [
         "## Why",
@@ -725,6 +730,7 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 pass
 
     formatted = _format_issue_fallback(issue_body)
+    needs_refinement = not _formatted_output_valid(formatted)
     # NOTE: Task decomposition is now handled by agents:optimize step
     # which uses LLM for intelligent splitting. Don't do heuristic
     # splitting here - it causes task explosion (issue #805, #1143).
@@ -736,6 +742,7 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
         "provider_used": None,
         "used_llm": False,
         "validation_audit": audit,
+        "needs_refinement": needs_refinement,
     }
 
 
