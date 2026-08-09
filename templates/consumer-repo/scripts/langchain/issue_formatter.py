@@ -372,8 +372,13 @@ def _format_issue_fallback(issue_body: str) -> str:
     impl_text = join_or_placeholder(impl_lines, "_Not provided._")
     tasks_text = join_or_placeholder(tasks_lines, "- [ ] _Not provided._")
     acceptance_text = join_or_placeholder(acceptance_lines, "- [ ] _Not provided._")
-    validator = _issue_format_validator()
-    if not validator.GATE.search(acceptance_text):
+    try:
+        validator = _issue_format_validator()
+    except (ImportError, OSError, RuntimeError, SyntaxError):
+        # Consumer checkouts can be mid-sync or missing the canonical validator.
+        # Keep the pre-validator fallback usable instead of failing the formatter.
+        validator = None
+    if validator is not None and not validator.GATE.search(acceptance_text):
         verify_hint = VERIFY_HINT_REGEX.search(tasks_text)
         if verify_hint:
             command = verify_hint.group(1).strip().strip("`")
@@ -413,7 +418,14 @@ def _format_issue_fallback(issue_body: str) -> str:
 
 
 def _formatted_output_valid(text: str) -> bool:
-    return bool(text and _issue_format_validator().validate(text).ok)
+    if not text:
+        return False
+    try:
+        return bool(_issue_format_validator().validate(text).ok)
+    except (ImportError, OSError, RuntimeError, SyntaxError):
+        # Preserve the former heading-only behavior until the copy-synced
+        # validator becomes available again.
+        return all(section in text for section in ("## Tasks", "## Acceptance Criteria"))
 
 
 def _select_code_fence(text: str) -> str:
@@ -423,12 +435,10 @@ def _select_code_fence(text: str) -> str:
 
 
 ORIGINAL_ISSUE_SUMMARY = "<summary>Original Issue</summary>"
-# Matches an Original-Issue <details> block (and trailing whitespace) so it can
-# be replaced rather than nested. Non-greedy body, anchored to the closing tag.
-_ORIGINAL_ISSUE_BLOCK_RE = re.compile(
-    r"<details>\s*<summary>Original Issue</summary>.*?</details>[ \t]*\n?",
-    re.DOTALL | re.IGNORECASE,
+_ORIGINAL_ISSUE_OPEN_RE = re.compile(
+    r"<details\b[^>]*>\s*<summary>Original Issue</summary>", re.IGNORECASE
 )
+_DETAILS_TAG_RE = re.compile(r"</?details\b[^>]*>", re.IGNORECASE)
 # Captures the verbatim text fenced inside an Original-Issue block, so an
 # already-embedded original can be recovered (and re-embedded once) instead of
 # being wrapped again.
@@ -440,8 +450,25 @@ _ORIGINAL_ISSUE_INNER_RE = re.compile(
 
 
 def _strip_original_issue_blocks(text: str) -> str:
-    """Remove any embedded Original-Issue <details> block(s) from ``text``."""
-    return _ORIGINAL_ISSUE_BLOCK_RE.sub("", text).rstrip()
+    """Remove complete embedded Original-Issue blocks, including nested details."""
+    kept: list[str] = []
+    cursor = 0
+    while match := _ORIGINAL_ISSUE_OPEN_RE.search(text, cursor):
+        kept.append(text[cursor : match.start()])
+        depth = 1
+        end = match.end()
+        for tag in _DETAILS_TAG_RE.finditer(text, match.end()):
+            depth += -1 if tag.group(0).startswith("</") else 1
+            if depth == 0:
+                end = tag.end()
+                break
+        else:
+            # Leave malformed markup intact rather than silently discarding it.
+            kept.append(text[match.start() :])
+            return "".join(kept).rstrip()
+        cursor = end
+    kept.append(text[cursor:])
+    return "".join(kept).rstrip()
 
 
 def _innermost_original_issue(text: str) -> str | None:

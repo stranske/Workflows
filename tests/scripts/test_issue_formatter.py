@@ -282,6 +282,30 @@ def test_formatted_output_valid_uses_canonical_contract() -> None:
     assert issue_formatter._formatted_output_valid(valid) is True
 
 
+def test_formatter_degrades_to_heading_validation_when_validator_cannot_load(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A briefly incomplete consumer sync must not make issue formatting crash."""
+    monkeypatch.setattr(
+        issue_formatter,
+        "_issue_format_validator",
+        mock.MagicMock(side_effect=OSError("validator unavailable")),
+    )
+    raw = """## Tasks
+
+- [ ] Run `(verify: pytest tests/scripts/test_issue_formatter.py)`.
+
+## Acceptance Criteria
+
+- [ ] Preserve a heading-only fallback while the validator is unavailable.
+"""
+
+    formatted = issue_formatter._format_issue_fallback(raw)
+
+    assert issue_formatter._formatted_output_valid(formatted) is True
+    assert "PR validation evidence" not in formatted
+
+
 def test_format_issue_body_llm_invalid_output_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_client = mock.MagicMock()
     mock_chain = mock.MagicMock()
@@ -592,3 +616,36 @@ def test_append_raw_issue_section_collapses_nested_blocks() -> None:
     out = issue_formatter._append_raw_issue_section("## Tasks\n\n- [ ] x", nested)
     assert out.count("<summary>Original Issue</summary>") == 1
     assert out.count("TRUE ORIGINAL") == 1
+
+
+def test_strip_original_issue_blocks_removes_balanced_nested_details() -> None:
+    nested = """## Why
+
+Keep this text.
+
+<details>
+<summary>Original Issue</summary>
+
+```text
+outer
+<details>
+<summary>Original Issue</summary>
+
+```text
+inner
+```
+</details>
+```
+</details>
+
+## Scope
+
+Keep this too.
+"""
+
+    stripped = issue_formatter._strip_original_issue_blocks(nested)
+
+    assert "Keep this text." in stripped
+    assert "Keep this too." in stripped
+    assert "Original Issue" not in stripped
+    assert "</details>" not in stripped
