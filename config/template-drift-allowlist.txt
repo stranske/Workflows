@@ -43,9 +43,9 @@
 [pair.1]
 main = .github/workflows/agents-63-issue-intake.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-intake.yml
-main_sha256 = f63f28d047db415dac9036ead0dc111a55ae999179fdb44cb458c8a39d0e6c67
+main_sha256 = c9eb9850a97dd901d517ebb1f8d6c0a0ce25dfe94b953db4ce4a6e5078cbcf23
 template_sha256 = 617cb594296c26ef8510b03dc43e835396a50ce84ed0d8a10d9e41b3e93f6772
-reason = Intentional divergence re-baselined 2026-08-09: both intake surfaces keep the auto-pilot skip only for issue events so workflow_dispatch remains independent of issue payload labels. Root remains the numeric-prefixed Workflows-internal superset while the consumer template retains its pinned action and minimal bridge contract.
+reason = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; the consumer intake template remains a pinned, minimal bridge contract.
 
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml
@@ -64,9 +64,9 @@ reason = Existing reviewed baseline drift re-baselined 2026-06-20: exported Orch
 [pair.4]
 main = .github/workflows/agents-73-codex-belt-conveyor.yml
 template = templates/consumer-repo/.github/workflows/agents-73-codex-belt-conveyor.yml
-main_sha256 = 055bec04b007233ec7bb40d41b3729053df190d754d445445f6c30b65cec519e
+main_sha256 = 07f1237e3bbea67ebcfedc2738f2631e485024ef35811fc253e30295ed6f65d1
 template_sha256 = 77c270fed157639722d85ab1678770317bd855188a6bbe16db4e088719c3e0cd
-reason = Existing reviewed baseline drift re-baselined 2026-06-19: runtime AC merge guard added to both root and consumer conveyor while preserving consumer action pinning differences.
+reason = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage markers added; consumer action pins and Codex-specific conveyor behavior remain protected.
 
 [pair.5]
 main = .github/workflows/agents-auto-label.yml
@@ -92,9 +92,9 @@ reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA
 [pair.8]
 main = .github/workflows/agents-decompose.yml
 template = templates/consumer-repo/.github/workflows/agents-decompose.yml
-main_sha256 = 7eb36db9e6a18c82e4accfb8fbaab04421bb2ce9bbc1e98d0b9300df6e00f65d
+main_sha256 = 03bf9ec09953e0b1298783b1d14f030fefd40f00a61caf404cf0b562297a1e82
 template_sha256 = ea4373306a028425bc147bdd7e003118aab99130f872fb313644cdcf8ba36b84
-reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
+reason = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
 
 [pair.9]
 main = .github/workflows/agents-dedup.yml
@@ -127,9 +127,9 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.13]
 main = .github/workflows/agents-keepalive-sweep.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml
-main_sha256 = b34e9b91728fbaa1ea02fb50a3f00f2554e561968777b2cfa53fee16bd7d4a33
+main_sha256 = fad543a1980d9b73affc698befabbbf728d66a760255d357a64313b329ed35f3
 template_sha256 = 566e3ad4ba57a2a238fa887bd1f15b5d86bcef533dd1758b4f0c708a5a7e3da4
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; consumers dispatch their consolidated gate-followup path.
 
 [pair.14]
 main = .github/workflows/agents-verifier.yml
@@ -144,3 +144,10 @@ template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
 main_sha256 = 6e48b36caaa2865c66fe978b75e775687b96b69eae74c5adbc1355346819f271
 template_sha256 = 865fe609fbc6fde8f0f9faf338d8ba9e9e573448e8dc454fb759df003bd9b437
 reason = Intentional divergence (re-baselined 2026-07-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after the durable-label guard was added to the template. Do not align: would strip consumer action pins.
+
+[pair.16]
+main = .github/workflows/agents-auto-pilot.yml
+template = templates/consumer-repo/.github/workflows/agents-auto-pilot.yml
+main_sha256 = accd134f5a66dbdf27ca2088c9edd84c15b1e65617b79978699abb1dd5214f87
+template_sha256 = 7bb4f56e33237f45c9ac1a2b8ff2718599832a593261a07b44a7265906941270
+reason = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; consumer auto-pilot retains its pinned action and minimal caller contract.
