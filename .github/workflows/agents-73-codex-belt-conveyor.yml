@@ -273,6 +273,7 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -334,6 +335,7 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -363,6 +365,7 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -473,6 +476,7 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -497,6 +501,7 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            // # best-effort: source-issue closure is reconciled by verifier disposition when this post-merge cleanup fails.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -543,6 +548,7 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            // # best-effort: this post-merge confirmation is informational and the merged state is authoritative.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -575,6 +581,7 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            // # best-effort: the next scheduled dispatcher run reconciles this post-merge wake-up.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)

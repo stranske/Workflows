@@ -51,6 +51,7 @@ jobs:
           RATE_LIMIT_THRESHOLD: '2000'
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '2000', 10);
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -145,6 +146,7 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             // Note: 'core' is already provided by github-script, no require needed
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';

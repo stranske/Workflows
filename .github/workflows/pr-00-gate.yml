@@ -1053,6 +1053,7 @@ jobs:
         with:
           github-token: ${{ github.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const retryScript = './.github/scripts/github-api-with-retry.js';
             const { createTokenAwareRetry } = require(retryScript);
             const { withRetry } = await createTokenAwareRetry({

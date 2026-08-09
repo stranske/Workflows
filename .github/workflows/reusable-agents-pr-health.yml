@@ -239,6 +239,7 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
               github, core, task: 'pr-health-scan',
@@ -606,6 +607,7 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const conflicts = JSON.parse(fs.readFileSync('/tmp/scan-data/conflict_prs.json', 'utf8'));
 
@@ -719,6 +721,7 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const failing = JSON.parse(fs.readFileSync('/tmp/scan-data/failing_prs.json', 'utf8'));
 

@@ -222,6 +222,7 @@ jobs:
           INPUT_OPTIONS_JSON: ${{ inputs.options_json }}
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const summary = core.summary;
             const { owner, repo } = context.repo;
             const started = Date.now();

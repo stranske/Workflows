@@ -374,6 +374,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -1025,6 +1026,7 @@ jobs:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const normalise = (value) => String(value || '').trim();
               const prNumber = Number.parseInt(
                 normalise(process.env.PR_NUMBER),
@@ -2522,6 +2524,7 @@ jobs:
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const prNumber = Number(process.env.PR_NUMBER || 0);
             const commentId = Number(process.env.COMMENT_ID || 0);
             const fs = require('fs');
@@ -3013,6 +3016,7 @@ jobs:
               github.token
             }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const normalise = (value) => String(value || '').trim();
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';

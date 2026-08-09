@@ -218,6 +218,7 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const { owner, repo } = context.repo;
             const title = 'Integration consumer failures';
             const label = 'integration-test';

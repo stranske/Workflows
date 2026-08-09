@@ -421,6 +421,7 @@ jobs:
           SCENARIO_LIST: ${{ env.SCENARIO_LIST }}
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const { owner, repo } = context.repo;
             const runId = context.runId;

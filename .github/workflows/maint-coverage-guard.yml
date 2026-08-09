@@ -50,6 +50,7 @@ jobs:
           RATE_LIMIT_THRESHOLD: '2000'
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '2000', 10);
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -117,6 +118,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const { owner, repo } = context.repo;
             const workflowId = '.github/workflows/pr-00-gate.yml';
             const fs = require('fs');

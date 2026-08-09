@@ -88,6 +88,7 @@ jobs:
           github-token: >-
             ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || github.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const { createTokenAwareRetry } = require(
               './.github/scripts/github-api-with-retry.js'
             );

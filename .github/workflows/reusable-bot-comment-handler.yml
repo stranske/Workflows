@@ -272,6 +272,7 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -775,6 +776,7 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
+            // # best-effort: a later routing event re-evaluates assignment and the comment is advisory context.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)

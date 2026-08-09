@@ -1998,6 +1998,7 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const { withRetry } = require(
               './.workflows-lib/.github/scripts/github-api-with-retry.js',
             );

@@ -44,6 +44,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const dryRun = String(
               (context.payload.inputs && context.payload.inputs.dry_run) || 'false',
             ) === 'true';

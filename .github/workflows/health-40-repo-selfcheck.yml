@@ -146,6 +146,7 @@ jobs:
         with:
           github-token: ${{ steps.branch-token.outputs.token || github.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             // `core` is provided by actions/github-script's execution environment.
             // Avoid re-declaring it (causes "Identifier 'core' has already been declared").
             const fs = require('fs');
@@ -879,6 +880,7 @@ jobs:
         with:
           github-token: ${{ github.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const issueTitle = '[health] repository self-check failed';
             const labelName = 'health:repo';
             const body = (process.env.ISSUE_BODY || '').trim();
@@ -1034,6 +1036,7 @@ jobs:
         with:
           github-token: ${{ steps.branch-token.outputs.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const path = process.env.ISSUE_BODY_PATH || '';
             const issueTitle = '[health] repository self-check';

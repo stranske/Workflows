@@ -160,6 +160,7 @@ jobs:
         with:
           github-token: ${{ steps.app_token.outputs.token }}
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const [owner, repo] = process.env.REPO_FULL.split('/');
             const dryRun = process.env.DRY_RUN === 'true';
             const fs = require('fs');
