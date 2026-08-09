@@ -1034,6 +1034,7 @@ jobs:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const retryScript = './.github/scripts/github-api-with-retry.js';
             const { createTokenAwareRetry } = require(retryScript);
             const { withRetry } = await createTokenAwareRetry({
@@ -1083,6 +1084,8 @@ jobs:
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
+            // # best-effort: dispatch only requests a later autofix evaluation; the
+            // failed Gate result remains authoritative if this notification fails.
             const prNumber = context.payload.pull_request?.number;
             if (!prNumber) {
               core.info('No pull request context; skipping autofix dispatch.');

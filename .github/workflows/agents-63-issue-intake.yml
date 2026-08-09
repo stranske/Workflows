@@ -1052,6 +1052,7 @@ jobs:
             let invalidTopicCount = 0;
             let assignedElsewhereCount = 0;
             const createdIssueNumbers = [];
+            const failedTopics = [];
             for (const topic of deduped) {
               try {
                 const rawTitle = typeof topic.title === 'string' ? topic.title : '';
@@ -1272,6 +1273,7 @@ jobs:
                 }
               } catch (e) {
                 core.warning(`Failed to process topic "${topic.title}": ${e.message}`);
+                failedTopics.push(topic.title || '(untitled topic)');
               }
             }
             let summaryNotice;
@@ -1322,6 +1324,11 @@ jobs:
               mutationCount,
               notice: summaryNotice,
             });
+            if (failedTopics.length) {
+              core.setFailed(
+                `Failed to synchronize ${failedTopics.length} topic(s): ${failedTopics.join(', ')}`,
+              );
+            }
             if (!createdCount && !updatedCount && !reopenedCount) {
               if (!summaryNotice) {
                 core.notice('No issues required modifications; run completed without mutations.');

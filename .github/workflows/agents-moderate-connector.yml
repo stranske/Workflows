@@ -74,7 +74,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
+            // # best-effort: if the debug-label lookup fails, refuse deletion and defer
+            // moderation; this preserves the debug escape hatch without failing the event.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -152,7 +153,9 @@ jobs:
               });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              core.warning(`Moderation label scan failed: ${message}`);
+              core.warning(`Moderation label scan failed; refusing deletion: ${message}`);
+              core.setOutput('delete', 'false');
+              return;
             }
 
             if (hasDebugLabel) {

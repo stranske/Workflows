@@ -181,7 +181,7 @@ jobs:
                 const status = Number(error?.status || error?.response?.status || 0);
                 if (status === 403 && message.toLowerCase().includes('rate limit')) {
                   core.warning(
-                    'Rate limited listing PR files; proceeding without file filter.'
+                    'Rate limited listing PR files; skipping autofix without a file filter.'
                   );
                   return null;
                 }
@@ -302,14 +302,15 @@ jobs:
                 return;
               }
 
-              const files = await listFilesOrNullOnRateLimit({ owner, repo, prNumber });
-              const hasPython =
-                files === null
-                  ? true
-                  : files.some(
-                      (file) =>
-                        file.filename.endsWith('.py') || file.filename.endsWith('.pyi')
-                    );
+                const files = await listFilesOrNullOnRateLimit({ owner, repo, prNumber });
+                if (files === null) {
+                  core.setOutput('should_run', 'false');
+                  return;
+                }
+                const hasPython = files.some(
+                  (file) =>
+                    file.filename.endsWith('.py') || file.filename.endsWith('.pyi')
+                );
               if (!hasPython) {
                 core.info('No Python files changed.');
                 core.setOutput('should_run', 'false');

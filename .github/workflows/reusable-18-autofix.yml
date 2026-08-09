@@ -368,7 +368,8 @@ jobs:
           CLEAN_LABEL: ${{ inputs.clean_label }}
         with:
           script: |
-            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
+            // # best-effort: a missing local history disables only this advisory
+            // regression notification; it never changes the autofix result.
             const prNumber = Number(process.env.PR_NUMBER || '0');
             if (!prNumber) {
               core.info('No pull request number available; skipping label application.');

@@ -8,10 +8,19 @@ The complete current disposition is recorded in
 """
 
 from pathlib import Path
+import re
 
 import yaml
 
 WORKFLOW_DIR = Path(".github/workflows")
+API_CALL = re.compile(r"github\.(?:rest\.[A-Za-z_][\w.]*|request)\s*\(")
+BEST_EFFORT = re.compile(r"#\s*best-effort:\s*\S")
+
+
+def test_api_call_pattern_includes_request_dispatches() -> None:
+    """The inventory must cover non-REST github-script calls too."""
+
+    assert API_CALL.search("await github.request('POST /repos/{owner}/{repo}/dispatches')")
 
 
 def _candidate_steps() -> list[tuple[Path, str, str, str]]:
@@ -27,11 +36,7 @@ def _candidate_steps() -> list[tuple[Path, str, str, str]]:
                 if "actions/github-script" not in str(step.get("uses", "")):
                     continue
                 script = str((step.get("with") or {}).get("script", ""))
-                if (
-                    "catch" in script
-                    and "github.rest." in script
-                    and "core.setFailed" not in script
-                ):
+                if "catch" in script and API_CALL.search(script) and "core.setFailed" not in script:
                     candidates.append(
                         (
                             workflow_path,
@@ -49,7 +54,7 @@ def test_scripted_api_blocks_either_fail_or_are_annotated() -> None:
     unannotated = [
         f"{path}:{job}:{name}"
         for path, job, name, script in _candidate_steps()
-        if "# best-effort:" not in script
+        if not BEST_EFFORT.search(script)
     ]
     assert not unannotated, (
         "github-script REST catches must fail with core.setFailed or carry a "

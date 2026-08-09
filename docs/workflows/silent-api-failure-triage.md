@@ -2,7 +2,7 @@
 
 Issue #3017 audits actions/github-script steps that catch a github.rest error without calling core.setFailed. This is a shape inventory, not a claim that every caught error is a defect. A step is allowed to continue only when it carries the matching inline # best-effort: rationale; mutations required for correctness must aggregate errors and fail the job.
 
-The current inventory contains **46** warning-only steps. maint-69-sync-labels.yml is the reference hard-failure implementation. The contract test at tests/workflows/test_no_silent_api_failures.py re-scans every workflow, so a new unannotated shape cannot be introduced silently.
+The current inventory contains **47** warning-only steps, including both `github.rest.*` and `github.request` calls. maint-69-sync-labels.yml is the reference hard-failure implementation. The contract test at tests/workflows/test_no_silent_api_failures.py re-scans every workflow, so a new unannotated shape cannot be introduced silently.
 
 | Workflow | Job | Step | Classification | Rationale |
 | --- | --- | --- | --- | --- |
@@ -31,6 +31,7 @@ The current inventory contains **46** warning-only steps. maint-69-sync-labels.y
 | .github/workflows/maint-coverage-guard.yml | rate-limit-check | Check API quota | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/maint-coverage-guard.yml | guard | Locate latest Gate workflow run | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/pr-00-gate.yml | summary | Report Gate commit status | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
+| .github/workflows/pr-00-gate.yml | summary | Dispatch autofix notification | # best-effort: | The Gate failure remains authoritative and keepalive can retry the advisory dispatch. |
 | .github/workflows/reusable-10-ci-python.yml | logs_summary | Summarize workflow jobs | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/reusable-16-agents.yml | preflight | Run agent preflight probes | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/reusable-18-autofix.yml | autofix | Ensure autofix label present | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |

@@ -776,7 +776,6 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
-            // # best-effort: a later routing event re-evaluates assignment and the comment is advisory context.
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -813,7 +812,9 @@ jobs:
               }));
               core.info(`Assigned ${assignees.join(', ')} to PR #${prNumber}`);
             } catch (error) {
-              core.warning(`Failed to assign agent: ${error.message}`);
+              core.setOutput('triggered', 'false');
+              core.setFailed(`Failed to assign agent: ${error.message}`);
+              return;
             }
 
             // Post informational comment (without @mention to avoid triggering connector twice)
