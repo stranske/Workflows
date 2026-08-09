@@ -701,3 +701,50 @@ Keep this too.
     assert "Keep this too." in stripped
     assert "Original Issue" not in stripped
     assert "</details>" not in stripped
+
+
+def test_reuse_sets_needs_refinement_when_validator_fails() -> None:
+    """Structurally conformant but contract-invalid bodies must not claim ready."""
+    conformant = "\n".join(
+        [
+            "## Why",
+            "",
+            "Ship it.",
+            "",
+            "## Scope",
+            "",
+            "_Not provided._",
+            "",
+            "## Non-Goals",
+            "",
+            "_Not provided._",
+            "",
+            "## Tasks",
+            "",
+            "- [ ] do a thing",
+            "",
+            "## Acceptance Criteria",
+            "",
+            "- [ ] it works",
+            "",
+            "## Implementation Notes",
+            "",
+            "_Not provided._",
+            "",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            "```text",
+            "Why: ship it",
+            "```",
+            "</details>",
+        ]
+    )
+    result = issue_formatter.format_issue_body(conformant, use_llm=False)
+    assert result["skipped"] == "already_conformant"
+    assert result["needs_refinement"] is True
+
+
+def test_bare_curl_is_not_a_safe_verify_command() -> None:
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl") is None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl https://example.test/health") is not None

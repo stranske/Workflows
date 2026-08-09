@@ -150,7 +150,7 @@ def _task_has_concrete_target(item: str) -> bool:
         return True
     # Command names in prose ("make the UI better", "go improve it") are not
     # concrete targets. Require a command-shaped invocation instead.
-    return re.search(rf"(?:^|\s){_TASK_COMMAND}", item, re.I) is not None
+    return re.search(rf"(?:^|[\s`]){_TASK_COMMAND}", item, re.I) is not None
 
 
 def _headings(body: str) -> list[tuple[str, int, int]]:

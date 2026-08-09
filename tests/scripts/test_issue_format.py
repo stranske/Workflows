@@ -247,3 +247,13 @@ def test_performant_is_subjective_acceptance_wording() -> None:
     )
     assert not report.ok
     assert "performant" in report.as_markdown()
+
+
+def test_backticked_make_test_is_a_concrete_target() -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Run `make test`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert report.ok

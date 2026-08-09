@@ -864,6 +864,7 @@ jobs:
               process.exit(1);
             });
           GUARD_NODE
+            echo "stop_autopilot=true" >> "$GITHUB_OUTPUT"
             echo "🛑 Automation stopped due to prompt injection guard."
             exit 0
           fi
@@ -891,7 +892,8 @@ jobs:
                 body: `⚠️ **Auto-pilot paused during formatting.**\n\n${process.env.FORMAT_REFINEMENT_REASON}`,
               }));
             })().catch((error) => { console.error(error); process.exit(1); });
-            REFINEMENT_NODE
+          REFINEMENT_NODE
+            echo "stop_autopilot=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 

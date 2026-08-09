@@ -795,6 +795,12 @@ jobs:
               with open('/tmp/guard_blocked', 'w') as f:
                   f.write(reason)
               sys.exit(0)
+          if result.get('needs_refinement'):
+              reason = 'Formatter output does not satisfy the canonical issue-format contract.'
+              print(f'NEEDS_REFINEMENT: {reason}')
+              with open('/tmp/needs_refinement', 'w') as f:
+                  f.write(reason)
+              sys.exit(0)
           formatted = result.get('formatted_body', '')
           if not formatted:
               print('ERROR: No formatted body returned')
@@ -858,7 +864,36 @@ jobs:
               process.exit(1);
             });
           GUARD_NODE
+            echo "stop_autopilot=true" >> "$GITHUB_OUTPUT"
             echo "🛑 Automation stopped due to prompt injection guard."
+            exit 0
+          fi
+
+          # Never publish or mark a body as formatted when the formatter itself
+          # reports that its final output fails the canonical contract.
+          if [ -f /tmp/needs_refinement ]; then
+            echo "⚠️ Formatter requires human refinement; pausing auto-pilot."
+            FORMAT_REFINEMENT_REASON="$(cat /tmp/needs_refinement)" node - <<'REFINEMENT_NODE'
+            (async () => {
+              const { Octokit } = require('@octokit/rest');
+              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github, core, env: process.env, task: 'auto-pilot', capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issue_number = Number(process.env.ISSUE_NUMBER);
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner, repo, issue_number, labels: ['needs-human', 'agents:auto-pilot-pause'],
+              }));
+              await withRetry((client) => client.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: `⚠️ **Auto-pilot paused during formatting.**\n\n${process.env.FORMAT_REFINEMENT_REASON}`,
+              }));
+            })().catch((error) => { console.error(error); process.exit(1); });
+          REFINEMENT_NODE
+            echo "stop_autopilot=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 

@@ -175,7 +175,7 @@ SAFE_VERIFY_COMMAND_RE = re.compile(
     r"|(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b"
     r"|(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b"
     r"|gh\s+(?:workflow\s+run|run)\b"
-    r"|curl\b"
+    r"|curl\s+\S+"
     r")",
     re.IGNORECASE,
 )
@@ -664,20 +664,24 @@ def _reuse_already_formatted(issue_body: str, workflow: str) -> dict[str, Any] |
     """
     reused = reuse_formatted_body({"body": issue_body}, workflow)
     if reused is not None:
+        body = _with_reuse_marker(reused)
         return {
-            "formatted_body": _with_reuse_marker(reused),
+            "formatted_body": body,
             "provider_used": None,
             "used_llm": False,
             "skipped": "reused_marker",
             "validation_audit": None,
+            "needs_refinement": not _formatted_output_valid(body),
         }
     if already_conformant(issue_body):
+        body = _with_reuse_marker(issue_body)
         return {
-            "formatted_body": _with_reuse_marker(issue_body),
+            "formatted_body": body,
             "provider_used": None,
             "used_llm": False,
             "skipped": "already_conformant",
             "validation_audit": None,
+            "needs_refinement": not _formatted_output_valid(body),
         }
     return None
 

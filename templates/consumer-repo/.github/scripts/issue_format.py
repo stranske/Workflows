@@ -146,7 +146,10 @@ def _task_has_concrete_target(item: str) -> bool:
     # Unquoted path with a directory separator (src/main.go, .github/workflows/x.yml).
     if re.search(r"(?:^|[\s])((?:\./)?[\w.-]+(?:/[\w./-]+)+)", item):
         return True
-    return re.search(rf"\b{_TASK_COMMAND}\b", item, re.I) is not None
+    # Command names in prose ("make the UI better", "go improve it") are not
+    # concrete targets. Require a command-shaped invocation instead.
+    # Allow a leading backtick so `make test` / `npm test` count.
+    return re.search(rf"(?:^|[\s`]){_TASK_COMMAND}", item, re.I) is not None
 
 
 def _headings(body: str) -> list[tuple[str, int, int]]:
