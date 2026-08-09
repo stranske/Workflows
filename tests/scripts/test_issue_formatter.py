@@ -110,9 +110,7 @@ def test_format_issue_fallback_does_not_promote_shell_verify_hint() -> None:
 
     formatted = issue_formatter.format_issue_body(raw, use_llm=False)["formatted_body"]
 
-    assert "curl https://example.invalid" not in _extract_section(
-        formatted, "Acceptance Criteria"
-    )
+    assert "curl https://example.invalid" not in _extract_section(formatted, "Acceptance Criteria")
 
 
 def test_format_issue_fallback_preserves_tasks_without_decomposition() -> None:

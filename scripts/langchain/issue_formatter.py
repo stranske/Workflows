@@ -406,12 +406,8 @@ def _format_issue_fallback(issue_body: str) -> str:
                     r"- \[ \] _Not provided\._", acceptance_text.strip()
                 ):
                     acceptance_text = ""
-                criterion = (
-                    f"- [ ] Run `{command}` and capture the command output in PR validation evidence."
-                )
-                acceptance_text = "\n".join(
-                    part for part in (acceptance_text, criterion) if part
-                )
+                criterion = f"- [ ] Run `{command}` and capture the command output in PR validation evidence."
+                acceptance_text = "\n".join(part for part in (acceptance_text, criterion) if part)
 
     parts = [
         "## Why",
