@@ -11,6 +11,10 @@ from scripts.langchain import issue_formatter
 from scripts.langchain.issue_pr_context import reuse_formatted_body
 
 
+def _canonical_issue_format():
+    return issue_formatter._issue_format_validator()
+
+
 def _install_fake_langchain(monkeypatch: pytest.MonkeyPatch, mock_chain: mock.MagicMock) -> None:
     mock_template = mock.MagicMock()
     mock_template.__or__ = mock.MagicMock(return_value=mock_chain)
@@ -64,6 +68,22 @@ Acceptance Criteria:
     assert "- [ ] label transition works" in formatted
 
 
+def test_format_issue_fallback_adds_acceptance_gate_when_only_tasks_have_verify_hint() -> None:
+    raw = """## Tasks
+- [ ] Update `scripts/langchain/issue_formatter.py` and run `(verify: pytest tests/scripts/test_issue_formatter.py)`.
+
+## Acceptance Criteria
+- [ ] Formatter preserves the source acceptance prose.
+"""
+
+    formatted = issue_formatter.format_issue_body(raw, use_llm=False)["formatted_body"]
+    acceptance = _extract_section(formatted, "Acceptance Criteria")
+
+    assert "python3 -m pytest tests/scripts/test_issue_formatter.py" in acceptance
+    assert _canonical_issue_format().GATE.search(acceptance)
+    assert _canonical_issue_format().validate(formatted).ok is True
+
+
 def test_format_issue_fallback_preserves_tasks_without_decomposition() -> None:
     """Formatter preserves tasks as-is; decomposition is done by agents:optimize step.
 
@@ -112,7 +132,8 @@ def test_format_issue_fallback_uses_placeholders() -> None:
     acceptance = _extract_section(formatted, "Acceptance Criteria")
 
     assert tasks == "- [ ] _Not provided._"
-    assert acceptance == "- [ ] _Not provided._"
+    assert acceptance.startswith("- [ ] _Not provided._")
+    assert "python3 -m pytest tests/scripts/test_issue_formatter.py" in acceptance
 
 
 def test_normalize_checklist_lines_drops_placeholder_checkboxes() -> None:
@@ -224,7 +245,11 @@ def test_format_issue_body_llm_path_includes_raw_issue(monkeypatch: pytest.Monke
     mock_client = mock.MagicMock()
     mock_chain = mock.MagicMock()
     mock_response = mock.MagicMock()
-    mock_response.content = "## Tasks\n- [ ] Do it\n\n## Acceptance Criteria\n- [ ] Done"
+    mock_response.content = (
+        "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
+        "## Acceptance Criteria\n"
+        "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+    )
     mock_response.response_metadata = {"run_id": "trace-format"}
     mock_chain.invoke.return_value = mock_response
 
@@ -240,6 +265,18 @@ def test_format_issue_body_llm_path_includes_raw_issue(monkeypatch: pytest.Monke
     assert result["langsmith_trace_id"] == "trace-format"
     assert "<summary>Original Issue</summary>" in result["formatted_body"]
     assert "Raw issue text" in result["formatted_body"]
+
+
+def test_formatted_output_valid_uses_canonical_contract() -> None:
+    invalid = "## Tasks\n- [ ] Do it\n\n## Acceptance Criteria\n- [ ] Done"
+    valid = (
+        "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
+        "## Acceptance Criteria\n"
+        "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+    )
+
+    assert issue_formatter._formatted_output_valid(invalid) is False
+    assert issue_formatter._formatted_output_valid(valid) is True
 
 
 def test_format_issue_body_llm_invalid_output_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:

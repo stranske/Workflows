@@ -10,10 +10,12 @@ Run with:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +47,19 @@ except ImportError:  # pragma: no cover - fallback for direct invocation
 # Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
 # ~4 chars per token, so 50k chars ≈ 12.5k tokens, leaving headroom for prompt + output
 MAX_ISSUE_BODY_SIZE = 50000
+
+
+@lru_cache(maxsize=1)
+def _issue_format_validator() -> Any:
+    """Load the fleet's single issue-format definition without forking it."""
+    validator_path = Path(__file__).resolve().parents[2] / ".github/scripts/issue_format.py"
+    spec = importlib.util.spec_from_file_location("_fleet_issue_format", validator_path)
+    if spec is None or spec.loader is None:  # pragma: no cover - repository invariant
+        raise RuntimeError(f"Cannot load canonical issue-format validator: {validator_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 # Workflow tags written into the reuse marker. Tagging every stage of the
 # auto-pilot format -> optimize -> apply chain lets any stage detect a body it (or
@@ -355,6 +370,13 @@ def _format_issue_fallback(issue_body: str) -> str:
     impl_text = join_or_placeholder(impl_lines, "_Not provided._")
     tasks_text = join_or_placeholder(tasks_lines, "- [ ] _Not provided._")
     acceptance_text = join_or_placeholder(acceptance_lines, "- [ ] _Not provided._")
+    validator = _issue_format_validator()
+    if not validator.GATE.search(acceptance_text):
+        acceptance_text = (
+            f"{acceptance_text}\n"
+            "- [ ] Run `python3 -m pytest tests/scripts/test_issue_formatter.py` after formatting; "
+            "it passes, with the command output captured in the PR validation evidence."
+        )
 
     parts = [
         "## Why",
@@ -385,10 +407,7 @@ def _format_issue_fallback(issue_body: str) -> str:
 
 
 def _formatted_output_valid(text: str) -> bool:
-    if not text:
-        return False
-    required = ["## Tasks", "## Acceptance Criteria"]
-    return all(section in text for section in required)
+    return bool(text and _issue_format_validator().validate(text).ok)
 
 
 def _select_code_fence(text: str) -> str:
