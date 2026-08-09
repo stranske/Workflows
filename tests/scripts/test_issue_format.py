@@ -173,9 +173,7 @@ def test_task_without_concrete_target_is_non_conforming() -> None:
     ],
 )
 @pytest.mark.parametrize("task", ["Make the UI better", "Just fix bugs", "Go improve it"])
-def test_command_words_in_prose_are_not_concrete_targets(
-    task: str, validator_path: Path
-) -> None:
+def test_command_words_in_prose_are_not_concrete_targets(task: str, validator_path: Path) -> None:
     validator = _validator(validator_path)
     report = validator.validate(
         VALID_CONTEXT
