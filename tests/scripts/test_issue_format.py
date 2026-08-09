@@ -40,6 +40,27 @@ def test_fence_with_language_marker_does_not_close_a_code_block() -> None:
     assert "Acceptance Criteria" in report.missing_required
 
 
+@pytest.mark.parametrize("marker", ["```", "~~~"])
+def test_fence_close_requires_marker_only_line(marker: str) -> None:
+    """Trailing text after fence markers must not end the fenced region."""
+    validator = _validator()
+    close_with_junk = f"{marker} not-a-close"
+    body = (
+        f"{marker}markdown\n"
+        "## Tasks\n- [ ] pretend\n"
+        f"{close_with_junk}\n"
+        "## Acceptance Criteria\n- pytest tests/test_x.py\n"
+        f"{marker}\n"
+    )
+    report = validator.validate(body)
+    assert not report.ok
+    assert set(report.missing_required) >= {"Tasks", "Acceptance Criteria"}
+    # Section body stripping must keep pretending the junk line is still inside.
+    stripped = validator._without_fenced_code(body)
+    assert "Acceptance Criteria" not in stripped
+    assert "pretend" not in stripped
+
+
 def test_heading_with_trailing_qualifier_matches_required_section() -> None:
     validator = _validator()
     report = validator.validate(

@@ -489,7 +489,16 @@ def _strip_original_issue_blocks(text: str) -> str:
                 marker = fence_match.group(1)
                 if fence is None:
                     fence = (marker[0], len(marker))
-                elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                elif (
+                    marker[0] == fence[0]
+                    and len(marker) >= fence[1]
+                    and re.fullmatch(
+                        rf"\s{{0,3}}(?:`{{{fence[1]},}}|~{{{fence[1]},}})\s*",
+                        line,
+                    )
+                ):
+                    # Closing fences are marker-only; language tags / trailing
+                    # text must not toggle the fence state.
                     fence = None
             end = tag.end()
             if fence is not None:

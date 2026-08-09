@@ -678,7 +678,7 @@ Keep this text.
 <details>
 <summary>Original Issue</summary>
 
-```text
+````text
 outer
 <details>
 <summary>Original Issue</summary>
@@ -687,7 +687,7 @@ outer
 inner
 ```
 </details>
-```
+````
 </details>
 
 ## Scope
@@ -700,6 +700,43 @@ Keep this too.
     assert "Keep this text." in stripped
     assert "Keep this too." in stripped
     assert "Original Issue" not in stripped
+    assert "</details>" not in stripped
+
+
+@pytest.mark.parametrize("marker", ["```", "~~~"])
+def test_strip_original_issue_ignores_details_when_fence_close_has_trailing_text(
+    marker: str,
+) -> None:
+    """A fence line with trailing junk must not resume HTML details counting."""
+    payload = "\n".join(
+        [
+            "## Why",
+            "",
+            "Keep this text.",
+            "",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            f"{marker}text",
+            "literal <details>",
+            f"{marker} still-inside",
+            "literal </details>",
+            marker,
+            "</details>",
+            "",
+            "## Scope",
+            "",
+            "Keep this too.",
+            "",
+        ]
+    )
+
+    stripped = issue_formatter._strip_original_issue_blocks(payload)
+
+    assert "Keep this text." in stripped
+    assert "Keep this too." in stripped
+    assert "Original Issue" not in stripped
+    assert "literal <details>" not in stripped
     assert "</details>" not in stripped
 
 

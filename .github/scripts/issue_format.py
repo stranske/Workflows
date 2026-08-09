@@ -209,7 +209,16 @@ def _without_fenced_code(text: str) -> str:
             marker = match.group(1)
             if fence is None:
                 fence = (marker[0], len(marker))
-            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+            elif (
+                marker[0] == fence[0]
+                and len(marker) >= fence[1]
+                and re.fullmatch(
+                    rf"\s{{0,3}}(?:`{{{fence[1]},}}|~{{{fence[1]},}})\s*",
+                    line,
+                )
+            ):
+                # Closing fences are marker-only (optional whitespace); trailing
+                # content such as a language tag must not end the fence.
                 fence = None
             continue
         if fence is None:

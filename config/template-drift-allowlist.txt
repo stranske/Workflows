@@ -43,9 +43,9 @@
 [pair.1]
 main = .github/workflows/agents-63-issue-intake.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-intake.yml
-main_sha256 = e0ded7e7b98ff8abe3cb60b69c40bd8472d4c4d857d037540d52aefcc332dd7a
-template_sha256 = 1381165cbf31a6fbe632bd9667337b7ac042d777af8965fc155f8351b66a233a
-reason = Intentional divergence re-baselined 2026-08-08: both intake surfaces now reject closed issue label events before bridge/PR creation. Root remains the numeric-prefixed Workflows-internal superset while the consumer template retains its pinned action and minimal bridge contract.
+main_sha256 = f63f28d047db415dac9036ead0dc111a55ae999179fdb44cb458c8a39d0e6c67
+template_sha256 = 617cb594296c26ef8510b03dc43e835396a50ce84ed0d8a10d9e41b3e93f6772
+reason = Intentional divergence re-baselined 2026-08-09: both intake surfaces keep the auto-pilot skip only for issue events so workflow_dispatch remains independent of issue payload labels. Root remains the numeric-prefixed Workflows-internal superset while the consumer template retains its pinned action and minimal bridge contract.
 
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml
