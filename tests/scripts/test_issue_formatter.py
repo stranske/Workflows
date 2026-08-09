@@ -747,4 +747,6 @@ def test_reuse_sets_needs_refinement_when_validator_fails() -> None:
 
 def test_bare_curl_is_not_a_safe_verify_command() -> None:
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl") is None
-    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl https://example.test/health") is not None
+    assert (
+        issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl https://example.test/health") is not None
+    )
