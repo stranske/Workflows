@@ -46,32 +46,32 @@ def test_label_sync_uses_cross_repo_token_not_default_github_token() -> None:
     step = _step(SYNC_STEP)
     token = step["with"]["github-token"]
 
-    assert "REPO_TOKEN" in job.get("env", {}), (
-        "the job must alias a cross-repo PAT, mirroring maint-68-sync-consumer-repos.yml"
-    )
-    assert "github.token" not in token, (
-        "the default GITHUB_TOKEN cannot create labels in other repositories; "
-        f"got {token!r}"
-    )
-    assert "env.REPO_TOKEN" in token, f"expected the cross-repo token alias, got {token!r}"
+    assert "REPO_TOKEN" not in job.get(
+        "env", {}
+    ), "the cross-repository credential must not be exposed to unrelated job steps"
+    assert "secrets.OWNER_PR_PAT" in token
+    assert "secrets.SERVICE_BOT_PAT" in token
+    assert "github.token" in token, "tokenless dry runs need a read-only fallback"
 
 
 def test_label_sync_refuses_to_run_without_a_cross_repo_token() -> None:
     guard = _step("Assert cross-repo token is present")
 
+    assert "inputs.dry_run != true" == guard["if"]
+    assert "secrets.OWNER_PR_PAT" in guard["env"]["REPO_TOKEN"]
+    assert "secrets.SERVICE_BOT_PAT" in guard["env"]["REPO_TOKEN"]
     assert "REPO_TOKEN" in guard["run"]
-    assert "exit 1" in guard["run"], (
-        "a missing PAT must fail loudly rather than silently syncing nothing"
-    )
+    assert (
+        "exit 1" in guard["run"]
+    ), "a missing PAT must fail loudly rather than silently syncing nothing"
 
 
 def test_label_sync_fails_the_job_when_any_label_write_errors() -> None:
     script = _step(SYNC_STEP)["with"]["script"]
 
-    assert "core.setFailed" in script, (
-        "label write errors must fail the job; otherwise a run that creates zero labels "
-        "still concludes success (issue #3007)"
-    )
     assert "totalErrors" in script, "per-repo error counts must be aggregated across repos"
-    # The failure must be driven by the aggregate, not by a single repo's counter.
     assert "if (totalErrors > 0)" in script
+    aggregate_index = script.index("if (totalErrors > 0)")
+    failure_index = script.index("core.setFailed", aggregate_index)
+    assert failure_index > aggregate_index
+    assert "label sync error(s)" in script[failure_index:]

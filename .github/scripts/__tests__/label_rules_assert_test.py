@@ -6,6 +6,9 @@ from pathlib import Path
 import pytest
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "label_rules_assert.py"
+LABEL_SYNC_WORKFLOW = (
+    Path(__file__).resolve().parents[3] / ".github" / "workflows" / "maint-69-sync-labels.yml"
+)
 SPEC = importlib.util.spec_from_file_location("label_rules_assert", SCRIPT_PATH)
 assert SPEC is not None
 assert SPEC.loader is not None
@@ -120,3 +123,13 @@ def test_main_succeeds_when_checkout_matches_allowlist(
     captured = capsys.readouterr()
     assert captured.out == "[label-rules-assert] Sparse checkout contents verified.\n"
     assert captured.err == ""
+
+
+def test_label_sync_fails_when_any_label_write_errors() -> None:
+    workflow = LABEL_SYNC_WORKFLOW.read_text(encoding="utf-8")
+
+    summary_index = workflow.index("await core.summary.addRaw(summary.join('')).write()")
+    aggregate_index = workflow.index("if (totalErrors > 0)")
+    failure_index = workflow.index("core.setFailed", aggregate_index)
+
+    assert summary_index < aggregate_index < failure_index

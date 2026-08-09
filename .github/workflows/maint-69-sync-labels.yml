@@ -32,11 +32,6 @@ concurrency:
 jobs:
   sync-labels:
     runs-on: ubuntu-latest
-    env:
-      # Label writes target OTHER repositories. The default GITHUB_TOKEN is scoped to
-      # this repository only, so every cross-repo createLabel/updateLabel call fails
-      # with it. Mirrors the job-level alias in maint-68-sync-consumer-repos.yml.
-      REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
     steps:
       - uses: actions/checkout@v7
       - name: Setup API client
@@ -92,6 +87,8 @@ jobs:
 
       - name: Assert cross-repo token is present
         if: inputs.dry_run != true
+        env:
+          REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
         run: |
           if [ -z "${REPO_TOKEN}" ]; then
             echo "::error::Neither OWNER_PR_PAT nor SERVICE_BOT_PAT is set. Cross-repo label writes cannot succeed with the default GITHUB_TOKEN; refusing to report a green run that syncs nothing."
@@ -106,7 +103,9 @@ jobs:
           REPOS_JSON: ${{ steps.repos.outputs.repos }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         with:
-          github-token: ${{ env.REPO_TOKEN }}
+          # Live writes require a cross-repo PAT (asserted above). A tokenless dry
+          # run performs reads only, so retain the repository token as its fallback.
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const labels = JSON.parse(process.env.LABELS_JSON);
             const repos = JSON.parse(process.env.REPOS_JSON);
@@ -228,7 +227,7 @@ jobs:
 
             if (totalErrors > 0) {
               core.setFailed(
-                `Label sync failed: ${totalErrors} label write(s) errored across ` +
+                `Label sync failed: ${totalErrors} label sync error(s) across ` +
                   `${failedRepos.length} repo(s): ${failedRepos.join(', ')}`,
               );
             }
