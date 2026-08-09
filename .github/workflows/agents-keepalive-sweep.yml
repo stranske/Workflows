@@ -43,6 +43,7 @@ jobs:
       - name: Checkout API client helpers
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/error_classifier.js
@@ -53,7 +54,6 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
       - name: Dispatch keepalive loop for open agent PRs
