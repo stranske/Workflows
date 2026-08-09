@@ -61,6 +61,7 @@ def _issue_format_validator() -> Any:
     spec.loader.exec_module(module)
     return module
 
+
 # Workflow tags written into the reuse marker. Tagging every stage of the
 # auto-pilot format -> optimize -> apply chain lets any stage detect a body it (or
 # a sibling stage) already formatted and skip re-deriving it, which is the
