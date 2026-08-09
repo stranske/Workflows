@@ -60,6 +60,17 @@ def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
         assert "paginateWithRetry" in text
         assert "github.rest.issues.listComments" in text
         assert "per_page: 100" in text
+        assert "format_guard_attempts" in text
+        assert "max_format_guard_attempts=3" in text
+        assert "agents:auto-pilot-pause" in text
+        assert "Automated formatting stopped after" in text
+        assert "<!-- format-guard:attempt-cap -->" in text
+        assert text.index("max_format_guard_attempts=3") < text.index(
+            "gh workflow run agents-issue-optimizer.yml"
+        )
+        assert text.index('"$format_guard_attempts" -ge "$max_format_guard_attempts"') < text.index(
+            "gh workflow run agents-issue-optimizer.yml"
+        )
         assert "github_token: ${{ github.token }}" in text
         assert "secrets: ${{ toJSON(secrets) }}" not in text
         assert '"$trusted_marker" == true && "$has_format_label" == true' in text
