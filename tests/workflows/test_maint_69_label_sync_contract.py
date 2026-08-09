@@ -57,7 +57,7 @@ def test_label_sync_uses_cross_repo_token_not_default_github_token() -> None:
 def test_label_sync_refuses_to_run_without_a_cross_repo_token() -> None:
     guard = _step("Assert cross-repo token is present")
 
-    assert "inputs.dry_run != true" == guard["if"]
+    assert guard["if"] == "inputs.dry_run != true"
     assert "secrets.OWNER_PR_PAT" in guard["env"]["REPO_TOKEN"]
     assert "secrets.SERVICE_BOT_PAT" in guard["env"]["REPO_TOKEN"]
     assert "REPO_TOKEN" in guard["run"]
