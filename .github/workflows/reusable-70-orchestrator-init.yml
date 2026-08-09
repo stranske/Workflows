@@ -222,7 +222,6 @@ jobs:
           INPUT_OPTIONS_JSON: ${{ inputs.options_json }}
         with:
           script: |
-            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const summary = core.summary;
             const { owner, repo } = context.repo;
             const started = Date.now();
@@ -368,7 +367,10 @@ jobs:
             await summary.write();
 
             if (deferredByRateLimit) {
-              core.notice('Rate limit exhausted during idle precheck; deferring dispatch.');
+              core.setFailed(
+                'Idle precheck could not determine agent issue state because the GitHub API rate limit was exhausted.',
+              );
+              return;
             }
             else if (!hasWork) core.info('Idle, skipping orchestrator dispatch.');
             else if (keepaliveRequested) {

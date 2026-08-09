@@ -127,7 +127,6 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const { owner, repo } = context.repo;
             const workflowId = '.github/workflows/pr-00-gate.yml';
             const fs = require('fs');
@@ -155,6 +154,7 @@ jobs:
             if (!runs.length) {
               core.warning('No Gate workflow runs found.');
               core.setOutput('run_id', '');
+              core.setFailed('Coverage verification requires at least one completed Gate workflow run.');
               return;
             }
 
@@ -218,6 +218,7 @@ jobs:
                 'Unable to locate a successful or neutral completed Gate workflow run.',
               );
               core.setOutput('run_id', '');
+              core.setFailed('Coverage verification could not find a successful Gate workflow run.');
               return;
             }
 
@@ -227,9 +228,12 @@ jobs:
                   'Unable to locate a recent successful Gate workflow run with required',
                   'coverage artifacts: gate-coverage-trend, gate-coverage-trend-history,',
                   'gate-coverage.',
-                ].join(' '),
+              ].join(' '),
               );
               core.setOutput('run_id', '');
+              core.setFailed(
+                'Coverage verification could not find required coverage artifacts on a successful Gate run.',
+              );
               return;
             }
 

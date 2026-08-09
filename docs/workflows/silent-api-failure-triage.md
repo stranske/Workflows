@@ -2,7 +2,7 @@
 
 Issue #3017 audits actions/github-script steps that catch a github.rest error without calling core.setFailed. This is a shape inventory, not a claim that every caught error is a defect. A step is allowed to continue only when it carries the matching inline # best-effort: rationale; mutations required for correctness must aggregate errors and fail the job.
 
-The current inventory contains **47** warning-only steps, including both `github.rest.*` and `github.request` calls. maint-69-sync-labels.yml is the reference hard-failure implementation. The contract test at tests/workflows/test_no_silent_api_failures.py re-scans every workflow, so a new unannotated shape cannot be introduced silently.
+The current inventory contains **45** warning-only steps, including both `github.rest.*` and `github.request` calls. maint-69-sync-labels.yml is the reference hard-failure implementation. The contract test at tests/workflows/test_no_silent_api_failures.py re-scans every workflow, so a new unannotated shape cannot be introduced silently.
 
 | Workflow | Job | Step | Classification | Rationale |
 | --- | --- | --- | --- | --- |
@@ -29,7 +29,6 @@ The current inventory contains **47** warning-only steps, including both `github
 | .github/workflows/maint-62-integration-consumer.yml | report | Open or update failure issue | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/maint-72-fix-pr-body-conflicts.yml | fix-repos | Check and fix pr_body.md | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/maint-coverage-guard.yml | rate-limit-check | Check API quota | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
-| .github/workflows/maint-coverage-guard.yml | guard | Locate latest Gate workflow run | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/pr-00-gate.yml | summary | Report Gate commit status | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/pr-00-gate.yml | summary | Dispatch autofix notification | # best-effort: | The Gate failure remains authoritative and keepalive can retry the advisory dispatch. |
 | .github/workflows/reusable-10-ci-python.yml | logs_summary | Summarize workflow jobs | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
@@ -39,7 +38,6 @@ The current inventory contains **47** warning-only steps, including both `github
 | .github/workflows/reusable-18-autofix.yml | autofix | Manage autofix outcome labels | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/reusable-18-autofix.yml | autofix | Upsert consolidated PR comment | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/reusable-18-autofix.yml | autofix | Regression detector (same-repo) | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
-| .github/workflows/reusable-70-orchestrator-init.yml | idle-precheck | Count agent issues | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/reusable-70-orchestrator-main.yml | resolve-orchestrator-context | Resolve PR number and agent alias | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/reusable-70-orchestrator-main.yml | keepalive-prep | Capture keepalive head snapshot | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
 | .github/workflows/reusable-70-orchestrator-main.yml | keepalive-instruction | Emit fallback dispatch | # best-effort: | Ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative. |
