@@ -181,6 +181,7 @@ def test_command_words_in_prose_are_not_concrete_targets(task: str, validator_pa
         + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
     )
     assert not report.ok
+    assert "concrete file" in report.as_markdown()
 
 
 @pytest.mark.parametrize(
@@ -210,6 +211,7 @@ def test_incomplete_command_shaped_tasks_are_rejected(task: str, validator_path:
         + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
     )
     assert not report.ok
+    assert "concrete file" in report.as_markdown()
 
 
 @pytest.mark.parametrize(
