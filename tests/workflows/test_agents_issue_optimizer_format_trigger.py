@@ -62,6 +62,11 @@ def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
         assert "per_page: 100" in text
         assert "format_guard_attempts" in text
         assert "max_format_guard_attempts=3" in text
+        assert "format_guard_next_attempt=$((format_guard_attempts + 1))" in text
+        assert "FORMAT_GUARD_RETRY_PREFIX" in text
+        assert "isCurrentAttemptMarker" in text
+        assert ".displayTitle | endswith($issue)" in text
+        assert ".displayTitle | contains($issue)" not in text
         assert "agents:auto-pilot-pause" in text
         assert "Automated formatting stopped after" in text
         assert "<!-- format-guard:attempt-cap -->" in text
@@ -75,10 +80,32 @@ def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
         assert "secrets: ${{ toJSON(secrets) }}" not in text
         assert '"$trusted_marker" == true && "$has_format_label" == true' in text
         assert "already routed and in flight; skipping duplicate dispatch" in text
-        # Trusted marker is written only after a successful workflow_dispatch.
+        # Every accepted dispatch records a distinct marker, so a retry after the
+        # format lease is released still consumes the bounded retry budget.
         assert text.index("gh workflow run agents-issue-optimizer.yml") < text.index(
-            'echo "$marker"'
+            'echo "$attempt_marker"'
         )
+
+
+def test_format_guard_attempt_marker_sequence_consumes_retry_budget() -> None:
+    """Exercise the marker contract used by the workflow's routing step."""
+    fingerprint = "abc123def456"
+    marker = f"<!-- format-guard:{fingerprint} -->"
+    retry_prefix = f"<!-- format-guard:{fingerprint}:attempt:"
+
+    def count_accepted_attempts(comments: list[tuple[str, str]]) -> int:
+        return sum(
+            author == "github-actions[bot]"
+            and (marker in body or retry_prefix in body)
+            for author, body in comments
+        )
+
+    comments = [("github-actions[bot]", marker)]
+    assert count_accepted_attempts(comments) == 1
+    comments.append(("github-actions[bot]", f"{retry_prefix}2 -->"))
+    comments.append(("github-actions[bot]", f"{retry_prefix}3 -->"))
+    comments.append(("outside-user", f"{retry_prefix}4 -->"))
+    assert count_accepted_attempts(comments) == 3
 
 
 def test_format_lease_is_required_and_released_after_failure() -> None:
@@ -101,7 +128,7 @@ def test_format_lease_is_required_and_released_after_failure() -> None:
         assert "preserving agents:format lease" in failure_block
         assert '--remove-label "agents:format"' in failure_block
         assert '|| echo "::warning::could not release failed agents:format lease"' in failure_block
-        assert "no completion marker written so later runs can retry" in failure_block
+        assert "recorded the accepted attempt for the retry cap" in failure_block
 
     for text in (
         WORKFLOW_PATH.read_text(encoding="utf-8"),

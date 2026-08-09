@@ -202,9 +202,13 @@ jobs:
           fi
           fingerprint="$(sha256sum body.md | cut -c1-12)"
           marker="<!-- format-guard:$fingerprint -->"
+          retry_marker_prefix="<!-- format-guard:$fingerprint:attempt:"
           # Only trust exact HTML markers authored by github-actions[bot]
           # (immutable account id 41898282 when the REST payload includes user.id).
-          marker_state="$(FORMAT_GUARD_MARKER="$marker" node - <<'NODE'
+          marker_state="$(
+          FORMAT_GUARD_MARKER="$marker" \
+          FORMAT_GUARD_RETRY_PREFIX="$retry_marker_prefix" \
+          node - <<'NODE'
           (async () => {
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -222,15 +226,18 @@ jobs:
               github.rest.issues.listComments,
               { owner, repo, issue_number: Number(process.env.NUMBER), per_page: 100 }
             );
+            const isCurrentAttemptMarker = (body) =>
+              body.includes(process.env.FORMAT_GUARD_MARKER)
+              || body.includes(process.env.FORMAT_GUARD_RETRY_PREFIX);
             const trusted = comments.some((comment) =>
               comment.user?.login === 'github-actions[bot]'
               && (comment.user?.id == null || comment.user.id === 41898282)
-              && (comment.body || '').includes(process.env.FORMAT_GUARD_MARKER)
+              && isCurrentAttemptMarker(comment.body || '')
             );
             const attempts = comments.filter((comment) =>
               comment.user?.login === 'github-actions[bot]'
               && (comment.user?.id == null || comment.user.id === 41898282)
-              && (comment.body || '').includes('<!-- format-guard:')
+              && isCurrentAttemptMarker(comment.body || '')
             ).length;
             process.stdout.write(JSON.stringify({ attempts, trusted }));
           })().catch((error) => {
@@ -242,6 +249,8 @@ jobs:
           trusted_marker="$(jq -r '.trusted' <<<"$marker_state")"
           format_guard_attempts="$(jq -r '.attempts' <<<"$marker_state")"
           max_format_guard_attempts=3
+          format_guard_next_attempt=$((format_guard_attempts + 1))
+          attempt_marker="${retry_marker_prefix}${format_guard_next_attempt} -->"
           if [[ "$format_guard_attempts" -ge "$max_format_guard_attempts" ]]; then
             echo "Format guard exhausted $format_guard_attempts optimizer attempts; pausing issue."
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" \
@@ -297,15 +306,22 @@ jobs:
                 --limit 20 \
                 --json createdAt,displayTitle \
                 | jq --arg since "$dispatch_attempted_at" --arg issue "#$NUMBER" \
-                  '[.[] | select(.createdAt >= $since and (.displayTitle | contains($issue)))] | length')
+                  '[.[] | select(.createdAt >= $since and (.displayTitle | endswith($issue)))] | length')
               if [[ "${match_count:-0}" -gt 0 ]]; then
                 accepted=true
                 break
               fi
             done
             if [[ "$accepted" == true ]]; then
+              {
+                cat report.md
+                echo
+                echo "Optimizer dispatch was accepted despite a CLI error; preserving the format lease."
+                echo
+                echo "$attempt_marker"
+              } | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file -
               echo "::warning::optimizer dispatch CLI failed but a matching run was accepted; preserving agents:format lease"
-              echo "::error::optimizer dispatch status ambiguous; no completion marker written"
+              echo "::error::optimizer dispatch status ambiguous; recorded the accepted attempt for the retry cap"
               exit 1
             fi
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:format" \
@@ -313,15 +329,13 @@ jobs:
             echo "::error::optimizer dispatch failed; no completion marker written so later runs can retry"
             exit 1
           fi
-          if [[ "$trusted_marker" != true ]]; then
-            {
-              cat report.md
-              echo
-              echo "Dispatched the Agents Issue Optimizer format phase."
-              echo
-              echo "$marker"
-            } | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file -
-          fi
+          {
+            cat report.md
+            echo
+            echo "Dispatched the Agents Issue Optimizer format phase (attempt $format_guard_next_attempt of $max_format_guard_attempts)."
+            echo
+            echo "$attempt_marker"
+          } | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file -
 
       - name: Restore format completion after an unheld revalidation
         if: >-
