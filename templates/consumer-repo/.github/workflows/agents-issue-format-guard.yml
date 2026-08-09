@@ -90,6 +90,11 @@ jobs:
           error_file="$(mktemp)"
           trap 'rm -f "$report_file" "$error_file"' EXIT
           if [[ ! -f .github/scripts/issue_format.py ]]; then
+            # Tolerated: a consumer repo mid-sync may not have the validator yet,
+            # and hard-failing would block every issue there. But the job used to
+            # exit GREEN having validated nothing, so a sync that dropped the
+            # file removed the gate with no signal at all. Make it loud.
+            echo "::warning title=Issue format guard inactive::.github/scripts/issue_format.py is missing, so this issue was NOT validated. Re-sync from stranske/Workflows to restore the gate."
             echo "validator absent — skipping while this repo is mid-sync"
             echo "rc=skip" >> "$GITHUB_OUTPUT"
             exit 0
@@ -143,8 +148,14 @@ jobs:
             cat "$error_file" >&2
             exit 1
           fi
-          if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
-              --jq '.labels[].name' | grep -qx 'agents:formatted'; then
+          # `gh … | grep -q` inverts under `set -o pipefail`: grep exits at its
+          # first match, gh dies on SIGPIPE, and the failed pipeline makes this
+          # `if` take the FALSE branch even though the label IS present. It only
+          # bites once gh is slow enough to still be writing — i.e. as the issue
+          # grows. Materialise first, then grep a file.
+          gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
+            --jq '.labels[].name' > labels.txt
+          if grep -qx 'agents:formatted' labels.txt; then
             if gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:formatted"; then
               echo "Invalid issue body — cleared stale agents:formatted."
             else
@@ -351,8 +362,9 @@ jobs:
           NUMBER: ${{ steps.issue.outputs.number }}
         run: |
           set -euo pipefail
-          if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
-              --jq '[.labels[].name] | any(. == "agents:auto-pilot-pause" or . == "needs-human")' | grep -qx true; then
+          gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
+            --jq '[.labels[].name] | any(. == "agents:auto-pilot-pause" or . == "needs-human")' > held.txt
+          if grep -qx true held.txt; then
             echo "Issue remains held — leaving agents:formatted cleared."
             exit 0
           fi
@@ -367,8 +379,9 @@ jobs:
           NUMBER: ${{ steps.issue.outputs.number }}
         run: |
           set -euo pipefail
-          if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
-              --jq '.labels[].name' | grep -qx 'agents:format'; then
+          gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
+            --jq '.labels[].name' > labels.txt
+          if grep -qx 'agents:format' labels.txt; then
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:format"
             echo "Conforms now — cleared agents:format."
           fi
