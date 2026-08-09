@@ -165,9 +165,18 @@ def test_task_without_concrete_target_is_non_conforming() -> None:
     assert "concrete file" in report.as_markdown()
 
 
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
 @pytest.mark.parametrize("task", ["Make the UI better", "Just fix bugs", "Go improve it"])
-def test_command_words_in_prose_are_not_concrete_targets(task: str) -> None:
-    validator = _validator()
+def test_command_words_in_prose_are_not_concrete_targets(
+    task: str, validator_path: Path
+) -> None:
+    validator = _validator(validator_path)
     report = validator.validate(
         VALID_CONTEXT
         + f"## Tasks\n- [ ] {task}\n\n"
