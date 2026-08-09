@@ -740,6 +740,39 @@ def test_strip_original_issue_ignores_details_when_fence_close_has_trailing_text
     assert "</details>" not in stripped
 
 
+@pytest.mark.parametrize("marker", ["```", "~~~"])
+def test_strip_original_issue_keeps_same_line_details_inside_fence(marker: str) -> None:
+    """Same-line HTML must not turn a closing-fence candidate structural."""
+    payload = "\n".join(
+        [
+            "## Why",
+            "",
+            "Keep this text.",
+            "",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            f"{marker}text",
+            f"{marker}</details>",
+            "still inside the fenced payload",
+            marker,
+            "</details>",
+            "",
+            "## Scope",
+            "",
+            "Keep this too.",
+            "",
+        ]
+    )
+
+    stripped = issue_formatter._strip_original_issue_blocks(payload)
+
+    assert "Keep this text." in stripped
+    assert "Keep this too." in stripped
+    assert "Original Issue" not in stripped
+    assert "still inside the fenced payload" not in stripped
+
+
 def test_reuse_sets_needs_refinement_when_validator_fails() -> None:
     """Structurally conformant but contract-invalid bodies must not claim ready."""
     conformant = "\n".join(

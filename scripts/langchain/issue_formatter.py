@@ -481,7 +481,11 @@ def _strip_original_issue_blocks(text: str) -> str:
         for tag in _DETAILS_TAG_RE.finditer(text, match.end()):
             # Literal HTML in the verbatim Original-Issue fence is content, not
             # structural markup.  Only count tags outside Markdown fences.
-            before = text[end : tag.start()]
+            # Include the tag itself while deciding whether this line is a
+            # marker-only closing fence.  A same-line ``</details>`` is
+            # fenced content, so it must keep the fence open rather than be
+            # counted as structural markup.
+            before = text[end : tag.end()]
             for line in before.splitlines():
                 fence_match = re.match(r"\s{0,3}(`{3,}|~{3,})", line)
                 if not fence_match:
