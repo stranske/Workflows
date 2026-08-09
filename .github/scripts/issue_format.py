@@ -199,6 +199,24 @@ def _section_text(body: str, start: int) -> str:
     return "\n".join(lines[start + 1 : end])
 
 
+def _without_fenced_code(text: str) -> str:
+    """Remove Markdown fences so examples cannot satisfy issue requirements."""
+    kept: list[str] = []
+    fence: tuple[str, int] | None = None
+    for line in text.splitlines():
+        match = re.match(r"\s{0,3}(`{3,}|~{3,})", line)
+        if match:
+            marker = match.group(1)
+            if fence is None:
+                fence = (marker[0], len(marker))
+            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                fence = None
+            continue
+        if fence is None:
+            kept.append(line)
+    return "\n".join(kept)
+
+
 @dataclass
 class Report:
     ok: bool = True
@@ -247,7 +265,9 @@ def validate(body: str) -> Report:
     tasks_at = _find(body, REQUIRED["Tasks"])
     if tasks_at is not None:
         task_items = re.findall(
-            r"^\s*[-*]\s*\[[ xX]\]\s*(.+)$", _section_text(body, tasks_at), re.M
+            r"^\s*[-*]\s*\[[ xX]\]\s*(.+)$",
+            _without_fenced_code(_section_text(body, tasks_at)),
+            re.M,
         )
         if not task_items:
             report.problems.append(
@@ -260,7 +280,7 @@ def validate(body: str) -> Report:
 
     acceptance_at = _find(body, REQUIRED["Acceptance Criteria"])
     if acceptance_at is not None:
-        acceptance = _section_text(body, acceptance_at)
+        acceptance = _without_fenced_code(_section_text(body, acceptance_at))
         if not GATE.search(acceptance):
             report.problems.append(
                 "`Acceptance Criteria` names no test, runnable command or observable "

@@ -146,7 +146,8 @@ jobs:
           )
         )
       ) &&
-      !contains(github.event.issue.labels.*.name, 'agents:auto-pilot')
+      (github.event_name != 'issues' ||
+      !contains(github.event.issue.labels.*.name, 'agents:auto-pilot'))
     name: Normalize workflow inputs
     runs-on: ubuntu-latest
     outputs:
