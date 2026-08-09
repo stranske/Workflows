@@ -11,7 +11,6 @@ from pathlib import Path
 
 import yaml
 
-
 WORKFLOW_DIR = Path(".github/workflows")
 
 
