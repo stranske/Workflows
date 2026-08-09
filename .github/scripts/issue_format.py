@@ -92,8 +92,10 @@ _TASK_KNOWN_BASENAME = (
     r"LICENSE(?:\.(?:md|txt))?|\.gitignore|\.editorconfig)"
 )
 _TASK_COMMAND = (
-    r"(?:python(?:3)?|pytest|npm|pnpm|yarn|make|just|cargo|go|dotnet|gh|curl|"
-    r"node|vitest|jest|playwright)"
+    r"(?:python(?:3)?\s+-m\s+(?:pytest|unittest)|pytest\b|node\s+--test\b|"
+    r"(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b|"
+    r"(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b|"
+    r"gh\s+(?:workflow\s+run|run)\b|curl\s+\S+)"
 )
 
 
@@ -146,7 +148,9 @@ def _task_has_concrete_target(item: str) -> bool:
     # Unquoted path with a directory separator (src/main.go, .github/workflows/x.yml).
     if re.search(r"(?:^|[\s])((?:\./)?[\w.-]+(?:/[\w./-]+)+)", item):
         return True
-    return re.search(rf"\b{_TASK_COMMAND}\b", item, re.I) is not None
+    # Command names in prose ("make the UI better", "go improve it") are not
+    # concrete targets. Require a command-shaped invocation instead.
+    return re.search(rf"(?:^|\s){_TASK_COMMAND}", item, re.I) is not None
 
 
 def _headings(body: str) -> list[tuple[str, int, int]]:

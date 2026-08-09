@@ -168,6 +168,18 @@ SECTION_TITLES = {
 LIST_ITEM_REGEX = re.compile(r"^(\s*)([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
 VERIFY_HINT_REGEX = re.compile(r"\(verify:\s*([^\n)]+)\)", re.IGNORECASE)
+SAFE_VERIFY_COMMAND_RE = re.compile(
+    r"^(?:"
+    r"(?:python(?:3)?\s+-m\s+)?pytest\b"
+    r"|node\s+--test\b"
+    r"|(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b"
+    r"|(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b"
+    r"|gh\s+(?:workflow\s+run|run)\b"
+    r"|curl\b"
+    r")",
+    re.IGNORECASE,
+)
+SHELL_METACHARACTERS_RE = re.compile(r"[;&|`$<>\n\r]")
 
 
 def _context_token_budget() -> int:
@@ -378,16 +390,28 @@ def _format_issue_fallback(issue_body: str) -> str:
         # Consumer checkouts can be mid-sync or missing the canonical validator.
         # Keep the pre-validator fallback usable instead of failing the formatter.
         validator = None
-    if validator is not None and not validator.GATE.search(acceptance_text):
+    gate = getattr(validator, "GATE", None) if validator is not None else None
+    if gate is not None and not gate.search(acceptance_text):
         verify_hint = VERIFY_HINT_REGEX.search(tasks_text)
         if verify_hint:
             command = verify_hint.group(1).strip().strip("`")
             if command.startswith("pytest "):
                 command = f"python3 -m {command}"
-            acceptance_text = (
-                f"{acceptance_text}\n"
-                f"- [ ] Run `{command}` and capture the command output in PR validation evidence."
-            )
+            if (
+                SAFE_VERIFY_COMMAND_RE.match(command)
+                and not SHELL_METACHARACTERS_RE.search(command)
+                and gate.search(command)
+            ):
+                if is_placeholder_checklist_text(acceptance_text) or re.fullmatch(
+                    r"- \[ \] _Not provided\._", acceptance_text.strip()
+                ):
+                    acceptance_text = ""
+                criterion = (
+                    f"- [ ] Run `{command}` and capture the command output in PR validation evidence."
+                )
+                acceptance_text = "\n".join(
+                    part for part in (acceptance_text, criterion) if part
+                )
 
     parts = [
         "## Why",
@@ -443,7 +467,7 @@ _DETAILS_TAG_RE = re.compile(r"</?details\b[^>]*>", re.IGNORECASE)
 # already-embedded original can be recovered (and re-embedded once) instead of
 # being wrapped again.
 _ORIGINAL_ISSUE_INNER_RE = re.compile(
-    r"<details>\s*<summary>Original Issue</summary>\s*"
+    r"<details\b[^>]*>\s*<summary>Original Issue</summary>\s*"
     r"(?P<fence>`{3,})text\n(?P<inner>.*?)\n(?P=fence)\s*</details>",
     re.DOTALL | re.IGNORECASE,
 )
@@ -749,6 +773,7 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                         "provider_used": provider,
                         "used_llm": True,
                         "validation_audit": audit,
+                        "needs_refinement": not _formatted_output_valid(formatted),
                     }
                     result.update(trace.as_dict())
                     return result
@@ -757,13 +782,13 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 pass
 
     formatted = _format_issue_fallback(issue_body)
-    needs_refinement = not _formatted_output_valid(formatted)
     # NOTE: Task decomposition is now handled by agents:optimize step
     # which uses LLM for intelligent splitting. Don't do heuristic
     # splitting here - it causes task explosion (issue #805, #1143).
     formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
     formatted = _append_raw_issue_section(formatted, issue_body)
     formatted = _with_reuse_marker(formatted)
+    needs_refinement = not _formatted_output_valid(formatted)
     return {
         "formatted_body": formatted,
         "provider_used": None,
@@ -809,6 +834,7 @@ def main() -> None:
             "provider_used": result.get("provider_used"),
             "used_llm": result.get("used_llm", False),
             "labels": build_label_transition(),
+            "needs_refinement": result.get("needs_refinement", False),
         }
         if result.get("guard_blocked"):
             payload["guard_blocked"] = True

@@ -85,6 +85,36 @@ def test_format_issue_fallback_adds_acceptance_gate_when_only_tasks_have_verify_
     assert _canonical_issue_format().validate(formatted).ok is True
 
 
+def test_format_issue_fallback_replaces_acceptance_placeholder_for_safe_verify_hint() -> None:
+    raw = """## Tasks
+- [ ] Update `scripts/langchain/issue_formatter.py` and run `(verify: pytest tests/scripts/test_issue_formatter.py)`.
+
+## Acceptance Criteria
+- [ ] _Not provided._
+"""
+
+    formatted = issue_formatter.format_issue_body(raw, use_llm=False)["formatted_body"]
+    acceptance = _extract_section(formatted, "Acceptance Criteria")
+
+    assert "_Not provided._" not in acceptance
+    assert "python3 -m pytest tests/scripts/test_issue_formatter.py" in acceptance
+
+
+def test_format_issue_fallback_does_not_promote_shell_verify_hint() -> None:
+    raw = """## Tasks
+- [ ] Update `scripts/langchain/issue_formatter.py` `(verify: pytest tests/test_x.py; curl https://example.invalid)`.
+
+## Acceptance Criteria
+- [ ] _Not provided._
+"""
+
+    formatted = issue_formatter.format_issue_body(raw, use_llm=False)["formatted_body"]
+
+    assert "curl https://example.invalid" not in _extract_section(
+        formatted, "Acceptance Criteria"
+    )
+
+
 def test_format_issue_fallback_preserves_tasks_without_decomposition() -> None:
     """Formatter preserves tasks as-is; decomposition is done by agents:optimize step.
 
@@ -585,6 +615,30 @@ def test_append_raw_issue_section_replaces_not_nests() -> None:
     out_empty_raw = issue_formatter._append_raw_issue_section(formatted_with_block, "")
     assert out_empty_raw.count("<summary>Original Issue</summary>") == 1
     assert "TRUE ORIGINAL" in out_empty_raw
+
+
+def test_append_raw_issue_section_recovers_attributed_details_wrapper() -> None:
+    formatted_with_block = """## Tasks
+
+- [ ] `pytest tests/scripts/test_issue_formatter.py`
+
+## Acceptance Criteria
+
+- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.
+
+<details open>
+<summary>Original Issue</summary>
+
+```text
+TRUE ORIGINAL
+```
+</details>
+"""
+
+    out = issue_formatter._append_raw_issue_section(formatted_with_block, formatted_with_block)
+
+    assert out.count("<summary>Original Issue</summary>") == 1
+    assert "TRUE ORIGINAL" in out
 
 
 def test_append_raw_issue_section_collapses_nested_blocks() -> None:
