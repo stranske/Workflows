@@ -269,10 +269,10 @@ jobs:
               || echo "::warning::could not apply agents:auto-pilot-pause"
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:format" \
               || echo "::warning::could not release agents:format after attempt cap"
-            gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file - <<EOF
-          <!-- format-guard:attempt-cap -->
-          Automated formatting stopped after $format_guard_attempts optimizer attempts. Fix the issue body manually, then remove agents:auto-pilot-pause before retrying.
-          EOF
+            printf '%s\n' \
+              '<!-- format-guard:attempt-cap -->' \
+              "Automated formatting stopped after $format_guard_attempts optimizer attempts. Fix the issue body manually, then remove agents:auto-pilot-pause before retrying." \
+              | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file -
             exit 0
           fi
           has_format_label=false

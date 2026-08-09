@@ -496,6 +496,30 @@ def test_main_emits_json_with_labels(monkeypatch, capsys) -> None:
     assert payload["validation_audit"] == expected_audit
 
 
+def test_main_emits_formatter_error_without_refinement(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        issue_formatter,
+        "format_issue_body",
+        lambda raw, use_llm=True: {
+            "error": "Issue body too large",
+            "formatted_body": None,
+            "provider_used": None,
+            "used_llm": False,
+        },
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["issue_formatter.py", "--input-text", "Raw issue", "--json", "--no-llm"],
+    )
+
+    issue_formatter.main()
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["error"] == "Issue body too large"
+    assert payload["needs_refinement"] is False
+
+
 def test_main_writes_output_file(monkeypatch, tmp_path, capsys) -> None:
     output_path = tmp_path / "formatted.md"
     monkeypatch.setattr(

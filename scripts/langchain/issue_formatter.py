@@ -864,13 +864,15 @@ def main() -> None:
 
     if args.json:
         payload = {
-            "formatted_body": result["formatted_body"],
+            "formatted_body": result.get("formatted_body"),
             "provider_used": result.get("provider_used"),
             "used_llm": result.get("used_llm", False),
             "labels": build_label_transition(),
-            "needs_refinement": result.get("needs_refinement", True),
+            "needs_refinement": result.get("needs_refinement", False),
             "validation_audit": result.get("validation_audit"),
         }
+        if result.get("error"):
+            payload["error"] = result["error"]
         if result.get("guard_blocked"):
             payload["guard_blocked"] = True
             payload["guard_reason"] = result.get("guard_reason") or ""
