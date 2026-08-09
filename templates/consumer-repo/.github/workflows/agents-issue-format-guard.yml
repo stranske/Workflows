@@ -141,7 +141,7 @@ jobs:
           if [[ "$live_rc" -ne 1 || -s "$error_file" ]]; then
             echo "::error::issue-format validator failed unexpectedly during label revalidation"
             cat "$error_file" >&2
-            exit "$live_rc"
+            exit 1
           fi
           if gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels \
               --jq '.labels[].name' | grep -qx 'agents:formatted'; then

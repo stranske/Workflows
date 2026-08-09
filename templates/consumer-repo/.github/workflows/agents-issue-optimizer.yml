@@ -5,8 +5,7 @@ name: Agents Issue Optimizer
 # nothing and reported 0 for an issue it was re-running every minute. Pin the issue
 # number into the run name so both trigger types are correlatable.
 run-name: >-
-  Agents Issue Optimizer #${{
-  github.event.issue.number || inputs.issue_number }}
+  Agents Issue Optimizer #${{ github.event.issue.number || github.event.inputs.issue_number }}
 
 on:
   issues:
@@ -585,10 +584,14 @@ jobs:
           fi
 
       - name: Release failed format lease
-        if: (failure() || cancelled()) && steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'format'
+        if: >-
+          (failure() || cancelled()) &&
+          (steps.check.outputs.phase == 'format' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.phase == 'format') ||
+          (github.event_name == 'issues' && github.event.label.name == 'agents:format'))
         env:
           GH_TOKEN: ${{ steps.token.outputs.token || github.token }}
-          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number || github.event.inputs.issue_number || github.event.issue.number }}
         run: |
           set -euo pipefail
           # A guard retry may proceed only after the failed format run releases its lease.

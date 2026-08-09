@@ -113,9 +113,9 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = ae9a2d80a47ad995f4ce1a0681a7c8b236518b2c1337370d11578e4059ae7489
-template_sha256 = d5469b188c5e757d2f8a289e40c066961047d8a9625ae32413c2959c7a824c21
-reason = Intentional divergence re-baselined 2026-08-08c: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract this round: concurrency includes inputs.issue_number for workflow_dispatch dedupe, cancel-safe (failure()||cancelled()) agents:format lease release, issue_dedup wrapped in set +e/set -e so advisory failures cannot abort under bash -e, and visible non-zero exit warnings. Re-baselined 2026-08-08d: both surfaces now set a `run-name` carrying `#<issue>` so the recursion guard can correlate workflow_dispatch runs, match prior runs with `endswith` instead of `contains`, and pass `--limit 100` to `gh run list` (see #2991). Do not align wholesale — that would strip consumer action pins/token setup.
+main_sha256 = 5b62401785a5b4e3d64f89048c1919dbc46ee2258db94369cc77cd6b9da75d1d
+template_sha256 = 1f6b83202c08225789bf82761b65d79de9c51c2c2ffe50e8a9d1c3b7e36c9d87
+reason = Intentional divergence re-baselined 2026-08-08c: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract: event-safe optimizer run names, cancel-safe agents:format release even if the initial check fails, and nonzero failure for unexpected validator stderr. Do not align wholesale — that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml

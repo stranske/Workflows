@@ -134,10 +134,10 @@ def test_format_lease_is_required_and_released_after_failure() -> None:
         CONSUMER_WORKFLOW_PATH.read_text(encoding="utf-8"),
     ):
         assert "Release failed format lease" in text
-        assert (
-            "(failure() || cancelled()) && steps.check.outputs.should_run == 'true' "
-            "&& steps.check.outputs.phase == 'format'"
-        ) in text
+        assert "(failure() || cancelled())" in text
+        assert "steps.check.outputs.phase == 'format'" in text
+        assert "github.event.inputs.phase == 'format'" in text
+        assert "github.event.label.name == 'agents:format'" in text
         assert 'gh issue edit "$ISSUE_NUMBER" --remove-label "agents:format"' in text
 
 
