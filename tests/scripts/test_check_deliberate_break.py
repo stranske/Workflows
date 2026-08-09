@@ -119,6 +119,27 @@ def test_issue_acceptance_wording_is_supported() -> None:
     assert spec.break_file == "scripts/check_deliberate_break.py"
 
 
+def test_issue_3007_acceptance_wording_is_supported() -> None:
+    spec = parse_deliberate_break_spec(
+        "## Tasks\n\n"
+        "- [ ] `.github/workflows/maint-69-sync-labels.yml:24-25` — add `issues: write`.\n"
+        "## Acceptance Criteria\n\n"
+        "- [ ] Named test: extend `.github/scripts/__tests__/label_rules_assert_test.py` "
+        "with a test `test_label_sync_fails_when_any_label_write_errors` that drives the "
+        "aggregation/exit path.\n"
+        "- [ ] Deliberate-break → revert: revert the `permissions:` change to "
+        "`contents: read` only and dispatch against a single consumer repo.\n"
+    )
+
+    assert spec is not None
+    assert (
+        spec.test_id
+        == ".github/scripts/__tests__/label_rules_assert_test.py::test_label_sync_fails_when_any_label_write_errors"
+    )
+    assert spec.test_file == ".github/scripts/__tests__/label_rules_assert_test.py"
+    assert spec.break_file == ".github/workflows/maint-69-sync-labels.yml"
+
+
 def test_assertion_tamper_is_flagged(tmp_path, monkeypatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
