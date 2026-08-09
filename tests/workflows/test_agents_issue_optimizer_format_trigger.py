@@ -95,8 +95,7 @@ def test_format_guard_attempt_marker_sequence_consumes_retry_budget() -> None:
 
     def count_accepted_attempts(comments: list[tuple[str, str]]) -> int:
         return sum(
-            author == "github-actions[bot]"
-            and (marker in body or retry_prefix in body)
+            author == "github-actions[bot]" and (marker in body or retry_prefix in body)
             for author, body in comments
         )
 
