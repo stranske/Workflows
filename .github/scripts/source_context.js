@@ -379,6 +379,11 @@ function inferredSourceType(pull = {}) {
   if (/review[-/ ]follow/.test(branch) || /\breview\s+follow[- ]?up\b/.test(title)) {
     return SOURCE_TYPES.REVIEW_FOLLOWUP;
   }
+  if ([
+    'feat/', 'fix/', 'docs/', 'audit/', 'chore/', 'refactor/', 'perf/', 'test/',
+  ].some((prefix) => branch.startsWith(prefix))) {
+    return SOURCE_TYPES.LOCAL_REQUEST;
+  }
   return SOURCE_TYPES.UNKNOWN;
 }
 

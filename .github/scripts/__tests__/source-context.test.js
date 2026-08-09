@@ -628,6 +628,30 @@ test('resolvePrSourceContext infers sync and dependabot sources for maintenance 
   );
 });
 
+test('resolvePrSourceContext infers local_request for conventional work-branch prefixes', () => {
+  const local = resolvePrSourceContext({
+    body: '',
+    head: { ref: 'feat/retire-plan-v3' },
+    title: 'Change code',
+  });
+
+  assert.equal(local.sourceType, SOURCE_TYPES.LOCAL_REQUEST);
+  assert.equal(local.isValid, true);
+  assert.equal(local.requiresIssue, false);
+  assert.equal(local.isExplicit, false);
+
+  for (const branch of ['codex/no-issue-link', 'closer/foo']) {
+    const lane = resolvePrSourceContext({ body: '', head: { ref: branch }, title: 'Change code' });
+    assert.equal(lane.sourceType, SOURCE_TYPES.UNKNOWN);
+    assert.equal(lane.isValid, false);
+  }
+
+  assert.deepEqual(
+    templateResolvePrSourceContext({ body: '', head: { ref: 'feat/retire-plan-v3' }, title: 'Change code' }),
+    local,
+  );
+});
+
 test('resolvePrSourceContext accepts explicit sync source markers from consumer sync PRs', () => {
   const context = resolvePrSourceContext({
     body: [
