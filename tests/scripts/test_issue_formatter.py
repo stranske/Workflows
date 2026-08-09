@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.machinery
+import importlib.util
 import io
 import json
 import sys
@@ -13,6 +15,29 @@ from scripts.langchain.issue_pr_context import reuse_formatted_body
 
 def _canonical_issue_format():
     return issue_formatter._issue_format_validator()
+
+
+def test_issue_format_validator_removes_partially_loaded_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed validator import must not poison a later retry."""
+
+    class FailingLoader:
+        def create_module(self, spec):  # noqa: ANN001
+            return None
+
+        def exec_module(self, module):  # noqa: ANN001
+            raise RuntimeError("transient validator load failure")
+
+    spec = importlib.machinery.ModuleSpec("_fleet_issue_format", FailingLoader())
+    monkeypatch.setattr(importlib.util, "spec_from_file_location", lambda *args: spec)
+    issue_formatter._issue_format_validator.cache_clear()
+
+    with pytest.raises(RuntimeError, match="transient validator load failure"):
+        issue_formatter._issue_format_validator()
+
+    assert "_fleet_issue_format" not in sys.modules
+    issue_formatter._issue_format_validator.cache_clear()
 
 
 def _install_fake_langchain(monkeypatch: pytest.MonkeyPatch, mock_chain: mock.MagicMock) -> None:

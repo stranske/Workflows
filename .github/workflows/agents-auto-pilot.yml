@@ -807,6 +807,14 @@ jobs:
               sys.exit(1)
           with open('/tmp/formatted_body.md', 'w') as f:
               f.write(formatted)
+          if result.get('needs_refinement'):
+              audit = result.get('validation_audit')
+              reason = 'formatted output did not satisfy the issue-format contract'
+              if audit:
+                  reason += '\nvalidation_audit=' + json.dumps(audit, sort_keys=True)
+              with open('/tmp/needs_refinement', 'w') as f:
+                  f.write(reason)
+              print(f'NEEDS_REFINEMENT: {reason}')
           def env_value(value):
               return str(value or '').replace('\r', '').replace('\n', '').strip()
 
@@ -894,6 +902,37 @@ jobs:
             })().catch((error) => { console.error(error); process.exit(1); });
           REFINEMENT_NODE
             echo "stop_autopilot=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -f /tmp/needs_refinement ]; then
+            echo "⚠️ Formatted output needs refinement. Pausing auto-pilot."
+            node - <<'REFINEMENT_NODE'
+            (async () => {
+              const fs = require('fs');
+              const { Octokit } = require('@octokit/rest');
+              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github, core, env: process.env, task: 'auto-pilot', capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              const reason = fs.readFileSync('/tmp/needs_refinement', 'utf8').trim();
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner, repo, issue_number: issueNumber,
+                labels: ['needs-human', 'agents:auto-pilot-pause'],
+              }));
+              await withRetry((client) => client.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: ['⚠️ **Issue formatting needs refinement.**', '', reason].join('\n'),
+              }));
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+          REFINEMENT_NODE
             exit 0
           fi
 
