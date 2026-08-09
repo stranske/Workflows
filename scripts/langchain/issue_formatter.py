@@ -175,7 +175,6 @@ SAFE_VERIFY_COMMAND_RE = re.compile(
     r"|(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b"
     r"|(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b"
     r"|gh\s+(?:workflow\s+run|run)\s+\S+"
-    r"|curl\s+\S+"
     r")",
     re.IGNORECASE,
 )
@@ -464,7 +463,7 @@ _DETAILS_TAG_RE = re.compile(r"</?details\b[^>]*>", re.IGNORECASE)
 # being wrapped again.
 _ORIGINAL_ISSUE_INNER_RE = re.compile(
     r"<details\b[^>]*>\s*<summary>Original Issue</summary>\s*"
-    r"(?P<fence>`{3,})text\n(?P<inner>.*?)\n(?P=fence)\s*</details>",
+    r"(?P<fence>`{3,}|~{3,})text\n(?P<inner>.*?)\n(?P=fence)\s*</details>",
     re.DOTALL | re.IGNORECASE,
 )
 
@@ -862,7 +861,7 @@ def main() -> None:
             "provider_used": result.get("provider_used"),
             "used_llm": result.get("used_llm", False),
             "labels": build_label_transition(),
-            "needs_refinement": result.get("needs_refinement", False),
+            "needs_refinement": result.get("needs_refinement", True),
         }
         if result.get("guard_blocked"):
             payload["guard_blocked"] = True

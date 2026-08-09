@@ -368,6 +368,9 @@ function inferredSourceType(pull = {}) {
   if (author.startsWith('dependabot') || branch.startsWith('dependabot/')) {
     return SOURCE_TYPES.DEPENDABOT;
   }
+  if (author === 'github-actions[bot]' || author === 'github-actions') {
+    return SOURCE_TYPES.AUTOMATION_RUN;
+  }
   if (
     branch.startsWith('sync/') ||
     branch.startsWith('sync-') ||

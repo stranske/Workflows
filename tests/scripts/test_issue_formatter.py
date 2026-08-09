@@ -815,11 +815,33 @@ def test_reuse_sets_needs_refinement_when_validator_fails() -> None:
     assert result["needs_refinement"] is True
 
 
-def test_bare_curl_is_not_a_safe_verify_command() -> None:
+def test_curl_is_not_a_safe_verify_command() -> None:
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl") is None
-    assert (
-        issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl https://example.test/health") is not None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl https://example.test/health") is None
+
+
+def test_append_raw_issue_recovers_tilde_fenced_original_issue() -> None:
+    original = "TILDE-FENCED ORIGINAL"
+    formatted = "\n".join(
+        [
+            "## Tasks",
+            "",
+            "- [ ] Keep the original body.",
+            "",
+            "<details>",
+            "<summary>Original Issue</summary>",
+            "",
+            "~~~text",
+            original,
+            "~~~",
+            "</details>",
+        ]
     )
+
+    output = issue_formatter._append_raw_issue_section(formatted, formatted)
+
+    assert output.count("<summary>Original Issue</summary>") == 1
+    assert original in output
 
 
 def test_safe_verify_command_accepts_unittest_and_requires_gh_args() -> None:

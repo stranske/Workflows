@@ -640,6 +640,16 @@ test('resolvePrSourceContext infers local_request for conventional work-branch p
   assert.equal(local.requiresIssue, false);
   assert.equal(local.isExplicit, false);
 
+  const automated = resolvePrSourceContext({
+    body: '',
+    head: { ref: 'chore/ledger-base-sync' },
+    title: 'chore: sync ledger base',
+    user: { login: 'github-actions[bot]' },
+  });
+  assert.equal(automated.sourceType, SOURCE_TYPES.AUTOMATION_RUN);
+  assert.equal(automated.isValid, true);
+  assert.equal(automated.requiresIssue, false);
+
   for (const branch of ['codex/no-issue-link', 'closer/foo']) {
     const lane = resolvePrSourceContext({ body: '', head: { ref: branch }, title: 'Change code' });
     assert.equal(lane.sourceType, SOURCE_TYPES.UNKNOWN);
