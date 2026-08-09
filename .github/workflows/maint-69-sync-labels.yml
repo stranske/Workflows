@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  issues: write # Required to create/update labels
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -31,6 +32,11 @@ concurrency:
 jobs:
   sync-labels:
     runs-on: ubuntu-latest
+    env:
+      # Label writes target OTHER repositories. The default GITHUB_TOKEN is scoped to
+      # this repository only, so every cross-repo createLabel/updateLabel call fails
+      # with it. Mirrors the job-level alias in maint-68-sync-consumer-repos.yml.
+      REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
     steps:
       - uses: actions/checkout@v7
       - name: Setup API client
@@ -84,6 +90,15 @@ jobs:
           echo "repos=${json_array}" >> "$GITHUB_OUTPUT"
           echo "Target repos: $json_array"
 
+      - name: Assert cross-repo token is present
+        if: inputs.dry_run != true
+        run: |
+          if [ -z "${REPO_TOKEN}" ]; then
+            echo "::error::Neither OWNER_PR_PAT nor SERVICE_BOT_PAT is set. Cross-repo label writes cannot succeed with the default GITHUB_TOKEN; refusing to report a green run that syncs nothing."
+            exit 1
+          fi
+          echo "Cross-repo token present."
+
       - name: Sync labels to repos
         uses: actions/github-script@v9
         env:
@@ -91,7 +106,7 @@ jobs:
           REPOS_JSON: ${{ steps.repos.outputs.repos }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ env.REPO_TOKEN }}
           script: |
             const labels = JSON.parse(process.env.LABELS_JSON);
             const repos = JSON.parse(process.env.REPOS_JSON);
@@ -108,6 +123,11 @@ jobs:
             const { withRetry } = retryHelpers;
 
             const summary = [];
+            // Aggregated across every repo so a failed write can fail the JOB. Without this,
+            // each error was only appended to the run summary and the job still concluded
+            // success — a sync that created zero labels looked identical to a clean run.
+            let totalErrors = 0;
+            const failedRepos = [];
             summary.push('# Label Sync Results\n');
             summary.push(`Mode: ${dryRun ? '🔍 Dry Run' : '✅ Live'}\n`);
             summary.push(`Labels: ${labels.length} core labels\n`);
@@ -130,6 +150,8 @@ jobs:
                 existingLabels = data;
               } catch (e) {
                 summary.push(`❌ Failed to fetch labels: ${e.message}\n\n`);
+                totalErrors++;
+                failedRepos.push(`${repoFullName} (label fetch failed)`);
                 continue;
               }
 
@@ -192,9 +214,21 @@ jobs:
                 `\n📊 Summary: ${created} created, ${updated} updated, ` +
                   `${unchanged} unchanged, ${errors} errors\n\n`,
               );
+
+              if (errors > 0) {
+                totalErrors += errors;
+                failedRepos.push(`${repoFullName} (${errors})`);
+              }
             }
 
             // Write summary
             await core.summary.addRaw(summary.join('')).write();
 
             core.info(summary.join(''));
+
+            if (totalErrors > 0) {
+              core.setFailed(
+                `Label sync failed: ${totalErrors} label write(s) errored across ` +
+                  `${failedRepos.length} repo(s): ${failedRepos.join(', ')}`,
+              );
+            }
