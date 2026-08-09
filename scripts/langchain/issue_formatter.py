@@ -868,6 +868,7 @@ def main() -> None:
             "used_llm": result.get("used_llm", False),
             "labels": build_label_transition(),
             "needs_refinement": result.get("needs_refinement", True),
+            "validation_audit": result.get("validation_audit"),
         }
         if result.get("guard_blocked"):
             payload["guard_blocked"] = True

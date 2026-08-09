@@ -464,6 +464,7 @@ def test_main_emits_json_with_labels(monkeypatch, capsys) -> None:
     }
     assert payload["used_llm"] is False
     assert "## Acceptance Criteria" in payload["formatted_body"]
+    assert "validation_audit" in payload
 
 
 def test_main_writes_output_file(monkeypatch, tmp_path, capsys) -> None:
