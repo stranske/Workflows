@@ -136,6 +136,24 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-08-03"
+    },
+    {
+      "case_id": "workflows-2757",
+      "repo": "stranske/Workflows",
+      "pr": 2757,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-10"
+    },
+    {
+      "case_id": "pension-data-711",
+      "repo": "stranske/Pension-Data",
+      "pr": 711,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-10"
     }
   ]
 }
