@@ -481,6 +481,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
+            // # best-effort: ancillary API failure is logged; primary result remains authoritative.
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
             const retryHelpers = require(`${scriptsPath}/.github/scripts/github-api-with-retry.js`);
             const { paginateWithRetry } = retryHelpers;

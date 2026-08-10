@@ -144,10 +144,3 @@ template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
 main_sha256 = 6e48b36caaa2865c66fe978b75e775687b96b69eae74c5adbc1355346819f271
 template_sha256 = 865fe609fbc6fde8f0f9faf338d8ba9e9e573448e8dc454fb759df003bd9b437
 reason = Intentional divergence (re-baselined 2026-07-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after the durable-label guard was added to the template. Do not align: would strip consumer action pins.
-
-[pair.16]
-main = .github/workflows/agents-auto-pilot.yml
-template = templates/consumer-repo/.github/workflows/agents-auto-pilot.yml
-main_sha256 = 7cdc46f3aa3fc49a2bc893a7208216ef65fe0a1387891c6b833d18eb9b2e8ab6
-template_sha256 = 747e244c5667633410ee405eeebd77b77b251412c32e82a70a7db1b9a2441734
-reason = Intentional divergence re-reviewed 2026-08-10: root auto-pilot adds failure reporting while the consumer preserves its pinned, minimal caller contract.
