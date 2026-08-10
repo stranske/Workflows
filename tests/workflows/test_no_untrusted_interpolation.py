@@ -110,10 +110,30 @@ def test_no_untrusted_expressions_in_script_bodies() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("body", "expression", "expected"),
+    [
+        ("inputs.commit_message", "inputs.commit_message", True),
+        ("inputs['commit_message']", "inputs.commit_message", True),
+        ("inputs.repos || 'all'", "inputs.repos", True),
+        ("inputs['repos']", "inputs.repos", True),
+        ("inputs.codex_args", "inputs.codex_args", True),
+        ("inputs.safe_field", "inputs.commit_message", False),
+    ],
+)
+def test_references_untrusted_input(body: str, expression: str, expected: bool) -> None:
+    assert _references_untrusted_input(body, expression) is expected
+
+
 @pytest.mark.parametrize("expression", sorted(UNTRUSTED_EXPRESSIONS))
-def test_untrusted_expression_guard_has_a_concrete_target(expression: str) -> None:
-    """Keep each listed field intentional rather than a broad catch-all."""
-    assert expression.startswith("inputs.")
+def test_untrusted_expression_guard_detects_listed_inputs(expression: str) -> None:
+    """Each listed field must be detectable via _untrusted_references."""
+
+    property_name = expression.split(".", 1)[1]
+    dot_form = f"echo ${{{{ inputs.{property_name} }}}}"
+    bracket_form = f"echo ${{{{ inputs['{property_name}'] }}}}"
+    assert expression in _untrusted_references(dot_form)
+    assert expression in _untrusted_references(bracket_form)
 
 
 def test_untrusted_expression_guard_matches_default_and_wrapper_forms() -> None:
