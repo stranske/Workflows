@@ -479,7 +479,7 @@ jobs:
         id: codex_cli
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         env:
-          CODEX_CLI_PACKAGE: "@openai/codex@0.144.1"
+          CODEX_CLI_PACKAGE: "@openai/codex@0.147.0"
         run: |
           set -euo pipefail
           # Install from the Workflows sparse checkout so consumer callers (whose
