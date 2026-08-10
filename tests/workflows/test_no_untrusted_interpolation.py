@@ -21,9 +21,7 @@ WORKFLOW_GLOBS = (".github/workflows/*.yml", ".github/workflows/*.yaml")
 # Keep this deliberately small. Other expressions require a file-by-file
 # constrained-value review; expanding this set is not a substitute for that
 # review.
-UNTRUSTED_EXPRESSIONS = frozenset(
-    {"inputs.commit_message", "inputs.codex_args", "inputs.repos"}
-)
+UNTRUSTED_EXPRESSIONS = frozenset({"inputs.commit_message", "inputs.codex_args", "inputs.repos"})
 
 
 def _workflow_paths() -> Iterable[Path]:
@@ -55,9 +53,7 @@ def test_no_untrusted_expressions_in_script_bodies() -> None:
             for expression in UNTRUSTED_EXPRESSIONS:
                 token = "${{ " + expression + " }}"
                 if token in script:
-                    violations.append(
-                        f"{workflow.relative_to(ROOT)}:{location}: {token}"
-                    )
+                    violations.append(f"{workflow.relative_to(ROOT)}:{location}: {token}")
     assert not violations, (
         "Pass untrusted workflow values through step env and consume the env "
         "variable in the script:\n" + "\n".join(violations)
