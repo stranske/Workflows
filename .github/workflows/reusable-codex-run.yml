@@ -865,7 +865,7 @@ jobs:
           SANDBOX: ${{ inputs.sandbox }}
           EXTRA_ARGS_RAW: ${{ inputs.codex_args }}
           MAX_RUNTIME_MIN: ${{ inputs.max_runtime_minutes }}
-          TARGET_BRANCH: ${{ inputs.pr_ref }}
+          TARGET_BRANCH: ${{ inputs.pr_ref || github.ref_name }}
         run: |
           set -euo pipefail
 

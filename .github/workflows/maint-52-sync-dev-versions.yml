@@ -128,6 +128,11 @@ jobs:
               | map(select(. != ""))
               | map(gsub("^\\s+|\\s+$"; ""))
             ')
+          invalid_repos=$(jq -r '.[] | select(test("^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$") | not)' <<<"$json_array")
+          if [ -n "$invalid_repos" ]; then
+            echo "Invalid owner/repository value(s): $invalid_repos" >&2
+            exit 1
+          fi
           echo "matrix={\"repo\":$json_array}" >> "$GITHUB_OUTPUT"
           echo "Repos to sync: $json_array"
 
@@ -153,8 +158,9 @@ jobs:
       - name: Clone consumer repo
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
+          MATRIX_REPO: ${{ matrix.repo }}
         run: |
-          gh repo clone ${{ matrix.repo }} consumer -- --depth=1
+          gh repo clone "$MATRIX_REPO" consumer -- --depth=1
 
       - name: Download sync script
         uses: actions/download-artifact@v8
@@ -271,8 +277,10 @@ jobs:
 
       - name: Skip - no pyproject.toml
         if: steps.check.outputs.has_pyproject != 'true'
+        env:
+          MATRIX_REPO: ${{ matrix.repo }}
         run: |
-          echo "Skipping ${{ matrix.repo }}: no pyproject.toml found"
+          echo "Skipping $MATRIX_REPO: no pyproject.toml found"
 
       - name: Create sync PR
         if: >-
