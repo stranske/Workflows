@@ -290,12 +290,14 @@ def validate(body: str) -> Report:
     acceptance_at = _find(body, REQUIRED["Acceptance Criteria"])
     if acceptance_at is not None:
         acceptance = _section_text(body, acceptance_at)
-        if not GATE.search(acceptance):
+        acceptance_prose = _without_fenced_code(acceptance)
+        if not GATE.search(acceptance_prose):
             report.problems.append(
                 "`Acceptance Criteria` names no test, runnable command or observable "
                 "verification gate — Definition of Ready / Quality Bar §2 requires one."
             )
-        prose = re.sub(r"(?<!`)`(?!`)[^`\n]*`", "", _without_fenced_code(acceptance))
+        prose = re.sub(r"(?<!`)`(?!`)[^`\n]*`", "", acceptance_prose)
+        prose = re.sub(r"(?<!\w)(?:[\w.-]+/)+[\w.-]+", "", prose)
         hits = [word for word in BANNED_ADJECTIVES if re.search(rf"\b{word}\b", prose, re.I)]
         if hits:
             report.problems.append(

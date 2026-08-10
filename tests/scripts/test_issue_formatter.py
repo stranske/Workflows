@@ -956,6 +956,7 @@ def test_safe_verify_command_requires_runnable_unittest_and_gh_args() -> None:
         issue_formatter.SAFE_VERIFY_COMMAND_RE.match("python -m unittest tests.test_x") is not None
     )
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("unittest") is None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("pytest") is not None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("go check") is None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("dotnet check") is None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("dotnet test") is not None

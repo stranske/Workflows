@@ -177,7 +177,7 @@ VERIFY_HINT_REGEX = re.compile(r"\(verify:\s*([^\n)]+)\)", re.IGNORECASE)
 SAFE_VERIFY_COMMAND_RE = re.compile(
     r"^(?:"
     r"(?:"
-    r"python(?:3)?\s+-m\s+(?:pytest|unittest)\b"
+    r"(?:python(?:3)?\s+-m\s+)?pytest\b|python(?:3)?\s+-m\s+unittest\b"
     r"|node\s+--test\b"
     r"|(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b"
     r"|(?:make|just|cargo)\s+(?:test|check)\b"

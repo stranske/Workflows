@@ -145,13 +145,24 @@ def test_subjective_words_in_inline_code_are_ignored_but_prose_is_rejected(
     assert report.ok is expected_ok
 
 
-def test_acceptance_gate_inside_fence_and_code_path_adjective_are_valid() -> None:
+def test_acceptance_gate_inside_fence_does_not_satisfy_validation() -> None:
     validator = _validator()
     report = validator.validate(
         VALID_CONTEXT
         + "## Tasks\n- [ ] Update `tests/fast/test_api.py`\n\n"
         + "## Acceptance Criteria\nRun the regression suite:\n"
         + "```sh\npython -m pytest tests/fast/test_api.py -q\n```\n"
+    )
+    assert not report.ok
+    assert "names no test" in report.problems[0]
+
+
+def test_acceptance_path_component_is_not_subjective_prose() -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `tests/fast/test_api.py`\n\n"
+        + "## Acceptance Criteria\n- [ ] Run pytest tests/fast/test_api.py and confirm it passes.\n"
     )
     assert report.ok
 
