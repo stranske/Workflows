@@ -4,6 +4,6 @@
   "version": "1.0.0",
   "description": "Locked Codex CLI runtime for the reusable verifier.",
   "dependencies": {
-    "@openai/codex": "0.144.1"
+    "@openai/codex": "0.147.0"
   }
 }
