@@ -145,8 +145,17 @@ def test_subjective_words_in_inline_code_are_ignored_but_prose_is_rejected(
     assert report.ok is expected_ok
 
 
-def test_acceptance_gate_inside_fence_does_not_satisfy_validation() -> None:
-    validator = _validator()
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_acceptance_gate_inside_fence_does_not_satisfy_validation(
+    validator_path: Path,
+) -> None:
+    validator = _validator(validator_path)
     report = validator.validate(
         VALID_CONTEXT
         + "## Tasks\n- [ ] Update `tests/fast/test_api.py`\n\n"
@@ -157,14 +166,41 @@ def test_acceptance_gate_inside_fence_does_not_satisfy_validation() -> None:
     assert "names no test" in report.problems[0]
 
 
-def test_acceptance_path_component_is_not_subjective_prose() -> None:
-    validator = _validator()
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_acceptance_path_component_is_not_subjective_prose(validator_path: Path) -> None:
+    validator = _validator(validator_path)
     report = validator.validate(
         VALID_CONTEXT
         + "## Tasks\n- [ ] Update `tests/fast/test_api.py`\n\n"
         + "## Acceptance Criteria\n- [ ] Run pytest tests/fast/test_api.py and confirm it passes.\n"
     )
     assert report.ok
+
+
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_acceptance_slash_separated_subjective_prose_is_rejected(
+    validator_path: Path,
+) -> None:
+    validator = _validator(validator_path)
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `tests/fast/test_api.py`\n\n"
+        + "## Acceptance Criteria\n- [ ] Run pytest tests/fast/test_api.py and make the response fast/performant.\n"
+    )
+    assert not report.ok
+    assert "subjective wording" in report.problems[0]
 
 
 def test_runner_and_curl_are_accepted_gates() -> None:

@@ -297,7 +297,14 @@ def validate(body: str) -> Report:
                 "verification gate — Definition of Ready / Quality Bar §2 requires one."
             )
         prose = re.sub(r"(?<!`)`(?!`)[^`\n]*`", "", acceptance_prose)
-        prose = re.sub(r"(?<!\w)(?:[\w.-]+/)+[\w.-]+", "", prose)
+        # Only discard tokens that are demonstrably file paths.  A broad
+        # slash-separated-word pattern would also erase subjective prose such
+        # as "fast/performant" before the adjective check sees it.
+        prose = re.sub(
+            r"(?<![\w/])(?:[\w.-]+/)+[\w.-]+\.[A-Za-z0-9]{1,10}\b",
+            "",
+            prose,
+        )
         hits = [word for word in BANNED_ADJECTIVES if re.search(rf"\b{word}\b", prose, re.I)]
         if hits:
             report.problems.append(

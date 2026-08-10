@@ -166,7 +166,9 @@ intuitive / polished) are rejected — replace with a measurable check.
 > Acceptance Criteria block references **no** test, smoke test, or verification
 > gate at all (a conservative string check for a test path/id, a runner command
 > like `pytest` / `gh workflow run` / `npm test` / `curl`, or a `smoke` /
-> `verif` token). An acceptance section of pure adjectives will not pass.
+> `verif` token). The qualifying gate must appear in normal Acceptance Criteria
+> prose, not inside a Markdown fenced code block. An acceptance section of pure
+> adjectives will not pass.
 
 #### The deliberate-break pattern (recommended worked form)
 
