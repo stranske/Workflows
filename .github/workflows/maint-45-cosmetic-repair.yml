@@ -63,18 +63,22 @@ jobs:
           exit 0
 
       - name: Run cosmetic repair script
+        env:
+          DRY_RUN: ${{ inputs['dry-run'] }}
+          BRANCH_SUFFIX: ${{ inputs['branch-suffix'] }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           cmd=("python" "scripts/ci_cosmetic_repair.py")
-          if [ "${{ inputs['dry-run'] }}" = "true" ]; then
+          if [ "$DRY_RUN" = "true" ]; then
             cmd+=("--dry-run" "--skip-pr")
           else
             cmd+=("--apply")
           fi
-          if [ -n "${{ inputs['branch-suffix'] }}" ]; then
-            cmd+=("--branch-suffix" "${{ inputs['branch-suffix'] }}")
+          if [ -n "$BRANCH_SUFFIX" ]; then
+            cmd+=("--branch-suffix" "$BRANCH_SUFFIX")
           fi
-          cmd+=("--base" "${{ github.event.repository.default_branch }}")
+          cmd+=("--base" "$BASE_BRANCH")
           echo "Running: ${cmd[*]}"
           "${cmd[@]}"
 

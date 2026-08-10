@@ -1998,13 +1998,16 @@ jobs:
         id: coverage_min
         if: ${{ inputs.coverage && inputs['coverage-min'] != '' }}
         continue-on-error: true
+        env:
+          COVERAGE_MIN: ${{ inputs['coverage-min'] }}
         run: |
           python - <<'PY'
+          import os
           import sys
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
-          target = float("${{ inputs['coverage-min'] }}")
+          target = float(os.environ["COVERAGE_MIN"])
           path = Path("coverage.xml")
           if not path.is_file():
             print("coverage.xml not found", file=sys.stderr)
@@ -2216,6 +2219,7 @@ jobs:
           PYTEST_OUTCOME: ${{ steps.pytest.outcome || 'skipped' }}
           COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
           COVERAGE_ENABLED: ${{ inputs.coverage }}
+          COVERAGE_MIN: ${{ inputs['coverage-min'] }}
         run: |
           set -euo pipefail
           failures=()
@@ -2244,7 +2248,7 @@ jobs:
           }
 
           record_outcome "pytest" "${PYTEST_OUTCOME}"
-          if [ "${{ inputs.coverage && inputs['coverage-min'] != '' }}" = 'true' ]; then
+          if [ "$COVERAGE_ENABLED" = 'true' ] && [ -n "$COVERAGE_MIN" ]; then
             record_outcome "coverage minimum" "${COVERAGE_MIN_OUTCOME}"
           fi
 
@@ -2416,11 +2420,13 @@ jobs:
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
+        env:
+          COVERAGE_MIN: ${{ inputs['coverage-min'] }}
         run: |
           # shellcheck disable=SC2086
           MIN_ARG=""
-          if [ -n "${{ inputs['coverage-min'] }}" ]; then
-            MIN_ARG="--minimum ${{ inputs['coverage-min'] }}"
+          if [ -n "$COVERAGE_MIN" ]; then
+            MIN_ARG="--minimum $COVERAGE_MIN"
           fi
           # shellcheck disable=SC2086
           python "${GITHUB_WORKSPACE}/tools/coverage_trend.py" \

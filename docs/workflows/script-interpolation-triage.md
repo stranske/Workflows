@@ -10,7 +10,7 @@ Follow-up to merged PR #3020. This documents the repository-wide review of
 | --- | ---: | --- |
 | Free-text inputs moved to `env:` in #3020 | 3 fields | `commit_message`, `codex_args`, `repos` |
 | Additional free-text fixes in this PR | 4 fields | `target_repo`, `commit_prefix`, `head_repository`, campaign script outputs |
-| Reviewed constrained interpolations | 103 | Explicit allowlist in `test_no_untrusted_interpolation.py` |
+| Reviewed constrained interpolations | 97 | Explicit allowlist in `test_no_untrusted_interpolation.py` |
 
 ## Free-text inputs (must use `env:` indirection)
 
@@ -35,7 +35,7 @@ constrained:
 - **Booleans / dry-run flags** — `inputs.dry_run`, `inputs.create_issue`, etc.
 - **Numeric identifiers** — `inputs.pr_number`, `inputs.issue_number`, `github.event.issue.number`
 - **Repo-controlled refs** — `github.event.pull_request.base.ref`, `github.event.repository.default_branch`
-- **Enumerated modes** — `inputs.mode`, `inputs.agent_key`, `inputs.provider`
+- **Enumerated modes** — `inputs.mode`, `inputs.agent_key`, `inputs.provider`, `inputs.package-manager`, `inputs.test-runner`
 - **Step output passthrough** — `steps.registered.outputs.repos` consumed via step `env:` in `maint-82`
 
 Each tuple is recorded in `REVIEWED_SCRIPT_INTERPOLATIONS` inside

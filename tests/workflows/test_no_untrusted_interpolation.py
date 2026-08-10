@@ -341,11 +341,6 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
             "github.event.pull_request.base.ref",
         ),
         (
-            ".github/workflows/reusable-10-ci-python.yml",
-            "tests/step-22/run",
-            "inputs.coverage && inputs['coverage-min'] != ''",
-        ),
-        (
             ".github/workflows/reusable-16-agents.yml",
             "readiness/step-6/run",
             "inputs.readiness_custom_logins",
@@ -355,6 +350,36 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
             ".github/workflows/reusable-18-autofix.yml",
             "autofix/step-17/with.script",
             "inputs.clean_label",
+        ),
+        (
+            ".github/workflows/reusable-11-ci-node.yml",
+            "tests/step-2/run",
+            "inputs.package-manager",
+        ),
+        (
+            ".github/workflows/reusable-11-ci-node.yml",
+            "tests/step-3/run",
+            "inputs.package-manager",
+        ),
+        (
+            ".github/workflows/reusable-11-ci-node.yml",
+            "tests/step-4/run",
+            "inputs.package-manager",
+        ),
+        (
+            ".github/workflows/reusable-11-ci-node.yml",
+            "tests/step-5/run",
+            "inputs.package-manager",
+        ),
+        (
+            ".github/workflows/reusable-11-ci-node.yml",
+            "tests/step-6/run",
+            "inputs.package-manager",
+        ),
+        (
+            ".github/workflows/reusable-11-ci-node.yml",
+            "tests/step-6/run",
+            "inputs.test-runner",
         ),
         (
             ".github/workflows/reusable-70-orchestrator-main.yml",
@@ -543,15 +568,20 @@ def _actions_expression_bodies(script: str) -> Iterable[str]:
 
 
 def _normalize_expression(body: str) -> str:
-    return re.sub(r"\s+", " ", body.strip())
+    normalized = re.sub(r"\s+", " ", body.strip())
+    # Keep reviewed-inventory keys stable when equivalent indexed Actions
+    # context access is used (for example, inputs['dry-run']).
+    return re.sub(r"\[\s*['\"]([A-Za-z0-9_-]+)['\"]\s*\]", r".\1", normalized)
 
 
 def _is_banned_free_text(body: str) -> bool:
     normalized = _normalize_expression(body)
     return any(
-        normalized == banned
-        or normalized.startswith(f"{banned} ")
-        or normalized.startswith(f"{banned}||")
+        re.search(
+            rf"\binputs\s*(?:\.\s*{re.escape(banned.split('.', maxsplit=1)[1])}\b|"
+            rf"\[\s*['\"]{re.escape(banned.split('.', maxsplit=1)[1])}['\"]\s*\])",
+            normalized,
+        )
         for banned in BANNED_FREE_TEXT_EXPRESSIONS
     )
 
@@ -560,7 +590,11 @@ def _script_interpolation_hits(script: str) -> list[str]:
     return [
         _normalize_expression(body)
         for body in _actions_expression_bodies(script)
-        if re.search(r"\b(inputs\.|github\.event\.)", body)
+        if re.search(
+            r"\binputs\s*(?:\.|\[)|"
+            r"\bgithub\s*(?:\.\s*event\b|\[\s*['\"]event['\"]\s*\])",
+            body,
+        )
     ]
 
 
@@ -652,3 +686,35 @@ def test_untrusted_expression_guard_matches_default_and_wrapper_forms() -> None:
     assert _untrusted_references("${{ format('{{prefix}} {0}', inputs.codex_args) }}") == [
         "inputs.codex_args"
     ]
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        "echo ${{ inputs['commit_message'] }}",
+        "echo ${{ github['event']['issue']['title'] }}",
+        "echo ${{ github['event'].issue['title'] }}",
+    ],
+)
+def test_script_interpolation_hits_detects_indexed_context_forms(script: str) -> None:
+    assert _script_interpolation_hits(script)
+
+
+def test_script_interpolation_hits_normalizes_indexed_context_keys() -> None:
+    assert _script_interpolation_hits("echo ${{ inputs['commit_message'] }}") == [
+        "inputs.commit_message"
+    ]
+    assert _script_interpolation_hits("echo ${{ github['event']['issue']['title'] }}") == [
+        "github.event.issue.title"
+    ]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "format('{0}', inputs.codex_args)",
+        "contains(inputs['repos'], 'all')",
+    ],
+)
+def test_banned_free_text_detects_wrapper_and_indexed_forms(expression: str) -> None:
+    assert _is_banned_free_text(expression)
