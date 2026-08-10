@@ -591,8 +591,7 @@ def _script_interpolation_hits(script: str) -> list[str]:
         _normalize_expression(body)
         for body in _actions_expression_bodies(script)
         if re.search(
-            r"\binputs\s*(?:\.|\[)|"
-            r"\bgithub\s*(?:\.\s*event\b|\[\s*['\"]event['\"]\s*\])",
+            r"\binputs\s*(?:\.|\[)|" r"\bgithub\s*(?:\.\s*event\b|\[\s*['\"]event['\"]\s*\])",
             body,
         )
     ]
