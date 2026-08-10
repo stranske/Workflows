@@ -521,7 +521,7 @@ jobs:
           import json
           with open('/tmp/format_result.json') as f:
               result = json.load(f)
-          formatted = result.get('formatted_body', '')
+          formatted = result['formatted_body']
           if not formatted:
               print('ERROR: No formatted body returned')
               import sys
