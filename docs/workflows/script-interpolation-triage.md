@@ -10,7 +10,7 @@ Follow-up to merged PR #3020. This documents the repository-wide review of
 | --- | ---: | --- |
 | Free-text inputs moved to `env:` in #3020 | 3 fields | `commit_message`, `codex_args`, `repos` |
 | Additional free-text fixes in this PR | 4 fields | `target_repo`, `commit_prefix`, `head_repository`, campaign script outputs |
-| Reviewed constrained interpolations | 97 | Explicit allowlist in `test_no_untrusted_interpolation.py` |
+| Reviewed constrained interpolations | 103 | Explicit allowlist in `test_no_untrusted_interpolation.py` |
 
 ## Free-text inputs (must use `env:` indirection)
 
