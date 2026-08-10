@@ -23,7 +23,6 @@ WORKFLOW_GLOBS = (".github/workflows/*.yml", ".github/workflows/*.yaml")
 # constrained-value review; expanding this set is not a substitute for that
 # review.
 UNTRUSTED_EXPRESSIONS = frozenset({"inputs.commit_message", "inputs.codex_args", "inputs.repos"})
-ACTIONS_EXPRESSION = re.compile(r"\$\{\{(?P<body>.*?)\}\}", re.DOTALL)
 
 
 def _workflow_paths() -> Iterable[Path]:
@@ -47,14 +46,54 @@ def _script_values(path: Path) -> Iterable[tuple[str, str]]:
                 yield f"{job_name}/step-{index}/with.script", script
 
 
+def _actions_expression_bodies(script: str) -> Iterable[str]:
+    """Yield Actions expression bodies without ending quoted brace literals early."""
+
+    start = 0
+    while (opening := script.find("${{", start)) != -1:
+        index = opening + 3
+        quote: str | None = None
+        escaped = False
+        while index < len(script) - 1:
+            character = script[index]
+            if quote:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == quote:
+                    quote = None
+            elif character in {"'", '"'}:
+                quote = character
+            elif script[index : index + 2] == "}}":
+                yield script[opening + 3 : index]
+                start = index + 2
+                break
+            index += 1
+        else:
+            start = opening + 3
+
+
+def _references_untrusted_input(body: str, expression: str) -> bool:
+    """Recognize equivalent property and bracket references in an expression."""
+
+    _, property_name = expression.split(".", maxsplit=1)
+    return bool(
+        re.search(
+            rf"\binputs\s*(?:\.\s*{re.escape(property_name)}\b|\[\s*['\"]{re.escape(property_name)}['\"]\s*\])",
+            body,
+        )
+    )
+
+
 def _untrusted_references(script: str) -> list[str]:
     """Return free-text inputs referenced anywhere in Actions expressions."""
 
-    expression_bodies = [match.group("body") for match in ACTIONS_EXPRESSION.finditer(script)]
+    expression_bodies = list(_actions_expression_bodies(script))
     return sorted(
         expression
         for expression in UNTRUSTED_EXPRESSIONS
-        if any(re.search(rf"\b{re.escape(expression)}\b", body) for body in expression_bodies)
+        if any(_references_untrusted_input(body, expression) for body in expression_bodies)
     )
 
 
@@ -80,5 +119,9 @@ def test_untrusted_expression_guard_has_a_concrete_target(expression: str) -> No
 def test_untrusted_expression_guard_matches_default_and_wrapper_forms() -> None:
     assert _untrusted_references("echo ${{ inputs.repos || 'all' }}") == ["inputs.repos"]
     assert _untrusted_references("const v = '${{ format('{0}', inputs.codex_args) }}';") == [
+        "inputs.codex_args"
+    ]
+    assert _untrusted_references("echo ${{ inputs['repos'] }}") == ["inputs.repos"]
+    assert _untrusted_references("${{ format('{{prefix}} {0}', inputs.codex_args) }}") == [
         "inputs.codex_args"
     ]
