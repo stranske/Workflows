@@ -860,6 +860,12 @@ jobs:
           CODEX_HOME: ${{ runner.temp }}/.codex
           CODEX_MODEL_CANDIDATES: ${{ steps.codex_model.outputs.candidates }}
           CODEX_MODEL_SELECTION_REASON: ${{ steps.codex_model.outputs.selection_reason }}
+          PROMPT_FILE: ${{ steps.prompt.outputs.file }}
+          PR_NUM: ${{ inputs.pr_number }}
+          SANDBOX: ${{ inputs.sandbox }}
+          EXTRA_ARGS_RAW: ${{ inputs.codex_args }}
+          MAX_RUNTIME_MIN: ${{ inputs.max_runtime_minutes }}
+          TARGET_BRANCH: ${{ inputs.pr_ref }}
         run: |
           set -euo pipefail
 
@@ -869,9 +875,7 @@ jobs:
           chmod 600 "$CODEX_HOME/auth.json"
 
           # Build codex exec command
-          PROMPT_FILE="${{ steps.prompt.outputs.file }}"
           # Use PR-specific output filename to avoid merge conflicts
-          PR_NUM="${{ inputs.pr_number }}"
           if [ -n "${PR_NUM}" ]; then
             OUTPUT_FILE="codex-output-${PR_NUM}.md"
             SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
@@ -879,8 +883,6 @@ jobs:
             OUTPUT_FILE="codex-output.md"
             SESSION_JSONL="codex-session.jsonl"
           fi
-          SANDBOX="${{ inputs.sandbox }}"
-          EXTRA_ARGS_RAW="${{ inputs.codex_args }}"
 
           # Default sandbox if not specified
           if [ -z "$SANDBOX" ]; then
@@ -949,7 +951,6 @@ jobs:
           # When the job approaches the timeout limit, this background process
           # commits and pushes any uncommitted work so it isn't lost to the
           # job cancellation.  It fires once, 5 minutes before max_runtime.
-          MAX_RUNTIME_MIN=${{ inputs.max_runtime_minutes }}
           GRACE_MIN=5
           WATCHDOG_DELAY=$(( (MAX_RUNTIME_MIN - GRACE_MIN) * 60 ))
           echo "watchdog-saved=false" >> "$GITHUB_OUTPUT"
@@ -961,7 +962,6 @@ jobs:
               echo "::warning::Pre-timeout watchdog fired "\
                 "(${GRACE_MIN}m before ${MAX_RUNTIME_MIN}m limit)"
 
-              TARGET_BRANCH="${{ inputs.pr_ref }}"
               TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
               PUSH_TOKEN="${{ steps.run_base.outputs.push_token }}"
               REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"

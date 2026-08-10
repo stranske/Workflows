@@ -68,9 +68,11 @@ jobs:
 
       - name: Determine target repos
         id: repos
+        env:
+          INPUT_REPOS: ${{ inputs.repos }}
         run: |
-          if [ "${{ inputs.repos }}" != "all" ] && [ -n "${{ inputs.repos }}" ]; then
-            repos="${{ inputs.repos }}"
+          if [ "$INPUT_REPOS" != "all" ] && [ -n "$INPUT_REPOS" ]; then
+            repos="$INPUT_REPOS"
           else
             repos=$(python scripts/list_registered_consumer_repos.py --separator ',')
           fi

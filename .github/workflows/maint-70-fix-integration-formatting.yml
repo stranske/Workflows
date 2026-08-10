@@ -113,6 +113,8 @@ jobs:
 
       - name: Commit and push changes
         if: steps.changes.outputs.has_changes == 'true'
+        env:
+          COMMIT_MESSAGE: ${{ inputs.commit_message }}
         run: |
           cd integration-tests
           git config user.name "github-actions[bot]"
@@ -121,7 +123,7 @@ jobs:
           run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           git add -A
-          git commit -m "${{ inputs.commit_message }}" \
+          git commit -m "$COMMIT_MESSAGE" \
             -m "" \
             -m "Applied by: ${run_url}"
 
