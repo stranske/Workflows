@@ -54,10 +54,7 @@ def _untrusted_references(script: str) -> list[str]:
     return sorted(
         expression
         for expression in UNTRUSTED_EXPRESSIONS
-        if any(
-            re.search(rf"\b{re.escape(expression)}\b", body)
-            for body in expression_bodies
-        )
+        if any(re.search(rf"\b{re.escape(expression)}\b", body) for body in expression_bodies)
     )
 
 
