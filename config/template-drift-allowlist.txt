@@ -65,8 +65,8 @@ reason = Existing reviewed baseline drift re-baselined 2026-06-20: exported Orch
 main = .github/workflows/agents-73-codex-belt-conveyor.yml
 template = templates/consumer-repo/.github/workflows/agents-73-codex-belt-conveyor.yml
 main_sha256 = c0f900cf6fd9d88b6f34538644b52e172fac31a599a2b1f95e650589c9f92012
-template_sha256 = 77c270fed157639722d85ab1678770317bd855188a6bbe16db4e088719c3e0cd
-reason = Intentional divergence re-reviewed 2026-08-09: root conveyor now labels Gate and changed-file checks as authoritative; consumer action pins and Codex-specific conveyor behavior remain protected.
+template_sha256 = a1531951216890c2e7f766e53aaaa53ad6da1e2d94dd8a2db3889311672a13ec
+reason = Intentional divergence re-reviewed 2026-08-10: root conveyor labels Gate and changed-file checks as authoritative; the consumer adds explicit best-effort rationale for only post-merge cleanup calls while preserving its action pins and Codex-specific behavior.
 
 [pair.5]
 main = .github/workflows/agents-auto-label.yml
@@ -127,9 +127,9 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.13]
 main = .github/workflows/agents-keepalive-sweep.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml
-main_sha256 = 45113e2f05f278293d23e8b9644ca8bf8e68795a2a2bead0c60322f4bd31fa7c
-template_sha256 = 566e3ad4ba57a2a238fa887bd1f15b5d86bcef533dd1758b4f0c708a5a7e3da4
-reason = Intentional divergence re-reviewed 2026-08-09: root sweep now uses the token-aware API client; consumers retain their consolidated gate-followup dispatch path.
+main_sha256 = 87cf4230c17512d80b10f19ded72f721392b026a15fdd4678852e8e455a25a97
+template_sha256 = 678b1daafa5f28e7fa5f3181eb35e8ad5cf9908e3470b331996013004f3b905f
+reason = Intentional divergence re-reviewed 2026-08-10: root sweep uses the token-aware API client and a SHA-pinned checkout; consumers retain their consolidated gate-followup dispatch path. Both make per-PR dispatch failure explicitly best-effort.
 
 [pair.14]
 main = .github/workflows/agents-verifier.yml

@@ -41,7 +41,7 @@ jobs:
     if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true'
     steps:
       - name: Checkout API client helpers
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           sparse-checkout: |
@@ -94,6 +94,7 @@ jobs:
                 }));
                 dispatched += 1;
               } catch (error) {
+                // # best-effort: one failed dispatch must not prevent later PRs from being re-evaluated.
                 core.warning(`Failed to dispatch loop for PR #${pr.number}: ${error.message}`);
               }
             }

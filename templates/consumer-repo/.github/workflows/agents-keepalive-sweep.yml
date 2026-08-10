@@ -70,6 +70,7 @@ jobs:
                 });
                 dispatched += 1;
               } catch (error) {
+                // # best-effort: one failed dispatch must not prevent later PRs from being re-evaluated.
                 core.warning(`Failed to dispatch loop for PR #${pr.number}: ${error.message}`);
               }
             }

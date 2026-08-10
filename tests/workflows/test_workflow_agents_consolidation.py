@@ -182,6 +182,24 @@ def test_orchestrator_idle_precheck_defers_on_issue_scan_rate_limit():
     ), "Idle-only messaging must not mask a rate-limit deferral"
 
 
+def test_autofix_file_discovery_fails_closed_on_rate_limit():
+    workflow_paths = [
+        WORKFLOWS_DIR / "autofix.yml",
+        Path("templates/consumer-repo/.github/workflows/autofix.yml"),
+    ]
+
+    for workflow_path in workflow_paths:
+        text = workflow_path.read_text(encoding="utf-8")
+        assert "skipping autofix to preserve the file filter" in text
+        assert "files === null\n                ? true" not in text
+        assert (
+            "if (files === null) {\n"
+            "              core.setOutput('should_run', 'false');\n"
+            "              return;\n"
+            "            }"
+        ) in text
+
+
 def test_auto_pilot_context_and_cycle_reads_defer_on_rate_limit():
     text = (WORKFLOWS_DIR / "agents-auto-pilot.yml").read_text(encoding="utf-8")
 

@@ -489,6 +489,7 @@ jobs:
             try {
               await withRetry(() => github.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` }));
             } catch (error) {
+              // # best-effort: the PR is already merged, so branch cleanup can be retried later.
               core.warning(`Failed to delete branch ${branch}: ${error.message}`);
             }
 
@@ -517,6 +518,7 @@ jobs:
             try {
               await withRetry(() => github.rest.issues.update({ owner, repo, issue_number: issue, state: 'closed' }));
             } catch (error) {
+              // # best-effort: GitHub may already have closed the issue from the merged closing reference.
               core.warning(`Failed to close issue #${issue}: ${error.message}`);
             }
             try {
@@ -560,6 +562,7 @@ jobs:
             try {
               await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `Gate succeeded; merged automatically and closed issue #${issue || '(unknown)'}.` }));
             } catch (error) {
+              // # best-effort: the merge is durable even if its confirmation comment cannot be posted.
               core.warning(`Failed to comment on PR #${prNumber}: ${error.message}`);
             }
 
@@ -599,5 +602,6 @@ jobs:
                 },
               }));
             } catch (error) {
+              // # best-effort: the completed merge does not depend on immediately waking the dispatcher.
               core.warning(`Failed to re-dispatch dispatcher: ${error.message}`);
             }

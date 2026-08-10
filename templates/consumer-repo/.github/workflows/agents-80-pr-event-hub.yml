@@ -285,6 +285,7 @@ jobs:
               }));
               console.log('Removed autofix:bot-comments label');
             } catch (error) {
+              // # best-effort: the one-shot trigger label may be removed on a later event.
               console.log(`Could not remove label: ${error.message}`);
             }
 
@@ -538,5 +539,6 @@ jobs:
               }));
               core.info('Removed verify:create-issue label');
             } catch (error) {
+              // # best-effort: the one-shot trigger label may be removed on a later event.
               core.warning(`Could not remove label: ${error.message}`);
             }

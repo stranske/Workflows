@@ -213,7 +213,7 @@ jobs:
                 const status = Number(error?.status || error?.response?.status || 0);
                 if (status === 403 && message.toLowerCase().includes('rate limit')) {
                   core.warning(
-                    'Rate limited listing PR files; skipping autofix without a file filter.'
+                    'Rate limited listing PR files; skipping autofix to preserve the file filter.'
                   );
                   return null;
                 }
@@ -441,13 +441,13 @@ jobs:
               prNumber: pr.number,
             });
 
-            const hasPython =
-              files === null
-                ? true
-                : files.some(
-                    (file) =>
-                      file.filename.endsWith('.py') || file.filename.endsWith('.pyi')
-                  );
+            if (files === null) {
+              core.setOutput('should_run', 'false');
+              return;
+            }
+            const hasPython = files.some(
+              (file) => file.filename.endsWith('.py') || file.filename.endsWith('.pyi')
+            );
 
             if (!hasPython) {
               core.info('No Python files changed.');
