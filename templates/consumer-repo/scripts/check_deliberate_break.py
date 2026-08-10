@@ -170,7 +170,9 @@ def _infer_break_file(break_line: str, named_line: str, markdown: str) -> str | 
 
     # Prefer the file explicitly described as being reverted. A deliberate-break
     # line may name the test command before its actual mutation target.
-    for revert_match in re.finditer(r"\brevert(?:ing|ed)?\b[^`]{0,120}`([^`]+)`", break_line, re.IGNORECASE):
+    for revert_match in re.finditer(
+        r"\brevert(?:ing|ed)?\b[^`]{0,120}`([^`]+)`", break_line, re.IGNORECASE
+    ):
         revert_paths = _candidate_paths(f"`{revert_match.group(1)}`")
         if revert_paths:
             return revert_paths[0]
