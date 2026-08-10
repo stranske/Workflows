@@ -517,7 +517,7 @@ def test_main_emits_formatter_error_without_refinement(monkeypatch, capsys) -> N
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["error"] == "Issue body too large"
-    assert payload["needs_refinement"] is False
+    assert payload["needs_refinement"] is True
 
 
 def test_main_writes_output_file(monkeypatch, tmp_path, capsys) -> None:
@@ -910,6 +910,10 @@ def test_curl_requires_a_target_for_safe_verify_command() -> None:
     assert (
         issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl http://example.test/health") is not None
     )
+
+
+def test_safe_verify_command_rejects_trailing_unallowlisted_text() -> None:
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("pytest tests/test_x.py; curl bad") is None
 
 
 def test_append_raw_issue_recovers_tilde_fenced_original_issue() -> None:

@@ -272,7 +272,8 @@ jobs:
             printf '%s\n' \
               '<!-- format-guard:attempt-cap -->' \
               "Automated formatting stopped after $format_guard_attempts optimizer attempts. Fix the issue body manually, then remove agents:auto-pilot-pause before retrying." \
-              | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file -
+              | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file - \
+              || echo "::warning::could not post format-guard attempt-cap comment"
             exit 0
           fi
           has_format_label=false

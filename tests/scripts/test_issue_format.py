@@ -186,6 +186,16 @@ def test_task_without_concrete_target_is_non_conforming() -> None:
     assert "concrete file" in report.as_markdown()
 
 
+def test_punctuation_does_not_make_a_generic_task_target_concrete() -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Improve file handling.\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert not report.ok
+
+
 @pytest.mark.parametrize(
     "validator_path",
     [

@@ -796,8 +796,11 @@ jobs:
                   f.write(reason)
               sys.exit(0)
           if result.get('error'):
-              print('ERROR: Formatter failed: ' + str(result.get('error')))
-              sys.exit(1)
+              reason = 'Formatter failed: ' + str(result.get('error'))
+              print('NEEDS_REFINEMENT: ' + reason)
+              with open('/tmp/needs_refinement', 'w') as f:
+                  f.write(reason)
+              sys.exit(0)
           if result.get('needs_refinement'):
               reason = 'Formatter output does not satisfy the canonical issue-format contract.'
               audit = result.get('validation_audit')

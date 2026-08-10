@@ -101,7 +101,7 @@ _TASK_COMMAND = (
 
 def _concrete_span(span: str) -> bool:
     """Return True when a backticked/unquoted token names a real work target."""
-    span = span.strip()
+    span = span.strip().rstrip(".,;:!?")
     if not span:
         return False
     if re.fullmatch(_TASK_CATEGORY, span, re.I):

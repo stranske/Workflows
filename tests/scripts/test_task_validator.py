@@ -43,6 +43,7 @@ class TestHeuristicDetection:
         assert _has_subjective_without_measurable("Ensure quality") is True
         assert _has_subjective_without_measurable("Ensure tests pass") is False  # has "tests"
         assert _has_subjective_without_measurable("Create metrics file") is False
+        assert _has_subjective_without_measurable("Run pytest tests/fast/test_api.py") is False
 
     def test_looks_like_human_activity(self) -> None:
         assert _looks_like_human_activity("Train staff on procedures") is True

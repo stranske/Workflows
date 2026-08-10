@@ -140,6 +140,17 @@ def test_issue_3007_acceptance_wording_is_supported() -> None:
     assert spec.break_file == ".github/workflows/maint-69-sync-labels.yml"
 
 
+def test_break_line_target_beats_unrelated_workflow_path() -> None:
+    spec = parse_deliberate_break_spec(
+        "## Scope\n- [ ] Update `.github/workflows/ci.yml`.\n\n"
+        "## Acceptance Criteria\n"
+        "- [ ] Named test: add `tests/test_widget.py` with `test_widget`.\n"
+        "- [ ] Deliberate break: temporarily revert `src/widget.py`.\n"
+    )
+    assert spec is not None
+    assert spec.break_file == "src/widget.py"
+
+
 def test_fallback_marker_ignores_backticked_curl_command_and_keeps_trailing_colon_path() -> None:
     spec = parse_deliberate_break_spec("""## Acceptance Criteria
 - [ ] Deliberate break: change `src/example.py:` and prove the named test fails.

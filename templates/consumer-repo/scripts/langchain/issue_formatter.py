@@ -182,7 +182,7 @@ SAFE_VERIFY_COMMAND_RE = re.compile(
     r"|(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b"
     r"|gh\s+(?:workflow\s+run|run)\s+\S+"
     r"|curl\s+https?://\S+\Z"
-    r")",
+    r")(?:\s+[^;&|`$<>\n\r]+)*\Z",
     re.IGNORECASE,
 )
 SHELL_METACHARACTERS_RE = re.compile(r"[;&|`$<>\n\r]")
@@ -868,7 +868,7 @@ def main() -> None:
             "provider_used": result.get("provider_used"),
             "used_llm": result.get("used_llm", False),
             "labels": build_label_transition(),
-            "needs_refinement": result.get("needs_refinement", False),
+            "needs_refinement": result.get("needs_refinement", True),
             "validation_audit": result.get("validation_audit"),
         }
         if result.get("error"):

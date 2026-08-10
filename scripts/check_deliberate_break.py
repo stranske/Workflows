@@ -172,8 +172,14 @@ def _infer_break_file(break_line: str, named_line: str, markdown: str) -> str | 
                 paths.append(path_only)
         return paths
 
+    # The deliberate-break line is the explicit experiment target.  Only fall
+    # back to other acceptance prose when it does not name a path itself.
+    break_paths = _candidate_paths(break_line)
+    if break_paths:
+        return break_paths[0]
+
     ordered_paths: list[str] = []
-    for text in (break_line, named_line, markdown):
+    for text in (named_line, markdown):
         ordered_paths.extend(_candidate_paths(text))
 
     workflow_paths = [
