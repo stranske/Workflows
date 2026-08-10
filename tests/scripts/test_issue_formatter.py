@@ -921,6 +921,10 @@ def test_safe_verify_command_handles_tab_heavy_invalid_input_without_backtrackin
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match(hostile) is None
 
 
+def test_safe_verify_command_accepts_tab_separated_arguments() -> None:
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("gh\trun\twatch") is not None
+
+
 def test_append_raw_issue_recovers_tilde_fenced_original_issue() -> None:
     original = "TILDE-FENCED ORIGINAL"
     formatted = "\n".join(

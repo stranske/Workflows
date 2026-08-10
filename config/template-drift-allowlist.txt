@@ -113,9 +113,9 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = 5b62401785a5b4e3d64f89048c1919dbc46ee2258db94369cc77cd6b9da75d1d
+main_sha256 = 22da89b0b17c2c8d9c5ada4510fb588c307d8a98a56abfa8d5966664f3948dd7
 template_sha256 = 1f6b83202c08225789bf82761b65d79de9c51c2c2ffe50e8a9d1c3b7e36c9d87
-reason = Intentional divergence re-baselined 2026-08-08c: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract: event-safe optimizer run names, cancel-safe agents:format release even if the initial check fails, and nonzero failure for unexpected validator stderr. Do not align wholesale — that would strip consumer action pins/token setup.
+reason = Intentional divergence re-baselined 2026-08-10: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes safe linear verify-hint validation, event-safe optimizer run names, cancel-safe agents:format release even if the initial check fails, and nonzero failure for unexpected validator stderr. Do not align wholesale — that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
