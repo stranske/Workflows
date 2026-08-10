@@ -24,9 +24,17 @@ def test_campaign_refresh_summary_publishes_source_sync_contract():
 
 
 def test_campaign_refresh_passes_current_sync_hash_to_runner():
-    script = _refresh_script()
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    refresh_step = next(
+        step
+        for step in data["jobs"]["campaign"]["steps"]
+        if step.get("id") == "campaign"
+    )
+    script = refresh_step["with"]["script"]
+    env = refresh_step.get("env", {})
 
-    assert "const currentSyncHash = '${{ steps.hash.outputs.hash }}';" in script
+    assert env["CURRENT_SYNC_HASH"] == "${{ steps.hash.outputs.hash }}"
+    assert "const currentSyncHash = process.env.CURRENT_SYNC_HASH;" in script
     assert "currentSyncHash," in script
 
 
