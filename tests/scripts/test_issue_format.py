@@ -100,6 +100,17 @@ def test_checkbox_and_subjective_errors_are_non_conforming() -> None:
     assert "not yet agent-processable" in report.as_markdown()
 
 
+def test_acceptance_gate_inside_fence_and_code_path_adjective_are_valid() -> None:
+    validator = _validator()
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `tests/fast/test_api.py`\n\n"
+        + "## Acceptance Criteria\nRun the regression suite:\n"
+        + "```sh\npython -m pytest tests/fast/test_api.py -q\n```\n"
+    )
+    assert report.ok
+
+
 def test_runner_and_curl_are_accepted_gates() -> None:
     validator = _validator()
     report = validator.validate(

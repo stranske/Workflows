@@ -177,13 +177,14 @@ VERIFY_HINT_REGEX = re.compile(r"\(verify:\s*([^\n)]+)\)", re.IGNORECASE)
 SAFE_VERIFY_COMMAND_RE = re.compile(
     r"^(?:"
     r"(?:"
-    r"(?:python(?:3)?\s+-m\s+)?(?:pytest|unittest)\b"
+    r"python(?:3)?\s+-m\s+(?:pytest|unittest)\b"
     r"|node\s+--test\b"
     r"|(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b"
-    r"|(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b"
+    r"|(?:make|just|cargo)\s+(?:test|check)\b"
+    r"|go\s+test\b|dotnet\s+test\b"
     r"|gh\s+(?:workflow\s+run|run)\s+[^\s;&|`$<>\n\r]+"
-    r")(?:[ \t]+[^;&|`$<>\n\r]+)?"
-    r"|curl\s+https?://[^\s;&|`$<>\n\r]+"
+    r")(?:[ \t]+[^;&|`$<>\n\r]+)*"
+    r"|curl(?:\s+-[A-Za-z]+)*(?:\s+https?://[^\s;&|`$<>\n\r]+)"
     r")\Z",
     re.IGNORECASE,
 )
@@ -870,7 +871,7 @@ def main() -> None:
             "provider_used": result.get("provider_used"),
             "used_llm": result.get("used_llm", False),
             "labels": build_label_transition(),
-            "needs_refinement": result.get("needs_refinement", True),
+            "needs_refinement": result.get("needs_refinement", False),
             "validation_audit": result.get("validation_audit"),
         }
         if result.get("error"):

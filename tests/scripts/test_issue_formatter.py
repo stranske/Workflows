@@ -517,7 +517,7 @@ def test_main_emits_formatter_error_without_refinement(monkeypatch, capsys) -> N
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["error"] == "Issue body too large"
-    assert payload["needs_refinement"] is True
+    assert payload["needs_refinement"] is False
 
 
 def test_main_writes_output_file(monkeypatch, tmp_path, capsys) -> None:
@@ -945,11 +945,15 @@ def test_append_raw_issue_recovers_tilde_fenced_original_issue() -> None:
     assert original in output
 
 
-def test_safe_verify_command_accepts_unittest_and_requires_gh_args() -> None:
+def test_safe_verify_command_requires_runnable_unittest_and_gh_args() -> None:
     assert (
         issue_formatter.SAFE_VERIFY_COMMAND_RE.match("python -m unittest tests.test_x") is not None
     )
-    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("unittest") is not None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("unittest") is None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("go check") is None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("dotnet check") is None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("go test ./...") is not None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl -I https://example.test") is not None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("gh run") is None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("gh workflow run") is None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("gh run watch") is not None
