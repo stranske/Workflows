@@ -40,7 +40,11 @@ def _candidate_steps() -> list[tuple[Path, str, str, str]]:
                     if "actions/github-script" not in str(step.get("uses", "")):
                         continue
                     script = str((step.get("with") or {}).get("script", ""))
-                    if "catch" in script and API_CALL.search(script) and "core.setFailed" not in script:
+                    if (
+                        "catch" in script
+                        and API_CALL.search(script)
+                        and "core.setFailed" not in script
+                    ):
                         candidates.append(
                             (
                                 workflow_path,

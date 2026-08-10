@@ -39,17 +39,40 @@ jobs:
     # Consumers run the loop via agents-81 only in consolidated mode.
     if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true'
     steps:
+      - name: Checkout API client helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/error_classifier.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+
       - name: Dispatch keepalive loop for open agent PRs
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'consumer-keepalive-sweep',
+            });
             const dryRun = String(
               (context.payload.inputs && context.payload.inputs.dry_run) || 'false',
             ) === 'true';
             const { owner, repo } = context.repo;
-            const prs = await github.paginate(github.rest.pulls.list, {
+            const prs = await withRetry((client) => client.paginate(client.rest.pulls.list, {
               owner, repo, state: 'open', per_page: 100,
-            });
+            }));
             const eligible = prs.filter((pr) =>
               !pr.draft && (pr.labels || []).some((l) => /^agent:/i.test(l.name || '')),
             );
@@ -61,13 +84,13 @@ jobs:
                 continue;
               }
               try {
-                await github.rest.actions.createWorkflowDispatch({
+                await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner,
                   repo,
                   workflow_id: 'agents-81-gate-followups.yml',
                   ref: context.payload.repository.default_branch,
                   inputs: { pr_number: String(pr.number) },
-                });
+                }));
                 dispatched += 1;
               } catch (error) {
                 // # best-effort: one failed dispatch must not prevent later PRs from being re-evaluated.
