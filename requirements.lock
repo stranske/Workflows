@@ -60,7 +60,7 @@ docstring-parser==0.18.0
     # via anthropic
 execnet==2.1.2
     # via pytest-xdist
-faiss-cpu==1.14.3
+faiss-cpu==1.15.0
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
@@ -118,7 +118,7 @@ langchain==1.3.14
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
-langchain-anthropic==1.5.3
+langchain-anthropic==1.5.4
     # via
     #   -r requirements.txt
     #   workflows (pyproject.toml)
