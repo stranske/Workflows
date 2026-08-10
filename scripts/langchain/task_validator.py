@@ -210,8 +210,8 @@ class ValidationResult:
 
 def _has_subjective_without_measurable(task: str) -> bool:
     """Check if task has subjective language without measurable verification."""
-    # Paths and dotted identifiers are concrete references, not prose.  A path
-    # such as ``tests/fast/test_api.py`` must not be rejected for its component.
+    # Paths are concrete references, not prose. A path such as
+    # ``tests/fast/test_api.py`` must not be rejected for its components.
     lowered = re.sub(r"(?<!\w)[\w.-]+(?:/[\w.-]+)+(?!\w)", " ", task.lower())
     has_subjective = any(word in lowered for word in SUBJECTIVE_WORDS)
     has_measurable = any(word in lowered for word in MEASURABLE_WORDS)

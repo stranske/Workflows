@@ -916,6 +916,11 @@ def test_safe_verify_command_rejects_trailing_unallowlisted_text() -> None:
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("pytest tests/test_x.py; curl bad") is None
 
 
+def test_safe_verify_command_handles_tab_heavy_invalid_input_without_backtracking() -> None:
+    hostile = "gh\trun\t!" + "\t\t" * 2_000 + ";"
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match(hostile) is None
+
+
 def test_append_raw_issue_recovers_tilde_fenced_original_issue() -> None:
     original = "TILDE-FENCED ORIGINAL"
     formatted = "\n".join(

@@ -151,6 +151,17 @@ def test_break_line_target_beats_unrelated_workflow_path() -> None:
     assert spec.break_file == "src/widget.py"
 
 
+def test_break_line_prefers_the_path_named_after_reverting() -> None:
+    spec = parse_deliberate_break_spec(
+        "## Acceptance Criteria\n"
+        "- [ ] Named test: add `tests/test_widget.py` with `test_widget`.\n"
+        "- [ ] Deliberate break: run `tests/test_widget.py` after reverting "
+        "`.github/workflows/ci.yml`.\n"
+    )
+    assert spec is not None
+    assert spec.break_file == ".github/workflows/ci.yml"
+
+
 def test_fallback_marker_ignores_backticked_curl_command_and_keeps_trailing_colon_path() -> None:
     spec = parse_deliberate_break_spec("""## Acceptance Criteria
 - [ ] Deliberate break: change `src/example.py:` and prove the named test fails.

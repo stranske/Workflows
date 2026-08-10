@@ -172,7 +172,14 @@ def _infer_break_file(break_line: str, named_line: str, markdown: str) -> str | 
                 paths.append(path_only)
         return paths
 
-    # The deliberate-break line is the explicit experiment target.  Only fall
+    # Prefer the file explicitly described as being reverted. A deliberate-break
+    # line may name the test command before its actual mutation target.
+    for revert_match in re.finditer(r"\brevert(?:ing|ed)?\b[^`]{0,120}`([^`]+)`", break_line, re.IGNORECASE):
+        revert_paths = _candidate_paths(f"`{revert_match.group(1)}`")
+        if revert_paths:
+            return revert_paths[0]
+
+    # The deliberate-break line is the explicit experiment target. Only fall
     # back to other acceptance prose when it does not name a path itself.
     break_paths = _candidate_paths(break_line)
     if break_paths:

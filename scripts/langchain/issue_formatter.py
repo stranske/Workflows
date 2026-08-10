@@ -176,13 +176,15 @@ CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
 VERIFY_HINT_REGEX = re.compile(r"\(verify:\s*([^\n)]+)\)", re.IGNORECASE)
 SAFE_VERIFY_COMMAND_RE = re.compile(
     r"^(?:"
+    r"(?:"
     r"(?:python(?:3)?\s+-m\s+)?(?:pytest|unittest)\b"
     r"|node\s+--test\b"
     r"|(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b"
     r"|(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b"
-    r"|gh\s+(?:workflow\s+run|run)\s+\S+"
-    r"|curl\s+https?://\S+\Z"
-    r")(?:\s+[^;&|`$<>\n\r]+)*\Z",
+    r"|gh\s+(?:workflow\s+run|run)\s+[^\s;&|`$<>\n\r]+"
+    r")(?:[ \t]+[^;&|`$<>\n\r]+)?"
+    r"|curl\s+https?://[^\s;&|`$<>\n\r]+"
+    r")\Z",
     re.IGNORECASE,
 )
 SHELL_METACHARACTERS_RE = re.compile(r"[;&|`$<>\n\r]")
