@@ -104,8 +104,10 @@ jobs:
     steps:
       - name: Check if should process this repo
         id: check
+        env:
+          TARGET_REPO: ${{ inputs.target_repo }}
         run: |
-          TARGET="${{ inputs.target_repo }}"
+          TARGET="$TARGET_REPO"
           CURRENT="${{ matrix.repo }}"
           if [ -n "$TARGET" ] && [ "$TARGET" != "$CURRENT" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"

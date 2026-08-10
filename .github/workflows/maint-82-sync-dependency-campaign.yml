@@ -93,6 +93,12 @@ jobs:
       - name: Refresh campaign issue
         id: campaign
         uses: actions/github-script@v9
+        env:
+          REGISTERED_REPOS: ${{ steps.registered.outputs.repos }}
+          REQUESTED_REPOS: ${{ steps.inputs.outputs.repos }}
+          CAMPAIGN_DRY_RUN: ${{ steps.inputs.outputs.dry_run }}
+          CAMPAIGN_MAX_REPOS: ${{ steps.inputs.outputs.max_repos }}
+          CURRENT_SYNC_HASH: ${{ steps.hash.outputs.hash }}
         with:
           github-token: ${{ env.CAMPAIGN_TOKEN }}
           script: |
@@ -102,17 +108,17 @@ jobs:
             } = require('./.github/scripts/sync_dependency_campaign.js');
             const fs = require('fs');
 
-            const registeredRepos = '${{ steps.registered.outputs.repos }}'
+            const registeredRepos = process.env.REGISTERED_REPOS
               .split(',')
               .map((repo) => repo.trim())
               .filter(Boolean);
-            const requestedRepos = '${{ steps.inputs.outputs.repos }}';
+            const requestedRepos = process.env.REQUESTED_REPOS;
             const repos = !requestedRepos || requestedRepos === 'all'
               ? registeredRepos
               : requestedRepos.split(',').map((repo) => repo.trim()).filter(Boolean);
-            const dryRun = '${{ steps.inputs.outputs.dry_run }}' === 'true';
-            const maxRepos = Number('${{ steps.inputs.outputs.max_repos }}') || 0;
-            const currentSyncHash = '${{ steps.hash.outputs.hash }}';
+            const dryRun = process.env.CAMPAIGN_DRY_RUN === 'true';
+            const maxRepos = Number(process.env.CAMPAIGN_MAX_REPOS) || 0;
+            const currentSyncHash = process.env.CURRENT_SYNC_HASH;
             const deliveryHandoffRecords =
               context.payload.client_payload?.delivery_handoff_records || [];
 

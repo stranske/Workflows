@@ -48,9 +48,11 @@ jobs:
     steps:
       - name: Validate fork inputs
         id: validate
+        env:
+          HEAD_IS_FORK: ${{ inputs.head_is_fork || 'false' }}
+          HEAD_REPOSITORY: ${{ inputs.head_repository }}
         run: |
-          if [ "${{ inputs.head_is_fork || 'false' }}" = "true" ] && \
-            [ -z "${{ inputs.head_repository }}" ]; then
+          if [ "$HEAD_IS_FORK" = "true" ] && [ -z "$HEAD_REPOSITORY" ]; then
             {
               echo "## Keepalive branch sync";
               echo "";
@@ -62,8 +64,10 @@ jobs:
           fi
 
       - name: Warn when head repository is missing
+        env:
+          HEAD_REPOSITORY: ${{ inputs.head_repository }}
         run: |
-          if [ -z "${{ inputs.head_repository }}" ]; then
+          if [ -z "$HEAD_REPOSITORY" ]; then
             echo "::warning::Head repository missing;"
             echo "::warning::Defaulting to base repository for checkout."
           fi

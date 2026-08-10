@@ -19,10 +19,132 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_GLOBS = (".github/workflows/*.yml", ".github/workflows/*.yaml")
 
-# Keep this deliberately small. Other expressions require a file-by-file
-# constrained-value review; expanding this set is not a substitute for that
-# review.
-UNTRUSTED_EXPRESSIONS = frozenset({"inputs.commit_message", "inputs.codex_args", "inputs.repos"})
+BANNED_FREE_TEXT_EXPRESSIONS = frozenset(
+    {
+        "inputs.commit_message",
+        "inputs.codex_args",
+        "inputs.repos",
+        "inputs.target_repo",
+        "inputs.commit_prefix",
+        "inputs.head_repository",
+    }
+)
+
+# Reviewed constrained-value script interpolations. Each tuple was triaged in
+# docs/workflows/script-interpolation-triage.md (issue #3016). Free-text inputs
+# above must use step-level env: indirection instead of appearing here.
+REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
+    {
+('.github/workflows/agents-71-codex-belt-dispatcher.yml', 'dispatch/step-3/run', 'inputs.dry_run'),
+('.github/workflows/agents-71-codex-belt-dispatcher.yml', 'dispatch/step-8/with.script', 'inputs.agent_key'),
+('.github/workflows/agents-71-codex-belt-dispatcher.yml', 'dispatch/step-8/with.script', 'inputs.force_issue'),
+('.github/workflows/agents-72-codex-belt-worker.yml', 'bootstrap/step-11/with.script', 'inputs.max_parallel'),
+('.github/workflows/agents-72-codex-belt-worker.yml', 'bootstrap/step-3/with.script', 'inputs.dry_run'),
+('.github/workflows/agents-72-codex-belt-worker.yml', 'bootstrap/step-3/with.script', 'inputs.use_step_branch'),
+('.github/workflows/agents-72-codex-belt-worker.yml', 'bootstrap/step-4/with.script', 'inputs.agent_key'),
+('.github/workflows/agents-72-codex-belt-worker.yml', 'bootstrap/step-4/with.script', 'inputs.base'),
+('.github/workflows/agents-72-codex-belt-worker.yml', 'bootstrap/step-4/with.script', 'inputs.branch'),
+('.github/workflows/agents-72-codex-belt-worker.yml', 'bootstrap/step-4/with.script', 'inputs.issue'),
+('.github/workflows/agents-72-codex-belt-worker.yml', 'bootstrap/step-4/with.script', 'inputs.source'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'normalize/step-0/run', 'inputs.agent_key'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-10/with.script', 'inputs.pr_number'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-11/with.script', 'inputs.branch'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-12/with.script', 'inputs.issue'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-13/with.script', 'inputs.issue'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-13/with.script', 'inputs.pr_number'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-6/with.script', 'inputs.branch'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-6/with.script', 'inputs.issue'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-6/with.script', 'inputs.pr_number'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-7/with.script', 'inputs.branch'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-7/with.script', 'inputs.issue'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-7/with.script', 'inputs.pr_number'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-8/with.script', 'inputs.head_sha'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-9/with.script', 'inputs.pr_number'),
+('.github/workflows/agents-73-codex-belt-conveyor.yml', 'promote/step-9/with.script', 'steps.pr.outputs.issue || inputs.issue'),
+('.github/workflows/agents-auto-pilot.yml', 'auto-pilot/step-13/with.script', 'inputs.issue_number'),
+('.github/workflows/agents-bot-comment-handler.yml', 'resolve/step-9/with.script', 'inputs.pr_number'),
+('.github/workflows/agents-issue-optimizer.yml', 'optimize_issue/step-0/run', 'github.event.issue.number'),
+('.github/workflows/agents-issue-optimizer.yml', 'optimize_issue/step-0/run', 'github.event.issue.number'),
+('.github/workflows/agents-issue-optimizer.yml', 'optimize_issue/step-0/run', 'github.event.issue.number'),
+('.github/workflows/agents-issue-optimizer.yml', 'optimize_issue/step-0/run', 'github.event.issue.number'),
+('.github/workflows/agents-issue-optimizer.yml', 'optimize_issue/step-0/run', 'github.event.issue.number'),
+('.github/workflows/agents-issue-optimizer.yml', 'optimize_issue/step-0/run', 'github.event.issue.number'),
+('.github/workflows/agents-issue-optimizer.yml', 'optimize_issue/step-0/run', 'inputs.issue_number'),
+('.github/workflows/agents-keepalive-branch-sync.yml', 'sync/step-10/run', 'inputs.base_ref'),
+('.github/workflows/agents-pr-meta-v4.yml', 'update_body/step-5/with.script', "inputs.pr_number || ''"),
+('.github/workflows/health-75-api-rate-diagnostic.yml', 'generate-historical-report/step-2/run', 'inputs.end_date'),
+('.github/workflows/health-75-api-rate-diagnostic.yml', 'generate-historical-report/step-2/run', 'inputs.start_date'),
+('.github/workflows/maint-45-cosmetic-repair.yml', 'repair/step-4/run', 'github.event.repository.default_branch'),
+('.github/workflows/maint-52-sync-dev-versions.yml', 'sync/step-4/run', 'inputs.dry_run'),
+('.github/workflows/maint-52-sync-dev-versions.yml', 'sync/step-4/run', 'inputs.dry_run'),
+('.github/workflows/maint-52-sync-dev-versions.yml', 'sync/step-5/run', 'inputs.dry_run'),
+('.github/workflows/maint-65-sync-label-docs.yml', 'sync/step-5/run', 'inputs.dry_run'),
+('.github/workflows/maint-66-monthly-audit.yml', 'audit/step-7/run', 'inputs.create_issue'),
+('.github/workflows/maint-66-monthly-audit.yml', 'audit/step-7/run', 'inputs.lookback_days || 30'),
+('.github/workflows/maint-68-sync-consumer-repos.yml', 'prepare/step-4/run', "inputs.phase || 'canary'"),
+('.github/workflows/maint-68-sync-consumer-repos.yml', 'summary/step-3/run', "inputs.dry_run || 'false'"),
+('.github/workflows/maint-69-sync-integration-repo.yml', 'sync/step-9/run', 'inputs.dry_run'),
+('.github/workflows/maint-71-auto-fix-integration.yml', 'detect-and-fix/step-10/run', "github.event.issue.number || 'N/A'"),
+('.github/workflows/maint-71-auto-fix-integration.yml', 'detect-and-fix/step-11/run', 'github.event.issue.number'),
+('.github/workflows/maint-71-auto-fix-integration.yml', 'detect-and-fix/step-12/run', "github.event.issue.number || 'N/A'"),
+('.github/workflows/maint-71-auto-fix-integration.yml', 'detect-and-fix/step-2/run', 'inputs.run_id'),
+('.github/workflows/maint-79-verifier-corpus-harvest.yml', 'harvest/step-2/run', 'inputs.write'),
+('.github/workflows/maint-80-langsmith-metrics-dashboard.yml', 'generate-dashboard/step-10/run', "inputs.days_back || '7'"),
+('.github/workflows/maint-80-langsmith-metrics-dashboard.yml', 'generate-dashboard/step-10/run', "inputs.days_back || '7'"),
+('.github/workflows/maint-80-langsmith-metrics-dashboard.yml', 'generate-dashboard/step-11/run', 'inputs.create_issue'),
+('.github/workflows/maint-80-langsmith-metrics-dashboard.yml', 'generate-dashboard/step-3/run', "inputs.days_back || '7'"),
+('.github/workflows/maint-80-langsmith-metrics-dashboard.yml', 'generate-dashboard/step-9/run', "inputs.days_back || '7'"),
+('.github/workflows/pr-00-gate.yml', 'issue-consistency/step-1/run', 'github.event.pull_request.base.ref'),
+('.github/workflows/pr-00-gate.yml', 'issue-consistency/step-1/run', 'github.event.pull_request.base.repo.full_name'),
+('.github/workflows/pr-00-gate.yml', 'test-quality/step-1/run', 'github.event.pull_request.base.ref'),
+('.github/workflows/pr-00-gate.yml', 'test-quality/step-1/run', 'github.event.pull_request.base.repo.full_name'),
+('.github/workflows/pr-00-gate.yml', 'test-quality/step-4/run', 'github.event.pull_request.base.ref'),
+('.github/workflows/pr-00-gate.yml', 'test-quality/step-5/run', 'github.event.pull_request.base.ref'),
+('.github/workflows/reusable-10-ci-python.yml', 'tests/step-22/run', "inputs.coverage && inputs['coverage-min'] != ''"),
+('.github/workflows/reusable-16-agents.yml', 'readiness/step-6/run', 'inputs.readiness_custom_logins'),
+('.github/workflows/reusable-16-agents.yml', 'readiness/step-6/run', 'inputs.require_all'),
+('.github/workflows/reusable-18-autofix.yml', 'autofix/step-17/with.script', 'inputs.clean_label'),
+('.github/workflows/reusable-70-orchestrator-main.yml', 'keepalive-guard/step-4/run', 'inputs.enable_keepalive'),
+('.github/workflows/reusable-agents-issue-bridge.yml', 'bridge/step-12/with.script', 'inputs.issue_number'),
+('.github/workflows/reusable-agents-issue-bridge.yml', 'bridge/step-2/with.script', 'inputs.issue_number'),
+('.github/workflows/reusable-agents-issue-bridge.yml', 'bridge/step-7/with.script', 'inputs.force_mode'),
+('.github/workflows/reusable-agents-issue-bridge.yml', 'bridge/step-7/with.script', 'inputs.mode'),
+('.github/workflows/reusable-agents-issue-bridge.yml', 'bridge/step-8/with.script', 'inputs.agent_pr_draft'),
+('.github/workflows/reusable-agents-issue-bridge.yml', 'bridge/step-9/with.script', 'inputs.post_agent_comment'),
+('.github/workflows/reusable-agents-verifier.yml', 'verifier/step-11/run', 'inputs.mode'),
+('.github/workflows/reusable-agents-verifier.yml', 'verifier/step-21/run', 'inputs.model'),
+('.github/workflows/reusable-agents-verifier.yml', 'verifier/step-21/run', 'inputs.provider'),
+('.github/workflows/reusable-agents-verifier.yml', 'verifier/step-27/run', 'inputs.model'),
+('.github/workflows/reusable-agents-verifier.yml', 'verifier/step-27/run', 'inputs.model'),
+('.github/workflows/reusable-agents-verifier.yml', 'verifier/step-27/run', 'inputs.model2'),
+('.github/workflows/reusable-agents-verifier.yml', 'verifier/step-27/run', 'inputs.model2'),
+('.github/workflows/reusable-agents-verifier.yml', 'verifier/step-31/run', 'inputs.mode'),
+('.github/workflows/reusable-agents-verifier.yml', 'verifier/step-31/run', 'inputs.mode'),
+('.github/workflows/reusable-backplane-conformance.yml', 'conformance/step-6/run', 'inputs.manifest_path'),
+('.github/workflows/reusable-backplane-conformance.yml', 'conformance/step-6/run', 'inputs.manifest_path'),
+('.github/workflows/reusable-backplane-conformance.yml', 'conformance/step-6/run', 'inputs.repo'),
+('.github/workflows/reusable-backplane-conformance.yml', 'conformance/step-6/run', 'inputs.run_json_path'),
+('.github/workflows/reusable-backplane-conformance.yml', 'conformance/step-6/run', 'inputs.strict'),
+('.github/workflows/reusable-bot-comment-handler.yml', 'collect/step-10/with.script', 'inputs.ignored_paths'),
+('.github/workflows/reusable-bot-comment-handler.yml', 'collect/step-10/with.script', 'inputs.pr_number'),
+('.github/workflows/reusable-bot-comment-handler.yml', 'collect/step-11/with.script', 'inputs.dry_run'),
+('.github/workflows/reusable-bot-comment-handler.yml', 'collect/step-8/with.script', 'inputs.pr_number'),
+('.github/workflows/reusable-bot-comment-handler.yml', 'collect/step-9/with.script', 'inputs.bot_authors'),
+('.github/workflows/reusable-bot-comment-handler.yml', 'collect/step-9/with.script', 'inputs.ignored_paths'),
+('.github/workflows/reusable-bot-comment-handler.yml', 'collect/step-9/with.script', 'inputs.pr_number'),
+('.github/workflows/reusable-bot-comment-handler.yml', 'collect/step-9/with.script', 'inputs.skip_if_human_replied'),
+('.github/workflows/reusable-bot-comment-handler.yml', 'dispatch/step-6/with.script', 'inputs.pr_number'),
+('.github/workflows/reusable-codex-run.yml', 'codex/step-14/run', 'inputs.codex_cli_version'),
+('.github/workflows/reusable-cursor-run.yml', 'cursor/step-1/run', 'inputs.mode'),
+('.github/workflows/reusable-cursor-run.yml', 'cursor/step-1/run', 'inputs.pr_number'),
+('.github/workflows/reusable-pr-context.yml', 'fetch/step-4/with.script', 'inputs.pr_number'),
+    }
+)
+
+# Backward-compatible alias used by helper tests below.
+UNTRUSTED_EXPRESSIONS = frozenset(
+    {"inputs.commit_message", "inputs.codex_args", "inputs.repos"}
+)
 
 
 def _workflow_paths() -> Iterable[Path]:
@@ -74,6 +196,28 @@ def _actions_expression_bodies(script: str) -> Iterable[str]:
             start = opening + 3
 
 
+def _normalize_expression(body: str) -> str:
+    return re.sub(r"\s+", " ", body.strip())
+
+
+def _is_banned_free_text(body: str) -> bool:
+    normalized = _normalize_expression(body)
+    return any(
+        normalized == banned
+        or normalized.startswith(f"{banned} ")
+        or normalized.startswith(f"{banned}||")
+        for banned in BANNED_FREE_TEXT_EXPRESSIONS
+    )
+
+
+def _script_interpolation_hits(script: str) -> list[str]:
+    return [
+        _normalize_expression(body)
+        for body in _actions_expression_bodies(script)
+        if re.search(r"\b(inputs\.|github\.event\.)", body)
+    ]
+
+
 def _references_untrusted_input(body: str, expression: str) -> bool:
     """Recognize equivalent property and bracket references in an expression."""
 
@@ -98,16 +242,33 @@ def _untrusted_references(script: str) -> list[str]:
 
 
 def test_no_untrusted_expressions_in_script_bodies() -> None:
-    """Free-text inputs must not be interpolated into shell or JS source."""
-    violations: list[str] = []
+    """Every inputs./github.event. script interpolation must be reviewed or banned."""
+
+    banned_violations: list[str] = []
+    unreviewed: list[str] = []
     for workflow in _workflow_paths():
+        rel = str(workflow.relative_to(ROOT))
         for location, script in _script_values(workflow):
-            for expression in _untrusted_references(script):
-                violations.append(f"{workflow.relative_to(ROOT)}:{location}: {expression}")
-    assert not violations, (
-        "Pass untrusted workflow values through step env and consume the env "
-        "variable in the script:\n" + "\n".join(violations)
-    )
+            for expression in _script_interpolation_hits(script):
+                key = (rel, location, expression)
+                if _is_banned_free_text(expression):
+                    banned_violations.append(f"{rel}:{location}: {expression}")
+                elif key not in REVIEWED_SCRIPT_INTERPOLATIONS:
+                    unreviewed.append(f"{rel}:{location}: {expression}")
+
+    messages: list[str] = []
+    if banned_violations:
+        messages.append(
+            "Pass free-text workflow values through step env and consume the env "
+            "variable in the script:\n" + "\n".join(banned_violations)
+        )
+    if unreviewed:
+        messages.append(
+            "Add each reviewed constrained interpolation to "
+            "REVIEWED_SCRIPT_INTERPOLATIONS (see docs/workflows/script-"
+            "interpolation-triage.md):\n" + "\n".join(unreviewed)
+        )
+    assert not messages, "\n\n".join(messages)
 
 
 @pytest.mark.parametrize(
