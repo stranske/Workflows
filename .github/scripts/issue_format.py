@@ -295,7 +295,7 @@ def validate(body: str) -> Report:
                 "`Acceptance Criteria` names no test, runnable command or observable "
                 "verification gate — Definition of Ready / Quality Bar §2 requires one."
             )
-        prose = _without_fenced_code(re.sub(r"`[^`]*`", "", acceptance))
+        prose = re.sub(r"(?<!`)`(?!`)[^`\n]*`", "", _without_fenced_code(acceptance))
         hits = [word for word in BANNED_ADJECTIVES if re.search(rf"\b{word}\b", prose, re.I)]
         if hits:
             report.problems.append(

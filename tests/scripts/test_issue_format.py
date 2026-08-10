@@ -100,6 +100,24 @@ def test_checkbox_and_subjective_errors_are_non_conforming() -> None:
     assert "not yet agent-processable" in report.as_markdown()
 
 
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_subjective_words_in_fenced_acceptance_examples_are_ignored(validator_path: Path) -> None:
+    validator = _validator(validator_path)
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `src/client.py`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n\n"
+        + "```sh\necho fast\n```\n"
+    )
+    assert report.ok
+
+
 def test_acceptance_gate_inside_fence_and_code_path_adjective_are_valid() -> None:
     validator = _validator()
     report = validator.validate(

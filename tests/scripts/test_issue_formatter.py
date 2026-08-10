@@ -910,6 +910,8 @@ def test_curl_requires_a_target_for_safe_verify_command() -> None:
     assert (
         issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl http://example.test/health") is not None
     )
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl -o https://example.test") is None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl -X https://example.test") is None
 
 
 def test_safe_verify_command_rejects_trailing_unallowlisted_text() -> None:
@@ -956,6 +958,7 @@ def test_safe_verify_command_requires_runnable_unittest_and_gh_args() -> None:
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("unittest") is None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("go check") is None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("dotnet check") is None
+    assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("dotnet test") is not None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("go test ./...") is not None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("curl -I https://example.test") is not None
     assert issue_formatter.SAFE_VERIFY_COMMAND_RE.match("gh run") is None

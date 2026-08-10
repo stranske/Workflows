@@ -732,7 +732,7 @@ jobs:
 
       - name: Release failed format lease
         if: >-
-          (failure() || cancelled()) && steps.check.outputs.should_run == 'true' &&
+          (failure() || cancelled()) &&
           (steps.check.outputs.phase == 'format' ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.phase == 'format') ||
           (github.event_name == 'issues' && github.event.label.name == 'agents:format'))

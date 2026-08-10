@@ -184,7 +184,7 @@ SAFE_VERIFY_COMMAND_RE = re.compile(
     r"|go\s+test\b|dotnet\s+test\b"
     r"|gh\s+(?:workflow\s+run|run)\s+[^\s;&|`$<>\n\r]+"
     r")(?:[ \t]+[^ \t;&|`$<>\n\r]+)*"
-    r"|curl(?:\s+-[A-Za-z]+)*(?:\s+https?://[^\s;&|`$<>\n\r]+)"
+    r"|curl(?:\s+-[ILsSfk]+)*(?:\s+https?://[^\s;&|`$<>\n\r]+)"
     r")\Z",
     re.IGNORECASE,
 )
