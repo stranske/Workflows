@@ -137,7 +137,10 @@ def test_subjective_words_in_inline_code_are_ignored_but_prose_is_rejected(
 ) -> None:
     validator = _validator(validator_path)
     report = validator.validate(
-        VALID_CONTEXT + "## Tasks\n- [ ] Update `src/client.py`\n\n" + "## Acceptance Criteria\n" + acceptance
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `src/client.py`\n\n"
+        + "## Acceptance Criteria\n"
+        + acceptance
     )
     assert report.ok is expected_ok
 
