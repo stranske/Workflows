@@ -167,6 +167,16 @@ function requiresStrictGateBranchUpdate({ pr = {}, requiredContexts = [], willMe
   );
 }
 
+function isBlockingSyncSystemFailure(status) {
+  return [
+    'branch_update_failed',
+    'merge_failed',
+    'pr_refresh_failed',
+    'stale_close_failed',
+    'target_missing',
+  ].includes(status);
+}
+
 function collectDeletableSyncBranches({
   branches = [],
   openPullRequests = [],
@@ -626,6 +636,7 @@ module.exports = {
   isSyncBranchName,
   isTrustedGeneratedDeliveryPr,
   isTrustedSyncPr,
+  isBlockingSyncSystemFailure,
   evaluatePostPushReviewWindow,
   requiresStrictGateBranchUpdate,
   normalizeSyncHash,

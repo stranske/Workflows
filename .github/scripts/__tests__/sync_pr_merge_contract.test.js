@@ -16,6 +16,7 @@ const {
   collectDeletableSyncBranches,
   evaluatePostPushReviewWindow,
   generatedDeliveryLane,
+  isBlockingSyncSystemFailure,
   isTrustedGeneratedDeliveryPr,
   isTrustedSyncPr,
   normalizeSyncHash,
@@ -366,6 +367,16 @@ test('strict required checks update behind branches before a generated merge', (
     requiredContexts: [],
     willMerge: true,
   }), false);
+  assert.equal(requiresStrictGateBranchUpdate({
+    pr: { mergeable_state: 'behind' },
+    requiredContexts: ['Gate / gate'],
+    willMerge: false,
+  }), false);
+});
+
+test('branch-update failures are blocking sync-system failures', () => {
+  assert.equal(isBlockingSyncSystemFailure('branch_update_failed'), true);
+  assert.equal(isBlockingSyncSystemFailure('checks_failed'), false);
 });
 
 test('candidate mutation requires the evidence pass authorization', () => {

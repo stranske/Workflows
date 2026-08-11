@@ -16,6 +16,7 @@ async function run({ github, context, core }) {
     collectDeletableSyncBranches,
     evaluatePostPushReviewWindow,
     generatedDeliveryLane,
+    isBlockingSyncSystemFailure,
     normalizeSyncHash,
     parseBooleanInput,
     requiresStrictGateBranchUpdate,
@@ -587,7 +588,28 @@ async function run({ github, context, core }) {
       }
   
       // Process the selected active PR
-      const pr = selection.active;
+      let pr = selection.active;
+      try {
+        const { data: fullPr } = await withRetry((client) => client.rest.pulls.get({
+          owner,
+          repo,
+          pull_number: pr.number,
+        }));
+        pr = fullPr;
+      } catch (error) {
+        const message = String(error?.message || error);
+        console.log(`Unable to refresh generated PR #${pr.number}: ${message}`);
+        results.push({
+          owner,
+          repo,
+          pr: pr.number,
+          branch: pr.head.ref,
+          head_sha: pr.head.sha,
+          status: 'pr_refresh_failed',
+          error: `PR refresh before branch update: ${message}`,
+        });
+        continue;
+      }
       const metadata = syncMetadata(pr);
       console.log(`\nProcessing active PR #${pr.number}: ${pr.title}`);
       console.log(`Branch: ${pr.head.ref}`);
@@ -798,7 +820,7 @@ async function run({ github, context, core }) {
         } catch (error) {
           const message = String(error?.message || error);
           console.log(`Unable to update behind PR #${pr.number}: ${message}`);
-          results.push({ ...deliveryContext, status: 'error', error: message });
+          results.push({ ...deliveryContext, status: 'branch_update_failed', error: message });
         }
         continue;
       }
@@ -1061,12 +1083,7 @@ async function run({ github, context, core }) {
   // every scheduled flush red and forces re-runs. Only genuine sync-system action
   // failures (merge/cleanup/missing-target) are blocking; consumer CI health is
   // surfaced via the merge report and Health 68 instead.
-  const blockingFailures = results.filter(
-    (r) =>
-      r.status === 'merge_failed' ||
-      r.status === 'stale_close_failed' ||
-      r.status === 'target_missing',
-  );
+  const blockingFailures = results.filter((r) => isBlockingSyncSystemFailure(r.status));
   const branchDeleteFailures = results.filter((r) => r.status === 'branch_delete_failed');
   if (branchDeleteFailures.length > 0) {
     core.notice(
