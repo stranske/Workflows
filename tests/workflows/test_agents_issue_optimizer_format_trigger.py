@@ -95,11 +95,9 @@ def test_format_guard_rechecks_after_format_lease_release() -> None:
         assert "github.event.label.name == 'agents:format'" in condition
         # Applying agents:format already starts the optimizer via issues:labeled;
         # the guard must react only when the lease is removed.
-        labeled_format = (
-            "github.event.action == 'labeled'" in condition
-            and condition.index("github.event.action == 'labeled'")
-            < condition.index("github.event.label.name == 'agents:format'")
-        )
+        labeled_format = "github.event.action == 'labeled'" in condition and condition.index(
+            "github.event.action == 'labeled'"
+        ) < condition.index("github.event.label.name == 'agents:format'")
         assert not labeled_format
 
 
@@ -110,7 +108,7 @@ def test_format_optimizer_dispatches_guard_after_failed_lease_release() -> None:
     ):
         release_idx = text.index("Release failed format lease")
         release_block = text[release_idx : release_idx + 1200]
-        assert 'gh workflow run agents-issue-format-guard.yml' in release_block
+        assert "gh workflow run agents-issue-format-guard.yml" in release_block
         assert '-f issue_number="$ISSUE_NUMBER"' in release_block
 
 
