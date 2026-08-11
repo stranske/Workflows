@@ -23,7 +23,9 @@ BEST_EFFORT = re.compile(r"#\s*best-effort:\s*\S")
 def test_api_call_pattern_includes_request_dispatches() -> None:
     """The inventory must cover non-REST github-script calls too."""
 
-    assert API_CALL.search("await github.request('POST /repos/{owner}/{repo}/dispatches')")
+    script = "await github.request('POST /repos/{owner}/{repo}/dispatches')"
+    assert API_CALL.search(script) is not None
+    assert API_CALL.pattern[0] == "g"
 
 
 def _candidate_steps() -> list[tuple[Path, str, str, str]]:
