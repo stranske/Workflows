@@ -6,11 +6,9 @@ name: Maint 68 Sync Consumer Repos
 # All sync targets are declared in .github/sync-manifest.yml
 # DO NOT add hardcoded file lists here - update the manifest instead
 #
-# Triggered after releases, template changes, or manually
+# Triggered by one daily coalescing run or an explicit operator dispatch.
 
 on:
-  release:
-    types: [published]
   schedule:
     # Debounced sync: coalesce template changes into ONE daily run rather than a
     # per-push PR wave across the consumer fleet (the dominant sync-PR-volume driver,
@@ -18,7 +16,8 @@ on:
     # creating any PR, so a scheduled run with nothing to sync is a ~30s no-op (zero
     # PRs). Runtime behavior already reaches consumers instantly via @main; only the
     # synced file COPIES wait for this run. For an immediate sync, use the manual
-    # workflow_dispatch below (or publish a release). Daily ordering:
+    # workflow_dispatch below. Release publication deliberately does not create
+    # a second delivery cycle. Daily ordering:
     #   05:00 maint-68 sync  ->  05:10 Health 68 drift scan  ->  05:30 maint-71 janitor.
     # (Removing the push trigger also moots the G2 push-allowlist-vs-manifest drift.)
     - cron: '0 5 * * *'
@@ -152,11 +151,13 @@ jobs:
           echo "matrix=$(jq -c '.matrix' sync-phase-selection.json)" >> "$GITHUB_OUTPUT"
           echo "phase=$phase" >> "$GITHUB_OUTPUT"
           if [ "$phase" = "canary" ]; then
-            # Candidate corrections update the same bounded PR in each canary
-            # repository. Only a plan-bound promotion gets immutable hash branches.
+            # Candidate corrections update the same bounded PR in each canary.
             sync_branch="sync/workflows-candidate"
           else
-            sync_branch="sync/workflows-$TEMPLATE_HASH"
+            # Promotion also uses one stable delivery PR per repository. The
+            # plan/hash remains immutable in the delivery record rather than in
+            # a replacement branch name.
+            sync_branch="sync/workflows-delivery"
           fi
           echo "sync_branch=$sync_branch" >> "$GITHUB_OUTPUT"
           echo "Selected phase: $phase"
@@ -689,14 +690,21 @@ jobs:
           cd consumer
 
           # Required labels for sync PRs
-          required_labels=("sync" "automated")
+          required_labels=("sync" "automated" "sync:delivery-staging" "sync:delivery-ready")
 
           for label in "${required_labels[@]}"; do
             if ! gh label list --json name -q ".[].name" | grep -q "^${label}$"; then
               echo "Creating label: $label"
-                gh label create "$label" \
-                  --description "Automated sync from Workflows" \
-                  --color "0e8a16" || true
+              description="Automated sync from Workflows"
+              color="0e8a16"
+              if [ "$label" = "sync:delivery-staging" ]; then
+                description="Generated delivery is mutable and must not merge"
+                color="d93f0b"
+              elif [ "$label" = "sync:delivery-ready" ]; then
+                description="Generated delivery is sealed to its exact reviewed head"
+                color="0e8a16"
+              fi
+              gh label create "$label" --description "$description" --color "$color" || true
             fi
           done
 
@@ -765,17 +773,21 @@ jobs:
           credential_helper="!f() { echo \"username=x-access-token\"; echo \"password=\$GH_TOKEN\"; }; f"
           git config credential.helper "$credential_helper"
 
-          # Keep an existing generated PR current instead of treating it as a
-          # terminal delivery attempt. Immutable promotion branches refresh only
-          # within one generation. The stable canary branch may rotate to a new
-          # candidate plan when its existing delivery record is valid and owned
-          # by this consumer repository.
+          # Keep one generated PR per lane current. Both candidate and promoted
+          # deliveries use stable branches; immutable plan/hash identity lives in
+          # the delivery marker rather than in a replacement PR branch.
           existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
           existing_head=""
           existing_base=""
           existing_tree=""
           existing_refreshable=false
           existing_refresh_reason="none"
+          existing_lifecycle_initialized=false
+          delivery_state="staging"
+          review_started_at=""
+          sealed_at=""
+          sealed_head_sha=""
+          review_evidence='{}'
           if [ -n "$existing_pr" ]; then
             echo "Inspecting existing sync PR #$existing_pr for same-generation refresh"
             # Capture the remote head now so a later force push cannot overwrite
@@ -787,7 +799,7 @@ jobs:
             existing_body_file=$(mktemp)
             gh pr view "$existing_pr" --json body -q .body >"$existing_body_file" || true
             # shellcheck disable=SC2016 # The embedded Node source must remain literal.
-            refresh_check=$(
+            refresh_json=$(
               EXISTING_BODY_FILE="$existing_body_file" \
               DELIVERY_GENERATION="$DELIVERY_GENERATION" \
               PLAN_ID="$PLAN_ID" \
@@ -800,38 +812,66 @@ jobs:
                 const body = fs.readFileSync(process.env.EXISTING_BODY_FILE || "", "utf8");
                 const record = parseDeliveryRecord(body);
                 if (!record) {
-                  process.stdout.write("false missing_or_invalid");
+                  process.stdout.write(JSON.stringify({refreshable:false, reason:"missing_or_invalid"}));
                   process.exit(0);
                 }
-                const isStableCandidate =
-                  process.env.SYNC_PHASE === "canary" &&
-                  process.env.SYNC_BRANCH === "sync/workflows-candidate";
-                if (isStableCandidate) {
+                const expectedStableBranch = process.env.SYNC_PHASE === "canary"
+                  ? "sync/workflows-candidate"
+                  : "sync/workflows-delivery";
+                const isStableDelivery = process.env.SYNC_BRANCH === expectedStableBranch;
+                if (isStableDelivery) {
                   if (record.repository !== (process.env.DELIVERY_REPOSITORY || "")) {
-                    process.stdout.write("false repository_mismatch");
+                    process.stdout.write(JSON.stringify({refreshable:false, reason:"repository_mismatch"}));
                     process.exit(0);
                   }
                   if (record.terminal_disposition) {
-                    process.stdout.write(`false terminal:${record.terminal_disposition}`);
+                    process.stdout.write(JSON.stringify({
+                      refreshable: false,
+                      reason: `terminal:${record.terminal_disposition}`,
+                    }));
                     process.exit(0);
                   }
-                  process.stdout.write("true candidate_plan_rotation");
+                  process.stdout.write(JSON.stringify({
+                    refreshable: true,
+                    reason: "stable_plan_rotation",
+                    lifecycle_initialized: Boolean(record.delivery_state),
+                    delivery_state: record.delivery_state || "staging",
+                    review_started_at: record.review_started_at || "",
+                    sealed_at: record.sealed_at || "",
+                    sealed_head_sha: record.sealed_head_sha || "",
+                    review_evidence: record.review_evidence || {},
+                  }));
                   process.exit(0);
                 }
                 if (record.generation !== (process.env.DELIVERY_GENERATION || "")) {
-                  process.stdout.write("false generation_mismatch");
+                  process.stdout.write(JSON.stringify({refreshable:false, reason:"generation_mismatch"}));
                   process.exit(0);
                 }
                 const result = mergeEligibility(record, {
                   planId: process.env.PLAN_ID || "",
                   repository: process.env.DELIVERY_REPOSITORY || "",
                 });
-                process.stdout.write(`${result.eligible ? "true" : "false"} ${result.reason}`);
+                process.stdout.write(JSON.stringify({
+                  refreshable: result.eligible,
+                  reason: result.reason,
+                  lifecycle_initialized: Boolean(record.delivery_state),
+                  delivery_state: record.delivery_state || "",
+                  review_started_at: record.review_started_at || "",
+                  sealed_at: record.sealed_at || "",
+                  sealed_head_sha: record.sealed_head_sha || "",
+                  review_evidence: record.review_evidence || {},
+                }));
               '
             )
             rm -f "$existing_body_file"
-            existing_refreshable=${refresh_check%% *}
-            existing_refresh_reason=${refresh_check#* }
+            existing_refreshable=$(jq -r '.refreshable // false' <<<"$refresh_json")
+            existing_refresh_reason=$(jq -r '.reason // "unknown"' <<<"$refresh_json")
+            existing_lifecycle_initialized=$(jq -r '.lifecycle_initialized // false' <<<"$refresh_json")
+            delivery_state=$(jq -r '.delivery_state // "staging"' <<<"$refresh_json")
+            review_started_at=$(jq -r '.review_started_at // ""' <<<"$refresh_json")
+            sealed_at=$(jq -r '.sealed_at // ""' <<<"$refresh_json")
+            sealed_head_sha=$(jq -r '.sealed_head_sha // ""' <<<"$refresh_json")
+            review_evidence=$(jq -c '.review_evidence // {}' <<<"$refresh_json")
             echo "Existing PR #$existing_pr refreshable=${existing_refreshable} reason=${existing_refresh_reason}"
           fi
 
@@ -881,15 +921,13 @@ jobs:
           matching_existing=false
           if [ -n "$existing_pr" ] \
             && [ "$existing_refreshable" = "true" ] \
+            && [ "$existing_lifecycle_initialized" = "true" ] \
             && [ "$existing_base" = "$base_sha" ] \
             && [ "$existing_tree" = "$desired_tree_hash" ]; then
             matching_existing=true
-            echo "Existing PR #$existing_pr already matches this base and desired tree with a current lease; refreshing only its lease"
-          elif [ -n "$existing_pr" ] \
-            && [ "$existing_base" = "$base_sha" ] \
-            && [ "$existing_tree" = "$desired_tree_hash" ] \
-            && [ "$existing_refreshable" != "true" ]; then
-            echo "Existing PR #$existing_pr matches base/tree but is not refreshable (${existing_refresh_reason}); leaving it for Maint 71 disposition."
+            echo "Existing PR #$existing_pr already matches this base and desired tree; preserving its review lifecycle while refreshing metadata"
+          elif [ -n "$existing_pr" ] && [ "$existing_refreshable" != "true" ]; then
+            echo "Existing PR #$existing_pr is not refreshable (${existing_refresh_reason}); leaving it for Maint 71 disposition."
             echo "status=existing_pr_not_refreshable" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -901,6 +939,31 @@ jobs:
           fi
 
           if [ "$matching_existing" != "true" ]; then
+            if [ -n "$existing_pr" ]; then
+              # Revalidate the selected head, then close every automatic merge
+              # path immediately before mutating it. Draft state is GitHub's
+              # native hard block; the staging label is enforced by all shared
+              # merger lanes and by Gate until Maint 71 seals the exact head.
+              current_pr_json=$(gh pr view "$existing_pr" --json state,headRefOid,isDraft)
+              current_pr_state=$(jq -r .state <<<"$current_pr_json")
+              current_pr_head=$(jq -r .headRefOid <<<"$current_pr_json")
+              if [ "$current_pr_state" != "OPEN" ] || [ "$current_pr_head" != "$existing_head" ]; then
+                echo "Existing PR #$existing_pr changed before refresh; refusing to overwrite it."
+                echo "status=existing_pr_changed" >> "$GITHUB_OUTPUT"
+                exit 1
+              fi
+              gh pr merge "$existing_pr" --disable-auto >/dev/null 2>&1 || true
+              if [ "$(jq -r .isDraft <<<"$current_pr_json")" != "true" ]; then
+                gh pr ready "$existing_pr" --undo
+              fi
+              gh pr edit "$existing_pr" --add-label "sync:delivery-staging"
+              gh pr edit "$existing_pr" --remove-label "sync:delivery-ready" >/dev/null 2>&1 || true
+            fi
+            delivery_state="staging"
+            review_started_at=""
+            sealed_at=""
+            sealed_head_sha=""
+            review_evidence='{}'
             git commit -m "chore: sync workflow templates from Workflows repo
 
             Automated sync from stranske/Workflows
@@ -927,7 +990,7 @@ jobs:
             --arg sync_phase "$SYNC_PHASE" \
             --arg sync_branch "$branch_name" \
             --arg manifest ".github/sync-manifest.yml" \
-            --arg lifecycle_state "opened" \
+            --arg lifecycle_state "$delivery_state" \
             --arg run_id "$GITHUB_RUN_ID" \
             --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
             --argjson changes_count "${{ steps.sync.outputs.changes_count || '0' }}" \
@@ -955,7 +1018,12 @@ jobs:
             --arg desired_tree_hash "$desired_tree_hash" \
             --arg source_commit "$GITHUB_SHA" \
             --arg lease_expires_at "$lease_expires_at" \
-            '{schema:$schema,durable_issue_url:$durable_issue_url,plan_id:$plan_id,generation:$generation,repository:$repository,desired_tree_hash:$desired_tree_hash,source_commit:$source_commit,lease_expires_at:$lease_expires_at,predecessor_prs:[],successor_prs:[]}')
+            --arg delivery_state "$delivery_state" \
+            --arg review_started_at "$review_started_at" \
+            --arg sealed_at "$sealed_at" \
+            --arg sealed_head_sha "$sealed_head_sha" \
+            --argjson review_evidence "$review_evidence" \
+            '{schema:$schema,durable_issue_url:$durable_issue_url,plan_id:$plan_id,generation:$generation,repository:$repository,desired_tree_hash:$desired_tree_hash,source_commit:$source_commit,lease_expires_at:$lease_expires_at,predecessor_prs:[],successor_prs:[],delivery_state:$delivery_state,review_started_at:$review_started_at,sealed_at:$sealed_at,sealed_head_sha:$sealed_head_sha,review_evidence:$review_evidence}')
           pr_body=$(cat ../sync_summary.md)
           pr_body="$pr_body
 
@@ -985,9 +1053,10 @@ jobs:
           else
             pr_url=$(gh pr create \
               --head "$branch_name" \
+              --draft \
               --title "chore: sync workflow templates" \
               --body "$pr_body" \
-              --label "sync,automated")
+              --label "sync,automated,sync:delivery-staging")
             pr_number=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
             status="created_pr"
           fi

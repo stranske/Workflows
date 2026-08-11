@@ -31,6 +31,14 @@ For a narrative of how the repo evolved through five development phases (bootstr
 
 [`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml) is the authoritative list — `REGISTERED_CONSUMER_REPOS` env var. The [Workflows-Integration-Tests](https://github.com/stranske/Workflows-Integration-Tests) harness validates the consumer surface separately.
 
+Consumer delivery is coalesced into one stable PR per repository and lane:
+configured canaries use `sync/workflows-candidate`, while promoted consumers use
+`sync/workflows-delivery`. Maint 68 updates those PRs in place; Maint 71 alone
+advances them from draft staging through bounded reviewer settlement to an
+exact-head seal and merge. Review capacity cannot require all configured bots:
+one response is sufficient after the quiet period, and a bounded timeout keeps
+an unavailable reviewer from making delivery immortal.
+
 ## Auto-Pilot Pipeline
 
 The `agents:auto-pilot` label triggers a fully automated issue-to-merge pipeline.

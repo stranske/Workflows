@@ -247,6 +247,67 @@ def test_normalize_handles_missing_and_blank_values() -> None:
     assert gate_summary._normalize(" SUCCESS ") == "success"
 
 
+def test_stable_generated_delivery_requires_an_exact_head_seal(tmp_path: Path) -> None:
+    event_path = tmp_path / "event.json"
+    record = {
+        "schema": "sync-pr-delivery-record/v1",
+        "repository": "stranske/Ready",
+        "lease_expires_at": "2099-08-14T00:00:00Z",
+        "delivery_state": "reviewing",
+        "sealed_head_sha": "",
+    }
+    event = {
+        "pull_request": {
+            "body": (
+                "<!-- sync-pr-delivery-record:v1 "
+                f"{json.dumps(record, separators=(',', ':'))} -->"
+            ),
+            "head": {"ref": "sync/workflows-delivery", "sha": "head-abc"},
+            "base": {"repo": {"full_name": "stranske/Ready"}},
+        }
+    }
+    event_path.write_text(json.dumps(event), encoding="utf-8")
+
+    assert gate_summary._delivery_seal_from_event(event_path) == (
+        True,
+        False,
+        "delivery state is reviewing",
+    )
+
+    record.update(delivery_state="sealed", sealed_head_sha="head-abc")
+    event["pull_request"]["body"] = (
+        "<!-- sync-pr-delivery-record:v1 "
+        f"{json.dumps(record, separators=(',', ':'))} -->"
+    )
+    event_path.write_text(json.dumps(event), encoding="utf-8")
+    assert gate_summary._delivery_seal_from_event(event_path) == (
+        True,
+        True,
+        "exact head sealed",
+    )
+
+
+def test_delivery_seal_failure_overrides_docs_fast_pass() -> None:
+    context = gate_summary.SummaryContext(
+        doc_only=True,
+        run_core=False,
+        reason="docs_only",
+        python_result="skipped",
+        docker_result="skipped",
+        docker_changed=False,
+        artifacts_root=Path("/tmp/nonexistent"),
+        summary_path=None,
+        output_path=None,
+        delivery_seal_required=True,
+        delivery_seal_valid=False,
+        delivery_seal_reason="sealed head does not match the PR head",
+    )
+
+    result = gate_summary.summarize(context)
+    assert result.state == "failure"
+    assert "not sealed" in result.description
+
+
 def test_load_summary_records_handles_missing_and_invalid(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

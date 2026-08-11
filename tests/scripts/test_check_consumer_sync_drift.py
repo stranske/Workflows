@@ -190,7 +190,7 @@ def test_build_report_marks_current_sync_pr_as_covered() -> None:
                 "repo": "owner/repo",
                 "number": 12,
                 "url": "https://github.com/owner/repo/pull/12",
-                "branch": "sync/workflows-aaaaaaaaaaaa",
+                "branch": "sync/workflows-delivery",
                 "head_repo": "owner/repo",
                 "updated_at": "2026-04-26T01:00:00Z",
             }
@@ -200,7 +200,7 @@ def test_build_report_marks_current_sync_pr_as_covered() -> None:
     )
 
     assert report["status"] == "covered"
-    assert report["sync_remediation"]["expected_branch"] == "sync/workflows-aaaaaaaaaaaa"
+    assert report["sync_remediation"]["expected_branch"] == "sync/workflows-delivery"
     assert report["sync_remediation"]["repo_states"]["owner/repo"]["state"] == "covered"
 
 
@@ -232,7 +232,7 @@ def test_build_report_accepts_the_stable_candidate_branch_only_for_canaries() ->
     assert states["owner/canary"]["state"] == "covered"
     assert states["owner/canary"]["expected_branch"] == "sync/workflows-candidate"
     assert states["owner/regular"]["state"] == "untracked_drift"
-    assert states["owner/regular"]["expected_branch"] == "sync/workflows-aaaaaaaaaaaa"
+    assert states["owner/regular"]["expected_branch"] == "sync/workflows-delivery"
     assert "-f phase=preview" in report["follow_up"]["targeted_repos_command"]
 
 
@@ -273,7 +273,7 @@ def test_build_report_rejects_stale_or_untrusted_coverage() -> None:
     base_pr = {
         "repo": "owner/repo",
         "number": 12,
-        "branch": "sync/workflows-aaaaaaaaaaaa",
+        "branch": "sync/workflows-delivery",
         "head_repo": "owner/repo",
     }
     report = check_consumer_sync_drift.build_report(

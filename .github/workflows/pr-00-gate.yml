@@ -69,7 +69,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout workflow helpers
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
@@ -88,7 +88,7 @@ jobs:
 
       - name: Detect changes via API
         id: diff
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const { detectChanges } = require('./.github/scripts/detect-changes.js');
@@ -154,6 +154,61 @@ jobs:
         run: |
           echo "workflow_changed=${WORKFLOW_CHANGED}"
           echo "environment=${ENVIRONMENT_NAME}"
+
+  generated-delivery-seal:
+    name: generated delivery seal
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout delivery contract
+        if: >-
+          ${{
+            github.event_name == 'pull_request' &&
+            (github.head_ref == 'sync/workflows-candidate' ||
+             github.head_ref == 'sync/workflows-delivery')
+          }}
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: .github/scripts/sync_pr_lease_contract.js
+          sparse-checkout-cone-mode: false
+
+      - name: Require an exact-head delivery seal
+        if: >-
+          ${{
+            github.event_name == 'pull_request' &&
+            (github.head_ref == 'sync/workflows-candidate' ||
+             github.head_ref == 'sync/workflows-delivery')
+          }}
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { parseDeliveryRecord, mergeEligibility } = require(
+              './.github/scripts/sync_pr_lease_contract.js'
+            );
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request.number;
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: number,
+            });
+            const record = parseDeliveryRecord(pr.body || '');
+            const eligibility = mergeEligibility(record, {
+              repository: `${owner}/${repo}`,
+              desiredTreeHash: '',
+              requireSealed: true,
+              headSha: pr.head.sha,
+            });
+            if (!eligibility.eligible) {
+              core.setFailed(
+                `Mutable generated delivery is not mergeable: ${eligibility.reason}. ` +
+                'Maint 71 must seal this exact head after bounded reviewer settlement.'
+              );
+            }
 
   python-ci:
     name: python ci
@@ -472,6 +527,7 @@ jobs:
       - issue-consistency
       - test-quality
       - ledger-validation
+      - generated-delivery-seal
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -678,6 +734,7 @@ jobs:
           PYTHON_REQUIRED: ${{ needs.detect.outputs.is_python_code || 'true' }}
           DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
           TEST_QUALITY_RESULT: ${{ needs.test-quality.result || 'skipped' }}
+          DELIVERY_SEAL_RESULT: ${{ needs.generated-delivery-seal.result || 'success' }}
           DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
           COVERAGE_ENABLED: ${{ needs.detect.outputs.coverage || 'true' }}
         run: python .github/scripts/gate_summary.py

@@ -15,19 +15,28 @@ async function run({ github, context, core }) {
     classifySyncPrChecks,
     collectDeletableSyncBranches,
     evaluatePostPushReviewWindow,
+    evaluateReviewerSettlement,
     generatedDeliveryLane,
     isBlockingSyncSystemFailure,
+    isReviewerCapacitySignal,
+    isStableSyncBranchName,
     normalizeSyncHash,
     parseBooleanInput,
     requiresStrictGateBranchUpdate,
     requiredContextsFromRulesets,
     isTrustedGeneratedDeliveryPr,
+    reviewerProfileForLogin,
     selectLatestMergedCandidatePr,
     selectMergeEligibleSyncPr,
     selectSyncPrGatingChecks,
     syncBranchForHash,
     validateCanaryEvidence,
   } = require('./sync_pr_merge_contract.js');
+  const {
+    mergeEligibility,
+    parseDeliveryRecord,
+    replaceDeliveryRecord,
+  } = require('./sync_pr_lease_contract.js');
   const {
     assertRuntimeAcMergeAllowed,
   } = require('./runtime_ac_merge_guard.js');
@@ -170,6 +179,19 @@ async function run({ github, context, core }) {
     .split(',')
     .map((actor) => actor.trim())
     .filter(Boolean);
+  const reviewPolicyPath = process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH ||
+    path.join(__dirname, '../../config/consumer_sync_review_policy.json');
+  const reviewPolicy = JSON.parse(fs.readFileSync(reviewPolicyPath, 'utf8'));
+  const reviewerProfiles = Array.isArray(reviewPolicy.reviewers) ? reviewPolicy.reviewers : [];
+  const configuredReviewers = reviewerProfiles
+    .map((profile) => String(profile?.id || '').trim())
+    .filter(Boolean);
+  const minimumReviewerResponses = Number(reviewPolicy.minimum_responses ?? 1);
+  const reviewerQuietPeriodMs = Number(reviewPolicy.quiet_period_minutes ?? 7) * 60 * 1000;
+  const reviewerMaximumWaitMs = Number(reviewPolicy.maximum_wait_minutes ?? 15) * 60 * 1000;
+  const reviewerCapacityPatterns = Array.isArray(reviewPolicy.capacity_patterns)
+    ? reviewPolicy.capacity_patterns
+    : [];
 
   let expectedCanaryRepos = [];
   if (requestedSyncHash === 'candidate') {
@@ -198,6 +220,10 @@ async function run({ github, context, core }) {
   console.log(`Auto-merge: ${autoMerge}, Dry run: ${dryRun}`);
   console.log(`Evidence only: ${evidenceOnly}`);
   console.log(`Candidate evidence authorized: ${candidateEvidenceAuthorized}`);
+  console.log(
+    `Reviewer policy: minimum=${minimumReviewerResponses}, ` +
+      `quiet=${reviewerQuietPeriodMs / 60000}m, max=${reviewerMaximumWaitMs / 60000}m`,
+  );
   console.log(`Cleanup stale sync branches: ${cleanupBranches}\n`);
   if (requestedSyncHash) {
     console.log(`Target sync hash: ${requestedSyncHash}`);
@@ -249,38 +275,239 @@ async function run({ github, context, core }) {
     }
   }
 
-  async function confirmExactHeadReviewClear({ owner, repo, pr, expectMerged }) {
-    const { data: freshPr } = await withRetry((client) => client.rest.pulls.get({
+  async function collectReviewerEvidence({ owner, repo, number, reviewStartedAt, checkRuns }) {
+    const startedAt = new Date(reviewStartedAt || '').getTime();
+    if (!Number.isFinite(startedAt)) {
+      return { responded: [], unavailable: [], truncated: false };
+    }
+    const data = await github.graphql(
+      `query($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            comments(first: 100) {
+              pageInfo { hasNextPage }
+              nodes { body createdAt author { login } }
+            }
+            reviews(first: 100) {
+              pageInfo { hasNextPage }
+              nodes { body submittedAt author { login } }
+            }
+            reviewThreads(first: 100) {
+              pageInfo { hasNextPage }
+              nodes {
+                comments(first: 100) {
+                  pageInfo { hasNextPage }
+                  nodes { body createdAt author { login } }
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { owner, repo, number },
+    );
+    const pullRequest = data?.repository?.pullRequest;
+    if (!pullRequest) throw new Error(`Unable to load reviewer evidence for PR #${number}`);
+    const activities = [];
+    for (const comment of pullRequest.comments?.nodes || []) {
+      activities.push({ ...comment, at: comment.createdAt });
+    }
+    for (const review of pullRequest.reviews?.nodes || []) {
+      activities.push({ ...review, at: review.submittedAt });
+    }
+    for (const thread of pullRequest.reviewThreads?.nodes || []) {
+      for (const comment of thread.comments?.nodes || []) {
+        activities.push({ ...comment, at: comment.createdAt });
+      }
+    }
+    const responded = new Set();
+    const unavailable = new Set();
+    for (const activity of activities) {
+      if (new Date(activity.at || '').getTime() < startedAt) continue;
+      const reviewer = reviewerProfileForLogin(activity.author?.login, reviewerProfiles);
+      if (!reviewer) continue;
+      if (isReviewerCapacitySignal(activity.body, reviewerCapacityPatterns)) {
+        unavailable.add(reviewer);
+      } else {
+        responded.add(reviewer);
+      }
+    }
+    for (const check of checkRuns || []) {
+      const completedAt = new Date(
+        check.completed_at || check.completedAt || check.started_at || check.startedAt || '',
+      ).getTime();
+      if (!Number.isFinite(completedAt) || completedAt < startedAt) continue;
+      const name = String(check.name || '').trim();
+      const profile = reviewerProfiles.find((item) =>
+        (item.check_names || []).some((candidate) => candidate === name),
+      );
+      if (!profile) continue;
+      if (String(check.status || '').toLowerCase() === 'completed') {
+        responded.add(String(profile.id || '').trim());
+      }
+    }
+    const truncated = Boolean(
+      pullRequest.comments?.pageInfo?.hasNextPage
+      || pullRequest.reviews?.pageInfo?.hasNextPage
+      || pullRequest.reviewThreads?.pageInfo?.hasNextPage
+      || (pullRequest.reviewThreads?.nodes || []).some(
+        (thread) => thread.comments?.pageInfo?.hasNextPage,
+      )
+    );
+    return {
+      responded: [...responded].filter(Boolean).sort(),
+      unavailable: [...unavailable].filter(Boolean).sort(),
+      truncated,
+    };
+  }
+
+  async function beginStableDeliveryReview({ owner, repo, pr, record, dryRunMode }) {
+    const reviewStartedAt = record.review_started_at || new Date().toISOString();
+    if (dryRunMode) return { reviewStartedAt, dryRun: true };
+    const body = replaceDeliveryRecord(pr.body || '', {
+      delivery_state: 'reviewing',
+      review_started_at: reviewStartedAt,
+      sealed_at: '',
+      sealed_head_sha: '',
+      review_evidence: {},
+    });
+    await withRetry((client) => client.rest.pulls.update({
       owner,
       repo,
       pull_number: pr.number,
+      body,
     }));
-    if (freshPr?.head?.sha !== pr.head.sha) {
+    if (pr.draft) {
+      await github.graphql(
+        `mutation($id: ID!) {
+          markPullRequestReadyForReview(input: {pullRequestId: $id}) {
+            pullRequest { id isDraft }
+          }
+        }`,
+        { id: pr.node_id },
+      );
+    }
+    await withRetry((client) => client.rest.issues.addLabels({
+      owner,
+      repo,
+      issue_number: pr.number,
+      labels: ['sync:delivery-staging'],
+    }));
+    return { reviewStartedAt, body, dryRun: false };
+  }
+
+  async function sealStableDelivery({ owner, repo, pr, record, settlement, dryRunMode }) {
+    const sealedAt = new Date().toISOString();
+    const reviewEvidence = {
+      policy_schema: reviewPolicy.schema,
+      reason: settlement.reason,
+      degraded: Boolean(settlement.degraded),
+      responded_reviewers: settlement.responded || [],
+      unavailable_reviewers: settlement.unavailable || [],
+    };
+    if (dryRunMode) return { sealedAt, reviewEvidence, body: pr.body, dryRun: true };
+    const body = replaceDeliveryRecord(pr.body || '', {
+      delivery_state: 'sealed',
+      review_started_at: record.review_started_at,
+      sealed_at: sealedAt,
+      sealed_head_sha: pr.head.sha,
+      review_evidence: reviewEvidence,
+    });
+    await withRetry((client) => client.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: pr.number,
+      body,
+    }));
+    // Trigger a fresh Gate run from the sealed body while retaining the
+    // staging hold label. Generic merge lanes remain blocked; Maint 71 alone
+    // may override that hold after the new Gate succeeds on this exact head.
+    await withRetry((client) => client.rest.issues.addLabels({
+      owner,
+      repo,
+      issue_number: pr.number,
+      labels: ['sync:delivery-ready'],
+    }));
+    return { sealedAt, reviewEvidence, body, dryRun: false };
+  }
+
+  async function confirmExactHeadReviewClear({
+    owner,
+    repo,
+    pr,
+    expectMerged,
+    requireSealedDelivery = false,
+  }) {
+    const data = await github.graphql(
+      `query($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            state
+            mergedAt
+            headRefOid
+            body
+            createdAt
+            updatedAt
+            reviewThreads(first: 100) {
+              pageInfo { hasNextPage }
+              nodes { isResolved isOutdated }
+            }
+          }
+        }
+      }`,
+      { owner, repo, number: pr.number },
+    );
+    const freshPr = data?.repository?.pullRequest;
+    if (freshPr?.headRefOid !== pr.head.sha) {
       return {
         ok: false,
         reason: 'head_changed',
         activeReviewThreads: -1,
-        freshHeadSha: freshPr?.head?.sha || '',
+        freshHeadSha: freshPr?.headRefOid || '',
       };
     }
-    if (expectMerged && !freshPr?.merged_at) {
+    if (expectMerged && !(freshPr?.mergedAt || freshPr?.state === 'MERGED')) {
       return {
         ok: false,
         reason: 'merged_state_changed',
         activeReviewThreads: -1,
-        freshHeadSha: freshPr?.head?.sha || '',
+        freshHeadSha: freshPr?.headRefOid || '',
       };
     }
-    if (!expectMerged && freshPr?.state !== 'open') {
+    if (!expectMerged && freshPr?.state !== 'OPEN') {
       return {
         ok: false,
         reason: 'pr_state_changed',
         activeReviewThreads: -1,
-        freshHeadSha: freshPr?.head?.sha || '',
+        freshHeadSha: freshPr?.headRefOid || '',
       };
     }
+    if (requireSealedDelivery) {
+      const freshRecord = parseDeliveryRecord(freshPr?.body || '');
+      const sealEligibility = freshRecord
+        ? mergeEligibility(freshRecord, {
+            now: new Date().toISOString(),
+            repository: `${owner}/${repo}`,
+            requireSealed: true,
+            headSha: freshPr.headRefOid,
+          })
+        : { eligible: false, reason: 'missing_delivery_record' };
+      if (!sealEligibility.eligible) {
+        return {
+          ok: false,
+          reason: 'delivery_seal_changed',
+          deliveryReason: sealEligibility.reason,
+          activeReviewThreads: -1,
+          freshHeadSha: freshPr.headRefOid,
+        };
+      }
+    }
     const reviewWindow = evaluatePostPushReviewWindow(
-      freshPr,
+      {
+        created_at: freshPr?.createdAt || pr.created_at,
+        updated_at: freshPr?.updatedAt || pr.updated_at,
+        head: { pushed_at: pr?.head?.pushed_at },
+      },
       new Date().toISOString(),
     );
     if (!reviewWindow.ready) {
@@ -288,24 +515,29 @@ async function run({ github, context, core }) {
         ok: false,
         reason: 'review_window_pending',
         activeReviewThreads: -1,
-        freshHeadSha: freshPr.head.sha,
+        freshHeadSha: freshPr.headRefOid,
         reviewWindow,
       };
     }
-    const activeReviewThreads = await activeReviewThreadCount(owner, repo, pr.number);
+    const reviewThreads = freshPr?.reviewThreads;
+    const activeReviewThreads = reviewThreads?.pageInfo?.hasNextPage
+      ? -1
+      : (reviewThreads?.nodes || []).filter(
+          (thread) => !thread.isResolved && !thread.isOutdated,
+        ).length;
     if (activeReviewThreads !== 0) {
       return {
         ok: false,
         reason: 'review_blocked',
         activeReviewThreads,
-        freshHeadSha: freshPr.head.sha,
+        freshHeadSha: freshPr.headRefOid,
       };
     }
     return {
       ok: true,
       reason: 'exact_head_review_clear',
       activeReviewThreads,
-      freshHeadSha: freshPr.head.sha,
+      freshHeadSha: freshPr.headRefOid,
       freshPr,
     };
   }
@@ -587,7 +819,9 @@ async function run({ github, context, core }) {
         continue;
       }
   
-      // Process the selected active PR
+      // Process the selected active PR from a full, revalidated REST payload.
+      // List responses omit mergeable_state and can race an intervening push or
+      // body edit, so never authorize lifecycle or merge work from the list row.
       let pr = selection.active;
       try {
         const { data: fullPr } = await withRetry((client) => client.rest.pulls.get({
@@ -607,6 +841,9 @@ async function run({ github, context, core }) {
           throw new Error('refreshed PR no longer matches the trusted delivery selection');
         }
         pr = fullPr;
+        pr.head.pushed_at = selectedHeadCommit?.committer?.date
+          || selectedHeadCommit?.author?.date
+          || '';
       } catch (error) {
         const message = String(error?.message || error);
         console.log(`Unable to refresh generated PR #${pr.number}: ${message}`);
@@ -617,7 +854,7 @@ async function run({ github, context, core }) {
           branch: pr.head.ref,
           head_sha: pr.head.sha,
           status: 'pr_refresh_failed',
-          error: `PR refresh before branch update: ${message}`,
+          error: `PR refresh before lifecycle decision: ${message}`,
         });
         continue;
       }
@@ -625,28 +862,6 @@ async function run({ github, context, core }) {
       console.log(`\nProcessing active PR #${pr.number}: ${pr.title}`);
       console.log(`Branch: ${pr.head.ref}`);
       console.log(`Created: ${pr.created_at}`);
-
-      if (!candidateEvidenceAllowsMutation({
-        branch: pr.head.ref,
-        evidenceOnly,
-        authorized: candidateEvidenceAuthorized,
-      })) {
-        console.log('Candidate merge blocked: pre-merge evidence was not persisted successfully');
-        results.push({
-          owner,
-          repo,
-          pr: pr.number,
-          branch: pr.head.ref,
-          head_sha: pr.head.sha,
-          delivery_generation: selection.deliveryRecord?.generation || '',
-          delivery_lane: generatedDeliveryLane(pr.head.ref),
-          delivery_disposition: 'awaiting-canary-evidence',
-          blocker_owner: 'maint-71',
-          next_command: 'rerun-active-sync-hash-candidate',
-          status: 'candidate_evidence_required',
-        });
-        continue;
-      }
 
       const reviewWindow = evaluatePostPushReviewWindow(pr, new Date().toISOString());
       if (!reviewWindow.ready) {
@@ -746,13 +961,14 @@ async function run({ github, context, core }) {
         activeReviewThreadCount: activeReviewThreads,
         now: new Date().toISOString(),
       });
+      let deliveryRecord = parseDeliveryRecord(pr.body || '');
       const deliveryContext = {
         owner,
         repo,
         pr: pr.number,
         branch: pr.head.ref,
         head_sha: pr.head.sha,
-        delivery_generation: selection.deliveryRecord?.generation || '',
+        delivery_generation: deliveryRecord?.generation || '',
         delivery_lane: generatedDeliveryLane(pr.head.ref),
         delivery_disposition: deliveryState.disposition,
         blocker_owner: deliveryState.blocker_owner,
@@ -774,6 +990,144 @@ async function run({ github, context, core }) {
         continue;
       }
   
+      const stableDelivery = isStableSyncBranchName(pr.head.ref);
+      // Closed canary PRs may predate the mutable-delivery lifecycle. They are
+      // read-only evidence sources, so the staging/sealing contract applies
+      // only while a stable delivery PR is still open and mutable.
+      if (stableDelivery && !recoveredMergedCandidate) {
+        if (!deliveryRecord?.delivery_state) {
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'owner-decision',
+            blocker_owner: 'source',
+            next_command: 'refresh-stable-delivery-record',
+            status: 'delivery_contract_blocked',
+            delivery_reason: 'stable_delivery_state_missing',
+          });
+          continue;
+        }
+        if (
+          deliveryRecord.delivery_state === 'staging'
+          || (deliveryRecord.delivery_state === 'reviewing' && pr.draft)
+        ) {
+          if (!autoMerge && !dryRun) {
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'awaiting-review-start',
+              blocker_owner: 'maint-71',
+              next_command: 'rerun-with-auto-merge-to-start-review',
+              status: 'delivery_review_not_started',
+            });
+            continue;
+          }
+          const started = await beginStableDeliveryReview({
+            owner,
+            repo,
+            pr,
+            record: deliveryRecord,
+            dryRunMode: dryRun,
+          });
+          console.log(
+            `${dryRun ? '[DRY RUN] Would start' : 'Started'} bounded delivery review ` +
+              `for PR #${pr.number} at ${started.reviewStartedAt}`,
+          );
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'awaiting-review-settlement',
+            blocker_owner: 'reviewers',
+            next_command: `rerun-after:${new Date(
+              new Date(started.reviewStartedAt).getTime() + reviewerQuietPeriodMs,
+            ).toISOString()}`,
+            status: dryRun ? 'dry_run_review_start' : 'review_window_started',
+            review_started_at: started.reviewStartedAt,
+          });
+          continue;
+        }
+        if (deliveryRecord.delivery_state === 'reviewing') {
+          const reviewerEvidence = await collectReviewerEvidence({
+            owner,
+            repo,
+            number: pr.number,
+            reviewStartedAt: deliveryRecord.review_started_at,
+            checkRuns: allChecks,
+          });
+          const settlement = evaluateReviewerSettlement({
+            reviewStartedAt: deliveryRecord.review_started_at,
+            now: new Date().toISOString(),
+            configuredReviewers,
+            respondedReviewers: reviewerEvidence.responded,
+            unavailableReviewers: reviewerEvidence.unavailable,
+            minimumResponses: minimumReviewerResponses,
+            quietPeriodMs: reviewerQuietPeriodMs,
+            maxWaitMs: reviewerMaximumWaitMs,
+          });
+          if (!settlement.ready) {
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'awaiting-review-settlement',
+              blocker_owner: 'reviewers',
+              next_command: settlement.eligible_at
+                ? `rerun-after:${settlement.eligible_at}`
+                : 'rerun-review-settlement',
+              status: 'reviewer_settlement_pending',
+              reviewer_settlement: settlement,
+              reviewer_evidence_truncated: reviewerEvidence.truncated,
+            });
+            continue;
+          }
+          const sealed = await sealStableDelivery({
+            owner,
+            repo,
+            pr,
+            record: deliveryRecord,
+            settlement,
+            dryRunMode: dryRun,
+          });
+          if (dryRun) {
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'current',
+              blocker_owner: 'maint-71',
+              next_command: 'rerun-with-auto-merge-to-seal',
+              status: 'dry_run_seal',
+              reviewer_settlement: settlement,
+            });
+            continue;
+          }
+          pr.body = sealed.body;
+          deliveryRecord = parseDeliveryRecord(pr.body || '');
+          console.log(
+            `Sealed exact delivery head ${pr.head.sha} with reviewer result ${settlement.reason}`,
+          );
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'awaiting-sealed-gate',
+            blocker_owner: 'ci',
+            next_command: 'rerun-after-generated-delivery-seal-gate',
+            status: 'delivery_sealed_checks_pending',
+            reviewer_settlement: settlement,
+          });
+          continue;
+        }
+        if (
+          deliveryRecord.delivery_state !== 'sealed'
+          || deliveryRecord.sealed_head_sha !== pr.head.sha
+        ) {
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'awaiting-review-settlement',
+            blocker_owner: 'maint-71',
+            next_command: 'restage-changed-delivery-head',
+            status: 'sealed_head_mismatch',
+          });
+          continue;
+        }
+      }
+
+      // A stable PR's own Gate intentionally rejects staging/reviewing
+      // delivery records. Advance the bounded review lifecycle first, then
+      // enforce the freshly triggered exact-head Gate once the record is
+      // sealed. Legacy/hash and dev-tool lanes retain their original ordering.
       if (classification.status === 'checks_failed') {
         console.log('Failed checks:');
         failedChecks.forEach(c => console.log(`  - ${c.name}: ${c.conclusion}`));
@@ -802,6 +1156,26 @@ async function run({ github, context, core }) {
         });
         continue;
       }
+
+      // Stable candidate PRs may advance from draft -> reviewing -> sealed
+      // without pre-merge evidence. The evidence artifact authorizes only the
+      // irreversible merge, so lifecycle progress cannot deadlock behind the
+      // artifact that the sealed state is responsible for producing.
+      if (!candidateEvidenceAllowsMutation({
+        branch: pr.head.ref,
+        evidenceOnly,
+        authorized: candidateEvidenceAuthorized,
+      })) {
+        console.log('Candidate merge blocked: pre-merge evidence was not persisted successfully');
+        results.push({
+          ...deliveryContext,
+          delivery_disposition: 'awaiting-canary-evidence',
+          blocker_owner: 'maint-71',
+          next_command: 'rerun-active-sync-hash-candidate',
+          status: 'candidate_evidence_required',
+        });
+        continue;
+      }
   
       // All checks passed. For an actual merge, run the runtime AC guard before
       // the final exact-head/thread query so no intervening network action sits
@@ -813,6 +1187,57 @@ async function run({ github, context, core }) {
       // fresh Gate and mandatory review window instead of attempting a merge.
       if (requiresStrictGateBranchUpdate({ pr, requiredContexts, willMerge })) {
         try {
+          if (stableDelivery) {
+            const stagingBody = replaceDeliveryRecord(pr.body || '', {
+              delivery_state: 'staging',
+              review_started_at: '',
+              sealed_at: '',
+              sealed_head_sha: '',
+              review_evidence: {},
+            });
+            await withRetry((client) => client.rest.pulls.update({
+              owner,
+              repo,
+              pull_number: pr.number,
+              body: stagingBody,
+            }));
+            if (!pr.draft) {
+              await github.graphql(
+                `mutation($id: ID!) {
+                  convertPullRequestToDraft(input: {pullRequestId: $id}) {
+                    pullRequest { id isDraft }
+                  }
+                }`,
+                { id: pr.node_id },
+              );
+            }
+            await withRetry((client) => client.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: pr.number,
+              labels: ['sync:delivery-staging'],
+            }));
+            try {
+              await withRetry((client) => client.rest.issues.removeLabel({
+                owner,
+                repo,
+                issue_number: pr.number,
+                name: 'sync:delivery-ready',
+              }));
+            } catch (labelError) {
+              if (labelError?.status !== 404) throw labelError;
+            }
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'awaiting-base-refresh',
+              blocker_owner: 'maint-68',
+              next_command: metadata?.sync_phase === 'canary'
+                ? 'dispatch-maint-68-phase-canary-no-filter'
+                : 'rerun-maint-68-phase-promote-with-same-evidence',
+              status: 'stable_base_refresh_required',
+            });
+            continue;
+          }
           await withRetry((client) => client.rest.pulls.updateBranch({
             owner,
             repo,
@@ -845,6 +1270,7 @@ async function run({ github, context, core }) {
             prNumber: pr.number,
             withRetry,
             source: 'maint-71-merge-sync-prs',
+            allowSealedSyncDelivery: stableDelivery,
           });
         } catch (guardError) {
           const message = String(guardError?.message || guardError);
@@ -863,6 +1289,7 @@ async function run({ github, context, core }) {
         repo,
         pr,
         expectMerged: recoveredMergedCandidate,
+        requireSealedDelivery: stableDelivery && !recoveredMergedCandidate,
       });
       if (!finalGate.ok) {
         console.log(`Final exact-head review gate blocked delivery: ${finalGate.reason}`);
@@ -887,6 +1314,15 @@ async function run({ github, context, core }) {
               : 'resolve-active-review-threads',
             status: 'review_blocked',
             active_review_thread_count: finalGate.activeReviewThreads,
+          });
+        } else if (finalGate.reason === 'delivery_seal_changed') {
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'awaiting-review-settlement',
+            blocker_owner: 'maint-71',
+            next_command: 'restage-changed-delivery-record',
+            status: 'sealed_head_mismatch',
+            delivery_reason: finalGate.deliveryReason || 'delivery_seal_changed',
           });
         } else {
           results.push({
@@ -954,19 +1390,34 @@ async function run({ github, context, core }) {
         let merged = false;
         let lastError = null;
   
-        for (const merge_method of mergeMethods) {
+        for (const [methodIndex, merge_method] of mergeMethods.entries()) {
           try {
-            await withRetry((client) => client.rest.pulls.merge({
-              owner,
-              repo,
-              pull_number: pr.number,
-              merge_method,
-              commit_title: pr.title,
-              commit_message:
-                `Automated merge of sync PR\n\n` +
-                `Sync hash: ${requestedSyncHash || metadata?.sync_hash || 'unknown'}\n` +
-                `Delivery generation: ${selection.deliveryRecord?.generation || 'unknown'}`
-            }));
+            if (methodIndex > 0) {
+              const retryGate = await confirmExactHeadReviewClear({
+                owner,
+                repo,
+                pr,
+                expectMerged: false,
+                requireSealedDelivery: stableDelivery,
+              });
+              if (!retryGate.ok) {
+                throw new Error(`merge retry gate blocked: ${retryGate.reason}`);
+              }
+            }
+            await withRetry(
+              (client) => client.rest.pulls.merge({
+                owner,
+                repo,
+                pull_number: pr.number,
+                merge_method,
+                commit_title: pr.title,
+                commit_message:
+                  `Automated merge of sync PR\n\n` +
+                  `Sync hash: ${requestedSyncHash || metadata?.sync_hash || 'unknown'}\n` +
+                  `Delivery generation: ${selection.deliveryRecord?.generation || 'unknown'}`
+              }),
+              { maxRetries: 0 },
+            );
             console.log(`✓ Merged successfully (method=${merge_method})`);
             merged = true;
             break;
@@ -982,6 +1433,28 @@ async function run({ github, context, core }) {
   
         if (!merged) {
           throw lastError || new Error('Merge failed');
+        }
+
+        if (stableDelivery) {
+          try {
+            await withRetry((client) => client.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: pr.number,
+              labels: ['sync:delivery-ready'],
+            }));
+            await withRetry((client) => client.rest.issues.removeLabel({
+              owner,
+              repo,
+              issue_number: pr.number,
+              name: 'sync:delivery-staging',
+            }));
+          } catch (labelError) {
+            core.notice(
+              `Merged PR #${pr.number}, but final delivery-label cleanup failed: ` +
+                `${labelError.message || labelError}`,
+            );
+          }
         }
   
         // Delete the branch
@@ -1094,7 +1567,9 @@ async function run({ github, context, core }) {
   // every scheduled flush red and forces re-runs. Only genuine sync-system action
   // failures (merge/cleanup/missing-target) are blocking; consumer CI health is
   // surfaced via the merge report and Health 68 instead.
-  const blockingFailures = results.filter((r) => isBlockingSyncSystemFailure(r.status));
+  const blockingFailures = results.filter((result) =>
+    isBlockingSyncSystemFailure(result.status),
+  );
   const branchDeleteFailures = results.filter((r) => r.status === 'branch_delete_failed');
   if (branchDeleteFailures.length > 0) {
     core.notice(

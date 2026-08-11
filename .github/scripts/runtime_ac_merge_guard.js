@@ -9,6 +9,7 @@ const RUNTIME_AC_REQUIRED_LABELS = new Set([
   'ac-checks',
   'runtime-checks',
 ]);
+const GENERATED_DELIVERY_HOLD_LABEL = 'sync:delivery-staging';
 
 function labelName(label) {
   if (typeof label === 'string') {
@@ -92,6 +93,7 @@ async function assertRuntimeAcMergeAllowed({
   labels,
   withRetry,
   source = 'external merge lane',
+  allowSealedSyncDelivery = false,
 } = {}) {
   if (!owner || !repo || !prNumber) {
     throw new Error('owner, repo, and prNumber are required for runtime AC merge guard.');
@@ -100,6 +102,18 @@ async function assertRuntimeAcMergeAllowed({
   const labelItems = Array.isArray(labels)
     ? labels
     : await fetchPullRequestLabels({ github, owner, repo, prNumber, withRetry });
+  const normalizedLabels = new Set(labelItems.map(normalizeLabelName).filter(Boolean));
+  if (normalizedLabels.has(GENERATED_DELIVERY_HOLD_LABEL) && !allowSealedSyncDelivery) {
+    const message =
+      `Generated delivery guard blocked ${source} for PR #${prNumber}: ` +
+      `${GENERATED_DELIVERY_HOLD_LABEL} remains set. Maint 71 must seal the exact ` +
+      'reviewed head before merge.';
+    if (core && typeof core.warning === 'function') core.warning(message);
+    const error = new Error(message);
+    error.code = 'generated_delivery_staging';
+    error.labels = [GENERATED_DELIVERY_HOLD_LABEL];
+    throw error;
+  }
   const requirement = runtimeAcRequirement(labelItems);
 
   if (!requirement.required) {
@@ -129,6 +143,7 @@ async function assertRuntimeAcMergeAllowed({
 }
 
 module.exports = {
+  GENERATED_DELIVERY_HOLD_LABEL,
   RUNTIME_AC_REQUIRED_LABELS,
   assertRuntimeAcMergeAllowed,
   hasRuntimeAcRequirement,

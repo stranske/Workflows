@@ -233,11 +233,15 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     assert sync["if"] == "needs.prepare.outputs.phase != 'preview'"
     assert "select_consumer_sync_phase.py" in source
     assert 'sync_branch="sync/workflows-candidate"' in source
-    assert 'sync_branch="sync/workflows-$TEMPLATE_HASH"' in source
+    assert 'sync_branch="sync/workflows-delivery"' in source
     assert "const branchName = process.env.SYNC_BRANCH;" in source
     assert 'branch_name="$SYNC_BRANCH"' in source
-    assert "candidate_plan_rotation" in source
-    assert 'process.env.SYNC_BRANCH === "sync/workflows-candidate"' in source
+    assert "stable_plan_rotation" in source
+    assert "expectedStableBranch" in source
+    assert "--draft" in source
+    assert "sync:delivery-staging" in source
+    assert "sync:delivery-ready" in source
+    assert "release" not in workflow.get("on", workflow.get(True))
     upload = next(
         step for step in prepare["steps"] if step.get("uses") == "actions/upload-artifact@v7"
     )
@@ -296,8 +300,8 @@ def test_maint_71_persists_validated_candidate_evidence_before_merge() -> None:
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in source
 
 
-def test_maint68_refreshes_only_a_same_base_and_tree_delivery_attempt() -> None:
-    """A current generation reuses its PR; a changed base/tree must be replaced safely."""
+def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head() -> None:
+    """Stable PRs retain review state unless Maint 68 actually changes the head."""
     source = SYNC_WORKFLOW_PATH.read_text(encoding="utf-8")
 
     credential_idx = source.index('git config credential.helper "$credential_helper"')
@@ -316,6 +320,12 @@ def test_maint68_refreshes_only_a_same_base_and_tree_delivery_attempt() -> None:
     assert '[ "$existing_base" = "$base_sha" ]' in source
     assert '[ "$existing_tree" = "$desired_tree_hash" ]' in source
     assert "matching_existing=true" in source
+    assert "preserving its review lifecycle" in source
+    assert 'delivery_state=$(jq -r' in source
+    assert 'current_pr_json=$(gh pr view "$existing_pr" --json state,headRefOid,isDraft)' in source
+    assert 'gh pr merge "$existing_pr" --disable-auto' in source
+    assert 'gh pr ready "$existing_pr" --undo' in source
+    assert '--force-with-lease="refs/heads/$branch_name:$existing_head"' in source
     commit_push_guard = source.index('if [ "$matching_existing" != "true" ]; then')
     assert (
         source.index(
@@ -330,3 +340,22 @@ def test_maint68_refreshes_only_a_same_base_and_tree_delivery_attempt() -> None:
         )
         > commit_push_guard
     )
+
+
+def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
+    gate = (REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml").read_text(
+        encoding="utf-8"
+    )
+    gate_summary = (REPO_ROOT / ".github" / "scripts" / "gate_summary.py").read_text(
+        encoding="utf-8"
+    )
+    merger_guard = (
+        REPO_ROOT / ".github" / "scripts" / "runtime_ac_merge_guard.js"
+    ).read_text(encoding="utf-8")
+
+    assert "generated-delivery-seal" in gate
+    assert "DELIVERY_SEAL_RESULT" in gate
+    assert "sync/workflows-delivery" in gate_summary
+    assert "sealed_head_sha" in gate_summary
+    assert "sync:delivery-staging" in merger_guard
+    assert "allowSealedSyncDelivery" in merger_guard

@@ -2,6 +2,8 @@
 
 const REPORT_SCHEMA = 'workflows-sync-pr-merge/v1';
 const SYNC_BRANCH_PREFIX = 'sync/workflows-';
+const SYNC_CANDIDATE_BRANCH = `${SYNC_BRANCH_PREFIX}candidate`;
+const SYNC_DELIVERY_BRANCH = `${SYNC_BRANCH_PREFIX}delivery`;
 const DEV_TOOL_SYNC_BRANCH_PREFIX = 'deps/sync-dev-versions-';
 const GENERATED_DELIVERY_BRANCH_PREFIXES = [SYNC_BRANCH_PREFIX, DEV_TOOL_SYNC_BRANCH_PREFIX];
 const POST_PUSH_REVIEW_WINDOW_MS = 7 * 60 * 1000;
@@ -18,6 +20,11 @@ function normalizeSyncHash(value) {
 function syncBranchForHash(syncHash) {
   const normalized = normalizeSyncHash(syncHash);
   return normalized ? `${SYNC_BRANCH_PREFIX}${normalized}` : '';
+}
+
+function isStableSyncBranchName(value) {
+  const branch = branchNameFromRef(value);
+  return branch === SYNC_CANDIDATE_BRANCH || branch === SYNC_DELIVERY_BRANCH;
 }
 
 function candidateEvidenceAllowsMutation({ branch, evidenceOnly, authorized } = {}) {
@@ -123,11 +130,15 @@ function evaluatePostPushReviewWindow(
   now = new Date().toISOString(),
   windowMs = POST_PUSH_REVIEW_WINDOW_MS,
 ) {
-  const timestamps = [
+  const pushTimestamps = [
     pr?.head?.pushed_at,
     pr?.head?.pushedAt,
     pr?.pushed_at,
     pr?.pushedAt,
+  ]
+    .map((value) => new Date(value || '').getTime())
+    .filter(Number.isFinite);
+  const fallbackTimestamps = [
     pr?.updated_at,
     pr?.updatedAt,
     pr?.created_at,
@@ -136,6 +147,7 @@ function evaluatePostPushReviewWindow(
     .map((value) => new Date(value || '').getTime())
     .filter(Number.isFinite);
   const observedAt = new Date(now).getTime();
+  const timestamps = pushTimestamps.length > 0 ? pushTimestamps : fallbackTimestamps;
   if (timestamps.length === 0 || !Number.isFinite(observedAt)) {
     return {
       ready: false,
@@ -154,6 +166,98 @@ function evaluatePostPushReviewWindow(
   };
 }
 
+function normalizeReviewerId(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\[bot\]$/, '');
+}
+
+function reviewerProfileForLogin(login, reviewerProfiles = []) {
+  const normalizedLogin = normalizeReviewerId(login);
+  return (reviewerProfiles || []).find((profile) =>
+    (profile.logins || []).some((candidate) => normalizeReviewerId(candidate) === normalizedLogin),
+  )?.id || '';
+}
+
+function isReviewerCapacitySignal(body = '', capacityPatterns = []) {
+  const text = String(body || '').toLowerCase();
+  return (capacityPatterns || []).some((pattern) => {
+    try {
+      return new RegExp(String(pattern), 'i').test(text);
+    } catch (_) {
+      return text.includes(String(pattern || '').toLowerCase());
+    }
+  });
+}
+
+function evaluateReviewerSettlement({
+  reviewStartedAt = '',
+  now = new Date().toISOString(),
+  configuredReviewers = [],
+  respondedReviewers = [],
+  unavailableReviewers = [],
+  minimumResponses = 1,
+  quietPeriodMs = POST_PUSH_REVIEW_WINDOW_MS,
+  maxWaitMs = 15 * 60 * 1000,
+} = {}) {
+  const startedAt = new Date(reviewStartedAt).getTime();
+  const observedAt = new Date(now).getTime();
+  if (!Number.isFinite(startedAt) || !Number.isFinite(observedAt)) {
+    return { ready: false, reason: 'missing_review_started_at', eligible_at: '' };
+  }
+  const configured = new Set((configuredReviewers || []).map(normalizeReviewerId).filter(Boolean));
+  const responded = new Set((respondedReviewers || []).map(normalizeReviewerId).filter(Boolean));
+  const unavailable = new Set((unavailableReviewers || []).map(normalizeReviewerId).filter(Boolean));
+  const quietEligibleAt = startedAt + Number(quietPeriodMs);
+  const timeoutEligibleAt = startedAt + Math.max(Number(maxWaitMs), Number(quietPeriodMs));
+  if (observedAt < quietEligibleAt) {
+    return {
+      ready: false,
+      reason: 'review_quiet_period_pending',
+      eligible_at: new Date(quietEligibleAt).toISOString(),
+      responded: [...responded].sort(),
+      unavailable: [...unavailable].sort(),
+    };
+  }
+  if (responded.size >= Math.max(0, Number(minimumResponses))) {
+    return {
+      ready: true,
+      reason: 'review_quorum_met',
+      degraded: false,
+      responded: [...responded].sort(),
+      unavailable: [...unavailable].sort(),
+    };
+  }
+  const everyConfiguredUnavailable = configured.size > 0
+    && [...configured].every((reviewer) => unavailable.has(reviewer));
+  if (everyConfiguredUnavailable) {
+    return {
+      ready: true,
+      reason: 'review_capacity_degraded',
+      degraded: true,
+      responded: [...responded].sort(),
+      unavailable: [...unavailable].sort(),
+    };
+  }
+  if (observedAt >= timeoutEligibleAt) {
+    return {
+      ready: true,
+      reason: 'review_timeout_degraded',
+      degraded: true,
+      responded: [...responded].sort(),
+      unavailable: [...unavailable].sort(),
+    };
+  }
+  return {
+    ready: false,
+    reason: 'review_quorum_pending',
+    eligible_at: new Date(timeoutEligibleAt).toISOString(),
+    responded: [...responded].sort(),
+    unavailable: [...unavailable].sort(),
+  };
+}
+
 function requiresStrictGateBranchUpdate({ pr = {}, requiredContexts = [], willMerge = false } = {}) {
   const requiredCount = requiredContexts instanceof Set
     ? requiredContexts.size
@@ -161,9 +265,9 @@ function requiresStrictGateBranchUpdate({ pr = {}, requiredContexts = [], willMe
       ? requiredContexts.length
       : 0;
   return Boolean(
-    willMerge &&
-    requiredCount > 0 &&
-    String(pr.mergeable_state || '').toLowerCase() === 'behind',
+    willMerge
+    && requiredCount > 0
+    && String(pr.mergeable_state || '').toLowerCase() === 'behind'
   );
 }
 
@@ -353,18 +457,30 @@ function selectActiveSyncPr(prs, syncHash = '') {
   const expectedBranch = syncBranchForHash(syncHash);
   if (!expectedBranch) {
     const active = ordered[ordered.length - 1] || null;
+    const activeLane = generatedDeliveryLane(active?.head?.ref);
     return {
       active,
-      stale: active ? ordered.filter((pr) => pr.number !== active.number) : [],
+      stale: active
+        ? ordered.filter(
+          (pr) => pr.number !== active.number
+            && generatedDeliveryLane(pr?.head?.ref) === activeLane,
+        )
+        : [],
       expectedBranch: '',
       missingExpected: false,
     };
   }
 
   const active = ordered.find((pr) => pr.head && pr.head.ref === expectedBranch) || null;
+  const expectedLane = generatedDeliveryLane(expectedBranch);
   return {
     active,
-    stale: active ? ordered.filter((pr) => pr.number !== active.number) : [],
+    stale: active
+      ? ordered.filter(
+        (pr) => pr.number !== active.number
+          && generatedDeliveryLane(pr?.head?.ref) === expectedLane,
+      )
+      : [],
     expectedBranch,
     missingExpected: !active,
   };
@@ -451,10 +567,18 @@ function summarizeResults(results) {
     checks_pending: 0,
     candidate_evidence_required: 0,
     review_window_pending: 0,
+    review_window_started: 0,
+    reviewer_settlement_pending: 0,
+    delivery_review_not_started: 0,
+    delivery_sealed_checks_pending: 0,
+    sealed_head_mismatch: 0,
+    stable_base_refresh_required: 0,
     head_changed: 0,
     review_blocked: 0,
     ready: 0,
     dry_run_merge: 0,
+    dry_run_review_start: 0,
+    dry_run_seal: 0,
     merge_blocked_runtime_ac: 0,
     merged: 0,
     merge_failed: 0,
@@ -478,6 +602,12 @@ function deriveHandoffCheckState(result = {}) {
   if (
     status === 'candidate_evidence_required'
     || status === 'review_window_pending'
+    || status === 'review_window_started'
+    || status === 'reviewer_settlement_pending'
+    || status === 'delivery_review_not_started'
+    || status === 'delivery_sealed_checks_pending'
+    || status === 'sealed_head_mismatch'
+    || status === 'stable_base_refresh_required'
     || status === 'head_changed'
   ) {
     return 'checks_pending';
@@ -486,6 +616,7 @@ function deriveHandoffCheckState(result = {}) {
   if (
     status === 'ready'
     || status === 'dry_run_merge'
+    || status === 'dry_run_seal'
     || status === 'merged'
     || status === 'review_blocked'
     || status === 'merge_blocked_runtime_ac'
@@ -625,6 +756,8 @@ function buildMarkdownSummary(report) {
 module.exports = {
   REPORT_SCHEMA,
   SYNC_BRANCH_PREFIX,
+  SYNC_CANDIDATE_BRANCH,
+  SYNC_DELIVERY_BRANCH,
   DEV_TOOL_SYNC_BRANCH_PREFIX,
   GENERATED_DELIVERY_BRANCH_PREFIXES,
   branchNameFromRef,
@@ -634,11 +767,16 @@ module.exports = {
   collectDeletableSyncBranches,
   generatedDeliveryLane,
   isGeneratedDeliveryBranchName,
+  isStableSyncBranchName,
   isSyncBranchName,
   isTrustedGeneratedDeliveryPr,
   isTrustedSyncPr,
   isBlockingSyncSystemFailure,
   evaluatePostPushReviewWindow,
+  evaluateReviewerSettlement,
+  isReviewerCapacitySignal,
+  normalizeReviewerId,
+  reviewerProfileForLogin,
   requiresStrictGateBranchUpdate,
   normalizeSyncHash,
   syncBranchForHash,

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -22,6 +24,9 @@ class SummaryContext:
     python_required: bool = True
     docs_guard_result: str = "success"
     test_quality_result: str = "skipped"
+    delivery_seal_required: bool = False
+    delivery_seal_valid: bool = True
+    delivery_seal_reason: str = ""
 
 
 @dataclass(slots=True)
@@ -42,6 +47,59 @@ PRIORITY: dict[str, int] = {
     "skipped": 4,
     "pending": 5,
 }
+
+STABLE_SYNC_BRANCHES = {"sync/workflows-candidate", "sync/workflows-delivery"}
+DELIVERY_RECORD_PATTERN = re.compile(
+    r"<!--\s*sync-pr-delivery-record:v1\s+([\s\S]*?)\s*-->"
+)
+
+
+def _delivery_seal_from_event(event_path: Path | None) -> tuple[bool, bool, str]:
+    """Return whether a stable generated delivery is sealed to its exact head."""
+    if event_path is None or not event_path.is_file():
+        return False, True, ""
+    try:
+        payload = json.loads(event_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False, True, ""
+    pull_request = payload.get("pull_request")
+    if not isinstance(pull_request, Mapping):
+        return False, True, ""
+    head = pull_request.get("head")
+    branch = str(head.get("ref") or "") if isinstance(head, Mapping) else ""
+    if branch not in STABLE_SYNC_BRANCHES:
+        return False, True, ""
+    head_sha = str(head.get("sha") or "") if isinstance(head, Mapping) else ""
+    body = str(pull_request.get("body") or "")
+    match = DELIVERY_RECORD_PATTERN.search(body)
+    if not match:
+        return True, False, "missing delivery record"
+    try:
+        record = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return True, False, "invalid delivery record"
+    if record.get("schema") != "sync-pr-delivery-record/v1":
+        return True, False, "invalid delivery schema"
+    if record.get("terminal_disposition"):
+        return True, False, "terminal delivery record"
+    if record.get("delivery_state") != "sealed":
+        return True, False, f"delivery state is {record.get('delivery_state') or 'missing'}"
+    if not head_sha or record.get("sealed_head_sha") != head_sha:
+        return True, False, "sealed head does not match the PR head"
+    repository = pull_request.get("base", {}).get("repo", {}).get("full_name", "")
+    if repository and record.get("repository") != repository:
+        return True, False, "delivery repository does not match the PR"
+    try:
+        lease_expires_at = datetime.fromisoformat(
+            str(record.get("lease_expires_at") or "").replace("Z", "+00:00")
+        )
+    except ValueError:
+        return True, False, "delivery lease is invalid"
+    if lease_expires_at.tzinfo is None:
+        return True, False, "delivery lease is invalid"
+    if lease_expires_at <= datetime.now(UTC):
+        return True, False, "delivery lease expired"
+    return True, True, "exact head sealed"
 
 
 def _normalize(value: str | None, default: str = "unknown") -> str:
@@ -294,6 +352,18 @@ def _active_lines(
 def summarize(context: SummaryContext) -> SummaryResult:
     docs_guard_result = _normalize(context.docs_guard_result or "success")
 
+    if context.delivery_seal_required and not context.delivery_seal_valid:
+        reason = context.delivery_seal_reason or "exact-head seal missing"
+        return SummaryResult(
+            lines=[
+                "### Gate status",
+                f"Generated delivery hold: {_emoji('failure')} {reason}.",
+                "Maint 71 must complete bounded review settlement and seal this exact head.",
+            ],
+            state="failure",
+            description=f"Generated delivery is not sealed: {reason}.",
+        )
+
     if context.doc_only or not context.run_core:
         lines = _doc_only_lines(context.reason, docs_guard_result)
         description = (
@@ -431,6 +501,13 @@ def build_context() -> SummaryContext:
     artifacts_root = Path(os.environ.get("GATE_ARTIFACTS_ROOT", "gate_artifacts"))
     summary_path = _resolve_path("GITHUB_STEP_SUMMARY")
     output_path = _resolve_path("GITHUB_OUTPUT")
+    delivery_seal_required, delivery_seal_valid, delivery_seal_reason = (
+        _delivery_seal_from_event(_resolve_path("GITHUB_EVENT_PATH"))
+    )
+    if _normalize(os.environ.get("DELIVERY_SEAL_RESULT"), "success") == "failure":
+        delivery_seal_required = True
+        delivery_seal_valid = False
+        delivery_seal_reason = delivery_seal_reason or "generated delivery seal job failed"
 
     return SummaryContext(
         doc_only=doc_only,
@@ -445,6 +522,9 @@ def build_context() -> SummaryContext:
         summary_path=summary_path,
         output_path=output_path,
         python_required=python_required,
+        delivery_seal_required=delivery_seal_required,
+        delivery_seal_valid=delivery_seal_valid,
+        delivery_seal_reason=delivery_seal_reason,
     )
 
 

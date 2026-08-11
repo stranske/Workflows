@@ -53,7 +53,9 @@ The signal flow each tracker carries:
 Maint 68 consumer sync and Maint 52 dev-tool sync PRs carry a
 `sync-pr-delivery-record/v1` marker. The marker names the durable campaign
 issue, plan/generation, consumer repository, desired tree hash, source commit,
-and a 72-hour lease. Maint 71 may merge only a current, unexpired record;
+and a 72-hour lease. Stable consumer deliveries also record `staging`,
+`reviewing`, or `sealed`, the review start/evidence, and the exact sealed head.
+Maint 71 may merge only a current, unexpired exact-head-sealed record;
 markerless, stale, or expired attempts are reported for terminal disposition
 rather than becoming an immortal coordination queue.
 - **#2210** — fan-out drift report across registered consumer repos. `Health 68` creates or refreshes it when drift is **actionable**; a clean run does not close it, so its latest body must be read as the last detected signal rather than an automatic current-status promise. Since #2878 the checker classifies each consumer as `converged`, `covered`, `blocked`, `untracked_drift`, or `stale`, and only the actionable states reach this tracker:
@@ -61,7 +63,7 @@ rather than becoming an immortal coordination queue.
   | State | Meaning | Exit code | Touches #2210 |
   |-------|---------|-----------|---------------|
   | `converged` | No drift against the compiled plan | 0 | No |
-  | `covered` | Drift exists, but an open `sync/workflows-<template-hash>` PR matches the current plan and is inside the 36-hour coverage lease | 0 | No |
+  | `covered` | Drift exists, but an open stable candidate/delivery PR matches the current plan and is inside the 36-hour coverage lease | 0 | No |
   | `stale` | A plan-matching sync PR is open but has not been updated inside the lease | non-zero | Yes |
   | `blocked` | A global comparison error, or a per-repo lookup/content error, prevented classification | non-zero | Yes |
   | `untracked_drift` | Drift with no open PR on the current plan's branch (including a superseded hash) | non-zero | Yes |

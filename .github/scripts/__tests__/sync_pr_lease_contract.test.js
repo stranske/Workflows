@@ -6,6 +6,7 @@ const {
   DELIVERY_RECORD_SCHEMA,
   formatDeliveryRecord,
   parseDeliveryRecord,
+  replaceDeliveryRecord,
   mergeEligibility,
 } = require('../sync_pr_lease_contract');
 const { selectMergeEligibleSyncPr } = require('../sync_pr_merge_contract');
@@ -26,7 +27,15 @@ const current = {
 test('an unexpired matching delivery record is merge eligible', () => {
   const marker = formatDeliveryRecord(current);
   const parsed = parseDeliveryRecord(`summary\n${marker}`);
-  assert.deepEqual(parsed, { ...current, terminal_disposition: '' });
+  assert.deepEqual(parsed, {
+    ...current,
+    delivery_state: '',
+    review_started_at: '',
+    sealed_at: '',
+    sealed_head_sha: '',
+    review_evidence: {},
+    terminal_disposition: '',
+  });
   assert.deepEqual(mergeEligibility(parsed, {
     now: '2026-08-01T22:00:00Z',
     planId: 'plan-abc',
@@ -37,6 +46,37 @@ test('an unexpired matching delivery record is merge eligible', () => {
     now: '2026-08-01T22:00:00Z',
   }).reason, 'lease_expired');
   assert.equal(mergeEligibility(parsed, { now: '2026-08-01T22:00:00Z', desiredTreeHash: 'other' }).reason, 'desired_tree_mismatch');
+});
+
+test('stable delivery is mergeable only after its exact head is sealed', () => {
+  const staging = { ...current, delivery_state: 'staging' };
+  assert.equal(mergeEligibility(staging, {
+    now: '2026-08-01T22:00:00Z',
+    requireSealed: true,
+    headSha: 'head-abc',
+  }).reason, 'delivery_not_sealed:staging');
+
+  const reviewingBody = replaceDeliveryRecord(formatDeliveryRecord(staging), {
+    delivery_state: 'reviewing',
+    review_started_at: '2026-08-01T21:30:00Z',
+  });
+  const sealedBody = replaceDeliveryRecord(reviewingBody, {
+    delivery_state: 'sealed',
+    sealed_at: '2026-08-01T21:45:00Z',
+    sealed_head_sha: 'head-abc',
+    review_evidence: { reason: 'review_quorum_met' },
+  });
+  const sealed = parseDeliveryRecord(sealedBody);
+  assert.equal(mergeEligibility(sealed, {
+    now: '2026-08-01T22:00:00Z',
+    requireSealed: true,
+    headSha: 'head-abc',
+  }).eligible, true);
+  assert.equal(mergeEligibility(sealed, {
+    now: '2026-08-01T22:00:00Z',
+    requireSealed: true,
+    headSha: 'head-other',
+  }).reason, 'sealed_head_mismatch');
 });
 
 test('only the newest matching generation is selected for merge', () => {

@@ -118,6 +118,12 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/ci-
 - Manual updates needed
 - Can drift from best practices
 
+First-party registered consumers use the managed form of this method. Maint 68
+coalesces copied-file changes into stable candidate/delivery PRs, and Maint 71
+alone merges them after bounded reviewer settlement, an exact-head seal, a
+fresh Gate, and zero active review threads. A reviewer capacity outage cannot
+require responses from every configured bot or keep the PR open indefinitely.
+
 ### Method 3: Hybrid Approach
 
 Use reusable workflows for standard CI, templates for custom needs.

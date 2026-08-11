@@ -18,10 +18,29 @@ both `sync/workflows-*` consumer-sync branches and
 - legacy attempts without a record require an explicit, one-time provenance
   decision before any merge.
 
-For the stable `sync/workflows-candidate` lane, Maint 71 must upload a complete,
-green, review-clear `sync-canary-evidence-premerge` artifact before it mutates
-any candidate PR. Operators and local closers must not call `gh pr merge` or arm
-auto-merge on candidate PRs directly. This ordering keeps a GitHub
+Consumer sync uses two stable lanes: `sync/workflows-candidate` for configured
+canaries and `sync/workflows-delivery` for promoted non-canaries. Maint 68
+updates those PRs in place. Before changing a head it disables auto-merge,
+converts the PR to draft, and applies `sync:delivery-staging`; an exact
+base/tree no-op preserves the existing lifecycle instead of restarting review.
+
+Maint 71 advances a stable PR from `staging` to `reviewing` and finally
+`sealed`. Reviewer capacity is explicitly bounded: one configured reviewer
+response is sufficient after seven minutes, all-capacity-unavailable may
+degrade after that quiet period, and a zero-response window degrades after
+fifteen minutes. None of these paths permits an active non-outdated review
+thread. Sealing binds the record to the exact head and triggers a fresh Gate via
+`sync:delivery-ready`. The Gate summary rejects an unsealed stable delivery and
+the shared merger guard rejects `sync:delivery-staging`; only Maint 71 may
+override that label after independently verifying the seal, checks, head, and
+live threads.
+
+For the candidate lane, Maint 71 must upload a complete, green, review-clear
+`sync-canary-evidence-premerge` artifact before it merges any candidate PR.
+Lifecycle transitions may occur before that artifact because they are
+reversible and produce the exact-head evidence; the irreversible merge may not.
+Operators and local closers must not call `gh pr merge` or arm auto-merge on
+stable sync PRs directly. This ordering keeps a GitHub
 `action_required` pre-job approval hold or an artifact failure recoverable
 instead of consuming the only evidence-bearing PRs.
 Maint 71 derives candidate scope from `config/consumer_sync_canaries.json`; it
@@ -31,9 +50,9 @@ Every generated delivery must also remain on one exact head for at least seven
 full minutes. Maint 71 re-reads that head and live non-outdated review threads
 immediately before its merge call; a changed head restarts the window.
 Candidate mode is normalized from workflow-call, manual, and repository-dispatch
-selectors. The executor refuses to mutate a selected stable candidate unless
+selectors. The executor refuses to merge a selected stable candidate unless
 the same job's evidence-validation and pre-merge artifact steps both succeeded;
-an unscoped scheduled run therefore leaves candidates untouched.
+an unscoped scheduled run therefore cannot merge candidates implicitly.
 
 Maint 82 (`maint-82-sync-dependency-campaign.yml`) owns the durable campaign
 state and only requests local agent work when an actionable exception

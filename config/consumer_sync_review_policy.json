@@ -1,0 +1,32 @@
+{
+  "schema": "workflows.consumer-sync-review-policy/v1",
+  "version": 1,
+  "minimum_responses": 1,
+  "quiet_period_minutes": 7,
+  "maximum_wait_minutes": 15,
+  "reviewers": [
+    {
+      "id": "copilot",
+      "logins": ["copilot-pull-request-reviewer", "copilot-pull-request-reviewer[bot]"],
+      "check_names": []
+    },
+    {
+      "id": "codex",
+      "logins": ["chatgpt-codex-connector", "chatgpt-codex-connector[bot]"],
+      "check_names": []
+    },
+    {
+      "id": "coderabbit",
+      "logins": ["coderabbitai", "coderabbitai[bot]"],
+      "check_names": ["CodeRabbit"]
+    }
+  ],
+  "capacity_patterns": [
+    "capacity",
+    "rate[ -]?limit",
+    "quota",
+    "temporarily unavailable",
+    "usage limit",
+    "spending cap"
+  ]
+}

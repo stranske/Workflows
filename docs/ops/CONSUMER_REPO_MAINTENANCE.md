@@ -20,7 +20,7 @@ manual runs are intentionally immediate. It classifies each
 consumer as `converged`, `covered`, `blocked`, `untracked_drift`, or `stale`. An open
 sync PR covers drift only when it matches the current compiled plan and is within the
 36-hour coverage lease. Configured canaries use the stable `sync/workflows-candidate`
-branch; promoted non-canaries use `sync/workflows-<template-hash>`. Fully covered drift
+branch; promoted non-canaries use the stable `sync/workflows-delivery` branch. Fully covered drift
 exits zero and does not append a durable-tracker comment; stale (including expired
 coverage), blocked (including global/lookup failures), and untracked states remain
 actionable failures.
@@ -262,7 +262,8 @@ and promotion blockers remain owned by Orchestrator's
 #### Canary-Gated Fan-out
 
 Maint 68 separates a sync plan into `preview`, `canary`, and `promote` phases.
-An ordinary scheduled, release, or manual no-filter run defaults to `canary`:
+An ordinary scheduled or manual no-filter run defaults to `canary` (release
+publication deliberately does not start a second sync cycle):
 it can open sync PRs only for the 2-3 representative repositories declared in
 `config/consumer_sync_canaries.json`. The selection artifact records the exact
 compiled `plan_id`, desired hash, and prospective affected paths for every
@@ -273,7 +274,9 @@ canaries, but it cannot expand a canary run into non-canary repositories. The
 selector fails closed with `canary_selection_contains_non_canary` if an operator
 tries. Canary corrections refresh the stable `sync/workflows-candidate` branch
 and its existing PR instead of opening another hash-named PR for every candidate
-plan. Hash-named `sync/workflows-<plan>` branches are reserved for promotion.
+plan. Promotion likewise refreshes one stable `sync/workflows-delivery` PR per
+non-canary; immutable plan and desired-tree identity live in the delivery
+record instead of the branch name.
 
 Do not wait for consumer CI in that workflow. Run Maint 71 later with
 `active_sync_hash=candidate` to publish `sync-canary-evidence.json`, then invoke
@@ -301,7 +304,23 @@ closed if neither protection surface is visible. A successful ruleset query
 that returns no required checks is authoritative, so cancelled informational
 jobs do not become invented required failures.
 
-Maint 71 enforces the seven-minute exact-head review window and performs a final
+Maint 68 creates stable deliveries as draft with `sync:delivery-staging` and
+disables auto-merge before every real head update. If a later run computes the
+same base and desired tree, it preserves the PR's current review/seal state;
+metadata-only refreshes therefore cannot restart review forever.
+
+Maint 71 marks the draft ready and starts bounded reviewer settlement. The
+policy in `config/consumer_sync_review_policy.json` requires one response, not
+all configured reviewers, after a seven-minute quiet period. If every reviewer
+reports capacity unavailability, settlement degrades after the quiet period;
+if nobody responds, it degrades after fifteen minutes. Active non-outdated
+review threads are never waived by either fallback. Maint 71 then seals the
+exact head and applies `sync:delivery-ready`, which triggers a fresh Gate. The
+Gate summary rejects an unsealed stable delivery, while the shared merge guard
+rejects `sync:delivery-staging` for every merger except Maint 71's verified
+sealed path. The staging hold remains until the merge succeeds.
+
+Maint 71 also enforces the seven-minute exact-head post-push window and performs a final
 head plus active-review-thread query immediately before each generated merge.
 Workflow-call, manual, and repository-dispatch candidate selectors normalize to
 the same gate. The executor requires same-job evidence/upload authorization, so
@@ -501,7 +520,8 @@ gh workflow run "Maint 68 Sync Consumer Repos" \
 
 Omit `repos` for the normal configured canary run. A write run targeting any
 non-canary must use `phase=promote` with Maint 71's exact-plan
-`canary_evidence_json`; `phase=canary -f repos=<fleet>` is rejected.
+`canary_evidence_json`; `phase=canary -f repos=<fleet>` is rejected. Reconcile
+promoted PRs with Maint 71 using `active_sync_hash=delivery`.
 
 ### Drift Detection
 

@@ -37,6 +37,7 @@ SUMMARY_ITEM_LIMIT = 50
 CONTENT_ERROR_THRESHOLD = 5
 SYNC_BRANCH_PREFIX = "sync/workflows-"
 SYNC_CANDIDATE_BRANCH = "sync/workflows-candidate"
+SYNC_DELIVERY_BRANCH = "sync/workflows-delivery"
 SYNC_COVERAGE_MAX_AGE = timedelta(hours=36)
 TOKEN_ENV_ORDER = (
     "DRIFT_TOKEN",
@@ -576,9 +577,7 @@ def build_report(
         "errors": len(errors),
         "obsolete": len(obsolete),
     }
-    expected_branch = ""
-    if current_plan_id.startswith("sha256:"):
-        expected_branch = f"{SYNC_BRANCH_PREFIX}{current_plan_id.split(':', 1)[1][:12]}"
+    expected_branch = SYNC_DELIVERY_BRANCH if current_plan_id.startswith("sha256:") else ""
     known_repos = set(repos)
     global_errors = sorted(
         item
@@ -659,6 +658,7 @@ def build_report(
             "plan_id": current_plan_id,
             "expected_branch": expected_branch,
             "candidate_branch": SYNC_CANDIDATE_BRANCH,
+            "delivery_branch": SYNC_DELIVERY_BRANCH,
             "coverage_lease_hours": int(SYNC_COVERAGE_MAX_AGE.total_seconds() // 3600),
             "repo_states": remediation_states,
             "global_errors": global_errors,

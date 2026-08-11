@@ -80,57 +80,36 @@ done
 2. Document if it's expected (like models:read permission)
 3. Do NOT merge sync PRs until issues are resolved or documented
 
-## Handling Multiple Sync PRs
+## Stable Delivery PRs
 
-### Close Duplicates (Keep Latest)
+Maint 68 coalesces canary updates into `sync/workflows-candidate` and promoted
+updates into `sync/workflows-delivery`. It updates the same PR in place. Before
+an actual push it disables auto-merge, converts the PR to draft, and adds
+`sync:delivery-staging`; if the computed base/tree is unchanged it preserves
+the existing review lifecycle.
+
+Maint 71 is the sole merge/close authority. It marks staging PRs ready for
+bounded review, requires one available reviewer response after seven minutes
+(or degrades after an all-capacity signal / fifteen-minute no-response
+timeout), and never waives active review threads. It seals the exact head,
+triggers a fresh Gate, and merges only after that Gate succeeds. The staging
+label blocks shared merge lanes until Maint 71 completes the merge.
+
+### Reconcile the stable lanes
 ```bash
-# For repos with multiple sync PRs, close all but the newest
-for repo in "consumer-repo-1" "consumer-repo-2" "consumer-repo-3"; do
-    prs=$(gh pr list --repo "stranske/$repo" --search "sync" --state open \
-        --json number --jq '.[].number' | sort -n)
-    count=$(echo "$prs" | wc -l)
-    if [ "$count" -gt 1 ]; then
-        to_close=$(echo "$prs" | head -n $((count-1)))
-        for pr in $to_close; do
-            echo "Closing $repo #$pr (duplicate)"
-            gh pr close "$pr" --repo "stranske/$repo"
-        done
-    fi
-done
+gh workflow run maint-71-merge-sync-prs.yml \
+  --repo stranske/Workflows \
+  -f active_sync_hash=candidate
 ```
 
-## Merging Clean Sync PRs
-
-### Check Status Before Merge
 ```bash
-repo="Manager-Database"
-pr="163"
-
-# Verify: 1) No failing checks, 2) No unresolved bot comments, 3) Mergeable
-gh pr view "$pr" --repo "stranske/$repo" --json mergeable,statusCheckRollup \
-    | jq '{mergeable, failing: [.statusCheckRollup[] |
-           select(.conclusion == "FAILURE") | .name]}'
+gh workflow run maint-71-merge-sync-prs.yml \
+  --repo stranske/Workflows \
+  -f active_sync_hash=delivery
 ```
 
-### Batch Merge
-```bash
-# Only merge PRs that pass all checks and have no bot issues
-for repo in "consumer-repo-1" "consumer-repo-2" "consumer-repo-3"; do
-    latest=$(gh pr list --repo "stranske/$repo" --search "sync" --state open \
-        --json number --jq '.[0].number')
-    if [ -n "$latest" ]; then
-        # Check if it's clean
-        failing=$(gh pr view "$latest" --repo "stranske/$repo" --json statusCheckRollup \
-            --jq '[.statusCheckRollup[] | select(.conclusion == "FAILURE")] | length')
-        if [ "$failing" = "0" ]; then
-            echo "Merging $repo #$latest"
-            gh pr merge "$latest" --repo "stranske/$repo" --squash --admin
-        else
-            echo "SKIP $repo #$latest - has failing checks"
-        fi
-    fi
-done
-```
+Do not use direct `gh pr merge`, admin merge, or auto-merge on these stable
+branches. Re-run Maint 71 after the recorded quiet-period/check timestamp.
 
 ## Summary Checklist
 
