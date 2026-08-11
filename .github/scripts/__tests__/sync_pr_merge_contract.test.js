@@ -375,7 +375,16 @@ test('strict required checks update behind branches before a generated merge', (
 });
 
 test('branch-update failures are blocking sync-system failures', () => {
-  assert.equal(isBlockingSyncSystemFailure('branch_update_failed'), true);
+  for (const status of [
+    'branch_update_failed',
+    'error',
+    'merge_failed',
+    'pr_refresh_failed',
+    'stale_close_failed',
+    'target_missing',
+  ]) {
+    assert.equal(isBlockingSyncSystemFailure(status), true);
+  }
   assert.equal(isBlockingSyncSystemFailure('checks_failed'), false);
 });
 

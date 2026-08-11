@@ -595,6 +595,17 @@ async function run({ github, context, core }) {
           repo,
           pull_number: pr.number,
         }));
+        const changedSinceSelection = !fullPr
+          || fullPr.number !== pr.number
+          || fullPr.head?.ref !== pr.head?.ref
+          || fullPr.head?.sha !== pr.head?.sha
+          || fullPr.base?.ref !== pr.base?.ref
+          || fullPr.user?.login !== pr.user?.login
+          || fullPr.body !== pr.body
+          || !isTrustedGeneratedDeliveryPr(fullPr, trustedSyncActors);
+        if (changedSinceSelection) {
+          throw new Error('refreshed PR no longer matches the trusted delivery selection');
+        }
         pr = fullPr;
       } catch (error) {
         const message = String(error?.message || error);
@@ -1116,8 +1127,9 @@ async function run({ github, context, core }) {
   }
   
   if (failed > 0) {
+    const blockingStatuses = [...new Set(blockingFailures.map((result) => result.status))];
     core.setFailed(
-      `${failed} blocking sync-system failure(s): merge_failed, stale_close_failed, or target_missing`,
+      `${failed} blocking sync-system failure(s): ${blockingStatuses.join(', ')}`,
     );
   }
 }

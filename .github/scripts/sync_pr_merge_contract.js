@@ -170,6 +170,7 @@ function requiresStrictGateBranchUpdate({ pr = {}, requiredContexts = [], willMe
 function isBlockingSyncSystemFailure(status) {
   return [
     'branch_update_failed',
+    'error',
     'merge_failed',
     'pr_refresh_failed',
     'stale_close_failed',
