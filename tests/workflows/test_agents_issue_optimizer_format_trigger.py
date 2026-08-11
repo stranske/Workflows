@@ -108,7 +108,9 @@ def test_format_optimizer_dispatches_guard_after_failed_lease_release() -> None:
     ):
         release_idx = text.index("Release failed format lease")
         release_block = text[release_idx : release_idx + 1200]
-        remove_idx = release_block.index('gh issue edit "$ISSUE_NUMBER" --remove-label "agents:format"')
+        remove_idx = release_block.index(
+            'gh issue edit "$ISSUE_NUMBER" --remove-label "agents:format"'
+        )
         dispatch_idx = release_block.index("gh workflow run agents-issue-format-guard.yml")
         assert remove_idx < dispatch_idx
         assert '-f issue_number="$ISSUE_NUMBER"' in release_block
