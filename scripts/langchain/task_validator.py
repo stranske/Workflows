@@ -215,6 +215,8 @@ _PATH_REFERENCE_PATTERNS = (
     r"(?<![\w])\.[\w.-]+(?:/[\w.-]+)+",
     # Relative paths with a dotted extension
     r"(?<![\w/])(?:[\w.-]+/)+[\w.-]+\.[A-Za-z0-9]{1,10}\b",
+    # Standalone dotted filenames such as quality.md
+    r"(?<![\w/])[\w.-]+\.[A-Za-z0-9]{1,10}\b",
     # Multi-segment extensionless paths such as tests/fast/test_api
     r"(?<![\w/])(?:[\w.-]+/){2,}[\w.-]+\b",
     # Two-segment extensionless paths with filename-like basenames
