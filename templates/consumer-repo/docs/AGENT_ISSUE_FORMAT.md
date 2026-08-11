@@ -232,7 +232,10 @@ DEFINITION OF READY — run before filing / accepting an issue
 Tasks
 [ ] Every task names a real file / function / path / command.
 [ ] Every cited path:line was verified against the CURRENT checkout
-    (or is an explicit create-path with its wire-in point named).
+    (or is an explicit create-path with its wire-in point named). Three or more
+    non-create paths that resolve nowhere in this repository are rejected;
+    quoted and unquoted task paths both count, while absolute and parent-relative
+    paths never count as repository evidence.
 [ ] No banned vague verb stands alone ("fix bugs", "improve X",
     "update things", "clean up", "refactor", "optimize", "polish").
 [ ] Each task is atomic — one checkbox = one discrete, verifiable change.

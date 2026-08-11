@@ -186,6 +186,9 @@ def _task_has_concrete_target(item: str) -> bool:
 # format's own requirement that `Why` cite current evidence at `file:line`: an
 # issue with no resolvable path has no current evidence in this repo.
 _PATH_SPAN = re.compile(r"`([^`\n]+)`")
+_UNQUOTED_PATH = re.compile(
+    r"(?<![\w./-])((?:\./)?(?:[\w.-]+/)+[\w.-]+|[\w.-]+\.[A-Za-z0-9]+)(?![\w./-])"
+)
 _LINE_SUFFIX = re.compile(r":\d+(?:-\d+)?$")
 _NODE_SUFFIX = re.compile(r"::.+$")  # pytest node ids: tests/x.py::test_y
 # Self-referential boilerplate. The format contract tells authors to cite it, so
@@ -229,24 +232,59 @@ _PATHISH_EXT = (
 _MIN_CITATIONS_TO_JUDGE = 3
 
 
+def _normalise_cited_path(raw: str) -> str | None:
+    """Return a safe repo-relative citation, or None for non-path text."""
+    candidate = _NODE_SUFFIX.sub("", raw.strip())
+    candidate = _LINE_SUFFIX.sub("", candidate)
+    if candidate.startswith("./"):
+        candidate = candidate[2:]
+    if not candidate or " " in candidate:
+        return None
+    if candidate.startswith("/") or any(part == ".." for part in candidate.split("/")):
+        return None
+    if candidate in _NOT_EVIDENCE:
+        return None
+    if "://" in candidate or candidate.startswith(("-", "@", "#", "$")):
+        return None
+    if any(ch in candidate for ch in "*?<>|"):  # globs and placeholders
+        return None
+    if "/" not in candidate and not candidate.endswith(_PATHISH_EXT):
+        return None
+    return candidate
+
+
+def _task_items(body: str) -> list[str]:
+    return re.findall(r"^\s*[-*]\s*\[[ xX]\]\s*(.+)$", body or "", re.M)
+
+
+def _candidate_spans(text: str) -> list[str]:
+    """Extract quoted and contract-accepted unquoted path candidates."""
+    return _PATH_SPAN.findall(text) + _UNQUOTED_PATH.findall(text)
+
+
 def _cited_paths(body: str) -> list[str]:
-    """Repo-relative paths a body cites in backticks, de-duplicated in order."""
+    """Safe repo-relative citations, including unquoted task paths."""
     seen: dict[str, None] = {}
     for raw in _PATH_SPAN.findall(body or ""):
-        candidate = _NODE_SUFFIX.sub("", raw.strip())
-        candidate = _LINE_SUFFIX.sub("", candidate)
-        if not candidate or " " in candidate:
-            continue
-        if candidate.lstrip("./") in _NOT_EVIDENCE:
-            continue
-        if "://" in candidate or candidate.startswith(("-", "@", "#", "$")):
-            continue
-        if any(ch in candidate for ch in "*?<>|"):  # globs and placeholders
-            continue
-        if "/" not in candidate and not candidate.endswith(_PATHISH_EXT):
-            continue
-        seen.setdefault(candidate.lstrip("./"), None)
+        if candidate := _normalise_cited_path(raw):
+            seen.setdefault(candidate, None)
+    for item in _task_items(body):
+        for raw in _UNQUOTED_PATH.findall(item):
+            if candidate := _normalise_cited_path(raw):
+                seen.setdefault(candidate, None)
     return list(seen)
+
+
+def _created_paths(body: str) -> set[str]:
+    """Paths explicitly created by a task are not pre-existing evidence."""
+    created: set[str] = set()
+    for item in _task_items(body):
+        if not re.match(r"(?:create|add|introduce|scaffold|generate|write)\b", item, re.I):
+            continue
+        for raw in _candidate_spans(item):
+            if candidate := _normalise_cited_path(raw):
+                created.add(candidate)
+    return created
 
 
 def _search_roots(repo_root: Path) -> list[Path]:
@@ -451,11 +489,12 @@ def validate(body: str, repo_root: Path | None = None) -> Report:
             )
     if repo_root is not None:
         resolved, unresolved = _resolve_citations(body, repo_root)
-        cited = len(resolved) + len(unresolved)
+        unresolved_evidence = [path for path in unresolved if path not in _created_paths(body)]
+        cited = len(resolved) + len(unresolved_evidence)
         if cited >= _MIN_CITATIONS_TO_JUDGE and not resolved:
             report.problems.append(
                 f"None of the {cited} paths this issue cites exist in this repository "
-                f"({', '.join(f'`{p}`' for p in unresolved[:6])}"
+                f"({', '.join(f'`{p}`' for p in unresolved_evidence[:6])}"
                 + (", …" if cited > 6 else "")
                 + "). An agent cloning this repo has nothing to act on. File it "
                 "against the repo that holds the code, or cite the evidence here."
