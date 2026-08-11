@@ -321,7 +321,7 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
     assert '[ "$existing_tree" = "$desired_tree_hash" ]' in source
     assert "matching_existing=true" in source
     assert "preserving its review lifecycle" in source
-    assert 'delivery_state=$(jq -r' in source
+    assert "delivery_state=$(jq -r" in source
     assert 'current_pr_json=$(gh pr view "$existing_pr" --json state,headRefOid,isDraft)' in source
     assert 'gh pr merge "$existing_pr" --disable-auto' in source
     assert 'gh pr ready "$existing_pr" --undo' in source
@@ -343,15 +343,13 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
 
 
 def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
-    gate = (REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml").read_text(
-        encoding="utf-8"
-    )
+    gate = (REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml").read_text(encoding="utf-8")
     gate_summary = (REPO_ROOT / ".github" / "scripts" / "gate_summary.py").read_text(
         encoding="utf-8"
     )
-    merger_guard = (
-        REPO_ROOT / ".github" / "scripts" / "runtime_ac_merge_guard.js"
-    ).read_text(encoding="utf-8")
+    merger_guard = (REPO_ROOT / ".github" / "scripts" / "runtime_ac_merge_guard.js").read_text(
+        encoding="utf-8"
+    )
 
     assert "generated-delivery-seal" in gate
     assert "DELIVERY_SEAL_RESULT" in gate

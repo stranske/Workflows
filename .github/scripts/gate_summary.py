@@ -49,9 +49,7 @@ PRIORITY: dict[str, int] = {
 }
 
 STABLE_SYNC_BRANCHES = {"sync/workflows-candidate", "sync/workflows-delivery"}
-DELIVERY_RECORD_PATTERN = re.compile(
-    r"<!--\s*sync-pr-delivery-record:v1\s+([\s\S]*?)\s*-->"
-)
+DELIVERY_RECORD_PATTERN = re.compile(r"<!--\s*sync-pr-delivery-record:v1\s+([\s\S]*?)\s*-->")
 
 
 def _delivery_seal_from_event(event_path: Path | None) -> tuple[bool, bool, str]:
@@ -501,8 +499,8 @@ def build_context() -> SummaryContext:
     artifacts_root = Path(os.environ.get("GATE_ARTIFACTS_ROOT", "gate_artifacts"))
     summary_path = _resolve_path("GITHUB_STEP_SUMMARY")
     output_path = _resolve_path("GITHUB_OUTPUT")
-    delivery_seal_required, delivery_seal_valid, delivery_seal_reason = (
-        _delivery_seal_from_event(_resolve_path("GITHUB_EVENT_PATH"))
+    delivery_seal_required, delivery_seal_valid, delivery_seal_reason = _delivery_seal_from_event(
+        _resolve_path("GITHUB_EVENT_PATH")
     )
     if _normalize(os.environ.get("DELIVERY_SEAL_RESULT"), "success") == "failure":
         delivery_seal_required = True
