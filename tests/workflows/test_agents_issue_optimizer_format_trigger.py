@@ -108,8 +108,14 @@ def test_format_optimizer_dispatches_guard_after_failed_lease_release() -> None:
     ):
         release_idx = text.index("Release failed format lease")
         release_block = text[release_idx : release_idx + 1200]
-        assert "gh workflow run agents-issue-format-guard.yml" in release_block
+        remove_idx = release_block.index('gh issue edit "$ISSUE_NUMBER" --remove-label "agents:format"')
+        dispatch_idx = release_block.index("gh workflow run agents-issue-format-guard.yml")
+        assert remove_idx < dispatch_idx
         assert '-f issue_number="$ISSUE_NUMBER"' in release_block
+        assert (
+            '|| echo "::warning::could not dispatch format guard retry after lease release"'
+            in release_block
+        )
 
 
 def test_format_guard_attempt_marker_sequence_consumes_retry_budget() -> None:

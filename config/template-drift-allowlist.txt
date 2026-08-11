@@ -113,9 +113,9 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = f0bc17d390f7b9f1c0398903929a5987c8b6a0c944a5ea5ca0291445df854c44
-template_sha256 = ceef0f57e91084daa86cf6876d89f42350a08678d0a424b459d83dacf2437f0c
-reason = Intentional divergence re-baselined 2026-08-10: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes safe linear verify-hint validation, event-safe optimizer run names, cancel-safe agents:format release even if the initial check fails, and nonzero failure for unexpected validator stderr. Do not align wholesale — that would strip consumer action pins/token setup.
+main_sha256 = 2038d4955f38a00ff08f43f061dd803eab32d5d081011915dfbd7d16c9a968b4
+template_sha256 = b216065b897768f47a5a90052ead2a1614af69444ce060e4ebd6049df618d4c6
+reason = Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes format-guard unlabeled-only trigger, explicit guard dispatch after failed format lease release (actions:write on optimize_issue), and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml

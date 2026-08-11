@@ -39,6 +39,7 @@ jobs:
       issues: write
       contents: read
       models: read
+      actions: write
 
     steps:
       - name: Check trigger conditions

@@ -47,16 +47,38 @@ def test_fence_with_language_marker_does_not_close_a_code_block() -> None:
         Path("templates/consumer-repo/.github/scripts/issue_format.py"),
     ],
 )
-def test_list_indented_fenced_acceptance_command_is_ignored(validator_path: Path) -> None:
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_list_indented_fenced_acceptance_command_is_ignored(
+    validator_path: Path, fence: str
+) -> None:
     """A four-space list fence is an example, not an observable gate."""
     validator = _validator(validator_path)
     report = validator.validate(
         VALID_CONTEXT
         + "## Tasks\n- [ ] Update `src/client.py`\n\n"
-        + "## Acceptance Criteria\n- Example command:\n\n    ```sh\n    pytest tests/test_x.py\n    ```\n"
+        + f"## Acceptance Criteria\n- Example command:\n\n    {fence}sh\n    pytest tests/test_x.py\n    {fence}\n"
     )
     assert not report.ok
     assert any("names no test" in problem for problem in report.problems)
+
+
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_category_word_backticked_target_is_not_concrete(validator_path: Path) -> None:
+    """A backticked category word after an explicit category is not a concrete target."""
+    validator = _validator(validator_path)
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update function `file`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert not report.ok
+    assert "concrete file" in report.as_markdown()
 
 
 @pytest.mark.parametrize(
