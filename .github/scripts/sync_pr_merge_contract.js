@@ -154,6 +154,19 @@ function evaluatePostPushReviewWindow(
   };
 }
 
+function requiresStrictGateBranchUpdate({ pr = {}, requiredContexts = [], willMerge = false } = {}) {
+  const requiredCount = requiredContexts instanceof Set
+    ? requiredContexts.size
+    : Array.isArray(requiredContexts)
+      ? requiredContexts.length
+      : 0;
+  return Boolean(
+    willMerge &&
+    requiredCount > 0 &&
+    String(pr.mergeable_state || '').toLowerCase() === 'behind',
+  );
+}
+
 function collectDeletableSyncBranches({
   branches = [],
   openPullRequests = [],
@@ -614,6 +627,7 @@ module.exports = {
   isTrustedGeneratedDeliveryPr,
   isTrustedSyncPr,
   evaluatePostPushReviewWindow,
+  requiresStrictGateBranchUpdate,
   normalizeSyncHash,
   syncBranchForHash,
   parseBooleanInput,

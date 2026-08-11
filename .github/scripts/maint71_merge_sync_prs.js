@@ -18,6 +18,7 @@ async function run({ github, context, core }) {
     generatedDeliveryLane,
     normalizeSyncHash,
     parseBooleanInput,
+    requiresStrictGateBranchUpdate,
     requiredContextsFromRulesets,
     isTrustedGeneratedDeliveryPr,
     selectLatestMergedCandidatePr,
@@ -773,6 +774,34 @@ async function run({ github, context, core }) {
       // the final exact-head/thread query so no intervening network action sits
       // between the hard review gate and the merge call.
       const willMerge = autoMerge && !dryRun && !recoveredMergedCandidate;
+      // Strict required-status-check rules evaluate the merge result. If the
+      // head is behind main, every merge strategy creates a new result without
+      // the head's Gate context. Update the generated branch and wait for its
+      // fresh Gate and mandatory review window instead of attempting a merge.
+      if (requiresStrictGateBranchUpdate({ pr, requiredContexts, willMerge })) {
+        try {
+          await withRetry((client) => client.rest.pulls.updateBranch({
+            owner,
+            repo,
+            pull_number: pr.number,
+            expected_head_sha: pr.head.sha,
+          }));
+          console.log(`Requested branch update for behind PR #${pr.number}; awaiting fresh Gate`);
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'awaiting-review-window',
+            blocker_owner: 'maint-71',
+            next_command: 'rerun-after-updated-branch-gate',
+            status: 'review_window_pending',
+            branch_update_started: true,
+          });
+        } catch (error) {
+          const message = String(error?.message || error);
+          console.log(`Unable to update behind PR #${pr.number}: ${message}`);
+          results.push({ ...deliveryContext, status: 'error', error: message });
+        }
+        continue;
+      }
       if (willMerge) {
         try {
           await assertRuntimeAcMergeAllowed({
