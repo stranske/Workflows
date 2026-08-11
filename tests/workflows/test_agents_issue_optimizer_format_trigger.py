@@ -87,6 +87,14 @@ def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
         )
 
 
+def test_format_guard_rechecks_after_format_lease_release() -> None:
+    for path in (GUARD_PATH, CONSUMER_GUARD_PATH):
+        text = path.read_text(encoding="utf-8")
+        condition = text[text.index("if: >-") : text.index("runs-on: ubuntu-latest")]
+        assert "github.event.action == 'unlabeled'" in condition
+        assert "github.event.label.name == 'agents:format'" in condition
+
+
 def test_format_guard_attempt_marker_sequence_consumes_retry_budget() -> None:
     """Exercise the marker contract used by the workflow's routing step."""
     fingerprint = "abc123def456"

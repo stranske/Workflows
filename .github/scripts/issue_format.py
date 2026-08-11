@@ -129,6 +129,16 @@ def _task_has_concrete_target(item: str) -> bool:
     for match in re.finditer(rf"\b{_TASK_CATEGORY}\s+(`[^`]+`|[^\s]+)", item, re.I):
         token = match.group(1)
         span = token[1:-1] if token.startswith("`") and token.endswith("`") else token.strip("'\"")
+        # A quoted identifier immediately following an explicit target category
+        # is concrete even when its spelling is a normal lowercase word (for
+        # example, ``function `validate` `` or ``key `timeout` ``).
+        if (
+            token.startswith("`")
+            and token.endswith("`")
+            and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", span)
+            and not re.fullmatch(_TASK_CATEGORY, span, re.I)
+        ):
+            return True
         if _concrete_span(span):
             return True
     for match in re.finditer(r"`([^`]+)`", item):
@@ -158,7 +168,7 @@ def _headings(body: str) -> list[tuple[str, int, int]]:
     out: list[tuple[str, int, int]] = []
     fence: tuple[str, int] | None = None
     for i, line in enumerate(body.splitlines()):
-        fence_match = re.match(r"\s{0,3}(`{3,}|~{3,})", line)
+        fence_match = re.match(r"\s*(`{3,}|~{3,})", line)
         if fence_match:
             marker = fence_match.group(1)
             if fence is None:
@@ -167,7 +177,7 @@ def _headings(body: str) -> list[tuple[str, int, int]]:
                 marker[0] == fence[0]
                 and len(marker) >= fence[1]
                 and re.fullmatch(
-                    rf"\s{{0,3}}(?:`{{{fence[1]},}}|~{{{fence[1]},}})\s*",
+                    rf"\s*(?:`{{{fence[1]},}}|~{{{fence[1]},}})\s*",
                     line,
                 )
             ):
@@ -204,7 +214,7 @@ def _without_fenced_code(text: str) -> str:
     kept: list[str] = []
     fence: tuple[str, int] | None = None
     for line in text.splitlines():
-        match = re.match(r"\s{0,3}(`{3,}|~{3,})", line)
+        match = re.match(r"\s*(`{3,}|~{3,})", line)
         if match:
             marker = match.group(1)
             if fence is None:
@@ -213,7 +223,7 @@ def _without_fenced_code(text: str) -> str:
                 marker[0] == fence[0]
                 and len(marker) >= fence[1]
                 and re.fullmatch(
-                    rf"\s{{0,3}}(?:`{{{fence[1]},}}|~{{{fence[1]},}})\s*",
+                    rf"\s*(?:`{{{fence[1]},}}|~{{{fence[1]},}})\s*",
                     line,
                 )
             ):

@@ -40,6 +40,46 @@ def test_fence_with_language_marker_does_not_close_a_code_block() -> None:
     assert "Acceptance Criteria" in report.missing_required
 
 
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_list_indented_fenced_acceptance_command_is_ignored(validator_path: Path) -> None:
+    """A four-space list fence is an example, not an observable gate."""
+    validator = _validator(validator_path)
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `src/client.py`\n\n"
+        + "## Acceptance Criteria\n- Example command:\n\n    ```sh\n    pytest tests/test_x.py\n    ```\n"
+    )
+    assert not report.ok
+    assert any("names no test" in problem for problem in report.problems)
+
+
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+@pytest.mark.parametrize("target", ["validate", "timeout"])
+def test_explicit_category_accepts_quoted_lowercase_identifier(
+    validator_path: Path, target: str
+) -> None:
+    validator = _validator(validator_path)
+    category = "function" if target == "validate" else "key"
+    report = validator.validate(
+        VALID_CONTEXT
+        + f"## Tasks\n- [ ] Update {category} `{target}`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert report.ok
+
+
 @pytest.mark.parametrize("marker", ["```", "~~~"])
 def test_fence_close_requires_marker_only_line(marker: str) -> None:
     """Trailing text after fence markers must not end the fenced region."""
