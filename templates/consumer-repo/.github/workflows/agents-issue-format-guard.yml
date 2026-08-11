@@ -32,9 +32,10 @@ jobs:
       github.event_name != 'issues' ||
       github.event.action == 'opened' || github.event.action == 'edited' ||
       github.event.action == 'reopened' ||
+      (github.event.action == 'unlabeled' &&
+      github.event.label.name == 'agents:format') ||
       ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
-      (github.event.label.name == 'agents:format' ||
-      github.event.label.name == 'agents:auto-pilot-pause' ||
+      (github.event.label.name == 'agents:auto-pilot-pause' ||
       github.event.label.name == 'needs-human' ||
       github.event.label.name == 'tracker:durable' || github.event.label.name == 'wontfix'))
     runs-on: ubuntu-latest

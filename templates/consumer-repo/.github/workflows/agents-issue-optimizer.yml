@@ -597,3 +597,7 @@ jobs:
           # A guard retry may proceed only after the failed format run releases its lease.
           gh issue edit "$ISSUE_NUMBER" --remove-label "agents:format" \
             || echo "::warning::could not release failed agents:format lease"
+          # GITHUB_TOKEN label edits do not emit issues:unlabeled workflows; dispatch explicitly.
+          gh workflow run agents-issue-format-guard.yml --repo "$GITHUB_REPOSITORY" \
+            -f issue_number="$ISSUE_NUMBER" \
+            || echo "::warning::could not dispatch format guard retry after lease release"
