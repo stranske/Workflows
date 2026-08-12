@@ -121,8 +121,10 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/ci-
 First-party registered consumers use the managed form of this method. Maint 68
 coalesces copied-file changes into stable candidate/delivery PRs, and Maint 71
 alone merges them after bounded reviewer settlement, an exact-head seal, a
-fresh Gate, and zero active review threads. A reviewer capacity outage cannot
-require responses from every configured bot or keep the PR open indefinitely.
+fresh Gate, a valid GitHub-generated commit signature, and zero active review
+threads. Maint 68 fails before publishing any generated head whose API-created
+tree or signature does not match the staged delivery. A reviewer capacity outage
+cannot require responses from every configured bot or keep the PR open indefinitely.
 
 ### Method 3: Hybrid Approach
 

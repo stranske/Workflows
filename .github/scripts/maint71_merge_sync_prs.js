@@ -157,6 +157,7 @@ async function run({ github, context, core }) {
     candidateEvidenceAllowsMutation,
     classifyGeneratedPr,
     classifySyncPrChecks,
+    commitSignatureAllowsMerge,
     collectDeletableSyncBranches,
     evaluatePostPushReviewWindow,
     evaluateReviewerSettlement,
@@ -503,8 +504,13 @@ async function run({ github, context, core }) {
     requireSealedDelivery = false,
   }) {
     const data = await github.graphql(
-      `query($owner: String!, $repo: String!, $number: Int!) {
+      `query($owner: String!, $repo: String!, $number: Int!, $head: GitObjectID!) {
         repository(owner: $owner, name: $repo) {
+          object(oid: $head) {
+            ... on Commit {
+              signature { isValid state wasSignedByGitHub }
+            }
+          }
           pullRequest(number: $number) {
             state
             mergedAt
@@ -519,7 +525,7 @@ async function run({ github, context, core }) {
           }
         }
       }`,
-      { owner, repo, number: pr.number },
+      { owner, repo, number: pr.number, head: pr.head.sha },
     );
     const freshPr = data?.repository?.pullRequest;
     if (freshPr?.headRefOid !== pr.head.sha) {
@@ -544,6 +550,16 @@ async function run({ github, context, core }) {
         reason: 'pr_state_changed',
         activeReviewThreads: -1,
         freshHeadSha: freshPr?.headRefOid || '',
+      };
+    }
+    const signature = data?.repository?.object?.signature;
+    if (!commitSignatureAllowsMerge(signature)) {
+      return {
+        ok: false,
+        reason: 'head_commit_unverified',
+        activeReviewThreads: -1,
+        freshHeadSha: freshPr?.headRefOid || '',
+        signatureState: signature?.state || 'MISSING',
       };
     }
     if (requireSealedDelivery) {
@@ -1391,6 +1407,16 @@ async function run({ github, context, core }) {
             next_command: 'restage-changed-delivery-record',
             status: 'sealed_head_mismatch',
             delivery_reason: finalGate.deliveryReason || 'delivery_seal_changed',
+          });
+        } else if (finalGate.reason === 'head_commit_unverified') {
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'unsigned-head-blocked',
+            blocker_owner: 'maint-68',
+            next_command: 'refresh-with-github-signed-sync-commit',
+            status: 'head_commit_unverified',
+            observed_head_sha: finalGate.freshHeadSha || '',
+            signature_state: finalGate.signatureState || 'MISSING',
           });
         } else {
           results.push({

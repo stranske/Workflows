@@ -287,11 +287,20 @@ function isBlockingSyncSystemFailure(status) {
   return [
     'branch_update_failed',
     'error',
+    'head_commit_unverified',
     'merge_failed',
     'pr_refresh_failed',
     'stale_close_failed',
     'target_missing',
   ].includes(status);
+}
+
+function commitSignatureAllowsMerge(signature = {}) {
+  return Boolean(
+    signature?.isValid === true
+    && signature?.state === 'VALID'
+    && signature?.wasSignedByGitHub === true
+  );
 }
 
 function collectDeletableSyncBranches({
@@ -586,6 +595,7 @@ function summarizeResults(results) {
     sealed_head_mismatch: 0,
     stable_base_refresh_required: 0,
     head_changed: 0,
+    head_commit_unverified: 0,
     review_blocked: 0,
     ready: 0,
     dry_run_merge: 0,
@@ -624,7 +634,9 @@ function deriveHandoffCheckState(result = {}) {
   ) {
     return 'checks_pending';
   }
-  if (status === 'checks_failed') return 'checks_failed';
+  if (status === 'checks_failed' || status === 'head_commit_unverified') {
+    return 'checks_failed';
+  }
   if (
     status === 'ready'
     || status === 'dry_run_merge'
@@ -784,6 +796,7 @@ module.exports = {
   isTrustedGeneratedDeliveryPr,
   isTrustedSyncPr,
   isBlockingSyncSystemFailure,
+  commitSignatureAllowsMerge,
   evaluatePostPushReviewWindow,
   evaluateReviewerSettlement,
   isReviewerCapacitySignal,

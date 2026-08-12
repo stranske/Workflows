@@ -322,6 +322,7 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
     assert '[ "$existing_refreshable" = "true" ]' in source
     assert '[ "$existing_base" = "$base_sha" ]' in source
     assert '[ "$existing_tree" = "$desired_tree_hash" ]' in source
+    assert '[ "$existing_verified" = "true" ]' in source
     assert "matching_existing=true" in source
     assert "migrating_legacy_lifecycle=true" in source
     assert "migrating its legacy metadata into the staged delivery lifecycle" in source
@@ -336,13 +337,18 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
     commit_push_guard = source.index('if [ "$matching_existing" != "true" ]; then')
     assert (
         source.index(
-            'git commit -m "chore: sync workflow templates from Workflows repo', commit_push_guard
+            "create_signed_sync_commit.js",
+            commit_push_guard,
         )
         > commit_push_guard
     )
+    assert "actions/create-github-app-token@v3" in source
+    assert 'git config user.name "github-actions[bot]"' not in source
+    assert 'published_verified=$(jq -r' in source
+    assert 'published_reason=$(jq -r' in source
     assert (
         source.index(
-            'git push --quiet --force-with-lease="refs/heads/$branch_name:$existing_head"',
+            '--force-with-lease="refs/heads/$branch_name:$existing_head"',
             commit_push_guard,
         )
         > commit_push_guard

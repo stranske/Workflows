@@ -309,6 +309,19 @@ disables auto-merge before every real head update. If a later run computes the
 same base and desired tree, it preserves the PR's current review/seal state;
 metadata-only refreshes therefore cannot restart review forever.
 
+Every real head update is fail-closed on commit identity. Maint 68 mints a
+repository-scoped Workflows GitHub App installation token, uploads the staged
+blobs/tree through GitHub's Git database API, and creates the commit without
+custom author, committer, or signature fields. GitHub therefore signs the App
+commit. Maint 68 compares the returned tree to `git write-tree`, requires a
+`verified=true` / `reason=valid` signature, and only then atomically publishes
+the stable branch with `--force-with-lease`. An existing exact-tree delivery
+with an unsigned head is replaced rather than treated as a no-op. Maint 71
+independently requires `isValid`, `state=VALID`, and `wasSignedByGitHub` on the
+exact PR head before merge. This prevents synced workflow files from reaching
+consumer `main` through an unsigned automation commit and avoids GitHub's
+subsequent workflow trust approval hold.
+
 Maint 71 marks the draft ready and starts bounded reviewer settlement. The
 policy in `config/consumer_sync_review_policy.json` requires one response, not
 all configured reviewers, after a seven-minute quiet period. If every reviewer

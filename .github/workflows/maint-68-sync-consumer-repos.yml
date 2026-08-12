@@ -278,9 +278,29 @@ jobs:
       - name: Compute result artifact name
         id: repo_meta
         run: |
-          safe_name=$(printf '%s' '${{ matrix.repo }}' \
+          repo_full='${{ matrix.repo }}'
+          case "$repo_full" in
+            */*) ;;
+            *) echo "::error::Consumer repository must use owner/name form: $repo_full"; exit 1 ;;
+          esac
+          repo_owner=${repo_full%%/*}
+          repo_name=${repo_full#*/}
+          safe_name=$(printf '%s' "$repo_full" \
             | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^-+|-+$//g')
-          echo "artifact_name=${safe_name:-unknown-repo}" >> "$GITHUB_OUTPUT"
+          {
+            echo "artifact_name=${safe_name:-unknown-repo}"
+            echo "repo_owner=$repo_owner"
+            echo "repo_name=$repo_name"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Mint Workflows App commit token
+        id: workflows_app_token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ steps.repo_meta.outputs.repo_owner }}
+          repositories: ${{ steps.repo_meta.outputs.repo_name }}
 
       - name: Checkout Workflows
         uses: actions/checkout@v7
@@ -756,6 +776,7 @@ jobs:
         if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
+          SIGNED_COMMIT_TOKEN: ${{ steps.workflows_app_token.outputs.token }}
           DELIVERY_GENERATION: ${{ needs.prepare.outputs.template_hash }}
           DELIVERY_REPOSITORY: ${{ matrix.repo }}
           SYNC_BRANCH: ${{ needs.prepare.outputs.sync_branch }}
@@ -768,8 +789,6 @@ jobs:
           # This avoids exposing token in git remote URL or command output.
           # Must be configured before any git operations that need auth
           # (including the early fetch of an existing sync branch).
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           credential_helper="!f() { echo \"username=x-access-token\"; echo \"password=\$GH_TOKEN\"; }; f"
           git config credential.helper "$credential_helper"
 
@@ -787,6 +806,8 @@ jobs:
           existing_refreshable=false
           existing_refresh_reason="none"
           existing_lifecycle_initialized=false
+          existing_verified=false
+          existing_verification_reason="not-checked"
           delivery_state="staging"
           review_started_at=""
           sealed_at=""
@@ -800,6 +821,11 @@ jobs:
             existing_head=$(git rev-parse FETCH_HEAD)
             existing_base=$(git rev-parse "${existing_head}^")
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
+            existing_verification=$(gh api \
+              "repos/${{ matrix.repo }}/commits/$existing_head" \
+              --jq '.commit.verification')
+            existing_verified=$(jq -r '.verified // false' <<<"$existing_verification")
+            existing_verification_reason=$(jq -r '.reason // "missing"' <<<"$existing_verification")
             existing_body_file=$(mktemp)
             gh pr view "$existing_pr" --json body -q .body >"$existing_body_file" || true
             # shellcheck disable=SC2016 # The embedded Node source must remain literal.
@@ -927,7 +953,8 @@ jobs:
           if [ -n "$existing_pr" ] \
             && [ "$existing_refreshable" = "true" ] \
             && [ "$existing_base" = "$base_sha" ] \
-            && [ "$existing_tree" = "$desired_tree_hash" ]; then
+            && [ "$existing_tree" = "$desired_tree_hash" ] \
+            && [ "$existing_verified" = "true" ]; then
             matching_existing=true
             if [ "$existing_lifecycle_initialized" = "true" ]; then
               echo "Existing PR #$existing_pr already matches this base and desired tree; preserving its review lifecycle while refreshing metadata"
@@ -940,6 +967,12 @@ jobs:
               review_evidence='{}'
               echo "Existing PR #$existing_pr already matches this base and desired tree; migrating its legacy metadata into the staged delivery lifecycle"
             fi
+          elif [ -n "$existing_pr" ] \
+            && [ "$existing_refreshable" = "true" ] \
+            && [ "$existing_base" = "$base_sha" ] \
+            && [ "$existing_tree" = "$desired_tree_hash" ]; then
+            echo "Existing PR #$existing_pr matches the desired tree but its head is not verified."
+            echo "Reason: ${existing_verification_reason}; replacing it with a signed commit."
           elif [ -n "$existing_pr" ] && [ "$existing_refreshable" != "true" ]; then
             echo "Existing PR #$existing_pr is not refreshable (${existing_refresh_reason}); leaving it for Maint 71 disposition."
             echo "status=existing_pr_not_refreshable" >> "$GITHUB_OUTPUT"
@@ -980,18 +1013,84 @@ jobs:
             sealed_at=""
             sealed_head_sha=""
             review_evidence='{}'
-            git commit -m "chore: sync workflow templates from Workflows repo
+            commit_message_file=$(mktemp)
+            signed_result_file=$(mktemp)
+            signed_temp_branch="${branch_name}-signed-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            cleanup_signed_commit() {
+              if [ -n "${signed_temp_branch:-}" ]; then
+                git push --quiet origin --delete "$signed_temp_branch" >/dev/null 2>&1 || true
+              fi
+              rm -f "${commit_message_file:-}" "${signed_result_file:-}"
+            }
+            trap cleanup_signed_commit EXIT
+            cat >"$commit_message_file" <<'COMMIT_MESSAGE'
+          chore: sync workflow templates from Workflows repo
 
-            Automated sync from stranske/Workflows
-            Template hash: ${{ needs.prepare.outputs.template_hash }}
+          Automated sync from stranske/Workflows
+          Template hash: ${{ needs.prepare.outputs.template_hash }}
 
-            Changes synced from sync-manifest.yml"
+          Changes synced from sync-manifest.yml
+          COMMIT_MESSAGE
+
+            GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \
+              ../workflows/.github/scripts/create_signed_sync_commit.js \
+              --repository "${{ matrix.repo }}" \
+              --base-sha "$base_sha" \
+              --expected-tree-sha "$desired_tree_hash" \
+              --message-file "$commit_message_file" \
+              --cwd "$PWD" >"$signed_result_file"
+            signed_commit_sha=$(jq -er '.sha' "$signed_result_file")
+            signed_credential=$(jq -er '.credential' "$signed_result_file")
+            echo "Created verified sync commit $signed_commit_sha using $signed_credential"
+
+            # Give the API-created commit a temporary reachable ref, fetch it
+            # locally, then retain git push --force-with-lease as the atomic
+            # compare-and-swap for the stable delivery branch.
+            GH_TOKEN="$SIGNED_COMMIT_TOKEN" gh api \
+              --method POST \
+              "repos/${{ matrix.repo }}/git/refs" \
+              -f ref="refs/heads/$signed_temp_branch" \
+              -f sha="$signed_commit_sha" >/dev/null
+            git fetch --quiet origin "$signed_temp_branch"
+            fetched_signed_sha=$(git rev-parse FETCH_HEAD)
+            fetched_signed_tree=$(git rev-parse "${fetched_signed_sha}^{tree}")
+            if [ "$fetched_signed_sha" != "$signed_commit_sha" ] \
+              || [ "$fetched_signed_tree" != "$desired_tree_hash" ]; then
+              echo "::error::Fetched signed commit does not match the expected commit/tree"
+              exit 1
+            fi
 
             if [ -n "$existing_pr" ]; then
-              git push --quiet --force-with-lease="refs/heads/$branch_name:$existing_head" -u origin "$branch_name"
+              current_pr_json=$(gh pr view "$existing_pr" --json state,headRefOid)
+              current_pr_state=$(jq -r .state <<<"$current_pr_json")
+              current_pr_head=$(jq -r .headRefOid <<<"$current_pr_json")
+              if [ "$current_pr_state" != "OPEN" ] \
+                || [ "$current_pr_head" != "$existing_head" ]; then
+                echo "::error::Existing PR #$existing_pr changed during signed commit preparation."
+                echo "::error::Refusing to overwrite the changed head."
+                exit 1
+              fi
+              git push --quiet \
+                --force-with-lease="refs/heads/$branch_name:$existing_head" \
+                origin "$signed_commit_sha:refs/heads/$branch_name"
             else
-              git push --quiet -u origin "$branch_name"
+              git push --quiet origin "$signed_commit_sha:refs/heads/$branch_name"
             fi
+
+            published_verification=$(gh api \
+              "repos/${{ matrix.repo }}/commits/$signed_commit_sha" \
+              --jq '.commit.verification')
+            published_verified=$(jq -r '.verified // false' <<<"$published_verification")
+            published_reason=$(jq -r '.reason // "missing"' <<<"$published_verification")
+            if [ "$published_verified" != "true" ] || [ "$published_reason" != "valid" ]; then
+              echo "::error::Published sync head is not verified (reason=$published_reason)"
+              exit 1
+            fi
+
+            git push --quiet origin --delete "$signed_temp_branch" >/dev/null
+            signed_temp_branch=""
+            rm -f "$commit_message_file" "$signed_result_file"
+            trap - EXIT
           fi
 
           # Create PR

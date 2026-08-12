@@ -13,6 +13,7 @@ const {
   candidateEvidenceAllowsMutation,
   classifyGeneratedPr,
   classifySyncPrChecks,
+  commitSignatureAllowsMerge,
   collectDeletableSyncBranches,
   evaluatePostPushReviewWindow,
   evaluateReviewerSettlement,
@@ -189,6 +190,9 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
     },
     graphql: async () => ({
       repository: {
+        object: {
+          signature: { isValid: true, state: 'VALID', wasSignedByGitHub: true },
+        },
         pullRequest: {
           state: 'MERGED',
           mergedAt: mergedCandidate.merged_at,
@@ -468,6 +472,25 @@ test('stable delivery branches and strict branch-update failures are recognized'
     willMerge: true,
   }), true);
   assert.equal(isBlockingSyncSystemFailure('pr_refresh_failed'), true);
+  assert.equal(isBlockingSyncSystemFailure('head_commit_unverified'), true);
+});
+
+test('generated delivery merge requires a valid GitHub-signed head', () => {
+  assert.equal(commitSignatureAllowsMerge({
+    isValid: true,
+    state: 'VALID',
+    wasSignedByGitHub: true,
+  }), true);
+  assert.equal(commitSignatureAllowsMerge({
+    isValid: false,
+    state: 'UNSIGNED',
+    wasSignedByGitHub: false,
+  }), false);
+  assert.equal(commitSignatureAllowsMerge({
+    isValid: true,
+    state: 'VALID',
+    wasSignedByGitHub: false,
+  }), false);
 });
 
 test('strict required checks update behind branches before a generated merge', () => {
@@ -714,6 +737,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     sealed_head_mismatch: 0,
     stable_base_refresh_required: 0,
     head_changed: 0,
+    head_commit_unverified: 0,
     review_blocked: 0,
     ready: 0,
     dry_run_merge: 1,
