@@ -162,6 +162,7 @@ async function run({ github, context, core }) {
     evaluatePostPushReviewWindow,
     evaluateReviewerSettlement,
     generatedDeliveryLane,
+    generatedDeliveryRequiresVerifiedHead,
     isBlockingSyncSystemFailure,
     isStableSyncBranchName,
     normalizeSyncHash,
@@ -502,6 +503,7 @@ async function run({ github, context, core }) {
     pr,
     expectMerged,
     requireSealedDelivery = false,
+    requireVerifiedHead = false,
   }) {
     const data = await github.graphql(
       `query($owner: String!, $repo: String!, $number: Int!, $head: GitObjectID!) {
@@ -553,7 +555,7 @@ async function run({ github, context, core }) {
       };
     }
     const signature = data?.repository?.object?.signature;
-    if (!commitSignatureAllowsMerge(signature)) {
+    if (requireVerifiedHead && !commitSignatureAllowsMerge(signature)) {
       return {
         ok: false,
         reason: 'head_commit_unverified',
@@ -1374,6 +1376,7 @@ async function run({ github, context, core }) {
         pr,
         expectMerged: recoveredMergedCandidate,
         requireSealedDelivery: stableDelivery && !recoveredMergedCandidate,
+        requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
       });
       if (!finalGate.ok) {
         console.log(`Final exact-head review gate blocked delivery: ${finalGate.reason}`);
@@ -1493,6 +1496,7 @@ async function run({ github, context, core }) {
                 pr,
                 expectMerged: false,
                 requireSealedDelivery: stableDelivery,
+                requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
               });
               if (!retryGate.ok) {
                 throw new Error(`merge retry gate blocked: ${retryGate.reason}`);

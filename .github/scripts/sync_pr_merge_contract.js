@@ -51,6 +51,10 @@ function generatedDeliveryLane(value) {
   return '';
 }
 
+function generatedDeliveryRequiresVerifiedHead(value) {
+  return generatedDeliveryLane(value) === 'sync';
+}
+
 function isGeneratedDeliveryBranchName(value) {
   return Boolean(generatedDeliveryLane(value));
 }
@@ -299,7 +303,6 @@ function commitSignatureAllowsMerge(signature = {}) {
   return Boolean(
     signature?.isValid === true
     && signature?.state === 'VALID'
-    && signature?.wasSignedByGitHub === true
   );
 }
 
@@ -790,6 +793,7 @@ module.exports = {
   candidateEvidenceAllowsMutation,
   collectDeletableSyncBranches,
   generatedDeliveryLane,
+  generatedDeliveryRequiresVerifiedHead,
   isGeneratedDeliveryBranchName,
   isStableSyncBranchName,
   isSyncBranchName,

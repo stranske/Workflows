@@ -8,8 +8,11 @@ const path = require('node:path');
 
 const {
   collectStagedChanges,
+  createCommitRef,
   createSignedCommit,
+  githubRequest,
   parseArgs,
+  verifyCommit,
 } = require('../create_signed_sync_commit');
 
 const blobOid = (contents) => crypto
@@ -156,6 +159,90 @@ test('createSignedCommit rejects credentials without access to the target reposi
       request,
     }),
     /not a GitHub App installation token/,
+  );
+});
+
+test('verifyCommit returns the exact GitHub verification state', async () => {
+  const commitSha = 'e'.repeat(40);
+  const calls = [];
+  const result = await verifyCommit({
+    repository: 'stranske/Ready',
+    commitSha,
+    token: 'repo-token',
+    request: async (requestPath, options) => {
+      calls.push({ requestPath, options });
+      return {
+        sha: commitSha,
+        commit: { verification: { verified: true, reason: 'valid' } },
+      };
+    },
+  });
+
+  assert.deepEqual(result, {
+    sha: commitSha,
+    verified: true,
+    verification_reason: 'valid',
+  });
+  assert.deepEqual(calls, [{
+    requestPath: `/repos/stranske/Ready/commits/${commitSha}`,
+    options: { token: 'repo-token' },
+  }]);
+});
+
+test('createCommitRef publishes only an exact validated branch target', async () => {
+  const commitSha = 'e'.repeat(40);
+  const ref = 'refs/heads/sync/workflows-candidate-signed-build-123-1';
+  const result = await createCommitRef({
+    repository: 'stranske/Ready',
+    ref,
+    commitSha,
+    token: 'installation-token',
+    request: async (requestPath, options) => {
+      assert.equal(requestPath, '/repos/stranske/Ready/git/refs');
+      assert.deepEqual(options, {
+        token: 'installation-token',
+        method: 'POST',
+        body: { ref, sha: commitSha },
+      });
+      return { ref, object: { sha: commitSha } };
+    },
+  });
+
+  assert.deepEqual(result, { ref, sha: commitSha });
+  await assert.rejects(
+    createCommitRef({
+      repository: 'stranske/Ready',
+      ref: 'refs/heads/../main',
+      commitSha,
+      token: 'installation-token',
+    }),
+    /valid refs\/heads/,
+  );
+});
+
+test('githubRequest requires the Actions API endpoint and parses JSON', async () => {
+  const calls = [];
+  const result = await githubRequest('/repos/stranske/Ready', {
+    token: 'repo-token',
+    apiUrl: 'https://github.example/api/v3',
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return {
+        ok: true,
+        status: 200,
+        async text() { return '{"name":"Ready"}'; },
+      };
+    },
+  });
+  assert.deepEqual(result, { name: 'Ready' });
+  assert.equal(calls[0].url, 'https://github.example/api/v3/repos/stranske/Ready');
+  await assert.rejects(
+    githubRequest('/repos/stranske/Ready', {
+      token: 'repo-token',
+      apiUrl: '',
+      fetchImpl: async () => { throw new Error('must not run'); },
+    }),
+    /GITHUB_API_URL is required/,
   );
 });
 

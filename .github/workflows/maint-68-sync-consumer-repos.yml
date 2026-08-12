@@ -271,6 +271,7 @@ jobs:
     env:
       # Job-level alias for repo token (uses OWNER_PR_PAT or SERVICE_BOT_PAT)
       REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+      TARGET_REPOSITORY: ${{ matrix.repo }}
       PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
       SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
       DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
@@ -278,7 +279,7 @@ jobs:
       - name: Compute result artifact name
         id: repo_meta
         run: |
-          repo_full='${{ matrix.repo }}'
+          repo_full="$TARGET_REPOSITORY"
           case "$repo_full" in
             */*) ;;
             *) echo "::error::Consumer repository must use owner/name form: $repo_full"; exit 1 ;;
@@ -295,12 +296,14 @@ jobs:
 
       - name: Mint Workflows App commit token
         id: workflows_app_token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ steps.repo_meta.outputs.repo_owner }}
           repositories: ${{ steps.repo_meta.outputs.repo_name }}
+          permission-contents: write
+          permission-workflows: write
 
       - name: Checkout Workflows
         uses: actions/checkout@v7
@@ -311,7 +314,7 @@ jobs:
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
         run: |
-          gh repo clone ${{ matrix.repo }} consumer -- --depth=1
+          gh repo clone "$TARGET_REPOSITORY" consumer -- --depth=1
 
       - name: Download manifest
         uses: actions/download-artifact@v8
@@ -762,7 +765,7 @@ jobs:
             const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const exists = await isConsumerOpenPr({
               github,
-              consumerRepo: '${{ matrix.repo }}',
+              consumerRepo: process.env.TARGET_REPOSITORY,
               branchPattern: new RegExp(`^${escapeRegex(branchName)}$`),
               core,
             });
@@ -780,6 +783,7 @@ jobs:
           DELIVERY_GENERATION: ${{ needs.prepare.outputs.template_hash }}
           DELIVERY_REPOSITORY: ${{ matrix.repo }}
           SYNC_BRANCH: ${{ needs.prepare.outputs.sync_branch }}
+          CHANGES_COUNT: ${{ steps.sync.outputs.changes_count || '0' }}
         run: |
           cd consumer
 
@@ -821,11 +825,13 @@ jobs:
             existing_head=$(git rev-parse FETCH_HEAD)
             existing_base=$(git rev-parse "${existing_head}^")
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
-            existing_verification=$(gh api \
-              "repos/${{ matrix.repo }}/commits/$existing_head" \
-              --jq '.commit.verification')
+            existing_verification=$(node \
+              ../workflows/.github/scripts/create_signed_sync_commit.js \
+              --operation verify-commit \
+              --repository "$TARGET_REPOSITORY" \
+              --commit-sha "$existing_head")
             existing_verified=$(jq -r '.verified // false' <<<"$existing_verification")
-            existing_verification_reason=$(jq -r '.reason // "missing"' <<<"$existing_verification")
+            existing_verification_reason=$(jq -r '.verification_reason // "missing"' <<<"$existing_verification")
             existing_body_file=$(mktemp)
             gh pr view "$existing_pr" --json body -q .body >"$existing_body_file" || true
             # shellcheck disable=SC2016 # The embedded Node source must remain literal.
@@ -1023,18 +1029,19 @@ jobs:
               rm -f "${commit_message_file:-}" "${signed_result_file:-}"
             }
             trap cleanup_signed_commit EXIT
-            cat >"$commit_message_file" <<'COMMIT_MESSAGE'
+            cat >"$commit_message_file" <<COMMIT_MESSAGE
           chore: sync workflow templates from Workflows repo
 
           Automated sync from stranske/Workflows
-          Template hash: ${{ needs.prepare.outputs.template_hash }}
+          Template hash: $DELIVERY_GENERATION
 
           Changes synced from sync-manifest.yml
           COMMIT_MESSAGE
 
             GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \
               ../workflows/.github/scripts/create_signed_sync_commit.js \
-              --repository "${{ matrix.repo }}" \
+              --operation create-commit \
+              --repository "$TARGET_REPOSITORY" \
               --base-sha "$base_sha" \
               --expected-tree-sha "$desired_tree_hash" \
               --message-file "$commit_message_file" \
@@ -1046,11 +1053,12 @@ jobs:
             # Give the API-created commit a temporary reachable ref, fetch it
             # locally, then retain git push --force-with-lease as the atomic
             # compare-and-swap for the stable delivery branch.
-            GH_TOKEN="$SIGNED_COMMIT_TOKEN" gh api \
-              --method POST \
-              "repos/${{ matrix.repo }}/git/refs" \
-              -f ref="refs/heads/$signed_temp_branch" \
-              -f sha="$signed_commit_sha" >/dev/null
+            GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \
+              ../workflows/.github/scripts/create_signed_sync_commit.js \
+              --operation create-ref \
+              --repository "$TARGET_REPOSITORY" \
+              --ref "refs/heads/$signed_temp_branch" \
+              --commit-sha "$signed_commit_sha" >/dev/null
             git fetch --quiet origin "$signed_temp_branch"
             fetched_signed_sha=$(git rev-parse FETCH_HEAD)
             fetched_signed_tree=$(git rev-parse "${fetched_signed_sha}^{tree}")
@@ -1077,11 +1085,13 @@ jobs:
               git push --quiet origin "$signed_commit_sha:refs/heads/$branch_name"
             fi
 
-            published_verification=$(gh api \
-              "repos/${{ matrix.repo }}/commits/$signed_commit_sha" \
-              --jq '.commit.verification')
+            published_verification=$(node \
+              ../workflows/.github/scripts/create_signed_sync_commit.js \
+              --operation verify-commit \
+              --repository "$TARGET_REPOSITORY" \
+              --commit-sha "$signed_commit_sha")
             published_verified=$(jq -r '.verified // false' <<<"$published_verification")
-            published_reason=$(jq -r '.reason // "missing"' <<<"$published_verification")
+            published_reason=$(jq -r '.verification_reason // "missing"' <<<"$published_verification")
             if [ "$published_verified" != "true" ] || [ "$published_reason" != "valid" ]; then
               echo "::error::Published sync head is not verified (reason=$published_reason)"
               exit 1
@@ -1097,10 +1107,10 @@ jobs:
           lease_expires_at=$(date -u -d '+72 hours' +%Y-%m-%dT%H:%M:%SZ)
           sync_marker=$(jq -nc \
             --arg schema "workflows-consumer-sync-pr/v1" \
-            --arg consumer_repo "${{ matrix.repo }}" \
+            --arg consumer_repo "$TARGET_REPOSITORY" \
             --arg source_repository "$GITHUB_REPOSITORY" \
             --arg source_sha "$GITHUB_SHA" \
-            --arg template_hash "${{ needs.prepare.outputs.template_hash }}" \
+            --arg template_hash "$DELIVERY_GENERATION" \
             --arg plan_id "$PLAN_ID" \
             --arg sync_phase "$SYNC_PHASE" \
             --arg sync_branch "$branch_name" \
@@ -1108,7 +1118,7 @@ jobs:
             --arg lifecycle_state "$delivery_state" \
             --arg run_id "$GITHUB_RUN_ID" \
             --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
-            --argjson changes_count "${{ steps.sync.outputs.changes_count || '0' }}" \
+            --argjson changes_count "$CHANGES_COUNT" \
             '{
               schema: $schema,
               consumer_repo: $consumer_repo,
@@ -1150,11 +1160,11 @@ jobs:
 
           **Source:** stranske/Workflows
           **Source SHA:** \`$GITHUB_SHA\`
-          **Template hash:** \`${{ needs.prepare.outputs.template_hash }}\`
+          **Template hash:** \`$DELIVERY_GENERATION\`
           **Consumer-sync plan ID:** \`$PLAN_ID\`
           **Sync phase:** \`$SYNC_PHASE\`
           **Sync branch:** \`$branch_name\`
-          **Consumer repo:** \`${{ matrix.repo }}\`
+          **Consumer repo:** \`$TARGET_REPOSITORY\`
           **Manifest:** \`.github/sync-manifest.yml\`
 
           <!-- workflows-consumer-sync:v1 $sync_marker -->
@@ -1163,7 +1173,7 @@ jobs:
           if [ -n "$existing_pr" ]; then
             gh pr edit "$existing_pr" --body "$pr_body"
             pr_number="$existing_pr"
-            pr_url="https://github.com/${{ matrix.repo }}/pull/$existing_pr"
+            pr_url="https://github.com/$TARGET_REPOSITORY/pull/$existing_pr"
             status="refreshed_pr"
           else
             pr_url=$(gh pr create \
@@ -1187,12 +1197,14 @@ jobs:
 
       - name: Dry run summary
         if: inputs.dry_run == true
+        env:
+          CHANGES_COUNT: ${{ steps.sync.outputs.changes_count }}
         run: |
           {
             echo "## Dry Run Summary"
             echo ""
-            echo "**Repo:** ${{ matrix.repo }}"
-            echo "**Changes:** ${{ steps.sync.outputs.changes_count }}"
+            echo "**Repo:** $TARGET_REPOSITORY"
+            echo "**Changes:** $CHANGES_COUNT"
             echo ""
             cat sync_summary.md
           } >> "$GITHUB_STEP_SUMMARY"
@@ -1373,15 +1385,19 @@ jobs:
           FORCE: ${{ inputs.force || 'false' }}
 
       - name: Generate summary
+        env:
+          TEMPLATE_HASH: ${{ needs.prepare.outputs.template_hash }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          TARGET_REPOS_JSON: ${{ needs.prepare.outputs.repos }}
         run: |
           {
             echo "## Consumer Repo Sync Details"
             echo ""
-            echo "**Template Hash:** ${{ needs.prepare.outputs.template_hash }}"
-            echo "**Dry Run:** ${{ inputs.dry_run || 'false' }}"
+            echo "**Template Hash:** $TEMPLATE_HASH"
+            echo "**Dry Run:** $DRY_RUN"
             echo ""
             echo "### Repos Processed"
-            echo '${{ needs.prepare.outputs.repos }}' \
+            printf '%s\n' "$TARGET_REPOS_JSON" \
               | jq -r '.repo[]' \
               | while read -r repo; do
               echo "- $repo"

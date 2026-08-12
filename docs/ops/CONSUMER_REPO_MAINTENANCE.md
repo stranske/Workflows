@@ -317,8 +317,11 @@ commit. Maint 68 compares the returned tree to `git write-tree`, requires a
 `verified=true` / `reason=valid` signature, and only then atomically publishes
 the stable branch with `--force-with-lease`. An existing exact-tree delivery
 with an unsigned head is replaced rather than treated as a no-op. Maint 71
-independently requires `isValid`, `state=VALID`, and `wasSignedByGitHub` on the
-exact PR head before merge. This prevents synced workflow files from reaching
+independently requires a valid cryptographic signature on the exact workflow-
+sync PR head before merge. This accepts GitHub App, GPG, SSH, and S/MIME
+signatures that GitHub validates while still rejecting unsigned generated
+heads. The sibling dev-tool sync lane is excluded until its producer gains the
+same signed-commit contract. This prevents synced workflow files from reaching
 consumer `main` through an unsigned automation commit and avoids GitHub's
 subsequent workflow trust approval hold.
 

@@ -18,6 +18,7 @@ const {
   evaluatePostPushReviewWindow,
   evaluateReviewerSettlement,
   generatedDeliveryLane,
+  generatedDeliveryRequiresVerifiedHead,
   isBlockingSyncSystemFailure,
   isReviewerCapacitySignal,
   isStableSyncBranchName,
@@ -475,7 +476,7 @@ test('stable delivery branches and strict branch-update failures are recognized'
   assert.equal(isBlockingSyncSystemFailure('head_commit_unverified'), true);
 });
 
-test('generated delivery merge requires a valid GitHub-signed head', () => {
+test('workflow sync delivery merge requires a valid cryptographic signature', () => {
   assert.equal(commitSignatureAllowsMerge({
     isValid: true,
     state: 'VALID',
@@ -490,7 +491,14 @@ test('generated delivery merge requires a valid GitHub-signed head', () => {
     isValid: true,
     state: 'VALID',
     wasSignedByGitHub: false,
-  }), false);
+  }), true);
+});
+
+test('only the workflow-sync lane requires a verified generated head', () => {
+  assert.equal(generatedDeliveryRequiresVerifiedHead('sync/workflows-candidate'), true);
+  assert.equal(generatedDeliveryRequiresVerifiedHead('sync/workflows-delivery'), true);
+  assert.equal(generatedDeliveryRequiresVerifiedHead('deps/sync-dev-versions-20260811'), false);
+  assert.equal(generatedDeliveryRequiresVerifiedHead('feature/manual-change'), false);
 });
 
 test('strict required checks update behind branches before a generated merge', () => {
