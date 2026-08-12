@@ -180,7 +180,12 @@ jobs:
           if-no-files-found: error
 
       - name: Check and merge sync PRs
-        if: ${{ always() }}
+        if: >-
+          ${{
+            always() &&
+            steps.repos.outcome == 'success' &&
+            steps.candidate_mode.outcome == 'success'
+          }}
         # The executable lives in maint71_merge_sync_prs.js to keep this workflow
         # below GitHub's expression-size limit.  That module owns the
         # sync_pr_merge_contract.js selection, isTrustedGeneratedDeliveryPr,

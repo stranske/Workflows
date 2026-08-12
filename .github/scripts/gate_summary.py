@@ -67,6 +67,14 @@ def _delivery_seal_from_event(event_path: Path | None) -> tuple[bool, bool, str]
     branch = str(head.get("ref") or "") if isinstance(head, Mapping) else ""
     if branch not in STABLE_SYNC_BRANCHES:
         return False, True, ""
+    head_repository = (
+        str(head.get("repo", {}).get("full_name") or "")
+        if isinstance(head, Mapping) and isinstance(head.get("repo"), Mapping)
+        else ""
+    )
+    base_repository = str(pull_request.get("base", {}).get("repo", {}).get("full_name") or "")
+    if not head_repository or not base_repository or head_repository != base_repository:
+        return True, False, "stable delivery must originate from the base repository"
     head_sha = str(head.get("sha") or "") if isinstance(head, Mapping) else ""
     body = str(pull_request.get("body") or "")
     match = DELIVERY_RECORD_PATTERN.search(body)
@@ -84,8 +92,8 @@ def _delivery_seal_from_event(event_path: Path | None) -> tuple[bool, bool, str]
         return True, False, f"delivery state is {record.get('delivery_state') or 'missing'}"
     if not head_sha or record.get("sealed_head_sha") != head_sha:
         return True, False, "sealed head does not match the PR head"
-    repository = pull_request.get("base", {}).get("repo", {}).get("full_name", "")
-    if repository and record.get("repository") != repository:
+    repository = base_repository
+    if record.get("repository") != repository:
         return True, False, "delivery repository does not match the PR"
     try:
         lease_expires_at = datetime.fromisoformat(

@@ -35,7 +35,11 @@ const {
   validateCanaryEvidence,
 } = require('../sync_pr_merge_contract');
 const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
-const { run } = require('../maint71_merge_sync_prs');
+const {
+  collectReviewerEvidence,
+  normalizeReviewPolicy,
+  run,
+} = require('../maint71_merge_sync_prs');
 
 const pr = (number, ref, created_at) => ({
   number,
@@ -358,6 +362,13 @@ test('post-push review window fails closed until seven full minutes elapse', () 
     true,
   );
   assert.equal(evaluatePostPushReviewWindow({}, '2026-08-11T13:09:00Z').ready, false);
+
+  const backdatedHead = evaluatePostPushReviewWindow({
+    head: { pushed_at: '2026-08-11T12:00:00Z' },
+    updated_at: '2026-08-11T13:08:00Z',
+  }, '2026-08-11T13:14:59Z');
+  assert.equal(backdatedHead.ready, false);
+  assert.equal(backdatedHead.anchor_at, '2026-08-11T13:08:00.000Z');
 });
 
 test('reviewer settlement never requires every configured reviewer', () => {
@@ -387,9 +398,64 @@ test('reviewer settlement never requires every configured reviewer', () => {
     now: '2026-08-11T13:06:59Z',
     respondedReviewers: ['copilot'],
   }).ready, false);
+  assert.deepEqual(evaluateReviewerSettlement({
+    ...base,
+    now: '2026-08-11T13:08:00Z',
+  }), {
+    ready: false,
+    reason: 'review_quorum_pending',
+    eligible_at: '2026-08-11T13:15:00.000Z',
+    responded: [],
+    unavailable: [],
+  });
+  assert.equal(evaluateReviewerSettlement({
+    ...base,
+    now: '2026-08-11T13:08:00Z',
+    quietPeriodMs: Number.NaN,
+    maxWaitMs: Number.NaN,
+    minimumResponses: Number.NaN,
+  }).reason, 'review_quorum_pending');
   assert.equal(isReviewerCapacitySignal('Reviewer unavailable: quota exceeded', ['quota']), true);
   assert.equal(isReviewerCapacitySignal('Reviewer hit a rate-limit', ['rate-limit']), true);
   assert.equal(isReviewerCapacitySignal('Reviewer hit a rate-limit', ['rate[ -]?limit']), false);
+});
+
+test('review policy normalizes invalid numeric values to finite defaults', () => {
+  const policy = normalizeReviewPolicy({
+    minimum_responses: 'invalid',
+    quiet_period_minutes: Number.NaN,
+    maximum_wait_minutes: -1,
+    reviewers: 'invalid',
+    capacity_patterns: null,
+  });
+  assert.equal(policy.minimum_responses, 1);
+  assert.equal(policy.quiet_period_minutes, 7);
+  assert.equal(policy.maximum_wait_minutes, 15);
+  assert.deepEqual(policy.reviewers, []);
+  assert.deepEqual(policy.capacity_patterns, []);
+});
+
+test('reviewer evidence query retries and fails closed when GraphQL is unavailable', async () => {
+  const warnings = [];
+  let retryCalls = 0;
+  const result = await collectReviewerEvidence({
+    owner: 'stranske',
+    repo: 'Ready',
+    number: 99,
+    reviewStartedAt: '2026-08-11T13:00:00Z',
+    withRetry: async (operation) => {
+      retryCalls += 1;
+      return operation({
+        graphql: async () => {
+          throw new Error('rate limited');
+        },
+      });
+    },
+    core: { warning: (message) => warnings.push(message) },
+  });
+  assert.equal(retryCalls, 1);
+  assert.deepEqual(result, { responded: [], unavailable: [], truncated: true });
+  assert.match(warnings[0], /Unable to read reviewer evidence/);
 });
 
 test('stable delivery branches and strict branch-update failures are recognized', () => {

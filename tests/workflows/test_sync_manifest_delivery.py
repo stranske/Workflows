@@ -287,6 +287,9 @@ def test_maint_71_persists_validated_candidate_evidence_before_merge() -> None:
     assert resolve_index < collect_index < persist_index < merge_index
     assert steps[persist_index]["with"]["name"] == "sync-canary-evidence-premerge"
     assert steps[persist_index]["with"]["if-no-files-found"] == "error"
+    merge_condition = steps[merge_index]["if"]
+    assert "steps.repos.outcome == 'success'" in merge_condition
+    assert "steps.candidate_mode.outcome == 'success'" in merge_condition
 
     source = workflow_path.read_text(encoding="utf-8")
     assert 'AUTO_MERGE_INPUT: "false"' in source
@@ -320,12 +323,16 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
     assert '[ "$existing_base" = "$base_sha" ]' in source
     assert '[ "$existing_tree" = "$desired_tree_hash" ]' in source
     assert "matching_existing=true" in source
+    assert "migrating_legacy_lifecycle=true" in source
+    assert "migrating its legacy metadata into the staged delivery lifecycle" in source
     assert "preserving its review lifecycle" in source
     assert "delivery_state=$(jq -r" in source
     assert 'current_pr_json=$(gh pr view "$existing_pr" --json state,headRefOid,isDraft)' in source
     assert 'gh pr merge "$existing_pr" --disable-auto' in source
     assert 'gh pr ready "$existing_pr" --undo' in source
     assert '--force-with-lease="refs/heads/$branch_name:$existing_head"' in source
+    assert source.count("--json number,headRefName,isCrossRepository") == 2
+    assert source.count(".isCrossRepository | not") == 2
     commit_push_guard = source.index('if [ "$matching_existing" != "true" ]; then')
     assert (
         source.index(
@@ -357,3 +364,15 @@ def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
     assert "sealed_head_sha" in gate_summary
     assert "sync:delivery-staging" in merger_guard
     assert "allowSealedSyncDelivery" in merger_guard
+    assert gate.count("github.event.pull_request.head.repo.full_name == github.repository") >= 2
+
+
+def test_delivery_lease_contract_is_copy_synced_with_the_gate() -> None:
+    manifest = _load_manifest()
+    copy_sources = _sources_in_sections(manifest, COPY_SYNCED_SECTIONS)
+    source = ".github/scripts/sync_pr_lease_contract.js"
+
+    assert source in copy_sources
+    assert (REPO_ROOT / "templates" / "consumer-repo" / source).read_bytes() == (
+        REPO_ROOT / source
+    ).read_bytes()

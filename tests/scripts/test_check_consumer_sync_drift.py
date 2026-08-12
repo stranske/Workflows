@@ -201,6 +201,7 @@ def test_build_report_marks_current_sync_pr_as_covered() -> None:
 
     assert report["status"] == "covered"
     assert report["sync_remediation"]["expected_branch"] == "sync/workflows-delivery"
+    assert report["sync_remediation"]["delivery_branch"] == "sync/workflows-delivery"
     assert report["sync_remediation"]["repo_states"]["owner/repo"]["state"] == "covered"
 
 

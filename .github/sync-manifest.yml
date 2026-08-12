@@ -477,6 +477,9 @@ scripts:
   - source: .github/scripts/runtime_ac_merge_guard.js
     description: "Blocks external merge lanes for PRs that require local Orchestrator runtime acceptance checks"
 
+  - source: .github/scripts/sync_pr_lease_contract.js
+    description: "Validates generated delivery lifecycle records and exact-head seals"
+
   - source: .github/scripts/comment-dedupe.js
     description: "Deduplicates bot comments on issues/PRs"
 

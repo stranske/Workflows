@@ -776,7 +776,11 @@ jobs:
           # Keep one generated PR per lane current. Both candidate and promoted
           # deliveries use stable branches; immutable plan/hash identity lives in
           # the delivery marker rather than in a replacement PR branch.
-          existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+          existing_pr=$(gh pr list --head "$branch_name" \
+            --json number,headRefName,isCrossRepository \
+            | jq -r --arg branch "$branch_name" \
+              '.[] | select(.headRefName == $branch and (.isCrossRepository | not)) | .number' \
+            | head -n 1 || echo "")
           existing_head=""
           existing_base=""
           existing_tree=""
@@ -919,13 +923,23 @@ jobs:
 
           desired_tree_hash=$(git write-tree)
           matching_existing=false
+          migrating_legacy_lifecycle=false
           if [ -n "$existing_pr" ] \
             && [ "$existing_refreshable" = "true" ] \
-            && [ "$existing_lifecycle_initialized" = "true" ] \
             && [ "$existing_base" = "$base_sha" ] \
             && [ "$existing_tree" = "$desired_tree_hash" ]; then
             matching_existing=true
-            echo "Existing PR #$existing_pr already matches this base and desired tree; preserving its review lifecycle while refreshing metadata"
+            if [ "$existing_lifecycle_initialized" = "true" ]; then
+              echo "Existing PR #$existing_pr already matches this base and desired tree; preserving its review lifecycle while refreshing metadata"
+            else
+              migrating_legacy_lifecycle=true
+              delivery_state="staging"
+              review_started_at=""
+              sealed_at=""
+              sealed_head_sha=""
+              review_evidence='{}'
+              echo "Existing PR #$existing_pr already matches this base and desired tree; migrating its legacy metadata into the staged delivery lifecycle"
+            fi
           elif [ -n "$existing_pr" ] && [ "$existing_refreshable" != "true" ]; then
             echo "Existing PR #$existing_pr is not refreshable (${existing_refresh_reason}); leaving it for Maint 71 disposition."
             echo "status=existing_pr_not_refreshable" >> "$GITHUB_OUTPUT"
@@ -938,8 +952,8 @@ jobs:
             exit 0
           fi
 
-          if [ "$matching_existing" != "true" ]; then
-            if [ -n "$existing_pr" ]; then
+          if [ -n "$existing_pr" ] \
+            && { [ "$matching_existing" != "true" ] || [ "$migrating_legacy_lifecycle" = "true" ]; }; then
               # Revalidate the selected head, then close every automatic merge
               # path immediately before mutating it. Draft state is GitHub's
               # native hard block; the staging label is enforced by all shared
@@ -958,7 +972,9 @@ jobs:
               fi
               gh pr edit "$existing_pr" --add-label "sync:delivery-staging"
               gh pr edit "$existing_pr" --remove-label "sync:delivery-ready" >/dev/null 2>&1 || true
-            fi
+          fi
+
+          if [ "$matching_existing" != "true" ]; then
             delivery_state="staging"
             review_started_at=""
             sealed_at=""
@@ -1057,7 +1073,11 @@ jobs:
               --title "chore: sync workflow templates" \
               --body "$pr_body" \
               --label "sync,automated,sync:delivery-staging")
-            pr_number=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+            pr_number=$(gh pr list --head "$branch_name" \
+              --json number,headRefName,isCrossRepository \
+              | jq -r --arg branch "$branch_name" \
+                '.[] | select(.headRefName == $branch and (.isCrossRepository | not)) | .number' \
+              | head -n 1 || echo "")
             status="created_pr"
           fi
           {

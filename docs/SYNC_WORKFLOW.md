@@ -116,9 +116,9 @@ branches. Re-run Maint 71 after the recorded quiet-period/check timestamp.
 - [ ] Run ruff/mypy/tests in Workflows repo
 - [ ] Fix any issues found
 - [ ] Check for open sync PRs across all consumer repos
-- [ ] Review bot comments on latest sync PRs
-- [ ] Address or document any bot concerns
-- [ ] Close duplicate sync PRs (keep only latest)
-- [ ] Verify latest PRs have no failing checks
-- [ ] Merge clean PRs
+- [ ] Refresh each stable candidate or delivery PR in place through Maint 68
+- [ ] Keep refreshed PRs draft and labeled `sync:delivery-staging`
+- [ ] Use Maint 71 to start the review window, settle available reviewer evidence, and seal the exact head
+- [ ] Verify zero active non-outdated review threads and passing required checks on the sealed head
+- [ ] Let Maint 71 merge only the sealed stable delivery; use its reconciliation output for stale attempts
 - [ ] If issues found, fix in Workflows and re-sync (do NOT fix in consumers)

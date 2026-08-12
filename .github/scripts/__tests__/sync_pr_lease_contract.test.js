@@ -79,6 +79,16 @@ test('stable delivery is mergeable only after its exact head is sealed', () => {
   }).reason, 'sealed_head_mismatch');
 });
 
+test('delivery marker replacement treats dollar sequences as literal data', () => {
+  const body = `summary\n${formatDeliveryRecord(current)}`;
+  const replaced = replaceDeliveryRecord(body, {
+    generation: 'candidate-$&-$`-$\'',
+  });
+
+  assert.equal(parseDeliveryRecord(replaced).generation, 'candidate-$&-$`-$\'');
+  assert.equal((replaced.match(/sync-pr-delivery-record:v1/g) || []).length, 1);
+});
+
 test('only the newest matching generation is selected for merge', () => {
   const old = {
     number: 10,

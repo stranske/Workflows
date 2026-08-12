@@ -262,7 +262,11 @@ def test_stable_generated_delivery_requires_an_exact_head_seal(tmp_path: Path) -
                 "<!-- sync-pr-delivery-record:v1 "
                 f"{json.dumps(record, separators=(',', ':'))} -->"
             ),
-            "head": {"ref": "sync/workflows-delivery", "sha": "head-abc"},
+            "head": {
+                "ref": "sync/workflows-delivery",
+                "sha": "head-abc",
+                "repo": {"full_name": "stranske/Ready"},
+            },
             "base": {"repo": {"full_name": "stranske/Ready"}},
         }
     }
@@ -283,6 +287,32 @@ def test_stable_generated_delivery_requires_an_exact_head_seal(tmp_path: Path) -
         True,
         True,
         "exact head sealed",
+    )
+
+
+def test_fork_cannot_claim_a_stable_generated_delivery_branch(tmp_path: Path) -> None:
+    event_path = tmp_path / "event.json"
+    event_path.write_text(
+        json.dumps(
+            {
+                "pull_request": {
+                    "body": "",
+                    "head": {
+                        "ref": "sync/workflows-delivery",
+                        "sha": "head-abc",
+                        "repo": {"full_name": "attacker/Ready"},
+                    },
+                    "base": {"repo": {"full_name": "stranske/Ready"}},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert gate_summary._delivery_seal_from_event(event_path) == (
+        True,
+        False,
+        "stable delivery must originate from the base repository",
     )
 
 

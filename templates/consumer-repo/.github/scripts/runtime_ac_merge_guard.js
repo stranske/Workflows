@@ -114,6 +114,8 @@ async function assertRuntimeAcMergeAllowed({
     error.labels = [GENERATED_DELIVERY_HOLD_LABEL];
     throw error;
   }
+  // The sealed-delivery exception bypasses only the generated-delivery hold.
+  // Runtime acceptance labels remain an independent hard merge boundary.
   const requirement = runtimeAcRequirement(labelItems);
 
   if (!requirement.required) {

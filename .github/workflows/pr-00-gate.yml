@@ -166,6 +166,7 @@ jobs:
         if: >-
           ${{
             github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository &&
             (github.head_ref == 'sync/workflows-candidate' ||
              github.head_ref == 'sync/workflows-delivery')
           }}
@@ -181,6 +182,7 @@ jobs:
         if: >-
           ${{
             github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository &&
             (github.head_ref == 'sync/workflows-candidate' ||
              github.head_ref == 'sync/workflows-delivery')
           }}

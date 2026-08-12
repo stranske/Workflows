@@ -1,5 +1,149 @@
 'use strict';
 
+const DEFAULT_REVIEW_POLICY = Object.freeze({
+  minimum_responses: 1,
+  quiet_period_minutes: 7,
+  maximum_wait_minutes: 15,
+});
+
+function finiteNonNegative(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function normalizeReviewPolicy(policy = {}) {
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
+    throw new Error('consumer sync review policy must be a JSON object');
+  }
+  return {
+    ...policy,
+    reviewers: Array.isArray(policy.reviewers) ? policy.reviewers : [],
+    capacity_patterns: Array.isArray(policy.capacity_patterns) ? policy.capacity_patterns : [],
+    minimum_responses: finiteNonNegative(
+      policy.minimum_responses,
+      DEFAULT_REVIEW_POLICY.minimum_responses,
+    ),
+    quiet_period_minutes: finiteNonNegative(
+      policy.quiet_period_minutes,
+      DEFAULT_REVIEW_POLICY.quiet_period_minutes,
+    ),
+    maximum_wait_minutes: finiteNonNegative(
+      policy.maximum_wait_minutes,
+      DEFAULT_REVIEW_POLICY.maximum_wait_minutes,
+    ),
+  };
+}
+
+async function collectReviewerEvidence({
+  owner,
+  repo,
+  number,
+  reviewStartedAt,
+  checkRuns = [],
+  reviewerProfiles = [],
+  reviewerCapacityPatterns = [],
+  withRetry,
+  core,
+} = {}) {
+  const { isReviewerCapacitySignal, reviewerProfileForLogin } = require(
+    './sync_pr_merge_contract.js'
+  );
+  const startedAt = new Date(reviewStartedAt || '').getTime();
+  if (!Number.isFinite(startedAt)) {
+    return { responded: [], unavailable: [], truncated: false };
+  }
+  let data;
+  try {
+    data = await withRetry((client) => client.graphql(
+      `query($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            comments(first: 100) {
+              pageInfo { hasNextPage }
+              nodes { body createdAt author { login } }
+            }
+            reviews(first: 100) {
+              pageInfo { hasNextPage }
+              nodes { body submittedAt author { login } }
+            }
+            reviewThreads(first: 100) {
+              pageInfo { hasNextPage }
+              nodes {
+                comments(first: 100) {
+                  pageInfo { hasNextPage }
+                  nodes { body createdAt author { login } }
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { owner, repo, number },
+    ));
+  } catch (error) {
+    core.warning(
+      `Unable to read reviewer evidence for ${owner}/${repo}#${number}: ${error}`,
+    );
+    return { responded: [], unavailable: [], truncated: true };
+  }
+  const pullRequest = data?.repository?.pullRequest;
+  if (!pullRequest) {
+    core.warning(`Reviewer evidence was missing for ${owner}/${repo}#${number}`);
+    return { responded: [], unavailable: [], truncated: true };
+  }
+  const activities = [];
+  for (const comment of pullRequest.comments?.nodes || []) {
+    activities.push({ ...comment, at: comment.createdAt });
+  }
+  for (const review of pullRequest.reviews?.nodes || []) {
+    activities.push({ ...review, at: review.submittedAt });
+  }
+  for (const thread of pullRequest.reviewThreads?.nodes || []) {
+    for (const comment of thread.comments?.nodes || []) {
+      activities.push({ ...comment, at: comment.createdAt });
+    }
+  }
+  const responded = new Set();
+  const unavailable = new Set();
+  for (const activity of activities) {
+    if (new Date(activity.at || '').getTime() < startedAt) continue;
+    const reviewer = reviewerProfileForLogin(activity.author?.login, reviewerProfiles);
+    if (!reviewer) continue;
+    if (isReviewerCapacitySignal(activity.body, reviewerCapacityPatterns)) {
+      unavailable.add(reviewer);
+    } else {
+      responded.add(reviewer);
+    }
+  }
+  for (const check of checkRuns) {
+    const completedAt = new Date(
+      check.completed_at || check.completedAt || check.started_at || check.startedAt || '',
+    ).getTime();
+    if (!Number.isFinite(completedAt) || completedAt < startedAt) continue;
+    const name = String(check.name || '').trim();
+    const profile = reviewerProfiles.find((item) =>
+      (item.check_names || []).some((candidate) => candidate === name),
+    );
+    if (!profile) continue;
+    if (String(check.status || '').toLowerCase() === 'completed') {
+      responded.add(String(profile.id || '').trim());
+    }
+  }
+  const truncated = Boolean(
+    pullRequest.comments?.pageInfo?.hasNextPage
+    || pullRequest.reviews?.pageInfo?.hasNextPage
+    || pullRequest.reviewThreads?.pageInfo?.hasNextPage
+    || (pullRequest.reviewThreads?.nodes || []).some(
+      (thread) => thread.comments?.pageInfo?.hasNextPage,
+    )
+  );
+  return {
+    responded: [...responded].filter(Boolean).sort(),
+    unavailable: [...unavailable].filter(Boolean).sort(),
+    truncated,
+  };
+}
+
 async function run({ github, context, core }) {
   const defaultOwner = context.repo.owner;
   const fs = require('fs');
@@ -18,14 +162,12 @@ async function run({ github, context, core }) {
     evaluateReviewerSettlement,
     generatedDeliveryLane,
     isBlockingSyncSystemFailure,
-    isReviewerCapacitySignal,
     isStableSyncBranchName,
     normalizeSyncHash,
     parseBooleanInput,
     requiresStrictGateBranchUpdate,
     requiredContextsFromRulesets,
     isTrustedGeneratedDeliveryPr,
-    reviewerProfileForLogin,
     selectLatestMergedCandidatePr,
     selectMergeEligibleSyncPr,
     selectSyncPrGatingChecks,
@@ -181,7 +323,15 @@ async function run({ github, context, core }) {
     .filter(Boolean);
   const reviewPolicyPath = process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH ||
     path.join(__dirname, '../../config/consumer_sync_review_policy.json');
-  const reviewPolicy = JSON.parse(fs.readFileSync(reviewPolicyPath, 'utf8'));
+  let reviewPolicy;
+  try {
+    reviewPolicy = normalizeReviewPolicy(
+      JSON.parse(fs.readFileSync(reviewPolicyPath, 'utf8')),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Unable to load consumer sync review policy at ${reviewPolicyPath}: ${message}`);
+  }
   const reviewerProfiles = Array.isArray(reviewPolicy.reviewers) ? reviewPolicy.reviewers : [];
   const configuredReviewers = reviewerProfiles
     .map((profile) => String(profile?.id || '').trim())
@@ -273,92 +423,6 @@ async function run({ github, context, core }) {
       core.warning(`Unable to read active review threads for ${owner}/${repo}#${number}: ${error}`);
       return -1;
     }
-  }
-
-  async function collectReviewerEvidence({ owner, repo, number, reviewStartedAt, checkRuns }) {
-    const startedAt = new Date(reviewStartedAt || '').getTime();
-    if (!Number.isFinite(startedAt)) {
-      return { responded: [], unavailable: [], truncated: false };
-    }
-    const data = await github.graphql(
-      `query($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $number) {
-            comments(first: 100) {
-              pageInfo { hasNextPage }
-              nodes { body createdAt author { login } }
-            }
-            reviews(first: 100) {
-              pageInfo { hasNextPage }
-              nodes { body submittedAt author { login } }
-            }
-            reviewThreads(first: 100) {
-              pageInfo { hasNextPage }
-              nodes {
-                comments(first: 100) {
-                  pageInfo { hasNextPage }
-                  nodes { body createdAt author { login } }
-                }
-              }
-            }
-          }
-        }
-      }`,
-      { owner, repo, number },
-    );
-    const pullRequest = data?.repository?.pullRequest;
-    if (!pullRequest) throw new Error(`Unable to load reviewer evidence for PR #${number}`);
-    const activities = [];
-    for (const comment of pullRequest.comments?.nodes || []) {
-      activities.push({ ...comment, at: comment.createdAt });
-    }
-    for (const review of pullRequest.reviews?.nodes || []) {
-      activities.push({ ...review, at: review.submittedAt });
-    }
-    for (const thread of pullRequest.reviewThreads?.nodes || []) {
-      for (const comment of thread.comments?.nodes || []) {
-        activities.push({ ...comment, at: comment.createdAt });
-      }
-    }
-    const responded = new Set();
-    const unavailable = new Set();
-    for (const activity of activities) {
-      if (new Date(activity.at || '').getTime() < startedAt) continue;
-      const reviewer = reviewerProfileForLogin(activity.author?.login, reviewerProfiles);
-      if (!reviewer) continue;
-      if (isReviewerCapacitySignal(activity.body, reviewerCapacityPatterns)) {
-        unavailable.add(reviewer);
-      } else {
-        responded.add(reviewer);
-      }
-    }
-    for (const check of checkRuns || []) {
-      const completedAt = new Date(
-        check.completed_at || check.completedAt || check.started_at || check.startedAt || '',
-      ).getTime();
-      if (!Number.isFinite(completedAt) || completedAt < startedAt) continue;
-      const name = String(check.name || '').trim();
-      const profile = reviewerProfiles.find((item) =>
-        (item.check_names || []).some((candidate) => candidate === name),
-      );
-      if (!profile) continue;
-      if (String(check.status || '').toLowerCase() === 'completed') {
-        responded.add(String(profile.id || '').trim());
-      }
-    }
-    const truncated = Boolean(
-      pullRequest.comments?.pageInfo?.hasNextPage
-      || pullRequest.reviews?.pageInfo?.hasNextPage
-      || pullRequest.reviewThreads?.pageInfo?.hasNextPage
-      || (pullRequest.reviewThreads?.nodes || []).some(
-        (thread) => thread.comments?.pageInfo?.hasNextPage,
-      )
-    );
-    return {
-      responded: [...responded].filter(Boolean).sort(),
-      unavailable: [...unavailable].filter(Boolean).sort(),
-      truncated,
-    };
   }
 
   async function beginStableDeliveryReview({ owner, repo, pr, record, dryRunMode }) {
@@ -1050,6 +1114,10 @@ async function run({ github, context, core }) {
             number: pr.number,
             reviewStartedAt: deliveryRecord.review_started_at,
             checkRuns: allChecks,
+            reviewerProfiles,
+            reviewerCapacityPatterns,
+            withRetry,
+            core,
           });
           const settlement = evaluateReviewerSettlement({
             reviewStartedAt: deliveryRecord.review_started_at,
@@ -1609,4 +1677,4 @@ async function run({ github, context, core }) {
   }
 }
 
-module.exports = { run };
+module.exports = { collectReviewerEvidence, normalizeReviewPolicy, run };

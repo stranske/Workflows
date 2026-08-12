@@ -147,7 +147,10 @@ function evaluatePostPushReviewWindow(
     .map((value) => new Date(value || '').getTime())
     .filter(Number.isFinite);
   const observedAt = new Date(now).getTime();
-  const timestamps = pushTimestamps.length > 0 ? pushTimestamps : fallbackTimestamps;
+  // Git commit metadata is author-controlled and can be backdated. Prefer the
+  // newest timestamp GitHub observed anywhere on the PR so a freshly pushed
+  // head can never inherit an already-expired review window.
+  const timestamps = [...pushTimestamps, ...fallbackTimestamps];
   if (timestamps.length === 0 || !Number.isFinite(observedAt)) {
     return {
       ready: false,
@@ -206,8 +209,20 @@ function evaluateReviewerSettlement({
   const configured = new Set((configuredReviewers || []).map(normalizeReviewerId).filter(Boolean));
   const responded = new Set((respondedReviewers || []).map(normalizeReviewerId).filter(Boolean));
   const unavailable = new Set((unavailableReviewers || []).map(normalizeReviewerId).filter(Boolean));
-  const quietEligibleAt = startedAt + Number(quietPeriodMs);
-  const timeoutEligibleAt = startedAt + Math.max(Number(maxWaitMs), Number(quietPeriodMs));
+  const parsedQuietPeriodMs = Number(quietPeriodMs);
+  const parsedMaxWaitMs = Number(maxWaitMs);
+  const parsedMinimumResponses = Number(minimumResponses);
+  const safeQuietPeriodMs = Number.isFinite(parsedQuietPeriodMs) && parsedQuietPeriodMs >= 0
+    ? parsedQuietPeriodMs
+    : POST_PUSH_REVIEW_WINDOW_MS;
+  const safeMaxWaitMs = Number.isFinite(parsedMaxWaitMs) && parsedMaxWaitMs >= 0
+    ? parsedMaxWaitMs
+    : 15 * 60 * 1000;
+  const safeMinimumResponses = Number.isFinite(parsedMinimumResponses) && parsedMinimumResponses >= 0
+    ? parsedMinimumResponses
+    : 1;
+  const quietEligibleAt = startedAt + safeQuietPeriodMs;
+  const timeoutEligibleAt = startedAt + Math.max(safeMaxWaitMs, safeQuietPeriodMs);
   if (observedAt < quietEligibleAt) {
     return {
       ready: false,
@@ -217,7 +232,7 @@ function evaluateReviewerSettlement({
       unavailable: [...unavailable].sort(),
     };
   }
-  if (responded.size >= Math.max(0, Number(minimumResponses))) {
+  if (responded.size >= safeMinimumResponses) {
     return {
       ready: true,
       reason: 'review_quorum_met',
