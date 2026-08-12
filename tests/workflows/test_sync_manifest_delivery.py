@@ -332,7 +332,7 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
     assert 'gh pr ready "$existing_pr" --undo' in source
     assert '--force-with-lease="refs/heads/$branch_name:$existing_head"' in source
     assert source.count("--json number,headRefName,isCrossRepository") == 2
-    assert source.count(".isCrossRepository | not") == 2
+    assert source.count(".isCrossRepository == false") == 2
     commit_push_guard = source.index('if [ "$matching_existing" != "true" ]; then')
     assert (
         source.index(

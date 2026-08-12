@@ -779,7 +779,7 @@ jobs:
           existing_pr=$(gh pr list --head "$branch_name" \
             --json number,headRefName,isCrossRepository \
             | jq -r --arg branch "$branch_name" \
-              '.[] | select(.headRefName == $branch and (.isCrossRepository | not)) | .number' \
+              '.[] | select(.headRefName == $branch and .isCrossRepository == false) | .number' \
             | head -n 1 || echo "")
           existing_head=""
           existing_base=""
@@ -1076,7 +1076,7 @@ jobs:
             pr_number=$(gh pr list --head "$branch_name" \
               --json number,headRefName,isCrossRepository \
               | jq -r --arg branch "$branch_name" \
-                '.[] | select(.headRefName == $branch and (.isCrossRepository | not)) | .number' \
+                '.[] | select(.headRefName == $branch and .isCrossRepository == false) | .number' \
               | head -n 1 || echo "")
             status="created_pr"
           fi
