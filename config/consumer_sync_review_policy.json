@@ -23,7 +23,8 @@
   ],
   "capacity_patterns": [
     "capacity",
-    "rate[ -]?limit",
+    "rate limit",
+    "rate-limit",
     "quota",
     "temporarily unavailable",
     "usage limit",

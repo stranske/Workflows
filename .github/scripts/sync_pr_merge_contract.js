@@ -183,11 +183,8 @@ function reviewerProfileForLogin(login, reviewerProfiles = []) {
 function isReviewerCapacitySignal(body = '', capacityPatterns = []) {
   const text = String(body || '').toLowerCase();
   return (capacityPatterns || []).some((pattern) => {
-    try {
-      return new RegExp(String(pattern), 'i').test(text);
-    } catch (_) {
-      return text.includes(String(pattern || '').toLowerCase());
-    }
+    const literal = String(pattern || '').trim().toLowerCase();
+    return literal.length > 0 && text.includes(literal);
   });
 }
 

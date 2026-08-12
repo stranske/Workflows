@@ -388,6 +388,8 @@ test('reviewer settlement never requires every configured reviewer', () => {
     respondedReviewers: ['copilot'],
   }).ready, false);
   assert.equal(isReviewerCapacitySignal('Reviewer unavailable: quota exceeded', ['quota']), true);
+  assert.equal(isReviewerCapacitySignal('Reviewer hit a rate-limit', ['rate-limit']), true);
+  assert.equal(isReviewerCapacitySignal('Reviewer hit a rate-limit', ['rate[ -]?limit']), false);
 });
 
 test('stable delivery branches and strict branch-update failures are recognized', () => {
