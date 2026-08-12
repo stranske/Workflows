@@ -79,6 +79,34 @@ def test_formatted_output_validation_uses_current_checkout(
     assert seen["repo_root"] == tmp_path.resolve()
 
 
+def test_formatted_output_validation_excludes_archived_original_issue(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    seen: dict[str, str] = {"body": ""}
+
+    class ValidationResult:
+        ok = True
+
+    class Validator:
+        @staticmethod
+        def validate(body: str, repo_root: Path | None = None) -> ValidationResult:
+            seen["body"] = body
+            return ValidationResult()
+
+    visible = "## Tasks\n\n- [ ] Update `scripts/live.py`\n\n## Acceptance Criteria\n\n- pytest tests/test_live.py passes"
+    archived = issue_formatter._append_raw_issue_section(
+        visible,
+        "Old report cites `missing/a.py`, `missing/b.py`, and `missing/c.py`.",
+    )
+    monkeypatch.setattr(issue_formatter, "_issue_format_validator", lambda: Validator())
+    monkeypatch.setenv("GITHUB_WORKSPACE", str(tmp_path))
+
+    assert issue_formatter._formatted_output_valid(archived) is True
+    assert "Original Issue" not in seen["body"]
+    assert "missing/a.py" not in seen["body"]
+    assert "scripts/live.py" in seen["body"]
+
+
 def _install_fake_langchain(monkeypatch: pytest.MonkeyPatch, mock_chain: mock.MagicMock) -> None:
     mock_template = mock.MagicMock()
     mock_template.__or__ = mock.MagicMock(return_value=mock_chain)

@@ -280,7 +280,7 @@ def _candidate_matches(text: str) -> list[tuple[int, int, str]]:
 
 _EXPLICIT_CREATE_PREFIX = re.compile(
     r"\b(?:create|add|introduce|scaffold|generate|write)\s+"
-    r"(?:(?:a|the)\s+)?(?:new\s+)?(?:file\s+)?(?:at\s+|named\s+)?$",
+    r"(?:(?:a|the)\s+)?(?:new\s+)?(?:files?\s+)?(?:at\s+|named\s+)?$",
     re.I,
 )
 

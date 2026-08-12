@@ -47,6 +47,11 @@ Some repos cannot use the template `pr-00-gate.yml` because:
 
 For these repos:
 - The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
+- A custom Gate must invoke the exact-synced `.github/actions/path-classifier`
+  (or enforce the equivalent delivery-record check itself). The classifier
+  rejects stable candidate/delivery PRs until Maint 71 seals the exact head, so
+  a custom aggregate `Gate / gate` cannot report success while delivery is
+  still mutable.
 - `Trend_Model_Project` skips the synced `AGENTS.md` file and keeps its local
   `Agents.md`.
 - `trip-planner` skips the synced `.github/scripts/package.json` and vendored
@@ -359,7 +364,9 @@ This is also run automatically as the first step of both `maint-68-sync-consumer
 (before any PR creation) and `health-70-validate-sync-manifest.yml` (on every PR
 that touches the manifest).
 
-Custom Gate repos are a special-case skip: their `pr-00-gate.yml` stays local.
+Custom Gate repos are a special-case skip: their `pr-00-gate.yml` stays local,
+but their Gate must retain the exact-synced path classifier or an equivalent
+exact-head delivery-seal check.
 
 The `Template` repository is the canonical source for new consumer repos, so it
 must not preserve stale copies of files that are `create_only` for real

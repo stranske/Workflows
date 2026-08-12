@@ -449,14 +449,18 @@ def _format_issue_fallback(issue_body: str) -> str:
 def _formatted_output_valid(text: str) -> bool:
     if not text:
         return False
+    # The archived Original Issue is provenance, not executable formatted
+    # content. Its stale or cross-repo path citations must not reverse a valid
+    # formatter result after the visible body has already passed validation.
+    visible_text = _strip_original_issue_blocks(text)
     try:
         workspace = os.environ.get("GITHUB_WORKSPACE", "").strip()
         repo_root = Path(workspace).resolve() if workspace else Path.cwd().resolve()
-        return bool(_issue_format_validator().validate(text, repo_root=repo_root).ok)
+        return bool(_issue_format_validator().validate(visible_text, repo_root=repo_root).ok)
     except (ImportError, OSError, RuntimeError, SyntaxError):
         # Preserve the former heading-only behavior until the copy-synced
         # validator becomes available again.
-        return all(section in text for section in ("## Tasks", "## Acceptance Criteria"))
+        return all(section in visible_text for section in ("## Tasks", "## Acceptance Criteria"))
 
 
 def _select_code_fence(text: str) -> str:

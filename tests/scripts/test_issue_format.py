@@ -661,6 +661,25 @@ def test_one_create_phrase_governs_a_list_of_new_paths(tmp_path, validator_path:
     assert validator.validate(body, repo_root=tmp_path).ok
 
 
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_plural_files_create_phrase_governs_all_new_paths(tmp_path, validator_path: Path) -> None:
+    validator = _validator(validator_path)
+    body = (
+        VALID_CONTEXT
+        + "## Tasks\n"
+        + "- [ ] Create files `src/a.py`, `src/b.py`, and `src/c.py`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert validator._created_paths(body) == {"src/a.py", "src/b.py", "src/c.py"}
+    assert validator.validate(body, repo_root=tmp_path).ok
+
+
 def test_create_path_chain_stops_when_task_switches_to_modification(tmp_path) -> None:
     validator = _validator()
     body = (

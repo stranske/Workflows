@@ -9,7 +9,9 @@ const {
   globToRegExp,
   matchesAny,
   parseClassificationConfig,
+  stableDeliverySealStatus,
 } = require('../../actions/path-classifier/classify.js');
+const deliveryContract = require('../sync_pr_lease_contract.js');
 
 const CONFIG = { categories: DEFAULT_CATEGORIES };
 
@@ -114,4 +116,69 @@ categories:
     requireAll: false,
     paths: ['**/*.py', 'pyproject.toml'],
   });
+});
+
+function deliveryContext(record, { branch = 'sync/workflows-delivery', fork = false } = {}) {
+  return {
+    event_name: 'pull_request',
+    event: {
+      pull_request: {
+        body: deliveryContract.formatDeliveryRecord(record),
+        head: {
+          ref: branch,
+          sha: 'head-abc',
+          repo: { full_name: fork ? 'attacker/Ready' : 'stranske/Ready' },
+        },
+        base: { repo: { full_name: 'stranske/Ready' } },
+      },
+    },
+  };
+}
+
+const deliveryRecord = {
+  schema: 'sync-pr-delivery-record/v1',
+  durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+  plan_id: 'plan-abc',
+  generation: 'generation-abc',
+  repository: 'stranske/Ready',
+  desired_tree_hash: 'tree-abc',
+  source_commit: 'source-abc',
+  lease_expires_at: '2099-08-14T00:00:00Z',
+  predecessor_prs: [],
+  successor_prs: [],
+  delivery_state: 'staging',
+};
+
+test('custom Gate classifier rejects an unsealed stable delivery', () => {
+  assert.deepEqual(
+    stableDeliverySealStatus(deliveryContext(deliveryRecord), {
+      contract: deliveryContract,
+      now: '2026-08-12T00:00:00Z',
+    }),
+    { required: true, valid: false, reason: 'delivery_not_sealed:staging' },
+  );
+});
+
+test('custom Gate classifier accepts only the sealed exact head', () => {
+  const sealed = {
+    ...deliveryRecord,
+    delivery_state: 'sealed',
+    review_started_at: '2026-08-12T00:00:00Z',
+    sealed_at: '2026-08-12T00:15:00Z',
+    sealed_head_sha: 'head-abc',
+  };
+  assert.deepEqual(
+    stableDeliverySealStatus(deliveryContext(sealed), {
+      contract: deliveryContract,
+      now: '2026-08-12T00:20:00Z',
+    }),
+    { required: true, valid: true, reason: 'current_unexpired' },
+  );
+  assert.equal(
+    stableDeliverySealStatus(deliveryContext(sealed, { fork: true }), {
+      contract: deliveryContract,
+      now: '2026-08-12T00:20:00Z',
+    }).valid,
+    false,
+  );
 });

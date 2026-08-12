@@ -25,6 +25,11 @@ const DEFAULT_CATEGORIES = {
   'test-only': { paths: ['tests/**', '**/test_*.py', '**/*.test.js'], requireAll: true },
 };
 
+const STABLE_SYNC_BRANCHES = new Set([
+  'sync/workflows-candidate',
+  'sync/workflows-delivery',
+]);
+
 function normalizePath(value) {
   return String(value || '').replace(/\\/g, '/').replace(/^\.\/+/, '');
 }
@@ -182,6 +187,50 @@ function parseGithubContext() {
   }
 }
 
+function stableDeliverySealStatus(githubContext, { contract, now } = {}) {
+  const event = githubContext?.event || {};
+  const pullRequest = event.pull_request;
+  const branch = pullRequest?.head?.ref || '';
+  if (githubContext?.event_name !== 'pull_request' || !STABLE_SYNC_BRANCHES.has(branch)) {
+    return { required: false, valid: true, reason: '' };
+  }
+
+  const headRepository = pullRequest?.head?.repo?.full_name || '';
+  const baseRepository = pullRequest?.base?.repo?.full_name || '';
+  if (!headRepository || !baseRepository || headRepository !== baseRepository) {
+    return {
+      required: true,
+      valid: false,
+      reason: 'stable delivery must originate from the base repository',
+    };
+  }
+  if (!contract) {
+    return { required: true, valid: false, reason: 'delivery contract is unavailable' };
+  }
+
+  const record = contract.parseDeliveryRecord(pullRequest?.body || '');
+  const eligibility = contract.mergeEligibility(record, {
+    now: now || new Date().toISOString(),
+    repository: baseRepository,
+    requireSealed: true,
+    headSha: pullRequest?.head?.sha || '',
+  });
+  return {
+    required: true,
+    valid: Boolean(eligibility.eligible),
+    reason: eligibility.reason,
+  };
+}
+
+function loadDeliveryContract() {
+  const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+  const contractPath = path.resolve(workspace, '.github/scripts/sync_pr_lease_contract.js');
+  if (!fs.existsSync(contractPath)) {
+    return null;
+  }
+  return require(contractPath);
+}
+
 function runGit(args) {
   return execFileSync('git', args, {
     cwd: process.env.GITHUB_WORKSPACE || process.cwd(),
@@ -312,6 +361,15 @@ function writeOutputs(outputs) {
 
 function main() {
   const githubContext = parseGithubContext();
+  const seal = stableDeliverySealStatus(githubContext, {
+    contract: loadDeliveryContract(),
+  });
+  if (seal.required && !seal.valid) {
+    throw new Error(
+      `Mutable generated delivery is not mergeable: ${seal.reason}. ` +
+      'Maint 71 must seal this exact head after bounded reviewer settlement.',
+    );
+  }
   const forceFull = String(process.env.INPUT_FORCE_FULL || '').toLowerCase() === 'true';
   const configPath = process.env.INPUT_CONFIG_PATH || '.github/path-classification.yml';
   const baseRef = resolveBaseRef(process.env.INPUT_BASE_REF || '', githubContext);
@@ -345,4 +403,5 @@ module.exports = {
   matchesAny,
   normalizePath,
   parseClassificationConfig,
+  stableDeliverySealStatus,
 };
