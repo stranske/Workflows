@@ -33,9 +33,10 @@ const buildGithubStub = ({
   jobLogsByJobId = {},
   failNeedsHumanLabel = false,
   failNeedsAttentionLabel = false,
-  failStateCommentWrite = false,
+  failStateCommentWriteAt = 0,
 } = {}) => {
   const actions = [];
+  let stateCommentWriteCount = 0;
   return {
     actions,
     rest: {
@@ -77,7 +78,8 @@ const buildGithubStub = ({
           return { data: labels.map((name) => ({ name })) };
         },
         async updateComment({ body, comment_id: commentId }) {
-          if (failStateCommentWrite) {
+          stateCommentWriteCount += 1;
+          if (failStateCommentWriteAt === stateCommentWriteCount) {
             actions.push({ type: 'update-failed', body, commentId });
             throw new Error('simulated state comment failure');
           }
@@ -85,7 +87,8 @@ const buildGithubStub = ({
           return { data: { id: commentId } };
         },
         async createComment({ body }) {
-          if (failStateCommentWrite) {
+          stateCommentWriteCount += 1;
+          if (failStateCommentWriteAt === stateCommentWriteCount) {
             actions.push({ type: 'create-failed', body });
             throw new Error('simulated state comment failure');
           }
@@ -2365,14 +2368,22 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
   const softLabelRemovalIndex = github.actions.findIndex((action) =>
     action.type === 'remove-label' && action.name === 'agent:needs-attention'
   );
-  const stateUpdateIndex = github.actions.findIndex((action) => action.type === 'update');
-  assert.ok(hardLabelIndex >= 0 && hardLabelIndex < stateUpdateIndex);
-  assert.ok(hardLabelIndex >= 0 && hardLabelIndex < softLabelRemovalIndex);
+  const pendingStateIndex = github.actions.findIndex((action) =>
+    action.type === 'update' && action.body.includes('Applying Blocker')
+  );
+  const finalStateIndex = github.actions.findIndex((action) =>
+    action.type === 'update' && action.body.includes('Independent Authority Challenge Confirmed')
+  );
+  assert.ok(pendingStateIndex >= 0 && pendingStateIndex < hardLabelIndex);
+  assert.ok(hardLabelIndex >= 0 && hardLabelIndex < finalStateIndex);
+  assert.ok(finalStateIndex >= 0 && finalStateIndex < softLabelRemovalIndex);
   assert.equal(
     github.actions.some((action) => action.type === 'workflow-dispatch'),
     false,
   );
-  const updateAction = github.actions.find((action) => action.type === 'update');
+  const updateAction = github.actions.find((action) =>
+    action.type === 'update' && action.body.includes('Independent Authority Challenge Confirmed')
+  );
   assert.match(updateAction.body, /Independent Authority Challenge Confirmed/);
   assert.match(updateAction.body, /"disposition":"needs-human"/);
   assert.match(updateAction.body, /"owner":"human"/);
@@ -2449,7 +2460,7 @@ test('a failed hard label write keeps the authority challenge automation-owned',
   assert.doesNotMatch(updateAction.body, /Independent Authority Challenge Confirmed/);
 });
 
-test('a failed terminal state write rolls back the newly created hard label', async () => {
+test('a failed terminal state write leaves a durable actionable pending transition', async () => {
   const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
   const existingState = formatStateComment({
@@ -2470,7 +2481,7 @@ test('a failed terminal state write rolls back the newly created hard label', as
   const github = buildGithubStub({
     comments: [{ id: 95, body: existingState, html_url: 'https://example.com/95' }],
     labels: ['agent:codex', 'agent:needs-attention'],
-    failStateCommentWrite: true,
+    failStateCommentWriteAt: 2,
   });
 
   await assert.rejects(
@@ -2504,17 +2515,27 @@ test('a failed terminal state write rolls back the newly created hard label', as
     action.type === 'label' && action.labels.includes('needs-human')
   );
   const failedWriteIndex = github.actions.findIndex((action) => action.type === 'update-failed');
-  const rollbackIndex = github.actions.findIndex((action) =>
-    action.type === 'remove-label' && action.name === 'needs-human'
-  );
   assert.ok(hardLabelIndex >= 0 && hardLabelIndex < failedWriteIndex);
-  assert.ok(failedWriteIndex >= 0 && failedWriteIndex < rollbackIndex);
+  assert.equal(
+    github.actions.some((action) =>
+      action.type === 'remove-label' && action.name === 'needs-human'
+    ),
+    false,
+  );
   assert.equal(
     github.actions.some((action) =>
       action.type === 'remove-label' && action.name === 'agent:needs-attention'
     ),
     false,
   );
+  const pendingUpdate = github.actions.find((action) =>
+    action.type === 'update' && action.body.includes('Applying Blocker')
+  );
+  const pendingState = parseStateComment(pendingUpdate.body).data;
+  assert.equal(pendingState.attention.owner, 'automation');
+  assert.equal(pendingState.attention.disposition, 'challenge-due');
+  assert.equal(pendingState.attention.confirmation_pending_label, true);
+  assert.match(pendingState.attention.next_action, /ACTIONS_BOT_PAT/);
 });
 
 test('a generic forced retry cannot confirm an authority challenge', async () => {
@@ -2736,6 +2757,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const prefixedSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Unauthorized: OPENAI_API_KEY=sk-prefixed-secret',
   });
+  const headerSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied Authorization: Basic dXNlcjpzdXBlcnNlY3JldA== Proxy-Authorization=Bearer proxy-secret Cookie: session=secret-cookie',
+  });
 
   assert.ok(first.detail.length <= 300);
   assert.match(first.detail, /contents:write/);
@@ -2761,6 +2785,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.doesNotMatch(jsonSensitive.detail, /json-access|json-password/);
   assert.doesNotMatch(prefixedSensitive.detail, /sk-prefixed-secret/);
   assert.match(prefixedSensitive.detail, /OPENAI_API_KEY=\[redacted\]/);
+  assert.doesNotMatch(headerSensitive.detail, /dXNlc|proxy-secret|secret-cookie/);
+  assert.match(headerSensitive.detail, /Authorization: \[redacted-authorization\]/);
+  assert.match(headerSensitive.detail, /Proxy-Authorization: \[redacted-authorization\]/);
   const missingCodexCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
   });

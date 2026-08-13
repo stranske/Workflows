@@ -72,6 +72,11 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
     .replace(/\s+/g, ' ')
     .replace(/\b(?:ghp_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(
+      /\b((?:proxy-)?authorization)\s*[:=]\s*(?:basic|bearer|digest|negotiate|token)\s+\S+/gi,
+      '$1: [redacted-authorization]',
+    )
+    .replace(/\b(set-cookie|cookie)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+    .replace(
       /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:secret|password|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*["']?([^\s"',}\]]+)/gi,
       (match, name, rawValue, offset, source) => {
         const prefix = source.slice(Math.max(0, offset - 40), offset);
@@ -3491,25 +3496,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       authorityChallengeConfirmed,
     });
     let hardHumanLabelApplied = false;
-    let hardHumanLabelCreated = false;
-    if (escalationDisposition === 'needs-human') {
-      try {
-        await github.rest.issues.addLabels({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: prNumber,
-          labels: ['needs-human'],
-        });
-        hardHumanLabelApplied = true;
-        hardHumanLabelCreated = !labels.includes('needs-human');
-      } catch (error) {
-        // The label is the live enforcement boundary. If it cannot be applied,
-        // retain an immediately due automation-owned challenge instead of
-        // persisting a terminal state that the evaluator would not enforce.
-        escalationDisposition = 'challenge-due';
-        core?.warning?.(`Failed to apply needs-human; retaining authority challenge: ${error.message}`);
-      }
-    }
     const tasksComplete = Math.max(0, tasksTotal - tasksUnchecked);
     const allTasksComplete = tasksUnchecked === 0 && tasksTotal > 0;
     const previousCompleteGateFailureRounds = toNumber(previousState?.complete_gate_failure_rounds, 0);
@@ -3814,16 +3800,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       if (errorRecovery) {
         summaryLines.push(`| Suggested recovery | ${errorRecovery} |`);
       }
-    }
-
-    if (authorityChallengeConfirmed && hardHumanLabelApplied) {
-      summaryLines.push(
-        '',
-        '### 🛑 Independent Authority Challenge Confirmed',
-        '',
-        'A scheduled current-state recheck reproduced the same external authority boundary.',
-        `**Exact human action:** ${authorityEvidence.humanAction}`,
-      );
     }
 
     // LLM analysis details - show which provider was used for task completion detection
@@ -4255,11 +4231,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     // NOTE: Failure comment posting removed - handled by reusable-*-run.yml with proper deduplication
     // This prevents duplicate failure notifications on PRs
 
-    summaryLines.push('', formatStateComment(newState));
-    const body = summaryLines.join('\n');
-
     try {
-      try {
+      const persistSummary = async (body) => {
         if (commentId) {
           await github.rest.issues.updateComment({
             owner: context.repo.owner,
@@ -4275,21 +4248,62 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             body,
           });
         }
-      } catch (error) {
-        if (hardHumanLabelCreated) {
-          try {
-            await github.rest.issues.removeLabel({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              name: 'needs-human',
-            });
-          } catch (rollbackError) {
-            core?.warning?.(`Failed to roll back needs-human after state persistence failure: ${rollbackError.message}`);
-          }
+      };
+
+      if (escalationDisposition === 'needs-human') {
+        // First persist a durable automation-owned transition containing the
+        // exact action. If either later API call fails, the PR never falls back
+        // to an actionless or falsely human-owned state.
+        const pendingState = {
+          ...newState,
+          attention: {
+            ...newState.attention,
+            disposition: 'challenge-due',
+            owner: 'automation',
+            challenge_due_at: new Date().toISOString(),
+            confirmation_pending_label: true,
+            next_action: authorityEvidence.humanAction,
+          },
+        };
+        const pendingLines = [
+          ...summaryLines,
+          '',
+          '### ⏳ Confirmed Authority Boundary – Applying Blocker',
+          '',
+          `**Exact human action:** ${authorityEvidence.humanAction}`,
+          '',
+          formatStateComment(pendingState),
+        ];
+        await persistSummary(pendingLines.join('\n'));
+
+        try {
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            labels: ['needs-human'],
+          });
+          hardHumanLabelApplied = true;
+        } catch (error) {
+          escalationDisposition = 'challenge-due';
+          newState.attention = pendingState.attention;
+          core?.warning?.(`Failed to apply needs-human; retaining durable authority challenge: ${error.message}`);
         }
-        throw error;
+
+        if (hardHumanLabelApplied) {
+          summaryLines.push(
+            '',
+            '### 🛑 Independent Authority Challenge Confirmed',
+            '',
+            'A scheduled current-state recheck reproduced the same external authority boundary.',
+            `**Exact human action:** ${authorityEvidence.humanAction}`,
+          );
+        }
       }
+
+      summaryLines.push('', formatStateComment(newState));
+      const body = summaryLines.join('\n');
+      await persistSummary(body);
 
       // Append to the work log comment (best-effort; failures don't block the loop)
       try {
