@@ -72,7 +72,21 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
     .replace(/\s+/g, ' ')
     .replace(/\b(?:ghp_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(/\bbearer\s+\S+/gi, 'Bearer [redacted-token]')
-    .replace(/\b(token|secret|password)\s*[:=]\s*\S+/gi, '$1=[redacted]');
+    .replace(
+      /\b(token|secret|password)\s*[:=]\s*(\S+)/gi,
+      (match, kind, rawValue, offset, source) => {
+        const trailing = rawValue.match(/[.,;:]+$/)?.[0] || '';
+        const value = trailing ? rawValue.slice(0, -trailing.length) : rawValue;
+        const prefix = source.slice(Math.max(0, offset - 40), offset);
+        const namedCredential =
+          /^[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(value) ||
+          (/\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
+            /^[A-Za-z][A-Za-z0-9_.-]{2,}$/.test(value));
+        return namedCredential
+          ? `${kind}: ${value}${trailing}`
+          : `${kind}=[redacted]${trailing}`;
+      },
+    );
   if (!redacted) {
     return { fingerprint: '', detail: '', humanAction: '' };
   }
@@ -4300,6 +4314,10 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             // The hard blocker was applied before the human-owned state was
             // persisted. Only now may the recoverable label be removed.
             await clearAutomationAttention();
+          } else if (escalationDisposition === 'challenge-due') {
+            // Adding an already-present label is idempotent. Never remove the
+            // only sweep-routing signal while renewing or replacing a challenge.
+            await addRoutingLabel();
           } else {
             // Remove automation-created legacy hard stops before writing the new
             // recoverable disposition. A successful terminal also performs this cleanup.

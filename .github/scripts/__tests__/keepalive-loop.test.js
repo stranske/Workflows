@@ -32,6 +32,7 @@ const buildGithubStub = ({
   annotationsByCheckRunId = {},
   jobLogsByJobId = {},
   failNeedsHumanLabel = false,
+  failNeedsAttentionLabel = false,
 } = {}) => {
   const actions = [];
   return {
@@ -87,6 +88,10 @@ const buildGithubStub = ({
             actions.push({ type: 'label-failed', labels });
             throw new Error('simulated needs-human label failure');
           }
+          if (failNeedsAttentionLabel && labels.includes('agent:needs-attention')) {
+            actions.push({ type: 'label-failed', labels });
+            throw new Error('simulated attention label failure');
+          }
           actions.push({ type: 'label', labels });
           return { data: {} };
         },
@@ -112,6 +117,7 @@ const buildContext = (prNumber = 101, runId = 9001, overrides = {}) => ({
 
 const buildCore = () => ({
   info() {},
+  warning() {},
   setOutput() {},
 });
 
@@ -2562,6 +2568,71 @@ test('a forced recheck with a different auth boundary stays automation-owned', a
   assert.match(state.attention.boundary_detail, /pull-requests:write/);
 });
 
+test('renewing an authority challenge never removes its existing soft label', async () => {
+  const original = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.',
+  });
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-renewal-label-failed',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'original-auth-boundary',
+      boundary_fingerprint: original.fingerprint,
+      boundary_detail: original.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 94, body: existingState, html_url: 'https://example.com/94' }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+    failNeedsAttentionLabel: true,
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-renewal-label-failed',
+      forceRetry: true,
+      authority_challenge_fingerprint: original.fingerprint,
+      agent_exit_code: '1',
+      agent_summary: 'Insufficient permission pull-requests:write for repository update.',
+    },
+  });
+
+  assert.ok(github.actions.some((action) =>
+    action.type === 'label-failed' && action.labels.includes('agent:needs-attention')
+  ));
+  assert.equal(
+    github.actions.some((action) =>
+      action.type === 'remove-label' && action.name === 'agent:needs-attention'
+    ),
+    false,
+  );
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  const state = parseStateComment(updateAction.body).data;
+  assert.equal(state.attention.owner, 'automation');
+  assert.equal(state.attention.disposition, 'challenge-due');
+  assert.notEqual(state.attention.boundary_fingerprint, original.fingerprint);
+});
+
 test('authority fingerprints include redacted details beyond the display limit', () => {
   const commonPrefix = `Permission failure ${'x'.repeat(320)}`;
   const first = buildAuthorityChallengeEvidence({
@@ -2580,6 +2651,15 @@ test('authority fingerprints include redacted details beyond the display limit',
     sensitive.detail,
     'Forbidden request with Bearer [redacted-token] and token=[redacted]',
   );
+  const missingCodexCredential = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
+  });
+  const missingClaudeCredential = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing token: CLAUDE_CODE_OAUTH_TOKEN for runner launch.',
+  });
+  assert.match(missingCodexCredential.detail, /CODEX_AUTH_JSON/);
+  assert.match(missingClaudeCredential.detail, /CLAUDE_CODE_OAUTH_TOKEN/);
+  assert.notEqual(missingCodexCredential.fingerprint, missingClaudeCredential.fingerprint);
   const unauthorized = buildAuthorityChallengeEvidence({
     agentSummary: 'GitHub API returned HTTP 401 for repository dispatch run 123456789.',
   });
