@@ -2841,6 +2841,16 @@ test('authority fingerprints include redacted details beyond the display limit',
       `Denied Authorization: AWS4-HMAC-SHA256 Credential=${'access-key'}/scope, ` +
       `SignedHeaders=host, Signature=${'dead' + 'beef'} after retry`,
   });
+  const headerWithPermissionRemedy = buildAuthorityChallengeEvidence({
+    agentSummary:
+      `Denied Authorization: Bearer ${'runtime-' + 'secret'}; ` +
+      'requires contents:write permission',
+  });
+  const headerWithCredentialRemedy = buildAuthorityChallengeEvidence({
+    agentSummary:
+      `Denied Authorization: ApiKey ${'runtime-' + 'secret'}; ` +
+      'Missing token: CODEX_AUTH_JSON',
+  });
   const multiCookieSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied Cookie: session=alpha; csrf=beta after retry',
   });
@@ -2957,6 +2967,20 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.doesNotMatch(arbitraryHeaderSensitive.detail, /ApiKey|secret-value|after retry/);
   assert.equal(sigV4HeaderSensitive.detail, 'Denied Authorization: [redacted-authorization]');
   assert.doesNotMatch(sigV4HeaderSensitive.detail, /AWS4|Credential|Signature|deadbeef/);
+  assert.equal(
+    headerWithPermissionRemedy.detail,
+    'Denied Authorization: [redacted-authorization] Required permission: contents:write',
+  );
+  assert.equal(headerWithPermissionRemedy.actionable, true);
+  assert.match(headerWithPermissionRemedy.humanAction, /contents:write/);
+  assert.doesNotMatch(headerWithPermissionRemedy.detail, /runtime-secret|Bearer/);
+  assert.equal(
+    headerWithCredentialRemedy.detail,
+    'Denied Authorization: [redacted-authorization] Required credential: CODEX_AUTH_JSON',
+  );
+  assert.equal(headerWithCredentialRemedy.actionable, true);
+  assert.match(headerWithCredentialRemedy.humanAction, /CODEX_AUTH_JSON/);
+  assert.doesNotMatch(headerWithCredentialRemedy.detail, /runtime-secret|ApiKey/);
   assert.equal(multiCookieSensitive.detail, 'Denied Cookie=[redacted] after retry');
   assert.doesNotMatch(multiCookieSensitive.humanAction, /alpha|beta/);
   assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);

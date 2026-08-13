@@ -73,8 +73,23 @@ function buildAuthorityChallengeEvidence({
   agentType,
   operation,
 } = {}) {
-  const redacted = normalise(agentSummary || summaryReason)
-    .replace(/\s+/g, ' ')
+  const rawSummary = normalise(agentSummary || summaryReason).replace(/\s+/g, ' ');
+  const permissionTarget = String.raw`(?:(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|workflows?)\s*:\s*(?:read|write|admin|none)|(?:read|write|admin|repo)\s*:\s*[A-Za-z0-9_.-]+|(?:repo|workflow|gist|notifications|user|delete_repo|codespace|copilot|project))`;
+  const concretePermissionTarget = new RegExp(
+    String.raw`(?:\b(?:scope|permission)\b.{0,100}\b${permissionTarget}\b|\b${permissionTarget}\b.{0,40}\b(?:scope|permission)\b)`,
+    'i',
+  );
+  const missingCredentialMatch = rawSummary.match(
+    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credential|key))?\s*[:=]?\s*\b([A-Z][A-Z0-9_]{2,})\b/,
+  );
+  const routedAuthMatch = rawSummary.match(
+    /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?([A-Z][A-Z0-9_]{2,})\b/,
+  );
+  const permissionMatch = concretePermissionTarget.test(rawSummary)
+    ? rawSummary.match(new RegExp(String.raw`\b(${permissionTarget})\b`, 'i'))
+    : null;
+  const hasAuthorizationHeader = /\b(?:proxy-)?authorization\s*[:=]/i.test(rawSummary);
+  let redacted = rawSummary
     .replace(/\b(https?:\/\/)[^/@\s:]+:[^@\s]+@/gi, '$1[redacted-userinfo]@')
     .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '[redacted-api-key]')
@@ -127,6 +142,16 @@ function buildAuthorityChallengeEvidence({
           : `${kind}=[redacted]${trailing}`;
       },
     );
+  if (hasAuthorizationHeader) {
+    const credentialTarget = routedAuthMatch?.[1] || missingCredentialMatch?.[1];
+    if (credentialTarget) {
+      redacted += ` Required credential: ${credentialTarget}`;
+    }
+    if (permissionMatch?.[1]) {
+      const target = permissionMatch[1].replace(/\s*:\s*/g, ':');
+      redacted += ` Required permission: ${target}`;
+    }
+  }
   if (!redacted) {
     return { fingerprint: '', detail: '', humanAction: '', actionable: false };
   }
@@ -171,11 +196,6 @@ function buildAuthorityChallengeEvidence({
     .replace(/\/(runs?|jobs?)\/(?:[0-9a-f]{7,64}|\d+)\b/g, '/$1/<volatile-id>');
   const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
-  const permissionTarget = String.raw`(?:(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|workflows?)\s*:\s*(?:read|write|admin|none)|(?:read|write|admin|repo)\s*:\s*[A-Za-z0-9_.-]+|(?:repo|workflow|gist|notifications|user|delete_repo|codespace|copilot|project))`;
-  const concretePermissionTarget = new RegExp(
-    String.raw`(?:\b(?:scope|permission)\b.{0,100}\b${permissionTarget}\b|\b${permissionTarget}\b.{0,40}\b(?:scope|permission)\b)`,
-    'i',
-  );
   const actionable =
     /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credential|key))?\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
     /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||

@@ -1370,6 +1370,10 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
         preflight = jobs.get("preflight") or {}
         summary = jobs.get("summary") or {}
         preflight_outputs = preflight.get("outputs") or {}
+        preflight_check = next(
+            step for step in (preflight.get("steps") or []) if step.get("id") == "check"
+        )
+        preflight_env = preflight_check.get("env") or {}
         summary_needs = summary.get("needs") or []
         text = path.read_text(encoding="utf-8")
 
@@ -1381,8 +1385,14 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
         assert 'missing_msg="Missing Codex auth: set CODEX_AUTH_JSON"' in text
         assert 'echo "failure_summary=$missing_msg" >> "$GITHUB_OUTPUT"' in text
 
+        if path == WORKFLOWS_DIR / "agents-keepalive-loop.yml":
+            assert preflight_env.get("HAS_CURSOR_AUTH") == (
+                "${{ secrets.CURSOR_API_KEY != '' }}"
+            )
+            assert preflight_env.get("HAS_GEMINI_AUTH") == (
+                "${{ secrets.GEMINI_API_KEY != '' }}"
+            )
+
     root_text = workflow_paths[0].read_text(encoding="utf-8")
-    assert "HAS_CURSOR_AUTH: ${{ secrets.CURSOR_API_KEY != '' }}" in root_text
-    assert "HAS_GEMINI_AUTH: ${{ secrets.GEMINI_API_KEY != '' }}" in root_text
     assert 'missing_msg="Missing Cursor auth: set the CURSOR_API_KEY secret"' in root_text
     assert 'missing_msg="Missing Gemini auth: set the GEMINI_API_KEY secret"' in root_text
