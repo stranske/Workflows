@@ -375,6 +375,58 @@ test('evaluateKeepaliveLoop stops when round budget is exhausted', async () => {
   assert.equal(result.reason, 'round-budget-exhausted');
 });
 
+test('evaluateKeepaliveLoop grants a forced recovery lease across the round budget', async () => {
+  const pr = {
+    number: 406,
+    head: { ref: 'feature/forced-budget-recovery', sha: 'sha-forced-budget' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a\n<!-- keepalive-config: {"iteration": 5, "max_iterations": 5} -->',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ head_sha: 'sha-forced-budget', conclusion: 'success' }],
+  });
+
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.equal(result.forceRetry, true);
+});
+
+test('evaluateKeepaliveLoop grants a forced recovery lease after verification exhaustion', async () => {
+  const pr = {
+    number: 408,
+    head: { ref: 'feature/forced-verification-recovery', sha: 'sha-forced-verification' },
+    labels: [{ name: 'agent:codex' }],
+    body: prBodyFixture.replace(/- \[ \]/g, '- [x]'),
+  };
+  const existingState = formatStateComment({
+    trace: 'fixture-trace',
+    verification: { status: 'failed', iteration: 2, attempt_count: 2 },
+  });
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 24, body: existingState, html_url: 'https://example.com/24' }],
+    workflowRuns: [{ head_sha: 'sha-forced-verification', conclusion: 'success' }],
+  });
+
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'fix-verification-gaps');
+});
+
 test('evaluateKeepaliveLoop stops at max iterations even when productive with tasks remaining', async () => {
   const pr = {
     number: 405,
@@ -2117,11 +2169,9 @@ test('updateKeepaliveLoopSummary routes repeated actual failures to automation r
     action.type === 'label' && action.labels.includes('agent:retry')
   );
   assert.ok(retryLabel);
-  assert.equal(
-    github.actions.some((action) => action.type === 'workflow-dispatch'),
-    false,
-    'a stopped strategy must wait for the scheduled recovery sweep instead of self-recursing',
-  );
+  const retryDispatch = github.actions.find((action) => action.type === 'workflow-dispatch');
+  assert.ok(retryDispatch, 'a newly stopped strategy must receive one immediate recovery lease');
+  assert.deepEqual(retryDispatch.inputs, { pr_number: '457', force_retry: 'true' });
 
   const humanLabel = github.actions.find((action) =>
     action.type === 'label' && (
@@ -3523,6 +3573,55 @@ test('updateKeepaliveLoopSummary routes resource failures to automation retry', 
   );
 });
 
+test('automation-owned terminal stops dispatch exactly one forced recovery lease', async () => {
+  for (const reason of [
+    'round-budget-exhausted',
+    'verification-exhausted',
+    'zero-activity-infrastructure',
+  ]) {
+    for (const forceRetry of [false, true]) {
+      const existingState = formatStateComment({
+        trace: `trace-terminal-${reason}-${forceRetry}`,
+        iteration: 5,
+        max_iterations: 5,
+        failure_threshold: 3,
+        failure: {},
+      });
+      const github = buildGithubStub({
+        comments: [{ id: 104, body: existingState, html_url: 'https://example.com/104' }],
+      });
+
+      await updateKeepaliveLoopSummary({
+        github,
+        context: buildContext(659),
+        core: buildCore(),
+        inputs: {
+          prNumber: 659,
+          action: 'stop',
+          reason,
+          gateConclusion: 'success',
+          tasksTotal: 3,
+          tasksUnchecked: reason === 'verification-exhausted' ? 0 : 2,
+          keepaliveEnabled: true,
+          autofixEnabled: false,
+          iteration: 5,
+          maxIterations: 5,
+          failureThreshold: 3,
+          trace: `trace-terminal-${reason}-${forceRetry}`,
+          forceRetry,
+          retry_workflow_id: 'agents-81-gate-followups.yml',
+        },
+      });
+
+      const dispatches = github.actions.filter((action) => action.type === 'workflow-dispatch');
+      assert.equal(dispatches.length, forceRetry ? 0 : 1, `${reason} forceRetry=${forceRetry}`);
+      if (!forceRetry) {
+        assert.deepEqual(dispatches[0].inputs, { pr_number: '659', force_retry: 'true' });
+      }
+    }
+  }
+});
+
 test('updateKeepaliveLoopSummary routes logic failures to automation retry', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-logic',
@@ -3728,6 +3827,53 @@ test('updateKeepaliveLoopSummary clears stale human-blocker labels on tasks-comp
     github.actions.some((action) => action.type === 'label' && action.labels.includes('needs-human')),
     false,
   );
+});
+
+test('a successful terminal migrates and clears legacy automation attention state', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-legacy-attention',
+    iteration: 3,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 2 },
+    attention: {
+      key: 'legacy-agent-run-failed',
+      first_seen_at: '2026-07-01T12:00:00Z',
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 47, body: existingState, html_url: 'https://example.com/47' }],
+    labels: ['agent:needs-attention', 'needs-human'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(459),
+    core: buildCore(),
+    inputs: {
+      prNumber: 459,
+      action: 'stop',
+      reason: 'tasks-complete',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 0,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 3,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-legacy-attention',
+    },
+  });
+
+  assert.ok(github.actions.some((action) =>
+    action.type === 'remove-label' && action.name === 'agent:needs-attention'
+  ));
+  assert.equal(
+    github.actions.some((action) => action.type === 'remove-label' && action.name === 'needs-human'),
+    false,
+  );
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  assert.equal(parseStateComment(updateAction.body).data.attention, undefined);
 });
 
 test('evaluateKeepaliveLoop extracts agent type from agent:* labels', async () => {

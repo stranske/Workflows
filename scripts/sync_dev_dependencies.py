@@ -2,7 +2,8 @@
 """Sync dev tool version pins from autofix-versions.env to dependency surfaces.
 
 This script updates the [project.optional-dependencies] dev section in pyproject.toml,
-supported requirements lockfiles, and managed .pre-commit-config.yaml hook revisions
+supported requirements lockfiles, and (when explicitly requested) managed
+.pre-commit-config.yaml hook revisions
 to use the pinned versions from the central autofix-versions.env file.
 
 It handles both exact pins (==) and minimum version pins (>=) in pyproject.toml,
@@ -15,6 +16,7 @@ Usage:
     python sync_dev_dependencies.py --apply           # Update pyproject.toml
     python sync_dev_dependencies.py --apply --create-if-missing  # Create dev deps if missing
     python sync_dev_dependencies.py --apply  # Syncs supported requirements lockfiles when present
+    python sync_dev_dependencies.py --apply --pre-commit  # Include managed hook revisions
 """
 
 from __future__ import annotations
@@ -363,9 +365,7 @@ def sync_lockfile(
             current_version = match.group("specifier") or "(unversioned)"
             if current_version.startswith("=="):
                 current_version = current_version[2:]
-            changes.append(
-                f"{lockfile_path.name}:{name}: " f"{current_version} -> =={target_version}"
-            )
+            changes.append(f"{lockfile_path.name}:{name}: {current_version} -> =={target_version}")
             if apply:
                 updated_lines.append(
                     f"{match.group('lead')}{name}{match.group('extras') or ''}"
@@ -499,6 +499,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Compatibility flag; supported requirements lockfiles are always checked",
     )
     parser.add_argument(
+        "--pre-commit",
+        action="store_true",
+        help=(
+            "Include managed .pre-commit-config.yaml hook revisions; Maint 52 opts in "
+            "after the canonical dependency wave is ready"
+        ),
+    )
+    parser.add_argument(
         "--pin-file",
         type=Path,
         default=PIN_FILE,
@@ -539,11 +547,12 @@ def main(argv: list[str] | None = None) -> int:
         changes.extend(lock_changes)
         errors.extend(lock_errors)
 
-    pre_commit_changes, pre_commit_errors = sync_pre_commit_config(
-        PRE_COMMIT_FILE, pins, apply=args.apply
-    )
-    changes.extend(pre_commit_changes)
-    errors.extend(pre_commit_errors)
+    if args.pre_commit:
+        pre_commit_changes, pre_commit_errors = sync_pre_commit_config(
+            PRE_COMMIT_FILE, pins, apply=args.apply
+        )
+        changes.extend(pre_commit_changes)
+        errors.extend(pre_commit_errors)
 
     if errors:
         for err in errors:

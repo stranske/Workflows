@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/sync_tool_versions.py --apply
-          python scripts/sync_dev_dependencies.py --apply --lockfile
+          python scripts/sync_dev_dependencies.py --apply --lockfile --pre-commit
 
       - name: Commit and push if changed
         run: |

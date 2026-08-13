@@ -439,6 +439,11 @@ workflow-template sync PR cannot update the env file without the matching
 `pyproject.toml`, managed `.pre-commit-config.yaml` hook revisions, `requirements.lock`, and supported `requirements-dev.lock`
 changes.
 
+Managed pre-commit revisions are an explicit Maint 52 propagation surface. The
+workflow passes `sync_dev_dependencies.py --pre-commit`; the script's default
+check intentionally omits that surface so a Maint 68 workflow-template candidate
+does not fail while the separate canonical dependency wave is still pending.
+
 Dependabot should not be merged when it only bumps one of those shared tool pins
 in `pyproject.toml`; route that change through the Workflows source pin update
 path instead. Runtime dependency bumps remain normal Dependabot work.

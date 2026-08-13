@@ -116,6 +116,7 @@ jobs:
           if [ -f "pyproject.toml" ]; then
             python "../workflows/scripts/sync_dev_dependencies.py" \
               --apply \
+              --pre-commit \
               --pin-file ".github/workflows/autofix-versions.env" \
               --pyproject "pyproject.toml"
             echo "✅ Synced pyproject.toml dev tool pins"

@@ -214,7 +214,7 @@ jobs:
 
           # Run sync check first
           if python ../scripts/sync_dev_dependencies.py \
-            --check 2>&1 \
+            --check --pre-commit 2>&1 \
             | tee /tmp/sync_output.txt; then
             if [ "$uv_lock_stale" = "true" ]; then
               echo "has_changes=true" >> "$GITHUB_OUTPUT"
@@ -229,7 +229,7 @@ jobs:
 
             # Apply if not dry run
             if [ "${{ inputs.dry_run }}" != "true" ]; then
-              python ../scripts/sync_dev_dependencies.py --apply
+              python ../scripts/sync_dev_dependencies.py --apply --pre-commit
               if [ -f uv.lock ]; then
                 uv lock
               fi
@@ -257,6 +257,7 @@ jobs:
           # Use --create-if-missing to add dev deps
           if python ../scripts/sync_dev_dependencies.py \
             --apply \
+            --pre-commit \
             --create-if-missing 2>&1 \
             | tee /tmp/sync_output.txt; then
             if grep -q "version updates" /tmp/sync_output.txt; then

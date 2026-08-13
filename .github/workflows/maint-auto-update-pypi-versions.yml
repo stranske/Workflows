@@ -98,7 +98,7 @@ jobs:
         run: |
           echo "🔄 Syncing pyproject.toml + requirements.lock + templates"
           python scripts/sync_tool_versions.py --apply
-          python scripts/sync_dev_dependencies.py --apply --lockfile
+          python scripts/sync_dev_dependencies.py --apply --lockfile --pre-commit
 
       # security_override may bypass the weekly window, but never this gate.
       - name: Validate synchronized pins before proposal
@@ -110,7 +110,7 @@ jobs:
           set -euo pipefail
           echo "🧪 Validating synchronized pin surfaces before opening a source PR..."
           python scripts/sync_tool_versions.py --check
-          python scripts/sync_dev_dependencies.py --check --lockfile
+          python scripts/sync_dev_dependencies.py --check --lockfile --pre-commit
 
       - name: Create PR
         id: create_pr

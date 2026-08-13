@@ -74,8 +74,8 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 - **Default limit:** Maximum of **1** concurrent agent run per PR.
 - **Label override:** Respect `agents:max-parallel:<K>` when present (integer 1–5).
 - **Enforcement:** Dispatch only when the count of in-progress runs is `< K`. If at cap, exit quietly after updating the run summary.
-- **Round budget:** The loop also enforces `max_iterations` as a hard per-PR round budget. The default is 12 rounds unless overridden by keepalive config.
-- **Budget exhaustion:** When the current iteration reaches `max_iterations`, keepalive stops that dispatch strategy and adds `agent:retry` with reason `round-budget-exhausted`. The retry owner must choose a concrete recovery such as decomposition, alternate-agent routing, CI repair, or a bounded budget change.
+- **Round budget:** The loop enforces `max_iterations` as the ordinary per-PR round budget. The default is 12 rounds unless overridden by keepalive config.
+- **Budget exhaustion:** When the current iteration reaches `max_iterations`, keepalive stops that dispatch strategy, records reason `round-budget-exhausted`, and dispatches one forced recovery lease. The forced run may cross the persisted budget once and cannot recursively dispatch itself; the next ordinary sweep reassesses the exact state and can select decomposition, alternate-agent routing, CI repair, or another bounded recovery.
 
 ---
 
