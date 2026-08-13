@@ -75,7 +75,7 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 - **Label override:** Respect `agents:max-parallel:<K>` when present (integer 1–5).
 - **Enforcement:** Dispatch only when the count of in-progress runs is `< K`. If at cap, exit quietly after updating the run summary.
 - **Round budget:** The loop enforces `max_iterations` as the ordinary per-PR round budget. The default is 12 rounds unless overridden by keepalive config.
-- **Budget exhaustion:** When the current iteration reaches `max_iterations`, keepalive stops that dispatch strategy, records reason `round-budget-exhausted`, and dispatches one forced recovery lease. The forced run may cross the persisted budget once and cannot recursively dispatch itself; the next ordinary sweep reassesses the exact state and can select decomposition, alternate-agent routing, CI repair, or another bounded recovery.
+- **Budget exhaustion:** When the current iteration reaches `max_iterations`, keepalive stops that dispatch strategy, records reason `round-budget-exhausted`, and dispatches one forced recovery lease. The durable state records that lease as issued and then consumed, so later ordinary events cannot mint another lease for the same terminal reason and budget. Raising the budget or making later ordinary progress resets that boundary; the forced run itself may cross the persisted budget once and cannot recursively dispatch itself.
 
 ---
 

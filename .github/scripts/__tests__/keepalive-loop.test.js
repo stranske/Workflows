@@ -3627,6 +3627,149 @@ test('automation-owned terminal stops dispatch exactly one forced recovery lease
   }
 });
 
+test('a consumed forced recovery lease survives later ordinary wakeups', async () => {
+  const initialState = formatStateComment({
+    trace: 'trace-durable-recovery-lease',
+    iteration: 5,
+    max_iterations: 5,
+    failure_threshold: 3,
+    failure: {},
+    tasks: { total: 3, unchecked: 2 },
+  });
+  const first = buildGithubStub({
+    comments: [{ id: 106, body: initialState, html_url: 'https://example.com/106' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github: first,
+    context: buildContext(661),
+    core: buildCore(),
+    inputs: {
+      prNumber: 661,
+      action: 'stop',
+      reason: 'round-budget-exhausted',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 5,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-durable-recovery-lease',
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+
+  const issuedUpdate = first.actions.find((action) => action.type === 'update');
+  const issuedState = parseStateComment(issuedUpdate.body).data;
+  assert.equal(issuedState.recovery_lease.status, 'issued');
+  assert.equal(issuedState.recovery_lease.reason, 'round-budget-exhausted');
+  assert.equal(
+    first.actions.filter((action) => action.type === 'workflow-dispatch').length,
+    1,
+  );
+
+  const forced = buildGithubStub({
+    comments: [{ id: 106, body: issuedUpdate.body, html_url: 'https://example.com/106' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github: forced,
+    context: buildContext(661),
+    core: buildCore(),
+    inputs: {
+      prNumber: 661,
+      action: 'run',
+      reason: 'ready',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 5,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-durable-recovery-lease',
+      forceRetry: true,
+      agent_files_changed: 1,
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+
+  const consumedUpdate = forced.actions.find((action) => action.type === 'update');
+  const consumedState = parseStateComment(consumedUpdate.body).data;
+  assert.equal(consumedState.recovery_lease.status, 'consumed');
+  assert.equal(
+    forced.actions.filter((action) => action.type === 'workflow-dispatch').length,
+    0,
+  );
+
+  const laterWakeup = buildGithubStub({
+    comments: [{ id: 106, body: consumedUpdate.body, html_url: 'https://example.com/106' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github: laterWakeup,
+    context: buildContext(661),
+    core: buildCore(),
+    inputs: {
+      prNumber: 661,
+      action: 'stop',
+      reason: 'round-budget-exhausted',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 6,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-durable-recovery-lease',
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+
+  const laterUpdate = laterWakeup.actions.find((action) => action.type === 'update');
+  assert.equal(parseStateComment(laterUpdate.body).data.recovery_lease.status, 'consumed');
+  assert.equal(
+    laterWakeup.actions.filter((action) => action.type === 'workflow-dispatch').length,
+    0,
+  );
+
+  const raisedBudget = buildGithubStub({
+    comments: [{ id: 106, body: laterUpdate.body, html_url: 'https://example.com/106' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github: raisedBudget,
+    context: buildContext(661),
+    core: buildCore(),
+    inputs: {
+      prNumber: 661,
+      action: 'stop',
+      reason: 'round-budget-exhausted',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 6,
+      maxIterations: 6,
+      failureThreshold: 3,
+      trace: 'trace-durable-recovery-lease',
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+
+  const raisedUpdate = raisedBudget.actions.find((action) => action.type === 'update');
+  const raisedState = parseStateComment(raisedUpdate.body).data;
+  assert.equal(raisedState.recovery_lease.status, 'issued');
+  assert.equal(raisedState.recovery_lease.max_iterations, 6);
+  assert.equal(
+    raisedBudget.actions.filter((action) => action.type === 'workflow-dispatch').length,
+    1,
+  );
+});
+
 test('a failed bounded dispatch adds agent:retry only as a fallback', async () => {
   const existingState = formatStateComment({
     trace: 'trace-dispatch-fallback',

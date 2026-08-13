@@ -3237,6 +3237,10 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     );
     // Resolve force_retry early — needed by the live-recount and zero-activity blocks.
     const isForceRetry = toBool(inputs.force_retry ?? inputs.forceRetry, false);
+    const previousRecoveryLease =
+      previousState?.recovery_lease && typeof previousState.recovery_lease === 'object'
+        ? { ...previousState.recovery_lease }
+        : {};
 
     let roundsWithoutTaskCompletion = hasRoundsWithoutTaskCompletionInput
       ? toNumber(roundsWithoutTaskCompletionInput, 0)
@@ -3560,6 +3564,21 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       summaryReason,
       authorityChallengeConfirmed,
     });
+    const recoveryLeaseReason = stop
+      ? normalise(summaryReason).replace(/-repeat$/, '')
+      : '';
+    const recoveryLeaseKey = recoveryLeaseReason
+      ? `${recoveryLeaseReason}:max-iterations=${maxIterations}`
+      : '';
+    const recoveryLeaseMatches =
+      Boolean(recoveryLeaseKey) && normalise(previousRecoveryLease.key) === recoveryLeaseKey;
+    const recoveryLeaseAlreadyIssued =
+      recoveryLeaseMatches && ['issued', 'consumed'].includes(previousRecoveryLease.status);
+    const shouldIssueTerminalRecoveryLease =
+      stop &&
+      escalationDisposition === 'automation-retry' &&
+      !isForceRetry &&
+      !recoveryLeaseAlreadyIssued;
     let hardHumanLabelApplied = false;
     const tasksComplete = Math.max(0, tasksTotal - tasksUnchecked);
     const allTasksComplete = tasksUnchecked === 0 && tasksTotal > 0;
@@ -4137,6 +4156,39 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       },
     };
 
+    const ordinaryProgressAfterRecovery =
+      !isForceRetry &&
+      actionRunsAgent &&
+      runResult === 'success' &&
+      (agentFilesChanged > 0 || tasksCompletedThisRound > 0 || checklistChanged);
+    const recoveryLeaseBudgetChanged =
+      Object.keys(previousRecoveryLease).length > 0 &&
+      toNumber(previousRecoveryLease.max_iterations, maxIterations) !== maxIterations;
+    if (isForceRetry && previousRecoveryLease.status === 'issued') {
+      newState.recovery_lease = {
+        ...previousRecoveryLease,
+        status: 'consumed',
+        consumed_at: new Date().toISOString(),
+      };
+    } else if (shouldIssueTerminalRecoveryLease) {
+      newState.recovery_lease = {
+        key: recoveryLeaseKey,
+        reason: recoveryLeaseReason,
+        status: 'issued',
+        issued_at: new Date().toISOString(),
+        iteration: nextIteration,
+        max_iterations: maxIterations,
+      };
+    } else if (
+      Object.keys(previousRecoveryLease).length > 0 &&
+      !recoveryLeaseBudgetChanged &&
+      !ordinaryProgressAfterRecovery &&
+      !isSuccessStop &&
+      !isNeutralStop
+    ) {
+      newState.recovery_lease = previousRecoveryLease;
+    }
+
     // Persist agent delegation state when in auto mode
     if (agentRoutingMode === 'auto' || previousState?.current_agent) {
       const previousDelegationLog = Array.isArray(previousState?.delegation_log)
@@ -4467,9 +4519,13 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           if (core) core.warning(`Failed to add ${escalationDisposition} routing label: ${error.message}`);
         }
         // Every automation-owned terminal gets one immediate recovery lease.
-        // A forced recovery never recursively dispatches itself; the next
-        // ordinary sweep may reassess the exact current state.
-        if (escalationDisposition === 'automation-retry' && !isForceRetry) {
+        // Persist the issued/consumed lease across events so later ordinary
+        // sweeps cannot mint another lease for the same terminal boundary.
+        if (
+          escalationDisposition === 'automation-retry' &&
+          !isForceRetry &&
+          (!stop || shouldIssueTerminalRecoveryLease)
+        ) {
           try {
             const retryWorkflowId = normalise(
               inputs.retry_workflow_id ?? inputs.retryWorkflowId,
