@@ -233,7 +233,8 @@ function classifyByMessage(message) {
   if (matchesPattern(message, TRANSIENT_PATTERNS)) {
     return ERROR_CATEGORIES.transient;
   }
-  if (/\bmissing\s+[a-z][a-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?[A-Z][A-Z0-9_]{2,}\b/i.test(message)) {
+  // normaliseMessage lowercases classifier input before this branch.
+  if (/\bmissing\s+[a-z][a-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?[a-z][a-z0-9_]{2,}\b/.test(message)) {
     return ERROR_CATEGORIES.auth;
   }
   if (matchesPattern(message, AUTH_PATTERNS)) {

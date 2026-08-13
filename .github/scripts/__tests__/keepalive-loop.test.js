@@ -2417,6 +2417,68 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
   );
 });
 
+test('a two-phase terminal transition reuses a newly created summary comment', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-create',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'agent-run-failed|failure|auth|agent|1',
+      boundary_fingerprint: boundary.fingerprint,
+      boundary_detail: boundary.detail,
+    },
+  });
+  const github = buildGithubStub({
+    // GitHub comments always have ids; omitting it exercises the defensive
+    // create path while retaining the prior challenge state needed to confirm.
+    comments: [{ body: existingState }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-create',
+      forceRetry: true,
+      ...authorityClaimInputs(654, boundary.fingerprint),
+      agent_exit_code: '1',
+      agent_summary: authSummary,
+    },
+  });
+
+  const stateCreates = github.actions.filter(
+    (action) => action.type === 'create' && action.body.includes('keepalive-state:v1'),
+  );
+  const stateUpdates = github.actions.filter(
+    (action) => action.type === 'update' && action.body.includes('keepalive-state:v1'),
+  );
+  assert.equal(stateCreates.length, 1);
+  assert.match(stateCreates[0].body, /Applying Blocker/);
+  assert.equal(stateUpdates.length, 1);
+  assert.equal(stateUpdates[0].commentId, 101);
+  assert.match(stateUpdates[0].body, /Independent Authority Challenge Confirmed/);
+});
+
 test('a failed hard label write keeps the authority challenge automation-owned', async () => {
   const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });

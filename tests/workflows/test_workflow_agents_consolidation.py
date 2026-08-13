@@ -693,11 +693,11 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
         assert "signAuthorityChallengeClaim" in text
         assert "authority_challenge_claim: JSON.stringify" in text
         assert "AUTHORITY_CHALLENGE_SIGNING_KEY" in text
-        assert "KEEPALIVE_APP_PRIVATE_KEY || secrets.WORKFLOWS_APP_PRIVATE_KEY" in text
+        assert "secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || ''" in text
         assert "force_retry: 'true'" not in text
         assert "github-token: ${{ github.token }}" in text
-        assert "await github.rest.actions.createWorkflowDispatch({" in text
-        assert "client.rest.actions.createWorkflowDispatch" not in text
+        assert "await withRetry((client) => client.rest.actions.createWorkflowDispatch({" in text
+        assert "await github.rest.actions.createWorkflowDispatch({" not in text
 
 
 def test_terminal_disposition_records_include_artifact_identity():
@@ -1377,8 +1377,10 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
         summary = jobs.get("summary") or {}
         preflight_outputs = preflight.get("outputs") or {}
         preflight_check = next(
-            step for step in (preflight.get("steps") or []) if step.get("id") == "check"
+            (step for step in (preflight.get("steps") or []) if step.get("id") == "check"),
+            None,
         )
+        assert preflight_check is not None, f"{path}: preflight job has no step with id 'check'"
         preflight_env = preflight_check.get("env") or {}
         summary_needs = summary.get("needs") or []
         text = path.read_text(encoding="utf-8")

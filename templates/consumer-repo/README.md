@@ -159,6 +159,7 @@ Use an exact commit SHA when you need stricter reproducibility or a controlled r
 | `WORKFLOWS_APP_CLIENT_ID` | GitHub App client ID | Preferred with private key |
 | `WORKFLOWS_APP_ID` | GitHub App ID | Use instead of CODEX_AUTH_JSON |
 | `WORKFLOWS_APP_PRIVATE_KEY` | GitHub App private key | Required with APP_ID |
+| `KEEPALIVE_AUTHORITY_SIGNING_KEY` | Dedicated random HMAC key for signed authority-challenge claims | Required for terminal authority confirmation; missing key fails closed |
 | `GH_APP_CLIENT_ID` | Bot-comment App client ID | Preferred bot-comment auth |
 | `GH_APP_ID` | Bot-comment legacy App ID | Fallback bot-comment auth |
 | `GH_APP_PRIVATE_KEY` | Bot-comment App private key | Required with GH App IDs |

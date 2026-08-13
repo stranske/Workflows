@@ -288,6 +288,7 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Se
 | `GH_APP_PRIVATE_KEY` | Bot-comment GitHub App private key | Contact admin for private key |
 | `KEEPALIVE_APP_ID` | Keepalive App ID (preferred for keepalive loop auth) | Contact admin for App ID |
 | `KEEPALIVE_APP_PRIVATE_KEY` | Keepalive App private key | Contact admin for private key |
+| `KEEPALIVE_AUTHORITY_SIGNING_KEY` | Dedicated random HMAC key for authority-challenge claims | Contact admin; do not reuse an App private key |
 | `OPENAI_API_KEY` | OpenAI API key for verify/optimizer/decompose flows | Contact admin for token |
 | `CLAUDE_API_STRANSKE` | Claude API key for verify/optimizer/decompose flows | Contact admin for token |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code OAuth token (preferred for Claude CLI runs) | `claude setup-token` |
@@ -307,6 +308,7 @@ Add each secret:
 - [ ] `GH_APP_PRIVATE_KEY` — Bot-comment App private key
 - [ ] `KEEPALIVE_APP_ID` — **Required for keepalive parity** - Explicit keepalive app alias
 - [ ] `KEEPALIVE_APP_PRIVATE_KEY` — **Required for keepalive parity** - Explicit keepalive app key
+- [ ] `KEEPALIVE_AUTHORITY_SIGNING_KEY` — **Required for terminal authority confirmation** - Dedicated random HMAC key; missing key fails closed to ordinary rechecks
 - [ ] `OPENAI_API_KEY` — Required for verify/decompose/optimizer workflows
 - [ ] `CLAUDE_API_STRANSKE` — Required for verify/decompose/optimizer workflows
 - [ ] `CLAUDE_CODE_OAUTH_TOKEN` (or `CLAUDE_AUTH_JSON`) — Required for Claude CLI workflow runs

@@ -800,7 +800,7 @@ jobs:
               github.event.inputs.sweep_recheck == 'true' &&
               github.event.inputs.authority_challenge_claim || '' }}
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
-            ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+            ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

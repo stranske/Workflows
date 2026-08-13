@@ -62,7 +62,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
-            ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+            ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
         with:
           # Due authority claims carry an HMAC bound to this repository, PR,
           # fingerprint, nonce, and exact sweep run. The downstream loop fails
@@ -150,7 +150,10 @@ jobs:
                     };
                   }
                 }
-                await github.rest.actions.createWorkflowDispatch({
+                // Retry rate-limit responses through the shared helper. Generic
+                // 5xx retries remain disabled for this non-idempotent POST; the
+                // next scheduled sweep safely retries any unconfirmed dispatch.
+                await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner,
                   repo,
                   workflow_id: 'agents-keepalive-loop.yml',
@@ -163,7 +166,7 @@ jobs:
                       dueChallenge?.boundaryFingerprint || '',
                     ...authorityClaim,
                   },
-                });
+                }));
                 dispatched += 1;
               } catch (error) {
                 // # best-effort: one failed dispatch must not prevent later PRs from being re-evaluated.

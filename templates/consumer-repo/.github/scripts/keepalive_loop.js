@@ -4357,21 +4357,23 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     // This prevents duplicate failure notifications on PRs
 
     try {
+      let summaryCommentId = commentId;
       const persistSummary = async (body) => {
-        if (commentId) {
+        if (summaryCommentId) {
           await github.rest.issues.updateComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            comment_id: commentId,
+            comment_id: summaryCommentId,
             body,
           });
         } else {
-          await github.rest.issues.createComment({
+          const created = await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: prNumber,
             body,
           });
+          summaryCommentId = Number(created?.data?.id) || 0;
         }
       };
 

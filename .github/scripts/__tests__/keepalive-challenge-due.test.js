@@ -35,16 +35,31 @@ test('authority challenge claims bind the exact sweep selection', () => {
     sweepRunAttempt: '1',
   };
   const signature = signAuthorityChallengeClaim(claim);
-  assert.match(signature, /^[0-9a-f]{64}$/);
+  assert.equal(
+    authorityClaimPayload(claim),
+    [
+      'keepalive-authority-claim:v1',
+      'repository=stranske/workflows',
+      'pr=3066',
+      `fingerprint=${'a'.repeat(64)}`,
+      `nonce=${'b'.repeat(64)}`,
+      'sweep_run_id=31683971486',
+      'sweep_run_attempt=1',
+    ].join('\n'),
+  );
+  assert.equal(signature, '54777445d7a5e2ddb9d22cc60e8477b2d54cf44892c419f1c7a80a52cb899b6b');
   assert.equal(verifyAuthorityChallengeClaim({ ...claim, signature }), true);
-  assert.equal(
-    verifyAuthorityChallengeClaim({ ...claim, signature, prNumber: 3067 }),
-    false,
-  );
-  assert.equal(
-    verifyAuthorityChallengeClaim({ ...claim, signature, signingKey: 'forged-key' }),
-    false,
-  );
+  for (const mutation of [
+    { repository: 'stranske/Ready' },
+    { prNumber: 3067 },
+    { boundaryFingerprint: 'c'.repeat(64) },
+    { nonce: 'd'.repeat(64) },
+    { sweepRunId: '31683971487' },
+    { sweepRunAttempt: '2' },
+    { signingKey: 'forged-key' },
+  ]) {
+    assert.equal(verifyAuthorityChallengeClaim({ ...claim, ...mutation, signature }), false);
+  }
 });
 
 test('authority challenge claims fail closed on incomplete or malformed fields', () => {
@@ -97,8 +112,12 @@ test('scheduled sweep forces only an explicitly due authority challenge', () => 
     now: new Date('2026-08-12T13:00:00Z'),
   });
   const ordinary = selectDueAuthorityChallenge({
-    labels: ['agent:codex'],
-    comments: [],
+    labels: ['agent:codex', 'agent:needs-attention'],
+    comments: [marker({
+      owner: 'automation',
+      disposition: 'challenge-due',
+      challenge_due_at: '2026-08-12T14:00:00Z',
+    })],
     now: new Date('2026-08-12T13:00:00Z'),
   });
   assert.equal(String(Boolean(due)), 'true');
