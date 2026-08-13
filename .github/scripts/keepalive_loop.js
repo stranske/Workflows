@@ -4168,6 +4168,10 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       actionRunsAgent &&
       runResult === 'success' &&
       (agentFilesChanged > 0 || tasksCompletedThisRound > 0 || checklistChanged);
+    const forcedLeaseExecutedAgent =
+      actionRunsAgent &&
+      Boolean(runResult) &&
+      !['skipped', 'cancelled'].includes(runResult);
     const recoveryLeaseBudgetChanged =
       Object.keys(previousRecoveryLease).length > 0 &&
       toNumber(previousRecoveryLease.max_iterations, maxIterations) !== maxIterations;
@@ -4177,11 +4181,11 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       !isSuccessStop &&
       !isNeutralStop
     ) {
-      const forcedLeaseStatus = actionRunsAgent ? 'consumed' : 'deferred';
+      const forcedLeaseStatus = forcedLeaseExecutedAgent ? 'consumed' : 'deferred';
       newState.recovery_lease = {
         ...previousRecoveryLease,
         status: forcedLeaseStatus,
-        ...(actionRunsAgent
+        ...(forcedLeaseExecutedAgent
           ? { consumed_at: new Date().toISOString() }
           : {
               deferred_at: new Date().toISOString(),

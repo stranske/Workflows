@@ -3891,6 +3891,37 @@ test('an operator guard defers rather than consumes a forced recovery lease', as
     resumed.actions.filter((action) => action.type === 'workflow-dispatch').length,
     1,
   );
+
+  const skippedRunner = buildGithubStub({
+    comments: [{ id: 107, body: resumedUpdate.body, html_url: 'https://example.com/107' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github: skippedRunner,
+    context: buildContext(662),
+    core: buildCore(),
+    inputs: {
+      prNumber: 662,
+      action: 'run',
+      reason: 'ready',
+      runResult: 'skipped',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 5,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-deferred-recovery-lease',
+      forceRetry: true,
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+
+  const skippedUpdate = skippedRunner.actions.find((action) => action.type === 'update');
+  const skippedState = parseStateComment(skippedUpdate.body).data;
+  assert.equal(skippedState.recovery_lease.status, 'deferred');
+  assert.equal(skippedState.recovery_lease.deferred_reason, 'agent-run-skipped');
 });
 
 test('a failed bounded dispatch adds agent:retry only as a fallback', async () => {
