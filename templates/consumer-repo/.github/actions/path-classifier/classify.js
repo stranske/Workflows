@@ -344,10 +344,10 @@ function fetchBaseRef(baseRef, githubContext, fetchGit = tryGit) {
     return;
   }
   const branch = baseRef.slice('origin/'.length);
-  fetchGit(['fetch', '--no-tags', '--depth=1', 'origin', branch]);
+  const refs = [branch];
   const prBaseSha = githubContext.event?.pull_request?.base?.sha;
   if (prBaseSha) {
-    fetchGit(['fetch', '--no-tags', '--depth=1', 'origin', prBaseSha]);
+    refs.push(prBaseSha);
   }
   // actions/checkout uses a depth-one synthetic merge commit for pull_request
   // events, so the exact head object is not guaranteed to exist locally. The
@@ -357,8 +357,9 @@ function fetchBaseRef(baseRef, githubContext, fetchGit = tryGit) {
   const headRepository = pullRequest?.head?.repo?.full_name || '';
   const baseRepository = pullRequest?.base?.repo?.full_name || '';
   if (prHeadSha && headRepository && headRepository === baseRepository) {
-    fetchGit(['fetch', '--no-tags', '--depth=1', 'origin', prHeadSha]);
+    refs.push(prHeadSha);
   }
+  fetchGit(['fetch', '--no-tags', '--depth=1', 'origin', ...new Set(refs)]);
 }
 
 function listChangedFiles({

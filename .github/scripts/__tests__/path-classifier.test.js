@@ -295,9 +295,15 @@ test('stable delivery fetch includes the exact same-repository head for shallow 
     return '';
   });
   assert.deepEqual(calls, [
-    ['fetch', '--no-tags', '--depth=1', 'origin', 'main'],
-    ['fetch', '--no-tags', '--depth=1', 'origin', 'trusted-base-sha'],
-    ['fetch', '--no-tags', '--depth=1', 'origin', 'head-abc'],
+    [
+      'fetch',
+      '--no-tags',
+      '--depth=1',
+      'origin',
+      'main',
+      'trusted-base-sha',
+      'head-abc',
+    ],
   ]);
 
   const forkCalls = [];
@@ -305,7 +311,7 @@ test('stable delivery fetch includes the exact same-repository head for shallow 
     forkCalls.push(args);
     return '';
   });
-  assert.equal(forkCalls.some((args) => args.at(-1) === 'head-abc'), false);
+  assert.equal(forkCalls[0].includes('head-abc'), false);
 });
 
 test('stable delivery reuses its trusted-base fetch for changed-file classification', () => {
