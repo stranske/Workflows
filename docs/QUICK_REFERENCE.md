@@ -78,11 +78,15 @@ complete. It runs in two complementary ways:
 To force one immediate re-dispatch on a healthy PR: add `agent:retry` (keepalive
 consumes and removes it, and co-removes any stale `agent:rate-limited`).
 
-After repeated failures (default 3), keepalive pauses the current strategy and
-adds `agent:retry`; ownership remains with automation. A possible access or
+Each non-transient run/fix failure adds `agent:retry` and explicitly dispatches
+a bounded retry while the failure threshold remains. At the threshold (default
+3), keepalive pauses that strategy; the hourly sweep owns the next recovery
+review. A possible access or
 authority boundary adds `agent:needs-attention` and an immediately due
-independent challenge. Only that review may add `needs-human`. Confirmed human
-holds are challenged again after 24 hours so stale assumptions cannot idle a PR.
+independent challenge; the hourly sweep reads that state and force-dispatches a
+current-state recheck. Only an independent review may add `needs-human`.
+Confirmed human holds are challenged again after 24 hours by the reviewed-repo
+controller so stale assumptions cannot idle a PR.
 
 ---
 

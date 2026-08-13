@@ -125,7 +125,8 @@ Issue: "Add user authentication"
 - 4-hour timeout
 - Pause anytime with `agents:auto-pilot-pause`
 - Stops on errors with `agents:auto-pilot-failed`
-- Escalates to `needs-human` on repeated failures
+- Routes repeated failures to bounded automation retry and scheduled recovery
+- Uses `needs-human` only for independently confirmed external authority
 
 **Time:** 20 minutes to 2 hours depending on complexity
 

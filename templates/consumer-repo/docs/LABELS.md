@@ -577,10 +577,11 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Effect:**
 1. Stops automation until a human removes the label.
-2. Marks a policy, product, access, or repeated-failure blocker that should not
-   be retried blindly.
-3. Is applied by verifier follow-up policy, auto-pilot blockers, capability
-   checks, and repeated keepalive failures.
+2. Marks an independently confirmed policy, product, or external authority
+   blocker; automation failure or exhausted retries alone are insufficient.
+3. May be applied by verifier follow-up policy, auto-pilot blockers, and
+   capability checks only after they record the exact human action. Keepalive
+   failures use `agent:retry` or `agent:needs-attention`, not this label.
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
 `.github/workflows/agents-auto-pilot.yml`,

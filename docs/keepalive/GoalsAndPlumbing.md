@@ -83,8 +83,9 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 
 - Removing the `agent:*` label halts new dispatches until a label is re-applied and all guardrails pass again.
 - Respect the `agents:paused` label, which blocks *all* keepalive activity.
-- After repeated failures (default: 3), the loop pauses the current strategy and adds `agent:retry`.
-- A possible access or authority boundary adds `agent:needs-attention` with an immediately due independent challenge. `needs-human` is permitted only when that review proves an external authority boundary and records the exact human action. Confirmed holds are challenged again after 24 hours.
+- Every non-transient run/fix failure adds `agent:retry` and explicitly dispatches a bounded retry while below the failure threshold.
+- After repeated failures (default: 3), the loop pauses the current strategy; the hourly keepalive sweep owns the next recovery review.
+- A possible access or authority boundary adds `agent:needs-attention` with an immediately due independent challenge. The hourly sweep reads the persisted challenge state and force-dispatches a current-state recheck. `needs-human` is permitted only when an independent review proves an external authority boundary and records the exact human action. The reviewed-repo controller challenges confirmed holds again after 24 hours.
 - Agent delegation treats two consecutive zero-progress rounds as stalled. Commit churn is not progress unless it advances checklist state or reaches a green Gate.
 
 **To resume after failure:**

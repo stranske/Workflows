@@ -25,6 +25,7 @@ on:
 
 permissions:
   contents: read
+  issues: read
   pull-requests: read
   actions: write   # workflow_dispatch of the keepalive loop
 
@@ -47,6 +48,7 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/keepalive_challenge_due.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
@@ -60,6 +62,7 @@ jobs:
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { selectDueAuthorityChallenge } = require('./.github/scripts/keepalive_challenge_due.js');
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -78,18 +81,41 @@ jobs:
             );
             core.info(`Open PRs: ${prs.length}; non-draft agent-labelled: ${eligible.length}`);
             let dispatched = 0;
+            let challenged = 0;
             for (const pr of eligible) {
               if (dryRun) {
                 core.info(`[dry-run] would re-evaluate PR #${pr.number}`);
                 continue;
               }
               try {
+                let dueChallenge = null;
+                if ((pr.labels || []).some((label) => label.name === 'agent:needs-attention')) {
+                  const comments = await withRetry((client) => client.paginate(
+                    client.rest.issues.listComments,
+                    { owner, repo, issue_number: pr.number, per_page: 100 },
+                  ));
+                  dueChallenge = selectDueAuthorityChallenge({
+                    labels: pr.labels || [],
+                    comments,
+                    now: new Date(),
+                  });
+                  if (dueChallenge) {
+                    challenged += 1;
+                    core.info(
+                      `PR #${pr.number}: independently rechecking due authority claim ` +
+                      `(due ${dueChallenge.dueAt}; ${dueChallenge.nextAction || dueChallenge.key || 'no detail'})`,
+                    );
+                  }
+                }
                 await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner,
                   repo,
                   workflow_id: 'agents-81-gate-followups.yml',
                   ref: context.payload.repository.default_branch,
-                  inputs: { pr_number: String(pr.number) },
+                  inputs: {
+                    pr_number: String(pr.number),
+                    force_retry: 'true',
+                  },
                 }));
                 dispatched += 1;
               } catch (error) {
@@ -98,5 +124,9 @@ jobs:
               }
             }
             await core.summary
-              .addRaw(`Keepalive sweep: ${eligible.length} agent PR(s) eligible, ${dispatched} re-evaluated (dry_run=${dryRun}).`)
+              .addRaw(
+                `Keepalive sweep: ${eligible.length} agent PR(s) eligible, ` +
+                `${dispatched} re-evaluated, ${challenged} due authority claim(s) challenged ` +
+                `(dry_run=${dryRun}).`,
+              )
               .write();

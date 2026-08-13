@@ -204,7 +204,7 @@ Other `agent:*` labels may be reserved for future expansion, but only `agent:cod
 |-------|--------|
 | `agents:paused` | Halts all agent activity on PR |
 | `agents:max-parallel:N` | Overrides concurrent run limit (default: 1) |
-| `needs-human` | Auto-added after repeated failures, blocks keepalive |
+| `needs-human` | Independently confirmed authority blocker; never inferred from retry count |
 
 ### Verifier Labels
 These labels trigger the post-merge verifier workflow on a merged PR.
@@ -231,14 +231,15 @@ Keepalive dispatches an agent only when **ALL** conditions are met:
 - Keepalive stops when all acceptance criteria are checked complete
 
 ### Failure Handling
-After 3 consecutive failures:
-1. Keepalive pauses and adds `needs-human` label
-2. Check the failure reason in keepalive summary comment
-3. Fix issues, then remove `needs-human` label to resume
+For each non-transient failure:
+1. Keepalive adds `agent:retry` and explicitly dispatches a bounded retry
+2. At 3 consecutive failures, the current strategy pauses for the hourly recovery sweep
+3. Possible authority boundaries use `agent:needs-attention`; the sweep independently rechecks due claims
+4. `needs-human` is reserved for independently confirmed external authority
 
 ### Manual Control
 - **Pause**: Add `agents:paused` label
-- **Resume**: Remove `agents:paused` or `needs-human` label
+- **Resume**: Remove `agents:paused`; clear `needs-human` only after its exact authority blocker is resolved
 - **Restart**: Remove and re-add the `agent:*` label
 - **Force retry**: Use workflow_dispatch with PR number
 

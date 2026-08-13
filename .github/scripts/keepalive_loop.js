@@ -23,7 +23,7 @@ try {
 
 const ATTEMPT_HISTORY_LIMIT = 20;
 const ATTEMPTED_TASK_LIMIT = 20;
-const HUMAN_BLOCKER_LABELS = ['agent:needs-attention', 'needs-human'];
+const AUTOMATION_ATTENTION_LABELS = ['agent:needs-attention'];
 
 const TIMEOUT_VARIABLE_NAMES = [
   'WORKFLOW_TIMEOUT_DEFAULT',
@@ -77,7 +77,15 @@ function selectEscalationDisposition({ required, errorCategory, summaryReason } 
   return 'automation-retry';
 }
 
-async function clearStaleHumanBlockerLabels({ github, owner, repo, prNumber, core }) {
+async function clearStaleHumanBlockerLabels({
+  github,
+  owner,
+  repo,
+  prNumber,
+  core,
+  automationOwned = false,
+}) {
+  if (!automationOwned) return [];
   let currentLabels = [];
   try {
     const { data } = await github.rest.issues.listLabelsOnIssue({
@@ -94,7 +102,12 @@ async function clearStaleHumanBlockerLabels({ github, owner, repo, prNumber, cor
     return [];
   }
 
-  const staleLabels = HUMAN_BLOCKER_LABELS.filter((label) =>
+  // `needs-human` is a hard authority blocker. Keepalive never removes it:
+  // label provenance can change between evaluation and this live read, so an
+  // operator-confirmed blocker must be cleared only by the independent
+  // challenge controller. This cleanup is limited to keepalive's own soft
+  // attention label and requires persisted automation ownership.
+  const staleLabels = AUTOMATION_ATTENTION_LABELS.filter((label) =>
     currentLabels.includes(label.toLowerCase())
   );
   const removed = [];
@@ -4065,6 +4078,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
 
     const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
     const priorAttentionKey = normalise(previousAttention.key);
+    const previousAttentionAutomationOwned =
+      previousAttention.owner === 'automation' &&
+      ['automation-retry', 'challenge-due'].includes(previousAttention.disposition);
     if (shouldEscalate) {
       newState.attention = {
         key: attentionKey,
@@ -4140,6 +4156,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           repo: context.repo.repo,
           prNumber,
           core,
+          automationOwned: previousAttentionAutomationOwned,
         });
       }
 
@@ -4153,6 +4170,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             repo: context.repo.repo,
             prNumber,
             core,
+            automationOwned: previousAttentionAutomationOwned,
           });
           await github.rest.issues.addLabels({
             owner: context.repo.owner,
@@ -4162,6 +4180,25 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           });
         } catch (error) {
           if (core) core.warning(`Failed to add ${escalationDisposition} routing label: ${error.message}`);
+        }
+        if (escalationDisposition === 'automation-retry' && !stop) {
+          try {
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'agents-keepalive-loop.yml',
+              ref:
+                context.payload?.repository?.default_branch ||
+                context.payload?.pull_request?.base?.ref ||
+                'main',
+              inputs: {
+                pr_number: String(prNumber),
+                force_retry: 'true',
+              },
+            });
+          } catch (error) {
+            core?.warning?.(`Failed to dispatch bounded automation retry: ${error.message}`);
+          }
         }
       }
 

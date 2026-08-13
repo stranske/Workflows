@@ -55,6 +55,10 @@ const buildGithubStub = ({
           const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
           return { data: buffer };
         },
+        async createWorkflowDispatch(payload) {
+          actions.push({ type: 'workflow-dispatch', ...payload });
+          return { data: {} };
+        },
       },
       checks: {
         async listAnnotations({ check_run_id: checkRunId }) {
@@ -2061,6 +2065,11 @@ test('updateKeepaliveLoopSummary routes repeated actual failures to automation r
     action.type === 'label' && action.labels.includes('agent:retry')
   );
   assert.ok(retryLabel);
+  assert.equal(
+    github.actions.some((action) => action.type === 'workflow-dispatch'),
+    false,
+    'a stopped strategy must wait for the scheduled recovery sweep instead of self-recursing',
+  );
 
   const humanLabel = github.actions.find((action) =>
     action.type === 'label' && (
@@ -2309,6 +2318,9 @@ test('updateKeepaliveLoopSummary routes resource failures to automation retry', 
     action.type === 'label' && action.labels.includes('agent:retry')
   );
   assert.ok(retryLabel);
+  const retryDispatch = github.actions.find((action) => action.type === 'workflow-dispatch');
+  assert.equal(retryDispatch.workflow_id, 'agents-keepalive-loop.yml');
+  assert.deepEqual(retryDispatch.inputs, { pr_number: '655', force_retry: 'true' });
   assert.equal(
     github.actions.some((action) => action.type === 'label' && action.labels.includes('needs-human')),
     false
@@ -2352,6 +2364,7 @@ test('updateKeepaliveLoopSummary routes logic failures to automation retry', asy
     action.type === 'label' && action.labels.includes('agent:retry')
   );
   assert.ok(retryLabel);
+  assert.ok(github.actions.some((action) => action.type === 'workflow-dispatch'));
   assert.equal(
     github.actions.some((action) => action.type === 'label' && action.labels.includes('needs-human')),
     false
@@ -2479,6 +2492,7 @@ test('updateKeepaliveLoopSummary clears stale human-blocker labels on tasks-comp
     iteration: 3,
     failure_threshold: 3,
     failure: { reason: 'agent-run-failed', count: 2 },
+    attention: { owner: 'automation', disposition: 'challenge-due' },
   });
   const github = buildGithubStub({
     comments: [{ id: 46, body: existingState, html_url: 'https://example.com/46' }],
@@ -2509,7 +2523,11 @@ test('updateKeepaliveLoopSummary clears stale human-blocker labels on tasks-comp
     .filter((action) => action.type === 'remove-label')
     .map((action) => action.name)
     .sort();
-  assert.deepEqual(removedLabels, ['agent:needs-attention', 'needs-human']);
+  assert.deepEqual(removedLabels, ['agent:needs-attention']);
+  assert.equal(
+    github.actions.some((action) => action.type === 'remove-label' && action.name === 'needs-human'),
+    false,
+  );
   assert.equal(
     github.actions.some((action) => action.type === 'label' && action.labels.includes('needs-human')),
     false,
