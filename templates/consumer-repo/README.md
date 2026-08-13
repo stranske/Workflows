@@ -234,8 +234,8 @@ Keepalive dispatches an agent only when **ALL** conditions are met:
 For each non-transient failure:
 1. Keepalive adds `agent:retry` and explicitly dispatches `agents-81-gate-followups.yml`
 2. At 3 consecutive failures, the current strategy pauses for the hourly recovery sweep
-3. Possible authority boundaries use `agent:needs-attention`; only due claims receive a forced sweep recheck
-4. A green recheck clears the challenge; only the same redacted boundary fingerprint failing again records the exact runner-reported action before applying `needs-human`
+3. Possible authority boundaries use `agent:needs-attention`; only due claims receive a forced sweep recheck with exact boundary-fingerprint provenance, bypassing ordinary state debounce
+4. A green recheck clears the challenge; only the sweep-selected redacted boundary fingerprint failing again records the exact runner-reported action before applying `needs-human`; a generic retry cannot confirm it
 
 ### Manual Control
 - **Pause**: Add `agents:paused` label

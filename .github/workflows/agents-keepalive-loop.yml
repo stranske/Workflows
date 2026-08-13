@@ -18,6 +18,11 @@ on:
         required: false
         default: true
         type: boolean
+      authority_challenge_fingerprint:
+        description: 'Internal sweep provenance for one due authority challenge'
+        required: false
+        default: ''
+        type: string
       orchestrator_skill_pack:
         description: >-
           Optional reference-pack name override for exported Orchestrator skill context
@@ -126,11 +131,23 @@ jobs:
             }}
           GATE_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
           PR_ACTOR: ${{ github.actor }}
+          AUTHORITY_CHALLENGE_FINGERPRINT: >-
+            ${{ github.event.inputs.authority_challenge_fingerprint || '' }}
         run: |
           if [ -z "${PR_NUMBER:-}" ]; then
             {
               echo "should_run=true"
               echo "reason=no-pr-context"
+              echo "current_hash="
+              echo "prior_hash="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "${AUTHORITY_CHALLENGE_FINGERPRINT:-}" ]; then
+            {
+              echo "should_run=true"
+              echo "reason=due-authority-challenge"
               echo "current_hash="
               echo "prior_hash="
             } >> "$GITHUB_OUTPUT"
@@ -508,8 +525,17 @@ jobs:
           PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
           HEAD_SHA: ${{ steps.evaluate.outputs.head_sha }}
           PROVIDER: ${{ steps.evaluate.outputs.agent_type || 'codex' }}
+          AUTHORITY_CHALLENGE_FINGERPRINT: >-
+            ${{ github.event.inputs.authority_challenge_fingerprint || '' }}
         run: |
           set -euo pipefail
+          if [ -n "${AUTHORITY_CHALLENGE_FINGERPRINT:-}" ]; then
+            {
+              echo "should_dispatch=true"
+              echo "reason=due-authority-challenge"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
             {
               echo "should_dispatch=true"
@@ -1378,6 +1404,8 @@ jobs:
               needs.run-gemini.outputs.error-summary ||
               ''
             }}
+          AUTHORITY_CHALLENGE_FINGERPRINT: >-
+            ${{ github.event.inputs.authority_challenge_fingerprint || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1470,6 +1498,8 @@ jobs:
               llm_confidence: llmConfidence,
               llm_analysis_run: llmAnalysisRun,
               force_retry: '${{ needs.evaluate.outputs.force_retry }}',
+              authority_challenge_fingerprint:
+                process.env.AUTHORITY_CHALLENGE_FINGERPRINT || '',
               retry_workflow_id: 'agents-keepalive-loop.yml',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });

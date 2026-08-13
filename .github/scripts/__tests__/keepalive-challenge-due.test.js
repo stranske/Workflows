@@ -29,6 +29,7 @@ test('selectDueAuthorityChallenge schedules an automation-owned due challenge', 
       disposition: 'challenge-due',
       challenge_due_at: '2026-08-12T12:00:00Z',
       key: 'auth',
+      boundary_fingerprint: 'fingerprint-auth',
       next_action: 'reproduce access failure',
     })],
     now: new Date('2026-08-12T13:00:00Z'),
@@ -36,6 +37,7 @@ test('selectDueAuthorityChallenge schedules an automation-owned due challenge', 
   assert.deepEqual(result, {
     dueAt: '2026-08-12T12:00:00.000Z',
     key: 'auth',
+    boundaryFingerprint: 'fingerprint-auth',
     nextAction: 'reproduce access failure',
   });
 });

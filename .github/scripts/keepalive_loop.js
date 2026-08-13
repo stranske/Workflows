@@ -3424,6 +3424,13 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       isForceRetry &&
       previousAttention.owner === 'automation' &&
       previousAttention.disposition === 'challenge-due';
+    const authorityChallengeFingerprint = normalise(
+      inputs.authority_challenge_fingerprint ?? inputs.authorityChallengeFingerprint,
+    );
+    const authorityChallengeProvenanceMatches =
+      previousAuthorityChallenge &&
+      Boolean(authorityChallengeFingerprint) &&
+      authorityChallengeFingerprint === previousAttention.boundary_fingerprint;
     const authorityEvidence = buildAuthorityChallengeEvidence({
       agentSummary,
       summaryReason,
@@ -3432,11 +3439,11 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       ((action === 'run' || action === 'fix') && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
       (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
     const authorityChallengeConfirmed =
-      previousAuthorityChallenge &&
+      authorityChallengeProvenanceMatches &&
       escalationRequired &&
       errorCategory === ERROR_CATEGORIES.auth &&
       Boolean(authorityEvidence.fingerprint) &&
-      authorityEvidence.fingerprint === previousAttention.boundary_fingerprint;
+      authorityEvidence.fingerprint === authorityChallengeFingerprint;
     const escalationDisposition = selectEscalationDisposition({
       required: escalationRequired || stop,
       errorCategory,

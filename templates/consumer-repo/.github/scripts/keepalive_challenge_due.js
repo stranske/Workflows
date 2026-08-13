@@ -38,6 +38,7 @@ function selectDueAuthorityChallenge({ labels = [], comments = [], now = new Dat
   return {
     dueAt: new Date(dueAt).toISOString(),
     key: String(attention.key || ''),
+    boundaryFingerprint: String(attention.boundary_fingerprint || ''),
     nextAction: String(attention.next_action || ''),
   };
 }

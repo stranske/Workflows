@@ -2327,6 +2327,7 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
       failureThreshold: 3,
       trace: 'trace-attention-auth-confirmed',
       forceRetry: true,
+      authority_challenge_fingerprint: boundary.fingerprint,
       agent_exit_code: '1',
       agent_summary: authSummary,
     },
@@ -2351,6 +2352,67 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
     updateAction.body,
     /"human_action":"Resolve the reproduced runner authority failure: Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch\."/,
   );
+});
+
+test('a generic forced retry cannot confirm an authority challenge', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-unproven',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'original-auth-boundary',
+      boundary_fingerprint: boundary.fingerprint,
+      boundary_detail: boundary.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 92, body: existingState, html_url: 'https://example.com/92' }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-unproven',
+      forceRetry: true,
+      agent_exit_code: '1',
+      agent_summary: authSummary,
+    },
+  });
+
+  assert.equal(
+    github.actions.some((action) =>
+      action.type === 'label' && action.labels.includes('needs-human')
+    ),
+    false,
+  );
+  const updateAction = github.actions.find((action) =>
+    action.type === 'update' && parseStateComment(action.body)?.data?.attention
+  );
+  const state = parseStateComment(updateAction.body).data;
+  assert.equal(state.attention.owner, 'automation');
+  assert.equal(state.attention.disposition, 'challenge-due');
+  assert.equal(state.attention.boundary_fingerprint, boundary.fingerprint);
 });
 
 test('a forced recheck with a different auth boundary stays automation-owned', async () => {
@@ -2395,6 +2457,7 @@ test('a forced recheck with a different auth boundary stays automation-owned', a
       failureThreshold: 3,
       trace: 'trace-attention-auth-different',
       forceRetry: true,
+      authority_challenge_fingerprint: original.fingerprint,
       agent_exit_code: '1',
       agent_summary: 'Insufficient permission pull-requests:write for repository update.',
     },

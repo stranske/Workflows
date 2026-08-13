@@ -83,11 +83,13 @@ a bounded retry while the failure threshold remains. At the threshold (default
 3), keepalive pauses that strategy; the hourly sweep owns the next recovery
 review. A possible access or
 authority boundary adds `agent:needs-attention` and an immediately due
-independent challenge; the hourly sweep reads that state and force-dispatches a
-current-state recheck while ordinary sweep traffic remains non-forced. A green
-recheck clears the challenge; only the same redacted boundary fingerprint
-failing again records the exact runner-reported action before replacing
-`agent:needs-attention` with `needs-human`.
+independent challenge; the hourly sweep reads that state and passes its exact
+boundary fingerprint into a current-state recheck while ordinary sweep traffic
+remains non-forced. The challenge provenance bypasses ordinary state debounce,
+so a replacement boundary is checked on the next sweep. A green recheck clears
+the challenge; only the sweep-selected redacted boundary fingerprint failing
+again records the exact runner-reported action before replacing
+`agent:needs-attention` with `needs-human`. A generic manual retry cannot confirm it.
 Confirmed human holds are challenged again after 24 hours by the reviewed-repo
 controller so stale assumptions cannot idle a PR.
 
