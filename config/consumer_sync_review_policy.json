@@ -33,8 +33,6 @@
   "non_response_patterns": [
     "review skipped",
     "review was skipped",
-    "was not reviewed",
-    "not reviewed",
     "review disabled",
     "review is disabled",
     "reviews are disabled",

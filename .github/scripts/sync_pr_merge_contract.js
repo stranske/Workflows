@@ -202,10 +202,26 @@ function isReviewerCapacitySignal(body = '', capacityPatterns = []) {
 }
 
 function isReviewerNonResponseSignal(body = '', nonResponsePatterns = []) {
-  const text = String(body || '').toLowerCase();
+  const statusLines = String(body || '')
+    .split(/\r?\n/)
+    .map((line) => line
+      .trim()
+      .replace(/^(?:[>\s]*[-*#`_:]+|[>\s]*[⚠️ℹ️🚫⏭️]+)\s*/u, '')
+      .toLowerCase())
+    .filter(Boolean);
   return (nonResponsePatterns || []).some((pattern) => {
     const literal = String(pattern || '').trim().toLowerCase();
-    return literal.length > 0 && text.includes(literal);
+    if (!literal) return false;
+    return statusLines.some((line) => (
+      line === literal
+      || line.startsWith(`${literal}:`)
+      || line.startsWith(`${literal} -`)
+      || line.startsWith(`${literal} —`)
+      || line.startsWith(`${literal}.`)
+      || line.startsWith(`${literal} because `)
+      || line.startsWith(`${literal} due to `)
+      || line.startsWith(`${literal} for `)
+    ));
   });
 }
 

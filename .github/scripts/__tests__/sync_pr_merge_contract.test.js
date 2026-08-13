@@ -656,6 +656,24 @@ test('review non-response policy does not match generic feature availability pro
   );
   assert.equal(
     isReviewerNonResponseSignal('Automated review is disabled.', policy.non_response_patterns),
+    false,
+  );
+  assert.equal(
+    isReviewerNonResponseSignal('Review is disabled for this repository.', policy.non_response_patterns),
+    true,
+  );
+  assert.equal(
+    isReviewerNonResponseSignal(
+      'This migration was not reviewed for backward compatibility, so add coverage.',
+      policy.non_response_patterns,
+    ),
+    false,
+  );
+  assert.equal(
+    isReviewerNonResponseSignal(
+      '### Review skipped: excluded by label configuration',
+      policy.non_response_patterns,
+    ),
     true,
   );
 });
