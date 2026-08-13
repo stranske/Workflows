@@ -153,15 +153,25 @@ function buildAuthorityChallengeEvidence({
     : '';
   const hasAuthorizationHeader = /\b(?:proxy-)?authorization\s*[:=]/i.test(rawSummary);
   const hasCookieHeader = /\b(?:set-cookie|cookie)\s*[:=]/i.test(rawSummary);
+  const standaloneHttpAuth = rawSummary.match(
+    /\b(?:basic|digest|negotiate|ntlm|apikey|oauth|hoba|mutual|scram(?:-sha-(?:1|256))?|vapid)\s+(?=\S)/i,
+  );
   const structuredCredentialAssignment = [...rawSummary.matchAll(
     /\b([A-Za-z][A-Za-z0-9_.-]*)["']?\s*[:=]\s*[\[{]/g,
   )].find(match => isSensitiveCredentialFieldName(match[1]));
   let structuredCredentialSuffixRedacted = false;
-  const redactionInput = structuredCredentialAssignment
+  const unboundedSecretStart = [
+    structuredCredentialAssignment?.index,
+    standaloneHttpAuth?.index,
+  ].filter(index => Number.isInteger(index)).sort((left, right) => left - right)[0];
+  const redactionInput = Number.isInteger(unboundedSecretStart)
     ? (() => {
-      structuredCredentialSuffixRedacted = true;
-      return `${rawSummary.slice(0, structuredCredentialAssignment.index)}` +
-        `${structuredCredentialAssignment[1]}=[redacted-credential-collection]`;
+      if (structuredCredentialAssignment?.index === unboundedSecretStart) {
+        structuredCredentialSuffixRedacted = true;
+        return `${rawSummary.slice(0, unboundedSecretStart)}` +
+          `${structuredCredentialAssignment[1]}=[redacted-credential-collection]`;
+      }
+      return `${rawSummary.slice(0, unboundedSecretStart)}[redacted-http-auth]`;
     })()
     : rawSummary;
   let unterminatedPrivateKeyRedacted = false;
@@ -265,6 +275,7 @@ function buildAuthorityChallengeEvidence({
   if (
     hasAuthorizationHeader ||
     hasCookieHeader ||
+    Boolean(standaloneHttpAuth) ||
     structuredCredentialSuffixRedacted ||
     unterminatedPrivateKeyRedacted
   ) {
@@ -328,7 +339,8 @@ function buildAuthorityChallengeEvidence({
   const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
   const actionable =
-    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credentials?|key))?\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
+    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b\s+(?:token|secret|password|credentials?|key)\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
+    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b\s*[:=]?\s*\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b/.test(redacted) ||
     /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
     Boolean(canonicalPermissionTarget);
   return {

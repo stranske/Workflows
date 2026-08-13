@@ -2933,6 +2933,15 @@ test('authority fingerprints include redacted details beyond the display limit',
   const arbitraryHeaderSensitive = buildAuthorityChallengeEvidence({
     agentSummary: `Denied Authorization: ApiKey ${'super-' + 'secret-value'} after retry`,
   });
+  const standaloneHttpAuthSensitive = [
+    'Basic dXNlcjpwYXNz',
+    'Digest username="Mufasa", response="deadbeef"',
+    'Negotiate runtime-ticket',
+    'NTLM runtime-token',
+    'ApiKey runtime-secret',
+  ].map(value => buildAuthorityChallengeEvidence({
+    agentSummary: `HTTP 401 using ${value}; required permission contents:write`,
+  }));
   const sigV4HeaderSensitive = buildAuthorityChallengeEvidence({
     agentSummary:
       `Denied Authorization: AWS4-HMAC-SHA256 Credential=${'access-key'}/scope, ` +
@@ -3134,6 +3143,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   const attemptedPermissionOnly = buildAuthorityChallengeEvidence({
     agentSummary: 'Attempted contents:read request. Permission denied by repository policy.',
   });
+  const unrelatedUppercaseRemedy = buildAuthorityChallengeEvidence({
+    agentSummary: 'Authentication failed while reading repository metadata. Missing README',
+  });
+  const unnamedEnvironmentRemedy = buildAuthorityChallengeEvidence({
+    agentSummary: 'Authentication failed while launching runner. Missing OPENAI_API_KEY',
+  });
   const separatePermissionRemedies = buildAuthorityChallengeEvidence({
     agentSummary:
       'contents:read permission granted. Authorization: opaque; Required permission: issues:write',
@@ -3153,6 +3168,10 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.equal(ordinaryUserWord.humanAction, '');
   assert.equal(attemptedPermissionOnly.actionable, false);
   assert.equal(attemptedPermissionOnly.humanAction, '');
+  assert.equal(unrelatedUppercaseRemedy.actionable, false);
+  assert.equal(unrelatedUppercaseRemedy.humanAction, '');
+  assert.equal(unnamedEnvironmentRemedy.actionable, true);
+  assert.match(unnamedEnvironmentRemedy.humanAction, /OPENAI_API_KEY/);
   assert.equal(separatePermissionRemedies.actionable, true);
   assert.match(separatePermissionRemedies.humanAction, /issues:write/);
   assert.doesNotMatch(separatePermissionRemedies.humanAction, /Required permission: contents:read/);
@@ -3196,6 +3215,12 @@ test('authority fingerprints include redacted details beyond the display limit',
     'Denied Authorization: [redacted-authorization]',
   );
   assert.doesNotMatch(arbitraryHeaderSensitive.detail, /ApiKey|secret-value|after retry/);
+  for (const evidence of standaloneHttpAuthSensitive) {
+    assert.match(evidence.detail, /\[redacted-http-auth\]/);
+    assert.match(evidence.humanAction, /contents:write/);
+    assert.doesNotMatch(evidence.detail, /dXNlc|Mufasa|deadbeef|runtime/);
+    assert.doesNotMatch(evidence.humanAction, /dXNlc|Mufasa|deadbeef|runtime/);
+  }
   assert.equal(sigV4HeaderSensitive.detail, 'Denied Authorization: [redacted-authorization]');
   assert.doesNotMatch(sigV4HeaderSensitive.detail, /AWS4|Credential|Signature|deadbeef/);
   assert.equal(
