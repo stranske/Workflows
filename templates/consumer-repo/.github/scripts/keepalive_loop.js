@@ -80,7 +80,7 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
   const normalized = redacted
     .toLowerCase()
     .replace(/\b[0-9a-f]{7,64}\b/g, '<hash>')
-    .replace(/\b\d+\b/g, '<number>');
+    .replace(/\b\d{6,}\b/g, '<volatile-id>');
   return {
     fingerprint: crypto.createHash('sha256').update(normalized).digest('hex'),
     detail,
@@ -4261,9 +4261,13 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             ? 'agent:needs-attention'
             : 'agent:retry';
         try {
-          // Remove automation-created legacy hard stops before writing the new
-          // recoverable disposition. A successful terminal also performs this cleanup.
-          await clearStaleHumanBlockerLabels({
+          const addRoutingLabel = () => github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            labels: [routingLabel],
+          });
+          const clearAutomationAttention = () => clearStaleHumanBlockerLabels({
             github,
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -4271,12 +4275,17 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             core,
             automationOwned: previousAttentionAutomationOwned,
           });
-          await github.rest.issues.addLabels({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: prNumber,
-            labels: [routingLabel],
-          });
+          if (escalationDisposition === 'needs-human') {
+            // Preserve the recoverable attention label until the hard blocker
+            // exists. If this add fails, cleanup is never attempted.
+            await addRoutingLabel();
+            await clearAutomationAttention();
+          } else {
+            // Remove automation-created legacy hard stops before writing the new
+            // recoverable disposition. A successful terminal also performs this cleanup.
+            await clearAutomationAttention();
+            await addRoutingLabel();
+          }
         } catch (error) {
           if (core) core.warning(`Failed to add ${escalationDisposition} routing label: ${error.message}`);
         }

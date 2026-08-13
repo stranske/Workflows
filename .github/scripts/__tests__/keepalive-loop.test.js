@@ -2339,6 +2339,13 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
   assert.ok(github.actions.some((action) =>
     action.type === 'label' && action.labels.includes('needs-human')
   ));
+  const hardLabelIndex = github.actions.findIndex((action) =>
+    action.type === 'label' && action.labels.includes('needs-human')
+  );
+  const softLabelRemovalIndex = github.actions.findIndex((action) =>
+    action.type === 'remove-label' && action.name === 'agent:needs-attention'
+  );
+  assert.ok(hardLabelIndex >= 0 && hardLabelIndex < softLabelRemovalIndex);
   assert.equal(
     github.actions.some((action) => action.type === 'workflow-dispatch'),
     false,
@@ -2500,6 +2507,17 @@ test('authority fingerprints include redacted details beyond the display limit',
     sensitive.detail,
     'Forbidden request with Bearer [redacted-token] and token=[redacted]',
   );
+  const unauthorized = buildAuthorityChallengeEvidence({
+    agentSummary: 'GitHub API returned HTTP 401 for repository dispatch run 123456789.',
+  });
+  const forbidden = buildAuthorityChallengeEvidence({
+    agentSummary: 'GitHub API returned HTTP 403 for repository dispatch run 987654321.',
+  });
+  const unauthorizedAgain = buildAuthorityChallengeEvidence({
+    agentSummary: 'GitHub API returned HTTP 401 for repository dispatch run 987654321.',
+  });
+  assert.notEqual(unauthorized.fingerprint, forbidden.fingerprint);
+  assert.equal(unauthorized.fingerprint, unauthorizedAgain.fingerprint);
 });
 
 test('a successful scheduled authority recheck clears the automation challenge', async () => {
