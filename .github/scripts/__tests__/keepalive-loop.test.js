@@ -3008,7 +3008,7 @@ test('authority fingerprints include redacted details beyond the display limit',
     agentSummary: 'Denied pass=alpha pin beta otp=gamma mfa_code delta session_token=epsilon signature zeta; requires contents:write permission',
   });
   const camelCaseSensitive = buildAuthorityChallengeEvidence({
-    agentSummary: 'Denied secretAccessKey=correct-horse privateKeyData another-secret private_key_material=third-secret; requires contents:write permission',
+    agentSummary: 'Denied secretAccessKey=correct-horse privateKeyData another-secret private_key_material=third-secret apiKeys=plural-secret "clientSecretValue": "json-secret"; requires contents:write permission',
   });
   const pluralNamedCredentials = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing credentials: OPENAI_API_KEY',
@@ -3232,8 +3232,8 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.doesNotMatch(unquotedUppercasePassword.humanAction, /HUNTERTWO/);
   assert.doesNotMatch(passwordAliasSensitive.detail, /correct-horse|another-secret/);
   assert.doesNotMatch(passwordAliasSensitive.humanAction, /correct-horse|another-secret/);
-  assert.doesNotMatch(camelCaseSensitive.detail, /correct-horse|another-secret|third-secret/);
-  assert.doesNotMatch(camelCaseSensitive.humanAction, /correct-horse|another-secret|third-secret/);
+  assert.doesNotMatch(camelCaseSensitive.detail, /correct-horse|another-secret|third-secret|plural-secret|json-secret/);
+  assert.doesNotMatch(camelCaseSensitive.humanAction, /correct-horse|another-secret|third-secret|plural-secret|json-secret/);
   assert.equal(pluralNamedCredentials.actionable, true);
   assert.match(pluralNamedCredentials.detail, /OPENAI_API_KEY/);
   assert.match(pluralNamedCredentials.humanAction, /OPENAI_API_KEY/);
