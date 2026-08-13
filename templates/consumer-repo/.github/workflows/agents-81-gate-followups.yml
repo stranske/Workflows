@@ -875,6 +875,7 @@ jobs:
               agent_routing_mode: '${{ needs.evaluate.outputs.agent_routing_mode }}',
               // Agent run result - check which agent ran
               run_result: runResult,
+              agent_execution_started: !allRunnersSkipped,
               // Agent output details (merged from whichever agent ran)
               agent_exit_code: agentExitCode,
               agent_changes_made: agentChangesMade,

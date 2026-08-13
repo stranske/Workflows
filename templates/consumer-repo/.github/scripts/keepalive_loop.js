@@ -6,7 +6,11 @@ const crypto = require('crypto');
 
 const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
 const { getGithubApiCache } = require('./github-api-cache-client');
-const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
+const {
+  loadKeepaliveState,
+  formatStateComment,
+  upsertStateCommentBody,
+} = require('./keepalive_state');
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
@@ -3184,6 +3188,12 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       inputs.roundsWithoutTaskCompletion ?? inputs.rounds_without_task_completion;
     const agentType = normalise(inputs.agent_type ?? inputs.agentType) || _defaultAgent;
     const runResult = normalise(inputs.runResult || inputs.run_result);
+    const agentExecutionStartedInput =
+      inputs.agent_execution_started ?? inputs.agentExecutionStarted;
+    const agentExecutionStarted =
+      agentExecutionStartedInput === undefined || agentExecutionStartedInput === ''
+        ? null
+        : toBool(agentExecutionStartedInput, false);
     const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
 
     // Delegation policy inputs (from evaluate step when agent:auto is active)
@@ -4170,6 +4180,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       (agentFilesChanged > 0 || tasksCompletedThisRound > 0 || checklistChanged);
     const forcedLeaseExecutedAgent =
       actionRunsAgent &&
+      (agentExecutionStarted === null ? true : agentExecutionStarted) &&
       Boolean(runResult) &&
       !['skipped', 'cancelled'].includes(runResult);
     const recoveryLeaseBudgetChanged =
@@ -4576,6 +4587,23 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             });
           } catch (error) {
             core?.warning?.(`Failed to dispatch bounded automation retry: ${error.message}`);
+            if (newState.recovery_lease?.status === 'issued') {
+              newState.recovery_lease = {
+                ...newState.recovery_lease,
+                status: 'deferred',
+                deferred_at: new Date().toISOString(),
+                deferred_reason: 'workflow-dispatch-failed',
+              };
+              try {
+                await persistSummary(
+                  upsertStateCommentBody(body, formatStateComment(newState)),
+                );
+              } catch (stateError) {
+                core?.warning?.(
+                  `Failed to persist deferred recovery lease: ${stateError.message}`,
+                );
+              }
+            }
             try {
               await addRoutingLabel();
             } catch (labelError) {

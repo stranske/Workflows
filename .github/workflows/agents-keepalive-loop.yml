@@ -1577,6 +1577,7 @@ jobs:
               trace: '${{ needs.evaluate.outputs.trace }}',
               // Agent run result - check which agent ran
               run_result: runResult,
+              agent_execution_started: !allRunnersSkipped,
               // Agent output details for visibility
               agent_exit_code: agentExitCode,
               agent_changes_made: agentChangesMade,

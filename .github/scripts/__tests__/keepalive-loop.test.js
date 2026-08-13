@@ -3922,6 +3922,41 @@ test('an operator guard defers rather than consumes a forced recovery lease', as
   const skippedState = parseStateComment(skippedUpdate.body).data;
   assert.equal(skippedState.recovery_lease.status, 'deferred');
   assert.equal(skippedState.recovery_lease.deferred_reason, 'agent-run-skipped');
+
+  const preflightFailure = buildGithubStub({
+    comments: [{ id: 107, body: resumedUpdate.body, html_url: 'https://example.com/107' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github: preflightFailure,
+    context: buildContext(662),
+    core: buildCore(),
+    inputs: {
+      prNumber: 662,
+      action: 'run',
+      reason: 'ready',
+      runResult: 'failure',
+      agent_execution_started: false,
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 5,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-deferred-recovery-lease',
+      forceRetry: true,
+      agent_summary: 'Missing Codex auth: set CODEX_AUTH_JSON',
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+
+  const preflightUpdate = preflightFailure.actions.find(
+    (action) => action.type === 'update' && parseStateComment(action.body)?.data?.recovery_lease,
+  );
+  const preflightState = parseStateComment(preflightUpdate.body).data;
+  assert.equal(preflightState.recovery_lease.status, 'deferred');
+  assert.equal(preflightState.recovery_lease.deferred_reason, 'agent-run-failed');
 });
 
 test('a failed bounded dispatch adds agent:retry only as a fallback', async () => {
@@ -3962,6 +3997,10 @@ test('a failed bounded dispatch adds agent:retry only as a fallback', async () =
   assert.ok(github.actions.some((action) =>
     action.type === 'label' && action.labels.includes('agent:retry')
   ));
+  const stateUpdates = github.actions.filter((action) => action.type === 'update');
+  const deferredState = parseStateComment(stateUpdates.at(-1).body).data;
+  assert.equal(deferredState.recovery_lease.status, 'deferred');
+  assert.equal(deferredState.recovery_lease.deferred_reason, 'workflow-dispatch-failed');
 });
 
 test('updateKeepaliveLoopSummary routes logic failures to automation retry', async () => {
