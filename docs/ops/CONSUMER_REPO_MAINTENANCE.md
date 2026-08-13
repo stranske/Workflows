@@ -366,6 +366,10 @@ fork heads, missing head SHAs, and unreadable copies still fail closed. Maint 71
 remains the final boundary and independently requires the exact generated head
 to carry a valid GitHub-recognized signature before merge. After the bootstrap
 lands, every later delivery returns to trusted-base-only enforcement.
+Because pull-request checkouts use a shallow synthetic merge ref, the classifier
+fetches the exact same-repository head SHA before comparing or reading the
+bootstrap copy; the event payload alone is not evidence that the object exists
+in the local checkout.
 
 Generated `sync/workflows-*` PRs are excluded from both the basic and agent
 autofix lanes. Their intentional pre-seal Gate failure is a delivery hold, not

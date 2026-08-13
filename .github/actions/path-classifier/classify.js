@@ -339,15 +339,25 @@ function resolveBaseRef(inputBaseRef, githubContext) {
   return '';
 }
 
-function fetchBaseRef(baseRef, githubContext) {
+function fetchBaseRef(baseRef, githubContext, fetchGit = tryGit) {
   if (!baseRef || !baseRef.startsWith('origin/')) {
     return;
   }
   const branch = baseRef.slice('origin/'.length);
-  tryGit(['fetch', '--no-tags', '--depth=1', 'origin', branch]);
+  fetchGit(['fetch', '--no-tags', '--depth=1', 'origin', branch]);
   const prBaseSha = githubContext.event?.pull_request?.base?.sha;
   if (prBaseSha) {
-    tryGit(['fetch', '--no-tags', '--depth=1', 'origin', prBaseSha]);
+    fetchGit(['fetch', '--no-tags', '--depth=1', 'origin', prBaseSha]);
+  }
+  // actions/checkout uses a depth-one synthetic merge commit for pull_request
+  // events, so the exact head object is not guaranteed to exist locally. The
+  // add-only first-delivery bootstrap compares and reads that exact head.
+  const pullRequest = githubContext.event?.pull_request;
+  const prHeadSha = pullRequest?.head?.sha;
+  const headRepository = pullRequest?.head?.repo?.full_name || '';
+  const baseRepository = pullRequest?.base?.repo?.full_name || '';
+  if (prHeadSha && headRepository && headRepository === baseRepository) {
+    fetchGit(['fetch', '--no-tags', '--depth=1', 'origin', prHeadSha]);
   }
 }
 
@@ -492,6 +502,7 @@ module.exports = {
   DEFAULT_CATEGORIES,
   OUTPUT_NAMES,
   classifyFiles,
+  fetchBaseRef,
   globToRegExp,
   isAddOnlyContractDiff,
   isStableDeliveryPullRequest,

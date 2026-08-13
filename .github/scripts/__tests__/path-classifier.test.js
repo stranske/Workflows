@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   DEFAULT_CATEGORIES,
   classifyFiles,
+  fetchBaseRef,
   globToRegExp,
   isAddOnlyContractDiff,
   isStableDeliveryPullRequest,
@@ -285,6 +286,26 @@ test('stable delivery bootstrap rejects fork heads even when they add the contra
   );
   assert.equal(contract, null);
   assert.equal(bootstrapRead, false);
+});
+
+test('stable delivery fetch includes the exact same-repository head for shallow PR checkouts', () => {
+  const calls = [];
+  fetchBaseRef('origin/main', deliveryContext(deliveryRecord), (args) => {
+    calls.push(args);
+    return '';
+  });
+  assert.deepEqual(calls, [
+    ['fetch', '--no-tags', '--depth=1', 'origin', 'main'],
+    ['fetch', '--no-tags', '--depth=1', 'origin', 'trusted-base-sha'],
+    ['fetch', '--no-tags', '--depth=1', 'origin', 'head-abc'],
+  ]);
+
+  const forkCalls = [];
+  fetchBaseRef('origin/main', deliveryContext(deliveryRecord, { fork: true }), (args) => {
+    forkCalls.push(args);
+    return '';
+  });
+  assert.equal(forkCalls.some((args) => args.at(-1) === 'head-abc'), false);
 });
 
 test('stable delivery reuses its trusted-base fetch for changed-file classification', () => {
