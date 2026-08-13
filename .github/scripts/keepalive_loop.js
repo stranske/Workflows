@@ -102,6 +102,13 @@ function buildAuthorityChallengeEvidence({
           : 0;
       const withinContext = contextEnd <= targetStart ? gap <= 100 : gap <= 40;
       if (!withinContext) continue;
+      const remedyContext = rawSummary.slice(
+        Math.max(0, Math.min(targetStart, contextStart) - 40),
+        Math.min(rawSummary.length, Math.max(targetEnd, contextEnd) + 40),
+      );
+      if (!/\b(?:missing|required|requires?|needs?|insufficient|unavailable|unset|undefined|grant|enable)\b/i.test(remedyContext)) {
+        continue;
+      }
       if (!contextualPermissionTarget || gap < contextualPermissionTarget.gap) {
         contextualPermissionTarget = { target, gap };
       }

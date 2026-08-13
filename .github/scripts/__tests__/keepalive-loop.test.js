@@ -3080,6 +3080,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const ordinaryUserWord = buildAuthorityChallengeEvidence({
     agentSummary: 'Insufficient permission to access user profile.',
   });
+  const attemptedPermissionOnly = buildAuthorityChallengeEvidence({
+    agentSummary: 'Attempted contents:read request. Permission denied by repository policy.',
+  });
   assert.equal(githubPermissionBefore.actionable, true);
   assert.equal(githubScopeBefore.actionable, true);
   assert.equal(githubScopeAfter.actionable, true);
@@ -3092,6 +3095,8 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.equal(ordinaryRepoWord.humanAction, '');
   assert.equal(ordinaryUserWord.actionable, false);
   assert.equal(ordinaryUserWord.humanAction, '');
+  assert.equal(attemptedPermissionOnly.actionable, false);
+  assert.equal(attemptedPermissionOnly.humanAction, '');
   assert.equal(githubScopeAfter.fingerprint, githubScopeAfterCompact.fingerprint);
   assert.equal(
     sensitive.detail,
