@@ -79,12 +79,11 @@ function buildAuthorityChallengeEvidence({
     .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '[redacted-api-key]')
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-access-key]')
+    // Runner summaries are flattened to one line above, so an arbitrary
+    // Authorization scheme has no trustworthy value boundary. Redact the
+    // complete suffix instead of trying to enumerate schemes or parameters.
     .replace(
-      /\b((?:proxy-)?authorization)\s*[:=]\s*digest\s+[A-Za-z][A-Za-z0-9_-]*\s*=\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^,\s]+)(?:\s*,\s*[A-Za-z][A-Za-z0-9_-]*\s*=\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^,\s]+))*/gi,
-      '$1: [redacted-authorization]',
-    )
-    .replace(
-      /\b((?:proxy-)?authorization)\s*[:=]\s*(?:basic|bearer|negotiate|token)\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
+      /\b((?:proxy-)?authorization)\s*[:=][\s\S]*/gi,
       '$1: [redacted-authorization]',
     )
     .replace(
@@ -156,6 +155,14 @@ function buildAuthorityChallengeEvidence({
     .replace(
       /\b((?:timestamp|time|started|finished|created|updated)(?:[_ -]?at)?)\s*[:#=]?\s*\d{10,13}\b/g,
       '$1 <volatile-timestamp>',
+    )
+    .replace(
+      /\b((?:run|job|request|trace|correlation)(?:[ _-]?id))\s*[:#=]?\s*[a-z0-9][a-z0-9_.-]*\b/g,
+      '$1 <volatile-id>',
+    )
+    .replace(
+      /\b((?:run|job|request|trace|correlation))\s*[:#=]\s*[a-z0-9][a-z0-9_.-]*\b/g,
+      '$1 <volatile-id>',
     )
     .replace(
       /\b((?:run|job|request|trace|correlation)(?:\s+id)?)\s*[:#=]?\s*(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[0-9a-f]{7,64}|\d+)\b/g,

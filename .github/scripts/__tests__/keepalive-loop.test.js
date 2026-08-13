@@ -2833,6 +2833,14 @@ test('authority fingerprints include redacted details beyond the display limit',
   const digestHeaderSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied Authorization: Digest username="Mufasa", realm="example", nonce="abc", response="deadbeef" after retry',
   });
+  const arbitraryHeaderSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: `Denied Authorization: ApiKey ${'super-' + 'secret-value'} after retry`,
+  });
+  const sigV4HeaderSensitive = buildAuthorityChallengeEvidence({
+    agentSummary:
+      `Denied Authorization: AWS4-HMAC-SHA256 Credential=${'access-key'}/scope, ` +
+      `SignedHeaders=host, Signature=${'dead' + 'beef'} after retry`,
+  });
   const multiCookieSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied Cookie: session=alpha; csrf=beta after retry',
   });
@@ -2936,13 +2944,19 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.doesNotMatch(prefixedSensitive.detail, /sk-prefixed-secret/);
   assert.match(prefixedSensitive.detail, /OPENAI_API_KEY=\[redacted\]/);
   assert.doesNotMatch(headerSensitive.detail, /dXNlc|proxy-secret|secret-cookie/);
-  assert.match(headerSensitive.detail, /Authorization: \[redacted-authorization\]/);
-  assert.match(headerSensitive.detail, /Proxy-Authorization: \[redacted-authorization\]/);
+  assert.equal(headerSensitive.detail, 'Denied Authorization: [redacted-authorization]');
   assert.equal(
     digestHeaderSensitive.detail,
-    'Denied Authorization: [redacted-authorization] after retry',
+    'Denied Authorization: [redacted-authorization]',
   );
   assert.doesNotMatch(digestHeaderSensitive.humanAction, /Mufasa|example|nonce|deadbeef/);
+  assert.equal(
+    arbitraryHeaderSensitive.detail,
+    'Denied Authorization: [redacted-authorization]',
+  );
+  assert.doesNotMatch(arbitraryHeaderSensitive.detail, /ApiKey|secret-value|after retry/);
+  assert.equal(sigV4HeaderSensitive.detail, 'Denied Authorization: [redacted-authorization]');
+  assert.doesNotMatch(sigV4HeaderSensitive.detail, /AWS4|Credential|Signature|deadbeef/);
   assert.equal(multiCookieSensitive.detail, 'Denied Cookie=[redacted] after retry');
   assert.doesNotMatch(multiCookieSensitive.humanAction, /alpha|beta/);
   assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);
@@ -3019,6 +3033,20 @@ test('authority fingerprints include redacted details beyond the display limit',
   });
   assert.equal(timestampedOne.fingerprint, timestampedTwo.fingerprint);
   assert.equal(commaTimestampedOne.fingerprint, commaTimestampedTwo.fingerprint);
+  const requestIdOne = buildAuthorityChallengeEvidence({
+    agentSummary: 'Authentication failed. Request ID: req_Qwerty123456',
+  });
+  const requestIdTwo = buildAuthorityChallengeEvidence({
+    agentSummary: 'Authentication failed. Request ID: req_Asdfgh987654',
+  });
+  const traceIdOne = buildAuthorityChallengeEvidence({
+    agentSummary: 'Authentication failed. correlation_id=traceAlpha123',
+  });
+  const traceIdTwo = buildAuthorityChallengeEvidence({
+    agentSummary: 'Authentication failed. correlation_id=traceBeta987',
+  });
+  assert.equal(requestIdOne.fingerprint, requestIdTwo.fingerprint);
+  assert.equal(traceIdOne.fingerprint, traceIdTwo.fingerprint);
   const permissionCodeOne = buildAuthorityChallengeEvidence({
     agentSummary: 'Repository permission policy code 123456 denied dispatch.',
   });
