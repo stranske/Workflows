@@ -32,10 +32,12 @@ const authorityClaimInputs = (prNumber, boundaryFingerprint, overrides = {}) => 
   };
   return {
     authority_challenge_fingerprint: boundaryFingerprint,
-    authority_challenge_signature: signAuthorityChallengeClaim(claim),
-    authority_challenge_nonce: claim.nonce,
-    authority_challenge_run_id: claim.sweepRunId,
-    authority_challenge_run_attempt: claim.sweepRunAttempt,
+    authority_challenge_claim: JSON.stringify({
+      signature: signAuthorityChallengeClaim(claim),
+      nonce: claim.nonce,
+      sweep_run_id: claim.sweepRunId,
+      sweep_run_attempt: claim.sweepRunAttempt,
+    }),
     authority_challenge_signing_key: claim.signingKey,
   };
 };
@@ -2601,10 +2603,12 @@ test('a forged sweep claim cannot confirm an authority challenge', async () => {
       trace: 'trace-attention-auth-unproven',
       forceRetry: true,
       authority_challenge_fingerprint: boundary.fingerprint,
-      authority_challenge_signature: '0'.repeat(64),
-      authority_challenge_nonce: 'a'.repeat(64),
-      authority_challenge_run_id: '987654321',
-      authority_challenge_run_attempt: '1',
+      authority_challenge_claim: JSON.stringify({
+        signature: '0'.repeat(64),
+        nonce: 'a'.repeat(64),
+        sweep_run_id: '987654321',
+        sweep_run_attempt: '1',
+      }),
       authority_challenge_signing_key: 'test-only-authority-signing-key',
       agent_exit_code: '1',
       agent_summary: authSummary,

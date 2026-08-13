@@ -127,8 +127,8 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.13]
 main = .github/workflows/agents-keepalive-sweep.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml
-main_sha256 = beb8b1c30285687faf5dadbc208fcfa3429a47872d222363a66c5e428e2e3fca
-template_sha256 = 43b5e6c803a5adef0c5ced312c5b831cb39600975b2d4950fb5e5138765fd617
+main_sha256 = ed2c01109b51abd8903af1bd6b9044f56f35746a36061c9a76d890424151c321
+template_sha256 = 07065c25ab9d26e8628e3aecef04349f70c45929f02d05d88ede1a5bee131f40
 reason = Intentional divergence re-reviewed 2026-08-13: root and consumer sweeps share HMAC-signed due-authority claims bound to repository, PR, fingerprint, nonce, and exact sweep run; missing signing material fails closed to ordinary non-forced rechecks. Both bypass state and completed-runner debounce for ordinary sweep recovery, while the consumer retains its consolidated gate-followup dispatch path, inverted mode guard, and pinned action contract.
 
 [pair.14]

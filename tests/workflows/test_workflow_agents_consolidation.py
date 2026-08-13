@@ -666,8 +666,8 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert "retry_workflow_id: 'agents-81-gate-followups.yml'" in consumer_loop
     assert "authority_challenge_fingerprint:" in root_loop
     assert "authority_challenge_fingerprint:" in consumer_loop
-    assert "authority_challenge_signature:" in root_loop
-    assert "authority_challenge_signature:" in consumer_loop
+    assert "authority_challenge_claim:" in root_loop
+    assert "authority_challenge_claim:" in consumer_loop
     assert "sweep_recheck:" in root_loop
     assert "sweep_recheck:" in consumer_loop
     assert "reason=due-authority-challenge" in root_loop
@@ -691,7 +691,7 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
         assert "sweep_recheck: 'true'" in text
         assert "dueChallenge?.boundaryFingerprint || ''" in text
         assert "signAuthorityChallengeClaim" in text
-        assert "authority_challenge_signature: signature" in text
+        assert "authority_challenge_claim: JSON.stringify" in text
         assert "AUTHORITY_CHALLENGE_SIGNING_KEY" in text
         assert "KEEPALIVE_APP_PRIVATE_KEY || secrets.WORKFLOWS_APP_PRIVATE_KEY" in text
         assert "force_retry: 'true'" not in text

@@ -3559,15 +3559,29 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const authorityChallengeFingerprint = normalise(
       inputs.authority_challenge_fingerprint ?? inputs.authorityChallengeFingerprint,
     );
+    let authorityChallengeClaim = {};
+    const rawAuthorityChallengeClaim = normalise(
+      inputs.authority_challenge_claim ?? inputs.authorityChallengeClaim,
+    );
+    if (rawAuthorityChallengeClaim && rawAuthorityChallengeClaim.length <= 2048) {
+      try {
+        const parsed = JSON.parse(rawAuthorityChallengeClaim);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          authorityChallengeClaim = parsed;
+        }
+      } catch {
+        // A malformed or manually crafted claim is deliberately untrusted.
+      }
+    }
     const authorityChallengeClaimVerified = verifyAuthorityChallengeClaim({
       signingKey: inputs.authority_challenge_signing_key,
-      signature: inputs.authority_challenge_signature,
+      signature: authorityChallengeClaim.signature,
       repository: `${context.repo.owner}/${context.repo.repo}`,
       prNumber,
       boundaryFingerprint: authorityChallengeFingerprint,
-      nonce: inputs.authority_challenge_nonce,
-      sweepRunId: inputs.authority_challenge_run_id,
-      sweepRunAttempt: inputs.authority_challenge_run_attempt,
+      nonce: authorityChallengeClaim.nonce,
+      sweepRunId: authorityChallengeClaim.sweep_run_id,
+      sweepRunAttempt: authorityChallengeClaim.sweep_run_attempt,
     });
     const authorityChallengeProvenanceMatches =
       previousAuthorityChallenge &&

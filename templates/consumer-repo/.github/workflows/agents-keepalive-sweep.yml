@@ -140,10 +140,12 @@ jobs:
                       `(due ${dueChallenge.dueAt}; ${dueChallenge.nextAction || dueChallenge.key || 'no detail'})`,
                     );
                     authorityClaim = {
-                      authority_challenge_signature: signature,
-                      authority_challenge_nonce: nonce,
-                      authority_challenge_run_id: sweepRunId,
-                      authority_challenge_run_attempt: sweepRunAttempt,
+                      authority_challenge_claim: JSON.stringify({
+                        signature,
+                        nonce,
+                        sweep_run_id: sweepRunId,
+                        sweep_run_attempt: sweepRunAttempt,
+                      }),
                     };
                   }
                 }
