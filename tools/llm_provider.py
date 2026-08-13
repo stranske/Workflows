@@ -61,8 +61,8 @@ def _setup_langsmith_tracing() -> bool:
     if not api_key:
         return False
 
-    # Enable LangChain tracing v2
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    # Respect an explicit opt-out while defaulting enabled tracing for configured users.
+    os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
     os.environ.setdefault("LANGCHAIN_PROJECT", "workflows-agents")
     # LangSmith uses LANGSMITH_API_KEY directly, but LangChain expects LANGCHAIN_API_KEY
     os.environ.setdefault("LANGCHAIN_API_KEY", api_key)

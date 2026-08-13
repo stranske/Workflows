@@ -177,7 +177,7 @@ def test_parse_structured_output_repair_validation_error():
 
 @pytest.mark.parametrize(
     ("input_attempts", "expected_effective"),
-    [(0, 0), (1, 1), (2, 1), (10, 1)],
+    [(0, 0), (1, 1)],
 )
 def test_parse_structured_output_uses_effective_repair_attempts(
     input_attempts: int, expected_effective: int, monkeypatch: pytest.MonkeyPatch
@@ -201,7 +201,7 @@ def test_parse_structured_output_uses_effective_repair_attempts(
         max_repair_attempts=input_attempts,
     )
 
-    assert observed["attempts"] == expected_effective  # Production rule: clamp to [0, 1].
+    assert observed["attempts"] == expected_effective
     assert observed["invoke_calls"] == 1
     assert result.repair_attempts_used == expected_effective
     if expected_effective == 0:
@@ -210,3 +210,14 @@ def test_parse_structured_output_uses_effective_repair_attempts(
     else:
         assert repair_spy.call_count == expected_effective
         assert result.error_stage == "repair_unavailable"
+
+
+@pytest.mark.parametrize("attempts", [-1, 2, 10])
+def test_parse_structured_output_rejects_out_of_policy_repair_attempts(attempts: int) -> None:
+    with pytest.raises(ValueError, match="max_repair_attempts must be between"):
+        parse_structured_output(
+            _invalid_payload(),
+            ExampleModel,
+            repair=MagicMock(return_value=None),
+            max_repair_attempts=attempts,
+        )

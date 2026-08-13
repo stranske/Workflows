@@ -107,7 +107,7 @@ class TestLangsmithTracing:
     def test_langsmith_env_wires_langchain_tracing_and_key(self):
         with patch.dict(
             os.environ,
-            {"LANGSMITH_API_KEY": "ls-key", "LANGCHAIN_TRACING_V2": "false"},
+            {"LANGSMITH_API_KEY": "ls-key"},
             clear=True,
         ):
             enabled = _setup_langsmith_tracing()
@@ -145,15 +145,15 @@ class TestLangsmithTracing:
             _setup_langsmith_tracing()
             assert os.environ["LANGCHAIN_API_KEY"] == "existing"
 
-    def test_langsmith_tracing_v2_forced_true(self):
-        """LANGCHAIN_TRACING_V2 is always set to true even if previously false."""
+    def test_setup_langsmith_preserves_explicit_tracing_opt_out(self):
+        """An explicit tracing preference must not be overwritten by key discovery."""
         with patch.dict(
             os.environ,
             {"LANGSMITH_API_KEY": "ls-key", "LANGCHAIN_TRACING_V2": "false"},
             clear=True,
         ):
             _setup_langsmith_tracing()
-            assert os.environ["LANGCHAIN_TRACING_V2"] == "true"
+            assert os.environ["LANGCHAIN_TRACING_V2"] == "false"
 
 
 class TestBuildLangsmithMetadata:

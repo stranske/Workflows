@@ -101,10 +101,13 @@ def build_repair_callback(
 
 
 def clamp_repair_attempts(max_repair_attempts: int) -> int:
-    return min(
-        MAX_REPAIR_ATTEMPTS,
-        max(MIN_REPAIR_ATTEMPTS, int(max_repair_attempts)),
-    )
+    attempts = int(max_repair_attempts)
+    if not MIN_REPAIR_ATTEMPTS <= attempts <= MAX_REPAIR_ATTEMPTS:
+        raise ValueError(
+            f"max_repair_attempts must be between {MIN_REPAIR_ATTEMPTS} and "
+            f"{MAX_REPAIR_ATTEMPTS}, got {attempts}"
+        )
+    return attempts
 
 
 def _invoke_repair_loop[T: BaseModel](

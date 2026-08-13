@@ -347,7 +347,7 @@ def _token_matches_keyword(token: str, keyword: str) -> bool:
         return True
     # Only allow prefix matching for tokens >= 4 chars to avoid false positives
     # from short tokens like "d" matching "defect" or "a" matching "add"
-    if len(token) >= 4 and token.startswith(keyword):
+    if len(token) >= 4 and len(keyword) >= 4 and token.startswith(keyword):
         return True
     # Check if keyword starts with token (both must be >= 4 chars)
     return len(token) >= 4 and len(keyword) >= 4 and keyword.startswith(token)
