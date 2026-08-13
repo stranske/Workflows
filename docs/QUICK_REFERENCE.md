@@ -88,7 +88,7 @@ boundary fingerprint into a current-state recheck while ordinary sweep traffic
 remains non-forced. Every scheduled sweep wakeup bypasses state and completed-
 runner debounce so a zero-event stall is actually re-evaluated; only the due
 fingerprint carries challenge provenance, signed with the dedicated
-`KEEPALIVE_AUTHORITY_SIGNING_KEY` and bound to the repository, PR, nonce, and exact sweep run.
+`KEEPALIVE_AUTHORITY_SIGNING_KEY` and bound to the repository, PR, random nonce, and exact sweep run/attempt.
 Unsigned or forged claims fail closed as ordinary non-forced rechecks. A replacement boundary is
 therefore checked on the next sweep. A green recheck clears
 the challenge; only the sweep-selected redacted boundary fingerprint failing
