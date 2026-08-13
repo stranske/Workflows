@@ -77,6 +77,13 @@ jobs:
             --output consumer-sync-shadow-evidence/completion-evidence.json \
             --state-dir consumer-sync-shadow-evidence
 
+      - name: Report bounded shadow runtime state
+        run: |
+          python -m scripts.orchestrator_runtime.consumer_sync_report \
+            --registry consumer-sync-shadow-evidence/capabilities-state.json \
+            --ledger consumer-sync-shadow-evidence/evidence-ledger.json \
+            --output consumer-sync-shadow-evidence/runtime-report.json
+
       - name: Upload shadow evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -104,4 +111,9 @@ jobs:
           print('- Write authority: false')
           print('- Promotion allowed: false')
           print(f"- Completion evidence: {completion_evidence['status']}")
+          report = json.loads(
+              Path('consumer-sync-shadow-evidence/runtime-report.json').read_text()
+          )
+          for candidate in report['candidates']:
+              print(f"- Runtime {candidate['capability_id']}: {candidate['state']}")
           PY
