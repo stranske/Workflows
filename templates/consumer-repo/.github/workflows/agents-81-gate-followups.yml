@@ -719,6 +719,7 @@ jobs:
               needs.run-claude.outputs.error-summary ||
               ''
             }}
+          FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -785,7 +786,7 @@ jobs:
               llm_provider: llmProvider,
               llm_confidence: llmConfidence,
               llm_analysis_run: llmAnalysisRun,
-              force_retry: "${{ github.event.inputs.force_retry || 'false' }}",
+              force_retry: process.env.FORCE_RETRY === 'true',
               retry_workflow_id: 'agents-81-gate-followups.yml',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
