@@ -2878,9 +2878,18 @@ test('authority fingerprints include redacted details beyond the display limit',
   const githubScopeAfterCompact = buildAuthorityChallengeEvidence({
     agentSummary: 'missing scope contents:write',
   });
+  const githubOauthScope = buildAuthorityChallengeEvidence({
+    agentSummary: 'requires read:org scope',
+  });
+  const metadataOnly = buildAuthorityChallengeEvidence({
+    agentSummary: 'Permission denied; error:403 from repository API',
+  });
   assert.equal(githubPermissionBefore.actionable, true);
   assert.equal(githubScopeBefore.actionable, true);
   assert.equal(githubScopeAfter.actionable, true);
+  assert.equal(githubOauthScope.actionable, true);
+  assert.equal(metadataOnly.actionable, false);
+  assert.equal(metadataOnly.humanAction, '');
   assert.equal(githubScopeAfter.fingerprint, githubScopeAfterCompact.fingerprint);
   assert.equal(
     sensitive.detail,

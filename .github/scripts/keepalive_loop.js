@@ -160,9 +160,14 @@ function buildAuthorityChallengeEvidence({
     .replace(/\/(runs?|jobs?)\/(?:[0-9a-f]{7,64}|\d+)\b/g, '/$1/<volatile-id>');
   const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
+  const permissionTarget = String.raw`(?:(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|workflows?)\s*:\s*(?:read|write|admin|none)|(?:read|write|admin|repo)\s*:\s*[A-Za-z0-9_.-]+)`;
+  const concretePermissionTarget = new RegExp(
+    String.raw`(?:\b(?:scope|permission)\b.{0,100}\b${permissionTarget}\b|\b${permissionTarget}\b.{0,40}\b(?:scope|permission)\b)`,
+    'i',
+  );
   const actionable =
     /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credential|key))?\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
-    /(?:\b(?:scope|permission)\b.{0,100}\b[A-Za-z0-9_.-]+\s*:\s*[A-Za-z0-9_.-]+\b|\b[A-Za-z0-9_.-]+\s*:\s*[A-Za-z0-9_.-]+\b.{0,40}\b(?:scope|permission)\b)/i.test(redacted);
+    concretePermissionTarget.test(redacted);
   return {
     fingerprint: crypto.createHash('sha256')
       .update(`agent=${routedAgent}|operation=${challengedOperation}|${normalized}`)
