@@ -2419,6 +2419,26 @@ test('a forced recheck with a different auth boundary stays automation-owned', a
   assert.match(state.attention.boundary_detail, /pull-requests:write/);
 });
 
+test('authority fingerprints include redacted details beyond the display limit', () => {
+  const commonPrefix = `Permission failure ${'x'.repeat(320)}`;
+  const first = buildAuthorityChallengeEvidence({
+    agentSummary: `${commonPrefix} missing scope contents:write Bearer secret-one`,
+  });
+  const second = buildAuthorityChallengeEvidence({
+    agentSummary: `${commonPrefix} missing scope pull-requests:write Bearer secret-two`,
+  });
+  const sensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Forbidden request with Bearer secret-three and token=secret-four',
+  });
+
+  assert.equal(first.detail.length, 300);
+  assert.notEqual(first.fingerprint, second.fingerprint);
+  assert.equal(
+    sensitive.detail,
+    'Forbidden request with Bearer [redacted-token] and token=[redacted]',
+  );
+});
+
 test('a successful scheduled authority recheck clears the automation challenge', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-auth-cleared',

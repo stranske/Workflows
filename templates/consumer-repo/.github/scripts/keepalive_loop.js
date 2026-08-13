@@ -68,16 +68,16 @@ function normalise(value) {
 }
 
 function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
-  const detail = normalise(agentSummary || summaryReason)
+  const redacted = normalise(agentSummary || summaryReason)
     .replace(/\s+/g, ' ')
     .replace(/\b(?:ghp_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(/\bbearer\s+\S+/gi, 'Bearer [redacted-token]')
-    .replace(/\b(token|secret|password)\s*[:=]\s*\S+/gi, '$1=[redacted]')
-    .slice(0, 300);
-  if (!detail) {
+    .replace(/\b(token|secret|password)\s*[:=]\s*\S+/gi, '$1=[redacted]');
+  if (!redacted) {
     return { fingerprint: '', detail: '', humanAction: '' };
   }
-  const normalized = detail
+  const detail = redacted.slice(0, 300);
+  const normalized = redacted
     .toLowerCase()
     .replace(/\b[0-9a-f]{7,64}\b/g, '<hash>')
     .replace(/\b\d+\b/g, '<number>');
