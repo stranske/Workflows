@@ -6,6 +6,24 @@ const DEFAULT_REVIEW_POLICY = Object.freeze({
   maximum_wait_minutes: 15,
 });
 
+function legacyStatusAsCheck(status = {}) {
+  const state = String(status.state || '').toLowerCase();
+  return {
+    name: status.context,
+    status: state === 'pending' ? 'in_progress' : 'completed',
+    conclusion:
+      state === 'success'
+        ? 'success'
+        : state === 'pending'
+          ? null
+          : 'failure',
+    // Reviewer settlement is anchored to review_started_at. Preserve the
+    // legacy status timestamp so a reviewer status posted after that boundary
+    // can satisfy the configured one-reviewer quorum.
+    completed_at: status.updated_at || status.created_at || '',
+  };
+}
+
 function finiteNonNegative(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
@@ -991,19 +1009,7 @@ async function run({ github, context, core }) {
           per_page: 100,
         }),
       );
-      const statusAsChecks = (combinedStatus.statuses || []).map((status) => {
-        const state = String(status.state || '').toLowerCase();
-        return {
-          name: status.context,
-          status: state === 'pending' ? 'in_progress' : 'completed',
-          conclusion:
-            state === 'success'
-              ? 'success'
-              : state === 'pending'
-                ? null
-                : 'failure',
-        };
-      });
+      const statusAsChecks = (combinedStatus.statuses || []).map(legacyStatusAsCheck);
       const checkNames = new Set(
         paginatedCheckRuns.map((check) => String(check?.name || '').trim()).filter(Boolean),
       );
@@ -1715,4 +1721,9 @@ async function run({ github, context, core }) {
   }
 }
 
-module.exports = { collectReviewerEvidence, normalizeReviewPolicy, run };
+module.exports = {
+  collectReviewerEvidence,
+  legacyStatusAsCheck,
+  normalizeReviewPolicy,
+  run,
+};

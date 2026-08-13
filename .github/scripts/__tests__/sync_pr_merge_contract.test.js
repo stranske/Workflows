@@ -39,6 +39,7 @@ const {
 const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
 const {
   collectReviewerEvidence,
+  legacyStatusAsCheck,
   normalizeReviewPolicy,
   run,
 } = require('../maint71_merge_sync_prs');
@@ -476,6 +477,47 @@ test('reviewer evidence query retries and fails closed when GraphQL is unavailab
   assert.equal(retryCalls, 1);
   assert.deepEqual(result, { responded: [], unavailable: [], truncated: true });
   assert.match(warnings[0], /Unable to read reviewer evidence/);
+});
+
+test('legacy reviewer status preserves its timestamp and satisfies reviewer evidence', async () => {
+  const check = legacyStatusAsCheck({
+    context: 'CodeRabbit',
+    state: 'success',
+    created_at: '2026-08-11T13:07:30Z',
+    updated_at: '2026-08-11T13:08:00Z',
+  });
+  assert.deepEqual(check, {
+    name: 'CodeRabbit',
+    status: 'completed',
+    conclusion: 'success',
+    completed_at: '2026-08-11T13:08:00Z',
+  });
+
+  const evidence = await collectReviewerEvidence({
+    owner: 'stranske',
+    repo: 'Ready',
+    number: 99,
+    reviewStartedAt: '2026-08-11T13:07:00Z',
+    checkRuns: [check],
+    reviewerProfiles: [{ id: 'coderabbit', check_names: ['CodeRabbit'] }],
+    withRetry: async (operation) => operation({
+      graphql: async () => ({
+        repository: {
+          pullRequest: {
+            comments: { nodes: [], pageInfo: { hasNextPage: false } },
+            reviews: { nodes: [], pageInfo: { hasNextPage: false } },
+            reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
+          },
+        },
+      }),
+    }),
+    core: { warning: () => {} },
+  });
+  assert.deepEqual(evidence, {
+    responded: ['coderabbit'],
+    unavailable: [],
+    truncated: false,
+  });
 });
 
 test('stable delivery branches and strict branch-update failures are recognized', () => {
