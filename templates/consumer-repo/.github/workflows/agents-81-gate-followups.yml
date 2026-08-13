@@ -374,6 +374,7 @@ jobs:
     environment: agent-standard
     outputs:
       secrets_ok: ${{ steps.check.outputs.secrets_ok }}
+      failure_summary: ${{ steps.check.outputs.failure_summary }}
     steps:
       - name: Check secrets
         id: check
@@ -381,6 +382,7 @@ jobs:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
           HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           HAS_CLAUDE_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          AGENT_TYPE: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
           HAS_APP_ID: >-
             ${{ secrets.KEEPALIVE_APP_ID != '' ||
                 secrets.WORKFLOWS_APP_ID != '' }}
@@ -399,11 +401,20 @@ jobs:
             [ "$HAS_APP_ID" = "true" ]; then
             echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
-            message="::error::No agent auth found. Configure one of: CODEX_AUTH_JSON,"
-            message="$message CLAUDE_AUTH_JSON, CLAUDE_CODE_OAUTH_TOKEN, or app credentials"
-            message="$message via KEEPALIVE_APP_ID/PRIVATE_KEY or WORKFLOWS_APP_ID/PRIVATE_KEY."
-            echo "$message"
+            case "$AGENT_TYPE" in
+              claude)
+                missing_msg="Missing Claude auth: set CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_AUTH_JSON"
+                ;;
+              codex)
+                missing_msg="Missing Codex auth: set CODEX_AUTH_JSON"
+                ;;
+              *)
+                missing_msg="Missing ${AGENT_TYPE} auth: set the routed agent credential"
+                ;;
+            esac
+            echo "::error::$missing_msg"
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
+            echo "failure_summary=$missing_msg" >> "$GITHUB_OUTPUT"
             exit 1
           fi
 
@@ -769,6 +780,7 @@ jobs:
               needs.run-claude.outputs.final-message-summary ||
               needs.run-codex.outputs.error-summary ||
               needs.run-claude.outputs.error-summary ||
+              needs.preflight.outputs.failure_summary ||
               ''
             }}
           FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}

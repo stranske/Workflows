@@ -621,6 +621,7 @@ jobs:
       }}
     outputs:
       secrets_ok: ${{ steps.check.outputs.secrets_ok }}
+      failure_summary: ${{ steps.check.outputs.failure_summary }}
     steps:
       - name: Check secrets
         id: check
@@ -668,13 +669,11 @@ jobs:
           if [ "$agent_auth_ok" != "true" ]; then
             case "$AGENT_TYPE" in
               claude)
-                missing_msg="Missing credentials for agent 'claude'. Set "
-                missing_msg+="CLAUDE_CODE_OAUTH_TOKEN (preferred), CLAUDE_AUTH_JSON, "
-                missing_msg+="or configure KEEPALIVE/WORKFLOWS_APP credentials."
+                missing_msg="Missing Claude auth: set CLAUDE_CODE_OAUTH_TOKEN "
+                missing_msg+="or CLAUDE_AUTH_JSON"
                 ;;
               codex)
-                missing_msg="Missing credentials for agent 'codex'. Set CODEX_AUTH_JSON, "
-                missing_msg+="or configure KEEPALIVE/WORKFLOWS_APP credentials."
+                missing_msg="Missing Codex auth: set CODEX_AUTH_JSON"
                 ;;
               *)
                 missing_msg="Missing credentials for agent '${AGENT_TYPE}'. Configure "
@@ -683,6 +682,7 @@ jobs:
             esac
             echo "::error::$missing_msg"
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
+            echo "failure_summary=$missing_msg" >> "$GITHUB_OUTPUT"
             exit 1
           fi
           echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
@@ -1222,6 +1222,7 @@ jobs:
     name: Update keepalive summary
     needs:
       - evaluate
+      - preflight
       - run-codex
       - run-claude
       - run-cursor
@@ -1432,6 +1433,7 @@ jobs:
               needs.run-claude.outputs.error-summary ||
               needs.run-cursor.outputs.error-summary ||
               needs.run-gemini.outputs.error-summary ||
+              needs.preflight.outputs.failure_summary ||
               ''
             }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-

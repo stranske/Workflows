@@ -1356,3 +1356,27 @@ def test_codex_setup_auth_failure_exports_actionable_keepalive_evidence():
     assert setup_region.index(setup_marker) < setup_region.index(evidence_marker)
     assert setup_region.index(evidence_marker) < setup_region.index(export_marker)
     assert setup_region.index(export_marker) < setup_region.index(failure_marker)
+
+
+def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
+    workflow_paths = (
+        WORKFLOWS_DIR / "agents-keepalive-loop.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"),
+    )
+
+    for path in workflow_paths:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        jobs = data.get("jobs") or {}
+        preflight = jobs.get("preflight") or {}
+        summary = jobs.get("summary") or {}
+        preflight_outputs = preflight.get("outputs") or {}
+        summary_needs = summary.get("needs") or []
+        text = path.read_text(encoding="utf-8")
+
+        assert preflight_outputs.get("failure_summary") == (
+            "${{ steps.check.outputs.failure_summary }}"
+        )
+        assert "preflight" in summary_needs
+        assert "needs.preflight.outputs.failure_summary" in text
+        assert 'missing_msg="Missing Codex auth: set CODEX_AUTH_JSON"' in text
+        assert 'echo "failure_summary=$missing_msg" >> "$GITHUB_OUTPUT"' in text
