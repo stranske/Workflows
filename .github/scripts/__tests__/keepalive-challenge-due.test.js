@@ -40,6 +40,25 @@ test('selectDueAuthorityChallenge schedules an automation-owned due challenge', 
   });
 });
 
+test('scheduled sweep forces only an explicitly due authority challenge', () => {
+  const due = selectDueAuthorityChallenge({
+    labels: ['agent:codex', 'agent:needs-attention'],
+    comments: [marker({
+      owner: 'automation',
+      disposition: 'challenge-due',
+      challenge_due_at: '2026-08-12T12:00:00Z',
+    })],
+    now: new Date('2026-08-12T13:00:00Z'),
+  });
+  const ordinary = selectDueAuthorityChallenge({
+    labels: ['agent:codex'],
+    comments: [],
+    now: new Date('2026-08-12T13:00:00Z'),
+  });
+  assert.equal(String(Boolean(due)), 'true');
+  assert.equal(String(Boolean(ordinary)), 'false');
+});
+
 test('selectDueAuthorityChallenge preserves confirmed human blockers', () => {
   const result = selectDueAuthorityChallenge({
     labels: ['agent:needs-attention', 'needs-human'],

@@ -785,6 +785,8 @@ jobs:
               llm_provider: llmProvider,
               llm_confidence: llmConfidence,
               llm_analysis_run: llmAnalysisRun,
+              force_retry: "${{ github.event.inputs.force_retry || 'false' }}",
+              retry_workflow_id: 'agents-81-gate-followups.yml',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
 

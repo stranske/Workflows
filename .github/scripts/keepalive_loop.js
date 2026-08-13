@@ -66,8 +66,14 @@ function normalise(value) {
   return String(value ?? '').trim();
 }
 
-function selectEscalationDisposition({ required, errorCategory, summaryReason } = {}) {
+function selectEscalationDisposition({
+  required,
+  errorCategory,
+  summaryReason,
+  authorityChallengeConfirmed = false,
+} = {}) {
   if (!required) return 'none';
+  if (authorityChallengeConfirmed) return 'needs-human';
   const reason = normalise(summaryReason).toLowerCase();
   if (errorCategory === ERROR_CATEGORIES.auth && !reason.includes('rate-limit')) {
     return 'challenge-due';
@@ -3389,13 +3395,25 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const errorCategory = failureDetails.category;
     const errorType = failureDetails.type;
     const errorRecovery = failureDetails.recovery;
+    const previousAttention = previousState?.attention && typeof previousState.attention === 'object'
+      ? previousState.attention
+      : {};
+    const previousAuthorityChallenge =
+      isForceRetry &&
+      previousAttention.owner === 'automation' &&
+      previousAttention.disposition === 'challenge-due';
     const escalationRequired =
       ((action === 'run' || action === 'fix') && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
       (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
+    const authorityChallengeConfirmed =
+      previousAuthorityChallenge &&
+      escalationRequired &&
+      errorCategory === ERROR_CATEGORIES.auth;
     const escalationDisposition = selectEscalationDisposition({
       required: escalationRequired || stop,
       errorCategory,
       summaryReason,
+      authorityChallengeConfirmed,
     });
     const tasksComplete = Math.max(0, tasksTotal - tasksUnchecked);
     const allTasksComplete = tasksUnchecked === 0 && tasksTotal > 0;
@@ -3701,6 +3719,16 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       if (errorRecovery) {
         summaryLines.push(`| Suggested recovery | ${errorRecovery} |`);
       }
+    }
+
+    if (authorityChallengeConfirmed) {
+      summaryLines.push(
+        '',
+        '### 🛑 Independent Authority Challenge Confirmed',
+        '',
+        'A scheduled current-state recheck reproduced the same external authority boundary.',
+        `**Exact human action:** ${errorRecovery || 'Verify the unavailable credential, token scope, or repository permission recorded above.'}`,
+      );
     }
 
     // LLM analysis details - show which provider was used for task completion detection
@@ -4056,9 +4084,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       });
     }
 
-    const previousAttention = previousState?.attention && typeof previousState.attention === 'object'
-      ? previousState.attention
-      : {};
     if (Object.keys(previousAttention).length > 0) {
       newState.attention = { ...previousAttention };
     }
@@ -4071,6 +4096,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const shouldEscalate = escalationRequired || stop;
     const shouldClearStaleHumanBlockers =
       isSuccessStop ||
+      (previousAuthorityChallenge && runResult === 'success') ||
       (gateConclusion === 'success' &&
         tasksUnchecked === 0 &&
         runResult === 'success' &&
@@ -4085,18 +4111,37 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       ? new Date().toISOString()
       : null;
     if (shouldEscalate) {
-      newState.attention = {
-        key: attentionKey,
-        disposition: escalationDisposition,
-        owner: 'automation',
-        first_seen_at: priorAttentionKey === attentionKey
-          ? previousAttention.first_seen_at || new Date().toISOString()
-          : new Date().toISOString(),
-        challenge_due_at: challengeDueAt,
-        next_action: escalationDisposition === 'challenge-due'
-          ? 'Independently verify the authority boundary, then route or record an exact human action.'
-          : 'Route to automation retry/backoff, CI repair, alternate agent, or review fallback.',
-      };
+      const firstSeenAt = priorAttentionKey === attentionKey
+        ? previousAttention.first_seen_at || new Date().toISOString()
+        : new Date().toISOString();
+      if (escalationDisposition === 'needs-human') {
+        newState.attention = {
+          key: attentionKey,
+          disposition: 'needs-human',
+          owner: 'human',
+          first_seen_at: previousAttention.first_seen_at || firstSeenAt,
+          challenge_started_at: previousAttention.challenge_due_at || firstSeenAt,
+          confirmed_at: new Date().toISOString(),
+          confirmation: 'scheduled-current-state-recheck-reproduced-auth-boundary',
+          human_action: errorRecovery ||
+            'Verify the unavailable credential, token scope, or repository permission.',
+          next_action: errorRecovery ||
+            'Verify the unavailable credential, token scope, or repository permission.',
+        };
+      } else {
+        newState.attention = {
+          key: attentionKey,
+          disposition: escalationDisposition,
+          owner: 'automation',
+          first_seen_at: firstSeenAt,
+          challenge_due_at: challengeDueAt,
+          next_action: escalationDisposition === 'challenge-due'
+            ? 'Independently verify the authority boundary, then route or record an exact human action.'
+            : 'Route to automation retry/backoff, CI repair, alternate agent, or review fallback.',
+        };
+      }
+    } else if (previousAuthorityChallenge && runResult === 'success') {
+      delete newState.attention;
     }
 
     // NOTE: Failure comment posting removed - handled by reusable-*-run.yml with proper deduplication
@@ -4162,9 +4207,11 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       }
 
       if (shouldEscalate) {
-        const routingLabel = escalationDisposition === 'challenge-due'
-          ? 'agent:needs-attention'
-          : 'agent:retry';
+        const routingLabel = escalationDisposition === 'needs-human'
+          ? 'needs-human'
+          : escalationDisposition === 'challenge-due'
+            ? 'agent:needs-attention'
+            : 'agent:retry';
         try {
           // Remove automation-created legacy hard stops before writing the new
           // recoverable disposition. A successful terminal also performs this cleanup.
@@ -4187,10 +4234,13 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         }
         if (escalationDisposition === 'automation-retry' && !stop) {
           try {
+            const retryWorkflowId = normalise(
+              inputs.retry_workflow_id ?? inputs.retryWorkflowId,
+            ) || 'agents-keepalive-loop.yml';
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'agents-keepalive-loop.yml',
+              workflow_id: retryWorkflowId,
               ref:
                 context.payload?.repository?.default_branch ||
                 context.payload?.pull_request?.base?.ref ||

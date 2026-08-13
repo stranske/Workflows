@@ -652,6 +652,24 @@ def test_keepalive_metrics_emit_compact_ndjson():
         assert "metrics_json=$(jq -cn \\" in text, f"{path} must emit one JSON object per line"
 
 
+def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
+    root_loop = (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
+    consumer_loop = Path(
+        "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"
+    ).read_text(encoding="utf-8")
+    sweep_paths = [
+        WORKFLOWS_DIR / "agents-keepalive-sweep.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml"),
+    ]
+
+    assert "retry_workflow_id: 'agents-keepalive-loop.yml'" in root_loop
+    assert "retry_workflow_id: 'agents-81-gate-followups.yml'" in consumer_loop
+    for path in sweep_paths:
+        text = path.read_text(encoding="utf-8")
+        assert "force_retry: String(Boolean(dueChallenge))" in text
+        assert "force_retry: 'true'" not in text
+
+
 def test_terminal_disposition_records_include_artifact_identity():
     workflow_paths = [
         WORKFLOWS_DIR / "agents-verify-to-issue-v2.yml",

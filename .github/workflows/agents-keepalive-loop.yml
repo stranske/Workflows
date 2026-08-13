@@ -1470,6 +1470,7 @@ jobs:
               llm_confidence: llmConfidence,
               llm_analysis_run: llmAnalysisRun,
               force_retry: '${{ needs.evaluate.outputs.force_retry }}',
+              retry_workflow_id: 'agents-keepalive-loop.yml',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
 

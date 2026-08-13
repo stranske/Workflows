@@ -232,10 +232,10 @@ Keepalive dispatches an agent only when **ALL** conditions are met:
 
 ### Failure Handling
 For each non-transient failure:
-1. Keepalive adds `agent:retry` and explicitly dispatches a bounded retry
+1. Keepalive adds `agent:retry` and explicitly dispatches `agents-81-gate-followups.yml`
 2. At 3 consecutive failures, the current strategy pauses for the hourly recovery sweep
-3. Possible authority boundaries use `agent:needs-attention`; the sweep independently rechecks due claims
-4. `needs-human` is reserved for independently confirmed external authority
+3. Possible authority boundaries use `agent:needs-attention`; only due claims receive a forced sweep recheck
+4. A green recheck clears the challenge; a repeated auth failure records the exact human action before applying `needs-human`
 
 ### Manual Control
 - **Pause**: Add `agents:paused` label

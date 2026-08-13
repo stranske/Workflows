@@ -115,7 +115,7 @@ jobs:
                   ref: context.payload.repository.default_branch,
                   inputs: {
                     pr_number: String(pr.number),
-                    force_retry: 'true',
+                    force_retry: String(Boolean(dueChallenge)),
                   },
                 }));
                 dispatched += 1;

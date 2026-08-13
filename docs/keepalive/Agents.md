@@ -55,7 +55,7 @@ Auto-pilot pipeline:
 
 1. **PR body is the contract**: Auto-pilot writes structured tasks into the PR body. Keepalive reads these tasks via the task appendix. If the PR body format changes, both must be updated together.
 
-2. **Labels are handoff signals**: Auto-pilot applies the selected registry-backed `agent:<name>` label (for example `agent:codex` or `agent:claude`) and keepalive activates. Every non-transient run/fix failure routes a bounded recovery with `agent:retry` plus explicit dispatch; after 3 failures, the current strategy pauses for the hourly recovery sweep. It does not infer that a human is required. A possible authority boundary enters an independent scheduled challenge before `needs-human` can be applied.
+2. **Labels are handoff signals**: Auto-pilot applies the selected registry-backed `agent:<name>` label (for example `agent:codex` or `agent:claude`) and keepalive activates. Every non-transient run/fix failure routes a bounded recovery with `agent:retry` plus explicit dispatch through the active workflow (`agents-keepalive-loop.yml` in the root lane or `agents-81-gate-followups.yml` in consolidated consumers); after 3 failures, the current strategy pauses for the hourly recovery sweep. It does not infer that a human is required. A possible authority boundary enters an independent scheduled challenge before `needs-human` can be applied; only a second current-state recheck that reproduces the auth boundary may record the exact human action and apply the hard label.
 
 3. **Gate is the trigger**: Keepalive is event-driven via Gate `workflow_run` completion. Auto-pilot's `monitor-pr` step watches for keepalive progress. Neither polls — both react to events.
 

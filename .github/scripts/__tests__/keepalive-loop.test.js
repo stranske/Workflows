@@ -2281,6 +2281,120 @@ test('updateKeepaliveLoopSummary sends auth failures to independent challenge', 
   assert.match(updateAction.body, /"owner":"automation"/);
 });
 
+test('a scheduled recheck that reproduces auth failure records a terminal human action', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-confirmed',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'agent-run-failed|failure|auth|agent|1',
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 89, body: existingState, html_url: 'https://example.com/89' }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-confirmed',
+      forceRetry: true,
+      agent_exit_code: '1',
+      agent_summary: 'Bad credentials while calling GitHub API.',
+    },
+  });
+
+  assert.ok(github.actions.some((action) =>
+    action.type === 'remove-label' && action.name === 'agent:needs-attention'
+  ));
+  assert.ok(github.actions.some((action) =>
+    action.type === 'label' && action.labels.includes('needs-human')
+  ));
+  assert.equal(
+    github.actions.some((action) => action.type === 'workflow-dispatch'),
+    false,
+  );
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  assert.match(updateAction.body, /Independent Authority Challenge Confirmed/);
+  assert.match(updateAction.body, /"disposition":"needs-human"/);
+  assert.match(updateAction.body, /"owner":"human"/);
+  assert.match(updateAction.body, /"confirmation":"scheduled-current-state-recheck-reproduced-auth-boundary"/);
+  assert.match(updateAction.body, /"human_action":"Verify credentials, token scopes, and permissions for the repository\."/);
+});
+
+test('a successful scheduled authority recheck clears the automation challenge', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-cleared',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'agent-run-failed|failure|auth|agent|1',
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 90, body: existingState, html_url: 'https://example.com/90' }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-cleared',
+      forceRetry: true,
+    },
+  });
+
+  assert.ok(github.actions.some((action) =>
+    action.type === 'remove-label' && action.name === 'agent:needs-attention'
+  ));
+  assert.equal(
+    github.actions.some((action) =>
+      action.type === 'label' && action.labels.includes('needs-human')
+    ),
+    false,
+  );
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  const state = parseStateComment(updateAction.body);
+  assert.equal(state.attention, undefined);
+});
+
 test('updateKeepaliveLoopSummary routes resource failures to automation retry', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-resource',
@@ -2309,6 +2423,7 @@ test('updateKeepaliveLoopSummary routes resource failures to automation retry', 
       maxIterations: 5,
       failureThreshold: 3,
       trace: 'trace-attention-resource',
+      retry_workflow_id: 'agents-81-gate-followups.yml',
       agent_exit_code: '1',
       agent_summary: 'Repository not found for this request.',
     },
@@ -2319,7 +2434,7 @@ test('updateKeepaliveLoopSummary routes resource failures to automation retry', 
   );
   assert.ok(retryLabel);
   const retryDispatch = github.actions.find((action) => action.type === 'workflow-dispatch');
-  assert.equal(retryDispatch.workflow_id, 'agents-keepalive-loop.yml');
+  assert.equal(retryDispatch.workflow_id, 'agents-81-gate-followups.yml');
   assert.deepEqual(retryDispatch.inputs, { pr_number: '655', force_retry: 'true' });
   assert.equal(
     github.actions.some((action) => action.type === 'label' && action.labels.includes('needs-human')),
