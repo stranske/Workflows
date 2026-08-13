@@ -72,10 +72,16 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
     .replace(/\s+/g, ' ')
     .replace(/\b(?:ghp_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(
-      /\b([A-Za-z][A-Za-z0-9_.-]*)\s*[:=]\s*(\S+)/g,
-      (match, name, rawValue) => {
-        const sensitiveName = /(?:^|[_-])(?:api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key)$/i;
+      /\b([A-Za-z][A-Za-z0-9_.-]*)["']?\s*[:=]\s*["']?([^\s"',}\]]+)/g,
+      (match, name, rawValue, offset, source) => {
+        const sensitiveName = /(?:^|[_-])(?:secret|password|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key)$/i;
         if (!sensitiveName.test(name)) return match;
+        const prefix = source.slice(Math.max(0, offset - 40), offset);
+        const explicitMissingCredentialName =
+          /^(?:token|secret|password)$/i.test(name) &&
+          /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
+          /^[A-Z][A-Z0-9_]{2,}$/.test(rawValue);
+        if (explicitMissingCredentialName) return match;
         const trailing = rawValue.match(/[.,;:]+$/)?.[0] || '';
         return `${name}=[redacted]${trailing}`;
       },
