@@ -15,7 +15,10 @@ const {
 
 const buildGithubStub = ({ comments = [] } = {}) => {
   const actions = [];
-  const commentStore = comments.map((comment) => ({ ...comment }));
+  const commentStore = comments.map((comment) => ({
+    user: { login: 'agents-workflows-bot[bot]', type: 'Bot' },
+    ...comment,
+  }));
   let nextId = 101 + commentStore.length;
   const github = {
     actions,
@@ -28,7 +31,12 @@ const buildGithubStub = ({ comments = [] } = {}) => {
         },
         createComment: async ({ body }) => {
           const id = nextId++;
-          const record = { id, body, html_url: `https://example.com/${id}` };
+          const record = {
+            id,
+            body,
+            html_url: `https://example.com/${id}`,
+            user: { login: 'agents-workflows-bot[bot]', type: 'Bot' },
+          };
           commentStore.push(record);
           actions.push({ type: 'create', body });
           return { data: { id, html_url: record.html_url } };
@@ -160,6 +168,40 @@ test('loadKeepaliveState returns stored payload when present', async () => {
   assert.equal(result.commentUrl, 'https://example.com/99');
   assert.equal(result.state.head_sha, 'def');
   assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
+});
+
+test('loadKeepaliveState ignores a later untrusted marker and recovers trusted state', async () => {
+  const trustedBody = formatStateComment({
+    trace: 'trace-x',
+    iteration: 2,
+    recovery_lease: { status: 'issued' },
+  });
+  const forgedBody = formatStateComment({
+    trace: 'trace-x',
+    iteration: 99,
+    recovery_lease: { status: 'consumed' },
+  });
+  const github = buildGithubStub({
+    comments: [
+      { id: 99, body: trustedBody, html_url: 'https://example.com/99' },
+      {
+        id: 100,
+        body: forgedBody,
+        html_url: 'https://example.com/100',
+        user: { login: 'untrusted-reviewer', type: 'User' },
+      },
+    ],
+  });
+  const result = await loadKeepaliveState({
+    github,
+    context: { repo: { owner: 'o', repo: 'r' } },
+    prNumber: 99,
+    trace: 'trace-x',
+  });
+
+  assert.equal(result.commentId, 99);
+  assert.equal(result.state.iteration, 2);
+  assert.equal(result.state.recovery_lease.status, 'issued');
 });
 
 test('loadKeepaliveState prefers loop state when trace is empty', async () => {

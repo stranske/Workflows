@@ -281,8 +281,10 @@ in `config/orchestrator_runtime/capabilities.json`; duplicate replays return
 Maint 68 separates a sync plan into `preview`, `canary`, and `promote` phases.
 An ordinary scheduled or manual no-filter run defaults to `canary` (release
 publication deliberately does not start a second sync cycle):
-it can open sync PRs only for the 2-3 representative repositories declared in
-`config/consumer_sync_canaries.json`. The selection artifact records the exact
+it can open sync PRs only for the three representative repositories declared in
+`config/consumer_sync_canaries.json`. Those canaries span runtime/build shapes
+and the fleet's automated-review profiles; at least one must exercise the Codex
+review profile before promotion. The selection artifact records the exact
 compiled `plan_id`, desired hash, and prospective affected paths for every
 registered repository before any consumer write.
 

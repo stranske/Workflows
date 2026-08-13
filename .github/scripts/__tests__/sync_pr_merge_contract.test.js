@@ -595,6 +595,53 @@ test('reviewer evidence counts a completed negative verdict with substantive out
   });
 });
 
+test('reviewer evidence preserves a response across a later capacity signal', async () => {
+  const evidence = await collectReviewerEvidence({
+    owner: 'stranske',
+    repo: 'Ready',
+    number: 99,
+    reviewStartedAt: '2026-08-11T13:07:00Z',
+    checkRuns: [{
+      name: 'CodeRabbit',
+      status: 'completed',
+      conclusion: 'success',
+      completed_at: '2026-08-11T13:09:00Z',
+      summary: 'Review skipped because the reviewer quota is exhausted.',
+    }],
+    reviewerProfiles: [{
+      id: 'coderabbit',
+      logins: ['coderabbitai'],
+      check_names: ['CodeRabbit'],
+    }],
+    reviewerCapacityPatterns: ['quota'],
+    reviewerNonResponsePatterns: ['review skipped'],
+    withRetry: async (operation) => operation({
+      graphql: async () => ({
+        repository: {
+          pullRequest: {
+            comments: {
+              nodes: [{
+                body: 'Reviewed the delivery and found no actionable problems.',
+                createdAt: '2026-08-11T13:08:00Z',
+                author: { login: 'coderabbitai' },
+              }],
+              pageInfo: { hasNextPage: false },
+            },
+            reviews: { nodes: [], pageInfo: { hasNextPage: false } },
+            reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
+          },
+        },
+      }),
+    }),
+    core: { warning: () => {} },
+  });
+  assert.deepEqual(evidence, {
+    responded: ['coderabbit'],
+    unavailable: [],
+    truncated: false,
+  });
+});
+
 test('review non-response policy does not match generic feature availability prose', () => {
   const policy = JSON.parse(fs.readFileSync(
     path.join(__dirname, '../../../config/consumer_sync_review_policy.json'),

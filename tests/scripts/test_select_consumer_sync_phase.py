@@ -159,4 +159,14 @@ def test_checked_in_canary_config_covers_distinct_consumer_shapes() -> None:
     config = json.loads((ROOT / "config" / "consumer_sync_canaries.json").read_text())
     covered = {tag for canary in config["canaries"] for tag in canary["capabilities"]}
 
-    assert {"standard", "custom-gate", "lock-heavy"} <= covered
+    assert {
+        "standard",
+        "custom-gate",
+        "lock-heavy",
+        "python-consumer",
+        "codex-review",
+        "legacy-precommit",
+    } <= covered
+    assert any(
+        "codex-review" in canary["capabilities"] for canary in config["canaries"]
+    ), "At least one canary must exercise the fleet's Codex review profile before promotion"

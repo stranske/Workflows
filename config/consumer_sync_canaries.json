@@ -11,8 +11,8 @@
       "capabilities": ["lock-heavy", "node-tooling"]
     },
     {
-      "repo": "stranske/Manager-Database",
-      "capabilities": ["standard", "python-consumer"]
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "capabilities": ["python-consumer", "codex-review", "legacy-precommit"]
     }
   ]
 }

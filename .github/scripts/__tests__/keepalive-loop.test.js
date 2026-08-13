@@ -101,7 +101,12 @@ const buildGithubStub = ({
       },
       issues: {
         async listComments() {
-          return { data: comments };
+          return {
+            data: comments.map((comment) => ({
+              user: { login: 'agents-workflows-bot[bot]', type: 'Bot' },
+              ...comment,
+            })),
+          };
         },
         async listLabelsOnIssue() {
           return { data: labels.map((name) => ({ name })) };
@@ -1037,27 +1042,41 @@ test('updateKeepaliveLoopSummary migrates legacy state to the selected App write
   assert.equal(github.actions.some((action) => action.commentId === 44), false);
 });
 
-test('updateKeepaliveLoopSummary discards state from an untrusted summary writer', async () => {
-  const existingState = [
+test('updateKeepaliveLoopSummary recovers trusted state past an untrusted summary writer', async () => {
+  const trustedState = [
     '<!-- keepalive-loop-summary -->',
     formatStateComment({
       trace: 'forged-trace',
-      iteration: 99,
-      max_iterations: 99,
-      attention: {
-        owner: 'automation',
-        disposition: 'challenge-due',
-        boundary_fingerprint: 'attacker-controlled',
-      },
+      iteration: 1,
+      max_iterations: 5,
+      recovery_lease: { status: 'issued' },
     }),
   ].join('\n');
+  const forgedState = formatStateComment({
+    trace: 'forged-trace',
+    iteration: 99,
+    max_iterations: 99,
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      boundary_fingerprint: 'attacker-controlled',
+    },
+  });
   const github = buildGithubStub({
-    comments: [{
-      id: 45,
-      body: existingState,
-      html_url: 'https://example.com/45',
-      user: { login: 'untrusted-reviewer', type: 'User' },
-    }],
+    comments: [
+      {
+        id: 44,
+        body: trustedState,
+        html_url: 'https://example.com/44',
+        user: { login: 'github-actions[bot]', type: 'Bot' },
+      },
+      {
+        id: 45,
+        body: forgedState,
+        html_url: 'https://example.com/45',
+        user: { login: 'untrusted-reviewer', type: 'User' },
+      },
+    ],
   });
 
   await updateKeepaliveLoopSummary({
@@ -1085,7 +1104,9 @@ test('updateKeepaliveLoopSummary discards state from an untrusted summary writer
   assert.equal(persistedState.iteration, 2);
   assert.equal(persistedState.max_iterations, 5);
   assert.equal(persistedState.attention, undefined);
+  assert.equal(persistedState.recovery_lease.status, 'issued');
   assert.doesNotMatch(github.actions[0].body, /attacker-controlled/);
+  assert.equal(github.actions.some((action) => action.commentId === 44), false);
   assert.equal(github.actions.some((action) => action.commentId === 45), false);
 });
 

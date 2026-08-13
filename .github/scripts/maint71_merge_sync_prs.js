@@ -138,8 +138,8 @@ async function collectReviewerEvidence({
     const current = signals.get(reviewer);
     if (
       !current
-      || timestamp > current.at
-      || (timestamp === current.at && kind === 'unavailable')
+      || kind === 'responded'
+      || (current.kind !== 'responded' && timestamp > current.at)
     ) {
       signals.set(reviewer, { kind, at: timestamp });
     }

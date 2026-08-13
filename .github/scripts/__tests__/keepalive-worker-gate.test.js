@@ -38,7 +38,7 @@ function buildStateComment({ commentId, headSha, trace }) {
     body,
     created_at: '2024-01-01T00:00:00Z',
     html_url: `https://example.test/state/${commentId - 1}`,
-    user: { login: 'stranske-automation-bot', type: 'Bot' },
+    user: { login: 'agents-workflows-bot[bot]', type: 'Bot' },
   };
 }
 
