@@ -2827,6 +2827,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   const headerSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied Authorization: Basic dXNlcjpzdXBlcnNlY3JldA== Proxy-Authorization=Bearer proxy-secret Cookie: session=secret-cookie',
   });
+  const digestHeaderSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied Authorization: Digest username="Mufasa", realm="example", nonce="abc", response="deadbeef" after retry',
+  });
+  const multiCookieSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied Cookie: session=alpha; csrf=beta after retry',
+  });
   const githubAppSensitive = buildAuthorityChallengeEvidence({
     // Build the scanner-shaped fixture at runtime so the repository's own
     // complete-diff secret scanner does not mistake test data for a live token.
@@ -2921,6 +2927,13 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.doesNotMatch(headerSensitive.detail, /dXNlc|proxy-secret|secret-cookie/);
   assert.match(headerSensitive.detail, /Authorization: \[redacted-authorization\]/);
   assert.match(headerSensitive.detail, /Proxy-Authorization: \[redacted-authorization\]/);
+  assert.equal(
+    digestHeaderSensitive.detail,
+    'Denied Authorization: [redacted-authorization] after retry',
+  );
+  assert.doesNotMatch(digestHeaderSensitive.humanAction, /Mufasa|example|nonce|deadbeef/);
+  assert.equal(multiCookieSensitive.detail, 'Denied Cookie=[redacted] after retry');
+  assert.doesNotMatch(multiCookieSensitive.humanAction, /alpha|beta/);
   assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);
   assert.match(githubAppSensitive.detail, /\[redacted-token\]/);
   assert.equal(

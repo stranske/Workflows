@@ -80,11 +80,15 @@ function buildAuthorityChallengeEvidence({
     .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '[redacted-api-key]')
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-access-key]')
     .replace(
-      /\b((?:proxy-)?authorization)\s*[:=]\s*(?:basic|bearer|digest|negotiate|token)\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
+      /\b((?:proxy-)?authorization)\s*[:=]\s*digest\s+[A-Za-z][A-Za-z0-9_-]*\s*=\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^,\s]+)(?:\s*,\s*[A-Za-z][A-Za-z0-9_-]*\s*=\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^,\s]+))*/gi,
       '$1: [redacted-authorization]',
     )
     .replace(
-      /\b(set-cookie|cookie)\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
+      /\b((?:proxy-)?authorization)\s*[:=]\s*(?:basic|bearer|negotiate|token)\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
+      '$1: [redacted-authorization]',
+    )
+    .replace(
+      /\b(set-cookie|cookie)\s*[:=]\s*[^;,\s=]+\s*=\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^;,\s]+)(?:\s*;\s*[^;,\s=]+\s*=\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^;,\s]+))*/gi,
       '$1=[redacted]',
     )
     .replace(
