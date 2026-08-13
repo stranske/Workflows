@@ -2815,6 +2815,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const undelimitedSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Forbidden request returned token CORRECT_HORSE.',
   });
+  const genericCredentialSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Forbidden credential=correct-horse-battery-staple credentials another-secret-value.',
+  });
   const oauthSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing OPENAI_API_KEY=sk-proj-value client_secret=oauth-value access_token=access-value.',
   });
@@ -2917,6 +2920,14 @@ test('authority fingerprints include redacted details beyond the display limit',
     undelimitedSensitive.detail,
     'Forbidden request returned token=[redacted].',
   );
+  assert.equal(
+    genericCredentialSensitive.detail,
+    'Forbidden credential=[redacted] credentials=[redacted].',
+  );
+  assert.doesNotMatch(
+    genericCredentialSensitive.humanAction,
+    /correct-horse|another-secret/,
+  );
   assert.doesNotMatch(oauthSensitive.detail, /sk-proj-value|oauth-value|access-value/);
   assert.match(oauthSensitive.detail, /OPENAI_API_KEY=\[redacted\]/);
   assert.match(oauthSensitive.detail, /client_secret=\[redacted\]/);
@@ -2957,8 +2968,13 @@ test('authority fingerprints include redacted details beyond the display limit',
   const missingClaudeCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CLAUDE_CODE_OAUTH_TOKEN for runner launch.',
   });
+  const missingNamedCredential = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing credential ACTIONS_BOT_PAT for runner launch.',
+  });
   assert.match(missingCodexCredential.detail, /CODEX_AUTH_JSON/);
   assert.match(missingClaudeCredential.detail, /CLAUDE_CODE_OAUTH_TOKEN/);
+  assert.match(missingNamedCredential.detail, /ACTIONS_BOT_PAT/);
+  assert.equal(missingNamedCredential.actionable, true);
   assert.notEqual(missingCodexCredential.fingerprint, missingClaudeCredential.fingerprint);
   const unauthorized = buildAuthorityChallengeEvidence({
     agentSummary: 'GitHub API returned HTTP 401 for repository dispatch run 123456789.',

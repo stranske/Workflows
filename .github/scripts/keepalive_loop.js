@@ -92,7 +92,7 @@ function buildAuthorityChallengeEvidence({
       '$1=[redacted]',
     )
     .replace(
-      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:secret|password|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
+      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
       (match, name, rawValue, offset, source) => {
         const quote = rawValue.at(0);
         const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
@@ -112,7 +112,7 @@ function buildAuthorityChallengeEvidence({
       'Bearer [redacted-token]',
     )
     .replace(
-      /\b(token|secret|password)(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
+      /\b(token|secret|password|credentials?)(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
       (match, kind, separator, rawValue, offset, source) => {
         const quote = rawValue.at(0);
         const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
