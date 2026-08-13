@@ -72,6 +72,8 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
     .replace(/\s+/g, ' ')
     .replace(/\b(https?:\/\/)[^/@\s:]+:[^@\s]+@/gi, '$1[redacted-userinfo]@')
     .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
+    .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '[redacted-api-key]')
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-access-key]')
     .replace(
       /\b((?:proxy-)?authorization)\s*[:=]\s*(?:basic|bearer|digest|negotiate|token)\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
       '$1: [redacted-authorization]',

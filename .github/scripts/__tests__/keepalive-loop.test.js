@@ -2771,6 +2771,11 @@ test('authority fingerprints include redacted details beyond the display limit',
   const urlSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Permission denied for https://alice:correct-horse@example.com/private',
   });
+  const bareProviderSensitive = buildAuthorityChallengeEvidence({
+    agentSummary:
+      `Unauthorized provider key ${'sk-'}abcdefghijklmnopqrstuvwxyz123456 ` +
+      `and access key ${'AKIA'}ABCDEFGHIJKLMNOP`,
+  });
 
   assert.ok(first.detail.length <= 300);
   assert.match(first.detail, /contents:write/);
@@ -2811,6 +2816,11 @@ test('authority fingerprints include redacted details beyond the display limit',
     'Permission denied for https://[redacted-userinfo]@example.com/private',
   );
   assert.doesNotMatch(urlSensitive.humanAction, /alice|correct-horse/);
+  assert.equal(
+    bareProviderSensitive.detail,
+    'Unauthorized provider key [redacted-api-key] and access key [redacted-access-key]',
+  );
+  assert.doesNotMatch(bareProviderSensitive.humanAction, /abcdefghijklmnopqrstuvwxyz|ABCDEFGHIJKLMNOP/);
   const missingCodexCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
   });
