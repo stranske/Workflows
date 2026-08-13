@@ -36,8 +36,9 @@ interchangeable.** Pick by scope first. Full detail:
 **Other holds (not "pause" labels but stop work):**
 
 - `agents:max-runs:0` — explicit per-PR hold; prevents any keepalive dispatch.
-- `needs-human` — durable human blocker on an issue/PR; clear only after the
-  blocker is resolved.
+- `needs-human` — independently confirmed authority blocker on an issue/PR.
+  Automation failure, ambiguity, exhausted retries, and design choices are not
+  sufficient; the record must name the exact human action and evidence.
 - `agents:auto-pilot-pause` — pauses auto-pilot dispatch on an issue.
 
 **Resume checklist** (from the runbook):
@@ -77,9 +78,11 @@ complete. It runs in two complementary ways:
 To force one immediate re-dispatch on a healthy PR: add `agent:retry` (keepalive
 consumes and removes it, and co-removes any stale `agent:rate-limited`).
 
-After repeated failures (default 3), keepalive pauses and adds `needs-human`.
-To reset: investigate, fix, remove `needs-human`; the next Gate pass restarts the
-loop. (Or edit the keepalive summary comment and set `failure: {}`.)
+After repeated failures (default 3), keepalive pauses the current strategy and
+adds `agent:retry`; ownership remains with automation. A possible access or
+authority boundary adds `agent:needs-attention` and an immediately due
+independent challenge. Only that review may add `needs-human`. Confirmed human
+holds are challenged again after 24 hours so stale assumptions cannot idle a PR.
 
 ---
 

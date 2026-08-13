@@ -62,7 +62,8 @@ Before the next agent run:
 
 - Re-validate the activation guardrails.
 - Confirm the concurrent run cap is still available (see Section 3).
-- Check failure tracking—pause after repeated failures.
+- Check failure tracking—after repeated failures, pause the current strategy and
+  route automation recovery; do not infer a human requirement.
 
 If any requirement fails, keepalive stays silent—no PR comments. Operators may record the skip reason in run summaries only.
 
@@ -74,7 +75,7 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 - **Label override:** Respect `agents:max-parallel:<K>` when present (integer 1–5).
 - **Enforcement:** Dispatch only when the count of in-progress runs is `< K`. If at cap, exit quietly after updating the run summary.
 - **Round budget:** The loop also enforces `max_iterations` as a hard per-PR round budget. The default is 12 rounds unless overridden by keepalive config.
-- **Budget exhaustion:** When the current iteration reaches `max_iterations`, keepalive stops dispatching and adds `needs-human` with reason `round-budget-exhausted`. Raise the configured budget only after reviewing the PR summary and deciding that more automated rounds are warranted.
+- **Budget exhaustion:** When the current iteration reaches `max_iterations`, keepalive stops that dispatch strategy and adds `agent:retry` with reason `round-budget-exhausted`. The retry owner must choose a concrete recovery such as decomposition, alternate-agent routing, CI repair, or a bounded budget change.
 
 ---
 
@@ -82,14 +83,15 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 
 - Removing the `agent:*` label halts new dispatches until a label is re-applied and all guardrails pass again.
 - Respect the `agents:paused` label, which blocks *all* keepalive activity.
-- After repeated failures (default: 3), the loop pauses and adds `needs-human` label.
+- After repeated failures (default: 3), the loop pauses the current strategy and adds `agent:retry`.
+- A possible access or authority boundary adds `agent:needs-attention` with an immediately due independent challenge. `needs-human` is permitted only when that review proves an external authority boundary and records the exact human action. Confirmed holds are challenged again after 24 hours.
 - Agent delegation treats two consecutive zero-progress rounds as stalled. Commit churn is not progress unless it advances checklist state or reaches a green Gate.
 
 **To resume after failure:**
 1. Investigate the failure reason in the keepalive summary comment
-2. Fix any issues in the code or prompt
-3. Remove the `needs-human` label
-4. The next Gate pass will restart the loop
+2. Route a concrete automation recovery and record its worker
+3. Fix the code, prompt, CI, routing, or task decomposition
+4. Add or re-apply `agent:retry`; the next Gate pass will restart the loop
 
 Or manually edit the keepalive summary comment to reset `failure: {}` in the state marker.
 
@@ -176,7 +178,7 @@ Before the next round begins:
 
 1. Verify that the PR head SHA changed after the agent reported "done".
 2. If unchanged, the agent may have failed to push. The loop will retry on the next Gate pass.
-3. After repeated failures (default: 3), pause and add `needs-human` label with instructions for recovery.
+3. After repeated failures (default: 3), pause the current strategy and add `agent:retry` with a concrete automation-owned recovery action.
 
 ---
 
@@ -191,7 +193,7 @@ Before the next round begins:
 ## 11. Restart & Success Conditions
 
 - Removing and re-applying the `agent:*` label restarts the workflow once the activation guardrails pass again.
-- To reset failure count: edit the keepalive summary comment and set `failure: {}` in the state marker, or remove `needs-human` label.
+- To reset failure count: edit the keepalive summary comment and set `failure: {}` in the state marker, then add `agent:retry` when the concrete recovery is ready.
 - Keepalive stands down when **all acceptance criteria are checked complete**. At that point the orchestrator stops issuing further rounds.
 
 ---

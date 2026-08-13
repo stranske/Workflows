@@ -55,7 +55,7 @@ Auto-pilot pipeline:
 
 1. **PR body is the contract**: Auto-pilot writes structured tasks into the PR body. Keepalive reads these tasks via the task appendix. If the PR body format changes, both must be updated together.
 
-2. **Labels are handoff signals**: Auto-pilot applies the selected registry-backed `agent:<name>` label (for example `agent:codex` or `agent:claude`) and keepalive activates. Keepalive adds `needs-human` after 3 failures, and auto-pilot stops dispatching agent iterations.
+2. **Labels are handoff signals**: Auto-pilot applies the selected registry-backed `agent:<name>` label (for example `agent:codex` or `agent:claude`) and keepalive activates. After 3 failures, keepalive routes recovery with `agent:retry`; it does not infer that a human is required. A possible authority boundary enters an independent challenge before `needs-human` can be applied.
 
 3. **Gate is the trigger**: Keepalive is event-driven via Gate `workflow_run` completion. Auto-pilot's `monitor-pr` step watches for keepalive progress. Neither polls — both react to events.
 
@@ -63,11 +63,11 @@ Auto-pilot pipeline:
 
 5. **Repo playbook context**: The Orchestrator registry is the single editable owner for curated per-repo definition-of-done and gotcha rules. `repo_knowledge.py --export-agents-md <owner/repo> --repo-path <checkout> --apply` may write a small generated section in a repo's `AGENTS.md` between `<!-- BEGIN orch-playbook -->` and `<!-- END orch-playbook -->`; humans should edit the registry, not the generated block. Keepalive owns freshness validation: Gate runs `scripts/check_agents_md_freshness.py` in warning-only mode so stale cited paths or commands surface without wedging unrelated PRs while the registry is seeded.
 
-6. **Stall rotation before `needs-human`**: When an auto-pilot stall cap is reached, the pipeline now tries a *different* eligible agent before escalating to a human, instead of terminating on the first agent that stalls. It is registry-driven and bounded — the stalled agent is recorded with an `agents:tried-<agent>` label, so each rotation shrinks the candidate set and rotation stops (falling through to the original `needs-human` escalation) once every eligible agent has been tried. Two paths:
+6. **Stall rotation and challenge before `needs-human`**: When an auto-pilot stall cap is reached, the pipeline tries a *different* eligible agent before requesting an independent authority challenge. It is registry-driven and bounded — the stalled agent is recorded with an `agents:tried-<agent>` label, so each rotation shrinks the candidate set. Exhausting eligible agents proves only that the current strategies stalled, not that a human is required. Two paths:
    - **Belt lane (create-PR: no branch / no commits)** — no PR/keepalive history exists yet, so the pure decision helper [`agent_stall_rotation.js`](../../.github/scripts/agent_stall_rotation.js) (`decideStallRotation`, capability `belt`) picks the next untried belt-capable agent, swaps the `agent:<name>` label, and re-dispatches the belt via `agents-71-codex-belt-dispatcher.yml` with the new `agent_key`.
    - **Keepalive lane (monitor-PR: a PR exists)** — reuses the existing registry-driven delegation policy ([`agent_delegation_policy.js`](../../.github/scripts/agent_delegation_policy.js)) rather than rebuilding rotation: auto-pilot adds `agent:auto` to the issue and PR so `decideNextAgent` rotates across the fuller keepalive-capable set (codex/claude/cursor/gemini) on its next round. If `agent:auto` is already present, delegation has had its chance and auto-pilot escalates.
 
-   Both paths are **fail-safe**: `needs-human` is withheld only if a rotation is successfully actioned; any error, or "no untried eligible agent left", falls through to the pre-existing escalation, so the worst case is identical to prior behavior. Capability gating means the set of rotation targets grows automatically as the registry marks more agents `belt`/`pr_keepalive` capable — no workflow edit needed.
+   Both paths are **fail-safe**: any error or "no untried eligible agent left" routes to automation retry or an independent challenge with a concrete owner and next action. It does not silently become a human request. Capability gating means the set of rotation targets grows automatically as the registry marks more agents `belt`/`pr_keepalive` capable — no workflow edit needed.
 
 ## Key Principles
 
