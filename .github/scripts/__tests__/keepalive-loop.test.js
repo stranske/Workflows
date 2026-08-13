@@ -2761,7 +2761,9 @@ test('authority fingerprints include redacted details beyond the display limit',
     agentSummary: 'Denied Authorization: Basic dXNlcjpzdXBlcnNlY3JldA== Proxy-Authorization=Bearer proxy-secret Cookie: session=secret-cookie',
   });
   const githubAppSensitive = buildAuthorityChallengeEvidence({
-    agentSummary: 'Authentication failed for ghs_abcdefghijklmnopqrstuvwxyz123456',
+    // Build the scanner-shaped fixture at runtime so the repository's own
+    // complete-diff secret scanner does not mistake test data for a live token.
+    agentSummary: `Authentication failed for ${'ghs_'}abcdefghijklmnopqrstuvwxyz123456`,
   });
 
   assert.ok(first.detail.length <= 300);
