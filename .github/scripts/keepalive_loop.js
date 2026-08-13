@@ -72,29 +72,41 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
     .replace(/\s+/g, ' ')
     .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(
-      /\b((?:proxy-)?authorization)\s*[:=]\s*(?:basic|bearer|digest|negotiate|token)\s+\S+/gi,
+      /\b((?:proxy-)?authorization)\s*[:=]\s*(?:basic|bearer|digest|negotiate|token)\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
       '$1: [redacted-authorization]',
     )
-    .replace(/\b(set-cookie|cookie)\s*[:=]\s*\S+/gi, '$1=[redacted]')
     .replace(
-      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:secret|password|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*["']?([^\s"',}\]]+)/gi,
+      /\b(set-cookie|cookie)\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
+      '$1=[redacted]',
+    )
+    .replace(
+      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:secret|password|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
       (match, name, rawValue, offset, source) => {
+        const quote = rawValue.at(0);
+        const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
+        const value = quoted ? rawValue.slice(1, -1) : rawValue;
         const prefix = source.slice(Math.max(0, offset - 40), offset);
         const explicitMissingCredentialName =
           /^(?:token|secret|password)$/i.test(name) &&
           /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
-          /^[A-Z][A-Z0-9_]{2,}$/.test(rawValue);
+          /^[A-Z][A-Z0-9_]{2,}$/.test(value);
         if (explicitMissingCredentialName) return match;
-        const trailing = rawValue.match(/[.,;:]+$/)?.[0] || '';
+        const trailing = quoted ? '' : value.match(/[.,;:]+$/)?.[0] || '';
         return `${name}=[redacted]${trailing}`;
       },
     )
-    .replace(/\bbearer\s+\S+/gi, 'Bearer [redacted-token]')
     .replace(
-      /\b(token|secret|password)(\s*(?:[:=]\s*|\s+))(\S+)/gi,
+      /\bbearer\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
+      'Bearer [redacted-token]',
+    )
+    .replace(
+      /\b(token|secret|password)(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
       (match, kind, separator, rawValue, offset, source) => {
-        const trailing = rawValue.match(/[.,;:]+$/)?.[0] || '';
-        const value = trailing ? rawValue.slice(0, -trailing.length) : rawValue;
+        const quote = rawValue.at(0);
+        const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
+        const unquotedValue = quoted ? rawValue.slice(1, -1) : rawValue;
+        const trailing = quoted ? '' : unquotedValue.match(/[.,;:]+$/)?.[0] || '';
+        const value = trailing ? unquotedValue.slice(0, -trailing.length) : unquotedValue;
         const prefix = source.slice(Math.max(0, offset - 40), offset);
         const namedCredential =
           /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
@@ -121,6 +133,14 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
   }
   const normalized = redacted
     .toLowerCase()
+    .replace(
+      /\b\d{4}-\d{2}-\d{2}[t ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:z|[+-]\d{2}:?\d{2})?\b/g,
+      '<volatile-timestamp>',
+    )
+    .replace(
+      /\b((?:timestamp|time|started|finished|created|updated)(?:[_ -]?at)?)\s*[:#=]?\s*\d{10,13}\b/g,
+      '$1 <volatile-timestamp>',
+    )
     .replace(
       /\b((?:run|job|request|trace|correlation)(?:\s+id)?)\s*[:#=]?\s*(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[0-9a-f]{7,64}|\d+)\b/g,
       '$1 <volatile-id>',

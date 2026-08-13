@@ -2765,6 +2765,9 @@ test('authority fingerprints include redacted details beyond the display limit',
     // complete-diff secret scanner does not mistake test data for a live token.
     agentSummary: `Authentication failed for ${'ghs_'}abcdefghijklmnopqrstuvwxyz123456`,
   });
+  const quotedSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Forbidden password="correct horse battery staple" token=\'another secret phrase\'.',
+  });
 
   assert.ok(first.detail.length <= 300);
   assert.match(first.detail, /contents:write/);
@@ -2795,6 +2798,11 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.match(headerSensitive.detail, /Proxy-Authorization: \[redacted-authorization\]/);
   assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);
   assert.match(githubAppSensitive.detail, /\[redacted-token\]/);
+  assert.equal(
+    quotedSensitive.detail,
+    'Forbidden password=[redacted] token=[redacted].',
+  );
+  assert.doesNotMatch(quotedSensitive.humanAction, /correct horse|another secret/);
   const missingCodexCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
   });
@@ -2815,6 +2823,13 @@ test('authority fingerprints include redacted details beyond the display limit',
   });
   assert.notEqual(unauthorized.fingerprint, forbidden.fingerprint);
   assert.equal(unauthorized.fingerprint, unauthorizedAgain.fingerprint);
+  const timestampedOne = buildAuthorityChallengeEvidence({
+    agentSummary: '2026-08-13T01:00:00Z missing credential at timestamp=1786410000',
+  });
+  const timestampedTwo = buildAuthorityChallengeEvidence({
+    agentSummary: '2026-08-13T02:00:00Z missing credential at timestamp=1786413600',
+  });
+  assert.equal(timestampedOne.fingerprint, timestampedTwo.fingerprint);
   const permissionCodeOne = buildAuthorityChallengeEvidence({
     agentSummary: 'Repository permission policy code 123456 denied dispatch.',
   });
