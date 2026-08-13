@@ -11,7 +11,7 @@ from scripts.orchestrator_runtime.capability_lifecycle import (
     EvidenceLedger,
     ingest_completion_evidence,
 )
-from scripts.orchestrator_runtime.evidence_schema import CompletionEvidenceError, reject
+from scripts.orchestrator_runtime.evidence_schema import CompletionEvidenceError
 from scripts.orchestrator_runtime.runner_effect_bridge import completion_payload_from_shadow_handoff
 
 DEFAULT_REGISTRY = Path("config/orchestrator_runtime/capabilities.json")

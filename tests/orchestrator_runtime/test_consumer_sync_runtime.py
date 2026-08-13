@@ -53,9 +53,7 @@ def test_report_flags_rejected_or_non_shadow_evidence() -> None:
 
 
 def test_report_flags_adapter_rejection_without_mutating_the_ledger() -> None:
-    report = build_report(
-        _capabilities(), [], rejected_capability_ids=frozenset({CAPABILITY})
-    )
+    report = build_report(_capabilities(), [], rejected_capability_ids=frozenset({CAPABILITY}))
 
     candidate = report["candidates"][0]
     assert candidate["state"] == "failed-evidence-ingestion"

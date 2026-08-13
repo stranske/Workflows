@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 from scripts.build_consumer_sync_shadow_handoff import build_handoff
+from scripts.orchestrator_runtime import completion_event_adapter
 from scripts.orchestrator_runtime.capabilities import CapabilityRegistry
 from scripts.orchestrator_runtime.capability_lifecycle import (
     EvidenceLedger,
     ingest_completion_evidence,
 )
-from scripts.orchestrator_runtime import completion_event_adapter
 from scripts.orchestrator_runtime.completion_event_adapter import process_shadow_handoff
 from scripts.orchestrator_runtime.evidence_schema import SCHEMA
 from scripts.orchestrator_runtime.runner_effect_bridge import (
@@ -152,18 +152,21 @@ def test_cli_preserves_rejection_diagnostic_for_runtime_reporting(tmp_path: Path
     handoff_path.write_text(json.dumps(handoff), encoding="utf-8")
     registry_path.write_text(json.dumps(registry("shadow")), encoding="utf-8")
 
-    assert completion_event_adapter.main(
-        [
-            "--handoff",
-            str(handoff_path),
-            "--output",
-            str(output_path),
-            "--registry",
-            str(registry_path),
-            "--state-dir",
-            str(tmp_path / "state"),
-        ]
-    ) == 1
+    assert (
+        completion_event_adapter.main(
+            [
+                "--handoff",
+                str(handoff_path),
+                "--output",
+                str(output_path),
+                "--registry",
+                str(registry_path),
+                "--state-dir",
+                str(tmp_path / "state"),
+            ]
+        )
+        == 1
+    )
 
     result = json.loads(output_path.read_text(encoding="utf-8"))
     assert result["status"] == "rejected"
