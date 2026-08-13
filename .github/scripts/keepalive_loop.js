@@ -158,7 +158,11 @@ function buildAuthorityChallengeEvidence({
     );
   if (hasAuthorizationHeader || unterminatedPrivateKeyRedacted) {
     const credentialTarget = routedAuthMatch?.[1] || missingCredentialMatch?.[1];
-    if (credentialTarget) {
+    // Never reconstruct credential-looking text from an Authorization value:
+    // the flattened summary provides no trustworthy header boundary. A
+    // truncated private-key block can still safely retain an uppercase
+    // credential identifier because its BEGIN marker is the known boundary.
+    if (unterminatedPrivateKeyRedacted && !hasAuthorizationHeader && credentialTarget) {
       redacted += ` Required credential: ${credentialTarget}`;
     }
     if (permissionMatch?.[1]) {

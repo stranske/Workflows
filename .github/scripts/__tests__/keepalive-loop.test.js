@@ -2851,6 +2851,11 @@ test('authority fingerprints include redacted details beyond the display limit',
       `Denied Authorization: ApiKey ${'runtime-' + 'secret'}; ` +
       'Missing token: CODEX_AUTH_JSON',
   });
+  const headerWithCredentialShapedSecret = buildAuthorityChallengeEvidence({
+    agentSummary:
+      'Denied Authorization: Custom Missing token: CORRECT_HORSE; ' +
+      'requires contents:write permission',
+  });
   const pemBegin = ['-----BEGIN', 'PRIVATE KEY-----'].join(' ');
   const pemEnd = ['-----END', 'PRIVATE KEY-----'].join(' ');
   const openSshPemBegin = ['-----BEGIN', 'OPENSSH PRIVATE KEY-----'].join(' ');
@@ -2991,11 +2996,20 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.doesNotMatch(headerWithPermissionRemedy.detail, /runtime-secret|Bearer/);
   assert.equal(
     headerWithCredentialRemedy.detail,
-    'Denied Authorization: [redacted-authorization] Required credential: CODEX_AUTH_JSON',
+    'Denied Authorization: [redacted-authorization]',
   );
-  assert.equal(headerWithCredentialRemedy.actionable, true);
-  assert.match(headerWithCredentialRemedy.humanAction, /CODEX_AUTH_JSON/);
+  assert.equal(headerWithCredentialRemedy.actionable, false);
+  assert.equal(headerWithCredentialRemedy.humanAction, '');
   assert.doesNotMatch(headerWithCredentialRemedy.detail, /runtime-secret|ApiKey/);
+  assert.equal(
+    headerWithCredentialShapedSecret.detail,
+    'Denied Authorization: [redacted-authorization] Required permission: contents:write',
+  );
+  assert.equal(headerWithCredentialShapedSecret.actionable, true);
+  assert.doesNotMatch(
+    headerWithCredentialShapedSecret.humanAction,
+    /CORRECT_HORSE|Missing token/,
+  );
   assert.equal(
     pemPrivateKeySensitive.detail,
     'Authentication failed [redacted-private-key] requires contents:write permission',
