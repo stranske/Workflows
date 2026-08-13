@@ -79,9 +79,8 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
         const value = trailing ? rawValue.slice(0, -trailing.length) : rawValue;
         const prefix = source.slice(Math.max(0, offset - 40), offset);
         const namedCredential =
-          /^[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(value) ||
-          (/\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
-            /^[A-Za-z][A-Za-z0-9_.-]{2,}$/.test(value));
+          /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
+          /^[A-Za-z][A-Za-z0-9_.-]{2,}$/.test(value);
         return namedCredential
           ? `${kind}: ${value}${trailing}`
           : `${kind}=[redacted]${trailing}`;
@@ -90,7 +89,18 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
   if (!redacted) {
     return { fingerprint: '', detail: '', humanAction: '' };
   }
-  const detail = redacted.slice(0, 300);
+  const authorityMatches = [...redacted.matchAll(
+    /\b(?:missing|required|unset|unavailable|undefined|denied|forbidden|unauthori[sz]ed|insufficient|credential|token|secret|password|scope|permission)\b/gi,
+  )];
+  const detailLimit = 300;
+  let detail = redacted;
+  if (redacted.length > detailLimit) {
+    const authorityIndex = authorityMatches.at(-1)?.index ?? redacted.length - detailLimit;
+    const start = Math.max(0, Math.min(authorityIndex, redacted.length - detailLimit));
+    detail = redacted.slice(start, start + detailLimit);
+    if (start > 0) detail = `…${detail.slice(1)}`;
+    if (start + detailLimit < redacted.length) detail = `${detail.slice(0, -1)}…`;
+  }
   const normalized = redacted
     .toLowerCase()
     .replace(
@@ -3468,6 +3478,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       authorityChallengeConfirmed,
     });
     let hardHumanLabelApplied = false;
+    let hardHumanLabelCreated = false;
     if (escalationDisposition === 'needs-human') {
       try {
         await github.rest.issues.addLabels({
@@ -3477,6 +3488,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           labels: ['needs-human'],
         });
         hardHumanLabelApplied = true;
+        hardHumanLabelCreated = !labels.includes('needs-human');
       } catch (error) {
         // The label is the live enforcement boundary. If it cannot be applied,
         // retain an immediately due automation-owned challenge instead of
@@ -4234,20 +4246,36 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const body = summaryLines.join('\n');
 
     try {
-      if (commentId) {
-        await github.rest.issues.updateComment({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          comment_id: commentId,
-          body,
-        });
-      } else {
-        await github.rest.issues.createComment({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: prNumber,
-          body,
-        });
+      try {
+        if (commentId) {
+          await github.rest.issues.updateComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            comment_id: commentId,
+            body,
+          });
+        } else {
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            body,
+          });
+        }
+      } catch (error) {
+        if (hardHumanLabelCreated) {
+          try {
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              name: 'needs-human',
+            });
+          } catch (rollbackError) {
+            core?.warning?.(`Failed to roll back needs-human after state persistence failure: ${rollbackError.message}`);
+          }
+        }
+        throw error;
       }
 
       // Append to the work log comment (best-effort; failures don't block the loop)

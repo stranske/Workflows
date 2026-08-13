@@ -33,6 +33,7 @@ const buildGithubStub = ({
   jobLogsByJobId = {},
   failNeedsHumanLabel = false,
   failNeedsAttentionLabel = false,
+  failStateCommentWrite = false,
 } = {}) => {
   const actions = [];
   return {
@@ -76,10 +77,18 @@ const buildGithubStub = ({
           return { data: labels.map((name) => ({ name })) };
         },
         async updateComment({ body, comment_id: commentId }) {
+          if (failStateCommentWrite) {
+            actions.push({ type: 'update-failed', body, commentId });
+            throw new Error('simulated state comment failure');
+          }
           actions.push({ type: 'update', body, commentId });
           return { data: { id: commentId } };
         },
         async createComment({ body }) {
+          if (failStateCommentWrite) {
+            actions.push({ type: 'create-failed', body });
+            throw new Error('simulated state comment failure');
+          }
           actions.push({ type: 'create', body });
           return { data: { id: 101, html_url: 'https://example.com/101' } };
         },
@@ -2440,6 +2449,74 @@ test('a failed hard label write keeps the authority challenge automation-owned',
   assert.doesNotMatch(updateAction.body, /Independent Authority Challenge Confirmed/);
 });
 
+test('a failed terminal state write rolls back the newly created hard label', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-state-failed',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'agent-run-failed|failure|auth|agent|1',
+      boundary_fingerprint: boundary.fingerprint,
+      boundary_detail: boundary.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 95, body: existingState, html_url: 'https://example.com/95' }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+    failStateCommentWrite: true,
+  });
+
+  await assert.rejects(
+    updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(654),
+      core: buildCore(),
+      inputs: {
+        prNumber: 654,
+        action: 'run',
+        runResult: 'failure',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 3,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 2,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-attention-auth-state-failed',
+        forceRetry: true,
+        authority_challenge_fingerprint: boundary.fingerprint,
+        agent_exit_code: '1',
+        agent_summary: authSummary,
+      },
+    }),
+    /simulated state comment failure/,
+  );
+
+  const hardLabelIndex = github.actions.findIndex((action) =>
+    action.type === 'label' && action.labels.includes('needs-human')
+  );
+  const failedWriteIndex = github.actions.findIndex((action) => action.type === 'update-failed');
+  const rollbackIndex = github.actions.findIndex((action) =>
+    action.type === 'remove-label' && action.name === 'needs-human'
+  );
+  assert.ok(hardLabelIndex >= 0 && hardLabelIndex < failedWriteIndex);
+  assert.ok(failedWriteIndex >= 0 && failedWriteIndex < rollbackIndex);
+  assert.equal(
+    github.actions.some((action) =>
+      action.type === 'remove-label' && action.name === 'agent:needs-attention'
+    ),
+    false,
+  );
+});
+
 test('a generic forced retry cannot confirm an authority challenge', async () => {
   const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
@@ -2644,12 +2721,22 @@ test('authority fingerprints include redacted details beyond the display limit',
   const sensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Forbidden request with Bearer secret-three and token=secret-four',
   });
+  const uppercaseSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Forbidden request with password=CORRECT_HORSE.',
+  });
 
-  assert.equal(first.detail.length, 300);
+  assert.ok(first.detail.length <= 300);
+  assert.match(first.detail, /contents:write/);
+  assert.match(first.humanAction, /contents:write/);
+  assert.match(second.detail, /pull-requests:write/);
   assert.notEqual(first.fingerprint, second.fingerprint);
   assert.equal(
     sensitive.detail,
     'Forbidden request with Bearer [redacted-token] and token=[redacted]',
+  );
+  assert.equal(
+    uppercaseSensitive.detail,
+    'Forbidden request with password=[redacted].',
   );
   const missingCodexCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
