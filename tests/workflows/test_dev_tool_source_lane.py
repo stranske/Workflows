@@ -40,6 +40,16 @@ def test_source_lane_validates_pins_before_create_pr_even_for_security_override(
     assert "gh api" not in text[supersede_at:]
 
 
+def test_source_lane_commits_managed_precommit_repairs():
+    text = AUTO_UPDATE.read_text(encoding="utf-8")
+    create_at = text.index("Create PR")
+    create_block = text[
+        create_at : text.index("Supersede overlapping dependency-bot PRs", create_at)
+    ]
+
+    assert create_block.count(".pre-commit-config.yaml") >= 2
+
+
 def test_maint50_reports_freshness_without_creating_competing_work():
     text = MAINT50.read_text(encoding="utf-8")
 

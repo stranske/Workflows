@@ -4433,13 +4433,13 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           : escalationDisposition === 'challenge-due'
             ? 'agent:needs-attention'
             : 'agent:retry';
+        const addRoutingLabel = () => github.rest.issues.addLabels({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: prNumber,
+          labels: [routingLabel],
+        });
         try {
-          const addRoutingLabel = () => github.rest.issues.addLabels({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: prNumber,
-            labels: [routingLabel],
-          });
           const clearAutomationAttention = () => clearStaleHumanBlockerLabels({
             github,
             owner: context.repo.owner,
@@ -4457,10 +4457,11 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             // only sweep-routing signal while renewing or replacing a challenge.
             await addRoutingLabel();
           } else {
-            // Remove automation-created legacy hard stops before writing the new
-            // recoverable disposition. A successful terminal also performs this cleanup.
+            // The direct workflow dispatch below owns the retry lease. Do not
+            // add agent:retry first: its labeled event could race the dispatch
+            // and create a second forced run. The label is only a dispatch-
+            // failure fallback.
             await clearAutomationAttention();
-            await addRoutingLabel();
           }
         } catch (error) {
           if (core) core.warning(`Failed to add ${escalationDisposition} routing label: ${error.message}`);
@@ -4488,6 +4489,11 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             });
           } catch (error) {
             core?.warning?.(`Failed to dispatch bounded automation retry: ${error.message}`);
+            try {
+              await addRoutingLabel();
+            } catch (labelError) {
+              core?.warning?.(`Failed to add automation retry fallback label: ${labelError.message}`);
+            }
           }
         }
       }

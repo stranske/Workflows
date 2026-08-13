@@ -58,6 +58,7 @@ const buildGithubStub = ({
   failNeedsAttentionLabel = false,
   failNeedsAttentionRemoval = false,
   failStateCommentWriteAt = 0,
+  failWorkflowDispatch = false,
 } = {}) => {
   const actions = [];
   let stateCommentWriteCount = 0;
@@ -85,6 +86,10 @@ const buildGithubStub = ({
           return { data: buffer };
         },
         async createWorkflowDispatch(payload) {
+          if (failWorkflowDispatch) {
+            actions.push({ type: 'workflow-dispatch-failed', ...payload });
+            throw new Error('simulated workflow dispatch failure');
+          }
           actions.push({ type: 'workflow-dispatch', ...payload });
           return { data: {} };
         },
@@ -2168,7 +2173,7 @@ test('updateKeepaliveLoopSummary routes repeated actual failures to automation r
   const retryLabel = github.actions.find((action) =>
     action.type === 'label' && action.labels.includes('agent:retry')
   );
-  assert.ok(retryLabel);
+  assert.equal(retryLabel, undefined);
   const retryDispatch = github.actions.find((action) => action.type === 'workflow-dispatch');
   assert.ok(retryDispatch, 'a newly stopped strategy must receive one immediate recovery lease');
   assert.deepEqual(retryDispatch.inputs, { pr_number: '457', force_retry: 'true' });
@@ -3563,7 +3568,7 @@ test('updateKeepaliveLoopSummary routes resource failures to automation retry', 
   const retryLabel = github.actions.find((action) =>
     action.type === 'label' && action.labels.includes('agent:retry')
   );
-  assert.ok(retryLabel);
+  assert.equal(retryLabel, undefined);
   const retryDispatch = github.actions.find((action) => action.type === 'workflow-dispatch');
   assert.equal(retryDispatch.workflow_id, 'agents-81-gate-followups.yml');
   assert.deepEqual(retryDispatch.inputs, { pr_number: '655', force_retry: 'true' });
@@ -3622,6 +3627,46 @@ test('automation-owned terminal stops dispatch exactly one forced recovery lease
   }
 });
 
+test('a failed bounded dispatch adds agent:retry only as a fallback', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-dispatch-fallback',
+    iteration: 5,
+    max_iterations: 5,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 105, body: existingState, html_url: 'https://example.com/105' }],
+    failWorkflowDispatch: true,
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(660),
+    core: buildCore(),
+    inputs: {
+      prNumber: 660,
+      action: 'stop',
+      reason: 'round-budget-exhausted',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 5,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-dispatch-fallback',
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+
+  assert.ok(github.actions.some((action) => action.type === 'workflow-dispatch-failed'));
+  assert.ok(github.actions.some((action) =>
+    action.type === 'label' && action.labels.includes('agent:retry')
+  ));
+});
+
 test('updateKeepaliveLoopSummary routes logic failures to automation retry', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-logic',
@@ -3658,7 +3703,7 @@ test('updateKeepaliveLoopSummary routes logic failures to automation retry', asy
   const retryLabel = github.actions.find((action) =>
     action.type === 'label' && action.labels.includes('agent:retry')
   );
-  assert.ok(retryLabel);
+  assert.equal(retryLabel, undefined);
   assert.ok(github.actions.some((action) => action.type === 'workflow-dispatch'));
   assert.equal(
     github.actions.some((action) => action.type === 'label' && action.labels.includes('needs-human')),

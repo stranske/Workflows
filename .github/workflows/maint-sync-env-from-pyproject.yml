@@ -45,6 +45,7 @@ jobs:
 
           if git diff --quiet -- \
             .github/workflows/autofix-versions.env \
+            .pre-commit-config.yaml \
             pyproject.toml \
             requirements.lock \
             templates/consumer-repo/.github/workflows/autofix-versions.env \
@@ -55,6 +56,7 @@ jobs:
 
           git add \
             .github/workflows/autofix-versions.env \
+            .pre-commit-config.yaml \
             pyproject.toml \
             requirements.lock \
             templates/consumer-repo/.github/workflows/autofix-versions.env \
