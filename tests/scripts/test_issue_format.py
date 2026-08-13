@@ -37,8 +37,9 @@ def test_fenced_headings_do_not_satisfy_required_sections() -> None:
         Path("templates/consumer-repo/.github/scripts/issue_format.py"),
     ],
 )
+@pytest.mark.parametrize("fence", ["```", "~~~"])
 def test_archived_original_issue_paths_do_not_poison_live_addressability(
-    validator_path: Path, tmp_path: Path
+    validator_path: Path, fence: str, tmp_path: Path
 ) -> None:
     validator = _validator(validator_path)
     (tmp_path / "src").mkdir()
@@ -47,9 +48,9 @@ def test_archived_original_issue_paths_do_not_poison_live_addressability(
         VALID_CONTEXT
         + "## Tasks\n- [ ] Update function `calculateDiscount`\n\n"
         + "## Acceptance Criteria\n- pytest tests/test_current.py passes\n\n"
-        + "<details>\n<summary>Original Issue</summary>\n\n```text\n"
+        + f"<details>\n<summary>Original Issue</summary>\n\n{fence}text\n"
         + "Old evidence: `missing/one.py`, `missing/two.py`, `missing/three.py`.\n"
-        + "<details>literal archived markup</details>\n```\n</details>\n"
+        + f"<details>literal archived markup</details>\n{fence}\n</details>\n"
     )
 
     report = validator.validate(body, repo_root=tmp_path)

@@ -205,7 +205,7 @@ _LINE_SUFFIX = re.compile(r":\d+(?:-\d+)?$")
 _NODE_SUFFIX = re.compile(r"::.+$")  # pytest node ids: tests/x.py::test_y
 _ORIGINAL_ISSUE_BLOCK_RE = re.compile(
     r"<details\b[^>]*>\s*<summary>Original Issue</summary>\s*"
-    r"(?P<fence>`{3,})text\s*\n(?P<inner>.*?)\n(?P=fence)\s*</details>",
+    r"(?P<fence>`{3,}|~{3,})text\s*\n(?P<inner>.*?)\n(?P=fence)\s*</details>",
     re.DOTALL | re.IGNORECASE,
 )
 # Self-referential boilerplate. The format contract tells authors to cite it, so
