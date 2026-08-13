@@ -2851,16 +2851,19 @@ test('authority fingerprints include redacted details beyond the display limit',
       `Denied Authorization: ApiKey ${'runtime-' + 'secret'}; ` +
       'Missing token: CODEX_AUTH_JSON',
   });
+  const pemBegin = ['-----BEGIN', 'PRIVATE KEY-----'].join(' ');
+  const pemEnd = ['-----END', 'PRIVATE KEY-----'].join(' ');
+  const openSshPemBegin = ['-----BEGIN', 'OPENSSH PRIVATE KEY-----'].join(' ');
   const pemPrivateKeySensitive = buildAuthorityChallengeEvidence({
     // Assemble key-shaped material at runtime so the repository secret scanner
     // does not mistake the redaction fixture for a live private key.
     agentSummary:
-      `Authentication failed -----BEGIN PRIVATE KEY----- ${'private-' + 'key-material'} ` +
-      '-----END PRIVATE KEY----- requires contents:write permission',
+      `Authentication failed ${pemBegin} ${'private-' + 'key-material'} ${pemEnd} ` +
+      'requires contents:write permission',
   });
   const truncatedPrivateKeySensitive = buildAuthorityChallengeEvidence({
     agentSummary:
-      `Authentication failed -----BEGIN OPENSSH PRIVATE KEY----- ${'truncated-' + 'key-material'} ` +
+      `Authentication failed ${openSshPemBegin} ${'truncated-' + 'key-material'} ` +
       'requires contents:write permission',
   });
   const multiCookieSensitive = buildAuthorityChallengeEvidence({
