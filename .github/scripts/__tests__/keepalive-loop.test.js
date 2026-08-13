@@ -2768,6 +2768,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const quotedSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Forbidden password="correct horse battery staple" token=\'another secret phrase\'.',
   });
+  const urlSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Permission denied for https://alice:correct-horse@example.com/private',
+  });
 
   assert.ok(first.detail.length <= 300);
   assert.match(first.detail, /contents:write/);
@@ -2803,6 +2806,11 @@ test('authority fingerprints include redacted details beyond the display limit',
     'Forbidden password=[redacted] token=[redacted].',
   );
   assert.doesNotMatch(quotedSensitive.humanAction, /correct horse|another secret/);
+  assert.equal(
+    urlSensitive.detail,
+    'Permission denied for https://[redacted-userinfo]@example.com/private',
+  );
+  assert.doesNotMatch(urlSensitive.humanAction, /alice|correct-horse/);
   const missingCodexCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
   });
@@ -2829,7 +2837,14 @@ test('authority fingerprints include redacted details beyond the display limit',
   const timestampedTwo = buildAuthorityChallengeEvidence({
     agentSummary: '2026-08-13T02:00:00Z missing credential at timestamp=1786413600',
   });
+  const commaTimestampedOne = buildAuthorityChallengeEvidence({
+    agentSummary: '2026-08-13 01:00:00,123 missing credential',
+  });
+  const commaTimestampedTwo = buildAuthorityChallengeEvidence({
+    agentSummary: '2026-08-13 01:00:00,987 missing credential',
+  });
   assert.equal(timestampedOne.fingerprint, timestampedTwo.fingerprint);
+  assert.equal(commaTimestampedOne.fingerprint, commaTimestampedTwo.fingerprint);
   const permissionCodeOne = buildAuthorityChallengeEvidence({
     agentSummary: 'Repository permission policy code 123456 denied dispatch.',
   });

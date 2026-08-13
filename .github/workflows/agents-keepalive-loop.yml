@@ -47,6 +47,21 @@ on:
         default: 'codex-default'
         type: string
 
+# workflow_dispatch inputs are public operator controls. Only a dispatch made
+# with this repository's GITHUB_TOKEN can claim scheduled-sweep provenance;
+# manual retries keep their normal force-retry behavior but cannot confirm an
+# automation-owned authority challenge or bypass sweep-specific debounce.
+env:
+  TRUSTED_SWEEP_RECHECK: >-
+    ${{ github.event_name == 'workflow_dispatch' &&
+      github.actor == 'github-actions[bot]' &&
+      github.event.inputs.sweep_recheck == 'true' }}
+  TRUSTED_AUTHORITY_CHALLENGE_FINGERPRINT: >-
+    ${{ github.event_name == 'workflow_dispatch' &&
+      github.actor == 'github-actions[bot]' &&
+      github.event.inputs.sweep_recheck == 'true' &&
+      github.event.inputs.authority_challenge_fingerprint || '' }}
+
 permissions:
   contents: write
   pull-requests: write
@@ -137,8 +152,8 @@ jobs:
           GATE_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
           PR_ACTOR: ${{ github.actor }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
-            ${{ github.event.inputs.authority_challenge_fingerprint || '' }}
-          SWEEP_RECHECK: ${{ github.event.inputs.sweep_recheck || 'false' }}
+            ${{ env.TRUSTED_AUTHORITY_CHALLENGE_FINGERPRINT }}
+          SWEEP_RECHECK: ${{ env.TRUSTED_SWEEP_RECHECK }}
         run: |
           if [ -z "${PR_NUMBER:-}" ]; then
             {
@@ -539,8 +554,8 @@ jobs:
           HEAD_SHA: ${{ steps.evaluate.outputs.head_sha }}
           PROVIDER: ${{ steps.evaluate.outputs.agent_type || 'codex' }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
-            ${{ github.event.inputs.authority_challenge_fingerprint || '' }}
-          SWEEP_RECHECK: ${{ github.event.inputs.sweep_recheck || 'false' }}
+            ${{ env.TRUSTED_AUTHORITY_CHALLENGE_FINGERPRINT }}
+          SWEEP_RECHECK: ${{ env.TRUSTED_SWEEP_RECHECK }}
         run: |
           set -euo pipefail
           if [ "${SWEEP_RECHECK:-false}" = "true" ]; then
@@ -1423,7 +1438,7 @@ jobs:
               ''
             }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
-            ${{ github.event.inputs.authority_challenge_fingerprint || '' }}
+            ${{ env.TRUSTED_AUTHORITY_CHALLENGE_FINGERPRINT }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

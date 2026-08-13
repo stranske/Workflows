@@ -60,6 +60,9 @@ jobs:
       - name: Dispatch keepalive loop for open agent PRs
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
+          # Keep dispatch provenance bound to this repository workflow. The
+          # downstream loop accepts sweep inputs only from github-actions[bot].
+          github-token: ${{ github.token }}
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { selectDueAuthorityChallenge } = require('./.github/scripts/keepalive_challenge_due.js');
@@ -107,7 +110,7 @@ jobs:
                     );
                   }
                 }
-                await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+                await github.rest.actions.createWorkflowDispatch({
                   owner,
                   repo,
                   workflow_id: 'agents-81-gate-followups.yml',
@@ -119,7 +122,7 @@ jobs:
                     authority_challenge_fingerprint:
                       dueChallenge?.boundaryFingerprint || '',
                   },
-                }));
+                });
                 dispatched += 1;
               } catch (error) {
                 // # best-effort: one failed dispatch must not prevent later PRs from being re-evaluated.

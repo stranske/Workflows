@@ -70,6 +70,7 @@ function normalise(value) {
 function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
   const redacted = normalise(agentSummary || summaryReason)
     .replace(/\s+/g, ' ')
+    .replace(/\b(https?:\/\/)[^/@\s:]+:[^@\s]+@/gi, '$1[redacted-userinfo]@')
     .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(
       /\b((?:proxy-)?authorization)\s*[:=]\s*(?:basic|bearer|digest|negotiate|token)\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
@@ -134,7 +135,7 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
   const normalized = redacted
     .toLowerCase()
     .replace(
-      /\b\d{4}-\d{2}-\d{2}[t ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:z|[+-]\d{2}:?\d{2})?\b/g,
+      /\b\d{4}-\d{2}-\d{2}[t ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:z|[+-]\d{2}:?\d{2})?\b/g,
       '<volatile-timestamp>',
     )
     .replace(

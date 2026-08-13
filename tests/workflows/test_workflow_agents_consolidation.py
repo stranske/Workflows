@@ -679,12 +679,21 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     )
     assert root_loop.count("reason=due-authority-challenge") >= 2
     assert consumer_loop.count("reason=due-authority-challenge") >= 2
+    for text in (root_loop, consumer_loop):
+        assert "github.actor == 'github-actions[bot]'" in text
+        assert "TRUSTED_SWEEP_RECHECK" in text
+        assert "TRUSTED_AUTHORITY_CHALLENGE_FINGERPRINT" in text
+        assert "${{ github.event.inputs.authority_challenge_fingerprint || '' }}" not in text
+        assert "${{ github.event.inputs.sweep_recheck || 'false' }}" not in text
     for path in sweep_paths:
         text = path.read_text(encoding="utf-8")
         assert "force_retry: String(Boolean(dueChallenge))" in text
         assert "sweep_recheck: 'true'" in text
         assert "dueChallenge?.boundaryFingerprint || ''" in text
         assert "force_retry: 'true'" not in text
+        assert "github-token: ${{ github.token }}" in text
+        assert "await github.rest.actions.createWorkflowDispatch({" in text
+        assert "client.rest.actions.createWorkflowDispatch" not in text
 
 
 def test_terminal_disposition_records_include_artifact_identity():
