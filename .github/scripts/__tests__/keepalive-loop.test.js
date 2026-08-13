@@ -2869,7 +2869,7 @@ test('authority fingerprints include redacted details beyond the display limit',
   const truncatedPrivateKeySensitive = buildAuthorityChallengeEvidence({
     agentSummary:
       `Authentication failed ${openSshPemBegin} ${'truncated-' + 'key-material'} ` +
-      'requires contents:write permission',
+      'Missing token: CORRECT_HORSE; requires contents:write permission',
   });
   const multiCookieSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied Cookie: session=alpha; csrf=beta after retry',
@@ -3021,7 +3021,10 @@ test('authority fingerprints include redacted details beyond the display limit',
     'Authentication failed [redacted-private-key] Required permission: contents:write',
   );
   assert.equal(truncatedPrivateKeySensitive.actionable, true);
-  assert.doesNotMatch(truncatedPrivateKeySensitive.humanAction, /truncated-key-material|BEGIN/);
+  assert.doesNotMatch(
+    truncatedPrivateKeySensitive.humanAction,
+    /truncated-key-material|CORRECT_HORSE|Missing token|BEGIN/,
+  );
   assert.equal(multiCookieSensitive.detail, 'Denied Cookie=[redacted] after retry');
   assert.doesNotMatch(multiCookieSensitive.humanAction, /alpha|beta/);
   assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);

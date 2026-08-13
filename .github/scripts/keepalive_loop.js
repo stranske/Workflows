@@ -79,12 +79,6 @@ function buildAuthorityChallengeEvidence({
     String.raw`(?:\b(?:scope|permission)\b.{0,100}\b${permissionTarget}\b|\b${permissionTarget}\b.{0,40}\b(?:scope|permission)\b)`,
     'i',
   );
-  const missingCredentialMatch = rawSummary.match(
-    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credential|key))?\s*[:=]?\s*\b([A-Z][A-Z0-9_]{2,})\b/,
-  );
-  const routedAuthMatch = rawSummary.match(
-    /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?([A-Z][A-Z0-9_]{2,})\b/,
-  );
   const permissionMatch = concretePermissionTarget.test(rawSummary)
     ? rawSummary.match(new RegExp(String.raw`\b(${permissionTarget})\b`, 'i'))
     : null;
@@ -157,14 +151,9 @@ function buildAuthorityChallengeEvidence({
       },
     );
   if (hasAuthorizationHeader || unterminatedPrivateKeyRedacted) {
-    const credentialTarget = routedAuthMatch?.[1] || missingCredentialMatch?.[1];
-    // Never reconstruct credential-looking text from an Authorization value:
-    // the flattened summary provides no trustworthy header boundary. A
-    // truncated private-key block can still safely retain an uppercase
-    // credential identifier because its BEGIN marker is the known boundary.
-    if (unterminatedPrivateKeyRedacted && !hasAuthorizationHeader && credentialTarget) {
-      redacted += ` Required credential: ${credentialTarget}`;
-    }
+    // Never reconstruct credential-looking text after fail-closed suffix
+    // redaction: neither a flattened Authorization value nor a truncated
+    // private-key block has a trustworthy ending boundary.
     if (permissionMatch?.[1]) {
       const target = permissionMatch[1].replace(/\s*:\s*/g, ':');
       redacted += ` Required permission: ${target}`;
