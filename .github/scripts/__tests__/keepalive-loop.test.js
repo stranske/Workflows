@@ -3054,6 +3054,14 @@ test('authority evidence persists only an allowlisted safe projection', () => {
   const pluralNamedCredentials = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing credentials: OPENAI_API_KEY',
   });
+  const qualifiedNamedCredentials = [
+    'Missing API key: OPENAI_API_KEY',
+    'Required API token: OPENAI_API_KEY',
+    'Unset OAuth token: CLAUDE_CODE_OAUTH_TOKEN',
+  ].map(agentSummary => buildAuthorityChallengeEvidence({ agentSummary }));
+  const unrecognizedNamespacedPermission = buildAuthorityChallengeEvidence({
+    agentSummary: 'Required permission read:CORRECT_HORSE_BATTERY_STAPLE',
+  });
   const passphraseSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Key authentication failed passphrase="correct horse battery staple".',
   });
@@ -3201,6 +3209,7 @@ test('authority evidence persists only an allowlisted safe projection', () => {
     sshUrlSensitive, databaseUrlSensitive, undelimitedApiKeySensitive,
     undelimitedAwsKeySensitive, bareProviderSensitive, novelUnrecognizedSecret,
     unrecognizedEnvShapedValue,
+    unrecognizedNamespacedPermission,
     ...standaloneHttpAuthSensitive,
     ...credentialFieldEvidence.map(item => item.evidence),
   ];
@@ -3222,8 +3231,8 @@ test('authority evidence persists only an allowlisted safe projection', () => {
   assert.match(headerWithPermissionRemedy.humanAction, /contents:write/);
   assert.match(headerWithEarlierPermissionValue.humanAction, /pull-requests:write/);
   assert.doesNotMatch(headerWithEarlierPermissionValue.humanAction, /Required permission: contents:read/);
-  assert.equal(headerWithCredentialRemedy.actionable, false);
-  assert.equal(headerWithCredentialRemedy.humanAction, '');
+  assert.equal(headerWithCredentialRemedy.actionable, true);
+  assert.match(headerWithCredentialRemedy.humanAction, /CODEX_AUTH_JSON/);
   assert.equal(headerWithCredentialShapedSecret.actionable, true);
   assert.equal(pemPrivateKeySensitive.actionable, true);
   assert.equal(truncatedPrivateKeySensitive.actionable, true);
@@ -3249,6 +3258,15 @@ test('authority evidence persists only an allowlisted safe projection', () => {
   assert.equal(pluralNamedCredentials.actionable, true);
   assert.match(pluralNamedCredentials.detail, /OPENAI_API_KEY/);
   assert.match(pluralNamedCredentials.humanAction, /OPENAI_API_KEY/);
+  for (const evidence of qualifiedNamedCredentials) {
+    assert.equal(evidence.actionable, true);
+    assert.match(evidence.humanAction, /OPENAI_API_KEY|CLAUDE_CODE_OAUTH_TOKEN/);
+  }
+  assert.equal(unrecognizedNamespacedPermission.actionable, false);
+  assert.doesNotMatch(
+    `${unrecognizedNamespacedPermission.detail} ${unrecognizedNamespacedPermission.humanAction}`,
+    /CORRECT_HORSE_BATTERY_STAPLE/,
+  );
   assert.match(longPermissionRemediation.detail, /contents:write/);
   assert.match(longPermissionRemediation.humanAction, /contents:write/);
   assert.ok(longPermissionRemediation.detail.length <= 300);

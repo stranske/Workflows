@@ -118,7 +118,28 @@ function buildAuthorityChallengeEvidence({
   operation,
 } = {}) {
   const rawSummary = normalise(agentSummary || summaryReason).replace(/\s+/g, ' ');
-  const structuredPermissionTarget = String.raw`(?:(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|workflows?)\s*:\s*(?:read|write|admin|none)|(?:read|write|admin|repo)\s*:\s*[A-Za-z0-9_.-]+)`;
+  const authorityCredentialAllowlist = new Set([
+    'ACTIONS_BOT_PAT',
+    'CLAUDE_AUTH_JSON',
+    'CLAUDE_CODE_OAUTH_TOKEN',
+    'CODEX_AUTH_JSON',
+    'CURSOR_API_KEY',
+    'GEMINI_API_KEY',
+    'OPENAI_API_KEY',
+  ]);
+  const namedCredentialRemedyPatterns = [
+    /\b(?:missing|required|unset|unavailable|undefined)\b\s+(?:the\s+)?(?:(?:api|oauth|access|auth|private|signing|service|bot)\s+)?(?:keys?|tokens?|secrets?|passwords?|credentials?)\s*[:=]?\s*\b([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/gi,
+    /\b(?:missing|required|unset|unavailable|undefined)\b\s*[:=]?\s*\b([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/gi,
+    /\bmissing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/gi,
+  ];
+  let canonicalCredentialTarget = '';
+  for (const pattern of namedCredentialRemedyPatterns) {
+    for (const match of rawSummary.matchAll(pattern)) {
+      if (authorityCredentialAllowlist.has(match[1])) canonicalCredentialTarget = match[1];
+    }
+  }
+  const namespacedOauthScope = String.raw`(?:repo\s*:\s*(?:status|invite)|user\s*:\s*(?:email|follow)|codespace\s*:\s*secrets|(?:read|write|admin)\s*:\s*(?:org|repo_hook|public_key|gpg_key|ssh_signing_key|discussion|enterprise|project)|read\s*:\s*(?:user|audit_log|network_configurations)|write\s*:\s*network_configurations|admin\s*:\s*org_hook|manage_billing\s*:\s*(?:enterprise|copilot)|manage_runners\s*:\s*enterprise|scim\s*:\s*enterprise)`;
+  const structuredPermissionTarget = String.raw`(?:(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|workflows?)\s*:\s*(?:read|write|admin|none)|${namespacedOauthScope})`;
   const standaloneOauthScope = String.raw`(?:repo|workflow|gist|notifications|user|delete_repo|codespace|copilot|project)`;
   const standaloneOauthScopes = new Set(
     ['repo', 'workflow', 'gist', 'notifications', 'user', 'delete_repo', 'codespace', 'copilot', 'project'],
@@ -292,35 +313,16 @@ function buildAuthorityChallengeEvidence({
   // Durable state and human-visible actions must never contain arbitrary
   // runner text. Project the diagnostic onto a small allowlist of authority
   // facts instead of relying on an open-ended secret-redaction blacklist.
-  const namedCredentialPatterns = [
-    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b\s+(?:token|secret|password|credentials?|key)\s*[:=]?\s*\b([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/g,
-    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b\s*[:=]?\s*\b([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/g,
-    /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/g,
-  ];
-  const authorityCredentialAllowlist = new Set([
-    'ACTIONS_BOT_PAT',
-    'CLAUDE_AUTH_JSON',
-    'CLAUDE_CODE_OAUTH_TOKEN',
-    'CODEX_AUTH_JSON',
-    'CURSOR_API_KEY',
-    'GEMINI_API_KEY',
-    'OPENAI_API_KEY',
-  ]);
-  let canonicalCredentialTarget = '';
-  for (const pattern of namedCredentialPatterns) {
-    for (const match of redacted.matchAll(pattern)) {
-      if (authorityCredentialAllowlist.has(match[1])) canonicalCredentialTarget = match[1];
-    }
-  }
   const statusCodes = [...new Set(
     [...redacted.matchAll(/\b(?:HTTP\s*)?(401|403)\b/gi)].map(match => match[1]),
   )].sort();
+  const redactedWords = new Set(redacted.toLowerCase().match(/[a-z]+/g) || []);
   const authoritySignals = [
     'authentication', 'authorization', 'missing', 'required', 'unset',
     'unavailable', 'undefined', 'denied', 'forbidden', 'unauthorized',
     'unauthorised', 'insufficient', 'credential', 'credentials', 'token',
     'secret', 'password', 'scope', 'scopes', 'permission', 'permissions',
-  ].filter(signal => new RegExp(`\\b${signal}\\b`, 'i').test(redacted));
+  ].filter(signal => redactedWords.has(signal));
   const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
   const actionable = Boolean(canonicalCredentialTarget || canonicalPermissionTarget);
