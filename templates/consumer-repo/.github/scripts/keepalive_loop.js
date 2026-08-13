@@ -59,9 +59,11 @@ const AGENT_EXECUTION_ACTIONS = new Set(['run', 'fix', 'conflict']);
 
 // Resolve default agent from registry
 let _defaultAgent = 'codex';
+let _agentRegistry = { default_agent: 'codex', agents: {}, authority_shared_secrets: [] };
 try {
   const { loadAgentRegistry } = require('./agent_registry.js');
-  _defaultAgent = loadAgentRegistry().default_agent || 'codex';
+  _agentRegistry = loadAgentRegistry();
+  _defaultAgent = _agentRegistry.default_agent || 'codex';
 } catch (_) { /* registry not available */ }
 
 function normalise(value) {
@@ -75,15 +77,11 @@ function buildAuthorityChallengeEvidence({
   operation,
 } = {}) {
   const rawSummary = normalise(agentSummary || summaryReason).replace(/\s+/g, ' ');
+  const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const authorityCredentialAllowlist = new Set([
-    'ACTIONS_BOT_PAT',
-    'CLAUDE_AUTH_JSON',
-    'CLAUDE_CODE_OAUTH_TOKEN',
-    'CODEX_AUTH_JSON',
-    'CURSOR_API_KEY',
-    'GEMINI_API_KEY',
-    'OPENAI_API_KEY',
-  ]);
+    ...(_agentRegistry.authority_shared_secrets || []),
+    ...(_agentRegistry.agents?.[routedAgent]?.required_secrets || []),
+  ].map(value => normalise(value)).filter(value => /^[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(value)));
   const namedCredentialRemedyPatterns = [
     /\b(?:missing|required|unset|unavailable|undefined)\b\s+(?:the\s+)?(?:(?:api|oauth|access|auth|private|signing|service|bot)\s+)?(?:keys?|tokens?|secrets?|passwords?|credentials?)\s*[:=]?\s*\b([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/gi,
     /\b(?:missing|required|unset|unavailable|undefined)\b\s*[:=]?\s*\b([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/gi,
@@ -137,7 +135,6 @@ function buildAuthorityChallengeEvidence({
   const statusCodes = [...new Set(
     [...rawSummary.matchAll(/\b(?:HTTP\s*)?(401|403)\b/gi)].map(match => match[1]),
   )].sort();
-  const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
   const actionable = Boolean(canonicalCredentialTarget || canonicalPermissionTarget);
   const detailParts = [];

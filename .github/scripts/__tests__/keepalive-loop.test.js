@@ -3051,14 +3051,22 @@ test('authority evidence persists only an allowlisted safe projection', () => {
   const unrecognizedEnvShapedValue = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: NEVER_PERSIST_THIS_FORMAT for runner launch.',
   });
+  const aiderRegistryCredential = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing Aider auth: set AIDER_API_KEY',
+    agentType: 'aider',
+  });
+  const wrongRoutedAgentCredential = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing Aider auth: set AIDER_API_KEY',
+    agentType: 'codex',
+  });
   const pluralNamedCredentials = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing credentials: OPENAI_API_KEY',
   });
   const qualifiedNamedCredentials = [
-    'Missing API key: OPENAI_API_KEY',
-    'Required API token: OPENAI_API_KEY',
-    'Unset OAuth token: CLAUDE_CODE_OAUTH_TOKEN',
-  ].map(agentSummary => buildAuthorityChallengeEvidence({ agentSummary }));
+    { agentSummary: 'Missing API key: OPENAI_API_KEY', agentType: 'codex' },
+    { agentSummary: 'Required API token: OPENAI_API_KEY', agentType: 'codex' },
+    { agentSummary: 'Unset OAuth token: CLAUDE_CODE_OAUTH_TOKEN', agentType: 'claude' },
+  ].map(input => buildAuthorityChallengeEvidence(input));
   const unrecognizedNamespacedPermission = buildAuthorityChallengeEvidence({
     agentSummary: 'Required permission read:CORRECT_HORSE_BATTERY_STAPLE',
   });
@@ -3255,6 +3263,10 @@ test('authority evidence persists only an allowlisted safe projection', () => {
     `${unrecognizedEnvShapedValue.detail} ${unrecognizedEnvShapedValue.humanAction}`,
     /NEVER_PERSIST_THIS_FORMAT/,
   );
+  assert.equal(aiderRegistryCredential.actionable, true);
+  assert.match(aiderRegistryCredential.humanAction, /AIDER_API_KEY/);
+  assert.equal(wrongRoutedAgentCredential.actionable, false);
+  assert.doesNotMatch(wrongRoutedAgentCredential.detail, /AIDER_API_KEY/);
   assert.equal(pluralNamedCredentials.actionable, true);
   assert.match(pluralNamedCredentials.detail, /OPENAI_API_KEY/);
   assert.match(pluralNamedCredentials.humanAction, /OPENAI_API_KEY/);
@@ -3275,6 +3287,7 @@ test('authority evidence persists only an allowlisted safe projection', () => {
   });
   const missingClaudeCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CLAUDE_CODE_OAUTH_TOKEN for runner launch.',
+    agentType: 'claude',
   });
   const missingNamedCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing credential ACTIONS_BOT_PAT for runner launch.',

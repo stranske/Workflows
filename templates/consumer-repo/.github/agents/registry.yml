@@ -5,6 +5,12 @@ default_agent: codex
 # Shared keepalive marker prefix (agent-agnostic)
 keepalive_marker_prefix: agent-keepalive
 
+# Cross-agent credentials whose absence can form a concrete authority remedy.
+# Provider credentials come from each routed agent's required_secrets list.
+authority_shared_secrets:
+  - ACTIONS_BOT_PAT
+  - OPENAI_API_KEY
+
 # Dedicated instrumentation-only contract for the Sol/Terra/Luna plumbing
 # canary. The reusable workflow ref is replaced with the exact commit containing
 # this runner before merge. Trial profiles are rejected by ordinary agent and
