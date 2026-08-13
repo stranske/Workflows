@@ -142,13 +142,14 @@ function buildAuthorityChallengeEvidence({
       '$1=[redacted]',
     )
     .replace(
-      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passphrase|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
+      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passwd|pwd|passcode|passphrase|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
       (match, name, rawValue, offset, source) => {
         const quote = rawValue.at(0);
         const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
         const value = quoted ? rawValue.slice(1, -1) : rawValue;
         const prefix = source.slice(Math.max(0, offset - 40), offset);
         const explicitMissingCredentialName =
+          !quoted &&
           /^(?:token|secret|password|credentials?)$/i.test(name) &&
           /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
           /^[A-Z][A-Z0-9_]{2,}$/.test(value);
@@ -162,7 +163,7 @@ function buildAuthorityChallengeEvidence({
       'Bearer [redacted-token]',
     )
     .replace(
-      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passphrase|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
+      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passwd|pwd|passcode|passphrase|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
       (match, kind, separator, rawValue, offset, source) => {
         const quote = rawValue.at(0);
         const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
@@ -171,6 +172,7 @@ function buildAuthorityChallengeEvidence({
         const value = trailing ? unquotedValue.slice(0, -trailing.length) : unquotedValue;
         const prefix = source.slice(Math.max(0, offset - 40), offset);
         const namedCredential =
+          !quoted &&
           /^(?:token|secret|password|credentials?)$/i.test(kind) &&
           /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
           /^[A-Z][A-Z0-9_]{2,}$/.test(value);

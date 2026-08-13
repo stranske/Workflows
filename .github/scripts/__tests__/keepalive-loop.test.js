@@ -2987,6 +2987,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   const quotedSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Forbidden password="correct horse battery staple" token=\'another secret phrase\'.',
   });
+  const quotedUppercasePassword = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing password: "HUNTERTWO"; requires contents:write permission',
+  });
+  const passwordAliasSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied passwd=correct-horse-battery-staple pwd another-secret; requires contents:write permission',
+  });
   const passphraseSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Key authentication failed passphrase="correct horse battery staple".',
   });
@@ -3180,6 +3186,10 @@ test('authority fingerprints include redacted details beyond the display limit',
     'Forbidden password=[redacted] token=[redacted].',
   );
   assert.doesNotMatch(quotedSensitive.humanAction, /correct horse|another secret/);
+  assert.doesNotMatch(quotedUppercasePassword.detail, /HUNTERTWO/);
+  assert.doesNotMatch(quotedUppercasePassword.humanAction, /HUNTERTWO/);
+  assert.doesNotMatch(passwordAliasSensitive.detail, /correct-horse|another-secret/);
+  assert.doesNotMatch(passwordAliasSensitive.humanAction, /correct-horse|another-secret/);
   assert.equal(
     passphraseSensitive.detail,
     'Key authentication failed passphrase=[redacted].',
