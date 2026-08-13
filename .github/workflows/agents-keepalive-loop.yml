@@ -1463,6 +1463,7 @@ jobs:
               needs.preflight.outputs.failure_summary ||
               ''
             }}
+          PREFLIGHT_FAILURE_SUMMARY: ${{ needs.preflight.outputs.failure_summary || '' }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
               github.actor == 'github-actions[bot]' &&
@@ -1485,10 +1486,20 @@ jobs:
             const codexResult = '${{ needs.run-codex.result }}';
             const cursorResult = '${{ needs.run-cursor.result }}';
             const geminiResult = '${{ needs.run-gemini.result }}';
-            const runResult =
+            const runnerResult =
               claudeResult && claudeResult !== 'skipped' ? claudeResult :
               (cursorResult && cursorResult !== 'skipped' ? cursorResult :
               (geminiResult && geminiResult !== 'skipped' ? geminiResult : codexResult));
+            const preflightFailureSummary = process.env.PREFLIGHT_FAILURE_SUMMARY || '';
+            const allRunnersSkipped = [
+              claudeResult,
+              codexResult,
+              cursorResult,
+              geminiResult,
+            ].every((result) => !result || result === 'skipped');
+            const runResult = preflightFailureSummary && allRunnersSkipped
+              ? 'failure'
+              : runnerResult;
 
             const agentExitCode =
               '${{ needs.run-codex.outputs.exit-code }}' ||

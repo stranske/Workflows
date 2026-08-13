@@ -138,7 +138,7 @@ function buildAuthorityChallengeEvidence({
       'Bearer [redacted-token]',
     )
     .replace(
-      /\b(token|secret|password|passphrase|credentials?)(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
+      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passphrase|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
       (match, kind, separator, rawValue, offset, source) => {
         const quote = rawValue.at(0);
         const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
@@ -147,6 +147,7 @@ function buildAuthorityChallengeEvidence({
         const value = trailing ? unquotedValue.slice(0, -trailing.length) : unquotedValue;
         const prefix = source.slice(Math.max(0, offset - 40), offset);
         const namedCredential =
+          /^(?:token|secret|password|credentials?)$/i.test(kind) &&
           /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
           /^[A-Z][A-Z0-9_]{2,}$/.test(value);
         return namedCredential
@@ -255,7 +256,7 @@ async function clearStaleHumanBlockerLabels({
   core,
   automationOwned = false,
 }) {
-  if (!automationOwned) return [];
+  if (!automationOwned) return { complete: true, removed: [] };
   let currentLabels = [];
   try {
     const { data } = await github.rest.issues.listLabelsOnIssue({
@@ -269,7 +270,7 @@ async function clearStaleHumanBlockerLabels({
       .filter(Boolean);
   } catch (error) {
     core?.warning?.(`Unable to inspect PR labels before stale human-blocker cleanup: ${error.message}`);
-    return [];
+    return { complete: false, removed: [] };
   }
 
   // `needs-human` is a hard authority blocker. Keepalive never removes it:
@@ -281,6 +282,7 @@ async function clearStaleHumanBlockerLabels({
     currentLabels.includes(label.toLowerCase())
   );
   const removed = [];
+  let complete = true;
   for (const label of staleLabels) {
     try {
       await github.rest.issues.removeLabel({
@@ -294,6 +296,7 @@ async function clearStaleHumanBlockerLabels({
       if (error?.status === 404) {
         continue;
       }
+      complete = false;
       core?.warning?.(`Failed to remove stale ${label} label: ${error.message}`);
     }
   }
@@ -301,7 +304,7 @@ async function clearStaleHumanBlockerLabels({
   if (removed.length > 0) {
     core?.info?.(`Removed stale human-blocker label(s) after successful keepalive state: ${removed.join(', ')}`);
   }
-  return removed;
+  return { complete, removed };
 }
 
 function resolvePromptRouting({ scenario, mode, action, reason } = {}) {
@@ -1309,7 +1312,12 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
 
   // If the agent runner reports failure with exit code 0, that strongly suggests
   // an infrastructure/control-plane hiccup rather than a code/tool failure.
-  if (runFailed && summaryReason === 'agent-run-failed' && (!agentExitCode || agentExitCode === '0')) {
+  if (
+    runFailed &&
+    summaryReason === 'agent-run-failed' &&
+    (!agentExitCode || agentExitCode === '0') &&
+    category !== ERROR_CATEGORIES.auth
+  ) {
     category = ERROR_CATEGORIES.transient;
   }
 
@@ -4348,8 +4356,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             : 'Route to automation retry/backoff, CI repair, alternate agent, or review fallback.',
         };
       }
-    } else if (previousAuthorityChallenge && runResult === 'success') {
-      delete newState.attention;
     }
 
     // NOTE: Failure comment posting removed - handled by reusable-*-run.yml with proper deduplication
@@ -4375,6 +4381,28 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           summaryCommentId = Number(created?.data?.id) || 0;
         }
       };
+
+      if (shouldClearStaleHumanBlockers) {
+        const cleanup = await clearStaleHumanBlockerLabels({
+          github,
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          prNumber,
+          core,
+          automationOwned: previousAttentionAutomationOwned,
+        });
+        if (previousAuthorityChallenge && runResult === 'success') {
+          if (cleanup.complete) {
+            delete newState.attention;
+          } else {
+            newState.attention = {
+              ...previousAttention,
+              cleanup_pending_label: true,
+              next_action: 'Retry removal of the automation-owned agent:needs-attention label after recovery.',
+            };
+          }
+        }
+      }
 
       if (escalationDisposition === 'needs-human') {
         // First persist a durable automation-owned transition containing the
@@ -4457,17 +4485,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         });
       } catch (workLogError) {
         core?.warning?.(`[work-log] append failed: ${workLogError.message}`);
-      }
-
-      if (shouldClearStaleHumanBlockers) {
-        await clearStaleHumanBlockerLabels({
-          github,
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          prNumber,
-          core,
-          automationOwned: previousAttentionAutomationOwned,
-        });
       }
 
       if (shouldEscalate) {

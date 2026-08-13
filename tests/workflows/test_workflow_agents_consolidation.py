@@ -1390,6 +1390,9 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
         )
         assert "preflight" in summary_needs
         assert "needs.preflight.outputs.failure_summary" in text
+        assert "PREFLIGHT_FAILURE_SUMMARY" in text
+        assert "preflightFailureSummary && allRunnersSkipped" in text
+        assert "? 'failure'" in text
         assert 'missing_msg="Missing Codex auth: set CODEX_AUTH_JSON"' in text
         assert 'echo "failure_summary=$missing_msg" >> "$GITHUB_OUTPUT"' in text
 

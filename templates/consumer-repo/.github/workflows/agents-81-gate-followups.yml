@@ -788,6 +788,7 @@ jobs:
               needs.preflight.outputs.failure_summary ||
               ''
             }}
+          PREFLIGHT_FAILURE_SUMMARY: ${{ needs.preflight.outputs.failure_summary || '' }}
           FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
@@ -809,8 +810,14 @@ jobs:
 
             const claudeResult = '${{ needs.run-claude.result }}';
             const codexResult = '${{ needs.run-codex.result }}';
-            const runResult =
+            const runnerResult =
               claudeResult && claudeResult !== 'skipped' ? claudeResult : codexResult;
+            const preflightFailureSummary = process.env.PREFLIGHT_FAILURE_SUMMARY || '';
+            const allRunnersSkipped = [claudeResult, codexResult]
+              .every((result) => !result || result === 'skipped');
+            const runResult = preflightFailureSummary && allRunnersSkipped
+              ? 'failure'
+              : runnerResult;
 
             const agentExitCode =
               '${{ needs.run-codex.outputs.exit-code }}' ||

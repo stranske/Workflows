@@ -56,6 +56,7 @@ const buildGithubStub = ({
   jobLogsByJobId = {},
   failNeedsHumanLabel = false,
   failNeedsAttentionLabel = false,
+  failNeedsAttentionRemoval = false,
   failStateCommentWriteAt = 0,
 } = {}) => {
   const actions = [];
@@ -131,6 +132,10 @@ const buildGithubStub = ({
           return { data: {} };
         },
         async removeLabel({ name }) {
+          if (failNeedsAttentionRemoval && name === 'agent:needs-attention') {
+            actions.push({ type: 'remove-label-failed', name });
+            throw new Error('simulated attention label removal failure');
+          }
           actions.push({ type: 'remove-label', name });
           return { data: {} };
         },
@@ -2282,7 +2287,7 @@ test('updateKeepaliveLoopSummary does not treat skipped runs as agent failures',
   assert.match(updateAction.body, /"failure":\{\}/);
 });
 
-test('updateKeepaliveLoopSummary sends auth failures to independent challenge', async () => {
+test('updateKeepaliveLoopSummary sends preflight auth failures without a runner exit to independent challenge', async () => {
   const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const existingState = formatStateComment({
     trace: 'trace-attention-auth',
@@ -2311,7 +2316,6 @@ test('updateKeepaliveLoopSummary sends auth failures to independent challenge', 
       maxIterations: 5,
       failureThreshold: 3,
       trace: 'trace-attention-auth',
-      agent_exit_code: '1',
       agent_summary: authSummary,
     },
   });
@@ -2992,6 +2996,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   const databaseUrlSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Permission denied for postgres://alice:correct-horse@example.com/private',
   });
+  const undelimitedApiKeySensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied X-API-Key correct-horse-battery-staple; requires contents:write permission',
+  });
+  const undelimitedAwsKeySensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied AWS_SECRET_ACCESS_KEY correct-horse-battery-staple; requires contents:write permission',
+  });
   const bareProviderSensitive = buildAuthorityChallengeEvidence({
     agentSummary:
       `Unauthorized provider key ${'sk-'}abcdefghijklmnopqrstuvwxyz123456 ` +
@@ -3164,6 +3174,10 @@ test('authority fingerprints include redacted details beyond the display limit',
   );
   assert.doesNotMatch(sshUrlSensitive.humanAction, /alice|correct-horse/);
   assert.doesNotMatch(databaseUrlSensitive.humanAction, /alice|correct-horse/);
+  assert.match(undelimitedApiKeySensitive.detail, /X-API-Key=\[redacted\]/);
+  assert.match(undelimitedAwsKeySensitive.detail, /AWS_SECRET_ACCESS_KEY=\[redacted\]/);
+  assert.doesNotMatch(undelimitedApiKeySensitive.humanAction, /correct-horse/);
+  assert.doesNotMatch(undelimitedAwsKeySensitive.humanAction, /correct-horse/);
   assert.equal(
     bareProviderSensitive.detail,
     'Unauthorized provider key [redacted-api-key] and access key [redacted-access-key]',
@@ -3308,6 +3322,56 @@ test('a successful authority recheck clears the automation challenge with or wit
     const state = parseStateComment(updateAction.body).data;
     assert.equal(state.attention, undefined);
   }
+});
+
+test('a recovered authority challenge retains automation ownership until its soft label is removed', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-attention-cleanup-pending',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'agent-run-failed|failure|auth|agent|1',
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 90, body: existingState, html_url: 'https://example.com/90' }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+    failNeedsAttentionRemoval: true,
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-cleanup-pending',
+      forceRetry: false,
+    },
+  });
+
+  assert.ok(github.actions.some((action) => action.type === 'remove-label-failed'));
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  const state = parseStateComment(updateAction.body).data;
+  assert.equal(state.attention.owner, 'automation');
+  assert.equal(state.attention.disposition, 'challenge-due');
+  assert.equal(state.attention.cleanup_pending_label, true);
+  assert.match(state.attention.next_action, /Retry removal/);
 });
 
 test('updateKeepaliveLoopSummary routes resource failures to automation retry', async () => {
