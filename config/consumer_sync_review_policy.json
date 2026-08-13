@@ -22,17 +22,21 @@
     }
   ],
   "capacity_patterns": [
-    "capacity",
-    "rate limit",
-    "rate-limit",
-    "quota",
-    "temporarily unavailable",
-    "usage limit",
-    "spending cap"
+    "reviewer unavailable",
+    "review unavailable",
+    "review capacity unavailable",
+    "review rate limited",
+    "review rate-limit exceeded",
+    "capacity unavailable",
+    "rate limit exceeded",
+    "quota exhausted",
+    "usage limit reached",
+    "spending cap reached"
   ],
   "non_response_patterns": [
     "review skipped",
     "review was skipped",
+    "review was not performed",
     "review disabled",
     "review is disabled",
     "reviews are disabled",

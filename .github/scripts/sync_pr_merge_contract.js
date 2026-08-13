@@ -193,15 +193,7 @@ function reviewerProfileForLogin(login, reviewerProfiles = []) {
   )?.id || '';
 }
 
-function isReviewerCapacitySignal(body = '', capacityPatterns = []) {
-  const text = String(body || '').toLowerCase();
-  return (capacityPatterns || []).some((pattern) => {
-    const literal = String(pattern || '').trim().toLowerCase();
-    return literal.length > 0 && text.includes(literal);
-  });
-}
-
-function isReviewerNonResponseSignal(body = '', nonResponsePatterns = []) {
+function reviewerStatusLineMatches(body = '', patterns = []) {
   const statusLines = String(body || '')
     .split(/\r?\n/)
     .map((line) => line
@@ -209,7 +201,7 @@ function isReviewerNonResponseSignal(body = '', nonResponsePatterns = []) {
       .replace(/^(?:[>\s]*[-*#`_:]+|[>\s]*[⚠️ℹ️🚫⏭️]+)\s*/u, '')
       .toLowerCase())
     .filter(Boolean);
-  return (nonResponsePatterns || []).some((pattern) => {
+  return (patterns || []).some((pattern) => {
     const literal = String(pattern || '').trim().toLowerCase();
     if (!literal) return false;
     return statusLines.some((line) => (
@@ -223,6 +215,14 @@ function isReviewerNonResponseSignal(body = '', nonResponsePatterns = []) {
       || line.startsWith(`${literal} for `)
     ));
   });
+}
+
+function isReviewerCapacitySignal(body = '', capacityPatterns = []) {
+  return reviewerStatusLineMatches(body, capacityPatterns);
+}
+
+function isReviewerNonResponseSignal(body = '', nonResponsePatterns = []) {
+  return reviewerStatusLineMatches(body, nonResponsePatterns);
 }
 
 function generatedPrsForSyncSelector(prs = [], syncHash = '') {

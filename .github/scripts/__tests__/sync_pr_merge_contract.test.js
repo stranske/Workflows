@@ -438,9 +438,15 @@ test('reviewer settlement never requires every configured reviewer', () => {
     maxWaitMs: Number.NaN,
     minimumResponses: Number.NaN,
   }).reason, 'review_quorum_pending');
-  assert.equal(isReviewerCapacitySignal('Reviewer unavailable: quota exceeded', ['quota']), true);
-  assert.equal(isReviewerCapacitySignal('Reviewer hit a rate-limit', ['rate-limit']), true);
-  assert.equal(isReviewerCapacitySignal('Reviewer hit a rate-limit', ['rate[ -]?limit']), false);
+  assert.equal(
+    isReviewerCapacitySignal('Reviewer unavailable: quota exceeded', ['reviewer unavailable']),
+    true,
+  );
+  assert.equal(
+    isReviewerCapacitySignal('Review rate-limit exceeded', ['review rate-limit exceeded']),
+    true,
+  );
+  assert.equal(isReviewerCapacitySignal('Please add rate-limit handling.', ['review rate-limit']), false);
   assert.equal(isReviewerNonResponseSignal('Review skipped: excluded by label', ['review skipped']), true);
 });
 
@@ -675,6 +681,24 @@ test('review non-response policy does not match generic feature availability pro
       policy.non_response_patterns,
     ),
     true,
+  );
+  assert.equal(
+    isReviewerNonResponseSignal(
+      'Review was not performed due to repository settings.',
+      policy.non_response_patterns,
+    ),
+    true,
+  );
+  assert.equal(
+    isReviewerCapacitySignal('Review rate limited', policy.capacity_patterns),
+    true,
+  );
+  assert.equal(
+    isReviewerCapacitySignal(
+      'Found a quota accounting regression; add coverage before merge.',
+      policy.capacity_patterns,
+    ),
+    false,
   );
 });
 
