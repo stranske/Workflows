@@ -23,6 +23,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Default paths (can be overridden for testing)
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
@@ -393,7 +394,9 @@ def _pre_commit_repo_name(line: str) -> str | None:
 
     repo = match.group("repo").strip().strip("\"'")
     if "://" in repo:
-        repo = repo.split("://", 1)[1]
+        parsed = urlparse(repo)
+        if parsed.hostname and parsed.hostname.lower() == "github.com":
+            repo = parsed.path.lstrip("/")
     repo = repo.rstrip("/").removesuffix(".git")
     if repo.lower().startswith("github.com/"):
         repo = repo.split("/", 1)[1]
@@ -412,7 +415,8 @@ def sync_pre_commit_config(
     if not pre_commit_path.exists():
         return [], []
 
-    content = pre_commit_path.read_text(encoding="utf-8")
+    with pre_commit_path.open(encoding="utf-8", newline="") as pre_commit_file:
+        content = pre_commit_file.read()
     lines = content.splitlines(keepends=True)
     changes: list[str] = []
     current_env_key: str | None = None
@@ -426,7 +430,12 @@ def sync_pre_commit_config(
         if current_env_key is None or current_env_key not in pins:
             continue
 
-        rev_match = re.match(r"^(?P<prefix>\s*rev:\s*)(?P<value>[^\s#]+)(?P<suffix>.*)$", line)
+        line_ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+        revision_line = line[: -len(line_ending)] if line_ending else line
+        rev_match = re.match(
+            r"^(?P<prefix>\s*rev:\s*)(?P<value>[^\s#]+)(?P<suffix>.*)$",
+            revision_line,
+        )
         if not rev_match:
             continue
 
@@ -443,13 +452,17 @@ def sync_pre_commit_config(
         )
         changes.append(f"{pre_commit_path.name}:{repo_name}: {current_value} -> {target_value}")
         if apply:
-            lines[index] = f"{rev_match.group('prefix')}{target_value}{rev_match.group('suffix')}"
+            lines[index] = (
+                f"{rev_match.group('prefix')}{target_value}{rev_match.group('suffix')}"
+                f"{line_ending}"
+            )
         current_env_key = None
 
     if apply:
         updated = "".join(lines)
         if updated != content:
-            pre_commit_path.write_text(updated, encoding="utf-8")
+            with pre_commit_path.open("w", encoding="utf-8", newline="") as pre_commit_file:
+                pre_commit_file.write(updated)
 
     return changes, []
 

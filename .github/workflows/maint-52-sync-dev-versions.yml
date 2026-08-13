@@ -321,6 +321,7 @@ jobs:
           if [ -f requirements-dev.lock ]; then git add requirements-dev.lock; fi
           if [ -f requirements-dev.txt ]; then git add requirements-dev.txt; fi
           if [ -f uv.lock ]; then git add uv.lock; fi
+          if [ -f .pre-commit-config.yaml ]; then git add .pre-commit-config.yaml; fi
 
           matching_existing=false
           if [ -n "$existing_pr" ]; then
