@@ -177,6 +177,9 @@ on:
       files-changed:
         description: 'Number of files changed by Codex'
         value: ${{ jobs.codex.outputs.files-changed }}
+      agent-execution-started:
+        description: 'Whether the Run Codex step started'
+        value: ${{ jobs.codex.outputs.agent-execution-started }}
       capability-id:
         description: 'Validated existing capability identifier; empty when evidence is absent.'
         value: ${{ jobs.codex.outputs.capability-id }}
@@ -279,6 +282,7 @@ jobs:
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
+      agent-execution-started: ${{ steps.run_codex.outputs.agent-execution-started }}
       capability-id: ${{ steps.capability_evidence.outputs.capability-id }}
       effect-fingerprint: ${{ steps.capability_evidence.outputs.effect-fingerprint }}
       evidence-artifact-ref: ${{ steps.capability_evidence.outputs.evidence-artifact-ref }}
@@ -1064,6 +1068,7 @@ jobs:
               cmd+=("${EXTRA_ARGS[@]}")
             fi
 
+            echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
             CODEX_EXIT=0
             "${cmd[@]}" "$prompt_content" > "$attempt_session" 2>&1 || CODEX_EXIT=$?
             cat "$attempt_session" >> "$SESSION_JSONL"

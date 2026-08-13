@@ -3959,7 +3959,7 @@ test('an operator guard defers rather than consumes a forced recovery lease', as
   assert.equal(preflightState.recovery_lease.deferred_reason, 'agent-run-failed');
 });
 
-test('a failed bounded dispatch adds agent:retry only as a fallback', async () => {
+test('a failed bounded dispatch defers without adding a sticky retry label', async () => {
   const existingState = formatStateComment({
     trace: 'trace-dispatch-fallback',
     iteration: 5,
@@ -3994,13 +3994,49 @@ test('a failed bounded dispatch adds agent:retry only as a fallback', async () =
   });
 
   assert.ok(github.actions.some((action) => action.type === 'workflow-dispatch-failed'));
-  assert.ok(github.actions.some((action) =>
+  assert.ok(!github.actions.some((action) =>
     action.type === 'label' && action.labels.includes('agent:retry')
   ));
   const stateUpdates = github.actions.filter((action) => action.type === 'update');
   const deferredState = parseStateComment(stateUpdates.at(-1).body).data;
   assert.equal(deferredState.recovery_lease.status, 'deferred');
   assert.equal(deferredState.recovery_lease.deferred_reason, 'workflow-dispatch-failed');
+
+  const sweepRetry = buildGithubStub({
+    comments: [{ id: 105, body: stateUpdates.at(-1).body, html_url: 'https://example.com/105' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github: sweepRetry,
+    context: buildContext(660),
+    core: buildCore(),
+    inputs: {
+      prNumber: 660,
+      action: 'stop',
+      reason: 'round-budget-exhausted',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 5,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-dispatch-fallback',
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+  assert.equal(
+    sweepRetry.actions.filter((action) => action.type === 'workflow-dispatch').length,
+    1,
+  );
+  assert.ok(!sweepRetry.actions.some((action) =>
+    action.type === 'label' && action.labels.includes('agent:retry')
+  ));
+  const sweepState = parseStateComment(
+    sweepRetry.actions.find((action) => action.type === 'update').body,
+  ).data;
+  assert.equal(sweepState.recovery_lease.status, 'issued');
+  assert.equal(sweepState.recovery_lease.dispatch_attempt, 2);
 });
 
 test('updateKeepaliveLoopSummary routes logic failures to automation retry', async () => {

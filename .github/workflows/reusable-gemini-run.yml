@@ -161,6 +161,9 @@ on:
       files-changed:
         description: 'Number of files changed by Gemini'
         value: ${{ jobs.gemini.outputs.files-changed }}
+      agent-execution-started:
+        description: 'Whether the Run Gemini step started'
+        value: ${{ jobs.gemini.outputs.agent-execution-started }}
       capability-id:
         description: 'Validated existing capability identifier; empty when evidence is absent.'
         value: ${{ jobs.gemini.outputs.capability-id }}
@@ -231,6 +234,7 @@ jobs:
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
+      agent-execution-started: ${{ steps.run_gemini.outputs.agent-execution-started }}
       capability-id: ${{ steps.capability_evidence.outputs.capability-id }}
       effect-fingerprint: ${{ steps.capability_evidence.outputs.effect-fingerprint }}
       evidence-artifact-ref: ${{ steps.capability_evidence.outputs.evidence-artifact-ref }}
@@ -922,6 +926,7 @@ jobs:
           # matching the cursor/claude text path. Tee to $SESSION_LOG so we keep a
           # debug artifact even if the run fails.
           GEMINI_CLI_ARGS=("${extra_args[@]}")
+          echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
           set +e
           gemini -p "$prompt_content" \
             "${perm_flag[@]}" \

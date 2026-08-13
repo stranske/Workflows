@@ -1508,6 +1508,12 @@ jobs:
               cursorResult,
               geminiResult,
             ].every((result) => !result || result === 'skipped');
+            const agentExecutionStarted = [
+              '${{ needs.run-codex.outputs.agent-execution-started }}',
+              '${{ needs.run-claude.outputs.agent-execution-started }}',
+              '${{ needs.run-cursor.outputs.agent-execution-started }}',
+              '${{ needs.run-gemini.outputs.agent-execution-started }}',
+            ].some((value) => value === 'true');
             const runResult = preflightFailureSummary && allRunnersSkipped
               ? 'failure'
               : runnerResult;
@@ -1577,7 +1583,7 @@ jobs:
               trace: '${{ needs.evaluate.outputs.trace }}',
               // Agent run result - check which agent ran
               run_result: runResult,
-              agent_execution_started: !allRunnersSkipped,
+              agent_execution_started: agentExecutionStarted,
               // Agent output details for visibility
               agent_exit_code: agentExitCode,
               agent_changes_made: agentChangesMade,

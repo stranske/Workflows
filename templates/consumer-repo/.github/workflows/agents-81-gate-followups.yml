@@ -826,6 +826,10 @@ jobs:
             const preflightFailureSummary = process.env.PREFLIGHT_FAILURE_SUMMARY || '';
             const allRunnersSkipped = [claudeResult, codexResult]
               .every((result) => !result || result === 'skipped');
+            const agentExecutionStarted = [
+              '${{ needs.run-codex.outputs.agent-execution-started }}',
+              '${{ needs.run-claude.outputs.agent-execution-started }}',
+            ].some((value) => value === 'true');
             const runResult = preflightFailureSummary && allRunnersSkipped
               ? 'failure'
               : runnerResult;
@@ -875,7 +879,7 @@ jobs:
               agent_routing_mode: '${{ needs.evaluate.outputs.agent_routing_mode }}',
               // Agent run result - check which agent ran
               run_result: runResult,
-              agent_execution_started: !allRunnersSkipped,
+              agent_execution_started: agentExecutionStarted,
               // Agent output details (merged from whichever agent ran)
               agent_exit_code: agentExitCode,
               agent_changes_made: agentChangesMade,

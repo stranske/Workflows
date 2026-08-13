@@ -155,6 +155,9 @@ on:
       files-changed:
         description: 'Number of files changed by Cursor'
         value: ${{ jobs.cursor.outputs.files-changed }}
+      agent-execution-started:
+        description: 'Whether the Run Cursor step started'
+        value: ${{ jobs.cursor.outputs.agent-execution-started }}
       capability-id:
         description: 'Validated existing capability identifier; empty when evidence is absent.'
         value: ${{ jobs.cursor.outputs.capability-id }}
@@ -225,6 +228,7 @@ jobs:
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
+      agent-execution-started: ${{ steps.run_cursor.outputs.agent-execution-started }}
       capability-id: ${{ steps.capability_evidence.outputs.capability-id }}
       effect-fingerprint: ${{ steps.capability_evidence.outputs.effect-fingerprint }}
       evidence-artifact-ref: ${{ steps.capability_evidence.outputs.evidence-artifact-ref }}
@@ -933,6 +937,7 @@ jobs:
           # headless `--model auto` runs even when the metered API bucket is
           # 100% spent). Callers may still override MODEL explicitly.
           MODEL="${MODEL:-auto}"
+          echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
           set +e
           "$CURSOR_BIN" -p "$prompt_content" \
             "${perm_flag[@]}" \

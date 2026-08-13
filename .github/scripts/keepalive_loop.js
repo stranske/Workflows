@@ -4552,9 +4552,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             await addRoutingLabel();
           } else {
             // The direct workflow dispatch below owns the retry lease. Do not
-            // add agent:retry first: its labeled event could race the dispatch
-            // and create a second forced run. The label is only a dispatch-
-            // failure fallback.
+            // add agent:retry: its labeled event could race a successful
+            // dispatch, while GITHUB_TOKEN cannot wake a failed one. A failure
+            // defers the durable lease for a later direct retry instead.
             await clearAutomationAttention();
           }
         } catch (error) {
@@ -4603,11 +4603,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
                   `Failed to persist deferred recovery lease: ${stateError.message}`,
                 );
               }
-            }
-            try {
-              await addRoutingLabel();
-            } catch (labelError) {
-              core?.warning?.(`Failed to add automation retry fallback label: ${labelError.message}`);
             }
           }
         }

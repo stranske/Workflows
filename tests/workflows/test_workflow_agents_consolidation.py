@@ -1395,7 +1395,8 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
         assert "PREFLIGHT_FAILURE_SUMMARY" in text
         assert "preflightFailureSummary && allRunnersSkipped" in text
         assert "? 'failure'" in text
-        assert "agent_execution_started: !allRunnersSkipped" in text
+        assert "agent_execution_started: agentExecutionStarted" in text
+        assert "outputs.agent-execution-started" in text
         assert 'missing_msg="Missing Codex auth: set CODEX_AUTH_JSON"' in text
         assert 'echo "failure_summary=$missing_msg" >> "$GITHUB_OUTPUT"' in text
 
@@ -1406,3 +1407,30 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
     root_text = workflow_paths[0].read_text(encoding="utf-8")
     assert 'missing_msg="Missing Cursor auth: set the CURSOR_API_KEY secret"' in root_text
     assert 'missing_msg="Missing Gemini auth: set the GEMINI_API_KEY secret"' in root_text
+
+
+def test_reusable_agent_runners_export_actual_execution_start():
+    runners = {
+        "codex": "Codex",
+        "claude": "Claude",
+        "cursor": "Cursor",
+        "gemini": "Gemini",
+    }
+
+    for agent, display_name in runners.items():
+        path = WORKFLOWS_DIR / f"reusable-{agent}-run.yml"
+        text = path.read_text(encoding="utf-8")
+        run_marker = f"- name: Run {display_name}"
+        run_start = text.index(run_marker)
+        next_step = text.find("\n      - name:", run_start + len(run_marker))
+        run_region = text[run_start : next_step if next_step != -1 else None]
+
+        assert "agent-execution-started:" in text
+        assert (
+            f"value: ${{{{ jobs.{agent}.outputs.agent-execution-started }}}}" in text
+        )
+        assert (
+            f"agent-execution-started: "
+            f"${{{{ steps.run_{agent}.outputs.agent-execution-started }}}}" in text
+        )
+        assert 'echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"' in run_region
