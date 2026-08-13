@@ -595,6 +595,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$CODEX_AUTH_JSON" ]; then
+            error_msg="Missing Codex auth: set CODEX_AUTH_JSON"
+            echo "CODEX_PREFLIGHT_ERROR=${error_msg}" >> "$GITHUB_ENV"
             echo "::error::CODEX_AUTH_JSON secret is not set or empty."
             echo "::error::Please add it to repository secrets."
             echo "Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"

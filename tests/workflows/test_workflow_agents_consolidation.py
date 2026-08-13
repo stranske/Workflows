@@ -1329,3 +1329,30 @@ def test_keepalive_gate_job_handles_missing_pull_request_metadata():
     assert (
         "update_body" in jobs or "comment_event_context" in jobs
     ), "PR meta workflow must handle PR context for keepalive operations"
+
+
+def test_codex_setup_auth_failure_exports_actionable_keepalive_evidence():
+    path = WORKFLOWS_DIR / "reusable-codex-run.yml"
+    text = path.read_text(encoding="utf-8")
+
+    setup_marker = 'if [ -z "$CODEX_AUTH_JSON" ]; then'
+    evidence_marker = 'error_msg="Missing Codex auth: set CODEX_AUTH_JSON"'
+    export_marker = 'echo "CODEX_PREFLIGHT_ERROR=${error_msg}" >> "$GITHUB_ENV"'
+    failure_marker = 'echo "::error::CODEX_AUTH_JSON secret is not set or empty."'
+    classifier_marker = "PREFLIGHT_ERROR: ${{ env.CODEX_PREFLIGHT_ERROR }}"
+    setup_start = text.index(setup_marker)
+    setup_end = text.index("# Check token expiration", setup_start)
+    setup_region = text[setup_start:setup_end]
+
+    for marker in (
+        setup_marker,
+        evidence_marker,
+        export_marker,
+        failure_marker,
+    ):
+        assert marker in setup_region
+    assert classifier_marker in text
+
+    assert setup_region.index(setup_marker) < setup_region.index(evidence_marker)
+    assert setup_region.index(evidence_marker) < setup_region.index(export_marker)
+    assert setup_region.index(export_marker) < setup_region.index(failure_marker)
