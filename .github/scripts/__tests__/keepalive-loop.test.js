@@ -3048,6 +3048,9 @@ test('authority evidence persists only an allowlisted safe projection', () => {
       'Denied futuristicEnvelope=NEVER_PERSIST_THIS_FORMAT; ' +
       'required permission contents:write',
   });
+  const unrecognizedEnvShapedValue = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing token: NEVER_PERSIST_THIS_FORMAT for runner launch.',
+  });
   const pluralNamedCredentials = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing credentials: OPENAI_API_KEY',
   });
@@ -3181,6 +3184,7 @@ test('authority evidence persists only an allowlisted safe projection', () => {
   assert.match(separatePermissionRemedies.humanAction, /issues:write/);
   assert.doesNotMatch(separatePermissionRemedies.humanAction, /Required permission: contents:read/);
   assert.equal(githubScopeAfter.fingerprint, githubScopeAfterCompact.fingerprint);
+  assert.equal(githubPermissionBefore.fingerprint, githubScopeAfter.fingerprint);
   const safeProjection = /^(?:Required credential: [A-Z][A-Z0-9_]+|Required permission: [A-Za-z0-9_.:-]+|HTTP (?:401|403)(?:\/(?:401|403))*|Authority failure(?: \([a-z, ]+\))?)(?:; (?:Required credential: [A-Z][A-Z0-9_]+|Required permission: [A-Za-z0-9_.:-]+|HTTP (?:401|403)(?:\/(?:401|403))*))*$/;
   const projectedEvidence = [
     sensitive, uppercaseSensitive, undelimitedSensitive, genericCredentialSensitive,
@@ -3196,6 +3200,7 @@ test('authority evidence persists only an allowlisted safe projection', () => {
     structuredCredentialObjectSensitive, passphraseSensitive, urlSensitive,
     sshUrlSensitive, databaseUrlSensitive, undelimitedApiKeySensitive,
     undelimitedAwsKeySensitive, bareProviderSensitive, novelUnrecognizedSecret,
+    unrecognizedEnvShapedValue,
     ...standaloneHttpAuthSensitive,
     ...credentialFieldEvidence.map(item => item.evidence),
   ];
@@ -3235,6 +3240,11 @@ test('authority evidence persists only an allowlisted safe projection', () => {
   assert.doesNotMatch(
     `${novelUnrecognizedSecret.detail} ${novelUnrecognizedSecret.humanAction}`,
     /NEVER_PERSIST_THIS_FORMAT|futuristicEnvelope/,
+  );
+  assert.equal(unrecognizedEnvShapedValue.actionable, false);
+  assert.doesNotMatch(
+    `${unrecognizedEnvShapedValue.detail} ${unrecognizedEnvShapedValue.humanAction}`,
+    /NEVER_PERSIST_THIS_FORMAT/,
   );
   assert.equal(pluralNamedCredentials.actionable, true);
   assert.match(pluralNamedCredentials.detail, /OPENAI_API_KEY/);

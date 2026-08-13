@@ -297,9 +297,20 @@ function buildAuthorityChallengeEvidence({
     /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b\s*[:=]?\s*\b([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/g,
     /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/g,
   ];
+  const authorityCredentialAllowlist = new Set([
+    'ACTIONS_BOT_PAT',
+    'CLAUDE_AUTH_JSON',
+    'CLAUDE_CODE_OAUTH_TOKEN',
+    'CODEX_AUTH_JSON',
+    'CURSOR_API_KEY',
+    'GEMINI_API_KEY',
+    'OPENAI_API_KEY',
+  ]);
   let canonicalCredentialTarget = '';
   for (const pattern of namedCredentialPatterns) {
-    for (const match of redacted.matchAll(pattern)) canonicalCredentialTarget = match[1];
+    for (const match of redacted.matchAll(pattern)) {
+      if (authorityCredentialAllowlist.has(match[1])) canonicalCredentialTarget = match[1];
+    }
   }
   const statusCodes = [...new Set(
     [...redacted.matchAll(/\b(?:HTTP\s*)?(401|403)\b/gi)].map(match => match[1]),
@@ -320,11 +331,14 @@ function buildAuthorityChallengeEvidence({
   const detail = detailParts.length
     ? detailParts.join('; ')
     : `Authority failure${authoritySignals.length ? ` (${authoritySignals.join(', ')})` : ''}`;
+  const hasConcreteAuthorityFact = Boolean(detailParts.length);
   const fingerprintProjection = JSON.stringify({
     credential: canonicalCredentialTarget,
     permission: canonicalPermissionTarget.toLowerCase(),
     status_codes: statusCodes,
-    signals: authoritySignals,
+    // Wording changes such as "missing" versus "required" must not create a
+    // new challenge when the concrete credential/permission/status is equal.
+    signals: hasConcreteAuthorityFact ? [] : authoritySignals,
   });
   return {
     fingerprint: crypto.createHash('sha256')
