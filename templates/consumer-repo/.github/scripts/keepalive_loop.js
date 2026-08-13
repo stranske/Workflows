@@ -142,6 +142,10 @@ function buildAuthorityChallengeEvidence({
   const normalized = redacted
     .toLowerCase()
     .replace(
+      /\b([a-z0-9_.-]+)\s*:\s*([a-z0-9_.-]+)\b/g,
+      '$1:$2',
+    )
+    .replace(
       /\b\d{4}-\d{2}-\d{2}[t ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:z|[+-]\d{2}:?\d{2})?\b/g,
       '<volatile-timestamp>',
     )
@@ -158,7 +162,7 @@ function buildAuthorityChallengeEvidence({
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
   const actionable =
     /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credential|key))?\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
-    /\b(?:scope|permission)\b.{0,100}\b[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+\b/i.test(redacted);
+    /(?:\b(?:scope|permission)\b.{0,100}\b[A-Za-z0-9_.-]+\s*:\s*[A-Za-z0-9_.-]+\b|\b[A-Za-z0-9_.-]+\s*:\s*[A-Za-z0-9_.-]+\b.{0,40}\b(?:scope|permission)\b)/i.test(redacted);
   return {
     fingerprint: crypto.createHash('sha256')
       .update(`agent=${routedAgent}|operation=${challengedOperation}|${normalized}`)

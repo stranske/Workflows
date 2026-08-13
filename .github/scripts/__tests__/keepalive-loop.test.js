@@ -2866,6 +2866,22 @@ test('authority fingerprints include redacted details beyond the display limit',
   });
   assert.notEqual(sameFailureCodex.fingerprint, sameFailureClaude.fingerprint);
   assert.notEqual(sameFailureCodex.fingerprint, sameFailureFix.fingerprint);
+  const githubPermissionBefore = buildAuthorityChallengeEvidence({
+    agentSummary: 'missing contents: write permission',
+  });
+  const githubScopeBefore = buildAuthorityChallengeEvidence({
+    agentSummary: 'requires contents:write scope',
+  });
+  const githubScopeAfter = buildAuthorityChallengeEvidence({
+    agentSummary: 'missing scope contents: write',
+  });
+  const githubScopeAfterCompact = buildAuthorityChallengeEvidence({
+    agentSummary: 'missing scope contents:write',
+  });
+  assert.equal(githubPermissionBefore.actionable, true);
+  assert.equal(githubScopeBefore.actionable, true);
+  assert.equal(githubScopeAfter.actionable, true);
+  assert.equal(githubScopeAfter.fingerprint, githubScopeAfterCompact.fingerprint);
   assert.equal(
     sensitive.detail,
     'Forbidden request with Bearer [redacted-token] and token=[redacted]',
