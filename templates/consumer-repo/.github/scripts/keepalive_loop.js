@@ -80,6 +80,7 @@ function isSensitiveCredentialFieldName(value) {
     'passwd', 'passwds', 'pwd', 'pwds', 'passcode', 'passcodes', 'passphrase',
     'passphrases', 'pin', 'pins', 'otp', 'otps', 'totp', 'totps', 'mfa',
     'signature', 'signatures', 'token', 'tokens', 'key', 'keys',
+    'pfx', 'p12', 'pkcs12', 'keystore', 'truststore',
   ]);
   const authField = words.some(word => ['auth', 'authentication', 'authorization'].includes(word));
   const carriesAuthMaterial = words.some(word => [
@@ -123,15 +124,16 @@ function buildAuthorityChallengeEvidence({
     ['repo', 'workflow', 'gist', 'notifications', 'user', 'delete_repo', 'codespace', 'copilot', 'project'],
   );
   const permissionTarget = String.raw`(?:${structuredPermissionTarget}|${standaloneOauthScope})`;
+  const quotedPermissionTarget = String.raw`[\x60"']?(?<target>${permissionTarget})[\x60"']?`;
   const remedyCue = String.raw`(?:missing|required|requires?|needs?|insufficient|unavailable|unset|undefined|grant|enable)`;
   const permissionRemedyPatterns = [
     // A cue must be part of the same grammatical remedy as the target. Do not
     // let an unrelated target borrow a nearby cue or context word.
-    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?(?<context>scopes?|permissions?)\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b`, 'gi'),
-    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?(?<target>${permissionTarget})\b\s+(?<context>scopes?|permissions?)\b`, 'gi'),
-    new RegExp(String.raw`\b(?<context>scopes?|permissions?)\b\s*(?:is\s+|are\s+)?(?<cue>${remedyCue})\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b`, 'gi'),
-    new RegExp(String.raw`\b(?<context>scopes?|permissions?)\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b\s+(?:is\s+|are\s+)?(?<cue>${remedyCue})\b`, 'gi'),
-    new RegExp(String.raw`\b(?<target>${permissionTarget})\b\s+(?<context>scopes?|permissions?)\b\s+(?:is\s+|are\s+)?(?<cue>${remedyCue})\b`, 'gi'),
+    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?(?<context>scopes?|permissions?)\b\s*(?:[:=]\s*)?${quotedPermissionTarget}`, 'gi'),
+    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?${quotedPermissionTarget}\s+(?<context>scopes?|permissions?)\b`, 'gi'),
+    new RegExp(String.raw`\b(?<context>scopes?|permissions?)\b\s*(?:is\s+|are\s+)?(?<cue>${remedyCue})\b\s*(?:[:=]\s*)?${quotedPermissionTarget}`, 'gi'),
+    new RegExp(String.raw`\b(?<context>scopes?|permissions?)\b\s*(?:[:=]\s*)?${quotedPermissionTarget}\s+(?:is\s+|are\s+)?(?<cue>${remedyCue})\b`, 'gi'),
+    new RegExp(String.raw`${quotedPermissionTarget}\s+(?<context>scopes?|permissions?)\b\s+(?:is\s+|are\s+)?(?<cue>${remedyCue})\b`, 'gi'),
   ];
   let contextualPermissionTarget = null;
   for (const pattern of permissionRemedyPatterns) {

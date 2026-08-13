@@ -3013,6 +3013,7 @@ test('authority fingerprints include redacted details beyond the display limit',
     'credentialBlob', 'sessionTokenString', 'private_key_material',
     'api_keys', 'client_secret_value', 'access_tokens', 'password_hashes',
     'serviceAuthMaterial', 'oauthCredentialsBundle', 'signingKeyBytes',
+    'pfxData', 'pkcs12Bytes', 'p12Blob', 'releaseKeystore', 'buildTruststore',
   ];
   const credentialFieldEvidence = credentialFieldShapes.map((field, index) => ({
     field,
@@ -3114,6 +3115,9 @@ test('authority fingerprints include redacted details beyond the display limit',
     'permissions: contents:write are required',
     'contents:write permissions are required',
     'scopes required: repo',
+    'required permission `contents:write`',
+    'required permission "pull-requests:write"',
+    "required scope 'repo'",
   ].map(agentSummary => buildAuthorityChallengeEvidence({ agentSummary }));
   const metadataOnly = buildAuthorityChallengeEvidence({
     agentSummary: 'Permission denied; error:403 from repository API',
