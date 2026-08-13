@@ -171,7 +171,7 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - name: Checkout delivery contract
+      - name: Checkout trusted base delivery contract
         if: >-
           ${{
             github.event_name == 'pull_request' &&
@@ -182,8 +182,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.base.repo.full_name }}
+          ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout: .github/scripts/sync_pr_lease_contract.js
           sparse-checkout-cone-mode: false
 

@@ -30,6 +30,50 @@ def test_fenced_headings_do_not_satisfy_required_sections() -> None:
     assert set(report.missing_required) == {"Tasks", "Acceptance Criteria"}
 
 
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_archived_original_issue_paths_do_not_poison_live_addressability(
+    validator_path: Path, tmp_path: Path
+) -> None:
+    validator = _validator(validator_path)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "current.py").write_text("# current\n", encoding="utf-8")
+    body = (
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update function `calculateDiscount`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_current.py passes\n\n"
+        + "<details>\n<summary>Original Issue</summary>\n\n```text\n"
+        + "Old evidence: `missing/one.py`, `missing/two.py`, `missing/three.py`.\n"
+        + "<details>literal archived markup</details>\n```\n</details>\n"
+    )
+
+    report = validator.validate(body, repo_root=tmp_path)
+
+    assert report.ok, report.as_markdown()
+    assert not report.advisories
+
+
+def test_malformed_original_issue_archive_remains_visible_to_validation(tmp_path: Path) -> None:
+    validator = _validator()
+    body = (
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update function `calculateDiscount`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_current.py passes\n\n"
+        + "<details><summary>Original Issue</summary>\n"
+        + "`missing/one.py` `missing/two.py` `missing/three.py`\n"
+    )
+
+    report = validator.validate(body, repo_root=tmp_path)
+
+    assert not report.ok
+    assert "None of the 3 paths" in report.as_markdown()
+
+
 def test_fence_with_language_marker_does_not_close_a_code_block() -> None:
     validator = _validator()
     report = validator.validate(

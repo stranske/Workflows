@@ -7,6 +7,7 @@ const {
   DEFAULT_CATEGORIES,
   classifyFiles,
   globToRegExp,
+  loadDeliveryContract,
   matchesAny,
   parseClassificationConfig,
   stableDeliverySealStatus,
@@ -129,7 +130,10 @@ function deliveryContext(record, { branch = 'sync/workflows-delivery', fork = fa
           sha: 'head-abc',
           repo: { full_name: fork ? 'attacker/Ready' : 'stranske/Ready' },
         },
-        base: { repo: { full_name: 'stranske/Ready' } },
+        base: {
+          sha: 'trusted-base-sha',
+          repo: { full_name: 'stranske/Ready' },
+        },
       },
     },
   };
@@ -157,6 +161,35 @@ test('custom Gate classifier rejects an unsealed stable delivery', () => {
     }),
     { required: true, valid: false, reason: 'delivery_not_sealed:staging' },
   );
+});
+
+test('stable delivery loads its seal contract from the exact trusted base SHA', () => {
+  let requested = null;
+  const contractSource = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'sync_pr_lease_contract.js'),
+    'utf8',
+  );
+  const contract = loadDeliveryContract(deliveryContext(deliveryRecord), {
+    readTrustedContract: (ref, contractPath) => {
+      requested = { ref, contractPath };
+      return contractSource;
+    },
+  });
+
+  assert.deepEqual(requested, {
+    ref: 'trusted-base-sha',
+    contractPath: '.github/scripts/sync_pr_lease_contract.js',
+  });
+  assert.equal(contract.mergeEligibility(deliveryRecord, { requireSealed: true }).eligible, false);
+});
+
+test('stable delivery fails closed when the trusted base contract is unavailable', () => {
+  const contract = loadDeliveryContract(deliveryContext(deliveryRecord), {
+    readTrustedContract: () => {
+      throw new Error('base object unavailable');
+    },
+  });
+  assert.equal(contract, null);
 });
 
 test('custom Gate classifier accepts only the sealed exact head', () => {

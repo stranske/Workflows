@@ -49,9 +49,11 @@ For these repos:
 - The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
 - A custom Gate must invoke the exact-synced `.github/actions/path-classifier`
   (or enforce the equivalent delivery-record check itself). The classifier
-  rejects stable candidate/delivery PRs until Maint 71 seals the exact head, so
-  a custom aggregate `Gate / gate` cannot report success while delivery is
-  still mutable.
+  loads the delivery-seal contract from the pull request's exact trusted base
+  SHA and fails closed when that object is unavailable; it never evaluates the
+  candidate copy of the contract. It rejects stable candidate/delivery PRs
+  until Maint 71 seals the exact head, so a custom aggregate `Gate / gate`
+  cannot report success while delivery is still mutable.
 - `Trend_Model_Project` skips the synced `AGENTS.md` file and keeps its local
   `Agents.md`.
 - `trip-planner` skips the synced `.github/scripts/package.json` and vendored
@@ -340,6 +342,11 @@ exact head and applies `sync:delivery-ready`, which triggers a fresh Gate. The
 Gate summary rejects an unsealed stable delivery, while the shared merge guard
 rejects `sync:delivery-staging` for every merger except Maint 71's verified
 sealed path. The staging hold remains until the merge succeeds.
+
+The standard Gate's generated-delivery job also checks out
+`sync_pr_lease_contract.js` from the exact pull-request base SHA, not from the
+candidate head. A contract change therefore cannot define its own acceptance
+rule. Missing or unreadable trusted-base enforcement code is a hard failure.
 
 Generated `sync/workflows-*` PRs are excluded from both the basic and agent
 autofix lanes. Their intentional pre-seal Gate failure is a delivery hold, not

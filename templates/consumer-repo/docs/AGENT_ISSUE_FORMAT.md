@@ -241,6 +241,10 @@ Tasks
     different action.
     quoted and unquoted task paths both count, while absolute and parent-relative
     paths never count as repository evidence.
+[ ] Ignore paths preserved inside the formatter's archived
+    `<summary>Original Issue</summary>` provenance block. Only the visible issue
+    body is live work-order evidence; malformed or unclosed archives remain
+    visible and fail closed.
 [ ] No banned vague verb stands alone ("fix bugs", "improve X",
     "update things", "clean up", "refactor", "optimize", "polish").
 [ ] Each task is atomic — one checkbox = one discrete, verifiable change.

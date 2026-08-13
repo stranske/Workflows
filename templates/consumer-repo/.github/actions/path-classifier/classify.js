@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const vm = require('node:vm');
 
 const OUTPUT_NAMES = {
   'docs-only': 'is-docs-only',
@@ -222,9 +223,42 @@ function stableDeliverySealStatus(githubContext, { contract, now } = {}) {
   };
 }
 
-function loadDeliveryContract() {
+function compileDeliveryContract(source, filename) {
+  const module = { exports: {} };
+  const sandbox = { module, exports: module.exports };
+  vm.runInNewContext(String(source), sandbox, { filename });
+  return module.exports;
+}
+
+function readContractAtRef(ref, contractPath) {
+  return runGit(['show', `${ref}:${contractPath}`]);
+}
+
+function loadDeliveryContract(
+  githubContext = {},
+  { readTrustedContract = readContractAtRef } = {},
+) {
   const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-  const contractPath = path.resolve(workspace, '.github/scripts/sync_pr_lease_contract.js');
+  const relativeContractPath = '.github/scripts/sync_pr_lease_contract.js';
+  const pullRequest = githubContext?.event?.pull_request;
+  const branch = pullRequest?.head?.ref || '';
+
+  if (githubContext?.event_name === 'pull_request' && STABLE_SYNC_BRANCHES.has(branch)) {
+    const baseSha = pullRequest?.base?.sha || '';
+    if (!baseSha) {
+      return null;
+    }
+    try {
+      const source = readTrustedContract(baseSha, relativeContractPath);
+      return compileDeliveryContract(source, `${baseSha}:${relativeContractPath}`);
+    } catch {
+      // Stable generated deliveries fail closed when the trusted base contract
+      // cannot be loaded; never fall back to the candidate checkout.
+      return null;
+    }
+  }
+
+  const contractPath = path.resolve(workspace, relativeContractPath);
   if (!fs.existsSync(contractPath)) {
     return null;
   }
@@ -361,8 +395,12 @@ function writeOutputs(outputs) {
 
 function main() {
   const githubContext = parseGithubContext();
+  const baseRef = resolveBaseRef(process.env.INPUT_BASE_REF || '', githubContext);
+  // The stable-delivery contract is loaded from the exact trusted base SHA.
+  // Make that object available before evaluating the seal.
+  fetchBaseRef(baseRef, githubContext);
   const seal = stableDeliverySealStatus(githubContext, {
-    contract: loadDeliveryContract(),
+    contract: loadDeliveryContract(githubContext),
   });
   if (seal.required && !seal.valid) {
     throw new Error(
@@ -372,7 +410,6 @@ function main() {
   }
   const forceFull = String(process.env.INPUT_FORCE_FULL || '').toLowerCase() === 'true';
   const configPath = process.env.INPUT_CONFIG_PATH || '.github/path-classification.yml';
-  const baseRef = resolveBaseRef(process.env.INPUT_BASE_REF || '', githubContext);
   const config = loadConfig(configPath);
   let files = [];
   let conservativeFull = false;
@@ -400,6 +437,7 @@ module.exports = {
   classifyFiles,
   globToRegExp,
   loadConfig,
+  loadDeliveryContract,
   matchesAny,
   normalizePath,
   parseClassificationConfig,
