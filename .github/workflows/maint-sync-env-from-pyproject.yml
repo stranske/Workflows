@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/autofix-versions.env'
+      - '.pre-commit-config.yaml'
       - 'templates/consumer-repo/.github/workflows/autofix-versions.env'
       - 'templates/integration-repo/.github/workflows/autofix-versions.env'
       - 'pyproject.toml'

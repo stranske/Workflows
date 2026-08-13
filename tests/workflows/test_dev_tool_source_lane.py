@@ -3,6 +3,7 @@ from pathlib import Path
 AUTO_UPDATE = Path(".github/workflows/maint-auto-update-pypi-versions.yml")
 MAINT50 = Path(".github/workflows/maint-50-tool-version-check.yml")
 MAINT52 = Path(".github/workflows/maint-52-sync-dev-versions.yml")
+SYNC_ENV = Path(".github/workflows/maint-sync-env-from-pyproject.yml")
 
 
 def test_auto_updater_is_the_single_weekly_source_proposal_lane():
@@ -48,6 +49,12 @@ def test_source_lane_commits_managed_precommit_repairs():
     ]
 
     assert create_block.count(".pre-commit-config.yaml") >= 2
+
+
+def test_source_alignment_runs_when_managed_precommit_revisions_change():
+    text = SYNC_ENV.read_text(encoding="utf-8")
+
+    assert "      - '.pre-commit-config.yaml'" in text
 
 
 def test_maint50_reports_freshness_without_creating_competing_work():

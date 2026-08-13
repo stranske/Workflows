@@ -2900,7 +2900,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         // This ensures at least one fix attempt is made before giving up, and
         // that transient cancelled rounds don't consume the fix budget.
         const gateFailure = await classifyGateFailure({ github, context, pr, core });
-        if (gateFailure.shouldFixMode && consecutiveFixRounds < fixAttemptMax) {
+        if (forceRetry) {
+          // A terminal recovery lease must perform recovery work, even after
+          // the ordinary complete-Gate/fix budgets are exhausted. The summary
+          // consumes the lease after this single non-recursive fix attempt.
+          action = 'fix';
+          reason = `force-retry-fix-${gateFailure.failureType || 'complete-gate'}`;
+          if (core) core.info(`Forced recovery: retrying complete Gate failure (${gateFailure.failureType || 'unknown'}).`);
+        } else if (gateFailure.shouldFixMode && consecutiveFixRounds < fixAttemptMax) {
           // Fix is possible and we haven't exhausted fix attempts — try to fix
           action = 'fix';
           reason = `fix-${gateFailure.failureType}`;

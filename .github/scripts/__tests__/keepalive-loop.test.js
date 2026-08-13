@@ -432,6 +432,41 @@ test('evaluateKeepaliveLoop grants a forced recovery lease after verification ex
   assert.equal(result.reason, 'fix-verification-gaps');
 });
 
+test('evaluateKeepaliveLoop uses a forced lease to repair an exhausted complete Gate', async () => {
+  const pr = {
+    number: 409,
+    head: { ref: 'feature/forced-complete-gate-recovery', sha: 'sha-forced-complete-gate' },
+    labels: [{ name: 'agent:codex' }],
+    body: prBodyFixture.replace(/- \[ \]/g, '- [x]'),
+  };
+  const existingState = formatStateComment({
+    trace: 'fixture-trace',
+    iteration: 4,
+    max_iterations: 12,
+    consecutive_fix_rounds: 2,
+    complete_gate_failure_rounds: 3,
+    complete_gate_failure_rounds_max: 3,
+  });
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 25, body: existingState, html_url: 'https://example.com/25' }],
+    workflowRuns: [{ id: 1004, head_sha: 'sha-forced-complete-gate', conclusion: 'failure' }],
+  });
+  github.rest.actions.listJobsForWorkflowRun = async () => ({
+    data: { jobs: [{ name: 'lint (ruff)', status: 'completed', conclusion: 'failure' }] },
+  });
+
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+
+  assert.equal(result.action, 'fix');
+  assert.equal(result.reason, 'force-retry-fix-lint');
+});
+
 test('evaluateKeepaliveLoop stops at max iterations even when productive with tasks remaining', async () => {
   const pr = {
     number: 405,
