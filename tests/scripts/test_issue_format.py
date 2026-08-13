@@ -74,6 +74,36 @@ def test_malformed_original_issue_archive_remains_visible_to_validation(tmp_path
     assert "None of the 3 paths" in report.as_markdown()
 
 
+@pytest.mark.parametrize(
+    "archive",
+    [
+        (
+            "<details><summary>Original Issue</summary>\n"
+            "`missing/one.py` `missing/two.py` `missing/three.py`\n</details>\n"
+        ),
+        (
+            "<details><summary>Original Issue</summary>\n```markdown\n"
+            "`missing/one.py` `missing/two.py` `missing/three.py`\n```\n</details>\n"
+        ),
+    ],
+)
+def test_closed_noncanonical_original_issue_archive_remains_visible(
+    archive: str, tmp_path: Path
+) -> None:
+    validator = _validator()
+    body = (
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update function `calculateDiscount`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_current.py passes\n\n"
+        + archive
+    )
+
+    report = validator.validate(body, repo_root=tmp_path)
+
+    assert not report.ok
+    assert "None of the 3 paths" in report.as_markdown()
+
+
 def test_fence_with_language_marker_does_not_close_a_code_block() -> None:
     validator = _validator()
     report = validator.validate(

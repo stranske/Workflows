@@ -203,10 +203,11 @@ _UNQUOTED_PATH = re.compile(
 )
 _LINE_SUFFIX = re.compile(r":\d+(?:-\d+)?$")
 _NODE_SUFFIX = re.compile(r"::.+$")  # pytest node ids: tests/x.py::test_y
-_ORIGINAL_ISSUE_OPEN_RE = re.compile(
-    r"<details\b[^>]*>\s*<summary>Original Issue</summary>", re.IGNORECASE
+_ORIGINAL_ISSUE_BLOCK_RE = re.compile(
+    r"<details\b[^>]*>\s*<summary>Original Issue</summary>\s*"
+    r"(?P<fence>`{3,})text\s*\n(?P<inner>.*?)\n(?P=fence)\s*</details>",
+    re.DOTALL | re.IGNORECASE,
 )
-_DETAILS_TAG_RE = re.compile(r"</?details\b[^>]*>", re.IGNORECASE)
 # Self-referential boilerplate. The format contract tells authors to cite it, so
 # nearly every body mentions it — and it lives in every repo, which means
 # counting it as evidence would let one boilerplate line defeat the whole gate.
@@ -468,46 +469,8 @@ def _without_fenced_code(text: str) -> str:
 
 
 def _strip_original_issue_blocks(text: str) -> str:
-    """Remove archived Original-Issue provenance before validating live work."""
-    kept: list[str] = []
-    cursor = 0
-    while match := _ORIGINAL_ISSUE_OPEN_RE.search(text, cursor):
-        kept.append(text[cursor : match.start()])
-        depth = 1
-        end = match.end()
-        fence: tuple[str, int] | None = None
-        for tag in _DETAILS_TAG_RE.finditer(text, match.end()):
-            before = text[end : tag.end()]
-            for line in before.splitlines():
-                fence_match = re.match(r"\s{0,3}(`{3,}|~{3,})", line)
-                if not fence_match:
-                    continue
-                marker = fence_match.group(1)
-                if fence is None:
-                    fence = (marker[0], len(marker))
-                elif (
-                    marker[0] == fence[0]
-                    and len(marker) >= fence[1]
-                    and re.fullmatch(
-                        rf"\s{{0,3}}(?:`{{{fence[1]},}}|~{{{fence[1]},}})\s*",
-                        line,
-                    )
-                ):
-                    fence = None
-            end = tag.end()
-            if fence is not None:
-                continue
-            depth += -1 if tag.group(0).startswith("</") else 1
-            if depth == 0:
-                break
-        else:
-            # Malformed provenance stays visible and therefore cannot hide
-            # validation evidence or structural errors.
-            kept.append(text[match.start() :])
-            return "".join(kept).rstrip()
-        cursor = end
-    kept.append(text[cursor:])
-    return "".join(kept).rstrip()
+    """Remove only the formatter's canonical fenced provenance block."""
+    return _ORIGINAL_ISSUE_BLOCK_RE.sub("", text).rstrip()
 
 
 @dataclass
