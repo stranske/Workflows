@@ -83,6 +83,9 @@ function buildAuthorityChallengeEvidence({
   const permissionMatch = concretePermissionTarget.test(rawSummary)
     ? rawSummary.match(new RegExp(String.raw`\b(${permissionTarget})\b`, 'i'))
     : null;
+  const canonicalPermissionTarget = permissionMatch?.[1]
+    ? permissionMatch[1].replace(/\s*:\s*/g, ':')
+    : '';
   const hasAuthorizationHeader = /\b(?:proxy-)?authorization\s*[:=]/i.test(rawSummary);
   let unterminatedPrivateKeyRedacted = false;
   let redacted = rawSummary
@@ -155,9 +158,8 @@ function buildAuthorityChallengeEvidence({
     // Never reconstruct credential-looking text after fail-closed suffix
     // redaction: neither a flattened Authorization value nor a truncated
     // private-key block has a trustworthy ending boundary.
-    if (permissionMatch?.[1]) {
-      const target = permissionMatch[1].replace(/\s*:\s*/g, ':');
-      redacted += ` Required permission: ${target}`;
+    if (canonicalPermissionTarget) {
+      redacted += ` Required permission: ${canonicalPermissionTarget}`;
     }
   }
   if (!redacted) {
@@ -174,6 +176,14 @@ function buildAuthorityChallengeEvidence({
     detail = redacted.slice(start, start + detailLimit);
     if (start > 0) detail = `…${detail.slice(1)}`;
     if (start + detailLimit < redacted.length) detail = `${detail.slice(0, -1)}…`;
+  }
+  if (
+    canonicalPermissionTarget &&
+    !detail.replace(/\s*:\s*/g, ':').toLowerCase().includes(canonicalPermissionTarget.toLowerCase())
+  ) {
+    const remediation = `Required permission: ${canonicalPermissionTarget}. `;
+    detail = `${remediation}${detail}`;
+    if (detail.length > detailLimit) detail = `${detail.slice(0, detailLimit - 1)}…`;
   }
   const normalized = redacted
     .toLowerCase()

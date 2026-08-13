@@ -2916,6 +2916,11 @@ test('authority fingerprints include redacted details beyond the display limit',
   const passphraseSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Key authentication failed passphrase="correct horse battery staple".',
   });
+  const longPermissionRemediation = buildAuthorityChallengeEvidence({
+    agentSummary:
+      `Access denied: requires contents:write permission ` +
+      'while processing extended runner diagnostics '.repeat(20),
+  });
   const urlSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Permission denied for https://alice:correct-horse@example.com/private',
   });
@@ -3073,6 +3078,9 @@ test('authority fingerprints include redacted details beyond the display limit',
     'Key authentication failed passphrase=[redacted].',
   );
   assert.doesNotMatch(passphraseSensitive.detail, /correct horse battery staple/);
+  assert.match(longPermissionRemediation.detail, /contents:write/);
+  assert.match(longPermissionRemediation.humanAction, /contents:write/);
+  assert.ok(longPermissionRemediation.detail.length <= 300);
   assert.equal(
     urlSensitive.detail,
     'Permission denied for https://[redacted-userinfo]@example.com/private',
