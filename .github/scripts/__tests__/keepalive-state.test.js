@@ -11,6 +11,7 @@ const {
   createKeepaliveStateManager,
   loadKeepaliveState,
   calculateElapsedTime,
+  isTrustedKeepaliveStateComment,
 } = require('../keepalive_state.js');
 
 const buildGithubStub = ({ comments = [] } = {}) => {
@@ -202,6 +203,21 @@ test('loadKeepaliveState ignores a later untrusted marker and recovers trusted s
   assert.equal(result.commentId, 99);
   assert.equal(result.state.iteration, 2);
   assert.equal(result.state.recovery_lease.status, 'issued');
+});
+
+test('trusted keepalive state writers include identity-checked PAT fallbacks', () => {
+  assert.equal(isTrustedKeepaliveStateComment({
+    user: { login: 'stranske', type: 'User' },
+  }), true);
+  assert.equal(isTrustedKeepaliveStateComment({
+    user: { login: 'stranske-automation-bot', type: 'User' },
+  }), true);
+  assert.equal(isTrustedKeepaliveStateComment({
+    user: { login: 'untrusted-reviewer', type: 'User' },
+  }), false);
+  assert.equal(isTrustedKeepaliveStateComment({
+    user: { login: 'agents-workflows-bot[bot]', type: 'User' },
+  }), false);
 });
 
 test('loadKeepaliveState prefers loop state when trace is empty', async () => {

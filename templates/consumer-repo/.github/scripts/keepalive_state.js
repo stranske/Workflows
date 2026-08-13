@@ -13,6 +13,12 @@ const TRUSTED_KEEPALIVE_STATE_AUTHORS = new Set([
   // tokens became mandatory. New workflows do not write state with this bot.
   'github-actions[bot]',
 ]);
+const TRUSTED_KEEPALIVE_STATE_PAT_AUTHORS = new Set([
+  // reusable-70-orchestrator-init.yml probes and enforces these exact
+  // identities before ACTIONS_BOT_PAT or SERVICE_BOT_PAT may write state.
+  'stranske',
+  'stranske-automation-bot',
+]);
 
 function logInfo(message) {
   console.info(`${LOG_PREFIX} ${message}`);
@@ -27,8 +33,10 @@ function normaliseLower(value) {
 }
 
 function isTrustedKeepaliveStateComment(comment) {
-  return normaliseLower(comment?.user?.type) === 'bot'
-    && TRUSTED_KEEPALIVE_STATE_AUTHORS.has(normaliseLower(comment?.user?.login));
+  const type = normaliseLower(comment?.user?.type);
+  const login = normaliseLower(comment?.user?.login);
+  return (type === 'bot' && TRUSTED_KEEPALIVE_STATE_AUTHORS.has(login))
+    || (type === 'user' && TRUSTED_KEEPALIVE_STATE_PAT_AUTHORS.has(login));
 }
 
 function deepMerge(target, source) {
