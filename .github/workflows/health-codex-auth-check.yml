@@ -290,13 +290,16 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail on unusable auth
-        if: >-
-          always() &&
-          (steps.check.outputs.status == 'missing' ||
-          steps.check.outputs.status == 'invalid' ||
-          steps.check.outputs.status == 'error')
+        if: always()
         env:
           STATUS: ${{ steps.check.outputs.status }}
         run: |
-          echo "::error::CODEX_AUTH_JSON is ${STATUS}; Codex workflows cannot authenticate."
-          exit 1
+          case "$STATUS" in
+            missing|invalid|error)
+              echo "::error::CODEX_AUTH_JSON is ${STATUS}; Codex workflows cannot authenticate."
+              exit 1
+              ;;
+            *)
+              exit 0
+              ;;
+          esac

@@ -397,11 +397,11 @@ def test_codex_auth_health_fails_when_secret_is_unusable() -> None:
     issue_condition = str(issue_step.get("if", ""))
     assert "steps.existing.outputs.result != 'true'" in issue_condition
 
-    condition = str(step.get("if", ""))
-    for status in ("missing", "invalid", "error"):
-        assert f"steps.check.outputs.status == '{status}'" in condition
-
+    assert str(step.get("if", "")) == "always()"
     run_script = str(step.get("run", ""))
+    for status in ("missing", "invalid", "error"):
+        assert status in run_script
+
     assert "Codex workflows cannot authenticate" in run_script
     assert "exit 1" in run_script
 
