@@ -127,16 +127,17 @@ function buildAuthorityChallengeEvidence({
   const permissionRemedyPatterns = [
     // A cue must be part of the same grammatical remedy as the target. Do not
     // let an unrelated target borrow a nearby cue or context word.
-    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?(?<context>scope|permission)\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b`, 'gi'),
-    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?(?<target>${permissionTarget})\b\s+(?<context>scope|permission)\b`, 'gi'),
-    new RegExp(String.raw`\b(?<context>scope|permission)\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b\s+(?:is\s+)?(?<cue>${remedyCue})\b`, 'gi'),
-    new RegExp(String.raw`\b(?<target>${permissionTarget})\b\s+(?<context>scope|permission)\b\s+(?:is\s+)?(?<cue>${remedyCue})\b`, 'gi'),
+    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?(?<context>scopes?|permissions?)\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b`, 'gi'),
+    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?(?<target>${permissionTarget})\b\s+(?<context>scopes?|permissions?)\b`, 'gi'),
+    new RegExp(String.raw`\b(?<context>scopes?|permissions?)\b\s*(?:is\s+|are\s+)?(?<cue>${remedyCue})\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b`, 'gi'),
+    new RegExp(String.raw`\b(?<context>scopes?|permissions?)\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b\s+(?:is\s+|are\s+)?(?<cue>${remedyCue})\b`, 'gi'),
+    new RegExp(String.raw`\b(?<target>${permissionTarget})\b\s+(?<context>scopes?|permissions?)\b\s+(?:is\s+|are\s+)?(?<cue>${remedyCue})\b`, 'gi'),
   ];
   let contextualPermissionTarget = null;
   for (const pattern of permissionRemedyPatterns) {
     for (const match of rawSummary.matchAll(pattern)) {
       const { context, target } = match.groups;
-      if (standaloneOauthScopes.has(target.toLowerCase()) && context.toLowerCase() !== 'scope') continue;
+      if (standaloneOauthScopes.has(target.toLowerCase()) && !context.toLowerCase().startsWith('scope')) continue;
       if (!contextualPermissionTarget || match.index > contextualPermissionTarget.index) {
         contextualPermissionTarget = { target, index: match.index };
       }
