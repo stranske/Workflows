@@ -42,9 +42,9 @@ def test_precommit_rev_pins_follow_autofix_versions(tmp_path: Path, monkeypatch)
     config.write_text(
         "repos:\n"
         "  - repo: https://github.com/psf/black\n"
-        "    rev: 24.8.0  # managed\n"
+        '    rev: "v24.8.0"  # managed\n'
         "  - repo: https://github.com/astral-sh/ruff-pre-commit\n"
-        "    rev: v0.15.0\n"
+        "    rev: 'v0.15.0'\n"
         "  - repo: https://github.com/pre-commit/mirrors-mypy\n"
         "    rev: v2.2.0\n"
         "  - repo: https://github.com/PyCQA/isort\n"
@@ -62,8 +62,8 @@ def test_precommit_rev_pins_follow_autofix_versions(tmp_path: Path, monkeypatch)
     assert sdd.main(["--check", "--pin-file", str(pins), "--pyproject", str(pyproject)]) == 1
     assert sdd.main(["--apply", "--pin-file", str(pins), "--pyproject", str(pyproject)]) == 0
     applied = config.read_text(encoding="utf-8")
-    assert "rev: 26.5.1  # managed" in applied
-    assert "rev: v0.16.2" in applied
+    assert 'rev: "v26.5.1"  # managed' in applied
+    assert "rev: 'v0.16.2'" in applied
     assert "rev: v2.3.0" in applied
     assert "rev: 7.0.0" in applied
     assert "rev: v1.7.7" in applied

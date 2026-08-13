@@ -9,6 +9,7 @@ const {
   selectDueAuthorityChallenge,
   signAuthorityChallengeClaim,
   verifyAuthorityChallengeClaim,
+  verifyAuthorityChallengeEnvelope,
 } = require('../keepalive_challenge_due.js');
 
 const marker = (attention) => ({
@@ -76,6 +77,37 @@ test('authority challenge claims fail closed on incomplete or malformed fields',
       sweepRunId: '31683971486',
       sweepRunAttempt: '1',
     }),
+    false,
+  );
+});
+
+test('runner debounce bypass accepts only the signed due challenge envelope', () => {
+  const selected = {
+    signingKey: 'test-only-signing-key',
+    repository: 'stranske/Workflows',
+    prNumber: 3066,
+    boundaryFingerprint: 'a'.repeat(64),
+    nonce: 'b'.repeat(64),
+    sweepRunId: '31683971486',
+    sweepRunAttempt: '1',
+  };
+  const claimJson = JSON.stringify({
+    signature: signAuthorityChallengeClaim(selected),
+    nonce: selected.nonce,
+    sweep_run_id: selected.sweepRunId,
+    sweep_run_attempt: selected.sweepRunAttempt,
+  });
+  const input = {
+    claimJson,
+    signingKey: selected.signingKey,
+    repository: selected.repository,
+    prNumber: selected.prNumber,
+    boundaryFingerprint: selected.boundaryFingerprint,
+  };
+  assert.equal(verifyAuthorityChallengeEnvelope(input), true);
+  assert.equal(verifyAuthorityChallengeEnvelope({ ...input, claimJson: '' }), false);
+  assert.equal(
+    verifyAuthorityChallengeEnvelope({ ...input, boundaryFingerprint: 'c'.repeat(64) }),
     false,
   );
 });

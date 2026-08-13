@@ -674,8 +674,8 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert "reason=due-authority-challenge" in consumer_loop
     assert "reason=scheduled-sweep-recheck" in root_loop
     assert "reason=scheduled-sweep-recheck" in consumer_loop
-    assert root_loop.count("reason=scheduled-sweep-recheck") >= 2
-    assert consumer_loop.count("reason=scheduled-sweep-recheck") >= 2
+    assert root_loop.count("reason=scheduled-sweep-recheck") >= 1
+    assert consumer_loop.count("reason=scheduled-sweep-recheck") >= 1
     assert root_loop.index("reason=dependency-bot-pr") < root_loop.index(
         "reason=scheduled-sweep-recheck"
     )
@@ -683,6 +683,8 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert consumer_loop.count("reason=due-authority-challenge") >= 2
     for text in (root_loop, consumer_loop):
         assert text.count("github.actor == 'github-actions[bot]'") >= 5
+        assert text.count('if [ "${SWEEP_RECHECK:-false}" = "true" ]; then') == 1
+        assert "verifyAuthorityChallengeEnvelope" in text
         assert "${{ github.event.inputs.authority_challenge_fingerprint || '' }}" not in text
         assert "${{ github.event.inputs.sweep_recheck || 'false' }}" not in text
     for path in sweep_paths:

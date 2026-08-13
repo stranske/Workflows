@@ -55,6 +55,32 @@ function verifyAuthorityChallengeClaim({ signature, ...options } = {}) {
   return crypto.timingSafeEqual(Buffer.from(supplied, 'hex'), Buffer.from(expected, 'hex'));
 }
 
+function verifyAuthorityChallengeEnvelope({
+  claimJson,
+  signingKey,
+  repository,
+  prNumber,
+  boundaryFingerprint,
+} = {}) {
+  let claim;
+  try {
+    claim = JSON.parse(String(claimJson || ''));
+  } catch (_) {
+    return false;
+  }
+  if (!claim || typeof claim !== 'object' || Array.isArray(claim)) return false;
+  return verifyAuthorityChallengeClaim({
+    signingKey,
+    signature: claim.signature,
+    repository,
+    prNumber,
+    boundaryFingerprint,
+    nonce: claim.nonce,
+    sweepRunId: claim.sweep_run_id,
+    sweepRunAttempt: claim.sweep_run_attempt,
+  });
+}
+
 function parseLatestKeepaliveState(comments = []) {
   let latest = null;
   for (const comment of comments) {
@@ -102,4 +128,5 @@ module.exports = {
   selectDueAuthorityChallenge,
   signAuthorityChallengeClaim,
   verifyAuthorityChallengeClaim,
+  verifyAuthorityChallengeEnvelope,
 };

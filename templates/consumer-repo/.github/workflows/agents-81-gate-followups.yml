@@ -337,20 +337,31 @@ jobs:
               github.actor == 'github-actions[bot]' &&
               github.event.inputs.sweep_recheck == 'true' &&
               github.event.inputs.authority_challenge_fingerprint || '' }}
-          SWEEP_RECHECK: >-
+          AUTHORITY_CHALLENGE_CLAIM: >-
             ${{ github.event_name == 'workflow_dispatch' &&
               github.actor == 'github-actions[bot]' &&
-              github.event.inputs.sweep_recheck == 'true' }}
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_claim || '' }}
+          AUTHORITY_CHALLENGE_SIGNING_KEY: >-
+            ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
         run: |
           set -euo pipefail
-          if [ "${SWEEP_RECHECK:-false}" = "true" ]; then
+          if node <<'NODE'
+          const { verifyAuthorityChallengeEnvelope } =
+            require('./.github/scripts/keepalive_challenge_due.js');
+          const verified = verifyAuthorityChallengeEnvelope({
+            claimJson: process.env.AUTHORITY_CHALLENGE_CLAIM,
+            signingKey: process.env.AUTHORITY_CHALLENGE_SIGNING_KEY,
+            repository: process.env.GITHUB_REPOSITORY,
+            prNumber: process.env.PR_NUMBER,
+            boundaryFingerprint: process.env.AUTHORITY_CHALLENGE_FINGERPRINT,
+          });
+          process.exitCode = verified ? 0 : 1;
+          NODE
+          then
             {
               echo "should_dispatch=true"
-              if [ -n "${AUTHORITY_CHALLENGE_FINGERPRINT:-}" ]; then
-                echo "reason=due-authority-challenge"
-              else
-                echo "reason=scheduled-sweep-recheck"
-              fi
+              echo "reason=due-authority-challenge"
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi

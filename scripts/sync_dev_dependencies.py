@@ -433,7 +433,8 @@ def sync_pre_commit_config(
         line_ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
         revision_line = line[: -len(line_ending)] if line_ending else line
         rev_match = re.match(
-            r"^(?P<prefix>\s*rev:\s*)(?P<value>[^\s#]+)(?P<suffix>.*)$",
+            r"^(?P<prefix>\s*rev:\s*)(?P<quote>['\"]?)(?P<value>[^\s#'\"]+)"
+            r"(?P=quote)(?P<suffix>.*)$",
             revision_line,
         )
         if not rev_match:
@@ -453,7 +454,8 @@ def sync_pre_commit_config(
         changes.append(f"{pre_commit_path.name}:{repo_name}: {current_value} -> {target_value}")
         if apply:
             lines[index] = (
-                f"{rev_match.group('prefix')}{target_value}{rev_match.group('suffix')}"
+                f"{rev_match.group('prefix')}{rev_match.group('quote')}{target_value}"
+                f"{rev_match.group('quote')}{rev_match.group('suffix')}"
                 f"{line_ending}"
             )
         current_env_key = None

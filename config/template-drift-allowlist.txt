@@ -129,7 +129,7 @@ main = .github/workflows/agents-keepalive-sweep.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml
 main_sha256 = d298749854d5a646fae5197fd242ef656487b7a57d6f2e690cd52e838d2fb9e1
 template_sha256 = 147d4da9048717e1cf86bcacfd51b4080cc3e228ff7851c3acf2d8fefc2a54ac
-reason = Intentional divergence re-reviewed 2026-08-13: root and consumer sweeps share HMAC-signed due-authority claims bound to repository, PR, fingerprint, nonce, and exact sweep run; missing signing material fails closed to ordinary non-forced rechecks. Both bypass state and completed-runner debounce for ordinary sweep recovery, while the consumer retains its consolidated gate-followup dispatch path, inverted mode guard, and pinned action contract.
+reason = Intentional divergence re-reviewed 2026-08-13: root and consumer sweeps share HMAC-signed due-authority claims bound to repository, PR, fingerprint, nonce, and exact sweep run; missing signing material fails closed to ordinary non-forced rechecks. Both bypass state debounce for ordinary sweep recovery, retain completed-runner debounce for ordinary wakeups, and bypass runner debounce only for a verified signed due claim, while the consumer retains its consolidated gate-followup dispatch path, inverted mode guard, and pinned action contract.
 
 [pair.14]
 main = .github/workflows/agents-verifier.yml
