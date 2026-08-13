@@ -98,14 +98,10 @@ def test_precommit_sync_recognizes_legacy_ruff_repository(tmp_path: Path) -> Non
         encoding="utf-8",
     )
 
-    changes, errors = sdd.sync_pre_commit_config(
-        config, {"RUFF_VERSION": "0.16.2"}, apply=True
-    )
+    changes, errors = sdd.sync_pre_commit_config(config, {"RUFF_VERSION": "0.16.2"}, apply=True)
 
     assert errors == []
-    assert changes == [
-        ".pre-commit-config.yaml:charliermarsh/ruff-pre-commit: v0.5.0 -> v0.16.2"
-    ]
+    assert changes == [".pre-commit-config.yaml:charliermarsh/ruff-pre-commit: v0.5.0 -> v0.16.2"]
     assert "rev: v0.16.2" in config.read_text(encoding="utf-8")
 
 
