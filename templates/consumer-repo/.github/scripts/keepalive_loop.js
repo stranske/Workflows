@@ -71,6 +71,15 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
   const redacted = normalise(agentSummary || summaryReason)
     .replace(/\s+/g, ' ')
     .replace(/\b(?:ghp_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
+    .replace(
+      /\b([A-Za-z][A-Za-z0-9_.-]*)\s*[:=]\s*(\S+)/g,
+      (match, name, rawValue) => {
+        const sensitiveName = /(?:^|[_-])(?:api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key)$/i;
+        if (!sensitiveName.test(name)) return match;
+        const trailing = rawValue.match(/[.,;:]+$/)?.[0] || '';
+        return `${name}=[redacted]${trailing}`;
+      },
+    )
     .replace(/\bbearer\s+\S+/gi, 'Bearer [redacted-token]')
     .replace(
       /\b(token|secret|password)(\s*(?:[:=]\s*|\s+))(\S+)/gi,
@@ -80,7 +89,7 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
         const prefix = source.slice(Math.max(0, offset - 40), offset);
         const namedCredential =
           /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
-          /^[A-Za-z][A-Za-z0-9_.-]{2,}$/.test(value);
+          /^[A-Z][A-Z0-9_]{2,}$/.test(value);
         return namedCredential
           ? `${kind}${separator}${value}${trailing}`
           : `${kind}=[redacted]${trailing}`;
