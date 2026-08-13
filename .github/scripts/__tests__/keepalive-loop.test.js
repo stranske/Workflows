@@ -3805,6 +3805,94 @@ test('a consumed forced recovery lease survives later ordinary wakeups', async (
   );
 });
 
+test('an operator guard defers rather than consumes a forced recovery lease', async () => {
+  const issuedState = formatStateComment({
+    trace: 'trace-deferred-recovery-lease',
+    iteration: 5,
+    max_iterations: 5,
+    failure_threshold: 3,
+    failure: {},
+    tasks: { total: 3, unchecked: 2 },
+    recovery_lease: {
+      key: 'round-budget-exhausted:max-iterations=5',
+      reason: 'round-budget-exhausted',
+      status: 'issued',
+      issued_at: '2026-08-13T13:00:00Z',
+      last_dispatched_at: '2026-08-13T13:00:00Z',
+      dispatch_attempt: 1,
+      iteration: 5,
+      max_iterations: 5,
+    },
+  });
+  const guarded = buildGithubStub({
+    comments: [{ id: 107, body: issuedState, html_url: 'https://example.com/107' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github: guarded,
+    context: buildContext(662),
+    core: buildCore(),
+    inputs: {
+      prNumber: 662,
+      action: 'skip',
+      reason: 'paused',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 5,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-deferred-recovery-lease',
+      forceRetry: true,
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+
+  const deferredUpdate = guarded.actions.find((action) => action.type === 'update');
+  const deferredState = parseStateComment(deferredUpdate.body).data;
+  assert.equal(deferredState.recovery_lease.status, 'deferred');
+  assert.equal(deferredState.recovery_lease.deferred_reason, 'paused');
+  assert.equal(
+    guarded.actions.filter((action) => action.type === 'workflow-dispatch').length,
+    0,
+  );
+
+  const resumed = buildGithubStub({
+    comments: [{ id: 107, body: deferredUpdate.body, html_url: 'https://example.com/107' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github: resumed,
+    context: buildContext(662),
+    core: buildCore(),
+    inputs: {
+      prNumber: 662,
+      action: 'stop',
+      reason: 'round-budget-exhausted',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 5,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-deferred-recovery-lease',
+      retry_workflow_id: 'agents-81-gate-followups.yml',
+    },
+  });
+
+  const resumedUpdate = resumed.actions.find((action) => action.type === 'update');
+  const resumedState = parseStateComment(resumedUpdate.body).data;
+  assert.equal(resumedState.recovery_lease.status, 'issued');
+  assert.equal(resumedState.recovery_lease.dispatch_attempt, 2);
+  assert.equal(
+    resumed.actions.filter((action) => action.type === 'workflow-dispatch').length,
+    1,
+  );
+});
+
 test('a failed bounded dispatch adds agent:retry only as a fallback', async () => {
   const existingState = formatStateComment({
     trace: 'trace-dispatch-fallback',

@@ -4171,18 +4171,38 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const recoveryLeaseBudgetChanged =
       Object.keys(previousRecoveryLease).length > 0 &&
       toNumber(previousRecoveryLease.max_iterations, maxIterations) !== maxIterations;
-    if (isForceRetry && previousRecoveryLease.status === 'issued') {
+    if (
+      isForceRetry &&
+      previousRecoveryLease.status === 'issued' &&
+      !isSuccessStop &&
+      !isNeutralStop
+    ) {
+      const forcedLeaseStatus = actionRunsAgent ? 'consumed' : 'deferred';
       newState.recovery_lease = {
         ...previousRecoveryLease,
-        status: 'consumed',
-        consumed_at: new Date().toISOString(),
+        status: forcedLeaseStatus,
+        ...(actionRunsAgent
+          ? { consumed_at: new Date().toISOString() }
+          : {
+              deferred_at: new Date().toISOString(),
+              deferred_reason: summaryReason,
+            }),
       };
     } else if (shouldIssueTerminalRecoveryLease) {
+      const retryingDeferredLease =
+        recoveryLeaseMatches && previousRecoveryLease.status === 'deferred';
+      const dispatchedAt = new Date().toISOString();
       newState.recovery_lease = {
         key: recoveryLeaseKey,
         reason: recoveryLeaseReason,
         status: 'issued',
-        issued_at: new Date().toISOString(),
+        issued_at: retryingDeferredLease
+          ? previousRecoveryLease.issued_at || dispatchedAt
+          : dispatchedAt,
+        last_dispatched_at: dispatchedAt,
+        dispatch_attempt: retryingDeferredLease
+          ? toNumber(previousRecoveryLease.dispatch_attempt, 1) + 1
+          : 1,
         iteration: nextIteration,
         max_iterations: maxIterations,
       };
