@@ -3118,6 +3118,9 @@ test('authority fingerprints include redacted details beyond the display limit',
     'required permission `contents:write`',
     'required permission "pull-requests:write"',
     "required scope 'repo'",
+    'required permission **issues:write**',
+    'required permission [statuses:write]',
+    'required scope <workflow>',
   ].map(agentSummary => buildAuthorityChallengeEvidence({ agentSummary }));
   const metadataOnly = buildAuthorityChallengeEvidence({
     agentSummary: 'Permission denied; error:403 from repository API',

@@ -124,7 +124,10 @@ function buildAuthorityChallengeEvidence({
     ['repo', 'workflow', 'gist', 'notifications', 'user', 'delete_repo', 'codespace', 'copilot', 'project'],
   );
   const permissionTarget = String.raw`(?:${structuredPermissionTarget}|${standaloneOauthScope})`;
-  const quotedPermissionTarget = String.raw`[\x60"']?(?<target>${permissionTarget})[\x60"']?`;
+  // The target itself remains strictly allowlisted; presentation wrappers are
+  // optional so plain, quoted, code, bold, and bracketed runner output all
+  // produce the same bounded remedy.
+  const quotedPermissionTarget = String.raw`(?:\*\*|__|[\x60"'\[<(])?(?<target>${permissionTarget})(?:\*\*|__|[\x60"'\])>])?`;
   const remedyCue = String.raw`(?:missing|required|requires?|needs?|insufficient|unavailable|unset|undefined|grant|enable)`;
   const permissionRemedyPatterns = [
     // A cue must be part of the same grammatical remedy as the target. Do not
