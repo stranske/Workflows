@@ -69,6 +69,9 @@ def _setup_langsmith_tracing() -> bool:
     os.environ.setdefault("LANGSMITH_API_KEY", api_key)
 
     project = os.environ.get("LANGCHAIN_PROJECT")
+    if os.environ["LANGCHAIN_TRACING_V2"].strip().lower() == "false":
+        logger.info("LangSmith tracing explicitly disabled for project: %s", project)
+        return False
     logger.info(f"LangSmith tracing enabled for project: {project}")
     return True
 
