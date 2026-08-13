@@ -686,6 +686,31 @@ def test_explicit_create_paths_do_not_trigger_wrong_repository_failure(tmp_path)
 
 
 @pytest.mark.parametrize(
+    "creation_phrase",
+    ["Create directory", "Create directories", "Add folder", "Generate folders"],
+)
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_explicit_directory_creation_paths_are_treated_as_new(
+    tmp_path, creation_phrase: str, validator_path: Path
+) -> None:
+    validator = _validator(validator_path)
+    body = (
+        VALID_CONTEXT
+        + "## Tasks\n"
+        + f"- [ ] {creation_phrase} `src/new_package`\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert validator._created_paths(body) == {"src/new_package"}
+    assert validator.validate(body, repo_root=tmp_path).ok
+
+
+@pytest.mark.parametrize(
     "validator_path",
     [
         Path(".github/scripts/issue_format.py"),

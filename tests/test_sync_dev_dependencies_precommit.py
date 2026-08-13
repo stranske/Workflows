@@ -89,6 +89,26 @@ def test_precommit_rev_pins_follow_autofix_versions(tmp_path: Path, monkeypatch)
     assert config.read_text(encoding="utf-8") == applied
 
 
+def test_precommit_sync_recognizes_legacy_ruff_repository(tmp_path: Path) -> None:
+    config = tmp_path / ".pre-commit-config.yaml"
+    config.write_text(
+        "repos:\n"
+        "  - repo: https://github.com/charliermarsh/ruff-pre-commit\n"
+        "    rev: v0.5.0\n",
+        encoding="utf-8",
+    )
+
+    changes, errors = sdd.sync_pre_commit_config(
+        config, {"RUFF_VERSION": "0.16.2"}, apply=True
+    )
+
+    assert errors == []
+    assert changes == [
+        ".pre-commit-config.yaml:charliermarsh/ruff-pre-commit: v0.5.0 -> v0.16.2"
+    ]
+    assert "rev: v0.16.2" in config.read_text(encoding="utf-8")
+
+
 def test_default_check_defers_precommit_until_maint52_wave(tmp_path: Path, monkeypatch) -> None:
     pins = tmp_path / "pins.env"
     pyproject = tmp_path / "pyproject.toml"

@@ -30,6 +30,11 @@ try {
 const ATTEMPT_HISTORY_LIMIT = 20;
 const ATTEMPTED_TASK_LIMIT = 20;
 const AUTOMATION_ATTENTION_LABELS = ['agent:needs-attention'];
+const TRUSTED_KEEPALIVE_SUMMARY_AUTHORS = new Set([
+  'stranske-keepalive[bot]',
+  'agents-workflows-bot[bot]',
+]);
+const LEGACY_KEEPALIVE_SUMMARY_AUTHORS = new Set(['github-actions[bot]']);
 
 const TIMEOUT_VARIABLE_NAMES = [
   'WORKFLOW_TIMEOUT_DEFAULT',
@@ -3202,7 +3207,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const agentRoutingMode = normalise(inputs.agent_routing_mode ?? inputs.agentRoutingMode);
 
     const {
-      state: previousState,
+      state: loadedPreviousState,
       commentId,
       commentAuthorLogin,
       commentAuthorType,
@@ -3217,6 +3222,17 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     ).toLowerCase();
     const existingSummaryAuthor = normalise(commentAuthorLogin).toLowerCase();
     const existingSummaryAuthorType = normalise(commentAuthorType).toLowerCase();
+    const existingSummaryAuthorIsKnown = Boolean(
+      existingSummaryAuthorType === 'bot' &&
+      (
+        TRUSTED_KEEPALIVE_SUMMARY_AUTHORS.has(existingSummaryAuthor) ||
+        LEGACY_KEEPALIVE_SUMMARY_AUTHORS.has(existingSummaryAuthor)
+      ),
+    );
+    const discardUntrustedPreviousState = Boolean(
+      commentId && trustedSummaryAuthor && !existingSummaryAuthorIsKnown,
+    );
+    const previousState = discardUntrustedPreviousState ? {} : loadedPreviousState;
     const migrateSummaryWriter = Boolean(
       commentId &&
       trustedSummaryAuthor &&
@@ -3225,7 +3241,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     if (migrateSummaryWriter) {
       core?.info?.(
         `Creating a trusted App-owned keepalive summary; existing writer ` +
-        `${existingSummaryAuthor || 'unknown'} is not ${trustedSummaryAuthor}.`,
+        `${existingSummaryAuthor || 'unknown'} is not ${trustedSummaryAuthor}; ` +
+        `${discardUntrustedPreviousState ? 'discarding untrusted state' : 'migrating known state'}.`,
       );
     }
 

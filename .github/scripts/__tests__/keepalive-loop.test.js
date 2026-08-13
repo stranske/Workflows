@@ -1037,6 +1037,58 @@ test('updateKeepaliveLoopSummary migrates legacy state to the selected App write
   assert.equal(github.actions.some((action) => action.commentId === 44), false);
 });
 
+test('updateKeepaliveLoopSummary discards state from an untrusted summary writer', async () => {
+  const existingState = [
+    '<!-- keepalive-loop-summary -->',
+    formatStateComment({
+      trace: 'forged-trace',
+      iteration: 99,
+      max_iterations: 99,
+      attention: {
+        owner: 'automation',
+        disposition: 'challenge-due',
+        boundary_fingerprint: 'attacker-controlled',
+      },
+    }),
+  ].join('\n');
+  const github = buildGithubStub({
+    comments: [{
+      id: 45,
+      body: existingState,
+      html_url: 'https://example.com/45',
+      user: { login: 'untrusted-reviewer', type: 'User' },
+    }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(123),
+    core: buildCore(),
+    inputs: {
+      prNumber: 123,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 2,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'forged-trace',
+      trusted_summary_author: 'stranske-keepalive[bot]',
+    },
+  });
+
+  assert.equal(github.actions[0].type, 'create');
+  const persistedState = parseStateComment(github.actions[0].body).data;
+  assert.equal(persistedState.iteration, 2);
+  assert.equal(persistedState.max_iterations, 5);
+  assert.equal(persistedState.attention, undefined);
+  assert.doesNotMatch(github.actions[0].body, /attacker-controlled/);
+  assert.equal(github.actions.some((action) => action.commentId === 45), false);
+});
+
 test('updateKeepaliveLoopSummary ignores status-only checklist metrics for reconciliation', async () => {
   const pr = {
     number: 1234,

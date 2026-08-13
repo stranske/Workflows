@@ -59,6 +59,7 @@ TOOL_MAPPING: dict[str, tuple[str, ...]] = {
 PRE_COMMIT_REPO_MAPPING = {
     "psf/black": "BLACK_VERSION",
     "astral-sh/ruff-pre-commit": "RUFF_VERSION",
+    "charliermarsh/ruff-pre-commit": "RUFF_VERSION",
     "pre-commit/mirrors-mypy": "MYPY_VERSION",
     "pycqa/isort": "ISORT_VERSION",
     "pycqa/docformatter": "DOCFORMATTER_VERSION",
@@ -420,11 +421,13 @@ def sync_pre_commit_config(
     lines = content.splitlines(keepends=True)
     changes: list[str] = []
     current_env_key: str | None = None
+    current_repo_name: str | None = None
 
     for index, line in enumerate(lines):
         repo_name = _pre_commit_repo_name(line)
         if repo_name is not None:
             current_env_key = PRE_COMMIT_REPO_MAPPING.get(repo_name)
+            current_repo_name = repo_name if current_env_key is not None else None
             continue
 
         if current_env_key is None or current_env_key not in pins:
@@ -446,12 +449,12 @@ def sync_pre_commit_config(
             target_value = f"v{target_value}"
         if current_value == target_value:
             current_env_key = None
+            current_repo_name = None
             continue
 
-        repo_name = next(
-            name for name, env_key in PRE_COMMIT_REPO_MAPPING.items() if env_key == current_env_key
+        changes.append(
+            f"{pre_commit_path.name}:{current_repo_name}: {current_value} -> {target_value}"
         )
-        changes.append(f"{pre_commit_path.name}:{repo_name}: {current_value} -> {target_value}")
         if apply:
             lines[index] = (
                 f"{rev_match.group('prefix')}{rev_match.group('quote')}{target_value}"
@@ -459,6 +462,7 @@ def sync_pre_commit_config(
                 f"{line_ending}"
             )
         current_env_key = None
+        current_repo_name = None
 
     if apply:
         updated = "".join(lines)
