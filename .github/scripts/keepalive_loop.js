@@ -67,7 +67,12 @@ function normalise(value) {
   return String(value ?? '').trim();
 }
 
-function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
+function buildAuthorityChallengeEvidence({
+  agentSummary,
+  summaryReason,
+  agentType,
+  operation,
+} = {}) {
   const redacted = normalise(agentSummary || summaryReason)
     .replace(/\s+/g, ' ')
     .replace(/\b(https?:\/\/)[^/@\s:]+:[^@\s]+@/gi, '$1[redacted-userinfo]@')
@@ -120,7 +125,7 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
       },
     );
   if (!redacted) {
-    return { fingerprint: '', detail: '', humanAction: '' };
+    return { fingerprint: '', detail: '', humanAction: '', actionable: false };
   }
   const authorityMatches = [...redacted.matchAll(
     /\b(?:missing|required|unset|unavailable|undefined|denied|forbidden|unauthori[sz]ed|insufficient|credential|token|secret|password|scope|permission)\b/gi,
@@ -149,10 +154,20 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
       '$1 <volatile-id>',
     )
     .replace(/\/(runs?|jobs?)\/(?:[0-9a-f]{7,64}|\d+)\b/g, '/$1/<volatile-id>');
+  const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
+  const challengedOperation = (normalise(operation) || 'run').toLowerCase();
+  const actionable =
+    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credential|key))?\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
+    /\b(?:scope|permission)\b.{0,100}\b[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+\b/i.test(redacted);
   return {
-    fingerprint: crypto.createHash('sha256').update(normalized).digest('hex'),
+    fingerprint: crypto.createHash('sha256')
+      .update(`agent=${routedAgent}|operation=${challengedOperation}|${normalized}`)
+      .digest('hex'),
     detail,
-    humanAction: `Resolve the reproduced runner authority failure: ${detail}`,
+    humanAction: actionable
+      ? `Resolve the reproduced runner authority failure: ${detail}`
+      : '',
+    actionable,
   };
 }
 
@@ -3502,6 +3517,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const authorityEvidence = buildAuthorityChallengeEvidence({
       agentSummary,
       summaryReason,
+      agentType,
+      operation: action,
     });
     const escalationRequired =
       ((action === 'run' || action === 'fix') && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
@@ -3511,6 +3528,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       escalationRequired &&
       errorCategory === ERROR_CATEGORIES.auth &&
       Boolean(authorityEvidence.fingerprint) &&
+      authorityEvidence.actionable &&
       authorityEvidence.fingerprint === authorityChallengeFingerprint;
     let escalationDisposition = selectEscalationDisposition({
       required: escalationRequired || stop,

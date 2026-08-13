@@ -2599,6 +2599,73 @@ test('a generic forced retry cannot confirm an authority challenge', async () =>
   assert.equal(state.attention.boundary_fingerprint, boundary.fingerprint);
 });
 
+test('a reproduced generic auth failure remains automation-owned', async () => {
+  const authSummary = 'Authentication failed';
+  const boundary = buildAuthorityChallengeEvidence({
+    agentSummary: authSummary,
+    agentType: 'codex',
+    operation: 'run',
+  });
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-generic',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'generic-auth-boundary',
+      boundary_fingerprint: boundary.fingerprint,
+      boundary_detail: boundary.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 96, body: existingState, html_url: 'https://example.com/96' }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      agent_type: 'codex',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-generic',
+      forceRetry: true,
+      authority_challenge_fingerprint: boundary.fingerprint,
+      agent_exit_code: '1',
+      agent_summary: authSummary,
+    },
+  });
+
+  assert.equal(boundary.actionable, false);
+  assert.equal(boundary.humanAction, '');
+  assert.equal(
+    github.actions.some((candidate) =>
+      candidate.type === 'label' && candidate.labels.includes('needs-human')
+    ),
+    false,
+  );
+  const updateAction = github.actions.find((candidate) =>
+    candidate.type === 'update' && parseStateComment(candidate.body)?.data?.attention
+  );
+  const state = parseStateComment(updateAction.body).data;
+  assert.equal(state.attention.owner, 'automation');
+  assert.equal(state.attention.disposition, 'challenge-due');
+});
+
 test('a forced recheck with a different auth boundary stays automation-owned', async () => {
   const original = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.',
@@ -2782,6 +2849,23 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.match(first.humanAction, /contents:write/);
   assert.match(second.detail, /pull-requests:write/);
   assert.notEqual(first.fingerprint, second.fingerprint);
+  const sameFailureCodex = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing token ACTIONS_BOT_PAT for repository dispatch.',
+    agentType: 'codex',
+    operation: 'run',
+  });
+  const sameFailureClaude = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing token ACTIONS_BOT_PAT for repository dispatch.',
+    agentType: 'claude',
+    operation: 'run',
+  });
+  const sameFailureFix = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing token ACTIONS_BOT_PAT for repository dispatch.',
+    agentType: 'codex',
+    operation: 'fix',
+  });
+  assert.notEqual(sameFailureCodex.fingerprint, sameFailureClaude.fingerprint);
+  assert.notEqual(sameFailureCodex.fingerprint, sameFailureFix.fingerprint);
   assert.equal(
     sensitive.detail,
     'Forbidden request with Bearer [redacted-token] and token=[redacted]',
