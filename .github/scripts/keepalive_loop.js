@@ -68,49 +68,6 @@ function normalise(value) {
   return String(value ?? '').trim();
 }
 
-function isSensitiveCredentialFieldName(value) {
-  const words = normalise(value)
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
-  const sensitiveWords = new Set([
-    'credential', 'credentials', 'secret', 'secrets', 'password', 'passwords',
-    'passwd', 'passwds', 'pwd', 'pwds', 'passcode', 'passcodes', 'passphrase',
-    'passphrases', 'pin', 'pins', 'otp', 'otps', 'totp', 'totps', 'mfa',
-    'signature', 'signatures', 'token', 'tokens', 'key', 'keys',
-    'pfx', 'p12', 'pkcs12', 'keystore', 'truststore',
-  ]);
-  const authField = words.some(word => ['auth', 'authentication', 'authorization'].includes(word));
-  const carriesAuthMaterial = words.some(word => [
-    'material', 'data', 'value', 'values', 'bytes', 'content', 'pem', 'string',
-    'strings', 'hash', 'hashes', 'digest', 'digests', 'blob', 'blobs', 'bundle',
-  ].includes(word));
-  return words.some(word => sensitiveWords.has(word)) || (authField && carriesAuthMaterial);
-}
-
-function redactCredentialAssignments(value) {
-  return normalise(value).replace(
-    /\b([A-Za-z][A-Za-z0-9_.-]*)["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/g,
-    (match, name, rawValue, offset, source) => {
-      if (!isSensitiveCredentialFieldName(name)) return match;
-      const quote = rawValue.at(0);
-      const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
-      const value = quoted ? rawValue.slice(1, -1) : rawValue;
-      const prefix = source.slice(Math.max(0, offset - 40), offset);
-      const namedCredential =
-        !quoted &&
-        /^(?:token|secret|password|credentials?)$/i.test(name) &&
-        /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
-        /^[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(value);
-      if (namedCredential) return match;
-      const trailing = quoted ? '' : value.match(/[.,;:]+$/)?.[0] || '';
-      return `${name}=[redacted]${trailing}`;
-    },
-  );
-}
-
 function buildAuthorityChallengeEvidence({
   agentSummary,
   summaryReason,
@@ -172,157 +129,14 @@ function buildAuthorityChallengeEvidence({
   const canonicalPermissionTarget = contextualPermissionTarget?.target
     ? contextualPermissionTarget.target.replace(/\s*:\s*/g, ':')
     : '';
-  const hasAuthorizationHeader = /\b(?:proxy-)?authorization\s*[:=]/i.test(rawSummary);
-  const hasCookieHeader = /\b(?:set-cookie|cookie)\s*[:=]/i.test(rawSummary);
-  const standaloneHttpAuth = rawSummary.match(
-    /\b(?:basic|digest|negotiate|ntlm|apikey|oauth|hoba|mutual|scram(?:-sha-(?:1|256))?|vapid)\s+(?=\S)/i,
-  );
-  const structuredCredentialAssignment = [...rawSummary.matchAll(
-    /\b([A-Za-z][A-Za-z0-9_.-]*)["']?\s*[:=]\s*[\[{]/g,
-  )].find(match => isSensitiveCredentialFieldName(match[1]));
-  let structuredCredentialSuffixRedacted = false;
-  const unboundedSecretStart = [
-    structuredCredentialAssignment?.index,
-    standaloneHttpAuth?.index,
-  ].filter(index => Number.isInteger(index)).sort((left, right) => left - right)[0];
-  const redactionInput = Number.isInteger(unboundedSecretStart)
-    ? (() => {
-      if (structuredCredentialAssignment?.index === unboundedSecretStart) {
-        structuredCredentialSuffixRedacted = true;
-        return `${rawSummary.slice(0, unboundedSecretStart)}` +
-          `${structuredCredentialAssignment[1]}=[redacted-credential-collection]`;
-      }
-      return `${rawSummary.slice(0, unboundedSecretStart)}[redacted-http-auth]`;
-    })()
-    : rawSummary;
-  let unterminatedPrivateKeyRedacted = false;
-  let redacted = redactCredentialAssignments(redactionInput)
-    .replace(
-      /-----BEGIN ((?:[A-Z0-9][A-Z0-9 -]* )?PRIVATE KEY(?: BLOCK)?)-----[\s\S]*?-----END \1-----/gi,
-      '[redacted-private-key]',
-    )
-    // A truncated runner summary may omit the END marker. Fail closed on the
-    // remaining suffix; strictly recognized remediation is restored below.
-    .replace(
-      /-----BEGIN (?:[A-Z0-9][A-Z0-9 -]* )?PRIVATE KEY(?: BLOCK)?-----[\s\S]*/gi,
-      () => {
-        unterminatedPrivateKeyRedacted = true;
-        return '[redacted-private-key]';
-      },
-    )
-    .replace(/\b([A-Za-z][A-Za-z0-9+.-]*:\/\/)[^/@\s:]+:[^@\s]+@/g, '$1[redacted-userinfo]@')
-    .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
-    .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '[redacted-api-key]')
-    .replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-access-key]')
-    .replace(
-      /(^|[^A-Za-z0-9_-])(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)(?=$|[^A-Za-z0-9_-])/g,
-      '$1[redacted-jwt]',
-    )
-    // Runner summaries are flattened to one line above, so an arbitrary
-    // Authorization scheme has no trustworthy value boundary. Redact the
-    // complete suffix instead of trying to enumerate schemes or parameters.
-    .replace(
-      /\b((?:proxy-)?authorization)\s*[:=][\s\S]*/gi,
-      '$1: [redacted-authorization]',
-    )
-    .replace(
-      /\b(set-cookie|cookie)\s*[:=][\s\S]*/gi,
-      '$1=[redacted-cookie]',
-    )
-    // Fail closed for lower/Pascal camelCase fields whose final semantic
-    // component is credential-shaped (for example secretAccessKey or
-    // privateKeyData). The capitalized component boundary avoids treating
-    // ordinary lowercase words that merely end in "key" as secret fields.
-    .replace(
-      /\b([A-Za-z][A-Za-z0-9]*(?:Credential|Secret|Password|Passwd|Pwd|Pass|Passcode|Passphrase|Pin|Otp|Totp|MfaCode|MfaToken|VerificationCode|SessionId|SessionKey|SessionToken|Signature|Token|ApiKey|ApiToken|ClientSecret|AccessToken|RefreshToken|IdToken|OauthToken|AuthToken|AccessKey|PrivateKey|Key)s?(?:Ids?|Data|Values?|Material|Bytes?|Content|PEM|Pem|Strings?|Hashes?|Digests?|Blobs?)?)["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/g,
-      (match, name, rawValue) => {
-        const quote = rawValue.at(0);
-        const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
-        const value = quoted ? rawValue.slice(1, -1) : rawValue;
-        const trailing = quoted ? '' : value.match(/[.,;:]+$/)?.[0] || '';
-        return `${name}=[redacted]${trailing}`;
-      },
-    )
-    .replace(
-      /\b([A-Za-z][A-Za-z0-9]*(?:Credential|Secret|Password|Passwd|Pwd|Pass|Passcode|Passphrase|Pin|Otp|Totp|MfaCode|MfaToken|VerificationCode|SessionId|SessionKey|SessionToken|Signature|Token|ApiKey|ApiToken|ClientSecret|AccessToken|RefreshToken|IdToken|OauthToken|AuthToken|AccessKey|PrivateKey|Key)s?(?:Ids?|Data|Values?|Material|Bytes?|Content|PEM|Pem|Strings?|Hashes?|Digests?|Blobs?)?)(\s+)((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/g,
-      (match, name, separator, rawValue) => {
-        const quote = rawValue.at(0);
-        const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
-        const unquotedValue = quoted ? rawValue.slice(1, -1) : rawValue;
-        const trailing = quoted ? '' : unquotedValue.match(/[.,;:]+$/)?.[0] || '';
-        return `${name}=[redacted]${trailing}`;
-      },
-    )
-    .replace(
-      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credential|secret|password|passwd|pwd|pass|passcode|passphrase|pin|otp|totp|mfa[_-]?(?:code|token)|verification[_-]?code|session(?:[_-]?(?:id|key|token))?|signature|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key)s?(?:[_-]?(?:ids?|data|values?|material|bytes?|content|pem|strings?|hashes?|digests?|blobs?))?)["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
-      (match, name, rawValue, offset, source) => {
-        const quote = rawValue.at(0);
-        const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
-        const value = quoted ? rawValue.slice(1, -1) : rawValue;
-        const prefix = source.slice(Math.max(0, offset - 40), offset);
-        const explicitMissingCredentialName =
-          !quoted &&
-          /^(?:token|secret|password|credentials?)$/i.test(name) &&
-          /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
-          /^[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(value);
-        if (explicitMissingCredentialName) return match;
-        const trailing = quoted ? '' : value.match(/[.,;:]+$/)?.[0] || '';
-        return `${name}=[redacted]${trailing}`;
-      },
-    )
-    .replace(
-      /\bbearer\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/gi,
-      'Bearer [redacted-token]',
-    )
-    .replace(
-      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credential|secret|password|passwd|pwd|pass|passcode|passphrase|pin|otp|totp|mfa[_-]?(?:code|token)|verification[_-]?code|session(?:[_-]?(?:id|key|token))?|signature|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key)s?(?:[_-]?(?:ids?|data|values?|material|bytes?|content|pem|strings?|hashes?|digests?|blobs?))?)(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
-      (match, kind, separator, rawValue, offset, source) => {
-        const quote = rawValue.at(0);
-        const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
-        const unquotedValue = quoted ? rawValue.slice(1, -1) : rawValue;
-        const trailing = quoted ? '' : unquotedValue.match(/[.,;:]+$/)?.[0] || '';
-        const value = trailing ? unquotedValue.slice(0, -trailing.length) : unquotedValue;
-        const prefix = source.slice(Math.max(0, offset - 40), offset);
-        const namedCredential =
-          !quoted &&
-          /^(?:token|secret|password|credentials?)$/i.test(kind) &&
-          /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
-          /^[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(value);
-        return namedCredential
-          ? `${kind}${separator}${value}${trailing}`
-          : `${kind}=[redacted]${trailing}`;
-      },
-    );
-  if (
-    hasAuthorizationHeader ||
-    hasCookieHeader ||
-    Boolean(standaloneHttpAuth) ||
-    structuredCredentialSuffixRedacted ||
-    unterminatedPrivateKeyRedacted
-  ) {
-    // Never reconstruct credential-looking text after fail-closed suffix
-    // redaction: flattened authorization/cookie values and truncated
-    // private-key blocks have no trustworthy ending boundary.
-    if (canonicalPermissionTarget) {
-      redacted += ` Required permission: ${canonicalPermissionTarget}`;
-    }
-  }
-  if (!redacted) {
+  if (!rawSummary) {
     return { fingerprint: '', detail: '', humanAction: '', actionable: false };
   }
-  // Durable state and human-visible actions must never contain arbitrary
-  // runner text. Project the diagnostic onto a small allowlist of authority
-  // facts instead of relying on an open-ended secret-redaction blacklist.
+  // Durable state and human-visible actions never copy arbitrary runner text.
+  // Extract only finite, explicitly allowlisted authority facts.
   const statusCodes = [...new Set(
-    [...redacted.matchAll(/\b(?:HTTP\s*)?(401|403)\b/gi)].map(match => match[1]),
+    [...rawSummary.matchAll(/\b(?:HTTP\s*)?(401|403)\b/gi)].map(match => match[1]),
   )].sort();
-  const redactedWords = new Set(redacted.toLowerCase().match(/[a-z]+/g) || []);
-  const authoritySignals = [
-    'authentication', 'authorization', 'missing', 'required', 'unset',
-    'unavailable', 'undefined', 'denied', 'forbidden', 'unauthorized',
-    'unauthorised', 'insufficient', 'credential', 'credentials', 'token',
-    'secret', 'password', 'scope', 'scopes', 'permission', 'permissions',
-  ].filter(signal => redactedWords.has(signal));
   const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
   const actionable = Boolean(canonicalCredentialTarget || canonicalPermissionTarget);
@@ -332,15 +146,11 @@ function buildAuthorityChallengeEvidence({
   if (statusCodes.length) detailParts.push(`HTTP ${statusCodes.join('/')}`);
   const detail = detailParts.length
     ? detailParts.join('; ')
-    : `Authority failure${authoritySignals.length ? ` (${authoritySignals.join(', ')})` : ''}`;
-  const hasConcreteAuthorityFact = Boolean(detailParts.length);
+    : 'Authority failure';
   const fingerprintProjection = JSON.stringify({
     credential: canonicalCredentialTarget,
     permission: canonicalPermissionTarget.toLowerCase(),
     status_codes: statusCodes,
-    // Wording changes such as "missing" versus "required" must not create a
-    // new challenge when the concrete credential/permission/status is equal.
-    signals: hasConcreteAuthorityFact ? [] : authoritySignals,
   });
   return {
     fingerprint: crypto.createHash('sha256')
