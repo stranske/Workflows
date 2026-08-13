@@ -3023,6 +3023,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   const jsonCamelCaseSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied "clientSecretValue": "json-secret"; requires contents:write permission',
   });
+  const structuredCredentialSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied apiKeys=["array-secret-one","array-secret-two"]; requires contents:write permission',
+  });
+  const structuredCredentialObjectSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied credentials={"clientSecret":"object-secret"}; requires contents:write permission',
+  });
   const ordinaryLowercaseControl = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied monkey=banana while reading metadata',
   });
@@ -3254,6 +3260,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   }
   assert.doesNotMatch(jsonCamelCaseSensitive.detail, /json-secret/);
   assert.doesNotMatch(jsonCamelCaseSensitive.humanAction, /json-secret/);
+  assert.doesNotMatch(structuredCredentialSensitive.detail, /array-secret/);
+  assert.doesNotMatch(structuredCredentialSensitive.humanAction, /array-secret/);
+  assert.match(structuredCredentialSensitive.humanAction, /contents:write/);
+  assert.doesNotMatch(structuredCredentialObjectSensitive.detail, /object-secret/);
+  assert.doesNotMatch(structuredCredentialObjectSensitive.humanAction, /object-secret/);
+  assert.match(structuredCredentialObjectSensitive.humanAction, /contents:write/);
   assert.match(ordinaryLowercaseControl.detail, /monkey=banana/);
   assert.equal(pluralNamedCredentials.actionable, true);
   assert.match(pluralNamedCredentials.detail, /OPENAI_API_KEY/);

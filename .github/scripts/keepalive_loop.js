@@ -68,6 +68,22 @@ function normalise(value) {
   return String(value ?? '').trim();
 }
 
+function isSensitiveCredentialFieldName(value) {
+  const words = normalise(value)
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  const sensitiveWords = new Set([
+    'credential', 'credentials', 'secret', 'secrets', 'password', 'passwords',
+    'passwd', 'passwds', 'pwd', 'pwds', 'passcode', 'passcodes', 'passphrase',
+    'passphrases', 'pin', 'pins', 'otp', 'otps', 'totp', 'totps', 'mfa',
+    'signature', 'signatures', 'token', 'tokens', 'key', 'keys',
+  ]);
+  return words.some(word => sensitiveWords.has(word));
+}
+
 function buildAuthorityChallengeEvidence({
   agentSummary,
   summaryReason,
@@ -105,8 +121,19 @@ function buildAuthorityChallengeEvidence({
     : '';
   const hasAuthorizationHeader = /\b(?:proxy-)?authorization\s*[:=]/i.test(rawSummary);
   const hasCookieHeader = /\b(?:set-cookie|cookie)\s*[:=]/i.test(rawSummary);
+  const structuredCredentialAssignment = [...rawSummary.matchAll(
+    /\b([A-Za-z][A-Za-z0-9_.-]*)["']?\s*[:=]\s*[\[{]/g,
+  )].find(match => isSensitiveCredentialFieldName(match[1]));
+  let structuredCredentialSuffixRedacted = false;
+  const redactionInput = structuredCredentialAssignment
+    ? (() => {
+      structuredCredentialSuffixRedacted = true;
+      return `${rawSummary.slice(0, structuredCredentialAssignment.index)}` +
+        `${structuredCredentialAssignment[1]}=[redacted-credential-collection]`;
+    })()
+    : rawSummary;
   let unterminatedPrivateKeyRedacted = false;
-  let redacted = rawSummary
+  let redacted = redactionInput
     .replace(
       /-----BEGIN ((?:[A-Z0-9][A-Z0-9 -]* )?PRIVATE KEY(?: BLOCK)?)-----[\s\S]*?-----END \1-----/gi,
       '[redacted-private-key]',
@@ -203,7 +230,12 @@ function buildAuthorityChallengeEvidence({
           : `${kind}=[redacted]${trailing}`;
       },
     );
-  if (hasAuthorizationHeader || hasCookieHeader || unterminatedPrivateKeyRedacted) {
+  if (
+    hasAuthorizationHeader ||
+    hasCookieHeader ||
+    structuredCredentialSuffixRedacted ||
+    unterminatedPrivateKeyRedacted
+  ) {
     // Never reconstruct credential-looking text after fail-closed suffix
     // redaction: flattened authorization/cookie values and truncated
     // private-key blocks have no trustworthy ending boundary.
