@@ -85,8 +85,9 @@ review. A possible access or
 authority boundary adds `agent:needs-attention` and an immediately due
 independent challenge; the hourly sweep reads that state and force-dispatches a
 current-state recheck while ordinary sweep traffic remains non-forced. A green
-recheck clears the challenge; a repeated auth/permission failure records the
-exact human action before replacing `agent:needs-attention` with `needs-human`.
+recheck clears the challenge; only the same redacted boundary fingerprint
+failing again records the exact runner-reported action before replacing
+`agent:needs-attention` with `needs-human`.
 Confirmed human holds are challenged again after 24 hours by the reviewed-repo
 controller so stale assumptions cannot idle a PR.
 

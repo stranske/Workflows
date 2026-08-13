@@ -235,7 +235,7 @@ For each non-transient failure:
 1. Keepalive adds `agent:retry` and explicitly dispatches `agents-81-gate-followups.yml`
 2. At 3 consecutive failures, the current strategy pauses for the hourly recovery sweep
 3. Possible authority boundaries use `agent:needs-attention`; only due claims receive a forced sweep recheck
-4. A green recheck clears the challenge; a repeated auth failure records the exact human action before applying `needs-human`
+4. A green recheck clears the challenge; only the same redacted boundary fingerprint failing again records the exact runner-reported action before applying `needs-human`
 
 ### Manual Control
 - **Pause**: Add `agents:paused` label

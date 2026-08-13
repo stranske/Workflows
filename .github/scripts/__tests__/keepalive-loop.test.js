@@ -14,6 +14,7 @@ const {
   markAgentRunning,
   analyzeTaskCompletion,
   autoReconcileTasks,
+  buildAuthorityChallengeEvidence,
   selectEscalationDisposition,
 } = require('../keepalive_loop.js');
 const { formatStateComment, parseStateComment } = require('../keepalive_state.js');
@@ -2236,6 +2237,7 @@ test('updateKeepaliveLoopSummary does not treat skipped runs as agent failures',
 });
 
 test('updateKeepaliveLoopSummary sends auth failures to independent challenge', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const existingState = formatStateComment({
     trace: 'trace-attention-auth',
     iteration: 1,
@@ -2264,7 +2266,7 @@ test('updateKeepaliveLoopSummary sends auth failures to independent challenge', 
       failureThreshold: 3,
       trace: 'trace-attention-auth',
       agent_exit_code: '1',
-      agent_summary: 'Bad credentials while calling GitHub API.',
+      agent_summary: authSummary,
     },
   });
 
@@ -2279,9 +2281,14 @@ test('updateKeepaliveLoopSummary sends auth failures to independent challenge', 
   const updateAction = github.actions.find((action) => action.type === 'update');
   assert.match(updateAction.body, /"disposition":"challenge-due"/);
   assert.match(updateAction.body, /"owner":"automation"/);
+  assert.match(updateAction.body, /"boundary_fingerprint":"[0-9a-f]{64}"/);
+  assert.match(updateAction.body, /"boundary_detail":"Missing token ACTIONS_BOT_PAT/);
+  assert.match(updateAction.body, /"next_action":"Independently rerun the current operation/);
 });
 
 test('a scheduled recheck that reproduces auth failure records a terminal human action', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
   const existingState = formatStateComment({
     trace: 'trace-attention-auth-confirmed',
     iteration: 2,
@@ -2293,6 +2300,8 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
       first_seen_at: '2026-08-12T12:00:00Z',
       challenge_due_at: '2026-08-12T12:05:00Z',
       key: 'agent-run-failed|failure|auth|agent|1',
+      boundary_fingerprint: boundary.fingerprint,
+      boundary_detail: boundary.detail,
     },
   });
   const github = buildGithubStub({
@@ -2319,7 +2328,7 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
       trace: 'trace-attention-auth-confirmed',
       forceRetry: true,
       agent_exit_code: '1',
-      agent_summary: 'Bad credentials while calling GitHub API.',
+      agent_summary: authSummary,
     },
   });
 
@@ -2338,7 +2347,76 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
   assert.match(updateAction.body, /"disposition":"needs-human"/);
   assert.match(updateAction.body, /"owner":"human"/);
   assert.match(updateAction.body, /"confirmation":"scheduled-current-state-recheck-reproduced-auth-boundary"/);
-  assert.match(updateAction.body, /"human_action":"Verify credentials, token scopes, and permissions for the repository\."/);
+  assert.match(
+    updateAction.body,
+    /"human_action":"Resolve the reproduced runner authority failure: Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch\."/,
+  );
+});
+
+test('a forced recheck with a different auth boundary stays automation-owned', async () => {
+  const original = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.',
+  });
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-different',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'original-auth-boundary',
+      boundary_fingerprint: original.fingerprint,
+      boundary_detail: original.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 91, body: existingState, html_url: 'https://example.com/91' }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-different',
+      forceRetry: true,
+      agent_exit_code: '1',
+      agent_summary: 'Insufficient permission pull-requests:write for repository update.',
+    },
+  });
+
+  assert.equal(
+    github.actions.some((action) =>
+      action.type === 'label' && action.labels.includes('needs-human')
+    ),
+    false,
+  );
+  assert.ok(github.actions.some((action) =>
+    action.type === 'label' && action.labels.includes('agent:needs-attention')
+  ));
+  const updateAction = github.actions.find((action) =>
+    action.type === 'update' && parseStateComment(action.body)?.data?.attention
+  );
+  const state = parseStateComment(updateAction.body).data;
+  assert.equal(state.attention.owner, 'automation');
+  assert.equal(state.attention.disposition, 'challenge-due');
+  assert.notEqual(state.attention.boundary_fingerprint, original.fingerprint);
+  assert.match(state.attention.boundary_detail, /pull-requests:write/);
 });
 
 test('a successful scheduled authority recheck clears the automation challenge', async () => {
@@ -2391,7 +2469,7 @@ test('a successful scheduled authority recheck clears the automation challenge',
     false,
   );
   const updateAction = github.actions.find((action) => action.type === 'update');
-  const state = parseStateComment(updateAction.body);
+  const state = parseStateComment(updateAction.body).data;
   assert.equal(state.attention, undefined);
 });
 

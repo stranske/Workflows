@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
 const { getGithubApiCache } = require('./github-api-cache-client');
@@ -64,6 +65,27 @@ try {
 
 function normalise(value) {
   return String(value ?? '').trim();
+}
+
+function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
+  const detail = normalise(agentSummary || summaryReason)
+    .replace(/\s+/g, ' ')
+    .replace(/\b(?:ghp_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
+    .replace(/\bbearer\s+\S+/gi, 'Bearer [redacted-token]')
+    .replace(/\b(token|secret|password)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+    .slice(0, 300);
+  if (!detail) {
+    return { fingerprint: '', detail: '', humanAction: '' };
+  }
+  const normalized = detail
+    .toLowerCase()
+    .replace(/\b[0-9a-f]{7,64}\b/g, '<hash>')
+    .replace(/\b\d+\b/g, '<number>');
+  return {
+    fingerprint: crypto.createHash('sha256').update(normalized).digest('hex'),
+    detail,
+    humanAction: `Resolve the reproduced runner authority failure: ${detail}`,
+  };
 }
 
 function selectEscalationDisposition({
@@ -3402,13 +3424,19 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       isForceRetry &&
       previousAttention.owner === 'automation' &&
       previousAttention.disposition === 'challenge-due';
+    const authorityEvidence = buildAuthorityChallengeEvidence({
+      agentSummary,
+      summaryReason,
+    });
     const escalationRequired =
       ((action === 'run' || action === 'fix') && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
       (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
     const authorityChallengeConfirmed =
       previousAuthorityChallenge &&
       escalationRequired &&
-      errorCategory === ERROR_CATEGORIES.auth;
+      errorCategory === ERROR_CATEGORIES.auth &&
+      Boolean(authorityEvidence.fingerprint) &&
+      authorityEvidence.fingerprint === previousAttention.boundary_fingerprint;
     const escalationDisposition = selectEscalationDisposition({
       required: escalationRequired || stop,
       errorCategory,
@@ -3727,7 +3755,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         '### 🛑 Independent Authority Challenge Confirmed',
         '',
         'A scheduled current-state recheck reproduced the same external authority boundary.',
-        `**Exact human action:** ${errorRecovery || 'Verify the unavailable credential, token scope, or repository permission recorded above.'}`,
+        `**Exact human action:** ${authorityEvidence.humanAction}`,
       );
     }
 
@@ -4102,7 +4130,14 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         runResult === 'success' &&
         (action === 'run' || action === 'fix'));
 
-    const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
+    const attentionKey = [
+      summaryReason,
+      runResult,
+      errorCategory,
+      errorType,
+      agentExitCode,
+      authorityEvidence.fingerprint,
+    ].filter(Boolean).join('|');
     const priorAttentionKey = normalise(previousAttention.key);
     const previousAttentionAutomationOwned =
       previousAttention.owner === 'automation' &&
@@ -4123,10 +4158,10 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           challenge_started_at: previousAttention.challenge_due_at || firstSeenAt,
           confirmed_at: new Date().toISOString(),
           confirmation: 'scheduled-current-state-recheck-reproduced-auth-boundary',
-          human_action: errorRecovery ||
-            'Verify the unavailable credential, token scope, or repository permission.',
-          next_action: errorRecovery ||
-            'Verify the unavailable credential, token scope, or repository permission.',
+          boundary_fingerprint: authorityEvidence.fingerprint,
+          boundary_detail: authorityEvidence.detail,
+          human_action: authorityEvidence.humanAction,
+          next_action: authorityEvidence.humanAction,
         };
       } else {
         newState.attention = {
@@ -4135,8 +4170,14 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           owner: 'automation',
           first_seen_at: firstSeenAt,
           challenge_due_at: challengeDueAt,
+          boundary_fingerprint: escalationDisposition === 'challenge-due'
+            ? authorityEvidence.fingerprint
+            : '',
+          boundary_detail: escalationDisposition === 'challenge-due'
+            ? authorityEvidence.detail
+            : '',
           next_action: escalationDisposition === 'challenge-due'
-            ? 'Independently verify the authority boundary, then route or record an exact human action.'
+            ? 'Independently rerun the current operation and confirm the same redacted authority-boundary fingerprint.'
             : 'Route to automation retry/backoff, CI repair, alternate agent, or review fallback.',
         };
       }
@@ -4991,6 +5032,7 @@ module.exports = {
   fileMatchesScopePattern,
   validateScopeCompliance,
   buildMetricsRecord,
+  buildAuthorityChallengeEvidence,
   parseCapabilityBundlesInput,
   selectEscalationDisposition,
 };
