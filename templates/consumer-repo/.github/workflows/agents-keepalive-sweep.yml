@@ -115,6 +115,7 @@ jobs:
                   inputs: {
                     pr_number: String(pr.number),
                     force_retry: String(Boolean(dueChallenge)),
+                    sweep_recheck: 'true',
                     authority_challenge_fingerprint:
                       dueChallenge?.boundaryFingerprint || '',
                   },

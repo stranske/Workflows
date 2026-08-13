@@ -23,6 +23,11 @@ on:
         required: false
         default: ''
         type: string
+      sweep_recheck:
+        description: 'Internal hourly sweep wakeup; re-evaluates without forcing Gate bypass'
+        required: false
+        default: false
+        type: boolean
       orchestrator_skill_pack:
         description: >-
           Optional reference-pack name override for exported Orchestrator skill context
@@ -133,6 +138,7 @@ jobs:
           PR_ACTOR: ${{ github.actor }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event.inputs.authority_challenge_fingerprint || '' }}
+          SWEEP_RECHECK: ${{ github.event.inputs.sweep_recheck || 'false' }}
         run: |
           if [ -z "${PR_NUMBER:-}" ]; then
             {
@@ -144,10 +150,14 @@ jobs:
             exit 0
           fi
 
-          if [ -n "${AUTHORITY_CHALLENGE_FINGERPRINT:-}" ]; then
+          if [ "${SWEEP_RECHECK:-false}" = "true" ]; then
             {
               echo "should_run=true"
-              echo "reason=due-authority-challenge"
+              if [ -n "${AUTHORITY_CHALLENGE_FINGERPRINT:-}" ]; then
+                echo "reason=due-authority-challenge"
+              else
+                echo "reason=scheduled-sweep-recheck"
+              fi
               echo "current_hash="
               echo "prior_hash="
             } >> "$GITHUB_OUTPUT"

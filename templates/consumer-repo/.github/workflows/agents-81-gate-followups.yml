@@ -23,6 +23,11 @@ on:
         required: false
         default: ''
         type: string
+      sweep_recheck:
+        description: 'Internal hourly sweep wakeup; re-evaluates without forcing Gate bypass'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -110,6 +115,7 @@ jobs:
           FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event.inputs.authority_challenge_fingerprint || '' }}
+          SWEEP_RECHECK: ${{ github.event.inputs.sweep_recheck || 'false' }}
         run: |
           if [ -z "${PR_NUMBER:-}" ]; then
             {
@@ -121,10 +127,14 @@ jobs:
             exit 0
           fi
 
-          if [ -n "${AUTHORITY_CHALLENGE_FINGERPRINT:-}" ]; then
+          if [ "${SWEEP_RECHECK:-false}" = "true" ]; then
             {
               echo "should_run=true"
-              echo "reason=due-authority-challenge"
+              if [ -n "${AUTHORITY_CHALLENGE_FINGERPRINT:-}" ]; then
+                echo "reason=due-authority-challenge"
+              else
+                echo "reason=scheduled-sweep-recheck"
+              fi
               echo "current_hash="
               echo "prior_hash="
             } >> "$GITHUB_OUTPUT"

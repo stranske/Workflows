@@ -666,13 +666,18 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert "retry_workflow_id: 'agents-81-gate-followups.yml'" in consumer_loop
     assert "authority_challenge_fingerprint:" in root_loop
     assert "authority_challenge_fingerprint:" in consumer_loop
+    assert "sweep_recheck:" in root_loop
+    assert "sweep_recheck:" in consumer_loop
     assert "reason=due-authority-challenge" in root_loop
     assert "reason=due-authority-challenge" in consumer_loop
+    assert "reason=scheduled-sweep-recheck" in root_loop
+    assert "reason=scheduled-sweep-recheck" in consumer_loop
     assert root_loop.count("reason=due-authority-challenge") >= 2
     assert consumer_loop.count("reason=due-authority-challenge") >= 2
     for path in sweep_paths:
         text = path.read_text(encoding="utf-8")
         assert "force_retry: String(Boolean(dueChallenge))" in text
+        assert "sweep_recheck: 'true'" in text
         assert "dueChallenge?.boundaryFingerprint || ''" in text
         assert "force_retry: 'true'" not in text
 
