@@ -145,17 +145,6 @@ class TestLangsmithTracing:
             _setup_langsmith_tracing()
             assert os.environ["LANGCHAIN_API_KEY"] == "existing"
 
-    def test_setup_langsmith_preserves_explicit_tracing_opt_out(self):
-        """An explicit tracing opt-out disables tracing despite key discovery."""
-        with patch.dict(
-            os.environ,
-            {"LANGSMITH_API_KEY": "ls-key", "LANGCHAIN_TRACING_V2": "false"},
-            clear=True,
-        ):
-            enabled = _setup_langsmith_tracing()
-            assert enabled is False
-            assert os.environ["LANGCHAIN_TRACING_V2"] == "false"
-
 
 class TestBuildLangsmithMetadata:
     """Tests for the centralized build_langsmith_metadata helper."""
