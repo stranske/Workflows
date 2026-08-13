@@ -50,3 +50,14 @@ def test_report_flags_rejected_or_non_shadow_evidence() -> None:
 
     assert rejected["candidates"][0]["state"] == "failed-evidence-ingestion"
     assert non_shadow["candidates"][0]["state"] == "failed-evidence-ingestion"
+
+
+def test_report_flags_adapter_rejection_without_mutating_the_ledger() -> None:
+    report = build_report(
+        _capabilities(), [], rejected_capability_ids=frozenset({CAPABILITY})
+    )
+
+    candidate = report["candidates"][0]
+    assert candidate["state"] == "failed-evidence-ingestion"
+    assert candidate["evidence_count"] == 0
+    assert candidate["policy_classification_owner"] == "Orchestrator/consumer_sync_shadow.py"

@@ -71,6 +71,8 @@ jobs:
             --output consumer-sync-shadow-evidence/handoff.json
 
       - name: Validate and record typed completion evidence
+        id: completion_evidence
+        continue-on-error: true
         run: |
           python -m scripts.orchestrator_runtime.completion_event_adapter \
             --handoff consumer-sync-shadow-evidence/handoff.json \
@@ -78,13 +80,16 @@ jobs:
             --state-dir consumer-sync-shadow-evidence
 
       - name: Report bounded shadow runtime state
+        if: always()
         run: |
           python -m scripts.orchestrator_runtime.consumer_sync_report \
             --registry consumer-sync-shadow-evidence/capabilities-state.json \
             --ledger consumer-sync-shadow-evidence/evidence-ledger.json \
+            --diagnostic consumer-sync-shadow-evidence/completion-evidence.json \
             --output consumer-sync-shadow-evidence/runtime-report.json
 
       - name: Upload shadow evidence
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: consumer-sync-shadow-evidence-${{ github.run_id }}-${{ github.run_attempt }}
@@ -92,6 +97,7 @@ jobs:
           retention-days: 30
 
       - name: Summarize shadow boundary
+        if: always()
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json

@@ -11,6 +11,7 @@ from scripts.orchestrator_runtime.capability_lifecycle import (
     EvidenceLedger,
     ingest_completion_evidence,
 )
+from scripts.orchestrator_runtime import completion_event_adapter
 from scripts.orchestrator_runtime.completion_event_adapter import process_shadow_handoff
 from scripts.orchestrator_runtime.evidence_schema import SCHEMA
 from scripts.orchestrator_runtime.runner_effect_bridge import (
@@ -140,6 +141,35 @@ def test_shadow_handoff_rejects_write_or_promotion_authority() -> None:
 
     with pytest.raises(ValueError, match="unsafe_handoff"):
         completion_payload_from_shadow_handoff(handoff)
+
+
+def test_cli_preserves_rejection_diagnostic_for_runtime_reporting(tmp_path: Path) -> None:
+    handoff = real_handoff("github-actions:stranske/Workflows:124:1")
+    handoff["capability_id"] = "capability:unknown"
+    handoff_path = tmp_path / "handoff.json"
+    output_path = tmp_path / "completion-evidence.json"
+    registry_path = tmp_path / "capabilities.json"
+    handoff_path.write_text(json.dumps(handoff), encoding="utf-8")
+    registry_path.write_text(json.dumps(registry("shadow")), encoding="utf-8")
+
+    assert completion_event_adapter.main(
+        [
+            "--handoff",
+            str(handoff_path),
+            "--output",
+            str(output_path),
+            "--registry",
+            str(registry_path),
+            "--state-dir",
+            str(tmp_path / "state"),
+        ]
+    ) == 1
+
+    result = json.loads(output_path.read_text(encoding="utf-8"))
+    assert result["status"] == "rejected"
+    assert result["capability_id"] == "capability:unknown"
+    assert (tmp_path / "state" / "capabilities-state.json").is_file()
+    assert (tmp_path / "state" / "evidence-ledger.json").is_file()
 
 
 def test_rejects_unstable_fingerprint_oversized_ref_and_missing_provenance() -> None:

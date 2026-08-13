@@ -262,9 +262,11 @@ inventory, so identical inputs produce byte-identical JSON.
 `workflows.consumer-sync-shadow-handoff/v1` envelope for the existing local
 Orchestrator capability `capability:reference-sync-hygiene-test-gate`. The
 handoff is explicitly `shadow`, `write_authority=false`, and
-`promotion_allowed=false`; classification, counterexamples, expiry, rollback,
-and promotion blockers remain owned by Orchestrator's
-`consumer_sync_shadow.py` dashboard.
+`promotion_allowed=false`. The uploaded Workflows runtime report is limited to
+local evidence-ingestion state (including an explicit rejected-ingestion state);
+it is not the consumer-sync policy classifier. Authoritative classification,
+counterexamples, expiry, rollback, and promotion blockers remain owned by
+Orchestrator's `consumer_sync_shadow.py` dashboard.
 
 The same workflow also records typed completion evidence through
 `scripts/orchestrator_runtime/completion_event_adapter.py`. The uploaded bundle
