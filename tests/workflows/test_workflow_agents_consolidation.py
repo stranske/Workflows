@@ -1426,9 +1426,7 @@ def test_reusable_agent_runners_export_actual_execution_start():
         run_region = text[run_start : next_step if next_step != -1 else None]
 
         assert "agent-execution-started:" in text
-        assert (
-            f"value: ${{{{ jobs.{agent}.outputs.agent-execution-started }}}}" in text
-        )
+        assert f"value: ${{{{ jobs.{agent}.outputs.agent-execution-started }}}}" in text
         assert (
             f"agent-execution-started: "
             f"${{{{ steps.run_{agent}.outputs.agent-execution-started }}}}" in text
