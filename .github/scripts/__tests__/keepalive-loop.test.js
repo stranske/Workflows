@@ -992,6 +992,51 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.match(github.actions[0].body, /"failure":\{\}/);
 });
 
+test('updateKeepaliveLoopSummary migrates legacy state to the selected App writer', async () => {
+  const existingState = [
+    '<!-- keepalive-loop-summary -->',
+    formatStateComment({
+      trace: 'legacy-trace',
+      iteration: 1,
+      max_iterations: 5,
+      failure_threshold: 3,
+    }),
+  ].join('\n');
+  const github = buildGithubStub({
+    comments: [{
+      id: 44,
+      body: existingState,
+      html_url: 'https://example.com/44',
+      user: { login: 'github-actions[bot]', type: 'Bot' },
+    }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(123),
+    core: buildCore(),
+    inputs: {
+      prNumber: 123,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 2,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'legacy-trace',
+      trusted_summary_author: 'stranske-keepalive[bot]',
+    },
+  });
+
+  assert.equal(github.actions[0].type, 'create');
+  assert.match(github.actions[0].body, /keepalive-loop-summary/);
+  assert.match(github.actions[0].body, /"trace":"legacy-trace"/);
+  assert.equal(github.actions.some((action) => action.commentId === 44), false);
+});
+
 test('updateKeepaliveLoopSummary ignores status-only checklist metrics for reconciliation', async () => {
   const pr = {
     number: 1234,

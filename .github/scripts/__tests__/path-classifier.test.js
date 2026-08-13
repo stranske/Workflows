@@ -227,6 +227,39 @@ test('stable delivery bootstraps an add-only contract when the trusted base pred
   assert.equal(contract.mergeEligibility(deliveryRecord, { requireSealed: true }).eligible, false);
 });
 
+test('stable delivery bootstrap fails closed without an exact head SHA', () => {
+  const context = deliveryContext(deliveryRecord);
+  context.event.pull_request.head.sha = '';
+  let bootstrapRead = false;
+  const contract = loadDeliveryContract(context, {
+    readTrustedContract: () => {
+      throw new Error('contract absent from base');
+    },
+    isBootstrapAddition: () => true,
+    readBootstrapContract: () => {
+      bootstrapRead = true;
+      return '';
+    },
+  });
+
+  assert.equal(contract, null);
+  assert.equal(bootstrapRead, false);
+});
+
+test('stable delivery bootstrap fails closed when the exact head contract is unreadable', () => {
+  const contract = loadDeliveryContract(deliveryContext(deliveryRecord), {
+    readTrustedContract: () => {
+      throw new Error('contract absent from base');
+    },
+    isBootstrapAddition: () => true,
+    readBootstrapContract: () => {
+      throw new Error('head object unavailable');
+    },
+  });
+
+  assert.equal(contract, null);
+});
+
 test('stable delivery bootstrap recognizes only an exact added contract path', () => {
   const contractPath = '.github/scripts/sync_pr_lease_contract.js';
   assert.equal(isAddOnlyContractDiff(`A\t${contractPath}`, contractPath), true);

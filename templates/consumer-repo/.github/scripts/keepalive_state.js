@@ -407,6 +407,8 @@ async function loadKeepaliveState({ github: rawGithub, context, prNumber, trace 
     state: loadedState,
     commentId: existing.comment?.id ? Number(existing.comment.id) : 0,
     commentUrl: existing.comment?.html_url || '',
+    commentAuthorLogin: existing.comment?.user?.login || '',
+    commentAuthorType: existing.comment?.user?.type || '',
   };
 }
 

@@ -1539,6 +1539,12 @@ jobs:
               github.event.inputs.authority_challenge_claim || '' }}
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+          KEEPALIVE_SUMMARY_WRITER: >-
+            ${{
+              steps.summary_keepalive_app_token.outputs.token != '' &&
+              'stranske-keepalive[bot]' ||
+              'agents-workflows-bot[bot]'
+            }}
         with:
           github-token: >-
             ${{
@@ -1658,6 +1664,7 @@ jobs:
                 process.env.AUTHORITY_CHALLENGE_CLAIM || '',
               authority_challenge_signing_key:
                 process.env.AUTHORITY_CHALLENGE_SIGNING_KEY || '',
+              trusted_summary_author: process.env.KEEPALIVE_SUMMARY_WRITER || '',
               retry_workflow_id: 'agents-keepalive-loop.yml',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });

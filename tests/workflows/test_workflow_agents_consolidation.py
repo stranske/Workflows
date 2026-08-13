@@ -709,6 +709,8 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert "steps.summary_keepalive_app_token.outputs.token ||" in update_summary
     assert "steps.summary_workflows_app_token.outputs.token" in update_summary
     assert "github-token: ${{ secrets.GITHUB_TOKEN }}" not in update_summary
+    assert "github-token: ${{ github.token }}" not in update_summary
+    assert "trusted_summary_author: process.env.KEEPALIVE_SUMMARY_WRITER" in update_summary
 
     consumer_summary_start = consumer_loop.index("  summary:")
     consumer_summary_end = consumer_loop.index("  prepare:", consumer_summary_start)
@@ -730,6 +732,11 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert "steps.summary_keepalive_app_token.outputs.token ||" in consumer_update_summary
     assert "steps.summary_workflows_app_token.outputs.token" in consumer_update_summary
     assert "github-token: ${{ secrets.GITHUB_TOKEN }}" not in consumer_update_summary
+    assert "github-token: ${{ github.token }}" not in consumer_update_summary
+    assert (
+        "trusted_summary_author: process.env.KEEPALIVE_SUMMARY_WRITER"
+        in consumer_update_summary
+    )
     for path in sweep_paths:
         text = path.read_text(encoding="utf-8")
         assert "force_retry: String(Boolean(dueChallenge))" in text

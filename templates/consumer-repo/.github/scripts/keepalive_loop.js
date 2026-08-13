@@ -3201,12 +3201,33 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const delegationShouldSwitch = toBool(inputs.delegation_should_switch ?? inputs.delegationShouldSwitch, false);
     const agentRoutingMode = normalise(inputs.agent_routing_mode ?? inputs.agentRoutingMode);
 
-    const { state: previousState, commentId } = await loadKeepaliveState({
+    const {
+      state: previousState,
+      commentId,
+      commentAuthorLogin,
+      commentAuthorType,
+    } = await loadKeepaliveState({
       github,
       context,
       prNumber,
       trace: stateTrace,
     });
+    const trustedSummaryAuthor = normalise(
+      inputs.trusted_summary_author ?? inputs.trustedSummaryAuthor,
+    ).toLowerCase();
+    const existingSummaryAuthor = normalise(commentAuthorLogin).toLowerCase();
+    const existingSummaryAuthorType = normalise(commentAuthorType).toLowerCase();
+    const migrateSummaryWriter = Boolean(
+      commentId &&
+      trustedSummaryAuthor &&
+      (existingSummaryAuthor !== trustedSummaryAuthor || existingSummaryAuthorType !== 'bot'),
+    );
+    if (migrateSummaryWriter) {
+      core?.info?.(
+        `Creating a trusted App-owned keepalive summary; existing writer ` +
+        `${existingSummaryAuthor || 'unknown'} is not ${trustedSummaryAuthor}.`,
+      );
+    }
 
     const hasTasksTotalInput = tasksTotalInput !== undefined && tasksTotalInput !== '';
     const hasTasksUncheckedInput = tasksUncheckedInput !== undefined && tasksUncheckedInput !== '';
@@ -4394,7 +4415,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     // This prevents duplicate failure notifications on PRs
 
     try {
-      let summaryCommentId = commentId;
+      let summaryCommentId = migrateSummaryWriter ? 0 : commentId;
       const persistSummary = async (body) => {
         if (summaryCommentId) {
           await github.rest.issues.updateComment({
