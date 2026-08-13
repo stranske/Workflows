@@ -2990,8 +2990,14 @@ test('authority fingerprints include redacted details beyond the display limit',
   const quotedUppercasePassword = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing password: "HUNTERTWO"; requires contents:write permission',
   });
+  const unquotedUppercasePassword = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing password: HUNTERTWO; requires contents:write permission',
+  });
   const passwordAliasSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied passwd=correct-horse-battery-staple pwd another-secret; requires contents:write permission',
+  });
+  const extendedAliasSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied pass=alpha pin beta otp=gamma mfa_code delta session_token=epsilon signature zeta; requires contents:write permission',
   });
   const passphraseSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Key authentication failed passphrase="correct horse battery staple".',
@@ -3188,8 +3194,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.doesNotMatch(quotedSensitive.humanAction, /correct horse|another secret/);
   assert.doesNotMatch(quotedUppercasePassword.detail, /HUNTERTWO/);
   assert.doesNotMatch(quotedUppercasePassword.humanAction, /HUNTERTWO/);
+  assert.doesNotMatch(unquotedUppercasePassword.detail, /HUNTERTWO/);
+  assert.doesNotMatch(unquotedUppercasePassword.humanAction, /HUNTERTWO/);
   assert.doesNotMatch(passwordAliasSensitive.detail, /correct-horse|another-secret/);
   assert.doesNotMatch(passwordAliasSensitive.humanAction, /correct-horse|another-secret/);
+  assert.doesNotMatch(extendedAliasSensitive.detail, /alpha|beta|gamma|delta|epsilon|zeta/);
+  assert.doesNotMatch(extendedAliasSensitive.humanAction, /alpha|beta|gamma|delta|epsilon|zeta/);
   assert.equal(
     passphraseSensitive.detail,
     'Key authentication failed passphrase=[redacted].',
