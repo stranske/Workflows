@@ -102,7 +102,7 @@ function buildAuthorityChallengeEvidence({
         return '[redacted-private-key]';
       },
     )
-    .replace(/\b(https?:\/\/)[^/@\s:]+:[^@\s]+@/gi, '$1[redacted-userinfo]@')
+    .replace(/\b([A-Za-z][A-Za-z0-9+.-]*:\/\/)[^/@\s:]+:[^@\s]+@/g, '$1[redacted-userinfo]@')
     .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '[redacted-api-key]')
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-access-key]')
@@ -125,7 +125,7 @@ function buildAuthorityChallengeEvidence({
         const value = quoted ? rawValue.slice(1, -1) : rawValue;
         const prefix = source.slice(Math.max(0, offset - 40), offset);
         const explicitMissingCredentialName =
-          /^(?:token|secret|password)$/i.test(name) &&
+          /^(?:token|secret|password|credentials?)$/i.test(name) &&
           /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
           /^[A-Z][A-Z0-9_]{2,}$/.test(value);
         if (explicitMissingCredentialName) return match;
@@ -3563,7 +3563,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       ? previousState.attention
       : {};
     const previousAuthorityChallenge =
-      isForceRetry &&
       previousAttention.owner === 'automation' &&
       previousAttention.disposition === 'challenge-due';
     const authorityChallengeFingerprint = normalise(

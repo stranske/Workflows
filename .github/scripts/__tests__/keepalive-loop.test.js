@@ -2986,6 +2986,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   const urlSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Permission denied for https://alice:correct-horse@example.com/private',
   });
+  const sshUrlSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Permission denied for ssh://alice:correct-horse@example.com/private',
+  });
+  const databaseUrlSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Permission denied for postgres://alice:correct-horse@example.com/private',
+  });
   const bareProviderSensitive = buildAuthorityChallengeEvidence({
     agentSummary:
       `Unauthorized provider key ${'sk-'}abcdefghijklmnopqrstuvwxyz123456 ` +
@@ -3149,6 +3155,16 @@ test('authority fingerprints include redacted details beyond the display limit',
   );
   assert.doesNotMatch(urlSensitive.humanAction, /alice|correct-horse/);
   assert.equal(
+    sshUrlSensitive.detail,
+    'Permission denied for ssh://[redacted-userinfo]@example.com/private',
+  );
+  assert.equal(
+    databaseUrlSensitive.detail,
+    'Permission denied for postgres://[redacted-userinfo]@example.com/private',
+  );
+  assert.doesNotMatch(sshUrlSensitive.humanAction, /alice|correct-horse/);
+  assert.doesNotMatch(databaseUrlSensitive.humanAction, /alice|correct-horse/);
+  assert.equal(
     bareProviderSensitive.detail,
     'Unauthorized provider key [redacted-api-key] and access key [redacted-access-key]',
   );
@@ -3161,6 +3177,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   });
   const missingNamedCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing credential ACTIONS_BOT_PAT for runner launch.',
+  });
+  const requiredNamedCredential = buildAuthorityChallengeEvidence({
+    agentSummary: 'Required credential: OPENAI_API_KEY for runner launch.',
   });
   const routedMissingAuth = [
     buildAuthorityChallengeEvidence({
@@ -3180,6 +3199,8 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.match(missingClaudeCredential.detail, /CLAUDE_CODE_OAUTH_TOKEN/);
   assert.match(missingNamedCredential.detail, /ACTIONS_BOT_PAT/);
   assert.equal(missingNamedCredential.actionable, true);
+  assert.match(requiredNamedCredential.detail, /OPENAI_API_KEY/);
+  assert.equal(requiredNamedCredential.actionable, true);
   for (const evidence of routedMissingAuth) {
     assert.equal(evidence.actionable, true);
     assert.match(evidence.humanAction, /_OAUTH_|_API_KEY/);
@@ -3233,58 +3254,60 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.notEqual(permissionCodeOne.fingerprint, permissionCodeTwo.fingerprint);
 });
 
-test('a successful scheduled authority recheck clears the automation challenge', async () => {
-  const existingState = formatStateComment({
-    trace: 'trace-attention-auth-cleared',
-    iteration: 2,
-    failure_threshold: 3,
-    failure: { reason: 'agent-run-failed', count: 1 },
-    attention: {
-      owner: 'automation',
-      disposition: 'challenge-due',
-      first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
-      key: 'agent-run-failed|failure|auth|agent|1',
-    },
-  });
-  const github = buildGithubStub({
-    comments: [{ id: 90, body: existingState, html_url: 'https://example.com/90' }],
-    labels: ['agent:codex', 'agent:needs-attention'],
-  });
-
-  await updateKeepaliveLoopSummary({
-    github,
-    context: buildContext(654),
-    core: buildCore(),
-    inputs: {
-      prNumber: 654,
-      action: 'run',
-      runResult: 'success',
-      gateConclusion: 'success',
-      tasksTotal: 3,
-      tasksUnchecked: 2,
-      keepaliveEnabled: true,
-      autofixEnabled: false,
+test('a successful authority recheck clears the automation challenge with or without a signed force claim', async () => {
+  for (const forceRetry of [true, false]) {
+    const existingState = formatStateComment({
+      trace: `trace-attention-auth-cleared-${forceRetry}`,
       iteration: 2,
-      maxIterations: 5,
-      failureThreshold: 3,
-      trace: 'trace-attention-auth-cleared',
-      forceRetry: true,
-    },
-  });
+      failure_threshold: 3,
+      failure: { reason: 'agent-run-failed', count: 1 },
+      attention: {
+        owner: 'automation',
+        disposition: 'challenge-due',
+        first_seen_at: '2026-08-12T12:00:00Z',
+        challenge_due_at: '2026-08-12T12:05:00Z',
+        key: 'agent-run-failed|failure|auth|agent|1',
+      },
+    });
+    const github = buildGithubStub({
+      comments: [{ id: 90, body: existingState, html_url: 'https://example.com/90' }],
+      labels: ['agent:codex', 'agent:needs-attention'],
+    });
 
-  assert.ok(github.actions.some((action) =>
-    action.type === 'remove-label' && action.name === 'agent:needs-attention'
-  ));
-  assert.equal(
-    github.actions.some((action) =>
-      action.type === 'label' && action.labels.includes('needs-human')
-    ),
-    false,
-  );
-  const updateAction = github.actions.find((action) => action.type === 'update');
-  const state = parseStateComment(updateAction.body).data;
-  assert.equal(state.attention, undefined);
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(654),
+      core: buildCore(),
+      inputs: {
+        prNumber: 654,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 2,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 2,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: `trace-attention-auth-cleared-${forceRetry}`,
+        forceRetry,
+      },
+    });
+
+    assert.ok(github.actions.some((action) =>
+      action.type === 'remove-label' && action.name === 'agent:needs-attention'
+    ));
+    assert.equal(
+      github.actions.some((action) =>
+        action.type === 'label' && action.labels.includes('needs-human')
+      ),
+      false,
+    );
+    const updateAction = github.actions.find((action) => action.type === 'update');
+    const state = parseStateComment(updateAction.body).data;
+    assert.equal(state.attention, undefined);
+  }
 });
 
 test('updateKeepaliveLoopSummary routes resource failures to automation retry', async () => {
