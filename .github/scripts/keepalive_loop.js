@@ -289,63 +289,46 @@ function buildAuthorityChallengeEvidence({
   if (!redacted) {
     return { fingerprint: '', detail: '', humanAction: '', actionable: false };
   }
-  const authorityMatches = [...redacted.matchAll(
-    /\b(?:missing|required|unset|unavailable|undefined|denied|forbidden|unauthori[sz]ed|insufficient|credential|token|secret|password|scope|permission)\b/gi,
-  )];
-  const detailLimit = 300;
-  let detail = redacted;
-  if (redacted.length > detailLimit) {
-    const authorityIndex = authorityMatches.at(-1)?.index ?? redacted.length - detailLimit;
-    const start = Math.max(0, Math.min(authorityIndex, redacted.length - detailLimit));
-    detail = redacted.slice(start, start + detailLimit);
-    if (start > 0) detail = `…${detail.slice(1)}`;
-    if (start + detailLimit < redacted.length) detail = `${detail.slice(0, -1)}…`;
+  // Durable state and human-visible actions must never contain arbitrary
+  // runner text. Project the diagnostic onto a small allowlist of authority
+  // facts instead of relying on an open-ended secret-redaction blacklist.
+  const namedCredentialPatterns = [
+    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b\s+(?:token|secret|password|credentials?|key)\s*[:=]?\s*\b([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/g,
+    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b\s*[:=]?\s*\b([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/g,
+    /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?([A-Z][A-Z0-9]*_[A-Z0-9_]+)\b/g,
+  ];
+  let canonicalCredentialTarget = '';
+  for (const pattern of namedCredentialPatterns) {
+    for (const match of redacted.matchAll(pattern)) canonicalCredentialTarget = match[1];
   }
-  if (
-    canonicalPermissionTarget &&
-    !detail.replace(/\s*:\s*/g, ':').toLowerCase().includes(canonicalPermissionTarget.toLowerCase())
-  ) {
-    const remediation = `Required permission: ${canonicalPermissionTarget}. `;
-    detail = `${remediation}${detail}`;
-    if (detail.length > detailLimit) detail = `${detail.slice(0, detailLimit - 1)}…`;
-  }
-  const normalized = redacted
-    .toLowerCase()
-    .replace(
-      /\b([a-z0-9_.-]+)\s*:\s*([a-z0-9_.-]+)\b/g,
-      '$1:$2',
-    )
-    .replace(
-      /\b\d{4}-\d{2}-\d{2}[t ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:z|[+-]\d{2}:?\d{2})?\b/g,
-      '<volatile-timestamp>',
-    )
-    .replace(
-      /\b((?:timestamp|time|started|finished|created|updated)(?:[_ -]?at)?)\s*[:#=]?\s*\d{10,13}\b/g,
-      '$1 <volatile-timestamp>',
-    )
-    .replace(
-      /\b((?:run|job|request|trace|correlation)(?:[ _-]?id))\s*[:#=]?\s*[a-z0-9][a-z0-9_.-]*\b/g,
-      '$1 <volatile-id>',
-    )
-    .replace(
-      /\b((?:run|job|request|trace|correlation))\s*[:#=]\s*[a-z0-9][a-z0-9_.-]*\b/g,
-      '$1 <volatile-id>',
-    )
-    .replace(
-      /\b((?:run|job|request|trace|correlation)(?:\s+id)?)\s*[:#=]?\s*(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[0-9a-f]{7,64}|\d+)\b/g,
-      '$1 <volatile-id>',
-    )
-    .replace(/\/(runs?|jobs?)\/(?:[0-9a-f]{7,64}|\d+)\b/g, '/$1/<volatile-id>');
+  const statusCodes = [...new Set(
+    [...redacted.matchAll(/\b(?:HTTP\s*)?(401|403)\b/gi)].map(match => match[1]),
+  )].sort();
+  const authoritySignals = [
+    'authentication', 'authorization', 'missing', 'required', 'unset',
+    'unavailable', 'undefined', 'denied', 'forbidden', 'unauthorized',
+    'unauthorised', 'insufficient', 'credential', 'credentials', 'token',
+    'secret', 'password', 'scope', 'scopes', 'permission', 'permissions',
+  ].filter(signal => new RegExp(`\\b${signal}\\b`, 'i').test(redacted));
   const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
-  const actionable =
-    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b\s+(?:token|secret|password|credentials?|key)\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
-    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b\s*[:=]?\s*\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b/.test(redacted) ||
-    /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
-    Boolean(canonicalPermissionTarget);
+  const actionable = Boolean(canonicalCredentialTarget || canonicalPermissionTarget);
+  const detailParts = [];
+  if (canonicalCredentialTarget) detailParts.push(`Required credential: ${canonicalCredentialTarget}`);
+  if (canonicalPermissionTarget) detailParts.push(`Required permission: ${canonicalPermissionTarget}`);
+  if (statusCodes.length) detailParts.push(`HTTP ${statusCodes.join('/')}`);
+  const detail = detailParts.length
+    ? detailParts.join('; ')
+    : `Authority failure${authoritySignals.length ? ` (${authoritySignals.join(', ')})` : ''}`;
+  const fingerprintProjection = JSON.stringify({
+    credential: canonicalCredentialTarget,
+    permission: canonicalPermissionTarget.toLowerCase(),
+    status_codes: statusCodes,
+    signals: authoritySignals,
+  });
   return {
     fingerprint: crypto.createHash('sha256')
-      .update(`agent=${routedAgent}|operation=${challengedOperation}|${normalized}`)
+      .update(`agent=${routedAgent}|operation=${challengedOperation}|${fingerprintProjection}`)
       .digest('hex'),
     detail,
     humanAction: actionable

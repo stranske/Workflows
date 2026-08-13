@@ -2332,7 +2332,7 @@ test('updateKeepaliveLoopSummary sends preflight auth failures without a runner 
   assert.match(updateAction.body, /"disposition":"challenge-due"/);
   assert.match(updateAction.body, /"owner":"automation"/);
   assert.match(updateAction.body, /"boundary_fingerprint":"[0-9a-f]{64}"/);
-  assert.match(updateAction.body, /"boundary_detail":"Missing token ACTIONS_BOT_PAT/);
+  assert.match(updateAction.body, /"boundary_detail":"Required credential: ACTIONS_BOT_PAT/);
   assert.match(updateAction.body, /"next_action":"Independently rerun the current operation/);
 });
 
@@ -2417,7 +2417,7 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
   assert.match(updateAction.body, /"confirmation":"scheduled-current-state-recheck-reproduced-auth-boundary"/);
   assert.match(
     updateAction.body,
-    /"human_action":"Resolve the reproduced runner authority failure: Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch\."/,
+    /"human_action":"Resolve the reproduced runner authority failure: Required credential: ACTIONS_BOT_PAT"/,
   );
 });
 
@@ -2895,7 +2895,7 @@ test('renewing an authority challenge never removes its existing soft label', as
   assert.notEqual(state.attention.boundary_fingerprint, original.fingerprint);
 });
 
-test('authority fingerprints include redacted details beyond the display limit', () => {
+test('authority evidence persists only an allowlisted safe projection', () => {
   const commonPrefix = `Permission failure ${'x'.repeat(320)}`;
   const first = buildAuthorityChallengeEvidence({
     agentSummary: `${commonPrefix} missing scope contents:write Bearer secret-one`,
@@ -3043,6 +3043,11 @@ test('authority fingerprints include redacted details beyond the display limit',
   const ordinaryLowercaseControl = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied monkey=banana while reading metadata',
   });
+  const novelUnrecognizedSecret = buildAuthorityChallengeEvidence({
+    agentSummary:
+      'Denied futuristicEnvelope=NEVER_PERSIST_THIS_FORMAT; ' +
+      'required permission contents:write',
+  });
   const pluralNamedCredentials = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing credentials: OPENAI_API_KEY',
   });
@@ -3176,175 +3181,67 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.match(separatePermissionRemedies.humanAction, /issues:write/);
   assert.doesNotMatch(separatePermissionRemedies.humanAction, /Required permission: contents:read/);
   assert.equal(githubScopeAfter.fingerprint, githubScopeAfterCompact.fingerprint);
-  assert.equal(
-    sensitive.detail,
-    'Forbidden request with Bearer [redacted-token] and token=[redacted]',
-  );
-  assert.equal(
-    uppercaseSensitive.detail,
-    'Forbidden request with password=[redacted].',
-  );
-  assert.equal(
-    undelimitedSensitive.detail,
-    'Forbidden request returned token=[redacted].',
-  );
-  assert.equal(
-    genericCredentialSensitive.detail,
-    'Forbidden credential=[redacted] credentials=[redacted].',
-  );
-  assert.doesNotMatch(
-    genericCredentialSensitive.humanAction,
-    /correct-horse|another-secret/,
-  );
-  assert.doesNotMatch(oauthSensitive.detail, /sk-proj-value|oauth-value|access-value/);
-  assert.match(oauthSensitive.detail, /OPENAI_API_KEY=\[redacted\]/);
-  assert.match(oauthSensitive.detail, /client_secret=\[redacted\]/);
-  assert.match(oauthSensitive.detail, /access_token=\[redacted\]/);
-  assert.doesNotMatch(jsonSensitive.detail, /json-access|json-password/);
-  assert.doesNotMatch(prefixedSensitive.detail, /sk-prefixed-secret/);
-  assert.match(prefixedSensitive.detail, /OPENAI_API_KEY=\[redacted\]/);
-  assert.doesNotMatch(headerSensitive.detail, /dXNlc|proxy-secret|secret-cookie/);
-  assert.equal(headerSensitive.detail, 'Denied Authorization: [redacted-authorization]');
-  assert.equal(
-    digestHeaderSensitive.detail,
-    'Denied Authorization: [redacted-authorization]',
-  );
-  assert.doesNotMatch(digestHeaderSensitive.humanAction, /Mufasa|example|nonce|deadbeef/);
-  assert.equal(
-    arbitraryHeaderSensitive.detail,
-    'Denied Authorization: [redacted-authorization]',
-  );
-  assert.doesNotMatch(arbitraryHeaderSensitive.detail, /ApiKey|secret-value|after retry/);
-  for (const evidence of standaloneHttpAuthSensitive) {
-    assert.match(evidence.detail, /\[redacted-http-auth\]/);
-    assert.match(evidence.humanAction, /contents:write/);
-    assert.doesNotMatch(evidence.detail, /dXNlc|Mufasa|deadbeef|runtime/);
-    assert.doesNotMatch(evidence.humanAction, /dXNlc|Mufasa|deadbeef|runtime/);
+  const safeProjection = /^(?:Required credential: [A-Z][A-Z0-9_]+|Required permission: [A-Za-z0-9_.:-]+|HTTP (?:401|403)(?:\/(?:401|403))*|Authority failure(?: \([a-z, ]+\))?)(?:; (?:Required credential: [A-Z][A-Z0-9_]+|Required permission: [A-Za-z0-9_.:-]+|HTTP (?:401|403)(?:\/(?:401|403))*))*$/;
+  const projectedEvidence = [
+    sensitive, uppercaseSensitive, undelimitedSensitive, genericCredentialSensitive,
+    oauthSensitive, jsonSensitive, prefixedSensitive, headerSensitive,
+    digestHeaderSensitive, arbitraryHeaderSensitive, sigV4HeaderSensitive,
+    headerWithPermissionRemedy, headerWithEarlierPermissionValue,
+    headerWithCredentialRemedy, headerWithCredentialShapedSecret,
+    pemPrivateKeySensitive, truncatedPrivateKeySensitive, multiCookieSensitive,
+    commaCookieSensitive, attributedCookieSensitive, compactJwtSensitive,
+    githubAppSensitive, quotedSensitive, quotedUppercasePassword,
+    unquotedUppercasePassword, passwordAliasSensitive, extendedAliasSensitive,
+    jsonCamelCaseSensitive, structuredCredentialSensitive,
+    structuredCredentialObjectSensitive, passphraseSensitive, urlSensitive,
+    sshUrlSensitive, databaseUrlSensitive, undelimitedApiKeySensitive,
+    undelimitedAwsKeySensitive, bareProviderSensitive, novelUnrecognizedSecret,
+    ...standaloneHttpAuthSensitive,
+    ...credentialFieldEvidence.map(item => item.evidence),
+  ];
+  for (const evidence of projectedEvidence) assert.match(evidence.detail, safeProjection);
+  const forbiddenSecretFragments = /dXNlc|proxy-secret|secret-cookie|Mufasa|example|nonce|deadbeef|ApiKey|secret-value|runtime-secret|CORRECT_HORSE|private-key-material|truncated-key-material|alpha|beta|HttpOnly|Secure|eyJhbGci|eyJzdWI|runtime-signature|ghs_|HUNTERTWO|correct-horse|another-secret|json-secret|array-secret|object-secret|alice|abcdefghijklmnopqrstuvwxyz|ABCDEFGHIJKLMNOP/;
+  for (const evidence of projectedEvidence) {
+    assert.doesNotMatch(evidence.detail, forbiddenSecretFragments);
+    assert.doesNotMatch(evidence.humanAction, forbiddenSecretFragments);
   }
-  assert.equal(sigV4HeaderSensitive.detail, 'Denied Authorization: [redacted-authorization]');
-  assert.doesNotMatch(sigV4HeaderSensitive.detail, /AWS4|Credential|Signature|deadbeef/);
-  assert.equal(
-    headerWithPermissionRemedy.detail,
-    'Denied Authorization: [redacted-authorization] Required permission: contents:write',
-  );
+  assert.equal(sensitive.actionable, false);
+  assert.equal(genericCredentialSensitive.actionable, false);
+  assert.equal(headerSensitive.actionable, false);
+  assert.equal(digestHeaderSensitive.actionable, false);
+  assert.equal(arbitraryHeaderSensitive.actionable, false);
+  for (const evidence of standaloneHttpAuthSensitive) {
+    assert.match(evidence.humanAction, /contents:write/);
+  }
   assert.equal(headerWithPermissionRemedy.actionable, true);
   assert.match(headerWithPermissionRemedy.humanAction, /contents:write/);
-  assert.doesNotMatch(headerWithPermissionRemedy.detail, /runtime-secret|Bearer/);
-  assert.equal(
-    headerWithEarlierPermissionValue.detail,
-    'Attempted contents:read request. Authorization: [redacted-authorization] Required permission: pull-requests:write',
-  );
   assert.match(headerWithEarlierPermissionValue.humanAction, /pull-requests:write/);
   assert.doesNotMatch(headerWithEarlierPermissionValue.humanAction, /Required permission: contents:read/);
-  assert.equal(
-    headerWithCredentialRemedy.detail,
-    'Denied Authorization: [redacted-authorization]',
-  );
   assert.equal(headerWithCredentialRemedy.actionable, false);
   assert.equal(headerWithCredentialRemedy.humanAction, '');
-  assert.doesNotMatch(headerWithCredentialRemedy.detail, /runtime-secret|ApiKey/);
-  assert.equal(
-    headerWithCredentialShapedSecret.detail,
-    'Denied Authorization: [redacted-authorization] Required permission: contents:write',
-  );
   assert.equal(headerWithCredentialShapedSecret.actionable, true);
-  assert.doesNotMatch(
-    headerWithCredentialShapedSecret.humanAction,
-    /CORRECT_HORSE|Missing token/,
-  );
-  assert.equal(
-    pemPrivateKeySensitive.detail,
-    'Authentication failed [redacted-private-key] requires contents:write permission',
-  );
   assert.equal(pemPrivateKeySensitive.actionable, true);
-  assert.doesNotMatch(pemPrivateKeySensitive.humanAction, /private-key-material|BEGIN|END/);
-  assert.equal(
-    truncatedPrivateKeySensitive.detail,
-    'Authentication failed [redacted-private-key] Required permission: contents:write',
-  );
   assert.equal(truncatedPrivateKeySensitive.actionable, true);
-  assert.doesNotMatch(
-    truncatedPrivateKeySensitive.humanAction,
-    /truncated-key-material|CORRECT_HORSE|Missing token|BEGIN/,
-  );
-  assert.equal(multiCookieSensitive.detail, 'Denied Cookie=[redacted-cookie]');
-  assert.doesNotMatch(multiCookieSensitive.humanAction, /alpha|beta/);
-  assert.equal(
-    commaCookieSensitive.detail,
-    'Denied Set-Cookie=[redacted-cookie] Required permission: contents:write',
-  );
-  assert.doesNotMatch(commaCookieSensitive.humanAction, /alpha|beta/);
-  assert.equal(
-    attributedCookieSensitive.detail,
-    'Denied Set-Cookie=[redacted-cookie] Required permission: contents:write',
-  );
-  assert.doesNotMatch(attributedCookieSensitive.humanAction, /alpha|beta|HttpOnly|Secure/);
-  assert.match(compactJwtSensitive.detail, /\[redacted-jwt\]/);
-  assert.doesNotMatch(compactJwtSensitive.detail, /eyJhbGci|eyJzdWI|runtime-signature/);
-  assert.doesNotMatch(compactJwtSensitive.humanAction, /eyJhbGci|eyJzdWI|runtime-signature/);
-  assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);
-  assert.match(githubAppSensitive.detail, /\[redacted-token\]/);
-  assert.equal(
-    quotedSensitive.detail,
-    'Forbidden password=[redacted] token=[redacted].',
-  );
-  assert.doesNotMatch(quotedSensitive.humanAction, /correct horse|another secret/);
-  assert.doesNotMatch(quotedUppercasePassword.detail, /HUNTERTWO/);
-  assert.doesNotMatch(quotedUppercasePassword.humanAction, /HUNTERTWO/);
-  assert.doesNotMatch(unquotedUppercasePassword.detail, /HUNTERTWO/);
-  assert.doesNotMatch(unquotedUppercasePassword.humanAction, /HUNTERTWO/);
-  assert.doesNotMatch(passwordAliasSensitive.detail, /correct-horse|another-secret/);
-  assert.doesNotMatch(passwordAliasSensitive.humanAction, /correct-horse|another-secret/);
   for (const { evidence, field, sentinel } of credentialFieldEvidence) {
+    assert.match(evidence.detail, safeProjection, field);
     assert.doesNotMatch(evidence.detail, new RegExp(sentinel), field);
     assert.doesNotMatch(evidence.humanAction, new RegExp(sentinel), field);
   }
-  assert.doesNotMatch(jsonCamelCaseSensitive.detail, /json-secret/);
-  assert.doesNotMatch(jsonCamelCaseSensitive.humanAction, /json-secret/);
-  assert.doesNotMatch(structuredCredentialSensitive.detail, /array-secret/);
-  assert.doesNotMatch(structuredCredentialSensitive.humanAction, /array-secret/);
   assert.match(structuredCredentialSensitive.humanAction, /contents:write/);
-  assert.doesNotMatch(structuredCredentialObjectSensitive.detail, /object-secret/);
-  assert.doesNotMatch(structuredCredentialObjectSensitive.humanAction, /object-secret/);
   assert.match(structuredCredentialObjectSensitive.humanAction, /contents:write/);
-  assert.match(ordinaryLowercaseControl.detail, /monkey=banana/);
+  assert.match(ordinaryLowercaseControl.detail, safeProjection);
+  assert.doesNotMatch(ordinaryLowercaseControl.detail, /monkey|banana/);
+  assert.equal(novelUnrecognizedSecret.detail, 'Required permission: contents:write');
+  assert.doesNotMatch(
+    `${novelUnrecognizedSecret.detail} ${novelUnrecognizedSecret.humanAction}`,
+    /NEVER_PERSIST_THIS_FORMAT|futuristicEnvelope/,
+  );
   assert.equal(pluralNamedCredentials.actionable, true);
   assert.match(pluralNamedCredentials.detail, /OPENAI_API_KEY/);
   assert.match(pluralNamedCredentials.humanAction, /OPENAI_API_KEY/);
-  assert.doesNotMatch(extendedAliasSensitive.detail, /alpha|beta|gamma|delta|epsilon|zeta/);
-  assert.doesNotMatch(extendedAliasSensitive.humanAction, /alpha|beta|gamma|delta|epsilon|zeta/);
-  assert.equal(
-    passphraseSensitive.detail,
-    'Key authentication failed passphrase=[redacted].',
-  );
-  assert.doesNotMatch(passphraseSensitive.detail, /correct horse battery staple/);
   assert.match(longPermissionRemediation.detail, /contents:write/);
   assert.match(longPermissionRemediation.humanAction, /contents:write/);
   assert.ok(longPermissionRemediation.detail.length <= 300);
-  assert.equal(
-    urlSensitive.detail,
-    'Permission denied for https://[redacted-userinfo]@example.com/private',
-  );
-  assert.doesNotMatch(urlSensitive.humanAction, /alice|correct-horse/);
-  assert.equal(
-    sshUrlSensitive.detail,
-    'Permission denied for ssh://[redacted-userinfo]@example.com/private',
-  );
-  assert.equal(
-    databaseUrlSensitive.detail,
-    'Permission denied for postgres://[redacted-userinfo]@example.com/private',
-  );
-  assert.doesNotMatch(sshUrlSensitive.humanAction, /alice|correct-horse/);
-  assert.doesNotMatch(databaseUrlSensitive.humanAction, /alice|correct-horse/);
-  assert.match(undelimitedApiKeySensitive.detail, /X-API-Key=\[redacted\]/);
-  assert.match(undelimitedAwsKeySensitive.detail, /AWS_SECRET_ACCESS_KEY=\[redacted\]/);
-  assert.doesNotMatch(undelimitedApiKeySensitive.humanAction, /correct-horse/);
-  assert.doesNotMatch(undelimitedAwsKeySensitive.humanAction, /correct-horse/);
-  assert.equal(
-    bareProviderSensitive.detail,
-    'Unauthorized provider key [redacted-api-key] and access key [redacted-access-key]',
-  );
-  assert.doesNotMatch(bareProviderSensitive.humanAction, /abcdefghijklmnopqrstuvwxyz|ABCDEFGHIJKLMNOP/);
   const missingCodexCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
   });
@@ -3427,7 +3324,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const permissionCodeTwo = buildAuthorityChallengeEvidence({
     agentSummary: 'Repository permission policy code 654321 denied dispatch.',
   });
-  assert.notEqual(permissionCodeOne.fingerprint, permissionCodeTwo.fingerprint);
+  // Arbitrary numeric policy codes are not durable authority facts. Generic,
+  // non-actionable failures intentionally collapse to the same safe projection.
+  assert.equal(permissionCodeOne.fingerprint, permissionCodeTwo.fingerprint);
 });
 
 test('a successful authority recheck clears the automation challenge with or without a signed force claim', async () => {

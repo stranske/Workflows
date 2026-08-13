@@ -91,7 +91,7 @@ fingerprint carries challenge provenance, signed with the dedicated
 `KEEPALIVE_AUTHORITY_SIGNING_KEY` and bound to the repository, PR, random nonce, and exact sweep run/attempt.
 Unsigned or forged claims fail closed as ordinary non-forced rechecks. A replacement boundary is
 therefore checked on the next sweep. A green recheck clears
-the challenge; only the sweep-selected redacted boundary fingerprint failing
+the challenge; only the sweep-selected allowlisted authority projection failing
 again records the exact runner-reported action before replacing
 `agent:needs-attention` with `needs-human`. A generic manual retry or another
 `github-actions[bot]` workflow cannot confirm it.
