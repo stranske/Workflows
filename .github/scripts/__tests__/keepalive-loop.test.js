@@ -2733,6 +2733,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const jsonSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Forbidden response {"access_token":"json-access", "password": "json-password"}.',
   });
+  const prefixedSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Unauthorized: OPENAI_API_KEY=sk-prefixed-secret',
+  });
 
   assert.ok(first.detail.length <= 300);
   assert.match(first.detail, /contents:write/);
@@ -2756,6 +2759,8 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.match(oauthSensitive.detail, /client_secret=\[redacted\]/);
   assert.match(oauthSensitive.detail, /access_token=\[redacted\]/);
   assert.doesNotMatch(jsonSensitive.detail, /json-access|json-password/);
+  assert.doesNotMatch(prefixedSensitive.detail, /sk-prefixed-secret/);
+  assert.match(prefixedSensitive.detail, /OPENAI_API_KEY=\[redacted\]/);
   const missingCodexCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
   });
