@@ -171,6 +171,7 @@ function buildAuthorityChallengeEvidence({
   );
   const actionable =
     /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credential|key))?\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
+    /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
     concretePermissionTarget.test(redacted);
   return {
     fingerprint: crypto.createHash('sha256')

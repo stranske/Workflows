@@ -46,6 +46,17 @@ test('classifyError returns auth for unauthorized messages', () => {
   assert.equal(result.category, ERROR_CATEGORIES.auth);
 });
 
+test('classifyError recognizes routed runner missing-auth summaries', () => {
+  const messages = [
+    'Missing Claude auth: set CLAUDE_CODE_OAUTH_TOKEN',
+    'Missing Cursor auth: set the CURSOR_API_KEY secret',
+    'Missing Gemini auth: set the GEMINI_API_KEY secret',
+  ];
+  for (const message of messages) {
+    assert.equal(classifyError({ message }).category, ERROR_CATEGORIES.auth);
+  }
+});
+
 test('classifyError returns logic for validation errors', () => {
   const result = classifyError({ status: 422, message: 'Validation failed' });
   assert.equal(result.category, ERROR_CATEGORIES.logic);

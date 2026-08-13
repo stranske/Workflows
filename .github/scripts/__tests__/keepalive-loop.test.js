@@ -2971,10 +2971,28 @@ test('authority fingerprints include redacted details beyond the display limit',
   const missingNamedCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing credential ACTIONS_BOT_PAT for runner launch.',
   });
+  const routedMissingAuth = [
+    buildAuthorityChallengeEvidence({
+      agentSummary: 'Missing Claude auth: set CLAUDE_CODE_OAUTH_TOKEN',
+      agentType: 'claude',
+    }),
+    buildAuthorityChallengeEvidence({
+      agentSummary: 'Missing Cursor auth: set the CURSOR_API_KEY secret',
+      agentType: 'cursor',
+    }),
+    buildAuthorityChallengeEvidence({
+      agentSummary: 'Missing Gemini auth: set the GEMINI_API_KEY secret',
+      agentType: 'gemini',
+    }),
+  ];
   assert.match(missingCodexCredential.detail, /CODEX_AUTH_JSON/);
   assert.match(missingClaudeCredential.detail, /CLAUDE_CODE_OAUTH_TOKEN/);
   assert.match(missingNamedCredential.detail, /ACTIONS_BOT_PAT/);
   assert.equal(missingNamedCredential.actionable, true);
+  for (const evidence of routedMissingAuth) {
+    assert.equal(evidence.actionable, true);
+    assert.match(evidence.humanAction, /_OAUTH_|_API_KEY/);
+  }
   assert.notEqual(missingCodexCredential.fingerprint, missingClaudeCredential.fingerprint);
   const unauthorized = buildAuthorityChallengeEvidence({
     agentSummary: 'GitHub API returned HTTP 401 for repository dispatch run 123456789.',
