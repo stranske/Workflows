@@ -389,7 +389,13 @@ def test_reusable_codex_run_persists_refreshed_auth_bundle_with_app_token() -> N
 
 def test_codex_auth_health_fails_when_secret_is_unusable() -> None:
     workflow = _load_workflow(CODEX_AUTH_HEALTH)
+    check_step = _find_step_by_name(workflow, "Check token expiration")
+    issue_step = _find_step_by_name(workflow, "Create expiration warning issue")
     step = _find_step_by_name(workflow, "Fail on unusable auth")
+
+    assert "if" not in check_step, "Auth health must run even when a warning issue exists"
+    issue_condition = str(issue_step.get("if", ""))
+    assert "steps.existing.outputs.result != 'true'" in issue_condition
 
     condition = str(step.get("if", ""))
     for status in ("missing", "invalid", "error"):

@@ -77,7 +77,6 @@ jobs:
 
       - name: Check token expiration
         id: check
-        if: steps.existing.outputs.result != 'true' || inputs.force_check
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
         run: |
@@ -153,7 +152,10 @@ jobs:
           rm -f ~/.codex/auth.json
 
       - name: Create expiration warning issue
-        if: steps.check.outputs.status == 'expiring-soon' || steps.check.outputs.status == 'expired'
+        if: >-
+          steps.existing.outputs.result != 'true' &&
+          (steps.check.outputs.status == 'expiring-soon' ||
+          steps.check.outputs.status == 'expired')
         uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
@@ -246,7 +248,6 @@ jobs:
         env:
           STATUS: ${{ steps.check.outputs.status }}
           EXISTING: ${{ steps.existing.outputs.result }}
-          FORCE_CHECK: ${{ inputs.force_check }}
           EXPIRES_AT: ${{ steps.check.outputs.expires_at }}
           DAYS_LEFT: ${{ steps.check.outputs.days_left }}
           HOURS_LEFT: ${{ steps.check.outputs.hours_left }}
@@ -255,9 +256,7 @@ jobs:
             echo "## Codex Auth Check Results"
             echo ""
 
-            if [ "$EXISTING" = "true" ] && [ "$FORCE_CHECK" != "true" ]; then
-              echo "⏭️ **Skipped** - Open issue already exists for auth expiration"
-            elif [ -z "$STATUS" ]; then
+            if [ -z "$STATUS" ]; then
               echo "⏭️ **Skipped** - Check was not run"
             elif [ "$STATUS" = "ok" ]; then
               echo "✅ **Token OK** - Expires $EXPIRES_AT ($DAYS_LEFT days)"
@@ -266,11 +265,19 @@ jobs:
             elif [ "$STATUS" = "expiring-soon" ]; then
               echo "⚠️ **Token expiring soon** - Expires $EXPIRES_AT ($HOURS_LEFT hours)"
               echo ""
-              echo "🎫 Issue created to prompt token refresh"
+              if [ "$EXISTING" = "true" ]; then
+                echo "🎫 Existing auth-expiring issue remains open"
+              else
+                echo "🎫 Issue created to prompt token refresh"
+              fi
             elif [ "$STATUS" = "expired" ]; then
               echo "🚨 **Token EXPIRED** - Was due $EXPIRES_AT"
               echo ""
-              echo "🎫 Issue created - CI agents are broken"
+              if [ "$EXISTING" = "true" ]; then
+                echo "🎫 Existing auth-expiring issue remains open"
+              else
+                echo "🎫 Issue created - CI agents are broken"
+              fi
             elif [ "$STATUS" = "missing" ]; then
               echo "❌ **Secret missing** - CODEX_AUTH_JSON is not set"
             elif [ "$STATUS" = "invalid" ]; then
