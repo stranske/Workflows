@@ -3447,12 +3447,30 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       errorCategory === ERROR_CATEGORIES.auth &&
       Boolean(authorityEvidence.fingerprint) &&
       authorityEvidence.fingerprint === authorityChallengeFingerprint;
-    const escalationDisposition = selectEscalationDisposition({
+    let escalationDisposition = selectEscalationDisposition({
       required: escalationRequired || stop,
       errorCategory,
       summaryReason,
       authorityChallengeConfirmed,
     });
+    let hardHumanLabelApplied = false;
+    if (escalationDisposition === 'needs-human') {
+      try {
+        await github.rest.issues.addLabels({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: prNumber,
+          labels: ['needs-human'],
+        });
+        hardHumanLabelApplied = true;
+      } catch (error) {
+        // The label is the live enforcement boundary. If it cannot be applied,
+        // retain an immediately due automation-owned challenge instead of
+        // persisting a terminal state that the evaluator would not enforce.
+        escalationDisposition = 'challenge-due';
+        core?.warning?.(`Failed to apply needs-human; retaining authority challenge: ${error.message}`);
+      }
+    }
     const tasksComplete = Math.max(0, tasksTotal - tasksUnchecked);
     const allTasksComplete = tasksUnchecked === 0 && tasksTotal > 0;
     const previousCompleteGateFailureRounds = toNumber(previousState?.complete_gate_failure_rounds, 0);
@@ -3759,7 +3777,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       }
     }
 
-    if (authorityChallengeConfirmed) {
+    if (authorityChallengeConfirmed && hardHumanLabelApplied) {
       summaryLines.push(
         '',
         '### 🛑 Independent Authority Challenge Confirmed',
@@ -4279,9 +4297,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             automationOwned: previousAttentionAutomationOwned,
           });
           if (escalationDisposition === 'needs-human') {
-            // Preserve the recoverable attention label until the hard blocker
-            // exists. If this add fails, cleanup is never attempted.
-            await addRoutingLabel();
+            // The hard blocker was applied before the human-owned state was
+            // persisted. Only now may the recoverable label be removed.
             await clearAutomationAttention();
           } else {
             // Remove automation-created legacy hard stops before writing the new

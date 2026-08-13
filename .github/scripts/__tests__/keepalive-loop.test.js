@@ -31,6 +31,7 @@ const buildGithubStub = ({
   workflowRun = null,
   annotationsByCheckRunId = {},
   jobLogsByJobId = {},
+  failNeedsHumanLabel = false,
 } = {}) => {
   const actions = [];
   return {
@@ -82,6 +83,10 @@ const buildGithubStub = ({
           return { data: { id: 101, html_url: 'https://example.com/101' } };
         },
         async addLabels({ labels }) {
+          if (failNeedsHumanLabel && labels.includes('needs-human')) {
+            actions.push({ type: 'label-failed', labels });
+            throw new Error('simulated needs-human label failure');
+          }
           actions.push({ type: 'label', labels });
           return { data: {} };
         },
@@ -2345,6 +2350,8 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
   const softLabelRemovalIndex = github.actions.findIndex((action) =>
     action.type === 'remove-label' && action.name === 'agent:needs-attention'
   );
+  const stateUpdateIndex = github.actions.findIndex((action) => action.type === 'update');
+  assert.ok(hardLabelIndex >= 0 && hardLabelIndex < stateUpdateIndex);
   assert.ok(hardLabelIndex >= 0 && hardLabelIndex < softLabelRemovalIndex);
   assert.equal(
     github.actions.some((action) => action.type === 'workflow-dispatch'),
@@ -2359,6 +2366,72 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
     updateAction.body,
     /"human_action":"Resolve the reproduced runner authority failure: Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch\."/,
   );
+});
+
+test('a failed hard label write keeps the authority challenge automation-owned', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-label-failed',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation',
+      disposition: 'challenge-due',
+      first_seen_at: '2026-08-12T12:00:00Z',
+      challenge_due_at: '2026-08-12T12:05:00Z',
+      key: 'agent-run-failed|failure|auth|agent|1',
+      boundary_fingerprint: boundary.fingerprint,
+      boundary_detail: boundary.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 93, body: existingState, html_url: 'https://example.com/93' }],
+    labels: ['agent:codex', 'agent:needs-attention'],
+    failNeedsHumanLabel: true,
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-label-failed',
+      forceRetry: true,
+      authority_challenge_fingerprint: boundary.fingerprint,
+      agent_exit_code: '1',
+      agent_summary: authSummary,
+    },
+  });
+
+  assert.ok(github.actions.some((action) => action.type === 'label-failed'));
+  assert.equal(
+    github.actions.some((action) =>
+      action.type === 'label' && action.labels.includes('needs-human')
+    ),
+    false,
+  );
+  assert.ok(github.actions.some((action) =>
+    action.type === 'label' && action.labels.includes('agent:needs-attention')
+  ));
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  const state = parseStateComment(updateAction.body).data;
+  assert.equal(state.attention.owner, 'automation');
+  assert.equal(state.attention.disposition, 'challenge-due');
+  assert.equal(state.attention.boundary_fingerprint, boundary.fingerprint);
+  assert.doesNotMatch(updateAction.body, /Independent Authority Challenge Confirmed/);
 });
 
 test('a generic forced retry cannot confirm an authority challenge', async () => {
