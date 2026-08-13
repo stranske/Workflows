@@ -4081,6 +4081,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const previousAttentionAutomationOwned =
       previousAttention.owner === 'automation' &&
       ['automation-retry', 'challenge-due'].includes(previousAttention.disposition);
+    const challengeDueAt = escalationDisposition === 'challenge-due'
+      ? new Date().toISOString()
+      : null;
     if (shouldEscalate) {
       newState.attention = {
         key: attentionKey,
@@ -4089,9 +4092,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         first_seen_at: priorAttentionKey === attentionKey
           ? previousAttention.first_seen_at || new Date().toISOString()
           : new Date().toISOString(),
-        challenge_due_at: escalationDisposition === 'challenge-due'
-          ? new Date().toISOString()
-          : null,
+        challenge_due_at: challengeDueAt,
         next_action: escalationDisposition === 'challenge-due'
           ? 'Independently verify the authority boundary, then route or record an exact human action.'
           : 'Route to automation retry/backoff, CI repair, alternate agent, or review fallback.',
@@ -4161,6 +4162,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       }
 
       if (shouldEscalate) {
+        const routingLabel = escalationDisposition === 'challenge-due'
+          ? 'agent:needs-attention'
+          : 'agent:retry';
         try {
           // Remove automation-created legacy hard stops before writing the new
           // recoverable disposition. A successful terminal also performs this cleanup.
@@ -4176,7 +4180,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: prNumber,
-            labels: [escalationDisposition === 'challenge-due' ? 'agent:needs-attention' : 'agent:retry'],
+            labels: [routingLabel],
           });
         } catch (error) {
           if (core) core.warning(`Failed to add ${escalationDisposition} routing label: ${error.message}`);
