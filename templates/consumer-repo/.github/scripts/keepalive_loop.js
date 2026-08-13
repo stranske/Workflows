@@ -79,8 +79,16 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
   const detail = redacted.slice(0, 300);
   const normalized = redacted
     .toLowerCase()
+    .replace(
+      /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/g,
+      '<uuid>',
+    )
     .replace(/\b[0-9a-f]{7,64}\b/g, '<hash>')
-    .replace(/\b\d{6,}\b/g, '<volatile-id>');
+    .replace(
+      /\b((?:run|job|request|trace|correlation)(?:\s+id)?)\s*[:#=]?\s*\d+\b/g,
+      '$1 <volatile-id>',
+    )
+    .replace(/\/(runs?|jobs?)\/\d+\b/g, '/$1/<volatile-id>');
   return {
     fingerprint: crypto.createHash('sha256').update(normalized).digest('hex'),
     detail,

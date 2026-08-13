@@ -2518,6 +2518,13 @@ test('authority fingerprints include redacted details beyond the display limit',
   });
   assert.notEqual(unauthorized.fingerprint, forbidden.fingerprint);
   assert.equal(unauthorized.fingerprint, unauthorizedAgain.fingerprint);
+  const permissionCodeOne = buildAuthorityChallengeEvidence({
+    agentSummary: 'Repository permission policy code 123456 denied dispatch.',
+  });
+  const permissionCodeTwo = buildAuthorityChallengeEvidence({
+    agentSummary: 'Repository permission policy code 654321 denied dispatch.',
+  });
+  assert.notEqual(permissionCodeOne.fingerprint, permissionCodeTwo.fingerprint);
 });
 
 test('a successful scheduled authority recheck clears the automation challenge', async () => {
