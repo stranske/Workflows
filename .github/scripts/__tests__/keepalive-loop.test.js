@@ -3735,6 +3735,9 @@ test('a consumed forced recovery lease survives later ordinary wakeups', async (
   const consumedUpdate = forced.actions.find((action) => action.type === 'update');
   const consumedState = parseStateComment(consumedUpdate.body).data;
   assert.equal(consumedState.recovery_lease.status, 'consumed');
+  assert.ok(forced.actions.some((action) =>
+    action.type === 'remove-label' && action.name === 'agent:retry'
+  ));
   assert.equal(
     forced.actions.filter((action) => action.type === 'workflow-dispatch').length,
     0,

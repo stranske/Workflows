@@ -4493,6 +4493,24 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       const body = summaryLines.join('\n');
       await persistSummary(body);
 
+      if (isForceRetry && forcedLeaseExecutedAgent) {
+        try {
+          await github.rest.issues.removeLabel({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            name: 'agent:retry',
+          });
+        } catch (error) {
+          if (
+            error?.status !== 404 &&
+            !String(error?.message || '').includes('Label does not exist')
+          ) {
+            core?.warning?.(`Failed to consume agent:retry label: ${error.message}`);
+          }
+        }
+      }
+
       // Append to the work log comment (best-effort; failures don't block the loop)
       try {
         const logEntry = formatWorkLogEntry({
