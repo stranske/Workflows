@@ -4,6 +4,7 @@ const DEFAULT_REVIEW_POLICY = Object.freeze({
   minimum_responses: 1,
   quiet_period_minutes: 7,
   maximum_wait_minutes: 15,
+  non_response_patterns: [],
 });
 
 function legacyStatusAsCheck(status = {}) {
@@ -21,6 +22,7 @@ function legacyStatusAsCheck(status = {}) {
     // legacy status timestamp so a reviewer status posted after that boundary
     // can satisfy the configured one-reviewer quorum.
     completed_at: status.updated_at || status.created_at || '',
+    summary: status.description || '',
   };
 }
 
@@ -37,6 +39,9 @@ function normalizeReviewPolicy(policy = {}) {
     ...policy,
     reviewers: Array.isArray(policy.reviewers) ? policy.reviewers : [],
     capacity_patterns: Array.isArray(policy.capacity_patterns) ? policy.capacity_patterns : [],
+    non_response_patterns: Array.isArray(policy.non_response_patterns)
+      ? policy.non_response_patterns
+      : [],
     minimum_responses: finiteNonNegative(
       policy.minimum_responses,
       DEFAULT_REVIEW_POLICY.minimum_responses,
@@ -60,10 +65,15 @@ async function collectReviewerEvidence({
   checkRuns = [],
   reviewerProfiles = [],
   reviewerCapacityPatterns = [],
+  reviewerNonResponsePatterns = [],
   withRetry,
   core,
 } = {}) {
-  const { isReviewerCapacitySignal, reviewerProfileForLogin } = require(
+  const {
+    isReviewerCapacitySignal,
+    isReviewerNonResponseSignal,
+    reviewerProfileForLogin,
+  } = require(
     './sync_pr_merge_contract.js'
   );
   const startedAt = new Date(reviewStartedAt || '').getTime();
@@ -121,17 +131,27 @@ async function collectReviewerEvidence({
       activities.push({ ...comment, at: comment.createdAt });
     }
   }
-  const responded = new Set();
-  const unavailable = new Set();
+  const signals = new Map();
+  const recordSignal = (reviewer, kind, at) => {
+    const timestamp = new Date(at || '').getTime();
+    if (!reviewer || !Number.isFinite(timestamp)) return;
+    const current = signals.get(reviewer);
+    if (
+      !current
+      || timestamp > current.at
+      || (timestamp === current.at && kind === 'unavailable')
+    ) {
+      signals.set(reviewer, { kind, at: timestamp });
+    }
+  };
   for (const activity of activities) {
-    if (new Date(activity.at || '').getTime() < startedAt) continue;
+    const activityAt = new Date(activity.at || '').getTime();
+    if (!Number.isFinite(activityAt) || activityAt < startedAt) continue;
     const reviewer = reviewerProfileForLogin(activity.author?.login, reviewerProfiles);
     if (!reviewer) continue;
-    if (isReviewerCapacitySignal(activity.body, reviewerCapacityPatterns)) {
-      unavailable.add(reviewer);
-    } else {
-      responded.add(reviewer);
-    }
+    const unavailable = isReviewerCapacitySignal(activity.body, reviewerCapacityPatterns)
+      || isReviewerNonResponseSignal(activity.body, reviewerNonResponsePatterns);
+    recordSignal(reviewer, unavailable ? 'unavailable' : 'responded', activity.at);
   }
   for (const check of checkRuns) {
     const completedAt = new Date(
@@ -143,9 +163,33 @@ async function collectReviewerEvidence({
       (item.check_names || []).some((candidate) => candidate === name),
     );
     if (!profile) continue;
-    if (String(check.status || '').toLowerCase() === 'completed') {
-      responded.add(String(profile.id || '').trim());
+    const reviewer = String(profile.id || '').trim();
+    const signalText = [
+      check.name,
+      check.summary,
+      check.description,
+      check.output?.title,
+      check.output?.summary,
+      check.output?.text,
+    ].filter(Boolean).join('\n');
+    const unavailable = isReviewerCapacitySignal(signalText, reviewerCapacityPatterns)
+      || isReviewerNonResponseSignal(signalText, reviewerNonResponsePatterns);
+    if (unavailable) {
+      recordSignal(reviewer, 'unavailable', new Date(completedAt).toISOString());
+      continue;
     }
+    const conclusion = String(check.conclusion || '').toLowerCase();
+    if (
+      String(check.status || '').toLowerCase() === 'completed'
+      && ['success', 'neutral'].includes(conclusion)
+    ) {
+      recordSignal(reviewer, 'responded', new Date(completedAt).toISOString());
+    }
+  }
+  const responded = [];
+  const unavailable = [];
+  for (const [reviewer, signal] of signals.entries()) {
+    (signal.kind === 'responded' ? responded : unavailable).push(reviewer);
   }
   const truncated = Boolean(
     pullRequest.comments?.pageInfo?.hasNextPage
@@ -156,8 +200,8 @@ async function collectReviewerEvidence({
     )
   );
   return {
-    responded: [...responded].filter(Boolean).sort(),
-    unavailable: [...unavailable].filter(Boolean).sort(),
+    responded: responded.filter(Boolean).sort(),
+    unavailable: unavailable.filter(Boolean).sort(),
     truncated,
   };
 }
@@ -181,6 +225,7 @@ async function run({ github, context, core }) {
     evaluateReviewerSettlement,
     generatedDeliveryLane,
     generatedDeliveryRequiresVerifiedHead,
+    generatedPrsForSyncSelector,
     isBlockingSyncSystemFailure,
     isStableSyncBranchName,
     normalizeSyncHash,
@@ -361,6 +406,9 @@ async function run({ github, context, core }) {
   const reviewerMaximumWaitMs = Number(reviewPolicy.maximum_wait_minutes ?? 15) * 60 * 1000;
   const reviewerCapacityPatterns = Array.isArray(reviewPolicy.capacity_patterns)
     ? reviewPolicy.capacity_patterns
+    : [];
+  const reviewerNonResponsePatterns = Array.isArray(reviewPolicy.non_response_patterns)
+    ? reviewPolicy.non_response_patterns
     : [];
 
   let expectedCanaryRepos = [];
@@ -741,7 +789,7 @@ async function run({ github, context, core }) {
         }
       }
 
-      let candidatePRs = syncPRs;
+      let candidatePRs = generatedPrsForSyncSelector(syncPRs, requestedSyncHash);
       let recoveredMergedCandidate = false;
       const hasOpenCandidate = syncPRs.some(
         (pr) => pr?.head?.ref === syncBranchForHash('candidate'),
@@ -1148,6 +1196,7 @@ async function run({ github, context, core }) {
             checkRuns: allChecks,
             reviewerProfiles,
             reviewerCapacityPatterns,
+            reviewerNonResponsePatterns,
             withRetry,
             core,
           });

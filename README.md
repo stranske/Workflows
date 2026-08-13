@@ -37,7 +37,8 @@ configured canaries use `sync/workflows-candidate`, while promoted consumers use
 advances them from draft staging through bounded reviewer settlement to an
 exact-head seal and merge. Review capacity cannot require all configured bots:
 one response is sufficient after the quiet period, and a bounded timeout keeps
-an unavailable reviewer from making delivery immortal.
+an unavailable reviewer from making delivery immortal. Explicit review-skip,
+not-reviewed, and capacity statuses do not count as the one response.
 
 ## Auto-Pilot Pipeline
 

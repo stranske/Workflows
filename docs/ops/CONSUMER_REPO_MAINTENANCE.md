@@ -347,7 +347,10 @@ policy in `config/consumer_sync_review_policy.json` requires one response, not
 all configured reviewers, after a seven-minute quiet period. If every reviewer
 reports capacity unavailability, settlement degrades after the quiet period;
 if nobody responds, it degrades after fifteen minutes. Active non-outdated
-review threads are never waived by either fallback. Maint 71 then seals the
+review threads are never waived by either fallback. Reviewer statuses and
+comments that explicitly say a review was skipped, excluded, disabled, or not
+performed are unavailable signals and cannot satisfy the one-response quorum.
+Maint 71 then seals the
 exact head and applies `sync:delivery-ready`, which triggers a fresh Gate. The
 Gate summary rejects an unsealed stable delivery, while the shared merge guard
 rejects `sync:delivery-staging` for every merger except Maint 71's verified
@@ -384,6 +387,12 @@ mismatched or missing observation fails back to the conservative PR timestamp.
 Workflow-call, manual, and repository-dispatch candidate selectors normalize to
 the same gate. The executor requires same-job evidence/upload authorization, so
 scheduled or malformed paths cannot merge a candidate implicitly.
+
+A non-empty workflow-sync selector applies only to the `sync/workflows-*` lane.
+An open sibling `deps/sync-dev-versions-*` delivery is therefore ignored for
+the selector's expected-branch check instead of producing a false
+`target_missing` system failure; an unscoped Maint 71 pass reconciles the
+dev-tool lane independently.
 
 Use `preview` to produce the plan/evidence artifact without a write matrix.
 There is no direct-repository promotion bypass. Security and production-break

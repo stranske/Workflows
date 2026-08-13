@@ -19,8 +19,10 @@ const {
   evaluateReviewerSettlement,
   generatedDeliveryLane,
   generatedDeliveryRequiresVerifiedHead,
+  generatedPrsForSyncSelector,
   isBlockingSyncSystemFailure,
   isReviewerCapacitySignal,
+  isReviewerNonResponseSignal,
   isStableSyncBranchName,
   isTrustedGeneratedDeliveryPr,
   isTrustedSyncPr,
@@ -439,6 +441,7 @@ test('reviewer settlement never requires every configured reviewer', () => {
   assert.equal(isReviewerCapacitySignal('Reviewer unavailable: quota exceeded', ['quota']), true);
   assert.equal(isReviewerCapacitySignal('Reviewer hit a rate-limit', ['rate-limit']), true);
   assert.equal(isReviewerCapacitySignal('Reviewer hit a rate-limit', ['rate[ -]?limit']), false);
+  assert.equal(isReviewerNonResponseSignal('Review skipped: excluded by label', ['review skipped']), true);
 });
 
 test('review policy normalizes invalid numeric values to finite defaults', () => {
@@ -454,6 +457,7 @@ test('review policy normalizes invalid numeric values to finite defaults', () =>
   assert.equal(policy.maximum_wait_minutes, 15);
   assert.deepEqual(policy.reviewers, []);
   assert.deepEqual(policy.capacity_patterns, []);
+  assert.deepEqual(policy.non_response_patterns, []);
 });
 
 test('reviewer evidence query retries and fails closed when GraphQL is unavailable', async () => {
@@ -491,6 +495,7 @@ test('legacy reviewer status preserves its timestamp and satisfies reviewer evid
     status: 'completed',
     conclusion: 'success',
     completed_at: '2026-08-11T13:08:00Z',
+    summary: '',
   });
 
   const evidence = await collectReviewerEvidence({
@@ -518,6 +523,54 @@ test('legacy reviewer status preserves its timestamp and satisfies reviewer evid
     unavailable: [],
     truncated: false,
   });
+});
+
+test('reviewer evidence does not count explicit skipped-review status as a response', async () => {
+  const check = legacyStatusAsCheck({
+    context: 'CodeRabbit',
+    state: 'success',
+    description: 'Review skipped: excluded by label configuration',
+    updated_at: '2026-08-11T13:08:00Z',
+  });
+  const evidence = await collectReviewerEvidence({
+    owner: 'stranske',
+    repo: 'Ready',
+    number: 99,
+    reviewStartedAt: '2026-08-11T13:07:00Z',
+    checkRuns: [check],
+    reviewerProfiles: [{ id: 'coderabbit', check_names: ['CodeRabbit'] }],
+    reviewerNonResponsePatterns: ['review skipped', 'excluded by label'],
+    withRetry: async (operation) => operation({
+      graphql: async () => ({
+        repository: {
+          pullRequest: {
+            comments: { nodes: [], pageInfo: { hasNextPage: false } },
+            reviews: { nodes: [], pageInfo: { hasNextPage: false } },
+            reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
+          },
+        },
+      }),
+    }),
+    core: { warning: () => {} },
+  });
+  assert.deepEqual(evidence, {
+    responded: [],
+    unavailable: ['coderabbit'],
+    truncated: false,
+  });
+});
+
+test('a sync selector ignores dev-tool deliveries instead of reporting a missing sync target', () => {
+  const generated = [
+    pr(1, 'deps/sync-dev-versions-wave', '2026-08-11T13:00:00Z'),
+    pr(2, 'sync/workflows-delivery', '2026-08-11T13:01:00Z'),
+  ];
+  assert.deepEqual(
+    generatedPrsForSyncSelector(generated, 'delivery').map((item) => item.number),
+    [2],
+  );
+  assert.deepEqual(generatedPrsForSyncSelector(generated.slice(0, 1), 'delivery'), []);
+  assert.equal(generatedPrsForSyncSelector(generated).length, 2);
 });
 
 test('stable delivery branches and strict branch-update failures are recognized', () => {

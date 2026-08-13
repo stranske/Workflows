@@ -201,6 +201,23 @@ function isReviewerCapacitySignal(body = '', capacityPatterns = []) {
   });
 }
 
+function isReviewerNonResponseSignal(body = '', nonResponsePatterns = []) {
+  const text = String(body || '').toLowerCase();
+  return (nonResponsePatterns || []).some((pattern) => {
+    const literal = String(pattern || '').trim().toLowerCase();
+    return literal.length > 0 && text.includes(literal);
+  });
+}
+
+function generatedPrsForSyncSelector(prs = [], syncHash = '') {
+  const normalized = normalizeSyncHash(syncHash);
+  if (!normalized) return prs;
+  // A sync hash names a sync/workflows-* branch. Dev-tool deliveries share
+  // Maint 71 but are a separate generated lane; their presence must not turn
+  // an otherwise complete workflow-delivery pass into target_missing.
+  return prs.filter((pr) => generatedDeliveryLane(pr?.head?.ref) === 'sync');
+}
+
 function evaluateReviewerSettlement({
   reviewStartedAt = '',
   now = new Date().toISOString(),
@@ -800,6 +817,7 @@ module.exports = {
   collectDeletableSyncBranches,
   generatedDeliveryLane,
   generatedDeliveryRequiresVerifiedHead,
+  generatedPrsForSyncSelector,
   isGeneratedDeliveryBranchName,
   isStableSyncBranchName,
   isSyncBranchName,
@@ -810,6 +828,7 @@ module.exports = {
   evaluatePostPushReviewWindow,
   evaluateReviewerSettlement,
   isReviewerCapacitySignal,
+  isReviewerNonResponseSignal,
   normalizeReviewerId,
   reviewerProfileForLogin,
   requiresStrictGateBranchUpdate,

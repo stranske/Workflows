@@ -125,6 +125,9 @@ fresh Gate, a valid GitHub-generated commit signature, and zero active review
 threads. Maint 68 fails before publishing any generated head whose API-created
 tree or signature does not match the staged delivery. A reviewer capacity outage
 cannot require responses from every configured bot or keep the PR open indefinitely.
+Maint 71 requires one substantive response when available; a successful status
+whose own description says the review was skipped or not performed is recorded
+as unavailable, not as reviewer quorum.
 
 ### Method 3: Hybrid Approach
 
