@@ -160,7 +160,7 @@ function buildAuthorityChallengeEvidence({
     .replace(/\/(runs?|jobs?)\/(?:[0-9a-f]{7,64}|\d+)\b/g, '/$1/<volatile-id>');
   const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
-  const permissionTarget = String.raw`(?:(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|workflows?)\s*:\s*(?:read|write|admin|none)|(?:read|write|admin|repo)\s*:\s*[A-Za-z0-9_.-]+)`;
+  const permissionTarget = String.raw`(?:(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|workflows?)\s*:\s*(?:read|write|admin|none)|(?:read|write|admin|repo)\s*:\s*[A-Za-z0-9_.-]+|(?:repo|workflow|gist|notifications|user|delete_repo|codespace|copilot|project))`;
   const concretePermissionTarget = new RegExp(
     String.raw`(?:\b(?:scope|permission)\b.{0,100}\b${permissionTarget}\b|\b${permissionTarget}\b.{0,40}\b(?:scope|permission)\b)`,
     'i',

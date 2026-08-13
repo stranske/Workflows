@@ -2881,6 +2881,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   const githubOauthScope = buildAuthorityChallengeEvidence({
     agentSummary: 'requires read:org scope',
   });
+  const githubRepoScope = buildAuthorityChallengeEvidence({
+    agentSummary: 'requires repo scope',
+  });
+  const githubWorkflowScope = buildAuthorityChallengeEvidence({
+    agentSummary: 'missing workflow scope',
+  });
   const metadataOnly = buildAuthorityChallengeEvidence({
     agentSummary: 'Permission denied; error:403 from repository API',
   });
@@ -2888,6 +2894,8 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.equal(githubScopeBefore.actionable, true);
   assert.equal(githubScopeAfter.actionable, true);
   assert.equal(githubOauthScope.actionable, true);
+  assert.equal(githubRepoScope.actionable, true);
+  assert.equal(githubWorkflowScope.actionable, true);
   assert.equal(metadataOnly.actionable, false);
   assert.equal(metadataOnly.humanAction, '');
   assert.equal(githubScopeAfter.fingerprint, githubScopeAfterCompact.fingerprint);
