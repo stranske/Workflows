@@ -273,7 +273,23 @@ jobs:
               echo "🎫 Issue created - CI agents are broken"
             elif [ "$STATUS" = "missing" ]; then
               echo "❌ **Secret missing** - CODEX_AUTH_JSON is not set"
+            elif [ "$STATUS" = "invalid" ]; then
+              echo "❌ **Secret invalid** - CODEX_AUTH_JSON has no usable access token"
+            elif [ "$STATUS" = "error" ]; then
+              echo "❌ **Auth check failed** - CODEX_AUTH_JSON could not be decoded"
             else
               echo "⚠️ **Unknown status**: $STATUS"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on unusable auth
+        if: >-
+          always() &&
+          (steps.check.outputs.status == 'missing' ||
+          steps.check.outputs.status == 'invalid' ||
+          steps.check.outputs.status == 'error')
+        env:
+          STATUS: ${{ steps.check.outputs.status }}
+        run: |
+          echo "::error::CODEX_AUTH_JSON is ${STATUS}; Codex workflows cannot authenticate."
+          exit 1

@@ -1301,6 +1301,38 @@ jobs:
             exit 0
           fi
 
+          if ! python3 - "$source_auth" <<'PYEOF'
+          import base64
+          import datetime as dt
+          import json
+          import sys
+
+          path = sys.argv[1]
+          try:
+              with open(path, encoding="utf-8") as handle:
+                  auth = json.load(handle)
+              token = auth.get("tokens", {}).get("access_token", "")
+              parts = token.split(".")
+              if len(parts) != 3:
+                  raise ValueError("access token is not a JWT")
+              payload = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
+              claims = json.loads(base64.urlsafe_b64decode(payload))
+              expires_at = dt.datetime.fromtimestamp(
+                  claims["exp"], tz=dt.timezone.utc
+              )
+              if expires_at <= dt.datetime.now(dt.timezone.utc):
+                  raise ValueError("access token is expired")
+          except Exception as exc:
+              print(f"Refusing to persist unusable Codex auth: {exc}", file=sys.stderr)
+              raise SystemExit(1)
+          PYEOF
+          then
+            echo "::warning::Refusing to overwrite CODEX_AUTH_JSON with an invalid bundle."
+            echo "persisted=false" >> "$GITHUB_OUTPUT"
+            echo "reason=invalid-refreshed-auth" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           final_sha="$(shasum -a 256 "$source_auth" | awk '{print $1}')"
           if [ -n "${INITIAL_AUTH_SHA:-}" ] && [ "$final_sha" = "$INITIAL_AUTH_SHA" ]; then
             echo "::notice::CODEX_AUTH_JSON unchanged; no secret update needed."

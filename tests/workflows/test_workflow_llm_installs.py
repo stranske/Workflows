@@ -17,6 +17,7 @@ ISSUE_OPTIMIZER = WORKFLOWS_DIR / "agents-issue-optimizer.yml"
 VERIFIER = WORKFLOWS_DIR / "reusable-agents-verifier.yml"
 VERIFY_TO_ISSUE = WORKFLOWS_DIR / "agents-verify-to-issue-v2.yml"
 REUSABLE_CODEX_RUN = WORKFLOWS_DIR / "reusable-codex-run.yml"
+CODEX_AUTH_HEALTH = WORKFLOWS_DIR / "health-codex-auth-check.yml"
 REUSABLE_CLAUDE_RUN = WORKFLOWS_DIR / "reusable-claude-run.yml"
 NEEDS_HUMAN_COMMENT = Path("agents/codex-1447.md")
 REFERENCE_PACK_ACTION = Path(".github/actions/agent-reference-packs/action.yml")
@@ -375,12 +376,28 @@ def test_reusable_codex_run_persists_refreshed_auth_bundle_with_app_token() -> N
     required_snippets = [
         'echo "reason=no-app-token" >> "$GITHUB_OUTPUT"',
         'echo "reason=missing-auth-file" >> "$GITHUB_OUTPUT"',
+        'echo "reason=invalid-refreshed-auth" >> "$GITHUB_OUTPUT"',
+        'auth.get("tokens", {}).get("access_token", "")',
+        'raise ValueError("access token is expired")',
         'echo "reason=unchanged" >> "$GITHUB_OUTPUT"',
         'gh secret set CODEX_AUTH_JSON --repo "$GITHUB_REPOSITORY" < "$source_auth"',
         'echo "reason=updated" >> "$GITHUB_OUTPUT"',
     ]
     missing = [snippet for snippet in required_snippets if snippet not in run_script]
     assert not missing, f"Persist step missing required snippets: {missing}"
+
+
+def test_codex_auth_health_fails_when_secret_is_unusable() -> None:
+    workflow = _load_workflow(CODEX_AUTH_HEALTH)
+    step = _find_step_by_name(workflow, "Fail on unusable auth")
+
+    condition = str(step.get("if", ""))
+    for status in ("missing", "invalid", "error"):
+        assert f"steps.check.outputs.status == '{status}'" in condition
+
+    run_script = str(step.get("run", ""))
+    assert "Codex workflows cannot authenticate" in run_script
+    assert "exit 1" in run_script
 
 
 def test_reusable_codex_run_prefers_gpt_56_terra_with_non_codex_fallback() -> None:
