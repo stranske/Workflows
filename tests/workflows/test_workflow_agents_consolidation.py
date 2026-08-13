@@ -1386,12 +1386,8 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
         assert 'echo "failure_summary=$missing_msg" >> "$GITHUB_OUTPUT"' in text
 
         if path == WORKFLOWS_DIR / "agents-keepalive-loop.yml":
-            assert preflight_env.get("HAS_CURSOR_AUTH") == (
-                "${{ secrets.CURSOR_API_KEY != '' }}"
-            )
-            assert preflight_env.get("HAS_GEMINI_AUTH") == (
-                "${{ secrets.GEMINI_API_KEY != '' }}"
-            )
+            assert preflight_env.get("HAS_CURSOR_AUTH") == ("${{ secrets.CURSOR_API_KEY != '' }}")
+            assert preflight_env.get("HAS_GEMINI_AUTH") == ("${{ secrets.GEMINI_API_KEY != '' }}")
 
     root_text = workflow_paths[0].read_text(encoding="utf-8")
     assert 'missing_msg="Missing Cursor auth: set the CURSOR_API_KEY secret"' in root_text
