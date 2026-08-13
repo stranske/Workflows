@@ -356,7 +356,12 @@ function fetchBaseRef(baseRef, githubContext, fetchGit = tryGit) {
   const prHeadSha = pullRequest?.head?.sha;
   const headRepository = pullRequest?.head?.repo?.full_name || '';
   const baseRepository = pullRequest?.base?.repo?.full_name || '';
-  if (prHeadSha && headRepository && headRepository === baseRepository) {
+  if (
+    isStableDeliveryPullRequest(githubContext)
+    && prHeadSha
+    && headRepository
+    && headRepository === baseRepository
+  ) {
     refs.push(prHeadSha);
   }
   fetchGit(['fetch', '--no-tags', '--depth=1', 'origin', ...new Set(refs)]);

@@ -312,6 +312,17 @@ test('stable delivery fetch includes the exact same-repository head for shallow 
     return '';
   });
   assert.equal(forkCalls[0].includes('head-abc'), false);
+
+  const ordinaryCalls = [];
+  fetchBaseRef(
+    'origin/main',
+    deliveryContext(deliveryRecord, { branch: 'feature/example' }),
+    (args) => {
+      ordinaryCalls.push(args);
+      return '';
+    },
+  );
+  assert.equal(ordinaryCalls[0].includes('head-abc'), false);
 });
 
 test('stable delivery reuses its trusted-base fetch for changed-file classification', () => {
