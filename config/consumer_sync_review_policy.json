@@ -35,7 +35,9 @@
     "review was skipped",
     "was not reviewed",
     "not reviewed",
-    "not enabled",
+    "review disabled",
+    "review is disabled",
+    "reviews are disabled",
     "excluded by label",
     "excluded labels"
   ]

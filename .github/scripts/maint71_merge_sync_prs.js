@@ -164,14 +164,14 @@ async function collectReviewerEvidence({
     );
     if (!profile) continue;
     const reviewer = String(profile.id || '').trim();
-    const signalText = [
-      check.name,
+    const evidenceText = [
       check.summary,
       check.description,
       check.output?.title,
       check.output?.summary,
       check.output?.text,
     ].filter(Boolean).join('\n');
+    const signalText = [check.name, evidenceText].filter(Boolean).join('\n');
     const unavailable = isReviewerCapacitySignal(signalText, reviewerCapacityPatterns)
       || isReviewerNonResponseSignal(signalText, reviewerNonResponsePatterns);
     if (unavailable) {
@@ -179,9 +179,16 @@ async function collectReviewerEvidence({
       continue;
     }
     const conclusion = String(check.conclusion || '').toLowerCase();
+    const hasSubstantiveNegativeVerdict = [
+      'failure',
+      'action_required',
+    ].includes(conclusion) && evidenceText.trim().length > 0;
     if (
       String(check.status || '').toLowerCase() === 'completed'
-      && ['success', 'neutral'].includes(conclusion)
+      && (
+        ['success', 'neutral'].includes(conclusion)
+        || hasSubstantiveNegativeVerdict
+      )
     ) {
       recordSignal(reviewer, 'responded', new Date(completedAt).toISOString());
     }

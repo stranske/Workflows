@@ -560,6 +560,59 @@ test('reviewer evidence does not count explicit skipped-review status as a respo
   });
 });
 
+test('reviewer evidence counts a completed negative verdict with substantive output', async () => {
+  const evidence = await collectReviewerEvidence({
+    owner: 'stranske',
+    repo: 'Ready',
+    number: 99,
+    reviewStartedAt: '2026-08-11T13:07:00Z',
+    checkRuns: [{
+      name: 'CodeRabbit',
+      status: 'completed',
+      conclusion: 'failure',
+      completed_at: '2026-08-11T13:08:00Z',
+      output: { summary: 'Found a blocking workflow regression.' },
+    }],
+    reviewerProfiles: [{ id: 'coderabbit', check_names: ['CodeRabbit'] }],
+    reviewerNonResponsePatterns: ['review skipped'],
+    withRetry: async (operation) => operation({
+      graphql: async () => ({
+        repository: {
+          pullRequest: {
+            comments: { nodes: [], pageInfo: { hasNextPage: false } },
+            reviews: { nodes: [], pageInfo: { hasNextPage: false } },
+            reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
+          },
+        },
+      }),
+    }),
+    core: { warning: () => {} },
+  });
+  assert.deepEqual(evidence, {
+    responded: ['coderabbit'],
+    unavailable: [],
+    truncated: false,
+  });
+});
+
+test('review non-response policy does not match generic feature availability prose', () => {
+  const policy = JSON.parse(fs.readFileSync(
+    path.join(__dirname, '../../../config/consumer_sync_review_policy.json'),
+    'utf8',
+  ));
+  assert.equal(
+    isReviewerNonResponseSignal(
+      'The optional test feature is not enabled in this repository.',
+      policy.non_response_patterns,
+    ),
+    false,
+  );
+  assert.equal(
+    isReviewerNonResponseSignal('Automated review is disabled.', policy.non_response_patterns),
+    true,
+  );
+});
+
 test('a sync selector ignores dev-tool deliveries instead of reporting a missing sync target', () => {
   const generated = [
     pr(1, 'deps/sync-dev-versions-wave', '2026-08-11T13:00:00Z'),

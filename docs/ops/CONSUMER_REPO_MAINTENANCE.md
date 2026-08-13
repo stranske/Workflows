@@ -348,8 +348,11 @@ all configured reviewers, after a seven-minute quiet period. If every reviewer
 reports capacity unavailability, settlement degrades after the quiet period;
 if nobody responds, it degrades after fifteen minutes. Active non-outdated
 review threads are never waived by either fallback. Reviewer statuses and
-comments that explicitly say a review was skipped, excluded, disabled, or not
-performed are unavailable signals and cannot satisfy the one-response quorum.
+comments that explicitly say a review was skipped, excluded, review-disabled,
+or not performed are unavailable signals and cannot satisfy the one-response
+quorum. A completed negative verdict with substantive review output still
+counts as a response; settlement is evidence of reviewer participation, not
+approval.
 Maint 71 then seals the
 exact head and applies `sync:delivery-ready`, which triggers a fresh Gate. The
 Gate summary rejects an unsealed stable delivery, while the shared merge guard
