@@ -2979,6 +2979,14 @@ test('authority fingerprints include redacted details beyond the display limit',
   const commaCookieSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied Set-Cookie: session=alpha, csrf=beta; requires contents:write permission',
   });
+  const attributedCookieSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied Set-Cookie: session=alpha; Path=/; HttpOnly, csrf=beta; Secure; requires contents:write permission',
+  });
+  const compactJwtSensitive = buildAuthorityChallengeEvidence({
+    agentSummary:
+      `Denied JWT ${'eyJhbGciOiJIUzI1NiJ9'}.${'eyJzdWIiOiJ1c2VyIn0'}.${'runtime-signature-value'}; ` +
+      'requires contents:write permission',
+  });
   const githubAppSensitive = buildAuthorityChallengeEvidence({
     // Build the scanner-shaped fixture at runtime so the repository's own
     // complete-diff secret scanner does not mistake test data for a live token.
@@ -3083,6 +3091,10 @@ test('authority fingerprints include redacted details beyond the display limit',
   const attemptedPermissionOnly = buildAuthorityChallengeEvidence({
     agentSummary: 'Attempted contents:read request. Permission denied by repository policy.',
   });
+  const separatePermissionRemedies = buildAuthorityChallengeEvidence({
+    agentSummary:
+      'contents:read permission granted. Authorization: opaque; Required permission: issues:write',
+  });
   assert.equal(githubPermissionBefore.actionable, true);
   assert.equal(githubScopeBefore.actionable, true);
   assert.equal(githubScopeAfter.actionable, true);
@@ -3097,6 +3109,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.equal(ordinaryUserWord.humanAction, '');
   assert.equal(attemptedPermissionOnly.actionable, false);
   assert.equal(attemptedPermissionOnly.humanAction, '');
+  assert.equal(separatePermissionRemedies.actionable, true);
+  assert.match(separatePermissionRemedies.humanAction, /issues:write/);
+  assert.doesNotMatch(separatePermissionRemedies.humanAction, /Required permission: contents:read/);
   assert.equal(githubScopeAfter.fingerprint, githubScopeAfterCompact.fingerprint);
   assert.equal(
     sensitive.detail,
@@ -3183,13 +3198,21 @@ test('authority fingerprints include redacted details beyond the display limit',
     truncatedPrivateKeySensitive.humanAction,
     /truncated-key-material|CORRECT_HORSE|Missing token|BEGIN/,
   );
-  assert.equal(multiCookieSensitive.detail, 'Denied Cookie=[redacted] after retry');
+  assert.equal(multiCookieSensitive.detail, 'Denied Cookie=[redacted-cookie]');
   assert.doesNotMatch(multiCookieSensitive.humanAction, /alpha|beta/);
   assert.equal(
     commaCookieSensitive.detail,
-    'Denied Set-Cookie=[redacted]; requires contents:write permission',
+    'Denied Set-Cookie=[redacted-cookie] Required permission: contents:write',
   );
   assert.doesNotMatch(commaCookieSensitive.humanAction, /alpha|beta/);
+  assert.equal(
+    attributedCookieSensitive.detail,
+    'Denied Set-Cookie=[redacted-cookie] Required permission: contents:write',
+  );
+  assert.doesNotMatch(attributedCookieSensitive.humanAction, /alpha|beta|HttpOnly|Secure/);
+  assert.match(compactJwtSensitive.detail, /\[redacted-jwt\]/);
+  assert.doesNotMatch(compactJwtSensitive.detail, /eyJhbGci|eyJzdWI|runtime-signature/);
+  assert.doesNotMatch(compactJwtSensitive.humanAction, /eyJhbGci|eyJzdWI|runtime-signature/);
   assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);
   assert.match(githubAppSensitive.detail, /\[redacted-token\]/);
   assert.equal(

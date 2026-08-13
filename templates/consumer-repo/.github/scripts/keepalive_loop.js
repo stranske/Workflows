@@ -80,37 +80,23 @@ function buildAuthorityChallengeEvidence({
   const standaloneOauthScopes = new Set(
     ['repo', 'workflow', 'gist', 'notifications', 'user', 'delete_repo', 'codespace', 'copilot', 'project'],
   );
-  const targetMatches = [...rawSummary.matchAll(
-    new RegExp(String.raw`\b(${structuredPermissionTarget}|${standaloneOauthScope})\b`, 'gi'),
-  )];
-  const contextMatches = [...rawSummary.matchAll(/\b(scope|permission)\b/gi)];
+  const permissionTarget = String.raw`(?:${structuredPermissionTarget}|${standaloneOauthScope})`;
+  const remedyCue = String.raw`(?:missing|required|requires?|needs?|insufficient|unavailable|unset|undefined|grant|enable)`;
+  const permissionRemedyPatterns = [
+    // A cue must be part of the same grammatical remedy as the target. Do not
+    // let an unrelated target borrow a nearby cue or context word.
+    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?(?<context>scope|permission)\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b`, 'gi'),
+    new RegExp(String.raw`\b(?<cue>${remedyCue})\b\s+(?:the\s+)?(?<target>${permissionTarget})\b\s+(?<context>scope|permission)\b`, 'gi'),
+    new RegExp(String.raw`\b(?<context>scope|permission)\b\s*(?:[:=]\s*)?(?<target>${permissionTarget})\b\s+(?:is\s+)?(?<cue>${remedyCue})\b`, 'gi'),
+    new RegExp(String.raw`\b(?<target>${permissionTarget})\b\s+(?<context>scope|permission)\b\s+(?:is\s+)?(?<cue>${remedyCue})\b`, 'gi'),
+  ];
   let contextualPermissionTarget = null;
-  for (const targetMatch of targetMatches) {
-    const target = targetMatch[1];
-    const targetStart = targetMatch.index;
-    const targetEnd = targetStart + targetMatch[0].length;
-    const standalone = standaloneOauthScopes.has(target.toLowerCase());
-    for (const contextMatch of contextMatches) {
-      const context = contextMatch[1].toLowerCase();
-      if (standalone && context !== 'scope') continue;
-      const contextStart = contextMatch.index;
-      const contextEnd = contextStart + contextMatch[0].length;
-      const gap = contextEnd <= targetStart
-        ? targetStart - contextEnd
-        : targetEnd <= contextStart
-          ? contextStart - targetEnd
-          : 0;
-      const withinContext = contextEnd <= targetStart ? gap <= 100 : gap <= 40;
-      if (!withinContext) continue;
-      const remedyContext = rawSummary.slice(
-        Math.max(0, Math.min(targetStart, contextStart) - 40),
-        Math.min(rawSummary.length, Math.max(targetEnd, contextEnd) + 40),
-      );
-      if (!/\b(?:missing|required|requires?|needs?|insufficient|unavailable|unset|undefined|grant|enable)\b/i.test(remedyContext)) {
-        continue;
-      }
-      if (!contextualPermissionTarget || gap < contextualPermissionTarget.gap) {
-        contextualPermissionTarget = { target, gap };
+  for (const pattern of permissionRemedyPatterns) {
+    for (const match of rawSummary.matchAll(pattern)) {
+      const { context, target } = match.groups;
+      if (standaloneOauthScopes.has(target.toLowerCase()) && context.toLowerCase() !== 'scope') continue;
+      if (!contextualPermissionTarget || match.index > contextualPermissionTarget.index) {
+        contextualPermissionTarget = { target, index: match.index };
       }
     }
   }
@@ -118,6 +104,7 @@ function buildAuthorityChallengeEvidence({
     ? contextualPermissionTarget.target.replace(/\s*:\s*/g, ':')
     : '';
   const hasAuthorizationHeader = /\b(?:proxy-)?authorization\s*[:=]/i.test(rawSummary);
+  const hasCookieHeader = /\b(?:set-cookie|cookie)\s*[:=]/i.test(rawSummary);
   let unterminatedPrivateKeyRedacted = false;
   let redacted = rawSummary
     .replace(
@@ -137,6 +124,10 @@ function buildAuthorityChallengeEvidence({
     .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '[redacted-api-key]')
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-access-key]')
+    .replace(
+      /(^|[^A-Za-z0-9_-])(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)(?=$|[^A-Za-z0-9_-])/g,
+      '$1[redacted-jwt]',
+    )
     // Runner summaries are flattened to one line above, so an arbitrary
     // Authorization scheme has no trustworthy value boundary. Redact the
     // complete suffix instead of trying to enumerate schemes or parameters.
@@ -145,8 +136,8 @@ function buildAuthorityChallengeEvidence({
       '$1: [redacted-authorization]',
     )
     .replace(
-      /\b(set-cookie|cookie)\s*[:=]\s*[^;,\s=]+\s*=\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^;,\s]+)(?:\s*[;,]\s*[^;,\s=]+\s*=\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^;,\s]+))*/gi,
-      '$1=[redacted]',
+      /\b(set-cookie|cookie)\s*[:=][\s\S]*/gi,
+      '$1=[redacted-cookie]',
     )
     .replace(
       /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passwd|pwd|pass|passcode|passphrase|pin|otp|totp|mfa[_-]?(?:code|token)|verification[_-]?code|session(?:[_-]?(?:id|key|token))?|signature|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
@@ -188,10 +179,10 @@ function buildAuthorityChallengeEvidence({
           : `${kind}=[redacted]${trailing}`;
       },
     );
-  if (hasAuthorizationHeader || unterminatedPrivateKeyRedacted) {
+  if (hasAuthorizationHeader || hasCookieHeader || unterminatedPrivateKeyRedacted) {
     // Never reconstruct credential-looking text after fail-closed suffix
-    // redaction: neither a flattened Authorization value nor a truncated
-    // private-key block has a trustworthy ending boundary.
+    // redaction: flattened authorization/cookie values and truncated
+    // private-key blocks have no trustworthy ending boundary.
     if (canonicalPermissionTarget) {
       redacted += ` Required permission: ${canonicalPermissionTarget}`;
     }
