@@ -85,9 +85,9 @@ review. A possible access or
 authority boundary adds `agent:needs-attention` and an immediately due
 independent challenge; the hourly sweep reads that state and passes its exact
 boundary fingerprint into a current-state recheck while ordinary sweep traffic
-remains non-forced. Every scheduled sweep wakeup bypasses state debounce so a
-zero-event stall is re-evaluated; only the due fingerprint bypasses runner
-dispatch debounce and carries challenge provenance. A replacement boundary is
+remains non-forced. Every scheduled sweep wakeup bypasses state and completed-
+runner debounce so a zero-event stall is actually re-evaluated; only the due
+fingerprint carries challenge provenance. A replacement boundary is
 therefore checked on the next sweep. A green recheck clears
 the challenge; only the sweep-selected redacted boundary fingerprint failing
 again records the exact runner-reported action before replacing

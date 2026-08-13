@@ -70,7 +70,7 @@ function normalise(value) {
 function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
   const redacted = normalise(agentSummary || summaryReason)
     .replace(/\s+/g, ' ')
-    .replace(/\b(?:ghp_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
+    .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(
       /\b((?:proxy-)?authorization)\s*[:=]\s*(?:basic|bearer|digest|negotiate|token)\s+\S+/gi,
       '$1: [redacted-authorization]',

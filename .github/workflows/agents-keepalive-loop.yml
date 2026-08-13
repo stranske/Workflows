@@ -540,12 +540,17 @@ jobs:
           PROVIDER: ${{ steps.evaluate.outputs.agent_type || 'codex' }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event.inputs.authority_challenge_fingerprint || '' }}
+          SWEEP_RECHECK: ${{ github.event.inputs.sweep_recheck || 'false' }}
         run: |
           set -euo pipefail
-          if [ -n "${AUTHORITY_CHALLENGE_FINGERPRINT:-}" ]; then
+          if [ "${SWEEP_RECHECK:-false}" = "true" ]; then
             {
               echo "should_dispatch=true"
-              echo "reason=due-authority-challenge"
+              if [ -n "${AUTHORITY_CHALLENGE_FINGERPRINT:-}" ]; then
+                echo "reason=due-authority-challenge"
+              else
+                echo "reason=scheduled-sweep-recheck"
+              fi
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi

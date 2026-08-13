@@ -672,6 +672,8 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert "reason=due-authority-challenge" in consumer_loop
     assert "reason=scheduled-sweep-recheck" in root_loop
     assert "reason=scheduled-sweep-recheck" in consumer_loop
+    assert root_loop.count("reason=scheduled-sweep-recheck") >= 2
+    assert consumer_loop.count("reason=scheduled-sweep-recheck") >= 2
     assert root_loop.index("reason=dependency-bot-pr") < root_loop.index(
         "reason=scheduled-sweep-recheck"
     )

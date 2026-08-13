@@ -2760,6 +2760,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const headerSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied Authorization: Basic dXNlcjpzdXBlcnNlY3JldA== Proxy-Authorization=Bearer proxy-secret Cookie: session=secret-cookie',
   });
+  const githubAppSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Authentication failed for ghs_abcdefghijklmnopqrstuvwxyz123456',
+  });
 
   assert.ok(first.detail.length <= 300);
   assert.match(first.detail, /contents:write/);
@@ -2788,6 +2791,8 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.doesNotMatch(headerSensitive.detail, /dXNlc|proxy-secret|secret-cookie/);
   assert.match(headerSensitive.detail, /Authorization: \[redacted-authorization\]/);
   assert.match(headerSensitive.detail, /Proxy-Authorization: \[redacted-authorization\]/);
+  assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);
+  assert.match(githubAppSensitive.detail, /\[redacted-token\]/);
   const missingCodexCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
   });
