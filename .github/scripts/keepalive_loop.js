@@ -75,16 +75,40 @@ function buildAuthorityChallengeEvidence({
   operation,
 } = {}) {
   const rawSummary = normalise(agentSummary || summaryReason).replace(/\s+/g, ' ');
-  const permissionTarget = String.raw`(?:(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|workflows?)\s*:\s*(?:read|write|admin|none)|(?:read|write|admin|repo)\s*:\s*[A-Za-z0-9_.-]+|(?:repo|workflow|gist|notifications|user|delete_repo|codespace|copilot|project))`;
-  const concretePermissionTarget = new RegExp(
-    String.raw`(?:\b(?:scope|permission)\b.{0,100}\b${permissionTarget}\b|\b${permissionTarget}\b.{0,40}\b(?:scope|permission)\b)`,
-    'i',
+  const structuredPermissionTarget = String.raw`(?:(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|workflows?)\s*:\s*(?:read|write|admin|none)|(?:read|write|admin|repo)\s*:\s*[A-Za-z0-9_.-]+)`;
+  const standaloneOauthScope = String.raw`(?:repo|workflow|gist|notifications|user|delete_repo|codespace|copilot|project)`;
+  const standaloneOauthScopes = new Set(
+    ['repo', 'workflow', 'gist', 'notifications', 'user', 'delete_repo', 'codespace', 'copilot', 'project'],
   );
-  const permissionMatch = concretePermissionTarget.test(rawSummary)
-    ? rawSummary.match(new RegExp(String.raw`\b(${permissionTarget})\b`, 'i'))
-    : null;
-  const canonicalPermissionTarget = permissionMatch?.[1]
-    ? permissionMatch[1].replace(/\s*:\s*/g, ':')
+  const targetMatches = [...rawSummary.matchAll(
+    new RegExp(String.raw`\b(${structuredPermissionTarget}|${standaloneOauthScope})\b`, 'gi'),
+  )];
+  const contextMatches = [...rawSummary.matchAll(/\b(scope|permission)\b/gi)];
+  let contextualPermissionTarget = null;
+  for (const targetMatch of targetMatches) {
+    const target = targetMatch[1];
+    const targetStart = targetMatch.index;
+    const targetEnd = targetStart + targetMatch[0].length;
+    const standalone = standaloneOauthScopes.has(target.toLowerCase());
+    for (const contextMatch of contextMatches) {
+      const context = contextMatch[1].toLowerCase();
+      if (standalone && context !== 'scope') continue;
+      const contextStart = contextMatch.index;
+      const contextEnd = contextStart + contextMatch[0].length;
+      const gap = contextEnd <= targetStart
+        ? targetStart - contextEnd
+        : targetEnd <= contextStart
+          ? contextStart - targetEnd
+          : 0;
+      const withinContext = contextEnd <= targetStart ? gap <= 100 : gap <= 40;
+      if (!withinContext) continue;
+      if (!contextualPermissionTarget || gap < contextualPermissionTarget.gap) {
+        contextualPermissionTarget = { target, gap };
+      }
+    }
+  }
+  const canonicalPermissionTarget = contextualPermissionTarget?.target
+    ? contextualPermissionTarget.target.replace(/\s*:\s*/g, ':')
     : '';
   const hasAuthorizationHeader = /\b(?:proxy-)?authorization\s*[:=]/i.test(rawSummary);
   let unterminatedPrivateKeyRedacted = false;
@@ -218,7 +242,7 @@ function buildAuthorityChallengeEvidence({
   const actionable =
     /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credential|key))?\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
     /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
-    concretePermissionTarget.test(redacted);
+    Boolean(canonicalPermissionTarget);
   return {
     fingerprint: crypto.createHash('sha256')
       .update(`agent=${routedAgent}|operation=${challengedOperation}|${normalized}`)

@@ -2943,6 +2943,11 @@ test('authority fingerprints include redacted details beyond the display limit',
       `Denied Authorization: Bearer ${'runtime-' + 'secret'}; ` +
       'requires contents:write permission',
   });
+  const headerWithEarlierPermissionValue = buildAuthorityChallengeEvidence({
+    agentSummary:
+      `Attempted contents:read request. Authorization: Bearer ${'runtime-' + 'secret'}; ` +
+      'requires pull-requests:write permission',
+  });
   const headerWithCredentialRemedy = buildAuthorityChallengeEvidence({
     agentSummary:
       `Denied Authorization: ApiKey ${'runtime-' + 'secret'}; ` +
@@ -3054,6 +3059,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   const metadataOnly = buildAuthorityChallengeEvidence({
     agentSummary: 'Permission denied; error:403 from repository API',
   });
+  const ordinaryRepoWord = buildAuthorityChallengeEvidence({
+    agentSummary: 'Permission denied while updating repo metadata.',
+  });
+  const ordinaryUserWord = buildAuthorityChallengeEvidence({
+    agentSummary: 'Insufficient permission to access user profile.',
+  });
   assert.equal(githubPermissionBefore.actionable, true);
   assert.equal(githubScopeBefore.actionable, true);
   assert.equal(githubScopeAfter.actionable, true);
@@ -3062,6 +3073,10 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.equal(githubWorkflowScope.actionable, true);
   assert.equal(metadataOnly.actionable, false);
   assert.equal(metadataOnly.humanAction, '');
+  assert.equal(ordinaryRepoWord.actionable, false);
+  assert.equal(ordinaryRepoWord.humanAction, '');
+  assert.equal(ordinaryUserWord.actionable, false);
+  assert.equal(ordinaryUserWord.humanAction, '');
   assert.equal(githubScopeAfter.fingerprint, githubScopeAfterCompact.fingerprint);
   assert.equal(
     sensitive.detail,
@@ -3111,6 +3126,12 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.equal(headerWithPermissionRemedy.actionable, true);
   assert.match(headerWithPermissionRemedy.humanAction, /contents:write/);
   assert.doesNotMatch(headerWithPermissionRemedy.detail, /runtime-secret|Bearer/);
+  assert.equal(
+    headerWithEarlierPermissionValue.detail,
+    'Attempted contents:read request. Authorization: [redacted-authorization] Required permission: pull-requests:write',
+  );
+  assert.match(headerWithEarlierPermissionValue.humanAction, /pull-requests:write/);
+  assert.doesNotMatch(headerWithEarlierPermissionValue.humanAction, /Required permission: contents:read/);
   assert.equal(
     headerWithCredentialRemedy.detail,
     'Denied Authorization: [redacted-authorization]',
