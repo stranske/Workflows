@@ -25,15 +25,45 @@ def payload(**overrides: object) -> dict[str, object]:
 
 
 def capabilities(lifecycle: str = "candidate") -> dict[str, dict[str, object]]:
-    return {"capability:reference-sync-hygiene-test-gate": {"lifecycle": lifecycle, "counterexamples": ["existing"]}}
+    return {
+        "capability:reference-sync-hygiene-test-gate": {
+            "lifecycle": lifecycle,
+            "counterexamples": ["existing"],
+        }
+    }
+
+
+def shadow_handoff(**overrides: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "schema": "workflows.consumer-sync-shadow-handoff/v1",
+        "capability_id": "capability:reference-sync-hygiene-test-gate",
+        "plan_schema": "workflows.consumer-sync-plan/v1",
+        "plan_id": "sha256:" + "b" * 64,
+        "manifest_sha256": "sha256:" + "c" * 64,
+        "entry_count": 1,
+        "removal_count": 0,
+        "handoff_id": "sha256:" + "d" * 64,
+        "run_ref": "github-actions:stranske/Workflows:123:1",
+        "supervision_mode": "shadow",
+        "write_authority": False,
+        "promotion_allowed": False,
+    }
+    return {**base, **overrides}
 
 
 def test_accepts_known_candidate_and_preserves_lifecycle() -> None:
-    result = ingest_completion_evidence(payload(counterexamples=["new example"]), capabilities=capabilities(), ledger=[])
+    result = ingest_completion_evidence(
+        payload(counterexamples=["new example"]), capabilities=capabilities(), ledger=[]
+    )
 
     assert result["status"] == "accepted"
-    assert result["capabilities"]["capability:reference-sync-hygiene-test-gate"]["lifecycle"] == "candidate"
-    assert result["capabilities"]["capability:reference-sync-hygiene-test-gate"]["counterexamples"] == ["existing", "new example"]
+    assert (
+        result["capabilities"]["capability:reference-sync-hygiene-test-gate"]["lifecycle"]
+        == "candidate"
+    )
+    assert result["capabilities"]["capability:reference-sync-hygiene-test-gate"][
+        "counterexamples"
+    ] == ["existing", "new example"]
     assert len(result["ledger"]) == 1
 
 
@@ -41,12 +71,17 @@ def test_accepts_known_shadow_without_promotion() -> None:
     result = ingest_completion_evidence(payload(), capabilities=capabilities("shadow"), ledger=[])
 
     assert result["status"] == "accepted"
-    assert result["capabilities"]["capability:reference-sync-hygiene-test-gate"]["lifecycle"] == "shadow"
+    assert (
+        result["capabilities"]["capability:reference-sync-hygiene-test-gate"]["lifecycle"]
+        == "shadow"
+    )
 
 
 def test_replay_is_idempotent_and_has_no_second_mutation() -> None:
     first = ingest_completion_evidence(payload(), capabilities=capabilities(), ledger=[])
-    second = ingest_completion_evidence(payload(), capabilities=first["capabilities"], ledger=first["ledger"])
+    second = ingest_completion_evidence(
+        payload(), capabilities=first["capabilities"], ledger=first["ledger"]
+    )
 
     assert second["status"] == "duplicate"
     assert second["ledger"] == first["ledger"]
@@ -92,17 +127,7 @@ def test_rejects_unstable_fingerprint_oversized_ref_and_missing_provenance() -> 
 
 
 def test_shadow_handoff_becomes_non_promoting_typed_evidence() -> None:
-    handoff = {
-        "schema": "workflows.consumer-sync-shadow-handoff/v1",
-        "capability_id": "capability:reference-sync-hygiene-test-gate",
-        "handoff_id": "sha256:" + "b" * 64,
-        "run_ref": "github-actions:stranske/Workflows:123:1",
-        "supervision_mode": "shadow",
-        "write_authority": False,
-        "promotion_allowed": False,
-    }
-
-    evidence = completion_payload_from_shadow_handoff(handoff)
+    evidence = completion_payload_from_shadow_handoff(shadow_handoff())
     result = ingest_completion_evidence(
         evidence,
         capabilities=capabilities("shadow"),
@@ -111,21 +136,12 @@ def test_shadow_handoff_becomes_non_promoting_typed_evidence() -> None:
 
     assert result["status"] == "accepted"
     assert result["capabilities"][evidence["capability_id"]]["lifecycle"] == "shadow"
+    assert evidence["effect_fingerprint"] != shadow_handoff()["handoff_id"]
 
 
 def test_shadow_handoff_rejects_any_write_or_promotion_authority() -> None:
-    handoff = {
-        "schema": "workflows.consumer-sync-shadow-handoff/v1",
-        "capability_id": "capability:reference-sync-hygiene-test-gate",
-        "handoff_id": "sha256:" + "b" * 64,
-        "run_ref": "github-actions:stranske/Workflows:123:1",
-        "supervision_mode": "shadow",
-        "write_authority": True,
-        "promotion_allowed": False,
-    }
-
     try:
-        completion_payload_from_shadow_handoff(handoff)
+        completion_payload_from_shadow_handoff(shadow_handoff(write_authority=True))
     except ValueError as exc:
         assert str(exc).startswith("unsafe_handoff:")
     else:  # pragma: no cover - assertion clarity for an unsafe boundary.

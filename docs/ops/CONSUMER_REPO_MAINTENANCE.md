@@ -266,6 +266,14 @@ handoff is explicitly `shadow`, `write_authority=false`, and
 and promotion blockers remain owned by Orchestrator's
 `consumer_sync_shadow.py` dashboard.
 
+The same workflow also records typed completion evidence through
+`scripts/orchestrator_runtime/completion_event_adapter.py`. The uploaded bundle
+includes `completion-evidence.json` (`workflows.runner-completion-evidence/v1`)
+plus mutable runtime state files `capabilities-state.json` and
+`evidence-ledger.json`. Accepted evidence attaches only to capabilities present
+in `config/orchestrator_runtime/capabilities.json`; duplicate replays return
+`status=duplicate` without mutating ledger or capability state.
+
 #### Canary-Gated Fan-out
 
 Maint 68 separates a sync plan into `preview`, `canary`, and `promote` phases.

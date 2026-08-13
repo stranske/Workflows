@@ -9,6 +9,9 @@ on:
       - 'scripts/sync_manifest_compiler.py'
       - 'scripts/build_consumer_sync_shadow_handoff.py'
       - 'scripts/completion_evidence_adapter.py'
+      - 'scripts/orchestrator_runtime/**'
+      - 'config/orchestrator_runtime/**'
+      - 'tests/orchestrator_runtime/**'
       - 'templates/consumer-repo/**'
   schedule:
     - cron: '17 8 * * 1'
@@ -20,6 +23,9 @@ on:
       - 'scripts/sync_manifest_compiler.py'
       - 'scripts/build_consumer_sync_shadow_handoff.py'
       - 'scripts/completion_evidence_adapter.py'
+      - 'scripts/orchestrator_runtime/**'
+      - 'config/orchestrator_runtime/**'
+      - 'tests/orchestrator_runtime/**'
       - 'templates/consumer-repo/**'
 
 permissions:
@@ -66,9 +72,10 @@ jobs:
 
       - name: Validate and record typed completion evidence
         run: |
-          python -m scripts.completion_evidence_adapter \
+          python -m scripts.orchestrator_runtime.completion_event_adapter \
             --handoff consumer-sync-shadow-evidence/handoff.json \
-            --output consumer-sync-shadow-evidence/completion-evidence.json
+            --output consumer-sync-shadow-evidence/completion-evidence.json \
+            --state-dir consumer-sync-shadow-evidence
 
       - name: Upload shadow evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
