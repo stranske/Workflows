@@ -2851,6 +2851,18 @@ test('authority fingerprints include redacted details beyond the display limit',
       `Denied Authorization: ApiKey ${'runtime-' + 'secret'}; ` +
       'Missing token: CODEX_AUTH_JSON',
   });
+  const pemPrivateKeySensitive = buildAuthorityChallengeEvidence({
+    // Assemble key-shaped material at runtime so the repository secret scanner
+    // does not mistake the redaction fixture for a live private key.
+    agentSummary:
+      `Authentication failed -----BEGIN PRIVATE KEY----- ${'private-' + 'key-material'} ` +
+      '-----END PRIVATE KEY----- requires contents:write permission',
+  });
+  const truncatedPrivateKeySensitive = buildAuthorityChallengeEvidence({
+    agentSummary:
+      `Authentication failed -----BEGIN OPENSSH PRIVATE KEY----- ${'truncated-' + 'key-material'} ` +
+      'requires contents:write permission',
+  });
   const multiCookieSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied Cookie: session=alpha; csrf=beta after retry',
   });
@@ -2981,6 +2993,18 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.equal(headerWithCredentialRemedy.actionable, true);
   assert.match(headerWithCredentialRemedy.humanAction, /CODEX_AUTH_JSON/);
   assert.doesNotMatch(headerWithCredentialRemedy.detail, /runtime-secret|ApiKey/);
+  assert.equal(
+    pemPrivateKeySensitive.detail,
+    'Authentication failed [redacted-private-key] requires contents:write permission',
+  );
+  assert.equal(pemPrivateKeySensitive.actionable, true);
+  assert.doesNotMatch(pemPrivateKeySensitive.humanAction, /private-key-material|BEGIN|END/);
+  assert.equal(
+    truncatedPrivateKeySensitive.detail,
+    'Authentication failed [redacted-private-key] Required permission: contents:write',
+  );
+  assert.equal(truncatedPrivateKeySensitive.actionable, true);
+  assert.doesNotMatch(truncatedPrivateKeySensitive.humanAction, /truncated-key-material|BEGIN/);
   assert.equal(multiCookieSensitive.detail, 'Denied Cookie=[redacted] after retry');
   assert.doesNotMatch(multiCookieSensitive.humanAction, /alpha|beta/);
   assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);

@@ -89,7 +89,21 @@ function buildAuthorityChallengeEvidence({
     ? rawSummary.match(new RegExp(String.raw`\b(${permissionTarget})\b`, 'i'))
     : null;
   const hasAuthorizationHeader = /\b(?:proxy-)?authorization\s*[:=]/i.test(rawSummary);
+  let unterminatedPrivateKeyRedacted = false;
   let redacted = rawSummary
+    .replace(
+      /-----BEGIN ((?:[A-Z0-9][A-Z0-9 -]* )?PRIVATE KEY(?: BLOCK)?)-----[\s\S]*?-----END \1-----/gi,
+      '[redacted-private-key]',
+    )
+    // A truncated runner summary may omit the END marker. Fail closed on the
+    // remaining suffix; strictly recognized remediation is restored below.
+    .replace(
+      /-----BEGIN (?:[A-Z0-9][A-Z0-9 -]* )?PRIVATE KEY(?: BLOCK)?-----[\s\S]*/gi,
+      () => {
+        unterminatedPrivateKeyRedacted = true;
+        return '[redacted-private-key]';
+      },
+    )
     .replace(/\b(https?:\/\/)[^/@\s:]+:[^@\s]+@/gi, '$1[redacted-userinfo]@')
     .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '[redacted-api-key]')
@@ -142,7 +156,7 @@ function buildAuthorityChallengeEvidence({
           : `${kind}=[redacted]${trailing}`;
       },
     );
-  if (hasAuthorizationHeader) {
+  if (hasAuthorizationHeader || unterminatedPrivateKeyRedacted) {
     const credentialTarget = routedAuthMatch?.[1] || missingCredentialMatch?.[1];
     if (credentialTarget) {
       redacted += ` Required credential: ${credentialTarget}`;
