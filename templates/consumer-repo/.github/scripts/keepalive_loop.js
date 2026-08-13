@@ -73,8 +73,8 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
     .replace(/\b(?:ghp_|github_pat_)[A-Za-z0-9_]+\b/g, '[redacted-token]')
     .replace(/\bbearer\s+\S+/gi, 'Bearer [redacted-token]')
     .replace(
-      /\b(token|secret|password)\s*[:=]\s*(\S+)/gi,
-      (match, kind, rawValue, offset, source) => {
+      /\b(token|secret|password)(\s*(?:[:=]\s*|\s+))(\S+)/gi,
+      (match, kind, separator, rawValue, offset, source) => {
         const trailing = rawValue.match(/[.,;:]+$/)?.[0] || '';
         const value = trailing ? rawValue.slice(0, -trailing.length) : rawValue;
         const prefix = source.slice(Math.max(0, offset - 40), offset);
@@ -82,7 +82,7 @@ function buildAuthorityChallengeEvidence({ agentSummary, summaryReason } = {}) {
           /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
           /^[A-Za-z][A-Za-z0-9_.-]{2,}$/.test(value);
         return namedCredential
-          ? `${kind}: ${value}${trailing}`
+          ? `${kind}${separator}${value}${trailing}`
           : `${kind}=[redacted]${trailing}`;
       },
     );

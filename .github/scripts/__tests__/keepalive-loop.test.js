@@ -2724,6 +2724,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const uppercaseSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Forbidden request with password=CORRECT_HORSE.',
   });
+  const undelimitedSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Forbidden request returned token CORRECT_HORSE.',
+  });
 
   assert.ok(first.detail.length <= 300);
   assert.match(first.detail, /contents:write/);
@@ -2737,6 +2740,10 @@ test('authority fingerprints include redacted details beyond the display limit',
   assert.equal(
     uppercaseSensitive.detail,
     'Forbidden request with password=[redacted].',
+  );
+  assert.equal(
+    undelimitedSensitive.detail,
+    'Forbidden request returned token=[redacted].',
   );
   const missingCodexCredential = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: CODEX_AUTH_JSON for runner launch.',
