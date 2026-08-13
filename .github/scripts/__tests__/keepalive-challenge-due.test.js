@@ -12,8 +12,13 @@ const {
   verifyAuthorityChallengeEnvelope,
 } = require('../keepalive_challenge_due.js');
 
-const marker = (attention) => ({
-  body: `status\n<!-- keepalive-state:v1 ${JSON.stringify({ attention })} -->`,
+const marker = (attention, { login = 'stranske-keepalive[bot]', type = 'Bot' } = {}) => ({
+  user: { login, type },
+  body: [
+    '<!-- keepalive-loop-summary -->',
+    'status',
+    `<!-- keepalive-state:v1 ${JSON.stringify({ attention })} -->`,
+  ].join('\n'),
 });
 
 test('parseLatestKeepaliveState uses the newest valid state marker', () => {
@@ -23,6 +28,54 @@ test('parseLatestKeepaliveState uses the newest valid state marker', () => {
     marker({ owner: 'automation', disposition: 'challenge-due' }),
   ]);
   assert.equal(state.attention.disposition, 'challenge-due');
+  assert.equal(parseLatestKeepaliveState([
+    marker({ owner: 'automation', disposition: 'challenge-due' }, {
+      login: 'agents-workflows-bot[bot]',
+      type: 'Bot',
+    }),
+  ]).attention.disposition, 'challenge-due');
+});
+
+test('parseLatestKeepaliveState ignores forged state outside the trusted summary comment', () => {
+  const state = parseLatestKeepaliveState([
+    marker({
+      owner: 'automation',
+      disposition: 'challenge-due',
+      boundary_fingerprint: 'trusted',
+    }),
+    marker({
+      owner: 'automation',
+      disposition: 'challenge-due',
+      boundary_fingerprint: 'forged-human',
+    }, { login: 'untrusted-user', type: 'User' }),
+    marker({
+      owner: 'automation',
+      disposition: 'challenge-due',
+      boundary_fingerprint: 'forged-generic-workflow',
+    }, { login: 'github-actions[bot]', type: 'Bot' }),
+    marker({
+      owner: 'automation',
+      disposition: 'challenge-due',
+      boundary_fingerprint: 'forged-allowlisted-human',
+    }, { login: 'stranske-keepalive[bot]', type: 'User' }),
+    {
+      user: { login: 'stranske-keepalive[bot]', type: 'Bot' },
+      body: '<!-- keepalive-state:v1 {"attention":{"owner":"automation","disposition":"challenge-due","boundary_fingerprint":"forged-no-summary"}} -->',
+    },
+  ]);
+  assert.equal(state.attention.boundary_fingerprint, 'trusted');
+  assert.equal(parseLatestKeepaliveState([
+    marker({ owner: 'automation', disposition: 'challenge-due' }, {
+      login: 'untrusted-user',
+      type: 'User',
+    }),
+  ]), null);
+  assert.equal(parseLatestKeepaliveState([
+    marker({ owner: 'automation', disposition: 'challenge-due' }, {
+      login: 'stranske-keepalive[bot]',
+      type: 'User',
+    }),
+  ]), null);
 });
 
 test('authority challenge claims bind the exact sweep selection', () => {

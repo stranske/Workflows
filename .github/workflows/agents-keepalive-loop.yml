@@ -1457,6 +1457,58 @@ jobs:
             core.setOutput('llm_tasks_count', llmCompletedTasks.length);
             core.setOutput('commit_tasks_count', result.sources?.commit || 0);
 
+      - name: Mint KEEPALIVE_APP summary token
+        id: summary_keepalive_app_token
+        if: ${{ env.KEEPALIVE_APP_ID != '' && env.KEEPALIVE_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        continue-on-error: true
+        env:
+          KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
+          KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || '' }}
+        with:
+          app-id: ${{ env.KEEPALIVE_APP_ID }}
+          private-key: ${{ env.KEEPALIVE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-actions: write
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: read
+
+      - name: Mint WORKFLOWS_APP summary token
+        id: summary_workflows_app_token
+        if: |
+          steps.summary_keepalive_app_token.outputs.token == '' &&
+          env.WORKFLOWS_APP_ID != '' &&
+          env.WORKFLOWS_APP_PRIVATE_KEY != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        env:
+          WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+          WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+        with:
+          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-actions: write
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: read
+
+      - name: Require trusted keepalive summary writer
+        env:
+          KEEPALIVE_SUMMARY_TOKEN: >-
+            ${{
+              steps.summary_keepalive_app_token.outputs.token ||
+              steps.summary_workflows_app_token.outputs.token ||
+              ''
+            }}
+        run: |
+          if [ -z "$KEEPALIVE_SUMMARY_TOKEN" ]; then
+            echo "::error::A dedicated keepalive or Workflows App token is required to persist trusted keepalive state."
+            exit 1
+          fi
+
       - name: Update summary comment
         id: update-summary
         uses: actions/github-script@v9
@@ -1488,7 +1540,11 @@ jobs:
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: >-
+            ${{
+              steps.summary_keepalive_app_token.outputs.token ||
+              steps.summary_workflows_app_token.outputs.token
+            }}
           script: |
             const { updateKeepaliveLoopSummary } =
               require('./.github/scripts/keepalive_loop.js');

@@ -3,6 +3,22 @@
 const crypto = require('node:crypto');
 
 const STATE_RE = /<!-- keepalive-state:v1 (\{.*?\}) -->/gs;
+const KEEPALIVE_SUMMARY_MARKER = '<!-- keepalive-loop-summary -->';
+const TRUSTED_KEEPALIVE_STATE_AUTHORS = new Set([
+  'agents-workflows-bot[bot]',
+  'stranske-keepalive[bot]',
+]);
+
+function isTrustedKeepaliveStateComment(comment = {}) {
+  const body = String(comment?.body || '');
+  const login = String(comment?.user?.login || '').trim().toLowerCase();
+  const type = String(comment?.user?.type || '').trim().toLowerCase();
+  return (
+    body.includes(KEEPALIVE_SUMMARY_MARKER) &&
+    TRUSTED_KEEPALIVE_STATE_AUTHORS.has(login) &&
+    type === 'bot'
+  );
+}
 
 function authorityClaimPayload({
   repository,
@@ -84,6 +100,7 @@ function verifyAuthorityChallengeEnvelope({
 function parseLatestKeepaliveState(comments = []) {
   let latest = null;
   for (const comment of comments) {
+    if (!isTrustedKeepaliveStateComment(comment)) continue;
     const body = String(comment?.body || '');
     for (const match of body.matchAll(STATE_RE)) {
       try {
@@ -124,6 +141,7 @@ function selectDueAuthorityChallenge({ labels = [], comments = [], now = new Dat
 
 module.exports = {
   authorityClaimPayload,
+  isTrustedKeepaliveStateComment,
   parseLatestKeepaliveState,
   selectDueAuthorityChallenge,
   signAuthorityChallengeClaim,

@@ -687,6 +687,28 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
         assert "verifyAuthorityChallengeEnvelope" in text
         assert "${{ github.event.inputs.authority_challenge_fingerprint || '' }}" not in text
         assert "${{ github.event.inputs.sweep_recheck || 'false' }}" not in text
+
+    root_summary_start = root_loop.index("  summary:")
+    root_summary_end = root_loop.index(
+        "      # Mint KEEPALIVE_APP token for rate limit notification",
+        root_summary_start,
+    )
+    root_summary = root_loop[root_summary_start:root_summary_end]
+    assert "id: summary_keepalive_app_token" in root_summary
+    assert "id: summary_workflows_app_token" in root_summary
+    assert root_summary.count("repositories: ${{ github.event.repository.name }}") == 2
+    for permission in (
+        "permission-actions: write",
+        "permission-contents: read",
+        "permission-issues: write",
+        "permission-pull-requests: read",
+    ):
+        assert root_summary.count(permission) == 2
+    assert "Require trusted keepalive summary writer" in root_summary
+    update_summary = root_summary[root_summary.index("- name: Update summary comment") :]
+    assert "steps.summary_keepalive_app_token.outputs.token ||" in update_summary
+    assert "steps.summary_workflows_app_token.outputs.token" in update_summary
+    assert "github-token: ${{ secrets.GITHUB_TOKEN }}" not in update_summary
     for path in sweep_paths:
         text = path.read_text(encoding="utf-8")
         assert "force_retry: String(Boolean(dueChallenge))" in text
