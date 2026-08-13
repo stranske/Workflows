@@ -62,8 +62,8 @@ def test_integration_repo_sync_aligns_dev_tool_pins() -> None:
     assert '--pin-file ".github/workflows/autofix-versions.env"' in apply_script
     assert '--pyproject "pyproject.toml"' in apply_script
     assert "git add .github/workflows/ pyproject.toml requirements.lock scripts/" in commit_script
-    assert "if [ -f .pre-commit-config.yaml ]; then" in commit_script
-    assert "git add .pre-commit-config.yaml" in commit_script
+    assert commit_script.count("if [ -f .pre-commit-config.yaml ]; then") == 1
+    assert commit_script.count("git add .pre-commit-config.yaml") == 1
 
 
 def test_sync_manifest_removes_stale_consumer_local_workflow_syncer() -> None:
