@@ -351,10 +351,16 @@ Gate summary rejects an unsealed stable delivery, while the shared merge guard
 rejects `sync:delivery-staging` for every merger except Maint 71's verified
 sealed path. The staging hold remains until the merge succeeds.
 
-The standard Gate's generated-delivery job also checks out
+The standard Gate's generated-delivery job normally checks out
 `sync_pr_lease_contract.js` from the exact pull-request base SHA, not from the
-candidate head. A contract change therefore cannot define its own acceptance
-rule. Missing or unreadable trusted-base enforcement code is a hard failure.
+candidate head, so a contract change cannot redefine an existing acceptance
+rule. The one first-rollout exception is a same-repository stable delivery whose
+base does not yet contain the contract and whose exact head adds that path. The
+classifier may compile that add-only bootstrap copy; modifications, renames,
+fork heads, missing head SHAs, and unreadable copies still fail closed. Maint 71
+remains the final boundary and independently requires the exact generated head
+to carry a valid GitHub-recognized signature before merge. After the bootstrap
+lands, every later delivery returns to trusted-base-only enforcement.
 
 Generated `sync/workflows-*` PRs are excluded from both the basic and agent
 autofix lanes. Their intentional pre-seal Gate failure is a delivery hold, not

@@ -7,6 +7,7 @@ const {
   DEFAULT_CATEGORIES,
   classifyFiles,
   globToRegExp,
+  isAddOnlyContractDiff,
   isStableDeliveryPullRequest,
   listChangedFiles,
   loadDeliveryContract,
@@ -190,8 +191,67 @@ test('stable delivery fails closed when the trusted base contract is unavailable
     readTrustedContract: () => {
       throw new Error('base object unavailable');
     },
+    isBootstrapAddition: () => false,
   });
   assert.equal(contract, null);
+});
+
+test('stable delivery bootstraps an add-only contract when the trusted base predates it', () => {
+  const contractSource = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'sync_pr_lease_contract.js'),
+    'utf8',
+  );
+  const observed = {};
+  const contract = loadDeliveryContract(deliveryContext(deliveryRecord), {
+    readTrustedContract: () => {
+      throw new Error('contract absent from base');
+    },
+    isBootstrapAddition: (baseSha, headSha, contractPath) => {
+      Object.assign(observed, { baseSha, headSha, contractPath });
+      return true;
+    },
+    readBootstrapContract: (ref, contractPath) => {
+      observed.bootstrapRef = ref;
+      observed.bootstrapPath = contractPath;
+      return contractSource;
+    },
+  });
+
+  assert.deepEqual(observed, {
+    baseSha: 'trusted-base-sha',
+    headSha: 'head-abc',
+    contractPath: '.github/scripts/sync_pr_lease_contract.js',
+    bootstrapRef: 'head-abc',
+    bootstrapPath: '.github/scripts/sync_pr_lease_contract.js',
+  });
+  assert.equal(contract.mergeEligibility(deliveryRecord, { requireSealed: true }).eligible, false);
+});
+
+test('stable delivery bootstrap recognizes only an exact added contract path', () => {
+  const contractPath = '.github/scripts/sync_pr_lease_contract.js';
+  assert.equal(isAddOnlyContractDiff(`A\t${contractPath}`, contractPath), true);
+  assert.equal(isAddOnlyContractDiff(`M\t${contractPath}`, contractPath), false);
+  assert.equal(isAddOnlyContractDiff(`R100\told.js\t${contractPath}`, contractPath), false);
+  assert.equal(isAddOnlyContractDiff(`A\t${contractPath}.bak`, contractPath), false);
+});
+
+test('stable delivery bootstrap rejects fork heads even when they add the contract', () => {
+  let bootstrapRead = false;
+  const contract = loadDeliveryContract(
+    deliveryContext(deliveryRecord, { fork: true }),
+    {
+      readTrustedContract: () => {
+        throw new Error('contract absent from base');
+      },
+      isBootstrapAddition: () => true,
+      readBootstrapContract: () => {
+        bootstrapRead = true;
+        return '';
+      },
+    },
+  );
+  assert.equal(contract, null);
+  assert.equal(bootstrapRead, false);
 });
 
 test('stable delivery reuses its trusted-base fetch for changed-file classification', () => {

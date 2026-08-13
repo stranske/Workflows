@@ -709,6 +709,27 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert "steps.summary_keepalive_app_token.outputs.token ||" in update_summary
     assert "steps.summary_workflows_app_token.outputs.token" in update_summary
     assert "github-token: ${{ secrets.GITHUB_TOKEN }}" not in update_summary
+
+    consumer_summary_start = consumer_loop.index("  summary:")
+    consumer_summary_end = consumer_loop.index("  prepare:", consumer_summary_start)
+    consumer_summary = consumer_loop[consumer_summary_start:consumer_summary_end]
+    assert "id: summary_keepalive_app_token" in consumer_summary
+    assert "id: summary_workflows_app_token" in consumer_summary
+    assert consumer_summary.count("repositories: ${{ github.event.repository.name }}") == 2
+    for permission in (
+        "permission-actions: write",
+        "permission-contents: read",
+        "permission-issues: write",
+        "permission-pull-requests: read",
+    ):
+        assert consumer_summary.count(permission) == 2
+    assert "Require trusted keepalive summary writer" in consumer_summary
+    consumer_update_summary = consumer_summary[
+        consumer_summary.index("- name: Update summary comment") :
+    ]
+    assert "steps.summary_keepalive_app_token.outputs.token ||" in consumer_update_summary
+    assert "steps.summary_workflows_app_token.outputs.token" in consumer_update_summary
+    assert "github-token: ${{ secrets.GITHUB_TOKEN }}" not in consumer_update_summary
     for path in sweep_paths:
         text = path.read_text(encoding="utf-8")
         assert "force_retry: String(Boolean(dueChallenge))" in text

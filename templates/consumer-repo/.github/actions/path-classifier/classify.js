@@ -238,9 +238,32 @@ function readContractAtRef(ref, contractPath) {
   return runGit(['show', `${ref}:${contractPath}`]);
 }
 
+function isAddOnlyContractDiff(diffText, contractPath) {
+  return String(diffText || '')
+    .split(/\r?\n/)
+    .some((line) => line === `A\t${contractPath}`);
+}
+
+function contractAddedBetweenRefs(baseSha, headSha, contractPath) {
+  const added = runGit([
+    'diff',
+    '--name-status',
+    '--diff-filter=A',
+    baseSha,
+    headSha,
+    '--',
+    contractPath,
+  ]);
+  return isAddOnlyContractDiff(added, contractPath);
+}
+
 function loadDeliveryContract(
   githubContext = {},
-  { readTrustedContract = readContractAtRef } = {},
+  {
+    readTrustedContract = readContractAtRef,
+    readBootstrapContract = readContractAtRef,
+    isBootstrapAddition = contractAddedBetweenRefs,
+  } = {},
 ) {
   const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
   const relativeContractPath = '.github/scripts/sync_pr_lease_contract.js';
@@ -255,9 +278,27 @@ function loadDeliveryContract(
       const source = readTrustedContract(baseSha, relativeContractPath);
       return compileDeliveryContract(source, `${baseSha}:${relativeContractPath}`);
     } catch {
-      // Stable generated deliveries fail closed when the trusted base contract
-      // cannot be loaded; never fall back to the candidate checkout.
-      return null;
+      // A consumer's first stable-delivery rollout necessarily predates the
+      // lease contract on its base. Permit only that exact add-only bootstrap:
+      // same repository, exact observed head, and the contract path added (not
+      // modified or renamed) between base and head. Maint 71 remains the final
+      // boundary and independently requires the exact generated head to carry
+      // a valid GitHub-recognized signature before it can merge.
+      const headSha = pullRequest?.head?.sha || '';
+      const headRepository = pullRequest?.head?.repo?.full_name || '';
+      const baseRepository = pullRequest?.base?.repo?.full_name || '';
+      if (!headSha || !headRepository || headRepository !== baseRepository) {
+        return null;
+      }
+      try {
+        if (!isBootstrapAddition(baseSha, headSha, relativeContractPath)) {
+          return null;
+        }
+        const source = readBootstrapContract(headSha, relativeContractPath);
+        return compileDeliveryContract(source, `${headSha}:${relativeContractPath}`);
+      } catch {
+        return null;
+      }
     }
   }
 
@@ -452,6 +493,7 @@ module.exports = {
   OUTPUT_NAMES,
   classifyFiles,
   globToRegExp,
+  isAddOnlyContractDiff,
   isStableDeliveryPullRequest,
   listChangedFiles,
   loadConfig,
