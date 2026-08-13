@@ -3012,6 +3012,7 @@ test('authority fingerprints include redacted details beyond the display limit',
     'clientSecretValue', 'apiKeys', 'accessTokens', 'passwordHashes',
     'credentialBlob', 'sessionTokenString', 'private_key_material',
     'api_keys', 'client_secret_value', 'access_tokens', 'password_hashes',
+    'serviceAuthMaterial', 'oauthCredentialsBundle', 'signingKeyBytes',
   ];
   const credentialFieldEvidence = credentialFieldShapes.map((field, index) => ({
     field,

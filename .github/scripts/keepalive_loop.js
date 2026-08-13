@@ -81,7 +81,33 @@ function isSensitiveCredentialFieldName(value) {
     'passphrases', 'pin', 'pins', 'otp', 'otps', 'totp', 'totps', 'mfa',
     'signature', 'signatures', 'token', 'tokens', 'key', 'keys',
   ]);
-  return words.some(word => sensitiveWords.has(word));
+  const authField = words.some(word => ['auth', 'authentication', 'authorization'].includes(word));
+  const carriesAuthMaterial = words.some(word => [
+    'material', 'data', 'value', 'values', 'bytes', 'content', 'pem', 'string',
+    'strings', 'hash', 'hashes', 'digest', 'digests', 'blob', 'blobs', 'bundle',
+  ].includes(word));
+  return words.some(word => sensitiveWords.has(word)) || (authField && carriesAuthMaterial);
+}
+
+function redactCredentialAssignments(value) {
+  return normalise(value).replace(
+    /\b([A-Za-z][A-Za-z0-9_.-]*)["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/g,
+    (match, name, rawValue, offset, source) => {
+      if (!isSensitiveCredentialFieldName(name)) return match;
+      const quote = rawValue.at(0);
+      const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
+      const value = quoted ? rawValue.slice(1, -1) : rawValue;
+      const prefix = source.slice(Math.max(0, offset - 40), offset);
+      const namedCredential =
+        !quoted &&
+        /^(?:token|secret|password|credentials?)$/i.test(name) &&
+        /\b(?:missing|required|unset|unavailable|undefined)\s*$/i.test(prefix) &&
+        /^[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(value);
+      if (namedCredential) return match;
+      const trailing = quoted ? '' : value.match(/[.,;:]+$/)?.[0] || '';
+      return `${name}=[redacted]${trailing}`;
+    },
+  );
 }
 
 function buildAuthorityChallengeEvidence({
@@ -133,7 +159,7 @@ function buildAuthorityChallengeEvidence({
     })()
     : rawSummary;
   let unterminatedPrivateKeyRedacted = false;
-  let redacted = redactionInput
+  let redacted = redactCredentialAssignments(redactionInput)
     .replace(
       /-----BEGIN ((?:[A-Z0-9][A-Z0-9 -]* )?PRIVATE KEY(?: BLOCK)?)-----[\s\S]*?-----END \1-----/gi,
       '[redacted-private-key]',
