@@ -13,6 +13,7 @@ const { formatFailureComment } = require('./failure_comment_formatter');
 const { detectConflicts } = require('./conflict_detector');
 const { parseTimeoutConfig } = require('./timeout_config');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper');
+const { verifyAuthorityChallengeClaim } = require('./keepalive_challenge_due');
 
 // Token load balancer for rate limit management
 let tokenLoadBalancer = null;
@@ -114,7 +115,7 @@ function buildAuthorityChallengeEvidence({
       '$1=[redacted]',
     )
     .replace(
-      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
+      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passphrase|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
       (match, name, rawValue, offset, source) => {
         const quote = rawValue.at(0);
         const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
@@ -134,7 +135,7 @@ function buildAuthorityChallengeEvidence({
       'Bearer [redacted-token]',
     )
     .replace(
-      /\b(token|secret|password|credentials?)(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
+      /\b(token|secret|password|passphrase|credentials?)(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
       (match, kind, separator, rawValue, offset, source) => {
         const quote = rawValue.at(0);
         const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
@@ -3558,9 +3559,20 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const authorityChallengeFingerprint = normalise(
       inputs.authority_challenge_fingerprint ?? inputs.authorityChallengeFingerprint,
     );
+    const authorityChallengeClaimVerified = verifyAuthorityChallengeClaim({
+      signingKey: inputs.authority_challenge_signing_key,
+      signature: inputs.authority_challenge_signature,
+      repository: `${context.repo.owner}/${context.repo.repo}`,
+      prNumber,
+      boundaryFingerprint: authorityChallengeFingerprint,
+      nonce: inputs.authority_challenge_nonce,
+      sweepRunId: inputs.authority_challenge_run_id,
+      sweepRunAttempt: inputs.authority_challenge_run_attempt,
+    });
     const authorityChallengeProvenanceMatches =
       previousAuthorityChallenge &&
       Boolean(authorityChallengeFingerprint) &&
+      authorityChallengeClaimVerified &&
       authorityChallengeFingerprint === previousAttention.boundary_fingerprint;
     const authorityEvidence = buildAuthorityChallengeEvidence({
       agentSummary,

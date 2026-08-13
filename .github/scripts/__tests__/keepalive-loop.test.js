@@ -18,6 +18,27 @@ const {
   selectEscalationDisposition,
 } = require('../keepalive_loop.js');
 const { formatStateComment, parseStateComment } = require('../keepalive_state.js');
+const { signAuthorityChallengeClaim } = require('../keepalive_challenge_due.js');
+
+const authorityClaimInputs = (prNumber, boundaryFingerprint, overrides = {}) => {
+  const claim = {
+    signingKey: 'test-only-authority-signing-key',
+    repository: 'octo/workflows',
+    prNumber,
+    boundaryFingerprint,
+    nonce: overrides.nonce || 'a'.repeat(64),
+    sweepRunId: overrides.sweepRunId || '987654321',
+    sweepRunAttempt: overrides.sweepRunAttempt || '1',
+  };
+  return {
+    authority_challenge_fingerprint: boundaryFingerprint,
+    authority_challenge_signature: signAuthorityChallengeClaim(claim),
+    authority_challenge_nonce: claim.nonce,
+    authority_challenge_run_id: claim.sweepRunId,
+    authority_challenge_run_attempt: claim.sweepRunAttempt,
+    authority_challenge_signing_key: claim.signingKey,
+  };
+};
 
 const fixturesDir = path.join(__dirname, 'fixtures');
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
@@ -2350,7 +2371,7 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
       failureThreshold: 3,
       trace: 'trace-attention-auth-confirmed',
       forceRetry: true,
-      authority_challenge_fingerprint: boundary.fingerprint,
+      ...authorityClaimInputs(654, boundary.fingerprint),
       agent_exit_code: '1',
       agent_summary: authSummary,
     },
@@ -2436,7 +2457,7 @@ test('a failed hard label write keeps the authority challenge automation-owned',
       failureThreshold: 3,
       trace: 'trace-attention-auth-label-failed',
       forceRetry: true,
-      authority_challenge_fingerprint: boundary.fingerprint,
+      ...authorityClaimInputs(654, boundary.fingerprint),
       agent_exit_code: '1',
       agent_summary: authSummary,
     },
@@ -2503,7 +2524,7 @@ test('a failed terminal state write leaves a durable actionable pending transiti
         failureThreshold: 3,
         trace: 'trace-attention-auth-state-failed',
         forceRetry: true,
-        authority_challenge_fingerprint: boundary.fingerprint,
+        ...authorityClaimInputs(654, boundary.fingerprint),
         agent_exit_code: '1',
         agent_summary: authSummary,
       },
@@ -2538,7 +2559,7 @@ test('a failed terminal state write leaves a durable actionable pending transiti
   assert.match(pendingState.attention.next_action, /ACTIONS_BOT_PAT/);
 });
 
-test('a generic forced retry cannot confirm an authority challenge', async () => {
+test('a forged sweep claim cannot confirm an authority challenge', async () => {
   const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
   const existingState = formatStateComment({
@@ -2579,6 +2600,12 @@ test('a generic forced retry cannot confirm an authority challenge', async () =>
       failureThreshold: 3,
       trace: 'trace-attention-auth-unproven',
       forceRetry: true,
+      authority_challenge_fingerprint: boundary.fingerprint,
+      authority_challenge_signature: '0'.repeat(64),
+      authority_challenge_nonce: 'a'.repeat(64),
+      authority_challenge_run_id: '987654321',
+      authority_challenge_run_attempt: '1',
+      authority_challenge_signing_key: 'test-only-authority-signing-key',
       agent_exit_code: '1',
       agent_summary: authSummary,
     },
@@ -2882,6 +2909,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const quotedSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Forbidden password="correct horse battery staple" token=\'another secret phrase\'.',
   });
+  const passphraseSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Key authentication failed passphrase="correct horse battery staple".',
+  });
   const urlSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Permission denied for https://alice:correct-horse@example.com/private',
   });
@@ -3034,6 +3064,11 @@ test('authority fingerprints include redacted details beyond the display limit',
     'Forbidden password=[redacted] token=[redacted].',
   );
   assert.doesNotMatch(quotedSensitive.humanAction, /correct horse|another secret/);
+  assert.equal(
+    passphraseSensitive.detail,
+    'Key authentication failed passphrase=[redacted].',
+  );
+  assert.doesNotMatch(passphraseSensitive.detail, /correct horse battery staple/);
   assert.equal(
     urlSensitive.detail,
     'Permission denied for https://[redacted-userinfo]@example.com/private',

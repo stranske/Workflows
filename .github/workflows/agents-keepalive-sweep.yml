@@ -60,13 +60,21 @@ jobs:
 
       - name: Dispatch keepalive loop for open agent PRs
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          AUTHORITY_CHALLENGE_SIGNING_KEY: >-
+            ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
         with:
-          # Keep dispatch provenance bound to this repository workflow. The
-          # downstream loop accepts sweep inputs only from github-actions[bot].
+          # Due authority claims carry an HMAC bound to this repository, PR,
+          # fingerprint, nonce, and exact sweep run. The downstream loop fails
+          # closed when the signing key is unavailable or the claim is forged.
           github-token: ${{ github.token }}
           script: |
+            const crypto = require('node:crypto');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { selectDueAuthorityChallenge } = require('./.github/scripts/keepalive_challenge_due.js');
+            const {
+              selectDueAuthorityChallenge,
+              signAuthorityChallengeClaim,
+            } = require('./.github/scripts/keepalive_challenge_due.js');
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -77,6 +85,10 @@ jobs:
               (context.payload.inputs && context.payload.inputs.dry_run) || 'false',
             ) === 'true';
             const { owner, repo } = context.repo;
+            const repository = `${owner}/${repo}`;
+            const sweepRunId = process.env.GITHUB_RUN_ID || '';
+            const sweepRunAttempt = process.env.GITHUB_RUN_ATTEMPT || '';
+            const signingKey = process.env.AUTHORITY_CHALLENGE_SIGNING_KEY || '';
             const prs = await withRetry((client) => client.paginate(client.rest.pulls.list, {
               owner, repo, state: 'open', per_page: 100,
             }));
@@ -103,12 +115,37 @@ jobs:
                     comments,
                     now: new Date(),
                   });
-                  if (dueChallenge) {
+                }
+                let authorityClaim = {};
+                if (dueChallenge) {
+                  const nonce = crypto.randomBytes(32).toString('hex');
+                  const signature = signAuthorityChallengeClaim({
+                    signingKey,
+                    repository,
+                    prNumber: pr.number,
+                    boundaryFingerprint: dueChallenge.boundaryFingerprint,
+                    nonce,
+                    sweepRunId,
+                    sweepRunAttempt,
+                  });
+                  if (!signature) {
+                    core.warning(
+                      `PR #${pr.number}: due authority challenge cannot be signed; ` +
+                      'dispatching only an ordinary non-forced sweep recheck.',
+                    );
+                    dueChallenge = null;
+                  } else {
                     challenged += 1;
                     core.info(
-                      `PR #${pr.number}: independently rechecking due authority claim ` +
+                      `PR #${pr.number}: independently rechecking signed authority claim ` +
                       `(due ${dueChallenge.dueAt}; ${dueChallenge.nextAction || dueChallenge.key || 'no detail'})`,
                     );
+                    authorityClaim = {
+                      authority_challenge_signature: signature,
+                      authority_challenge_nonce: nonce,
+                      authority_challenge_run_id: sweepRunId,
+                      authority_challenge_run_attempt: sweepRunAttempt,
+                    };
                   }
                 }
                 await github.rest.actions.createWorkflowDispatch({
@@ -122,6 +159,7 @@ jobs:
                     sweep_recheck: 'true',
                     authority_challenge_fingerprint:
                       dueChallenge?.boundaryFingerprint || '',
+                    ...authorityClaim,
                   },
                 });
                 dispatched += 1;

@@ -4,8 +4,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  authorityClaimPayload,
   parseLatestKeepaliveState,
   selectDueAuthorityChallenge,
+  signAuthorityChallengeClaim,
+  verifyAuthorityChallengeClaim,
 } = require('../keepalive_challenge_due.js');
 
 const marker = (attention) => ({
@@ -19,6 +22,47 @@ test('parseLatestKeepaliveState uses the newest valid state marker', () => {
     marker({ owner: 'automation', disposition: 'challenge-due' }),
   ]);
   assert.equal(state.attention.disposition, 'challenge-due');
+});
+
+test('authority challenge claims bind the exact sweep selection', () => {
+  const claim = {
+    signingKey: 'test-only-signing-key',
+    repository: 'stranske/Workflows',
+    prNumber: 3066,
+    boundaryFingerprint: 'a'.repeat(64),
+    nonce: 'b'.repeat(64),
+    sweepRunId: '31683971486',
+    sweepRunAttempt: '1',
+  };
+  const signature = signAuthorityChallengeClaim(claim);
+  assert.match(signature, /^[0-9a-f]{64}$/);
+  assert.equal(verifyAuthorityChallengeClaim({ ...claim, signature }), true);
+  assert.equal(
+    verifyAuthorityChallengeClaim({ ...claim, signature, prNumber: 3067 }),
+    false,
+  );
+  assert.equal(
+    verifyAuthorityChallengeClaim({ ...claim, signature, signingKey: 'forged-key' }),
+    false,
+  );
+});
+
+test('authority challenge claims fail closed on incomplete or malformed fields', () => {
+  assert.equal(authorityClaimPayload({}), '');
+  assert.equal(signAuthorityChallengeClaim({ signingKey: 'key' }), '');
+  assert.equal(
+    verifyAuthorityChallengeClaim({
+      signingKey: 'key',
+      signature: 'not-a-signature',
+      repository: 'stranske/Workflows',
+      prNumber: 3066,
+      boundaryFingerprint: 'a'.repeat(64),
+      nonce: 'b'.repeat(64),
+      sweepRunId: '31683971486',
+      sweepRunAttempt: '1',
+    }),
+    false,
+  );
 });
 
 test('selectDueAuthorityChallenge schedules an automation-owned due challenge', () => {

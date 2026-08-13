@@ -87,11 +87,14 @@ independent challenge; the hourly sweep reads that state and passes its exact
 boundary fingerprint into a current-state recheck while ordinary sweep traffic
 remains non-forced. Every scheduled sweep wakeup bypasses state and completed-
 runner debounce so a zero-event stall is actually re-evaluated; only the due
-fingerprint carries challenge provenance. A replacement boundary is
+fingerprint carries challenge provenance, signed with the keepalive/Workflows
+App private key and bound to the repository, PR, nonce, and exact sweep run.
+Unsigned or forged claims fail closed as ordinary non-forced rechecks. A replacement boundary is
 therefore checked on the next sweep. A green recheck clears
 the challenge; only the sweep-selected redacted boundary fingerprint failing
 again records the exact runner-reported action before replacing
-`agent:needs-attention` with `needs-human`. A generic manual retry cannot confirm it.
+`agent:needs-attention` with `needs-human`. A generic manual retry or another
+`github-actions[bot]` workflow cannot confirm it.
 Confirmed human holds are challenged again after 24 hours by the reviewed-repo
 controller so stale assumptions cannot idle a PR.
 

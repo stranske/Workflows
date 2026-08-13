@@ -1,6 +1,59 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 const STATE_RE = /<!-- keepalive-state:v1 (\{.*?\}) -->/gs;
+
+function authorityClaimPayload({
+  repository,
+  prNumber,
+  boundaryFingerprint,
+  nonce,
+  sweepRunId,
+  sweepRunAttempt,
+} = {}) {
+  const fields = {
+    repository: String(repository || '').toLowerCase(),
+    prNumber: String(prNumber || ''),
+    boundaryFingerprint: String(boundaryFingerprint || '').toLowerCase(),
+    nonce: String(nonce || '').toLowerCase(),
+    sweepRunId: String(sweepRunId || ''),
+    sweepRunAttempt: String(sweepRunAttempt || ''),
+  };
+  if (
+    !/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(fields.repository) ||
+    !/^\d+$/.test(fields.prNumber) ||
+    !/^[0-9a-f]{64}$/.test(fields.boundaryFingerprint) ||
+    !/^[0-9a-f]{64}$/.test(fields.nonce) ||
+    !/^\d+$/.test(fields.sweepRunId) ||
+    !/^\d+$/.test(fields.sweepRunAttempt)
+  ) {
+    return '';
+  }
+  return [
+    'keepalive-authority-claim:v1',
+    `repository=${fields.repository}`,
+    `pr=${fields.prNumber}`,
+    `fingerprint=${fields.boundaryFingerprint}`,
+    `nonce=${fields.nonce}`,
+    `sweep_run_id=${fields.sweepRunId}`,
+    `sweep_run_attempt=${fields.sweepRunAttempt}`,
+  ].join('\n');
+}
+
+function signAuthorityChallengeClaim({ signingKey, ...claim } = {}) {
+  const key = String(signingKey || '');
+  const payload = authorityClaimPayload(claim);
+  if (!key || !payload) return '';
+  return crypto.createHmac('sha256', key).update(payload).digest('hex');
+}
+
+function verifyAuthorityChallengeClaim({ signature, ...options } = {}) {
+  const supplied = String(signature || '').toLowerCase();
+  const expected = signAuthorityChallengeClaim(options);
+  if (!/^[0-9a-f]{64}$/.test(supplied) || !expected) return false;
+  return crypto.timingSafeEqual(Buffer.from(supplied, 'hex'), Buffer.from(expected, 'hex'));
+}
 
 function parseLatestKeepaliveState(comments = []) {
   let latest = null;
@@ -44,6 +97,9 @@ function selectDueAuthorityChallenge({ labels = [], comments = [], now = new Dat
 }
 
 module.exports = {
+  authorityClaimPayload,
   parseLatestKeepaliveState,
   selectDueAuthorityChallenge,
+  signAuthorityChallengeClaim,
+  verifyAuthorityChallengeClaim,
 };

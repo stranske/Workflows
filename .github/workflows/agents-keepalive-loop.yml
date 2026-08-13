@@ -23,6 +23,26 @@ on:
         required: false
         default: ''
         type: string
+      authority_challenge_signature:
+        description: 'HMAC proof that the keepalive sweep selected this authority challenge'
+        required: false
+        default: ''
+        type: string
+      authority_challenge_nonce:
+        description: 'Nonce bound into the signed sweep authority claim'
+        required: false
+        default: ''
+        type: string
+      authority_challenge_run_id:
+        description: 'Sweep workflow run id bound into the signed authority claim'
+        required: false
+        default: ''
+        type: string
+      authority_challenge_run_attempt:
+        description: 'Sweep workflow attempt bound into the signed authority claim'
+        required: false
+        default: ''
+        type: string
       sweep_recheck:
         description: 'Internal hourly sweep wakeup; re-evaluates without forcing Gate bypass'
         required: false
@@ -141,6 +161,12 @@ jobs:
               github.actor == 'github-actions[bot]' &&
               github.event.inputs.sweep_recheck == 'true' &&
               github.event.inputs.authority_challenge_fingerprint || '' }}
+          AUTHORITY_CHALLENGE_SIGNATURE: ${{ github.event.inputs.authority_challenge_signature || '' }}
+          AUTHORITY_CHALLENGE_NONCE: ${{ github.event.inputs.authority_challenge_nonce || '' }}
+          AUTHORITY_CHALLENGE_RUN_ID: ${{ github.event.inputs.authority_challenge_run_id || '' }}
+          AUTHORITY_CHALLENGE_RUN_ATTEMPT: ${{ github.event.inputs.authority_challenge_run_attempt || '' }}
+          AUTHORITY_CHALLENGE_SIGNING_KEY: >-
+            ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
           SWEEP_RECHECK: >-
             ${{ github.event_name == 'workflow_dispatch' &&
               github.actor == 'github-actions[bot]' &&
@@ -1557,6 +1583,16 @@ jobs:
               force_retry: '${{ needs.evaluate.outputs.force_retry }}',
               authority_challenge_fingerprint:
                 process.env.AUTHORITY_CHALLENGE_FINGERPRINT || '',
+              authority_challenge_signature:
+                process.env.AUTHORITY_CHALLENGE_SIGNATURE || '',
+              authority_challenge_nonce:
+                process.env.AUTHORITY_CHALLENGE_NONCE || '',
+              authority_challenge_run_id:
+                process.env.AUTHORITY_CHALLENGE_RUN_ID || '',
+              authority_challenge_run_attempt:
+                process.env.AUTHORITY_CHALLENGE_RUN_ATTEMPT || '',
+              authority_challenge_signing_key:
+                process.env.AUTHORITY_CHALLENGE_SIGNING_KEY || '',
               retry_workflow_id: 'agents-keepalive-loop.yml',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
