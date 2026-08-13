@@ -2976,6 +2976,9 @@ test('authority fingerprints include redacted details beyond the display limit',
   const multiCookieSensitive = buildAuthorityChallengeEvidence({
     agentSummary: 'Denied Cookie: session=alpha; csrf=beta after retry',
   });
+  const commaCookieSensitive = buildAuthorityChallengeEvidence({
+    agentSummary: 'Denied Set-Cookie: session=alpha, csrf=beta; requires contents:write permission',
+  });
   const githubAppSensitive = buildAuthorityChallengeEvidence({
     // Build the scanner-shaped fixture at runtime so the repository's own
     // complete-diff secret scanner does not mistake test data for a live token.
@@ -3165,6 +3168,11 @@ test('authority fingerprints include redacted details beyond the display limit',
   );
   assert.equal(multiCookieSensitive.detail, 'Denied Cookie=[redacted] after retry');
   assert.doesNotMatch(multiCookieSensitive.humanAction, /alpha|beta/);
+  assert.equal(
+    commaCookieSensitive.detail,
+    'Denied Set-Cookie=[redacted]; requires contents:write permission',
+  );
+  assert.doesNotMatch(commaCookieSensitive.humanAction, /alpha|beta/);
   assert.doesNotMatch(githubAppSensitive.detail, /ghs_/);
   assert.match(githubAppSensitive.detail, /\[redacted-token\]/);
   assert.equal(
