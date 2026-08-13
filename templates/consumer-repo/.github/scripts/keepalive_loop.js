@@ -139,8 +139,32 @@ function buildAuthorityChallengeEvidence({
       /\b(set-cookie|cookie)\s*[:=][\s\S]*/gi,
       '$1=[redacted-cookie]',
     )
+    // Fail closed for lower/Pascal camelCase fields whose final semantic
+    // component is credential-shaped (for example secretAccessKey or
+    // privateKeyData). The capitalized component boundary avoids treating
+    // ordinary lowercase words that merely end in "key" as secret fields.
     .replace(
-      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passwd|pwd|pass|passcode|passphrase|pin|otp|totp|mfa[_-]?(?:code|token)|verification[_-]?code|session(?:[_-]?(?:id|key|token))?|signature|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
+      /\b([A-Za-z][A-Za-z0-9]*(?:Credential|Credentials|Secret|Password|Passwd|Pwd|Pass|Passcode|Passphrase|Pin|Otp|Totp|MfaCode|MfaToken|VerificationCode|SessionId|SessionKey|SessionToken|Signature|Token|ApiKey|ApiToken|ClientSecret|AccessToken|RefreshToken|IdToken|OauthToken|AuthToken|AccessKey|AccessKeyId|PrivateKey|Key)(?:Id|Data|Value|Material)?)\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/g,
+      (match, name, rawValue) => {
+        const quote = rawValue.at(0);
+        const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
+        const value = quoted ? rawValue.slice(1, -1) : rawValue;
+        const trailing = quoted ? '' : value.match(/[.,;:]+$/)?.[0] || '';
+        return `${name}=[redacted]${trailing}`;
+      },
+    )
+    .replace(
+      /\b([A-Za-z][A-Za-z0-9]*(?:Credential|Credentials|Secret|Password|Passwd|Pwd|Pass|Passcode|Passphrase|Pin|Otp|Totp|MfaCode|MfaToken|VerificationCode|SessionId|SessionKey|SessionToken|Signature|Token|ApiKey|ApiToken|ClientSecret|AccessToken|RefreshToken|IdToken|OauthToken|AuthToken|AccessKey|AccessKeyId|PrivateKey|Key)(?:Id|Data|Value|Material)?)(\s+)((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/g,
+      (match, name, separator, rawValue) => {
+        const quote = rawValue.at(0);
+        const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
+        const unquotedValue = quoted ? rawValue.slice(1, -1) : rawValue;
+        const trailing = quoted ? '' : unquotedValue.match(/[.,;:]+$/)?.[0] || '';
+        return `${name}=[redacted]${trailing}`;
+      },
+    )
+    .replace(
+      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passwd|pwd|pass|passcode|passphrase|pin|otp|totp|mfa[_-]?(?:code|token)|verification[_-]?code|session(?:[_-]?(?:id|key|token))?|signature|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key)(?:[_-]?(?:id|data|value|material))?)["']?\s*[:=]\s*((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|[^\s"',}\]]+)/gi,
       (match, name, rawValue, offset, source) => {
         const quote = rawValue.at(0);
         const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
@@ -161,7 +185,7 @@ function buildAuthorityChallengeEvidence({
       'Bearer [redacted-token]',
     )
     .replace(
-      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passwd|pwd|pass|passcode|passphrase|pin|otp|totp|mfa[_-]?(?:code|token)|verification[_-]?code|session(?:[_-]?(?:id|key|token))?|signature|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key))(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
+      /\b((?:[A-Za-z][A-Za-z0-9_.-]*[_-])?(?:credentials?|secret|password|passwd|pwd|pass|passcode|passphrase|pin|otp|totp|mfa[_-]?(?:code|token)|verification[_-]?code|session(?:[_-]?(?:id|key|token))?|signature|token|api[_-]?(?:key|token)|client[_-]?secret|(?:access|refresh|id|oauth|auth)[_-]?token|access[_-]?key(?:[_-]?id)?|private[_-]?key)(?:[_-]?(?:id|data|value|material))?)(\s*(?:[:=]\s*|\s+))((?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\S+)/gi,
       (match, kind, separator, rawValue, offset, source) => {
         const quote = rawValue.at(0);
         const quoted = (quote === '"' || quote === "'") && rawValue.at(-1) === quote;
@@ -240,7 +264,7 @@ function buildAuthorityChallengeEvidence({
   const routedAgent = (normalise(agentType) || _defaultAgent).toLowerCase();
   const challengedOperation = (normalise(operation) || 'run').toLowerCase();
   const actionable =
-    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credential|key))?\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
+    /\b(?:[Mm]issing|[Rr]equired|[Uu]nset|[Uu]navailable|[Uu]ndefined)\b(?:\s+(?:token|secret|password|credentials?|key))?\s*[:=]?\s*\b[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
     /\b[Mm]issing\s+[A-Za-z][A-Za-z0-9_.-]*\s+auth\s*:\s*set\s+(?:the\s+)?[A-Z][A-Z0-9_]{2,}\b/.test(redacted) ||
     Boolean(canonicalPermissionTarget);
   return {
