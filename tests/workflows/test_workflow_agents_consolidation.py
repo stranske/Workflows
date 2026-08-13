@@ -1380,3 +1380,9 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
         assert "needs.preflight.outputs.failure_summary" in text
         assert 'missing_msg="Missing Codex auth: set CODEX_AUTH_JSON"' in text
         assert 'echo "failure_summary=$missing_msg" >> "$GITHUB_OUTPUT"' in text
+
+    root_text = workflow_paths[0].read_text(encoding="utf-8")
+    assert "HAS_CURSOR_AUTH: ${{ secrets.CURSOR_API_KEY != '' }}" in root_text
+    assert "HAS_GEMINI_AUTH: ${{ secrets.GEMINI_API_KEY != '' }}" in root_text
+    assert 'missing_msg="Missing Cursor auth: set the CURSOR_API_KEY secret"' in root_text
+    assert 'missing_msg="Missing Gemini auth: set the GEMINI_API_KEY secret"' in root_text

@@ -399,6 +399,8 @@ jobs:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
           HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           HAS_CLAUDE_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          HAS_CURSOR_AUTH: ${{ secrets.CURSOR_API_KEY != '' }}
+          HAS_GEMINI_AUTH: ${{ secrets.GEMINI_API_KEY != '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -641,6 +643,8 @@ jobs:
           echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
           echo "CLAUDE_AUTH_JSON present: $HAS_CLAUDE_AUTH"
           echo "CLAUDE_CODE_OAUTH_TOKEN present: $HAS_CLAUDE_OAUTH"
+          echo "CURSOR_API_KEY present: $HAS_CURSOR_AUTH"
+          echo "GEMINI_API_KEY present: $HAS_GEMINI_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
           agent_auth_ok=false
@@ -655,10 +659,22 @@ jobs:
                 agent_auth_ok=true
               fi
               ;;
+            cursor)
+              if [ "$HAS_CURSOR_AUTH" = "true" ]; then
+                agent_auth_ok=true
+              fi
+              ;;
+            gemini)
+              if [ "$HAS_GEMINI_AUTH" = "true" ]; then
+                agent_auth_ok=true
+              fi
+              ;;
             *)
               if [ "$HAS_CODEX_AUTH" = "true" ] || \
                 [ "$HAS_CLAUDE_AUTH" = "true" ] || \
-                [ "$HAS_CLAUDE_OAUTH" = "true" ]; then
+                [ "$HAS_CLAUDE_OAUTH" = "true" ] || \
+                [ "$HAS_CURSOR_AUTH" = "true" ] || \
+                [ "$HAS_GEMINI_AUTH" = "true" ]; then
                 agent_auth_ok=true
               fi
               ;;
@@ -674,6 +690,12 @@ jobs:
                 ;;
               codex)
                 missing_msg="Missing Codex auth: set CODEX_AUTH_JSON"
+                ;;
+              cursor)
+                missing_msg="Missing Cursor auth: set the CURSOR_API_KEY secret"
+                ;;
+              gemini)
+                missing_msg="Missing Gemini auth: set the GEMINI_API_KEY secret"
                 ;;
               *)
                 missing_msg="Missing credentials for agent '${AGENT_TYPE}'. Configure "
