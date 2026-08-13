@@ -2792,11 +2792,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // An iteration is productive if it has a reasonable productivity score
     const isProductive = productivityScore >= 20 && !hasRecentFailures;
 
-    // max_iterations is a hard per-PR budget. Once reached, stop dispatching
-    // and require a human to raise the budget or remove the blocker.
+    // max_iterations is the ordinary per-PR budget. Once reached, stop the
+    // current strategy; a single forced recovery lease may cross it once.
     const hasMaxIterations = maxIterations > 0;
     const reachedMaxIterations = hasMaxIterations && iteration >= maxIterations;
-    const shouldStopForMaxIterations = reachedMaxIterations;
+    // A force retry is a single, explicit recovery lease. It may cross the
+    // persisted round budget once; the summary step prevents a forced run from
+    // recursively dispatching another forced run.
+    const shouldStopForMaxIterations = reachedMaxIterations && !forceRetry;
 
     // Build task appendix for the agent prompt (after state load for reconciliation info)
     const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
@@ -2825,7 +2828,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // This prevents premature stop when the verifier identifies unmet criteria.
     const needsVerification = allComplete && !verificationDone && !verificationAttempted;
     const needsVerificationRetry = allComplete && verificationFailed
-      && verificationAttemptCount < maxVerificationAttempts;
+      && (verificationAttemptCount < maxVerificationAttempts || forceRetry);
 
     // Only treat GitHub API conflicts as definitive (mergeable_state === 'dirty')
     // CI-log based conflict detection has too many false positives from commit messages
@@ -4244,9 +4247,14 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       authorityEvidence.fingerprint,
     ].filter(Boolean).join('|');
     const priorAttentionKey = normalise(previousAttention.key);
+    const previousAttentionHasLegacyOwnership =
+      Object.keys(previousAttention).length > 0 &&
+      !normalise(previousAttention.owner) &&
+      !normalise(previousAttention.disposition);
     const previousAttentionAutomationOwned =
-      previousAttention.owner === 'automation' &&
-      ['automation-retry', 'challenge-due'].includes(previousAttention.disposition);
+      (previousAttention.owner === 'automation' &&
+        ['automation-retry', 'challenge-due'].includes(previousAttention.disposition)) ||
+      previousAttentionHasLegacyOwnership;
     const challengeDueAt = escalationDisposition === 'challenge-due'
       ? new Date().toISOString()
       : null;
@@ -4321,7 +4329,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           core,
           automationOwned: previousAttentionAutomationOwned,
         });
-        if (previousAuthorityChallenge && runResult === 'success') {
+        if (previousAttentionAutomationOwned && cleanup.complete) {
+          delete newState.attention;
+        } else if (previousAuthorityChallenge && runResult === 'success') {
           if (cleanup.complete) {
             delete newState.attention;
           } else {
@@ -4455,7 +4465,10 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         } catch (error) {
           if (core) core.warning(`Failed to add ${escalationDisposition} routing label: ${error.message}`);
         }
-        if (escalationDisposition === 'automation-retry' && !stop) {
+        // Every automation-owned terminal gets one immediate recovery lease.
+        // A forced recovery never recursively dispatches itself; the next
+        // ordinary sweep may reassess the exact current state.
+        if (escalationDisposition === 'automation-retry' && !isForceRetry) {
           try {
             const retryWorkflowId = normalise(
               inputs.retry_workflow_id ?? inputs.retryWorkflowId,
