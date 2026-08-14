@@ -242,7 +242,9 @@ function compileDeliveryContract(source, filename) {
 }
 
 function readContractAtRef(ref, contractPath) {
-  return runGit(['show', `${ref}:${contractPath}`]);
+  // Keep the object bytes intact: the bootstrap allowlist digest is calculated
+  // from the canonical tracked file, including its trailing newline.
+  return readGit(['show', `${ref}:${contractPath}`]);
 }
 
 function isAddOnlyContractDiff(diffText, contractPath) {
@@ -320,12 +322,16 @@ function loadDeliveryContract(
   return require(contractPath);
 }
 
-function runGit(args) {
+function readGit(args) {
   return execFileSync('git', args, {
     cwd: process.env.GITHUB_WORKSPACE || process.cwd(),
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-  }).trim();
+  });
+}
+
+function runGit(args) {
+  return readGit(args).trim();
 }
 
 function tryGit(args) {

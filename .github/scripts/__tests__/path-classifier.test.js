@@ -202,6 +202,7 @@ test('stable delivery bootstraps an add-only contract when the trusted base pred
     require('node:path').join(__dirname, '..', 'sync_pr_lease_contract.js'),
     'utf8',
   );
+  assert.equal(contractSource.endsWith('\n'), true);
   const observed = {};
   const contract = loadDeliveryContract(deliveryContext(deliveryRecord), {
     readTrustedContract: () => {
