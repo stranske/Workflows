@@ -1509,6 +1509,9 @@ async function run({ github, context, core }) {
         canaryEvidence.push({
           repo: `${owner}/${repo}`,
           plan_id: metadata.plan_id,
+          plan_scope: metadata.plan_scope || 'full',
+          scope_base_sha: metadata.scope_base_sha || '',
+          source_commit: metadata.source_commit || metadata.source_sha || '',
           pr: pr.number,
           head_sha: pr.head.sha,
           evidence_source: recoveredMergedCandidate

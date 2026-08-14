@@ -611,10 +611,48 @@ function validateCanaryEvidence(evidence = [], expectedRepos = []) {
   if (planIds.size !== 1) {
     errors.push('missing_or_mixed_canary_plan');
   }
+  const planScopes = new Set(
+    [...rowsByRepo.values()].map((row) => String(row?.plan_scope || 'full').trim()),
+  );
+  if (planScopes.size !== 1) {
+    errors.push('missing_or_mixed_canary_plan_scope');
+  }
+  const planScope = planScopes.size === 1 ? [...planScopes][0] : '';
+  if (planScope && !['full', 'source-delta'].includes(planScope)) {
+    errors.push('unsupported_canary_plan_scope');
+  }
+  let scopeBaseSha = '';
+  let sourceCommit = '';
+  if (planScope === 'source-delta') {
+    const bases = new Set(
+      [...rowsByRepo.values()]
+        .map((row) => String(row?.scope_base_sha || '').trim())
+        .filter(Boolean),
+    );
+    const sourceCommits = new Set(
+      [...rowsByRepo.values()]
+        .map((row) => String(row?.source_commit || '').trim())
+        .filter(Boolean),
+    );
+    if (bases.size !== 1) errors.push('missing_or_mixed_canary_scope_base');
+    if (sourceCommits.size !== 1) errors.push('missing_or_mixed_canary_source_commit');
+    scopeBaseSha = bases.size === 1 ? [...bases][0] : '';
+    sourceCommit = sourceCommits.size === 1 ? [...sourceCommits][0] : '';
+    const shaPattern = /^[0-9a-f]{40,64}$/i;
+    if (scopeBaseSha && !shaPattern.test(scopeBaseSha)) {
+      errors.push('invalid_canary_scope_base');
+    }
+    if (sourceCommit && !shaPattern.test(sourceCommit)) {
+      errors.push('invalid_canary_source_commit');
+    }
+  }
   return {
     ok: errors.length === 0,
     errors,
     plan_id: planIds.size === 1 ? [...planIds][0] : '',
+    plan_scope: planScope,
+    scope_base_sha: scopeBaseSha,
+    source_commit: sourceCommit,
   };
 }
 

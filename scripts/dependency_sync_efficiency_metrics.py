@@ -15,6 +15,7 @@ import json
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 LANES = ("dependency-bot", "sync-generated", "dev-tool-sync", "traditional")
@@ -23,7 +24,11 @@ THRESHOLDS = {
     "stale_or_replacement_rate": 0.05,
     "avoidable_replacements_per_repo_batch": 0,
     "agent_exception_episodes": 5,
+    "stable_force_pushes_per_pr": 1.0,
+    "stable_ready_transitions_per_pr": 1.0,
+    "stable_median_review_settlement_minutes": 30.0,
 }
+STABLE_SYNC_BRANCHES = {"sync/workflows-candidate", "sync/workflows-delivery"}
 
 
 def parse_time(value: str | None) -> datetime | None:
@@ -119,6 +124,23 @@ def in_window(value: str | None, start: datetime, end: datetime) -> bool:
     return bool(stamp and start <= stamp < end)
 
 
+def elapsed_minutes(start: str | None, end: str | None) -> float | None:
+    start_at = parse_time(start)
+    end_at = parse_time(end)
+    if not start_at or not end_at or end_at < start_at:
+        return None
+    return round((end_at - start_at).total_seconds() / 60, 1)
+
+
+def stable_sync_key(pr: dict[str, Any]) -> str | None:
+    if lane_for(pr) != "sync-generated":
+        return None
+    branch = str(first(pr, "head_ref", "headRefName", "branch") or "").lower()
+    if branch not in STABLE_SYNC_BRANCHES:
+        return None
+    return f"{first(pr, 'repo', 'repository', 'repository_name')}#{pr.get('number', '?')}"
+
+
 def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
     pulls = list(snapshot.get("pulls", []))
     window_start, window_end = reporting_window(snapshot, now)
@@ -131,6 +153,7 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
     source_to_prs: dict[str, set[str]] = defaultdict(set)
     exception_fingerprints: set[str] = set()
     generated_prs: list[dict[str, Any]] = []
+    stable_sync_prs: dict[str, dict[str, Any]] = {}
     timestamped_snapshot = False
 
     for pr in pulls:
@@ -142,6 +165,9 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         if not generated(lane):
             continue
         generated_prs.append(pr)
+        stable_key = stable_sync_key(pr)
+        if stable_key:
+            stable_sync_prs[stable_key] = pr
         created_at = first(pr, "created_at", "createdAt")
         merged_at = first(pr, "merged_at", "mergedAt")
         closed_at = first(pr, "closed_at", "closedAt")
@@ -222,6 +248,56 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         repo = str(first(pr, "repo", "repository", "repository_name") or "unknown")
         batch = str(pr["_source"])
         avoidable_replacements[f"{repo}/{batch}"] += 1
+
+    stable_event_counts: dict[str, Counter[str]] = {key: Counter() for key in stable_sync_prs}
+    for event in snapshot.get("timeline_events", []):
+        key = f"{first(event, 'repo', 'repository', 'repository_name')}#{event.get('number', '?')}"
+        if key not in stable_event_counts:
+            continue
+        event_at = first(event, "created_at", "submitted_at", "createdAt", "submittedAt")
+        if event_at and not in_window(event_at, window_start, window_end):
+            continue
+        event_name = str(first(event, "event", "type") or "unknown").lower()
+        stable_event_counts[key][event_name] += 1
+
+    stable_churn: dict[str, dict[str, Any]] = {}
+    review_settlement_minutes: list[float] = []
+    head_to_seal_minutes: list[float] = []
+    for key, pr in sorted(stable_sync_prs.items()):
+        events = stable_event_counts[key]
+        delivery = pr.get("delivery_record") if isinstance(pr.get("delivery_record"), dict) else {}
+        review_minutes = elapsed_minutes(
+            delivery.get("review_started_at"), delivery.get("sealed_at")
+        )
+        seal_minutes = elapsed_minutes(delivery.get("head_observed_at"), delivery.get("sealed_at"))
+        if review_minutes is not None:
+            review_settlement_minutes.append(review_minutes)
+        if seal_minutes is not None:
+            head_to_seal_minutes.append(seal_minutes)
+        stable_churn[key] = {
+            "force_pushes": events["head_ref_force_pushed"],
+            "ready_transitions": events["ready_for_review"],
+            "draft_transitions": events["converted_to_draft"],
+            "review_requests": events["review_requested"],
+            "review_submissions": events["reviewed"],
+            "delivery_state": delivery.get("delivery_state"),
+            "review_settlement_minutes": review_minutes,
+            "head_to_seal_minutes": seal_minutes,
+        }
+
+    stable_pr_count = len(stable_sync_prs)
+    stable_force_pushes = sum(item["force_pushes"] for item in stable_churn.values())
+    stable_ready_transitions = sum(item["ready_transitions"] for item in stable_churn.values())
+    force_pushes_per_pr = stable_force_pushes / stable_pr_count if stable_pr_count else 0.0
+    ready_transitions_per_pr = (
+        stable_ready_transitions / stable_pr_count if stable_pr_count else 0.0
+    )
+    median_review_settlement = (
+        round(float(median(review_settlement_minutes)), 1) if review_settlement_minutes else None
+    )
+    median_head_to_seal = (
+        round(float(median(head_to_seal_minutes)), 1) if head_to_seal_minutes else None
+    )
     period = dict(snapshot.get("period") or {})
     # Persist concrete bounds only when the collector supplied them so fingerprints
     # stay stable across generation timestamps for otherwise identical evidence.
@@ -246,6 +322,23 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         "agent_exception_fingerprints": sorted(exception_fingerprints),
         "agent_exception_episodes": len(exception_fingerprints),
         "collab_admin_excluded": len(collab_admin),
+        "stable_sync_prs_observed": stable_pr_count,
+        "stable_pr_force_push_events": stable_force_pushes,
+        "stable_pr_ready_for_review_events": stable_ready_transitions,
+        "stable_pr_converted_to_draft_events": sum(
+            item["draft_transitions"] for item in stable_churn.values()
+        ),
+        "stable_pr_review_requested_events": sum(
+            item["review_requests"] for item in stable_churn.values()
+        ),
+        "stable_pr_review_submitted_events": sum(
+            item["review_submissions"] for item in stable_churn.values()
+        ),
+        "stable_force_pushes_per_pr": force_pushes_per_pr,
+        "stable_ready_transitions_per_pr": ready_transitions_per_pr,
+        "stable_median_review_settlement_minutes": median_review_settlement,
+        "stable_median_head_to_seal_minutes": median_head_to_seal,
+        "stable_pr_churn": stable_churn,
     }
     breaches = {
         "generated_prs": generated_total > THRESHOLDS["generated_prs"],
@@ -256,6 +349,12 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         ),
         "agent_exception_episodes": len(exception_fingerprints)
         > THRESHOLDS["agent_exception_episodes"],
+        "stable_force_pushes_per_pr": force_pushes_per_pr
+        > THRESHOLDS["stable_force_pushes_per_pr"],
+        "stable_ready_transitions_per_pr": ready_transitions_per_pr
+        > THRESHOLDS["stable_ready_transitions_per_pr"],
+        "stable_median_review_settlement_minutes": median_review_settlement is not None
+        and median_review_settlement > THRESHOLDS["stable_median_review_settlement_minutes"],
     }
     collection = snapshot.get("collection", {})
     return {
@@ -263,6 +362,8 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         "generated_at": now.isoformat().replace("+00:00", "Z"),
         "collection": {
             "history_complete": bool(collection.get("history_complete", False)),
+            "window_complete": bool(collection.get("window_complete", False)),
+            "failures": list(collection.get("failures", [])),
             "limitations": list(collection.get("limitations", [])),
         },
         "metrics": metrics,
@@ -310,6 +411,30 @@ def markdown(report: dict[str, Any]) -> str:
     period_line = ""
     if period.get("start") and period.get("end"):
         period_line = f"Reporting window: **{period['start']}** → **{period['end']}**"
+    stable_rows = [
+        "| Stable PR | Force pushes | Ready | Draft | Reviews | Review to seal | Head to seal |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for key, item in metrics["stable_pr_churn"].items():
+        review_to_seal = (
+            f"{item['review_settlement_minutes']:.1f}m"
+            if item["review_settlement_minutes"] is not None
+            else "n/a"
+        )
+        head_to_seal = (
+            f"{item['head_to_seal_minutes']:.1f}m"
+            if item["head_to_seal_minutes"] is not None
+            else "n/a"
+        )
+        stable_rows.append(
+            f"| {key} | {item['force_pushes']} | {item['ready_transitions']} | "
+            f"{item['draft_transitions']} | {item['review_submissions']} | "
+            f"{review_to_seal} | {head_to_seal} |"
+        )
+    if not metrics["stable_pr_churn"]:
+        stable_rows.append("| No stable sync PRs observed | 0 | 0 | 0 | 0 | n/a | n/a |")
+    median_review = metrics["stable_median_review_settlement_minutes"]
+    median_seal = metrics["stable_median_head_to_seal_minutes"]
     return "\n".join(
         [
             "# Dependency/sync maintenance efficiency",
@@ -324,9 +449,28 @@ def markdown(report: dict[str, Any]) -> str:
             f"Agent-exception episodes: **{metrics['agent_exception_episodes']}** (target ≤ 5)",
             f"Collab-Admin excluded: **{metrics['collab_admin_excluded']}**",
             "",
+            "## Stable delivery convergence",
+            "",
+            *stable_rows,
+            "",
+            f"Stable PRs observed: **{metrics['stable_sync_prs_observed']}**",
+            f"Force pushes per stable PR: **{metrics['stable_force_pushes_per_pr']:.2f}** "
+            f"(target ≤ {THRESHOLDS['stable_force_pushes_per_pr']:.0f})",
+            f"Ready transitions per stable PR: **{metrics['stable_ready_transitions_per_pr']:.2f}** "
+            f"(target ≤ {THRESHOLDS['stable_ready_transitions_per_pr']:.0f})",
+            "Median review-to-seal time: **{}** (target ≤ {:.0f}m)".format(
+                f"{median_review:.1f}m" if median_review is not None else "n/a",
+                THRESHOLDS["stable_median_review_settlement_minutes"],
+            ),
+            "Median head-to-seal time: **{}**".format(
+                f"{median_seal:.1f}m" if median_seal is not None else "n/a"
+            ),
+            "",
             "## Collection limits",
             "",
             f"Complete GitHub history: **{str(report['collection']['history_complete']).lower()}**.",
+            f"Complete reporting window: **{str(report['collection']['window_complete']).lower()}**.",
+            *[f"- Collection failure: {item}" for item in report["collection"]["failures"]],
             *[f"- {item}" for item in limitations],
             "",
             f"Evidence fingerprint: `{fingerprint(report)}`",

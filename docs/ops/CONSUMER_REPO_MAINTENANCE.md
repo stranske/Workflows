@@ -288,6 +288,35 @@ review profile before promotion. The selection artifact records the exact
 compiled `plan_id`, desired hash, and prospective affected paths for every
 registered repository before any consumer write.
 
+Maint 68 supports two immutable plan scopes. `full` compiles every manifest
+entry and is the scheduled drift-reconciliation default. `source-delta`
+compiles the same typed manifest, then selects only entries whose resolved
+source changed in an exact Workflows commit range. This lets a dependency-only
+source repair reach consumers without absorbing unrelated, unpromoted workflow
+drift. Directory entries match changed descendants; manifest changes fail
+closed and require `full`; historical removal declarations are never replayed
+by a source delta. The uploaded `sync-plan-scope.json` records both plan IDs,
+the exact base/head, changed paths, selected targets, and ignored paths.
+
+Start a bounded source-delta candidate with the source repair's exact first
+parent and merged head:
+
+```bash
+gh workflow run maint-68-sync-consumer-repos.yml \
+  --repo stranske/Workflows \
+  --ref main \
+  -f phase=canary \
+  -f delivery_scope=source-delta \
+  -f scope_base_sha=<repair-first-parent> \
+  -f scope_head_sha=<repair-merge-commit>
+```
+
+Maint 71 writes that same scope and immutable range into every canary evidence
+row. `phase=promote` with `delivery_scope=auto` recovers the exact range from
+the evidence, checks out that historical source head, and recompiles the same
+scoped plan. A later commit on `main` therefore cannot silently join an
+authorized delivery. Do not substitute a moving branch name for either SHA.
+
 An explicit `repos` input may narrow a canary run to a subset of those configured
 canaries, but it cannot expand a canary run into non-canary repositories. The
 selector fails closed with `canary_selection_contains_non_canary` if an operator

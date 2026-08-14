@@ -331,6 +331,9 @@ test('validateCanaryEvidence fails closed on missing, mixed, red, or reviewed ca
     ok: true,
     errors: [],
     plan_id: 'plan-1',
+    plan_scope: 'full',
+    scope_base_sha: '',
+    source_commit: '',
   });
 
   const invalid = validateCanaryEvidence([
@@ -341,6 +344,42 @@ test('validateCanaryEvidence fails closed on missing, mixed, red, or reviewed ca
   assert.ok(invalid.errors.includes('required_checks_not_green:stranske/A'));
   assert.ok(invalid.errors.includes('active_review_debt:stranske/B'));
   assert.ok(invalid.errors.includes('missing_or_mixed_canary_plan'));
+});
+
+test('validateCanaryEvidence preserves one immutable source-delta range', () => {
+  const expected = ['stranske/A', 'stranske/B'];
+  const base = '1'.repeat(40);
+  const head = '2'.repeat(40);
+  const valid = expected.map((repo) => ({
+    repo,
+    plan_id: 'plan-1',
+    plan_scope: 'source-delta',
+    scope_base_sha: base,
+    source_commit: head,
+    required_check_state: 'success',
+    active_review_thread_count: 0,
+  }));
+
+  assert.deepEqual(validateCanaryEvidence(valid, expected), {
+    ok: true,
+    errors: [],
+    plan_id: 'plan-1',
+    plan_scope: 'source-delta',
+    scope_base_sha: base,
+    source_commit: head,
+  });
+  const mixed = validateCanaryEvidence(
+    [valid[0], { ...valid[1], source_commit: '3'.repeat(40) }],
+    expected,
+  );
+  assert.equal(mixed.ok, false);
+  assert.ok(mixed.errors.includes('missing_or_mixed_canary_source_commit'));
+  const malformed = validateCanaryEvidence(
+    valid.map((row) => ({ ...row, scope_base_sha: 'not-a-commit' })),
+    expected,
+  );
+  assert.equal(malformed.ok, false);
+  assert.ok(malformed.errors.includes('invalid_canary_scope_base'));
 });
 
 test('parseBooleanInput preserves explicit false values', () => {

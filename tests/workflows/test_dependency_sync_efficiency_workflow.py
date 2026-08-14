@@ -20,9 +20,15 @@ def test_efficiency_workflow_collects_fixture_backed_report_and_dedupes_tracker_
     assert "dependency-sync-efficiency.json" in text
     assert "dependency-sync-efficiency.md" in text
     assert "history_complete" in text
+    assert "window_complete" in text
     assert "trailing-7-day-window" in text
     assert "createTokenAwareRetry" in text
     assert "workflows-consumer-sync:v1" in text
+    assert "sync-pr-delivery-record:v1" in text
+    assert "listEventsForTimeline" in text
+    assert "head_ref_force_pushed" in text
+    assert "ready_for_review" in text
+    assert "created: `>=${windowStart.toISOString()}`" in text
     assert "dependency-sync-efficiency:v1 fingerprint=" in text
     assert 'metrics_output="$(python scripts/dependency_sync_efficiency_metrics.py' in text
     assert "awk -F= '/^fingerprint=/{print $2}'" in text

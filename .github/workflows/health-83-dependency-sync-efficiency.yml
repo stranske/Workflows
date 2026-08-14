@@ -39,7 +39,7 @@ jobs:
           script: |
             const fs = require('fs');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { github: api, withRetry } = await createTokenAwareRetry({
+            const { github: api, paginateWithRetry, withRetry } = await createTokenAwareRetry({
               github, core, env: process.env,
               task: 'health-83-dependency-sync-efficiency',
               capabilities: ['actions:read', 'pull-requests:read'],
@@ -58,6 +58,15 @@ jobs:
                 return fallback;
               }
             };
+            const deliveryFromBody = (body) => {
+              const marker = String(body || '').match(/<!--\s*sync-pr-delivery-record:v1\s+({.*?})\s*-->/s);
+              if (!marker) return null;
+              try {
+                return JSON.parse(marker[1]);
+              } catch {
+                return null;
+              }
+            };
             const registered = String(process.env.REGISTERED_REPOS || '')
               .split(',')
               .map((repo) => repo.trim())
@@ -70,18 +79,39 @@ jobs:
             ])];
             const pulls = [];
             const workflow_runs = [];
+            const timeline_events = [];
+            const collectionFailures = [];
             for (const repo of repos) {
               const [owner, name] = repo.includes('/') ? repo.split('/') : [context.repo.owner, repo];
-              const prPage = await withRetry((client) => client.rest.pulls.list({owner, repo: name, state: 'all', sort: 'updated', direction: 'desc', per_page: 100}));
-              for (const pr of prPage.data) {
-                if (!inWindow(pr.created_at) && !inWindow(pr.updated_at) && !inWindow(pr.merged_at) && !inWindow(pr.closed_at)) continue;
-                const source_commit = sourceFromBody(pr.body, pr.head?.sha);
-                sourceByPr.set(`${owner}/${name}#${pr.number}`, source_commit);
-                pulls.push({repo: `${owner}/${name}`, number: pr.number, title: pr.title, body: pr.body, labels: pr.labels, state: pr.state, author: pr.user?.login, head_ref: pr.head?.ref, head_sha: pr.head?.sha, source_commit, created_at: pr.created_at, updated_at: pr.updated_at, merged_at: pr.merged_at, closed_at: pr.closed_at});
+              for (let page = 1; ; page += 1) {
+                const prPage = await withRetry((client) => client.rest.pulls.list({owner, repo: name, state: 'all', sort: 'updated', direction: 'desc', per_page: 100, page}));
+                for (const pr of prPage.data) {
+                  if (!inWindow(pr.created_at) && !inWindow(pr.updated_at) && !inWindow(pr.merged_at) && !inWindow(pr.closed_at)) continue;
+                  const source_commit = sourceFromBody(pr.body, pr.head?.sha);
+                  const delivery_record = deliveryFromBody(pr.body);
+                  sourceByPr.set(`${owner}/${name}#${pr.number}`, source_commit);
+                  pulls.push({repo: `${owner}/${name}`, number: pr.number, title: pr.title, body: pr.body, labels: pr.labels, state: pr.state, author: pr.user?.login, head_ref: pr.head?.ref, head_sha: pr.head?.sha, source_commit, delivery_record, created_at: pr.created_at, updated_at: pr.updated_at, merged_at: pr.merged_at, closed_at: pr.closed_at});
+
+                  if (name !== 'Collab-Admin' && ['sync/workflows-candidate', 'sync/workflows-delivery'].includes(pr.head?.ref)) {
+                    try {
+                      const events = await paginateWithRetry(api.rest.issues.listEventsForTimeline, {owner, repo: name, issue_number: pr.number, per_page: 100});
+                      for (const event of events) {
+                        const eventName = String(event.event || '');
+                        if (!['head_ref_force_pushed', 'ready_for_review', 'converted_to_draft', 'review_requested', 'reviewed'].includes(eventName)) continue;
+                        const eventAt = event.submitted_at || event.created_at;
+                        if (!inWindow(eventAt)) continue;
+                        timeline_events.push({repo: `${owner}/${name}`, number: pr.number, event: eventName, created_at: event.created_at, submitted_at: event.submitted_at, actor: event.actor?.login || event.user?.login, review_state: event.state || null, before_commit_id: event.before_commit_id || null, after_commit_id: event.after_commit_id || event.commit_id || null});
+                      }
+                    } catch (error) {
+                      collectionFailures.push(`${owner}/${name}#${pr.number}: timeline: ${error.message}`);
+                    }
+                  }
+                }
+                const oldestUpdated = prPage.data.at(-1)?.updated_at;
+                if (prPage.data.length < 100 || !oldestUpdated || new Date(oldestUpdated) < windowStart) break;
               }
-              const runPage = await withRetry((client) => client.rest.actions.listWorkflowRunsForRepo({owner, repo: name, per_page: 100}));
-              for (const run of runPage.data.workflow_runs) {
-                if (!inWindow(run.created_at)) continue;
+              const runs = await paginateWithRetry(api.rest.actions.listWorkflowRunsForRepo, {owner, repo: name, per_page: 100, created: `>=${windowStart.toISOString()}`});
+              for (const run of runs) {
                 const linkedPr = run.pull_requests?.[0]?.number;
                 const source_commit = linkedPr ? sourceByPr.get(`${owner}/${name}#${linkedPr}`) : null;
                 workflow_runs.push({repo: `${owner}/${name}`, source_commit, status: run.status, conclusion: run.conclusion, created_at: run.created_at});
@@ -89,8 +119,8 @@ jobs:
             }
             fs.writeFileSync('dependency-sync-efficiency-input.json', JSON.stringify({
               period: {kind: 'trailing-7-day-window', start: windowStart.toISOString(), end: windowEnd.toISOString()},
-              collection: {history_complete: false, limitations: ['Each repository is bounded to its latest 100 updated PRs and workflow runs before applying the explicit trailing seven-day reporting window; historical pagination is intentionally not claimed.']},
-              pulls, workflow_runs,
+              collection: {history_complete: false, window_complete: collectionFailures.length === 0, failures: collectionFailures, limitations: ['Pull requests and workflow runs are completely paginated for the explicit trailing seven-day reporting window; all-time GitHub history is intentionally not collected.', 'Stable-delivery timeline events are completely paginated for each stable PR observed in the reporting window.']},
+              pulls, workflow_runs, timeline_events,
             }, null, 2));
 
       - name: Calculate advisory SLOs

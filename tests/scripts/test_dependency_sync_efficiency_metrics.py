@@ -238,3 +238,108 @@ def test_markdown_lists_avoidable_replacement_breach_keys():
     assert "Avoidable replacement repository/batches: **1**" in text
     assert "Avoidable replacement: stranske/App/batch-1 (1)" in text
     assert "Stale/replacement rate:" in text
+
+
+def test_stable_delivery_convergence_counts_timeline_and_lifecycle_evidence():
+    report = metrics.calculate(
+        {
+            "period": {
+                "kind": "trailing-7-day-window",
+                "start": "2026-01-03T00:00:00Z",
+                "end": "2026-01-10T00:00:00Z",
+            },
+            "collection": {"window_complete": True},
+            "pulls": [
+                {
+                    "repo": "stranske/App",
+                    "number": 10,
+                    "head_ref": "sync/workflows-candidate",
+                    "state": "merged",
+                    "created_at": "2026-01-04T00:00:00Z",
+                    "updated_at": "2026-01-04T01:00:00Z",
+                    "delivery_record": {
+                        "delivery_state": "sealed",
+                        "head_observed_at": "2026-01-04T00:00:00Z",
+                        "review_started_at": "2026-01-04T00:05:00Z",
+                        "sealed_at": "2026-01-04T00:20:00Z",
+                    },
+                },
+                {
+                    "repo": "stranske/App",
+                    "number": 11,
+                    "head_ref": "sync/workflows-delivery",
+                    "state": "open",
+                    "created_at": "2026-01-05T00:00:00Z",
+                    "updated_at": "2026-01-05T01:00:00Z",
+                    "delivery_record": {
+                        "delivery_state": "sealed",
+                        "head_observed_at": "2026-01-05T00:00:00Z",
+                        "review_started_at": "2026-01-05T00:05:00Z",
+                        "sealed_at": "2026-01-05T00:50:00Z",
+                    },
+                },
+            ],
+            "timeline_events": [
+                {
+                    "repo": "stranske/App",
+                    "number": 10,
+                    "event": "head_ref_force_pushed",
+                    "created_at": "2026-01-04T00:02:00Z",
+                },
+                {
+                    "repo": "stranske/App",
+                    "number": 10,
+                    "event": "ready_for_review",
+                    "created_at": "2026-01-04T00:05:00Z",
+                },
+                *[
+                    {
+                        "repo": "stranske/App",
+                        "number": 11,
+                        "event": "head_ref_force_pushed",
+                        "created_at": f"2026-01-05T00:0{minute}:00Z",
+                    }
+                    for minute in range(3)
+                ],
+                *[
+                    {
+                        "repo": "stranske/App",
+                        "number": 11,
+                        "event": "ready_for_review",
+                        "created_at": f"2026-01-05T00:1{minute}:00Z",
+                    }
+                    for minute in range(2)
+                ],
+                {
+                    "repo": "stranske/App",
+                    "number": 11,
+                    "event": "reviewed",
+                    "submitted_at": "2026-01-05T00:20:00Z",
+                },
+                {
+                    "repo": "stranske/App",
+                    "number": 11,
+                    "event": "head_ref_force_pushed",
+                    "created_at": "2025-12-01T00:00:00Z",
+                },
+            ],
+        },
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+
+    result = report["metrics"]
+    assert result["stable_sync_prs_observed"] == 2
+    assert result["stable_pr_force_push_events"] == 4
+    assert result["stable_pr_ready_for_review_events"] == 3
+    assert result["stable_pr_review_submitted_events"] == 1
+    assert result["stable_force_pushes_per_pr"] == 2.0
+    assert result["stable_ready_transitions_per_pr"] == 1.5
+    assert result["stable_median_review_settlement_minutes"] == 30.0
+    assert result["stable_median_head_to_seal_minutes"] == 35.0
+    assert report["advisory_slo"]["breaches"]["stable_force_pushes_per_pr"] is True
+    assert report["advisory_slo"]["breaches"]["stable_ready_transitions_per_pr"] is True
+    assert report["advisory_slo"]["breaches"]["stable_median_review_settlement_minutes"] is False
+    text = metrics.markdown(report)
+    assert "## Stable delivery convergence" in text
+    assert "stranske/App#11" in text
+    assert "Complete reporting window: **true**" in text

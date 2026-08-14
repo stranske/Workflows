@@ -44,6 +44,19 @@ on:
         description: 'Maint 71 canary evidence JSON for the exact plan ID (required to promote)'
         type: string
         required: false
+      delivery_scope:
+        description: 'Plan scope: full, exact source delta, or infer from promotion evidence'
+        type: choice
+        options: [auto, full, source-delta]
+        default: auto
+      scope_base_sha:
+        description: 'Exact source-range base commit (required for source-delta canary)'
+        type: string
+        required: false
+      scope_head_sha:
+        description: 'Exact source-range head commit (defaults to this workflow source)'
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -83,10 +96,100 @@ jobs:
       plan_id: ${{ steps.manifest.outputs.plan_id }}
       phase: ${{ steps.repos.outputs.phase }}
       sync_branch: ${{ steps.repos.outputs.sync_branch }}
+      plan_scope: ${{ steps.manifest.outputs.plan_scope }}
+      scope_base_sha: ${{ steps.manifest.outputs.scope_base_sha }}
+      source_commit: ${{ steps.manifest.outputs.source_commit }}
     steps:
+      - name: Resolve immutable plan scope
+        id: scope_request
+        env:
+          REQUESTED_SCOPE: ${{ inputs.delivery_scope || 'auto' }}
+          INPUT_BASE_SHA: ${{ inputs.scope_base_sha || '' }}
+          INPUT_HEAD_SHA: ${{ inputs.scope_head_sha || '' }}
+          REQUESTED_PHASE: ${{ inputs.phase || 'canary' }}
+          CANARY_EVIDENCE_JSON: ${{ inputs.canary_evidence_json || '' }}
+        run: |
+          set -euo pipefail
+          scope="$REQUESTED_SCOPE"
+          base_sha="$INPUT_BASE_SHA"
+          source_commit="$INPUT_HEAD_SHA"
+
+          if [ "$scope" = "auto" ]; then
+            scope="full"
+            if [ "$REQUESTED_PHASE" = "promote" ] && [ -n "$CANARY_EVIDENCE_JSON" ]; then
+              evidence_rows=$(jq -ce '
+                if type == "array" then .
+                elif (.results | type) == "array" then .results
+                else error("promotion evidence must be an array or contain results")
+                end
+              ' <<<"$CANARY_EVIDENCE_JSON")
+              scope=$(jq -er '
+                [.[].plan_scope // empty] | unique |
+                if length == 0 then "full"
+                elif length == 1 then .[0]
+                else error("mixed plan scopes in canary evidence")
+                end
+              ' <<<"$evidence_rows")
+              if [ "$scope" = "source-delta" ]; then
+                base_sha=$(jq -er '
+                  [.[].scope_base_sha // empty] | map(select(length > 0)) | unique |
+                  if length == 1 then .[0]
+                  else error("missing or mixed source-delta base SHA")
+                  end
+                ' <<<"$evidence_rows")
+                source_commit=$(jq -er '
+                  [.[].source_commit // empty] | map(select(length > 0)) | unique |
+                  if length == 1 then .[0]
+                  else error("missing or mixed source-delta head SHA")
+                  end
+                ' <<<"$evidence_rows")
+              fi
+            fi
+          fi
+
+          case "$scope" in
+            full)
+              base_sha=""
+              source_commit="${source_commit:-$GITHUB_SHA}"
+              ;;
+            source-delta)
+              [ -n "$base_sha" ] || {
+                echo "::error::source-delta scope requires scope_base_sha"
+                exit 1
+              }
+              source_commit="${source_commit:-$GITHUB_SHA}"
+              ;;
+            *)
+              echo "::error::Unsupported delivery scope: $scope"
+              exit 1
+              ;;
+          esac
+
+          sha_re='^[0-9a-fA-F]{40,64}$'
+          [[ "$source_commit" =~ $sha_re ]] || {
+            echo "::error::Invalid source commit: $source_commit"
+            exit 1
+          }
+          if [ -n "$base_sha" ]; then
+            [[ "$base_sha" =~ $sha_re ]] || {
+              echo "::error::Invalid source-range base: $base_sha"
+              exit 1
+            }
+          fi
+          {
+            echo "plan_scope=$scope"
+            echo "scope_base_sha=$base_sha"
+            echo "source_commit=$source_commit"
+          } >> "$GITHUB_OUTPUT"
+          echo "Plan scope: $scope"
+          echo "Source commit: $source_commit"
+          [ -z "$base_sha" ] || echo "Scope base: $base_sha"
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
+          ref: ${{ steps.scope_request.outputs.source_commit }}
+          fetch-depth: 0
           sparse-checkout: |
             templates/consumer-repo
             .gitattributes
@@ -112,17 +215,33 @@ jobs:
         run: pip install pyyaml
 
       - name: Compile typed consumer sync plan
-        id: manifest
         run: |
           python scripts/sync_manifest_compiler.py \
             --manifest .github/sync-manifest.yml \
+            --output-json manifest.full.json
+
+      - name: Select full or exact source-delta plan
+        id: manifest
+        env:
+          PLAN_SCOPE: ${{ steps.scope_request.outputs.plan_scope }}
+          SCOPE_BASE_SHA: ${{ steps.scope_request.outputs.scope_base_sha }}
+          SOURCE_COMMIT: ${{ steps.scope_request.outputs.source_commit }}
+        run: |
+          python scripts/scope_consumer_sync_plan.py \
+            --plan manifest.full.json \
+            --mode "$PLAN_SCOPE" \
+            --base-ref "$SCOPE_BASE_SHA" \
+            --head-ref "$SOURCE_COMMIT" \
+            --repo-root . \
             --output-json manifest.json \
+            --scope-evidence-json sync-plan-scope.json \
             --github-output "$GITHUB_OUTPUT"
 
       - name: Build phase-gated repo matrix
         id: repos
         env:
           CANARY_EVIDENCE_JSON: ${{ inputs.canary_evidence_json || '' }}
+          REQUESTED_PHASE: ${{ inputs.phase || 'canary' }}
           REPOS_INPUT: ${{ inputs.repos }}
           TEMPLATE_HASH: ${{ steps.manifest.outputs.template_hash }}
         run: |
@@ -135,7 +254,7 @@ jobs:
           # Scheduled and release runs intentionally begin with canaries. Promotion is
           # a later explicit run with Maint 71's plan-bound evidence; no workflow waits
           # for cross-repo CI inside this run.
-          phase='${{ inputs.phase || 'canary' }}'
+          phase="$REQUESTED_PHASE"
           selected_repos_args=()
           if [ -n "$REPOS_INPUT" ]; then
             selected_repos_args=(--selected-repos "$repos")
@@ -169,7 +288,9 @@ jobs:
         with:
           name: sync-plan-and-prospective-diffs
           path: |
+            manifest.full.json
             manifest.json
+            sync-plan-scope.json
             sync-phase-selection.json
           retention-days: 1
 
@@ -183,6 +304,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
 
       - name: Setup Python
         uses: actions/setup-python@v7
@@ -273,6 +396,9 @@ jobs:
       REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
       TARGET_REPOSITORY: ${{ matrix.repo }}
       PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
+      PLAN_SCOPE: ${{ needs.prepare.outputs.plan_scope }}
+      SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
+      PLAN_SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
       SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
       DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
     steps:
@@ -309,6 +435,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: workflows
+          ref: ${{ needs.prepare.outputs.source_commit }}
 
       - name: Clone consumer repo
         env:
@@ -1125,9 +1252,12 @@ jobs:
             --arg schema "workflows-consumer-sync-pr/v1" \
             --arg consumer_repo "$TARGET_REPOSITORY" \
             --arg source_repository "$GITHUB_REPOSITORY" \
-            --arg source_sha "$GITHUB_SHA" \
+            --arg source_sha "$PLAN_SOURCE_COMMIT" \
             --arg template_hash "$DELIVERY_GENERATION" \
             --arg plan_id "$PLAN_ID" \
+            --arg plan_scope "$PLAN_SCOPE" \
+            --arg scope_base_sha "$SCOPE_BASE_SHA" \
+            --arg source_commit "$PLAN_SOURCE_COMMIT" \
             --arg sync_phase "$SYNC_PHASE" \
             --arg sync_branch "$branch_name" \
             --arg manifest ".github/sync-manifest.yml" \
@@ -1142,6 +1272,9 @@ jobs:
               source_sha: $source_sha,
               template_hash: $template_hash,
               plan_id: $plan_id,
+              plan_scope: $plan_scope,
+              scope_base_sha: $scope_base_sha,
+              source_commit: $source_commit,
               sync_phase: $sync_phase,
               sync_branch: $sync_branch,
               manifest: $manifest,
@@ -1157,7 +1290,7 @@ jobs:
             --arg generation "$DELIVERY_GENERATION" \
             --arg repository "$DELIVERY_REPOSITORY" \
             --arg desired_tree_hash "$desired_tree_hash" \
-            --arg source_commit "$GITHUB_SHA" \
+            --arg source_commit "$PLAN_SOURCE_COMMIT" \
             --arg head_observed_sha "$head_observed_sha" \
             --arg head_observed_at "$head_observed_at" \
             --arg lease_expires_at "$lease_expires_at" \
@@ -1177,9 +1310,11 @@ jobs:
           - [ ] No repo-specific customizations were overwritten
 
           **Source:** stranske/Workflows
-          **Source SHA:** \`$GITHUB_SHA\`
+          **Source SHA:** \`$PLAN_SOURCE_COMMIT\`
           **Template hash:** \`$DELIVERY_GENERATION\`
           **Consumer-sync plan ID:** \`$PLAN_ID\`
+          **Plan scope:** \`$PLAN_SCOPE\`
+          **Scope base SHA:** \`${SCOPE_BASE_SHA:-full}\`
           **Sync phase:** \`$SYNC_PHASE\`
           **Sync branch:** \`$branch_name\`
           **Consumer repo:** \`$TARGET_REPOSITORY\`
