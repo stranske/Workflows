@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-
 from scripts.langchain.verifier_config import (
     EVAL_FOLLOW_UP_BUDGET_TOKENS,
     EVAL_PAIR_BUDGET_TOKENS,
