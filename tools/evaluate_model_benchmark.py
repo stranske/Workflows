@@ -48,9 +48,12 @@ def _required_nonnegative_metric(case: dict[str, Any], case_id: str, field: str)
     """Return required finite telemetry without treating missing data as zero."""
     if field not in case:
         raise ValueError(f"case {case_id} is missing {field}")
+    raw = case[field]
+    if isinstance(raw, bool):
+        raise ValueError(f"case {case_id} has invalid {field}")
     try:
-        value = float(case[field])
-    except (TypeError, ValueError) as exc:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(f"case {case_id} has invalid {field}") from exc
     if not math.isfinite(value) or value < 0:
         raise ValueError(f"case {case_id} has invalid {field}")

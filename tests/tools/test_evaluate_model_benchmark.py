@@ -158,9 +158,17 @@ def test_unpaired_candidate_cases_are_rejected():
         ("total_cost_usd", math.nan),
         ("total_cost_usd", math.inf),
         ("total_cost_usd", -0.01),
+        ("total_cost_usd", True),
+        ("total_cost_usd", False),
+        ("total_cost_usd", "not-a-number"),
+        ("total_cost_usd", 10**400),
         ("latency_ms", math.nan),
         ("latency_ms", math.inf),
         ("latency_ms", -1),
+        ("latency_ms", True),
+        ("latency_ms", False),
+        ("latency_ms", "not-a-number"),
+        ("latency_ms", 10**400),
     ],
 )
 def test_nonfinite_or_negative_metrics_are_rejected(field, value):
