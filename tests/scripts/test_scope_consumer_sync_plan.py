@@ -165,6 +165,61 @@ def test_cli_uses_exact_git_range_and_emits_scope_outputs(tmp_path: Path) -> Non
     assert f"source_commit={head}" in outputs
 
 
+def test_cli_emits_false_when_source_delta_has_no_plan_items(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    readme = tmp_path / "README.md"
+    readme.write_text("old\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    readme.write_text("new\n", encoding="utf-8")
+    subprocess.run(["git", "commit", "-qam", "unmanaged update"], cwd=tmp_path, check=True)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan()), encoding="utf-8")
+    output = tmp_path / "scoped.json"
+    github_output = tmp_path / "github-output"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__).parents[2] / "scripts/scope_consumer_sync_plan.py"),
+            "--plan",
+            str(plan_path),
+            "--mode",
+            "source-delta",
+            "--base-ref",
+            base,
+            "--head-ref",
+            head,
+            "--repo-root",
+            str(tmp_path),
+            "--output-json",
+            str(output),
+            "--scope-evidence-json",
+            str(tmp_path / "scope.json"),
+            "--github-output",
+            str(github_output),
+        ],
+        cwd=Path(__file__).parents[2],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    scoped = json.loads(output.read_text(encoding="utf-8"))
+    assert scoped["entries"] == []
+    assert scoped["removals"] == []
+    assert "has_plan_items=false" in github_output.read_text(encoding="utf-8")
+
+
 def test_git_range_rejects_a_base_from_a_divergent_branch(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
