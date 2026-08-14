@@ -221,3 +221,16 @@ def test_parse_structured_output_rejects_out_of_policy_repair_attempts(attempts:
             repair=MagicMock(return_value=None),
             max_repair_attempts=attempts,
         )
+
+
+@pytest.mark.parametrize("attempts", [1.5, True, False])
+def test_parse_structured_output_rejects_non_integer_repair_attempts(
+    attempts: float | bool,
+) -> None:
+    with pytest.raises(TypeError, match="max_repair_attempts must be an integer"):
+        parse_structured_output(
+            _invalid_payload(),
+            ExampleModel,
+            repair=MagicMock(return_value=None),
+            max_repair_attempts=attempts,  # type: ignore[arg-type]
+        )

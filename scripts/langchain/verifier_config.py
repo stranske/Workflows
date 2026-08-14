@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from scripts.langchain.issue_pr_context import DEFAULT_TOKEN_BUDGET
-from scripts.langchain.structured_output import MAX_REPAIR_ATTEMPTS
+from scripts.langchain.structured_output import MAX_REPAIR_ATTEMPTS, clamp_repair_attempts
 
 EVAL_PAIR_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 EVAL_SCHEMA_REPAIR_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
@@ -47,6 +47,16 @@ class SchemaRepairPolicy:
 
     max_attempts: int = MAX_REPAIR_ATTEMPTS
     escalation_threshold: int = MAX_REPAIR_ATTEMPTS
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "max_attempts", clamp_repair_attempts(self.max_attempts)
+        )
+        object.__setattr__(
+            self,
+            "escalation_threshold",
+            clamp_repair_attempts(self.escalation_threshold),
+        )
 
     def terminal_decision(
         self,
