@@ -368,3 +368,7 @@ def test_malformed_delivery_lifecycle_timestamp_does_not_abort_report():
     churn = report["metrics"]["stable_pr_churn"]["stranske/App#12"]
     assert churn["review_settlement_minutes"] is None
     assert report["metrics"]["stable_median_review_settlement_minutes"] is None
+
+
+def test_parse_time_rejects_timezone_normalization_overflow():
+    assert metrics.parse_time("9999-12-31T23:59:59-14:00") is None
