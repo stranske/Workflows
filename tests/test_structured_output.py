@@ -223,7 +223,7 @@ def test_parse_structured_output_rejects_out_of_policy_repair_attempts(attempts:
         )
 
 
-@pytest.mark.parametrize("attempts", [1.5, True, False])
+@pytest.mark.parametrize("attempts", [1.5, 0.5, True, False])
 def test_parse_structured_output_rejects_non_integer_repair_attempts(
     attempts: float | bool,
 ) -> None:

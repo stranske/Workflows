@@ -26,16 +26,28 @@ def test_schema_repair_policy_accepts_valid_attempt_values(attempts: int) -> Non
     assert policy.escalation_threshold == attempts
 
 
-@pytest.mark.parametrize("bad", [1.5, True, False, 2, -1])
-def test_schema_repair_policy_rejects_invalid_max_attempts(bad: object) -> None:
-    with pytest.raises((TypeError, ValueError)):
+@pytest.mark.parametrize("bad", [0.5, True, False])
+def test_schema_repair_policy_rejects_non_integer_max_attempts(bad: object) -> None:
+    with pytest.raises(TypeError, match="max_repair_attempts must be an integer"):
         SchemaRepairPolicy(max_attempts=bad, escalation_threshold=0)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("bad", [1.5, True, False, 2, -1])
-def test_schema_repair_policy_rejects_invalid_escalation_threshold(bad: object) -> None:
-    with pytest.raises((TypeError, ValueError)):
+@pytest.mark.parametrize("bad", [2, -1])
+def test_schema_repair_policy_rejects_out_of_range_max_attempts(bad: int) -> None:
+    with pytest.raises(ValueError, match="max_repair_attempts must be between"):
+        SchemaRepairPolicy(max_attempts=bad, escalation_threshold=0)
+
+
+@pytest.mark.parametrize("bad", [0.5, True, False])
+def test_schema_repair_policy_rejects_non_integer_escalation_threshold(bad: object) -> None:
+    with pytest.raises(TypeError, match="max_repair_attempts must be an integer"):
         SchemaRepairPolicy(max_attempts=0, escalation_threshold=bad)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("bad", [2, -1])
+def test_schema_repair_policy_rejects_out_of_range_escalation_threshold(bad: int) -> None:
+    with pytest.raises(ValueError, match="max_repair_attempts must be between"):
+        SchemaRepairPolicy(max_attempts=0, escalation_threshold=bad)
 
 
 def test_schema_repair_policy_decision_table() -> None:
