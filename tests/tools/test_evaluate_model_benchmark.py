@@ -170,6 +170,15 @@ def test_nonfinite_or_negative_metrics_are_rejected(field, value):
         evaluator.evaluate_benchmark(payload, _policy())
 
 
+@pytest.mark.parametrize("field", ["total_cost_usd", "latency_ms"])
+def test_missing_metrics_are_rejected_instead_of_treated_as_zero(field):
+    payload = _payload()
+    del payload["candidates"][1]["cases"][0][field]
+
+    with pytest.raises(ValueError, match=f"missing {field}"):
+        evaluator.evaluate_benchmark(payload, _policy())
+
+
 def test_nonobject_candidate_is_rejected_as_configuration_error():
     payload = _payload()
     payload["candidates"][1] = None

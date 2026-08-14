@@ -44,6 +44,19 @@ def _case_outcome(case: dict[str, Any]) -> tuple[str, str, bool]:
     return expected, actual, schema_valid
 
 
+def _required_nonnegative_metric(case: dict[str, Any], case_id: str, field: str) -> float:
+    """Return required finite telemetry without treating missing data as zero."""
+    if field not in case:
+        raise ValueError(f"case {case_id} is missing {field}")
+    try:
+        value = float(case[field])
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"case {case_id} has invalid {field}") from exc
+    if not math.isfinite(value) or value < 0:
+        raise ValueError(f"case {case_id} has invalid {field}")
+    return value
+
+
 def _metrics(cases: list[dict[str, Any]], *, z: float = Z_95) -> dict[str, Any]:
     success = false_pass = false_fail = schema_error = 0
     expected_pass = expected_non_pass = 0
@@ -68,12 +81,8 @@ def _metrics(cases: list[dict[str, Any]], *, z: float = Z_95) -> dict[str, Any]:
         false_pass += int(expected == "NON_PASS" and actual == "PASS")
         false_fail += int(expected == "PASS" and actual == "NON_PASS")
         categories[category] = categories.get(category, 0) + 1
-        cost = float(case.get("total_cost_usd", 0.0))
-        latency = float(case.get("latency_ms", 0.0))
-        if not math.isfinite(cost) or cost < 0:
-            raise ValueError(f"case {case_id} has invalid total_cost_usd")
-        if not math.isfinite(latency) or latency < 0:
-            raise ValueError(f"case {case_id} has invalid latency_ms")
+        cost = _required_nonnegative_metric(case, case_id, "total_cost_usd")
+        latency = _required_nonnegative_metric(case, case_id, "latency_ms")
         total_cost += cost
         latencies.append(latency)
 

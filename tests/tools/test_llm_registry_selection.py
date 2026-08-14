@@ -146,6 +146,33 @@ def test_registry_decision_update_changes_slot_without_slot_edit(
     assert "model" not in json.loads(slots_path.read_text())["slots"][0]
 
 
+def test_explicit_empty_slot_model_keeps_the_profile_selection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    slots_path.write_text(
+        json.dumps(
+            {
+                "slots": [
+                    {
+                        "name": "slot1",
+                        "provider": "openai",
+                        "profile": "verifier-balanced",
+                        "model": "",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
+
+    assert registry.load_slot_config()[0].model == "model-balanced"
+
+
 def test_legacy_slot_pin_is_honored_when_current_and_unblocked(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
