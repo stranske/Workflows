@@ -624,18 +624,27 @@ function validateCanaryEvidence(evidence = [], expectedRepos = []) {
   let scopeBaseSha = '';
   let sourceCommit = '';
   if (planScope === 'source-delta') {
+    const sourceDeltaRows = [...rowsByRepo.values()];
+    const missingBase = sourceDeltaRows.some(
+      (row) => !String(row?.scope_base_sha || '').trim(),
+    );
+    const missingSource = sourceDeltaRows.some(
+      (row) => !String(row?.source_commit || '').trim(),
+    );
     const bases = new Set(
-      [...rowsByRepo.values()]
+      sourceDeltaRows
         .map((row) => String(row?.scope_base_sha || '').trim())
         .filter(Boolean),
     );
     const sourceCommits = new Set(
-      [...rowsByRepo.values()]
+      sourceDeltaRows
         .map((row) => String(row?.source_commit || '').trim())
         .filter(Boolean),
     );
-    if (bases.size !== 1) errors.push('missing_or_mixed_canary_scope_base');
-    if (sourceCommits.size !== 1) errors.push('missing_or_mixed_canary_source_commit');
+    if (missingBase || bases.size !== 1) errors.push('missing_or_mixed_canary_scope_base');
+    if (missingSource || sourceCommits.size !== 1) {
+      errors.push('missing_or_mixed_canary_source_commit');
+    }
     scopeBaseSha = bases.size === 1 ? [...bases][0] : '';
     sourceCommit = sourceCommits.size === 1 ? [...sourceCommits][0] : '';
     const shaPattern = /^[0-9a-f]{40,64}$/i;

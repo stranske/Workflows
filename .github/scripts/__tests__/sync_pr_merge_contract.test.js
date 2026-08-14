@@ -374,6 +374,13 @@ test('validateCanaryEvidence preserves one immutable source-delta range', () => 
   );
   assert.equal(mixed.ok, false);
   assert.ok(mixed.errors.includes('missing_or_mixed_canary_source_commit'));
+  const incomplete = validateCanaryEvidence(
+    [valid[0], { ...valid[1], scope_base_sha: '', source_commit: '' }],
+    expected,
+  );
+  assert.equal(incomplete.ok, false);
+  assert.ok(incomplete.errors.includes('missing_or_mixed_canary_scope_base'));
+  assert.ok(incomplete.errors.includes('missing_or_mixed_canary_source_commit'));
   const malformed = validateCanaryEvidence(
     valid.map((row) => ({ ...row, scope_base_sha: 'not-a-commit' })),
     expected,
