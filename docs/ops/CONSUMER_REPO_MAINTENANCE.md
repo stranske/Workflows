@@ -297,6 +297,8 @@ drift. Directory entries match changed descendants; manifest changes fail
 closed and require `full`; historical removal declarations are never replayed
 by a source delta. The uploaded `sync-plan-scope.json` records both plan IDs,
 the exact base/head, changed paths, selected targets, and ignored paths.
+If no manifest-managed source matches the range, Maint 68 records the empty
+scope and skips the consumer fan-out entirely.
 
 Start a bounded source-delta candidate with the source repair's exact first
 parent and merged head:

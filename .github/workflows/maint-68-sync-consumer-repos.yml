@@ -99,6 +99,7 @@ jobs:
       plan_scope: ${{ steps.manifest.outputs.plan_scope }}
       scope_base_sha: ${{ steps.manifest.outputs.scope_base_sha }}
       source_commit: ${{ steps.manifest.outputs.source_commit }}
+      has_plan_items: ${{ steps.manifest.outputs.has_plan_items }}
     steps:
       - name: Resolve immutable plan scope
         id: scope_request
@@ -386,7 +387,7 @@ jobs:
   sync:
     name: Sync ${{ matrix.repo }}
     needs: [prepare, validate]
-    if: needs.prepare.outputs.phase != 'preview'
+    if: needs.prepare.outputs.phase != 'preview' && needs.prepare.outputs.has_plan_items == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

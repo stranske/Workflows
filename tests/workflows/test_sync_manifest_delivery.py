@@ -229,9 +229,21 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     assert dispatch_inputs["phase"]["default"] == "canary"
     assert set(dispatch_inputs["phase"]["options"]) == {"preview", "canary", "promote"}
     assert "canary_evidence_json" in dispatch_inputs
+    assert set(dispatch_inputs["delivery_scope"]["options"]) == {
+        "auto",
+        "full",
+        "source-delta",
+    }
+    assert "scope_base_sha" in dispatch_inputs
+    assert "scope_head_sha" in dispatch_inputs
     assert prepare["outputs"]["phase"] == "${{ steps.repos.outputs.phase }}"
     assert prepare["outputs"]["sync_branch"] == "${{ steps.repos.outputs.sync_branch }}"
-    assert sync["if"] == "needs.prepare.outputs.phase != 'preview'"
+    assert prepare["outputs"]["has_plan_items"] == "${{ steps.manifest.outputs.has_plan_items }}"
+    assert sync["if"] == (
+        "needs.prepare.outputs.phase != 'preview' && "
+        "needs.prepare.outputs.has_plan_items == 'true'"
+    )
+    assert "scope_consumer_sync_plan.py" in source
     assert "select_consumer_sync_phase.py" in source
     assert 'sync_branch="sync/workflows-candidate"' in source
     assert 'sync_branch="sync/workflows-delivery"' in source

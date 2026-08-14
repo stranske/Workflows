@@ -156,5 +156,6 @@ def test_cli_uses_exact_git_range_and_emits_scope_outputs(tmp_path: Path) -> Non
     assert scope["source_commit"] == head
     outputs = github_output.read_text(encoding="utf-8")
     assert "plan_scope=source-delta" in outputs
+    assert "has_plan_items=true" in outputs
     assert f"scope_base_sha={base}" in outputs
     assert f"source_commit={head}" in outputs

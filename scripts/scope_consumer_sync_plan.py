@@ -223,6 +223,10 @@ def main(argv: list[str] | None = None) -> int:
             handle.write(f"template_hash={scoped['plan_id'].split(':', 1)[1][:12]}\n")
             handle.write(f"entry_count={len(scoped['entries'])}\n")
             handle.write(f"removal_count={len(scoped['removals'])}\n")
+            handle.write(
+                "has_plan_items="
+                f"{'true' if scoped['entries'] or scoped['removals'] else 'false'}\n"
+            )
             handle.write(f"plan_scope={args.mode}\n")
             handle.write(f"scope_base_sha={base_sha}\n")
             handle.write(f"source_commit={source_commit}\n")
