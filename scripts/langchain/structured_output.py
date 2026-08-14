@@ -103,8 +103,7 @@ def build_repair_callback(
 def clamp_repair_attempts(max_repair_attempts: int) -> int:
     if isinstance(max_repair_attempts, bool) or not isinstance(max_repair_attempts, int):
         raise TypeError(
-            "max_repair_attempts must be an integer, got "
-            f"{type(max_repair_attempts).__name__}"
+            "max_repair_attempts must be an integer, got " f"{type(max_repair_attempts).__name__}"
         )
     if not MIN_REPAIR_ATTEMPTS <= max_repair_attempts <= MAX_REPAIR_ATTEMPTS:
         raise ValueError(

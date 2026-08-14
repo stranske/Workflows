@@ -49,9 +49,7 @@ class SchemaRepairPolicy:
     escalation_threshold: int = MAX_REPAIR_ATTEMPTS
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "max_attempts", clamp_repair_attempts(self.max_attempts)
-        )
+        object.__setattr__(self, "max_attempts", clamp_repair_attempts(self.max_attempts))
         object.__setattr__(
             self,
             "escalation_threshold",
