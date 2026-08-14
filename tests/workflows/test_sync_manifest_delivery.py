@@ -244,6 +244,10 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
         "needs.prepare.outputs.has_plan_items == 'true'"
     )
     assert "scope_consumer_sync_plan.py" in source
+    assert "Validate immutable source reachability" in source
+    assert 'git merge-base --is-ancestor "$SOURCE_COMMIT" "$GITHUB_SHA"' in source
+    assert "Consumer-sync plan ID: $PLAN_ID" in source
+    assert "Source commit: $PLAN_SOURCE_COMMIT" in source
     assert "select_consumer_sync_phase.py" in source
     assert 'sync_branch="sync/workflows-candidate"' in source
     assert 'sync_branch="sync/workflows-delivery"' in source

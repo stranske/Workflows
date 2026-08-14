@@ -34,7 +34,10 @@ STABLE_SYNC_BRANCHES = {"sync/workflows-candidate", "sync/workflows-delivery"}
 def parse_time(value: str | None) -> datetime | None:
     if not value:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+    except (AttributeError, TypeError, ValueError):
+        return None
 
 
 def first(value: dict[str, Any], *keys: str) -> Any:

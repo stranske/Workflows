@@ -125,22 +125,21 @@ jobs:
                 end
               ' <<<"$CANARY_EVIDENCE_JSON")
               scope=$(jq -er '
-                [.[].plan_scope // empty] | unique |
-                if length == 0 then "full"
-                elif length == 1 then .[0]
+                [.[].plan_scope // "full"] | unique |
+                if length == 1 then .[0]
                 else error("mixed plan scopes in canary evidence")
                 end
               ' <<<"$evidence_rows")
               if [ "$scope" = "source-delta" ]; then
                 base_sha=$(jq -er '
-                  [.[].scope_base_sha // empty] | map(select(length > 0)) | unique |
-                  if length == 1 then .[0]
+                  [.[].scope_base_sha // ""] | unique |
+                  if length == 1 and .[0] != "" then .[0]
                   else error("missing or mixed source-delta base SHA")
                   end
                 ' <<<"$evidence_rows")
                 source_commit=$(jq -er '
-                  [.[].source_commit // empty] | map(select(length > 0)) | unique |
-                  if length == 1 then .[0]
+                  [.[].source_commit // ""] | unique |
+                  if length == 1 and .[0] != "" then .[0]
                   else error("missing or mixed source-delta head SHA")
                   end
                 ' <<<"$evidence_rows")
@@ -177,6 +176,8 @@ jobs:
               exit 1
             }
           fi
+          source_commit="${source_commit,,}"
+          base_sha="${base_sha,,}"
           {
             echo "plan_scope=$scope"
             echo "scope_base_sha=$base_sha"
@@ -206,6 +207,32 @@ jobs:
             scripts
             tools
           sparse-checkout-cone-mode: false
+
+      - name: Validate immutable source reachability
+        env:
+          SOURCE_COMMIT: ${{ steps.scope_request.outputs.source_commit }}
+          SCOPE_BASE_SHA: ${{ steps.scope_request.outputs.scope_base_sha }}
+        run: |
+          set -euo pipefail
+          checked_out=$(git rev-parse HEAD)
+          [ "$checked_out" = "$SOURCE_COMMIT" ] || {
+            echo "::error::Checked-out source does not match the resolved source commit"
+            exit 1
+          }
+          git cat-file -e "${GITHUB_SHA}^{commit}" || {
+            echo "::error::The workflow dispatch ref commit is not reachable locally"
+            exit 1
+          }
+          git merge-base --is-ancestor "$SOURCE_COMMIT" "$GITHUB_SHA" || {
+            echo "::error::Resolved source commit is not in the workflow dispatch ref history"
+            exit 1
+          }
+          if [ -n "$SCOPE_BASE_SHA" ]; then
+            git merge-base --is-ancestor "$SCOPE_BASE_SHA" "$SOURCE_COMMIT" || {
+              echo "::error::Source-delta base is not an ancestor of the source commit"
+              exit 1
+            }
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@v7
@@ -1178,6 +1205,10 @@ jobs:
           Template hash: $DELIVERY_GENERATION
 
           Changes synced from sync-manifest.yml
+          Consumer-sync plan ID: $PLAN_ID
+          Plan scope: $PLAN_SCOPE
+          Scope base SHA: ${SCOPE_BASE_SHA:-full}
+          Source commit: $PLAN_SOURCE_COMMIT
           COMMIT_MESSAGE
 
             GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \

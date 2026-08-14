@@ -343,3 +343,28 @@ def test_stable_delivery_convergence_counts_timeline_and_lifecycle_evidence():
     assert "## Stable delivery convergence" in text
     assert "stranske/App#11" in text
     assert "Complete reporting window: **true**" in text
+
+
+def test_malformed_delivery_lifecycle_timestamp_does_not_abort_report():
+    report = metrics.calculate(
+        {
+            "pulls": [
+                {
+                    "repo": "stranske/App",
+                    "number": 12,
+                    "head_ref": "sync/workflows-candidate",
+                    "state": "open",
+                    "delivery_record": {
+                        "delivery_state": "sealed",
+                        "review_started_at": "2026-01-05T00:05:00Z",
+                        "sealed_at": "not-a-timestamp",
+                    },
+                }
+            ]
+        },
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+
+    churn = report["metrics"]["stable_pr_churn"]["stranske/App#12"]
+    assert churn["review_settlement_minutes"] is None
+    assert report["metrics"]["stable_median_review_settlement_minutes"] is None

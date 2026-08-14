@@ -62,7 +62,15 @@ jobs:
               const marker = String(body || '').match(/<!--\s*sync-pr-delivery-record:v1\s+({.*?})\s*-->/s);
               if (!marker) return null;
               try {
-                return JSON.parse(marker[1]);
+                const parsed = JSON.parse(marker[1]);
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+                for (const field of ['head_observed_at', 'review_started_at', 'sealed_at']) {
+                  const value = parsed[field];
+                  if (value && (typeof value !== 'string' || Number.isNaN(Date.parse(value)))) {
+                    parsed[field] = null;
+                  }
+                }
+                return parsed;
               } catch {
                 return null;
               }

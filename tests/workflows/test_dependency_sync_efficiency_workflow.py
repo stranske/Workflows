@@ -25,6 +25,7 @@ def test_efficiency_workflow_collects_fixture_backed_report_and_dedupes_tracker_
     assert "createTokenAwareRetry" in text
     assert "workflows-consumer-sync:v1" in text
     assert "sync-pr-delivery-record:v1" in text
+    assert "Number.isNaN(Date.parse(value))" in text
     assert "listEventsForTimeline" in text
     assert "head_ref_force_pushed" in text
     assert "ready_for_review" in text

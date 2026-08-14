@@ -47,6 +47,8 @@ PR observed in that window. It writes `window_complete: true` only when every
 stable-PR timeline read succeeds. All-time history remains deliberately
 uncollected, so every report also writes `history_complete: false`; rates are
 never presented as complete historical truth outside the stated window.
+Malformed lifecycle timestamps in a PR body are treated as unavailable timing
+evidence rather than aborting the weekly report.
 
 Weekly `created` / `merged` / `closed` counts use event timestamps inside the
 reporting window. The Markdown report always shows rate numerator/denominator

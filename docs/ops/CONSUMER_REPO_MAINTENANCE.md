@@ -318,6 +318,12 @@ row. `phase=promote` with `delivery_scope=auto` recovers the exact range from
 the evidence, checks out that historical source head, and recompiles the same
 scoped plan. A later commit on `main` therefore cannot silently join an
 authorized delivery. Do not substitute a moving branch name for either SHA.
+Before any checked-out source script runs, Maint 68 requires the resolved source
+commit to be an ancestor of the workflow dispatch ref and the scope base to be
+an ancestor of that source. New source-delta delivery commits also bind the full
+plan ID, scope, range, and source commit into their immutable GitHub-signed
+commit message; Maint 71 rejects canary evidence when PR-body metadata does not
+match that commit and the validated delivery record.
 
 An explicit `repos` input may narrow a canary run to a subset of those configured
 canaries, but it cannot expand a canary run into non-canary repositories. The

@@ -245,6 +245,7 @@ async function run({ github, context, core }) {
     selectSyncPrGatingChecks,
     syncBranchForHash,
     validateCanaryEvidence,
+    validateSourceDeltaEvidenceBinding,
   } = require('./sync_pr_merge_contract.js');
   const {
     mergeEligibility,
@@ -1506,12 +1507,31 @@ async function run({ github, context, core }) {
       }
 
       if (metadata?.sync_phase === 'canary' && metadata?.plan_id) {
+        const sourceBinding = validateSourceDeltaEvidenceBinding({
+          metadata,
+          deliveryRecord,
+          commitMessage: selectedHeadCommit?.message || '',
+        });
+        if (!sourceBinding.ok) {
+          console.log(
+            `Immutable source-delta binding failed: ${sourceBinding.errors.join(', ')}`,
+          );
+          results.push({
+            ...deliveryContext,
+            status: 'delivery_contract_blocked',
+            delivery_disposition: 'source-binding-blocked',
+            blocker_owner: 'maint-68',
+            next_command: 'refresh-source-delta-delivery',
+            source_binding_errors: sourceBinding.errors,
+          });
+          continue;
+        }
         canaryEvidence.push({
           repo: `${owner}/${repo}`,
-          plan_id: metadata.plan_id,
+          plan_id: deliveryRecord.plan_id,
           plan_scope: metadata.plan_scope || 'full',
           scope_base_sha: metadata.scope_base_sha || '',
-          source_commit: metadata.source_commit || metadata.source_sha || '',
+          source_commit: deliveryRecord.source_commit,
           pr: pr.number,
           head_sha: pr.head.sha,
           evidence_source: recoveredMergedCandidate

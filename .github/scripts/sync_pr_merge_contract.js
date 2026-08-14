@@ -665,6 +665,48 @@ function validateCanaryEvidence(evidence = [], expectedRepos = []) {
   };
 }
 
+function validateSourceDeltaEvidenceBinding({ metadata = {}, deliveryRecord = {}, commitMessage = '' } = {}) {
+  if (String(metadata.plan_scope || 'full').trim() !== 'source-delta') {
+    return { ok: true, errors: [] };
+  }
+  const record = deliveryRecord && typeof deliveryRecord === 'object' ? deliveryRecord : {};
+  const expected = {
+    plan_id: String(metadata.plan_id || '').trim(),
+    scope_base_sha: String(metadata.scope_base_sha || '').trim(),
+    source_commit: String(metadata.source_commit || metadata.source_sha || '').trim(),
+  };
+  const errors = [];
+  if (!expected.plan_id || expected.plan_id !== String(record.plan_id || '').trim()) {
+    errors.push('source_delta_plan_record_mismatch');
+  }
+  if (
+    !expected.source_commit
+    || expected.source_commit !== String(record.source_commit || '').trim()
+  ) {
+    errors.push('source_delta_commit_record_mismatch');
+  }
+  const immutableFields = {};
+  for (const line of String(commitMessage || '').split(/\r?\n/)) {
+    const match = line.match(
+      /^(Consumer-sync plan ID|Plan scope|Scope base SHA|Source commit):\s*(.+)\s*$/,
+    );
+    if (match) immutableFields[match[1]] = match[2].trim();
+  }
+  if (immutableFields['Consumer-sync plan ID'] !== expected.plan_id) {
+    errors.push('source_delta_plan_commit_mismatch');
+  }
+  if (immutableFields['Plan scope'] !== 'source-delta') {
+    errors.push('source_delta_scope_commit_mismatch');
+  }
+  if (immutableFields['Scope base SHA'] !== expected.scope_base_sha) {
+    errors.push('source_delta_base_commit_mismatch');
+  }
+  if (immutableFields['Source commit'] !== expected.source_commit) {
+    errors.push('source_delta_source_commit_mismatch');
+  }
+  return { ok: errors.length === 0, errors };
+}
+
 function summarizeResults(results) {
   const counts = {
     no_prs: 0,
@@ -906,6 +948,7 @@ module.exports = {
   selectMergeEligibleSyncPr,
   selectLatestMergedCandidatePr,
   validateCanaryEvidence,
+  validateSourceDeltaEvidenceBinding,
   summarizeResults,
   buildMergeReport,
   buildDeliveryHandoff,

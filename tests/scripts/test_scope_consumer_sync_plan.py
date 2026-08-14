@@ -6,7 +6,11 @@ import sys
 from pathlib import Path
 
 import pytest
-from scripts.scope_consumer_sync_plan import PlanScopeError, select_plan
+from scripts.scope_consumer_sync_plan import (
+    PlanScopeError,
+    changed_paths_for_range,
+    select_plan,
+)
 
 
 def entry(source: str, target: str, *, directory: bool = False) -> dict[str, object]:
@@ -159,3 +163,32 @@ def test_cli_uses_exact_git_range_and_emits_scope_outputs(tmp_path: Path) -> Non
     assert "has_plan_items=true" in outputs
     assert f"scope_base_sha={base}" in outputs
     assert f"source_commit={head}" in outputs
+
+
+def test_git_range_rejects_a_base_from_a_divergent_branch(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    source = tmp_path / "managed.txt"
+    source.write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    common = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "-qb", "left"], cwd=tmp_path, check=True)
+    source.write_text("left\n", encoding="utf-8")
+    subprocess.run(["git", "commit", "-qam", "left"], cwd=tmp_path, check=True)
+    left = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    subprocess.run(["git", "checkout", "-qb", "right", common], cwd=tmp_path, check=True)
+    source.write_text("right\n", encoding="utf-8")
+    subprocess.run(["git", "commit", "-qam", "right"], cwd=tmp_path, check=True)
+    right = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+    with pytest.raises(PlanScopeError, match="scope_base_is_not_ancestor_of_source_commit"):
+        changed_paths_for_range(tmp_path, left, right)
