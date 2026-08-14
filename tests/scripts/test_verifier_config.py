@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from scripts.langchain.verifier_config import (
     EVAL_FOLLOW_UP_BUDGET_TOKENS,
     EVAL_PAIR_BUDGET_TOKENS,
@@ -16,6 +18,25 @@ def test_verifier_budget_constants_are_positive() -> None:
     assert EVAL_PAIR_BUDGET_TOKENS > 0
     assert EVAL_SCHEMA_REPAIR_BUDGET_TOKENS > 0
     assert EVAL_FOLLOW_UP_BUDGET_TOKENS > 0
+
+
+@pytest.mark.parametrize("attempts", [0, 1])
+def test_schema_repair_policy_accepts_valid_attempt_values(attempts: int) -> None:
+    policy = SchemaRepairPolicy(max_attempts=attempts, escalation_threshold=attempts)
+    assert policy.max_attempts == attempts
+    assert policy.escalation_threshold == attempts
+
+
+@pytest.mark.parametrize("bad", [1.5, True, False, 2, -1])
+def test_schema_repair_policy_rejects_invalid_max_attempts(bad: object) -> None:
+    with pytest.raises((TypeError, ValueError)):
+        SchemaRepairPolicy(max_attempts=bad, escalation_threshold=0)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("bad", [1.5, True, False, 2, -1])
+def test_schema_repair_policy_rejects_invalid_escalation_threshold(bad: object) -> None:
+    with pytest.raises((TypeError, ValueError)):
+        SchemaRepairPolicy(max_attempts=0, escalation_threshold=bad)  # type: ignore[arg-type]
 
 
 def test_schema_repair_policy_decision_table() -> None:
