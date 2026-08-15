@@ -200,7 +200,7 @@ jobs:
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-review-resolution-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
         with:
-          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.OWNER_PR_PAT }}
           script: |
             const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
             await run({ github, context, core });
@@ -225,7 +225,7 @@ jobs:
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-premerge-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
         with:
-          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.OWNER_PR_PAT }}
           script: |
             const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
             await run({ github, context, core });
@@ -307,7 +307,7 @@ jobs:
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-merge-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
         with:
-          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ secrets.OWNER_PR_PAT }}
           script: |
             const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
             await run({ github, context, core });

@@ -830,7 +830,7 @@ backward compatibility, but new manual setup should prefer the current defaults.
 |--------|---------|--------------|
 | `SERVICE_BOT_PAT` | Bot account for comments/labels (stranske-automation-bot); fallback credential for cross-repository label sync | agents, autofix, Maint 69 label sync |
 | `ACTIONS_BOT_PAT` | Workflow dispatch triggers | event-hub/follow-up automation (`agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`); legacy orchestrator/pr-meta only when intentionally retained |
-| `OWNER_PR_PAT` | Create PRs on behalf of user; preferred credential for cross-repository label sync | issue-intake, Maint 69 label sync |
+| `OWNER_PR_PAT` | Create PRs on behalf of user; required owner-scoped credential for generated-delivery mutations | issue-intake, Maint 69 label sync, Maint 71 sync reconciliation |
 | `CROSS_REPO_TOKEN` | Read access to a dependency repository for cross-repo smoke | `cross-repo-smoke.yml` when `CROSS_REPO_SMOKE_ENABLED=true` |
 
 ### Cross-Repo Smoke (opt-in)

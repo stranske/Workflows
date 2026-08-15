@@ -108,7 +108,8 @@ This log mirrors the health-workflow audit but targets the `maint-*` workflows. 
 
 ### `maint-71-merge-sync-prs.yml`
 - **Purpose**: Closes stale sync PRs and merges the latest passing sync PR in each consumer repo.
-- **Optimizations applied (2026-02-22)**: Removed the GitHub App token mint, switched to the shared API client, and now rely on `scripts/list_registered_consumer_repos.py` so repo discovery stays centralized. Merge operations run via PAT (`OWNER_PR_PAT`/`SERVICE_BOT_PAT`) with a fallback to the default token for read-only runs.
+- **Optimizations applied (2026-02-22)**: Removed the GitHub App token mint, switched to the shared API client, and now rely on `scripts/list_registered_consumer_repos.py` so repo discovery stays centralized.
+- **Current credential contract (2026-08-15)**: Maint 71 requires `OWNER_PR_PAT` for every reconciliation mode and fails closed when that owner-scoped credential is missing, invalid, or exhausted; service/default-token fallback is not supported for fleet reads or mutations.
 - **Next steps**: Surface per-repo merge outcomes in the run summary for quicker triage.
 
 ### `maint-72-fix-pr-body-conflicts.yml`

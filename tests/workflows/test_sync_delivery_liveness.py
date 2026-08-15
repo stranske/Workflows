@@ -30,6 +30,7 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "Maint 71 requires OWNER_PR_PAT" in executor
     assert "retryHelpers.withRetry(fn" in executor
     assert "createTokenAwareRetry" not in executor
+    assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 3
 
 
 def test_sync_lifecycle_chains_and_has_event_plus_timer_fallbacks():
