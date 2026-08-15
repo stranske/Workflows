@@ -105,13 +105,7 @@ const TOKEN_SPECIALIZATIONS = {
     description: 'Workflow dispatch triggers and belt conveyor operations',
   },
   OWNER_PR_PAT: {
-    primaryTasks: [
-      'pr-creation-as-owner',
-      'cross-repo-sync',
-      'dependabot-automerge',
-      'label-sync',
-      'maint-71-merge-sync-prs',
-    ],
+    primaryTasks: ['pr-creation-as-owner', 'cross-repo-sync', 'dependabot-automerge', 'label-sync'],
     exclusive: true,
     description: 'Owner PAT for PR creation and owner-scoped cross-repo operations',
   },

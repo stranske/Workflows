@@ -124,24 +124,6 @@ test('getBestAvailableToken: handles tokens with zero remaining', () => {
   assert.equal(best.id, 'ONE');
 });
 
-test('getOptimalToken: reserves Maint 71 cross-repo PR writes for the owner PAT', async () => {
-  seedRegistry([
-    { id: 'SERVICE_BOT_PAT', remaining: 4999 },
-    { id: 'OWNER_PR_PAT', remaining: 3000 },
-  ]);
-  balancer.tokenRegistry.lastRefresh = Date.now();
-
-  const selection = await balancer.getOptimalToken({
-    github: {},
-    core: {},
-    capabilities: ['pull-requests:write'],
-    task: 'maint-71-merge-sync-prs',
-  });
-
-  assert.equal(selection.source, 'OWNER_PR_PAT');
-  assert.equal(selection.exclusive, true);
-});
-
 // ---------------------------------------------------------------------------
 // hasHealthyTokens
 // ---------------------------------------------------------------------------

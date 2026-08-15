@@ -350,7 +350,10 @@ async function run({ github, context, core }) {
         github,
         core,
         env: process.env,
-        task: 'maint-71-merge-sync-prs',
+        // Maint 71 mutates stable PRs across the complete consumer fleet.
+        // Use the registry's existing owner-only route instead of letting
+        // remaining capacity select a token without access to every repo.
+        task: 'cross-repo-sync',
         capabilities: [
           'pull-requests:read',
           'pull-requests:write',
