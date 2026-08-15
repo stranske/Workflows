@@ -871,6 +871,13 @@ def test_agents_pr_meta_keepalive_configuration():
         "created"
     ], "Keepalive detection must trigger on comment creation only"
 
+    pull_request = triggers.get("pull_request", {})
+    assert pull_request.get("types") == [
+        "opened",
+        "synchronize",
+        "reopened",
+    ], "PR body edits must not recursively wake the body-writing metadata workflow"
+
     jobs = workflow.get("jobs", {})
     # v4 structure differs from v2 - check for the relevant jobs
     assert (

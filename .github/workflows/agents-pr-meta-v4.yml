@@ -7,7 +7,11 @@ on:
   issue_comment:
     types: [created]
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    # Do not listen for `edited`: this workflow writes the PR body itself. An
+    # edited-body wake can observe a newly-created metadata-only check (for
+    # example the dependency-repair contract), write its new run URL back into
+    # the body, and create an unbounded self-trigger loop.
+    types: [opened, synchronize, reopened]
   workflow_run:
     workflows: [Gate]
     types: [completed]

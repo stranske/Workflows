@@ -607,8 +607,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Agents PR meta manager** – `.github/workflows/agents-pr-meta-v4.yml` is
   the canonical PR meta manager using external scripts to stay under GitHub
   workflow parser limits. Manages PR metadata and the Automated Status Summary
-  that tracks issue acceptance criteria completion. (Legacy v1/v2/v3 versions
-  archived to `archives/github-actions/2025-12-02-pr-meta-legacy/`.)
+  that tracks issue acceptance criteria completion. It intentionally ignores
+  PR-body edit events because it writes that surface itself; structural PR,
+  comment, and Gate-completion events provide the bounded wakeups. (Legacy
+  v1/v2/v3 versions archived to
+  `archives/github-actions/2025-12-02-pr-meta-legacy/`.)
 - **Keepalive loop (Gate workflow_run).** The `agents-keepalive-loop.yml` workflow
   evaluates PR guardrails after Gate completes, runs Codex CLI when eligible,
   and repeats on subsequent Gate completions until tasks are done. The

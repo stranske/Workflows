@@ -12,7 +12,7 @@
     "AGENT_STATE": "done",
     "TTL_SHORT_MS": "0",
     "POLL_SHORT_MS": "0",
-    "TTL_LONG_MS": "100",
+    "TTL_LONG_MS": "5000",
     "POLL_LONG_MS": "0"
   },
   "updateBranch": {
