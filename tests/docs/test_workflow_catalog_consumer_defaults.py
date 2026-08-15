@@ -39,3 +39,6 @@ def test_keepalive_reporter_docs_require_an_app_owned_writer() -> None:
         assert "WORKFLOWS_APP" in entry
         assert "fail" in entry.lower() and "closed" in entry.lower()
         assert "no bespoke App mint" not in entry
+
+    assert guide_entry.count("KEEPALIVE_APP") >= 1
+    assert checklist_entry.count("KEEPALIVE_APP") >= 1
