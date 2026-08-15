@@ -49,7 +49,8 @@ For these repos:
 - The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
 - A custom Gate must include an independent `generated-delivery-seal` job that
   invokes
-  `stranske/Workflows/.github/actions/generated-delivery-seal@main`, and its
+  the commit-pinned
+  `stranske/Workflows/.github/actions/generated-delivery-seal` action, and its
   aggregate `Gate / gate` must require that job. Invoking the exact-synced
   `.github/actions/path-classifier` is not sufficient because a sync PR can
   modify that local action. The Workflows-owned action evaluates the event's

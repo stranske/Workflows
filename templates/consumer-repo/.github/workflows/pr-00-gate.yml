@@ -171,7 +171,7 @@ jobs:
       contents: read
     steps:
       - name: Require an exact-head delivery seal
-        uses: stranske/Workflows/.github/actions/generated-delivery-seal@main
+        uses: stranske/Workflows/.github/actions/generated-delivery-seal@632eb20586f8403219d101e8a982b62efeb94104
 
   python-ci:
     name: python ci

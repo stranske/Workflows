@@ -412,8 +412,12 @@ def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
     )
 
     assert "generated-delivery-seal" in gate
-    assert "stranske/Workflows/.github/actions/generated-delivery-seal@main" in gate
-    assert "stranske/Workflows/.github/actions/generated-delivery-seal@main" in template_gate
+    action_ref = (
+        "stranske/Workflows/.github/actions/generated-delivery-seal"
+        "@632eb20586f8403219d101e8a982b62efeb94104"
+    )
+    assert action_ref in gate
+    assert action_ref in template_gate
     assert (
         "uses: ./.github/actions/path-classifier"
         not in gate.split("generated-delivery-seal:", 1)[1].split("\n  python-ci:", 1)[0]
