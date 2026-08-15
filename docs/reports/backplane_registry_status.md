@@ -5,12 +5,12 @@ Generated from `config/backplane_participants.json` for Workflows #2743.
 | Repo | Lifecycle status | Reference state | Issue state |
 | --- | --- | --- | --- |
 | stranske/Pension-Data | conformant | valid | `stranske/Pension-Data#703` |
-| stranske/Trend_Model_Project | planned | missing | deferred until 2026-08-15 |
-| stranske/Counter_Risk | planned | missing | deferred until 2026-08-15 |
-| stranske/Portable-Alpha-Extension-Model | planned | missing | deferred until 2026-08-15 |
-| stranske/Manager-Database | planned | missing | deferred until 2026-08-15 |
-| stranske/Inv-Man-Intake | planned | missing | deferred until 2026-08-15 |
-| stranske/learning-management-system | candidate | not-applicable | deferred until 2026-08-15 |
+| stranske/Trend_Model_Project | planned | missing | deferred until 2026-09-15 |
+| stranske/Counter_Risk | planned | missing | deferred until 2026-09-15 |
+| stranske/Portable-Alpha-Extension-Model | planned | missing | deferred until 2026-09-15 |
+| stranske/Manager-Database | planned | missing | deferred until 2026-09-15 |
+| stranske/Inv-Man-Intake | planned | missing | deferred until 2026-09-15 |
+| stranske/learning-management-system | candidate | not-applicable | deferred until 2026-09-15 |
 
 Pension-Data reference evidence:
 
