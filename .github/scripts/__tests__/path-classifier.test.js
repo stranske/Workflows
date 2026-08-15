@@ -245,7 +245,15 @@ test('consumer template preserves raw bootstrap contract bytes', () => {
     ),
     'utf8',
   );
-  assert.match(templateClassifier, /function readContractAtRef[\s\S]*?return readGit\(\['show'/);
+  const rawContractReader = templateClassifier.match(
+    /function readContractAtRef\(ref, contractPath\) \{[\s\S]*?\n\}/,
+  );
+  assert.ok(rawContractReader, 'template must define readContractAtRef');
+  assert.match(
+    rawContractReader[0],
+    /return readGit\(\['show', `\$\{ref\}:\$\{contractPath\}`\]\);/,
+  );
+  assert.doesNotMatch(rawContractReader[0], /\.trim\(/);
   assert.match(templateClassifier, /function runGit\(args\) \{\n  return readGit\(args\)\.trim\(\);/);
 });
 
