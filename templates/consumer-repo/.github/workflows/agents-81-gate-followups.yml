@@ -586,7 +586,9 @@ jobs:
         run: |
           set -euo pipefail
           case "$TOKEN_SOURCE:$TOKEN_LOGIN" in
-            'ACTIONS_BOT_PAT:stranske'|'SERVICE_BOT_PAT:stranske-automation-bot') ;;
+            'ACTIONS_BOT_PAT:stranske'|\
+            'ACTIONS_BOT_PAT:stranske-automation-bot'|\
+            'SERVICE_BOT_PAT:stranske-automation-bot') ;;
             *)
               echo "::error::$TOKEN_SOURCE has unexpected identity '$TOKEN_LOGIN'."
               exit 1 ;;
@@ -617,9 +619,8 @@ jobs:
               'stranske-keepalive[bot]' ||
               steps.running_workflows_app_token.outputs.token != '' &&
               'agents-workflows-bot[bot]' ||
-              steps.running_token_writer.outputs.source == 'ACTIONS_BOT_PAT' &&
-              'stranske' ||
-              'stranske-automation-bot'
+              steps.running_pat_identity.outputs.login ||
+              ''
             }}
         with:
           github-token: >-

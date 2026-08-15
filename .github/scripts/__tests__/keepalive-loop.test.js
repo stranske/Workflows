@@ -1042,6 +1042,49 @@ test('updateKeepaliveLoopSummary migrates legacy state to the selected App write
   assert.equal(github.actions.some((action) => action.commentId === 44), false);
 });
 
+test('updateKeepaliveLoopSummary reuses a summary written by the selected PAT user', async () => {
+  const existingState = [
+    '<!-- keepalive-loop-summary -->',
+    formatStateComment({
+      trace: 'pat-summary-trace',
+      iteration: 1,
+      max_iterations: 5,
+      failure_threshold: 3,
+    }),
+  ].join('\n');
+  const github = buildGithubStub({
+    comments: [{
+      id: 46,
+      body: existingState,
+      html_url: 'https://example.com/46',
+      user: { login: 'stranske-automation-bot', type: 'User' },
+    }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(123),
+    core: buildCore(),
+    inputs: {
+      prNumber: 123,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 2,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'pat-summary-trace',
+      trusted_summary_author: 'stranske-automation-bot',
+    },
+  });
+
+  assert.equal(github.actions[0].type, 'update');
+  assert.equal(github.actions[0].commentId, 46);
+});
+
 test('updateKeepaliveLoopSummary recovers trusted state past an untrusted summary writer', async () => {
   const trustedState = [
     '<!-- keepalive-loop-summary -->',
@@ -4928,6 +4971,42 @@ test('markAgentRunning migrates legacy state to the selected App writer', async 
   const persistedState = parseStateComment(github.actions[0].body).data;
   assert.equal(persistedState.trace, 'running-migration-trace');
   assert.equal(persistedState.running, true);
+});
+
+test('markAgentRunning reuses a running summary written by the selected PAT user', async () => {
+  const existingStateBody = formatStateComment({
+    trace: 'running-pat-trace',
+    iteration: 2,
+    tasks: { total: 4, unchecked: 3 },
+  });
+  const github = buildGithubStub({
+    comments: [{
+      id: 202,
+      body: `<!-- keepalive-loop-summary -->\n## Summary\n${existingStateBody}`,
+      html_url: 'https://example.com/202',
+      user: { login: 'stranske-automation-bot', type: 'User' },
+    }],
+  });
+
+  await markAgentRunning({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    core: buildCore(),
+    inputs: {
+      pr_number: 44,
+      agent_type: 'codex',
+      iteration: 2,
+      max_iterations: 5,
+      tasks_total: 4,
+      tasks_unchecked: 3,
+      trace: 'running-pat-trace',
+      trusted_summary_author: 'stranske-automation-bot',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  assert.equal(github.actions[0].commentId, 202);
 });
 
 test('markAgentRunning creates comment when none exists', async () => {

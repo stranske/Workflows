@@ -840,14 +840,14 @@ def test_consumer_mark_running_supports_identity_checked_pat():
     assert "github.rest.users.getAuthenticated()" in mark_running
     assert "withRetry(() => github.rest.users.getAuthenticated())" in mark_running
     assert "'ACTIONS_BOT_PAT:stranske'" in mark_running
+    assert "'ACTIONS_BOT_PAT:stranske-automation-bot'" in mark_running
     assert "'SERVICE_BOT_PAT:stranske-automation-bot'" in mark_running
     update = mark_running[mark_running.index("- name: Update summary with running status") :]
     assert "steps.running_keepalive_app_token.outputs.token ||" in update
     assert "steps.running_workflows_app_token.outputs.token ||" in update
     assert "secrets.ACTIONS_BOT_PAT ||" in update
     assert "secrets.SERVICE_BOT_PAT" in update
-    assert "steps.running_token_writer.outputs.source == 'ACTIONS_BOT_PAT'" in update
-    assert "'stranske-automation-bot'" in update
+    assert "steps.running_pat_identity.outputs.login ||" in update
     assert "secrets.GITHUB_TOKEN" not in update
     assert "github.token" not in update
 

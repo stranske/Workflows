@@ -74,6 +74,10 @@ function normalise(value) {
   return String(value ?? '').trim();
 }
 
+function expectedTrustedSummaryAuthorType(author) {
+  return normalise(author).toLowerCase().endsWith('[bot]') ? 'bot' : 'user';
+}
+
 function buildAuthorityChallengeEvidence({
   agentSummary,
   summaryReason,
@@ -3217,14 +3221,18 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     ).toLowerCase();
     const existingSummaryAuthor = normalise(commentAuthorLogin).toLowerCase();
     const existingSummaryAuthorType = normalise(commentAuthorType).toLowerCase();
+    const trustedSummaryAuthorType = expectedTrustedSummaryAuthorType(trustedSummaryAuthor);
     const migrateSummaryWriter = Boolean(
       commentId &&
       trustedSummaryAuthor &&
-      (existingSummaryAuthor !== trustedSummaryAuthor || existingSummaryAuthorType !== 'bot'),
+      (
+        existingSummaryAuthor !== trustedSummaryAuthor ||
+        existingSummaryAuthorType !== trustedSummaryAuthorType
+      ),
     );
     if (migrateSummaryWriter) {
       core?.info?.(
-        `Creating a trusted App-owned keepalive summary; existing writer ` +
+        `Creating a trusted keepalive summary; existing writer ` +
         `${existingSummaryAuthor || 'unknown'} is not ${trustedSummaryAuthor}; migrating known state.`,
       );
     }
@@ -4795,14 +4803,18 @@ async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
   ).toLowerCase();
   const existingSummaryAuthor = normalise(commentAuthorLogin).toLowerCase();
   const existingSummaryAuthorType = normalise(commentAuthorType).toLowerCase();
+  const trustedSummaryAuthorType = expectedTrustedSummaryAuthorType(trustedSummaryAuthor);
   const migrateSummaryWriter = Boolean(
     commentId &&
     trustedSummaryAuthor &&
-    (existingSummaryAuthor !== trustedSummaryAuthor || existingSummaryAuthorType !== 'bot'),
+    (
+      existingSummaryAuthor !== trustedSummaryAuthor ||
+      existingSummaryAuthorType !== trustedSummaryAuthorType
+    ),
   );
   if (migrateSummaryWriter) {
     core?.info?.(
-      `Creating a trusted App-owned running summary; existing writer ` +
+      `Creating a trusted running summary; existing writer ` +
       `${existingSummaryAuthor || 'unknown'} is not ${trustedSummaryAuthor}; migrating known state.`,
     );
   }
