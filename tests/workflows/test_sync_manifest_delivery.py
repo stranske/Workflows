@@ -414,9 +414,10 @@ def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
     assert "generated-delivery-seal" in gate
     assert "stranske/Workflows/.github/actions/generated-delivery-seal@main" in gate
     assert "stranske/Workflows/.github/actions/generated-delivery-seal@main" in template_gate
-    assert "uses: ./.github/actions/path-classifier" not in gate.split(
-        "generated-delivery-seal:", 1
-    )[1].split("\n  python-ci:", 1)[0]
+    assert (
+        "uses: ./.github/actions/path-classifier"
+        not in gate.split("generated-delivery-seal:", 1)[1].split("\n  python-ci:", 1)[0]
+    )
     assert "using: composite" in seal_action
     assert "requireSealed: true" in seal_check
     assert "pullRequest?.head?.sha" in seal_check
