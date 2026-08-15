@@ -120,9 +120,9 @@ reason = Intentional divergence re-baselined 2026-08-11: root remains in-tree (s
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml
-main_sha256 = 87aba22f921d4e0ccc875dcd699f908718354b114f970c4930c0f722179032de
-template_sha256 = 8601999200300ca18a65a7abd94480b1176706c7d0b23fed7092390ee415c838
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+main_sha256 = 68ed7a2824a3536bf5e57699f0065646840335a5d36747758cb1ed2d1568288b
+template_sha256 = 93bfd23d1fecd7769aff11c80cfc78e7e50465d8f8172b6f4c63911b63addebc
+reason = Intentional divergence re-reviewed 2026-08-15: both reporters mint the dedicated KEEPALIVE_APP token with WORKFLOWS_APP fallback, fail closed before trusted summary writes, and record the selected App writer. The root keeps its in-repo setup helpers while the consumer retains state fingerprinting and SHA-pinned actions; do not align wholesale.
 
 [pair.13]
 main = .github/workflows/agents-keepalive-sweep.yml
