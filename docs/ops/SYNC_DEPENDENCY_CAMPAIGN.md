@@ -60,6 +60,33 @@ fingerprint materially changes. Timestamps alone do not constitute new work.
 Local watchers consume the normalized handoff record and do not independently
 decide merge or close disposition.
 
+The same marker is the timed continuation queue. Maint 71 classifies every
+handoff as `transient`, `actionable`, or `terminal`, names its candidate,
+delivery, or dev-tool lane, and records an immutable `resume_after` for
+transient states. Maint 82 checks that queue every ten minutes and dispatches at
+most one due run per lane, suppressing a new candidate while a promoted delivery
+is active. Consumer `agents-81-gate-followups.yml` sends the event-driven wakeup
+when a generated branch's Gate finishes; the timed queue covers quiet-period
+expiration and lost/delayed events. Pending checks and review windows therefore
+advance automatically, while failed checks and review findings keep their named
+owner instead of being disguised as timer retries.
+
+After a candidate-selector run has complete same-plan evidence and every
+configured candidate was merged or recovered, Maint 71 passes that exact JSON
+to Maint 68 `phase=promote`. Maint 68 in turn dispatches the delivery selector
+after writing non-canary PRs. Neither chain permits an explicit non-canary repo
+through `phase=canary`, and `stranske/Collab-Admin` is excluded from reconciler
+targets.
+
+An active review thread remains a hard merge block. The bounded exception is an
+explicit `workflows-sync-review-resolution/v1` proof supplied to Maint 71. It
+must name one active thread, PR, exact head, substantive reason, Workflows PR or
+commit evidence URL, and merged Workflows source-fix SHA. Maint 71 verifies the
+authenticated dispatcher, unchanged head, active thread, and that the fix is an
+ancestor of the delivery's recorded source commit before resolving that thread.
+General source ancestry, a newer wave, or passing CI alone never clears review
+debt.
+
 ## Remote delivery handoff schema (`workflows-generated-delivery-handoff/v1`)
 
 Maint 71 emits normalized result records (artifact + best-effort
@@ -82,7 +109,8 @@ Required fields:
 | `review_state` | Review summary (`clear`, `blocked`, …) |
 
 Optional fields retained when present: `branch`, `lane` (`sync` /
-`dev-tool-sync`), `observed_at`.
+`dev-tool-sync`), `observed_at`, and `continuation` (`class`, `lane`, `reason`,
+`resume_after`).
 
 Exception fingerprints used for local Codex handoff include repository, PR
 number, head SHA, and active review-thread identity. `updated_at` is metadata

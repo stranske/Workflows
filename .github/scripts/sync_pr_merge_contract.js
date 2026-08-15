@@ -798,7 +798,89 @@ function deriveHandoffReviewState(result = {}) {
   return 'clear';
 }
 
-function buildDeliveryHandoff(result = {}) {
+function continuationLaneForBranch(value) {
+  const branch = branchNameFromRef(value);
+  if (branch === SYNC_CANDIDATE_BRANCH) return 'candidate';
+  if (branch === SYNC_DELIVERY_BRANCH) return 'delivery';
+  if (branch.startsWith(DEV_TOOL_SYNC_BRANCH_PREFIX)) return 'dev-tool';
+  return '';
+}
+
+function parseResumeAfter(result = {}, observedAt = new Date().toISOString()) {
+  const explicit = String(result.review_window_eligible_at || '').trim();
+  if (Number.isFinite(Date.parse(explicit))) return new Date(explicit).toISOString();
+  const nextCommand = String(result.next_command || '');
+  const commandMatch = nextCommand.match(/^rerun-after:(.+)$/);
+  if (commandMatch && Number.isFinite(Date.parse(commandMatch[1]))) {
+    return new Date(commandMatch[1]).toISOString();
+  }
+  const observed = Number.isFinite(Date.parse(observedAt))
+    ? new Date(observedAt)
+    : new Date();
+  const delayMinutes = {
+    checks_pending: 10,
+    delivery_sealed_checks_pending: 5,
+    head_changed: 7,
+    review_window_pending: 7,
+    review_window_started: 7,
+    reviewer_settlement_pending: 7,
+  }[String(result.status || '')] || 0;
+  return new Date(observed.getTime() + delayMinutes * 60 * 1000).toISOString();
+}
+
+function classifyDeliveryContinuation(result = {}, observedAt = new Date().toISOString()) {
+  const status = String(result.status || '');
+  const lane = continuationLaneForBranch(result.branch);
+  const terminal = new Set(['merged', 'stale_closed', 'evidence_recovered']);
+  const transient = new Set([
+    'candidate_evidence_required',
+    'checks_pending',
+    'delivery_review_not_started',
+    'delivery_sealed_checks_pending',
+    'head_changed',
+    'review_window_pending',
+    'review_window_started',
+    'reviewer_settlement_pending',
+    'sealed_head_mismatch',
+  ]);
+  if (terminal.has(status)) {
+    return { class: 'terminal', lane, reason: status, resume_after: '' };
+  }
+  if (lane && transient.has(status)) {
+    return {
+      class: 'transient',
+      lane,
+      reason: status,
+      resume_after: parseResumeAfter(result, observedAt),
+    };
+  }
+  return { class: 'actionable', lane, reason: status || 'unknown', resume_after: '' };
+}
+
+function candidatePromotionDecision({ report = {}, evidence = {}, expectedCanaries = [] } = {}) {
+  const rows = Array.isArray(evidence) ? evidence : evidence.results;
+  const validation = validateCanaryEvidence(rows, expectedCanaries);
+  const errors = [...validation.errors];
+  if (normalizeSyncHash(report?.inputs?.sync_hash) !== 'candidate') {
+    errors.push('merge report is not a candidate-selector report');
+  }
+  const results = Array.isArray(report?.results) ? report.results : [];
+  for (const repository of expectedCanaries) {
+    const terminal = results.some((result) =>
+      `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, '') === repository
+      && branchNameFromRef(result.branch) === SYNC_CANDIDATE_BRANCH
+      && ['merged', 'evidence_recovered'].includes(String(result.status || '')),
+    );
+    if (!terminal) errors.push(`${repository}: candidate was not merged or recovered`);
+  }
+  return {
+    eligible: validation.ok && errors.length === 0,
+    errors,
+    plan_id: validation.plan_id || '',
+  };
+}
+
+function buildDeliveryHandoff(result = {}, observedAt = new Date().toISOString()) {
   if (!result.pr) return null;
   const status = String(result.status || '');
   // Branch-delete rows are companions to the merged row; emit one terminal handoff only.
@@ -835,6 +917,8 @@ function buildDeliveryHandoff(result = {}) {
     return null;
   }
 
+  const continuation = classifyDeliveryContinuation(result, observedAt);
+
   return {
     schema: 'workflows-generated-delivery-handoff/v1',
     repository: `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, ''),
@@ -848,6 +932,8 @@ function buildDeliveryHandoff(result = {}) {
     next_command: nextCommand,
     check_state: checkState,
     review_state: reviewState,
+    continuation,
+    observed_at: observedAt,
   };
 }
 
@@ -876,7 +962,9 @@ function buildMergeReport({
     },
     summary: summarizeResults(results),
     results,
-    handoff_records: (results || []).map(buildDeliveryHandoff).filter(Boolean),
+    handoff_records: (results || [])
+      .map((result) => buildDeliveryHandoff(result, generatedAt))
+      .filter(Boolean),
   };
 }
 
@@ -952,5 +1040,8 @@ module.exports = {
   summarizeResults,
   buildMergeReport,
   buildDeliveryHandoff,
+  candidatePromotionDecision,
+  classifyDeliveryContinuation,
+  continuationLaneForBranch,
   buildMarkdownSummary,
 };

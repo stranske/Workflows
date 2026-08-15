@@ -363,6 +363,15 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
   if (!repository || !pr || !headSha || !generation) return null;
   // Require the full restart/routing contract so durable records can classify exceptions.
   if (!disposition || !blockerOwner || !nextCommand || !checkState || !reviewState) return null;
+  const continuationRecord = record.continuation && typeof record.continuation === 'object'
+    ? record.continuation
+    : {};
+  const continuation = {
+    class: cleanString(continuationRecord.class),
+    lane: cleanString(continuationRecord.lane),
+    reason: cleanString(continuationRecord.reason),
+    resume_after: cleanString(continuationRecord.resume_after),
+  };
   return {
     schema: DELIVERY_HANDOFF_SCHEMA,
     repository,
@@ -376,8 +385,45 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
     next_command: nextCommand,
     check_state: checkState,
     review_state: reviewState,
+    continuation,
     observed_at: cleanString(observedAt || record.observed_at),
   };
+}
+
+function planMaint71Continuations(records = [], { now = new Date().toISOString() } = {}) {
+  const nowMs = Date.parse(now);
+  if (!Number.isFinite(nowMs)) throw new Error(`invalid continuation time: ${now}`);
+  const handoffs = cleanArray(records)
+    .map((record) => normalizeDeliveryHandoff(record))
+    .filter(Boolean);
+  const deliveryActive = handoffs.some((record) =>
+    record.continuation.lane === 'delivery'
+    && record.continuation.class !== 'terminal',
+  );
+  const dueByLane = new Map();
+  for (const record of handoffs) {
+    const continuation = record.continuation;
+    if (continuation.class !== 'transient') continue;
+    if (!['candidate', 'delivery', 'dev-tool'].includes(continuation.lane)) continue;
+    if (deliveryActive && continuation.lane === 'candidate') continue;
+    const dueMs = Date.parse(continuation.resume_after || record.observed_at);
+    if (!Number.isFinite(dueMs) || dueMs > nowMs) continue;
+    const current = dueByLane.get(continuation.lane);
+    if (!current || dueMs < Date.parse(current.resume_after)) {
+      dueByLane.set(continuation.lane, {
+        lane: continuation.lane,
+        resume_after: new Date(dueMs).toISOString(),
+        reason: continuation.reason,
+        repository: record.repository,
+        pr: record.pr,
+        head_sha: record.head_sha,
+      });
+    }
+  }
+  const order = deliveryActive
+    ? ['delivery', 'dev-tool']
+    : ['candidate', 'delivery', 'dev-tool'];
+  return order.map((lane) => dueByLane.get(lane)).filter(Boolean);
 }
 
 function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', limit = DEFAULT_MAX_DELIVERY_HANDOFFS) {
@@ -1766,6 +1812,7 @@ module.exports = {
   normalizeDeliveryHandoff,
   paginateWithRetry,
   parseCampaignMarker,
+  planMaint71Continuations,
   replaceCampaignMarker,
   runCampaign,
   validateCampaignState,

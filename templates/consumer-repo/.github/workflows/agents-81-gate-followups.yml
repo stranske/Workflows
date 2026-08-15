@@ -1732,6 +1732,60 @@ jobs:
           path: autofix-metrics.ndjson
           retention-days: 30
 
+  generated-delivery-wakeup:
+    name: Wake generated delivery reconciler
+    if: >-
+      ${{
+        github.event_name == 'workflow_run' &&
+        (github.event.workflow_run.head_branch == 'sync/workflows-candidate' ||
+         github.event.workflow_run.head_branch == 'sync/workflows-delivery' ||
+         startsWith(github.event.workflow_run.head_branch, 'deps/sync-dev-versions-'))
+      }}
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    permissions:
+      contents: read
+    steps:
+      - name: Dispatch exact generated lane to Workflows
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ env.WRITE_TOKEN }}
+          script: |
+            const branch = String(context.payload.workflow_run?.head_branch || '');
+            const activeSyncHash = branch === 'sync/workflows-candidate'
+              ? 'candidate'
+              : branch === 'sync/workflows-delivery'
+                ? 'delivery'
+                : '';
+            const clientPayload = {
+              source_repository: `${context.repo.owner}/${context.repo.repo}`,
+              source_run_id: String(context.payload.workflow_run?.id || ''),
+            };
+            if (activeSyncHash) clientPayload.active_sync_hash = activeSyncHash;
+            const withRetry = async (operation) => {
+              let lastError;
+              for (let attempt = 0; attempt < 3; attempt += 1) {
+                try {
+                  return await operation();
+                } catch (error) {
+                  lastError = error;
+                  if (![429, 500, 502, 503, 504].includes(Number(error?.status))) throw error;
+                  await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+                }
+              }
+              core.setFailed(
+                `Generated-delivery wakeup failed: ${lastError?.message || lastError}`,
+              );
+              throw lastError;
+            };
+            await withRetry(() => github.rest.repos.createDispatchEvent({
+              owner: 'stranske',
+              repo: 'Workflows',
+              event_type: 'merge-sync-prs',
+              client_payload: clientPayload,
+            }));
+            core.notice(`Woke Maint 71 lane ${activeSyncHash || 'unscoped'} from ${branch}`);
+
   guarded-merge:
     name: Merge automerge-labelled agent PRs
     # #2270 (FO-5): in-repo guarded merger for consumer repos. Runs on the same

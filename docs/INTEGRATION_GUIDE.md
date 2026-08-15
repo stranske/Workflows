@@ -127,7 +127,11 @@ tree or signature does not match the staged delivery. A reviewer capacity outage
 cannot require responses from every configured bot or keep the PR open indefinitely.
 Maint 71 requires one substantive response when available; a successful status
 whose own description says the review was skipped or not performed is recorded
-as unavailable, not as reviewer quorum.
+as unavailable, not as reviewer quorum. Generated-branch Gate completions wake
+Maint 71 immediately; the durable campaign queue supplies the timed fallback for
+review windows and pending checks. Complete exact-plan candidate evidence starts
+promotion automatically, while active review findings remain held until resolved
+or covered by an authenticated exact-head Workflows source-fix proof.
 
 ### Method 3: Hybrid Approach
 
@@ -798,7 +802,7 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 | `ci.yml` | Python CI (lint, format, tests, typecheck) | push, PR |
 | `agents-issue-intake.yml` | Assigns Codex/Copilot to issues | issue labeled `agent:codex` |
 | `agents-80-pr-event-hub.yml` | Handles PR event routing, keepalive metadata, bot comments, and verification follow-ups | PR events and comments |
-| `agents-81-gate-followups.yml` | Coordinates Gate follow-ups, keepalive continuation, and autofix recovery | Gate completion and follow-up events |
+| `agents-81-gate-followups.yml` | Coordinates Gate follow-ups, keepalive/autofix recovery, and generated-delivery wakeups | Gate completion and follow-up events |
 | `agents-verifier.yml` | Runs label-driven post-merge verification | manual dispatch, `verify:*` labels |
 | `autofix.yml` | Auto-fixes lint/format issues | PR sync, `autofix` label |
 | `pr-00-gate.yml` | Required PR gate and summary status | PR |
@@ -918,7 +922,9 @@ Without this workflow, Codex PRs will stall after the first round.
 #### `agents-81-gate-followups.yml`
 
 This is the current Gate follow-up hub. It coordinates keepalive continuation,
-autofix recovery, and post-Gate actions after `pr-00-gate.yml` completes.
+autofix recovery, and post-Gate actions after `pr-00-gate.yml` completes. A Gate
+completion on a stable consumer-sync or dev-tool-sync branch also dispatches the
+matching central Maint 71 lane; it never merges the generated PR locally.
 
 #### `autofix.yml`
 

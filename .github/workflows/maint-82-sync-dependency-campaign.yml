@@ -6,9 +6,9 @@ name: Sync/Dependency Campaign
 
 on:
   schedule:
-    # Remote discovery runs on GitHub capacity. The local watcher only starts
-    # Codex when the campaign issue has a needs-local-codex queue item.
-    - cron: "17 */6 * * *"
+    # The campaign marker is also Maint 71's durable continuation queue. This
+    # bounded pass wakes due transient lanes even when no new GitHub event fires.
+    - cron: "*/10 * * * *"
     # A focused pass after the usual weekly Dependabot update window.
     - cron: "30 10 * * 1"
   workflow_dispatch:
@@ -32,6 +32,7 @@ on:
     types: [sync-dependabot-campaign]
 
 permissions:
+  actions: write
   contents: read
   issues: write
   pull-requests: read
@@ -104,6 +105,7 @@ jobs:
           script: |
             const {
               formatCampaignRunSummaryMarkdown,
+              planMaint71Continuations,
               runCampaign,
             } = require('./.github/scripts/sync_dependency_campaign.js');
             const fs = require('fs');
@@ -132,6 +134,10 @@ jobs:
               currentSyncHash,
               deliveryHandoffRecords,
             });
+            const continuations = planMaint71Continuations(result.state.delivery_handoffs, {
+              now: new Date().toISOString(),
+            });
+            core.setOutput('maint71_continuations', JSON.stringify(continuations));
 
             const stats = result.state.stats || {};
             fs.writeFileSync(
@@ -167,6 +173,61 @@ jobs:
                 `Campaign issue: ${result.issue?.html_url || '(dry run)'}`,
               ])
               .write();
+
+      - name: Dispatch due Maint 71 continuations
+        if: ${{ steps.inputs.outputs.dry_run != 'true' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          CONTINUATIONS_JSON: ${{ steps.campaign.outputs.maint71_continuations || '[]' }}
+          REGISTERED_REPOS: ${{ steps.registered.outputs.repos }}
+        with:
+          github-token: ${{ env.CAMPAIGN_TOKEN }}
+          script: |
+            const continuations = JSON.parse(process.env.CONTINUATIONS_JSON || '[]');
+            const nonAdminRepos = String(process.env.REGISTERED_REPOS || '')
+              .split(',')
+              .map((repo) => repo.trim())
+              .filter((repo) => repo && repo !== 'stranske/Collab-Admin');
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'maint-71-merge-sync-prs.yml',
+              per_page: 40,
+            });
+            const activeTitles = new Set(
+              (runs.workflow_runs || [])
+                .filter((run) =>
+                  ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status),
+                )
+                .map((run) => String(run.display_title || '')),
+            );
+            for (const continuation of continuations) {
+              const selector = continuation.lane === 'dev-tool' ? '' : continuation.lane;
+              const title = `Merge Sync PRs [${selector || 'unscoped'}]`;
+              if (activeTitles.has(title)) {
+                core.notice(`Maint 71 ${selector || 'unscoped'} lane is already active`);
+                continue;
+              }
+              const inputs = {
+                auto_merge: 'true',
+                dry_run: 'false',
+                cleanup_branches: 'true',
+              };
+              if (selector) inputs.active_sync_hash = selector;
+              if (selector !== 'candidate') inputs.repos = nonAdminRepos.join(',');
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'maint-71-merge-sync-prs.yml',
+                ref: context.payload.repository?.default_branch || 'main',
+                inputs,
+              });
+              activeTitles.add(title);
+              core.notice(
+                `Dispatched due Maint 71 ${selector || 'unscoped'} continuation for ` +
+                  `${continuation.repository}#${continuation.pr} (${continuation.reason})`,
+              );
+            }
 
       - name: Upload campaign state
         if: ${{ always() }}

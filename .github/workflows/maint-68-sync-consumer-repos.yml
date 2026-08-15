@@ -1,4 +1,5 @@
 name: Maint 68 Sync Consumer Repos
+run-name: Maint 68 ${{ inputs.phase || 'canary' }} ${{ inputs.delivery_scope || 'auto' }}
 
 # Push workflow template updates to registered consumer repositories
 #
@@ -59,6 +60,7 @@ on:
         required: false
 
 permissions:
+  actions: write
   contents: read
   issues: write  # Required to create failure notification issues
 
@@ -1602,6 +1604,47 @@ jobs:
           path: ${{ env.CONSUMER_SYNC_RUN_REPORT_JSON }}
           retention-days: 14
           if-no-files-found: warn
+
+  continue-delivery:
+    name: Start generated delivery reconciliation
+    needs: [prepare, sync]
+    if: >-
+      ${{
+        always() &&
+        needs.prepare.result == 'success' &&
+        needs.sync.result == 'success' &&
+        needs.prepare.outputs.has_plan_items == 'true' &&
+        (inputs.dry_run || false) != true &&
+        needs.prepare.outputs.phase != 'preview'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Maint 71 for the generated lane
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const phase = '${{ needs.prepare.outputs.phase }}';
+            const activeSyncHash = phase === 'canary' ? 'candidate' : 'delivery';
+            const nonAdminRepos = String(process.env.REGISTERED_CONSUMER_REPOS || '')
+              .split(/\s+/)
+              .map((repo) => repo.trim())
+              .filter((repo) => repo && repo !== 'stranske/Collab-Admin');
+            const inputs = {
+              active_sync_hash: activeSyncHash,
+              auto_merge: 'true',
+              dry_run: 'false',
+              cleanup_branches: 'true',
+            };
+            if (activeSyncHash === 'delivery') inputs.repos = nonAdminRepos.join(',');
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'maint-71-merge-sync-prs.yml',
+              ref: context.payload.repository?.default_branch || 'main',
+              inputs,
+            });
+            core.notice(`Dispatched Maint 71 ${activeSyncHash} reconciliation`);
 
   # ============================================================================
   # FAILURE NOTIFICATION: Create issue when sync fails

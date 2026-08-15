@@ -16,6 +16,11 @@
 # - Uses merge commit (not squash) to preserve sync history
 
 name: Merge Sync PRs
+run-name: >-
+  Merge Sync PRs
+  [${{ inputs.active_sync_hash ||
+    github.event.client_payload.active_sync_hash ||
+    'unscoped' }}]
 
 on:
   schedule:
@@ -45,7 +50,8 @@ on:
         type: boolean
         default: false
       active_sync_hash:
-        description: "Active sync selector (candidate or delivery for stable lanes; legacy hash accepted)"
+        description: >-
+          Active sync selector (candidate or delivery for stable lanes; legacy hash accepted)
         required: false
         type: string
         default: ""
@@ -59,6 +65,11 @@ on:
         required: false
         type: boolean
         default: true
+      review_resolution_json:
+        description: "Exact-head source-fix proofs for specific review threads"
+        required: false
+        type: string
+        default: ""
   workflow_call:
     inputs:
       repos:
@@ -77,7 +88,8 @@ on:
         type: boolean
         default: false
       active_sync_hash:
-        description: "Active sync selector (candidate or delivery for stable lanes; legacy hash accepted)"
+        description: >-
+          Active sync selector (candidate or delivery for stable lanes; legacy hash accepted)
         required: false
         type: string
         default: ""
@@ -91,16 +103,27 @@ on:
         required: false
         type: boolean
         default: true
+      review_resolution_json:
+        description: "Exact-head source-fix proofs for specific review threads"
+        required: false
+        type: string
+        default: ""
 
 permissions:
+  actions: write
   checks: read
   contents: write
   pull-requests: write
   statuses: read
 
 concurrency:
-  group: merge-sync-prs-${{ github.repository }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: >-
+    merge-sync-prs-${{ github.repository }}-${{
+      inputs.active_sync_hash ||
+      github.event.client_payload.active_sync_hash ||
+      'unscoped'
+    }}
+  cancel-in-progress: false
 
 jobs:
   merge_sync_prs:
@@ -160,6 +183,11 @@ jobs:
           CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
           CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
           TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+          TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
+          REVIEW_RESOLUTION_JSON: >-
+            ${{ inputs.review_resolution_json ||
+              github.event.client_payload.review_resolution_json || '' }}
+          EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-premerge-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
         with:
@@ -180,6 +208,7 @@ jobs:
           if-no-files-found: error
 
       - name: Check and merge sync PRs
+        id: merge
         if: >-
           ${{
             always() &&
@@ -204,6 +233,11 @@ jobs:
           CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
           CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
           TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+          TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
+          REVIEW_RESOLUTION_JSON: >-
+            ${{ inputs.review_resolution_json ||
+              github.event.client_payload.review_resolution_json || '' }}
+          EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-merge-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
         with:
@@ -221,3 +255,67 @@ jobs:
             artifacts/sync-pr-merge-report.json
             artifacts/sync-canary-evidence.json
           if-no-files-found: warn
+
+      - name: Promote complete exact-plan canary evidence
+        id: promote
+        if: >-
+          ${{
+            always() &&
+            steps.candidate_mode.outputs.candidate == 'true' &&
+            steps.candidate_evidence.outcome == 'success' &&
+            steps.candidate_artifact.outcome == 'success' &&
+            steps.merge.outcome == 'success'
+          }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const {
+              candidatePromotionDecision,
+            } = require('./.github/scripts/sync_pr_merge_contract.js');
+            const report = JSON.parse(
+              fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+            );
+            const evidence = JSON.parse(
+              fs.readFileSync('artifacts/sync-canary-evidence.json', 'utf8'),
+            );
+            const canaryConfig = JSON.parse(
+              fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),
+            );
+            const expectedCanaries = (canaryConfig.canaries || [])
+              .map((entry) => String(entry.repo || '').trim())
+              .filter(Boolean);
+            const decision = candidatePromotionDecision({ report, evidence, expectedCanaries });
+            if (!decision.eligible) {
+              core.notice(`Promotion remains held: ${decision.errors.join(', ')}`);
+              return;
+            }
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'maint-68-sync-consumer-repos.yml',
+              per_page: 20,
+            });
+            const activePromotion = (runs.workflow_runs || []).find((run) =>
+              ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status)
+              && String(run.display_title || '').includes('Maint 68 promote'),
+            );
+            if (activePromotion) {
+              core.notice(`Exact-plan promotion already active in run ${activePromotion.id}`);
+              return;
+            }
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'maint-68-sync-consumer-repos.yml',
+              ref: context.payload.repository?.default_branch || 'main',
+              inputs: {
+                phase: 'promote',
+                canary_evidence_json: JSON.stringify(evidence),
+                delivery_scope: 'auto',
+                dry_run: 'false',
+                force: 'false',
+              },
+            });
+            core.notice(`Dispatched exact-plan promotion for ${decision.plan_id}`);

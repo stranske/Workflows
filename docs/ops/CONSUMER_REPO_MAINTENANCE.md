@@ -343,6 +343,16 @@ threads. A successful promotion targets all registered non-canary repositories
 once every configured canary has current, green, review-clear evidence for the
 same plan.
 
+The normal chain is automatic: Maint 68 dispatches the candidate selector after
+writing canary PRs; Maint 71 dispatches `phase=promote` only after the persisted
+evidence is complete and every candidate is merged or safely recovered; and a
+successful promotion dispatches the delivery selector. Generated-branch Gate
+completions provide event-driven wakeups through the synced Gate-followups hub.
+Maint 82 retains every transient Maint 71 handoff with a due time and supplies a
+ten-minute fallback for review-window and pending-check states, so an absent
+event cannot strand the lifecycle. It does not retry actionable CI failures or
+review findings as if they were timer states.
+
 Maint 71 persists and validates the `sync-canary-evidence-premerge` artifact
 before its merge step is allowed to run. A GitHub pre-job approval hold, a
 cancelled evidence step, or an artifact-upload failure therefore leaves the
@@ -433,6 +443,15 @@ mismatched or missing observation fails back to the conservative PR timestamp.
 Workflow-call, manual, and repository-dispatch candidate selectors normalize to
 the same gate. The executor requires same-job evidence/upload authorization, so
 scheduled or malformed paths cannot merge a candidate implicitly.
+
+Active non-outdated review threads remain merge blockers. When a shared source
+repair proves a finding obsolete on the current generated head, an authenticated
+operator may pass `review_resolution_json` to Maint 71. Each
+`workflows-sync-review-resolution/v1` proof names one thread, PR, exact head,
+Workflows source-fix SHA, evidence URL, and reason. Maint 71 verifies that the
+fix is contained in the delivery's recorded source commit and re-reads the
+thread before resolving it. A source fix without this exact proof, a later
+candidate plan, or a passing Gate never resolves the current PR's review debt.
 
 A non-empty workflow-sync selector applies only to the `sync/workflows-*` lane.
 An open sibling `deps/sync-dev-versions-*` delivery is therefore ignored for

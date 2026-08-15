@@ -57,6 +57,41 @@ function normalizeReviewPolicy(policy = {}) {
   };
 }
 
+function parseReviewResolutionProofs(raw = '') {
+  if (!String(raw || '').trim()) return [];
+  const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const proofs = Array.isArray(parsed) ? parsed : parsed?.proofs;
+  if (!Array.isArray(proofs)) {
+    throw new Error('review resolution proof must be an array or contain proofs[]');
+  }
+  return proofs;
+}
+
+function validateReviewResolutionProof(proof = {}, {
+  owner,
+  repo,
+  prNumber,
+  headSha,
+  actor,
+  trustedActors = [],
+} = {}) {
+  const errors = [];
+  if (proof.schema !== 'workflows-sync-review-resolution/v1') errors.push('unsupported_schema');
+  if (proof.repository !== `${owner}/${repo}`) errors.push('repository_mismatch');
+  if (Number(proof.pr) !== Number(prNumber)) errors.push('pr_mismatch');
+  if (String(proof.head_sha || '') !== String(headSha || '')) errors.push('head_mismatch');
+  if (!String(proof.thread_id || '').startsWith('PRRT_')) errors.push('invalid_thread_id');
+  if (!/^[0-9a-f]{40,64}$/i.test(String(proof.source_fix_sha || ''))) {
+    errors.push('invalid_source_fix_sha');
+  }
+  if (!/^https:\/\/github\.com\/stranske\/Workflows\/(pull|commit)\//.test(
+    String(proof.evidence_url || ''),
+  )) errors.push('invalid_evidence_url');
+  if (!String(proof.reason || '').trim()) errors.push('missing_reason');
+  if (!new Set(trustedActors).has(String(actor || ''))) errors.push('untrusted_dispatch_actor');
+  return { ok: errors.length === 0, errors };
+}
+
 async function collectReviewerEvidence({
   owner,
   repo,
@@ -281,6 +316,14 @@ async function run({ github, context, core }) {
       (context.payload.client_payload && context.payload.client_payload.cleanup_branches),
     true,
   );
+  const reviewResolutionProofs = parseReviewResolutionProofs(
+    process.env.REVIEW_RESOLUTION_JSON
+      || context.payload.client_payload?.review_resolution_json
+      || '',
+  );
+  const trustedResolutionActors = String(
+    process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS || 'stranske,stranske-automation-bot',
+  ).split(',').map((actor) => actor.trim()).filter(Boolean);
   const retryHelpers = fs.existsSync(retryHelperPath)
     ? require(retryHelperPath)
     : {
@@ -376,12 +419,103 @@ async function run({ github, context, core }) {
     );
     return { contexts: requiredContexts, source: 'rulesets' };
   }
+
+  async function resolveProvenReviewDebt({ owner, repo, pr, deliveryRecord }) {
+    const matching = reviewResolutionProofs.filter((proof) =>
+      proof?.repository === `${owner}/${repo}`
+      && Number(proof?.pr) === Number(pr.number),
+    );
+    const resolved = [];
+    const errors = [];
+    for (const proof of matching) {
+      const validation = validateReviewResolutionProof(proof, {
+        owner,
+        repo,
+        prNumber: pr.number,
+        headSha: pr.head.sha,
+        actor: context.actor,
+        trustedActors: trustedResolutionActors,
+      });
+      if (!validation.ok) {
+        errors.push(`${proof.thread_id || '<missing-thread>'}:${validation.errors.join(',')}`);
+        continue;
+      }
+      const sourceCommit = String(deliveryRecord?.source_commit || '');
+      if (!/^[0-9a-f]{40,64}$/i.test(sourceCommit)) {
+        errors.push(`${proof.thread_id}:delivery_source_commit_missing`);
+        continue;
+      }
+      try {
+        const { data: comparison } = await withRetry((client) =>
+          client.rest.repos.compareCommitsWithBasehead({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            basehead: `${proof.source_fix_sha}...${sourceCommit}`,
+          }),
+        );
+        if (!['ahead', 'identical'].includes(String(comparison?.status || ''))) {
+          errors.push(`${proof.thread_id}:source_fix_not_in_delivery_source`);
+          continue;
+        }
+        const data = await github.graphql(
+          `query($owner: String!, $repo: String!, $number: Int!) {
+            repository(owner: $owner, name: $repo) {
+              pullRequest(number: $number) {
+                headRefOid
+                reviewThreads(first: 100) {
+                  pageInfo { hasNextPage }
+                  nodes { id isResolved isOutdated }
+                }
+              }
+            }
+          }`,
+          { owner, repo, number: pr.number },
+        );
+        const fresh = data?.repository?.pullRequest;
+        const threads = fresh?.reviewThreads;
+        if (fresh?.headRefOid !== pr.head.sha) {
+          errors.push(`${proof.thread_id}:head_changed`);
+          continue;
+        }
+        if (threads?.pageInfo?.hasNextPage) {
+          errors.push(`${proof.thread_id}:review_thread_page_truncated`);
+          continue;
+        }
+        const thread = (threads?.nodes || []).find((item) => item.id === proof.thread_id);
+        if (!thread || thread.isResolved || thread.isOutdated) {
+          errors.push(`${proof.thread_id}:thread_not_active`);
+          continue;
+        }
+        await github.graphql(
+          `mutation($threadId: ID!) {
+            resolveReviewThread(input: {threadId: $threadId}) {
+              thread { id isResolved }
+            }
+          }`,
+          { threadId: proof.thread_id },
+        );
+        resolved.push(proof.thread_id);
+        console.log(
+          `Resolved proof-bound review thread ${proof.thread_id} using ${proof.evidence_url}`,
+        );
+      } catch (error) {
+        errors.push(`${proof.thread_id}:${error.message || error}`);
+      }
+    }
+    return { resolved, errors };
+  }
   
   // Parse repos from previous step
+  const excludedRepos = new Set(
+    String(process.env.EXCLUDED_REPOS_INPUT || 'stranske/Collab-Admin')
+      .split(',')
+      .map((repo) => repo.trim())
+      .filter(Boolean),
+  );
   const registeredRepos = String(process.env.REGISTERED_REPOS_INPUT || '')
     .split(',')
     .map(r => r.trim())
-    .filter(Boolean);
+    .filter((repo) => repo && !excludedRepos.has(repo));
   
   const requestedSyncHash = normalizeSyncHash(
     process.env.ACTIVE_SYNC_HASH_INPUT ||
@@ -439,7 +573,7 @@ async function run({ github, context, core }) {
     ? expectedCanaryRepos
     : inputRepos === 'all'
       ? registeredRepos
-      : inputRepos.split(',').map(r => r.trim());
+      : inputRepos.split(',').map(r => r.trim()).filter((repo) => repo && !excludedRepos.has(repo));
   
   console.log(`Registered consumer repos: ${registeredRepos.join(', ')}`);
   console.log(`Processing repos: ${targetRepos.join(', ')}`);
@@ -1102,6 +1236,13 @@ async function run({ github, context, core }) {
       const checkGateMode = requiredCheckPolicy.source;
       const failedChecks = classification.failed;
       const pendingChecks = classification.pending;
+      let deliveryRecord = parseDeliveryRecord(pr.body || '');
+      const reviewResolution = await resolveProvenReviewDebt({
+        owner,
+        repo,
+        pr,
+        deliveryRecord,
+      });
       const activeReviewThreads = await activeReviewThreadCount(
         owner,
         repo,
@@ -1113,7 +1254,6 @@ async function run({ github, context, core }) {
         activeReviewThreadCount: activeReviewThreads,
         now: new Date().toISOString(),
       });
-      let deliveryRecord = parseDeliveryRecord(pr.body || '');
       const deliveryContext = {
         owner,
         repo,
@@ -1125,6 +1265,8 @@ async function run({ github, context, core }) {
         delivery_disposition: deliveryState.disposition,
         blocker_owner: deliveryState.blocker_owner,
         next_command: deliveryState.next_command,
+        review_resolution_thread_ids: reviewResolution.resolved,
+        review_resolution_errors: reviewResolution.errors,
       };
   
       console.log(
@@ -1804,5 +1946,7 @@ module.exports = {
   collectReviewerEvidence,
   legacyStatusAsCheck,
   normalizeReviewPolicy,
+  parseReviewResolutionProofs,
   run,
+  validateReviewResolutionProof,
 };
