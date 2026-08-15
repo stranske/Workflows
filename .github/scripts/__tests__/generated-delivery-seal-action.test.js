@@ -5,10 +5,10 @@ const test = require('node:test');
 
 const {
   formatDeliveryRecord,
-} = require('../../scripts/sync_pr_lease_contract.js');
+} = require('../sync_pr_lease_contract.js');
 const {
   evaluateDeliverySeal,
-} = require('./check.js');
+} = require('../../actions/generated-delivery-seal/check.js');
 
 const REPOSITORY = 'stranske/example';
 const HEAD_SHA = 'a'.repeat(40);
