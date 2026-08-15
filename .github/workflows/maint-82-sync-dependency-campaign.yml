@@ -32,7 +32,6 @@ on:
     types: [sync-dependabot-campaign]
 
 permissions:
-  actions: write
   contents: read
   issues: write
   pull-requests: read
@@ -45,11 +44,22 @@ jobs:
   campaign:
     name: Refresh campaign queue
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+      pull-requests: read
     env:
       CAMPAIGN_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
 
       - name: Load registered consumer repos
         id: registered
@@ -183,17 +193,29 @@ jobs:
         with:
           github-token: ${{ env.CAMPAIGN_TOKEN }}
           script: |
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-82-dispatch-generated-continuations',
+              capabilities: ['actions:write'],
+            });
             const continuations = JSON.parse(process.env.CONTINUATIONS_JSON || '[]');
             const nonAdminRepos = String(process.env.REGISTERED_REPOS || '')
               .split(',')
               .map((repo) => repo.trim())
               .filter((repo) => repo && repo !== 'stranske/Collab-Admin');
-            const { data: runs } = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'maint-71-merge-sync-prs.yml',
-              per_page: 40,
-            });
+            const { data: runs } = await withRetry((client) =>
+              client.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'maint-71-merge-sync-prs.yml',
+                per_page: 40,
+              }),
+            );
             const activeTitles = new Set(
               (runs.workflow_runs || [])
                 .filter((run) =>
@@ -215,13 +237,13 @@ jobs:
               };
               if (selector) inputs.active_sync_hash = selector;
               if (selector !== 'candidate') inputs.repos = nonAdminRepos.join(',');
-              await github.rest.actions.createWorkflowDispatch({
+              await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: 'maint-71-merge-sync-prs.yml',
                 ref: context.payload.repository?.default_branch || 'main',
                 inputs,
-              });
+              }));
               activeTitles.add(title);
               core.notice(
                 `Dispatched due Maint 71 ${selector || 'unscoped'} continuation for ` +

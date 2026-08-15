@@ -60,7 +60,6 @@ on:
         required: false
 
 permissions:
-  actions: write
   contents: read
   issues: write  # Required to create failure notification issues
 
@@ -1618,13 +1617,42 @@ jobs:
         needs.prepare.outputs.phase != 'preview'
       }}
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
     steps:
+      - name: Checkout API retry helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       - name: Dispatch Maint 71 for the generated lane
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
         with:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
-            const phase = '${{ needs.prepare.outputs.phase }}';
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-68-continue-generated-delivery',
+              capabilities: ['actions:write'],
+            });
+            const phase = process.env.SYNC_PHASE;
             const activeSyncHash = phase === 'canary' ? 'candidate' : 'delivery';
             const nonAdminRepos = String(process.env.REGISTERED_CONSUMER_REPOS || '')
               .split(/\s+/)
@@ -1637,13 +1665,13 @@ jobs:
               cleanup_branches: 'true',
             };
             if (activeSyncHash === 'delivery') inputs.repos = nonAdminRepos.join(',');
-            await github.rest.actions.createWorkflowDispatch({
+            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'maint-71-merge-sync-prs.yml',
               ref: context.payload.repository?.default_branch || 'main',
               inputs,
-            });
+            }));
             core.notice(`Dispatched Maint 71 ${activeSyncHash} reconciliation`);
 
   # ============================================================================

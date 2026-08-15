@@ -110,7 +110,6 @@ on:
         default: ""
 
 permissions:
-  actions: write
   checks: read
   contents: write
   pull-requests: write
@@ -128,6 +127,12 @@ concurrency:
 jobs:
   merge_sync_prs:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      checks: read
+      contents: write
+      pull-requests: write
+      statuses: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -271,6 +276,16 @@ jobs:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const fs = require('fs');
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-71-promote-canary-evidence',
+              capabilities: ['actions:write'],
+            });
             const {
               candidatePromotionDecision,
             } = require('./.github/scripts/sync_pr_merge_contract.js');
@@ -291,12 +306,14 @@ jobs:
               core.notice(`Promotion remains held: ${decision.errors.join(', ')}`);
               return;
             }
-            const { data: runs } = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'maint-68-sync-consumer-repos.yml',
-              per_page: 20,
-            });
+            const { data: runs } = await withRetry((client) =>
+              client.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'maint-68-sync-consumer-repos.yml',
+                per_page: 20,
+              }),
+            );
             const activePromotion = (runs.workflow_runs || []).find((run) =>
               ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status)
               && String(run.display_title || '').includes('Maint 68 promote'),
@@ -305,7 +322,7 @@ jobs:
               core.notice(`Exact-plan promotion already active in run ${activePromotion.id}`);
               return;
             }
-            await github.rest.actions.createWorkflowDispatch({
+            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'maint-68-sync-consumer-repos.yml',
@@ -317,5 +334,5 @@ jobs:
                 dry_run: 'false',
                 force: 'false',
               },
-            });
+            }));
             core.notice(`Dispatched exact-plan promotion for ${decision.plan_id}`);
