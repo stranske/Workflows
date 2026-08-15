@@ -229,6 +229,26 @@ test('stable delivery bootstraps an add-only contract when the trusted base pred
   assert.equal(contract.mergeEligibility(deliveryRecord, { requireSealed: true }).eligible, false);
 });
 
+test('consumer template preserves raw bootstrap contract bytes', () => {
+  const templateClassifier = require('node:fs').readFileSync(
+    require('node:path').join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      'templates',
+      'consumer-repo',
+      '.github',
+      'actions',
+      'path-classifier',
+      'classify.js',
+    ),
+    'utf8',
+  );
+  assert.match(templateClassifier, /function readContractAtRef[\s\S]*?return readGit\(\['show'/);
+  assert.match(templateClassifier, /function runGit\(args\) \{\n  return readGit\(args\)\.trim\(\);/);
+});
+
 test('stable delivery bootstrap fails closed without an exact head SHA', () => {
   const context = deliveryContext(deliveryRecord);
   context.event.pull_request.head.sha = '';
