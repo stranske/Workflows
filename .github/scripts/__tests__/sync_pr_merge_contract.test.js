@@ -267,6 +267,7 @@ test('maint71 run writes reports and records a no-PR result with fake action cli
     CLEANUP_BRANCHES_INPUT: process.env.CLEANUP_BRANCHES_INPUT,
     DRY_RUN_INPUT: process.env.DRY_RUN_INPUT,
     AUTO_MERGE_INPUT: process.env.AUTO_MERGE_INPUT,
+    OWNER_PR_PAT: process.env.OWNER_PR_PAT,
     SYNC_PR_MERGE_REPORT_JSON: process.env.SYNC_PR_MERGE_REPORT_JSON,
   };
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-run-'));
@@ -298,6 +299,7 @@ test('maint71 run writes reports and records a no-PR result with fake action cli
     process.env.CLEANUP_BRANCHES_INPUT = 'false';
     process.env.DRY_RUN_INPUT = 'true';
     process.env.AUTO_MERGE_INPUT = 'false';
+    process.env.OWNER_PR_PAT = 'test-owner-token';
     process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
 
     await run({
@@ -330,6 +332,27 @@ test('maint71 run writes reports and records a no-PR result with fake action cli
   }
 });
 
+test('maint71 fails closed before cross-repository API calls without OWNER_PR_PAT', async () => {
+  const originalOwnerPat = process.env.OWNER_PR_PAT;
+  try {
+    delete process.env.OWNER_PR_PAT;
+    await assert.rejects(
+      run({
+        github: {},
+        core: { warning: () => {} },
+        context: {
+          repo: { owner: 'stranske', repo: 'Workflows' },
+          payload: {},
+        },
+      }),
+      /Maint 71 requires OWNER_PR_PAT/,
+    );
+  } finally {
+    if (originalOwnerPat === undefined) delete process.env.OWNER_PR_PAT;
+    else process.env.OWNER_PR_PAT = originalOwnerPat;
+  }
+});
+
 test('maint71 recovers exact-head evidence from an already-merged candidate PR', async () => {
   const originalCwd = process.cwd();
   const envKeys = [
@@ -339,6 +362,7 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
     'AUTO_MERGE_INPUT',
     'EVIDENCE_ONLY_INPUT',
     'ACTIVE_SYNC_HASH_INPUT',
+    'OWNER_PR_PAT',
     'CONSUMER_SYNC_CANARIES_PATH',
     'TRUSTED_SYNC_ACTORS',
     'SYNC_PR_MERGE_REPORT_JSON',
@@ -452,6 +476,7 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
     process.env.DRY_RUN_INPUT = 'true';
     process.env.AUTO_MERGE_INPUT = 'false';
     process.env.ACTIVE_SYNC_HASH_INPUT = 'candidate';
+    process.env.OWNER_PR_PAT = 'test-owner-token';
     process.env.EVIDENCE_ONLY_INPUT = 'true';
     process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
     process.env.TRUSTED_SYNC_ACTORS = 'stranske';
