@@ -94,6 +94,16 @@ test('plans only due transient Maint 71 lanes and suppresses candidates during d
     lane: 'candidate',
     branch: 'sync/workflows-candidate',
   }]);
+
+  const actionableDelivery = {
+    ...delivery,
+    continuation: {
+      class: 'actionable', lane: 'delivery', reason: 'review_blocked', resume_after: '',
+    },
+  };
+  assert.deepEqual(planMaint71Continuations([candidate, actionableDelivery], {
+    now: '2026-08-15T12:11:00Z',
+  }).map((item) => item.lane), ['candidate']);
 });
 
 test('normalizeDeliveryHandoff rejects incomplete restart fields', () => {

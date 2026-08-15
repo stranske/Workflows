@@ -398,7 +398,7 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
     .filter(Boolean);
   const deliveryActive = handoffs.some((record) =>
     record.continuation.lane === 'delivery'
-    && record.continuation.class !== 'terminal',
+    && record.continuation.class === 'transient',
   );
   const dueByLane = new Map();
   for (const record of handoffs) {
