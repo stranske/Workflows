@@ -21,3 +21,21 @@ def test_ci_workflows_guide_marks_consumer_default_event_hub_pair() -> None:
     assert "Workflows-repo service workflow" in content
     assert "agents-80-pr-event-hub.yml" in content
     assert "agents-81-gate-followups.yml" in content
+
+
+def test_keepalive_reporter_docs_require_an_app_owned_writer() -> None:
+    guide = _read("docs/WORKFLOW_GUIDE.md")
+    checklist = _read("docs/workflow-updates/workflow-checklist.md")
+
+    guide_entry = next(
+        line for line in guide.splitlines() if "`agents-keepalive-loop-reporter.yml`" in line
+    )
+    checklist_entry = next(
+        line for line in checklist.splitlines() if "`agents-keepalive-loop-reporter.yml`" in line
+    )
+
+    for entry in (guide_entry, checklist_entry):
+        assert "KEEPALIVE_APP" in entry
+        assert "WORKFLOWS_APP" in entry
+        assert "fail" in entry.lower() and "closed" in entry.lower()
+        assert "no bespoke App mint" not in entry

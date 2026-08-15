@@ -25,7 +25,7 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `agents-issue-optimizer.yml` | Removed the bespoke App-token mint; optimizer now relies on the shared API client for GH CLI access while keeping the analyze/apply/format flow unchanged. |
 | [x] | `agents-keepalive-branch-sync.yml` | Left intact—needs the App/PAT token selection to push merges into keepalive branches, but documented the behavior. |
 | [x] | `agents-keepalive-dispatch-handler.yml` | Left as-is; needs the explicit token selection to honor compat overrides when handling keepalive repository_dispatch events. |
-| [x] | `agents-keepalive-loop-reporter.yml` | Removed the App-token mint; reporter only needs the shared API client to update keepalive summary comments. |
+| [x] | `agents-keepalive-loop-reporter.yml` | Restored the trusted-writer contract: the reporter mints `KEEPALIVE_APP` with `WORKFLOWS_APP` fallback, records the selected App identity, and fails closed before updating App-owned keepalive state when neither credential pair is configured. |
 | [x] | `agents-keepalive-loop.yml` | Core keepalive orchestrator; already enforces guardrails/task appendix/agent dispatching via the shared API client, so it stayed as-is and was documented. |
 | [x] | `agents-moderate-connector.yml` | Keeps connector noise off PRs by deleting deny-listed bot comments unless they contain real status updates; documented behavior, no workflow change needed. |
 | [x] | `agents-pr-meta-v4.yml` | Still required until the consolidated orchestrator lands; handles @agent/Gate activations, dispatch summaries, and keepalive re-dispatch with the expected token chain. |
