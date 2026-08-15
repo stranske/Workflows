@@ -1,0 +1,9 @@
+name: Generated Delivery Seal
+description: Enforce the stable sync-delivery seal from Workflows-owned code.
+
+runs:
+  using: composite
+  steps:
+    - name: Require an exact-head delivery seal
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/check.js"
