@@ -7,6 +7,11 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
 
     assert "review_resolution_json:" in workflow
     assert "github.event.client_payload.review_resolution_json" not in workflow
+    assert "Apply proof-bound candidate review resolutions" in workflow
+    assert 'RESOLUTION_ONLY_INPUT: "true"' in workflow
+    assert "Validate complete pre-merge canary evidence" in workflow
+    assert "CANDIDATE_EVIDENCE_RESULT: ${{ steps.candidate_evidence_validation.outcome }}" in workflow
+    assert "dryRun && !resolutionOnly" in executor
     assert "workflows-sync-review-resolution/v1" in executor
     assert "resolveReviewThread" in executor
     assert "source_fix_not_in_delivery_source" in executor

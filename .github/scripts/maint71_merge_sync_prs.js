@@ -307,12 +307,13 @@ async function run({ github, context, core }) {
     true,
   );
   const evidenceOnly = parseBooleanInput(process.env.EVIDENCE_ONLY_INPUT, false);
+  const resolutionOnly = parseBooleanInput(process.env.RESOLUTION_ONLY_INPUT, false);
   const candidateEvidenceAuthorized = parseBooleanInput(
     process.env.CANDIDATE_EVIDENCE_AUTHORIZED,
     process.env.CANDIDATE_EVIDENCE_RESULT === 'success'
       && process.env.CANDIDATE_ARTIFACT_RESULT === 'success',
   );
-  const dryRun = evidenceOnly || parseBooleanInput(
+  const dryRun = resolutionOnly || evidenceOnly || parseBooleanInput(
     process.env.DRY_RUN_INPUT ||
       (context.payload.client_payload && context.payload.client_payload.dry_run),
     false,
@@ -549,7 +550,7 @@ async function run({ github, context, core }) {
           errors.push(`${proof.thread_id}:thread_not_active`);
           continue;
         }
-        if (dryRun) {
+        if (dryRun && !resolutionOnly) {
           wouldResolve.push(proof.thread_id);
           console.log(
             `Would resolve proof-bound review thread ${proof.thread_id} using ` +
@@ -650,6 +651,7 @@ async function run({ github, context, core }) {
   console.log(`Processing repos: ${targetRepos.join(', ')}`);
   console.log(`Auto-merge: ${autoMerge}, Dry run: ${dryRun}`);
   console.log(`Evidence only: ${evidenceOnly}`);
+  console.log(`Resolution only: ${resolutionOnly}`);
   console.log(`Candidate evidence authorized: ${candidateEvidenceAuthorized}`);
   console.log(
     `Reviewer policy: minimum=${minimumReviewerResponses}, ` +

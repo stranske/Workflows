@@ -105,6 +105,14 @@ ancestor of the delivery's recorded source commit before resolving that thread.
 General source ancestry, a newer wave, or passing CI alone never clears review
 debt.
 
+Proof application is a dedicated resolution-only prepass: it may resolve only
+the named verified thread and cannot merge, close, restage, or seal a PR. Maint
+71 then performs its read-only evidence pass and explicitly validates that the
+persisted premerge artifact contains every configured canary on one green,
+review-clear plan. Upload success without complete evidence cannot authorize a
+candidate merge; normal lifecycle transitions may still advance for the next
+pass.
+
 ## Remote delivery handoff schema (`workflows-generated-delivery-handoff/v1`)
 
 Maint 71 emits normalized result records (artifact + best-effort

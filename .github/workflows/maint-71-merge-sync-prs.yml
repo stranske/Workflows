@@ -175,9 +175,39 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${selector === 'candidate'}\n`);
           NODE
 
+      - name: Apply proof-bound candidate review resolutions
+        id: candidate_review_resolution
+        if: >-
+          ${{
+            steps.candidate_mode.outputs.candidate == 'true' &&
+            inputs.review_resolution_json != ''
+          }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          REPOS_INPUT: all
+          AUTO_MERGE_INPUT: "false"
+          DRY_RUN_INPUT: "true"
+          ACTIVE_SYNC_HASH_INPUT: ${{ steps.candidate_mode.outputs.selector }}
+          CLEANUP_BRANCHES_INPUT: "false"
+          EVIDENCE_ONLY_INPUT: "false"
+          RESOLUTION_ONLY_INPUT: "true"
+          CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
+          CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
+          TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+          TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
+          REVIEW_RESOLUTION_JSON: ${{ inputs.review_resolution_json }}
+          EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
+          SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-review-resolution-report.json
+          REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
+            await run({ github, context, core });
+
       - name: Collect and validate canary evidence before merge
         id: candidate_evidence
-        if: ${{ steps.candidate_mode.outputs.candidate == 'true' }}
+        if: ${{ always() && steps.candidate_mode.outputs.candidate == 'true' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           REPOS_INPUT: ${{ inputs.repos || github.event.client_payload.repos || 'all' }}
@@ -211,6 +241,40 @@ jobs:
             artifacts/sync-canary-evidence.json
           if-no-files-found: error
 
+      - name: Validate complete pre-merge canary evidence
+        id: candidate_evidence_validation
+        if: >-
+          ${{
+            always() &&
+            steps.candidate_mode.outputs.candidate == 'true' &&
+            steps.candidate_evidence.outcome == 'success' &&
+            steps.candidate_artifact.outcome == 'success'
+          }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const {
+            validateCanaryEvidence,
+          } = require('./.github/scripts/sync_pr_merge_contract.js');
+          const evidence = JSON.parse(
+            fs.readFileSync('artifacts/sync-canary-evidence.json', 'utf8'),
+          );
+          const canaryConfig = JSON.parse(
+            fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),
+          );
+          const expectedCanaries = (canaryConfig.canaries || [])
+            .map((entry) => String(entry.repo || '').trim())
+            .filter(Boolean);
+          const rows = Array.isArray(evidence) ? evidence : evidence.results;
+          const validation = validateCanaryEvidence(rows, expectedCanaries);
+          if (!validation.ok) {
+            throw new Error(
+              `Pre-merge canary evidence is incomplete: ${validation.errors.join(', ')}`,
+            );
+          }
+          console.log(`Validated complete pre-merge evidence for ${validation.plan_id}`);
+          NODE
+
       - name: Check and merge sync PRs
         id: merge
         if: >-
@@ -231,7 +295,7 @@ jobs:
           AUTO_MERGE_INPUT: ${{ inputs.auto_merge }}
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
           ACTIVE_SYNC_HASH_INPUT: ${{ steps.candidate_mode.outputs.selector }}
-          CANDIDATE_EVIDENCE_RESULT: ${{ steps.candidate_evidence.outcome }}
+          CANDIDATE_EVIDENCE_RESULT: ${{ steps.candidate_evidence_validation.outcome }}
           CANDIDATE_ARTIFACT_RESULT: ${{ steps.candidate_artifact.outcome }}
           CLEANUP_BRANCHES_INPUT: ${{ inputs.cleanup_branches }}
           CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
@@ -414,7 +478,7 @@ jobs:
           ${{
             always() &&
             steps.candidate_mode.outputs.candidate == 'true' &&
-            steps.candidate_evidence.outcome == 'success' &&
+            steps.candidate_evidence_validation.outcome == 'success' &&
             steps.candidate_artifact.outcome == 'success' &&
             steps.merge.outcome == 'success'
           }}
