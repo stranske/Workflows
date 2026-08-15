@@ -688,6 +688,32 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
         assert "${{ github.event.inputs.authority_challenge_fingerprint || '' }}" not in text
         assert "${{ github.event.inputs.sweep_recheck || 'false' }}" not in text
 
+    for text, next_job in (
+        (root_loop, "  run-codex:"),
+        (consumer_loop, "  run-codex:"),
+    ):
+        running_start = text.index("  mark-running:")
+        running_end = text.index(next_job, running_start)
+        running_job = text[running_start:running_end]
+        assert "id: running_keepalive_app_token" in running_job
+        assert "id: running_workflows_app_token" in running_job
+        assert running_job.count("repositories: ${{ github.event.repository.name }}") == 2
+        for permission in (
+            "permission-actions: write",
+            "permission-contents: read",
+            "permission-issues: write",
+            "permission-pull-requests: read",
+        ):
+            assert running_job.count(permission) == 2
+        assert "Require trusted keepalive running writer" in running_job
+        update_running = running_job[
+            running_job.index("- name: Update summary with running status") :
+        ]
+        assert "steps.running_keepalive_app_token.outputs.token ||" in update_running
+        assert "steps.running_workflows_app_token.outputs.token" in update_running
+        assert "github-token: ${{ secrets.GITHUB_TOKEN }}" not in update_running
+        assert "github-token: ${{ github.token }}" not in update_running
+
     root_summary_start = root_loop.index("  summary:")
     root_summary_end = root_loop.index(
         "      # Mint KEEPALIVE_APP token for rate limit notification",
