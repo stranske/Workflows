@@ -71,6 +71,12 @@ expiration and lost/delayed events. Pending checks and review windows therefore
 advance automatically, while failed checks and review findings keep their named
 owner instead of being disguised as timer retries.
 
+A stable candidate that falls behind its consumer base is also transient.
+Maint 71 returns it to staging and dispatches one deduplicated, no-filter Maint
+68 `phase=canary` refresh; it never sends non-canaries through that phase and it
+will not start the refresh while a canary or promotion run is active. The timer
+queue retains the candidate continuation if that dispatch is lost.
+
 After a candidate-selector run has complete same-plan evidence and every
 configured candidate was merged or recovered, Maint 71 passes that exact JSON
 to Maint 68 `phase=promote`. Maint 68 in turn dispatches the delivery selector

@@ -10,6 +10,10 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "resolveReviewThread" in executor
     assert "source_fix_not_in_delivery_source" in executor
     assert "candidatePromotionDecision" in workflow
+    assert "candidateRefreshDecision" in workflow
+    assert "Refresh stale candidate bases" in workflow
+    assert "phase: 'canary'" in workflow
+    assert "delivery_scope: 'full'" in workflow
     assert "canary_evidence_json: JSON.stringify(evidence)" in workflow
     assert "cancel-in-progress: false" in workflow
     assert "EXCLUDED_REPOS_INPUT: stranske/Collab-Admin" in workflow

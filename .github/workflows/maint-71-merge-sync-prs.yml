@@ -136,14 +136,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
-
-
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
 
       - name: Extract consumer repos from sync workflow
         id: repos
@@ -260,6 +261,77 @@ jobs:
             artifacts/sync-pr-merge-report.json
             artifacts/sync-canary-evidence.json
           if-no-files-found: warn
+
+      - name: Refresh stale candidate bases
+        id: refresh_candidate
+        if: >-
+          ${{
+            always() &&
+            steps.candidate_mode.outputs.candidate == 'true' &&
+            steps.merge.outcome == 'success'
+          }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-71-refresh-stale-candidate-bases',
+              capabilities: ['actions:write'],
+            });
+            const {
+              candidateRefreshDecision,
+            } = require('./.github/scripts/sync_pr_merge_contract.js');
+            const report = JSON.parse(
+              fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+            );
+            const decision = candidateRefreshDecision({ report });
+            if (!decision.eligible) {
+              core.notice(`Candidate refresh not required: ${decision.errors.join(', ')}`);
+              return;
+            }
+            const { data: runs } = await withRetry((client) =>
+              client.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'maint-68-sync-consumer-repos.yml',
+                per_page: 20,
+              }),
+            );
+            const activeSync = (runs.workflow_runs || []).find((run) =>
+              ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status)
+              && (
+                String(run.display_title || '').includes('Maint 68 canary')
+                || String(run.display_title || '').includes('Maint 68 promote')
+              ),
+            );
+            if (activeSync) {
+              core.notice(
+                `Maint 68 ${activeSync.id} is already active; candidate refresh remains queued`,
+              );
+              return;
+            }
+            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'maint-68-sync-consumer-repos.yml',
+              ref: context.payload.repository?.default_branch || 'main',
+              inputs: {
+                phase: 'canary',
+                delivery_scope: 'full',
+                dry_run: 'false',
+                force: 'false',
+              },
+            }));
+            core.notice(
+              `Dispatched no-filter canary refresh for ${decision.repositories.join(', ')}`,
+            );
 
       - name: Promote complete exact-plan canary evidence
         id: promote

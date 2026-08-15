@@ -824,6 +824,7 @@ function parseResumeAfter(result = {}, observedAt = new Date().toISOString()) {
     review_window_pending: 7,
     review_window_started: 7,
     reviewer_settlement_pending: 7,
+    stable_base_refresh_required: 10,
   }[String(result.status || '')] || 0;
   return new Date(observed.getTime() + delayMinutes * 60 * 1000).toISOString();
 }
@@ -842,6 +843,7 @@ function classifyDeliveryContinuation(result = {}, observedAt = new Date().toISO
     'review_window_started',
     'reviewer_settlement_pending',
     'sealed_head_mismatch',
+    'stable_base_refresh_required',
   ]);
   if (terminal.has(status)) {
     return { class: 'terminal', lane, reason: status, resume_after: '' };
@@ -855,6 +857,29 @@ function classifyDeliveryContinuation(result = {}, observedAt = new Date().toISO
     };
   }
   return { class: 'actionable', lane, reason: status || 'unknown', resume_after: '' };
+}
+
+function candidateRefreshDecision({ report = {} } = {}) {
+  const errors = [];
+  if (normalizeSyncHash(report?.inputs?.sync_hash) !== 'candidate') {
+    errors.push('merge report is not a candidate-selector report');
+  }
+  const repositories = [...new Set((Array.isArray(report?.results) ? report.results : [])
+    .filter((result) => (
+      branchNameFromRef(result.branch) === SYNC_CANDIDATE_BRANCH
+      && String(result.status || '') === 'stable_base_refresh_required'
+      && String(result.next_command || '') === 'dispatch-maint-68-phase-canary-no-filter'
+    ))
+    .map((result) => `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, ''))
+    .filter(Boolean))].sort();
+  if (repositories.length === 0) {
+    errors.push('candidate report has no stable base refresh request');
+  }
+  return {
+    eligible: errors.length === 0,
+    errors,
+    repositories,
+  };
 }
 
 function candidatePromotionDecision({ report = {}, evidence = {}, expectedCanaries = [] } = {}) {
@@ -1040,6 +1065,7 @@ module.exports = {
   summarizeResults,
   buildMergeReport,
   buildDeliveryHandoff,
+  candidateRefreshDecision,
   candidatePromotionDecision,
   classifyDeliveryContinuation,
   continuationLaneForBranch,

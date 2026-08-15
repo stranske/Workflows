@@ -10,6 +10,7 @@ const {
   buildMarkdownSummary,
   buildDeliveryHandoff,
   buildMergeReport,
+  candidateRefreshDecision,
   candidatePromotionDecision,
   candidateEvidenceAllowsMutation,
   classifyDeliveryContinuation,
@@ -126,6 +127,35 @@ test('promotion requires complete exact-plan evidence and terminal candidate row
   const blocked = candidatePromotionDecision({ report, evidence, expectedCanaries });
   assert.equal(blocked.eligible, false);
   assert.match(blocked.errors.join('\n'), /stranske\/Travel/);
+});
+
+test('candidate base drift requests a no-filter refresh and stays transient', () => {
+  const result = {
+    owner: 'stranske',
+    repo: 'Travel',
+    branch: 'sync/workflows-candidate',
+    status: 'stable_base_refresh_required',
+    next_command: 'dispatch-maint-68-phase-canary-no-filter',
+  };
+  assert.deepEqual(classifyDeliveryContinuation(result, '2026-08-15T12:00:00Z'), {
+    class: 'transient',
+    lane: 'candidate',
+    reason: 'stable_base_refresh_required',
+    resume_after: '2026-08-15T12:10:00.000Z',
+  });
+  assert.deepEqual(candidateRefreshDecision({
+    report: {
+      inputs: { sync_hash: 'candidate' },
+      results: [result],
+    },
+  }), {
+    eligible: true,
+    errors: [],
+    repositories: ['stranske/Travel'],
+  });
+  assert.equal(candidateRefreshDecision({
+    report: { inputs: { sync_hash: 'delivery' }, results: [result] },
+  }).eligible, false);
 });
 
 test('review resolution proof is exact-head, source-linked, and actor-bound', () => {
