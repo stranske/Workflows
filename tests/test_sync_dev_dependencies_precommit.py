@@ -11,7 +11,7 @@ def _write_pins(path: Path) -> None:
             [
                 "BLACK_VERSION=26.5.1",
                 "RUFF_VERSION=0.16.2",
-                "MYPY_VERSION=2.3.0",
+                "MYPY_VERSION=2.3.1",
                 "ISORT_VERSION=7.0.0",
                 "DOCFORMATTER_VERSION=1.7.7",
             ]
@@ -70,7 +70,7 @@ def test_precommit_rev_pins_follow_autofix_versions(tmp_path: Path, monkeypatch)
     applied = config.read_text(encoding="utf-8")
     assert 'rev: "v26.5.1"  # managed' in applied
     assert "rev: 'v0.16.2'" in applied
-    assert "rev: v2.3.0" in applied
+    assert "rev: v2.3.1" in applied
     assert "rev: 7.0.0" in applied
     assert "rev: v1.7.7" in applied
     assert "entry: echo keep-local" in applied
