@@ -717,8 +717,7 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
         assert "'stranske-keepalive[bot]' ||" in update_running
         assert "'agents-workflows-bot[bot]'" in update_running
         assert (
-            "trusted_summary_author: process.env.KEEPALIVE_RUNNING_WRITER || ''"
-            in update_running
+            "trusted_summary_author: process.env.KEEPALIVE_RUNNING_WRITER || ''" in update_running
         )
 
     root_summary_start = root_loop.index("  summary:")
