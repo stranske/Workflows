@@ -227,10 +227,17 @@ jobs:
                 .map((run) => String(run.display_title || '')),
             );
             for (const continuation of continuations) {
-              const selector = continuation.lane === 'dev-tool' ? '' : continuation.lane;
-              const title = `Merge Sync PRs [${selector || 'unscoped'}]`;
+              const selector = continuation.lane;
+              const title = `Merge Sync PRs [${selector}]`;
+              if (
+                selector === 'candidate'
+                && activeTitles.has('Merge Sync PRs [delivery]')
+              ) {
+                core.notice('Maint 71 candidate lane held while delivery is active');
+                continue;
+              }
               if (activeTitles.has(title)) {
-                core.notice(`Maint 71 ${selector || 'unscoped'} lane is already active`);
+                core.notice(`Maint 71 ${selector} lane is already active`);
                 continue;
               }
               const inputs = {
@@ -238,7 +245,7 @@ jobs:
                 dry_run: 'false',
                 cleanup_branches: 'true',
               };
-              if (selector) inputs.active_sync_hash = selector;
+              inputs.active_sync_hash = selector;
               if (selector !== 'candidate') inputs.repos = nonAdminRepos.join(',');
               await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                 owner: context.repo.owner,
@@ -249,7 +256,7 @@ jobs:
               }));
               activeTitles.add(title);
               core.notice(
-                `Dispatched due Maint 71 ${selector || 'unscoped'} continuation for ` +
+                `Dispatched due Maint 71 ${selector} continuation for ` +
                   `${continuation.repository}#${continuation.pr} (${continuation.reason})`,
               );
             }

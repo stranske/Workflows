@@ -1756,12 +1756,12 @@ jobs:
               ? 'candidate'
               : branch === 'sync/workflows-delivery'
                 ? 'delivery'
-                : '';
+                : 'dev-tool';
             const clientPayload = {
               source_repository: `${context.repo.owner}/${context.repo.repo}`,
               source_run_id: String(context.payload.workflow_run?.id || ''),
             };
-            if (activeSyncHash) clientPayload.active_sync_hash = activeSyncHash;
+            clientPayload.active_sync_hash = activeSyncHash;
             const withRetry = async (operation) => {
               let lastError;
               for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -1784,7 +1784,7 @@ jobs:
               event_type: 'merge-sync-prs',
               client_payload: clientPayload,
             }));
-            core.notice(`Woke Maint 71 lane ${activeSyncHash || 'unscoped'} from ${branch}`);
+            core.notice(`Woke Maint 71 lane ${activeSyncHash} from ${branch}`);
 
   guarded-merge:
     name: Merge automerge-labelled agent PRs

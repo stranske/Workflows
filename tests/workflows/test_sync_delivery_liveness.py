@@ -6,6 +6,7 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text()
 
     assert "review_resolution_json:" in workflow
+    assert "github.event.client_payload.review_resolution_json" not in workflow
     assert "workflows-sync-review-resolution/v1" in executor
     assert "resolveReviewThread" in executor
     assert "source_fix_not_in_delivery_source" in executor
@@ -31,6 +32,9 @@ def test_sync_lifecycle_chains_and_has_event_plus_timer_fallbacks():
     assert 'cron: "*/10 * * * *"' in maint82
     assert "planMaint71Continuations" in maint82
     assert "Dispatch due Maint 71 continuations" in maint82
+    assert "const selector = continuation.lane" in maint82
+    assert "activeTitles.has('Merge Sync PRs [delivery]')" in maint82
     assert "Wake generated delivery reconciler" in followups
     assert "github.event.workflow_run.head_branch == 'sync/workflows-candidate'" in followups
     assert "event_type: 'merge-sync-prs'" in followups
+    assert ": 'dev-tool';" in followups

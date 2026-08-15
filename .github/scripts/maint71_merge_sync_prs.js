@@ -59,7 +59,12 @@ function normalizeReviewPolicy(policy = {}) {
 
 function parseReviewResolutionProofs(raw = '') {
   if (!String(raw || '').trim()) return [];
-  const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  let parsed;
+  try {
+    parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch (error) {
+    throw new Error(`review resolution proof is not valid JSON: ${error.message}`);
+  }
   const proofs = Array.isArray(parsed) ? parsed : parsed?.proofs;
   if (!Array.isArray(proofs)) {
     throw new Error('review resolution proof must be an array or contain proofs[]');
@@ -84,7 +89,7 @@ function validateReviewResolutionProof(proof = {}, {
   if (!/^[0-9a-f]{40,64}$/i.test(String(proof.source_fix_sha || ''))) {
     errors.push('invalid_source_fix_sha');
   }
-  if (!/^https:\/\/github\.com\/stranske\/Workflows\/(pull|commit)\//.test(
+  if (!/^https:\/\/github\.com\/stranske\/Workflows\/(?:pull\/[1-9]\d*|commit\/[0-9a-f]{40,64})$/i.test(
     String(proof.evidence_url || ''),
   )) errors.push('invalid_evidence_url');
   if (!String(proof.reason || '').trim()) errors.push('missing_reason');
@@ -316,11 +321,16 @@ async function run({ github, context, core }) {
       (context.payload.client_payload && context.payload.client_payload.cleanup_branches),
     true,
   );
-  const reviewResolutionProofs = parseReviewResolutionProofs(
-    process.env.REVIEW_RESOLUTION_JSON
-      || context.payload.client_payload?.review_resolution_json
-      || '',
-  );
+  let reviewResolutionProofs = [];
+  let reviewResolutionProofParseError = '';
+  try {
+    reviewResolutionProofs = parseReviewResolutionProofs(
+      process.env.REVIEW_RESOLUTION_JSON || '',
+    );
+  } catch (error) {
+    reviewResolutionProofParseError = error.message || String(error);
+    core.warning(reviewResolutionProofParseError);
+  }
   const trustedResolutionActors = String(
     process.env.TRUSTED_REVIEW_RESOLUTION_ACTORS || 'stranske,stranske-automation-bot',
   ).split(',').map((actor) => actor.trim()).filter(Boolean);
@@ -426,7 +436,10 @@ async function run({ github, context, core }) {
       && Number(proof?.pr) === Number(pr.number),
     );
     const resolved = [];
-    const errors = [];
+    const wouldResolve = [];
+    const errors = reviewResolutionProofParseError
+      ? [`payload:${reviewResolutionProofParseError}`]
+      : [];
     for (const proof of matching) {
       const validation = validateReviewResolutionProof(proof, {
         owner,
@@ -446,6 +459,55 @@ async function run({ github, context, core }) {
         continue;
       }
       try {
+        const evidenceUrl = String(proof.evidence_url || '');
+        const commitEvidence = evidenceUrl.match(
+          /^https:\/\/github\.com\/stranske\/Workflows\/commit\/([0-9a-f]{40,64})$/i,
+        );
+        const pullEvidence = evidenceUrl.match(
+          /^https:\/\/github\.com\/stranske\/Workflows\/pull\/([1-9]\d*)$/,
+        );
+        if (commitEvidence) {
+          if (commitEvidence[1].toLowerCase() !== String(proof.source_fix_sha).toLowerCase()) {
+            errors.push(`${proof.thread_id}:evidence_commit_mismatch`);
+            continue;
+          }
+          await withRetry((client) => client.rest.repos.getCommit({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: proof.source_fix_sha,
+          }));
+        } else if (pullEvidence) {
+          const pullNumber = Number(pullEvidence[1]);
+          const { data: sourcePull } = await withRetry((client) => client.rest.pulls.get({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: pullNumber,
+          }));
+          if (!sourcePull?.merged_at) {
+            errors.push(`${proof.thread_id}:evidence_pr_not_merged`);
+            continue;
+          }
+          const sourceCommits = await withRetry((client) => client.paginate(
+            client.rest.pulls.listCommits,
+            {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullNumber,
+              per_page: 100,
+            },
+          ));
+          const evidenceShas = new Set([
+            sourcePull.merge_commit_sha,
+            ...(sourceCommits || []).map((commit) => commit.sha),
+          ].map((sha) => String(sha || '').toLowerCase()).filter(Boolean));
+          if (!evidenceShas.has(String(proof.source_fix_sha).toLowerCase())) {
+            errors.push(`${proof.thread_id}:source_fix_not_in_evidence_pr`);
+            continue;
+          }
+        } else {
+          errors.push(`${proof.thread_id}:invalid_evidence_url`);
+          continue;
+        }
         const { data: comparison } = await withRetry((client) =>
           client.rest.repos.compareCommitsWithBasehead({
             owner: context.repo.owner,
@@ -457,7 +519,7 @@ async function run({ github, context, core }) {
           errors.push(`${proof.thread_id}:source_fix_not_in_delivery_source`);
           continue;
         }
-        const data = await github.graphql(
+        const data = await withRetry((client) => client.graphql(
           `query($owner: String!, $repo: String!, $number: Int!) {
             repository(owner: $owner, name: $repo) {
               pullRequest(number: $number) {
@@ -470,7 +532,7 @@ async function run({ github, context, core }) {
             }
           }`,
           { owner, repo, number: pr.number },
-        );
+        ));
         const fresh = data?.repository?.pullRequest;
         const threads = fresh?.reviewThreads;
         if (fresh?.headRefOid !== pr.head.sha) {
@@ -486,14 +548,22 @@ async function run({ github, context, core }) {
           errors.push(`${proof.thread_id}:thread_not_active`);
           continue;
         }
-        await github.graphql(
+        if (dryRun) {
+          wouldResolve.push(proof.thread_id);
+          console.log(
+            `Would resolve proof-bound review thread ${proof.thread_id} using ` +
+              `${proof.evidence_url}`,
+          );
+          continue;
+        }
+        await withRetry((client) => client.graphql(
           `mutation($threadId: ID!) {
             resolveReviewThread(input: {threadId: $threadId}) {
               thread { id isResolved }
             }
           }`,
           { threadId: proof.thread_id },
-        );
+        ));
         resolved.push(proof.thread_id);
         console.log(
           `Resolved proof-bound review thread ${proof.thread_id} using ${proof.evidence_url}`,
@@ -502,7 +572,7 @@ async function run({ github, context, core }) {
         errors.push(`${proof.thread_id}:${error.message || error}`);
       }
     }
-    return { resolved, errors };
+    return { resolved, wouldResolve, errors };
   }
   
   // Parse repos from previous step
@@ -652,14 +722,14 @@ async function run({ github, context, core }) {
       body,
     }));
     if (pr.draft) {
-      await github.graphql(
+      await withRetry((client) => client.graphql(
         `mutation($id: ID!) {
           markPullRequestReadyForReview(input: {pullRequestId: $id}) {
             pullRequest { id isDraft }
           }
         }`,
         { id: pr.node_id },
-      );
+      ));
     }
     await withRetry((client) => client.rest.issues.addLabels({
       owner,
@@ -668,6 +738,50 @@ async function run({ github, context, core }) {
       labels: ['sync:delivery-staging'],
     }));
     return { reviewStartedAt, body, dryRun: false };
+  }
+
+  async function restageStableDelivery({ owner, repo, pr, dryRunMode }) {
+    const body = replaceDeliveryRecord(pr.body || '', {
+      delivery_state: 'staging',
+      review_started_at: '',
+      sealed_at: '',
+      sealed_head_sha: '',
+      review_evidence: {},
+    });
+    if (dryRunMode) return { body, dryRun: true };
+    await withRetry((client) => client.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: pr.number,
+      body,
+    }));
+    if (!pr.draft) {
+      await withRetry((client) => client.graphql(
+        `mutation($id: ID!) {
+          convertPullRequestToDraft(input: {pullRequestId: $id}) {
+            pullRequest { id isDraft }
+          }
+        }`,
+        { id: pr.node_id },
+      ));
+    }
+    await withRetry((client) => client.rest.issues.addLabels({
+      owner,
+      repo,
+      issue_number: pr.number,
+      labels: ['sync:delivery-staging'],
+    }));
+    try {
+      await withRetry((client) => client.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: pr.number,
+        name: 'sync:delivery-ready',
+      }));
+    } catch (labelError) {
+      if (labelError?.status !== 404) throw labelError;
+    }
+    return { body, dryRun: false };
   }
 
   async function sealStableDelivery({ owner, repo, pr, record, settlement, dryRunMode }) {
@@ -1266,6 +1380,7 @@ async function run({ github, context, core }) {
         blocker_owner: deliveryState.blocker_owner,
         next_command: deliveryState.next_command,
         review_resolution_thread_ids: reviewResolution.resolved,
+        review_resolution_would_resolve_thread_ids: reviewResolution.wouldResolve,
         review_resolution_errors: reviewResolution.errors,
       };
   
@@ -1412,12 +1527,22 @@ async function run({ github, context, core }) {
           deliveryRecord.delivery_state !== 'sealed'
           || deliveryRecord.sealed_head_sha !== pr.head.sha
         ) {
+          await restageStableDelivery({
+            owner,
+            repo,
+            pr,
+            dryRunMode: dryRun,
+          });
           results.push({
             ...deliveryContext,
-            delivery_disposition: 'awaiting-review-settlement',
+            delivery_disposition: dryRun
+              ? 'awaiting-review-settlement'
+              : 'awaiting-review-start',
             blocker_owner: 'maint-71',
-            next_command: 'restage-changed-delivery-head',
-            status: 'sealed_head_mismatch',
+            next_command: dryRun
+              ? 'restage-changed-delivery-head'
+              : 'rerun-with-auto-merge-to-start-review',
+            status: dryRun ? 'sealed_head_mismatch' : 'delivery_review_not_started',
           });
           continue;
         }
@@ -1487,45 +1612,12 @@ async function run({ github, context, core }) {
       if (requiresStrictGateBranchUpdate({ pr, requiredContexts, willMerge })) {
         try {
           if (stableDelivery) {
-            const stagingBody = replaceDeliveryRecord(pr.body || '', {
-              delivery_state: 'staging',
-              review_started_at: '',
-              sealed_at: '',
-              sealed_head_sha: '',
-              review_evidence: {},
+            await restageStableDelivery({
+              owner,
+              repo,
+              pr,
+              dryRunMode: false,
             });
-            await withRetry((client) => client.rest.pulls.update({
-              owner,
-              repo,
-              pull_number: pr.number,
-              body: stagingBody,
-            }));
-            if (!pr.draft) {
-              await github.graphql(
-                `mutation($id: ID!) {
-                  convertPullRequestToDraft(input: {pullRequestId: $id}) {
-                    pullRequest { id isDraft }
-                  }
-                }`,
-                { id: pr.node_id },
-              );
-            }
-            await withRetry((client) => client.rest.issues.addLabels({
-              owner,
-              repo,
-              issue_number: pr.number,
-              labels: ['sync:delivery-staging'],
-            }));
-            try {
-              await withRetry((client) => client.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: pr.number,
-                name: 'sync:delivery-ready',
-              }));
-            } catch (labelError) {
-              if (labelError?.status !== 404) throw labelError;
-            }
             results.push({
               ...deliveryContext,
               delivery_disposition: 'awaiting-base-refresh',

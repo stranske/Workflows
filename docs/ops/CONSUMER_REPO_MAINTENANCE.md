@@ -349,9 +349,11 @@ evidence is complete and every candidate is merged or safely recovered; and a
 successful promotion dispatches the delivery selector. Generated-branch Gate
 completions provide event-driven wakeups through the synced Gate-followups hub.
 Maint 82 retains every transient Maint 71 handoff with a due time and supplies a
-ten-minute fallback for review-window and pending-check states, so an absent
-event cannot strand the lifecycle. It does not retry actionable CI failures or
-review findings as if they were timer states.
+ten-minute fallback for candidate-evidence holds, delivery-review startup,
+pending checks, changed heads, review windows, reviewer settlement, sealed Gate
+checks, and stable candidate base refreshes, so an absent event cannot strand
+the lifecycle. It does not retry actionable CI failures, unresolved review
+findings, or a dry-run-only sealed-head mismatch as if they were timer states.
 
 Maint 71 persists and validates the `sync-canary-evidence-premerge` artifact
 before its merge step is allowed to run. A GitHub pre-job approval hold, a

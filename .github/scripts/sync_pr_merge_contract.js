@@ -5,6 +5,7 @@ const SYNC_BRANCH_PREFIX = 'sync/workflows-';
 const SYNC_CANDIDATE_BRANCH = `${SYNC_BRANCH_PREFIX}candidate`;
 const SYNC_DELIVERY_BRANCH = `${SYNC_BRANCH_PREFIX}delivery`;
 const DEV_TOOL_SYNC_BRANCH_PREFIX = 'deps/sync-dev-versions-';
+const DEV_TOOL_SYNC_SELECTOR = 'dev-tool';
 const GENERATED_DELIVERY_BRANCH_PREFIXES = [SYNC_BRANCH_PREFIX, DEV_TOOL_SYNC_BRANCH_PREFIX];
 const POST_PUSH_REVIEW_WINDOW_MS = 7 * 60 * 1000;
 const { parseDeliveryRecord, mergeEligibility } = require('./sync_pr_lease_contract');
@@ -228,6 +229,9 @@ function isReviewerNonResponseSignal(body = '', nonResponsePatterns = []) {
 function generatedPrsForSyncSelector(prs = [], syncHash = '') {
   const normalized = normalizeSyncHash(syncHash);
   if (!normalized) return prs;
+  if (normalized === DEV_TOOL_SYNC_SELECTOR) {
+    return prs.filter((pr) => generatedDeliveryLane(pr?.head?.ref) === 'dev-tool-sync');
+  }
   // A sync hash names a sync/workflows-* branch. Dev-tool deliveries share
   // Maint 71 but are a separate generated lane; their presence must not turn
   // an otherwise complete workflow-delivery pass into target_missing.
@@ -517,6 +521,20 @@ function sortSyncPrs(prs) {
 
 function selectActiveSyncPr(prs, syncHash = '') {
   const ordered = sortSyncPrs(prs);
+  if (normalizeSyncHash(syncHash) === DEV_TOOL_SYNC_SELECTOR) {
+    const devToolPrs = ordered.filter(
+      (pr) => generatedDeliveryLane(pr?.head?.ref) === 'dev-tool-sync',
+    );
+    const active = devToolPrs[devToolPrs.length - 1] || null;
+    return {
+      active,
+      stale: active
+        ? devToolPrs.filter((pr) => pr.number !== active.number)
+        : [],
+      expectedBranch: '',
+      missingExpected: false,
+    };
+  }
   const expectedBranch = syncBranchForHash(syncHash);
   if (!expectedBranch) {
     const active = ordered[ordered.length - 1] || null;
@@ -825,7 +843,7 @@ function parseResumeAfter(result = {}, observedAt = new Date().toISOString()) {
     review_window_started: 7,
     reviewer_settlement_pending: 7,
     stable_base_refresh_required: 10,
-  }[String(result.status || '')] || 0;
+  }[String(result.status || '')] || 10;
   return new Date(observed.getTime() + delayMinutes * 60 * 1000).toISOString();
 }
 
@@ -842,7 +860,6 @@ function classifyDeliveryContinuation(result = {}, observedAt = new Date().toISO
     'review_window_pending',
     'review_window_started',
     'reviewer_settlement_pending',
-    'sealed_head_mismatch',
     'stable_base_refresh_required',
   ]);
   if (terminal.has(status)) {
@@ -1027,6 +1044,7 @@ module.exports = {
   SYNC_CANDIDATE_BRANCH,
   SYNC_DELIVERY_BRANCH,
   DEV_TOOL_SYNC_BRANCH_PREFIX,
+  DEV_TOOL_SYNC_SELECTOR,
   GENERATED_DELIVERY_BRANCH_PREFIXES,
   branchNameFromRef,
   classifyGeneratedPr,

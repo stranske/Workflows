@@ -90,6 +90,14 @@ test('transient delivery holds carry a durable due time and lane', () => {
     branch: 'sync/workflows-delivery',
     status: 'merged',
   }).class, 'terminal');
+  assert.equal(classifyDeliveryContinuation({
+    branch: 'sync/workflows-delivery',
+    status: 'sealed_head_mismatch',
+  }).class, 'actionable');
+  assert.equal(classifyDeliveryContinuation({
+    branch: 'sync/workflows-delivery',
+    status: 'delivery_review_not_started',
+  }, '2026-08-15T12:00:00Z').resume_after, '2026-08-15T12:10:00.000Z');
 });
 
 test('promotion requires complete exact-plan evidence and terminal candidate rows', () => {
@@ -170,6 +178,10 @@ test('review resolution proof is exact-head, source-linked, and actor-bound', ()
     reason: 'The current generated contract contains the merged source guard.',
   };
   assert.deepEqual(parseReviewResolutionProofs(JSON.stringify({ proofs: [proof] })), [proof]);
+  assert.throws(
+    () => parseReviewResolutionProofs('{not-json'),
+    /review resolution proof is not valid JSON/,
+  );
   assert.deepEqual(validateReviewResolutionProof(proof, {
     owner: 'stranske',
     repo: 'Portable',
@@ -178,6 +190,17 @@ test('review resolution proof is exact-head, source-linked, and actor-bound', ()
     actor: 'stranske-automation-bot',
     trustedActors: ['stranske-automation-bot'],
   }), { ok: true, errors: [] });
+  assert.equal(validateReviewResolutionProof({
+    ...proof,
+    evidence_url: 'https://github.com/stranske/Workflows/pull/not-a-number',
+  }, {
+    owner: 'stranske',
+    repo: 'Portable',
+    prNumber: 22,
+    headSha: 'head-abc',
+    actor: 'stranske-automation-bot',
+    trustedActors: ['stranske-automation-bot'],
+  }).ok, false);
   const changedHead = validateReviewResolutionProof(proof, {
     owner: 'stranske',
     repo: 'Portable',
@@ -923,6 +946,15 @@ test('a sync selector ignores dev-tool deliveries instead of reporting a missing
   );
   assert.deepEqual(generatedPrsForSyncSelector(generated.slice(0, 1), 'delivery'), []);
   assert.equal(generatedPrsForSyncSelector(generated).length, 2);
+});
+
+test('the dev-tool selector cannot be hidden by a newer workflow-sync PR', () => {
+  const devTool = pr(1, 'deps/sync-dev-versions-wave', '2026-08-15T00:00:00Z');
+  const candidate = pr(2, 'sync/workflows-candidate', '2026-08-15T01:00:00Z');
+  assert.deepEqual(generatedPrsForSyncSelector([devTool, candidate], 'dev-tool'), [devTool]);
+  const selection = selectActiveSyncPr([devTool, candidate], 'dev-tool');
+  assert.equal(selection.active.number, 1);
+  assert.equal(selection.missingExpected, false);
 });
 
 test('stable delivery branches and strict branch-update failures are recognized', () => {

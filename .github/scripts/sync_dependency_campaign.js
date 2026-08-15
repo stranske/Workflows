@@ -407,7 +407,7 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
     if (!['candidate', 'delivery', 'dev-tool'].includes(continuation.lane)) continue;
     if (deliveryActive && continuation.lane === 'candidate') continue;
     const dueMs = Date.parse(continuation.resume_after || record.observed_at);
-    if (!Number.isFinite(dueMs) || dueMs > nowMs) continue;
+    if (!Number.isFinite(dueMs) || dueMs >= nowMs) continue;
     const current = dueByLane.get(continuation.lane);
     if (!current || dueMs < Date.parse(current.resume_after)) {
       dueByLane.set(continuation.lane, {
@@ -416,6 +416,7 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
         reason: continuation.reason,
         repository: record.repository,
         pr: record.pr,
+        branch: record.branch,
         head_sha: record.head_sha,
       });
     }

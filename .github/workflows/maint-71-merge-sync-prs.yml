@@ -190,9 +190,7 @@ jobs:
           CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
           TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
           TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
-          REVIEW_RESOLUTION_JSON: >-
-            ${{ inputs.review_resolution_json ||
-              github.event.client_payload.review_resolution_json || '' }}
+          REVIEW_RESOLUTION_JSON: ${{ inputs.review_resolution_json || '' }}
           EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-premerge-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
@@ -240,9 +238,7 @@ jobs:
           CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
           TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
           TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
-          REVIEW_RESOLUTION_JSON: >-
-            ${{ inputs.review_resolution_json ||
-              github.event.client_payload.review_resolution_json || '' }}
+          REVIEW_RESOLUTION_JSON: ${{ inputs.review_resolution_json || '' }}
           EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-merge-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}

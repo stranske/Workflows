@@ -71,6 +71,11 @@ expiration and lost/delayed events. Pending checks and review windows therefore
 advance automatically, while failed checks and review findings keep their named
 owner instead of being disguised as timer retries.
 
+Every transient classification has a non-zero retry delay and becomes eligible
+only after that due time has passed. Dev-tool wakes use the explicit `dev-tool`
+selector, which reconciles the newest dev-tool PR per registered non-admin repo
+without allowing a newer workflow-sync PR to hide it.
+
 A stable candidate that falls behind its consumer base is also transient.
 Maint 71 returns it to staging and dispatches one deduplicated, no-filter Maint
 68 `phase=canary` refresh; it never sends non-canaries through that phase and it
