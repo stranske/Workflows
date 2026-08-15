@@ -169,58 +169,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
     steps:
-      - name: Checkout trusted base delivery contract
-        if: >-
-          ${{
-            github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository &&
-            (github.head_ref == 'sync/workflows-candidate' ||
-             github.head_ref == 'sync/workflows-delivery')
-          }}
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          repository: ${{ github.event.pull_request.base.repo.full_name }}
-          ref: ${{ github.event.pull_request.base.sha }}
-          sparse-checkout: .github/scripts/sync_pr_lease_contract.js
-          sparse-checkout-cone-mode: false
-
       - name: Require an exact-head delivery seal
-        if: >-
-          ${{
-            github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository &&
-            (github.head_ref == 'sync/workflows-candidate' ||
-             github.head_ref == 'sync/workflows-delivery')
-          }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        with:
-          script: |
-            const { parseDeliveryRecord, mergeEligibility } = require(
-              './.github/scripts/sync_pr_lease_contract.js'
-            );
-            const { owner, repo } = context.repo;
-            const number = context.payload.pull_request.number;
-            const { data: pr } = await github.rest.pulls.get({
-              owner,
-              repo,
-              pull_number: number,
-            });
-            const record = parseDeliveryRecord(pr.body || '');
-            const eligibility = mergeEligibility(record, {
-              repository: `${owner}/${repo}`,
-              desiredTreeHash: '',
-              requireSealed: true,
-              headSha: pr.head.sha,
-            });
-            if (!eligibility.eligible) {
-              core.setFailed(
-                `Mutable generated delivery is not mergeable: ${eligibility.reason}. ` +
-                'Maint 71 must seal this exact head after bounded reviewer settlement.'
-              );
-            }
+        uses: stranske/Workflows/.github/actions/generated-delivery-seal@main
 
   python-ci:
     name: python ci

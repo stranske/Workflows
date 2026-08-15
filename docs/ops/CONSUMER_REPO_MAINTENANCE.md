@@ -47,13 +47,14 @@ Some repos cannot use the template `pr-00-gate.yml` because:
 
 For these repos:
 - The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
-- A custom Gate must invoke the exact-synced `.github/actions/path-classifier`
-  (or enforce the equivalent delivery-record check itself). The classifier
-  loads the delivery-seal contract from the pull request's exact trusted base
-  SHA and fails closed when that object is unavailable; it never evaluates the
-  candidate copy of the contract. It rejects stable candidate/delivery PRs
-  until Maint 71 seals the exact head, so a custom aggregate `Gate / gate`
-  cannot report success while delivery is still mutable.
+- A custom Gate must include an independent `generated-delivery-seal` job that
+  invokes
+  `stranske/Workflows/.github/actions/generated-delivery-seal@main`, and its
+  aggregate `Gate / gate` must require that job. Invoking the exact-synced
+  `.github/actions/path-classifier` is not sufficient because a sync PR can
+  modify that local action. The Workflows-owned action evaluates the event's
+  exact head and delivery marker outside the mutable consumer checkout and
+  fails closed until Maint 71 seals that head.
 - `Trend_Model_Project` skips the synced `AGENTS.md` file and keeps its local
   `Agents.md`.
 - `trip-planner` skips the synced `.github/scripts/package.json` and vendored
@@ -413,20 +414,14 @@ Gate summary rejects an unsealed stable delivery, while the shared merge guard
 rejects `sync:delivery-staging` for every merger except Maint 71's verified
 sealed path. The staging hold remains until the merge succeeds.
 
-The standard Gate's generated-delivery job normally checks out
-`sync_pr_lease_contract.js` from the exact pull-request base SHA, not from the
-candidate head, so a contract change cannot redefine an existing acceptance
-rule. The one first-rollout exception is a same-repository stable delivery whose
-base does not yet contain the contract and whose exact head adds that path. The
-classifier may compile that add-only bootstrap copy; modifications, renames,
-fork heads, missing head SHAs, and unreadable copies still fail closed. Maint 71
+The standard Gate's generated-delivery job invokes the Workflows-owned
+`generated-delivery-seal` action directly. It does not execute seal policy from
+the consumer pull request checkout, so a candidate that changes the local path
+classifier or lease-contract copy cannot redefine its own acceptance rule. The
+local classifier retains its trusted-base and add-only bootstrap checks as
+defense in depth, but it is not the authoritative seal boundary. Maint 71
 remains the final boundary and independently requires the exact generated head
-to carry a valid GitHub-recognized signature before merge. After the bootstrap
-lands, every later delivery returns to trusted-base-only enforcement.
-Because pull-request checkouts use a shallow synthetic merge ref, the classifier
-fetches the exact same-repository head SHA before comparing or reading the
-bootstrap copy; the event payload alone is not evidence that the object exists
-in the local checkout.
+to carry a valid GitHub-recognized signature before merge.
 
 Generated `sync/workflows-*` PRs are excluded from both the basic and agent
 autofix lanes. Their intentional pre-seal Gate failure is a delivery hold, not

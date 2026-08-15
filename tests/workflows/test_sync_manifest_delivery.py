@@ -395,6 +395,15 @@ def test_maint71_anchors_review_window_to_producer_head_observation() -> None:
 
 def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
     gate = (REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml").read_text(encoding="utf-8")
+    template_gate = (
+        REPO_ROOT / "templates" / "consumer-repo" / ".github" / "workflows" / "pr-00-gate.yml"
+    ).read_text(encoding="utf-8")
+    seal_action = (
+        REPO_ROOT / ".github" / "actions" / "generated-delivery-seal" / "action.yml"
+    ).read_text(encoding="utf-8")
+    seal_check = (
+        REPO_ROOT / ".github" / "actions" / "generated-delivery-seal" / "check.js"
+    ).read_text(encoding="utf-8")
     gate_summary = (REPO_ROOT / ".github" / "scripts" / "gate_summary.py").read_text(
         encoding="utf-8"
     )
@@ -403,12 +412,19 @@ def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
     )
 
     assert "generated-delivery-seal" in gate
+    assert "stranske/Workflows/.github/actions/generated-delivery-seal@main" in gate
+    assert "stranske/Workflows/.github/actions/generated-delivery-seal@main" in template_gate
+    assert "uses: ./.github/actions/path-classifier" not in gate.split(
+        "generated-delivery-seal:", 1
+    )[1].split("\n  python-ci:", 1)[0]
+    assert "using: composite" in seal_action
+    assert "requireSealed: true" in seal_check
+    assert "pullRequest?.head?.sha" in seal_check
     assert "DELIVERY_SEAL_RESULT" in gate
     assert "sync/workflows-delivery" in gate_summary
     assert "sealed_head_sha" in gate_summary
     assert "sync:delivery-staging" in merger_guard
     assert "allowSealedSyncDelivery" in merger_guard
-    assert gate.count("github.event.pull_request.head.repo.full_name == github.repository") >= 2
 
 
 def test_delivery_lease_contract_is_copy_synced_with_the_gate() -> None:
