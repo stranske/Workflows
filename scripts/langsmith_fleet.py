@@ -17,8 +17,26 @@ from jsonschema import Draft202012Validator
 SCHEMA_VERSION = "langsmith-fleet/v1"
 SCHEMA_PATH = Path("docs/contracts/schemas/langsmith-fleet-v1.schema.json")
 REGISTRY_SCHEMA_VERSION = "langsmith-fleet-registry/v1"
+ALLOWLIST_SCHEMA_VERSION = "langsmith-fleet-allowlist/v1"
+ALLOWLIST_PATH = Path("config/langsmith_fleet_allowlist.json")
 PARENT_WORKFLOWS_ISSUE = "stranske/Workflows#2150"
 AGENT_CAPACITY_WINDOWS = {"5h", "weekly", "daily"}
+VALID_EVIDENCE_MODES = {"artifact", "langsmith-direct"}
+MANAGED_CONSUMER_REPOS = {
+    "stranske/Travel-Plan-Permission",
+    "stranske/Template",
+    "stranske/Counter_Risk",
+    "stranske/Pension-Data",
+    "stranske/Inv-Man-Intake",
+    "stranske/Ready",
+    "stranske/trip-planner",
+    "stranske/Manager-Database",
+    "stranske/Portable-Alpha-Extension-Model",
+    "stranske/Trend_Model_Project",
+    "stranske/Collab-Admin",
+    "stranske/learning-management-system",
+    "stranske/Fine-Art-Archive",
+}
 REQUIRED_ACTIVE_REPO_ISSUES = {
     "stranske/trip-planner": 1208,
     "stranske/Pension-Data": 445,
@@ -107,12 +125,29 @@ def load_ndjson(path: Path) -> tuple[list[dict[str, Any]], list[ValidationError]
     return records, errors
 
 
-def load_registry(path: Path) -> dict[str, Any]:
+def load_allowlist(path: Path = ALLOWLIST_PATH) -> dict[str, Any]:
+    """Load and validate repositories where LangSmith is explicitly not applicable."""
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict):
+        raise ValueError("allowlist must be a JSON object")
+    validate_allowlist(data)
+    return data
+
+
+def load_registry(
+    path: Path,
+    *,
+    allowlist_path: Path | None = ALLOWLIST_PATH,
+) -> dict[str, Any]:
     """Load the fleet registry JSON."""
     data = json.loads(path.read_text())
     if not isinstance(data, dict):
         raise ValueError("registry must be a JSON object")
-    validate_registry(data)
+    allowlist = None
+    if allowlist_path is not None and allowlist_path.exists():
+        allowlist = load_allowlist(allowlist_path)
+        data["_allowlist"] = allowlist
+    validate_registry(data, allowlist=allowlist)
     return data
 
 
@@ -129,7 +164,36 @@ def registry_surfaces(registry: dict[str, Any]) -> dict[tuple[str, str], dict[st
     return indexed
 
 
-def validate_registry(registry: dict[str, Any]) -> None:
+def validate_allowlist(allowlist: dict[str, Any]) -> None:
+    """Validate explicit non-applicable repository coverage."""
+    if allowlist.get("schema_version") != ALLOWLIST_SCHEMA_VERSION:
+        raise ValueError(f"allowlist schema_version must be {ALLOWLIST_SCHEMA_VERSION}")
+    entries = allowlist.get("repos")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("allowlist repos must be a non-empty list")
+    seen: set[str] = set()
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(f"allowlist repos[{index}] must be an object")
+        repo = entry.get("repo")
+        if not isinstance(repo, str) or not repo.strip():
+            raise ValueError(f"allowlist repos[{index}].repo must be a non-empty string")
+        normalized = repo.strip()
+        if normalized in seen:
+            raise ValueError(f"allowlist has duplicate repo {normalized}")
+        seen.add(normalized)
+        if entry.get("status") != "not-applicable":
+            raise ValueError(f"allowlist repos[{index}].status must be not-applicable")
+        for field in ("reason", "registry_activation_condition"):
+            if not isinstance(entry.get(field), str) or not str(entry[field]).strip():
+                raise ValueError(f"allowlist repos[{index}].{field} must be a non-empty string")
+
+
+def validate_registry(
+    registry: dict[str, Any],
+    *,
+    allowlist: dict[str, Any] | None = None,
+) -> None:
     """Validate registry structure and required mappings."""
     if "agents" in registry and "repos" not in registry:
         validate_agent_registry_capacity(registry)
@@ -137,6 +201,11 @@ def validate_registry(registry: dict[str, Any]) -> None:
 
     if registry.get("schema_version") != REGISTRY_SCHEMA_VERSION:
         raise ValueError(f"registry schema_version must be {REGISTRY_SCHEMA_VERSION}")
+
+    if allowlist is None:
+        embedded_allowlist = registry.get("_allowlist")
+        if isinstance(embedded_allowlist, dict):
+            allowlist = embedded_allowlist
 
     stale_after_hours = registry.get("stale_after_hours")
     if isinstance(stale_after_hours, bool) or not isinstance(stale_after_hours, int):
@@ -162,6 +231,7 @@ def validate_registry(registry: dict[str, Any]) -> None:
         operations = entry.get("operations")
         required_domain_fields = entry.get("required_domain_fields")
         artifact_name = entry.get("artifact_name")
+        evidence_mode = entry.get("evidence_mode")
         rollout_status = entry.get("rollout_status")
 
         if not isinstance(repo, str) or not repo.strip():
@@ -205,6 +275,9 @@ def validate_registry(registry: dict[str, Any]) -> None:
 
         if not isinstance(artifact_name, str) or not artifact_name.strip():
             raise ValueError(f"registry repos[{index}].artifact_name must be a non-empty string")
+        if evidence_mode not in VALID_EVIDENCE_MODES:
+            allowed = ", ".join(sorted(VALID_EVIDENCE_MODES))
+            raise ValueError(f"registry repos[{index}].evidence_mode must be one of {allowed}")
         if not isinstance(rollout_status, str) or not rollout_status.strip():
             raise ValueError(f"registry repos[{index}].rollout_status must be a non-empty string")
 
@@ -231,6 +304,25 @@ def validate_registry(registry: dict[str, Any]) -> None:
         raise ValueError(
             "registry missing required active repo issue mappings: "
             + ", ".join(sorted(missing_required))
+        )
+
+    allowlist_entries = (allowlist or {}).get("repos", [])
+    allowlisted_repos = {
+        str(entry.get("repo", "")).strip()
+        for entry in allowlist_entries
+        if isinstance(entry, dict) and str(entry.get("repo", "")).strip()
+    }
+    overlap = sorted(set(seen_repo_issues) & allowlisted_repos)
+    if overlap:
+        raise ValueError(
+            "repositories cannot be both registered and allowlisted: " + ", ".join(overlap)
+        )
+    covered_consumers = set(seen_repo_issues) | allowlisted_repos
+    unclassified = sorted(MANAGED_CONSUMER_REPOS - covered_consumers)
+    if unclassified:
+        raise ValueError(
+            "managed consumer repos missing registry or allowlist status: "
+            + ", ".join(unclassified)
         )
 
 
@@ -417,19 +509,30 @@ def summarize_fleet_records(
     for key, entry in sorted(registry_entries.items()):
         repo, surface = key
         matching = by_repo_surface.get(key, [])
-        validation_errors = validate_records(matching, registry=registry) if matching else []
-        latest_recorded_at = _latest_recorded_at(matching)
-        if not matching:
-            status = "missing"
-        elif validation_errors:
-            status = "invalid"
-        elif (
-            latest_recorded_at
-            and (now - latest_recorded_at).total_seconds() > stale_after_hours * 3600
-        ):
-            status = "stale"
+        evidence_mode = str(entry.get("evidence_mode") or "artifact")
+        if evidence_mode == "langsmith-direct":
+            validation_errors: list[ValidationError] = []
+            latest_recorded_at = None
+            status = "direct"
+            reason = (
+                "Evidence is ingested from the central LangSmith project; "
+                "a repo-local fleet artifact is not required or validated here."
+            )
         else:
-            status = "valid"
+            validation_errors = validate_records(matching, registry=registry) if matching else []
+            latest_recorded_at = _latest_recorded_at(matching)
+            reason = None
+            if not matching:
+                status = "missing"
+            elif validation_errors:
+                status = "invalid"
+            elif (
+                latest_recorded_at
+                and (now - latest_recorded_at).total_seconds() > stale_after_hours * 3600
+            ):
+                status = "stale"
+            else:
+                status = "valid"
         statuses[status] += 1
         rows.append(
             {
@@ -437,6 +540,7 @@ def summarize_fleet_records(
                 "surface": surface,
                 "issue": entry.get("issue"),
                 "artifact_name": entry.get("artifact_name"),
+                "evidence_mode": evidence_mode,
                 "rollout_status": entry.get("rollout_status"),
                 "record_count": len(matching),
                 "latest_recorded_at": (
@@ -444,12 +548,35 @@ def summarize_fleet_records(
                 ),
                 "status": status,
                 "first_error": validation_errors[0].message if validation_errors else None,
+                "reason": reason,
+            }
+        )
+
+    allowlist = registry.get("_allowlist") or {}
+    allowlist_entries = allowlist.get("repos", []) if isinstance(allowlist, dict) else []
+    for entry in sorted(allowlist_entries, key=lambda item: str(item.get("repo", ""))):
+        statuses["not-applicable"] += 1
+        rows.append(
+            {
+                "repo": entry["repo"],
+                "surface": "",
+                "issue": None,
+                "artifact_name": None,
+                "evidence_mode": "none",
+                "rollout_status": "not-applicable",
+                "record_count": 0,
+                "latest_recorded_at": None,
+                "status": "not-applicable",
+                "first_error": None,
+                "reason": entry["reason"],
+                "registry_activation_condition": entry["registry_activation_condition"],
             }
         )
 
     return {
         "schema_version": SCHEMA_VERSION,
         "total_registry_entries": len(registry_entries),
+        "total_allowlisted_repos": len(allowlist_entries),
         "status_counts": dict(sorted(statuses.items())),
         "rows": rows,
     }
@@ -477,23 +604,27 @@ def format_fleet_summary(summary: dict[str, Any]) -> str:
     lines = ["# LangSmith Fleet Artifact Status", ""]
     counts = summary.get("status_counts", {})
     lines.append(f"- Registry entries: {summary.get('total_registry_entries', 0)}")
+    lines.append(f"- Allowlisted repositories: {summary.get('total_allowlisted_repos', 0)}")
     lines.append(f"- Valid: {counts.get('valid', 0)}")
     lines.append(f"- Missing: {counts.get('missing', 0)}")
     lines.append(f"- Stale: {counts.get('stale', 0)}")
     lines.append(f"- Invalid: {counts.get('invalid', 0)}")
+    lines.append(f"- Direct evidence: {counts.get('direct', 0)}")
+    lines.append(f"- Not applicable: {counts.get('not-applicable', 0)}")
     lines.append("")
-    lines.append("| Repo | Surface | Issue | Status | Records | Latest | First Error |")
-    lines.append("|------|---------|-------|--------|---------|--------|-------------|")
+    lines.append("| Repo | Surface | Evidence | Issue | Status | Records | Latest | Detail |")
+    lines.append("|------|---------|----------|-------|--------|---------|--------|--------|")
     for row in summary.get("rows", []):
         lines.append(
-            "| {repo} | {surface} | {issue} | {status} | {record_count} | {latest} | {error} |".format(
+            "| {repo} | {surface} | {evidence} | {issue} | {status} | {record_count} | {latest} | {detail} |".format(
                 repo=row["repo"],
                 surface=row["surface"],
+                evidence=row.get("evidence_mode") or "",
                 issue=row.get("issue") or "",
                 status=row["status"],
                 record_count=row["record_count"],
                 latest=row.get("latest_recorded_at") or "",
-                error=row.get("first_error") or "",
+                detail=row.get("first_error") or row.get("reason") or "",
             )
         )
     return "\n".join(lines) + "\n"

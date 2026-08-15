@@ -9,6 +9,8 @@ from scripts import langsmith_fleet
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "config" / "langsmith_fleet_registry.json"
+ALLOWLIST = ROOT / "config" / "langsmith_fleet_allowlist.json"
+MAINT_68 = ROOT / ".github" / "workflows" / "maint-68-sync-consumer-repos.yml"
 AGENT_REGISTRY = ROOT / ".github" / "agents" / "registry.yml"
 FIXTURES = ROOT / "tests" / "fixtures" / "langsmith_fleet"
 
@@ -103,6 +105,8 @@ def test_summary_distinguishes_valid_missing_and_invalid() -> None:
     assert rows[("stranske/trip-planner", "planner-runtime")]["status"] == "valid"
     assert rows[("stranske/Pension-Data", "nl-to-sql")]["status"] == "invalid"
     assert rows[("stranske/Counter_Risk", "risk-reporting")]["status"] == "missing"
+    assert rows[("stranske/Travel-Plan-Permission", "agent-automation")]["status"] == "direct"
+    assert rows[("stranske/Ready", "")]["status"] == "not-applicable"
 
 
 def test_summary_distinguishes_stale_records() -> None:
@@ -127,7 +131,11 @@ def test_markdown_summary_contains_dashboard_status_table() -> None:
     markdown = langsmith_fleet.format_fleet_summary(summary)
 
     assert "# LangSmith Fleet Artifact Status" in markdown
-    assert "| stranske/Workflows | agent-automation | stranske/Workflows#2150 |" in markdown
+    assert (
+        "| stranske/Workflows | agent-automation | artifact | "
+        "stranske/Workflows#2150 |" in markdown
+    )
+    assert "| stranske/Ready |  | none |  | not-applicable |" in markdown
 
 
 def test_markdown_summary_renders_mixed_valid_invalid_missing_rows() -> None:
@@ -171,13 +179,21 @@ def test_markdown_summary_renders_mixed_valid_invalid_missing_rows() -> None:
     assert f"- Registry entries: {len(registry['repos'])}" in markdown
     assert "- Invalid: 1" in markdown
     assert "- Missing: 1" in markdown
+    assert "- Direct evidence: 3" in markdown
+    assert "- Not applicable: 3" in markdown
 
     # Per-repo status rows, one per status flavor.
-    assert "| stranske/Workflows | agent-automation | stranske/Workflows#2150 | valid |" in markdown
-    assert "| stranske/Pension-Data | nl-to-sql | stranske/Pension-Data#445 | invalid |" in markdown
     assert (
-        "| stranske/Counter_Risk | risk-reporting | stranske/Counter_Risk#610 | missing |"
-        in markdown
+        "| stranske/Workflows | agent-automation | artifact | "
+        "stranske/Workflows#2150 | valid |" in markdown
+    )
+    assert (
+        "| stranske/Pension-Data | nl-to-sql | artifact | "
+        "stranske/Pension-Data#445 | invalid |" in markdown
+    )
+    assert (
+        "| stranske/Counter_Risk | risk-reporting | artifact | "
+        "stranske/Counter_Risk#610 | missing |" in markdown
     )
 
 
@@ -320,6 +336,64 @@ def test_registry_contains_active_repo_issue_mappings() -> None:
         assert by_repo[repo]["issue_number"] == issue_number
         assert by_repo[repo]["issue"] == f"{repo}#{issue_number}"
         assert by_repo[repo]["parent_issue"] == langsmith_fleet.PARENT_WORKFLOWS_ISSUE
+
+
+def test_managed_consumers_are_registered_or_explicitly_allowlisted() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    allowlist = langsmith_fleet.load_allowlist(ALLOWLIST)
+    registered = {
+        entry["repo"] for entry in registry["repos"] if entry["repo"] != "stranske/Workflows"
+    }
+    allowlisted = {entry["repo"] for entry in allowlist["repos"]}
+
+    source = MAINT_68.read_text(encoding="utf-8")
+    block = source.split("REGISTERED_CONSUMER_REPOS: |", 1)[1].split("\n\n", 1)[0]
+    maintained = {line.strip() for line in block.splitlines() if line.strip()}
+
+    assert maintained == langsmith_fleet.MANAGED_CONSUMER_REPOS
+    assert maintained == registered | allowlisted
+    assert not registered & allowlisted
+
+
+def test_direct_evidence_repos_do_not_require_artifacts() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    summary = langsmith_fleet.summarize_fleet_records([], registry=registry)
+    rows = {(row["repo"], row["surface"]): row for row in summary["rows"]}
+
+    for repo in (
+        "stranske/Travel-Plan-Permission",
+        "stranske/learning-management-system",
+        "stranske/Fine-Art-Archive",
+    ):
+        assert rows[(repo, "agent-automation")]["status"] == "direct"
+        assert rows[(repo, "agent-automation")]["record_count"] == 0
+
+
+def test_registry_rejects_repo_that_is_also_allowlisted() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    allowlist = langsmith_fleet.load_allowlist(ALLOWLIST)
+    allowlist["repos"].append(
+        {
+            "repo": "stranske/trip-planner",
+            "status": "not-applicable",
+            "reason": "deliberate overlap",
+            "registry_activation_condition": "already active",
+        }
+    )
+
+    with pytest.raises(ValueError, match="both registered and allowlisted"):
+        langsmith_fleet.validate_registry(registry, allowlist=allowlist)
+
+
+def test_registry_rejects_unclassified_managed_consumer() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    allowlist = langsmith_fleet.load_allowlist(ALLOWLIST)
+    allowlist["repos"] = [
+        entry for entry in allowlist["repos"] if entry["repo"] != "stranske/Ready"
+    ]
+
+    with pytest.raises(ValueError, match="stranske/Ready"):
+        langsmith_fleet.validate_registry(registry, allowlist=allowlist)
 
 
 def test_registry_rejects_missing_parent_issue(tmp_path: Path) -> None:

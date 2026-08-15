@@ -1,0 +1,23 @@
+{
+  "schema_version": "langsmith-fleet-allowlist/v1",
+  "repos": [
+    {
+      "repo": "stranske/Template",
+      "status": "not-applicable",
+      "reason": "Canonical inactive template that receives fleet updates but has no substantive runtime to trace.",
+      "registry_activation_condition": "Add the substantive repository created from this template to the LangSmith registry when its first LLM-backed runtime or agent-observability surface is implemented."
+    },
+    {
+      "repo": "stranske/Ready",
+      "status": "not-applicable",
+      "reason": "Standby repository maintained for future use; it receives fleet updates but has no active substantive runtime.",
+      "registry_activation_condition": "Move the activated substantive repository into the LangSmith registry when development begins on an LLM-backed runtime or agent-observability surface."
+    },
+    {
+      "repo": "stranske/Collab-Admin",
+      "status": "not-applicable",
+      "reason": "Inactive administrative/template consumer that receives fleet updates without operating a substantive traced runtime.",
+      "registry_activation_condition": "Register any substantive repository created from this source when it gains an LLM-backed runtime or agent-observability surface."
+    }
+  ]
+}

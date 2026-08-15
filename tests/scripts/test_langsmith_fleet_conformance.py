@@ -85,3 +85,20 @@ def test_artifact_paths_from_root_uses_registry_artifact_names(tmp_path: Path) -
     assert paths["stranske/Portable-Alpha-Extension-Model"] == (
         tmp_path / "stranske__Portable-Alpha-Extension-Model" / "langsmith-fleet.ndjson"
     )
+    assert "stranske/Travel-Plan-Permission" not in paths
+
+
+def test_conformance_reports_direct_and_not_applicable_without_artifacts(tmp_path: Path) -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+
+    report = langsmith_fleet_conformance.build_conformance_report(
+        {},
+        registry=registry,
+        now=datetime(2026, 5, 30, 1, 0, tzinfo=UTC),
+    )
+    rows = {(row["repo"], row["surface"]): row for row in report["rows"]}
+
+    assert rows[("stranske/Travel-Plan-Permission", "agent-automation")]["status"] == "direct"
+    assert rows[("stranske/Ready", "")]["status"] == "not-applicable"
+    assert report["status_counts"]["direct"] == 3
+    assert report["status_counts"]["not-applicable"] == 3

@@ -156,8 +156,9 @@ jobs:
           REGISTRY=config/langsmith_fleet_registry.json
           mkdir -p .metrics-tmp/fleet
           trusted_workflow_paths="$(jq -c '.trusted_artifact_workflow_paths // []' "$REGISTRY")"
-          # Always start from an empty combined file so repos with no artifact
-          # surface as "missing" (the registry-driven rollup never skips them).
+          # Always start from an empty combined file so artifact-backed repos
+          # with no artifact surface as "missing". Direct and not-applicable
+          # entries remain visible through their explicit status metadata.
           : > .metrics-tmp/fleet/combined-fleet.ndjson
 
           # Enumerate (repo, artifact_name) from the registry.
@@ -168,6 +169,8 @@ jobs:
           with open(sys.argv[1], encoding="utf-8") as fh:
               registry = json.load(fh)
           for entry in registry.get("repos", []):
+              if entry.get("evidence_mode", "artifact") != "artifact":
+                  continue
               repo = entry.get("repo", "")
               artifact = entry.get("artifact_name", "langsmith-fleet.ndjson")
               if repo:
@@ -249,7 +252,7 @@ jobs:
           done < .metrics-tmp/fleet/repos.tsv
 
           # Reuse the already-tested rollup. The registry drives the table, so
-          # every registered repo gets a row even with zero combined records.
+          # every registered and allowlisted repo gets an explicit status row.
           python scripts/langsmith_fleet.py .metrics-tmp/fleet/combined-fleet.ndjson \
             --registry "$REGISTRY" --summary --format markdown \
             > .metrics-tmp/fleet/fleet-status.md

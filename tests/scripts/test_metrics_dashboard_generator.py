@@ -252,13 +252,15 @@ def test_build_dashboard_from_path_includes_langsmith_fleet_status(tmp_path: Pat
 
     assert errors == 0
     assert "## LangSmith Fleet Artifact Status" in dashboard
-    assert "- Valid: 11" in dashboard
+    assert "- Valid: 8" in dashboard
     assert "- Missing: 0" in dashboard
     assert "- Stale: 0" in dashboard
     assert "- Invalid: 0" in dashboard
+    assert "- Direct evidence: 3" in dashboard
+    assert "- Not applicable: 3" in dashboard
     assert (
-        "| stranske/trip-planner | planner-runtime | stranske/trip-planner#1208 | valid |"
-        in dashboard
+        "| stranske/trip-planner | planner-runtime | artifact | "
+        "stranske/trip-planner#1208 | valid |" in dashboard
     )
 
 
@@ -284,8 +286,8 @@ def test_build_dashboard_from_path_marks_invalid_langsmith_fleet_records(tmp_pat
     assert "## LangSmith Fleet Artifact Status" in dashboard
     assert "- Invalid: 1" in dashboard
     assert (
-        "| stranske/trip-planner | planner-runtime | stranske/trip-planner#1208 | invalid |"
-        in dashboard
+        "| stranske/trip-planner | planner-runtime | artifact | "
+        "stranske/trip-planner#1208 | invalid |" in dashboard
     )
 
 
@@ -333,11 +335,13 @@ def test_main_langsmith_fleet_noops_without_langsmith_api_key(
     assert exit_code == 0
     content = output_path.read_text(encoding="utf-8")
     assert "## LangSmith Fleet Artifact Status" in content
-    assert "- Valid: 11" in content
+    assert "- Valid: 8" in content
+    assert "- Direct evidence: 3" in content
+    assert "- Not applicable: 3" in content
 
 
 def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
-    """mixed.ndjson: 1 valid (Workflows) + 1 invalid (trip-planner) + 9 missing repos."""
+    """Mixed records keep artifact, direct, and not-applicable states separate."""
     metrics_path = tmp_path / "metrics.ndjson"
     metrics_path.write_text(
         '{"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"}\n',
@@ -360,16 +364,20 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
     assert "## LangSmith Fleet Artifact Status" in dashboard
     assert "- Valid: 1" in dashboard
     assert "- Invalid: 1" in dashboard
-    assert "- Missing: 9" in dashboard
+    assert "- Missing: 6" in dashboard
+    assert "- Direct evidence: 3" in dashboard
+    assert "- Not applicable: 3" in dashboard
     assert (
-        "| stranske/Workflows | agent-automation | stranske/Workflows#2150 | valid |" in dashboard
+        "| stranske/Workflows | agent-automation | artifact | "
+        "stranske/Workflows#2150 | valid |" in dashboard
     )
     assert (
-        "| stranske/trip-planner | planner-runtime | stranske/trip-planner#1208 | invalid |"
-        in dashboard
+        "| stranske/trip-planner | planner-runtime | artifact | "
+        "stranske/trip-planner#1208 | invalid |" in dashboard
     )
     assert (
-        "| stranske/Pension-Data | nl-to-sql | stranske/Pension-Data#445 | missing |" in dashboard
+        "| stranske/Pension-Data | nl-to-sql | artifact | "
+        "stranske/Pension-Data#445 | missing |" in dashboard
     )
     fleet_section = dashboard.split("## LangSmith Fleet Artifact Status", maxsplit=1)[1]
     status_rows = [
@@ -377,4 +385,4 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
         for line in fleet_section.splitlines()
         if line.startswith("| stranske/") and line.endswith(" |")
     ]
-    assert len(status_rows) == 11
+    assert len(status_rows) == 14

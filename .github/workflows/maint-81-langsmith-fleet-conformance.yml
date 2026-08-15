@@ -56,6 +56,9 @@ jobs:
             fs.mkdirSync('.metrics-tmp/fleet', { recursive: true });
 
             for (const entry of registry.repos) {
+              if ((entry.evidence_mode || 'artifact') !== 'artifact') {
+                continue;
+              }
               const [owner, repoName] = entry.repo.split('/');
               const safeRepo = entry.repo.replace('/', '__');
               const outDir = path.join('.metrics-tmp/fleet', safeRepo);
@@ -127,7 +130,8 @@ jobs:
             unzip -q -o "$zip_path" -d "$out_dir"
             rm "$zip_path"
           done
-          jq -c '.repos[]' config/langsmith_fleet_registry.json | while read -r entry; do
+          jq -c '.repos[] | select((.evidence_mode // "artifact") == "artifact")' \
+            config/langsmith_fleet_registry.json | while read -r entry; do
             repo="$(jq -r '.repo' <<<"$entry")"
             artifact_name="$(jq -r '.artifact_name' <<<"$entry")"
             safe_repo="${repo//\//__}"
@@ -155,12 +159,12 @@ jobs:
             > .metrics-tmp/langsmith-fleet-conformance.md
           cat .metrics-tmp/langsmith-fleet-conformance.md >> "$GITHUB_STEP_SUMMARY"
 
-          jq -r '.rows[] | select(.status != "valid") |
+          jq -r '.rows[] | select(.status == "missing" or .status == "invalid" or .status == "stale") |
             "::warning title=LangSmith fleet conformance \(.status)::" +
             "\(.repo)/\(.surface): \(.first_error // "no artifact uploaded")"' \
             .metrics-tmp/langsmith-fleet-conformance.json
 
-          non_valid_count="$(jq '[.rows[] | select(.status != "valid")] | length' \
+          non_valid_count="$(jq '[.rows[] | select(.status == "missing" or .status == "invalid" or .status == "stale")] | length' \
             .metrics-tmp/langsmith-fleet-conformance.json)"
           echo "LANGSMITH_FLEET_NON_VALID_COUNT=${non_valid_count}" >> "$GITHUB_ENV"
 

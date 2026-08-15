@@ -17,3 +17,11 @@ def test_conformance_download_accepts_prefixed_fleet_artifacts() -> None:
     assert source.count("trusted_artifact_workflow_paths") == 1
     assert source.count("github.rest.actions.getWorkflowRun") == 1
     assert source.count("trustedWorkflowPaths.has(run.data.path)") == 1
+
+
+def test_conformance_skips_direct_evidence_entries() -> None:
+    source = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "(entry.evidence_mode || 'artifact') !== 'artifact'" in source
+    assert 'select((.evidence_mode // "artifact") == "artifact")' in source
+    assert 'select(.status == "missing" or .status == "invalid" or .status == "stale")' in source

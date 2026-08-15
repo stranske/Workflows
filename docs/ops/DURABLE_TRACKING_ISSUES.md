@@ -47,6 +47,13 @@ The signal flow each tracker carries:
 - **#2211** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
 - **#1836** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
 - **#2897** — Health 83 dependency/sync maintenance-efficiency advisory evidence. Comments append only when the material-evidence fingerprint changes; do not redirect this signal onto `#1836`.
+- **#2415** — LangSmith fleet observability status. Read the evidence mode as
+  well as the status: `valid`/`missing`/`stale`/`invalid` are artifact-backed;
+  `direct` means Workflows-owned direct tracing with no repo-local artifact;
+  and `not-applicable` is an explicit allowlist state for maintenance-only
+  consumers. Only artifact-backed `missing`, `stale`, or `invalid` rows are
+  actionable coverage debt. A missing row means the dashboard lacks evidence,
+  not that the tracker itself should be closed.
 
 ### Leased generated delivery attempts
 

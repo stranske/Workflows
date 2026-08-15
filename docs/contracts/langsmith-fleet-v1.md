@@ -7,7 +7,8 @@ status rollup.
 
 ## Design Decision
 
-The fleet design is contract-first, not package-first:
+The fleet design is contract-first, not package-first. It also distinguishes
+how coverage is proved from whether LangSmith is applicable at all:
 
 - Workflows owns the canonical `langsmith-fleet/v1` record contract, JSON Schema,
   registry, validator, fixtures, and dashboard status rollup.
@@ -23,6 +24,13 @@ The fleet design is contract-first, not package-first:
   That design would only be worth changing to if the fleet starts seeing repeated
   schema drift, duplicated validator defects, or cross-repo release coordination
   failures that outweigh the packaging and version-management overhead.
+- `artifact` registry entries prove coverage with a repo-local
+  `langsmith-fleet.ndjson` artifact.
+- `langsmith-direct` registry entries prove agent-automation tracing through the
+  Workflows-owned direct integration and do not emit a repo-local artifact.
+- Repositories in `config/langsmith_fleet_allowlist.json` are explicitly
+  `not-applicable`: they receive shared maintenance updates, but have no
+  substantive runtime whose LangSmith coverage could be measured.
 
 Closer/verifier agents should consult this section before pausing for a human
 decision about local validators. If the current repo artifacts conform to the
@@ -45,12 +53,16 @@ emitters against the contract:
 | `stranske/Trend_Model_Project` | `#5311` | `#5328` | Repo-local emitter merged. |
 | `stranske/Portable-Alpha-Extension-Model` | `#1802` | `#1819` | Repo-local emitter merged. |
 | `stranske/Manager-Database` | `#1048` | `#1067` | Repo-local emitter merged. |
+| `stranske/Travel-Plan-Permission` | `#1238` | `#2487` (registry) | Covered by Workflows-owned direct agent tracing; no repo-local artifact expected. |
+| `stranske/learning-management-system` | `#334` | `#2487` (registry) | Covered by Workflows-owned direct agent tracing; no repo-local artifact expected. |
+| `stranske/Fine-Art-Archive` | `#114` | `#2487` (registry) | Covered by Workflows-owned direct agent tracing; no repo-local artifact expected. |
 
 ## Artifact
 
-Each participating repo emits NDJSON at the artifact name registered in
-`config/langsmith_fleet_registry.json` (default `langsmith-fleet.ndjson`). Each
-line is one JSON object.
+Each `evidence_mode=artifact` repo emits NDJSON at the artifact name registered
+in `config/langsmith_fleet_registry.json` (default
+`langsmith-fleet.ndjson`). Each line is one JSON object. Direct-evidence and
+not-applicable repositories do not emit this artifact.
 
 The artifact must be safe to publish in GitHub Actions artifacts and dashboards:
 raw prompts, personal data, documents, SQL result rows, generated report text,
@@ -100,8 +112,16 @@ block or reopen the original merge path.
 - repo, issue, and issue number,
 - surface and allowed operation family,
 - artifact name,
+- evidence mode (`artifact` or `langsmith-direct`),
 - rollout status,
 - required domain fields.
+
+`config/langsmith_fleet_allowlist.json` covers registered maintenance consumers
+where runtime observability is intentionally not applicable. The current
+allowlist is Template, Ready, and Collab-Admin. A repository created from one
+of those templates must move into the registry when it gains a substantive
+runtime; that activation condition is recorded in each allowlist entry and is
+validated alongside Maint 68 consumer coverage.
 
 Dashboard status is computed per registry entry:
 
@@ -109,6 +129,17 @@ Dashboard status is computed per registry entry:
 - `invalid`: records exist but fail the shared or domain-field contract.
 - `stale`: latest valid record is older than the registry freshness window.
 - `valid`: at least one current valid record exists.
+- `direct`: coverage uses Workflows-owned direct LangSmith tracing, so no
+  repo-local artifact is expected.
+- `not-applicable`: the repository is an explicitly allowlisted maintenance
+  consumer without a substantive runtime.
+
+`missing`, `invalid`, and `stale` apply only to artifact-backed entries. A
+missing artifact means the GitHub dashboard cannot prove current coverage; it
+does not, by itself, prove that LangSmith tracing failed. Conversely, a direct
+entry proves the configured integration path, not live per-repo trace success;
+live direct-trace health must be reported by the Workflows automation telemetry
+surface.
 
 ## Validation
 
@@ -134,6 +165,8 @@ The canonical schema is versioned at
 
 ## Repo Responsibilities
 
-Repo-specific issues should add instrumentation and emit compatible records.
+Artifact-backed repo issues should add instrumentation and emit compatible records.
 They must not move domain tracing logic into Workflows. Workflows only validates
-the emitted artifact and displays fleet status.
+the emitted artifact and displays fleet status. Direct-evidence repos rely on
+the Workflows-owned agent tracing path, while allowlisted repos must be promoted
+to the registry as soon as substantive runtime behavior is introduced.

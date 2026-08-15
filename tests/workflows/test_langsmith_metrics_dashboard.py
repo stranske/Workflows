@@ -3,6 +3,7 @@ from pathlib import Path
 
 WORKFLOW = Path(".github/workflows/maint-80-langsmith-metrics-dashboard.yml")
 FLEET_REGISTRY = Path("config/langsmith_fleet_registry.json")
+FLEET_ALLOWLIST = Path("config/langsmith_fleet_allowlist.json")
 
 
 def test_fleet_artifact_lookup_does_not_mix_slurp_with_jq() -> None:
@@ -27,6 +28,27 @@ def test_fleet_registry_declares_trusted_artifact_workflows() -> None:
         ".github/workflows/selftest-reusable-ci.yml",
         ".github/workflows/maint-62-integration-consumer.yml",
     ]
+
+
+def test_every_maintained_consumer_has_an_observability_state() -> None:
+    registry = json.loads(FLEET_REGISTRY.read_text(encoding="utf-8"))
+    allowlist = json.loads(FLEET_ALLOWLIST.read_text(encoding="utf-8"))
+
+    evidence_modes = {entry["evidence_mode"] for entry in registry["repos"]}
+    assert evidence_modes == {"artifact", "langsmith-direct"}
+    assert {entry["repo"] for entry in allowlist["repos"]} == {
+        "stranske/Template",
+        "stranske/Ready",
+        "stranske/Collab-Admin",
+    }
+    assert {entry["status"] for entry in allowlist["repos"]} == {"not-applicable"}
+
+
+def test_dashboard_skips_direct_evidence_artifact_downloads() -> None:
+    source = WORKFLOW.read_text(encoding="utf-8")
+
+    assert 'entry.get("evidence_mode", "artifact") != "artifact"' in source
+    assert "continue" in source
 
 
 def test_dashboard_issue_uses_durable_tracker_labels() -> None:

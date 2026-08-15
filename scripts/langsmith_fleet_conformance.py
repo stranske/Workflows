@@ -54,18 +54,30 @@ def build_conformance_report(
     now = now or datetime.now(UTC)
     schema = langsmith_fleet.load_record_schema()
     rows: list[dict[str, Any]] = []
-    counts: dict[str, int] = {"missing": 0, "invalid": 0, "stale": 0, "valid": 0}
+    counts: dict[str, int] = {
+        "missing": 0,
+        "invalid": 0,
+        "stale": 0,
+        "valid": 0,
+        "direct": 0,
+        "not-applicable": 0,
+    }
 
     for entry in sorted(registry["repos"], key=lambda item: (item["repo"], item["surface"])):
         repo = entry["repo"]
         surface = entry["surface"]
         artifact_name = entry["artifact_name"]
+        evidence_mode = str(entry.get("evidence_mode") or "artifact")
         artifact_path = artifact_paths.get(repo)
         first_error: str | None = None
         latest_recorded_at: datetime | None = None
         record_count = 0
 
-        if artifact_path is None or not artifact_path.exists():
+        if evidence_mode == "langsmith-direct":
+            status = "direct"
+            first_error = None
+            artifact_path = None
+        elif artifact_path is None or not artifact_path.exists():
             status = "missing"
         else:
             records, parse_errors = langsmith_fleet.load_ndjson(artifact_path)
@@ -111,6 +123,7 @@ def build_conformance_report(
                 "surface": surface,
                 "issue": entry["issue"],
                 "artifact_name": artifact_name,
+                "evidence_mode": evidence_mode,
                 "artifact_path": str(artifact_path) if artifact_path else None,
                 "record_count": record_count,
                 "latest_recorded_at": (
@@ -118,6 +131,33 @@ def build_conformance_report(
                 ),
                 "status": status,
                 "first_error": first_error,
+                "reason": (
+                    "Evidence is ingested from the central LangSmith project; "
+                    "this artifact report does not validate that external path."
+                    if status == "direct"
+                    else None
+                ),
+            }
+        )
+
+    allowlist = registry.get("_allowlist") or {}
+    allowlist_entries = allowlist.get("repos", []) if isinstance(allowlist, dict) else []
+    for entry in sorted(allowlist_entries, key=lambda item: str(item.get("repo", ""))):
+        counts["not-applicable"] += 1
+        rows.append(
+            {
+                "repo": entry["repo"],
+                "surface": "",
+                "issue": None,
+                "artifact_name": None,
+                "evidence_mode": "none",
+                "artifact_path": None,
+                "record_count": 0,
+                "latest_recorded_at": None,
+                "status": "not-applicable",
+                "first_error": None,
+                "reason": entry["reason"],
+                "registry_activation_condition": entry["registry_activation_condition"],
             }
         )
 
@@ -125,7 +165,8 @@ def build_conformance_report(
         "schema_version": REPORT_SCHEMA_VERSION,
         "generated_at": now.isoformat(),
         "status_counts": counts,
-        "total_registry_entries": len(rows),
+        "total_registry_entries": len(registry["repos"]),
+        "total_allowlisted_repos": len(allowlist_entries),
         "rows": rows,
     }
 
@@ -137,23 +178,27 @@ def format_conformance_markdown(report: dict[str, Any]) -> str:
         "# LangSmith Fleet Conformance",
         "",
         f"- Registry entries: {report.get('total_registry_entries', 0)}",
+        f"- Allowlisted repositories: {report.get('total_allowlisted_repos', 0)}",
         f"- Valid: {counts.get('valid', 0)}",
         f"- Missing: {counts.get('missing', 0)}",
         f"- Stale: {counts.get('stale', 0)}",
         f"- Invalid: {counts.get('invalid', 0)}",
+        f"- Direct evidence: {counts.get('direct', 0)}",
+        f"- Not applicable: {counts.get('not-applicable', 0)}",
         "",
-        "| Repo | Surface | Status | Records | Latest | First Error |",
-        "|------|---------|--------|---------|--------|-------------|",
+        "| Repo | Surface | Evidence | Status | Records | Latest | Detail |",
+        "|------|---------|----------|--------|---------|--------|--------|",
     ]
     for row in report.get("rows", []):
         lines.append(
-            "| {repo} | {surface} | {status} | {record_count} | {latest} | {error} |".format(
+            "| {repo} | {surface} | {evidence} | {status} | {record_count} | {latest} | {detail} |".format(
                 repo=row["repo"],
                 surface=row["surface"],
+                evidence=row.get("evidence_mode") or "",
                 status=row["status"],
                 record_count=row["record_count"],
                 latest=row.get("latest_recorded_at") or "",
-                error=row.get("first_error") or "",
+                detail=row.get("first_error") or row.get("reason") or "",
             )
         )
     return "\n".join(lines) + "\n"
@@ -163,6 +208,8 @@ def artifact_paths_from_root(records_root: Path, registry: dict[str, Any]) -> di
     """Build repo -> artifact path mapping from the conventional records root."""
     paths: dict[str, Path] = {}
     for entry in registry["repos"]:
+        if entry.get("evidence_mode") == "langsmith-direct":
+            continue
         paths[entry["repo"]] = artifact_path_for_repo(
             records_root,
             entry["repo"],

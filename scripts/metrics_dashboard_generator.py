@@ -314,23 +314,29 @@ def build_dashboard(
         lines.append("")
         counts = fleet_summary.get("status_counts", {})
         lines.append(f"- Registry entries: {fleet_summary.get('total_registry_entries', 0)}")
+        lines.append(
+            f"- Allowlisted repositories: {fleet_summary.get('total_allowlisted_repos', 0)}"
+        )
         lines.append(f"- Valid: {counts.get('valid', 0)}")
         lines.append(f"- Missing: {counts.get('missing', 0)}")
         lines.append(f"- Stale: {counts.get('stale', 0)}")
         lines.append(f"- Invalid: {counts.get('invalid', 0)}")
+        lines.append(f"- Direct evidence: {counts.get('direct', 0)}")
+        lines.append(f"- Not applicable: {counts.get('not-applicable', 0)}")
         lines.append("")
-        lines.append("| Repo | Surface | Issue | Status | Records | Latest | First Error |")
-        lines.append("|------|---------|-------|--------|---------|--------|-------------|")
+        lines.append("| Repo | Surface | Evidence | Issue | Status | Records | Latest | Detail |")
+        lines.append("|------|---------|----------|-------|--------|---------|--------|--------|")
         for row in fleet_summary.get("rows", []):
             lines.append(
-                "| {repo} | {surface} | {issue} | {status} | {record_count} | {latest} | {error} |".format(
+                "| {repo} | {surface} | {evidence} | {issue} | {status} | {record_count} | {latest} | {detail} |".format(
                     repo=row["repo"],
                     surface=row["surface"],
+                    evidence=row.get("evidence_mode") or "",
                     issue=row.get("issue") or "",
                     status=row["status"],
                     record_count=row["record_count"],
                     latest=row.get("latest_recorded_at") or "",
-                    error=row.get("first_error") or "",
+                    detail=row.get("first_error") or row.get("reason") or "",
                 )
             )
         lines.append("")
