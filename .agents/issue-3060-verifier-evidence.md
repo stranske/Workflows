@@ -27,13 +27,16 @@ Prior drift (Workflows main vs Trend `phase-3`) on consumer-managed paths:
 | `tools/llm_provider.py` | `435faf1d6743` | drift | aligned |
 | `tools/langchain_client.py` | `6160be61f42d` | drift | aligned |
 | `scripts/langchain/label_matcher.py` | `87ec0fc48782` | drift | aligned |
-| `scripts/ci_cosmetic_repair.py` | `bb035bdb9240` | drift | aligned |
 | `scripts/langchain/structured_output.py` | `9f49ae0aae74` | drift | aligned |
 | `scripts/langchain/progress_reviewer.py` | `cb3b3c66da89` | already matched | unchanged |
 
 **Action taken:** pushed commit `6c9d80c4` to `stranske/Trend_Model_Project@sync/workflows-delivery`
-(byte-for-byte copies of the five drifting files from Workflows `655780bd`). This updates open sync
+(byte-for-byte copies of the four drifting manifest-owned files from Workflows `655780bd`). This updates open sync
 PR #5819; merge of #5819 onto `phase-3` completes fleet propagation.
+
+`scripts/ci_cosmetic_repair.py` is covered by the source acceptance tests above, but is not a
+consumer-managed path in `.github/sync-manifest.yml`; it is intentionally excluded from this
+propagation claim and from the Trend sync branch.
 
 **Maint-68 dispatch notes:** targeted `canary` rejected Trend (non-canary repo); `promote` rejected
 (missing Maint 71 canary evidence for the three configured canaries). Manual manifest-aligned sync
