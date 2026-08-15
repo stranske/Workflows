@@ -78,12 +78,90 @@ jobs:
         if: steps.fingerprint.outputs.should_run == 'false'
         run: echo "Skipped - ${{ steps.fingerprint.outputs.reason }}"
 
+      - name: Mint KEEPALIVE_APP reporter token
+        id: reporter_keepalive_app_token
+        if: >-
+          steps.fingerprint.outputs.should_run == 'true' &&
+          github.event.workflow_run.conclusion != 'success' &&
+          github.event.workflow_run.pull_requests[0].number &&
+          env.KEEPALIVE_APP_ID != '' &&
+          env.KEEPALIVE_APP_PRIVATE_KEY != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        continue-on-error: true
+        env:
+          KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
+          KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || '' }}
+        with:
+          app-id: ${{ env.KEEPALIVE_APP_ID }}
+          private-key: ${{ env.KEEPALIVE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-actions: write
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: read
+
+      - name: Mint WORKFLOWS_APP reporter token
+        id: reporter_workflows_app_token
+        if: >-
+          steps.fingerprint.outputs.should_run == 'true' &&
+          github.event.workflow_run.conclusion != 'success' &&
+          github.event.workflow_run.pull_requests[0].number &&
+          steps.reporter_keepalive_app_token.outputs.token == '' &&
+          env.WORKFLOWS_APP_ID != '' &&
+          env.WORKFLOWS_APP_PRIVATE_KEY != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        env:
+          WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+          WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+        with:
+          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-actions: write
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: read
+
+      - name: Require trusted keepalive reporter writer
+        if: >-
+          steps.fingerprint.outputs.should_run == 'true' &&
+          github.event.workflow_run.conclusion != 'success' &&
+          github.event.workflow_run.pull_requests[0].number
+        env:
+          KEEPALIVE_REPORTER_TOKEN: >-
+            ${{
+              steps.reporter_keepalive_app_token.outputs.token ||
+              steps.reporter_workflows_app_token.outputs.token ||
+              ''
+            }}
+        run: |
+          if [ -z "$KEEPALIVE_REPORTER_TOKEN" ]; then
+            echo "::error::A dedicated keepalive or Workflows App token is required to report trusted keepalive state."
+            exit 1
+          fi
+
       - name: Update summary for cancelled/failed runs
         id: update-summary
-        if: steps.fingerprint.outputs.should_run == 'true'
+        if: >-
+          steps.fingerprint.outputs.should_run == 'true' &&
+          github.event.workflow_run.conclusion != 'success' &&
+          github.event.workflow_run.pull_requests[0].number
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          KEEPALIVE_SUMMARY_WRITER: >-
+            ${{
+              steps.reporter_keepalive_app_token.outputs.token != '' &&
+              'stranske-keepalive[bot]' ||
+              'agents-workflows-bot[bot]'
+            }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: >-
+            ${{
+              steps.reporter_keepalive_app_token.outputs.token ||
+              steps.reporter_workflows_app_token.outputs.token
+            }}
           script: |
             const run = context.payload?.workflow_run || {};
             const prNumber = Number(run.pull_requests?.[0]?.number || 0);
@@ -127,6 +205,7 @@ jobs:
               run_result: conclusion,
               run_url: run.html_url || '',
               rounds_without_task_completion: state.rounds_without_task_completion || 0,
+              trusted_summary_author: process.env.KEEPALIVE_SUMMARY_WRITER || '',
             };
 
             await updateKeepaliveLoopSummary({ github, context, core, inputs });

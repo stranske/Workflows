@@ -688,6 +688,37 @@ def test_mark_running_uses_same_trusted_app_token_as_summary():
         )
 
 
+def test_keepalive_failure_reporter_uses_trusted_app_token():
+    reporter_paths = (
+        WORKFLOWS_DIR / "agents-keepalive-loop-reporter.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml"),
+    )
+
+    for path in reporter_paths:
+        text = path.read_text(encoding="utf-8")
+        assert "id: reporter_keepalive_app_token" in text
+        assert "id: reporter_workflows_app_token" in text
+        assert text.count("repositories: ${{ github.event.repository.name }}") == 2
+        for permission in (
+            "permission-actions: write",
+            "permission-contents: read",
+            "permission-issues: write",
+            "permission-pull-requests: read",
+        ):
+            assert text.count(permission) == 2
+        assert "Require trusted keepalive reporter writer" in text
+
+        update_start = text.index("- name: Update summary for cancelled/failed runs")
+        update_end = text.find("\n      - name:", update_start + 1)
+        update = text[update_start : update_end if update_end != -1 else None]
+        assert "steps.reporter_keepalive_app_token.outputs.token ||" in update
+        assert "steps.reporter_workflows_app_token.outputs.token" in update
+        assert "github-token: ${{ secrets.GITHUB_TOKEN }}" not in update
+        assert "github-token: ${{ github.token }}" not in update
+        assert "KEEPALIVE_SUMMARY_WRITER: >-" in update
+        assert "trusted_summary_author: process.env.KEEPALIVE_SUMMARY_WRITER || ''" in update
+
+
 def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     root_loop = (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
     consumer_loop = Path(
