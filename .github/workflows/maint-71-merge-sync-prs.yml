@@ -329,6 +329,85 @@ jobs:
               `Dispatched no-filter canary refresh for ${decision.repositories.join(', ')}`,
             );
 
+      - name: Refresh stale delivery bases
+        id: refresh_delivery
+        if: >-
+          ${{
+            always() &&
+            steps.candidate_mode.outputs.selector == 'delivery' &&
+            steps.merge.outcome == 'success'
+          }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-71-refresh-stale-delivery-bases',
+              capabilities: ['actions:write'],
+            });
+            const {
+              deliveryRefreshDecision,
+            } = require('./.github/scripts/sync_pr_merge_contract.js');
+            const report = JSON.parse(
+              fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+            );
+            const canaryConfig = JSON.parse(
+              fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),
+            );
+            const expectedCanaries = (canaryConfig.canaries || [])
+              .map((entry) => String(entry.repo || '').trim())
+              .filter(Boolean);
+            const decision = deliveryRefreshDecision({ report, expectedCanaries });
+            if (!decision.eligible) {
+              core.notice(`Delivery refresh not required: ${decision.errors.join(', ')}`);
+              return;
+            }
+            const { data: runs } = await withRetry((client) =>
+              client.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'maint-68-sync-consumer-repos.yml',
+                per_page: 20,
+              }),
+            );
+            const activeSync = (runs.workflow_runs || []).find((run) =>
+              ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status)
+              && (
+                String(run.display_title || '').includes('Maint 68 canary')
+                || String(run.display_title || '').includes('Maint 68 promote')
+              ),
+            );
+            if (activeSync) {
+              core.notice(
+                `Maint 68 ${activeSync.id} is already active; delivery refresh remains queued`,
+              );
+              return;
+            }
+            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'maint-68-sync-consumer-repos.yml',
+              ref: context.payload.repository?.default_branch || 'main',
+              inputs: {
+                phase: 'promote',
+                canary_evidence_json: JSON.stringify(decision.evidence),
+                delivery_scope: 'auto',
+                dry_run: 'false',
+                force: 'false',
+              },
+            }));
+            core.notice(
+              `Replayed exact-plan promotion ${decision.plan_id} for ` +
+                `${decision.repositories.join(', ')}`,
+            );
+
       - name: Promote complete exact-plan canary evidence
         id: promote
         if: >-

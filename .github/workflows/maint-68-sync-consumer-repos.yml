@@ -429,6 +429,7 @@ jobs:
       SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
       PLAN_SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
       SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
+      CANARY_EVIDENCE_JSON: ${{ inputs.canary_evidence_json || '' }}
       DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
     steps:
       - name: Compute result artifact name
@@ -1199,6 +1200,15 @@ jobs:
               rm -f "${commit_message_file:-}" "${signed_result_file:-}"
             }
             trap cleanup_signed_commit EXIT
+            promotion_evidence_line=""
+            if [ "$SYNC_PHASE" = "promote" ]; then
+              if ! jq -e . >/dev/null 2>&1 <<<"$CANARY_EVIDENCE_JSON"; then
+                echo "::error::Promotion evidence is missing or invalid"
+                exit 1
+              fi
+              promotion_evidence_base64=$(printf '%s' "$CANARY_EVIDENCE_JSON" | base64 -w 0)
+              promotion_evidence_line="Canary evidence JSON (base64): $promotion_evidence_base64"
+            fi
             cat >"$commit_message_file" <<COMMIT_MESSAGE
           chore: sync workflow templates from Workflows repo
 
@@ -1210,6 +1220,7 @@ jobs:
           Plan scope: $PLAN_SCOPE
           Scope base SHA: ${SCOPE_BASE_SHA:-full}
           Source commit: $PLAN_SOURCE_COMMIT
+          $promotion_evidence_line
           COMMIT_MESSAGE
 
             GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \

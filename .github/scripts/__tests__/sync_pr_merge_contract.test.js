@@ -12,6 +12,7 @@ const {
   buildMergeReport,
   candidateRefreshDecision,
   candidatePromotionDecision,
+  deliveryRefreshDecision,
   candidateEvidenceAllowsMutation,
   classifyDeliveryContinuation,
   classifyGeneratedPr,
@@ -31,6 +32,7 @@ const {
   isTrustedSyncPr,
   normalizeSyncHash,
   parseBooleanInput,
+  parsePromotionEvidenceFromCommitMessage,
   requiresStrictGateBranchUpdate,
   requiredContextsFromRulesets,
   rulesetRefPatternMatches,
@@ -163,6 +165,51 @@ test('candidate base drift requests a no-filter refresh and stays transient', ()
   });
   assert.equal(candidateRefreshDecision({
     report: { inputs: { sync_hash: 'delivery' }, results: [result] },
+  }).eligible, false);
+});
+
+test('delivery base drift replays only signed exact-plan promotion evidence', () => {
+  const expectedCanaries = ['stranske/Travel', 'stranske/Portable'];
+  const evidence = {
+    schema: 'workflows.consumer-sync-canary-evidence/v1',
+    results: expectedCanaries.map((repo, index) => ({
+      repo,
+      plan_id: 'plan-abc',
+      source_commit: 'source-abc',
+      pr: index + 1,
+      head_sha: `head-${index + 1}`,
+      required_check_state: 'success',
+      active_review_thread_count: 0,
+    })),
+  };
+  const encoded = Buffer.from(JSON.stringify(evidence), 'utf8').toString('base64');
+  assert.deepEqual(parsePromotionEvidenceFromCommitMessage(
+    `subject\n\nCanary evidence JSON (base64): ${encoded}\n`,
+  ), evidence);
+  assert.equal(parsePromotionEvidenceFromCommitMessage(
+    'Canary evidence JSON (base64): not-valid-base64',
+  ), null);
+  const decision = deliveryRefreshDecision({
+    report: {
+      inputs: { sync_hash: 'delivery' },
+      results: [{
+        owner: 'stranske',
+        repo: 'Ready',
+        branch: 'sync/workflows-delivery',
+        plan_id: 'plan-abc',
+        status: 'stable_base_refresh_required',
+        next_command: 'rerun-maint-68-phase-promote-with-same-evidence',
+        promotion_evidence: evidence,
+      }],
+    },
+    expectedCanaries,
+  });
+  assert.equal(decision.eligible, true);
+  assert.equal(decision.plan_id, 'plan-abc');
+  assert.deepEqual(decision.evidence, evidence);
+  assert.equal(deliveryRefreshDecision({
+    report: { inputs: { sync_hash: 'candidate' }, results: [] },
+    expectedCanaries,
   }).eligible, false);
 });
 
@@ -968,6 +1015,7 @@ test('stable delivery branches and strict branch-update failures are recognized'
   }), true);
   assert.equal(isBlockingSyncSystemFailure('pr_refresh_failed'), true);
   assert.equal(isBlockingSyncSystemFailure('head_commit_unverified'), true);
+  assert.equal(isBlockingSyncSystemFailure('delivery_promotion_evidence_missing'), true);
 });
 
 test('workflow sync delivery merge requires a valid cryptographic signature', () => {
@@ -1236,6 +1284,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     reviewer_settlement_pending: 0,
     delivery_review_not_started: 0,
     delivery_sealed_checks_pending: 0,
+    delivery_promotion_evidence_missing: 0,
     sealed_head_mismatch: 0,
     stable_base_refresh_required: 0,
     head_changed: 0,

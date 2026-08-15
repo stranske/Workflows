@@ -82,6 +82,13 @@ Maint 71 returns it to staging and dispatches one deduplicated, no-filter Maint
 will not start the refresh while a canary or promotion run is active. The timer
 queue retains the candidate continuation if that dispatch is lost.
 
+Promotion binds the exact canary evidence into every Workflows-App-signed
+delivery commit. If a stable delivery falls behind during review, Maint 71
+restages it, extracts and validates that signed evidence against the delivery
+plan, and replays Maint 68 `phase=promote` with `delivery_scope=auto`. Mutable
+consumer PR text is not an evidence source. Missing or unverifiable signed
+evidence is actionable and fails closed instead of becoming a retry loop.
+
 After a candidate-selector run has complete same-plan evidence and every
 configured candidate was merged or recovered, Maint 71 passes that exact JSON
 to Maint 68 `phase=promote`. Maint 68 in turn dispatches the delivery selector

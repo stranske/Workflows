@@ -18,6 +18,19 @@ function normalizeSyncHash(value) {
   return raw.startsWith(SYNC_BRANCH_PREFIX) ? raw.slice(SYNC_BRANCH_PREFIX.length) : raw;
 }
 
+function parsePromotionEvidenceFromCommitMessage(message = '') {
+  const match = String(message || '').match(
+    /^Canary evidence JSON \(base64\): ([A-Za-z0-9+/]+={0,2})$/m,
+  );
+  if (!match || match[1].length % 4 !== 0) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(match[1], 'base64').toString('utf8'));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function syncBranchForHash(syncHash) {
   const normalized = normalizeSyncHash(syncHash);
   return normalized ? `${SYNC_BRANCH_PREFIX}${normalized}` : '';
@@ -333,6 +346,7 @@ function requiresStrictGateBranchUpdate({ pr = {}, requiredContexts = [], willMe
 function isBlockingSyncSystemFailure(status) {
   return [
     'branch_update_failed',
+    'delivery_promotion_evidence_missing',
     'error',
     'head_commit_unverified',
     'merge_failed',
@@ -741,6 +755,7 @@ function summarizeResults(results) {
     reviewer_settlement_pending: 0,
     delivery_review_not_started: 0,
     delivery_sealed_checks_pending: 0,
+    delivery_promotion_evidence_missing: 0,
     sealed_head_mismatch: 0,
     stable_base_refresh_required: 0,
     head_changed: 0,
@@ -896,6 +911,48 @@ function candidateRefreshDecision({ report = {} } = {}) {
     eligible: errors.length === 0,
     errors,
     repositories,
+  };
+}
+
+function deliveryRefreshDecision({ report = {}, expectedCanaries = [] } = {}) {
+  const errors = [];
+  if (normalizeSyncHash(report?.inputs?.sync_hash) !== 'delivery') {
+    errors.push('merge report is not a delivery-selector report');
+  }
+  const requests = (Array.isArray(report?.results) ? report.results : []).filter((result) => (
+    branchNameFromRef(result.branch) === SYNC_DELIVERY_BRANCH
+    && String(result.status || '') === 'stable_base_refresh_required'
+    && String(result.next_command || '') === 'rerun-maint-68-phase-promote-with-same-evidence'
+  ));
+  if (requests.length === 0) errors.push('delivery report has no stable base refresh request');
+  const firstEvidence = requests[0]?.promotion_evidence || null;
+  const validation = validateCanaryEvidence(
+    Array.isArray(firstEvidence) ? firstEvidence : firstEvidence?.results,
+    expectedCanaries,
+  );
+  errors.push(...validation.errors);
+  for (const request of requests) {
+    if (String(request.plan_id || '') !== validation.plan_id) {
+      errors.push(`${request.owner || ''}/${request.repo || ''}: delivery plan mismatch`);
+    }
+    const requestEvidence = request.promotion_evidence || null;
+    const requestValidation = validateCanaryEvidence(
+      Array.isArray(requestEvidence) ? requestEvidence : requestEvidence?.results,
+      expectedCanaries,
+    );
+    if (!requestValidation.ok || requestValidation.plan_id !== validation.plan_id) {
+      errors.push(`${request.owner || ''}/${request.repo || ''}: promotion evidence mismatch`);
+    }
+  }
+  return {
+    eligible: requests.length > 0 && validation.ok && errors.length === 0,
+    errors,
+    plan_id: validation.plan_id || '',
+    evidence: firstEvidence,
+    repositories: requests
+      .map((result) => `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, ''))
+      .filter(Boolean)
+      .sort(),
   };
 }
 
@@ -1071,6 +1128,7 @@ module.exports = {
   normalizeSyncHash,
   syncBranchForHash,
   parseBooleanInput,
+  parsePromotionEvidenceFromCommitMessage,
   requiredContextsFromRulesets,
   rulesetRefPatternMatches,
   selectSyncPrGatingChecks,
@@ -1084,6 +1142,7 @@ module.exports = {
   buildMergeReport,
   buildDeliveryHandoff,
   candidateRefreshDecision,
+  deliveryRefreshDecision,
   candidatePromotionDecision,
   classifyDeliveryContinuation,
   continuationLaneForBranch,

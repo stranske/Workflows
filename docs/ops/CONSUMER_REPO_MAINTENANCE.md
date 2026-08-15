@@ -354,6 +354,9 @@ pending checks, changed heads, review windows, reviewer settlement, sealed Gate
 checks, and stable candidate base refreshes, so an absent event cannot strand
 the lifecycle. It does not retry actionable CI failures, unresolved review
 findings, or a dry-run-only sealed-head mismatch as if they were timer states.
+Promoted delivery commits carry their exact canary evidence in the verified
+commit message so Maint 71 can replay the same promotion if a consumer base
+advances during review; editable PR body fields never authorize that replay.
 
 Maint 71 persists and validates the `sync-canary-evidence-premerge` artifact
 before its merge step is allowed to run. A GitHub pre-job approval hold, a

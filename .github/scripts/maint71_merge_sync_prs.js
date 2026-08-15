@@ -277,6 +277,7 @@ async function run({ github, context, core }) {
     isStableSyncBranchName,
     normalizeSyncHash,
     parseBooleanInput,
+    parsePromotionEvidenceFromCommitMessage,
     requiresStrictGateBranchUpdate,
     requiredContextsFromRulesets,
     isTrustedGeneratedDeliveryPr,
@@ -1375,6 +1376,7 @@ async function run({ github, context, core }) {
         branch: pr.head.ref,
         head_sha: pr.head.sha,
         delivery_generation: deliveryRecord?.generation || '',
+        plan_id: deliveryRecord?.plan_id || '',
         delivery_lane: generatedDeliveryLane(pr.head.ref),
         delivery_disposition: deliveryState.disposition,
         blocker_owner: deliveryState.blocker_owner,
@@ -1618,6 +1620,34 @@ async function run({ github, context, core }) {
               pr,
               dryRunMode: false,
             });
+            let promotionEvidence = null;
+            if (metadata?.sync_phase === 'promote') {
+              const { data: signedHead } = await withRetry((client) =>
+                client.rest.repos.getCommit({
+                  owner,
+                  repo,
+                  ref: pr.head.sha,
+                }),
+              );
+              const verification = signedHead?.commit?.verification || {};
+              promotionEvidence = parsePromotionEvidenceFromCommitMessage(
+                signedHead?.commit?.message || '',
+              );
+              if (
+                verification.verified !== true
+                || verification.reason !== 'valid'
+                || !promotionEvidence
+              ) {
+                results.push({
+                  ...deliveryContext,
+                  delivery_disposition: 'awaiting-promotion-evidence',
+                  blocker_owner: 'maint-68',
+                  next_command: 'rerun-phase-promote-from-original-evidence-artifact',
+                  status: 'delivery_promotion_evidence_missing',
+                });
+                continue;
+              }
+            }
             results.push({
               ...deliveryContext,
               delivery_disposition: 'awaiting-base-refresh',
@@ -1625,6 +1655,7 @@ async function run({ github, context, core }) {
               next_command: metadata?.sync_phase === 'canary'
                 ? 'dispatch-maint-68-phase-canary-no-filter'
                 : 'rerun-maint-68-phase-promote-with-same-evidence',
+              promotion_evidence: promotionEvidence,
               status: 'stable_base_refresh_required',
             });
             continue;

@@ -12,7 +12,9 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "source_fix_not_in_delivery_source" in executor
     assert "candidatePromotionDecision" in workflow
     assert "candidateRefreshDecision" in workflow
+    assert "deliveryRefreshDecision" in workflow
     assert "Refresh stale candidate bases" in workflow
+    assert "Refresh stale delivery bases" in workflow
     assert "phase: 'canary'" in workflow
     assert "delivery_scope: 'full'" in workflow
     assert "canary_evidence_json: JSON.stringify(evidence)" in workflow
@@ -28,6 +30,7 @@ def test_sync_lifecycle_chains_and_has_event_plus_timer_fallbacks():
     ).read_text()
 
     assert "Start generated delivery reconciliation" in maint68
+    assert "Canary evidence JSON (base64)" in maint68
     assert "activeSyncHash = phase === 'canary' ? 'candidate' : 'delivery'" in maint68
     assert 'cron: "*/10 * * * *"' in maint82
     assert "planMaint71Continuations" in maint82
