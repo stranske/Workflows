@@ -820,6 +820,13 @@ jobs:
 
       - name: Update summary with running status
         uses: actions/github-script@v9
+        env:
+          KEEPALIVE_RUNNING_WRITER: >-
+            ${{
+              steps.running_keepalive_app_token.outputs.token != '' &&
+              'stranske-keepalive[bot]' ||
+              'agents-workflows-bot[bot]'
+            }}
         with:
           github-token: >-
             ${{
@@ -840,6 +847,7 @@ jobs:
               tasks_unchecked: '${{ needs.evaluate.outputs.tasks_unchecked }}',
               trace: '${{ needs.evaluate.outputs.trace }}',
               run_url: runUrl,
+              trusted_summary_author: process.env.KEEPALIVE_RUNNING_WRITER || '',
             };
             await markAgentRunning({ github, context, core, inputs });
 

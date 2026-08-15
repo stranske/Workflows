@@ -713,6 +713,13 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
         assert "steps.running_workflows_app_token.outputs.token" in update_running
         assert "github-token: ${{ secrets.GITHUB_TOKEN }}" not in update_running
         assert "github-token: ${{ github.token }}" not in update_running
+        assert "KEEPALIVE_RUNNING_WRITER: >-" in update_running
+        assert "'stranske-keepalive[bot]' ||" in update_running
+        assert "'agents-workflows-bot[bot]'" in update_running
+        assert (
+            "trusted_summary_author: process.env.KEEPALIVE_RUNNING_WRITER || ''"
+            in update_running
+        )
 
     root_summary_start = root_loop.index("  summary:")
     root_summary_end = root_loop.index(

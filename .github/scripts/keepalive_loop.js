@@ -4779,12 +4779,33 @@ async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
   const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
   const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
 
-  const { state: previousState, commentId } = await loadKeepaliveState({
+  const {
+    state: previousState,
+    commentId,
+    commentAuthorLogin,
+    commentAuthorType,
+  } = await loadKeepaliveState({
     github,
     context,
     prNumber,
     trace: stateTrace,
   });
+  const trustedSummaryAuthor = normalise(
+    inputs.trusted_summary_author ?? inputs.trustedSummaryAuthor,
+  ).toLowerCase();
+  const existingSummaryAuthor = normalise(commentAuthorLogin).toLowerCase();
+  const existingSummaryAuthorType = normalise(commentAuthorType).toLowerCase();
+  const migrateSummaryWriter = Boolean(
+    commentId &&
+    trustedSummaryAuthor &&
+    (existingSummaryAuthor !== trustedSummaryAuthor || existingSummaryAuthorType !== 'bot'),
+  );
+  if (migrateSummaryWriter) {
+    core?.info?.(
+      `Creating a trusted App-owned running summary; existing writer ` +
+      `${existingSummaryAuthor || 'unknown'} is not ${trustedSummaryAuthor}; migrating known state.`,
+    );
+  }
   const prBody = await fetchPrBody({ github, context, prNumber, core });
   const focusSections = prBody ? normaliseChecklistSections(parseScopeTasksAcceptanceSections(prBody)) : {};
   const focusItems = extractChecklistItems(focusSections.tasks || focusSections.acceptance || '');
@@ -4842,7 +4863,7 @@ async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
   summaryLines.push('', formatStateComment(preservedState));
   const body = summaryLines.join('\n');
 
-  if (commentId) {
+  if (commentId && !migrateSummaryWriter) {
     await github.rest.issues.updateComment({
       owner: context.repo.owner,
       repo: context.repo.repo,

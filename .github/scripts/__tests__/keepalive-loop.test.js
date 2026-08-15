@@ -4891,6 +4891,45 @@ test('markAgentRunning updates summary comment with running status', async () =>
   assert.ok(body.includes('will be updated when the agent completes'), 'Should include completion message');
 });
 
+test('markAgentRunning migrates legacy state to the selected App writer', async () => {
+  const existingStateBody = formatStateComment({
+    trace: 'running-migration-trace',
+    iteration: 2,
+    tasks: { total: 4, unchecked: 3 },
+  });
+  const github = buildGithubStub({
+    comments: [{
+      id: 201,
+      body: `<!-- keepalive-loop-summary -->\n## Summary\n${existingStateBody}`,
+      html_url: 'https://example.com/201',
+      user: { login: 'github-actions[bot]', type: 'Bot' },
+    }],
+  });
+
+  await markAgentRunning({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    core: buildCore(),
+    inputs: {
+      pr_number: 43,
+      agent_type: 'codex',
+      iteration: 2,
+      max_iterations: 5,
+      tasks_total: 4,
+      tasks_unchecked: 3,
+      trace: 'running-migration-trace',
+      trusted_summary_author: 'stranske-keepalive[bot]',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'create');
+  assert.equal(github.actions.some((action) => action.commentId === 201), false);
+  const persistedState = parseStateComment(github.actions[0].body).data;
+  assert.equal(persistedState.trace, 'running-migration-trace');
+  assert.equal(persistedState.running, true);
+});
+
 test('markAgentRunning creates comment when none exists', async () => {
   const github = buildGithubStub({ comments: [] });
   const inputs = {
