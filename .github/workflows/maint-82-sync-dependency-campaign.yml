@@ -54,12 +54,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
 
       - name: Load registered consumer repos
         id: registered

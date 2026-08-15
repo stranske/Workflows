@@ -1624,6 +1624,7 @@ jobs:
       - name: Checkout API retry helper
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts
@@ -1632,8 +1633,9 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
 
       - name: Dispatch Maint 71 for the generated lane
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
