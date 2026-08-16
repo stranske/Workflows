@@ -60,8 +60,49 @@ const {
   parseNoChangeEvidenceDocument,
   parseReviewResolutionProofs,
   run,
+  selectReconciliationTargets,
   validateReviewResolutionProof,
 } = require('../maint71_merge_sync_prs');
+
+test('Maint 71 keeps Collab-Admin out of fleet runs but allows an explicit manual reconciliation', () => {
+  const excludedRepos = new Set(['stranske/Collab-Admin']);
+  const manuallyReconcilableRepos = new Set(['stranske/Collab-Admin']);
+  const registeredRepos = ['stranske/Trend_Model_Project'];
+
+  assert.deepEqual(
+    selectReconciliationTargets({
+      requestedSyncHash: 'delivery',
+      inputRepos: 'all',
+      registeredRepos,
+      expectedCanaryRepos: [],
+      excludedRepos,
+      manuallyReconcilableRepos,
+    }),
+    registeredRepos,
+  );
+  assert.deepEqual(
+    selectReconciliationTargets({
+      requestedSyncHash: 'delivery',
+      inputRepos: 'stranske/Collab-Admin',
+      registeredRepos,
+      expectedCanaryRepos: [],
+      excludedRepos,
+      manuallyReconcilableRepos,
+    }),
+    ['stranske/Collab-Admin'],
+  );
+  assert.deepEqual(
+    selectReconciliationTargets({
+      requestedSyncHash: 'candidate',
+      inputRepos: 'stranske/Collab-Admin',
+      registeredRepos,
+      expectedCanaryRepos: ['stranske/Travel-Plan-Permission'],
+      excludedRepos,
+      manuallyReconcilableRepos,
+    }),
+    ['stranske/Travel-Plan-Permission'],
+  );
+});
 
 const pr = (number, ref, created_at) => ({
   number,

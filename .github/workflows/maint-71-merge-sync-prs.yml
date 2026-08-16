@@ -309,6 +309,7 @@ jobs:
           TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
           REVIEW_RESOLUTION_JSON: ${{ inputs.review_resolution_json }}
           EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
+          MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-review-resolution-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
         with:
@@ -339,6 +340,7 @@ jobs:
           TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
           REVIEW_RESOLUTION_JSON: ${{ inputs.review_resolution_json || '' }}
           EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
+          MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-premerge-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
         with:
@@ -430,6 +432,7 @@ jobs:
           TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
           REVIEW_RESOLUTION_JSON: ${{ inputs.review_resolution_json || '' }}
           EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
+          MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-merge-report.json
           REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
         with:

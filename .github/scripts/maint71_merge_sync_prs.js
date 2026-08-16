@@ -172,6 +172,29 @@ function validateReviewResolutionProof(proof = {}, {
   return { ok: errors.length === 0, errors };
 }
 
+function selectReconciliationTargets({
+  requestedSyncHash,
+  inputRepos,
+  registeredRepos,
+  expectedCanaryRepos,
+  excludedRepos,
+  manuallyReconcilableRepos,
+}) {
+  if (requestedSyncHash === 'candidate') {
+    return expectedCanaryRepos;
+  }
+  if (inputRepos === 'all') {
+    return registeredRepos;
+  }
+  return inputRepos
+    .split(',')
+    .map((repo) => repo.trim())
+    .filter(
+      (repo) =>
+        repo && (!excludedRepos.has(repo) || manuallyReconcilableRepos.has(repo)),
+    );
+}
+
 async function collectReviewerEvidence({
   owner,
   repo,
@@ -725,6 +748,12 @@ async function run({ github, context, core }) {
       .map((repo) => repo.trim())
       .filter(Boolean),
   );
+  const manuallyReconcilableRepos = new Set(
+    String(process.env.MANUAL_RECONCILIATION_REPOS_INPUT || '')
+      .split(',')
+      .map((repo) => repo.trim())
+      .filter(Boolean),
+  );
   const registeredRepos = String(process.env.REGISTERED_REPOS_INPUT || '')
     .split(',')
     .map(r => r.trim())
@@ -838,11 +867,14 @@ async function run({ github, context, core }) {
   // complete consumer registry here lets unrelated non-canary delivery PRs
   // create target_missing failures and can make promotion evidence unusable.
   // Always derive this target set from the canonical canary registry.
-  const targetRepos = requestedSyncHash === 'candidate'
-    ? expectedCanaryRepos
-    : inputRepos === 'all'
-      ? registeredRepos
-      : inputRepos.split(',').map(r => r.trim()).filter((repo) => repo && !excludedRepos.has(repo));
+  const targetRepos = selectReconciliationTargets({
+    requestedSyncHash,
+    inputRepos,
+    registeredRepos,
+    expectedCanaryRepos,
+    excludedRepos,
+    manuallyReconcilableRepos,
+  });
   
   console.log(`Registered consumer repos: ${registeredRepos.join(', ')}`);
   console.log(`Processing repos: ${targetRepos.join(', ')}`);
@@ -2580,5 +2612,6 @@ module.exports = {
   parseNoChangeEvidenceDocument,
   parseReviewResolutionProofs,
   run,
+  selectReconciliationTargets,
   validateReviewResolutionProof,
 };

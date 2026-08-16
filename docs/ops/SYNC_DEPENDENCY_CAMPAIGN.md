@@ -93,8 +93,10 @@ After a candidate-selector run has complete same-plan evidence and every
 configured candidate was merged or recovered, Maint 71 passes that exact JSON
 to Maint 68 `phase=promote`. Maint 68 in turn dispatches the delivery selector
 after writing non-canary PRs. Neither chain permits an explicit non-canary repo
-through `phase=canary`, and `stranske/Collab-Admin` is excluded from reconciler
-targets.
+through `phase=canary`, and `stranske/Collab-Admin` is excluded from default
+fleet reconciler targets. Its administration-surface delivery may be processed
+only through an explicit one-repository Maint 71 request; it never contributes
+to candidate or campaign evidence.
 
 An active review thread remains a hard merge block. The bounded exception is an
 explicit `workflows-sync-review-resolution/v1` proof supplied to Maint 71. It
