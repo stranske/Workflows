@@ -1026,7 +1026,7 @@ Autofix can repair a labeled PR before Gate is evaluated again.
 
 ### 9.2 Test Keepalive (After Gate Works)
 
-1. Create an issue with `agent:codex` label
+1. Create an issue with both `agent:codex` and `agents:keepalive` labels
 2. Wait for Agents Issue Intake to create a ready-for-review PR
 3. Let Gate complete on the current head
 4. Verify:

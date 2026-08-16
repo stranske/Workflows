@@ -155,3 +155,4 @@ def test_consumer_setup_uses_current_ready_for_review_topology() -> None:
     assert "Verify a ready-for-review PR is opened linking to the issue" in checklist
     assert "agents-81-gate-followups.yml" in checklist
     assert "Keepalive Sweep re-enters the Agents 81 evaluation" in checklist
+    assert "both `agent:codex` and `agents:keepalive` labels" in checklist
