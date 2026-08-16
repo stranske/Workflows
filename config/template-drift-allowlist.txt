@@ -50,9 +50,9 @@ reason = Intentional divergence re-reviewed 2026-08-09: root intake now records 
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-71-codex-belt-dispatcher.yml
-main_sha256 = 4c00b0622181cd89c09f9297446c65045538245789809ca5fc899592d26af482
-template_sha256 = 53a57369e4d0f526edc88bdf4bbc079ee095ccd41a9a7fe37e0d9e0b828be8e3
-reason = Existing reviewed baseline drift re-baselined 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer dispatcher surfaces while preserving consumer action pinning and Codex-specific wording.
+main_sha256 = 0e9a4c7e7b120985fd9684a9e4f89049601b2bbc0b9da9bee5510d3ec1c3c175
+template_sha256 = 6a7b6e203f6ac2837bc09dc2dc6620faa37b72cb78068af1bb77779e246cb1dd
+reason = Intentional divergence re-baselined 2026-08-16: workflow_dispatch inputs (force_issue, agent_key) are now passed to the github-script step via step-level env: and read through process.env instead of being interpolated into the script body, removing a script-injection surface that caused GitHub to block the workflow as possibly malicious in consumer repos. Applied identically to both surfaces; consumer action pinning and Codex-specific wording preserved.
 
 [pair.3]
 main = .github/workflows/agents-72-codex-belt-worker.yml
