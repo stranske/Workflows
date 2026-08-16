@@ -21,6 +21,18 @@ SCOPE_SCHEMA = "workflows.consumer-sync-plan-scope/v1"
 SCOPES = {"full", "source-delta"}
 MANIFEST_PATH = ".github/sync-manifest.yml"
 
+# A stable delivery runs the copy-synced path classifier before the generated
+# head can be sealed. The classifier verifies the lease contract from the
+# trusted base, or (only for a first rollout) from an exact add-only bootstrap
+# on the generated head. A source-delta that updates the classifier must
+# therefore carry that contract too; selecting just the action strands
+# consumers whose base predates the contract.
+SOURCE_DELTA_TARGET_DEPENDENCIES = {
+    ".github/actions/path-classifier": {
+        ".github/scripts/sync_pr_lease_contract.js",
+    },
+}
+
 
 class PlanScopeError(ValueError):
     """The requested scope cannot produce a safe consumer sync plan."""
@@ -51,6 +63,24 @@ def _entry_matches_path(entry: dict[str, Any], changed_path: str) -> bool:
         bool(entry.get("is_directory"))
         and PurePosixPath(source) in PurePosixPath(changed_path).parents
     )
+
+
+def _source_delta_dependencies(
+    plan_entries: list[dict[str, Any]], selected_entries: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Expand selected entries with mandatory runtime/bootstrap dependencies."""
+    selected_targets = {str(entry.get("target") or "") for entry in selected_entries}
+    required_targets = {
+        dependency
+        for target in selected_targets
+        for dependency in SOURCE_DELTA_TARGET_DEPENDENCIES.get(target, set())
+    }
+    return [
+        entry
+        for entry in plan_entries
+        if str(entry.get("target") or "") in required_targets
+        and str(entry.get("target") or "") not in selected_targets
+    ]
 
 
 def select_plan(
@@ -89,6 +119,9 @@ def select_plan(
             for entry in plan["entries"]
             if any(_entry_matches_path(entry, path) for path in normalized_paths)
         ]
+        direct_selected_targets = {str(entry.get("target") or "") for entry in selected_entries}
+        dependency_entries = _source_delta_dependencies(plan["entries"], selected_entries)
+        selected_entries.extend(dependency_entries)
         # Removals are manifest declarations without a live source path. A manifest
         # change must use full scope, so an exact source delta never replays old
         # removals merely because unrelated consumer drift exists.
@@ -126,6 +159,15 @@ def select_plan(
         ),
         "selected_entry_count": len(selected_entries),
         "selected_removal_count": len(selected_removals),
+        "dependency_targets": (
+            sorted(
+                str(entry.get("target"))
+                for entry in selected_entries
+                if str(entry.get("target") or "") not in direct_selected_targets
+            )
+            if mode == "source-delta"
+            else []
+        ),
     }
     return scoped, evidence
 

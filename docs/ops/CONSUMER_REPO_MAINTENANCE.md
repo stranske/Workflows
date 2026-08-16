@@ -295,10 +295,13 @@ entry and is the scheduled drift-reconciliation default. `source-delta`
 compiles the same typed manifest, then selects only entries whose resolved
 source changed in an exact Workflows commit range. This lets a dependency-only
 source repair reach consumers without absorbing unrelated, unpromoted workflow
-drift. Directory entries match changed descendants; manifest changes fail
-closed and require `full`; historical removal declarations are never replayed
-by a source delta. The uploaded `sync-plan-scope.json` records both plan IDs,
-the exact base/head, changed paths, selected targets, and ignored paths.
+drift. Directory entries match changed descendants. A selected path-classifier
+action also carries its allowlisted lease-contract bootstrap dependency, so a
+consumer whose base predates that contract can still evaluate its initial
+staged delivery safely. Manifest changes fail closed and require `full`;
+historical removal declarations are never replayed by a source delta. The
+uploaded `sync-plan-scope.json` records both plan IDs, the exact base/head,
+changed paths, selected targets, dependency targets, and ignored paths.
 If no manifest-managed source matches the range, Maint 68 records the empty
 scope and skips the consumer fan-out entirely.
 

@@ -80,6 +80,37 @@ def test_source_delta_selects_only_changed_manifest_sources() -> None:
     assert evidence["source_commit"] == "2" * 40
 
 
+def test_source_delta_carries_path_classifier_delivery_contract() -> None:
+    scoped_plan = plan()
+    scoped_plan["entries"].extend(
+        [
+            entry(
+                "templates/consumer-repo/.github/actions/path-classifier",
+                ".github/actions/path-classifier",
+                directory=True,
+            ),
+            entry(
+                ".github/scripts/sync_pr_lease_contract.js",
+                ".github/scripts/sync_pr_lease_contract.js",
+            ),
+        ]
+    )
+
+    scoped, evidence = select_plan(
+        scoped_plan,
+        mode="source-delta",
+        changed_paths=["templates/consumer-repo/.github/actions/path-classifier/classify.js"],
+        base_sha="1" * 40,
+        source_commit="2" * 40,
+    )
+
+    assert [item["target"] for item in scoped["entries"]] == [
+        ".github/actions/path-classifier",
+        ".github/scripts/sync_pr_lease_contract.js",
+    ]
+    assert evidence["dependency_targets"] == [".github/scripts/sync_pr_lease_contract.js"]
+
+
 def test_full_scope_preserves_the_compiled_plan_exactly() -> None:
     original = plan()
     scoped, evidence = select_plan(original, mode="full", source_commit="2" * 40)
