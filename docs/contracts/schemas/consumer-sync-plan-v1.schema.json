@@ -56,6 +56,7 @@
         "overwrite_repos",
         "template_sync",
         "delivery",
+        "requires",
         "content_sha256",
         "effect_fingerprint"
       ],
@@ -87,6 +88,11 @@
           "oneOf": [{"const": "exact"}, {"type": "null"}]
         },
         "delivery": {"const": "copy"},
+        "requires": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/safePath"}
+        },
         "content_sha256": {"$ref": "#/$defs/sha256"},
         "effect_fingerprint": {"$ref": "#/$defs/sha256"}
       }

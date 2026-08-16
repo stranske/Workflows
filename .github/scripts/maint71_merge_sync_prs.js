@@ -263,6 +263,7 @@ async function run({ github, context, core }) {
   const {
     buildMarkdownSummary,
     buildMergeReport,
+    campaignAuthorizationAllowsMerge,
     candidateEvidenceAllowsMutation,
     classifyGeneratedPr,
     classifySyncPrChecks,
@@ -285,6 +286,7 @@ async function run({ github, context, core }) {
     selectMergeEligibleSyncPr,
     selectSyncPrGatingChecks,
     syncBranchForHash,
+    syncSelectorForRepository,
     validateCanaryEvidence,
     validateExpectedCandidateIdentity,
     validateSourceDeltaEvidenceBinding,
@@ -309,6 +311,7 @@ async function run({ github, context, core }) {
   );
   const evidenceOnly = parseBooleanInput(process.env.EVIDENCE_ONLY_INPUT, false);
   const resolutionOnly = parseBooleanInput(process.env.RESOLUTION_ONLY_INPUT, false);
+  const prepareOnly = parseBooleanInput(process.env.PREPARE_ONLY_INPUT, false);
   const candidateEvidenceAuthorized = parseBooleanInput(
     process.env.CANDIDATE_EVIDENCE_AUTHORIZED,
     process.env.CANDIDATE_EVIDENCE_RESULT === 'success'
@@ -324,6 +327,17 @@ async function run({ github, context, core }) {
       (context.payload.client_payload && context.payload.client_payload.cleanup_branches),
     true,
   );
+  let campaignCommitAuthorization = null;
+  const rawCampaignAuthorization = String(
+    process.env.CAMPAIGN_COMMIT_AUTHORIZATION_JSON || '',
+  ).trim();
+  if (rawCampaignAuthorization) {
+    try {
+      campaignCommitAuthorization = JSON.parse(rawCampaignAuthorization);
+    } catch (error) {
+      throw new Error(`Campaign commit authorization is not valid JSON: ${error.message}`);
+    }
+  }
   let reviewResolutionProofs = [];
   let reviewResolutionProofParseError = '';
   try {
@@ -653,9 +667,12 @@ async function run({ github, context, core }) {
   const expectedSourceCommit = String(
     process.env.EXPECTED_SOURCE_COMMIT_INPUT || '',
   ).trim().toLowerCase();
-  if (requestedSyncHash === 'candidate' && (!expectedPlanId || !expectedSourceCommit)) {
+  if (
+    ['candidate', 'campaign'].includes(requestedSyncHash)
+    && (!expectedPlanId || !expectedSourceCommit)
+  ) {
     throw new Error(
-      'Candidate reconciliation requires an exact expected plan and source commit',
+      'Candidate/campaign reconciliation requires an exact expected plan and source commit',
     );
   }
   const trustedSyncActors = String(process.env.TRUSTED_SYNC_ACTORS || '')
@@ -688,7 +705,7 @@ async function run({ github, context, core }) {
     : [];
 
   let expectedCanaryRepos = [];
-  if (requestedSyncHash === 'candidate') {
+  if (['candidate', 'campaign'].includes(requestedSyncHash)) {
     const canaryConfigPath = process.env.CONSUMER_SYNC_CANARIES_PATH ||
       'config/consumer_sync_canaries.json';
     const canaryConfig = JSON.parse(
@@ -758,6 +775,52 @@ async function run({ github, context, core }) {
       });
     }
   }
+  const campaignNoChangeEvidenceByRepo = new Map();
+  const rawCampaignNoChangeEvidence = String(
+    process.env.CAMPAIGN_NO_CHANGE_EVIDENCE_JSON || '',
+  ).trim();
+  if (rawCampaignNoChangeEvidence) {
+    if (requestedSyncHash !== 'campaign') {
+      throw new Error('Campaign no-change evidence is only valid for the campaign lane');
+    }
+    let document;
+    try {
+      document = JSON.parse(rawCampaignNoChangeEvidence);
+    } catch (error) {
+      throw new Error(`Campaign no-change evidence is not valid JSON: ${error.message}`);
+    }
+    if (
+      document?.schema !== 'workflows.consumer-sync-no-change-evidence/v1'
+      || document?.version !== 1
+      || !Array.isArray(document?.results)
+    ) {
+      throw new Error('Campaign no-change evidence has an unsupported schema');
+    }
+    const registered = new Set(registeredRepos);
+    for (const row of document.results) {
+      const repository = String(row?.repo || '').trim();
+      const headSha = String(row?.head_sha || '').trim().toLowerCase();
+      if (!registered.has(repository)) {
+        throw new Error(`Unexpected campaign no-change evidence: ${repository || '<missing-repo>'}`);
+      }
+      if (campaignNoChangeEvidenceByRepo.has(repository)) {
+        throw new Error(`Duplicate campaign no-change evidence: ${repository}`);
+      }
+      if (
+        !['no-change-canary', 'no-change-delivery'].includes(row?.evidence_source)
+        || String(row?.plan_id || '').trim() !== expectedPlanId
+        || (String(row?.plan_scope || '').trim() || 'full') !== expectedPlanScope
+        || String(row?.scope_base_sha || '').trim().toLowerCase() !== expectedScopeBaseSha
+        || String(row?.source_commit || '').trim().toLowerCase() !== expectedSourceCommit
+        || !/^[0-9a-f]{40}$/.test(headSha)
+        || row?.required_check_state !== 'success'
+        || Number(row?.active_review_thread_count) !== 0
+      ) {
+        throw new Error(`Unsafe campaign no-change evidence: ${repository}`);
+      }
+      campaignNoChangeEvidenceByRepo.set(repository, { ...row, head_sha: headSha });
+    }
+  }
 
   // Candidate reconciliation is a registry-owned operation. Processing the
   // complete consumer registry here lets unrelated non-canary delivery PRs
@@ -773,6 +836,7 @@ async function run({ github, context, core }) {
   console.log(`Processing repos: ${targetRepos.join(', ')}`);
   console.log(`Auto-merge: ${autoMerge}, Dry run: ${dryRun}`);
   console.log(`Evidence only: ${evidenceOnly}`);
+  console.log(`Prepare only: ${prepareOnly}`);
   console.log(`Resolution only: ${resolutionOnly}`);
   console.log(`Candidate evidence authorized: ${candidateEvidenceAuthorized}`);
   console.log(
@@ -1084,6 +1148,12 @@ async function run({ github, context, core }) {
       : [defaultOwner, repoEntry];
     const owner = entryOwner || defaultOwner;
     const repo = entryRepo;
+    const repository = `${owner}/${repo}`;
+    const selectedSyncHash = syncSelectorForRepository({
+      syncHash: requestedSyncHash,
+      repository,
+      canaryRepos: expectedCanaryRepos,
+    });
   
     console.log(`\n=== ${owner}/${repo} ===`);
   
@@ -1100,7 +1170,7 @@ async function run({ github, context, core }) {
   
       const syncPRs = prs.filter((pr) => isTrustedGeneratedDeliveryPr(pr, trustedSyncActors));
       let closedPRs = [];
-      if (cleanupBranches || requestedSyncHash === 'candidate') {
+      if (cleanupBranches || selectedSyncHash === 'candidate') {
         closedPRs = await withRetry((client) => client.paginate(client.rest.pulls.list, {
           owner,
           repo,
@@ -1173,13 +1243,71 @@ async function run({ github, context, core }) {
         }
       }
 
-      let candidatePRs = generatedPrsForSyncSelector(syncPRs, requestedSyncHash);
+      let candidatePRs = generatedPrsForSyncSelector(syncPRs, selectedSyncHash);
       let recoveredMergedCandidate = false;
       const hasOpenCandidate = syncPRs.some(
         (pr) => pr?.head?.ref === syncBranchForHash('candidate'),
       );
       const baselineEvidence = baselineEvidenceByRepo.get(`${owner}/${repo}`) || null;
-      if (!hasOpenCandidate && requestedSyncHash === 'candidate' && baselineEvidence) {
+      const campaignNoChangeEvidence = campaignNoChangeEvidenceByRepo.get(
+        `${owner}/${repo}`,
+      ) || null;
+      if (candidatePRs.length === 0 && requestedSyncHash === 'campaign' && campaignNoChangeEvidence) {
+        const { data: repositoryState } = await withRetry((client) => client.rest.repos.get({
+          owner,
+          repo,
+        }));
+        const { data: defaultRef } = await withRetry((client) => client.rest.git.getRef({
+          owner,
+          repo,
+          ref: `heads/${repositoryState.default_branch}`,
+        }));
+        const liveHeadSha = String(defaultRef?.object?.sha || '').trim().toLowerCase();
+        if (liveHeadSha !== campaignNoChangeEvidence.head_sha) {
+          results.push({
+            owner,
+            repo,
+            status: 'target_missing',
+            expected_head_sha: campaignNoChangeEvidence.head_sha,
+            observed_head_sha: liveHeadSha,
+            reason: 'campaign_no_change_head_changed',
+          });
+          continue;
+        }
+        const baselineChecks = await classifyRequiredChecksForRef({
+          owner,
+          repo,
+          branch: repositoryState.default_branch,
+          ref: liveHeadSha,
+        });
+        if (
+          baselineChecks.requiredContexts.size === 0
+          || baselineChecks.classification.status !== 'ready'
+        ) {
+          results.push({
+            owner,
+            repo,
+            status: baselineChecks.requiredContexts.size === 0
+              ? 'checks_failed'
+              : baselineChecks.classification.status,
+            expected_head_sha: campaignNoChangeEvidence.head_sha,
+            observed_head_sha: liveHeadSha,
+            reason: 'campaign_no_change_required_checks_not_ready',
+          });
+          continue;
+        }
+        results.push({
+          owner,
+          repo,
+          status: 'campaign_no_change_verified',
+          observed_head_sha: liveHeadSha,
+          plan_id: campaignNoChangeEvidence.plan_id,
+          source_commit: campaignNoChangeEvidence.source_commit,
+        });
+        console.log(`✓ Confirmed campaign no-change evidence at ${liveHeadSha}`);
+        continue;
+      }
+      if (!hasOpenCandidate && selectedSyncHash === 'candidate' && baselineEvidence) {
         const { data: repository } = await withRetry((client) => client.rest.repos.get({
           owner,
           repo,
@@ -1275,7 +1403,7 @@ async function run({ github, context, core }) {
       }
   
       let selection = selectMergeEligibleSyncPr(candidatePRs, {
-        syncHash: requestedSyncHash,
+        syncHash: selectedSyncHash,
         now: new Date().toISOString(),
         planId: expectedPlanId,
         repository: `${owner}/${repo}`,
@@ -1307,7 +1435,7 @@ async function run({ github, context, core }) {
         }),
       );
       selection = selectMergeEligibleSyncPr(candidatePRs, {
-        syncHash: requestedSyncHash,
+        syncHash: selectedSyncHash,
         now: new Date().toISOString(),
         planId: expectedPlanId,
         repository: `${owner}/${repo}`,
@@ -1479,7 +1607,10 @@ async function run({ github, context, core }) {
         continue;
       }
       const metadata = syncMetadata(pr);
-      if (requestedSyncHash === 'candidate' && !recoveredMergedCandidate) {
+      if (
+        ['candidate', 'campaign'].includes(requestedSyncHash)
+        && !recoveredMergedCandidate
+      ) {
         const identity = validateExpectedCandidateIdentity({
           metadata,
           deliveryRecord: selection.deliveryRecord,
@@ -1575,7 +1706,17 @@ async function run({ github, context, core }) {
         head_sha: pr.head.sha,
         delivery_generation: deliveryRecord?.generation || '',
         plan_id: deliveryRecord?.plan_id || '',
+        plan_scope: metadata?.plan_scope || '',
+        scope_base_sha: metadata?.scope_base_sha || '',
+        source_commit: deliveryRecord?.source_commit || metadata?.source_commit || '',
+        canary_baseline_evidence_json: selectedSyncHash === 'candidate'
+          ? rawBaselineEvidence
+          : '',
+        campaign_no_change_evidence_json: requestedSyncHash === 'campaign'
+          ? rawCampaignNoChangeEvidence
+          : '',
         delivery_lane: generatedDeliveryLane(pr.head.ref),
+        continuation_lane: requestedSyncHash === 'campaign' ? 'campaign' : '',
         delivery_disposition: deliveryState.disposition,
         blocker_owner: deliveryState.blocker_owner,
         next_command: deliveryState.next_command,
@@ -1788,7 +1929,7 @@ async function run({ github, context, core }) {
       if (!candidateEvidenceAllowsMutation({
         branch: pr.head.ref,
         evidenceOnly,
-        authorized: candidateEvidenceAuthorized,
+        authorized: candidateEvidenceAuthorized || prepareOnly || Boolean(campaignCommitAuthorization),
       })) {
         console.log('Candidate merge blocked: pre-merge evidence was not persisted successfully');
         results.push({
@@ -1800,16 +1941,40 @@ async function run({ github, context, core }) {
         });
         continue;
       }
+
+      if (
+        requestedSyncHash === 'campaign'
+        && !prepareOnly
+        && !campaignAuthorizationAllowsMerge({
+          authorization: campaignCommitAuthorization,
+          result: deliveryContext,
+        })
+      ) {
+        console.log('Campaign merge blocked: exact-head fleet authorization is missing or stale');
+        results.push({
+          ...deliveryContext,
+          delivery_disposition: 'awaiting-campaign-authorization',
+          blocker_owner: 'maint-71',
+          next_command: 'rerun-active-sync-hash-campaign',
+          status: 'campaign_authorization_required',
+        });
+        continue;
+      }
   
       // All checks passed. For an actual merge, run the runtime AC guard before
       // the final exact-head/thread query so no intervening network action sits
       // between the hard review gate and the merge call.
-      const willMerge = autoMerge && !dryRun && !recoveredMergedCandidate;
+      const mergeIntended = autoMerge && !dryRun && !recoveredMergedCandidate;
+      const willMerge = mergeIntended && !prepareOnly;
       // Strict required-status-check rules evaluate the merge result. If the
       // head is behind main, every merge strategy creates a new result without
       // the head's Gate context. Update the generated branch and wait for its
       // fresh Gate and mandatory review window instead of attempting a merge.
-      if (requiresStrictGateBranchUpdate({ pr, requiredContexts, willMerge })) {
+      if (requiresStrictGateBranchUpdate({
+        pr,
+        requiredContexts,
+        willMerge: mergeIntended,
+      })) {
         try {
           if (stableDelivery) {
             await restageStableDelivery({
@@ -2015,6 +2180,17 @@ async function run({ github, context, core }) {
         continue;
       }
 
+
+      if (prepareOnly) {
+        console.log('✓ Exact head prepared for campaign commit');
+        results.push({
+          ...deliveryContext,
+          status: 'campaign_prepared',
+          active_review_thread_count: finalGate.activeReviewThreads,
+        });
+        continue;
+      }
+
       if (!autoMerge) {
         console.log('✓ Ready to merge (auto-merge disabled)');
         results.push({
@@ -2187,7 +2363,7 @@ async function run({ github, context, core }) {
     ? validateCanaryEvidence(canaryEvidence, expectedCanaryRepos)
     : { ok: true, errors: [], plan_id: '' };
   if (evidenceOnly && !evidenceValidation.ok) {
-    core.setFailed(
+    core.notice(
       `Canary evidence is incomplete or unsafe: ${evidenceValidation.errors.join(', ')}`,
     );
   }

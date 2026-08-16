@@ -331,8 +331,10 @@ def test_maint_71_persists_validated_candidate_evidence_before_merge() -> None:
     assert "ACTIVE_SYNC_HASH_INPUT" in source
     assert "github.event.client_payload.active_sync_hash" in source
     assert "github.event.client_payload.sync_hash" in source
-    assert "CANDIDATE_EVIDENCE_RESULT" in source
+    assert "CANDIDATE_EVIDENCE_AUTHORIZED" in source
+    assert "steps.candidate_evidence_validation.outputs.authorized" in source
     assert "CANDIDATE_ARTIFACT_RESULT" in source
+    assert "sync-campaign-commit-authorization.json" in source
     assert "EXPECTED_PLAN_ID_INPUT" in source
     assert "EXPECTED_SOURCE_COMMIT_INPUT" in source
     assert "CANARY_BASELINE_EVIDENCE_JSON" in source

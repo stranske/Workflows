@@ -8,12 +8,14 @@ const path = require('node:path');
 
 const {
   buildMarkdownSummary,
+  buildCampaignCommitAuthorization,
   buildDeliveryHandoff,
   buildMergeReport,
   candidateRefreshDecision,
   candidatePromotionDecision,
   deliveryRefreshDecision,
   candidateEvidenceAllowsMutation,
+  campaignAuthorizationAllowsMerge,
   classifyDeliveryContinuation,
   classifyGeneratedPr,
   classifySyncPrChecks,
@@ -41,6 +43,7 @@ const {
   selectMergeEligibleSyncPr,
   summarizeResults,
   syncBranchForHash,
+  syncSelectorForRepository,
   validateCanaryEvidence,
   validateExpectedCandidateIdentity,
   validateSourceDeltaEvidenceBinding,
@@ -103,7 +106,7 @@ test('transient delivery holds carry a durable due time and lane', () => {
   }, '2026-08-15T12:00:00Z').resume_after, '2026-08-15T12:10:00.000Z');
 });
 
-test('promotion requires complete exact-plan evidence and terminal candidate rows', () => {
+test('promotion requires complete exact-plan evidence and prepared candidate rows', () => {
   const expectedCanaries = ['stranske/Travel', 'stranske/Portable'];
   const evidence = {
     results: expectedCanaries.map((repo, index) => ({
@@ -125,7 +128,7 @@ test('promotion requires complete exact-plan evidence and terminal candidate row
         repo,
         pr: index + 1,
         branch: 'sync/workflows-candidate',
-        status: index ? 'evidence_recovered' : 'merged',
+        status: index ? 'evidence_recovered' : 'campaign_prepared',
       };
     }),
   };
@@ -138,6 +141,73 @@ test('promotion requires complete exact-plan evidence and terminal candidate row
   const blocked = candidatePromotionDecision({ report, evidence, expectedCanaries });
   assert.equal(blocked.eligible, false);
   assert.match(blocked.errors.join('\n'), /stranske\/Travel/);
+});
+
+test('campaign maps canaries to candidate and the remaining fleet to delivery', () => {
+  assert.equal(syncSelectorForRepository({
+    syncHash: 'campaign',
+    repository: 'stranske/Travel',
+    canaryRepos: ['stranske/Travel'],
+  }), 'candidate');
+  assert.equal(syncSelectorForRepository({
+    syncHash: 'campaign',
+    repository: 'stranske/Other',
+    canaryRepos: ['stranske/Travel'],
+  }), 'delivery');
+  assert.equal(syncSelectorForRepository({
+    syncHash: 'candidate',
+    repository: 'stranske/Other',
+    canaryRepos: ['stranske/Travel'],
+  }), 'candidate');
+});
+
+test('campaign commit authorization binds every prepared exact head', () => {
+  const report = {
+    inputs: { sync_hash: 'campaign' },
+    results: [
+      {
+        owner: 'stranske', repo: 'Travel', pr: 11,
+        branch: 'sync/workflows-candidate', head_sha: 'head-11',
+        delivery_generation: 'generation-11', plan_id: 'plan-abc',
+        source_commit: 'source-abc',
+        status: 'campaign_prepared',
+      },
+      {
+        owner: 'stranske', repo: 'NoChange', status: 'campaign_no_change_verified',
+        plan_id: 'plan-abc', source_commit: 'source-abc',
+      },
+    ],
+  };
+  const authorization = buildCampaignCommitAuthorization({
+    report,
+    expectedRepositories: ['stranske/Travel', 'stranske/NoChange'],
+    planId: 'plan-abc',
+    sourceCommit: 'source-abc',
+    generatedAt: '2026-08-16T12:00:00Z',
+  });
+  assert.equal(authorization.authorized, true);
+  assert.equal(campaignAuthorizationAllowsMerge({
+    authorization,
+    result: {
+      owner: 'stranske', repo: 'Travel', pr: 11,
+      branch: 'sync/workflows-candidate', head_sha: 'head-11',
+      delivery_generation: 'generation-11',
+    },
+  }), true);
+  assert.equal(campaignAuthorizationAllowsMerge({
+    authorization,
+    result: {
+      owner: 'stranske', repo: 'Travel', pr: 11,
+      branch: 'sync/workflows-candidate', head_sha: 'changed',
+      delivery_generation: 'generation-11',
+    },
+  }), false);
+  report.results[0].status = 'checks_pending';
+  assert.equal(buildCampaignCommitAuthorization({
+    report,
+    expectedRepositories: ['stranske/Travel', 'stranske/NoChange'],
+    planId: 'plan-abc',
+  }).authorized, false);
 });
 
 test('candidate base drift requests a no-filter refresh and stays transient', () => {
@@ -426,8 +496,9 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
     },
   };
   const failures = [];
+  const notices = [];
   const core = {
-    notice: () => {},
+    notice: (message) => notices.push(message),
     setFailed: (message) => failures.push(message),
     warning: () => {},
     summary: { addRaw: () => ({ write: async () => {} }) },
@@ -491,7 +562,11 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
     });
     const redReport = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     assert.equal(redReport.summary.checks_failed, 1);
-    assert.match(failures.at(-1), /Canary evidence is incomplete or unsafe/);
+    assert.deepEqual(failures, []);
+    assert.equal(
+      notices.some((message) => /Canary evidence is incomplete or unsafe/.test(message)),
+      true,
+    );
 
     checkConclusion = 'success';
     requiredContexts = [];
@@ -1587,8 +1662,12 @@ test('buildDeliveryHandoff preserves the restart fields for a generated PR', () 
     lane: 'dev-tool-sync', disposition: 'review-blocked', blocker_owner: 'closer',
     next_command: 'resolve-active-review-threads',
     check_state: 'ready', review_state: 'blocked',
+    plan_id: '', plan_scope: '', scope_base_sha: '', source_commit: '',
+    canary_baseline_evidence_json: '',
+    campaign_no_change_evidence_json: '',
     continuation: {
       class: 'actionable', lane: 'dev-tool', reason: 'review_blocked', resume_after: '',
+      key: '0e3dff884c95411fadee',
     },
     observed_at: '2026-08-15T12:00:00Z',
   });
@@ -1605,7 +1684,13 @@ test('buildDeliveryHandoff rewrites terminal merge outcomes', () => {
     branch: 'sync/workflows-abc', head_sha: 'abc', delivery_generation: 'g2',
     lane: 'sync', disposition: 'merged', blocker_owner: 'none', next_command: 'none',
     check_state: 'ready', review_state: 'clear',
-    continuation: { class: 'terminal', lane: '', reason: 'merged', resume_after: '' },
+    plan_id: '', plan_scope: '', scope_base_sha: '', source_commit: '',
+    canary_baseline_evidence_json: '',
+    campaign_no_change_evidence_json: '',
+    continuation: {
+      class: 'terminal', lane: '', reason: 'merged', resume_after: '',
+      key: '24402df1f7991fa96e63',
+    },
     observed_at: '2026-08-15T12:00:00Z',
   });
   assert.equal(buildDeliveryHandoff({

@@ -21,19 +21,6 @@ SCOPE_SCHEMA = "workflows.consumer-sync-plan-scope/v1"
 SCOPES = {"full", "source-delta"}
 MANIFEST_PATH = ".github/sync-manifest.yml"
 
-# A stable delivery runs the copy-synced path classifier before the generated
-# head can be sealed. The classifier verifies the lease contract from the
-# trusted base, or (only for a first rollout) from an exact add-only bootstrap
-# on the generated head. A source-delta that updates the classifier must
-# therefore carry that contract too; selecting just the action strands
-# consumers whose base predates the contract.
-SOURCE_DELTA_TARGET_DEPENDENCIES = {
-    ".github/actions/path-classifier": {
-        ".github/scripts/sync_pr_lease_contract.js",
-    },
-}
-
-
 class PlanScopeError(ValueError):
     """The requested scope cannot produce a safe consumer sync plan."""
 
@@ -69,12 +56,17 @@ def _source_delta_dependencies(
     plan_entries: list[dict[str, Any]], selected_entries: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Expand selected entries with mandatory runtime/bootstrap dependencies."""
+    entries_by_target = {str(entry.get("target") or ""): entry for entry in plan_entries}
     selected_targets = {str(entry.get("target") or "") for entry in selected_entries}
-    required_targets = {
-        dependency
-        for target in selected_targets
-        for dependency in SOURCE_DELTA_TARGET_DEPENDENCIES.get(target, set())
-    }
+    required_targets: set[str] = set()
+    pending = list(selected_targets)
+    while pending:
+        target = pending.pop()
+        for dependency in entries_by_target.get(target, {}).get("requires", []):
+            dependency = str(dependency or "")
+            if dependency and dependency not in selected_targets and dependency not in required_targets:
+                required_targets.add(dependency)
+                pending.append(dependency)
     return [
         entry
         for entry in plan_entries

@@ -2,6 +2,64 @@
 
 const REPORT_SCHEMA = 'workflows-consumer-sync-run/v1';
 const CANARY_EVIDENCE_SCHEMA = 'workflows.consumer-sync-canary-evidence/v1';
+const NO_CHANGE_EVIDENCE_SCHEMA = 'workflows.consumer-sync-no-change-evidence/v1';
+
+function buildNoChangeEvidence({
+  results = [],
+  expectedRepositories = [],
+  planId = '',
+  planScope = '',
+  scopeBaseSha = '',
+  sourceCommit = '',
+  evidenceSource = 'no-change-delivery',
+} = {}) {
+  const expected = new Set(
+    (expectedRepositories || []).map((repo) => String(repo || '').trim()).filter(Boolean),
+  );
+  const rows = [];
+  const errors = [];
+  const seen = new Set();
+  const normalizedPlanId = String(planId || '').trim();
+  const normalizedPlanScope = String(planScope || '').trim() || 'full';
+  const normalizedScopeBaseSha = String(scopeBaseSha || '').trim().toLowerCase();
+  const normalizedSourceCommit = String(sourceCommit || '').trim().toLowerCase();
+  const shaPattern = /^[0-9a-f]{40}$/;
+  for (const result of results || []) {
+    const repo = String(result?.repo || '').trim();
+    if (!expected.has(repo) || result?.status !== 'no_changes') continue;
+    if (seen.has(repo)) {
+      errors.push(`duplicate_no_change_delivery:${repo}`);
+      continue;
+    }
+    seen.add(repo);
+    const resultPlanId = String(result?.plan_id || '').trim();
+    const resultPlanScope = String(result?.plan_scope || '').trim() || 'full';
+    const resultScopeBaseSha = String(result?.scope_base_sha || '').trim().toLowerCase();
+    const resultSourceCommit = String(result?.source_commit || '').trim().toLowerCase();
+    const consumerHeadSha = String(result?.consumer_head_sha || '').trim().toLowerCase();
+    if (!normalizedPlanId || resultPlanId !== normalizedPlanId) errors.push(`no_change_delivery_plan_mismatch:${repo}`);
+    if (resultPlanScope !== normalizedPlanScope) errors.push(`no_change_delivery_scope_mismatch:${repo}`);
+    if (resultScopeBaseSha !== normalizedScopeBaseSha) errors.push(`no_change_delivery_scope_base_mismatch:${repo}`);
+    if (!normalizedSourceCommit || resultSourceCommit !== normalizedSourceCommit) errors.push(`no_change_delivery_source_mismatch:${repo}`);
+    if (!shaPattern.test(consumerHeadSha)) errors.push(`no_change_delivery_head_invalid:${repo}`);
+    rows.push({
+      repo,
+      plan_id: resultPlanId,
+      plan_scope: resultPlanScope,
+      scope_base_sha: resultScopeBaseSha,
+      source_commit: resultSourceCommit,
+      head_sha: consumerHeadSha,
+      evidence_source: evidenceSource,
+      required_check_state: 'success',
+      active_review_thread_count: 0,
+    });
+  }
+  return {
+    ok: errors.length === 0,
+    errors,
+    evidence: { schema: NO_CHANGE_EVIDENCE_SCHEMA, version: 1, results: rows },
+  };
+}
 
 function buildNoChangeCanaryEvidence({
   results = [],
@@ -152,6 +210,7 @@ function buildMarkdownSummary(report) {
 }
 
 module.exports = {
+  buildNoChangeEvidence,
   REPORT_SCHEMA,
   CANARY_EVIDENCE_SCHEMA,
   buildNoChangeCanaryEvidence,

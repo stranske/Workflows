@@ -125,13 +125,17 @@ fresh Gate, a valid GitHub-generated commit signature, and zero active review
 threads. Maint 68 fails before publishing any generated head whose API-created
 tree or signature does not match the staged delivery. A reviewer capacity outage
 cannot require responses from every configured bot or keep the PR open indefinitely.
-Maint 71 requires one substantive response when available; a successful status
+Maint 71 requires one substantive response when available; it never waits for
+all configured reviewers. A successful status
 whose own description says the review was skipped or not performed is recorded
 as unavailable, not as reviewer quorum. Generated-branch Gate completions wake
 Maint 71 immediately; the durable campaign queue supplies the timed fallback for
 review windows and pending checks. Complete exact-plan candidate evidence starts
-promotion automatically, while active review findings remain held until resolved
-or covered by an authenticated exact-head Workflows source-fix proof.
+promotion automatically while the stable candidate PRs remain open. Promotion
+prepares the non-canary stable PRs; Maint 71 merges candidate and delivery heads
+only after one fleet-wide exact-head authorization. Active review findings remain
+held until resolved or covered by an authenticated exact-head Workflows
+source-fix proof.
 
 ### Method 3: Hybrid Approach
 

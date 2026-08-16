@@ -258,6 +258,53 @@ removals:
         compile_manifest(duplicate_removal)
 
 
+def test_manifest_requires_are_typed_and_fail_closed(tmp_path: Path) -> None:
+    write_source(tmp_path, "scripts/a.py", template=False)
+    write_source(tmp_path, "scripts/b.py", template=False)
+    valid = write_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: scripts/a.py
+    description: A
+    requires:
+      - scripts/b.py
+  - source: scripts/b.py
+    description: B
+""",
+    )
+    plan = compile_manifest(valid).to_plan()
+    assert plan["entries"][0]["requires"] == ["scripts/b.py"]
+
+    unknown = write_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: scripts/a.py
+    description: A
+    requires:
+      - scripts/missing.py
+""",
+    )
+    with pytest.raises(ManifestCompileError, match="requires unknown manifest target"):
+        compile_manifest(unknown)
+
+    cycle = write_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: scripts/a.py
+    description: A
+    requires: [scripts/b.py]
+  - source: scripts/b.py
+    description: B
+    requires: [scripts/a.py]
+""",
+    )
+    with pytest.raises(ManifestCompileError, match="manifest requires cycle"):
+        compile_manifest(cycle)
+
+
 def test_directory_hash_and_plan_are_deterministic(tmp_path: Path) -> None:
     directory = tmp_path / "scripts" / "runner_lib"
     directory.mkdir(parents=True)

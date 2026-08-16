@@ -371,6 +371,7 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
     lane: cleanString(continuationRecord.lane),
     reason: cleanString(continuationRecord.reason),
     resume_after: cleanString(continuationRecord.resume_after),
+    key: cleanString(continuationRecord.key),
   };
   return {
     schema: DELIVERY_HANDOFF_SCHEMA,
@@ -380,6 +381,12 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
     head_sha: headSha,
     delivery_generation: generation,
     lane: cleanString(record.lane),
+    plan_id: cleanString(record.plan_id),
+    plan_scope: cleanString(record.plan_scope),
+    scope_base_sha: cleanString(record.scope_base_sha),
+    source_commit: cleanString(record.source_commit),
+    canary_baseline_evidence_json: cleanString(record.canary_baseline_evidence_json),
+    campaign_no_change_evidence_json: cleanString(record.campaign_no_change_evidence_json),
     disposition,
     blocker_owner: blockerOwner,
     next_command: nextCommand,
@@ -404,10 +411,10 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
   for (const record of handoffs) {
     const continuation = record.continuation;
     if (continuation.class !== 'transient') continue;
-    if (!['candidate', 'delivery', 'dev-tool'].includes(continuation.lane)) continue;
+    if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) continue;
     if (deliveryActive && continuation.lane === 'candidate') continue;
     const dueMs = Date.parse(continuation.resume_after || record.observed_at);
-    if (!Number.isFinite(dueMs) || dueMs >= nowMs) continue;
+    if (!Number.isFinite(dueMs) || dueMs > nowMs) continue;
     const current = dueByLane.get(continuation.lane);
     if (!current || dueMs < Date.parse(current.resume_after)) {
       dueByLane.set(continuation.lane, {
@@ -418,12 +425,21 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
         pr: record.pr,
         branch: record.branch,
         head_sha: record.head_sha,
+        continuation_key: continuation.key,
+        immutable_handoff: {
+          plan_id: record.plan_id,
+          plan_scope: record.plan_scope,
+          scope_base_sha: record.scope_base_sha,
+          source_commit: record.source_commit,
+        },
+        canary_baseline_evidence_json: record.canary_baseline_evidence_json,
+        campaign_no_change_evidence_json: record.campaign_no_change_evidence_json,
       });
     }
   }
   const order = deliveryActive
-    ? ['delivery', 'dev-tool']
-    : ['candidate', 'delivery', 'dev-tool'];
+    ? ['campaign', 'delivery', 'dev-tool']
+    : ['candidate', 'campaign', 'delivery', 'dev-tool'];
   return order.map((lane) => dueByLane.get(lane)).filter(Boolean);
 }
 

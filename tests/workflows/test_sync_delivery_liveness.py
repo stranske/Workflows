@@ -10,9 +10,10 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "Apply proof-bound candidate review resolutions" in workflow
     assert 'RESOLUTION_ONLY_INPUT: "true"' in workflow
     assert "Validate complete pre-merge canary evidence" in workflow
-    assert (
-        "CANDIDATE_EVIDENCE_RESULT: ${{ steps.candidate_evidence_validation.outcome }}" in workflow
-    )
+    assert "CANDIDATE_EVIDENCE_AUTHORIZED:" in workflow
+    assert "steps.candidate_evidence_validation.outputs.authorized" in workflow
+    assert "Authorize exact-head fleet commit" in workflow
+    assert "Commit prepared sync campaign" in workflow
     assert "dryRun && !resolutionOnly" in executor
     assert "workflows-sync-review-resolution/v1" in executor
     assert "resolveReviewThread" in executor
@@ -30,7 +31,7 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "Maint 71 requires OWNER_PR_PAT" in executor
     assert "retryHelpers.withRetry(fn" in executor
     assert "createTokenAwareRetry" not in executor
-    assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 3
+    assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 4
 
 
 def test_sync_lifecycle_chains_and_has_event_plus_timer_fallbacks():
@@ -42,12 +43,14 @@ def test_sync_lifecycle_chains_and_has_event_plus_timer_fallbacks():
 
     assert "Start generated delivery reconciliation" in maint68
     assert "Canary evidence JSON (base64)" in maint68
-    assert "activeSyncHash = phase === 'canary' ? 'candidate' : 'delivery'" in maint68
+    assert "activeSyncHash = phase === 'canary' ? 'candidate' : 'campaign'" in maint68
     assert 'cron: "*/10 * * * *"' in maint82
     assert "planMaint71Continuations" in maint82
     assert "Dispatch due Maint 71 continuations" in maint82
     assert "const selector = continuation.lane" in maint82
-    assert "activeTitles.has('Merge Sync PRs [delivery]')" in maint82
+    assert "value.startsWith('Merge Sync PRs [delivery]')" in maint82
+    assert "continuation_key" in maint82
+    assert "immutable_handoff_json" in maint82
     assert "Wake generated delivery reconciler" in followups
     assert "github.event.workflow_run.head_branch == 'sync/workflows-candidate'" in followups
     assert "event_type: 'merge-sync-prs'" in followups

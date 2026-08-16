@@ -1,9 +1,23 @@
 name: Health 83 Dependency Sync Efficiency
+run-name: >-
+  Health 83 Dependency Sync Efficiency
+  [${{ inputs.campaign_plan_id || 'scheduled' }}]
 
 on:
   schedule:
     - cron: '15 11 * * 1'
   workflow_dispatch:
+    inputs:
+      campaign_plan_id:
+        description: "Completed campaign plan that triggered this measurement"
+        required: false
+        type: string
+        default: ""
+      trigger_reason:
+        description: "Why this measurement was dispatched"
+        required: false
+        type: string
+        default: "manual"
 
 permissions:
   actions: read

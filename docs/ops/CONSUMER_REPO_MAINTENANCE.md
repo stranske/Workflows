@@ -251,6 +251,7 @@ Validated fields for each sync entry:
 | `is_directory` | bool, optional | Defaults to `False` |
 | `template_sync` | `"exact"` or absent | Controls template validator |
 | `delivery` | `"copy"` or absent | Runtime-fetched files belong under `runtime_fetched`, not a copy section |
+| `requires` | list of manifest targets, optional | Transitive co-delivery dependencies for source-delta plans; targets must exist and cycles are rejected |
 
 Removal targets are typed separately and cannot collide with a copy target.
 `excluded:` and `runtime_fetched:` remain metadata-only sections.
@@ -295,8 +296,9 @@ entry and is the scheduled drift-reconciliation default. `source-delta`
 compiles the same typed manifest, then selects only entries whose resolved
 source changed in an exact Workflows commit range. This lets a dependency-only
 source repair reach consumers without absorbing unrelated, unpromoted workflow
-drift. Directory entries match changed descendants. A selected path-classifier
-action also carries its allowlisted lease-contract bootstrap dependency, so a
+drift. Directory entries match changed descendants. Dependencies are declared
+by a selected entry's typed `requires` field and expanded transitively. The
+path-classifier action therefore carries its lease-contract bootstrap dependency, so a
 consumer whose base predates that contract can still evaluate its initial
 staged delivery safely. Manifest changes fail closed and require `full`;
 historical removal declarations are never replayed by a source delta. The
@@ -350,8 +352,12 @@ same plan.
 
 The normal chain is automatic: Maint 68 dispatches the candidate selector after
 writing canary PRs; Maint 71 dispatches `phase=promote` only after the persisted
-evidence is complete and every candidate is merged or safely recovered; and a
-successful promotion dispatches the delivery selector. Generated-branch Gate
+evidence is complete and every candidate exact head is prepared or safely
+recovered. Candidate PRs stay open. A successful promotion dispatches the
+`campaign` selector, which prepares the stable candidate and delivery PRs for
+the same plan across the entire registered non-admin fleet. Maint 71 emits a
+commit authorization only when every repository is exact-head ready or proven
+unchanged, then rechecks the authorized heads and merges the batch. Generated-branch Gate
 completions provide event-driven wakeups through the synced Gate-followups hub.
 Maint 68 binds that handoff to the exact plan ID, plan scope, source range, and
 source commit. A canary that already matches the plan contributes explicit
@@ -367,8 +373,9 @@ full plan or source range, never to reuse an older evidence artifact. These
 rules are enforced by `sync_run_contract.js`, `maint71_merge_sync_prs.js`, and
 `sync_pr_merge_contract.js`, with the workflow carrying the immutable fields
 between those boundaries.
-Maint 82 retains every transient Maint 71 handoff with a due time and supplies a
-ten-minute fallback for candidate-evidence holds, delivery-review startup,
+Maint 82 retains every transient Maint 71 handoff with an immutable plan binding,
+idempotency key, and due time and supplies a ten-minute fallback for
+candidate/campaign evidence holds, delivery-review startup,
 pending checks, changed heads, review windows, reviewer settlement, sealed Gate
 checks, and stable candidate base refreshes, so an absent event cannot strand
 the lifecycle. It does not retry actionable CI failures, unresolved review
@@ -378,8 +385,8 @@ commit message so Maint 71 can replay the same promotion if a consumer base
 advances during review; editable PR body fields never authorize that replay.
 
 Maint 71 persists and validates the `sync-canary-evidence-premerge` artifact
-before its merge step is allowed to run. A GitHub pre-job approval hold, a
-cancelled evidence step, or an artifact-upload failure therefore leaves the
+before promotion is allowed to run. A GitHub pre-job approval hold, a cancelled
+evidence step, or an artifact-upload failure therefore leaves the
 candidate PRs open and recoverable. If an older operator merged the stable
 candidate PRs before evidence was durable, Maint 71 may reconstruct evidence
 only from the latest trusted, actually merged `sync/workflows-candidate` PR in
@@ -432,6 +439,13 @@ Gate summary rejects an unsealed stable delivery, while the shared merge guard
 rejects `sync:delivery-staging` for every merger except Maint 71's verified
 sealed path. The staging hold remains until the merge succeeds.
 
+For workflow syncs, a sealed candidate is not merged immediately: it remains
+the stable delivery PR while promotion prepares the non-canaries. Only the
+campaign-wide exact-head authorization releases the candidate and delivery PRs
+for Maint 71's final per-PR merge gate. This preserves one update-in-place
+review surface without letting ordinary PR minimization merge it before fleet
+delivery is complete.
+
 The standard Gate's generated-delivery job invokes the Workflows-owned
 `generated-delivery-seal` action directly. It does not execute seal policy from
 the consumer pull request checkout, so a candidate that changes the local path
@@ -459,8 +473,9 @@ delivery record. That SHA-bound observation anchors the window; PR body edits,
 labels, comments, and review-thread resolution do not restart it, while a
 mismatched or missing observation fails back to the conservative PR timestamp.
 Workflow-call, manual, and repository-dispatch candidate selectors normalize to
-the same gate. The executor requires same-job evidence/upload authorization, so
-scheduled or malformed paths cannot merge a candidate implicitly.
+the same gate. The executor requires same-job campaign authorization bound to
+every PR number, delivery generation, branch, and head SHA, so scheduled or
+malformed paths cannot merge a candidate implicitly.
 
 Active non-outdated review threads remain merge blockers. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated

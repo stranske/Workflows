@@ -13,7 +13,13 @@ from scripts.scope_consumer_sync_plan import (
 )
 
 
-def entry(source: str, target: str, *, directory: bool = False) -> dict[str, object]:
+def entry(
+    source: str,
+    target: str,
+    *,
+    directory: bool = False,
+    requires: list[str] | None = None,
+) -> dict[str, object]:
     return {
         "section": "workflows",
         "source": target,
@@ -27,6 +33,7 @@ def entry(source: str, target: str, *, directory: bool = False) -> dict[str, obj
         "overwrite_repos": [],
         "template_sync": None,
         "delivery": "copy",
+        "requires": requires or [],
         "content_sha256": "sha256:" + "1" * 64,
         "effect_fingerprint": "sha256:" + "2" * 64,
     }
@@ -88,6 +95,7 @@ def test_source_delta_carries_path_classifier_delivery_contract() -> None:
                 "templates/consumer-repo/.github/actions/path-classifier",
                 ".github/actions/path-classifier",
                 directory=True,
+                requires=[".github/scripts/sync_pr_lease_contract.js"],
             ),
             entry(
                 ".github/scripts/sync_pr_lease_contract.js",
@@ -109,6 +117,30 @@ def test_source_delta_carries_path_classifier_delivery_contract() -> None:
         ".github/scripts/sync_pr_lease_contract.js",
     ]
     assert evidence["dependency_targets"] == [".github/scripts/sync_pr_lease_contract.js"]
+
+
+def test_source_delta_expands_transitive_manifest_dependencies() -> None:
+    scoped_plan = plan()
+    scoped_plan["entries"].extend(
+        [
+            entry("scripts/a", "scripts/a", requires=["scripts/b"]),
+            entry("scripts/b", "scripts/b", requires=["scripts/c"]),
+            entry("scripts/c", "scripts/c"),
+        ]
+    )
+    scoped, evidence = select_plan(
+        scoped_plan,
+        mode="source-delta",
+        changed_paths=["scripts/a"],
+        base_sha="1" * 40,
+        source_commit="2" * 40,
+    )
+    assert [item["target"] for item in scoped["entries"]][-3:] == [
+        "scripts/a",
+        "scripts/b",
+        "scripts/c",
+    ]
+    assert evidence["dependency_targets"] == ["scripts/b", "scripts/c"]
 
 
 def test_full_scope_preserves_the_compiled_plan_exactly() -> None:

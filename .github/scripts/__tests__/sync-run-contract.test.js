@@ -4,11 +4,31 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  buildNoChangeEvidence,
   buildNoChangeCanaryEvidence,
   buildMarkdownSummary,
   buildSyncRunReport,
   summarizeResults,
 } = require('../sync_run_contract');
+
+test('buildNoChangeEvidence binds unchanged delivery repos to an immutable campaign plan', () => {
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const sourceCommit = 'b'.repeat(40);
+  const result = buildNoChangeEvidence({
+    expectedRepositories: ['stranske/Ready'],
+    planId,
+    planScope: 'full',
+    sourceCommit,
+    results: [{
+      repo: 'stranske/Ready', status: 'no_changes', plan_id: planId,
+      plan_scope: 'full', scope_base_sha: '', source_commit: sourceCommit,
+      consumer_head_sha: 'c'.repeat(40),
+    }],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.evidence.schema, 'workflows.consumer-sync-no-change-evidence/v1');
+  assert.equal(result.evidence.results[0].evidence_source, 'no-change-delivery');
+});
 
 test('buildNoChangeCanaryEvidence binds no-diff canaries to the exact plan and head', () => {
   const planId = `sha256:${'a'.repeat(64)}`;

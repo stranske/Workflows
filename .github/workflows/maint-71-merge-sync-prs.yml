@@ -21,6 +21,7 @@ run-name: >-
   [${{ inputs.active_sync_hash ||
     github.event.client_payload.active_sync_hash ||
     'unscoped' }}]
+  ${{ inputs.continuation_key || github.event.client_payload.continuation_key || '' }}
 
 on:
   schedule:
@@ -51,7 +52,7 @@ on:
         default: false
       active_sync_hash:
         description: >-
-          Active sync selector (candidate or delivery for stable lanes; legacy hash accepted)
+          Active sync selector (candidate, campaign, or delivery; legacy hash accepted)
         required: false
         type: string
         default: ""
@@ -76,6 +77,16 @@ on:
         required: false
         type: string
         default: ""
+      campaign_no_change_evidence_json:
+        description: "Plan-bound exact-head evidence for fleet repositories with no delivery diff"
+        required: false
+        type: string
+        default: ""
+      continuation_key:
+        description: "Idempotency key for a durable continuation"
+        required: false
+        type: string
+        default: ""
   workflow_call:
     inputs:
       repos:
@@ -95,7 +106,7 @@ on:
         default: false
       active_sync_hash:
         description: >-
-          Active sync selector (candidate or delivery for stable lanes; legacy hash accepted)
+          Active sync selector (candidate, campaign, or delivery; legacy hash accepted)
         required: false
         type: string
         default: ""
@@ -136,6 +147,16 @@ on:
         default: ""
       canary_baseline_evidence_json:
         description: "Exact no-change canary evidence emitted by Maint 68"
+        required: false
+        type: string
+        default: ""
+      campaign_no_change_evidence_json:
+        description: "Plan-bound exact-head evidence for fleet repositories with no delivery diff"
+        required: false
+        type: string
+        default: ""
+      continuation_key:
+        description: "Idempotency key for a durable continuation"
         required: false
         type: string
         default: ""
@@ -248,13 +269,15 @@ jobs:
           const selector = raw.startsWith(prefix) ? raw.slice(prefix.length) : raw;
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `selector=${selector}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${selector === 'candidate'}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `campaign=${selector === 'campaign'}\n`);
           NODE
 
       - name: Apply proof-bound candidate review resolutions
         id: candidate_review_resolution
         if: >-
           ${{
-            steps.candidate_mode.outputs.candidate == 'true' &&
+            (steps.candidate_mode.outputs.candidate == 'true' ||
+             steps.candidate_mode.outputs.campaign == 'true') &&
             inputs.review_resolution_json != ''
           }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -268,6 +291,7 @@ jobs:
           EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ steps.handoff.outputs.expected_scope_base_sha }}
           EXPECTED_SOURCE_COMMIT_INPUT: ${{ steps.handoff.outputs.expected_source_commit }}
           CANARY_BASELINE_EVIDENCE_JSON: ${{ inputs.canary_baseline_evidence_json || github.event.client_payload.canary_baseline_evidence_json || '' }}
+          CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: ${{ inputs.campaign_no_change_evidence_json || github.event.client_payload.campaign_no_change_evidence_json || '' }}
           CLEANUP_BRANCHES_INPUT: "false"
           EVIDENCE_ONLY_INPUT: "false"
           RESOLUTION_ONLY_INPUT: "true"
@@ -352,12 +376,14 @@ jobs:
             .filter(Boolean);
           const rows = Array.isArray(evidence) ? evidence : evidence.results;
           const validation = validateCanaryEvidence(rows, expectedCanaries);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `authorized=${validation.ok}\n`);
           if (!validation.ok) {
-            throw new Error(
-              `Pre-merge canary evidence is incomplete: ${validation.errors.join(', ')}`,
+            console.log(
+              `Pre-merge canary evidence remains incomplete: ${validation.errors.join(', ')}`,
             );
+          } else {
+            console.log(`Validated complete pre-merge evidence for ${validation.plan_id}`);
           }
-          console.log(`Validated complete pre-merge evidence for ${validation.plan_id}`);
           NODE
 
       - name: Check and merge sync PRs
@@ -385,8 +411,10 @@ jobs:
           EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ steps.handoff.outputs.expected_scope_base_sha }}
           EXPECTED_SOURCE_COMMIT_INPUT: ${{ steps.handoff.outputs.expected_source_commit }}
           CANARY_BASELINE_EVIDENCE_JSON: ${{ inputs.canary_baseline_evidence_json || github.event.client_payload.canary_baseline_evidence_json || '' }}
-          CANDIDATE_EVIDENCE_RESULT: ${{ steps.candidate_evidence_validation.outcome }}
+          CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: ${{ inputs.campaign_no_change_evidence_json || github.event.client_payload.campaign_no_change_evidence_json || '' }}
+          CANDIDATE_EVIDENCE_AUTHORIZED: ${{ steps.candidate_evidence_validation.outputs.authorized || 'false' }}
           CANDIDATE_ARTIFACT_RESULT: ${{ steps.candidate_artifact.outcome }}
+          PREPARE_ONLY_INPUT: ${{ steps.candidate_mode.outputs.candidate == 'true' || steps.candidate_mode.outputs.campaign == 'true' }}
           CLEANUP_BRANCHES_INPUT: ${{ inputs.cleanup_branches }}
           CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
           CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
@@ -402,6 +430,161 @@ jobs:
             const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
             await run({ github, context, core });
 
+      - name: Authorize exact-head fleet commit
+        id: campaign_authorization
+        if: >-
+          ${{
+            always() &&
+            steps.candidate_mode.outputs.campaign == 'true' &&
+            steps.merge.outcome == 'success'
+          }}
+        env:
+          EXPECTED_PLAN_ID: ${{ steps.handoff.outputs.expected_plan_id }}
+          EXPECTED_SOURCE_COMMIT: ${{ steps.handoff.outputs.expected_source_commit }}
+          REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const {
+            buildCampaignCommitAuthorization,
+          } = require('./.github/scripts/sync_pr_merge_contract.js');
+          const report = JSON.parse(
+            fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+          );
+          const expectedRepositories = String(process.env.REGISTERED_REPOS_INPUT || '')
+            .split(',')
+            .map((value) => value.trim())
+            .filter((value) => value && value !== 'stranske/Collab-Admin');
+          const authorization = buildCampaignCommitAuthorization({
+            report,
+            expectedRepositories,
+            planId: process.env.EXPECTED_PLAN_ID,
+            sourceCommit: process.env.EXPECTED_SOURCE_COMMIT,
+          });
+          fs.writeFileSync(
+            'artifacts/sync-campaign-commit-authorization.json',
+            `${JSON.stringify(authorization, null, 2)}\n`,
+          );
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `authorized=${authorization.authorized}\n`);
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `authorization_json=${JSON.stringify(authorization)}\n`,
+          );
+          if (!authorization.authorized) {
+            console.log(`Fleet commit remains held: ${authorization.errors.join(', ')}`);
+          } else {
+            console.log(`Authorized exact-head fleet commit for ${authorization.plan_id}`);
+          }
+          NODE
+
+      - name: Commit prepared sync campaign
+        id: campaign_commit
+        if: >-
+          ${{
+            always() &&
+            steps.candidate_mode.outputs.campaign == 'true' &&
+            steps.campaign_authorization.outputs.authorized == 'true'
+          }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          REPOS_INPUT: ${{ inputs.repos || github.event.client_payload.repos || 'all' }}
+          AUTO_MERGE_INPUT: "true"
+          DRY_RUN_INPUT: "false"
+          PREPARE_ONLY_INPUT: "false"
+          ACTIVE_SYNC_HASH_INPUT: campaign
+          EXPECTED_PLAN_ID_INPUT: ${{ steps.handoff.outputs.expected_plan_id }}
+          EXPECTED_PLAN_SCOPE_INPUT: ${{ steps.handoff.outputs.expected_plan_scope }}
+          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ steps.handoff.outputs.expected_scope_base_sha }}
+          EXPECTED_SOURCE_COMMIT_INPUT: ${{ steps.handoff.outputs.expected_source_commit }}
+          CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: ${{ inputs.campaign_no_change_evidence_json || github.event.client_payload.campaign_no_change_evidence_json || '' }}
+          CAMPAIGN_COMMIT_AUTHORIZATION_JSON: ${{ steps.campaign_authorization.outputs.authorization_json }}
+          CLEANUP_BRANCHES_INPUT: "false"
+          CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
+          CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
+          TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+          TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
+          EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
+          SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-merge-report.json
+          REGISTERED_REPOS_INPUT: ${{ steps.repos.outputs.list }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT }}
+          script: |
+            const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
+            await run({ github, context, core });
+
+      - name: Measure completed campaign efficiency
+        if: >-
+          ${{
+            always() &&
+            steps.candidate_mode.outputs.campaign == 'true' &&
+            steps.campaign_commit.outcome == 'success'
+          }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          CAMPAIGN_PLAN_ID: ${{ steps.handoff.outputs.expected_plan_id }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-71-measure-completed-campaign',
+              capabilities: ['actions:write'],
+            });
+            const report = JSON.parse(
+              fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+            );
+            const allowed = new Set([
+              'merged',
+              'branch_deleted',
+              'branch_delete_failed',
+              'campaign_no_change_verified',
+            ]);
+            const incomplete = (report.results || []).filter(
+              (result) => !allowed.has(String(result.status || '')),
+            );
+            if (incomplete.length > 0) {
+              core.notice(
+                `Campaign measurement held: ${incomplete.length} delivery row(s) remain nonterminal`,
+              );
+              return;
+            }
+            const planId = String(process.env.CAMPAIGN_PLAN_ID || '').trim();
+            if (!planId) {
+              core.warning('Campaign completed without an immutable plan id; Health 83 not dispatched');
+              return;
+            }
+            const title = `Health 83 Dependency Sync Efficiency [${planId}]`;
+            const { data: runs } = await withRetry((client) =>
+              client.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'health-83-dependency-sync-efficiency.yml',
+                event: 'workflow_dispatch',
+                per_page: 100,
+              }),
+            );
+            if ((runs.workflow_runs || []).some((run) => run.display_title === title)) {
+              core.notice(`Health 83 already recorded for ${planId}`);
+              return;
+            }
+            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'health-83-dependency-sync-efficiency.yml',
+              ref: context.payload.repository?.default_branch || 'main',
+              inputs: {
+                campaign_plan_id: planId,
+                trigger_reason: 'campaign-complete',
+              },
+            }));
+            core.notice(`Dispatched Health 83 completion measurement for ${planId}`);
+
       - name: Upload sync PR merge report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -410,6 +593,7 @@ jobs:
           path: |
             artifacts/sync-pr-merge-report.json
             artifacts/sync-canary-evidence.json
+            artifacts/sync-campaign-commit-authorization.json
           if-no-files-found: warn
 
       - name: Refresh stale candidate bases
@@ -417,7 +601,8 @@ jobs:
         if: >-
           ${{
             always() &&
-            steps.candidate_mode.outputs.candidate == 'true' &&
+            (steps.candidate_mode.outputs.candidate == 'true' ||
+             steps.candidate_mode.outputs.campaign == 'true') &&
             steps.merge.outcome == 'success'
           }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -488,7 +673,8 @@ jobs:
         if: >-
           ${{
             always() &&
-            steps.candidate_mode.outputs.selector == 'delivery' &&
+            (steps.candidate_mode.outputs.selector == 'delivery' ||
+             steps.candidate_mode.outputs.campaign == 'true') &&
             steps.merge.outcome == 'success'
           }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9

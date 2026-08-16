@@ -68,6 +68,7 @@ class ManifestEntry:
     section: str
     content_sha256: str
     effect_fingerprint: str
+    requires: tuple[str, ...] = ()
 
     def plan_record(self) -> dict[str, Any]:
         skip_reasons = {rule.repo: rule.reason for rule in self.skip_repos}
@@ -84,6 +85,7 @@ class ManifestEntry:
             "overwrite_repos": list(self.overwrite_repos),
             "template_sync": self.template_sync,
             "delivery": self.delivery,
+            "requires": list(self.requires),
             "content_sha256": self.content_sha256,
             "effect_fingerprint": self.effect_fingerprint,
         }
@@ -329,6 +331,7 @@ def _compile_entry(
         "is_directory",
         "template_sync",
         "delivery",
+        "requires",
     }
     unknown = sorted(set(raw) - allowed)
     if unknown:
@@ -351,6 +354,23 @@ def _compile_entry(
     delivery = raw.get("delivery", "copy")
     if delivery != "copy":
         errors.append(f"{context}: copy-synced entry delivery must be 'copy'")
+    raw_requires = raw.get("requires", [])
+    requires: list[str] = []
+    if not isinstance(raw_requires, list):
+        errors.append(f"{context}: requires must be a list")
+    else:
+        for dependency_index, dependency in enumerate(raw_requires):
+            normalized, dependency_error = _safe_relative_path(
+                dependency,
+                "requires",
+                f"{context}, requires entry {dependency_index}",
+            )
+            if dependency_error:
+                errors.append(dependency_error)
+            elif normalized == target:
+                errors.append(f"{context}: requires cannot reference its own target {target!r}")
+            elif normalized not in requires:
+                requires.append(normalized)
     is_directory = raw.get("is_directory", False)
     if not isinstance(is_directory, bool):
         errors.append(f"{context}: is_directory must be a boolean")
@@ -394,6 +414,7 @@ def _compile_entry(
         "overwrite_repos": list(overwrite_repos),
         "template_sync": template_sync,
         "delivery": delivery,
+        "requires": requires,
         "content_sha256": content_sha256,
     }
     return (
@@ -411,6 +432,7 @@ def _compile_entry(
             section=section,
             content_sha256=content_sha256,
             effect_fingerprint=_stable_hash("consumer-sync-source-effect", effect_core),
+            requires=tuple(requires),
         ),
         [],
     )
@@ -479,6 +501,34 @@ def compile_manifest(path: Path, *, repo_root: Path | None = None) -> CompiledMa
                 target_owners[entry.target] = f"{section}[{index}]"
             entries.append(entry)
         sections[section] = entries
+    entries_by_target = {
+        entry.target: entry
+        for entries in sections.values()
+        for entry in entries
+    }
+    for entry in entries_by_target.values():
+        for dependency in entry.requires:
+            if dependency not in entries_by_target:
+                problems.append(
+                    f"target {entry.target!r} requires unknown manifest target {dependency!r}"
+                )
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(target: str, trail: tuple[str, ...] = ()) -> None:
+        if target in visiting:
+            problems.append(f"manifest requires cycle: {' -> '.join((*trail, target))}")
+            return
+        if target in visited or target not in entries_by_target:
+            return
+        visiting.add(target)
+        for dependency in entries_by_target[target].requires:
+            visit(dependency, (*trail, target))
+        visiting.remove(target)
+        visited.add(target)
+
+    for target in sorted(entries_by_target):
+        visit(target)
     raw_removals = data.get("removals", [])
     if not isinstance(raw_removals, list):
         problems.append("removals must be a list")

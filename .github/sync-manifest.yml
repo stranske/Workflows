@@ -760,6 +760,8 @@ actions:
   - source: .github/actions/path-classifier/
     is_directory: true
     description: "Classifies changed PR paths for path-aware expensive job gating"
+    requires:
+      - .github/scripts/sync_pr_lease_contract.js
 
   - source: .github/actions/artifact-cache/
     is_directory: true

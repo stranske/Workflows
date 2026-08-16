@@ -1671,15 +1671,18 @@ jobs:
       - name: Build exact no-change canary evidence
         id: baseline
         env:
+          SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
           PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
           PLAN_SCOPE: ${{ needs.prepare.outputs.plan_scope }}
           SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          CANARY_EVIDENCE_JSON: ${{ inputs.canary_evidence_json || '' }}
         run: |
           node <<'NODE'
           const fs = require('fs');
           const path = require('path');
           const {
+            buildNoChangeEvidence,
             buildNoChangeCanaryEvidence,
           } = require('./.github/scripts/sync_run_contract.js');
           const canaryConfig = JSON.parse(
@@ -1714,6 +1717,42 @@ jobs:
             process.env.GITHUB_OUTPUT,
             `evidence_json=${JSON.stringify(baseline.evidence)}\n`,
           );
+          let campaignEvidence = {
+            schema: 'workflows.consumer-sync-no-change-evidence/v1',
+            version: 1,
+            results: [],
+          };
+          if (process.env.SYNC_PHASE === 'promote') {
+            const nonAdminRepos = String(process.env.REGISTERED_CONSUMER_REPOS || '')
+              .split(/\s+/)
+              .map((repo) => repo.trim())
+              .filter((repo) => repo && repo !== 'stranske/Collab-Admin');
+            const deliveryBaseline = buildNoChangeEvidence({
+              results,
+              expectedRepositories: nonAdminRepos,
+              planId: process.env.PLAN_ID,
+              planScope: process.env.PLAN_SCOPE,
+              scopeBaseSha: process.env.SCOPE_BASE_SHA,
+              sourceCommit: process.env.SOURCE_COMMIT,
+            });
+            if (!deliveryBaseline.ok) {
+              throw new Error(
+                `Unsafe no-change delivery evidence: ${deliveryBaseline.errors.join(', ')}`,
+              );
+            }
+            const rawCanaryEvidence = JSON.parse(process.env.CANARY_EVIDENCE_JSON || '{}');
+            const canaryRows = (rawCanaryEvidence.results || []).filter(
+              (row) => row.evidence_source === 'no-change-canary',
+            );
+            campaignEvidence = {
+              ...deliveryBaseline.evidence,
+              results: [...canaryRows, ...deliveryBaseline.evidence.results],
+            };
+          }
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `campaign_evidence_json=${JSON.stringify(campaignEvidence)}\n`,
+          );
           NODE
 
       - name: Setup API client
@@ -1732,6 +1771,7 @@ jobs:
           SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
           CANARY_BASELINE_EVIDENCE_JSON: ${{ steps.baseline.outputs.evidence_json }}
+          CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: ${{ steps.baseline.outputs.campaign_evidence_json }}
         with:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
@@ -1746,7 +1786,10 @@ jobs:
               capabilities: ['actions:write'],
             });
             const phase = process.env.SYNC_PHASE;
-            const activeSyncHash = phase === 'canary' ? 'candidate' : 'delivery';
+            // Candidate heads stay open after canary validation. Promotion prepares
+            // the non-canary delivery heads, then Maint 71 commits both stable lanes
+            // from one exact-head campaign authorization.
+            const activeSyncHash = phase === 'canary' ? 'candidate' : 'campaign';
             const nonAdminRepos = String(process.env.REGISTERED_CONSUMER_REPOS || '')
               .split(/\s+/)
               .map((repo) => repo.trim())
@@ -1767,7 +1810,11 @@ jobs:
               inputs.canary_baseline_evidence_json =
                 process.env.CANARY_BASELINE_EVIDENCE_JSON || '';
             }
-            if (activeSyncHash === 'delivery') inputs.repos = nonAdminRepos.join(',');
+            if (activeSyncHash === 'campaign') {
+              inputs.campaign_no_change_evidence_json =
+                process.env.CAMPAIGN_NO_CHANGE_EVIDENCE_JSON || '';
+            }
+            if (activeSyncHash === 'campaign') inputs.repos = nonAdminRepos.join(',');
             await withRetry((client) => client.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,

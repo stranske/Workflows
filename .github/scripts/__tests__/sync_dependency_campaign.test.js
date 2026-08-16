@@ -41,7 +41,13 @@ test('mergeDeliveryHandoffs retains one current record per generated PR', () => 
     ...current,
     branch: '',
     lane: '',
-    continuation: { class: '', lane: '', reason: '', resume_after: '' },
+    plan_id: '',
+    plan_scope: '',
+    scope_base_sha: '',
+    source_commit: '',
+    canary_baseline_evidence_json: '',
+    campaign_no_change_evidence_json: '',
+    continuation: { class: '', lane: '', reason: '', resume_after: '', key: '' },
     observed_at: '2026-08-02T00:00:00Z',
   }]);
 });
@@ -87,7 +93,7 @@ test('plans only due transient Maint 71 lanes and suppresses candidates during d
   }).length, 0);
   assert.deepEqual(planMaint71Continuations([candidate], {
     now: '2026-08-15T12:10:00Z',
-  }), []);
+  }).map((item) => item.lane), ['candidate']);
   assert.deepEqual(planMaint71Continuations([candidate], {
     now: '2026-08-15T12:10:00.001Z',
   }).map((item) => ({ lane: item.lane, branch: item.branch })), [{
@@ -104,6 +110,41 @@ test('plans only due transient Maint 71 lanes and suppresses candidates during d
   assert.deepEqual(planMaint71Continuations([candidate, actionableDelivery], {
     now: '2026-08-15T12:11:00Z',
   }).map((item) => item.lane), ['candidate']);
+});
+
+test('campaign continuations preserve idempotency and immutable plan bindings', () => {
+  const campaign = {
+    schema: 'workflows-generated-delivery-handoff/v1',
+    repository: 'stranske/Travel',
+    pr: 11,
+    branch: 'sync/workflows-candidate',
+    head_sha: 'abc',
+    delivery_generation: 'g1',
+    disposition: 'awaiting-checks',
+    blocker_owner: 'ci',
+    next_command: 'await-required-checks',
+    check_state: 'checks_pending',
+    review_state: 'clear',
+    plan_id: 'plan-abc',
+    plan_scope: 'source-delta',
+    scope_base_sha: 'base-abc',
+    source_commit: 'source-abc',
+    continuation: {
+      class: 'transient', lane: 'campaign', reason: 'checks_pending',
+      resume_after: '2026-08-15T12:10:00Z', key: 'continuation-abc',
+    },
+  };
+  const [planned] = planMaint71Continuations([campaign], {
+    now: '2026-08-15T12:10:00Z',
+  });
+  assert.equal(planned.lane, 'campaign');
+  assert.equal(planned.continuation_key, 'continuation-abc');
+  assert.deepEqual(planned.immutable_handoff, {
+    plan_id: 'plan-abc',
+    plan_scope: 'source-delta',
+    scope_base_sha: 'base-abc',
+    source_commit: 'source-abc',
+  });
 });
 
 test('normalizeDeliveryHandoff rejects incomplete restart fields', () => {
