@@ -57,23 +57,23 @@ provides:
 
 ### Agent Automation System
 
-The Workflows repo includes a sophisticated agent automation system:
+The Workflows repo provides the shared implementations behind these consumer entry points:
 
 | Component | Purpose |
 |-----------|---------|
-| **Agents 63 Issue Intake** | Converts labeled issues into agent work items |
-| **Agents 70 Orchestrator** | Central control for readiness, bootstrap, keepalive |
-| **Agents 71-73 Codex Belt** | Dispatcher → Worker → Conveyor pipeline for PRs |
-| **Keepalive System** | Monitors stalled agent PRs and nudges them |
+| **Agents Issue Intake** (`agents-issue-intake.yml`) | Thin caller that forwards syntactically valid assignment labels to the shared issue bridge |
+| **Agents 71 Dispatcher + Agents 72 Worker wrapper** (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`) | Auto-pilot issue queue and bounded worker dispatch |
+| **Agents 80 PR Event Hub** (`agents-80-pr-event-hub.yml`) | Consolidates PR, comment, and Gate events for PR metadata and follow-ups |
+| **Agents 81 Gate Followups** (`agents-81-gate-followups.yml`) | Owns consumer keepalive evaluation, supported runner dispatch, and guarded post-Gate delivery |
+| **Verifier** (`agents-verifier.yml`) | Runs explicit post-merge evaluation and comparison lanes |
 | **Autofix** | Automatic formatting fixes on PRs |
 
 ### Key Features
 
 - **Readiness probes**: Validates agent availability before work
-- **Bootstrap**: Creates branches and PRs from labeled issues
-- **Keepalive**: Monitors agent PRs and posts reminder comments
-- **Conveyor**: Auto-merges successful PRs and cleans up
-- **Watchdog**: Detects stalled automation
+- **Bootstrap**: Creates ready-for-review branches and PRs from labeled issues
+- **Keepalive**: Evaluates the current Gate/task state and dispatches bounded supported-agent follow-ups
+- **Guarded closeout**: Merges only after the unchanged exact head passes checks, review-thread, review-window, and merge-state gates
 
 ---
 
@@ -128,18 +128,24 @@ Issue created → agent:codex label added
                       ↓
           Issue Intake validates
                       ↓
-        Bootstrap creates branch + PR
+        Bootstrap creates ready branch + PR
                       ↓
          Agent works on the code
                       ↓
             CI runs on changes
                       ↓
-    ┌─────────────────┴─────────────────┐
-    │                                    │
- CI passes                          CI fails
-    │                                    │
-Conveyor merges               Keepalive nudges agent
+              Agents 81 evaluates Gate
+                         ↓
+             ┌───────────┴───────────┐
+             │                       │
+       tasks complete          work or repair remains
+             │                       │
+ guarded exact-head closer     supported runner dispatch
 ```
+
+The retired consumer orchestrator and automatic conveyor are not local entry points. Agents 73 has
+no local caller in the current consumer topology, and Agents 81 does not merge merely because CI is
+green.
 
 ---
 
