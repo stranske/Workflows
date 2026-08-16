@@ -116,36 +116,53 @@ jobs:
           base_sha="$INPUT_BASE_SHA"
           source_commit="$INPUT_HEAD_SHA"
 
-          if [ "$scope" = "auto" ]; then
-            scope="full"
-            if [ "$REQUESTED_PHASE" = "promote" ] && [ -n "$CANARY_EVIDENCE_JSON" ]; then
-              evidence_rows=$(jq -ce '
-                if type == "array" then .
-                elif (.results | type) == "array" then .results
-                else error("promotion evidence must be an array or contain results")
-                end
-              ' <<<"$CANARY_EVIDENCE_JSON")
-              scope=$(jq -er '
-                [.[].plan_scope // "full"] | unique |
-                if length == 1 then .[0]
-                else error("mixed plan scopes in canary evidence")
+          if [ "$REQUESTED_PHASE" = "promote" ] && [ -n "$CANARY_EVIDENCE_JSON" ]; then
+            evidence_rows=$(jq -ce '
+              if type == "array" then .
+              elif (.results | type) == "array" then .results
+              else error("promotion evidence must be an array or contain results")
+              end
+            ' <<<"$CANARY_EVIDENCE_JSON")
+            evidence_scope=$(jq -er '
+              [.[].plan_scope // "full"] | unique |
+              if length == 1 then .[0]
+              else error("mixed plan scopes in canary evidence")
+              end
+            ' <<<"$evidence_rows")
+            if [ "$scope" = "auto" ]; then
+              scope="$evidence_scope"
+            elif [ "$scope" != "$evidence_scope" ]; then
+              echo "::error::Requested scope $scope does not match promotion evidence scope $evidence_scope"
+              exit 1
+            fi
+
+            # Promotion evidence is authoritative for every plan scope. Falling
+            # back to the dispatch workflow's GITHUB_SHA can mix a later main
+            # commit into an already-authorized full-plan delivery.
+            source_commit=$(jq -er '
+              [.[].source_commit // ""] | unique |
+              if length == 1 and .[0] != "" then .[0]
+              else error("missing or mixed promotion source commit")
+              end
+            ' <<<"$evidence_rows")
+
+            if [ "$scope" = "source-delta" ]; then
+              base_sha=$(jq -er '
+                [.[].scope_base_sha // ""] | unique |
+                if length == 1 and .[0] != "" then .[0]
+                else error("missing or mixed source-delta base SHA")
                 end
               ' <<<"$evidence_rows")
-              if [ "$scope" = "source-delta" ]; then
-                base_sha=$(jq -er '
-                  [.[].scope_base_sha // ""] | unique |
-                  if length == 1 and .[0] != "" then .[0]
-                  else error("missing or mixed source-delta base SHA")
-                  end
-                ' <<<"$evidence_rows")
-                source_commit=$(jq -er '
-                  [.[].source_commit // ""] | unique |
-                  if length == 1 and .[0] != "" then .[0]
-                  else error("missing or mixed source-delta head SHA")
-                  end
-                ' <<<"$evidence_rows")
-              fi
+            else
+              jq -e 'all(.[]; (.scope_base_sha // "") == "")' \
+                <<<"$evidence_rows" >/dev/null || {
+                echo "::error::Full-plan promotion evidence must not contain a source-range base"
+                exit 1
+              }
+              base_sha=""
             fi
+          elif [ "$scope" = "auto" ]; then
+            scope="full"
           fi
 
           case "$scope" in
@@ -177,8 +194,8 @@ jobs:
               exit 1
             }
           fi
-          source_commit="${source_commit,,}"
-          base_sha="${base_sha,,}"
+          source_commit=$(printf '%s' "$source_commit" | tr '[:upper:]' '[:lower:]')
+          base_sha=$(printf '%s' "$base_sha" | tr '[:upper:]' '[:lower:]')
           {
             echo "plan_scope=$scope"
             echo "scope_base_sha=$base_sha"

@@ -320,11 +320,13 @@ gh workflow run maint-68-sync-consumer-repos.yml \
   -f scope_head_sha=<repair-merge-commit>
 ```
 
-Maint 71 writes that same scope and immutable range into every canary evidence
-row. `phase=promote` with `delivery_scope=auto` recovers the exact range from
-the evidence, checks out that historical source head, and recompiles the same
-scoped plan. A later commit on `main` therefore cannot silently join an
-authorized delivery. Do not substitute a moving branch name for either SHA.
+Maint 71 writes that same scope, source commit, and immutable range into every
+canary evidence row. Every `phase=promote` run recovers the exact source commit
+from the evidence; a source-delta promotion also recovers its exact base. The
+workflow checks out that historical source head and recompiles the same plan.
+A later commit on `main` therefore cannot silently join an authorized delivery,
+including a full-plan promotion. Do not substitute a moving branch name for
+either source-delta SHA.
 Before any checked-out source script runs, Maint 68 requires the resolved source
 commit to be an ancestor of the workflow dispatch ref and the scope base to be
 an ancestor of that source. New source-delta delivery commits also bind the full

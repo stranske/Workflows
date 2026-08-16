@@ -29,6 +29,8 @@ re-create the double delivery this issue removes).
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -284,6 +286,63 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     config = json.loads((REPO_ROOT / "config" / "consumer_sync_canaries.json").read_text())
     assert config["schema"] == "workflows.consumer-sync-canaries/v1"
     assert 2 <= len(config["canaries"]) <= 3
+
+
+def test_full_plan_promotion_preserves_evidence_source_commit(tmp_path: Path) -> None:
+    """A later workflow ref must not replace the source authorized by canaries."""
+    workflow = yaml.safe_load(SYNC_WORKFLOW_PATH.read_text(encoding="utf-8"))
+    step = next(
+        item
+        for item in workflow["jobs"]["prepare"]["steps"]
+        if item.get("name") == "Resolve immutable plan scope"
+    )
+    canary_source = "a" * 40
+    later_main = "b" * 40
+    evidence = [
+        {
+            "repo": repo,
+            "plan_scope": "full",
+            "scope_base_sha": "",
+            "source_commit": canary_source,
+        }
+        for repo in (
+            "stranske/Travel-Plan-Permission",
+            "stranske/trip-planner",
+            "stranske/Portable-Alpha-Extension-Model",
+        )
+    ]
+    output_path = tmp_path / "github-output"
+    env = os.environ.copy()
+    env.update(
+        {
+            "REQUESTED_SCOPE": "auto",
+            "INPUT_BASE_SHA": "",
+            "INPUT_HEAD_SHA": "",
+            "REQUESTED_PHASE": "promote",
+            "CANARY_EVIDENCE_JSON": json.dumps(evidence),
+            "GITHUB_SHA": later_main,
+            "GITHUB_OUTPUT": str(output_path),
+        }
+    )
+
+    completed = subprocess.run(
+        ["bash", "-c", step["run"]],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    outputs = dict(
+        line.split("=", 1)
+        for line in output_path.read_text(encoding="utf-8").splitlines()
+    )
+    assert outputs == {
+        "plan_scope": "full",
+        "scope_base_sha": "",
+        "source_commit": canary_source,
+    }
 
 
 def test_maint_71_emits_canary_evidence_with_review_debt() -> None:
