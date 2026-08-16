@@ -156,3 +156,10 @@ def test_consumer_setup_uses_current_ready_for_review_topology() -> None:
     assert "agents-81-gate-followups.yml" in checklist
     assert "Keepalive Sweep re-enters the Agents 81 evaluation" in checklist
     assert "both `agent:codex` and `agents:keepalive` labels" in checklist
+
+    user_guide = (
+        REPO_ROOT / "templates" / "consumer-repo" / "WORKFLOW_USER_GUIDE.md"
+    ).read_text(encoding="utf-8")
+    assert "PR Meta" not in user_guide
+    assert affirmative_draft_instruction.search(user_guide) is None
+    assert "opens a ready-for-review PR" in user_guide

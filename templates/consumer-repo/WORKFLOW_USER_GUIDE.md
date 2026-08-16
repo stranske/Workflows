@@ -192,7 +192,7 @@ Issue: "Add user authentication"
 
 | Event | Workflows That Trigger |
 |-------|----------------------|
-| PR opened | Gate (CI), PR Meta, Agents Guard |
+| PR opened | Gate (CI), Agents 80 PR Event Hub, Agents Guard |
 | Label added: `autofix` | Autofix loop |
 | Label added: `agents:keepalive` | Enables keepalive loop (runs on Gate workflow_run) |
 | Label removed: `agents:paused` | Keepalive resumes |
