@@ -484,7 +484,12 @@ Campaign hold states have explicit recovery paths. For
 plan and source commit, then authorize the exact prepared heads. A
 `campaign_prepared` row is intentionally waiting for that authorization and
 must not be merged by an unscoped pass. A `campaign_no_change_verified` row is
-already terminal evidence and needs no PR mutation. For `target_missing` with
+already terminal evidence and needs no PR mutation. Promotion-produced
+`no-change-delivery` evidence carries an explicit exact-tree validation marker;
+Maint 71 rechecks its immutable plan/source binding and recorded default-branch
+head, then treats it as terminal without dispatching a redundant Gate for an
+unchanged repository. Canary no-change evidence retains the live required-check
+revalidation that authorized promotion. For `target_missing` with
 reason `campaign_pr_and_no_change_evidence_missing`, regenerate the stable
 delivery for the same plan; if a partial commit pass already merged it, resume
 the prepare pass so Maint 71 rebuilds authorization from trusted closed merged

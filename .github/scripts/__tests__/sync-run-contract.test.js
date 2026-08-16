@@ -29,6 +29,11 @@ test('buildNoChangeEvidence binds unchanged delivery repos to an immutable campa
   assert.equal(result.ok, true);
   assert.equal(result.evidence.schema, 'workflows.consumer-sync-no-change-evidence/v1');
   assert.equal(result.evidence.results[0].evidence_source, 'no-change-delivery');
+  assert.equal(result.evidence.results[0].required_check_state, 'not-applicable');
+  assert.equal(
+    result.evidence.results[0].delivery_validation_state,
+    'exact-tree-no-change',
+  );
 });
 
 test('buildNoChangeEvidence fails closed on immutable mismatches and duplicate rows', () => {

@@ -53,6 +53,7 @@ const {
 } = require('../sync_pr_merge_contract');
 const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
 const {
+  campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,
   legacyStatusAsCheck,
   normalizeReviewPolicy,
@@ -122,6 +123,62 @@ test('parseNoChangeEvidenceDocument shares fail-closed lane validation', () => {
     }),
     /only valid for the candidate lane/,
   );
+});
+
+test('campaign no-change delivery evidence is exact-tree terminal without a live Gate', () => {
+  assert.equal(campaignNoChangeRequiresLiveGate({
+    evidence_source: 'no-change-delivery',
+    delivery_validation_state: 'exact-tree-no-change',
+  }), false);
+  assert.equal(campaignNoChangeRequiresLiveGate({
+    evidence_source: 'no-change-canary',
+  }), true);
+});
+
+test('campaign no-change delivery evidence requires exact-tree validation', () => {
+  const planId = 'plan-abc';
+  const sourceCommit = 'a'.repeat(40);
+  const row = {
+    repo: 'stranske/Ready',
+    plan_id: planId,
+    plan_scope: 'full',
+    scope_base_sha: '',
+    source_commit: sourceCommit,
+    head_sha: 'b'.repeat(40),
+    evidence_source: 'no-change-delivery',
+    required_check_state: 'not-applicable',
+    active_review_thread_count: 0,
+  };
+  const options = {
+    lane: 'campaign',
+    requestedSyncHash: 'campaign',
+    documentName: 'Campaign no-change evidence',
+    rowName: 'campaign no-change evidence',
+    schema: 'workflows.consumer-sync-no-change-evidence/v1',
+    acceptedEvidenceSources: ['no-change-canary', 'no-change-delivery'],
+    expectedRepositories: ['stranske/Ready'],
+    expectedPlanId: planId,
+    expectedPlanScope: 'full',
+    expectedScopeBaseSha: '',
+    expectedSourceCommit: sourceCommit,
+  };
+  assert.throws(
+    () => parseNoChangeEvidenceDocument(JSON.stringify({
+      schema: 'workflows.consumer-sync-no-change-evidence/v1',
+      version: 1,
+      results: [row],
+    }), options),
+    /Unsafe campaign no-change evidence: stranske\/Ready/,
+  );
+  const parsed = parseNoChangeEvidenceDocument(JSON.stringify({
+    schema: 'workflows.consumer-sync-no-change-evidence/v1',
+    version: 1,
+    results: [{
+      ...row,
+      delivery_validation_state: 'exact-tree-no-change',
+    }],
+  }), options);
+  assert.equal(parsed.get('stranske/Ready').head_sha, 'b'.repeat(40));
 });
 
 test('transient delivery holds carry a durable due time and lane', () => {
@@ -733,6 +790,123 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
       unconfiguredReport.results[0].reason,
       'no_change_canary_required_checks_unconfigured',
     );
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('maint71 accepts exact-tree no-change delivery evidence without a redundant Gate', async () => {
+  const originalCwd = process.cwd();
+  const envKeys = [
+    'REGISTERED_REPOS_INPUT',
+    'CLEANUP_BRANCHES_INPUT',
+    'DRY_RUN_INPUT',
+    'AUTO_MERGE_INPUT',
+    'ACTIVE_SYNC_HASH_INPUT',
+    'EXPECTED_PLAN_ID_INPUT',
+    'EXPECTED_PLAN_SCOPE_INPUT',
+    'EXPECTED_SCOPE_BASE_SHA_INPUT',
+    'EXPECTED_SOURCE_COMMIT_INPUT',
+    'CANARY_BASELINE_EVIDENCE_JSON',
+    'CAMPAIGN_NO_CHANGE_EVIDENCE_JSON',
+    'OWNER_PR_PAT',
+    'CONSUMER_SYNC_CANARIES_PATH',
+    'TRUSTED_SYNC_ACTORS',
+    'SYNC_PR_MERGE_REPORT_JSON',
+  ];
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-campaign-no-change-'));
+  const reportPath = path.join(tempDir, 'artifacts', 'merge-report.json');
+  const canaryConfigPath = path.join(tempDir, 'consumer-sync-canaries.json');
+  const repoName = 'stranske/Ready';
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const sourceCommit = 'b'.repeat(40);
+  const headSha = 'c'.repeat(40);
+  fs.writeFileSync(canaryConfigPath, JSON.stringify({ canaries: [] }));
+  const evidence = {
+    schema: 'workflows.consumer-sync-no-change-evidence/v1',
+    version: 1,
+    results: [{
+      repo: repoName,
+      plan_id: planId,
+      plan_scope: 'full',
+      scope_base_sha: '',
+      source_commit: sourceCommit,
+      head_sha: headSha,
+      evidence_source: 'no-change-delivery',
+      required_check_state: 'not-applicable',
+      active_review_thread_count: 0,
+      delivery_validation_state: 'exact-tree-no-change',
+    }],
+  };
+  let requiredCheckReads = 0;
+  const github = {
+    paginate: async () => [],
+    rest: {
+      pulls: { list: () => {} },
+      repos: {
+        get: async () => ({ data: { default_branch: 'main' } }),
+        getBranchProtection: async () => {
+          requiredCheckReads += 1;
+          throw new Error('campaign delivery no-change evidence must not read required checks');
+        },
+        createDispatchEvent: async () => ({}),
+      },
+      git: {
+        getRef: async () => ({ data: { object: { sha: headSha } } }),
+      },
+    },
+  };
+  const failures = [];
+  const core = {
+    notice: () => {},
+    setFailed: (message) => failures.push(message),
+    warning: () => {},
+    summary: { addRaw: () => ({ write: async () => {} }) },
+  };
+
+  try {
+    process.chdir(tempDir);
+    process.env.REGISTERED_REPOS_INPUT = repoName;
+    process.env.CLEANUP_BRANCHES_INPUT = 'false';
+    process.env.DRY_RUN_INPUT = 'true';
+    process.env.AUTO_MERGE_INPUT = 'false';
+    process.env.ACTIVE_SYNC_HASH_INPUT = 'campaign';
+    process.env.EXPECTED_PLAN_ID_INPUT = planId;
+    process.env.EXPECTED_PLAN_SCOPE_INPUT = 'full';
+    process.env.EXPECTED_SCOPE_BASE_SHA_INPUT = '';
+    process.env.EXPECTED_SOURCE_COMMIT_INPUT = sourceCommit;
+    process.env.CANARY_BASELINE_EVIDENCE_JSON = '';
+    process.env.CAMPAIGN_NO_CHANGE_EVIDENCE_JSON = JSON.stringify(evidence);
+    process.env.OWNER_PR_PAT = 'test-owner-token';
+    process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
+    process.env.TRUSTED_SYNC_ACTORS = 'stranske';
+    process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
+
+    await run({
+      github,
+      core,
+      context: {
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        payload: {},
+        runId: 6,
+        runNumber: 6,
+        workflow: 'Maint 71',
+        ref: 'refs/heads/main',
+        sha: sourceCommit,
+      },
+    });
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.results[0].status, 'campaign_no_change_verified');
+    assert.equal(report.results[0].source_commit, sourceCommit);
+    assert.equal(requiredCheckReads, 0);
+    assert.deepEqual(failures, []);
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {

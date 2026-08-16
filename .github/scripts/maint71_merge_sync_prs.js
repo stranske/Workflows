@@ -119,6 +119,7 @@ function parseNoChangeEvidenceDocument(raw = '', {
     if (evidenceByRepo.has(repository)) {
       throw new Error(`Duplicate ${rowName}: ${repository}`);
     }
+    const isNoChangeDelivery = row?.evidence_source === 'no-change-delivery';
     if (
       !sources.has(row?.evidence_source)
       || String(row?.plan_id || '').trim() !== expectedPlanId
@@ -126,14 +127,24 @@ function parseNoChangeEvidenceDocument(raw = '', {
       || String(row?.scope_base_sha || '').trim().toLowerCase() !== expectedScopeBaseSha
       || String(row?.source_commit || '').trim().toLowerCase() !== expectedSourceCommit
       || !/^[0-9a-f]{40}$/.test(headSha)
-      || row?.required_check_state !== 'success'
+      || row?.required_check_state !== (
+        isNoChangeDelivery ? 'not-applicable' : 'success'
+      )
       || Number(row?.active_review_thread_count) !== 0
+      || (
+        isNoChangeDelivery
+        && row?.delivery_validation_state !== 'exact-tree-no-change'
+      )
     ) {
       throw new Error(`Unsafe ${rowName}: ${repository}`);
     }
     evidenceByRepo.set(repository, { ...row, repo: repository, head_sha: headSha });
   }
   return evidenceByRepo;
+}
+
+function campaignNoChangeRequiresLiveGate(evidence = {}) {
+  return evidence?.evidence_source !== 'no-change-delivery';
 }
 
 function validateReviewResolutionProof(proof = {}, {
@@ -1275,27 +1286,29 @@ async function run({ github, context, core }) {
           });
           continue;
         }
-        const baselineChecks = await classifyRequiredChecksForRef({
-          owner,
-          repo,
-          branch: repositoryState.default_branch,
-          ref: liveHeadSha,
-        });
-        if (
-          baselineChecks.requiredContexts.size === 0
-          || baselineChecks.classification.status !== 'ready'
-        ) {
-          results.push({
+        if (campaignNoChangeRequiresLiveGate(campaignNoChangeEvidence)) {
+          const baselineChecks = await classifyRequiredChecksForRef({
             owner,
             repo,
-            status: baselineChecks.requiredContexts.size === 0
-              ? 'checks_failed'
-              : baselineChecks.classification.status,
-            expected_head_sha: campaignNoChangeEvidence.head_sha,
-            observed_head_sha: liveHeadSha,
-            reason: 'campaign_no_change_required_checks_not_ready',
+            branch: repositoryState.default_branch,
+            ref: liveHeadSha,
           });
-          continue;
+          if (
+            baselineChecks.requiredContexts.size === 0
+            || baselineChecks.classification.status !== 'ready'
+          ) {
+            results.push({
+              owner,
+              repo,
+              status: baselineChecks.requiredContexts.size === 0
+                ? 'checks_failed'
+                : baselineChecks.classification.status,
+              expected_head_sha: campaignNoChangeEvidence.head_sha,
+              observed_head_sha: liveHeadSha,
+              reason: 'campaign_no_change_required_checks_not_ready',
+            });
+            continue;
+          }
         }
         results.push({
           owner,
@@ -2529,6 +2542,7 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,
   legacyStatusAsCheck,
   normalizeReviewPolicy,

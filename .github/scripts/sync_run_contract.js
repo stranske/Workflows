@@ -44,7 +44,7 @@ function buildNoChangeEvidenceDocument({
     if (resultScopeBaseSha !== normalizedScopeBaseSha) errors.push(`${errorPrefix}_scope_base_mismatch:${repo}`);
     if (!normalizedSourceCommit || resultSourceCommit !== normalizedSourceCommit) errors.push(`${errorPrefix}_source_mismatch:${repo}`);
     if (!shaPattern.test(consumerHeadSha)) errors.push(`${errorPrefix}_head_invalid:${repo}`);
-    rows.push({
+    const row = {
       repo,
       plan_id: resultPlanId,
       plan_scope: resultPlanScope,
@@ -52,9 +52,15 @@ function buildNoChangeEvidenceDocument({
       source_commit: resultSourceCommit,
       head_sha: consumerHeadSha,
       evidence_source: evidenceSource,
-      required_check_state: 'success',
+      required_check_state: evidenceSource === 'no-change-delivery'
+        ? 'not-applicable'
+        : 'success',
       active_review_thread_count: 0,
-    });
+    };
+    if (evidenceSource === 'no-change-delivery') {
+      row.delivery_validation_state = 'exact-tree-no-change';
+    }
+    rows.push(row);
   }
   return {
     ok: errors.length === 0,
