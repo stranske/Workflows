@@ -267,8 +267,13 @@ jobs:
             process.env.DISPATCH_SYNC_HASH,
           ].map((value) => String(value || '').trim()).find(Boolean) || '';
           const selector = raw.startsWith(prefix) ? raw.slice(prefix.length) : raw;
-          if (selector && !['candidate', 'campaign'].includes(selector)) {
-            throw new Error('active sync selector must be candidate or campaign');
+          const namedSelectors = new Set(['candidate', 'campaign', 'delivery', 'dev-tool']);
+          const legacyHash = /^[0-9a-f]{12,64}$/i.test(selector);
+          if (selector && !namedSelectors.has(selector) && !legacyHash) {
+            throw new Error(
+              'active sync selector must be candidate, campaign, delivery, dev-tool, ' +
+              'or a legacy hex hash',
+            );
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `selector=${selector}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${selector === 'candidate'}\n`);
