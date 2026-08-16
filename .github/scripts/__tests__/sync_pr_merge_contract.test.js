@@ -71,6 +71,7 @@ test('Maint 71 keeps Collab-Admin out of fleet runs but allows an explicit manua
 
   assert.deepEqual(
     selectReconciliationTargets({
+      eventName: 'workflow_dispatch',
       requestedSyncHash: 'delivery',
       inputRepos: 'all',
       registeredRepos,
@@ -82,6 +83,7 @@ test('Maint 71 keeps Collab-Admin out of fleet runs but allows an explicit manua
   );
   assert.deepEqual(
     selectReconciliationTargets({
+      eventName: 'workflow_dispatch',
       requestedSyncHash: 'delivery',
       inputRepos: 'stranske/Collab-Admin',
       registeredRepos,
@@ -93,6 +95,7 @@ test('Maint 71 keeps Collab-Admin out of fleet runs but allows an explicit manua
   );
   assert.deepEqual(
     selectReconciliationTargets({
+      eventName: 'workflow_dispatch',
       requestedSyncHash: 'candidate',
       inputRepos: 'stranske/Collab-Admin',
       registeredRepos,
@@ -101,6 +104,39 @@ test('Maint 71 keeps Collab-Admin out of fleet runs but allows an explicit manua
       manuallyReconcilableRepos,
     }),
     ['stranske/Travel-Plan-Permission'],
+  );
+
+  for (const [eventName, requestedSyncHash] of [
+    ['repository_dispatch', 'delivery'],
+    ['workflow_dispatch', 'campaign'],
+    ['workflow_dispatch', 'dev-tool'],
+    ['workflow_dispatch', ''],
+  ]) {
+    assert.deepEqual(
+      selectReconciliationTargets({
+        eventName,
+        requestedSyncHash,
+        inputRepos: 'stranske/Collab-Admin',
+        registeredRepos,
+        expectedCanaryRepos: [],
+        excludedRepos,
+        manuallyReconcilableRepos,
+      }),
+      [],
+    );
+  }
+
+  assert.deepEqual(
+    selectReconciliationTargets({
+      eventName: 'workflow_dispatch',
+      requestedSyncHash: 'delivery',
+      inputRepos: 'stranske/Trend_Model_Project,stranske/Collab-Admin',
+      registeredRepos,
+      expectedCanaryRepos: [],
+      excludedRepos,
+      manuallyReconcilableRepos,
+    }),
+    ['stranske/Trend_Model_Project'],
   );
 });
 

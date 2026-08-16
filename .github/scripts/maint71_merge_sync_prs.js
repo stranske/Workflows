@@ -173,6 +173,7 @@ function validateReviewResolutionProof(proof = {}, {
 }
 
 function selectReconciliationTargets({
+  eventName,
   requestedSyncHash,
   inputRepos,
   registeredRepos,
@@ -186,13 +187,20 @@ function selectReconciliationTargets({
   if (inputRepos === 'all') {
     return registeredRepos;
   }
-  return inputRepos
+  const requestedRepos = inputRepos
     .split(',')
     .map((repo) => repo.trim())
-    .filter(
-      (repo) =>
-        repo && (!excludedRepos.has(repo) || manuallyReconcilableRepos.has(repo)),
-    );
+    .filter(Boolean);
+  const isExplicitManualDelivery =
+    eventName === 'workflow_dispatch'
+    && requestedSyncHash === 'delivery'
+    && requestedRepos.length === 1
+    && manuallyReconcilableRepos.has(requestedRepos[0]);
+  return requestedRepos.filter(
+    (repo) =>
+      !excludedRepos.has(repo)
+      || (isExplicitManualDelivery && manuallyReconcilableRepos.has(repo)),
+  );
 }
 
 async function collectReviewerEvidence({
@@ -868,6 +876,7 @@ async function run({ github, context, core }) {
   // create target_missing failures and can make promotion evidence unusable.
   // Always derive this target set from the canonical canary registry.
   const targetRepos = selectReconciliationTargets({
+    eventName: context.eventName,
     requestedSyncHash,
     inputRepos,
     registeredRepos,
