@@ -470,6 +470,7 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
       fs.readFileSync(path.join(tempDir, 'artifacts', 'sync-canary-evidence.json'), 'utf8'),
     );
     assert.equal(report.summary.evidence_recovered, 1);
+    assert.equal(report.results[0].branch, 'sync/workflows-candidate');
     assert.equal(evidence.results[0].head_sha, headSha);
     assert.equal(evidence.results[0].evidence_source, 'no-change-canary');
     assert.deepEqual(failures, []);
