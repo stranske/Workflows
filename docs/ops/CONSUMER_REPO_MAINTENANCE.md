@@ -496,7 +496,15 @@ delivery for the same plan; if a partial commit pass already merged it, resume
 the prepare pass so Maint 71 rebuilds authorization from trusted closed merged
 history. `stranske/Collab-Admin` is excluded from campaign authorization because
 it is the generated fleet dashboard/control repository, not a reviewed consumer
-delivery target.
+delivery target. A narrow operational recovery remains available for an
+already-generated administration-surface delivery: manually dispatch
+`maint-71-merge-sync-prs.yml` with exactly
+`repos=stranske/Collab-Admin` and `active_sync_hash=delivery`. The exception is
+accepted only for `workflow_dispatch` with that one normalized repository; it
+does not add Collab-Admin to the registry, candidate or campaign evidence, or
+scheduled, repository-dispatch, workflow-call, mixed-repository, unscoped, or
+other selector runs. Maint 71 still applies the normal exact-head, review,
+required-check, seal, and signature gates before any merge.
 
 Active non-outdated review threads remain merge blockers. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated

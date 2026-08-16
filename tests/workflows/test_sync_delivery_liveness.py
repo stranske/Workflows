@@ -4,6 +4,8 @@ from pathlib import Path
 def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion():
     workflow = Path(".github/workflows/maint-71-merge-sync-prs.yml").read_text()
     executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text()
+    maintenance_guide = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
+    campaign_contract = Path("docs/ops/SYNC_DEPENDENCY_CAMPAIGN.md").read_text()
 
     assert "review_resolution_json:" in workflow
     assert "github.event.client_payload.review_resolution_json" not in workflow
@@ -33,6 +35,10 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "EXCLUDED_REPOS_INPUT: stranske/Collab-Admin" in workflow
     assert "MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin" in workflow
     assert "selectReconciliationTargets" in executor
+    for document in (maintenance_guide, campaign_contract):
+        assert "repos=stranske/Collab-Admin" in document
+        assert "active_sync_hash=delivery" in document
+        assert "workflow_dispatch" in document
     assert "['candidate', 'campaign', 'delivery', 'dev-tool']" in workflow
     assert "/^[0-9a-f]{12,64}$/i.test(selector)" in workflow
     assert "active sync selector must be candidate, campaign, delivery, dev-tool, " in workflow
