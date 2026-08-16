@@ -1410,38 +1410,64 @@ async function run({ github, context, core }) {
         continue;
       }
 
-      if (candidatePRs.length === 0 && requestedSyncHash === 'campaign' && !prepareOnly) {
+      if (candidatePRs.length === 0 && requestedSyncHash === 'campaign') {
         const repoKey = `${owner}/${repo}`;
         const authRow = campaignAuthorizationRowForRepository(
           campaignCommitAuthorization,
           repoKey,
         );
-        if (authRow && !authRow.no_change) {
-          const mergedCampaign = selectLatestMergedSyncPr(closedPRs, trustedSyncActors, {
+        const recoveryIdentity = authRow && !authRow.no_change
+          ? {
             branch: authRow.branch,
             planId: expectedPlanId,
             sourceCommit: expectedSourceCommit,
             prNumber: authRow.pr,
             headSha: authRow.head_sha,
-          });
+          }
+          : prepareOnly
+            ? {
+              branch: syncBranchForHash(selectedSyncHash),
+              planId: expectedPlanId,
+              sourceCommit: expectedSourceCommit,
+            }
+            : null;
+        if (recoveryIdentity) {
+          const mergedCampaign = selectLatestMergedSyncPr(
+            closedPRs,
+            trustedSyncActors,
+            recoveryIdentity,
+          );
           if (mergedCampaign) {
-            results.push({
-              owner,
-              repo,
-              pr: mergedCampaign.number,
-              branch: mergedCampaign.head.ref,
-              head_sha: mergedCampaign.head.sha,
-              delivery_generation: authRow.delivery_generation,
-              plan_id: expectedPlanId,
-              source_commit: expectedSourceCommit,
-              status: 'merged',
-              evidence_source: 'campaign-commit-recovery',
-            });
-            console.log(
-              `✓ Recovered already-merged campaign row from PR #${mergedCampaign.number} ` +
-                `(${mergedCampaign.head.sha})`,
-            );
-            continue;
+            const mergedDelivery = parseDeliveryRecord(mergedCampaign.body || '');
+            const deliveryGeneration = authRow?.delivery_generation
+              || mergedDelivery?.generation
+              || '';
+            if (!deliveryGeneration) {
+              console.log(
+                `Merged campaign PR #${mergedCampaign.number} lacks delivery generation; ` +
+                  'leaving recovery fail-closed',
+              );
+            } else {
+              results.push({
+                owner,
+                repo,
+                pr: mergedCampaign.number,
+                branch: mergedCampaign.head.ref,
+                head_sha: mergedCampaign.head.sha,
+                delivery_generation: deliveryGeneration,
+                plan_id: expectedPlanId,
+                source_commit: expectedSourceCommit,
+                status: 'merged',
+                evidence_source: prepareOnly
+                  ? 'campaign-prepare-recovery'
+                  : 'campaign-commit-recovery',
+              });
+              console.log(
+                `✓ Recovered already-merged campaign row from PR #${mergedCampaign.number} ` +
+                  `(${mergedCampaign.head.sha})`,
+              );
+              continue;
+            }
           }
         }
       }

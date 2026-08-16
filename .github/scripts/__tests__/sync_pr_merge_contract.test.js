@@ -845,6 +845,141 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
   }
 });
 
+test('maint71 prepare pass recovers an already-merged campaign row', async () => {
+  const originalCwd = process.cwd();
+  const envKeys = [
+    'REGISTERED_REPOS_INPUT',
+    'CLEANUP_BRANCHES_INPUT',
+    'DRY_RUN_INPUT',
+    'AUTO_MERGE_INPUT',
+    'PREPARE_ONLY_INPUT',
+    'ACTIVE_SYNC_HASH_INPUT',
+    'EXPECTED_PLAN_ID_INPUT',
+    'EXPECTED_PLAN_SCOPE_INPUT',
+    'EXPECTED_SCOPE_BASE_SHA_INPUT',
+    'EXPECTED_SOURCE_COMMIT_INPUT',
+    'OWNER_PR_PAT',
+    'CONSUMER_SYNC_CANARIES_PATH',
+    'TRUSTED_SYNC_ACTORS',
+    'SYNC_PR_MERGE_REPORT_JSON',
+  ];
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-campaign-recovery-'));
+  const reportPath = path.join(tempDir, 'artifacts', 'merge-report.json');
+  const canaryConfigPath = path.join(tempDir, 'consumer-sync-canaries.json');
+  fs.writeFileSync(canaryConfigPath, JSON.stringify({ canaries: [] }));
+  const marker = '<!-- workflows-consumer-sync:v1 {"schema":"workflows-consumer-sync-pr/v1","consumer_repo":"stranske/Travel-Plan-Permission","plan_id":"plan-abc","sync_phase":"promotion"} -->';
+  const delivery = '<!-- sync-pr-delivery-record:v1 {"schema":"sync-pr-delivery-record/v1","durable_issue_url":"https://github.com/stranske/Workflows/issues/1836","plan_id":"plan-abc","generation":"campaign-1","repository":"stranske/Travel-Plan-Permission","desired_tree_hash":"tree-abc","source_commit":"source-abc","lease_expires_at":"2099-08-14T00:00:00Z","predecessor_prs":[],"successor_prs":[]} -->';
+  const mergedCampaign = {
+    number: 1448,
+    title: 'chore: sync workflow templates',
+    body: `${marker}\n${delivery}`,
+    created_at: '2026-08-11T05:22:39Z',
+    updated_at: '2026-08-11T07:31:00Z',
+    merged_at: '2026-08-11T07:31:00Z',
+    base: { ref: 'main' },
+    head: { ref: 'sync/workflows-delivery', sha: 'head-campaign' },
+    user: { login: 'stranske' },
+  };
+  const github = {
+    paginate: async (_method, params) => {
+      if (params.state === 'open') return [];
+      if (params.state === 'closed') return [mergedCampaign];
+      return [];
+    },
+    graphql: async () => ({
+      repository: {
+        object: {
+          signature: { isValid: true, state: 'VALID', wasSignedByGitHub: true },
+        },
+        pullRequest: {
+          state: 'MERGED',
+          mergedAt: mergedCampaign.merged_at,
+          headRefOid: mergedCampaign.head.sha,
+          body: mergedCampaign.body,
+          createdAt: mergedCampaign.created_at,
+          updatedAt: mergedCampaign.updated_at,
+          reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] },
+        },
+      },
+    }),
+    rest: {
+      pulls: {
+        list: () => {},
+        get: async () => ({ data: mergedCampaign }),
+      },
+      checks: { listForRef: () => {} },
+      git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
+      repos: {
+        getBranchProtection: async () => {
+          const error = new Error('Resource not accessible by integration');
+          error.status = 403;
+          throw error;
+        },
+        getRepoRulesets: async () => ({ data: [] }),
+        getCombinedStatusForRef: async () => ({ data: { statuses: [] } }),
+        createDispatchEvent: async () => ({}),
+      },
+    },
+  };
+  const failures = [];
+  const core = {
+    addRaw: () => ({ write: async () => {} }),
+    notice: () => {},
+    setFailed: (message) => failures.push(message),
+    warning: () => {},
+    summary: { addRaw: () => ({ write: async () => {} }) },
+  };
+
+  try {
+    process.chdir(tempDir);
+    process.env.REGISTERED_REPOS_INPUT =
+      'stranske/Travel-Plan-Permission,stranske/Collab-Admin';
+    process.env.CLEANUP_BRANCHES_INPUT = 'false';
+    process.env.DRY_RUN_INPUT = 'true';
+    process.env.AUTO_MERGE_INPUT = 'false';
+    process.env.PREPARE_ONLY_INPUT = 'true';
+    process.env.ACTIVE_SYNC_HASH_INPUT = 'campaign';
+    process.env.EXPECTED_PLAN_ID_INPUT = 'plan-abc';
+    process.env.EXPECTED_PLAN_SCOPE_INPUT = 'full';
+    process.env.EXPECTED_SCOPE_BASE_SHA_INPUT = '';
+    process.env.EXPECTED_SOURCE_COMMIT_INPUT = 'source-abc';
+    process.env.OWNER_PR_PAT = 'test-owner-token';
+    process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
+    process.env.TRUSTED_SYNC_ACTORS = 'stranske';
+    process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
+
+    await run({
+      github,
+      core,
+      context: {
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        payload: {},
+        runId: 3,
+        runNumber: 3,
+        workflow: 'Maint 71',
+        ref: 'refs/heads/main',
+        sha: 'source-abc',
+      },
+    });
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.summary.merged, 1);
+    assert.equal(report.results[0].pr, 1448);
+    assert.equal(report.results[0].head_sha, 'head-campaign');
+    assert.equal(report.results[0].delivery_generation, 'campaign-1');
+    assert.equal(report.results[0].evidence_source, 'campaign-prepare-recovery');
+    assert.deepEqual(failures, []);
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('normalizeSyncHash accepts raw hashes and branch names', () => {
   assert.equal(normalizeSyncHash('5108b94a2435'), '5108b94a2435');
   assert.equal(normalizeSyncHash('sync/workflows-5108b94a2435'), '5108b94a2435');
