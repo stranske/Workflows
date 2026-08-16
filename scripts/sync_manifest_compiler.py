@@ -501,11 +501,7 @@ def compile_manifest(path: Path, *, repo_root: Path | None = None) -> CompiledMa
                 target_owners[entry.target] = f"{section}[{index}]"
             entries.append(entry)
         sections[section] = entries
-    entries_by_target = {
-        entry.target: entry
-        for entries in sections.values()
-        for entry in entries
-    }
+    entries_by_target = {entry.target: entry for entries in sections.values() for entry in entries}
     for entry in entries_by_target.values():
         for dependency in entry.requires:
             if dependency not in entries_by_target:

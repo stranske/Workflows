@@ -21,6 +21,7 @@ SCOPE_SCHEMA = "workflows.consumer-sync-plan-scope/v1"
 SCOPES = {"full", "source-delta"}
 MANIFEST_PATH = ".github/sync-manifest.yml"
 
+
 class PlanScopeError(ValueError):
     """The requested scope cannot produce a safe consumer sync plan."""
 
@@ -64,7 +65,11 @@ def _source_delta_dependencies(
         target = pending.pop()
         for dependency in entries_by_target.get(target, {}).get("requires", []):
             dependency = str(dependency or "")
-            if dependency and dependency not in selected_targets and dependency not in required_targets:
+            if (
+                dependency
+                and dependency not in selected_targets
+                and dependency not in required_targets
+            ):
                 required_targets.add(dependency)
                 pending.append(dependency)
     return [
