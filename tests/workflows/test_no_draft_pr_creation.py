@@ -141,6 +141,9 @@ def test_consumer_setup_uses_current_ready_for_review_topology() -> None:
         "agents-pr-meta.yml",
         "agents-orchestrator.yml",
         "agents-keepalive-loop.yml",
+        "PR Meta",
+        "pr_meta_comment",
+        "allow_replay",
     )
     affirmative_draft_instruction = re.compile(
         r"(?<!non-)(?<!no )(?<!not )\bdraft\s+(?:PR|pull request)\b",
@@ -151,3 +154,4 @@ def test_consumer_setup_uses_current_ready_for_review_topology() -> None:
     assert affirmative_draft_instruction.search(checklist) is None
     assert "Verify a ready-for-review PR is opened linking to the issue" in checklist
     assert "agents-81-gate-followups.yml" in checklist
+    assert "Keepalive Sweep re-enters the Agents 81 evaluation" in checklist

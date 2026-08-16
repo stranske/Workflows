@@ -978,37 +978,29 @@ active Agents 81 follow-up route when recovery is due.
 
 ### 8.7 System Dependencies Diagram
 
-```
-┌─────────────────┐
-│   Issue Intake  │  Creates branch + PR from labeled issue
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│      Gate       │  Runs CI, posts commit status
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│   PR Meta       │  Detects @codex, checks Gate status
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Keepalive Loop  │  Runs agent iterations
-└────────┬────────┘
-         │
-         ├──────────────────────┐
-         ▼                      ▼
-┌─────────────────┐    ┌─────────────────┐
-│    Autofix      │    │  Orchestrator   │
-│  (on demand)    │    │  (scheduled)    │
-└─────────────────┘    └─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│    Verifier     │  Post-merge validation
-└─────────────────┘
+```text
+┌─────────────────────┐
+│ Issue Intake /       │  Creates or refreshes a ready PR
+│ Agents Auto-Pilot   │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Gate                │  Runs CI on the exact PR head
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Agents 81           │  Evaluates Gate and guarded delivery
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Verifier            │  Validates acceptance after merge
+└─────────────────────┘
+
+Keepalive Sweep re-enters the Agents 81 evaluation for stalled eligible PRs.
+Autofix can repair a labeled PR before Gate is evaluated again.
 ```
 
 ---
@@ -1060,10 +1052,10 @@ active Agents 81 follow-up route when recovery is due.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `pr_meta_comment` job skipped | `pr_number` type mismatch | Use `fromJSON()` wrapper |
 | "Module not found" errors | Missing JS scripts | Add scripts from template |
-| Gate completes but no keepalive | Missing `workflow_run` trigger | Add trigger for Gate |
-| Keepalive defers with `gate-not-concluded` | Gate still running | Wait for Gate, or check `allow_replay` |
+| Gate completes but no follow-up | Agents 81 did not receive the Gate run | Inspect its `workflow_run` trigger and summary |
+| Follow-up reports `head changed` | The PR moved after Gate ran | Restart review and Gate on the new exact head |
+| Follow-up reports `gate-not-concluded` | Gate is still running | Wait for the exact-head Gate conclusion |
 
 ### Debug Logging
 
