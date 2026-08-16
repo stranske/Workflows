@@ -1396,6 +1396,30 @@ async function run({ github, context, core }) {
         }
       }
 
+      if (candidatePRs.length === 0 && requestedSyncHash === 'candidate') {
+        results.push({
+          owner,
+          repo,
+          branch: syncBranchForHash('candidate'),
+          status: 'stable_base_refresh_required',
+          next_command: 'dispatch-maint-68-phase-canary-no-filter',
+          reason: 'candidate_pr_and_no_change_evidence_missing',
+        });
+        continue;
+      }
+
+      if (candidatePRs.length === 0 && requestedSyncHash === 'campaign') {
+        results.push({
+          owner,
+          repo,
+          branch: syncBranchForHash(selectedSyncHash),
+          status: 'target_missing',
+          expected_branch: syncBranchForHash(selectedSyncHash),
+          reason: 'campaign_pr_and_no_change_evidence_missing',
+        });
+        continue;
+      }
+
       if (candidatePRs.length === 0) {
         console.log('No sync PRs found');
         results.push({ owner, repo, status: 'no_prs' });
