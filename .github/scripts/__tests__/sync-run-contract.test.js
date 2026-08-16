@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   buildNoChangeEvidence,
   buildNoChangeCanaryEvidence,
+  mergeCampaignNoChangeEvidence,
   buildMarkdownSummary,
   buildSyncRunReport,
   summarizeResults,
@@ -110,6 +111,25 @@ test('buildNoChangeCanaryEvidence rejects duplicate and immutable scope mismatch
   assert.ok(result.errors.includes('no_change_canary_scope_mismatch:stranske/Ready'));
   assert.ok(result.errors.includes('no_change_canary_scope_base_mismatch:stranske/Ready'));
   assert.ok(result.errors.includes('duplicate_no_change_canary:stranske/Ready'));
+});
+
+test('mergeCampaignNoChangeEvidence dedupes overlapping canary and delivery rows by repo', () => {
+  const delivery = {
+    schema: 'workflows.consumer-sync-no-change-evidence/v1',
+    version: 1,
+    results: [
+      { repo: 'stranske/Ready', evidence_source: 'no-change-delivery', head_sha: 'd'.repeat(40) },
+      { repo: 'stranske/Travel', evidence_source: 'no-change-delivery', head_sha: 'e'.repeat(40) },
+    ],
+  };
+  const canaryRows = [
+    { repo: 'stranske/Ready', evidence_source: 'no-change-canary', head_sha: 'c'.repeat(40) },
+  ];
+  const merged = mergeCampaignNoChangeEvidence(canaryRows, delivery);
+  assert.equal(merged.results.length, 2);
+  const ready = merged.results.find((row) => row.repo === 'stranske/Ready');
+  assert.equal(ready.evidence_source, 'no-change-canary');
+  assert.equal(ready.head_sha, 'c'.repeat(40));
 });
 
 test('summarizeResults counts known statuses and buckets unknown as error', () => {

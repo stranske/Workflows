@@ -61,6 +61,22 @@ function buildNoChangeEvidence({
   };
 }
 
+function mergeCampaignNoChangeEvidence(canaryRows = [], deliveryEvidence = {}) {
+  const byRepo = new Map();
+  for (const row of deliveryEvidence.results || []) {
+    const repo = String(row?.repo || '').trim();
+    if (repo) byRepo.set(repo, row);
+  }
+  for (const row of canaryRows || []) {
+    const repo = String(row?.repo || '').trim();
+    if (repo) byRepo.set(repo, row);
+  }
+  return {
+    ...deliveryEvidence,
+    results: [...byRepo.values()],
+  };
+}
+
 function buildNoChangeCanaryEvidence({
   results = [],
   expectedCanaries = [],
@@ -211,6 +227,7 @@ function buildMarkdownSummary(report) {
 
 module.exports = {
   buildNoChangeEvidence,
+  mergeCampaignNoChangeEvidence,
   REPORT_SCHEMA,
   CANARY_EVIDENCE_SCHEMA,
   buildNoChangeCanaryEvidence,

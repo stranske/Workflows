@@ -16,6 +16,7 @@ const {
   deliveryRefreshDecision,
   candidateEvidenceAllowsMutation,
   campaignAuthorizationAllowsMerge,
+  hasCampaignCommitAuthorization,
   classifyDeliveryContinuation,
   classifyGeneratedPr,
   classifySyncPrChecks,
@@ -210,6 +211,15 @@ test('campaign commit authorization binds every prepared exact head', () => {
     expectedRepositories: ['stranske/Travel', 'stranske/NoChange'],
     planId: 'plan-abc',
   }).authorized, false);
+});
+
+test('hasCampaignCommitAuthorization rejects empty or partial authorization payloads', () => {
+  assert.equal(hasCampaignCommitAuthorization({}), false);
+  assert.equal(hasCampaignCommitAuthorization({ authorized: true }), false);
+  assert.equal(campaignAuthorizationAllowsMerge({
+    authorization: { authorized: true, rows: [] },
+    result: { owner: 'stranske', repo: 'Travel', pr: 11 },
+  }), false);
 });
 
 test('campaign commit authorization accepts already-merged rows on resume', () => {

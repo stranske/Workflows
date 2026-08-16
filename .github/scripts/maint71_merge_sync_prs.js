@@ -263,6 +263,7 @@ async function run({ github, context, core }) {
   const {
     buildMarkdownSummary,
     buildMergeReport,
+    hasCampaignCommitAuthorization,
     campaignAuthorizationAllowsMerge,
     campaignAuthorizationRowForRepository,
     candidateEvidenceAllowsMutation,
@@ -2017,7 +2018,9 @@ async function run({ github, context, core }) {
       if (!candidateEvidenceAllowsMutation({
         branch: pr.head.ref,
         evidenceOnly,
-        authorized: candidateEvidenceAuthorized || prepareOnly || Boolean(campaignCommitAuthorization),
+        authorized: candidateEvidenceAuthorized
+          || prepareOnly
+          || hasCampaignCommitAuthorization(campaignCommitAuthorization),
       })) {
         console.log('Candidate merge blocked: pre-merge evidence was not persisted successfully');
         results.push({

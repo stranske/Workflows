@@ -1110,8 +1110,9 @@ function candidatePromotionDecision({ report = {}, evidence = {}, expectedCanari
   const rows = Array.isArray(evidence) ? evidence : evidence.results;
   const validation = validateCanaryEvidence(rows, expectedCanaries);
   const errors = [...validation.errors];
-  if (normalizeSyncHash(report?.inputs?.sync_hash) !== 'candidate') {
-    errors.push('merge report is not a candidate-selector report');
+  const selector = normalizeSyncHash(report?.inputs?.sync_hash);
+  if (!['candidate', SYNC_CAMPAIGN_SELECTOR].includes(selector)) {
+    errors.push('merge report is not a candidate or campaign-selector report');
   }
   const results = Array.isArray(report?.results) ? report.results : [];
   for (const repository of expectedCanaries) {
@@ -1218,9 +1219,15 @@ function buildCampaignCommitAuthorization({
   };
 }
 
+function hasCampaignCommitAuthorization(authorization) {
+  return authorization?.schema === 'workflows.sync-campaign-commit-authorization/v1'
+    && authorization?.authorized === true
+    && Array.isArray(authorization?.rows)
+    && authorization.rows.length > 0;
+}
+
 function campaignAuthorizationAllowsMerge({ authorization = {}, result = {} } = {}) {
-  if (authorization?.schema !== 'workflows.sync-campaign-commit-authorization/v1') return false;
-  if (authorization?.authorized !== true) return false;
+  if (!hasCampaignCommitAuthorization(authorization)) return false;
   const repository = `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, '');
   const row = (authorization.rows || []).find((item) => item.repository === repository);
   return Boolean(
@@ -1381,6 +1388,7 @@ module.exports = {
   classifySyncPrChecks,
   candidateEvidenceAllowsMutation,
   buildCampaignCommitAuthorization,
+  hasCampaignCommitAuthorization,
   campaignAuthorizationAllowsMerge,
   campaignAuthorizationRowForRepository,
   collectDeletableSyncBranches,

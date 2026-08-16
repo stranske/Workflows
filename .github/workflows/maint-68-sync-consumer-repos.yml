@@ -1684,6 +1684,7 @@ jobs:
           const {
             buildNoChangeEvidence,
             buildNoChangeCanaryEvidence,
+            mergeCampaignNoChangeEvidence,
           } = require('./.github/scripts/sync_run_contract.js');
           const canaryConfig = JSON.parse(
             fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),
@@ -1744,10 +1745,10 @@ jobs:
             const canaryRows = (rawCanaryEvidence.results || []).filter(
               (row) => row.evidence_source === 'no-change-canary',
             );
-            campaignEvidence = {
-              ...deliveryBaseline.evidence,
-              results: [...canaryRows, ...deliveryBaseline.evidence.results],
-            };
+            campaignEvidence = mergeCampaignNoChangeEvidence(
+              canaryRows,
+              deliveryBaseline.evidence,
+            );
           }
           fs.appendFileSync(
             process.env.GITHUB_OUTPUT,

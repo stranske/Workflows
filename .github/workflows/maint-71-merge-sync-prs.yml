@@ -601,8 +601,7 @@ jobs:
         if: >-
           ${{
             always() &&
-            (steps.candidate_mode.outputs.candidate == 'true' ||
-             steps.candidate_mode.outputs.campaign == 'true') &&
+            steps.candidate_mode.outputs.candidate == 'true' &&
             steps.merge.outcome == 'success'
           }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
