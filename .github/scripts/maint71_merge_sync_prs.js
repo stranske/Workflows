@@ -286,6 +286,7 @@ async function run({ github, context, core }) {
     selectSyncPrGatingChecks,
     syncBranchForHash,
     validateCanaryEvidence,
+    validateExpectedCandidateIdentity,
     validateSourceDeltaEvidenceBinding,
   } = require('./sync_pr_merge_contract.js');
   const {
@@ -652,6 +653,11 @@ async function run({ github, context, core }) {
   const expectedSourceCommit = String(
     process.env.EXPECTED_SOURCE_COMMIT_INPUT || '',
   ).trim().toLowerCase();
+  if (requestedSyncHash === 'candidate' && (!expectedPlanId || !expectedSourceCommit)) {
+    throw new Error(
+      'Candidate reconciliation requires an exact expected plan and source commit',
+    );
+  }
   const trustedSyncActors = String(process.env.TRUSTED_SYNC_ACTORS || '')
     .split(',')
     .map((actor) => actor.trim())
@@ -1205,6 +1211,18 @@ async function run({ github, context, core }) {
           branch: repository.default_branch,
           ref: liveHeadSha,
         });
+        if (baselineChecks.requiredContexts.size === 0) {
+          console.log('No-change canary has no authoritative required check contexts');
+          results.push({
+            owner,
+            repo,
+            status: 'checks_failed',
+            expected_head_sha: baselineEvidence.head_sha,
+            observed_head_sha: liveHeadSha,
+            reason: 'no_change_canary_required_checks_unconfigured',
+          });
+          continue;
+        }
         if (baselineChecks.classification.status !== 'ready') {
           console.log(
             `No-change canary required checks are not green: ` +
@@ -1461,6 +1479,34 @@ async function run({ github, context, core }) {
         continue;
       }
       const metadata = syncMetadata(pr);
+      if (requestedSyncHash === 'candidate' && !recoveredMergedCandidate) {
+        const identity = validateExpectedCandidateIdentity({
+          metadata,
+          deliveryRecord: selection.deliveryRecord,
+          expectedPlanId,
+          expectedPlanScope,
+          expectedScopeBaseSha,
+          expectedSourceCommit,
+          repository: `${owner}/${repo}`,
+        });
+        if (!identity.ok) {
+          console.log(`Candidate immutable identity mismatch: ${identity.errors.join(', ')}`);
+          results.push({
+            owner,
+            repo,
+            pr: pr.number,
+            branch: pr.head.ref,
+            head_sha: pr.head.sha,
+            status: 'delivery_contract_blocked',
+            delivery_disposition: 'source-binding-blocked',
+            blocker_owner: 'maint-68',
+            next_command: 'refresh-candidate-from-exact-plan',
+            delivery_reason: 'candidate_immutable_identity_mismatch',
+            identity_errors: identity.errors,
+          });
+          continue;
+        }
+      }
       console.log(`\nProcessing active PR #${pr.number}: ${pr.title}`);
       console.log(`Branch: ${pr.head.ref}`);
       console.log(`Created: ${pr.created_at}`);

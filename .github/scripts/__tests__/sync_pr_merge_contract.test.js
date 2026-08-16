@@ -42,6 +42,7 @@ const {
   summarizeResults,
   syncBranchForHash,
   validateCanaryEvidence,
+  validateExpectedCandidateIdentity,
   validateSourceDeltaEvidenceBinding,
 } = require('../sync_pr_merge_contract');
 const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
@@ -400,6 +401,7 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
     }],
   };
   let checkConclusion = 'success';
+  let requiredContexts = ['Gate / gate'];
   const github = {
     paginate: async (_method, params) => (
       params.ref === headSha
@@ -412,8 +414,9 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
       repos: {
         get: async () => ({ data: { default_branch: 'main' } }),
         getBranchProtection: async () => ({
-          data: { required_status_checks: { contexts: ['Gate / gate'], checks: [] } },
+          data: { required_status_checks: { contexts: requiredContexts, checks: [] } },
         }),
+        getRepoRulesets: async () => ({ data: [] }),
         getCombinedStatusForRef: async () => ({ data: { statuses: [] } }),
         createDispatchEvent: async () => ({}),
       },
@@ -488,6 +491,28 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
     const redReport = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     assert.equal(redReport.summary.checks_failed, 1);
     assert.match(failures.at(-1), /Canary evidence is incomplete or unsafe/);
+
+    checkConclusion = 'success';
+    requiredContexts = [];
+    await run({
+      github,
+      core,
+      context: {
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        payload: {},
+        runId: 5,
+        runNumber: 5,
+        workflow: 'Maint 71',
+        ref: 'refs/heads/main',
+        sha: sourceCommit,
+      },
+    });
+    const unconfiguredReport = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(unconfiguredReport.summary.checks_failed, 1);
+    assert.equal(
+      unconfiguredReport.results[0].reason,
+      'no_change_canary_required_checks_unconfigured',
+    );
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {
@@ -507,6 +532,10 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
     'AUTO_MERGE_INPUT',
     'EVIDENCE_ONLY_INPUT',
     'ACTIVE_SYNC_HASH_INPUT',
+    'EXPECTED_PLAN_ID_INPUT',
+    'EXPECTED_PLAN_SCOPE_INPUT',
+    'EXPECTED_SCOPE_BASE_SHA_INPUT',
+    'EXPECTED_SOURCE_COMMIT_INPUT',
     'OWNER_PR_PAT',
     'CONSUMER_SYNC_CANARIES_PATH',
     'TRUSTED_SYNC_ACTORS',
@@ -621,6 +650,10 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
     process.env.DRY_RUN_INPUT = 'true';
     process.env.AUTO_MERGE_INPUT = 'false';
     process.env.ACTIVE_SYNC_HASH_INPUT = 'candidate';
+    process.env.EXPECTED_PLAN_ID_INPUT = 'plan-abc';
+    process.env.EXPECTED_PLAN_SCOPE_INPUT = 'full';
+    process.env.EXPECTED_SCOPE_BASE_SHA_INPUT = '';
+    process.env.EXPECTED_SOURCE_COMMIT_INPUT = 'source-abc';
     process.env.OWNER_PR_PAT = 'test-owner-token';
     process.env.EVIDENCE_ONLY_INPUT = 'true';
     process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
@@ -712,6 +745,45 @@ test('selectLatestMergedCandidatePr recovers only the newest trusted merged cand
     planId: 'plan-current',
     sourceCommit: 'source-current',
   }), null);
+});
+
+test('validateExpectedCandidateIdentity binds open candidates to every immutable input', () => {
+  const expected = {
+    expectedPlanId: 'plan-current',
+    expectedPlanScope: 'source-delta',
+    expectedScopeBaseSha: 'a'.repeat(40),
+    expectedSourceCommit: 'b'.repeat(40),
+    repository: 'stranske/Ready',
+  };
+  const metadata = {
+    consumer_repo: 'stranske/Ready',
+    plan_id: 'plan-current',
+    plan_scope: 'source-delta',
+    scope_base_sha: 'a'.repeat(40),
+    source_sha: 'b'.repeat(40),
+    source_commit: 'b'.repeat(40),
+  };
+  const deliveryRecord = {
+    repository: 'stranske/Ready',
+    plan_id: 'plan-current',
+    source_commit: 'b'.repeat(40),
+  };
+  assert.deepEqual(validateExpectedCandidateIdentity({
+    metadata,
+    deliveryRecord,
+    ...expected,
+  }), { ok: true, errors: [] });
+
+  const stale = validateExpectedCandidateIdentity({
+    metadata: { ...metadata, source_commit: 'c'.repeat(40) },
+    deliveryRecord: { ...deliveryRecord, plan_id: 'plan-stale' },
+    ...expected,
+  });
+  assert.equal(stale.ok, false);
+  assert.deepEqual(stale.errors, [
+    'delivery_plan_id_mismatch',
+    'metadata_source_commit_mismatch',
+  ]);
 });
 
 test('validateCanaryEvidence fails closed on missing, mixed, red, or reviewed canaries', () => {
