@@ -33,10 +33,7 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "EXCLUDED_REPOS_INPUT: stranske/Collab-Admin" in workflow
     assert "['candidate', 'campaign', 'delivery', 'dev-tool']" in workflow
     assert "/^[0-9a-f]{12,64}$/i.test(selector)" in workflow
-    assert (
-        "active sync selector must be candidate, campaign, delivery, dev-tool, "
-        in workflow
-    )
+    assert "active sync selector must be candidate, campaign, delivery, dev-tool, " in workflow
     assert "'stale_closed'" in workflow
     assert "paginateWithRetry(api.rest.actions.listWorkflowRuns" in workflow
     assert "Maint 71 requires OWNER_PR_PAT" in executor
