@@ -5,6 +5,7 @@ GUIDE = Path("templates/consumer-repo/docs/CI_SYSTEM_GUIDE.md")
 
 def test_consumer_ci_guide_matches_current_agent_entrypoints() -> None:
     text = GUIDE.read_text(encoding="utf-8")
+    assert GUIDE.as_posix() == "templates/consumer-repo/docs/CI_SYSTEM_GUIDE.md"
 
     for current_surface in (
         "agents-issue-intake.yml",
