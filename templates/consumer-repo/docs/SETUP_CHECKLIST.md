@@ -170,7 +170,7 @@ Create these labels in **Settings** → **Labels** (exact names required):
 | Label | Color | Description | Required For |
 |-------|-------|-------------|--------------|
 | `agent:codex` | `#0052CC` | Assigns Codex agent to issue | Issue intake, keepalive |
-| `agent:retry` | `#D93F0B` | Retries keepalive loop for agent PRs | Keepalive recovery |
+| `agent:retry` | `#D93F0B` | Optional recovery-request marker; does not trigger a retry by itself | Operator visibility |
 | `agent:needs-attention` | `#D93F0B` | Agent needs human help | Error recovery |
 | `agents:keepalive` | `#0E8A16` | Enables keepalive automation | PR keepalive loops |
 | `agents:auto-pilot` | `#0052CC` | Triggers end-to-end auto-pilot pipeline | Issue automation |
@@ -212,7 +212,7 @@ REPO="stranske/<your-repo>"
 
 # Create required labels
 gh label create "agent:codex" --color "0052CC" --description "Assigns Codex agent" --repo "$REPO" 2>/dev/null || echo "agent:codex exists"
-gh label create "agent:retry" --color "D93F0B" --description "Retries keepalive loop" --repo "$REPO" 2>/dev/null || echo "agent:retry exists"
+gh label create "agent:retry" --color "D93F0B" --description "Marks a requested keepalive recovery" --repo "$REPO" 2>/dev/null || echo "agent:retry exists"
 gh label create "agent:needs-attention" --color "D93F0B" --description "Agent needs human help" --repo "$REPO" 2>/dev/null || echo "agent:needs-attention exists"
 gh label create "agents:keepalive" --color "0E8A16" --description "Enables keepalive automation" --repo "$REPO" 2>/dev/null || echo "agents:keepalive exists"
 gh label create "agents:auto-pilot" --color "0052CC" --description "Runs full auto-pilot issue pipeline" --repo "$REPO" 2>/dev/null || echo "agents:auto-pilot exists"
@@ -496,7 +496,7 @@ entry points used by this repository:
 | Workflow | Purpose | Critical for Keepalive |
 |----------|---------|------------------------|
 | `pr-00-gate.yml` | Required CI and exact-head enforcement | **YES** |
-| `agents-issue-intake.yml` | Registered-label and manual agent intake | No |
+| `agents-issue-intake.yml` | Assignment-label and manual agent intake | No |
 | `agents-auto-pilot.yml` | End-to-end issue automation | No |
 | `agents-71-codex-belt-dispatcher.yml` | Selects queued Codex work | No |
 | `agents-72-codex-belt-worker-dispatch.yml` | Dispatches the callable worker | No |
@@ -786,6 +786,9 @@ tasks are complete or the iteration limit is reached.
 **Verification checklist**:
 - [ ] `agents-80-pr-event-hub.yml` exists with PR event triggers
 - [ ] `agents-81-gate-followups.yml` listens for Gate completion
+- [ ] Repository variable `USE_CONSOLIDATED_WORKFLOWS` is `true` so Agents 81
+      evaluates automatic Gate follow-ups (`workflow_dispatch` intentionally
+      bypasses this variable for manual recovery)
 - [ ] `agents-keepalive-sweep.yml` exists with a schedule trigger
 - [ ] `.github/codex/AGENT_INSTRUCTIONS.md` exists
 - [ ] `.github/codex/prompts/keepalive_next_task.md` exists
@@ -801,6 +804,9 @@ tasks are complete or the iteration limit is reached.
 **Troubleshooting**:
 - "gate-not-concluded": Gate has not finished; wait or inspect the Gate workflow
 - "head changed": Restart the exact-head review and Gate window
+- Gate completes but no follow-up: Confirm `USE_CONSOLIDATED_WORKFLOWS` is
+  `true`; a false or missing value skips automatic Agents 81 evaluation, while
+  `workflow_dispatch` still permits a manual recovery run
 - Missing codex files: Add from `templates/consumer-repo/.github/codex/`
 
 ---
@@ -811,6 +817,7 @@ tasks are complete or the iteration limit is reached.
 when the `autofix` or `autofix:clean` label is added to a PR.
 
 **Workflows involved**:
+
 | Workflow | Role |
 |----------|------|
 | `autofix.yml` | Thin caller that triggers on label, delegates to reusable workflow |
@@ -1020,7 +1027,7 @@ Autofix can repair a labeled PR before Gate is evaluated again.
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | "Module not found" errors | Missing JS scripts | Add scripts from template |
-| Gate completes but no follow-up | Agents 81 did not receive the Gate run | Inspect its `workflow_run` trigger and summary |
+| Gate completes but no follow-up | `USE_CONSOLIDATED_WORKFLOWS` is not `true`, so Agents 81 skipped the automatic Gate run | Set the repository variable to `true`, then inspect its `workflow_run` trigger and summary; `workflow_dispatch` bypasses the variable for manual recovery |
 | Follow-up reports `head changed` | The PR moved after Gate ran | Restart review and Gate on the new exact head |
 | Follow-up reports `gate-not-concluded` | Gate is still running | Wait for the exact-head Gate conclusion |
 
