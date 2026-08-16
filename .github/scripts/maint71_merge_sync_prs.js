@@ -72,6 +72,70 @@ function parseReviewResolutionProofs(raw = '') {
   return proofs;
 }
 
+function parseNoChangeEvidenceDocument(raw = '', {
+  lane,
+  requestedSyncHash,
+  documentName,
+  rowName,
+  schema,
+  acceptedEvidenceSources = [],
+  expectedRepositories = [],
+  expectedPlanId = '',
+  expectedPlanScope = 'full',
+  expectedScopeBaseSha = '',
+  expectedSourceCommit = '',
+  requireExactPlan = false,
+} = {}) {
+  const text = String(raw || '').trim();
+  const evidenceByRepo = new Map();
+  if (!text) return evidenceByRepo;
+  if (requestedSyncHash !== lane) {
+    throw new Error(`${documentName} is only valid for the ${lane} lane`);
+  }
+  if (requireExactPlan && (!expectedPlanId || !expectedSourceCommit)) {
+    throw new Error(`${documentName} requires an exact expected plan and source commit`);
+  }
+  let document;
+  try {
+    document = JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${documentName} is not valid JSON: ${error.message}`);
+  }
+  if (
+    document?.schema !== schema
+    || document?.version !== 1
+    || !Array.isArray(document?.results)
+  ) {
+    throw new Error(`${documentName} has an unsupported schema`);
+  }
+  const expected = new Set(expectedRepositories);
+  const sources = new Set(acceptedEvidenceSources);
+  for (const row of document.results) {
+    const repository = String(row?.repo || '').trim();
+    const headSha = String(row?.head_sha || '').trim().toLowerCase();
+    if (!expected.has(repository)) {
+      throw new Error(`Unexpected ${rowName}: ${repository || '<missing-repo>'}`);
+    }
+    if (evidenceByRepo.has(repository)) {
+      throw new Error(`Duplicate ${rowName}: ${repository}`);
+    }
+    if (
+      !sources.has(row?.evidence_source)
+      || String(row?.plan_id || '').trim() !== expectedPlanId
+      || (String(row?.plan_scope || '').trim() || 'full') !== expectedPlanScope
+      || String(row?.scope_base_sha || '').trim().toLowerCase() !== expectedScopeBaseSha
+      || String(row?.source_commit || '').trim().toLowerCase() !== expectedSourceCommit
+      || !/^[0-9a-f]{40}$/.test(headSha)
+      || row?.required_check_state !== 'success'
+      || Number(row?.active_review_thread_count) !== 0
+    ) {
+      throw new Error(`Unsafe ${rowName}: ${repository}`);
+    }
+    evidenceByRepo.set(repository, { ...row, repo: repository, head_sha: headSha });
+  }
+  return evidenceByRepo;
+}
+
 function validateReviewResolutionProof(proof = {}, {
   owner,
   repo,
@@ -719,111 +783,45 @@ async function run({ github, context, core }) {
       .filter(Boolean);
   }
 
-  const baselineEvidenceByRepo = new Map();
   const rawBaselineEvidence = String(
     process.env.CANARY_BASELINE_EVIDENCE_JSON || '',
   ).trim();
-  if (rawBaselineEvidence) {
-    if (requestedSyncHash !== 'candidate') {
-      throw new Error('No-change canary evidence is only valid for the candidate lane');
-    }
-    if (!expectedPlanId || !expectedSourceCommit) {
-      throw new Error(
-        'No-change canary evidence requires an exact expected plan and source commit',
-      );
-    }
-    let baselineDocument;
-    try {
-      baselineDocument = JSON.parse(rawBaselineEvidence);
-    } catch (error) {
-      throw new Error(`No-change canary evidence is not valid JSON: ${error.message}`);
-    }
-    if (
-      baselineDocument?.schema !== 'workflows.consumer-sync-canary-evidence/v1'
-      || baselineDocument?.version !== 1
-      || !Array.isArray(baselineDocument?.results)
-    ) {
-      throw new Error('No-change canary evidence has an unsupported schema');
-    }
-    const expectedCanarySet = new Set(expectedCanaryRepos);
-    for (const row of baselineDocument.results) {
-      const repoName = String(row?.repo || '').trim();
-      const rowPlanId = String(row?.plan_id || '').trim();
-      const rowPlanScope = String(row?.plan_scope || '').trim() || 'full';
-      const rowScopeBaseSha = String(row?.scope_base_sha || '').trim().toLowerCase();
-      const rowSourceCommit = String(row?.source_commit || '').trim().toLowerCase();
-      const rowHeadSha = String(row?.head_sha || '').trim().toLowerCase();
-      if (!expectedCanarySet.has(repoName)) {
-        throw new Error(`Unexpected no-change canary evidence: ${repoName || '<missing-repo>'}`);
-      }
-      if (baselineEvidenceByRepo.has(repoName)) {
-        throw new Error(`Duplicate no-change canary evidence: ${repoName}`);
-      }
-      if (
-        row?.evidence_source !== 'no-change-canary'
-        || rowPlanId !== expectedPlanId
-        || rowPlanScope !== expectedPlanScope
-        || rowScopeBaseSha !== expectedScopeBaseSha
-        || rowSourceCommit !== expectedSourceCommit
-        || !/^[0-9a-f]{40}$/.test(rowHeadSha)
-        || row?.required_check_state !== 'success'
-        || Number(row?.active_review_thread_count) !== 0
-      ) {
-        throw new Error(`Unsafe no-change canary evidence: ${repoName}`);
-      }
-      baselineEvidenceByRepo.set(repoName, {
-        ...row,
-        repo: repoName,
-        head_sha: rowHeadSha,
-      });
-    }
-  }
-  const campaignNoChangeEvidenceByRepo = new Map();
+  const baselineEvidenceByRepo = parseNoChangeEvidenceDocument(
+    rawBaselineEvidence,
+    {
+      lane: 'candidate',
+      requestedSyncHash,
+      documentName: 'No-change canary evidence',
+      rowName: 'no-change canary evidence',
+      schema: 'workflows.consumer-sync-canary-evidence/v1',
+      acceptedEvidenceSources: ['no-change-canary'],
+      expectedRepositories: expectedCanaryRepos,
+      expectedPlanId,
+      expectedPlanScope,
+      expectedScopeBaseSha,
+      expectedSourceCommit,
+      requireExactPlan: true,
+    },
+  );
   const rawCampaignNoChangeEvidence = String(
     process.env.CAMPAIGN_NO_CHANGE_EVIDENCE_JSON || '',
   ).trim();
-  if (rawCampaignNoChangeEvidence) {
-    if (requestedSyncHash !== 'campaign') {
-      throw new Error('Campaign no-change evidence is only valid for the campaign lane');
-    }
-    let document;
-    try {
-      document = JSON.parse(rawCampaignNoChangeEvidence);
-    } catch (error) {
-      throw new Error(`Campaign no-change evidence is not valid JSON: ${error.message}`);
-    }
-    if (
-      document?.schema !== 'workflows.consumer-sync-no-change-evidence/v1'
-      || document?.version !== 1
-      || !Array.isArray(document?.results)
-    ) {
-      throw new Error('Campaign no-change evidence has an unsupported schema');
-    }
-    const registered = new Set(registeredRepos);
-    for (const row of document.results) {
-      const repository = String(row?.repo || '').trim();
-      const headSha = String(row?.head_sha || '').trim().toLowerCase();
-      if (!registered.has(repository)) {
-        throw new Error(`Unexpected campaign no-change evidence: ${repository || '<missing-repo>'}`);
-      }
-      if (campaignNoChangeEvidenceByRepo.has(repository)) {
-        throw new Error(`Duplicate campaign no-change evidence: ${repository}`);
-      }
-      if (
-        !['no-change-canary', 'no-change-delivery'].includes(row?.evidence_source)
-        || String(row?.plan_id || '').trim() !== expectedPlanId
-        || (String(row?.plan_scope || '').trim() || 'full') !== expectedPlanScope
-        || String(row?.scope_base_sha || '').trim().toLowerCase() !== expectedScopeBaseSha
-        || String(row?.source_commit || '').trim().toLowerCase() !== expectedSourceCommit
-        || !/^[0-9a-f]{40}$/.test(headSha)
-        || row?.required_check_state !== 'success'
-        || Number(row?.active_review_thread_count) !== 0
-      ) {
-        throw new Error(`Unsafe campaign no-change evidence: ${repository}`);
-      }
-      campaignNoChangeEvidenceByRepo.set(repository, { ...row, head_sha: headSha });
-    }
-  }
+  const campaignNoChangeEvidenceByRepo = parseNoChangeEvidenceDocument(
+    rawCampaignNoChangeEvidence,
+    {
+      lane: 'campaign',
+      requestedSyncHash,
+      documentName: 'Campaign no-change evidence',
+      rowName: 'campaign no-change evidence',
+      schema: 'workflows.consumer-sync-no-change-evidence/v1',
+      acceptedEvidenceSources: ['no-change-canary', 'no-change-delivery'],
+      expectedRepositories: registeredRepos,
+      expectedPlanId,
+      expectedPlanScope,
+      expectedScopeBaseSha,
+      expectedSourceCommit,
+    },
+  );
 
   // Candidate reconciliation is a registry-owned operation. Processing the
   // complete consumer registry here lets unrelated non-canary delivery PRs
@@ -2534,6 +2532,7 @@ module.exports = {
   collectReviewerEvidence,
   legacyStatusAsCheck,
   normalizeReviewPolicy,
+  parseNoChangeEvidenceDocument,
   parseReviewResolutionProofs,
   run,
   validateReviewResolutionProof,

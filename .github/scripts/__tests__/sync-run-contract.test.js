@@ -31,6 +31,48 @@ test('buildNoChangeEvidence binds unchanged delivery repos to an immutable campa
   assert.equal(result.evidence.results[0].evidence_source, 'no-change-delivery');
 });
 
+test('buildNoChangeEvidence fails closed on immutable mismatches and duplicate rows', () => {
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const sourceCommit = 'b'.repeat(40);
+  const base = {
+    repo: 'stranske/Ready', status: 'no_changes', plan_id: planId,
+    plan_scope: 'source-delta', scope_base_sha: 'c'.repeat(40),
+    source_commit: sourceCommit, consumer_head_sha: 'd'.repeat(40),
+  };
+  const mismatch = buildNoChangeEvidence({
+    expectedRepositories: ['stranske/Ready'],
+    planId,
+    planScope: 'source-delta',
+    scopeBaseSha: 'c'.repeat(40),
+    sourceCommit,
+    results: [{
+      ...base,
+      plan_id: `sha256:${'e'.repeat(64)}`,
+      plan_scope: 'full',
+      scope_base_sha: 'f'.repeat(40),
+      source_commit: '0'.repeat(40),
+      consumer_head_sha: 'not-a-sha',
+    }],
+  });
+  assert.equal(mismatch.ok, false);
+  assert.ok(mismatch.errors.includes('no_change_delivery_plan_mismatch:stranske/Ready'));
+  assert.ok(mismatch.errors.includes('no_change_delivery_scope_mismatch:stranske/Ready'));
+  assert.ok(mismatch.errors.includes('no_change_delivery_scope_base_mismatch:stranske/Ready'));
+  assert.ok(mismatch.errors.includes('no_change_delivery_source_mismatch:stranske/Ready'));
+  assert.ok(mismatch.errors.includes('no_change_delivery_head_invalid:stranske/Ready'));
+
+  const duplicate = buildNoChangeEvidence({
+    expectedRepositories: ['stranske/Ready'],
+    planId,
+    planScope: 'source-delta',
+    scopeBaseSha: 'c'.repeat(40),
+    sourceCommit,
+    results: [base, base],
+  });
+  assert.equal(duplicate.ok, false);
+  assert.ok(duplicate.errors.includes('duplicate_no_change_delivery:stranske/Ready'));
+});
+
 test('buildNoChangeCanaryEvidence binds no-diff canaries to the exact plan and head', () => {
   const planId = `sha256:${'a'.repeat(64)}`;
   const sourceCommit = 'b'.repeat(40);

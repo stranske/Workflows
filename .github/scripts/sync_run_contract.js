@@ -4,14 +4,16 @@ const REPORT_SCHEMA = 'workflows-consumer-sync-run/v1';
 const CANARY_EVIDENCE_SCHEMA = 'workflows.consumer-sync-canary-evidence/v1';
 const NO_CHANGE_EVIDENCE_SCHEMA = 'workflows.consumer-sync-no-change-evidence/v1';
 
-function buildNoChangeEvidence({
+function buildNoChangeEvidenceDocument({
   results = [],
   expectedRepositories = [],
   planId = '',
   planScope = '',
   scopeBaseSha = '',
   sourceCommit = '',
-  evidenceSource = 'no-change-delivery',
+  evidenceSource,
+  errorPrefix,
+  schema,
 } = {}) {
   const expected = new Set(
     (expectedRepositories || []).map((repo) => String(repo || '').trim()).filter(Boolean),
@@ -28,7 +30,7 @@ function buildNoChangeEvidence({
     const repo = String(result?.repo || '').trim();
     if (!expected.has(repo) || result?.status !== 'no_changes') continue;
     if (seen.has(repo)) {
-      errors.push(`duplicate_no_change_delivery:${repo}`);
+      errors.push(`duplicate_${errorPrefix}:${repo}`);
       continue;
     }
     seen.add(repo);
@@ -37,11 +39,11 @@ function buildNoChangeEvidence({
     const resultScopeBaseSha = String(result?.scope_base_sha || '').trim().toLowerCase();
     const resultSourceCommit = String(result?.source_commit || '').trim().toLowerCase();
     const consumerHeadSha = String(result?.consumer_head_sha || '').trim().toLowerCase();
-    if (!normalizedPlanId || resultPlanId !== normalizedPlanId) errors.push(`no_change_delivery_plan_mismatch:${repo}`);
-    if (resultPlanScope !== normalizedPlanScope) errors.push(`no_change_delivery_scope_mismatch:${repo}`);
-    if (resultScopeBaseSha !== normalizedScopeBaseSha) errors.push(`no_change_delivery_scope_base_mismatch:${repo}`);
-    if (!normalizedSourceCommit || resultSourceCommit !== normalizedSourceCommit) errors.push(`no_change_delivery_source_mismatch:${repo}`);
-    if (!shaPattern.test(consumerHeadSha)) errors.push(`no_change_delivery_head_invalid:${repo}`);
+    if (!normalizedPlanId || resultPlanId !== normalizedPlanId) errors.push(`${errorPrefix}_plan_mismatch:${repo}`);
+    if (resultPlanScope !== normalizedPlanScope) errors.push(`${errorPrefix}_scope_mismatch:${repo}`);
+    if (resultScopeBaseSha !== normalizedScopeBaseSha) errors.push(`${errorPrefix}_scope_base_mismatch:${repo}`);
+    if (!normalizedSourceCommit || resultSourceCommit !== normalizedSourceCommit) errors.push(`${errorPrefix}_source_mismatch:${repo}`);
+    if (!shaPattern.test(consumerHeadSha)) errors.push(`${errorPrefix}_head_invalid:${repo}`);
     rows.push({
       repo,
       plan_id: resultPlanId,
@@ -57,8 +59,30 @@ function buildNoChangeEvidence({
   return {
     ok: errors.length === 0,
     errors,
-    evidence: { schema: NO_CHANGE_EVIDENCE_SCHEMA, version: 1, results: rows },
+    evidence: { schema, version: 1, results: rows },
   };
+}
+
+function buildNoChangeEvidence({
+  results = [],
+  expectedRepositories = [],
+  planId = '',
+  planScope = '',
+  scopeBaseSha = '',
+  sourceCommit = '',
+  evidenceSource = 'no-change-delivery',
+} = {}) {
+  return buildNoChangeEvidenceDocument({
+    results,
+    expectedRepositories,
+    planId,
+    planScope,
+    scopeBaseSha,
+    sourceCommit,
+    evidenceSource,
+    errorPrefix: 'no_change_delivery',
+    schema: NO_CHANGE_EVIDENCE_SCHEMA,
+  });
 }
 
 function mergeCampaignNoChangeEvidence(canaryRows = [], deliveryEvidence = {}) {
@@ -85,68 +109,17 @@ function buildNoChangeCanaryEvidence({
   scopeBaseSha = '',
   sourceCommit = '',
 } = {}) {
-  const expected = new Set(
-    (expectedCanaries || []).map((repo) => String(repo || '').trim()).filter(Boolean),
-  );
-  const rows = [];
-  const errors = [];
-  const seen = new Set();
-  const normalizedPlanId = String(planId || '').trim();
-  const normalizedPlanScope = String(planScope || '').trim() || 'full';
-  const normalizedScopeBaseSha = String(scopeBaseSha || '').trim().toLowerCase();
-  const normalizedSourceCommit = String(sourceCommit || '').trim().toLowerCase();
-  const shaPattern = /^[0-9a-f]{40}$/;
-
-  for (const result of results || []) {
-    const repo = String(result?.repo || '').trim();
-    if (!expected.has(repo) || result?.status !== 'no_changes') continue;
-    if (seen.has(repo)) {
-      errors.push(`duplicate_no_change_canary:${repo}`);
-      continue;
-    }
-    seen.add(repo);
-    const resultPlanId = String(result?.plan_id || '').trim();
-    const resultPlanScope = String(result?.plan_scope || '').trim() || 'full';
-    const resultScopeBaseSha = String(result?.scope_base_sha || '').trim().toLowerCase();
-    const resultSourceCommit = String(result?.source_commit || '').trim().toLowerCase();
-    const consumerHeadSha = String(result?.consumer_head_sha || '').trim().toLowerCase();
-    if (!normalizedPlanId || resultPlanId !== normalizedPlanId) {
-      errors.push(`no_change_canary_plan_mismatch:${repo}`);
-    }
-    if (resultPlanScope !== normalizedPlanScope) {
-      errors.push(`no_change_canary_scope_mismatch:${repo}`);
-    }
-    if (resultScopeBaseSha !== normalizedScopeBaseSha) {
-      errors.push(`no_change_canary_scope_base_mismatch:${repo}`);
-    }
-    if (!normalizedSourceCommit || resultSourceCommit !== normalizedSourceCommit) {
-      errors.push(`no_change_canary_source_mismatch:${repo}`);
-    }
-    if (!shaPattern.test(consumerHeadSha)) {
-      errors.push(`no_change_canary_head_invalid:${repo}`);
-    }
-    rows.push({
-      repo,
-      plan_id: resultPlanId,
-      plan_scope: resultPlanScope,
-      scope_base_sha: resultScopeBaseSha,
-      source_commit: resultSourceCommit,
-      head_sha: consumerHeadSha,
-      evidence_source: 'no-change-canary',
-      required_check_state: 'success',
-      active_review_thread_count: 0,
-    });
-  }
-
-  return {
-    ok: errors.length === 0,
-    errors,
-    evidence: {
-      schema: CANARY_EVIDENCE_SCHEMA,
-      version: 1,
-      results: rows,
-    },
-  };
+  return buildNoChangeEvidenceDocument({
+    results,
+    expectedRepositories: expectedCanaries,
+    planId,
+    planScope,
+    scopeBaseSha,
+    sourceCommit,
+    evidenceSource: 'no-change-canary',
+    errorPrefix: 'no_change_canary',
+    schema: CANARY_EVIDENCE_SCHEMA,
+  });
 }
 
 function summarizeResults(results) {

@@ -477,6 +477,19 @@ the same gate. The executor requires same-job campaign authorization bound to
 every PR number, delivery generation, branch, and head SHA, so scheduled or
 malformed paths cannot merge a candidate implicitly.
 
+Campaign hold states have explicit recovery paths. For
+`campaign_authorization_required`, rerun the prepare pass for the same immutable
+plan and source commit, then authorize the exact prepared heads. A
+`campaign_prepared` row is intentionally waiting for that authorization and
+must not be merged by an unscoped pass. A `campaign_no_change_verified` row is
+already terminal evidence and needs no PR mutation. For `target_missing` with
+reason `campaign_pr_and_no_change_evidence_missing`, regenerate the stable
+delivery for the same plan; if a partial commit pass already merged it, resume
+the prepare pass so Maint 71 rebuilds authorization from trusted closed merged
+history. `stranske/Collab-Admin` is excluded from campaign authorization because
+it is the generated fleet dashboard/control repository, not a reviewed consumer
+delivery target.
+
 Active non-outdated review threads remain merge blockers. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated
 operator may pass `review_resolution_json` to Maint 71. Each

@@ -63,7 +63,7 @@ def _source_delta_dependencies(
     pending = list(selected_targets)
     while pending:
         target = pending.pop()
-        for dependency in entries_by_target.get(target, {}).get("requires", []):
+        for dependency in entries_by_target.get(target, {}).get("requires") or []:
             dependency = str(dependency or "")
             if (
                 dependency

@@ -318,7 +318,10 @@ def test_maint_71_persists_validated_candidate_evidence_before_merge() -> None:
     collect_index = names.index("Collect and validate canary evidence before merge")
     persist_index = names.index("Persist pre-merge canary evidence")
     merge_index = names.index("Check and merge sync PRs")
+    authorize_index = names.index("Authorize exact-head fleet commit")
+    campaign_commit_index = names.index("Commit prepared sync campaign")
     assert resolve_index < collect_index < persist_index < merge_index
+    assert merge_index < authorize_index < campaign_commit_index
     assert steps[persist_index]["with"]["name"] == "sync-canary-evidence-premerge"
     assert steps[persist_index]["with"]["if-no-files-found"] == "error"
     merge_condition = steps[merge_index]["if"]

@@ -267,6 +267,9 @@ jobs:
             process.env.DISPATCH_SYNC_HASH,
           ].map((value) => String(value || '').trim()).find(Boolean) || '';
           const selector = raw.startsWith(prefix) ? raw.slice(prefix.length) : raw;
+          if (selector && !['candidate', 'campaign'].includes(selector)) {
+            throw new Error('active sync selector must be candidate or campaign');
+          }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `selector=${selector}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${selector === 'candidate'}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `campaign=${selector === 'campaign'}\n`);
@@ -529,7 +532,7 @@ jobs:
             const { createTokenAwareRetry } = require(
               './.github/scripts/github-api-with-retry.js'
             );
-            const { withRetry } = await createTokenAwareRetry({
+            const { github: api, paginateWithRetry, withRetry } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
@@ -543,6 +546,7 @@ jobs:
               'merged',
               'branch_deleted',
               'branch_delete_failed',
+              'stale_closed',
               'campaign_no_change_verified',
             ]);
             const incomplete = (report.results || []).filter(
@@ -560,16 +564,14 @@ jobs:
               return;
             }
             const title = `Health 83 Dependency Sync Efficiency [${planId}]`;
-            const { data: runs } = await withRetry((client) =>
-              client.rest.actions.listWorkflowRuns({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: 'health-83-dependency-sync-efficiency.yml',
-                event: 'workflow_dispatch',
-                per_page: 100,
-              }),
-            );
-            if ((runs.workflow_runs || []).some((run) => run.display_title === title)) {
+            const runs = await paginateWithRetry(api.rest.actions.listWorkflowRuns, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'health-83-dependency-sync-efficiency.yml',
+              event: 'workflow_dispatch',
+              per_page: 100,
+            });
+            if (runs.some((run) => run.display_title === title)) {
               core.notice(`Health 83 already recorded for ${planId}`);
               return;
             }
@@ -754,6 +756,7 @@ jobs:
             always() &&
             steps.candidate_mode.outputs.candidate == 'true' &&
             steps.candidate_evidence_validation.outcome == 'success' &&
+            steps.candidate_evidence_validation.outputs.authorized == 'true' &&
             steps.candidate_artifact.outcome == 'success' &&
             steps.merge.outcome == 'success'
           }}

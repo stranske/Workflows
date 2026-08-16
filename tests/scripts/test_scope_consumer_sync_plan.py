@@ -143,6 +143,28 @@ def test_source_delta_expands_transitive_manifest_dependencies() -> None:
     assert evidence["dependency_targets"] == ["scripts/b", "scripts/c"]
 
 
+def test_source_delta_dependency_cycle_terminates() -> None:
+    scoped_plan = plan()
+    scoped_plan["entries"].extend(
+        [
+            entry("scripts/x", "scripts/x", requires=["scripts/y"]),
+            entry("scripts/y", "scripts/y", requires=["scripts/x"]),
+        ]
+    )
+    scoped, evidence = select_plan(
+        scoped_plan,
+        mode="source-delta",
+        changed_paths=["scripts/x"],
+        base_sha="1" * 40,
+        source_commit="2" * 40,
+    )
+    assert [item["target"] for item in scoped["entries"]][-2:] == [
+        "scripts/x",
+        "scripts/y",
+    ]
+    assert evidence["dependency_targets"] == ["scripts/y"]
+
+
 def test_full_scope_preserves_the_compiled_plan_exactly() -> None:
     original = plan()
     scoped, evidence = select_plan(original, mode="full", source_commit="2" * 40)

@@ -56,6 +56,7 @@ const {
   collectReviewerEvidence,
   legacyStatusAsCheck,
   normalizeReviewPolicy,
+  parseNoChangeEvidenceDocument,
   parseReviewResolutionProofs,
   run,
   validateReviewResolutionProof,
@@ -78,6 +79,49 @@ const checkRun = ({
   status,
   conclusion,
   started_at,
+});
+
+test('parseNoChangeEvidenceDocument shares fail-closed lane validation', () => {
+  const planId = 'plan-abc';
+  const sourceCommit = 'a'.repeat(40);
+  const raw = JSON.stringify({
+    schema: 'workflows.consumer-sync-canary-evidence/v1',
+    version: 1,
+    results: [{
+      repo: 'stranske/Travel',
+      plan_id: planId,
+      plan_scope: 'full',
+      scope_base_sha: '',
+      source_commit: sourceCommit,
+      head_sha: 'b'.repeat(40),
+      evidence_source: 'no-change-canary',
+      required_check_state: 'success',
+      active_review_thread_count: 0,
+    }],
+  });
+  const parsed = parseNoChangeEvidenceDocument(raw, {
+    lane: 'candidate',
+    requestedSyncHash: 'candidate',
+    documentName: 'No-change canary evidence',
+    rowName: 'no-change canary evidence',
+    schema: 'workflows.consumer-sync-canary-evidence/v1',
+    acceptedEvidenceSources: ['no-change-canary'],
+    expectedRepositories: ['stranske/Travel'],
+    expectedPlanId: planId,
+    expectedPlanScope: 'full',
+    expectedScopeBaseSha: '',
+    expectedSourceCommit: sourceCommit,
+    requireExactPlan: true,
+  });
+  assert.equal(parsed.get('stranske/Travel').head_sha, 'b'.repeat(40));
+  assert.throws(
+    () => parseNoChangeEvidenceDocument(raw, {
+      lane: 'candidate',
+      requestedSyncHash: 'campaign',
+      documentName: 'No-change canary evidence',
+    }),
+    /only valid for the candidate lane/,
+  );
 });
 
 test('transient delivery holds carry a durable due time and lane', () => {
@@ -210,6 +254,7 @@ test('campaign commit authorization binds every prepared exact head', () => {
     report,
     expectedRepositories: ['stranske/Travel', 'stranske/NoChange'],
     planId: 'plan-abc',
+    sourceCommit: 'source-abc',
   }).authorized, false);
 });
 

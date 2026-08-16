@@ -12,6 +12,9 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "Validate complete pre-merge canary evidence" in workflow
     assert "CANDIDATE_EVIDENCE_AUTHORIZED:" in workflow
     assert "steps.candidate_evidence_validation.outputs.authorized" in workflow
+    assert "steps.candidate_evidence_validation.outputs.authorized == 'true'" in workflow
+    assert "PREPARE_ONLY_INPUT:" in workflow
+    assert "CAMPAIGN_COMMIT_AUTHORIZATION_JSON:" in workflow
     assert "Authorize exact-head fleet commit" in workflow
     assert "Commit prepared sync campaign" in workflow
     assert "dryRun && !resolutionOnly" in executor
@@ -28,6 +31,9 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "canary_evidence_json: JSON.stringify(evidence)" in workflow
     assert "cancel-in-progress: false" in workflow
     assert "EXCLUDED_REPOS_INPUT: stranske/Collab-Admin" in workflow
+    assert "active sync selector must be candidate or campaign" in workflow
+    assert "'stale_closed'" in workflow
+    assert "paginateWithRetry(api.rest.actions.listWorkflowRuns" in workflow
     assert "Maint 71 requires OWNER_PR_PAT" in executor
     assert "retryHelpers.withRetry(fn" in executor
     assert "createTokenAwareRetry" not in executor
