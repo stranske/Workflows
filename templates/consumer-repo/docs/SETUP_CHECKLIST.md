@@ -532,45 +532,11 @@ When drift is detected, repair the source template in Workflows and use the
 managed sync path. Do not download individual workflow files into a consumer
 repository as an ad-hoc replacement for the manifest-driven delivery.
 
-> **Lesson learned**: When writing workflow sync scripts that use `curl` to download
-> files, always verify both success AND that the file exists with content:
-> ```bash
-> # BAD - curl failure silently continues
-> curl -sfL "$URL" -o "$FILE" 2>/dev/null || continue
-> 
-> # GOOD - explicit failure tracking and file verification
-> download_failed=false
-> if ! curl -sfL "$URL" -o "$FILE" 2>/dev/null; then
->   download_failed=true
-> fi
-> if [ "$download_failed" = "true" ] || [ ! -s "$FILE" ]; then
->   echo "Download failed: $FILE"
->   continue
-> fi
-> ```
-> This pattern was added to consumer repo `maint-sync-workflows.yml` files after
-> silent failures masked sync issues.
-> **⚠️ CRITICAL: Fix reusable workflow references after copying!**
->
-> When copying workflow files, watch for local reusable-workflow references like:
->
-> ```yaml
-> uses: ./.github/workflows/reusable-agents-issue-bridge.yml
-> ```
->
-> This works in the Workflows repo but can break in consumer repos if the reusable workflow
-> is not present locally. Prefer a remote reference instead:
->
-> ```yaml
-> uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@v1
-> ```
->
-> **Preferred**: copy from the consumer template in this repo (already wired for consumer usage):
->
-> ```bash
-> curl -o .github/workflows/agents-issue-intake.yml \
->   https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-issue-intake.yml
-> ```
+The managed sync source already uses the correct pinned local or canonical
+remote reusable references for each consumer file. If a reference is wrong,
+repair it in the Workflows template and sync manifest, validate the source PR,
+and let the managed delivery update consumers. Do not download a single file or
+substitute a tag-based reference locally.
 
 ### 4.2 Autofix Versions Configuration
 
