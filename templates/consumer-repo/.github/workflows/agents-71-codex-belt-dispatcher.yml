@@ -225,6 +225,9 @@ jobs:
       - name: Resolve candidate issue
         id: pick
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          FORCE_ISSUE: ${{ inputs.force_issue }}
+          AGENT_KEY: ${{ inputs.agent_key }}
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
@@ -234,8 +237,8 @@ jobs:
               core,
               task: 'codex-belt-dispatcher-pick',
             });
-            const forced = '${{ inputs.force_issue }}';
-            const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const forced = process.env.FORCE_ISSUE || '';
+            const agentKey = String(process.env.AGENT_KEY || 'codex').trim().toLowerCase() || 'codex';
             const { owner, repo } = context.repo;
 
             const summary = core.summary;
