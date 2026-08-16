@@ -521,6 +521,7 @@ entry points used by this repository:
 > template and sync manifest are the sources of truth.
 
 **Validation checklist:**
+
 - [ ] `agents-issue-intake.yml` exists as the local front door
 - [ ] Auto-Pilot, the Agents 71/72 dispatch path, and 80-81 event routers match the template
 - [ ] The 72 worker and 73 conveyor are recorded as callable-only, not operator entry points
