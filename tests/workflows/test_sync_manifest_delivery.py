@@ -32,6 +32,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -40,6 +41,11 @@ MANIFEST_PATH = REPO_ROOT / ".github" / "sync-manifest.yml"
 SYNC_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "maint-68-sync-consumer-repos.yml"
 REUSABLE_AUTOFIX_PATH = REPO_ROOT / ".github" / "workflows" / "reusable-18-autofix.yml"
 DRIFT_CHECK_PATH = REPO_ROOT / "scripts" / "check_consumer_sync_drift.py"
+CANARY_REPOS = (
+    "stranske/Travel-Plan-Permission",
+    "stranske/trip-planner",
+    "stranske/Portable-Alpha-Extension-Model",
+)
 
 # Manifest sections whose entries are physically copied into consumer repos by
 # maint-68-sync-consumer-repos.yml. Kept in lockstep with that workflow's
@@ -90,6 +96,68 @@ def _runtime_sources(manifest: dict) -> set[str]:
             ):
                 sources.add(str(entry["source"]))
     return sources
+
+
+def _run_scope_resolution(
+    tmp_path: Path,
+    *,
+    evidence: list[dict[str, Any]] | None,
+    requested_scope: str = "auto",
+    input_base_sha: str = "",
+    input_head_sha: str = "",
+    github_sha: str = "b" * 40,
+) -> tuple[subprocess.CompletedProcess[str], dict[str, str]]:
+    workflow = yaml.safe_load(SYNC_WORKFLOW_PATH.read_text(encoding="utf-8"))
+    step = next(
+        item
+        for item in workflow["jobs"]["prepare"]["steps"]
+        if item.get("name") == "Resolve immutable plan scope"
+    )
+    output_path = tmp_path / "github-output"
+    env = os.environ.copy()
+    env.update(
+        {
+            "REQUESTED_SCOPE": requested_scope,
+            "INPUT_BASE_SHA": input_base_sha,
+            "INPUT_HEAD_SHA": input_head_sha,
+            "REQUESTED_PHASE": "promote",
+            "CANARY_EVIDENCE_JSON": "" if evidence is None else json.dumps(evidence),
+            "GITHUB_SHA": github_sha,
+            "GITHUB_OUTPUT": str(output_path),
+        }
+    )
+    completed = subprocess.run(
+        ["bash", "-c", step["run"]],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    outputs: dict[str, str] = {}
+    if output_path.exists():
+        outputs = dict(
+            line.split("=", 1) for line in output_path.read_text(encoding="utf-8").splitlines()
+        )
+    return completed, outputs
+
+
+def _promotion_evidence(
+    *,
+    plan_scope: str = "full",
+    source_commits: tuple[str, str, str] | None = None,
+    base_shas: tuple[str, str, str] | None = None,
+) -> list[dict[str, str]]:
+    source_commits = source_commits or ("a" * 40,) * 3
+    base_shas = base_shas or ("",) * 3
+    return [
+        {
+            "repo": repo,
+            "plan_scope": plan_scope,
+            "scope_base_sha": base_shas[index],
+            "source_commit": source_commits[index],
+        }
+        for index, repo in enumerate(CANARY_REPOS)
+    ]
 
 
 def test_no_entry_is_both_runtime_and_copy_synced() -> None:
@@ -290,58 +358,110 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
 
 def test_full_plan_promotion_preserves_evidence_source_commit(tmp_path: Path) -> None:
     """A later workflow ref must not replace the source authorized by canaries."""
-    workflow = yaml.safe_load(SYNC_WORKFLOW_PATH.read_text(encoding="utf-8"))
-    step = next(
-        item
-        for item in workflow["jobs"]["prepare"]["steps"]
-        if item.get("name") == "Resolve immutable plan scope"
-    )
     canary_source = "a" * 40
     later_main = "b" * 40
-    evidence = [
-        {
-            "repo": repo,
-            "plan_scope": "full",
-            "scope_base_sha": "",
-            "source_commit": canary_source,
-        }
-        for repo in (
-            "stranske/Travel-Plan-Permission",
-            "stranske/trip-planner",
-            "stranske/Portable-Alpha-Extension-Model",
-        )
-    ]
-    output_path = tmp_path / "github-output"
-    env = os.environ.copy()
-    env.update(
-        {
-            "REQUESTED_SCOPE": "auto",
-            "INPUT_BASE_SHA": "",
-            "INPUT_HEAD_SHA": "",
-            "REQUESTED_PHASE": "promote",
-            "CANARY_EVIDENCE_JSON": json.dumps(evidence),
-            "GITHUB_SHA": later_main,
-            "GITHUB_OUTPUT": str(output_path),
-        }
-    )
-
-    completed = subprocess.run(
-        ["bash", "-c", step["run"]],
-        check=False,
-        capture_output=True,
-        text=True,
-        env=env,
+    completed, outputs = _run_scope_resolution(
+        tmp_path,
+        evidence=_promotion_evidence(),
+        github_sha=later_main,
     )
 
     assert completed.returncode == 0, completed.stderr
-    outputs = dict(
-        line.split("=", 1) for line in output_path.read_text(encoding="utf-8").splitlines()
-    )
     assert outputs == {
         "plan_scope": "full",
         "scope_base_sha": "",
         "source_commit": canary_source,
     }
+
+
+def test_source_delta_promotion_preserves_evidence_range(tmp_path: Path) -> None:
+    source_commit = "a" * 40
+    base_sha = "c" * 40
+    completed, outputs = _run_scope_resolution(
+        tmp_path,
+        evidence=_promotion_evidence(
+            plan_scope="source-delta",
+            source_commits=(source_commit,) * 3,
+            base_shas=(base_sha,) * 3,
+        ),
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert outputs == {
+        "plan_scope": "source-delta",
+        "scope_base_sha": base_sha,
+        "source_commit": source_commit,
+    }
+
+
+def test_promotion_without_canary_evidence_fails_closed(tmp_path: Path) -> None:
+    completed, outputs = _run_scope_resolution(tmp_path, evidence=None)
+
+    assert completed.returncode != 0
+    assert "Promotion requires canary evidence" in completed.stdout
+    assert outputs == {}
+
+
+def test_promotion_rejects_explicit_scope_conflict(tmp_path: Path) -> None:
+    completed, outputs = _run_scope_resolution(
+        tmp_path,
+        evidence=_promotion_evidence(),
+        requested_scope="source-delta",
+    )
+
+    assert completed.returncode != 0
+    assert "does not match promotion evidence scope" in completed.stdout
+    assert outputs == {}
+
+
+def test_promotion_rejects_missing_or_mixed_source_commits(tmp_path: Path) -> None:
+    missing, missing_outputs = _run_scope_resolution(
+        tmp_path / "missing",
+        evidence=_promotion_evidence(source_commits=("",) * 3),
+    )
+    mixed, mixed_outputs = _run_scope_resolution(
+        tmp_path / "mixed",
+        evidence=_promotion_evidence(source_commits=("a" * 40, "d" * 40, "a" * 40)),
+    )
+
+    assert missing.returncode != 0
+    assert "missing or mixed promotion source commit" in missing.stderr
+    assert missing_outputs == {}
+    assert mixed.returncode != 0
+    assert "missing or mixed promotion source commit" in mixed.stderr
+    assert mixed_outputs == {}
+
+
+def test_source_delta_promotion_rejects_missing_or_mixed_bases(tmp_path: Path) -> None:
+    missing, missing_outputs = _run_scope_resolution(
+        tmp_path / "missing",
+        evidence=_promotion_evidence(plan_scope="source-delta"),
+    )
+    mixed, mixed_outputs = _run_scope_resolution(
+        tmp_path / "mixed",
+        evidence=_promotion_evidence(
+            plan_scope="source-delta",
+            base_shas=("c" * 40, "e" * 40, "c" * 40),
+        ),
+    )
+
+    assert missing.returncode != 0
+    assert "missing or mixed source-delta base SHA" in missing.stderr
+    assert missing_outputs == {}
+    assert mixed.returncode != 0
+    assert "missing or mixed source-delta base SHA" in mixed.stderr
+    assert mixed_outputs == {}
+
+
+def test_full_plan_promotion_rejects_source_range_base(tmp_path: Path) -> None:
+    completed, outputs = _run_scope_resolution(
+        tmp_path,
+        evidence=_promotion_evidence(base_shas=("c" * 40,) * 3),
+    )
+
+    assert completed.returncode != 0
+    assert "Full-plan promotion evidence must not contain a source-range base" in completed.stdout
+    assert outputs == {}
 
 
 def test_maint_71_emits_canary_evidence_with_review_debt() -> None:

@@ -116,7 +116,11 @@ jobs:
           base_sha="$INPUT_BASE_SHA"
           source_commit="$INPUT_HEAD_SHA"
 
-          if [ "$REQUESTED_PHASE" = "promote" ] && [ -n "$CANARY_EVIDENCE_JSON" ]; then
+          if [ "$REQUESTED_PHASE" = "promote" ]; then
+            [ -n "$CANARY_EVIDENCE_JSON" ] || {
+              echo "::error::Promotion requires canary evidence"
+              exit 1
+            }
             evidence_rows=$(jq -ce '
               if type == "array" then .
               elif (.results | type) == "array" then .results
