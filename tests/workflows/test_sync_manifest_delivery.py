@@ -262,8 +262,8 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     continuation_names = [step.get("name") for step in continuation["steps"]]
     assert "Build exact no-change canary evidence" in continuation_names
     assert "Record exact consumer base" in [step.get("name") for step in sync["steps"]]
-    assert 'expected_plan_id: process.env.PLAN_ID' in source
-    assert 'expected_source_commit: process.env.SOURCE_COMMIT' in source
+    assert "expected_plan_id: process.env.PLAN_ID" in source
+    assert "expected_source_commit: process.env.SOURCE_COMMIT" in source
     assert "canary_baseline_evidence_json" in source
     assert '"consumer_head_sha": os.environ.get("CONSUMER_HEAD_SHA", "")' in source
     assert "autofix: false" in source
