@@ -826,7 +826,7 @@ tasks are complete or the iteration limit is reached.
 - [ ] `.gitignore` includes codex working files (prevents multi-PR conflicts)
 
 **How to test**:
-1. Create a PR from an issue with `agent:codex` label
+1. Create a PR from an issue with both `agent:codex` and `agents:keepalive` labels
 2. Let Gate complete on the unchanged head
 3. Verify `agents-81-gate-followups.yml` evaluates that Gate run
 4. Check the Agents 81 summary for the exact-head follow-up disposition
