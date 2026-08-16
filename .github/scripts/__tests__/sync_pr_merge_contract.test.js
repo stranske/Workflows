@@ -40,6 +40,8 @@ const {
   rulesetRefPatternMatches,
   selectActiveSyncPr,
   selectLatestMergedCandidatePr,
+  selectLatestMergedSyncPr,
+  campaignAuthorizationRowForRepository,
   selectMergeEligibleSyncPr,
   summarizeResults,
   syncBranchForHash,
@@ -208,6 +210,79 @@ test('campaign commit authorization binds every prepared exact head', () => {
     expectedRepositories: ['stranske/Travel', 'stranske/NoChange'],
     planId: 'plan-abc',
   }).authorized, false);
+});
+
+test('campaign commit authorization accepts already-merged rows on resume', () => {
+  const report = {
+    inputs: { sync_hash: 'campaign' },
+    results: [
+      {
+        owner: 'stranske', repo: 'Travel', pr: 11,
+        branch: 'sync/workflows-delivery', head_sha: 'head-11',
+        delivery_generation: 'generation-11', plan_id: 'plan-abc',
+        source_commit: 'source-abc',
+        status: 'merged',
+      },
+      {
+        owner: 'stranske', repo: 'Portable', pr: 12,
+        branch: 'sync/workflows-delivery', head_sha: 'head-12',
+        delivery_generation: 'generation-12', plan_id: 'plan-abc',
+        source_commit: 'source-abc',
+        status: 'campaign_prepared',
+      },
+    ],
+  };
+  const authorization = buildCampaignCommitAuthorization({
+    report,
+    expectedRepositories: ['stranske/Travel', 'stranske/Portable'],
+    planId: 'plan-abc',
+    sourceCommit: 'source-abc',
+  });
+  assert.equal(authorization.authorized, true);
+  assert.equal(authorization.rows.length, 2);
+  assert.equal(
+    campaignAuthorizationRowForRepository(authorization, 'stranske/Travel')?.head_sha,
+    'head-11',
+  );
+});
+
+test('selectLatestMergedSyncPr matches authorized campaign identity', () => {
+  const trusted = ['stranske'];
+  const deliveryBody = `<!-- sync-pr-delivery-record:v1 ${JSON.stringify({
+    schema: 'sync-pr-delivery-record/v1',
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    plan_id: 'plan-abc',
+    generation: 'generation-11',
+    repository: 'stranske/Travel',
+    desired_tree_hash: 'tree-11',
+    source_commit: 'source-abc',
+    lease_expires_at: '2099-08-14T00:00:00Z',
+    predecessor_prs: [],
+    successor_prs: [],
+  })} -->`;
+  const selected = selectLatestMergedSyncPr([
+    {
+      number: 11,
+      merged_at: '2026-08-16T12:00:00Z',
+      user: { login: 'stranske' },
+      head: { ref: 'sync/workflows-delivery', sha: 'head-11' },
+      body: deliveryBody,
+    },
+    {
+      number: 10,
+      merged_at: '2026-08-16T11:00:00Z',
+      user: { login: 'stranske' },
+      head: { ref: 'sync/workflows-delivery', sha: 'stale-head' },
+      body: deliveryBody,
+    },
+  ], trusted, {
+    branch: 'sync/workflows-delivery',
+    planId: 'plan-abc',
+    sourceCommit: 'source-abc',
+    prNumber: 11,
+    headSha: 'head-11',
+  });
+  assert.equal(selected?.number, 11);
 });
 
 test('candidate base drift requests a no-filter refresh and stays transient', () => {

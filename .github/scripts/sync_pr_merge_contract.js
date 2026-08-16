@@ -603,38 +603,69 @@ function selectMergeEligibleSyncPr(
   return { ...selection, deliveryRecord: record, eligibility };
 }
 
+function selectLatestMergedSyncPr(
+  prs,
+  trustedActors = [],
+  {
+    branch = '',
+    planId = '',
+    sourceCommit = '',
+    prNumber = 0,
+    headSha = '',
+  } = {},
+) {
+  const expectedBranch = branchNameFromRef(branch);
+  const expectedPlanId = String(planId || '').trim();
+  const expectedSourceCommit = String(sourceCommit || '').trim().toLowerCase();
+  const expectedHeadSha = String(headSha || '').trim().toLowerCase();
+  const expectedPr = Number(prNumber) || 0;
+  const mergedRows = (prs || []).filter((pr) => {
+    if (
+      !Boolean(pr?.merged_at || pr?.mergedAt)
+      || !isTrustedGeneratedDeliveryPr(pr, trustedActors)
+    ) {
+      return false;
+    }
+    if (expectedBranch && branchNameFromRef(pr?.head?.ref) !== expectedBranch) return false;
+    if (expectedPr && Number(pr?.number) !== expectedPr) return false;
+    if (
+      expectedHeadSha
+      && String(pr?.head?.sha || '').trim().toLowerCase() !== expectedHeadSha
+    ) {
+      return false;
+    }
+    const record = parseDeliveryRecord(pr.body || '');
+    if (expectedPlanId && record?.plan_id !== expectedPlanId) return false;
+    if (
+      expectedSourceCommit
+      && String(record?.source_commit || '').trim().toLowerCase() !== expectedSourceCommit
+    ) {
+      return false;
+    }
+    return true;
+  });
+  return mergedRows.sort((a, b) => {
+    const aTime = new Date(a.merged_at || a.mergedAt || a.updated_at || 0).getTime();
+    const bTime = new Date(b.merged_at || b.mergedAt || b.updated_at || 0).getTime();
+    return bTime - aTime;
+  })[0] || null;
+}
+
 function selectLatestMergedCandidatePr(
   prs,
   trustedActors = [],
   { planId = '', sourceCommit = '' } = {},
 ) {
-  const expectedPlanId = String(planId || '').trim();
-  const expectedSourceCommit = String(sourceCommit || '').trim().toLowerCase();
-  const mergedCandidates = (prs || []).filter(
-    (pr) => {
-      if (
-        pr?.head?.ref !== `${SYNC_BRANCH_PREFIX}candidate`
-        || !Boolean(pr?.merged_at || pr?.mergedAt)
-        || !isTrustedGeneratedDeliveryPr(pr, trustedActors)
-      ) {
-        return false;
-      }
-      const record = parseDeliveryRecord(pr.body || '');
-      if (expectedPlanId && record?.plan_id !== expectedPlanId) return false;
-      if (
-        expectedSourceCommit
-        && String(record?.source_commit || '').trim().toLowerCase() !== expectedSourceCommit
-      ) {
-        return false;
-      }
-      return true;
-    },
-  );
-  return mergedCandidates.sort((a, b) => {
-    const aTime = new Date(a.merged_at || a.mergedAt || a.updated_at || 0).getTime();
-    const bTime = new Date(b.merged_at || b.mergedAt || b.updated_at || 0).getTime();
-    return bTime - aTime;
-  })[0] || null;
+  return selectLatestMergedSyncPr(prs, trustedActors, {
+    branch: SYNC_CANDIDATE_BRANCH,
+    planId,
+    sourceCommit,
+  });
+}
+
+function campaignAuthorizationRowForRepository(authorization = {}, repository = '') {
+  if (authorization?.schema !== 'workflows.sync-campaign-commit-authorization/v1') return null;
+  return (authorization.rows || []).find((item) => item.repository === repository) || null;
 }
 
 function validateExpectedCandidateIdentity({
@@ -1123,29 +1154,33 @@ function buildCampaignCommitAuthorization({
     const prepared = actionable.find(
       (result) => String(result.status || '') === 'campaign_prepared',
     );
-    if (prepared) {
-      if (!isStableSyncBranchName(prepared.branch)) {
+    const alreadyMerged = actionable.find(
+      (result) => String(result.status || '') === 'merged',
+    );
+    const terminalRow = prepared || alreadyMerged;
+    if (terminalRow) {
+      if (!isStableSyncBranchName(terminalRow.branch)) {
         errors.push(`${repository}: prepared row is not a stable sync branch`);
         continue;
       }
-      if (!prepared.head_sha || !prepared.delivery_generation) {
+      if (!terminalRow.head_sha || !terminalRow.delivery_generation) {
         errors.push(`${repository}: prepared row lacks exact delivery identity`);
         continue;
       }
-      if (planId && String(prepared.plan_id || '') !== String(planId)) {
+      if (planId && String(terminalRow.plan_id || '') !== String(planId)) {
         errors.push(`${repository}: prepared row plan mismatch`);
         continue;
       }
-      if (sourceCommit && String(prepared.source_commit || '') !== String(sourceCommit)) {
+      if (sourceCommit && String(terminalRow.source_commit || '') !== String(sourceCommit)) {
         errors.push(`${repository}: prepared row source mismatch`);
         continue;
       }
       rows.push({
         repository,
-        pr: Number(prepared.pr),
-        branch: branchNameFromRef(prepared.branch),
-        head_sha: String(prepared.head_sha),
-        delivery_generation: String(prepared.delivery_generation),
+        pr: Number(terminalRow.pr),
+        branch: branchNameFromRef(terminalRow.branch),
+        head_sha: String(terminalRow.head_sha),
+        delivery_generation: String(terminalRow.delivery_generation),
       });
       continue;
     }
@@ -1347,6 +1382,7 @@ module.exports = {
   candidateEvidenceAllowsMutation,
   buildCampaignCommitAuthorization,
   campaignAuthorizationAllowsMerge,
+  campaignAuthorizationRowForRepository,
   collectDeletableSyncBranches,
   generatedDeliveryLane,
   generatedDeliveryRequiresVerifiedHead,
@@ -1377,6 +1413,7 @@ module.exports = {
   selectActiveSyncPr,
   selectMergeEligibleSyncPr,
   selectLatestMergedCandidatePr,
+  selectLatestMergedSyncPr,
   validateExpectedCandidateIdentity,
   validateCanaryEvidence,
   validateSourceDeltaEvidenceBinding,

@@ -264,6 +264,7 @@ async function run({ github, context, core }) {
     buildMarkdownSummary,
     buildMergeReport,
     campaignAuthorizationAllowsMerge,
+    campaignAuthorizationRowForRepository,
     candidateEvidenceAllowsMutation,
     classifyGeneratedPr,
     classifySyncPrChecks,
@@ -283,6 +284,7 @@ async function run({ github, context, core }) {
     requiredContextsFromRulesets,
     isTrustedGeneratedDeliveryPr,
     selectLatestMergedCandidatePr,
+    selectLatestMergedSyncPr,
     selectMergeEligibleSyncPr,
     selectSyncPrGatingChecks,
     syncBranchForHash,
@@ -1170,7 +1172,7 @@ async function run({ github, context, core }) {
   
       const syncPRs = prs.filter((pr) => isTrustedGeneratedDeliveryPr(pr, trustedSyncActors));
       let closedPRs = [];
-      if (cleanupBranches || selectedSyncHash === 'candidate') {
+      if (cleanupBranches || selectedSyncHash === 'candidate' || requestedSyncHash === 'campaign') {
         closedPRs = await withRetry((client) => client.paginate(client.rest.pulls.list, {
           owner,
           repo,
@@ -1406,6 +1408,42 @@ async function run({ github, context, core }) {
           reason: 'candidate_pr_and_no_change_evidence_missing',
         });
         continue;
+      }
+
+      if (candidatePRs.length === 0 && requestedSyncHash === 'campaign' && !prepareOnly) {
+        const repoKey = `${owner}/${repo}`;
+        const authRow = campaignAuthorizationRowForRepository(
+          campaignCommitAuthorization,
+          repoKey,
+        );
+        if (authRow && !authRow.no_change) {
+          const mergedCampaign = selectLatestMergedSyncPr(closedPRs, trustedSyncActors, {
+            branch: authRow.branch,
+            planId: expectedPlanId,
+            sourceCommit: expectedSourceCommit,
+            prNumber: authRow.pr,
+            headSha: authRow.head_sha,
+          });
+          if (mergedCampaign) {
+            results.push({
+              owner,
+              repo,
+              pr: mergedCampaign.number,
+              branch: mergedCampaign.head.ref,
+              head_sha: mergedCampaign.head.sha,
+              delivery_generation: authRow.delivery_generation,
+              plan_id: expectedPlanId,
+              source_commit: expectedSourceCommit,
+              status: 'merged',
+              evidence_source: 'campaign-commit-recovery',
+            });
+            console.log(
+              `✓ Recovered already-merged campaign row from PR #${mergedCampaign.number} ` +
+                `(${mergedCampaign.head.sha})`,
+            );
+            continue;
+          }
+        }
       }
 
       if (candidatePRs.length === 0 && requestedSyncHash === 'campaign') {
