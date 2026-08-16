@@ -353,6 +353,20 @@ writing canary PRs; Maint 71 dispatches `phase=promote` only after the persisted
 evidence is complete and every candidate is merged or safely recovered; and a
 successful promotion dispatches the delivery selector. Generated-branch Gate
 completions provide event-driven wakeups through the synced Gate-followups hub.
+Maint 68 binds that handoff to the exact plan ID, plan scope, source range, and
+source commit. A canary that already matches the plan contributes explicit
+`no-change-canary` evidence containing its observed default-branch SHA; Maint 71
+accepts it only while that SHA is still the live default-branch head and its
+active-ruleset required checks are green. Recovery
+from a previously merged candidate is likewise restricted to the dispatching
+plan and source commit. Thus a no-diff run cannot silently recycle an older
+merged candidate and promote stale content. If no open candidate, current
+no-change evidence, or same-plan merged candidate exists, the evidence pass
+fails closed. The remediation is to rerun Maint 68 for the intended immutable
+full plan or source range, never to reuse an older evidence artifact. These
+rules are enforced by `sync_run_contract.js`, `maint71_merge_sync_prs.js`, and
+`sync_pr_merge_contract.js`, with the workflow carrying the immutable fields
+between those boundaries.
 Maint 82 retains every transient Maint 71 handoff with a due time and supplies a
 ten-minute fallback for candidate-evidence holds, delivery-review startup,
 pending checks, changed heads, review windows, reviewer settlement, sealed Gate

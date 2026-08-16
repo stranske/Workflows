@@ -473,6 +473,11 @@ jobs:
         run: |
           gh repo clone "$TARGET_REPOSITORY" consumer -- --depth=1
 
+      - name: Record exact consumer base
+        id: consumer_base
+        run: |
+          echo "sha=$(git -C consumer rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Download manifest
         uses: actions/download-artifact@v8
         with:
@@ -1414,6 +1419,10 @@ jobs:
           REPO: ${{ matrix.repo }}
           TEMPLATE_HASH: ${{ needs.prepare.outputs.template_hash }}
           PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
+          PLAN_SCOPE: ${{ needs.prepare.outputs.plan_scope }}
+          SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          CONSUMER_HEAD_SHA: ${{ steps.consumer_base.outputs.sha || '' }}
           SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
           SYNC_BRANCH: ${{ needs.prepare.outputs.sync_branch }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
@@ -1462,6 +1471,10 @@ jobs:
               "status": status,
               "template_hash": os.environ.get("TEMPLATE_HASH", ""),
               "plan_id": os.environ.get("PLAN_ID", ""),
+              "plan_scope": os.environ.get("PLAN_SCOPE", "") or "full",
+              "scope_base_sha": os.environ.get("SCOPE_BASE_SHA", ""),
+              "source_commit": os.environ.get("SOURCE_COMMIT", ""),
+              "consumer_head_sha": os.environ.get("CONSUMER_HEAD_SHA", ""),
               "sync_phase": os.environ.get("SYNC_PHASE", ""),
               "expected_branch": os.environ.get("SYNC_BRANCH", ""),
               "dry_run": dry_run,
@@ -1639,7 +1652,63 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts
+            config/consumer_sync_canaries.json
           sparse-checkout-cone-mode: false
+
+      - name: Download per-repository sync results
+        uses: actions/download-artifact@v8
+        with:
+          pattern: consumer-sync-result-*
+          path: artifacts/consumer-sync-results
+          merge-multiple: true
+
+      - name: Build exact no-change canary evidence
+        id: baseline
+        env:
+          PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
+          PLAN_SCOPE: ${{ needs.prepare.outputs.plan_scope }}
+          SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const {
+            buildNoChangeCanaryEvidence,
+          } = require('./.github/scripts/sync_run_contract.js');
+          const canaryConfig = JSON.parse(
+            fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),
+          );
+          const expectedCanaries = (canaryConfig.canaries || [])
+            .map((entry) => String(entry.repo || '').trim())
+            .filter(Boolean);
+          const resultsDir = 'artifacts/consumer-sync-results';
+          const results = fs.existsSync(resultsDir)
+            ? fs.readdirSync(resultsDir)
+                .filter((name) => name.endsWith('.json'))
+                .sort()
+                .map((name) => JSON.parse(
+                  fs.readFileSync(path.join(resultsDir, name), 'utf8'),
+                ))
+            : [];
+          const baseline = buildNoChangeCanaryEvidence({
+            results,
+            expectedCanaries,
+            planId: process.env.PLAN_ID,
+            planScope: process.env.PLAN_SCOPE,
+            scopeBaseSha: process.env.SCOPE_BASE_SHA,
+            sourceCommit: process.env.SOURCE_COMMIT,
+          });
+          if (!baseline.ok) {
+            throw new Error(
+              `Unsafe no-change canary evidence: ${baseline.errors.join(', ')}`,
+            );
+          }
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `evidence_json=${JSON.stringify(baseline.evidence)}\n`,
+          );
+          NODE
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -1652,6 +1721,11 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
+          PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
+          PLAN_SCOPE: ${{ needs.prepare.outputs.plan_scope }}
+          SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          CANARY_BASELINE_EVIDENCE_JSON: ${{ steps.baseline.outputs.evidence_json }}
         with:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
@@ -1676,7 +1750,15 @@ jobs:
               auto_merge: 'true',
               dry_run: 'false',
               cleanup_branches: 'true',
+              expected_plan_id: process.env.PLAN_ID,
+              expected_plan_scope: process.env.PLAN_SCOPE,
+              expected_scope_base_sha: process.env.SCOPE_BASE_SHA,
+              expected_source_commit: process.env.SOURCE_COMMIT,
             };
+            if (activeSyncHash === 'candidate') {
+              inputs.canary_baseline_evidence_json =
+                process.env.CANARY_BASELINE_EVIDENCE_JSON || '';
+            }
             if (activeSyncHash === 'delivery') inputs.repos = nonAdminRepos.join(',');
             await withRetry((client) => client.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,

@@ -594,12 +594,32 @@ function selectMergeEligibleSyncPr(
   return { ...selection, deliveryRecord: record, eligibility };
 }
 
-function selectLatestMergedCandidatePr(prs, trustedActors = []) {
+function selectLatestMergedCandidatePr(
+  prs,
+  trustedActors = [],
+  { planId = '', sourceCommit = '' } = {},
+) {
+  const expectedPlanId = String(planId || '').trim();
+  const expectedSourceCommit = String(sourceCommit || '').trim().toLowerCase();
   const mergedCandidates = (prs || []).filter(
-    (pr) =>
-      pr?.head?.ref === `${SYNC_BRANCH_PREFIX}candidate`
-      && Boolean(pr?.merged_at || pr?.mergedAt)
-      && isTrustedGeneratedDeliveryPr(pr, trustedActors),
+    (pr) => {
+      if (
+        pr?.head?.ref !== `${SYNC_BRANCH_PREFIX}candidate`
+        || !Boolean(pr?.merged_at || pr?.mergedAt)
+        || !isTrustedGeneratedDeliveryPr(pr, trustedActors)
+      ) {
+        return false;
+      }
+      const record = parseDeliveryRecord(pr.body || '');
+      if (expectedPlanId && record?.plan_id !== expectedPlanId) return false;
+      if (
+        expectedSourceCommit
+        && String(record?.source_commit || '').trim().toLowerCase() !== expectedSourceCommit
+      ) {
+        return false;
+      }
+      return true;
+    },
   );
   return mergedCandidates.sort((a, b) => {
     const aTime = new Date(a.merged_at || a.mergedAt || a.updated_at || 0).getTime();

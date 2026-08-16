@@ -70,6 +70,31 @@ on:
         required: false
         type: string
         default: ""
+      expected_plan_id:
+        description: "Exact consumer-sync plan expected from the dispatching Maint 68 run"
+        required: false
+        type: string
+        default: ""
+      expected_plan_scope:
+        description: "Expected plan scope for candidate evidence"
+        required: false
+        type: string
+        default: ""
+      expected_scope_base_sha:
+        description: "Expected source-delta base SHA, or empty for full scope"
+        required: false
+        type: string
+        default: ""
+      expected_source_commit:
+        description: "Expected immutable Workflows source commit"
+        required: false
+        type: string
+        default: ""
+      canary_baseline_evidence_json:
+        description: "Exact no-change canary evidence emitted by Maint 68"
+        required: false
+        type: string
+        default: ""
   workflow_call:
     inputs:
       repos:
@@ -105,6 +130,31 @@ on:
         default: true
       review_resolution_json:
         description: "Exact-head source-fix proofs for specific review threads"
+        required: false
+        type: string
+        default: ""
+      expected_plan_id:
+        description: "Exact consumer-sync plan expected from the calling Maint 68 run"
+        required: false
+        type: string
+        default: ""
+      expected_plan_scope:
+        description: "Expected plan scope for candidate evidence"
+        required: false
+        type: string
+        default: ""
+      expected_scope_base_sha:
+        description: "Expected source-delta base SHA, or empty for full scope"
+        required: false
+        type: string
+        default: ""
+      expected_source_commit:
+        description: "Expected immutable Workflows source commit"
+        required: false
+        type: string
+        default: ""
+      canary_baseline_evidence_json:
+        description: "Exact no-change canary evidence emitted by Maint 68"
         required: false
         type: string
         default: ""
@@ -188,6 +238,11 @@ jobs:
           AUTO_MERGE_INPUT: "false"
           DRY_RUN_INPUT: "true"
           ACTIVE_SYNC_HASH_INPUT: ${{ steps.candidate_mode.outputs.selector }}
+          EXPECTED_PLAN_ID_INPUT: ${{ inputs.expected_plan_id || github.event.client_payload.expected_plan_id || '' }}
+          EXPECTED_PLAN_SCOPE_INPUT: ${{ inputs.expected_plan_scope || github.event.client_payload.expected_plan_scope || '' }}
+          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ inputs.expected_scope_base_sha || github.event.client_payload.expected_scope_base_sha || '' }}
+          EXPECTED_SOURCE_COMMIT_INPUT: ${{ inputs.expected_source_commit || github.event.client_payload.expected_source_commit || '' }}
+          CANARY_BASELINE_EVIDENCE_JSON: ${{ inputs.canary_baseline_evidence_json || github.event.client_payload.canary_baseline_evidence_json || '' }}
           CLEANUP_BRANCHES_INPUT: "false"
           EVIDENCE_ONLY_INPUT: "false"
           RESOLUTION_ONLY_INPUT: "true"
@@ -214,6 +269,11 @@ jobs:
           AUTO_MERGE_INPUT: "false"
           DRY_RUN_INPUT: "true"
           ACTIVE_SYNC_HASH_INPUT: ${{ steps.candidate_mode.outputs.selector }}
+          EXPECTED_PLAN_ID_INPUT: ${{ inputs.expected_plan_id || github.event.client_payload.expected_plan_id || '' }}
+          EXPECTED_PLAN_SCOPE_INPUT: ${{ inputs.expected_plan_scope || github.event.client_payload.expected_plan_scope || '' }}
+          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ inputs.expected_scope_base_sha || github.event.client_payload.expected_scope_base_sha || '' }}
+          EXPECTED_SOURCE_COMMIT_INPUT: ${{ inputs.expected_source_commit || github.event.client_payload.expected_source_commit || '' }}
+          CANARY_BASELINE_EVIDENCE_JSON: ${{ inputs.canary_baseline_evidence_json || github.event.client_payload.canary_baseline_evidence_json || '' }}
           CLEANUP_BRANCHES_INPUT: "false"
           EVIDENCE_ONLY_INPUT: "true"
           CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
@@ -295,6 +355,11 @@ jobs:
           AUTO_MERGE_INPUT: ${{ inputs.auto_merge }}
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
           ACTIVE_SYNC_HASH_INPUT: ${{ steps.candidate_mode.outputs.selector }}
+          EXPECTED_PLAN_ID_INPUT: ${{ inputs.expected_plan_id || github.event.client_payload.expected_plan_id || '' }}
+          EXPECTED_PLAN_SCOPE_INPUT: ${{ inputs.expected_plan_scope || github.event.client_payload.expected_plan_scope || '' }}
+          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ inputs.expected_scope_base_sha || github.event.client_payload.expected_scope_base_sha || '' }}
+          EXPECTED_SOURCE_COMMIT_INPUT: ${{ inputs.expected_source_commit || github.event.client_payload.expected_source_commit || '' }}
+          CANARY_BASELINE_EVIDENCE_JSON: ${{ inputs.canary_baseline_evidence_json || github.event.client_payload.canary_baseline_evidence_json || '' }}
           CANDIDATE_EVIDENCE_RESULT: ${{ steps.candidate_evidence_validation.outcome }}
           CANDIDATE_ARTIFACT_RESULT: ${{ steps.candidate_artifact.outcome }}
           CLEANUP_BRANCHES_INPUT: ${{ inputs.cleanup_branches }}

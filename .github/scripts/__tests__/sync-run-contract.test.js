@@ -4,10 +4,72 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  buildNoChangeCanaryEvidence,
   buildMarkdownSummary,
   buildSyncRunReport,
   summarizeResults,
 } = require('../sync_run_contract');
+
+test('buildNoChangeCanaryEvidence binds no-diff canaries to the exact plan and head', () => {
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const sourceCommit = 'b'.repeat(40);
+  const consumerHeadSha = 'c'.repeat(40);
+  const result = buildNoChangeCanaryEvidence({
+    expectedCanaries: ['stranske/Ready', 'stranske/Travel'],
+    planId,
+    planScope: 'full',
+    sourceCommit,
+    results: [
+      {
+        repo: 'stranske/Ready',
+        status: 'no_changes',
+        plan_id: planId,
+        plan_scope: 'full',
+        scope_base_sha: '',
+        source_commit: sourceCommit,
+        consumer_head_sha: consumerHeadSha,
+      },
+      { repo: 'stranske/Travel', status: 'created_pr', plan_id: planId },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.evidence.results, [{
+    repo: 'stranske/Ready',
+    plan_id: planId,
+    plan_scope: 'full',
+    scope_base_sha: '',
+    source_commit: sourceCommit,
+    head_sha: consumerHeadSha,
+    evidence_source: 'no-change-canary',
+    required_check_state: 'success',
+    active_review_thread_count: 0,
+  }]);
+});
+
+test('buildNoChangeCanaryEvidence rejects stale plan and missing head claims', () => {
+  const result = buildNoChangeCanaryEvidence({
+    expectedCanaries: ['stranske/Ready'],
+    planId: `sha256:${'a'.repeat(64)}`,
+    planScope: 'source-delta',
+    scopeBaseSha: '1'.repeat(40),
+    sourceCommit: '2'.repeat(40),
+    results: [{
+      repo: 'stranske/Ready',
+      status: 'no_changes',
+      plan_id: `sha256:${'f'.repeat(64)}`,
+      plan_scope: 'source-delta',
+      scope_base_sha: '1'.repeat(40),
+      source_commit: '2'.repeat(40),
+      consumer_head_sha: '',
+    }],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.includes('no_change_canary_plan_mismatch:stranske/Ready'));
+  assert.ok(result.errors.includes('no_change_canary_head_invalid:stranske/Ready'));
+});
 
 test('summarizeResults counts known statuses and buckets unknown as error', () => {
   assert.deepEqual(

@@ -224,6 +224,7 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     dispatch_inputs = workflow.get("on", workflow.get(True))["workflow_dispatch"]["inputs"]
     prepare = workflow["jobs"]["prepare"]
     sync = workflow["jobs"]["sync"]
+    continuation = workflow["jobs"]["continue-delivery"]
     source = SYNC_WORKFLOW_PATH.read_text(encoding="utf-8")
 
     assert dispatch_inputs["phase"]["default"] == "canary"
@@ -258,6 +259,13 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     assert "--draft" in source
     assert "sync:delivery-staging" in source
     assert "sync:delivery-ready" in source
+    continuation_names = [step.get("name") for step in continuation["steps"]]
+    assert "Build exact no-change canary evidence" in continuation_names
+    assert "Record exact consumer base" in [step.get("name") for step in sync["steps"]]
+    assert 'expected_plan_id: process.env.PLAN_ID' in source
+    assert 'expected_source_commit: process.env.SOURCE_COMMIT' in source
+    assert "canary_baseline_evidence_json" in source
+    assert '"consumer_head_sha": os.environ.get("CONSUMER_HEAD_SHA", "")' in source
     assert "autofix: false" in source
     reusable_autofix = REUSABLE_AUTOFIX_PATH.read_text(encoding="utf-8")
     assert '[[ "$head_ref" == sync/workflows-* ]]' in reusable_autofix
@@ -300,6 +308,9 @@ def test_maint_71_persists_validated_candidate_evidence_before_merge() -> None:
     names = [step.get("name") for step in steps]
 
     assert "active_sync_hash" in dispatch_inputs
+    assert "expected_plan_id" in dispatch_inputs
+    assert "expected_source_commit" in dispatch_inputs
+    assert "canary_baseline_evidence_json" in dispatch_inputs
     assert dispatch_inputs["sync_hash"]["description"] == "Deprecated alias for active_sync_hash"
     resolve_index = names.index("Resolve candidate evidence mode")
     collect_index = names.index("Collect and validate canary evidence before merge")
@@ -320,6 +331,9 @@ def test_maint_71_persists_validated_candidate_evidence_before_merge() -> None:
     assert "github.event.client_payload.sync_hash" in source
     assert "CANDIDATE_EVIDENCE_RESULT" in source
     assert "CANDIDATE_ARTIFACT_RESULT" in source
+    assert "EXPECTED_PLAN_ID_INPUT" in source
+    assert "EXPECTED_SOURCE_COMMIT_INPUT" in source
+    assert "CANARY_BASELINE_EVIDENCE_JSON" in source
     assert "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3" in source
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in source
 

@@ -353,6 +353,151 @@ test('maint71 fails closed before cross-repository API calls without OWNER_PR_PA
   }
 });
 
+test('maint71 accepts no-change canary evidence only while the exact base head is current', async () => {
+  const originalCwd = process.cwd();
+  const envKeys = [
+    'REGISTERED_REPOS_INPUT',
+    'CLEANUP_BRANCHES_INPUT',
+    'DRY_RUN_INPUT',
+    'AUTO_MERGE_INPUT',
+    'EVIDENCE_ONLY_INPUT',
+    'ACTIVE_SYNC_HASH_INPUT',
+    'EXPECTED_PLAN_ID_INPUT',
+    'EXPECTED_PLAN_SCOPE_INPUT',
+    'EXPECTED_SCOPE_BASE_SHA_INPUT',
+    'EXPECTED_SOURCE_COMMIT_INPUT',
+    'CANARY_BASELINE_EVIDENCE_JSON',
+    'OWNER_PR_PAT',
+    'CONSUMER_SYNC_CANARIES_PATH',
+    'TRUSTED_SYNC_ACTORS',
+    'SYNC_PR_MERGE_REPORT_JSON',
+  ];
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-no-change-'));
+  const reportPath = path.join(tempDir, 'artifacts', 'merge-report.json');
+  const canaryConfigPath = path.join(tempDir, 'consumer-sync-canaries.json');
+  const repoName = 'stranske/Travel-Plan-Permission';
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const sourceCommit = 'b'.repeat(40);
+  const headSha = 'c'.repeat(40);
+  fs.writeFileSync(
+    canaryConfigPath,
+    JSON.stringify({ canaries: [{ repo: repoName }] }),
+  );
+  const baseline = {
+    schema: 'workflows.consumer-sync-canary-evidence/v1',
+    version: 1,
+    results: [{
+      repo: repoName,
+      plan_id: planId,
+      plan_scope: 'full',
+      scope_base_sha: '',
+      source_commit: sourceCommit,
+      head_sha: headSha,
+      evidence_source: 'no-change-canary',
+      required_check_state: 'success',
+      active_review_thread_count: 0,
+    }],
+  };
+  let checkConclusion = 'success';
+  const github = {
+    paginate: async (_method, params) => (
+      params.ref === headSha
+        ? [{ name: 'Gate / gate', status: 'completed', conclusion: checkConclusion }]
+        : []
+    ),
+    rest: {
+      pulls: { list: () => {} },
+      checks: { listForRef: () => {} },
+      repos: {
+        get: async () => ({ data: { default_branch: 'main' } }),
+        getBranchProtection: async () => ({
+          data: { required_status_checks: { contexts: ['Gate / gate'], checks: [] } },
+        }),
+        getCombinedStatusForRef: async () => ({ data: { statuses: [] } }),
+        createDispatchEvent: async () => ({}),
+      },
+      git: {
+        getRef: async () => ({ data: { object: { sha: headSha } } }),
+      },
+    },
+  };
+  const failures = [];
+  const core = {
+    notice: () => {},
+    setFailed: (message) => failures.push(message),
+    warning: () => {},
+    summary: { addRaw: () => ({ write: async () => {} }) },
+  };
+
+  try {
+    process.chdir(tempDir);
+    process.env.REGISTERED_REPOS_INPUT = repoName;
+    process.env.CLEANUP_BRANCHES_INPUT = 'false';
+    process.env.DRY_RUN_INPUT = 'true';
+    process.env.AUTO_MERGE_INPUT = 'false';
+    process.env.EVIDENCE_ONLY_INPUT = 'true';
+    process.env.ACTIVE_SYNC_HASH_INPUT = 'candidate';
+    process.env.EXPECTED_PLAN_ID_INPUT = planId;
+    process.env.EXPECTED_PLAN_SCOPE_INPUT = 'full';
+    process.env.EXPECTED_SCOPE_BASE_SHA_INPUT = '';
+    process.env.EXPECTED_SOURCE_COMMIT_INPUT = sourceCommit;
+    process.env.CANARY_BASELINE_EVIDENCE_JSON = JSON.stringify(baseline);
+    process.env.OWNER_PR_PAT = 'test-owner-token';
+    process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
+    process.env.TRUSTED_SYNC_ACTORS = 'stranske';
+    process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
+
+    await run({
+      github,
+      core,
+      context: {
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        payload: {},
+        runId: 3,
+        runNumber: 3,
+        workflow: 'Maint 71',
+        ref: 'refs/heads/main',
+        sha: sourceCommit,
+      },
+    });
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    const evidence = JSON.parse(
+      fs.readFileSync(path.join(tempDir, 'artifacts', 'sync-canary-evidence.json'), 'utf8'),
+    );
+    assert.equal(report.summary.evidence_recovered, 1);
+    assert.equal(evidence.results[0].head_sha, headSha);
+    assert.equal(evidence.results[0].evidence_source, 'no-change-canary');
+    assert.deepEqual(failures, []);
+
+    checkConclusion = 'failure';
+    await run({
+      github,
+      core,
+      context: {
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        payload: {},
+        runId: 4,
+        runNumber: 4,
+        workflow: 'Maint 71',
+        ref: 'refs/heads/main',
+        sha: sourceCommit,
+      },
+    });
+    const redReport = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(redReport.summary.checks_failed, 1);
+    assert.match(failures.at(-1), /Canary evidence is incomplete or unsafe/);
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('maint71 recovers exact-head evidence from an already-merged candidate PR', async () => {
   const originalCwd = process.cwd();
   const envKeys = [
@@ -525,20 +670,48 @@ test('normalizeSyncHash accepts raw hashes and branch names', () => {
 });
 
 test('selectLatestMergedCandidatePr recovers only the newest trusted merged candidate', () => {
-  const candidate = (number, mergedAt, actor = 'stranske') => ({
+  const candidate = (
+    number,
+    mergedAt,
+    actor = 'stranske',
+    planId = 'plan-current',
+    sourceCommit = 'source-current',
+  ) => ({
     ...pr(number, 'sync/workflows-candidate', '2026-08-11T01:00:00Z'),
     merged_at: mergedAt,
     head: { ref: 'sync/workflows-candidate', sha: `head-${number}` },
     user: { login: actor },
+    body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify({
+      schema: 'sync-pr-delivery-record/v1',
+      durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+      plan_id: planId,
+      generation: `candidate-${number}`,
+      repository: 'stranske/Ready',
+      desired_tree_hash: `tree-${number}`,
+      source_commit: sourceCommit,
+      lease_expires_at: '2099-08-14T00:00:00Z',
+      predecessor_prs: [],
+      successor_prs: [],
+    })} -->`,
   });
   const selected = selectLatestMergedCandidatePr([
     candidate(1, '2026-08-11T02:00:00Z'),
     candidate(2, '2026-08-11T03:00:00Z'),
     candidate(3, '2026-08-11T04:00:00Z', 'untrusted'),
+    candidate(5, '2026-08-11T05:00:00Z', 'stranske', 'plan-stale', 'source-stale'),
     { ...candidate(4, null), merged_at: null },
-  ], ['stranske']);
+  ], ['stranske'], {
+    planId: 'plan-current',
+    sourceCommit: 'source-current',
+  });
 
   assert.equal(selected.number, 2);
+  assert.equal(selectLatestMergedCandidatePr([
+    candidate(5, '2026-08-11T05:00:00Z', 'stranske', 'plan-stale', 'source-stale'),
+  ], ['stranske'], {
+    planId: 'plan-current',
+    sourceCommit: 'source-current',
+  }), null);
 });
 
 test('validateCanaryEvidence fails closed on missing, mixed, red, or reviewed canaries', () => {

@@ -431,6 +431,55 @@ async function run({ github, context, core }) {
     return { contexts: requiredContexts, source: 'rulesets' };
   }
 
+  async function classifyRequiredChecksForRef({ owner, repo, branch, ref }) {
+    const { data: combinedStatus } = await withRetry((client) =>
+      client.rest.repos.getCombinedStatusForRef({ owner, repo, ref }),
+    );
+    const paginatedCheckRuns = await withRetry((client) =>
+      client.paginate(client.rest.checks.listForRef, {
+        owner,
+        repo,
+        ref,
+        per_page: 100,
+      }),
+    );
+    const statusAsChecks = (combinedStatus.statuses || []).map(legacyStatusAsCheck);
+    const checkNames = new Set(
+      paginatedCheckRuns.map((check) => String(check?.name || '').trim()).filter(Boolean),
+    );
+    const allChecks = [
+      ...paginatedCheckRuns,
+      ...statusAsChecks.filter((status) => !checkNames.has(String(status.name || '').trim())),
+    ];
+    const requiredCheckPolicy = await getRequiredContexts({ owner, repo, branch });
+    const requiredContexts = requiredCheckPolicy.contexts;
+    let classification = requiredContexts.size > 0
+      ? classifySyncPrChecks({ checkRuns: allChecks, requiredContexts })
+      : { status: 'ready', failed: [], pending: [] };
+    if (requiredContexts.size > 0 && classification.status === 'ready') {
+      const seenNames = new Set(
+        allChecks.map((check) => String(check?.name || '').trim()).filter(Boolean),
+      );
+      const missingRequired = [...requiredContexts].filter((ctx) => !seenNames.has(ctx));
+      if (missingRequired.length > 0) {
+        classification = {
+          status: 'checks_pending',
+          failed: [],
+          pending: missingRequired.map((name) => ({ name, status: 'queued' })),
+        };
+      }
+    }
+    return {
+      allChecks,
+      checkGateMode: requiredCheckPolicy.source,
+      classification,
+      gatingChecks: requiredContexts.size > 0
+        ? selectSyncPrGatingChecks({ checkRuns: allChecks, requiredContexts })
+        : [],
+      requiredContexts,
+    };
+  }
+
   async function resolveProvenReviewDebt({ owner, repo, pr, deliveryRecord }) {
     const matching = reviewResolutionProofs.filter((proof) =>
       proof?.repository === `${owner}/${repo}`
@@ -595,6 +644,14 @@ async function run({ github, context, core }) {
       (context.payload.client_payload && context.payload.client_payload.sync_hash) ||
     '',
   );
+  const expectedPlanId = String(process.env.EXPECTED_PLAN_ID_INPUT || '').trim();
+  const expectedPlanScope = String(process.env.EXPECTED_PLAN_SCOPE_INPUT || '').trim() || 'full';
+  const expectedScopeBaseSha = String(
+    process.env.EXPECTED_SCOPE_BASE_SHA_INPUT || '',
+  ).trim().toLowerCase();
+  const expectedSourceCommit = String(
+    process.env.EXPECTED_SOURCE_COMMIT_INPUT || '',
+  ).trim().toLowerCase();
   const trustedSyncActors = String(process.env.TRUSTED_SYNC_ACTORS || '')
     .split(',')
     .map((actor) => actor.trim())
@@ -636,6 +693,66 @@ async function run({ github, context, core }) {
       .filter(Boolean);
   }
 
+  const baselineEvidenceByRepo = new Map();
+  const rawBaselineEvidence = String(
+    process.env.CANARY_BASELINE_EVIDENCE_JSON || '',
+  ).trim();
+  if (rawBaselineEvidence) {
+    if (requestedSyncHash !== 'candidate') {
+      throw new Error('No-change canary evidence is only valid for the candidate lane');
+    }
+    if (!expectedPlanId || !expectedSourceCommit) {
+      throw new Error(
+        'No-change canary evidence requires an exact expected plan and source commit',
+      );
+    }
+    let baselineDocument;
+    try {
+      baselineDocument = JSON.parse(rawBaselineEvidence);
+    } catch (error) {
+      throw new Error(`No-change canary evidence is not valid JSON: ${error.message}`);
+    }
+    if (
+      baselineDocument?.schema !== 'workflows.consumer-sync-canary-evidence/v1'
+      || baselineDocument?.version !== 1
+      || !Array.isArray(baselineDocument?.results)
+    ) {
+      throw new Error('No-change canary evidence has an unsupported schema');
+    }
+    const expectedCanarySet = new Set(expectedCanaryRepos);
+    for (const row of baselineDocument.results) {
+      const repoName = String(row?.repo || '').trim();
+      const rowPlanId = String(row?.plan_id || '').trim();
+      const rowPlanScope = String(row?.plan_scope || '').trim() || 'full';
+      const rowScopeBaseSha = String(row?.scope_base_sha || '').trim().toLowerCase();
+      const rowSourceCommit = String(row?.source_commit || '').trim().toLowerCase();
+      const rowHeadSha = String(row?.head_sha || '').trim().toLowerCase();
+      if (!expectedCanarySet.has(repoName)) {
+        throw new Error(`Unexpected no-change canary evidence: ${repoName || '<missing-repo>'}`);
+      }
+      if (baselineEvidenceByRepo.has(repoName)) {
+        throw new Error(`Duplicate no-change canary evidence: ${repoName}`);
+      }
+      if (
+        row?.evidence_source !== 'no-change-canary'
+        || rowPlanId !== expectedPlanId
+        || rowPlanScope !== expectedPlanScope
+        || rowScopeBaseSha !== expectedScopeBaseSha
+        || rowSourceCommit !== expectedSourceCommit
+        || !/^[0-9a-f]{40}$/.test(rowHeadSha)
+        || row?.required_check_state !== 'success'
+        || Number(row?.active_review_thread_count) !== 0
+      ) {
+        throw new Error(`Unsafe no-change canary evidence: ${repoName}`);
+      }
+      baselineEvidenceByRepo.set(repoName, {
+        ...row,
+        repo: repoName,
+        head_sha: rowHeadSha,
+      });
+    }
+  }
+
   // Candidate reconciliation is a registry-owned operation. Processing the
   // complete consumer registry here lets unrelated non-canary delivery PRs
   // create target_missing failures and can make promotion evidence unusable.
@@ -659,6 +776,9 @@ async function run({ github, context, core }) {
   console.log(`Cleanup stale sync branches: ${cleanupBranches}\n`);
   if (requestedSyncHash) {
     console.log(`Target sync hash: ${requestedSyncHash}`);
+  }
+  if (expectedPlanId) {
+    console.log(`Expected plan identity: ${expectedPlanId} @ ${expectedSourceCommit}`);
   }
   
   const results = [];
@@ -1052,8 +1172,73 @@ async function run({ github, context, core }) {
       const hasOpenCandidate = syncPRs.some(
         (pr) => pr?.head?.ref === syncBranchForHash('candidate'),
       );
+      const baselineEvidence = baselineEvidenceByRepo.get(`${owner}/${repo}`) || null;
+      if (!hasOpenCandidate && requestedSyncHash === 'candidate' && baselineEvidence) {
+        const { data: repository } = await withRetry((client) => client.rest.repos.get({
+          owner,
+          repo,
+        }));
+        const { data: defaultRef } = await withRetry((client) => client.rest.git.getRef({
+          owner,
+          repo,
+          ref: `heads/${repository.default_branch}`,
+        }));
+        const liveHeadSha = String(defaultRef?.object?.sha || '').trim().toLowerCase();
+        if (liveHeadSha !== baselineEvidence.head_sha) {
+          console.log(
+            `No-change canary baseline moved: ${baselineEvidence.head_sha} -> ` +
+              `${liveHeadSha || '<missing>'}`,
+          );
+          results.push({
+            owner,
+            repo,
+            status: 'target_missing',
+            expected_head_sha: baselineEvidence.head_sha,
+            observed_head_sha: liveHeadSha,
+            reason: 'no_change_canary_head_changed',
+          });
+          continue;
+        }
+        const baselineChecks = await classifyRequiredChecksForRef({
+          owner,
+          repo,
+          branch: repository.default_branch,
+          ref: liveHeadSha,
+        });
+        if (baselineChecks.classification.status !== 'ready') {
+          console.log(
+            `No-change canary required checks are not green: ` +
+              baselineChecks.classification.status,
+          );
+          results.push({
+            owner,
+            repo,
+            status: baselineChecks.classification.status,
+            expected_head_sha: baselineEvidence.head_sha,
+            observed_head_sha: liveHeadSha,
+            reason: 'no_change_canary_required_checks_not_ready',
+            failed_checks: baselineChecks.classification.failed.map((check) => check.name),
+            pending_checks: baselineChecks.classification.pending.map((check) => check.name),
+          });
+          continue;
+        }
+        canaryEvidence.push(baselineEvidence);
+        results.push({
+          owner,
+          repo,
+          status: 'evidence_recovered',
+          delivery_disposition: 'no-change-canary-confirmed',
+          observed_head_sha: liveHeadSha,
+          active_review_thread_count: 0,
+        });
+        console.log(`✓ Confirmed exact-head no-change evidence at ${liveHeadSha}`);
+        continue;
+      }
       if (!hasOpenCandidate && requestedSyncHash === 'candidate') {
-        const mergedCandidate = selectLatestMergedCandidatePr(closedPRs, trustedSyncActors);
+        const mergedCandidate = selectLatestMergedCandidatePr(closedPRs, trustedSyncActors, {
+          planId: expectedPlanId,
+          sourceCommit: expectedSourceCommit,
+        });
         if (mergedCandidate) {
           candidatePRs = [mergedCandidate];
           recoveredMergedCandidate = true;
@@ -1073,6 +1258,7 @@ async function run({ github, context, core }) {
       let selection = selectMergeEligibleSyncPr(candidatePRs, {
         syncHash: requestedSyncHash,
         now: new Date().toISOString(),
+        planId: expectedPlanId,
         repository: `${owner}/${repo}`,
       });
       if (selection.missingExpected) {
@@ -1104,6 +1290,7 @@ async function run({ github, context, core }) {
       selection = selectMergeEligibleSyncPr(candidatePRs, {
         syncHash: requestedSyncHash,
         now: new Date().toISOString(),
+        planId: expectedPlanId,
         repository: `${owner}/${repo}`,
         desiredTreeHash: selectedHeadCommit?.tree?.sha || '',
       });
@@ -1300,56 +1487,19 @@ async function run({ github, context, core }) {
       }
   
       // Combined legacy statuses + every check-run page (paginate returns a flat array).
-      const { data: combinedStatus } = await withRetry((client) =>
-        client.rest.repos.getCombinedStatusForRef({
-          owner,
-          repo,
-          ref: pr.head.sha,
-        }),
-      );
-      const paginatedCheckRuns = await withRetry((client) =>
-        client.paginate(client.rest.checks.listForRef, {
-          owner,
-          repo,
-          ref: pr.head.sha,
-          per_page: 100,
-        }),
-      );
-      const statusAsChecks = (combinedStatus.statuses || []).map(legacyStatusAsCheck);
-      const checkNames = new Set(
-        paginatedCheckRuns.map((check) => String(check?.name || '').trim()).filter(Boolean),
-      );
-      const allChecks = [
-        ...paginatedCheckRuns,
-        ...statusAsChecks.filter((status) => !checkNames.has(String(status.name || '').trim())),
-      ];
-      const requiredCheckPolicy = await getRequiredContexts({
+      const checkEvidence = await classifyRequiredChecksForRef({
         owner,
         repo,
         branch: pr.base.ref,
+        ref: pr.head.sha,
       });
-      const requiredContexts = requiredCheckPolicy.contexts;
-      let classification = requiredContexts.size > 0
-        ? classifySyncPrChecks({ checkRuns: allChecks, requiredContexts })
-        : { status: 'ready', failed: [], pending: [] };
-      // Fail closed: a required context absent from both checks and statuses is not "ready".
-      if (requiredContexts.size > 0 && classification.status === 'ready') {
-        const seenNames = new Set(
-          allChecks.map((check) => String(check?.name || '').trim()).filter(Boolean),
-        );
-        const missingRequired = [...requiredContexts].filter((ctx) => !seenNames.has(ctx));
-        if (missingRequired.length > 0) {
-          classification = {
-            status: 'checks_pending',
-            failed: [],
-            pending: missingRequired.map((name) => ({ name, status: 'queued' })),
-          };
-        }
-      }
-      const gatingChecks = requiredContexts.size > 0
-        ? selectSyncPrGatingChecks({ checkRuns: allChecks, requiredContexts })
-        : [];
-      const checkGateMode = requiredCheckPolicy.source;
+      const {
+        allChecks,
+        checkGateMode,
+        classification,
+        gatingChecks,
+        requiredContexts,
+      } = checkEvidence;
       const failedChecks = classification.failed;
       const pendingChecks = classification.pending;
       let deliveryRecord = parseDeliveryRecord(pr.body || '');
