@@ -71,6 +71,27 @@ test('buildNoChangeCanaryEvidence rejects stale plan and missing head claims', (
   assert.ok(result.errors.includes('no_change_canary_head_invalid:stranske/Ready'));
 });
 
+test('buildNoChangeCanaryEvidence rejects duplicate and immutable scope mismatches', () => {
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const sourceCommit = 'b'.repeat(40);
+  const result = buildNoChangeCanaryEvidence({
+    expectedCanaries: ['stranske/Ready'],
+    planId,
+    planScope: 'source-delta',
+    scopeBaseSha: 'c'.repeat(40),
+    sourceCommit,
+    results: [
+      { repo: 'stranske/Ready', status: 'no_changes', plan_id: planId, plan_scope: 'full', scope_base_sha: 'd'.repeat(40), source_commit: sourceCommit, consumer_head_sha: 'e'.repeat(40) },
+      { repo: 'stranske/Ready', status: 'no_changes', plan_id: planId, plan_scope: 'source-delta', scope_base_sha: 'c'.repeat(40), source_commit: sourceCommit, consumer_head_sha: 'e'.repeat(40) },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.includes('no_change_canary_scope_mismatch:stranske/Ready'));
+  assert.ok(result.errors.includes('no_change_canary_scope_base_mismatch:stranske/Ready'));
+  assert.ok(result.errors.includes('duplicate_no_change_canary:stranske/Ready'));
+});
+
 test('summarizeResults counts known statuses and buckets unknown as error', () => {
   assert.deepEqual(
     summarizeResults([

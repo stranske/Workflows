@@ -476,7 +476,13 @@ jobs:
       - name: Record exact consumer base
         id: consumer_base
         run: |
-          echo "sha=$(git -C consumer rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          consumer_head_sha=$(git -C consumer rev-parse HEAD)
+          [[ "$consumer_head_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::Unable to resolve the consumer base commit"
+            exit 1
+          }
+          echo "sha=$consumer_head_sha" >> "$GITHUB_OUTPUT"
 
       - name: Download manifest
         uses: actions/download-artifact@v8
@@ -1656,7 +1662,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Download per-repository sync results
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: consumer-sync-result-*
           path: artifacts/consumer-sync-results

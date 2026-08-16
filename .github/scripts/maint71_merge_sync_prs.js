@@ -1228,6 +1228,7 @@ async function run({ github, context, core }) {
           repo,
           status: 'evidence_recovered',
           delivery_disposition: 'no-change-canary-confirmed',
+          branch: syncBranchForHash('candidate'),
           observed_head_sha: liveHeadSha,
           active_review_thread_count: 0,
         });
