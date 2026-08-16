@@ -55,11 +55,6 @@ on:
         required: false
         type: string
         default: ""
-      sync_hash:
-        description: "Deprecated alias for active_sync_hash"
-        required: false
-        type: string
-        default: ""
       cleanup_branches:
         description: "Delete sync/workflows-* branches left behind by closed or merged sync PRs"
         required: false
@@ -70,23 +65,9 @@ on:
         required: false
         type: string
         default: ""
-      expected_plan_id:
-        description: "Exact consumer-sync plan expected from the dispatching Maint 68 run"
-        required: false
-        type: string
-        default: ""
-      expected_plan_scope:
-        description: "Expected plan scope for candidate evidence"
-        required: false
-        type: string
-        default: ""
-      expected_scope_base_sha:
-        description: "Expected source-delta base SHA, or empty for full scope"
-        required: false
-        type: string
-        default: ""
-      expected_source_commit:
-        description: "Expected immutable Workflows source commit"
+      immutable_handoff_json:
+        description: >-
+          JSON plan binding from Maint 68: plan_id, plan_scope, scope_base_sha, source_commit
         required: false
         type: string
         default: ""
@@ -203,6 +184,50 @@ jobs:
           echo "list=${repos}" >> "$GITHUB_OUTPUT"
           echo "Extracted repos: ${repos}"
 
+      - name: Resolve immutable handoff inputs
+        id: handoff
+        env:
+          IMMUTABLE_HANDOFF_JSON: >-
+            ${{ inputs.immutable_handoff_json ||
+                github.event.client_payload.immutable_handoff_json || '' }}
+          EXPECTED_PLAN_ID_RAW: >-
+            ${{ inputs.expected_plan_id ||
+                github.event.client_payload.expected_plan_id || '' }}
+          EXPECTED_PLAN_SCOPE_RAW: >-
+            ${{ inputs.expected_plan_scope ||
+                github.event.client_payload.expected_plan_scope || '' }}
+          EXPECTED_SCOPE_BASE_SHA_RAW: >-
+            ${{ inputs.expected_scope_base_sha ||
+                github.event.client_payload.expected_scope_base_sha || '' }}
+          EXPECTED_SOURCE_COMMIT_RAW: >-
+            ${{ inputs.expected_source_commit ||
+                github.event.client_payload.expected_source_commit || '' }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const pick = (value) => String(value || '').trim();
+          let planId = pick(process.env.EXPECTED_PLAN_ID_RAW);
+          let planScope = pick(process.env.EXPECTED_PLAN_SCOPE_RAW);
+          let scopeBaseSha = pick(process.env.EXPECTED_SCOPE_BASE_SHA_RAW);
+          let sourceCommit = pick(process.env.EXPECTED_SOURCE_COMMIT_RAW);
+          const rawJson = pick(process.env.IMMUTABLE_HANDOFF_JSON);
+          if (rawJson) {
+            try {
+              const parsed = JSON.parse(rawJson);
+              if (parsed.plan_id != null) planId = pick(parsed.plan_id);
+              if (parsed.plan_scope != null) planScope = pick(parsed.plan_scope);
+              if (parsed.scope_base_sha != null) scopeBaseSha = pick(parsed.scope_base_sha);
+              if (parsed.source_commit != null) sourceCommit = pick(parsed.source_commit);
+            } catch (error) {
+              throw new Error(`immutable_handoff_json is not valid JSON: ${error.message}`);
+            }
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_plan_id=${planId}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_plan_scope=${planScope}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_scope_base_sha=${scopeBaseSha}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_source_commit=${sourceCommit}\n`);
+          NODE
+
       - name: Resolve candidate evidence mode
         id: candidate_mode
         env:
@@ -238,10 +263,10 @@ jobs:
           AUTO_MERGE_INPUT: "false"
           DRY_RUN_INPUT: "true"
           ACTIVE_SYNC_HASH_INPUT: ${{ steps.candidate_mode.outputs.selector }}
-          EXPECTED_PLAN_ID_INPUT: ${{ inputs.expected_plan_id || github.event.client_payload.expected_plan_id || '' }}
-          EXPECTED_PLAN_SCOPE_INPUT: ${{ inputs.expected_plan_scope || github.event.client_payload.expected_plan_scope || '' }}
-          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ inputs.expected_scope_base_sha || github.event.client_payload.expected_scope_base_sha || '' }}
-          EXPECTED_SOURCE_COMMIT_INPUT: ${{ inputs.expected_source_commit || github.event.client_payload.expected_source_commit || '' }}
+          EXPECTED_PLAN_ID_INPUT: ${{ steps.handoff.outputs.expected_plan_id }}
+          EXPECTED_PLAN_SCOPE_INPUT: ${{ steps.handoff.outputs.expected_plan_scope }}
+          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ steps.handoff.outputs.expected_scope_base_sha }}
+          EXPECTED_SOURCE_COMMIT_INPUT: ${{ steps.handoff.outputs.expected_source_commit }}
           CANARY_BASELINE_EVIDENCE_JSON: ${{ inputs.canary_baseline_evidence_json || github.event.client_payload.canary_baseline_evidence_json || '' }}
           CLEANUP_BRANCHES_INPUT: "false"
           EVIDENCE_ONLY_INPUT: "false"
@@ -269,10 +294,10 @@ jobs:
           AUTO_MERGE_INPUT: "false"
           DRY_RUN_INPUT: "true"
           ACTIVE_SYNC_HASH_INPUT: ${{ steps.candidate_mode.outputs.selector }}
-          EXPECTED_PLAN_ID_INPUT: ${{ inputs.expected_plan_id || github.event.client_payload.expected_plan_id || '' }}
-          EXPECTED_PLAN_SCOPE_INPUT: ${{ inputs.expected_plan_scope || github.event.client_payload.expected_plan_scope || '' }}
-          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ inputs.expected_scope_base_sha || github.event.client_payload.expected_scope_base_sha || '' }}
-          EXPECTED_SOURCE_COMMIT_INPUT: ${{ inputs.expected_source_commit || github.event.client_payload.expected_source_commit || '' }}
+          EXPECTED_PLAN_ID_INPUT: ${{ steps.handoff.outputs.expected_plan_id }}
+          EXPECTED_PLAN_SCOPE_INPUT: ${{ steps.handoff.outputs.expected_plan_scope }}
+          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ steps.handoff.outputs.expected_scope_base_sha }}
+          EXPECTED_SOURCE_COMMIT_INPUT: ${{ steps.handoff.outputs.expected_source_commit }}
           CANARY_BASELINE_EVIDENCE_JSON: ${{ inputs.canary_baseline_evidence_json || github.event.client_payload.canary_baseline_evidence_json || '' }}
           CLEANUP_BRANCHES_INPUT: "false"
           EVIDENCE_ONLY_INPUT: "true"
@@ -355,10 +380,10 @@ jobs:
           AUTO_MERGE_INPUT: ${{ inputs.auto_merge }}
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
           ACTIVE_SYNC_HASH_INPUT: ${{ steps.candidate_mode.outputs.selector }}
-          EXPECTED_PLAN_ID_INPUT: ${{ inputs.expected_plan_id || github.event.client_payload.expected_plan_id || '' }}
-          EXPECTED_PLAN_SCOPE_INPUT: ${{ inputs.expected_plan_scope || github.event.client_payload.expected_plan_scope || '' }}
-          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ inputs.expected_scope_base_sha || github.event.client_payload.expected_scope_base_sha || '' }}
-          EXPECTED_SOURCE_COMMIT_INPUT: ${{ inputs.expected_source_commit || github.event.client_payload.expected_source_commit || '' }}
+          EXPECTED_PLAN_ID_INPUT: ${{ steps.handoff.outputs.expected_plan_id }}
+          EXPECTED_PLAN_SCOPE_INPUT: ${{ steps.handoff.outputs.expected_plan_scope }}
+          EXPECTED_SCOPE_BASE_SHA_INPUT: ${{ steps.handoff.outputs.expected_scope_base_sha }}
+          EXPECTED_SOURCE_COMMIT_INPUT: ${{ steps.handoff.outputs.expected_source_commit }}
           CANARY_BASELINE_EVIDENCE_JSON: ${{ inputs.canary_baseline_evidence_json || github.event.client_payload.canary_baseline_evidence_json || '' }}
           CANDIDATE_EVIDENCE_RESULT: ${{ steps.candidate_evidence_validation.outcome }}
           CANDIDATE_ARTIFACT_RESULT: ${{ steps.candidate_artifact.outcome }}

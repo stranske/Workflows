@@ -262,8 +262,9 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     continuation_names = [step.get("name") for step in continuation["steps"]]
     assert "Build exact no-change canary evidence" in continuation_names
     assert "Record exact consumer base" in [step.get("name") for step in sync["steps"]]
-    assert "expected_plan_id: process.env.PLAN_ID" in source
-    assert "expected_source_commit: process.env.SOURCE_COMMIT" in source
+    assert "immutable_handoff_json: JSON.stringify({" in source
+    assert "plan_id: process.env.PLAN_ID" in source
+    assert "source_commit: process.env.SOURCE_COMMIT" in source
     assert "canary_baseline_evidence_json" in source
     assert '"consumer_head_sha": os.environ.get("CONSUMER_HEAD_SHA", "")' in source
     assert "autofix: false" in source
@@ -308,11 +309,12 @@ def test_maint_71_persists_validated_candidate_evidence_before_merge() -> None:
     names = [step.get("name") for step in steps]
 
     assert "active_sync_hash" in dispatch_inputs
-    assert "expected_plan_id" in dispatch_inputs
-    assert "expected_source_commit" in dispatch_inputs
+    assert "immutable_handoff_json" in dispatch_inputs
     assert "canary_baseline_evidence_json" in dispatch_inputs
-    assert dispatch_inputs["sync_hash"]["description"] == "Deprecated alias for active_sync_hash"
-    resolve_index = names.index("Resolve candidate evidence mode")
+    assert "sync_hash" not in dispatch_inputs
+    resolve_index = names.index("Resolve immutable handoff inputs")
+    candidate_mode_index = names.index("Resolve candidate evidence mode")
+    assert resolve_index < candidate_mode_index
     collect_index = names.index("Collect and validate canary evidence before merge")
     persist_index = names.index("Persist pre-merge canary evidence")
     merge_index = names.index("Check and merge sync PRs")

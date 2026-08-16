@@ -1756,10 +1756,12 @@ jobs:
               auto_merge: 'true',
               dry_run: 'false',
               cleanup_branches: 'true',
-              expected_plan_id: process.env.PLAN_ID,
-              expected_plan_scope: process.env.PLAN_SCOPE,
-              expected_scope_base_sha: process.env.SCOPE_BASE_SHA,
-              expected_source_commit: process.env.SOURCE_COMMIT,
+              immutable_handoff_json: JSON.stringify({
+                plan_id: process.env.PLAN_ID,
+                plan_scope: process.env.PLAN_SCOPE,
+                scope_base_sha: process.env.SCOPE_BASE_SHA,
+                source_commit: process.env.SOURCE_COMMIT,
+              }),
             };
             if (activeSyncHash === 'candidate') {
               inputs.canary_baseline_evidence_json =
