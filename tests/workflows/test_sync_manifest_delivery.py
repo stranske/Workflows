@@ -335,8 +335,7 @@ def test_full_plan_promotion_preserves_evidence_source_commit(tmp_path: Path) ->
 
     assert completed.returncode == 0, completed.stderr
     outputs = dict(
-        line.split("=", 1)
-        for line in output_path.read_text(encoding="utf-8").splitlines()
+        line.split("=", 1) for line in output_path.read_text(encoding="utf-8").splitlines()
     )
     assert outputs == {
         "plan_scope": "full",
