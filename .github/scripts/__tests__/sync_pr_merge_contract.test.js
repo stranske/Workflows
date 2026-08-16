@@ -261,6 +261,16 @@ test('campaign commit authorization binds every prepared exact head', () => {
 test('hasCampaignCommitAuthorization rejects empty or partial authorization payloads', () => {
   assert.equal(hasCampaignCommitAuthorization({}), false);
   assert.equal(hasCampaignCommitAuthorization({ authorized: true }), false);
+  assert.equal(hasCampaignCommitAuthorization({
+    schema: 'workflows.sync-campaign-commit-authorization/v1',
+    authorized: true,
+    rows: [],
+  }), false);
+  assert.equal(hasCampaignCommitAuthorization({
+    schema: 'workflows.sync-campaign-commit-authorization/v2',
+    authorized: true,
+    rows: [{ repository: 'stranske/Travel' }],
+  }), false);
   assert.equal(campaignAuthorizationAllowsMerge({
     authorization: { authorized: true, rows: [] },
     result: { owner: 'stranske', repo: 'Travel', pr: 11 },
@@ -568,6 +578,7 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
     'EXPECTED_SCOPE_BASE_SHA_INPUT',
     'EXPECTED_SOURCE_COMMIT_INPUT',
     'CANARY_BASELINE_EVIDENCE_JSON',
+    'CAMPAIGN_NO_CHANGE_EVIDENCE_JSON',
     'OWNER_PR_PAT',
     'CONSUMER_SYNC_CANARIES_PATH',
     'TRUSTED_SYNC_ACTORS',
@@ -647,6 +658,9 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
     process.env.EXPECTED_SCOPE_BASE_SHA_INPUT = '';
     process.env.EXPECTED_SOURCE_COMMIT_INPUT = sourceCommit;
     process.env.CANARY_BASELINE_EVIDENCE_JSON = JSON.stringify(baseline);
+    // A keyed continuation can carry both documents. Candidate reconciliation
+    // must ignore the opposite-lane document before attempting to parse it.
+    process.env.CAMPAIGN_NO_CHANGE_EVIDENCE_JSON = '{not-candidate-evidence}';
     process.env.OWNER_PR_PAT = 'test-owner-token';
     process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
     process.env.TRUSTED_SYNC_ACTORS = 'stranske';

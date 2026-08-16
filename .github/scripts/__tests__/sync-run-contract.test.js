@@ -168,6 +168,8 @@ test('mergeCampaignNoChangeEvidence dedupes overlapping canary and delivery rows
     { repo: 'stranske/Ready', evidence_source: 'no-change-canary', head_sha: 'c'.repeat(40) },
   ];
   const merged = mergeCampaignNoChangeEvidence(canaryRows, delivery);
+  assert.equal(merged.schema, delivery.schema);
+  assert.equal(merged.version, delivery.version);
   assert.equal(merged.results.length, 2);
   const ready = merged.results.find((row) => row.repo === 'stranske/Ready');
   assert.equal(ready.evidence_source, 'no-change-canary');

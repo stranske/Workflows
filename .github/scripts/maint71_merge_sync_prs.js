@@ -787,7 +787,7 @@ async function run({ github, context, core }) {
     process.env.CANARY_BASELINE_EVIDENCE_JSON || '',
   ).trim();
   const baselineEvidenceByRepo = parseNoChangeEvidenceDocument(
-    rawBaselineEvidence,
+    requestedSyncHash === 'candidate' ? rawBaselineEvidence : '',
     {
       lane: 'candidate',
       requestedSyncHash,
@@ -807,7 +807,7 @@ async function run({ github, context, core }) {
     process.env.CAMPAIGN_NO_CHANGE_EVIDENCE_JSON || '',
   ).trim();
   const campaignNoChangeEvidenceByRepo = parseNoChangeEvidenceDocument(
-    rawCampaignNoChangeEvidence,
+    requestedSyncHash === 'campaign' ? rawCampaignNoChangeEvidence : '',
     {
       lane: 'campaign',
       requestedSyncHash,

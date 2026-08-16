@@ -253,11 +253,11 @@ jobs:
               if (handoff.plan_id && handoff.source_commit) {
                 inputs.immutable_handoff_json = JSON.stringify(handoff);
               }
-              if (continuation.canary_baseline_evidence_json) {
+              if (selector === 'candidate' && continuation.canary_baseline_evidence_json) {
                 inputs.canary_baseline_evidence_json =
                   continuation.canary_baseline_evidence_json;
               }
-              if (continuation.campaign_no_change_evidence_json) {
+              if (selector === 'campaign' && continuation.campaign_no_change_evidence_json) {
                 inputs.campaign_no_change_evidence_json =
                   continuation.campaign_no_change_evidence_json;
               }

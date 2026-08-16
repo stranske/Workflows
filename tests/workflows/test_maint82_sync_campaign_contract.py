@@ -72,3 +72,10 @@ def test_campaign_tracks_renovate_as_dependency_bot():
     assert "renovate[bot]" in script
     assert "app/renovate" in script
     assert "headRef.startsWith('renovate/')" in script
+
+
+def test_campaign_forwards_only_evidence_for_the_selected_maint71_lane():
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "selector === 'candidate' && continuation.canary_baseline_evidence_json" in workflow
+    assert "selector === 'campaign' && continuation.campaign_no_change_evidence_json" in workflow
