@@ -2445,9 +2445,16 @@ jobs:
                 if (!finalHead || finalHead !== expectedHead) {
                   return 'Head changed before the merge request.';
                 }
+                const { data: finalRepoInfo } = await withRetry((client) => {
+                  return client.rest.repos.get({ owner, repo });
+                });
+                const finalDefaultBranch = finalRepoInfo?.default_branch || '';
+                if (!finalDefaultBranch) {
+                  return 'Repository default branch not available in the final snapshot.';
+                }
                 const finalBase = finalPr?.base?.ref || '';
-                if (!finalBase || finalBase !== defaultBranch) {
-                  return `Final base branch ${finalBase || '(unknown)'} does not match ${defaultBranch}.`;
+                if (!finalBase || finalBase !== finalDefaultBranch) {
+                  return `Final base branch ${finalBase || '(unknown)'} does not match ${finalDefaultBranch}.`;
                 }
                 const finalMergeableState = String(finalPr.mergeable_state || '').toLowerCase();
                 if (finalPr.draft || finalMergeableState !== 'clean') {
@@ -2631,9 +2638,6 @@ jobs:
                                 linkedIssue = inferIssue(cleanupPr?.body || '');
                               } catch (error) {
                                 core.warning(`Merged PR #${prNumber}, but could not reload its final linked issue: ${error.message || error}`);
-                              }
-                              if (!linkedIssue) {
-                                linkedIssue = inferIssue(pr?.body || '') || 0;
                               }
                               if (linkedIssue) {
                                 try {

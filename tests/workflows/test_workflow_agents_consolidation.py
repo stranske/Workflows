@@ -214,8 +214,11 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "Head changed during the review window",
         "Post-window pull request no longer carries the automerge label.",
         "const finalMergeFailure = await finalMergeGuardFailure(prNumber, headSha)",
-        "finalBase !== defaultBranch",
-        "Final base branch ${finalBase || '(unknown)'} does not match ${defaultBranch}.",
+        "const { data: finalRepoInfo }",
+        "client.rest.repos.get({ owner, repo })",
+        "finalDefaultBranch = finalRepoInfo?.default_branch || ''",
+        "finalBase !== finalDefaultBranch",
+        "Final base branch ${finalBase || '(unknown)'} does not match ${finalDefaultBranch}.",
         "Pull request no longer carries the automerge label.",
         "finalLabels.includes(GENERATED_DELIVERY_HOLD_LABEL)",
         "runtimeAcRequirement(finalPr.labels || [])",
@@ -241,11 +244,11 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "sha: headSha",
         "const cleanupPr = await loadPullRequest(prNumber)",
         "inferIssue(cleanupPr?.body || '')",
-        "inferIssue(pr?.body || '') || 0",
         "name: 'status:in-progress'",
     ):
         assert contract in guarded_merge
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
+    assert "inferIssue(pr?.body || '') || 0" not in guarded_merge
     assert text.count("github.event.action != 'synchronize'") >= 3
     assert "github.event_name != 'pull_request'" not in text
     assert guarded_merge.count("{ forceReset: true }") == 1
