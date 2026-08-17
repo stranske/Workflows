@@ -184,6 +184,8 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "Head changed during the review window",
         "Post-window pull request no longer carries the automerge label.",
         "const finalMergeFailure = await finalMergeGuardFailure(prNumber, headSha)",
+        "finalBase !== defaultBranch",
+        "Final base branch ${finalBase || '(unknown)'} does not match ${defaultBranch}.",
         "Pull request no longer carries the automerge label.",
         "finalLabels.includes(GENERATED_DELIVERY_HOLD_LABEL)",
         "runtimeAcRequirement(finalPr.labels || [])",

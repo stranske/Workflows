@@ -2194,6 +2194,10 @@ jobs:
                 if (!finalHead || finalHead !== expectedHead) {
                   return 'Head changed before the merge request.';
                 }
+                const finalBase = finalPr?.base?.ref || '';
+                if (!finalBase || finalBase !== defaultBranch) {
+                  return `Final base branch ${finalBase || '(unknown)'} does not match ${defaultBranch}.`;
+                }
                 const finalMergeableState = String(finalPr.mergeable_state || '').toLowerCase();
                 if (finalPr.draft || finalMergeableState !== 'clean') {
                   return `Final mergeable state ${finalMergeableState || '(unknown)'} is not clean.`;
