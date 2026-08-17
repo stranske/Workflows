@@ -2230,17 +2230,12 @@ jobs:
                 const pr = await loadPullRequest(prNumber);
                 const headSha = pr?.head?.sha || '';
                 if (!headSha) continue;
+                const observationKey = reviewObservationKey(prNumber, headSha);
                 const forceReset = prNumber === synchronizedPrNumber
                   && headSha === synchronizedHeadSha;
-                const observation = await reviewWindowObservation(
-                  prNumber,
-                  headSha,
-                  { forceReset }
-                );
-                reviewWindowObservations.set(
-                  reviewObservationKey(prNumber, headSha),
-                  observation
-                );
+                const observation = reviewWindowObservations.get(observationKey)
+                  || await reviewWindowObservation(prNumber, headSha, { forceReset });
+                reviewWindowObservations.set(observationKey, observation);
                 if (Number.isFinite(observation.observedAtMs)) {
                   maxRemainingMs = Math.max(
                     maxRemainingMs,
@@ -2447,6 +2442,17 @@ jobs:
             if (triggeringPrNumber <= 0) {
               core.warning('No triggering PR number; refusing a repository-wide merge scan.');
             }
+            if (synchronizedPrNumber > 0 && synchronizedHeadSha) {
+              const synchronizedObservation = await reviewWindowObservation(
+                synchronizedPrNumber,
+                synchronizedHeadSha,
+                { forceReset: true }
+              );
+              reviewWindowObservations.set(
+                reviewObservationKey(synchronizedPrNumber, synchronizedHeadSha),
+                synchronizedObservation
+              );
+            }
             const issues = listedIssues.filter(
               (issue) => Number(issue.number) === triggeringPrNumber
             );
@@ -2552,7 +2558,13 @@ jobs:
                               status = 'merged';
                               note = `Merged via ${response.data.merge_method || 'squash'}.`;
                               merged.push(prNumber);
-                              const linkedIssue = inferIssue(pr.body);
+                              let linkedIssue = 0;
+                              try {
+                                const cleanupPr = await loadPullRequest(prNumber);
+                                linkedIssue = inferIssue(cleanupPr?.body || '');
+                              } catch (error) {
+                                core.warning(`Merged PR #${prNumber}, but could not reload its final linked issue: ${error.message || error}`);
+                              }
                               if (linkedIssue) {
                                 try {
                                   await withRetry((client) => client.rest.issues.removeLabel({

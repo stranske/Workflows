@@ -183,6 +183,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "prNumber === synchronizedPrNumber",
         "headSha === synchronizedHeadSha",
         "async function primeReviewWindows(candidateIssues)",
+        "const observation = reviewWindowObservations.get(observationKey)",
         "await primeReviewWindows(issues)",
         "for all exact-head review windows",
         "client.rest.users.getAuthenticated",
@@ -218,13 +219,20 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "Final check-state validation failed",
         "const triggeringPrNumber = Number(",
         "No triggering PR number; refusing a repository-wide merge scan.",
+        "const synchronizedObservation = await reviewWindowObservation(",
+        "reviewObservationKey(synchronizedPrNumber, synchronizedHeadSha)",
         "(issue) => Number(issue.number) === triggeringPrNumber",
         "sha: headSha",
+        "const cleanupPr = await loadPullRequest(prNumber)",
+        "inferIssue(cleanupPr?.body || '')",
         "name: 'status:in-progress'",
     ):
         assert contract in guarded_merge
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
     assert text.count("github.event.action != 'synchronize'") >= 3
+    assert guarded_merge.index("const synchronizedObservation") < guarded_merge.index(
+        "if (!issues.length)"
+    )
     assert (
         guarded_merge.rindex("await assertRuntimeAcMergeAllowed")
         < guarded_merge.rindex("const finalMergeFailure")
