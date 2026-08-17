@@ -251,8 +251,11 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         < guarded_merge.rindex("const finalMergeFailure")
         < guarded_merge.rindex("client.rest.pulls.merge")
     )
-    assert guarded_merge.index("const finalThreadFailure") < guarded_merge.index(
-        "const finalObservation"
+    assert (
+        guarded_merge.index("const finalObservation")
+        < guarded_merge.index("const finalPr")
+        < guarded_merge.index("const finalCheckFailure")
+        < guarded_merge.index("const finalThreadFailure")
     )
 
 

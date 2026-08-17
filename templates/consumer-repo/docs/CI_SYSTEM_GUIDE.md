@@ -84,8 +84,9 @@ for the same head. This may conservatively extend the wait but cannot shorten it
 If Gate completes before the window expires, the merge job waits only for the
 remaining interval and then re-fetches the PR; a changed head restarts the
 normal Gate path. Immediately before merging, it rechecks persisted head-transition
-events and restarts the window if the same SHA returned during the wait. Its merge
-request is bound to the validated head SHA. Branch
+events and restarts the window if the same SHA returned during the wait. That lookup
+runs before the final PR, check, task, and review-thread snapshots so its pagination
+cannot make those live guards stale. The merge request is bound to the validated head SHA. Branch
 protection remains responsible for any required approving-review policy.
 
 ---
