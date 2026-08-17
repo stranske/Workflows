@@ -278,21 +278,17 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
     assert "inferIssue(pr?.body || '') || 0" not in guarded_merge
     assert ".github/scripts/source_context.js" in guarded_merge
-    assert guarded_merge.index("mergeBoundaryPr,") > guarded_merge.index(
-        "const finalThreadFailure"
-    )
+    assert guarded_merge.index("mergeBoundaryPr,") > guarded_merge.index("const finalThreadFailure")
     assert guarded_merge.index("client.rest.pulls.merge") > guarded_merge.index(
         "mergeBoundaryBase !== mergeBoundaryDefaultBranch"
     )
-    assert guarded_merge.index("const finalTaskFailure") < guarded_merge.index(
-        "mergeBoundaryPr,"
-    )
+    assert guarded_merge.index("const finalTaskFailure") < guarded_merge.index("mergeBoundaryPr,")
     assert guarded_merge.index("const mergeBoundaryTaskFailure") > guarded_merge.index(
         "const mergeBoundaryLinkedIssue"
     )
-    assert guarded_merge.index("Linked issue changed during final merge validation.") > guarded_merge.index(
-        "const mergeBoundaryTaskFailure"
-    )
+    assert guarded_merge.index(
+        "Linked issue changed during final merge validation."
+    ) > guarded_merge.index("const mergeBoundaryTaskFailure")
     assert guarded_merge.index("const mergeBoundaryLinkedIssue") > guarded_merge.index(
         "mergeBoundaryPr,"
     )
