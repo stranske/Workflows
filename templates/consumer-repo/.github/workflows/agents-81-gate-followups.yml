@@ -2112,7 +2112,15 @@ jobs:
 
             function issueReferenceFailure(pr) {
               const body = String(pr?.body || '');
-              if (/<!--\s*meta:issue:[0-9]+\s*-->/i.test(body)) return '';
+              const metaIssueNumbers = new Set(
+                Array.from(body.matchAll(/<!--\s*meta:issue:([0-9]+)\s*-->/gi), (match) =>
+                  Number.parseInt(match[1], 10)
+                )
+              );
+              if (metaIssueNumbers.size > 1) {
+                return 'Ambiguous linked issue references; refusing to merge blind.';
+              }
+              if (metaIssueNumbers.size === 1) return '';
               const bodyIssueNumbers = extractIssueNumbersFromText(body);
               if (bodyIssueNumbers.size <= 1) return '';
               const closingIssueNumbers = extractClosingIssueNumbersFromText(body);
@@ -2728,7 +2736,8 @@ jobs:
                         // the linked issue body. Either carrying an open "- [ ]" blocks merge.
                         let taskFailure = '';
                         if (checksOk && !bootstrapOnly) {
-                          taskFailure = await uncheckedTaskFailure(pr);
+                          const linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr);
+                          taskFailure = uncheckedTaskFailure(pr, linkedIssueSnapshot);
                         }
 
                         if (!checksOk) {

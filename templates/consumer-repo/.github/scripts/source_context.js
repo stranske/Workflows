@@ -265,9 +265,16 @@ function extractClosingIssueNumbersFromText(text) {
 
 function extractIssueNumberFromPull(pull = {}) {
   const bodyText = String(pull?.body || '');
-  const metaMatch = bodyText.match(/<!--\s*meta:issue:([0-9]+)\s*-->/i);
-  if (metaMatch) {
-    return Number.parseInt(metaMatch[1], 10);
+  const metaIssueNumbers = new Set(
+    Array.from(bodyText.matchAll(/<!--\s*meta:issue:([0-9]+)\s*-->/gi), (match) =>
+      Number.parseInt(match[1], 10),
+    ),
+  );
+  if (metaIssueNumbers.size > 1) {
+    return null;
+  }
+  if (metaIssueNumbers.size === 1) {
+    return Array.from(metaIssueNumbers)[0];
   }
 
   const closingIssueNumbers = extractClosingIssueNumbersFromText(bodyText);

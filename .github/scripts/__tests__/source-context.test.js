@@ -106,6 +106,23 @@ test('extractIssueNumberFromPull rejects ambiguous non-closing body references',
   );
 });
 
+test('extractIssueNumberFromPull rejects distinct meta issue markers', () => {
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: '<!-- meta:issue:111 -->\n<!-- meta:issue:222 -->',
+      head: { ref: 'codex/issue-111-fallback' },
+      title: 'Resolve issue #111',
+    }),
+    null,
+  );
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: '<!-- meta:issue:111 -->\n<!-- meta:issue:111 -->',
+    }),
+    111,
+  );
+});
+
 test('extractIssueNumberFromPull ignores PR references in workflow source templates', () => {
   const context = resolvePrSourceContext({
     body: `
