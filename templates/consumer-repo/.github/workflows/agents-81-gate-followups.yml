@@ -2017,6 +2017,7 @@ jobs:
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/runtime_ac_merge_guard.js
+            .github/scripts/source_context.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
       - name: Merge labelled agent PRs (guarded)
@@ -2033,6 +2034,9 @@ jobs:
               assertRuntimeAcMergeAllowed,
               runtimeAcRequirement,
             } = require('./.github/scripts/runtime_ac_merge_guard.js');
+            const {
+              extractIssueNumberFromPull,
+            } = require('./.github/scripts/source_context.js');
             const { createTokenAwareRetry } = fs.existsSync(retryPath)
               ? require(retryPath)
               : {
@@ -2099,18 +2103,13 @@ jobs:
               return count;
             }
 
-            function inferIssue(prBody) {
-              const body = prBody || '';
-              const meta = body.match(/<!--\s*meta:issue:(\d+)\s*-->/i);
-              if (meta) return Number(meta[1]);
-              const closes = body.match(/\b(?:closes|fixes|resolves)\s+#(\d+)/i);
-              if (closes) return Number(closes[1]);
-              return null;
+            function inferIssue(pr) {
+              return extractIssueNumberFromPull(pr || {});
             }
 
             async function uncheckedTaskFailure(pr) {
               let unchecked = countUnchecked(pr?.body);
-              const linkedIssue = inferIssue(pr?.body);
+              const linkedIssue = inferIssue(pr);
               if (linkedIssue) {
                 try {
                   const { data: linked } = await withRetry((client) => client.rest.issues.get({
@@ -2685,7 +2684,7 @@ jobs:
                               let linkedIssue = 0;
                               try {
                                 const cleanupPr = await loadPullRequest(prNumber);
-                                linkedIssue = inferIssue(cleanupPr?.body || '');
+                                linkedIssue = inferIssue(cleanupPr);
                               } catch (error) {
                                 core.warning(`Merged PR #${prNumber}, but could not reload its final linked issue: ${error.message || error}`);
                               }

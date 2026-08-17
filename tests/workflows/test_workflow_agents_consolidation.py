@@ -224,6 +224,10 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "runtimeAcRequirement(finalPr.labels || [])",
         "Runtime acceptance label(s)",
         "async function uncheckedTaskFailure(pr)",
+        "extractIssueNumberFromPull",
+        "require('./.github/scripts/source_context.js')",
+        "return extractIssueNumberFromPull(pr || {})",
+        "const linkedIssue = inferIssue(pr)",
         "const finalTaskFailure = await uncheckedTaskFailure(finalPr)",
         "async function checkStateFailure(headSha)",
         "statusCount > 0 || combined.state !== 'pending'",
@@ -256,12 +260,13 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "(issue) => Number(issue.number) === triggeringPrNumber",
         "sha: headSha",
         "const cleanupPr = await loadPullRequest(prNumber)",
-        "inferIssue(cleanupPr?.body || '')",
+        "inferIssue(cleanupPr)",
         "name: 'status:in-progress'",
     ):
         assert contract in guarded_merge
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
     assert "inferIssue(pr?.body || '') || 0" not in guarded_merge
+    assert ".github/scripts/source_context.js" in guarded_merge
     assert guarded_merge.index("const [mergeBoundaryPr") > guarded_merge.index(
         "const finalThreadFailure"
     )
