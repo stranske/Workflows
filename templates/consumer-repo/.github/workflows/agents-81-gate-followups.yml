@@ -2083,6 +2083,26 @@ jobs:
               return null;
             }
 
+            async function loadPullRequest(prNumber) {
+              let latest = null;
+              for (let attempt = 0; attempt < 2; attempt += 1) {
+                const { data: pr } = await withRetry((client) => client.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                }));
+                latest = pr;
+                const mergeableState = String(pr?.mergeable_state || '').toLowerCase();
+                if (mergeableState && mergeableState !== 'unknown') {
+                  return pr;
+                }
+                if (attempt === 0) {
+                  await new Promise((resolve) => setTimeout(resolve, 2000));
+                }
+              }
+              return latest;
+            }
+
             async function activeReviewThreadFailure(prNumber) {
               try {
                 let cursor = null;
@@ -2222,7 +2242,7 @@ jobs:
               let note = '';
               let status = 'skipped';
               try {
-                let { data: pr } = await withRetry((client) => client.rest.pulls.get({ owner, repo, pull_number: prNumber }));
+                let pr = await loadPullRequest(prNumber);
                 if (!pr) {
                   note = 'Unable to load pull request data.';
                 } else {
