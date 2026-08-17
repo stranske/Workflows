@@ -154,6 +154,150 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-08-10"
+    },
+    {
+      "case_id": "workflows-2791",
+      "repo": "stranske/Workflows",
+      "pr": 2791,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "workflows-2790",
+      "repo": "stranske/Workflows",
+      "pr": 2790,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "workflows-2765",
+      "repo": "stranske/Workflows",
+      "pr": 2765,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "trend_model_project-5729",
+      "repo": "stranske/Trend_Model_Project",
+      "pr": 5729,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "trend_model_project-5727",
+      "repo": "stranske/Trend_Model_Project",
+      "pr": 5727,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "portable-alpha-extension-model-2125",
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2125,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "portable-alpha-extension-model-2124",
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2124,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "portable-alpha-extension-model-2123",
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2123,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "manager-database-1435",
+      "repo": "stranske/Manager-Database",
+      "pr": 1435,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "inv-man-intake-802",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 802,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "ready-436",
+      "repo": "stranske/Ready",
+      "pr": 436,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "ready-435",
+      "repo": "stranske/Ready",
+      "pr": 435,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "ready-434",
+      "repo": "stranske/Ready",
+      "pr": 434,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "fine-art-archive-283",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 283,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "fine-art-archive-282",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 282,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
+    },
+    {
+      "case_id": "fine-art-archive-281",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 281,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-17"
     }
   ]
 }
