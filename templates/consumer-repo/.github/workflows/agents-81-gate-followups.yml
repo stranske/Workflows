@@ -2107,20 +2107,56 @@ jobs:
               return extractIssueNumberFromPull(pr || {});
             }
 
-            async function uncheckedTaskFailure(pr) {
+            async function linkedIssueTaskSnapshot(pr) {
+              const issueNumber = inferIssue(pr);
+              if (!issueNumber) {
+                return { issueNumber: 0, body: '', updatedAt: '', failure: '' };
+              }
+              try {
+                const { data: linked } = await withRetry((client) => client.rest.issues.get({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                }));
+                const updatedAt = String(linked?.updated_at || '');
+                if (!updatedAt) {
+                  return {
+                    issueNumber,
+                    body: String(linked?.body || ''),
+                    updatedAt: '',
+                    failure: `Linked issue #${issueNumber} has no version; refusing to merge blind.`,
+                  };
+                }
+                return {
+                  issueNumber,
+                  body: String(linked?.body || ''),
+                  updatedAt,
+                  failure: '',
+                };
+              } catch (error) {
+                return {
+                  issueNumber,
+                  body: '',
+                  updatedAt: '',
+                  failure: `Unable to read linked issue #${issueNumber}; refusing to merge blind: ${error.message || error}`,
+                };
+              }
+            }
+
+            function uncheckedTaskFailure(pr, linkedIssueSnapshot) {
               let unchecked = countUnchecked(pr?.body);
               const linkedIssue = inferIssue(pr);
               if (linkedIssue) {
-                try {
-                  const { data: linked } = await withRetry((client) => client.rest.issues.get({
-                    owner,
-                    repo,
-                    issue_number: linkedIssue,
-                  }));
-                  unchecked += countUnchecked(linked.body);
-                } catch (error) {
-                  return `Unable to read linked issue #${linkedIssue}; refusing to merge blind: ${error.message || error}`;
+                if (
+                  !linkedIssueSnapshot
+                  || Number(linkedIssueSnapshot.issueNumber || 0) !== linkedIssue
+                ) {
+                  return `Unable to bind linked issue #${linkedIssue}; refusing to merge blind.`;
                 }
+                if (linkedIssueSnapshot.failure) {
+                  return linkedIssueSnapshot.failure;
+                }
+                unchecked += countUnchecked(linkedIssueSnapshot.body);
               }
               return unchecked > 0
                 ? 'Refusing auto-merge: linked issue/PR has unchecked tasks.'
@@ -2473,7 +2509,8 @@ jobs:
                   return `Runtime acceptance label(s) ${finalRuntimeRequirement.labels.join(', ')} were added before merge.`;
                 }
                 const finalLinkedIssue = inferIssue(finalPr);
-                const finalTaskFailure = await uncheckedTaskFailure(finalPr);
+                const finalLinkedIssueSnapshot = await linkedIssueTaskSnapshot(finalPr);
+                const finalTaskFailure = uncheckedTaskFailure(finalPr, finalLinkedIssueSnapshot);
                 if (finalTaskFailure) {
                   return finalTaskFailure;
                 }
@@ -2488,9 +2525,16 @@ jobs:
 
                 // Bind both mutable target snapshots at the last network boundary.
                 // The merge API binds the head SHA but does not bind the base branch.
-                const [mergeBoundaryPr, mergeBoundaryRepoResponse] = await Promise.all([
+                const [
+                  mergeBoundaryPr,
+                  mergeBoundaryRepoResponse,
+                  mergeBoundaryLinkedIssueSnapshot,
+                ] = await Promise.all([
                   loadPullRequest(prNumber),
                   withRetry((client) => client.rest.repos.get({ owner, repo })),
+                  finalLinkedIssue
+                    ? linkedIssueTaskSnapshot(finalPr)
+                    : Promise.resolve({ issueNumber: 0, body: '', updatedAt: '', failure: '' }),
                 ]);
                 if (!mergeBoundaryPr) {
                   return 'Unable to load the merge-boundary pull request snapshot.';
@@ -2533,8 +2577,18 @@ jobs:
                 if (mergeBoundaryLinkedIssue !== finalLinkedIssue) {
                   return 'Linked issue changed at the final merge boundary.';
                 }
-                if (countUnchecked(mergeBoundaryPr.body) > 0) {
-                  return 'Final merge-boundary PR body has unchecked tasks.';
+                const mergeBoundaryTaskFailure = uncheckedTaskFailure(
+                  mergeBoundaryPr,
+                  mergeBoundaryLinkedIssueSnapshot
+                );
+                if (mergeBoundaryTaskFailure) {
+                  return `Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}`;
+                }
+                if (
+                  mergeBoundaryLinkedIssueSnapshot.body !== finalLinkedIssueSnapshot.body
+                  || mergeBoundaryLinkedIssueSnapshot.updatedAt !== finalLinkedIssueSnapshot.updatedAt
+                ) {
+                  return 'Linked issue changed during final merge validation.';
                 }
                 return '';
               } catch (error) {
