@@ -2061,6 +2061,8 @@ jobs:
             const okConclusions = ['success', 'neutral', 'skipped'];
             const reviewWindowMs = 7 * 60 * 1000;
             let reviewSleepBudgetMs = reviewWindowMs + 60 * 1000;
+            const reviewWindowMarker = '<!-- agents-guarded-merge-review-window:v1 ';
+            let authenticatedLogin = '';
 
             // Count unchecked GitHub task checkboxes ("- [ ]") in real (non-quoted) lines.
             // Quoted lines ("> - [ ]", e.g. the belt PR's mirrored issue body) are ignored
@@ -2125,6 +2127,71 @@ jobs:
               return latest;
             }
 
+            async function reviewWindowObservation(prNumber, headSha) {
+              try {
+                if (!authenticatedLogin) {
+                  const { data: authenticated } = await withRetry((client) => {
+                    return client.rest.users.getAuthenticated();
+                  });
+                  authenticatedLogin = String(authenticated?.login || '').toLowerCase();
+                }
+                if (!authenticatedLogin) {
+                  return { failure: 'Unable to identify the review-window state owner.' };
+                }
+
+                const comments = await paginateWithRetry(github.rest.issues.listComments, {
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  per_page: 100,
+                });
+                const stateComment = comments
+                  .filter((comment) => {
+                    const author = String(comment?.user?.login || '').toLowerCase();
+                    return author === authenticatedLogin
+                      && String(comment?.body || '').includes(reviewWindowMarker);
+                  })
+                  .sort((left, right) => Number(right.id || 0) - Number(left.id || 0))[0];
+                const marker = `${reviewWindowMarker}head=${headSha} -->`;
+                if (stateComment && String(stateComment.body || '').includes(marker)) {
+                  const observedAtMs = Date.parse(
+                    stateComment.updated_at || stateComment.created_at || ''
+                  );
+                  return Number.isFinite(observedAtMs)
+                    ? { observedAtMs }
+                    : { failure: 'Stored review-window observation time is invalid.' };
+                }
+
+                const body = [
+                  marker,
+                  'Automated exact-head review-window state. This comment changes only when the PR head changes.',
+                ].join('\n');
+                const response = stateComment
+                  ? await withRetry((client) => client.rest.issues.updateComment({
+                      owner,
+                      repo,
+                      comment_id: stateComment.id,
+                      body,
+                    }))
+                  : await withRetry((client) => client.rest.issues.createComment({
+                      owner,
+                      repo,
+                      issue_number: prNumber,
+                      body,
+                    }));
+                const observedAtMs = Date.parse(
+                  response?.data?.updated_at || response?.data?.created_at || ''
+                );
+                return Number.isFinite(observedAtMs)
+                  ? { observedAtMs }
+                  : { failure: 'Unable to persist the exact-head review-window start.' };
+              } catch (error) {
+                return {
+                  failure: `Unable to persist the exact-head review-window state: ${error.message || error}`,
+                };
+              }
+            }
+
             async function activeReviewThreadFailure(prNumber) {
               try {
                 let cursor = null;
@@ -2162,24 +2229,18 @@ jobs:
 
             async function reviewGuardFailure(prNumber, pr) {
               let guardedPr = pr;
-              let headCommittedAtMs = Number.NaN;
-              try {
-                const { data: headCommit } = await withRetry((client) => client.rest.repos.getCommit({
-                  owner,
-                  repo,
-                  ref: pr.head?.sha || '',
-                }));
-                headCommittedAtMs = Date.parse(headCommit?.commit?.committer?.date || '');
-              } catch (error) {
+              const originalHead = pr.head?.sha || '';
+              if (!originalHead) {
+                return { pr: guardedPr, failure: 'Missing head SHA for the review window.' };
+              }
+              const observation = await reviewWindowObservation(prNumber, originalHead);
+              if (observation.failure || !Number.isFinite(observation.observedAtMs)) {
                 return {
                   pr: guardedPr,
-                  failure: `Unable to read head commit time: ${error.message || error}`,
+                  failure: observation.failure || 'Unable to establish the exact-head review window.',
                 };
               }
-              if (!Number.isFinite(headCommittedAtMs)) {
-                return { pr: guardedPr, failure: 'Unable to establish the exact-head review window.' };
-              }
-              const remainingMs = reviewWindowMs - (Date.now() - headCommittedAtMs);
+              const remainingMs = reviewWindowMs - (Date.now() - observation.observedAtMs);
               if (remainingMs > 0) {
                 const requestedSleepMs = remainingMs + 1000;
                 if (requestedSleepMs > reviewSleepBudgetMs) {
@@ -2192,7 +2253,6 @@ jobs:
                 core.info(`Waiting ${Math.ceil(remainingMs / 1000)}s for the exact-head review window.`);
                 await new Promise((resolve) => setTimeout(resolve, requestedSleepMs));
                 const refreshedPr = await loadPullRequest(prNumber);
-                const originalHead = pr.head?.sha || '';
                 const refreshedHead = refreshedPr?.head?.sha || '';
                 if (!originalHead || refreshedHead !== originalHead) {
                   return { pr: refreshedPr || guardedPr, failure: 'Head changed during the review window.' };
