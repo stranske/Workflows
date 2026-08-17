@@ -2529,8 +2529,11 @@ jobs:
                 if (mergeBoundaryRuntimeRequirement.required) {
                   return `Runtime acceptance label(s) ${mergeBoundaryRuntimeRequirement.labels.join(', ')} were added at the final merge boundary.`;
                 }
-                if (countUnchecked(mergeBoundaryPr.body) > 0) {
-                  return 'Refusing auto-merge: the PR gained unchecked tasks at the final merge boundary.';
+                // Linked issue state is not bound by the merge SHA, so make this
+                // the final practical task read after the merge-boundary PR fetch.
+                const mergeBoundaryTaskFailure = await uncheckedTaskFailure(mergeBoundaryPr);
+                if (mergeBoundaryTaskFailure) {
+                  return `Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}`;
                 }
                 return '';
               } catch (error) {

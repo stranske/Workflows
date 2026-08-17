@@ -242,8 +242,8 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "mergeBoundaryLabels.includes(GENERATED_DELIVERY_HOLD_LABEL)",
         "const mergeBoundaryRuntimeRequirement = runtimeAcRequirement(",
         "if (mergeBoundaryRuntimeRequirement.required)",
-        "countUnchecked(mergeBoundaryPr.body) > 0",
-        "the PR gained unchecked tasks at the final merge boundary",
+        "const mergeBoundaryTaskFailure = await uncheckedTaskFailure(mergeBoundaryPr)",
+        "Final merge-boundary task validation failed",
         "const finalObservation = await reviewWindowObservation(prNumber, expectedHead)",
         "const finalReviewRemainingMs = reviewWindowMs",
         "A newer head transition restarted the review window before merge.",
@@ -269,7 +269,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "mergeBoundaryBase !== mergeBoundaryDefaultBranch"
     )
     assert guarded_merge.index("client.rest.pulls.merge") > guarded_merge.index(
-        "countUnchecked(mergeBoundaryPr.body) > 0"
+        "const mergeBoundaryTaskFailure = await uncheckedTaskFailure(mergeBoundaryPr)"
     )
     assert text.count("github.event.action != 'synchronize'") >= 3
     assert "github.event_name != 'pull_request'" not in text
