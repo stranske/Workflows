@@ -2171,7 +2171,10 @@ jobs:
                 let latestHeadTransitionAtMs = 0;
                 for (const event of timelineEvents) {
                   if (event?.event !== 'head_ref_force_pushed') continue;
-                  if (String(event.commit_id || '') !== headSha) continue;
+                  const transitionedHeadSha = String(
+                    event.after_commit_id || event.commit_id || ''
+                  );
+                  if (transitionedHeadSha !== headSha) continue;
                   const eventAtMs = Date.parse(event.created_at || '');
                   if (!Number.isFinite(eventAtMs)) {
                     return { failure: 'Persisted head-transition time is invalid.' };
@@ -2200,7 +2203,7 @@ jobs:
 
                 const body = [
                   marker,
-                  'Automated exact-head review-window state. This comment changes only when the PR head changes.',
+                  'Automated exact-head review-window state. Each eligible merge wakeup re-observes the current head.',
                 ].join('\n');
                 const response = stateComment
                   ? await withRetry((client) => client.rest.issues.updateComment({
@@ -2449,22 +2452,6 @@ jobs:
             );
             if (triggeringPrNumber <= 0) {
               core.warning('No triggering PR number; refusing a repository-wide merge scan.');
-            } else {
-              // Every merge-capable wakeup establishes a fresh observation before it can
-              // consume review-window state. This deliberately does not rely on a pending
-              // synchronize run: GitHub may replace that pending run when another event
-              // enters the same cancel-in-progress:false concurrency group.
-              const triggeringPr = await loadPullRequest(triggeringPrNumber);
-              const triggeringHeadSha = triggeringPr?.head?.sha || '';
-              const triggeringObservation = await reviewWindowObservation(
-                triggeringPrNumber,
-                triggeringHeadSha,
-                { forceReset: true }
-              );
-              reviewWindowObservations.set(
-                reviewObservationKey(triggeringPrNumber, triggeringHeadSha),
-                triggeringObservation
-              );
             }
             const issues = listedIssues.filter(
               (issue) => Number(issue.number) === triggeringPrNumber
@@ -2480,6 +2467,26 @@ jobs:
               core.setOutput('merged', JSON.stringify(merged));
               return;
             }
+
+            // Every merge-capable wakeup establishes a fresh observation before it can
+            // consume review-window state. This deliberately does not rely on a pending
+            // synchronize run: GitHub may replace that pending run when another event
+            // enters the same cancel-in-progress:false concurrency group.
+            const triggeringPr = await loadPullRequest(triggeringPrNumber);
+            const triggeringHeadSha = triggeringPr?.head?.sha || '';
+            if (!triggeringHeadSha) {
+              core.setFailed('Unable to establish the triggering exact head.');
+              return;
+            }
+            const triggeringObservation = await reviewWindowObservation(
+              triggeringPrNumber,
+              triggeringHeadSha,
+              { forceReset: true }
+            );
+            reviewWindowObservations.set(
+              reviewObservationKey(triggeringPrNumber, triggeringHeadSha),
+              triggeringObservation
+            );
 
             await primeReviewWindows(issues);
 

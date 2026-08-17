@@ -188,7 +188,8 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "github.rest.issues.listComments",
         "github.rest.issues.listEventsForTimeline",
         "event?.event !== 'head_ref_force_pushed'",
-        "String(event.commit_id || '') !== headSha",
+        "event.after_commit_id || event.commit_id || ''",
+        "transitionedHeadSha !== headSha",
         "latestHeadTransitionAtMs",
         "observedAtMs >= latestHeadTransitionAtMs",
         "client.rest.issues.updateComment",
@@ -236,8 +237,10 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
     assert text.count("github.event.action != 'synchronize'") >= 3
     assert guarded_merge.count("{ forceReset: true }") == 1
-    assert guarded_merge.index("const triggeringObservation") < guarded_merge.index(
-        "if (!issues.length)"
+    assert (
+        guarded_merge.index("if (!issues.length)")
+        < guarded_merge.index("const triggeringObservation")
+        < guarded_merge.index("await primeReviewWindows(issues)")
     )
     assert (
         guarded_merge.rindex("await assertRuntimeAcMergeAllowed")

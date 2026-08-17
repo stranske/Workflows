@@ -78,6 +78,9 @@ The Workflows repo provides the shared implementations behind these consumer ent
 Agents 81 fails closed unless the PR is ready, targets the default branch, has a
 `clean` merge state, has held the same head for at least seven minutes, has no
 active non-outdated review threads, and has successful statuses and check runs.
+Every merge-capable wakeup first resets the current head's durable observation,
+so a queued `synchronize` run that GitHub replaces cannot expose an older marker
+for the same head. This may conservatively extend the wait but cannot shorten it.
 If Gate completes before the window expires, the merge job waits only for the
 remaining interval and then re-fetches the PR; a changed head restarts the
 normal Gate path. Its merge request is bound to the validated head SHA. Branch
