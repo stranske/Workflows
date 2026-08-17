@@ -165,6 +165,23 @@ def test_external_merge_lanes_require_runtime_ac_guard():
     )
 
 
+def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
+    text = Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml").read_text(
+        encoding="utf-8"
+    )
+    guarded_merge = text.split("guarded-merge:", 1)[1]
+
+    for contract in (
+        "mergeableState !== 'clean'",
+        "reviewWindowMs = 7 * 60 * 1000",
+        "reviewThreads(first: 100, after: $cursor)",
+        "!thread.isResolved && !thread.isOutdated",
+        "sha: headSha",
+        "name: 'status:in-progress'",
+    ):
+        assert contract in guarded_merge
+
+
 def test_generated_sync_prs_are_excluded_from_autofix_lanes():
     workflow_paths = [
         WORKFLOWS_DIR / "agents-autofix-loop.yml",

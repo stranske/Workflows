@@ -27,6 +27,9 @@ def test_consumer_ci_guide_matches_current_agent_entrypoints() -> None:
 
     assert "Bootstrap creates ready branch + PR" in text
     assert "guarded exact-head closer" in text
+    assert "same head for at least seven minutes" in text
+    assert "active non-outdated review threads" in text
+    assert "bound to the validated head SHA" in text
 
 
 def test_consumer_operator_docs_match_gate_followup_topology() -> None:
@@ -47,3 +50,4 @@ def test_consumer_operator_docs_match_gate_followup_topology() -> None:
     assert "Label-only retry/cleanup is not implemented" in labels
     assert "Optional recovery-request marker" in setup
     assert "USE_CONSOLIDATED_WORKFLOWS` is `true`" in setup
+    assert "cleared by Agents 81 after it successfully merges" in labels

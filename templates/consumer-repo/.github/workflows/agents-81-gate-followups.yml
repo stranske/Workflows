@@ -1977,8 +1977,9 @@ jobs:
     # events as the rest of this workflow (Gate completion / label / dispatch) and
     # scans open PRs carrying the `automerge` label. Mirrors the reusable-70
     # automerge sweep guards (combined status + all check-runs success) and adds
-    # the bootstrap-only and unchecked-task refusals. Replaces the guardless native
-    # auto-merge previously enabled by the belt worker (removed in #2270).
+    # exact-head, review-window, review-thread, bootstrap-only, and unchecked-task
+    # refusals. Replaces the guardless native auto-merge previously enabled by the
+    # belt worker (removed in #2270).
     if: ${{ github.event_name != 'pull_request' || github.event.label.name == 'automerge' }}
     runs-on: ubuntu-latest
     environment: agent-standard
@@ -2053,6 +2054,7 @@ jobs:
             // enables guardless native auto-merge.
             const placeholder = /^agents\/[a-z][a-z0-9_-]*-\d+\.md$/i;
             const okConclusions = ['success', 'neutral', 'skipped'];
+            const reviewWindowMs = 7 * 60 * 1000;
 
             // Count unchecked GitHub task checkboxes ("- [ ]") in real (non-quoted) lines.
             // Quoted lines ("> - [ ]", e.g. the belt PR's mirrored issue body) are ignored
@@ -2075,6 +2077,49 @@ jobs:
               const closes = body.match(/\b(?:closes|fixes|resolves)\s+#(\d+)/i);
               if (closes) return Number(closes[1]);
               return null;
+            }
+
+            async function reviewGuardFailure(prNumber, pr) {
+              const updatedAtMs = Date.parse(pr.updated_at || '');
+              if (!Number.isFinite(updatedAtMs)) {
+                return 'Unable to establish the exact-head review window.';
+              }
+              const remainingMs = reviewWindowMs - (Date.now() - updatedAtMs);
+              if (remainingMs > 0) {
+                return `Exact head has not completed the seven-minute review window (${Math.ceil(remainingMs / 1000)}s remaining).`;
+              }
+
+              try {
+                let cursor = null;
+                let activeThreads = 0;
+                do {
+                  const result = await withRetry((client) => client.graphql(
+                    `query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                      repository(owner: $owner, name: $repo) {
+                        pullRequest(number: $number) {
+                          reviewThreads(first: 100, after: $cursor) {
+                            nodes { isResolved isOutdated }
+                            pageInfo { hasNextPage endCursor }
+                          }
+                        }
+                      }
+                    }`,
+                    { owner, repo, number: prNumber, cursor }
+                  ));
+                  const threads = result?.repository?.pullRequest?.reviewThreads;
+                  if (!threads) return 'Unable to read review threads; refusing to merge blind.';
+                  activeThreads += (threads.nodes || []).filter(
+                    (thread) => !thread.isResolved && !thread.isOutdated
+                  ).length;
+                  cursor = threads.pageInfo?.hasNextPage ? threads.pageInfo.endCursor : null;
+                } while (cursor);
+                if (activeThreads > 0) {
+                  return `${activeThreads} active non-outdated review thread(s) remain.`;
+                }
+              } catch (error) {
+                return `Unable to read review threads: ${error.message || error}`;
+              }
+              return '';
             }
 
             const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
@@ -2118,39 +2163,44 @@ jobs:
                     note = `Base branch ${baseRef} does not match ${defaultBranch}.`;
                   } else if (pr.draft) {
                     note = 'Draft pull requests are not eligible for auto-merge.';
-                  } else if (['blocked', 'dirty', 'draft'].includes(mergeableState)) {
-                    note = `Mergeable state ${mergeableState} prevents auto-merge.`;
+                  } else if (mergeableState !== 'clean') {
+                    note = `Mergeable state ${mergeableState || '(unknown)'} is not clean.`;
                   } else {
                     const headSha = (pr.head && pr.head.sha) || '';
                     if (!headSha) {
                       note = 'Missing head SHA for pull request.';
                     } else {
-                      const { data: combined } = await withRetry((client) => client.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha }));
-                      if (!combined || combined.state !== 'success') {
-                        note = 'Required status checks have not all succeeded.';
+                      const reviewFailure = await reviewGuardFailure(prNumber, pr);
+                      if (reviewFailure) {
+                        note = reviewFailure;
                       } else {
-                        let checksOk = true;
-                        let failingCheck = '';
-                        try {
-                          const { data: checks } = await withRetry((client) => client.rest.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }));
-                          const checkRuns = Array.isArray(checks.check_runs) ? checks.check_runs : [];
-                          for (const run of checkRuns) {
-                            const conclusion = (run.conclusion || '').toLowerCase();
-                            const statusName = run.name || run.id || 'unknown check';
-                            if (!conclusion && run.status !== 'completed') {
-                              checksOk = false;
-                              failingCheck = `${statusName} pending`;
-                              break;
+                        const { data: combined } = await withRetry((client) => client.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha }));
+                        let checksOk = Boolean(combined && combined.state === 'success');
+                        let failingCheck = checksOk
+                          ? ''
+                          : 'Required status checks have not all succeeded.';
+                        if (checksOk) {
+                          try {
+                            const { data: checks } = await withRetry((client) => client.rest.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }));
+                            const checkRuns = Array.isArray(checks.check_runs) ? checks.check_runs : [];
+                            for (const run of checkRuns) {
+                              const conclusion = (run.conclusion || '').toLowerCase();
+                              const statusName = run.name || run.id || 'unknown check';
+                              if (!conclusion && run.status !== 'completed') {
+                                checksOk = false;
+                                failingCheck = `${statusName} pending`;
+                                break;
+                              }
+                              if (conclusion && !okConclusions.includes(conclusion)) {
+                                checksOk = false;
+                                failingCheck = `${statusName} concluded ${conclusion}`;
+                                break;
+                              }
                             }
-                            if (conclusion && !okConclusions.includes(conclusion)) {
-                              checksOk = false;
-                              failingCheck = `${statusName} concluded ${conclusion}`;
-                              break;
-                            }
+                          } catch (error) {
+                            checksOk = false;
+                            failingCheck = `Unable to list check runs: ${error.message || error}`;
                           }
-                        } catch (error) {
-                          checksOk = false;
-                          failingCheck = `Unable to list check runs: ${error.message || error}`;
                         }
 
                         // Bootstrap-only refusal (mirrors belt conveyor + reusable-70 sweep).
@@ -2170,13 +2220,13 @@ jobs:
                         let tasksUnchecked = false;
                         if (checksOk && !bootstrapOnly) {
                           let unchecked = countUnchecked(pr.body);
-                          const inferred = inferIssue(pr.body);
-                          if (inferred) {
+                          const linkedIssue = inferIssue(pr.body);
+                          if (linkedIssue) {
                             try {
-                              const { data: linked } = await withRetry((client) => client.rest.issues.get({ owner, repo, issue_number: inferred }));
+                              const { data: linked } = await withRetry((client) => client.rest.issues.get({ owner, repo, issue_number: linkedIssue }));
                               unchecked += countUnchecked(linked.body);
                             } catch (error) {
-                              core.warning(`Unable to read linked issue #${inferred} for PR #${prNumber}: ${error.message || error}`);
+                              core.warning(`Unable to read linked issue #${linkedIssue} for PR #${prNumber}: ${error.message || error}`);
                             }
                           }
                           tasksUnchecked = unchecked > 0;
@@ -2199,11 +2249,32 @@ jobs:
                               withRetry,
                               source: 'agents-81-gate-followups guarded merge',
                             });
-                            const response = await withRetry((client) => client.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' }));
+                            const response = await withRetry((client) => client.rest.pulls.merge({
+                              owner,
+                              repo,
+                              pull_number: prNumber,
+                              merge_method: 'squash',
+                              sha: headSha,
+                            }));
                             if (response && response.data && response.data.merged) {
                               status = 'merged';
                               note = `Merged via ${response.data.merge_method || 'squash'}.`;
                               merged.push(prNumber);
+                              const linkedIssue = inferIssue(pr.body);
+                              if (linkedIssue) {
+                                try {
+                                  await withRetry((client) => client.rest.issues.removeLabel({
+                                    owner,
+                                    repo,
+                                    issue_number: linkedIssue,
+                                    name: 'status:in-progress',
+                                  }));
+                                } catch (error) {
+                                  if (error.status !== 404) {
+                                    core.warning(`Merged PR #${prNumber}, but could not clear status:in-progress from issue #${linkedIssue}: ${error.message || error}`);
+                                  }
+                                }
+                              }
                             } else {
                               status = 'error';
                               note = 'Merge API returned an unexpected response.';

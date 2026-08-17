@@ -75,6 +75,12 @@ The Workflows repo provides the shared implementations behind these consumer ent
 - **Keepalive**: Evaluates the current Gate/task state and dispatches bounded supported-agent follow-ups
 - **Guarded closeout**: Merges only after the unchanged exact head passes checks, review-thread, review-window, and merge-state gates
 
+Agents 81 fails closed unless the PR is ready, targets the default branch, has a
+`clean` merge state, has held the same head for at least seven minutes, has no
+active non-outdated review threads, and has successful statuses and check runs.
+Its merge request is bound to the validated head SHA. Branch protection remains
+responsible for any required approving-review policy.
+
 ---
 
 ## Local CI Configuration
@@ -144,8 +150,9 @@ Issue created → agent:codex label added
 ```
 
 The retired consumer orchestrator and automatic conveyor are not local entry points. Agents 73 has
-no local caller in the current consumer topology, and Agents 81 does not merge merely because CI is
-green.
+no local caller in the current consumer topology. Agents 81 owns guarded delivery and clears the
+linked issue's `status:in-progress` label after a successful merge; it does not merge merely because
+CI is green.
 
 ---
 
