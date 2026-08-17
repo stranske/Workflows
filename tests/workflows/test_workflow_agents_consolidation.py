@@ -304,9 +304,9 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
     assert guarded_merge.index("mergeBoundaryCheckFailure,") > guarded_merge.index(
         "mergeBoundaryPr,"
     )
-    assert guarded_merge.index("Merge-boundary check-state validation failed") > guarded_merge.index(
-        "] = await Promise.all(["
-    )
+    assert guarded_merge.index(
+        "Merge-boundary check-state validation failed"
+    ) > guarded_merge.index("] = await Promise.all([")
     assert guarded_merge.index("client.rest.pulls.merge") > guarded_merge.index(
         "Linked issue changed during final merge validation."
     )
