@@ -233,6 +233,36 @@ function extractIssueNumberFromText(text) {
   return issueNumbers.size > 0 ? Array.from(issueNumbers)[0] : null;
 }
 
+function extractClosingIssueNumbersFromText(text) {
+  const value = String(text || '');
+  const issueNumbers = new Set();
+  for (const match of value.matchAll(/#([0-9]+)/g)) {
+    const before = value.slice(Math.max(0, match.index - 100), match.index);
+    const token = before.split(/\s/).pop() || '';
+    if (token.includes('/')) {
+      continue;
+    }
+    const prefix = before
+      .replace(/\r\n?/g, '\n')
+      .replace(/[_\[\]()`~]/g, ' ')
+      .trim()
+      .replace(/[>*]/g, ' ')
+      .replace(/\s+/g, ' ');
+    if (
+      !/\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving)(?:\s+(?:source\s+issue|github\s+issue|issue))?\s*[:#-]?\s*$/i.test(
+        prefix
+      )
+    ) {
+      continue;
+    }
+    const parsed = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(parsed)) {
+      issueNumbers.add(parsed);
+    }
+  }
+  return issueNumbers;
+}
+
 function extractIssueNumberFromPull(pull = {}) {
   const bodyText = String(pull?.body || '');
   const metaMatch = bodyText.match(/<!--\s*meta:issue:([0-9]+)\s*-->/i);
@@ -240,9 +270,20 @@ function extractIssueNumberFromPull(pull = {}) {
     return Number.parseInt(metaMatch[1], 10);
   }
 
-  const bodyNumber = extractIssueNumberFromText(bodyText);
-  if (bodyNumber) {
-    return bodyNumber;
+  const closingIssueNumbers = extractClosingIssueNumbersFromText(bodyText);
+  if (closingIssueNumbers.size === 1) {
+    return Array.from(closingIssueNumbers)[0];
+  }
+  if (closingIssueNumbers.size > 1) {
+    return null;
+  }
+
+  const bodyIssueNumbers = extractIssueNumbersFromText(bodyText);
+  if (bodyIssueNumbers.size === 1) {
+    return Array.from(bodyIssueNumbers)[0];
+  }
+  if (bodyIssueNumbers.size > 1) {
+    return null;
   }
 
   const branch = String(pull?.head?.ref || '');
@@ -494,6 +535,7 @@ module.exports = {
   normalizeSourceType,
   extractIssueNumberFromText,
   extractIssueNumbersFromText,
+  extractClosingIssueNumbersFromText,
   extractIssueNumberFromPull,
   parseWorkflowSourceBlock,
   parseDependencyRepairPromotionSource,

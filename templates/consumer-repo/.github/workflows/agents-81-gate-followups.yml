@@ -2035,7 +2035,9 @@ jobs:
               runtimeAcRequirement,
             } = require('./.github/scripts/runtime_ac_merge_guard.js');
             const {
+              extractClosingIssueNumbersFromText,
               extractIssueNumberFromPull,
+              extractIssueNumbersFromText,
             } = require('./.github/scripts/source_context.js');
             const { createTokenAwareRetry } = fs.existsSync(retryPath)
               ? require(retryPath)
@@ -2104,7 +2106,19 @@ jobs:
             }
 
             function inferIssue(pr) {
+              if (issueReferenceFailure(pr)) return 0;
               return extractIssueNumberFromPull(pr || {});
+            }
+
+            function issueReferenceFailure(pr) {
+              const body = String(pr?.body || '');
+              if (/<!--\s*meta:issue:[0-9]+\s*-->/i.test(body)) return '';
+              const bodyIssueNumbers = extractIssueNumbersFromText(body);
+              if (bodyIssueNumbers.size <= 1) return '';
+              const closingIssueNumbers = extractClosingIssueNumbersFromText(body);
+              return closingIssueNumbers.size === 1
+                ? ''
+                : 'Ambiguous linked issue references; refusing to merge blind.';
             }
 
             async function linkedIssueTaskSnapshot(pr) {
@@ -2144,6 +2158,8 @@ jobs:
             }
 
             function uncheckedTaskFailure(pr, linkedIssueSnapshot) {
+              const referenceFailure = issueReferenceFailure(pr);
+              if (referenceFailure) return referenceFailure;
               let unchecked = countUnchecked(pr?.body);
               const linkedIssue = inferIssue(pr);
               if (linkedIssue) {
@@ -2529,15 +2545,25 @@ jobs:
                   mergeBoundaryPr,
                   mergeBoundaryRepoResponse,
                   mergeBoundaryLinkedIssueSnapshot,
+                  mergeBoundaryCheckFailure,
+                  mergeBoundaryThreadFailure,
                 ] = await Promise.all([
                   loadPullRequest(prNumber),
                   withRetry((client) => client.rest.repos.get({ owner, repo })),
                   finalLinkedIssue
                     ? linkedIssueTaskSnapshot(finalPr)
                     : Promise.resolve({ issueNumber: 0, body: '', updatedAt: '', failure: '' }),
+                  checkStateFailure(expectedHead),
+                  activeReviewThreadFailure(prNumber),
                 ]);
                 if (!mergeBoundaryPr) {
                   return 'Unable to load the merge-boundary pull request snapshot.';
+                }
+                if (mergeBoundaryCheckFailure) {
+                  return `Merge-boundary check-state validation failed: ${mergeBoundaryCheckFailure}`;
+                }
+                if (mergeBoundaryThreadFailure) {
+                  return mergeBoundaryThreadFailure;
                 }
                 const mergeBoundaryHead = mergeBoundaryPr?.head?.sha || '';
                 if (!mergeBoundaryHead || mergeBoundaryHead !== expectedHead) {
