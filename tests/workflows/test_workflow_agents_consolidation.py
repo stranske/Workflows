@@ -228,6 +228,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "require('./.github/scripts/source_context.js')",
         "return extractIssueNumberFromPull(pr || {})",
         "const linkedIssue = inferIssue(pr)",
+        "const finalLinkedIssue = inferIssue(finalPr)",
         "const finalTaskFailure = await uncheckedTaskFailure(finalPr)",
         "async function checkStateFailure(headSha)",
         "statusCount > 0 || combined.state !== 'pending'",
@@ -246,8 +247,11 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "mergeBoundaryLabels.includes(GENERATED_DELIVERY_HOLD_LABEL)",
         "const mergeBoundaryRuntimeRequirement = runtimeAcRequirement(",
         "if (mergeBoundaryRuntimeRequirement.required)",
-        "const mergeBoundaryTaskFailure = await uncheckedTaskFailure(mergeBoundaryPr)",
-        "Final merge-boundary task validation failed",
+        "const mergeBoundaryLinkedIssue = inferIssue(mergeBoundaryPr)",
+        "mergeBoundaryLinkedIssue !== finalLinkedIssue",
+        "Linked issue changed at the final merge boundary.",
+        "countUnchecked(mergeBoundaryPr.body) > 0",
+        "Final merge-boundary PR body has unchecked tasks.",
         "const finalObservation = await reviewWindowObservation(prNumber, expectedHead)",
         "const finalReviewRemainingMs = reviewWindowMs",
         "A newer head transition restarted the review window before merge.",
@@ -266,6 +270,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         assert contract in guarded_merge
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
     assert "inferIssue(pr?.body || '') || 0" not in guarded_merge
+    assert "uncheckedTaskFailure(mergeBoundaryPr)" not in guarded_merge
     assert ".github/scripts/source_context.js" in guarded_merge
     assert guarded_merge.index("const [mergeBoundaryPr") > guarded_merge.index(
         "const finalThreadFailure"
@@ -273,8 +278,11 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
     assert guarded_merge.index("client.rest.pulls.merge") > guarded_merge.index(
         "mergeBoundaryBase !== mergeBoundaryDefaultBranch"
     )
-    assert guarded_merge.index("client.rest.pulls.merge") > guarded_merge.index(
-        "const mergeBoundaryTaskFailure = await uncheckedTaskFailure(mergeBoundaryPr)"
+    assert guarded_merge.index("const finalTaskFailure") < guarded_merge.index(
+        "const [mergeBoundaryPr"
+    )
+    assert guarded_merge.index("const mergeBoundaryLinkedIssue") > guarded_merge.index(
+        "const [mergeBoundaryPr"
     )
     assert text.count("github.event.action != 'synchronize'") >= 3
     assert "github.event_name != 'pull_request'" not in text

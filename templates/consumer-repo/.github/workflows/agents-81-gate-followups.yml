@@ -2472,6 +2472,7 @@ jobs:
                 if (finalRuntimeRequirement.required) {
                   return `Runtime acceptance label(s) ${finalRuntimeRequirement.labels.join(', ')} were added before merge.`;
                 }
+                const finalLinkedIssue = inferIssue(finalPr);
                 const finalTaskFailure = await uncheckedTaskFailure(finalPr);
                 if (finalTaskFailure) {
                   return finalTaskFailure;
@@ -2528,11 +2529,12 @@ jobs:
                 if (mergeBoundaryRuntimeRequirement.required) {
                   return `Runtime acceptance label(s) ${mergeBoundaryRuntimeRequirement.labels.join(', ')} were added at the final merge boundary.`;
                 }
-                // Linked issue state is not bound by the merge SHA, so make this
-                // the final practical task read after the merge-boundary PR fetch.
-                const mergeBoundaryTaskFailure = await uncheckedTaskFailure(mergeBoundaryPr);
-                if (mergeBoundaryTaskFailure) {
-                  return `Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}`;
+                const mergeBoundaryLinkedIssue = inferIssue(mergeBoundaryPr);
+                if (mergeBoundaryLinkedIssue !== finalLinkedIssue) {
+                  return 'Linked issue changed at the final merge boundary.';
+                }
+                if (countUnchecked(mergeBoundaryPr.body) > 0) {
+                  return 'Final merge-boundary PR body has unchecked tasks.';
                 }
                 return '';
               } catch (error) {
