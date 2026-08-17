@@ -179,7 +179,8 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "setTimeout(resolve, remainingMs + 1000)",
         "Head changed during the review window",
         "Post-window pull request no longer carries the automerge label.",
-        "const finalReviewFailure = await activeReviewThreadFailure(prNumber)",
+        "const finalMergeFailure = await finalMergeGuardFailure(prNumber, headSha)",
+        "Pull request no longer carries the automerge label.",
         "sha: headSha",
         "name: 'status:in-progress'",
     ):
@@ -187,7 +188,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
     assert (
         guarded_merge.rindex("await assertRuntimeAcMergeAllowed")
-        < guarded_merge.rindex("const finalReviewFailure")
+        < guarded_merge.rindex("const finalMergeFailure")
         < guarded_merge.rindex("client.rest.pulls.merge")
     )
 

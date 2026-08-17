@@ -2159,6 +2159,33 @@ jobs:
               };
             }
 
+            async function finalMergeGuardFailure(prNumber, expectedHead) {
+              try {
+                const { data: finalPr } = await withRetry((client) => client.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                }));
+                const finalHead = finalPr?.head?.sha || '';
+                if (!finalHead || finalHead !== expectedHead) {
+                  return 'Head changed before the merge request.';
+                }
+                const finalMergeableState = String(finalPr.mergeable_state || '').toLowerCase();
+                if (finalPr.draft || finalMergeableState !== 'clean') {
+                  return `Final mergeable state ${finalMergeableState || '(unknown)'} is not clean.`;
+                }
+                const finalLabels = (finalPr.labels || []).map(
+                  (item) => String(item.name || '').toLowerCase()
+                );
+                if (!finalLabels.includes(label)) {
+                  return 'Pull request no longer carries the automerge label.';
+                }
+                return await activeReviewThreadFailure(prNumber);
+              } catch (error) {
+                return `Unable to complete final merge guard: ${error.message || error}`;
+              }
+            }
+
             const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
               owner,
               repo,
@@ -2289,9 +2316,9 @@ jobs:
                               withRetry,
                               source: 'agents-81-gate-followups guarded merge',
                             });
-                            const finalReviewFailure = await activeReviewThreadFailure(prNumber);
-                            if (finalReviewFailure) {
-                              throw new Error(finalReviewFailure);
+                            const finalMergeFailure = await finalMergeGuardFailure(prNumber, headSha);
+                            if (finalMergeFailure) {
+                              throw new Error(finalMergeFailure);
                             }
                             const response = await withRetry((client) => client.rest.pulls.merge({
                               owner,
