@@ -9,6 +9,7 @@ const path = require('path');
 const {
   countCheckboxes,
   parseConfig,
+  resolvePrNumber,
   evaluateKeepaliveLoop,
   updateKeepaliveLoopSummary,
   markAgentRunning,
@@ -180,6 +181,18 @@ test.after(() => {
       throw error;
     }
   }
+});
+
+test('resolvePrNumber accepts base-defined pull_request_target events', async () => {
+  const context = buildContext(123, 9001, { eventName: 'pull_request_target' });
+
+  const prNumber = await resolvePrNumber({
+    github: buildGithubStub(),
+    context,
+    core: buildCore(),
+  });
+
+  assert.equal(prNumber, 123);
 });
 
 test('countCheckboxes tallies checked and unchecked tasks', () => {

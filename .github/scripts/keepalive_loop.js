@@ -1834,7 +1834,10 @@ async function resolvePrNumber({ github, context, core, payload: overridePayload
     return overridePayload.workflow_run.pull_requests[0].number;
   }
 
-  if (eventName === 'pull_request' && payload.pull_request) {
+  if (
+    (eventName === 'pull_request' || eventName === 'pull_request_target')
+    && payload.pull_request
+  ) {
     return payload.pull_request.number;
   }
 
@@ -5397,6 +5400,7 @@ module.exports = {
   parseConfig,
   buildTaskAppendix,
   extractSourceSection,
+  resolvePrNumber,
   evaluateKeepaliveLoop,
   markAgentRunning,
   updateKeepaliveLoopSummary,

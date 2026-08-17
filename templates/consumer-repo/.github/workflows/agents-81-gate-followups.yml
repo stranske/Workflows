@@ -2166,23 +2166,47 @@ jobs:
                   issue_number: prNumber,
                   per_page: 100,
                 });
-                const timelineEvents = await paginateWithRetry(
-                  github.rest.issues.listEventsForTimeline,
-                  { owner, repo, issue_number: prNumber, per_page: 100 }
-                );
                 let latestHeadTransitionAtMs = 0;
-                for (const event of timelineEvents) {
-                  if (event?.event !== 'head_ref_force_pushed') continue;
-                  const transitionedHeadSha = String(
-                    event.after_commit_id || event.commit_id || ''
-                  );
-                  if (transitionedHeadSha !== headSha) continue;
-                  const eventAtMs = Date.parse(event.created_at || '');
-                  if (!Number.isFinite(eventAtMs)) {
-                    return { failure: 'Persisted head-transition time is invalid.' };
+                let transitionCursor = null;
+                do {
+                  const transitionResult = await withRetry((client) => client.graphql(`
+                    query($owner: String!, $repo: String!, $prNumber: Int!, $cursor: String) {
+                      repository(owner: $owner, name: $repo) {
+                        pullRequest(number: $prNumber) {
+                          timelineItems(
+                            first: 100,
+                            after: $cursor,
+                            itemTypes: [HEAD_REF_FORCE_PUSHED_EVENT]
+                          ) {
+                            nodes {
+                              ... on HeadRefForcePushedEvent {
+                                createdAt
+                                afterCommit { oid }
+                              }
+                            }
+                            pageInfo { hasNextPage endCursor }
+                          }
+                        }
+                      }
+                    }
+                  `, { owner, repo, prNumber, cursor: transitionCursor }));
+                  const transitions = transitionResult?.repository?.pullRequest?.timelineItems;
+                  if (!transitions) {
+                    return { failure: 'Unable to read persisted head transitions.' };
                   }
-                  latestHeadTransitionAtMs = Math.max(latestHeadTransitionAtMs, eventAtMs);
-                }
+                  for (const event of transitions.nodes || []) {
+                    const transitionedHeadSha = String(event?.afterCommit?.oid || '');
+                    if (transitionedHeadSha !== headSha) continue;
+                    const eventAtMs = Date.parse(event.createdAt || '');
+                    if (!Number.isFinite(eventAtMs)) {
+                      return { failure: 'Persisted head-transition time is invalid.' };
+                    }
+                    latestHeadTransitionAtMs = Math.max(latestHeadTransitionAtMs, eventAtMs);
+                  }
+                  transitionCursor = transitions.pageInfo?.hasNextPage
+                    ? transitions.pageInfo.endCursor
+                    : null;
+                } while (transitionCursor);
                 const stateComment = comments
                   .filter((comment) => {
                     const author = String(comment?.user?.login || '').toLowerCase();
@@ -2315,12 +2339,18 @@ jobs:
                   });
                 });
                 if (!combined || combined.state !== 'success') {
-                  return 'Required status checks have not all succeeded.';
+                  const statusCount = Number(combined?.total_count ?? 0);
+                  if (!combined || statusCount > 0 || combined.state !== 'pending') {
+                    return 'Required status checks have not all succeeded.';
+                  }
                 }
                 const checkRuns = await paginateWithRetry(
                   github.rest.checks.listForRef,
                   { owner, repo, ref: headSha, per_page: 100 }
                 );
+                if (Number(combined?.total_count || 0) === 0 && checkRuns.length === 0) {
+                  return 'No commit statuses or check runs found.';
+                }
                 for (const run of checkRuns) {
                   const conclusion = (run.conclusion || '').toLowerCase();
                   const statusName = run.name || run.id || 'unknown check';
@@ -2601,6 +2631,9 @@ jobs:
                                 linkedIssue = inferIssue(cleanupPr?.body || '');
                               } catch (error) {
                                 core.warning(`Merged PR #${prNumber}, but could not reload its final linked issue: ${error.message || error}`);
+                              }
+                              if (!linkedIssue) {
+                                linkedIssue = inferIssue(pr?.body || '') || 0;
                               }
                               if (linkedIssue) {
                                 try {
