@@ -73,6 +73,17 @@ test('extractIssueNumberFromPull keeps existing issue resolution behavior', () =
   );
 });
 
+test('extractIssueNumberFromPull prefers an explicit body link over inferred branch and title issues', () => {
+  assert.equal(
+    extractIssueNumberFromPull({
+      body: 'Related to #222',
+      head: { ref: 'codex/issue-111-stale-branch' },
+      title: 'Resolve issue #333',
+    }),
+    222,
+  );
+});
+
 test('extractIssueNumberFromPull ignores PR references in workflow source templates', () => {
   const context = resolvePrSourceContext({
     body: `

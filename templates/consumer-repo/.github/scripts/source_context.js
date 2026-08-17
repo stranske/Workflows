@@ -240,6 +240,11 @@ function extractIssueNumberFromPull(pull = {}) {
     return Number.parseInt(metaMatch[1], 10);
   }
 
+  const bodyNumber = extractIssueNumberFromText(bodyText);
+  if (bodyNumber) {
+    return bodyNumber;
+  }
+
   const branch = String(pull?.head?.ref || '');
   const branchMatch = branch.match(/issue-#?([0-9]+)/i) || branch.match(/-issue-#([0-9]+)(?:$|[^0-9])/i);
   if (branchMatch) {
@@ -251,7 +256,7 @@ function extractIssueNumberFromPull(pull = {}) {
     return titleNumber;
   }
 
-  return extractIssueNumberFromText(bodyText);
+  return null;
 }
 
 function parseHtmlMarker(body, name) {
