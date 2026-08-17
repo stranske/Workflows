@@ -1982,6 +1982,7 @@ jobs:
     # belt worker (removed in #2270).
     if: ${{ github.event_name != 'pull_request' || github.event.label.name == 'automerge' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: agent-standard
     permissions:
       contents: write
@@ -2059,6 +2060,7 @@ jobs:
             const placeholder = /^agents\/[a-z][a-z0-9_-]*-\d+\.md$/i;
             const okConclusions = ['success', 'neutral', 'skipped'];
             const reviewWindowMs = 7 * 60 * 1000;
+            let reviewSleepBudgetMs = reviewWindowMs + 60 * 1000;
 
             // Count unchecked GitHub task checkboxes ("- [ ]") in real (non-quoted) lines.
             // Quoted lines ("> - [ ]", e.g. the belt PR's mirrored issue body) are ignored
@@ -2081,6 +2083,26 @@ jobs:
               const closes = body.match(/\b(?:closes|fixes|resolves)\s+#(\d+)/i);
               if (closes) return Number(closes[1]);
               return null;
+            }
+
+            async function uncheckedTaskFailure(pr) {
+              let unchecked = countUnchecked(pr?.body);
+              const linkedIssue = inferIssue(pr?.body);
+              if (linkedIssue) {
+                try {
+                  const { data: linked } = await withRetry((client) => client.rest.issues.get({
+                    owner,
+                    repo,
+                    issue_number: linkedIssue,
+                  }));
+                  unchecked += countUnchecked(linked.body);
+                } catch (error) {
+                  return `Unable to read linked issue #${linkedIssue}; refusing to merge blind: ${error.message || error}`;
+                }
+              }
+              return unchecked > 0
+                ? 'Refusing auto-merge: linked issue/PR has unchecked tasks.'
+                : '';
             }
 
             async function loadPullRequest(prNumber) {
@@ -2140,19 +2162,36 @@ jobs:
 
             async function reviewGuardFailure(prNumber, pr) {
               let guardedPr = pr;
-              const updatedAtMs = Date.parse(pr.updated_at || '');
-              if (!Number.isFinite(updatedAtMs)) {
-                return { pr: guardedPr, failure: 'Unable to establish the exact-head review window.' };
-              }
-              const remainingMs = reviewWindowMs - (Date.now() - updatedAtMs);
-              if (remainingMs > 0) {
-                core.info(`Waiting ${Math.ceil(remainingMs / 1000)}s for the exact-head review window.`);
-                await new Promise((resolve) => setTimeout(resolve, remainingMs + 1000));
-                const { data: refreshedPr } = await withRetry((client) => client.rest.pulls.get({
+              let headCommittedAtMs = Number.NaN;
+              try {
+                const { data: headCommit } = await withRetry((client) => client.rest.repos.getCommit({
                   owner,
                   repo,
-                  pull_number: prNumber,
+                  ref: pr.head?.sha || '',
                 }));
+                headCommittedAtMs = Date.parse(headCommit?.commit?.committer?.date || '');
+              } catch (error) {
+                return {
+                  pr: guardedPr,
+                  failure: `Unable to read head commit time: ${error.message || error}`,
+                };
+              }
+              if (!Number.isFinite(headCommittedAtMs)) {
+                return { pr: guardedPr, failure: 'Unable to establish the exact-head review window.' };
+              }
+              const remainingMs = reviewWindowMs - (Date.now() - headCommittedAtMs);
+              if (remainingMs > 0) {
+                const requestedSleepMs = remainingMs + 1000;
+                if (requestedSleepMs > reviewSleepBudgetMs) {
+                  return {
+                    pr: guardedPr,
+                    failure: 'Review window not elapsed; deferring to a later run.',
+                  };
+                }
+                reviewSleepBudgetMs -= requestedSleepMs;
+                core.info(`Waiting ${Math.ceil(remainingMs / 1000)}s for the exact-head review window.`);
+                await new Promise((resolve) => setTimeout(resolve, requestedSleepMs));
+                const refreshedPr = await loadPullRequest(prNumber);
                 const originalHead = pr.head?.sha || '';
                 const refreshedHead = refreshedPr?.head?.sha || '';
                 if (!originalHead || refreshedHead !== originalHead) {
@@ -2185,11 +2224,10 @@ jobs:
 
             async function finalMergeGuardFailure(prNumber, expectedHead) {
               try {
-                const { data: finalPr } = await withRetry((client) => client.rest.pulls.get({
-                  owner,
-                  repo,
-                  pull_number: prNumber,
-                }));
+                const finalPr = await loadPullRequest(prNumber);
+                if (!finalPr) {
+                  return 'Unable to load the final pull request snapshot.';
+                }
                 const finalHead = finalPr?.head?.sha || '';
                 if (!finalHead || finalHead !== expectedHead) {
                   return 'Head changed before the merge request.';
@@ -2214,6 +2252,10 @@ jobs:
                 const finalRuntimeRequirement = runtimeAcRequirement(finalPr.labels || []);
                 if (finalRuntimeRequirement.required) {
                   return `Runtime acceptance label(s) ${finalRuntimeRequirement.labels.join(', ')} were added before merge.`;
+                }
+                const finalTaskFailure = await uncheckedTaskFailure(finalPr);
+                if (finalTaskFailure) {
+                  return finalTaskFailure;
                 }
                 return await activeReviewThreadFailure(prNumber);
               } catch (error) {
@@ -2319,27 +2361,17 @@ jobs:
 
                         // Unchecked-task refusal: inspect the PR body and, when resolvable,
                         // the linked issue body. Either carrying an open "- [ ]" blocks merge.
-                        let tasksUnchecked = false;
+                        let taskFailure = '';
                         if (checksOk && !bootstrapOnly) {
-                          let unchecked = countUnchecked(pr.body);
-                          const linkedIssue = inferIssue(pr.body);
-                          if (linkedIssue) {
-                            try {
-                              const { data: linked } = await withRetry((client) => client.rest.issues.get({ owner, repo, issue_number: linkedIssue }));
-                              unchecked += countUnchecked(linked.body);
-                            } catch (error) {
-                              core.warning(`Unable to read linked issue #${linkedIssue} for PR #${prNumber}: ${error.message || error}`);
-                            }
-                          }
-                          tasksUnchecked = unchecked > 0;
+                          taskFailure = await uncheckedTaskFailure(pr);
                         }
 
                         if (!checksOk) {
                           note = failingCheck || 'Checks have not completed successfully.';
                         } else if (bootstrapOnly) {
                           note = failingCheck || 'Refusing auto-merge: bootstrap-only placeholder PR (no work landed).';
-                        } else if (tasksUnchecked) {
-                          note = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+                        } else if (taskFailure) {
+                          note = taskFailure;
                         } else {
                           try {
                             await assertRuntimeAcMergeAllowed({

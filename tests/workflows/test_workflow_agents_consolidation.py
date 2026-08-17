@@ -172,15 +172,22 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
     guarded_merge = text.split("guarded-merge:", 1)[1]
 
     for contract in (
+        "timeout-minutes: 30",
         "mergeableState !== 'clean'",
         "reviewWindowMs = 7 * 60 * 1000",
+        "reviewSleepBudgetMs = reviewWindowMs + 60 * 1000",
+        "client.rest.repos.getCommit",
+        "headCommittedAtMs",
+        "Review window not elapsed; deferring to a later run.",
         "reviewThreads(first: 100, after: $cursor)",
         "!thread.isResolved && !thread.isOutdated",
-        "setTimeout(resolve, remainingMs + 1000)",
+        "setTimeout(resolve, requestedSleepMs)",
         "async function loadPullRequest(prNumber)",
         "mergeableState !== 'unknown'",
         "setTimeout(resolve, 2000)",
         "let pr = await loadPullRequest(prNumber)",
+        "const refreshedPr = await loadPullRequest(prNumber)",
+        "const finalPr = await loadPullRequest(prNumber)",
         "Head changed during the review window",
         "Post-window pull request no longer carries the automerge label.",
         "const finalMergeFailure = await finalMergeGuardFailure(prNumber, headSha)",
@@ -190,6 +197,8 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "finalLabels.includes(GENERATED_DELIVERY_HOLD_LABEL)",
         "runtimeAcRequirement(finalPr.labels || [])",
         "Runtime acceptance label(s)",
+        "async function uncheckedTaskFailure(pr)",
+        "const finalTaskFailure = await uncheckedTaskFailure(finalPr)",
         "sha: headSha",
         "name: 'status:in-progress'",
     ):
