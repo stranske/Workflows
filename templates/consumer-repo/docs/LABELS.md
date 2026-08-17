@@ -14,7 +14,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:gemini` | Issue or PR labeled | Registered routing label; no consumer Gate-followup runner is currently wired
 | `agent:aider` | Issue or PR labeled | Routes the issue or PR to the Aider agent for cheap, low-complexity tasks — runner lands in a follow-up phase
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; do not combine with concrete `agent:<name>` labels
-| `agent:retry` | PR labeled | Recovery marker only; use a manual Gate-followups dispatch to force a retry
+| `agent:retry` | PR labeled | Consolidated consumers require a manual Gate-followups dispatch; the root/non-consolidated keepalive workflow forces a retry and clears recovery labels
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
 | ~~`agent:codex-invite`~~ | *(deprecated)* | No workflow, script, or tool references this label by name; the generic `agent:<name>-invite` mechanism in `reusable-agents-issue-bridge.yml` still works but this specific label is unmaintained — see detail section below
 | `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention
@@ -206,20 +206,23 @@ runner and registry entry ship, applying this label will not dispatch a runner. 
 
 **Applies to:** Pull Requests
 
-**Trigger:** None in the current consumer workflow; this is a recovery marker
+**Trigger:** Topology-dependent:
+
+- Consolidated consumer (`agents-81-gate-followups.yml`): the label is a recovery marker and does not trigger a retry by itself
+- Root/non-consolidated (`agents-keepalive-loop.yml`): a `pull_request:labeled` event triggers a forced retry
 
 **Effect:**
-1. Records that a retry was requested
-2. Does not set the `force_retry` input merely by being applied
-3. Does not automatically remove itself or `agent:rate-limited`
+1. Records that a retry was requested in both topologies
+2. Consolidated consumer: does not set `force_retry` or remove recovery labels merely by being applied
+3. Root/non-consolidated: sets `force_retry=true` and attempts to remove both `agent:retry` and `agent:rate-limited`
 
 **Prerequisites:**
 - PR has a concrete `agent:codex` or `agent:claude` label so a runner can be re-dispatched
 - PR has `agents:keepalive`
 
-**Recovery:** Force a bounded retry by manually dispatching `agents-81-gate-followups.yml` with `pr_number=<PR>` and `force_retry=true`. After the run is confirmed, remove stale recovery labels manually if they remain.
+**Recovery:** In a consolidated consumer, force a bounded retry by manually dispatching `agents-81-gate-followups.yml` with `pr_number=<PR>` and `force_retry=true`; after the run is confirmed, remove stale recovery labels manually if they remain. In the root/non-consolidated topology, applying `agent:retry` invokes the label handler automatically.
 
-**Workflow:** `agents-81-gate-followups.yml` accepts the explicit `force_retry` dispatch input. Label-only retry/cleanup is not implemented in the current consumer wrapper.
+**Workflow:** `agents-81-gate-followups.yml` accepts the explicit `force_retry` dispatch input for consolidated consumers. `.github/workflows/agents-keepalive-loop.yml` implements label-driven retry and cleanup for the root/non-consolidated topology.
 
 ---
 
@@ -752,8 +755,8 @@ These labels are used for categorization but do not trigger workflows.
 | (none) | `agent:auto` | Delegates routing to `agent_delegation_policy.js`
 | `agent:codex` | `agent:auto` | Invalid mixed routing; remove `agent:codex` before using `agent:auto`
 | `agent:claude` | `agent:auto` | Invalid mixed routing; remove `agent:claude` before using `agent:auto`
-| `agent:<name>` + `agents:keepalive` | `agent:retry` | Records a recovery request; explicitly dispatch Gate followups with `force_retry=true`
-| `agent:retry` | Manual Gate-followups dispatch | Does not imply automatic label cleanup
+| `agent:<name>` + `agents:keepalive` | `agent:retry` | Consolidated: records a recovery request; root/non-consolidated: forces the keepalive retry and cleanup handler
+| `agent:retry` | Manual Gate-followups dispatch | Consolidated only: forces the retry and does not imply automatic label cleanup
 | `agent:rate-limited` | Successful forced retry | Remove stale recovery labels manually if automation leaves them behind
 | `agent:codex` | `agent:codex-invite` | Selects issue-bridge `invite` mode for `agent:codex` when `force_mode: false`; with the default forced input mode, the requested mode still wins
 | `agent:codex` | `status:ready` | Agent begins processing

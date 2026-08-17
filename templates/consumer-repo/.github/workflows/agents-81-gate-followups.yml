@@ -2485,6 +2485,29 @@ jobs:
                 if (finalThreadFailure) {
                   return finalThreadFailure;
                 }
+
+                // Bind both mutable target snapshots at the last network boundary.
+                // The merge API binds the head SHA but does not bind the base branch.
+                const [mergeBoundaryPr, mergeBoundaryRepoResponse] = await Promise.all([
+                  loadPullRequest(prNumber),
+                  withRetry((client) => client.rest.repos.get({ owner, repo })),
+                ]);
+                if (!mergeBoundaryPr) {
+                  return 'Unable to load the merge-boundary pull request snapshot.';
+                }
+                const mergeBoundaryHead = mergeBoundaryPr?.head?.sha || '';
+                if (!mergeBoundaryHead || mergeBoundaryHead !== expectedHead) {
+                  return 'Head changed at the final merge boundary.';
+                }
+                const mergeBoundaryDefaultBranch =
+                  mergeBoundaryRepoResponse?.data?.default_branch || '';
+                if (!mergeBoundaryDefaultBranch) {
+                  return 'Repository default branch not available at the final merge boundary.';
+                }
+                const mergeBoundaryBase = mergeBoundaryPr?.base?.ref || '';
+                if (!mergeBoundaryBase || mergeBoundaryBase !== mergeBoundaryDefaultBranch) {
+                  return `Merge-boundary base ${mergeBoundaryBase || '(unknown)'} does not match ${mergeBoundaryDefaultBranch}.`;
+                }
                 return '';
               } catch (error) {
                 return `Unable to complete final merge guard: ${error.message || error}`;
