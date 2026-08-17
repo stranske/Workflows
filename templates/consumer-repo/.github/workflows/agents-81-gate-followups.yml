@@ -2080,13 +2080,33 @@ jobs:
             }
 
             async function reviewGuardFailure(prNumber, pr) {
+              let guardedPr = pr;
               const updatedAtMs = Date.parse(pr.updated_at || '');
               if (!Number.isFinite(updatedAtMs)) {
-                return 'Unable to establish the exact-head review window.';
+                return { pr: guardedPr, failure: 'Unable to establish the exact-head review window.' };
               }
               const remainingMs = reviewWindowMs - (Date.now() - updatedAtMs);
               if (remainingMs > 0) {
-                return `Exact head has not completed the seven-minute review window (${Math.ceil(remainingMs / 1000)}s remaining).`;
+                core.info(`Waiting ${Math.ceil(remainingMs / 1000)}s for the exact-head review window.`);
+                await new Promise((resolve) => setTimeout(resolve, remainingMs + 1000));
+                const { data: refreshedPr } = await withRetry((client) => client.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                }));
+                const originalHead = pr.head?.sha || '';
+                const refreshedHead = refreshedPr?.head?.sha || '';
+                if (!originalHead || refreshedHead !== originalHead) {
+                  return { pr: refreshedPr || guardedPr, failure: 'Head changed during the review window.' };
+                }
+                const refreshedMergeableState = String(refreshedPr.mergeable_state || '').toLowerCase();
+                if (refreshedPr.draft || refreshedMergeableState !== 'clean') {
+                  return {
+                    pr: refreshedPr,
+                    failure: `Post-window mergeable state ${refreshedMergeableState || '(unknown)'} is not clean.`,
+                  };
+                }
+                guardedPr = refreshedPr;
               }
 
               try {
@@ -2107,19 +2127,30 @@ jobs:
                     { owner, repo, number: prNumber, cursor }
                   ));
                   const threads = result?.repository?.pullRequest?.reviewThreads;
-                  if (!threads) return 'Unable to read review threads; refusing to merge blind.';
+                  if (!threads) {
+                    return {
+                      pr: guardedPr,
+                      failure: 'Unable to read review threads; refusing to merge blind.',
+                    };
+                  }
                   activeThreads += (threads.nodes || []).filter(
                     (thread) => !thread.isResolved && !thread.isOutdated
                   ).length;
                   cursor = threads.pageInfo?.hasNextPage ? threads.pageInfo.endCursor : null;
                 } while (cursor);
                 if (activeThreads > 0) {
-                  return `${activeThreads} active non-outdated review thread(s) remain.`;
+                  return {
+                    pr: guardedPr,
+                    failure: `${activeThreads} active non-outdated review thread(s) remain.`,
+                  };
                 }
               } catch (error) {
-                return `Unable to read review threads: ${error.message || error}`;
+                return {
+                  pr: guardedPr,
+                  failure: `Unable to read review threads: ${error.message || error}`,
+                };
               }
-              return '';
+              return { pr: guardedPr, failure: '' };
             }
 
             const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
@@ -2147,7 +2178,7 @@ jobs:
               let note = '';
               let status = 'skipped';
               try {
-                const { data: pr } = await withRetry((client) => client.rest.pulls.get({ owner, repo, pull_number: prNumber }));
+                let { data: pr } = await withRetry((client) => client.rest.pulls.get({ owner, repo, pull_number: prNumber }));
                 if (!pr) {
                   note = 'Unable to load pull request data.';
                 } else {
@@ -2170,9 +2201,10 @@ jobs:
                     if (!headSha) {
                       note = 'Missing head SHA for pull request.';
                     } else {
-                      const reviewFailure = await reviewGuardFailure(prNumber, pr);
-                      if (reviewFailure) {
-                        note = reviewFailure;
+                      const reviewGuard = await reviewGuardFailure(prNumber, pr);
+                      pr = reviewGuard.pr;
+                      if (reviewGuard.failure) {
+                        note = reviewGuard.failure;
                       } else {
                         const { data: combined } = await withRetry((client) => client.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha }));
                         let checksOk = Boolean(combined && combined.state === 'success');
@@ -2181,8 +2213,10 @@ jobs:
                           : 'Required status checks have not all succeeded.';
                         if (checksOk) {
                           try {
-                            const { data: checks } = await withRetry((client) => client.rest.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }));
-                            const checkRuns = Array.isArray(checks.check_runs) ? checks.check_runs : [];
+                            const checkRuns = await paginateWithRetry(
+                              github.rest.checks.listForRef,
+                              { owner, repo, ref: headSha, per_page: 100 }
+                            );
                             for (const run of checkRuns) {
                               const conclusion = (run.conclusion || '').toLowerCase();
                               const statusName = run.name || run.id || 'unknown check';

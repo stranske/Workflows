@@ -78,8 +78,10 @@ The Workflows repo provides the shared implementations behind these consumer ent
 Agents 81 fails closed unless the PR is ready, targets the default branch, has a
 `clean` merge state, has held the same head for at least seven minutes, has no
 active non-outdated review threads, and has successful statuses and check runs.
-Its merge request is bound to the validated head SHA. Branch protection remains
-responsible for any required approving-review policy.
+If Gate completes before the window expires, the merge job waits only for the
+remaining interval and then re-fetches the PR; a changed head restarts the
+normal Gate path. Its merge request is bound to the validated head SHA. Branch
+protection remains responsible for any required approving-review policy.
 
 ---
 

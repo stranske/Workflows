@@ -176,10 +176,13 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "reviewWindowMs = 7 * 60 * 1000",
         "reviewThreads(first: 100, after: $cursor)",
         "!thread.isResolved && !thread.isOutdated",
+        "setTimeout(resolve, remainingMs + 1000)",
+        "Head changed during the review window",
         "sha: headSha",
         "name: 'status:in-progress'",
     ):
         assert contract in guarded_merge
+    assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
 
 
 def test_generated_sync_prs_are_excluded_from_autofix_lanes():
