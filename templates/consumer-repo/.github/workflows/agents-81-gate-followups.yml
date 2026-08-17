@@ -2079,6 +2079,41 @@ jobs:
               return null;
             }
 
+            async function activeReviewThreadFailure(prNumber) {
+              try {
+                let cursor = null;
+                let activeThreads = 0;
+                do {
+                  const result = await withRetry((client) => client.graphql(
+                    `query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                      repository(owner: $owner, name: $repo) {
+                        pullRequest(number: $number) {
+                          reviewThreads(first: 100, after: $cursor) {
+                            nodes { isResolved isOutdated }
+                            pageInfo { hasNextPage endCursor }
+                          }
+                        }
+                      }
+                    }`,
+                    { owner, repo, number: prNumber, cursor }
+                  ));
+                  const threads = result?.repository?.pullRequest?.reviewThreads;
+                  if (!threads) {
+                    return 'Unable to read review threads; refusing to merge blind.';
+                  }
+                  activeThreads += (threads.nodes || []).filter(
+                    (thread) => !thread.isResolved && !thread.isOutdated
+                  ).length;
+                  cursor = threads.pageInfo?.hasNextPage ? threads.pageInfo.endCursor : null;
+                } while (cursor);
+                return activeThreads > 0
+                  ? `${activeThreads} active non-outdated review thread(s) remain.`
+                  : '';
+              } catch (error) {
+                return `Unable to read review threads: ${error.message || error}`;
+              }
+            }
+
             async function reviewGuardFailure(prNumber, pr) {
               let guardedPr = pr;
               const updatedAtMs = Date.parse(pr.updated_at || '');
@@ -2106,51 +2141,22 @@ jobs:
                     failure: `Post-window mergeable state ${refreshedMergeableState || '(unknown)'} is not clean.`,
                   };
                 }
+                const refreshedLabels = (refreshedPr.labels || []).map(
+                  (item) => String(item.name || '').toLowerCase()
+                );
+                if (!refreshedLabels.includes(label)) {
+                  return {
+                    pr: refreshedPr,
+                    failure: 'Post-window pull request no longer carries the automerge label.',
+                  };
+                }
                 guardedPr = refreshedPr;
               }
 
-              try {
-                let cursor = null;
-                let activeThreads = 0;
-                do {
-                  const result = await withRetry((client) => client.graphql(
-                    `query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
-                      repository(owner: $owner, name: $repo) {
-                        pullRequest(number: $number) {
-                          reviewThreads(first: 100, after: $cursor) {
-                            nodes { isResolved isOutdated }
-                            pageInfo { hasNextPage endCursor }
-                          }
-                        }
-                      }
-                    }`,
-                    { owner, repo, number: prNumber, cursor }
-                  ));
-                  const threads = result?.repository?.pullRequest?.reviewThreads;
-                  if (!threads) {
-                    return {
-                      pr: guardedPr,
-                      failure: 'Unable to read review threads; refusing to merge blind.',
-                    };
-                  }
-                  activeThreads += (threads.nodes || []).filter(
-                    (thread) => !thread.isResolved && !thread.isOutdated
-                  ).length;
-                  cursor = threads.pageInfo?.hasNextPage ? threads.pageInfo.endCursor : null;
-                } while (cursor);
-                if (activeThreads > 0) {
-                  return {
-                    pr: guardedPr,
-                    failure: `${activeThreads} active non-outdated review thread(s) remain.`,
-                  };
-                }
-              } catch (error) {
-                return {
-                  pr: guardedPr,
-                  failure: `Unable to read review threads: ${error.message || error}`,
-                };
-              }
-              return { pr: guardedPr, failure: '' };
+              return {
+                pr: guardedPr,
+                failure: await activeReviewThreadFailure(prNumber),
+              };
             }
 
             const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
@@ -2283,6 +2289,10 @@ jobs:
                               withRetry,
                               source: 'agents-81-gate-followups guarded merge',
                             });
+                            const finalReviewFailure = await activeReviewThreadFailure(prNumber);
+                            if (finalReviewFailure) {
+                              throw new Error(finalReviewFailure);
+                            }
                             const response = await withRetry((client) => client.rest.pulls.merge({
                               owner,
                               repo,
