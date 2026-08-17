@@ -4,7 +4,9 @@ on:
   workflow_run:
     workflows: ["Gate"]
     types: [completed]
-  pull_request:
+  # Keep privileged PR wakeups on the base-defined workflow. The guarded jobs
+  # never execute or check out the pull request head.
+  pull_request_target:
     types:
       - labeled
       - synchronize
@@ -63,7 +65,7 @@ jobs:
     if: >-
       ${{
         (vars.USE_CONSOLIDATED_WORKFLOWS == 'true' || github.event_name == 'workflow_dispatch') &&
-        (github.event_name != 'pull_request' || github.event.action != 'synchronize')
+        (github.event_name != 'pull_request_target' || github.event.action != 'synchronize')
       }}
     runs-on: ubuntu-latest
     environment: agent-standard
@@ -246,7 +248,7 @@ jobs:
             let prNumber = 0;
             let pr = null;
 
-            if (context.eventName === 'pull_request' && payload.pull_request) {
+            if (context.eventName === 'pull_request_target' && payload.pull_request) {
               prNumber = payload.pull_request.number;
               pr = payload.pull_request;
             } else if (context.eventName === 'workflow_run' && payload.workflow_run) {
@@ -1174,7 +1176,7 @@ jobs:
     if: >-
       ${{
         vars.USE_CONSOLIDATED_WORKFLOWS == 'true' &&
-        (github.event_name != 'pull_request' || github.event.action != 'synchronize')
+        (github.event_name != 'pull_request_target' || github.event.action != 'synchronize')
       }}
     runs-on: ubuntu-latest
     environment: agent-standard
@@ -1728,7 +1730,7 @@ jobs:
     if: >-
       ${{
         always() &&
-        (github.event_name != 'pull_request' || github.event.action != 'synchronize')
+        (github.event_name != 'pull_request_target' || github.event.action != 'synchronize')
       }}
     runs-on: ubuntu-latest
     environment: agent-standard
@@ -1995,7 +1997,7 @@ jobs:
     # refusals. Replaces the guardless native auto-merge previously enabled by the
     # belt worker (removed in #2270).
     if: >-
-      ${{ github.event_name != 'pull_request' ||
+      ${{ github.event_name != 'pull_request_target' ||
           github.event.action == 'synchronize' ||
           github.event.label.name == 'automerge' }}
     runs-on: ubuntu-latest

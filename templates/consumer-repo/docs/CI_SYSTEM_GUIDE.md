@@ -88,6 +88,9 @@ events and restarts the window if the same SHA returned during the wait. That lo
 runs before the final PR, check, task, and review-thread snapshots so its pagination
 cannot make those live guards stale. The merge request is bound to the validated head SHA. Branch
 protection remains responsible for any required approving-review policy.
+Privileged label and synchronize wakeups use `pull_request_target`, so GitHub loads
+the workflow from the trusted default branch; the merge job never checks out or
+executes pull-request-head code.
 
 ---
 

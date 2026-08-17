@@ -166,9 +166,11 @@ def test_external_merge_lanes_require_runtime_ac_guard():
 
 
 def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
-    text = Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml").read_text(
-        encoding="utf-8"
-    )
+    workflow_path = Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml")
+    text = workflow_path.read_text(encoding="utf-8")
+    triggers = _workflow_on_section(yaml.safe_load(text))
+    assert "pull_request" not in triggers
+    assert triggers.get("pull_request_target", {}).get("types") == ["labeled", "synchronize"]
     guarded_merge = text.split("guarded-merge:", 1)[1]
 
     for contract in (
@@ -177,6 +179,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "reviewWindowMs = 7 * 60 * 1000",
         "reviewSleepBudgetMs = reviewWindowMs + 60 * 1000",
         "agents-guarded-merge-review-window:v1",
+        "github.event_name != 'pull_request_target'",
         "github.event.action == 'synchronize'",
         "ref: ${{ github.event.repository.default_branch }}",
         "async function reviewWindowObservation(prNumber, headSha, { forceReset = false } = {})",
@@ -240,6 +243,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         assert contract in guarded_merge
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
     assert text.count("github.event.action != 'synchronize'") >= 3
+    assert "github.event_name != 'pull_request'" not in text
     assert guarded_merge.count("{ forceReset: true }") == 1
     assert (
         guarded_merge.index("if (!issues.length)")
