@@ -181,6 +181,9 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "Post-window pull request no longer carries the automerge label.",
         "const finalMergeFailure = await finalMergeGuardFailure(prNumber, headSha)",
         "Pull request no longer carries the automerge label.",
+        "finalLabels.includes(GENERATED_DELIVERY_HOLD_LABEL)",
+        "runtimeAcRequirement(finalPr.labels || [])",
+        "Runtime acceptance label(s)",
         "sha: headSha",
         "name: 'status:in-progress'",
     ):

@@ -2007,7 +2007,11 @@ jobs:
             const fs = require('fs');
             const label = 'automerge';
             const retryPath = './.github/scripts/github-api-with-retry.js';
-            const { assertRuntimeAcMergeAllowed } = require('./.github/scripts/runtime_ac_merge_guard.js');
+            const {
+              GENERATED_DELIVERY_HOLD_LABEL,
+              assertRuntimeAcMergeAllowed,
+              runtimeAcRequirement,
+            } = require('./.github/scripts/runtime_ac_merge_guard.js');
             const { createTokenAwareRetry } = fs.existsSync(retryPath)
               ? require(retryPath)
               : {
@@ -2179,6 +2183,13 @@ jobs:
                 );
                 if (!finalLabels.includes(label)) {
                   return 'Pull request no longer carries the automerge label.';
+                }
+                if (finalLabels.includes(GENERATED_DELIVERY_HOLD_LABEL)) {
+                  return `Generated delivery hold ${GENERATED_DELIVERY_HOLD_LABEL} was added before merge.`;
+                }
+                const finalRuntimeRequirement = runtimeAcRequirement(finalPr.labels || []);
+                if (finalRuntimeRequirement.required) {
+                  return `Runtime acceptance label(s) ${finalRuntimeRequirement.labels.join(', ')} were added before merge.`;
                 }
                 return await activeReviewThreadFailure(prNumber);
               } catch (error) {
