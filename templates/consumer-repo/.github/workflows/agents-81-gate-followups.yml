@@ -2508,6 +2508,30 @@ jobs:
                 if (!mergeBoundaryBase || mergeBoundaryBase !== mergeBoundaryDefaultBranch) {
                   return `Merge-boundary base ${mergeBoundaryBase || '(unknown)'} does not match ${mergeBoundaryDefaultBranch}.`;
                 }
+                const mergeBoundaryMergeableState = String(
+                  mergeBoundaryPr.mergeable_state || ''
+                ).toLowerCase();
+                if (mergeBoundaryPr.draft || mergeBoundaryMergeableState !== 'clean') {
+                  return `Merge-boundary state ${mergeBoundaryMergeableState || '(unknown)'} is not clean.`;
+                }
+                const mergeBoundaryLabels = (mergeBoundaryPr.labels || []).map(
+                  (item) => String(item.name || '').toLowerCase()
+                );
+                if (!mergeBoundaryLabels.includes(label)) {
+                  return 'Pull request lost the automerge label at the final merge boundary.';
+                }
+                if (mergeBoundaryLabels.includes(GENERATED_DELIVERY_HOLD_LABEL)) {
+                  return `Generated delivery hold ${GENERATED_DELIVERY_HOLD_LABEL} was added at the final merge boundary.`;
+                }
+                const mergeBoundaryRuntimeRequirement = runtimeAcRequirement(
+                  mergeBoundaryPr.labels || []
+                );
+                if (mergeBoundaryRuntimeRequirement.required) {
+                  return `Runtime acceptance label(s) ${mergeBoundaryRuntimeRequirement.labels.join(', ')} were added at the final merge boundary.`;
+                }
+                if (countUnchecked(mergeBoundaryPr.body) > 0) {
+                  return 'Refusing auto-merge: the PR gained unchecked tasks at the final merge boundary.';
+                }
                 return '';
               } catch (error) {
                 return `Unable to complete final merge guard: ${error.message || error}`;
