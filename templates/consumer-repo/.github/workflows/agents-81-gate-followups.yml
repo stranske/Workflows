@@ -7,6 +7,7 @@ on:
   pull_request:
     types:
       - labeled
+      - synchronize
   workflow_dispatch:
     inputs:
       pr_number:
@@ -1980,7 +1981,10 @@ jobs:
     # exact-head, review-window, review-thread, bootstrap-only, and unchecked-task
     # refusals. Replaces the guardless native auto-merge previously enabled by the
     # belt worker (removed in #2270).
-    if: ${{ github.event_name != 'pull_request' || github.event.label.name == 'automerge' }}
+    if: >-
+      ${{ github.event_name != 'pull_request' ||
+          github.event.action == 'synchronize' ||
+          github.event.label.name == 'automerge' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: agent-standard
@@ -2063,6 +2067,14 @@ jobs:
             let reviewSleepBudgetMs = reviewWindowMs + 60 * 1000;
             const reviewWindowMarker = '<!-- agents-guarded-merge-review-window:v1 ';
             let authenticatedLogin = '';
+            const reviewWindowObservations = new Map();
+            const synchronizedPrNumber = context.eventName === 'pull_request'
+              && context.payload.action === 'synchronize'
+              ? Number(context.payload.pull_request?.number || 0)
+              : 0;
+            const synchronizedHeadSha = synchronizedPrNumber
+              ? String(context.payload.after || context.payload.pull_request?.head?.sha || '')
+              : '';
 
             // Count unchecked GitHub task checkboxes ("- [ ]") in real (non-quoted) lines.
             // Quoted lines ("> - [ ]", e.g. the belt PR's mirrored issue body) are ignored
@@ -2127,7 +2139,7 @@ jobs:
               return latest;
             }
 
-            async function reviewWindowObservation(prNumber, headSha) {
+            async function reviewWindowObservation(prNumber, headSha, { forceReset = false } = {}) {
               try {
                 if (!authenticatedLogin) {
                   const { data: authenticated } = await withRetry((client) => {
@@ -2153,7 +2165,7 @@ jobs:
                   })
                   .sort((left, right) => Number(right.id || 0) - Number(left.id || 0))[0];
                 const marker = `${reviewWindowMarker}head=${headSha} -->`;
-                if (stateComment && String(stateComment.body || '').includes(marker)) {
+                if (!forceReset && stateComment && String(stateComment.body || '').includes(marker)) {
                   const observedAtMs = Date.parse(
                     stateComment.updated_at || stateComment.created_at || ''
                   );
@@ -2190,6 +2202,50 @@ jobs:
                   failure: `Unable to persist the exact-head review-window state: ${error.message || error}`,
                 };
               }
+            }
+
+            function reviewObservationKey(prNumber, headSha) {
+              return `${prNumber}:${headSha}`;
+            }
+
+            async function primeReviewWindows(candidateIssues) {
+              let maxRemainingMs = 0;
+              for (const issue of candidateIssues) {
+                if (!issue?.pull_request) continue;
+                const prNumber = Number(issue.number);
+                const pr = await loadPullRequest(prNumber);
+                const headSha = pr?.head?.sha || '';
+                if (!headSha) continue;
+                const forceReset = prNumber === synchronizedPrNumber
+                  && headSha === synchronizedHeadSha;
+                const observation = await reviewWindowObservation(
+                  prNumber,
+                  headSha,
+                  { forceReset }
+                );
+                reviewWindowObservations.set(
+                  reviewObservationKey(prNumber, headSha),
+                  observation
+                );
+                if (Number.isFinite(observation.observedAtMs)) {
+                  maxRemainingMs = Math.max(
+                    maxRemainingMs,
+                    reviewWindowMs - (Date.now() - observation.observedAtMs)
+                  );
+                }
+              }
+
+              if (maxRemainingMs <= 0) return;
+              const requestedSleepMs = maxRemainingMs + 1000;
+              if (requestedSleepMs > reviewSleepBudgetMs) {
+                core.warning('Review-window wait exceeds the bounded run budget; deferring.');
+                return;
+              }
+              reviewSleepBudgetMs -= requestedSleepMs;
+              core.info(
+                `Waiting ${Math.ceil(maxRemainingMs / 1000)}s for all exact-head review windows.`
+              );
+              await new Promise((resolve) => setTimeout(resolve, requestedSleepMs));
             }
 
             async function activeReviewThreadFailure(prNumber) {
@@ -2233,7 +2289,9 @@ jobs:
               if (!originalHead) {
                 return { pr: guardedPr, failure: 'Missing head SHA for the review window.' };
               }
-              const observation = await reviewWindowObservation(prNumber, originalHead);
+              const observationKey = reviewObservationKey(prNumber, originalHead);
+              const observation = reviewWindowObservations.get(observationKey)
+                || await reviewWindowObservation(prNumber, originalHead);
               if (observation.failure || !Number.isFinite(observation.observedAtMs)) {
                 return {
                   pr: guardedPr,
@@ -2341,6 +2399,8 @@ jobs:
               core.setOutput('merged', JSON.stringify(merged));
               return;
             }
+
+            await primeReviewWindows(issues);
 
             for (const issue of issues) {
               if (!issue || !issue.pull_request) continue;
