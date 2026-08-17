@@ -2082,13 +2082,6 @@ jobs:
             const reviewWindowMarker = '<!-- agents-guarded-merge-review-window:v1 ';
             let authenticatedLogin = '';
             const reviewWindowObservations = new Map();
-            const synchronizedPrNumber = context.eventName === 'pull_request'
-              && context.payload.action === 'synchronize'
-              ? Number(context.payload.pull_request?.number || 0)
-              : 0;
-            const synchronizedHeadSha = synchronizedPrNumber
-              ? String(context.payload.after || context.payload.pull_request?.head?.sha || '')
-              : '';
 
             // Count unchecked GitHub task checkboxes ("- [ ]") in real (non-quoted) lines.
             // Quoted lines ("> - [ ]", e.g. the belt PR's mirrored issue body) are ignored
@@ -2171,6 +2164,20 @@ jobs:
                   issue_number: prNumber,
                   per_page: 100,
                 });
+                const timelineEvents = await paginateWithRetry(
+                  github.rest.issues.listEventsForTimeline,
+                  { owner, repo, issue_number: prNumber, per_page: 100 }
+                );
+                let latestHeadTransitionAtMs = 0;
+                for (const event of timelineEvents) {
+                  if (event?.event !== 'head_ref_force_pushed') continue;
+                  if (String(event.commit_id || '') !== headSha) continue;
+                  const eventAtMs = Date.parse(event.created_at || '');
+                  if (!Number.isFinite(eventAtMs)) {
+                    return { failure: 'Persisted head-transition time is invalid.' };
+                  }
+                  latestHeadTransitionAtMs = Math.max(latestHeadTransitionAtMs, eventAtMs);
+                }
                 const stateComment = comments
                   .filter((comment) => {
                     const author = String(comment?.user?.login || '').toLowerCase();
@@ -2183,9 +2190,12 @@ jobs:
                   const observedAtMs = Date.parse(
                     stateComment.updated_at || stateComment.created_at || ''
                   );
-                  return Number.isFinite(observedAtMs)
-                    ? { observedAtMs }
-                    : { failure: 'Stored review-window observation time is invalid.' };
+                  if (!Number.isFinite(observedAtMs)) {
+                    return { failure: 'Stored review-window observation time is invalid.' };
+                  }
+                  if (observedAtMs >= latestHeadTransitionAtMs) {
+                    return { observedAtMs };
+                  }
                 }
 
                 const body = [
@@ -2231,10 +2241,8 @@ jobs:
                 const headSha = pr?.head?.sha || '';
                 if (!headSha) continue;
                 const observationKey = reviewObservationKey(prNumber, headSha);
-                const forceReset = prNumber === synchronizedPrNumber
-                  && headSha === synchronizedHeadSha;
                 const observation = reviewWindowObservations.get(observationKey)
-                  || await reviewWindowObservation(prNumber, headSha, { forceReset });
+                  || await reviewWindowObservation(prNumber, headSha);
                 reviewWindowObservations.set(observationKey, observation);
                 if (Number.isFinite(observation.observedAtMs)) {
                   maxRemainingMs = Math.max(
@@ -2441,16 +2449,21 @@ jobs:
             );
             if (triggeringPrNumber <= 0) {
               core.warning('No triggering PR number; refusing a repository-wide merge scan.');
-            }
-            if (synchronizedPrNumber > 0 && synchronizedHeadSha) {
-              const synchronizedObservation = await reviewWindowObservation(
-                synchronizedPrNumber,
-                synchronizedHeadSha,
+            } else {
+              // Every merge-capable wakeup establishes a fresh observation before it can
+              // consume review-window state. This deliberately does not rely on a pending
+              // synchronize run: GitHub may replace that pending run when another event
+              // enters the same cancel-in-progress:false concurrency group.
+              const triggeringPr = await loadPullRequest(triggeringPrNumber);
+              const triggeringHeadSha = triggeringPr?.head?.sha || '';
+              const triggeringObservation = await reviewWindowObservation(
+                triggeringPrNumber,
+                triggeringHeadSha,
                 { forceReset: true }
               );
               reviewWindowObservations.set(
-                reviewObservationKey(synchronizedPrNumber, synchronizedHeadSha),
-                synchronizedObservation
+                reviewObservationKey(triggeringPrNumber, triggeringHeadSha),
+                triggeringObservation
               );
             }
             const issues = listedIssues.filter(

@@ -180,14 +180,17 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "github.event.action == 'synchronize'",
         "ref: ${{ github.event.repository.default_branch }}",
         "async function reviewWindowObservation(prNumber, headSha, { forceReset = false } = {})",
-        "prNumber === synchronizedPrNumber",
-        "headSha === synchronizedHeadSha",
         "async function primeReviewWindows(candidateIssues)",
         "const observation = reviewWindowObservations.get(observationKey)",
         "await primeReviewWindows(issues)",
         "for all exact-head review windows",
         "client.rest.users.getAuthenticated",
         "github.rest.issues.listComments",
+        "github.rest.issues.listEventsForTimeline",
+        "event?.event !== 'head_ref_force_pushed'",
+        "String(event.commit_id || '') !== headSha",
+        "latestHeadTransitionAtMs",
+        "observedAtMs >= latestHeadTransitionAtMs",
         "client.rest.issues.updateComment",
         "client.rest.issues.createComment",
         "const observation = reviewWindowObservations.get(observationKey)",
@@ -219,8 +222,10 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "Final check-state validation failed",
         "const triggeringPrNumber = Number(",
         "No triggering PR number; refusing a repository-wide merge scan.",
-        "const synchronizedObservation = await reviewWindowObservation(",
-        "reviewObservationKey(synchronizedPrNumber, synchronizedHeadSha)",
+        "const triggeringPr = await loadPullRequest(triggeringPrNumber)",
+        "const triggeringHeadSha = triggeringPr?.head?.sha || ''",
+        "const triggeringObservation = await reviewWindowObservation(",
+        "reviewObservationKey(triggeringPrNumber, triggeringHeadSha)",
         "(issue) => Number(issue.number) === triggeringPrNumber",
         "sha: headSha",
         "const cleanupPr = await loadPullRequest(prNumber)",
@@ -230,7 +235,8 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         assert contract in guarded_merge
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
     assert text.count("github.event.action != 'synchronize'") >= 3
-    assert guarded_merge.index("const synchronizedObservation") < guarded_merge.index(
+    assert guarded_merge.count("{ forceReset: true }") == 1
+    assert guarded_merge.index("const triggeringObservation") < guarded_merge.index(
         "if (!issues.length)"
     )
     assert (
