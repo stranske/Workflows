@@ -2431,7 +2431,20 @@ jobs:
                 if (finalCheckFailure) {
                   return `Final check-state validation failed: ${finalCheckFailure}`;
                 }
-                return await activeReviewThreadFailure(prNumber);
+                const finalThreadFailure = await activeReviewThreadFailure(prNumber);
+                if (finalThreadFailure) {
+                  return finalThreadFailure;
+                }
+                const finalObservation = await reviewWindowObservation(prNumber, expectedHead);
+                if (finalObservation.failure || !Number.isFinite(finalObservation.observedAtMs)) {
+                  return finalObservation.failure
+                    || 'Unable to revalidate the exact-head review window before merge.';
+                }
+                const finalReviewRemainingMs = reviewWindowMs
+                  - (Date.now() - finalObservation.observedAtMs);
+                return finalReviewRemainingMs > 0
+                  ? 'A newer head transition restarted the review window before merge.'
+                  : '';
               } catch (error) {
                 return `Unable to complete final merge guard: ${error.message || error}`;
               }

@@ -221,6 +221,10 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "async function checkStateFailure(headSha)",
         "const finalCheckFailure = await checkStateFailure(expectedHead)",
         "Final check-state validation failed",
+        "const finalThreadFailure = await activeReviewThreadFailure(prNumber)",
+        "const finalObservation = await reviewWindowObservation(prNumber, expectedHead)",
+        "const finalReviewRemainingMs = reviewWindowMs",
+        "A newer head transition restarted the review window before merge.",
         "const triggeringPrNumber = Number(",
         "No triggering PR number; refusing a repository-wide merge scan.",
         "const triggeringPr = await loadPullRequest(triggeringPrNumber)",
@@ -246,6 +250,9 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         guarded_merge.rindex("await assertRuntimeAcMergeAllowed")
         < guarded_merge.rindex("const finalMergeFailure")
         < guarded_merge.rindex("client.rest.pulls.merge")
+    )
+    assert guarded_merge.index("const finalThreadFailure") < guarded_merge.index(
+        "const finalObservation"
     )
 
 

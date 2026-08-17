@@ -83,7 +83,9 @@ so a queued `synchronize` run that GitHub replaces cannot expose an older marker
 for the same head. This may conservatively extend the wait but cannot shorten it.
 If Gate completes before the window expires, the merge job waits only for the
 remaining interval and then re-fetches the PR; a changed head restarts the
-normal Gate path. Its merge request is bound to the validated head SHA. Branch
+normal Gate path. Immediately before merging, it rechecks persisted head-transition
+events and restarts the window if the same SHA returned during the wait. Its merge
+request is bound to the validated head SHA. Branch
 protection remains responsible for any required approving-review policy.
 
 ---
