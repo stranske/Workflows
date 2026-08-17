@@ -178,6 +178,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "reviewSleepBudgetMs = reviewWindowMs + 60 * 1000",
         "agents-guarded-merge-review-window:v1",
         "github.event.action == 'synchronize'",
+        "ref: ${{ github.event.repository.default_branch }}",
         "async function reviewWindowObservation(prNumber, headSha, { forceReset = false } = {})",
         "prNumber === synchronizedPrNumber",
         "headSha === synchronizedHeadSha",
@@ -212,11 +213,18 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "Runtime acceptance label(s)",
         "async function uncheckedTaskFailure(pr)",
         "const finalTaskFailure = await uncheckedTaskFailure(finalPr)",
+        "async function checkStateFailure(headSha)",
+        "const finalCheckFailure = await checkStateFailure(expectedHead)",
+        "Final check-state validation failed",
+        "const triggeringPrNumber = Number(",
+        "No triggering PR number; refusing a repository-wide merge scan.",
+        "(issue) => Number(issue.number) === triggeringPrNumber",
         "sha: headSha",
         "name: 'status:in-progress'",
     ):
         assert contract in guarded_merge
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
+    assert text.count("github.event.action != 'synchronize'") >= 3
     assert (
         guarded_merge.rindex("await assertRuntimeAcMergeAllowed")
         < guarded_merge.rindex("const finalMergeFailure")

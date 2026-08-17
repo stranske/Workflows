@@ -60,7 +60,11 @@ env:
 jobs:
   evaluate:
     name: Evaluate keepalive loop
-    if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true' || github.event_name == 'workflow_dispatch'
+    if: >-
+      ${{
+        (vars.USE_CONSOLIDATED_WORKFLOWS == 'true' || github.event_name == 'workflow_dispatch') &&
+        (github.event_name != 'pull_request' || github.event.action != 'synchronize')
+      }}
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -1167,7 +1171,11 @@ jobs:
 
   prepare:
     name: Prepare autofix context
-    if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true'
+    if: >-
+      ${{
+        vars.USE_CONSOLIDATED_WORKFLOWS == 'true' &&
+        (github.event_name != 'pull_request' || github.event.action != 'synchronize')
+      }}
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -1717,13 +1725,18 @@ jobs:
       - prepare
       - autofix
       - autofix-claude
-    if: always()
+    if: >-
+      ${{
+        always() &&
+        (github.event_name != 'pull_request' || github.event.action != 'synchronize')
+      }}
     runs-on: ubuntu-latest
     environment: agent-standard
     steps:
       - name: Checkout (for retry helpers)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.repository.default_branch }}
           sparse-checkout: |
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
@@ -1976,7 +1989,7 @@ jobs:
     name: Merge automerge-labelled agent PRs
     # #2270 (FO-5): in-repo guarded merger for consumer repos. Runs on the same
     # events as the rest of this workflow (Gate completion / label / dispatch) and
-    # scans open PRs carrying the `automerge` label. Mirrors the reusable-70
+    # evaluates the triggering PR when it carries the `automerge` label. Mirrors the reusable-70
     # automerge sweep guards (combined status + all check-runs success) and adds
     # exact-head, review-window, review-thread, bootstrap-only, and unchecked-task
     # refusals. Replaces the guardless native auto-merge previously enabled by the
@@ -1997,6 +2010,7 @@ jobs:
       - name: Checkout (for retry helpers)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.repository.default_branch }}
           sparse-checkout: |
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
@@ -2283,6 +2297,38 @@ jobs:
               }
             }
 
+            async function checkStateFailure(headSha) {
+              try {
+                const { data: combined } = await withRetry((client) => {
+                  return client.rest.repos.getCombinedStatusForRef({
+                    owner,
+                    repo,
+                    ref: headSha,
+                  });
+                });
+                if (!combined || combined.state !== 'success') {
+                  return 'Required status checks have not all succeeded.';
+                }
+                const checkRuns = await paginateWithRetry(
+                  github.rest.checks.listForRef,
+                  { owner, repo, ref: headSha, per_page: 100 }
+                );
+                for (const run of checkRuns) {
+                  const conclusion = (run.conclusion || '').toLowerCase();
+                  const statusName = run.name || run.id || 'unknown check';
+                  if (!conclusion && run.status !== 'completed') {
+                    return `${statusName} pending`;
+                  }
+                  if (conclusion && !okConclusions.includes(conclusion)) {
+                    return `${statusName} concluded ${conclusion}`;
+                  }
+                }
+                return '';
+              } catch (error) {
+                return `Unable to revalidate checks: ${error.message || error}`;
+              }
+            }
+
             async function reviewGuardFailure(prNumber, pr) {
               let guardedPr = pr;
               const originalHead = pr.head?.sha || '';
@@ -2375,19 +2421,35 @@ jobs:
                 if (finalTaskFailure) {
                   return finalTaskFailure;
                 }
+                const finalCheckFailure = await checkStateFailure(expectedHead);
+                if (finalCheckFailure) {
+                  return `Final check-state validation failed: ${finalCheckFailure}`;
+                }
                 return await activeReviewThreadFailure(prNumber);
               } catch (error) {
                 return `Unable to complete final merge guard: ${error.message || error}`;
               }
             }
 
-            const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
+            const listedIssues = await paginateWithRetry(github.rest.issues.listForRepo, {
               owner,
               repo,
               state: 'open',
               labels: label,
               per_page: 100,
             });
+            const triggeringPrNumber = Number(
+              context.payload.pull_request?.number
+              || context.payload.workflow_run?.pull_requests?.[0]?.number
+              || context.payload.inputs?.pr_number
+              || 0
+            );
+            if (triggeringPrNumber <= 0) {
+              core.warning('No triggering PR number; refusing a repository-wide merge scan.');
+            }
+            const issues = listedIssues.filter(
+              (issue) => Number(issue.number) === triggeringPrNumber
+            );
 
             const rows = [];
             const merged = [];
@@ -2436,36 +2498,8 @@ jobs:
                       if (reviewGuard.failure) {
                         note = reviewGuard.failure;
                       } else {
-                        const { data: combined } = await withRetry((client) => client.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha }));
-                        let checksOk = Boolean(combined && combined.state === 'success');
-                        let failingCheck = checksOk
-                          ? ''
-                          : 'Required status checks have not all succeeded.';
-                        if (checksOk) {
-                          try {
-                            const checkRuns = await paginateWithRetry(
-                              github.rest.checks.listForRef,
-                              { owner, repo, ref: headSha, per_page: 100 }
-                            );
-                            for (const run of checkRuns) {
-                              const conclusion = (run.conclusion || '').toLowerCase();
-                              const statusName = run.name || run.id || 'unknown check';
-                              if (!conclusion && run.status !== 'completed') {
-                                checksOk = false;
-                                failingCheck = `${statusName} pending`;
-                                break;
-                              }
-                              if (conclusion && !okConclusions.includes(conclusion)) {
-                                checksOk = false;
-                                failingCheck = `${statusName} concluded ${conclusion}`;
-                                break;
-                              }
-                            }
-                          } catch (error) {
-                            checksOk = false;
-                            failingCheck = `Unable to list check runs: ${error.message || error}`;
-                          }
-                        }
+                        let failingCheck = await checkStateFailure(headSha);
+                        let checksOk = !failingCheck;
 
                         // Bootstrap-only refusal (mirrors belt conveyor + reusable-70 sweep).
                         let bootstrapOnly = false;
