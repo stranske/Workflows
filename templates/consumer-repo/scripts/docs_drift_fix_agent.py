@@ -185,12 +185,13 @@ def _docs_arg(docs: Sequence[str] | None) -> str:
 def _only_arg(findings: Sequence[Finding] | None) -> str:
     if not findings:
         return ""
+    if any(finding.source == "semantic-scan" for finding in findings):
+        raise ValueError(
+            "batches containing semantic-scan findings need a bounded semantic verifier "
+            "before an issue can be generated"
+        )
     targets = sorted({finding.target for finding in findings if finding.source == "deterministic"})
     if not targets:
-        if any(finding.source == "semantic-scan" for finding in findings):
-            raise ValueError(
-                "semantic-scan-only batches need a bounded semantic verifier before an issue can be generated"
-            )
         return ""
     return " --only " + " ".join(shlex.quote(target) for target in targets)
 

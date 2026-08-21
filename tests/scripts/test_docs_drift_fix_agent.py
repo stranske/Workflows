@@ -114,6 +114,28 @@ def test_verification_commands_reject_semantic_only_batch() -> None:
         fix_agent.verification_commands(["AGENTS.md"], [finding])
 
 
+def test_verification_commands_reject_mixed_semantic_batch() -> None:
+    findings = [
+        fix_agent.Finding(
+            source="deterministic",
+            kind="dangling_reference",
+            doc_path="AGENTS.md",
+            target="scripts/missing.py",
+            detail="missing",
+        ),
+        fix_agent.Finding(
+            source="semantic-scan",
+            kind="semantic_drift",
+            doc_path="AGENTS.md",
+            target="stale claim",
+            detail="stale",
+        ),
+    ]
+
+    with pytest.raises(ValueError, match="bounded semantic verifier"):
+        fix_agent.verification_commands(["AGENTS.md"], findings)
+
+
 def test_build_plan_propagates_selected_docs_to_every_batch_artifact(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     _write(root / "AGENTS.md", "Missing `scripts/missing.py`.\n")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from collections.abc import Iterable
 from pathlib import Path
@@ -352,6 +353,26 @@ It also cites a real missing file: `scripts/does_not_exist.py`.
     assert [(record["type"], record["path"]) for record in drift] == [
         ("dangling_reference", "scripts/does_not_exist.py")
     ]
+
+
+@pytest.mark.parametrize(
+    "checker",
+    [
+        check_dangling_references,
+        CONSUMER_CHECKER.check_dangling_references,
+    ],
+    ids=["workflows-root", "consumer-template"],
+)
+def test_gitignored_generated_doc_output_is_not_dangling(tmp_path: Path, checker) -> None:
+    root = _repo(tmp_path, workflows_doc="")
+    _write(root / ".gitignore", "docs/_build/\n")
+    _write(
+        root / "README.md",
+        "Run `make docs`, then open `docs/_build/html/index.html`.\n",
+    )
+    subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+
+    assert checker(root, ["README.md"]) == []
 
 
 def test_dangling_reference_ties_preserve_scan_order(tmp_path: Path) -> None:

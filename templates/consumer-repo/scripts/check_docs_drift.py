@@ -161,6 +161,21 @@ def _is_repo_path_token(token: str) -> bool:
     return bool(FILE_EXTENSION_RE.search(token))
 
 
+def _is_ignored_repo_path(root: Path, token: str) -> bool:
+    """Return whether Git classifies a missing path as an ignored output."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "check-ignore", "--quiet", "--", token],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
 def _source_of_truth_section_bounds(text: str, offset: int) -> tuple[int, int] | None:
     section_start = text.rfind("\n## ", 0, offset)
     if section_start < 0:
@@ -279,6 +294,8 @@ def check_dangling_references(
 
             candidate = root.joinpath(*PurePosixPath(token).parts)
             if candidate.is_file():
+                continue
+            if _is_ignored_repo_path(root, token):
                 continue
             drift.append(
                 {
