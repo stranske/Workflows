@@ -68,6 +68,9 @@ FALLBACK_PATTERNS: list[str] = [
     # Wrong package manager artifacts (defense-in-depth)
     "Pipfile.lock",
     "poetry.lock",
+    # Accidentally-committed dependency trees. Root-anchored: .github/scripts/node_modules is
+    # deliberately vendored (see the template .gitignore comment) and must stay tracked.
+    "/node_modules/",
 ]
 
 GITIGNORE_BLOCK_HEADER = """# =============================================================================
@@ -77,7 +80,7 @@ GITIGNORE_BLOCK_HEADER = """# ==================================================
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
-# Template-Version: 1
+# Template-Version: 2
 # BEGIN WORKFLOWS STATUS FILES
 """
 
