@@ -863,6 +863,31 @@ jobs:
               for s in skipped:
                   print(f"  - {s}")
 
+          # Apply the managed .gitignore block before dirty detection so
+          # .gitignore-only drift participates in has_changes and PR creation.
+          import sys
+          sys.path.insert(0, str(Path('workflows')))
+          from scripts.sync_status_file_ignores import apply_block_to_file
+
+          targets_path = Path('sync_targets.txt')
+          target_lines = (
+              targets_path.read_text(encoding='utf-8').splitlines()
+              if targets_path.is_file()
+              else []
+          )
+          if '.gitignore' not in target_lines:
+              target_lines.append('.gitignore')
+              targets_path.write_text(
+                  ''.join(f"{line}\n" for line in sorted(set(filter(None, target_lines)))),
+                  encoding='utf-8',
+              )
+
+          if not dry_run:
+              gitignore_result = apply_block_to_file(Path('consumer/.gitignore'))
+              if gitignore_result.get('changed'):
+                  action = gitignore_result.get('action', 'updated')
+                  changes.append(f".gitignore (managed block {action})")
+
           repo_dirty = False
           if not dry_run:
               status = subprocess.run(
@@ -892,35 +917,6 @@ jobs:
                   for s in skipped:
                       f.write(f"- {s}\n")
           SYNC_SCRIPT
-
-      # `.gitignore` is in the sync-manifest `excluded:` list because a whole-file copy would
-      # clobber repo-local ignore rules — but the BEGIN/END managed block inside it is not
-      # repo-specific, and until now nothing delivered it: the block was missing from 13/13
-      # registered consumers because scripts/sync_status_file_ignores.py only ever REPORTED drift
-      # and no workflow invoked it. Applying the block here reuses this job's existing
-      # stage/tree-compare/PR machinery, so it inherits the no-op-when-clean property: an
-      # unchanged .gitignore leaves the tree hash untouched and no PR is opened.
-      - name: Apply managed .gitignore block
-        id: gitignore_block
-        run: |
-          set -euo pipefail
-          before=""
-          if [ -f consumer/.gitignore ]; then
-            before=$(sha256sum consumer/.gitignore | cut -d" " -f1)
-          fi
-          python3 scripts/sync_status_file_ignores.py --apply consumer/.gitignore
-          after=$(sha256sum consumer/.gitignore | cut -d" " -f1)
-          if [ "$before" != "$after" ]; then
-            echo "managed .gitignore block updated for ${{ matrix.repo }}"
-          else
-            echo "managed .gitignore block already current for ${{ matrix.repo }}"
-          fi
-          # Declare it as a sync target either way; the staging step is idempotent and the
-          # tree-hash comparison downstream is what decides whether a PR happens.
-          if ! grep -qxF ".gitignore" sync_targets.txt 2>/dev/null; then
-            echo ".gitignore" >> sync_targets.txt
-          fi
-
 
       - name: Check for required labels
         id: labels

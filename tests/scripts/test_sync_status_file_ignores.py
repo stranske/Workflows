@@ -631,6 +631,17 @@ def test_apply_block_does_not_swallow_a_repo_comment_above_the_block(
     assert "# MY OWN NOTE" in gitignore.read_text(encoding="utf-8")
 
 
+def test_apply_block_rejects_incomplete_managed_block(tmp_path: Path) -> None:
+    gitignore = tmp_path / ".gitignore"
+    original = f"{sync_status_file_ignores.PATTERN_BLOCK_BEGIN}\nfoo\n"
+    gitignore.write_text(original, encoding="utf-8")
+
+    with pytest.raises(sync_status_file_ignores.TemplateBlockError):
+        sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    assert gitignore.read_text(encoding="utf-8") == original
+
+
 def test_main_apply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("*.tmp\n", encoding="utf-8")

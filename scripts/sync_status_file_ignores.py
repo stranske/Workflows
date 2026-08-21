@@ -246,7 +246,10 @@ def _managed_block_span(lines: list[str]) -> tuple[int, int] | None:
         None,
     )
     if end is None:
-        return None
+        raise TemplateBlockError(
+            f"Incomplete managed block: found {PATTERN_BLOCK_BEGIN} without matching "
+            f"{PATTERN_BLOCK_END}"
+        )
     header = next(
         (
             idx
