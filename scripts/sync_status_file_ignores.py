@@ -227,6 +227,82 @@ def generate_minimal_block() -> str:
     return "\n".join(lines) + "\n"
 
 
+def _managed_block_span(lines: list[str]) -> tuple[int, int] | None:
+    """Locate an existing managed block in a consumer .gitignore as (start, end_inclusive).
+
+    The span deliberately includes the separator-bounded HEADER above the BEGIN marker, mirroring
+    load_template_block's own boundaries, so a re-apply replaces the whole managed region instead
+    of leaving a stale header (and a stale Template-Version) stranded above a fresh block. The
+    header is only consumed when its identifying line is actually found, so a repo-local comment
+    sitting above the block is never swallowed.
+    """
+    begin = next(
+        (idx for idx, line in enumerate(lines) if line.strip() == PATTERN_BLOCK_BEGIN), None
+    )
+    if begin is None:
+        return None
+    end = next(
+        (
+            idx
+            for idx in range(begin + 1, len(lines))
+            if lines[idx].strip() == PATTERN_BLOCK_END
+        ),
+        None,
+    )
+    if end is None:
+        return None
+    header = next(
+        (
+            idx
+            for idx in range(begin, -1, -1)
+            if "Workflows Consumer Repo - Shared Status Files" in lines[idx]
+        ),
+        None,
+    )
+    start = begin
+    if header is not None:
+        separator = next(
+            (idx for idx in range(header, -1, -1) if lines[idx].strip() == SEPARATOR_LINE),
+            None,
+        )
+        if separator is not None:
+            start = separator
+    return start, end
+
+
+def apply_block_to_file(gitignore_path: Path) -> dict[str, object]:
+    """Idempotently merge the managed block into a consumer repo's .gitignore.
+
+    Replace-in-place when the block is already there, append when it is not, and touch nothing
+    outside the managed region — which is exactly why `.gitignore` is in the sync-manifest
+    `excluded:` list: a whole-file copy would clobber repo-local ignore rules. Writing only on a
+    real change keeps a scheduled sync a no-op when there is nothing to do.
+    """
+    path = Path(gitignore_path)
+    block = load_template_block().rstrip("\n")
+    existing = path.read_text(encoding="utf-8") if path.is_file() else ""
+    lines = existing.splitlines()
+
+    span = _managed_block_span(lines)
+    if span is not None:
+        start, end = span
+        merged = lines[:start] + block.splitlines() + lines[end + 1 :]
+        action = "replaced"
+    elif lines:
+        merged = lines + ([""] if lines[-1].strip() else []) + block.splitlines()
+        action = "appended"
+    else:
+        merged = block.splitlines()
+        action = "created"
+
+    updated = "\n".join(merged).rstrip("\n") + "\n"
+    changed = updated != existing
+    if changed:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(updated, encoding="utf-8")
+    return {"path": str(path), "action": action if changed else "unchanged", "changed": changed}
+
+
 def check_gitignore_content(content: str) -> dict[str, bool]:
     """Check which canonical patterns are present in .gitignore content."""
     # Normalize: remove comments and empty lines for comparison
@@ -318,6 +394,15 @@ def main() -> int:
         help="Check local .gitignore for missing patterns",
     )
     parser.add_argument(
+        "--apply",
+        metavar="GITIGNORE_PATH",
+        help=(
+            "Merge the managed block into a checked-out consumer .gitignore, in place. "
+            "Idempotent: replaces an existing block, appends when absent, writes only on change, "
+            "and never touches repo-local rules outside the managed region."
+        ),
+    )
+    parser.add_argument(
         "--repo",
         help="GitHub repo (owner/name) to check via API",
     )
@@ -367,6 +452,11 @@ def main() -> int:
             return 1
         content = local_gitignore.read_text()
         return print_check_report(content, "local")
+
+    if args.apply:
+        result = apply_block_to_file(Path(args.apply))
+        print(f"{result['action']}: {result['path']}")
+        return 0
 
     if args.repo:
         # Check remote repo via GitHub API

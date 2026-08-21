@@ -545,3 +545,101 @@ def test_module_main_exit(monkeypatch: pytest.MonkeyPatch) -> None:
         runpy.run_path(str(Path(sync_status_file_ignores.__file__)), run_name="__main__")
 
     assert excinfo.value.code == 0
+
+
+def test_apply_block_appends_and_preserves_repo_local_rules(tmp_path: Path) -> None:
+    # `.gitignore` is in the sync-manifest `excluded:` list because a whole-file copy would
+    # clobber repo-local rules. The whole point of the managed block is that it does not.
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("# repo-local rule\n*.tmp\n", encoding="utf-8")
+
+    result = sync_status_file_ignores.apply_block_to_file(gitignore)
+    assert result["action"] == "appended"
+    assert result["changed"] is True
+
+    content = gitignore.read_text(encoding="utf-8")
+    assert "# repo-local rule" in content
+    assert "*.tmp" in content
+    assert content.count(sync_status_file_ignores.PATTERN_BLOCK_BEGIN) == 1
+    assert content.count(sync_status_file_ignores.PATTERN_BLOCK_END) == 1
+    for pattern in sync_status_file_ignores.CANONICAL_PATTERNS:
+        assert pattern in content
+
+
+def test_apply_block_is_idempotent(tmp_path: Path) -> None:
+    # A scheduled sync must be a no-op when there is nothing to do, or it opens an empty PR
+    # against every consumer repo every day.
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("*.tmp\n", encoding="utf-8")
+
+    sync_status_file_ignores.apply_block_to_file(gitignore)
+    first = gitignore.read_text(encoding="utf-8")
+
+    second_result = sync_status_file_ignores.apply_block_to_file(gitignore)
+    assert second_result["changed"] is False
+    assert second_result["action"] == "unchanged"
+    assert gitignore.read_text(encoding="utf-8") == first
+
+
+def test_apply_block_replaces_stale_block_without_stranding_its_header(
+    tmp_path: Path,
+) -> None:
+    # Replacing only BEGIN..END would leave a stale header — and therefore a stale
+    # Template-Version — stranded above a fresh block.
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("keep-me\n", encoding="utf-8")
+    sync_status_file_ignores.apply_block_to_file(gitignore)
+    stale = gitignore.read_text(encoding="utf-8").replace(
+        "# Template-Version: ", "# Template-Version: 0 was "
+    )
+    gitignore.write_text(stale, encoding="utf-8")
+
+    result = sync_status_file_ignores.apply_block_to_file(gitignore)
+    assert result["action"] == "replaced"
+
+    content = gitignore.read_text(encoding="utf-8")
+    assert content.count(sync_status_file_ignores.TEMPLATE_VERSION_PREFIX) == 1
+    assert "0 was" not in content
+    assert content.count(sync_status_file_ignores.PATTERN_BLOCK_BEGIN) == 1
+    assert "keep-me" in content
+
+
+def test_apply_block_creates_missing_gitignore(tmp_path: Path) -> None:
+    gitignore = tmp_path / "nested" / ".gitignore"
+    result = sync_status_file_ignores.apply_block_to_file(gitignore)
+    assert result["action"] == "created"
+    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in gitignore.read_text(
+        encoding="utf-8"
+    )
+
+
+def test_apply_block_does_not_swallow_a_repo_comment_above_the_block(
+    tmp_path: Path,
+) -> None:
+    # The header walk-back is anchored on the block's own identifying line, so an unrelated
+    # comment immediately above the block survives a re-apply.
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("*.tmp\n", encoding="utf-8")
+    sync_status_file_ignores.apply_block_to_file(gitignore)
+    content = gitignore.read_text(encoding="utf-8")
+    marked = content.replace(
+        sync_status_file_ignores.SEPARATOR_LINE,
+        "# MY OWN NOTE\n" + sync_status_file_ignores.SEPARATOR_LINE,
+        1,
+    )
+    gitignore.write_text(marked, encoding="utf-8")
+
+    sync_status_file_ignores.apply_block_to_file(gitignore)
+    assert "# MY OWN NOTE" in gitignore.read_text(encoding="utf-8")
+
+
+def test_main_apply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("*.tmp\n", encoding="utf-8")
+    monkeypatch.setattr(
+        sys, "argv", ["sync_status_file_ignores.py", "--apply", str(gitignore)]
+    )
+    assert sync_status_file_ignores.main() == 0
+    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in gitignore.read_text(
+        encoding="utf-8"
+    )
