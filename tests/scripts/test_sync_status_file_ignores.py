@@ -608,9 +608,7 @@ def test_apply_block_creates_missing_gitignore(tmp_path: Path) -> None:
     gitignore = tmp_path / "nested" / ".gitignore"
     result = sync_status_file_ignores.apply_block_to_file(gitignore)
     assert result["action"] == "created"
-    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in gitignore.read_text(
-        encoding="utf-8"
-    )
+    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in gitignore.read_text(encoding="utf-8")
 
 
 def test_apply_block_does_not_swallow_a_repo_comment_above_the_block(
@@ -636,10 +634,6 @@ def test_apply_block_does_not_swallow_a_repo_comment_above_the_block(
 def test_main_apply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("*.tmp\n", encoding="utf-8")
-    monkeypatch.setattr(
-        sys, "argv", ["sync_status_file_ignores.py", "--apply", str(gitignore)]
-    )
+    monkeypatch.setattr(sys, "argv", ["sync_status_file_ignores.py", "--apply", str(gitignore)])
     assert sync_status_file_ignores.main() == 0
-    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in gitignore.read_text(
-        encoding="utf-8"
-    )
+    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in gitignore.read_text(encoding="utf-8")

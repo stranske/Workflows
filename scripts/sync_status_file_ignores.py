@@ -242,11 +242,7 @@ def _managed_block_span(lines: list[str]) -> tuple[int, int] | None:
     if begin is None:
         return None
     end = next(
-        (
-            idx
-            for idx in range(begin + 1, len(lines))
-            if lines[idx].strip() == PATTERN_BLOCK_END
-        ),
+        (idx for idx in range(begin + 1, len(lines)) if lines[idx].strip() == PATTERN_BLOCK_END),
         None,
     )
     if end is None:
