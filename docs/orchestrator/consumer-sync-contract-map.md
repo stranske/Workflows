@@ -89,7 +89,7 @@ python -m pytest tests/workflows/test_sync_manifest_delivery.py::test_no_entry_i
 | Path structure | Template paths match manifest `source:` paths | Sync failures due to path mismatch | `diff <(find templates/consumer-repo -type f | sort) <(yq '.workflows[].source + "\n" + .prompts[].source + "\n" + .scripts[].source + "\n" + .docs[].source' .github/sync-manifest.yml | grep -v null | sort)` |
 | Create-only files | `pr-00-gate.yml`, `ci.yml` marked create_only | Existing consumer files overwritten | `yq '.workflows[] | select(.sync_mode == "create_only") | .source' .github/sync-manifest.yml` |
 | Runtime dependencies | `scripts/langchain/followup_issue_generator.py` marked delivery: runtime | Not available at runtime in consumers | `yq '.runtime_fetched[] | select(.source == "scripts/langchain/followup_issue_generator.py")' .github/sync-manifest.yml` |
-| Consumer docs | `docs/LABELS.md`, `docs/AGENT_ISSUE_FORMAT.md` synced to consumers | Docs drift across fleet | `ls templates/consumer-repo/docs/` |
+| Consumer docs | Template sources such as `templates/consumer-repo/docs/LABELS.md` sync to consumer paths such as `docs/LABELS.md` | Docs drift across fleet | `ls templates/consumer-repo/docs/` |
 
 **Validation**:
 ```bash

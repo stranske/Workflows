@@ -3154,10 +3154,10 @@ jobs:
                 ? `✅ Added labels: \`agent:${agentKey}\`, \`agents:keepalive\`, \`autofix\``
                 : '⚠️ Could not add labels (add manually)';
 
-              // Dispatch PR meta workflow to build Automated Status Summary
+              // Dispatch the consolidated consumer hub to build Automated Status Summary
               // (GITHUB_TOKEN actions do not trigger workflow runs automatically)
               await dispatchFirstAvailableWorkflow({
-                workflowIds: ['agents-80-pr-event-hub.yml', 'agents-pr-meta-v4.yml'],
+                workflowIds: ['agents-80-pr-event-hub.yml'],
                 prNumber: pr.number,
                 description: 'PR meta update',
                 inputs: {
@@ -3171,9 +3171,9 @@ jobs:
                 }
               });
 
-              // Dispatch keepalive workflow since GITHUB_TOKEN labels don't trigger it
+              // Dispatch the consolidated consumer Gate follow-up since token labels do not trigger it
               await dispatchFirstAvailableWorkflow({
-                workflowIds: ['agents-81-gate-followups.yml', 'agents-keepalive-loop.yml'],
+                workflowIds: ['agents-81-gate-followups.yml'],
                 prNumber: pr.number,
                 description: 'keepalive follow-up',
                 inputs: {
@@ -3400,10 +3400,7 @@ jobs:
                   }));
                   let dispatchedWorkflow = '';
                   const dispatchFailures = [];
-                  for (const workflowId of [
-                    'agents-81-gate-followups.yml',
-                    'agents-keepalive-loop.yml',
-                  ]) {
+                  for (const workflowId of ['agents-81-gate-followups.yml']) {
                     try {
                       await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                         owner: context.repo.owner,

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import importlib.util
 import json
+import subprocess
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -15,6 +19,18 @@ from scripts.check_docs_drift import (  # noqa: E402
     check_workflow_inventory,
     main,
 )
+
+
+def _load_consumer_checker():
+    consumer_path = ROOT / "templates/consumer-repo/scripts/check_docs_drift.py"
+    spec = importlib.util.spec_from_file_location("consumer_check_docs_drift", consumer_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+CONSUMER_CHECKER = _load_consumer_checker()
 
 
 def _write(path: Path, content: str = "") -> None:
@@ -144,15 +160,135 @@ The consumer-template workflow `health-72-template-sync.yml` is copied to consum
     ]
 
 
-def test_missing_workflow_inventory_doc_reports_drift(tmp_path: Path) -> None:
+def test_missing_workflow_inventory_doc_is_not_applicable_in_consumer(tmp_path: Path) -> None:
     root = tmp_path
     _write(root / ".github/workflows/build.yml", "name: Build\n")
 
     drift = check_workflow_inventory(root)
 
+    assert drift == []
+
+
+def test_explicit_same_line_workflows_reference_is_not_a_consumer_dangling_path(
+    tmp_path: Path,
+) -> None:
+    root = _repo(tmp_path, workflows=(), workflows_doc="")
+    _write(
+        root / "AGENTS.md",
+        "Read `docs/missing.md` from stranske/Workflows before editing.\n"
+        "A local `docs/missing.md` reference remains checked.\n",
+    )
+
+    drift = check_dangling_references(root, ["AGENTS.md"])
+
     assert [(record["type"], record["path"]) for record in drift] == [
-        ("undocumented_workflow", "build.yml")
+        ("dangling_reference", "docs/missing.md")
     ]
+
+
+def test_workflows_qualified_agents_section_skips_unqualified_upstream_paths(
+    tmp_path: Path,
+) -> None:
+    root = _repo(tmp_path, workflows=(), workflows_doc="")
+    _write(
+        root / "AGENTS.md",
+        """## Source Of Truth
+
+Most workflow logic lives in `stranske/Workflows`.
+
+1. `stranske/Workflows` root docs: `README.md`, `docs/WORKFLOW_GUIDE.md`
+2. `stranske/Workflows/docs/INTEGRATION_GUIDE.md` and
+   `docs/ops/CONSUMER_REPO_MAINTENANCE.md`
+
+## Local Notes
+
+`docs/missing.md` is a local reference.
+""",
+    )
+
+    drift = check_dangling_references(root, ["AGENTS.md"])
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("dangling_reference", "docs/missing.md")
+    ]
+
+
+@pytest.mark.parametrize(
+    "checker",
+    [
+        check_dangling_references,
+        CONSUMER_CHECKER.check_dangling_references,
+    ],
+    ids=["workflows-root", "consumer-template"],
+)
+def test_source_of_truth_checker_implementations_share_upstream_behavior(
+    tmp_path: Path, checker
+) -> None:
+    root = _repo(tmp_path, workflows=(), workflows_doc="")
+    _write(
+        root / "AGENTS.md",
+        """## Source Of Truth
+
+1. `stranske/Workflows` root docs: `README.md`, `docs/WORKFLOW_GUIDE.md`
+2. `stranske/Workflows/docs/INTEGRATION_GUIDE.md` and
+   `docs/ops/CONSUMER_REPO_MAINTENANCE.md`
+3. The consumer sync source in `stranske/Workflows/templates/consumer-repo/`
+4. Local runbook: `docs/local-runbook.md`
+""",
+    )
+
+    drift = checker(root, ["AGENTS.md"])
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("dangling_reference", "docs/local-runbook.md")
+    ]
+
+
+def test_mixed_source_of_truth_section_keeps_local_paths_checked(tmp_path: Path) -> None:
+    root = _repo(tmp_path, workflows=(), workflows_doc="")
+    _write(
+        root / "AGENTS.md",
+        """## Source Of Truth
+
+For infrastructure work, follow this order:
+
+1. `stranske/Workflows` root docs: `README.md`, `docs/WORKFLOW_GUIDE.md`, `docs/ci/WORKFLOWS.md`
+2. `stranske/Workflows/docs/INTEGRATION_GUIDE.md` and `docs/ops/CONSUMER_REPO_MAINTENANCE.md`
+3. The consumer sync source in `stranske/Workflows/templates/consumer-repo/`
+4. This repo's local repo-specific files: `docs/local-runbook.md`
+""",
+    )
+
+    drift = check_dangling_references(root, ["AGENTS.md"])
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("dangling_reference", "docs/local-runbook.md")
+    ]
+
+
+def test_cli_skips_missing_default_workflow_inventory_in_consumer(tmp_path: Path, capsys) -> None:
+    root = tmp_path
+    _write(root / ".github/workflows/build.yml", "name: Build\n")
+    _write(root / "AGENTS.md", "Consumer guidance.\n")
+
+    exit_code = main(["--repo-root", str(root), "--json"])
+
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out)["drift"] == []
+
+
+def test_cli_only_limits_exit_status_to_selected_batch(tmp_path: Path, capsys) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("build.yml", "later.yml"),
+        workflows_doc="Active workflows: `build.yml`. Missing `scripts/target.py`.\n",
+    )
+
+    exit_code = main(["--repo-root", str(root), "--json", "--only", "scripts/target.py"])
+
+    assert exit_code == 1
+    report = json.loads(capsys.readouterr().out)
+    assert [record["path"] for record in report["drift"]] == ["scripts/target.py"]
 
 
 def test_missing_backtick_repo_path_is_dangling_reference(tmp_path: Path) -> None:
@@ -217,6 +353,26 @@ It also cites a real missing file: `scripts/does_not_exist.py`.
     assert [(record["type"], record["path"]) for record in drift] == [
         ("dangling_reference", "scripts/does_not_exist.py")
     ]
+
+
+@pytest.mark.parametrize(
+    "checker",
+    [
+        check_dangling_references,
+        CONSUMER_CHECKER.check_dangling_references,
+    ],
+    ids=["workflows-root", "consumer-template"],
+)
+def test_gitignored_generated_doc_output_is_not_dangling(tmp_path: Path, checker) -> None:
+    root = _repo(tmp_path, workflows_doc="")
+    _write(root / ".gitignore", "docs/_build/\n")
+    _write(
+        root / "README.md",
+        "Run `make docs`, then open `docs/_build/html/index.html`.\n",
+    )
+    subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+
+    assert checker(root, ["README.md"]) == []
 
 
 def test_dangling_reference_ties_preserve_scan_order(tmp_path: Path) -> None:

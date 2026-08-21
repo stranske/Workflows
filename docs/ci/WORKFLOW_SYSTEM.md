@@ -556,9 +556,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   ensures agent environments (`agent-standard`, `agent-high-privilege`) exist
   with appropriate protection rules for environment-gated workflows.
 - **Maint 65 Sync Label Docs** – `.github/workflows/maint-65-sync-label-docs.yml`
-  synchronizes the `docs/LABELS.md` label documentation to consumer repositories
-  on a weekly schedule (Sundays 00:00 UTC) or via manual dispatch, ensuring
-  consistent label conventions across the ecosystem.
+  synchronizes the consumer-specific `templates/consumer-repo/docs/LABELS.md`
+  to consumer `docs/LABELS.md` files when the template changes or via manual
+  dispatch, ensuring consistent label conventions across the ecosystem.
 - **Maint 66 Monthly Audit** – `.github/workflows/maint-66-monthly-audit.yml`
   performs a comprehensive monthly audit of workflow health (last day of month
   at 06:00 UTC), collecting run statistics, identifying high-failure workflows,

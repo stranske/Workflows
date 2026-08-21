@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.26.1](https://github.com/stranske/Workflows/compare/v1.26.0...v1.26.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* **deps:** align Ruff 0.16.4 source pins ([#3140](https://github.com/stranske/Workflows/issues/3140)) ([bfcd3c6](https://github.com/stranske/Workflows/commit/bfcd3c6e87c7f64849b3b342e48539f27fb1568b))
+* **maint-87:** address generated review findings ([#3146](https://github.com/stranske/Workflows/issues/3146)) ([bdb7f2e](https://github.com/stranske/Workflows/commit/bdb7f2e790947015334a7a8502683969bb4b4254))
+* **sync:** honor upstream AGENTS source sections ([#3143](https://github.com/stranske/Workflows/issues/3143)) ([0eacef4](https://github.com/stranske/Workflows/commit/0eacef4602b2139e8b76b8ea43d893d907b3aa3c))
+* **sync:** keep retired Trend packages removed ([#3144](https://github.com/stranske/Workflows/issues/3144)) ([d7824f3](https://github.com/stranske/Workflows/commit/d7824f369e19b153cc064d3fb542ef64e9c83911))
+* **sync:** make docs drift checks consumer-safe ([#3142](https://github.com/stranske/Workflows/issues/3142)) ([593951e](https://github.com/stranske/Workflows/commit/593951e1365c6483aab4665f2a1fb628e5cd6b7f))
+
 ## [1.26.0](https://github.com/stranske/Workflows/compare/v1.25.5...v1.26.0) (2026-08-20)
 
 

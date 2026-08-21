@@ -103,7 +103,7 @@ def get_workflows(directory: Path) -> set[str]:
 
 
 def get_manifest_workflows(manifest_path: Path) -> set[str]:
-    """Get workflows listed in the sync manifest."""
+    """Get consumer workflow targets listed in the sync manifest."""
     if not manifest_path.exists():
         return set()
 
@@ -112,8 +112,11 @@ def get_manifest_workflows(manifest_path: Path) -> set[str]:
 
     for entry in manifest.get("workflows", []) or []:
         source = entry.get("source", "")
-        if source.startswith(".github/workflows/"):
-            workflows.add(source.replace(".github/workflows/", ""))
+        if not source:
+            continue
+        target = entry.get("target", source)
+        if target.startswith(".github/workflows/"):
+            workflows.add(target.replace(".github/workflows/", ""))
 
     return workflows
 

@@ -69,6 +69,98 @@ def test_docs_arg_quotes_shell_sensitive_paths() -> None:
     assert shlex.split(command) == ["python3", "scripts/check_docs_drift.py", "--docs", *docs]
 
 
+def test_verification_commands_are_bounded_to_deterministic_batch_targets() -> None:
+    findings = [
+        fix_agent.Finding(
+            source="deterministic",
+            kind="dangling_reference",
+            doc_path="AGENTS.md",
+            target="docs/z path.md",
+            detail="missing",
+        ),
+        fix_agent.Finding(
+            source="deterministic",
+            kind="dangling_reference",
+            doc_path="AGENTS.md",
+            target="docs/a.md",
+            detail="missing",
+        ),
+    ]
+
+    commands = fix_agent.verification_commands(["AGENTS.md"], findings)
+
+    assert shlex.split(commands[0]) == [
+        "python3",
+        "scripts/check_docs_drift.py",
+        "--json",
+        "--docs",
+        "AGENTS.md",
+        "--only",
+        "docs/a.md",
+        "docs/z path.md",
+    ]
+
+
+def test_verification_commands_reject_semantic_only_batch() -> None:
+    finding = fix_agent.Finding(
+        source="semantic-scan",
+        kind="stale_claim",
+        doc_path="AGENTS.md",
+        target="a claim",
+        detail="stale",
+    )
+
+    with pytest.raises(ValueError, match="bounded semantic verifier"):
+        fix_agent.verification_commands(["AGENTS.md"], [finding])
+
+
+def test_verification_commands_reject_mixed_semantic_batch() -> None:
+    findings = [
+        fix_agent.Finding(
+            source="deterministic",
+            kind="dangling_reference",
+            doc_path="AGENTS.md",
+            target="scripts/missing.py",
+            detail="missing",
+        ),
+        fix_agent.Finding(
+            source="semantic-scan",
+            kind="semantic_drift",
+            doc_path="AGENTS.md",
+            target="stale claim",
+            detail="stale",
+        ),
+    ]
+
+    with pytest.raises(ValueError, match="bounded semantic verifier"):
+        fix_agent.verification_commands(["AGENTS.md"], findings)
+
+
+def test_build_plan_propagates_selected_docs_to_every_batch_artifact(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    _write(root / "AGENTS.md", "Missing `scripts/missing.py`.\n")
+
+    plan = fix_agent.build_plan(
+        repo_root=root,
+        repo="stranske/consumer",
+        docs=["AGENTS.md"],
+    )
+
+    batch = plan["batches"][0]
+    expected_check = (
+        "python3 scripts/check_docs_drift.py --json --docs AGENTS.md --only scripts/missing.py"
+    )
+    expected_refresh = (
+        "python3 scripts/docs_drift_fix_agent.py --repo-root . --json --docs AGENTS.md"
+    )
+    assert expected_check in batch["repair_prompt"]
+    assert expected_check in batch["issue_body"]
+    assert expected_check in batch["pr_plan"]
+    assert expected_refresh in batch["repair_prompt"]
+    assert expected_refresh in batch["issue_body"]
+    assert expected_refresh in batch["pr_plan"]
+
+
 def test_batch_findings_respects_max_per_batch() -> None:
     findings = [
         fix_agent.Finding(
@@ -124,10 +216,14 @@ def test_issue_body_is_agent_ready() -> None:
 
     assert issue_body_is_agent_ready(body)
     assert "## Why" in body
-    assert "python3 scripts/check_docs_drift.py --json" in body
+    assert "python3 scripts/check_docs_drift.py --json --only new.yml" in body
+    assert (
+        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py" in body
+    )
     assert "## Informational Checks" in body
     assert "was reviewed for remaining non-batch findings" in body
     assert "python3 scripts/docs_drift_fix_agent.py --repo-root . --json" in body
+    assert "workflow-inventory verification" not in body
 
 
 def test_repair_prompt_includes_required_verification() -> None:
@@ -147,8 +243,9 @@ def test_repair_prompt_includes_required_verification() -> None:
     prompt = fix_agent.build_repair_prompt(batch)
 
     assert "open one focused docs-only fix PR" in prompt
+    assert "python3 scripts/check_docs_drift.py --json --only old.yml" in prompt
     assert (
-        "pytest tests/workflows/test_workflow_naming.py::test_inventory_docs_list_all_workflows -q"
+        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py"
         in prompt
     )
     assert "Informational full-plan refresh" in prompt

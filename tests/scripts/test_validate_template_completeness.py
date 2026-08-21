@@ -24,7 +24,7 @@ def test_get_workflows_returns_top_level_yml_files_only(tmp_path: Path) -> None:
     assert validator.get_workflows(tmp_path / "missing") == set()
 
 
-def test_get_manifest_workflows_extracts_only_workflow_sources(tmp_path: Path) -> None:
+def test_get_manifest_workflows_extracts_consumer_workflow_targets(tmp_path: Path) -> None:
     manifest_path = tmp_path / "sync-manifest.yml"
     manifest_path.write_text(
         yaml.safe_dump(
@@ -32,6 +32,12 @@ def test_get_manifest_workflows_extracts_only_workflow_sources(tmp_path: Path) -
                 "workflows": [
                     {"source": ".github/workflows/ci.yml"},
                     {"source": ".github/workflows/agents-80-pr-event-hub.yml"},
+                    {
+                        "source": (
+                            "templates/consumer-repo/.github/workflows/" "agents-auto-pilot.yml"
+                        ),
+                        "target": ".github/workflows/agents-auto-pilot.yml",
+                    },
                     {"source": "templates/consumer-repo/AGENTS.md"},
                     {"source": ".github/scripts/error_classifier.js"},
                     {"target": ".github/workflows/missing-source.yml"},
@@ -44,6 +50,7 @@ def test_get_manifest_workflows_extracts_only_workflow_sources(tmp_path: Path) -
 
     assert validator.get_manifest_workflows(manifest_path) == {
         "agents-80-pr-event-hub.yml",
+        "agents-auto-pilot.yml",
         "ci.yml",
     }
     assert validator.get_manifest_workflows(tmp_path / "missing.yml") == set()

@@ -146,7 +146,7 @@ cython_debug/
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
-# Template-Version: 1
+# Template-Version: 2
 # BEGIN WORKFLOWS STATUS FILES
 
 # Agent working files (HIGH conflict risk)
@@ -191,6 +191,16 @@ coverage.xml
 # Wrong package manager artifacts (defense-in-depth)
 Pipfile.lock
 poetry.lock
+
+# Accidentally-committed dependency trees
+# ROOT-ANCHORED ON PURPOSE. A bare `node_modules/` matches at every depth and would swallow
+# .github/scripts/node_modules, which is DELIBERATELY vendored: .github/scripts/package.json
+# declares "minimatch": "file:node_modules/minimatch", agents-auto-pilot.yml copies that tree into
+# workflows-lib/, and agents-guard.yml allowlists it as a protected path. Ignoring it would break
+# both. The root tree, by contrast, has no package.json at all — it is residue from
+# `npm install --no-save` (pr-00-gate.yml reinstalls @octokit at runtime), and it is committed in
+# every consumer repo at ~7.35MB each.
+/node_modules/
 
 # END WORKFLOWS STATUS FILES
 # =============================================================================

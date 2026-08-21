@@ -144,3 +144,10 @@ template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
 main_sha256 = 6e48b36caaa2865c66fe978b75e775687b96b69eae74c5adbc1355346819f271
 template_sha256 = 865fe609fbc6fde8f0f9faf338d8ba9e9e573448e8dc454fb759df003bd9b437
 reason = Intentional divergence (re-baselined 2026-07-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after the durable-label guard was added to the template. Do not align: would strip consumer action pins.
+
+[pair.16]
+main = .github/workflows/agents-auto-pilot.yml
+template = templates/consumer-repo/.github/workflows/agents-auto-pilot.yml
+main_sha256 = 7d3c491c9f45d1666a08e6b69c3aea487568b1eeeb9bcbe48dac3f5d3de69b93
+template_sha256 = 9a3d67230d348407a4cc7c98ff2d8709a77b065c2fa6b5401922518ceef808e1
+reason = Intentional divergence reviewed 2026-08-21: the Workflows-local auto-pilot retains Workflows-only PR-meta and keepalive fallbacks, while the consumer template dispatches only the consolidated Agents 80 and Agents 81 entry points. The sync manifest delivers the consumer-specific template so retired Workflows-local targets cannot be restored in consumer repositories.

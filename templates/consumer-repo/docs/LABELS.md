@@ -206,23 +206,19 @@ runner and registry entry ship, applying this label will not dispatch a runner. 
 
 **Applies to:** Pull Requests
 
-**Trigger:** Topology-dependent:
-
-- Consolidated consumer (`agents-81-gate-followups.yml`): the label is a recovery marker and does not trigger a retry by itself
-- Root/non-consolidated (`agents-keepalive-loop.yml`): a `pull_request:labeled` event triggers a forced retry
+**Trigger:** Recovery marker only; applying the label does not trigger a retry by itself
 
 **Effect:**
-1. Records that a retry was requested in both topologies
-2. Consolidated consumer: does not set `force_retry` or remove recovery labels merely by being applied
-3. Root/non-consolidated: sets `force_retry=true` and attempts to remove both `agent:retry` and `agent:rate-limited`
+1. Records that a retry was requested
+2. Does not set `force_retry` or remove recovery labels merely by being applied
 
 **Prerequisites:**
 - PR has a concrete `agent:codex` or `agent:claude` label so a runner can be re-dispatched
 - PR has `agents:keepalive`
 
-**Recovery:** In a consolidated consumer, force a bounded retry by manually dispatching `agents-81-gate-followups.yml` with `pr_number=<PR>` and `force_retry=true`; after the run is confirmed, remove stale recovery labels manually if they remain. In the root/non-consolidated topology, applying `agent:retry` invokes the label handler automatically.
+**Recovery:** Force a bounded retry by manually dispatching `agents-81-gate-followups.yml` with `pr_number=<PR>` and `force_retry=true`; after the run is confirmed, remove stale recovery labels manually if they remain.
 
-**Workflow:** `agents-81-gate-followups.yml` accepts the explicit `force_retry` dispatch input for consolidated consumers. `.github/workflows/agents-keepalive-loop.yml` implements label-driven retry and cleanup for the root/non-consolidated topology.
+**Workflow:** `agents-81-gate-followups.yml` accepts the explicit `force_retry` dispatch input; no Workflows-local fallback is attempted.
 
 ---
 
@@ -817,5 +813,5 @@ To add new label-triggered functionality:
 
 *Last updated: May 13, 2026*
 
-> **Source of truth.** This file is the canonical label inventory for the Workflows system. It is synced to every supported consumer repository via `.github/sync-manifest.yml` (`docs/LABELS.md` → `docs/LABELS.md`); changes here propagate on the next scheduled sync.
+> **Source of truth.** This file is the canonical consumer label inventory. It is synced to every supported consumer repository via `.github/sync-manifest.yml` (`templates/consumer-repo/docs/LABELS.md` → `docs/LABELS.md`); changes here propagate on the next scheduled sync.
 *Source of truth: Workflows repository*

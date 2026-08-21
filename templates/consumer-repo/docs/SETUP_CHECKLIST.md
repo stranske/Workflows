@@ -1134,17 +1134,12 @@ versions change, add your repo to these three workflows:
 
 ### 10.2 Label Documentation Sync
 
-2. Add your repo to `DEFAULT_CONSUMER_REPOS` in:
-   - File: `.github/workflows/maint-65-sync-label-docs.yml`
-   - Purpose: Syncs `docs/LABELS.md` to keep label documentation consistent
+2. No separate label-doc repository list is required. `maint-65-sync-label-docs.yml`
+   uses the shared registered-repository helper and copies the consumer-specific
+   `templates/consumer-repo/docs/LABELS.md` source to consumer `docs/LABELS.md`.
 
-   ```yaml
-   DEFAULT_CONSUMER_REPOS: |
-     stranske/Travel-Plan-Permission
-     stranske/your-repo  # Add your repo here
-   ```
-
-- [ ] Added to `maint-65-sync-label-docs.yml`
+- [ ] Confirmed the repo appears in the shared registered-repository output
+- [ ] Confirmed `templates/consumer-repo/docs/LABELS.md` is the label-doc source
 
 ### 10.3 Dev Tool Version Sync
 

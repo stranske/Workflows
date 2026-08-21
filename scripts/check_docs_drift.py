@@ -102,8 +102,13 @@ def check_workflow_inventory(root: Path) -> list[DriftRecord]:
     """Compare .github/workflows files against docs/ci/WORKFLOWS.md mentions."""
     root = Path(root)
     workflows_doc = root / WORKFLOWS_DOC
+    # Consumers receive this checker but do not receive Workflows' inventory.
+    # An absent inventory therefore means the check is not applicable, not that
+    # every local workflow needs a fabricated documentation entry.
+    if not workflows_doc.is_file():
+        return []
     on_disk = _workflow_files_on_disk(root)
-    doc_text = workflows_doc.read_text(encoding="utf-8") if workflows_doc.is_file() else ""
+    doc_text = workflows_doc.read_text(encoding="utf-8")
     documented = _mentioned_workflow_filenames(doc_text, on_disk)
 
     drift: list[DriftRecord] = []
@@ -156,6 +161,111 @@ def _is_repo_path_token(token: str) -> bool:
     return bool(FILE_EXTENSION_RE.search(token))
 
 
+def _is_ignored_repo_path(root: Path, token: str) -> bool:
+    """Return whether Git classifies a missing path as an ignored output."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "check-ignore", "--quiet", "--", token],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
+def _source_of_truth_section_bounds(text: str, offset: int) -> tuple[int, int] | None:
+    section_start = text.rfind("\n## ", 0, offset)
+    if section_start < 0:
+        if not text.startswith("## "):
+            return None
+        section_start = 0
+    else:
+        section_start += 1
+    heading_end = text.find("\n", section_start)
+    if heading_end < 0 or text[section_start:heading_end] != "## Source Of Truth":
+        return None
+    content_start = heading_end + 1
+    section_end = text.find("\n## ", offset)
+    if section_end < 0:
+        section_end = len(text)
+    return content_start, section_end
+
+
+def _numbered_list_block_bounds(text: str, offset: int) -> tuple[int, int] | None:
+    """Return the numbered-list item block containing ``offset`` within Source Of Truth."""
+    section = _source_of_truth_section_bounds(text, offset)
+    if section is None:
+        return None
+    content_start, section_end = section
+    if offset < content_start or offset >= section_end:
+        return None
+
+    line_start = text.rfind("\n", 0, offset) + 1
+    line_end = text.find("\n", offset)
+    if line_end < 0:
+        line_end = len(text)
+    current_line = text[line_start:line_end]
+
+    if re.match(r"^\d+\.\s", current_line):
+        block_start = line_start
+    else:
+        block_start = line_start
+        pos = line_start
+        while pos > content_start:
+            prev_nl = text.rfind("\n", content_start, pos - 1)
+            prev_start = content_start if prev_nl < content_start else prev_nl + 1
+            prev_line = text[prev_start:pos]
+            if re.match(r"^\d+\.\s", prev_line):
+                block_start = prev_start
+                break
+            if prev_line.strip() == "":
+                break
+            block_start = prev_start
+            pos = prev_start
+
+    block_end = section_end
+    pos = line_end + 1
+    while pos < section_end:
+        next_nl = text.find("\n", pos)
+        if next_nl < 0:
+            next_nl = section_end
+        next_line = text[pos:next_nl]
+        if next_line.strip() == "":
+            block_end = pos
+            break
+        if re.match(r"^\d+\.\s", next_line):
+            block_end = pos
+            break
+        pos = next_nl + 1
+        block_end = min(pos, section_end)
+
+    return block_start, block_end
+
+
+def _is_explicit_upstream_reference(doc_path: Path, text: str, offset: int) -> bool:
+    """Return whether an inline path is explicitly qualified as Workflows-owned."""
+    if doc_path.name != "AGENTS.md":
+        return False
+    line_start = text.rfind("\n", 0, offset) + 1
+    line_end = text.find("\n", offset)
+    if line_end < 0:
+        line_end = len(text)
+    if "stranske/Workflows" in text[line_start:line_end]:
+        return True
+
+    # Consumer AGENTS files group Workflows paths under numbered Source Of Truth
+    # items.  Unqualified paths on continuation lines inherit the owning list
+    # item's Workflows qualification, but local-only items must remain checked.
+    block = _numbered_list_block_bounds(text, offset)
+    if block is None:
+        return False
+    block_start, block_end = block
+    return "stranske/Workflows" in text[block_start:block_end]
+
+
 def check_dangling_references(
     root: Path, docs: Sequence[str | Path] | None = None
 ) -> list[DriftRecord]:
@@ -170,13 +280,22 @@ def check_dangling_references(
         cited_in = _display_path(doc_path, root)
         seen_in_doc: set[str] = set()
 
-        for token in _inline_code_tokens(doc_text):
-            if token in seen_in_doc or not _is_repo_path_token(token):
+        for match in INLINE_CODE_RE.finditer(doc_text):
+            token = match.group(1)
+            if not _is_repo_path_token(token):
+                continue
+
+            if _is_explicit_upstream_reference(doc_path, doc_text, match.start(1)):
+                continue
+
+            if token in seen_in_doc:
                 continue
             seen_in_doc.add(token)
 
             candidate = root.joinpath(*PurePosixPath(token).parts)
             if candidate.is_file():
+                continue
+            if _is_ignored_repo_path(root, token):
                 continue
             drift.append(
                 {
@@ -266,6 +385,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Write the deterministic JSON report to this path as well.",
     )
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        metavar="PATH",
+        help="Evaluate only drift records for these paths (for a bounded repair batch).",
+    )
     return parser.parse_args(argv)
 
 
@@ -279,7 +404,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise FileNotFoundError(f"repo root not found: {_display_path(root, Path.cwd())}")
 
         docs = tuple(args.docs) if args.docs is not None else DEFAULT_DOCS
-        report = build_report(check_docs_drift(root, docs))
+        docs = tuple(doc for doc in docs if _resolve_doc_path(root, doc).is_file())
+        drift = check_docs_drift(root, docs)
+        if args.only is not None:
+            selected = set(args.only)
+            drift = [record for record in drift if record["path"] in selected]
+        report = build_report(drift)
         json_report = json.dumps(report, indent=2) + "\n"
 
         if args.report is not None:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync docs/LABELS.md to registered consumer repositories."""
+"""Sync the consumer LABELS.md template to registered consumer repositories."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
 
-DEFAULT_SOURCE = Path("docs/LABELS.md")
+DEFAULT_SOURCE = Path("templates/consumer-repo/docs/LABELS.md")
 TARGET_PATH = Path("docs/LABELS.md")
 COMMIT_MESSAGE = "docs: sync LABELS.md from Workflows repository"
 

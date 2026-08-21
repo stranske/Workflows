@@ -407,17 +407,25 @@ def test_auto_pilot_context_and_cycle_reads_defer_on_rate_limit():
 
 
 def test_auto_pilot_dispatches_pr_event_hub_pr_meta_only():
-    workflow_paths = [
-        WORKFLOWS_DIR / "agents-auto-pilot.yml",
-        Path("templates/consumer-repo/.github/workflows/agents-auto-pilot.yml"),
-    ]
+    root_workflow = WORKFLOWS_DIR / "agents-auto-pilot.yml"
+    consumer_workflow = Path("templates/consumer-repo/.github/workflows/agents-auto-pilot.yml")
 
-    for workflow_path in workflow_paths:
+    for workflow_path in (root_workflow, consumer_workflow):
         text = workflow_path.read_text(encoding="utf-8")
         assert "import json, os, sys" in text
         assert "inputsByWorkflow" in text
         assert "'agents-80-pr-event-hub.yml': {" in text
         assert "handler: 'pr-meta'" in text
+
+    root_text = root_workflow.read_text(encoding="utf-8")
+    assert "agents-pr-meta-v4.yml" in root_text
+    assert "agents-keepalive-loop.yml" in root_text
+
+    consumer_text = consumer_workflow.read_text(encoding="utf-8")
+    assert "workflowIds: ['agents-80-pr-event-hub.yml']" in consumer_text
+    assert "workflowIds: ['agents-81-gate-followups.yml']" in consumer_text
+    assert "agents-pr-meta-v4.yml" not in consumer_text
+    assert "agents-keepalive-loop.yml" not in consumer_text
 
 
 def test_auto_pilot_verify_step_parses_in_source_and_template():

@@ -675,7 +675,7 @@ If concerns → Add verify:create-issue → New issue auto-created
 
 **Resources:**
 - [Full Documentation](https://github.com/stranske/Workflows/tree/main/docs)
-- [Label Reference](https://github.com/stranske/Workflows/blob/main/docs/LABELS.md)
+- [Consumer Label Reference](https://github.com/stranske/Workflows/blob/main/templates/consumer-repo/docs/LABELS.md)
 - [Agents Policy](https://github.com/stranske/Workflows/blob/main/docs/AGENTS_POLICY.md)
 
 **For Issues:**
@@ -1151,18 +1151,17 @@ that workflow actually exists in the consumer checkout.
 ---
 
 ### `maint-65-sync-label-docs.yml` - Sync Label Documentation
-**Purpose:** Keeps label docs in sync with actual labels
+**Purpose:** Copies the canonical consumer label guide to registered repositories
 
-**Trigger:** On label changes or manual
+**Trigger:** When `templates/consumer-repo/docs/LABELS.md` changes, or manually
 
 **What It Does:**
-1. Fetches current labels from repos
-2. Updates `docs/LABELS.md`
-3. Adds descriptions for new labels
-4. Marks deprecated labels
-5. Commits documentation
+1. Loads the shared registered consumer-repository list
+2. Copies `templates/consumer-repo/docs/LABELS.md` to consumer `docs/LABELS.md`
+3. Skips repositories whose copy is already identical
+4. Commits and pushes changed consumer copies, or reports a dry run
 
-**Use When:** After adding/removing labels
+**Use When:** After updating the consumer label guide or when reconciling label-doc drift
 
 ---
 

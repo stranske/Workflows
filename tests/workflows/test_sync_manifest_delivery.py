@@ -83,6 +83,27 @@ def _sources_in_sections(manifest: dict, sections: tuple[str, ...]) -> set[str]:
     return sources
 
 
+def test_auto_pilot_sync_uses_consumer_specific_source() -> None:
+    manifest = _load_manifest()
+    entries = manifest.get("workflows") or []
+    auto_pilot = [
+        entry
+        for entry in entries
+        if entry.get("target", entry.get("source")) == ".github/workflows/agents-auto-pilot.yml"
+    ]
+
+    assert auto_pilot == [
+        {
+            "source": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+            "target": ".github/workflows/agents-auto-pilot.yml",
+            "description": (
+                "Auto-pilot - end-to-end automation orchestrator "
+                "(format → optimize → agent → verify)"
+            ),
+        }
+    ]
+
+
 def _runtime_sources(manifest: dict) -> set[str]:
     sources: set[str] = set()
     for value in manifest.values():

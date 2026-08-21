@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/LABELS.md'
+      - 'templates/consumer-repo/docs/LABELS.md'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
-            docs/LABELS.md
+            templates/consumer-repo/docs/LABELS.md
             .github/workflows/maint-68-sync-consumer-repos.yml
             scripts/list_registered_consumer_repos.py
             scripts/sync_label_docs.py
@@ -40,12 +40,12 @@ jobs:
 
       - name: Verify source file exists
         run: |
-          if [ ! -f "docs/LABELS.md" ]; then
-            echo "::error::Source file docs/LABELS.md not found"
+          if [ ! -f "templates/consumer-repo/docs/LABELS.md" ]; then
+            echo "::error::Source file templates/consumer-repo/docs/LABELS.md not found"
             exit 1
           fi
-          echo "Source file found: docs/LABELS.md"
-          wc -l docs/LABELS.md
+          echo "Source file found: templates/consumer-repo/docs/LABELS.md"
+          wc -l templates/consumer-repo/docs/LABELS.md
 
       - name: Prepare sync token
         id: token
@@ -88,14 +88,16 @@ jobs:
           fi
 
           echo "Syncing to repos: ${repos}"
-          python scripts/sync_label_docs.py --repos "${repos}" --source docs/LABELS.md
+          python scripts/sync_label_docs.py \
+            --repos "${repos}" \
+            --source templates/consumer-repo/docs/LABELS.md
 
       - name: Summary
         run: |
           {
             echo "## Label Documentation Sync"
             echo ""
-            echo "Synced \`docs/LABELS.md\` to consumer repositories."
+            echo "Synced \`templates/consumer-repo/docs/LABELS.md\` to consumer repositories as \`docs/LABELS.md\`."
             echo ""
             if [ "${{ inputs.dry_run }}" = "true" ]; then
               echo "**Mode:** Dry run (no changes made)"
