@@ -114,6 +114,31 @@ def test_verification_commands_reject_semantic_only_batch() -> None:
         fix_agent.verification_commands(["AGENTS.md"], [finding])
 
 
+def test_build_plan_propagates_selected_docs_to_every_batch_artifact(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    _write(root / "AGENTS.md", "Missing `scripts/missing.py`.\n")
+
+    plan = fix_agent.build_plan(
+        repo_root=root,
+        repo="stranske/consumer",
+        docs=["AGENTS.md"],
+    )
+
+    batch = plan["batches"][0]
+    expected_check = (
+        "python3 scripts/check_docs_drift.py --json --docs AGENTS.md --only scripts/missing.py"
+    )
+    expected_refresh = (
+        "python3 scripts/docs_drift_fix_agent.py --repo-root . --json --docs AGENTS.md"
+    )
+    assert expected_check in batch["repair_prompt"]
+    assert expected_check in batch["issue_body"]
+    assert expected_check in batch["pr_plan"]
+    assert expected_refresh in batch["repair_prompt"]
+    assert expected_refresh in batch["issue_body"]
+    assert expected_refresh in batch["pr_plan"]
+
+
 def test_batch_findings_respects_max_per_batch() -> None:
     findings = [
         fix_agent.Finding(
