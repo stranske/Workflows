@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -15,6 +18,18 @@ from scripts.check_docs_drift import (  # noqa: E402
     check_workflow_inventory,
     main,
 )
+
+
+def _load_consumer_checker():
+    consumer_path = ROOT / "templates/consumer-repo/scripts/check_docs_drift.py"
+    spec = importlib.util.spec_from_file_location("consumer_check_docs_drift", consumer_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+CONSUMER_CHECKER = _load_consumer_checker()
 
 
 def _write(path: Path, content: str = "") -> None:
@@ -194,6 +209,59 @@ Most workflow logic lives in `stranske/Workflows`.
 
     assert [(record["type"], record["path"]) for record in drift] == [
         ("dangling_reference", "docs/missing.md")
+    ]
+
+
+@pytest.mark.parametrize(
+    "checker",
+    [
+        check_dangling_references,
+        CONSUMER_CHECKER.check_dangling_references,
+    ],
+    ids=["workflows-root", "consumer-template"],
+)
+def test_source_of_truth_checker_implementations_share_upstream_behavior(
+    tmp_path: Path, checker
+) -> None:
+    root = _repo(tmp_path, workflows=(), workflows_doc="")
+    _write(
+        root / "AGENTS.md",
+        """## Source Of Truth
+
+1. `stranske/Workflows` root docs: `README.md`, `docs/WORKFLOW_GUIDE.md`
+2. `stranske/Workflows/docs/INTEGRATION_GUIDE.md` and
+   `docs/ops/CONSUMER_REPO_MAINTENANCE.md`
+3. The consumer sync source in `stranske/Workflows/templates/consumer-repo/`
+4. Local runbook: `docs/local-runbook.md`
+""",
+    )
+
+    drift = checker(root, ["AGENTS.md"])
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("dangling_reference", "docs/local-runbook.md")
+    ]
+
+
+def test_mixed_source_of_truth_section_keeps_local_paths_checked(tmp_path: Path) -> None:
+    root = _repo(tmp_path, workflows=(), workflows_doc="")
+    _write(
+        root / "AGENTS.md",
+        """## Source Of Truth
+
+For infrastructure work, follow this order:
+
+1. `stranske/Workflows` root docs: `README.md`, `docs/WORKFLOW_GUIDE.md`, `docs/ci/WORKFLOWS.md`
+2. `stranske/Workflows/docs/INTEGRATION_GUIDE.md` and `docs/ops/CONSUMER_REPO_MAINTENANCE.md`
+3. The consumer sync source in `stranske/Workflows/templates/consumer-repo/`
+4. This repo's local repo-specific files: `docs/local-runbook.md`
+""",
+    )
+
+    drift = check_dangling_references(root, ["AGENTS.md"])
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("dangling_reference", "docs/local-runbook.md")
     ]
 
 

@@ -161,6 +161,75 @@ def _is_repo_path_token(token: str) -> bool:
     return bool(FILE_EXTENSION_RE.search(token))
 
 
+def _source_of_truth_section_bounds(text: str, offset: int) -> tuple[int, int] | None:
+    section_start = text.rfind("\n## ", 0, offset)
+    if section_start < 0:
+        if not text.startswith("## "):
+            return None
+        section_start = 0
+    else:
+        section_start += 1
+    heading_end = text.find("\n", section_start)
+    if heading_end < 0 or text[section_start:heading_end] != "## Source Of Truth":
+        return None
+    content_start = heading_end + 1
+    section_end = text.find("\n## ", offset)
+    if section_end < 0:
+        section_end = len(text)
+    return content_start, section_end
+
+
+def _numbered_list_block_bounds(text: str, offset: int) -> tuple[int, int] | None:
+    """Return the numbered-list item block containing ``offset`` within Source Of Truth."""
+    section = _source_of_truth_section_bounds(text, offset)
+    if section is None:
+        return None
+    content_start, section_end = section
+    if offset < content_start or offset >= section_end:
+        return None
+
+    line_start = text.rfind("\n", 0, offset) + 1
+    line_end = text.find("\n", offset)
+    if line_end < 0:
+        line_end = len(text)
+    current_line = text[line_start:line_end]
+
+    if re.match(r"^\d+\.\s", current_line):
+        block_start = line_start
+    else:
+        block_start = line_start
+        pos = line_start
+        while pos > content_start:
+            prev_nl = text.rfind("\n", content_start, pos - 1)
+            prev_start = content_start if prev_nl < content_start else prev_nl + 1
+            prev_line = text[prev_start:pos]
+            if re.match(r"^\d+\.\s", prev_line):
+                block_start = prev_start
+                break
+            if prev_line.strip() == "":
+                break
+            block_start = prev_start
+            pos = prev_start
+
+    block_end = section_end
+    pos = line_end + 1
+    while pos < section_end:
+        next_nl = text.find("\n", pos)
+        if next_nl < 0:
+            next_nl = section_end
+        next_line = text[pos:next_nl]
+        if next_line.strip() == "":
+            block_end = pos
+            break
+        if re.match(r"^\d+\.\s", next_line):
+            block_end = pos
+            break
+        pos = next_nl + 1
+        block_end = min(pos, section_end)
+
+    return block_start, block_end
+
+
 def _is_explicit_upstream_reference(doc_path: Path, text: str, offset: int) -> bool:
     """Return whether an inline path is explicitly qualified as Workflows-owned."""
     if doc_path.name != "AGENTS.md":
@@ -172,24 +241,14 @@ def _is_explicit_upstream_reference(doc_path: Path, text: str, offset: int) -> b
     if "stranske/Workflows" in text[line_start:line_end]:
         return True
 
-    # Consumer AGENTS files commonly group several Workflows paths under a
-    # Source Of Truth heading.  The individual list entries intentionally omit
-    # the repository prefix, so treat that explicitly qualified section as
-    # upstream rather than manufacturing consumer repair work.
-    section_start = text.rfind("\n## ", 0, offset)
-    if section_start < 0:
-        if not text.startswith("## "):
-            return False
-        section_start = 0
-    else:
-        section_start += 1
-    heading_end = text.find("\n", section_start)
-    if heading_end < 0 or text[section_start:heading_end] != "## Source Of Truth":
+    # Consumer AGENTS files group Workflows paths under numbered Source Of Truth
+    # items.  Unqualified paths on continuation lines inherit the owning list
+    # item's Workflows qualification, but local-only items must remain checked.
+    block = _numbered_list_block_bounds(text, offset)
+    if block is None:
         return False
-    section_end = text.find("\n## ", offset)
-    if section_end < 0:
-        section_end = len(text)
-    return "stranske/Workflows" in text[section_start:section_end]
+    block_start, block_end = block
+    return "stranske/Workflows" in text[block_start:block_end]
 
 
 def check_dangling_references(
