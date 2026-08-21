@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.27.0](https://github.com/stranske/Workflows/compare/v1.26.1...v1.27.0) (2026-08-21)
+
+
+### Features
+
+* **sync:** deliver managed .gitignore block via maint-68 consumer sync ([#3151](https://github.com/stranske/Workflows/issues/3151)) ([803bc8b](https://github.com/stranske/Workflows/commit/803bc8b5ee95442f732c2b92a192780fcfd0d949))
+* **sync:** deliver the managed .gitignore block to consumer repos ([#3148](https://github.com/stranske/Workflows/issues/3148)) ([3e9528c](https://github.com/stranske/Workflows/commit/3e9528cdbaa4379348ec4458032091d20aa13474))
+
+
+### Bug Fixes
+
+* **docs:** separate root and consumer retry guides ([ddcb6ad](https://github.com/stranske/Workflows/commit/ddcb6ad8dbf2564c837340cc3b1880375752edc7))
+* **sync:** keep label docs consumer-specific ([e09fbb4](https://github.com/stranske/Workflows/commit/e09fbb4db47d187e27dbfc5dc14269e1978bc80f))
+* **sync:** retire consumer orchestration fallbacks ([59ba349](https://github.com/stranske/Workflows/commit/59ba349c7de2390f9b148d4bd87c891af4ca5549))
+* **sync:** retire consumer orchestration fallbacks ([5b95f22](https://github.com/stranske/Workflows/commit/5b95f220ba01e5e6b87b0c8365507b7211378d3a))
+
 ## [1.26.1](https://github.com/stranske/Workflows/compare/v1.26.0...v1.26.1) (2026-08-21)
 
 
