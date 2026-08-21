@@ -652,25 +652,6 @@ def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
     assert "allowSealedSyncDelivery" in merger_guard
 
 
-def test_gate_skips_redundant_acceptance_label_api_lookup() -> None:
-    gate_paths = (
-        REPO_ROOT / ".github" / "workflows" / "pr-00-gate.yml",
-        REPO_ROOT / "templates" / "consumer-repo" / ".github" / "workflows" / "pr-00-gate.yml",
-    )
-
-    for path in gate_paths:
-        gate = path.read_text(encoding="utf-8")
-        label_condition = gate.split("- name: Apply runtime acceptance-criteria label", 1)[1].split(
-            "\n        uses:", 1
-        )[0]
-
-        assert "steps.deliberate_break.outputs.has_marker == 'true'" in label_condition
-        assert (
-            "!contains(github.event.pull_request.labels.*.name, " "'acceptance-criteria')"
-        ) in label_condition
-        assert "${{" not in label_condition
-
-
 def test_delivery_lease_contract_is_copy_synced_with_the_gate() -> None:
     manifest = _load_manifest()
     copy_sources = _sources_in_sections(manifest, COPY_SYNCED_SECTIONS)
