@@ -50,3 +50,15 @@ def test_stdlib_imports_from_sync_pr_logs_are_ignored_in_consumer_template():
     )
 
     assert {"email", "html", "http", "secrets"}.issubset(module.STDLIB_MODULES)
+
+
+def test_base_project_modules_exclude_retired_trend_packages_in_source_and_template():
+    removed = {"trend_portfolio_app", "trend_model"}
+    scripts = {
+        "repo": Path("scripts/sync_test_dependencies.py"),
+        "consumer_template": Path("templates/consumer-repo/scripts/sync_test_dependencies.py"),
+    }
+
+    for name, path in scripts.items():
+        module = _load_module(f"sync_test_dependencies_{name}_retired_packages", path)
+        assert module._BASE_PROJECT_MODULES.isdisjoint(removed)
