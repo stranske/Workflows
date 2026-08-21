@@ -373,8 +373,8 @@ jobs:
           skipping opt-in deliberate-break check."
       - name: Apply runtime acceptance-criteria label
         if: >-
-          ${{ steps.deliberate_break.outputs.has_marker == 'true' &&
-          !contains(github.event.pull_request.labels.*.name, 'acceptance-criteria') }}
+          steps.deliberate_break.outputs.has_marker == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'acceptance-criteria')
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
