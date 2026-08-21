@@ -170,6 +170,33 @@ def test_explicit_same_line_workflows_reference_is_not_a_consumer_dangling_path(
     ]
 
 
+def test_workflows_qualified_agents_section_skips_unqualified_upstream_paths(
+    tmp_path: Path,
+) -> None:
+    root = _repo(tmp_path, workflows=(), workflows_doc="")
+    _write(
+        root / "AGENTS.md",
+        """## Source Of Truth
+
+Most workflow logic lives in `stranske/Workflows`.
+
+1. `stranske/Workflows` root docs: `README.md`, `docs/WORKFLOW_GUIDE.md`
+2. `stranske/Workflows/docs/INTEGRATION_GUIDE.md` and
+   `docs/ops/CONSUMER_REPO_MAINTENANCE.md`
+
+## Local Notes
+
+`docs/missing.md` is a local reference.
+""",
+    )
+
+    drift = check_dangling_references(root, ["AGENTS.md"])
+
+    assert [(record["type"], record["path"]) for record in drift] == [
+        ("dangling_reference", "docs/missing.md")
+    ]
+
+
 def test_cli_skips_missing_default_workflow_inventory_in_consumer(tmp_path: Path, capsys) -> None:
     root = tmp_path
     _write(root / ".github/workflows/build.yml", "name: Build\n")

@@ -169,7 +169,27 @@ def _is_explicit_upstream_reference(doc_path: Path, text: str, offset: int) -> b
     line_end = text.find("\n", offset)
     if line_end < 0:
         line_end = len(text)
-    return "stranske/Workflows" in text[line_start:line_end]
+    if "stranske/Workflows" in text[line_start:line_end]:
+        return True
+
+    # Consumer AGENTS files commonly group several Workflows paths under a
+    # Source Of Truth heading.  The individual list entries intentionally omit
+    # the repository prefix, so treat that explicitly qualified section as
+    # upstream rather than manufacturing consumer repair work.
+    section_start = text.rfind("\n## ", 0, offset)
+    if section_start < 0:
+        if not text.startswith("## "):
+            return False
+        section_start = 0
+    else:
+        section_start += 1
+    heading_end = text.find("\n", section_start)
+    if heading_end < 0 or text[section_start:heading_end] != "## Source Of Truth":
+        return False
+    section_end = text.find("\n## ", offset)
+    if section_end < 0:
+        section_end = len(text)
+    return "stranske/Workflows" in text[section_start:section_end]
 
 
 def check_dangling_references(
