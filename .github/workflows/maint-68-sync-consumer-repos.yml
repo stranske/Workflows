@@ -865,6 +865,8 @@ jobs:
 
           # Apply the managed .gitignore block before dirty detection so
           # .gitignore-only drift participates in has_changes and PR creation.
+          # Always evaluate (including dry_run) so a consumer that only needs the
+          # managed block still reports has_changes=true and lists .gitignore.
           import sys
           sys.path.insert(0, str(Path('workflows')))
           from scripts.sync_status_file_ignores import apply_block_to_file
@@ -882,11 +884,13 @@ jobs:
                   encoding='utf-8',
               )
 
-          if not dry_run:
-              gitignore_result = apply_block_to_file(Path('consumer/.gitignore'))
-              if gitignore_result.get('changed'):
-                  action = gitignore_result.get('action', 'updated')
-                  changes.append(f".gitignore (managed block {action})")
+          gitignore_result = apply_block_to_file(
+              Path('consumer/.gitignore'),
+              dry_run=dry_run,
+          )
+          if gitignore_result.get('changed'):
+              action = gitignore_result.get('action', 'updated')
+              changes.append(f".gitignore (managed block {action})")
 
           repo_dirty = False
           if not dry_run:

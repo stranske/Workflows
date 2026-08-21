@@ -269,13 +269,17 @@ def _managed_block_span(lines: list[str]) -> tuple[int, int] | None:
     return start, end
 
 
-def apply_block_to_file(gitignore_path: Path) -> dict[str, object]:
+def apply_block_to_file(gitignore_path: Path, *, dry_run: bool = False) -> dict[str, object]:
     """Idempotently merge the managed block into a consumer repo's .gitignore.
 
     Replace-in-place when the block is already there, append when it is not, and touch nothing
     outside the managed region — which is exactly why `.gitignore` is in the sync-manifest
     `excluded:` list: a whole-file copy would clobber repo-local ignore rules. Writing only on a
     real change keeps a scheduled sync a no-op when there is nothing to do.
+
+    When ``dry_run`` is true, report whether a write would occur without mutating the file so
+    maint-68 dry consumer runs can still set ``has_changes`` and list ``.gitignore`` in the
+    sync summary.
     """
     path = Path(gitignore_path)
     block = load_template_block().rstrip("\n")
@@ -296,7 +300,7 @@ def apply_block_to_file(gitignore_path: Path) -> dict[str, object]:
 
     updated = "\n".join(merged).rstrip("\n") + "\n"
     changed = updated != existing
-    if changed:
+    if changed and not dry_run:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(updated, encoding="utf-8")
     return {"path": str(path), "action": action if changed else "unchanged", "changed": changed}

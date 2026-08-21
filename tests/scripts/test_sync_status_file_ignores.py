@@ -642,6 +642,47 @@ def test_apply_block_rejects_incomplete_managed_block(tmp_path: Path) -> None:
     assert gitignore.read_text(encoding="utf-8") == original
 
 
+def test_apply_block_dry_run_reports_change_without_writing(tmp_path: Path) -> None:
+    # maint-68 dry consumer runs must still see .gitignore-only drift in has_changes.
+    gitignore = tmp_path / ".gitignore"
+    original = "# repo-local\n*.tmp\n"
+    gitignore.write_text(original, encoding="utf-8")
+
+    result = sync_status_file_ignores.apply_block_to_file(gitignore, dry_run=True)
+    assert result["changed"] is True
+    assert result["action"] == "appended"
+    assert gitignore.read_text(encoding="utf-8") == original
+
+
+def test_maint68_dry_run_gitignore_only_sets_has_changes(tmp_path: Path) -> None:
+    """Acceptance: dry run needing only the managed block sets has_changes and lists .gitignore."""
+    consumer = tmp_path / "consumer"
+    consumer.mkdir()
+    (consumer / ".gitignore").write_text("# local only\n*.log\n", encoding="utf-8")
+
+    # Mirror maint-68 Detect-and-apply dry_run path for .gitignore-only drift.
+    dry_run = True
+    changes: list[str] = []
+    gitignore_result = sync_status_file_ignores.apply_block_to_file(
+        consumer / ".gitignore",
+        dry_run=dry_run,
+    )
+    if gitignore_result.get("changed"):
+        action = str(gitignore_result.get("action", "updated"))
+        changes.append(f".gitignore (managed block {action})")
+
+    has_changes = bool(changes) if dry_run else False
+    summary = "## Sync Summary\n\n"
+    if changes:
+        summary += "### Files Updated\n"
+        for entry in changes:
+            summary += f"- {entry}\n"
+
+    assert has_changes is True
+    assert ".gitignore" in summary
+    assert "managed block" in summary
+
+
 def test_main_apply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("*.tmp\n", encoding="utf-8")

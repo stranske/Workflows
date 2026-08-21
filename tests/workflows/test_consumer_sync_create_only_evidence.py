@@ -94,6 +94,22 @@ def test_consumer_sync_pr_body_surfaces_create_only_skips() -> None:
     assert "sync_summary.md" in workflow
 
 
+def test_maint68_applies_managed_gitignore_block_before_has_changes() -> None:
+    """maint-68 must evaluate apply_block_to_file on dry_run and live paths alike."""
+    workflow = SYNC_WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    assert "from scripts.sync_status_file_ignores import apply_block_to_file" in workflow
+    assert "dry_run=dry_run" in workflow
+    assert "gitignore_result = apply_block_to_file(" in workflow
+    # Regression: do not gate the apply call behind `if not dry_run` — that hid
+    # .gitignore-only drift from dry consumer runs (has_changes stayed false).
+    apply_idx = workflow.index("gitignore_result = apply_block_to_file(")
+    preceding = workflow[max(0, apply_idx - 200) : apply_idx]
+    assert "if not dry_run:" not in preceding
+    assert "has_changes = bool(changes) if dry_run else repo_dirty" in workflow
+    assert ".gitignore (managed block" in workflow
+
+
 def test_manifest_removals_include_legacy_agents_orchestrator() -> None:
     manifest = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8")) or {}
     removals = manifest.get("removals", []) or []
