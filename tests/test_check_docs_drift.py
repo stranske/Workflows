@@ -159,7 +159,7 @@ def test_explicit_same_line_workflows_reference_is_not_a_consumer_dangling_path(
     root = _repo(tmp_path, workflows=(), workflows_doc="")
     _write(
         root / "AGENTS.md",
-        "Read `stranske/Workflows/docs/ci/WORKFLOWS.md` before editing.\n"
+        "Read `docs/missing.md` from stranske/Workflows before editing.\n"
         "A local `docs/missing.md` reference remains checked.\n",
     )
 
@@ -168,6 +168,17 @@ def test_explicit_same_line_workflows_reference_is_not_a_consumer_dangling_path(
     assert [(record["type"], record["path"]) for record in drift] == [
         ("dangling_reference", "docs/missing.md")
     ]
+
+
+def test_cli_skips_missing_default_workflow_inventory_in_consumer(tmp_path: Path, capsys) -> None:
+    root = tmp_path
+    _write(root / ".github/workflows/build.yml", "name: Build\n")
+    _write(root / "AGENTS.md", "Consumer guidance.\n")
+
+    exit_code = main(["--repo-root", str(root), "--json"])
+
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out)["drift"] == []
 
 
 def test_cli_only_limits_exit_status_to_selected_batch(tmp_path: Path, capsys) -> None:

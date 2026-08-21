@@ -188,12 +188,15 @@ def check_dangling_references(
 
         for match in INLINE_CODE_RE.finditer(doc_text):
             token = match.group(1)
-            if token in seen_in_doc or not _is_repo_path_token(token):
+            if not _is_repo_path_token(token):
                 continue
-            seen_in_doc.add(token)
 
             if _is_explicit_upstream_reference(doc_path, doc_text, match.start(1)):
                 continue
+
+            if token in seen_in_doc:
+                continue
+            seen_in_doc.add(token)
 
             candidate = root.joinpath(*PurePosixPath(token).parts)
             if candidate.is_file():
@@ -305,6 +308,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise FileNotFoundError(f"repo root not found: {_display_path(root, Path.cwd())}")
 
         docs = tuple(args.docs) if args.docs is not None else DEFAULT_DOCS
+        docs = tuple(doc for doc in docs if _resolve_doc_path(root, doc).is_file())
         drift = check_docs_drift(root, docs)
         if args.only is not None:
             selected = set(args.only)

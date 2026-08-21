@@ -39,9 +39,6 @@ from scripts import check_docs_drift  # noqa: E402
 DEFAULT_REPO = "stranske/Workflows"
 DEFAULT_MAX_PER_BATCH = 8
 DEFAULT_DOCS_CONFIG = Path("config/source_of_truth_docs.yml")
-WORKFLOW_INVENTORY_TEST = (
-    "pytest tests/workflows/test_workflow_naming.py::test_inventory_docs_list_all_workflows -q"
-)
 
 
 @dataclass(frozen=True)
@@ -185,12 +182,28 @@ def _docs_arg(docs: Sequence[str] | None) -> str:
     return " --docs " + " ".join(shlex.quote(doc) for doc in docs)
 
 
-def verification_commands(docs: Sequence[str] | None = None) -> tuple[str, ...]:
+def _only_arg(findings: Sequence[Finding] | None) -> str:
+    if not findings:
+        return ""
+    targets = sorted({finding.target for finding in findings if finding.source == "deterministic"})
+    if not targets:
+        if any(finding.source == "semantic-scan" for finding in findings):
+            raise ValueError(
+                "semantic-scan-only batches need a bounded semantic verifier before an issue can be generated"
+            )
+        return ""
+    return " --only " + " ".join(shlex.quote(target) for target in targets)
+
+
+def verification_commands(
+    docs: Sequence[str] | None = None, findings: Sequence[Finding] | None = None
+) -> tuple[str, ...]:
     """Commands that must pass after a single repair batch."""
     docs_arg = _docs_arg(docs)
+    only_arg = _only_arg(findings)
     return (
-        f"python3 scripts/check_docs_drift.py --json{docs_arg}",
-        WORKFLOW_INVENTORY_TEST,
+        f"python3 scripts/check_docs_drift.py --json{docs_arg}{only_arg}",
+        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py",
     )
 
 
@@ -214,10 +227,15 @@ def build_repair_prompt(
     *,
     repo: str = DEFAULT_REPO,
     checks: Sequence[str] | None = None,
+    informational_checks: Sequence[str] | None = None,
 ) -> str:
     finding_lines = "\n".join(_finding_line(finding) for finding in batch.findings)
-    check_lines = "\n".join(f"- `{cmd}`" for cmd in (checks or verification_commands()))
-    info_lines = "\n".join(f"- `{cmd}`" for cmd in informational_commands())
+    check_lines = "\n".join(
+        f"- `{cmd}`" for cmd in (checks or verification_commands(findings=batch.findings))
+    )
+    info_lines = "\n".join(
+        f"- `{cmd}`" for cmd in (informational_checks or informational_commands())
+    )
     return f"""You are repairing documentation drift in {repo}.
 
 Goal: open one focused docs-only fix PR for repair batch `{batch.batch_id}`.
@@ -244,9 +262,19 @@ Deliverable:
 """
 
 
-def build_pr_plan(batch: RepairBatch, *, checks: Sequence[str] | None = None) -> str:
+def build_pr_plan(
+    batch: RepairBatch,
+    *,
+    checks: Sequence[str] | None = None,
+    informational_checks: Sequence[str] | None = None,
+) -> str:
     doc_paths = sorted({finding.doc_path for finding in batch.findings})
-    check_lines = "\n".join(f"- [ ] `{cmd}`" for cmd in (checks or verification_commands()))
+    check_lines = "\n".join(
+        f"- [ ] `{cmd}`" for cmd in (checks or verification_commands(findings=batch.findings))
+    )
+    info_lines = "\n".join(
+        f"- [ ] `{cmd}`" for cmd in (informational_checks or informational_commands())
+    )
     findings = "\n".join(_finding_line(finding) for finding in batch.findings)
     docs = "\n".join(f"- [ ] `{doc}`" for doc in doc_paths)
     return f"""# Docs Drift Repair Plan: {batch.batch_id}
@@ -259,6 +287,9 @@ def build_pr_plan(batch: RepairBatch, *, checks: Sequence[str] | None = None) ->
 
 ## Verification
 {check_lines}
+
+## Informational Refresh
+{info_lines}
 """
 
 
@@ -267,6 +298,7 @@ def build_issue_body(
     *,
     repo: str = DEFAULT_REPO,
     checks: Sequence[str] | None = None,
+    informational_checks: Sequence[str] | None = None,
 ) -> str:
     findings = "\n".join(_finding_line(finding) for finding in batch.findings)
     docs = sorted({finding.doc_path for finding in batch.findings})
@@ -274,11 +306,12 @@ def build_issue_body(
         f"- [ ] Update `{doc}` so its cited claims match the current tree." for doc in docs
     )
     check_items = "\n".join(
-        f"- [ ] `{cmd}` passes after the repair." for cmd in (checks or verification_commands())
+        f"- [ ] `{cmd}` passes after the repair."
+        for cmd in (checks or verification_commands(findings=batch.findings))
     )
     info_items = "\n".join(
         f"- [ ] `{cmd}` was reviewed for remaining non-batch findings."
-        for cmd in informational_commands()
+        for cmd in (informational_checks or informational_commands())
     )
     evidence = "\n".join(
         f"- `{finding.doc_path}` -> `{finding.target}` ({finding.source}/{finding.kind})"
@@ -301,7 +334,7 @@ Repair only the docs named in this issue for batch `{batch.batch_id}`:
 {docs_tasks}
 - [ ] Keep each edit tied to one listed finding and preserve unrelated wording.
 - [ ] Include the relevant before/after claim in the pull request body.
-- [ ] Run the docs-drift and workflow-inventory verification commands.
+- [ ] Run the bounded docs-drift and Python compile verification commands.
 - [ ] Refresh the full fix-agent plan as informational context.
 
 ## Acceptance Criteria
@@ -385,7 +418,6 @@ def build_plan(
     docs_to_scan = (
         list(docs) if docs is not None else default_docs_from_config(repo_root, repo=repo)
     )
-    checks = verification_commands(docs_to_scan)
     findings = collect_findings(
         repo_root=repo_root, repo=repo, docs=docs_to_scan, scan_json=scan_json
     )
@@ -395,16 +427,30 @@ def build_plan(
         "repo_root": str(repo_root),
         "finding_count": len(findings),
         "batch_count": len(batches),
-        "checks": list(checks),
+        "checks": list(verification_commands(docs_to_scan)),
         "findings": [asdict(finding) for finding in findings],
         "batches": [
             {
                 "batch_id": batch.batch_id,
                 "findings": [asdict(finding) for finding in batch.findings],
-                "repair_prompt": build_repair_prompt(batch, repo=repo, checks=checks),
+                "repair_prompt": build_repair_prompt(
+                    batch,
+                    repo=repo,
+                    checks=verification_commands(docs_to_scan, batch.findings),
+                    informational_checks=informational_commands(docs_to_scan),
+                ),
                 "issue_title": f"[Docs Drift] Repair {batch.batch_id}",
-                "issue_body": build_issue_body(batch, repo=repo, checks=checks),
-                "pr_plan": build_pr_plan(batch, checks=checks),
+                "issue_body": build_issue_body(
+                    batch,
+                    repo=repo,
+                    checks=verification_commands(docs_to_scan, batch.findings),
+                    informational_checks=informational_commands(docs_to_scan),
+                ),
+                "pr_plan": build_pr_plan(
+                    batch,
+                    checks=verification_commands(docs_to_scan, batch.findings),
+                    informational_checks=informational_commands(docs_to_scan),
+                ),
             }
             for batch in batches
         ],

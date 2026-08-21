@@ -102,8 +102,13 @@ def check_workflow_inventory(root: Path) -> list[DriftRecord]:
     """Compare .github/workflows files against docs/ci/WORKFLOWS.md mentions."""
     root = Path(root)
     workflows_doc = root / WORKFLOWS_DOC
+    # Consumers receive this checker but do not receive Workflows' inventory.
+    # An absent inventory therefore means the check is not applicable, not that
+    # every local workflow needs a fabricated documentation entry.
+    if not workflows_doc.is_file():
+        return []
     on_disk = _workflow_files_on_disk(root)
-    doc_text = workflows_doc.read_text(encoding="utf-8") if workflows_doc.is_file() else ""
+    doc_text = workflows_doc.read_text(encoding="utf-8")
     documented = _mentioned_workflow_filenames(doc_text, on_disk)
 
     drift: list[DriftRecord] = []
@@ -156,6 +161,17 @@ def _is_repo_path_token(token: str) -> bool:
     return bool(FILE_EXTENSION_RE.search(token))
 
 
+def _is_explicit_upstream_reference(doc_path: Path, text: str, offset: int) -> bool:
+    """Return whether an inline path is explicitly qualified as Workflows-owned."""
+    if doc_path.name != "AGENTS.md":
+        return False
+    line_start = text.rfind("\n", 0, offset) + 1
+    line_end = text.find("\n", offset)
+    if line_end < 0:
+        line_end = len(text)
+    return "stranske/Workflows" in text[line_start:line_end]
+
+
 def check_dangling_references(
     root: Path, docs: Sequence[str | Path] | None = None
 ) -> list[DriftRecord]:
@@ -170,8 +186,15 @@ def check_dangling_references(
         cited_in = _display_path(doc_path, root)
         seen_in_doc: set[str] = set()
 
-        for token in _inline_code_tokens(doc_text):
-            if token in seen_in_doc or not _is_repo_path_token(token):
+        for match in INLINE_CODE_RE.finditer(doc_text):
+            token = match.group(1)
+            if not _is_repo_path_token(token):
+                continue
+
+            if _is_explicit_upstream_reference(doc_path, doc_text, match.start(1)):
+                continue
+
+            if token in seen_in_doc:
                 continue
             seen_in_doc.add(token)
 
@@ -266,6 +289,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Write the deterministic JSON report to this path as well.",
     )
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        metavar="PATH",
+        help="Evaluate only drift records for these paths (for a bounded repair batch).",
+    )
     return parser.parse_args(argv)
 
 
@@ -279,7 +308,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise FileNotFoundError(f"repo root not found: {_display_path(root, Path.cwd())}")
 
         docs = tuple(args.docs) if args.docs is not None else DEFAULT_DOCS
-        report = build_report(check_docs_drift(root, docs))
+        docs = tuple(doc for doc in docs if _resolve_doc_path(root, doc).is_file())
+        drift = check_docs_drift(root, docs)
+        if args.only is not None:
+            selected = set(args.only)
+            drift = [record for record in drift if record["path"] in selected]
+        report = build_report(drift)
         json_report = json.dumps(report, indent=2) + "\n"
 
         if args.report is not None:

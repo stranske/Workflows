@@ -69,6 +69,51 @@ def test_docs_arg_quotes_shell_sensitive_paths() -> None:
     assert shlex.split(command) == ["python3", "scripts/check_docs_drift.py", "--docs", *docs]
 
 
+def test_verification_commands_are_bounded_to_deterministic_batch_targets() -> None:
+    findings = [
+        fix_agent.Finding(
+            source="deterministic",
+            kind="dangling_reference",
+            doc_path="AGENTS.md",
+            target="docs/z path.md",
+            detail="missing",
+        ),
+        fix_agent.Finding(
+            source="deterministic",
+            kind="dangling_reference",
+            doc_path="AGENTS.md",
+            target="docs/a.md",
+            detail="missing",
+        ),
+    ]
+
+    commands = fix_agent.verification_commands(["AGENTS.md"], findings)
+
+    assert shlex.split(commands[0]) == [
+        "python3",
+        "scripts/check_docs_drift.py",
+        "--json",
+        "--docs",
+        "AGENTS.md",
+        "--only",
+        "docs/a.md",
+        "docs/z path.md",
+    ]
+
+
+def test_verification_commands_reject_semantic_only_batch() -> None:
+    finding = fix_agent.Finding(
+        source="semantic-scan",
+        kind="stale_claim",
+        doc_path="AGENTS.md",
+        target="a claim",
+        detail="stale",
+    )
+
+    with pytest.raises(ValueError, match="bounded semantic verifier"):
+        fix_agent.verification_commands(["AGENTS.md"], [finding])
+
+
 def test_batch_findings_respects_max_per_batch() -> None:
     findings = [
         fix_agent.Finding(
@@ -131,6 +176,7 @@ def test_issue_body_is_agent_ready() -> None:
     assert "## Informational Checks" in body
     assert "was reviewed for remaining non-batch findings" in body
     assert "python3 scripts/docs_drift_fix_agent.py --repo-root . --json" in body
+    assert "workflow-inventory verification" not in body
 
 
 def test_repair_prompt_includes_required_verification() -> None:
