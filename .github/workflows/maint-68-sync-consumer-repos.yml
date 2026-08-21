@@ -863,34 +863,37 @@ jobs:
               for s in skipped:
                   print(f"  - {s}")
 
-          # Apply the managed .gitignore block before dirty detection so
-          # .gitignore-only drift participates in has_changes and PR creation.
-          # Always evaluate (including dry_run) so a consumer that only needs the
-          # managed block still reports has_changes=true and lists .gitignore.
+          # The managed .gitignore block is a plan-wide reconciliation, not an
+          # implicit source-delta target.  Restrict it to a full plan so an exact
+          # source-delta can stage only paths selected by its immutable plan ID.
+          # Within a full plan, evaluate both dry and live runs so block-only drift
+          # participates in has_changes and PR creation.
           import sys
           sys.path.insert(0, str(Path('workflows')))
           from scripts.sync_status_file_ignores import apply_block_to_file
 
-          targets_path = Path('sync_targets.txt')
-          target_lines = (
-              targets_path.read_text(encoding='utf-8').splitlines()
-              if targets_path.is_file()
-              else []
-          )
-          if '.gitignore' not in target_lines:
-              target_lines.append('.gitignore')
-              targets_path.write_text(
-                  ''.join(f"{line}\n" for line in sorted(set(filter(None, target_lines)))),
-                  encoding='utf-8',
+          plan_scope = os.environ.get('PLAN_SCOPE', '')
+          if plan_scope == 'full':
+              targets_path = Path('sync_targets.txt')
+              target_lines = (
+                  targets_path.read_text(encoding='utf-8').splitlines()
+                  if targets_path.is_file()
+                  else []
               )
+              if '.gitignore' not in target_lines:
+                  target_lines.append('.gitignore')
+                  targets_path.write_text(
+                      ''.join(f"{line}\n" for line in sorted(set(filter(None, target_lines)))),
+                      encoding='utf-8',
+                  )
 
-          gitignore_result = apply_block_to_file(
-              Path('consumer/.gitignore'),
-              dry_run=dry_run,
-          )
-          if gitignore_result.get('changed'):
-              action = gitignore_result.get('action', 'updated')
-              changes.append(f".gitignore (managed block {action})")
+              gitignore_result = apply_block_to_file(
+                  Path('consumer/.gitignore'),
+                  dry_run=dry_run,
+              )
+              if gitignore_result.get('changed'):
+                  action = gitignore_result.get('action', 'updated')
+                  changes.append(f".gitignore (managed block {action})")
 
           repo_dirty = False
           if not dry_run:

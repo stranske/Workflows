@@ -642,6 +642,45 @@ def test_apply_block_rejects_incomplete_managed_block(tmp_path: Path) -> None:
     assert gitignore.read_text(encoding="utf-8") == original
 
 
+@pytest.mark.parametrize(
+    "original",
+    [
+        f"{sync_status_file_ignores.PATTERN_BLOCK_END}\n",
+        (
+            f"{sync_status_file_ignores.PATTERN_BLOCK_END}\n"
+            f"{sync_status_file_ignores.PATTERN_BLOCK_BEGIN}\n"
+        ),
+        (
+            f"{sync_status_file_ignores.PATTERN_BLOCK_BEGIN}\n"
+            f"{sync_status_file_ignores.PATTERN_BLOCK_END}\n"
+            f"{sync_status_file_ignores.PATTERN_BLOCK_BEGIN}\n"
+            f"{sync_status_file_ignores.PATTERN_BLOCK_END}\n"
+        ),
+    ],
+)
+def test_apply_block_rejects_invalid_managed_block_marker_sets(
+    tmp_path: Path, original: str
+) -> None:
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text(original, encoding="utf-8")
+
+    with pytest.raises(sync_status_file_ignores.TemplateBlockError):
+        sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    assert gitignore.read_text(encoding="utf-8") == original
+
+
+def test_apply_block_preserves_crlf_repo_local_rules(tmp_path: Path) -> None:
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_bytes(b"# repo-local\r\n*.tmp\r\n")
+
+    sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    content = gitignore.read_bytes()
+    assert b"# repo-local\r\n*.tmp\r\n" in content
+    assert b"\n" not in content.replace(b"\r\n", b"")
+
+
 def test_apply_block_dry_run_reports_change_without_writing(tmp_path: Path) -> None:
     # maint-68 dry consumer runs must still see .gitignore-only drift in has_changes.
     gitignore = tmp_path / ".gitignore"

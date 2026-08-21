@@ -101,6 +101,8 @@ def test_maint68_applies_managed_gitignore_block_before_has_changes() -> None:
     assert "from scripts.sync_status_file_ignores import apply_block_to_file" in workflow
     assert "dry_run=dry_run" in workflow
     assert "gitignore_result = apply_block_to_file(" in workflow
+    assert "plan_scope = os.environ.get('PLAN_SCOPE', '')" in workflow
+    assert "if plan_scope == 'full':" in workflow
     # Regression: do not gate the apply call behind `if not dry_run` — that hid
     # .gitignore-only drift from dry consumer runs (has_changes stayed false).
     apply_idx = workflow.index("gitignore_result = apply_block_to_file(")

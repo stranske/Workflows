@@ -239,20 +239,16 @@ def _managed_block_span(lines: list[str]) -> tuple[int, int] | None:
     header is only consumed when its identifying line is actually found, so a repo-local comment
     sitting above the block is never swallowed.
     """
-    begin = next(
-        (idx for idx, line in enumerate(lines) if line.strip() == PATTERN_BLOCK_BEGIN), None
-    )
-    if begin is None:
+    begins = [idx for idx, line in enumerate(lines) if line.strip() == PATTERN_BLOCK_BEGIN]
+    ends = [idx for idx, line in enumerate(lines) if line.strip() == PATTERN_BLOCK_END]
+    if not begins and not ends:
         return None
-    end = next(
-        (idx for idx in range(begin + 1, len(lines)) if lines[idx].strip() == PATTERN_BLOCK_END),
-        None,
-    )
-    if end is None:
+    if len(begins) != 1 or len(ends) != 1 or begins[0] >= ends[0]:
         raise TemplateBlockError(
-            f"Incomplete managed block: found {PATTERN_BLOCK_BEGIN} without matching "
-            f"{PATTERN_BLOCK_END}"
+            "Invalid managed block markers: require exactly one BEGIN marker followed by "
+            "exactly one END marker"
         )
+    begin, end = begins[0], ends[0]
     header = next(
         (
             idx
@@ -286,7 +282,8 @@ def apply_block_to_file(gitignore_path: Path, *, dry_run: bool = False) -> dict[
     """
     path = Path(gitignore_path)
     block = load_template_block().rstrip("\n")
-    existing = path.read_text(encoding="utf-8") if path.is_file() else ""
+    existing = path.read_bytes().decode("utf-8") if path.is_file() else ""
+    newline = "\r\n" if "\r\n" in existing else "\n"
     lines = existing.splitlines()
 
     span = _managed_block_span(lines)
@@ -301,7 +298,7 @@ def apply_block_to_file(gitignore_path: Path, *, dry_run: bool = False) -> dict[
         merged = block.splitlines()
         action = "created"
 
-    updated = "\n".join(merged).rstrip("\n") + "\n"
+    updated = newline.join(merged).rstrip("\r\n") + newline
     changed = updated != existing
     if changed and not dry_run:
         path.parent.mkdir(parents=True, exist_ok=True)
