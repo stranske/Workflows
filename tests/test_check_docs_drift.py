@@ -144,15 +144,44 @@ The consumer-template workflow `health-72-template-sync.yml` is copied to consum
     ]
 
 
-def test_missing_workflow_inventory_doc_reports_drift(tmp_path: Path) -> None:
+def test_missing_workflow_inventory_doc_is_not_applicable_in_consumer(tmp_path: Path) -> None:
     root = tmp_path
     _write(root / ".github/workflows/build.yml", "name: Build\n")
 
     drift = check_workflow_inventory(root)
 
+    assert drift == []
+
+
+def test_explicit_same_line_workflows_reference_is_not_a_consumer_dangling_path(
+    tmp_path: Path,
+) -> None:
+    root = _repo(tmp_path, workflows=(), workflows_doc="")
+    _write(
+        root / "AGENTS.md",
+        "Read `stranske/Workflows/docs/ci/WORKFLOWS.md` before editing.\n"
+        "A local `docs/missing.md` reference remains checked.\n",
+    )
+
+    drift = check_dangling_references(root, ["AGENTS.md"])
+
     assert [(record["type"], record["path"]) for record in drift] == [
-        ("undocumented_workflow", "build.yml")
+        ("dangling_reference", "docs/missing.md")
     ]
+
+
+def test_cli_only_limits_exit_status_to_selected_batch(tmp_path: Path, capsys) -> None:
+    root = _repo(
+        tmp_path,
+        workflows=("build.yml", "later.yml"),
+        workflows_doc="Active workflows: `build.yml`. Missing `scripts/target.py`.\n",
+    )
+
+    exit_code = main(["--repo-root", str(root), "--json", "--only", "scripts/target.py"])
+
+    assert exit_code == 1
+    report = json.loads(capsys.readouterr().out)
+    assert [record["path"] for record in report["drift"]] == ["scripts/target.py"]
 
 
 def test_missing_backtick_repo_path_is_dangling_reference(tmp_path: Path) -> None:

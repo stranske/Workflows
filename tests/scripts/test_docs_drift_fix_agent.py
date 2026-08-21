@@ -124,7 +124,8 @@ def test_issue_body_is_agent_ready() -> None:
 
     assert issue_body_is_agent_ready(body)
     assert "## Why" in body
-    assert "python3 scripts/check_docs_drift.py --json" in body
+    assert "python3 scripts/check_docs_drift.py --json --only new.yml" in body
+    assert "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py" in body
     assert "## Informational Checks" in body
     assert "was reviewed for remaining non-batch findings" in body
     assert "python3 scripts/docs_drift_fix_agent.py --repo-root . --json" in body
@@ -147,10 +148,8 @@ def test_repair_prompt_includes_required_verification() -> None:
     prompt = fix_agent.build_repair_prompt(batch)
 
     assert "open one focused docs-only fix PR" in prompt
-    assert (
-        "pytest tests/workflows/test_workflow_naming.py::test_inventory_docs_list_all_workflows -q"
-        in prompt
-    )
+    assert "python3 scripts/check_docs_drift.py --json --only old.yml" in prompt
+    assert "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py" in prompt
     assert "Informational full-plan refresh" in prompt
     assert "python3 scripts/docs_drift_fix_agent.py --repo-root . --json" in prompt
     assert "Do not change workflows" in prompt
