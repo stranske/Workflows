@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.28.2](https://github.com/stranske/Workflows/compare/v1.28.1...v1.28.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **docs:** enforce drift repair evidence ([#3166](https://github.com/stranske/Workflows/issues/3166)) ([2192493](https://github.com/stranske/Workflows/commit/21924937d717f8237c591a5b6e801c017e59dae3))
+* **sync:** close docs drift review cluster ([#3167](https://github.com/stranske/Workflows/issues/3167)) ([f49a694](https://github.com/stranske/Workflows/commit/f49a6942b81ab8bcd979f04d45aa44616a5e47cf))
+* **sync:** preserve immutable Maint 71 handoff bindings ([269939b](https://github.com/stranske/Workflows/commit/269939b52f40447bbaebd3afad2efee6c8fca88d))
+
 ## [1.28.1](https://github.com/stranske/Workflows/compare/v1.28.0...v1.28.1) (2026-08-22)
 
 
