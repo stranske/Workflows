@@ -841,15 +841,29 @@ jobs:
         id: auth
         env:
           TOKEN_OUTPUT: ${{ steps.token-client.outputs.token || steps.token-legacy.outputs.token }}
+          APP_SLUG: >-
+            ${{ steps.token-client.outputs.app-slug || steps.token-legacy.outputs.app-slug }}
           SERVICE_PAT: ${{ secrets.service_bot_pat }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           if [ -n "${TOKEN_OUTPUT}" ]; then
-            echo "token=${TOKEN_OUTPUT}" >> "$GITHUB_OUTPUT"
+            {
+              echo "token=${TOKEN_OUTPUT}"
+              echo "auth_kind=app-installation"
+              echo "controller_login=${APP_SLUG}[bot]"
+            } >> "$GITHUB_OUTPUT"
           elif [ -n "${SERVICE_PAT}" ]; then
-            echo "token=${SERVICE_PAT}" >> "$GITHUB_OUTPUT"
+            {
+              echo "token=${SERVICE_PAT}"
+              echo "auth_kind=service-pat"
+              echo "controller_login="
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
+            {
+              echo "token=${GITHUB_TOKEN}"
+              echo "auth_kind=github-token"
+              echo "controller_login=github-actions[bot]"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout retry helpers
@@ -879,6 +893,8 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
           AGENT: ${{ needs.collect.outputs.agent }}
           COMMENTS_COUNT: ${{ needs.collect.outputs.comments_count }}
+          AUTH_KIND: ${{ steps.auth.outputs.auth_kind }}
+          CONTROLLER_LOGIN: ${{ steps.auth.outputs.controller_login }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -897,6 +913,8 @@ jobs:
             const count = process.env.COMMENTS_COUNT || '0';
             const comments = JSON.parse(process.env.COMMENTS_JSON || '[]');
             const headSha = process.env.HEAD_SHA || '';
+            const authKind = process.env.AUTH_KIND || '';
+            const controllerLogin = process.env.CONTROLLER_LOGIN || '';
             const {owner, repo} = context.repo;
             const botHandler = require('./.github/scripts/bot-comment-handler.js');
             const getBotCommentAssignees = botHandler.getBotCommentAssignees;
@@ -936,10 +954,16 @@ jobs:
               github.rest.issues.listComments,
               { owner, repo, issue_number: prNumber, per_page: 100 }
             );
-            const { data: authenticated } = await withRetry(() =>
-              github.rest.users.getAuthenticated()
-            );
-            const authenticatedLogin = String(authenticated?.login || '').toLowerCase();
+            // Installation tokens cannot call the user-only authenticated-user
+            // endpoint. App and GITHUB_TOKEN identities are deterministic; only
+            // a user PAT needs the authenticated-user lookup.
+            let authenticatedLogin = String(controllerLogin).toLowerCase();
+            if (authKind === 'service-pat') {
+              const { data: authenticated } = await withRetry(() =>
+                github.rest.users.getAuthenticated()
+              );
+              authenticatedLogin = String(authenticated?.login || '').toLowerCase();
+            }
             if (!authenticatedLogin) {
               core.setOutput('triggered', 'false');
               core.setFailed('Could not determine the controller comment identity');
@@ -973,19 +997,22 @@ jobs:
             // Reassignment creates a fresh trigger even when a prior attempt left the
             // connector assigned. The exact context above is durable before either edge.
             try {
-              const { data: pr } = await withRetry(() => github.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: prNumber,
-              }));
-              if (!headSha || pr.head?.sha !== headSha) {
-                core.setOutput('triggered', 'false');
-                core.setFailed(
-                  `PR head changed after collection: expected ${headSha || 'missing'}, ` +
-                  `observed ${pr.head?.sha || 'missing'}. Recollect before assignment.`
-                );
-                return;
-              }
+              const assertExactHead = async (stage) => {
+                const { data: currentPr } = await withRetry(() => github.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                }));
+                if (!headSha || currentPr.head?.sha !== headSha) {
+                  throw new Error(
+                    `PR head changed ${stage}: expected ${headSha || 'missing'}, ` +
+                    `observed ${currentPr.head?.sha || 'missing'}. ` +
+                    'Recollect before assignment.'
+                  );
+                }
+                return currentPr;
+              };
+              const pr = await assertExactHead('before assignment');
               const assigned = new Set(
                 (pr.assignees || []).map(item => String(item.login || '').toLowerCase())
               );
@@ -998,6 +1025,7 @@ jobs:
                   assignees: alreadyAssigned,
                 }));
                 core.info(`Removed stale assignment for ${alreadyAssigned.join(', ')}`);
+                await assertExactHead('after stale assignment removal');
               }
               await withRetry(() => github.rest.issues.addAssignees({
                 owner,

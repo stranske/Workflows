@@ -371,6 +371,14 @@ def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatc
     dispatch_script = next(
         step for step in workflow["jobs"]["dispatch"]["steps"] if step.get("id") == "dispatch"
     )["with"]["script"]
+    auth_step = next(
+        step for step in workflow["jobs"]["dispatch"]["steps"] if step.get("id") == "auth"
+    )
+    assert "APP_SLUG" in auth_step["env"]
+    assert "auth_kind=app-installation" in auth_step["run"]
+    assert "controller_login=${APP_SLUG}[bot]" in auth_step["run"]
+    assert "auth_kind=service-pat" in auth_step["run"]
+    assert "controller_login=github-actions[bot]" in auth_step["run"]
     context_write = min(
         index
         for needle in ("github.rest.issues.updateComment", "github.rest.issues.createComment")
@@ -382,10 +390,17 @@ def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatc
     assert "buildBotCommentDispatchComment" in dispatch_script
     assert "comments" in dispatch_script
     assert "headSha" in dispatch_script
+    assert "authKind === 'service-pat'" in dispatch_script
     assert "github.rest.users.getAuthenticated" in dispatch_script
     assert "String(c.user?.login || '').toLowerCase() === authenticatedLogin" in dispatch_script
-    head_revalidation = dispatch_script.index("pr.head?.sha !== headSha")
+    head_revalidation = dispatch_script.index("assertExactHead('before assignment')")
     assert context_write < head_revalidation < assignment
+    remove_assignment = dispatch_script.index("github.rest.issues.removeAssignees")
+    post_remove_revalidation = dispatch_script.index(
+        "assertExactHead('after stale assignment removal')"
+    )
+    assert remove_assignment < post_remove_revalidation < assignment
+    assert "currentPr.head?.sha !== headSha" in dispatch_script
     assert "Recollect before assignment" in dispatch_script
 
     for job in workflow["jobs"].values():

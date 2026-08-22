@@ -70,13 +70,16 @@ The agent is instructed to:
 The handler never treats a generic top-level review, a successful workflow, or
 an agent assignment as completion. It writes the exact head, thread IDs, URLs,
 and bounded acceptance criteria to the durable handler comment before assigning
-the agent. It updates only a marker comment owned by its current authenticated
-identity and creates a new one when credentials changed, so an uneditable legacy
-comment cannot suppress dispatch. Immediately before assignment it re-reads the
-PR head and aborts if the collected SHA is stale. When the agent is already
-assigned from an earlier attempt, the handler removes and restores that
-assignment only after those checks, so the new trigger cannot start from stale
-or missing instructions.
+the agent. It derives an App-token comment identity from the token action's App
+slug, uses the authenticated-user endpoint only for a user PAT, and treats the
+default workflow token as `github-actions[bot]`. It updates only a marker comment
+owned by that identity and creates a new one when credentials changed, so an
+uneditable legacy comment cannot suppress dispatch. Immediately before
+assignment it re-reads the PR head and aborts if the collected SHA is stale.
+When the agent is already assigned from an earlier attempt, the handler removes
+the stale assignment, revalidates the exact head again, and only then restores
+the assignment, so the new trigger cannot start from stale or missing
+instructions.
 
 ### After Processing
 
