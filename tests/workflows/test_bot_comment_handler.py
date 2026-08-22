@@ -22,6 +22,28 @@ def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     assert "chatgpt-codex-connector[bot]" in bot_authors
 
 
+def test_reusable_bot_comment_handler_revalidates_active_threads_before_dispatch() -> None:
+    workflow_path = ROOT / ".github/workflows/reusable-bot-comment-handler.yml"
+    workflow = _load_yaml(workflow_path)
+    collect_outputs = workflow["jobs"]["collect"]["outputs"]
+    dispatch_step = next(
+        step
+        for step in workflow["jobs"]["dispatch"]["steps"]
+        if step.get("name") == "Assign agent and post context comment"
+    )
+    dispatch_script = dispatch_step["with"]["script"]
+
+    assert collect_outputs["active_thread_fingerprint"] == (
+        "${{ steps.collect.outputs.active_thread_fingerprint }}"
+    )
+    assert dispatch_step["env"]["ACTIVE_THREAD_FINGERPRINT"] == (
+        "${{ needs.collect.outputs.active_thread_fingerprint }}"
+    )
+    assert "reviewThreads(first: 100, after: $cursor)" in dispatch_script
+    assert "assertExactDispatchSnapshot('before assignment')" in dispatch_script
+    assert "assertExactDispatchSnapshot('after stale assignment removal')" in dispatch_script
+
+
 def test_reusable_bot_comment_handler_has_manual_terminal_probe() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
     triggers = workflow.get("on") or workflow.get(True) or {}
@@ -192,6 +214,29 @@ def test_bot_comment_handler_callers_pass_app_client_id() -> None:
             assert secrets.get("gh_app_private_key") == expected_secrets["gh_app_private_key"]
 
 
+def test_bot_comment_handler_callers_retain_manual_trigger_after_dispatch_abort() -> None:
+    canonical = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
+    consolidated = _load_yaml(
+        ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml"
+    )
+    reusable = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
+    reusable_triggers = reusable.get("on", reusable.get(True))
+    reusable_outputs = reusable_triggers["workflow_call"]["outputs"]
+
+    assert "comments_found" in reusable_outputs
+    assert "agent_triggered" in reusable_outputs
+
+    canonical_if = canonical["jobs"]["cleanup"]["if"]
+    assert "needs.handle.result == 'success'" in canonical_if
+    assert "needs.handle.outputs.comments_found != 'true'" in canonical_if
+    assert "needs.handle.outputs.agent_triggered == 'true'" in canonical_if
+
+    consolidated_if = consolidated["jobs"]["cleanup_bot_comment_label"]["if"]
+    assert "needs.bot_comments.result == 'success'" in consolidated_if
+    assert "needs.bot_comments.outputs.comments_found != 'true'" in consolidated_if
+    assert "needs.bot_comments.outputs.agent_triggered == 'true'" in consolidated_if
+
+
 def test_canonical_bot_comment_handler_direct_app_tokens_prefer_client_id() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
     resolve_job = workflow["jobs"]["resolve"]
@@ -346,3 +391,77 @@ def test_reusable_bot_comment_handler_dismisses_ignored_reviews() -> None:
     script = dismiss_step.get("with", {}).get("script", "")
     assert "autoDismissReviewComments" in script
     assert "bot-comment-dismiss.js" in script
+
+
+def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatch() -> None:
+    workflow_path = ROOT / ".github/workflows/reusable-bot-comment-handler.yml"
+    workflow = _load_yaml(workflow_path)
+    workflow_text = workflow_path.read_text(encoding="utf-8")
+
+    triggers = workflow.get("on", workflow.get(True))
+    dispatch_inputs = triggers["workflow_dispatch"]["inputs"]
+    call_inputs = triggers["workflow_call"]["inputs"]
+    assert dispatch_inputs["skip_if_human_replied"]["default"] is False
+    assert call_inputs["skip_if_human_replied"]["default"] is False
+
+    assert "reviewThreads(first: 100, after: $cursor)" in workflow_text
+    assert "comments(first: 100, after: $cursor)" in workflow_text
+    assert "threadCommentsQuery" in workflow_text
+    assert "exceeds 100 comments" not in workflow_text
+    assert "isResolved" in workflow_text
+    assert "isOutdated" in workflow_text
+    assert "chatgpt-codex-connector,chatgpt-codex-connector[bot]" in workflow_text
+    assert "github.rest.pulls.listReviewComments" not in workflow_text
+
+    dispatch_script = next(
+        step for step in workflow["jobs"]["dispatch"]["steps"] if step.get("id") == "dispatch"
+    )["with"]["script"]
+    auth_step = next(
+        step for step in workflow["jobs"]["dispatch"]["steps"] if step.get("id") == "auth"
+    )
+    assert "APP_SLUG" in auth_step["env"]
+    assert "auth_kind=app-installation" in auth_step["run"]
+    assert 'if [ -z "${APP_SLUG}" ]' in auth_step["run"]
+    assert "without an app-slug output" in auth_step["run"]
+    assert "controller_login=${APP_SLUG}[bot]" in auth_step["run"]
+    assert "auth_kind=service-pat" in auth_step["run"]
+    assert "controller_login=github-actions[bot]" in auth_step["run"]
+    context_write = min(
+        index
+        for needle in ("github.rest.issues.updateComment", "github.rest.issues.createComment")
+        if (index := dispatch_script.find(needle)) >= 0
+    )
+    assignment = dispatch_script.index("github.rest.issues.addAssignees")
+    assert context_write < assignment
+    assert "github.rest.issues.removeAssignees" in dispatch_script
+    assert "buildBotCommentDispatchComments" in dispatch_script
+    assert "controllerBodies.entries()" in dispatch_script
+    assert "bot-comment-handler-retired" in dispatch_script
+    assert "Fallback controller comment exceeds" in dispatch_script
+    assert "comments" in dispatch_script
+    assert "headSha" in dispatch_script
+    assert "authKind === 'service-pat'" in dispatch_script
+    assert "github.rest.users.getAuthenticated" in dispatch_script
+    assert "String(c.user?.login || '').toLowerCase() === authenticatedLogin" in dispatch_script
+    snapshot_revalidation = dispatch_script.index(
+        "assertExactDispatchSnapshot('before assignment')"
+    )
+    assert context_write < snapshot_revalidation < assignment
+    remove_assignment = dispatch_script.index("github.rest.issues.removeAssignees")
+    post_remove_revalidation = dispatch_script.index(
+        "assertExactDispatchSnapshot('after stale assignment removal')"
+    )
+    assert remove_assignment < post_remove_revalidation < assignment
+    assert "activeThreadFingerprint" in dispatch_script
+    assert "Active review-thread set changed" in dispatch_script
+    assert "observedHeadSha !== headSha" in dispatch_script
+    assert "Recollect before assignment" in dispatch_script
+
+    for job in workflow["jobs"].values():
+        for step in job.get("steps", []):
+            script = step.get("with", {}).get("script", "")
+            if not script:
+                continue
+            assert "${{ inputs." not in script
+            assert "${{ needs." not in script
+            assert "${{ steps." not in script

@@ -39,12 +39,12 @@ on:
         type: string
         default: >-
           Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],
-          chatgpt-codex-connector[bot]
+          chatgpt-codex-connector,chatgpt-codex-connector[bot]
       skip_if_human_replied:
-        description: 'Skip comments where a human has already replied'
+        description: 'Legacy option: skip active threads after any non-bot reply'
         required: false
         type: boolean
-        default: true
+        default: false
       ignored_paths:
         description: 'Comma-separated list of path prefixes to ignore in bot review comments'
         required: false
@@ -69,12 +69,12 @@ on:
         type: string
         default: >-
           Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],
-          chatgpt-codex-connector[bot]
+          chatgpt-codex-connector,chatgpt-codex-connector[bot]
       skip_if_human_replied:
-        description: 'Skip comments where a human has already replied'
+        description: 'Legacy option: skip active threads after any non-bot reply'
         required: false
         type: boolean
-        default: true
+        default: false
       ignored_paths:
         description: 'Comma-separated list of path prefixes to ignore in bot review comments'
         required: false
@@ -125,6 +125,8 @@ jobs:
       comments_found: ${{ steps.collect.outputs.found }}
       comments_count: ${{ steps.collect.outputs.count }}
       comments_json: ${{ steps.collect.outputs.comments }}
+      head_sha: ${{ steps.collect.outputs.head_sha }}
+      active_thread_fingerprint: ${{ steps.collect.outputs.active_thread_fingerprint }}
       agent: ${{ steps.agent.outputs.agent }}
       agent_workflow: ${{ steps.agent.outputs.workflow }}
       app_auth_mode: ${{ steps.app-creds.outputs.app_auth_mode }}
@@ -269,6 +271,8 @@ jobs:
       - name: Detect agent from PR labels
         id: agent
         uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -282,7 +286,7 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-            const prNumber = parseInt('${{ inputs.pr_number }}');
+            const prNumber = Number.parseInt(process.env.PR_NUMBER || '', 10);
 
             let pr;
             try {
@@ -329,6 +333,11 @@ jobs:
       - name: Collect unresolved bot comments
         id: collect
         uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          BOT_AUTHORS: ${{ inputs.bot_authors }}
+          SKIP_IF_HUMAN_REPLIED: ${{ inputs.skip_if_human_replied }}
+          IGNORED_PATHS: ${{ inputs.ignored_paths }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -353,14 +362,15 @@ jobs:
                     'Terminal disposition helper unavailable.',
                 };
             const botHandler = require('./.github/scripts/bot-comment-handler.js');
-            const collectUnresolvedBotComments = botHandler.collectUnresolvedBotComments;
+            const collectActiveBotReviewThreads = botHandler.collectActiveBotReviewThreads;
+            const boundBotReviewThreadPayload = botHandler.boundBotReviewThreadPayload;
             const buildReviewThreadTerminalDisposition =
               botHandler.buildReviewThreadTerminalDisposition;
             const { withRetry } = retryHelpers;
-            const prNumber = parseInt('${{ inputs.pr_number }}');
-            const botAuthors = '${{ inputs.bot_authors }}';
-            const skipIfHumanReplied = ${{ inputs.skip_if_human_replied }};
-            const ignoredPaths = '${{ inputs.ignored_paths }}'
+            const prNumber = Number.parseInt(process.env.PR_NUMBER || '', 10);
+            const botAuthors = process.env.BOT_AUTHORS || '';
+            const skipIfHumanReplied = process.env.SKIP_IF_HUMAN_REPLIED === 'true';
+            const ignoredPaths = (process.env.IGNORED_PATHS || '')
               .split(',')
               .map(s => s.trim())
               .filter(Boolean);
@@ -368,70 +378,210 @@ jobs:
             console.log(`Collecting comments for PR #${prNumber}`);
             console.log(`Bot authors: ${botAuthors}`);
 
-            // Get all review comments
-            const { data: comments } = await withRetry(() => github.rest.pulls.listReviewComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber,
-              per_page: 100
-            }));
+            // REST review comments do not expose thread resolution or outdated state.
+            // Query the complete active review-thread set and paginate long nested
+            // comment connections so one busy thread cannot hide the rest.
+            const query = `
+              query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    headRefOid
+                    reviewThreads(first: 100, after: $cursor) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes {
+                        id
+                        isResolved
+                        isOutdated
+                        path
+                        line
+                        comments(first: 100) {
+                          pageInfo { hasNextPage endCursor }
+                          nodes {
+                            id
+                            databaseId
+                            body
+                            url
+                            diffHunk
+                            line
+                            originalLine
+                            author { login }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+            const threadCommentsQuery = `
+              query($threadId: ID!, $cursor: String) {
+                node(id: $threadId) {
+                  ... on PullRequestReviewThread {
+                    comments(first: 100, after: $cursor) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes {
+                        id
+                        databaseId
+                        body
+                        url
+                        diffHunk
+                        line
+                        originalLine
+                        author { login }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+            const reviewThreads = [];
+            let cursor = null;
+            let headSha = '';
+            do {
+              const data = await withRetry(() => github.graphql(query, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                number: prNumber,
+                cursor,
+              }));
+              const pullRequest = data.repository?.pullRequest;
+              if (!pullRequest) {
+                throw new Error(`PR #${prNumber} was not returned by GraphQL`);
+              }
+              if (headSha && pullRequest.headRefOid !== headSha) {
+                throw new Error(
+                  `PR head changed during collection: ${headSha} -> ` +
+                  `${pullRequest.headRefOid}`
+                );
+              }
+              headSha = pullRequest.headRefOid;
+              const page = pullRequest.reviewThreads;
+              for (const thread of page.nodes || []) {
+                let commentsPage = thread.comments;
+                const comments = [...(commentsPage?.nodes || [])];
+                while (commentsPage?.pageInfo?.hasNextPage) {
+                  const commentData = await withRetry(() => github.graphql(
+                    threadCommentsQuery,
+                    {
+                      threadId: thread.id,
+                      cursor: commentsPage.pageInfo.endCursor,
+                    }
+                  ));
+                  commentsPage = commentData.node?.comments;
+                  if (!commentsPage) {
+                    throw new Error(`Review thread ${thread.id} pagination failed`);
+                  }
+                  comments.push(...(commentsPage.nodes || []));
+                }
+                reviewThreads.push({
+                  ...thread,
+                  comments: {
+                    nodes: comments,
+                    pageInfo: commentsPage?.pageInfo || {
+                      hasNextPage: false,
+                      endCursor: null,
+                    },
+                  },
+                });
+              }
+              cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+            } while (cursor);
 
             let botComments;
-            if (typeof collectUnresolvedBotComments === 'function') {
-              botComments = collectUnresolvedBotComments(comments, {
+            if (typeof collectActiveBotReviewThreads === 'function') {
+              botComments = collectActiveBotReviewThreads(reviewThreads, {
                 botAuthors,
                 skipIfHumanReplied,
                 ignoredPaths,
               });
             } else {
-              const botAuthorList = botAuthors.split(',').map(s => s.trim());
-              botComments = [];
-              const processedThreads = new Set();
-              for (const comment of comments) {
-                if (
-                  !botAuthorList.some(
-                    bot => comment.user.login.toLowerCase() === bot.toLowerCase()
-                  )
-                ) {
-                  continue;
-                }
-                const commentPath = comment.path || '';
-                if (ignoredPaths.some(prefix => commentPath.startsWith(prefix))) {
-                  continue;
-                }
-                const threadId = comment.in_reply_to_id || comment.id;
-                if (processedThreads.has(threadId)) {
-                  continue;
-                }
-                if (skipIfHumanReplied) {
-                  const threadReplies = comments.filter(c =>
-                    (c.in_reply_to_id === comment.id || c.in_reply_to_id === threadId) &&
-                    !botAuthorList.some(bot => c.user.login.toLowerCase() === bot.toLowerCase())
-                  );
-                  if (threadReplies.length > 0) {
-                    processedThreads.add(threadId);
-                    continue;
-                  }
-                }
-                processedThreads.add(threadId);
-                botComments.push({
-                  id: comment.id,
-                  path: comment.path,
-                  line: comment.line ?? comment.original_line,
-                  body: comment.body,
-                  author: comment.user.login,
-                  url: comment.html_url,
-                  diff_hunk: comment.diff_hunk
-                });
+              const botAuthorSet = new Set(
+                botAuthors.split(',').map(value => value.trim().toLowerCase()).filter(Boolean)
+              );
+              botComments = reviewThreads
+                .filter(thread => !thread.isResolved && !thread.isOutdated)
+                .filter(thread => !ignoredPaths.some(
+                  prefix => (thread.path || '').startsWith(prefix)
+                ))
+                .map(thread => ({ thread, comments: thread.comments?.nodes || [] }))
+                .filter(({ comments }) => botAuthorSet.has(
+                  String(comments[0]?.author?.login || '').toLowerCase()
+                ))
+                .filter(({ comments }) => !skipIfHumanReplied || !comments.slice(1).some(
+                  comment => !botAuthorSet.has(String(comment.author?.login || '').toLowerCase())
+                ))
+                .map(({ thread, comments }) => ({
+                  id: comments[0]?.databaseId || comments[0]?.id,
+                  thread_id: thread.id,
+                  path: thread.path,
+                  line: thread.line ?? comments[0]?.line ?? comments[0]?.originalLine,
+                  body: comments[0]?.body,
+                  author: comments[0]?.author?.login,
+                  url: comments[0]?.url,
+                  diff_hunk: comments[0]?.diffHunk,
+                  replies: comments.slice(1).map(comment => ({
+                    author: comment?.author?.login || '',
+                    body: comment?.body || '',
+                    url: comment?.url || '',
+                  })),
+                }));
+            }
+
+            if (typeof boundBotReviewThreadPayload === 'function') {
+              botComments = boundBotReviewThreadPayload(botComments);
+            } else {
+              // Rollout-safe fallback for callers still checking out an older helper.
+              const textFields = [];
+              botComments = botComments.map(comment => {
+                const bounded = {
+                  ...comment,
+                  body: '',
+                  diff_hunk: '',
+                  replies: (comment.replies || []).map(reply => ({ ...reply, body: '' })),
+                };
+                textFields.push({ target: bounded, key: 'body', value: comment.body });
+                textFields.push({ target: bounded, key: 'diff_hunk', value: comment.diff_hunk });
+                bounded.replies.forEach((reply, index) => textFields.push({
+                  target: reply,
+                  key: 'body',
+                  value: comment.replies[index]?.body,
+                }));
+                return bounded;
+              });
+              const maxOutputLength = 450000;
+              let serializedLength = JSON.stringify(botComments).length;
+              if (serializedLength > maxOutputLength) {
+                throw new Error('Bot review-thread metadata exceeds the job-output budget');
               }
+              textFields.forEach((field, index) => {
+                const remainingFields = textFields.length - index;
+                const available = Math.floor(
+                  (maxOutputLength - serializedLength) / remainingFields
+                );
+                const raw = String(field.value || '');
+                let value = raw.slice(0, Math.min(raw.length, available, 4000));
+                while (JSON.stringify(value).length - 2 > available) {
+                  value = value.slice(0, Math.floor(value.length / 2));
+                }
+                field.target[field.key] = value;
+                serializedLength += JSON.stringify(value).length - 2;
+              });
             }
 
             const found = botComments.length > 0;
+            const activeThreadFingerprint = JSON.stringify(
+              reviewThreads
+                .filter(thread => !thread.isResolved && !thread.isOutdated)
+                .map(thread => thread.id)
+                .sort()
+            );
             core.setOutput('found', found ? 'true' : 'false');
             core.setOutput('count', botComments.length);
             core.setOutput('comments', JSON.stringify(botComments));
+            core.setOutput('head_sha', headSha);
+            core.setOutput('active_thread_fingerprint', activeThreadFingerprint);
 
-            console.log(`Found ${botComments.length} unresolved bot comments`);
+            console.log(`Found ${botComments.length} active bot review threads`);
 
             if (botComments.length > 0) {
               console.log('Comments to address:');
@@ -458,8 +608,8 @@ jobs:
                   pr_number: prNumber,
                   disposition: found ? 'unresolved-bot-comments' : 'no-unresolved-bot-comments',
                   reason: found
-                    ? 'Bot review comments remain unresolved and agent handling is eligible.'
-                    : 'No unresolved bot review comments matched the handler filters.',
+                    ? 'Active bot review threads remain and agent handling is eligible.'
+                    : 'No active bot review threads matched the handler filters.',
                   workflow: context.workflow,
                   run_id: context.runId,
                   run_attempt: context.runAttempt,
@@ -480,6 +630,9 @@ jobs:
       - name: Auto-dismiss review comments on ignored paths
         if: steps.collect.outputs.found == 'true'
         uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          IGNORED_PATHS: ${{ inputs.ignored_paths }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -495,8 +648,8 @@ jobs:
               task: 'bot-comment-dismiss',
               capabilities: ['pull-requests:write'],
             });
-            const prNumber = parseInt('${{ inputs.pr_number }}');
-            const ignoredPaths = '${{ inputs.ignored_paths }}'
+            const prNumber = Number.parseInt(process.env.PR_NUMBER || '', 10);
+            const ignoredPaths = (process.env.IGNORED_PATHS || '')
               .split(',')
               .map(s => s.trim())
               .filter(Boolean);
@@ -529,16 +682,18 @@ jobs:
         uses: actions/github-script@v9
         env:
           COMMENTS_JSON: ${{ steps.collect.outputs.comments }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          AGENT: ${{ steps.agent.outputs.agent }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
             const comments = JSON.parse(process.env.COMMENTS_JSON);
             const count = comments.length;
-            const agent = '${{ steps.agent.outputs.agent }}';
-            const dryRun = ${{ inputs.dry_run }};
+            const agent = process.env.AGENT || '';
+            const dryRun = process.env.DRY_RUN === 'true';
 
             let summary = `## 🤖 Bot Comment Handler\n\n`;
-            summary += `Found **${count}** unresolved bot comment(s) to address.\n\n`;
+            summary += `Found **${count}** active bot review thread(s) to address.\n\n`;
             summary += `| File | Line | Bot | Preview |\n`;
             summary += `|------|------|-----|--------|\n`;
 
@@ -596,6 +751,7 @@ jobs:
         id: prompt
         env:
           COMMENTS_JSON: ${{ needs.collect.outputs.comments_json }}
+          HEAD_SHA: ${{ needs.collect.outputs.head_sha }}
         run: |
           set -euo pipefail
 
@@ -655,7 +811,7 @@ jobs:
           const comments = JSON.parse(process.env.COMMENTS_JSON || '[]');
           fs.writeFileSync(
             '.github/codex/prompts/fix_bot_comments_dynamic.md',
-            buildBotCommentsPrompt(comments)
+            buildBotCommentsPrompt(comments, { headSha: process.env.HEAD_SHA })
           );
           NODE
 
@@ -740,15 +896,33 @@ jobs:
         id: auth
         env:
           TOKEN_OUTPUT: ${{ steps.token-client.outputs.token || steps.token-legacy.outputs.token }}
+          APP_SLUG: >-
+            ${{ steps.token-client.outputs.app-slug || steps.token-legacy.outputs.app-slug }}
           SERVICE_PAT: ${{ secrets.service_bot_pat }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           if [ -n "${TOKEN_OUTPUT}" ]; then
-            echo "token=${TOKEN_OUTPUT}" >> "$GITHUB_OUTPUT"
+            if [ -z "${APP_SLUG}" ]; then
+              echo "GitHub App token was minted without an app-slug output" >&2
+              exit 1
+            fi
+            {
+              echo "token=${TOKEN_OUTPUT}"
+              echo "auth_kind=app-installation"
+              echo "controller_login=${APP_SLUG}[bot]"
+            } >> "$GITHUB_OUTPUT"
           elif [ -n "${SERVICE_PAT}" ]; then
-            echo "token=${SERVICE_PAT}" >> "$GITHUB_OUTPUT"
+            {
+              echo "token=${SERVICE_PAT}"
+              echo "auth_kind=service-pat"
+              echo "controller_login="
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
+            {
+              echo "token=${GITHUB_TOKEN}"
+              echo "auth_kind=github-token"
+              echo "controller_login=github-actions[bot]"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout retry helpers
@@ -772,6 +946,15 @@ jobs:
       - name: Assign agent and post context comment
         id: dispatch
         uses: actions/github-script@v9
+        env:
+          COMMENTS_JSON: ${{ needs.collect.outputs.comments_json }}
+          HEAD_SHA: ${{ needs.collect.outputs.head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          AGENT: ${{ needs.collect.outputs.agent }}
+          COMMENTS_COUNT: ${{ needs.collect.outputs.comments_count }}
+          ACTIVE_THREAD_FINGERPRINT: ${{ needs.collect.outputs.active_thread_fingerprint }}
+          AUTH_KIND: ${{ steps.auth.outputs.auth_kind }}
+          CONTROLLER_LOGIN: ${{ steps.auth.outputs.controller_login }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -785,13 +968,18 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry, paginateWithRetry } = retryHelpers;
-            const prNumber = parseInt('${{ inputs.pr_number }}');
-            const agent = '${{ needs.collect.outputs.agent }}';
-            const count = '${{ needs.collect.outputs.comments_count }}';
+            const prNumber = Number.parseInt(process.env.PR_NUMBER || '', 10);
+            const agent = process.env.AGENT || '';
+            const count = process.env.COMMENTS_COUNT || '0';
+            const comments = JSON.parse(process.env.COMMENTS_JSON || '[]');
+            const headSha = process.env.HEAD_SHA || '';
+            const activeThreadFingerprint = process.env.ACTIVE_THREAD_FINGERPRINT || '';
+            const authKind = process.env.AUTH_KIND || '';
+            const controllerLogin = process.env.CONTROLLER_LOGIN || '';
             const {owner, repo} = context.repo;
             const botHandler = require('./.github/scripts/bot-comment-handler.js');
             const getBotCommentAssignees = botHandler.getBotCommentAssignees;
-            const buildBotCommentDispatchComment = botHandler.buildBotCommentDispatchComment;
+            const buildBotCommentDispatchComments = botHandler.buildBotCommentDispatchComments;
             const fallbackAssignees = {
               'codex': ['chatgpt-codex-connector'],
               'claude': ['copilot'],
@@ -801,43 +989,53 @@ jobs:
               ? getBotCommentAssignees(agent)
               : (fallbackAssignees[agent] || fallbackAssignees['codex']);
 
-            // Assign the agent to the PR (this is what triggers Codex CLI properly)
-            try {
-              await withRetry(() => github.rest.issues.addAssignees({
-                owner,
-                repo,
-                issue_number: prNumber,
-                assignees
-              }));
-              core.info(`Assigned ${assignees.join(', ')} to PR #${prNumber}`);
-            } catch (error) {
-              core.setOutput('triggered', 'false');
-              core.setFailed(`Failed to assign agent: ${error.message}`);
-              return;
-            }
-
-            // Post informational comment (without @mention to avoid triggering connector twice)
-            // Use HTML marker for deduplication.
-            // Update existing comment instead of creating duplicates.
+            // Persist exact-head, thread-specific context before assignment. Assignment
+            // is the trigger, so reversing this order can start a context-free generic review.
             const marker = '<!-- bot-comment-handler -->';
-            const comment = typeof buildBotCommentDispatchComment === 'function'
-              ? buildBotCommentDispatchComment({ agent, count })
-              : [
-                  marker,
-                  '## 🤖 Bot Comment Handler',
-                  '',
-                  `- Agent: ${agent}`,
-                  `- Bot comments to address: ${count}`,
-                  '',
-                  'The agent has been assigned to this PR to address the bot review ' +
-                  'comments.',
-                  '',
-                  '### Instructions for agent',
-                  '1. Implement suggested fixes that improve the code',
-                  '2. Skip suggestions that don\'t apply (note why in your response)',
-                  '',
-                  'The bot comment handler workflow has prepared context in the artifacts.'
-                ].join('\n');
+            const buildFallbackDispatchComments = () => {
+              const maxLength = 60000;
+              const entries = comments.map(item => {
+                const threadId = String(item.thread_id || item.id || 'unknown-thread')
+                  .slice(0, 200);
+                const path = String(item.path || 'unknown').slice(0, 260);
+                const url = String(item.url || 'URL unavailable').slice(0, 500);
+                const criterion = String(item.body || 'Read the linked review thread')
+                  .replace(/\s+/g, ' ').slice(0, 350);
+                return `- ${threadId} — ${path}:${item.line ?? 'N/A'}\n` +
+                  `  - ${url}\n  - Acceptance criterion: ${criterion}`;
+              });
+              const pages = [[]];
+              let length = 0;
+              for (const entry of entries) {
+                if (pages.at(-1).length > 0 && length + entry.length + 2 > 58000) {
+                  pages.push([]);
+                  length = 0;
+                }
+                pages.at(-1).push(entry);
+                length += entry.length + 2;
+              }
+              return pages.map((page, index) => [
+                marker,
+                `<!-- bot-comment-handler-part:${index + 1}/${pages.length} -->`,
+                '## 🤖 Bot Comment Handler',
+                '',
+                `- Agent: ${agent}`,
+                `- Bot comments to address: ${count}`,
+                `- Exact PR head: ${headSha || 'unavailable'}`,
+                `- Controller part: ${index + 1} of ${pages.length}`,
+                '',
+                ...page.flatMap(entry => [entry, '']),
+                'Address or disposition every linked thread. A generic review is not completion.'
+              ].join('\n')).map(body => {
+                if (body.length > maxLength) {
+                  throw new Error(`Fallback controller comment exceeds ${maxLength} characters`);
+                }
+                return body;
+              });
+            };
+            const controllerBodies = typeof buildBotCommentDispatchComments === 'function'
+              ? buildBotCommentDispatchComments({ agent, count, comments, headSha })
+              : buildFallbackDispatchComments();
 
             // Find existing bot-comment-handler comment to avoid duplicates
             const existingComments = await paginateWithRetry(
@@ -845,30 +1043,153 @@ jobs:
               github.rest.issues.listComments,
               { owner, repo, issue_number: prNumber, per_page: 100 }
             );
-            const existing = existingComments.find(c => c.body && c.body.includes(marker));
+            // Installation tokens cannot call the user-only authenticated-user
+            // endpoint. App and GITHUB_TOKEN identities are deterministic; only
+            // a user PAT needs the authenticated-user lookup.
+            let authenticatedLogin = String(controllerLogin).toLowerCase();
+            if (authKind === 'service-pat') {
+              const { data: authenticated } = await withRetry(() =>
+                github.rest.users.getAuthenticated()
+              );
+              authenticatedLogin = String(authenticated?.login || '').toLowerCase();
+            }
+            if (!authenticatedLogin) {
+              core.setOutput('triggered', 'false');
+              core.setFailed('Could not determine the controller comment identity');
+              return;
+            }
+            const existing = existingComments.filter(c =>
+              c.body?.includes(marker)
+              && !c.body?.includes('<!-- bot-comment-handler-retired -->')
+              && String(c.user?.login || '').toLowerCase() === authenticatedLogin
+            ).sort((left, right) => left.id - right.id);
 
-            if (existing) {
+            for (const [index, body] of controllerBodies.entries()) {
+              const prior = existing[index];
+              if (prior) {
+                await withRetry(() => github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: prior.id,
+                  body,
+                }));
+                core.info(`Updated controller part ${index + 1} in comment #${prior.id}`);
+              } else {
+                await withRetry(() => github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body,
+                }));
+                core.info(`Created controller part ${index + 1} on PR #${prNumber}`);
+              }
+            }
+            for (const stale of existing.slice(controllerBodies.length)) {
               await withRetry(() => github.rest.issues.updateComment({
                 owner,
                 repo,
-                comment_id: existing.id,
-                body: comment
+                comment_id: stale.id,
+                body: [
+                  marker,
+                  '<!-- bot-comment-handler-retired -->',
+                  'This controller part was superseded by a smaller exact-head thread set.'
+                ].join('\n'),
               }));
-              core.info(
-                `Updated existing bot-comment-handler comment #${existing.id} on PR #${prNumber}`
+              core.info(`Retired stale controller comment #${stale.id}`);
+            }
+
+            // Reassignment creates a fresh trigger even when a prior attempt left the
+            // connector assigned. The exact context above is durable before either edge.
+            try {
+              const activeThreadsQuery = `
+                query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      headRefOid
+                      reviewThreads(first: 100, after: $cursor) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes { id isResolved isOutdated }
+                      }
+                    }
+                  }
+                }
+              `;
+              const assertExactDispatchSnapshot = async (stage) => {
+                const threadIds = [];
+                let cursor = null;
+                let observedHeadSha = '';
+                do {
+                  const data = await withRetry(() => github.graphql(activeThreadsQuery, {
+                    owner,
+                    repo,
+                    number: prNumber,
+                    cursor,
+                  }));
+                  const pullRequest = data.repository?.pullRequest;
+                  if (!pullRequest) {
+                    throw new Error(`PR #${prNumber} was not returned while ${stage}`);
+                  }
+                  if (observedHeadSha && pullRequest.headRefOid !== observedHeadSha) {
+                    throw new Error(`PR head changed while reading active threads ${stage}`);
+                  }
+                  observedHeadSha = pullRequest.headRefOid;
+                  const page = pullRequest.reviewThreads;
+                  threadIds.push(...(page.nodes || [])
+                    .filter(thread => !thread.isResolved && !thread.isOutdated)
+                    .map(thread => thread.id));
+                  cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+                } while (cursor);
+                if (!headSha || observedHeadSha !== headSha) {
+                  throw new Error(
+                    `PR head changed ${stage}: expected ${headSha || 'missing'}, ` +
+                    `observed ${observedHeadSha || 'missing'}. ` +
+                    'Recollect before assignment.'
+                  );
+                }
+                const observedFingerprint = JSON.stringify(threadIds.sort());
+                if (!activeThreadFingerprint || observedFingerprint !== activeThreadFingerprint) {
+                  throw new Error(
+                    `Active review-thread set changed ${stage}: expected ` +
+                    `${activeThreadFingerprint || 'missing'}, observed ${observedFingerprint}. ` +
+                    'Recollect before assignment.'
+                  );
+                }
+              };
+              const { data: pr } = await withRetry(() => github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber,
+              }));
+              await assertExactDispatchSnapshot('before assignment');
+              const assigned = new Set(
+                (pr.assignees || []).map(item => String(item.login || '').toLowerCase())
               );
-            } else {
-              await withRetry(() => github.rest.issues.createComment({
+              const alreadyAssigned = assignees.filter(login => assigned.has(login.toLowerCase()));
+              if (alreadyAssigned.length > 0) {
+                await withRetry(() => github.rest.issues.removeAssignees({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  assignees: alreadyAssigned,
+                }));
+                core.info(`Removed stale assignment for ${alreadyAssigned.join(', ')}`);
+                await assertExactDispatchSnapshot('after stale assignment removal');
+              }
+              await withRetry(() => github.rest.issues.addAssignees({
                 owner,
                 repo,
                 issue_number: prNumber,
-                body: comment
+                assignees,
               }));
-              core.info(`Created new bot-comment-handler comment on PR #${prNumber}`);
+              core.info(`Assigned ${assignees.join(', ')} to PR #${prNumber}`);
+            } catch (error) {
+              core.setOutput('triggered', 'false');
+              core.setFailed(`Failed to trigger agent assignment: ${error.message}`);
+              return;
             }
 
             core.setOutput('triggered', 'true');
-            console.log(`Assigned ${assignees.join(', ')} and posted context on PR #${prNumber}`);
+            console.log(`Posted exact thread context, then assigned ${assignees.join(', ')}`);
 
   # Summary
   summary:

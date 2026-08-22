@@ -2,10 +2,13 @@
 
 const DEFAULT_PER_PAGE = 100;
 const MAX_COMMENT_PAGES = 10;
+const MAX_CONTROLLER_COMMENT_LENGTH = 60000;
+const MAX_COLLECTED_COMMENT_OUTPUT_LENGTH = 450000;
 const DEFAULT_BOT_AUTHORS = Object.freeze([
   'copilot[bot]',
   'github-actions[bot]',
   'coderabbitai[bot]',
+  'chatgpt-codex-connector',
   'chatgpt-codex-connector[bot]',
 ]);
 const DEFAULT_AGENT = 'codex';
@@ -161,6 +164,149 @@ function collectUnresolvedBotComments(comments = [], options = {}) {
   return botComments;
 }
 
+function fitJsonStringBudget(value, encodedBudget, maxChars) {
+  const raw = String(value ?? '');
+  if (encodedBudget <= 0 || maxChars <= 0 || !raw) {
+    return '';
+  }
+  const bounded = raw.length > maxChars ? `${raw.slice(0, Math.max(0, maxChars - 3))}...` : raw;
+  const encodedLength = (candidate) => JSON.stringify(candidate).length - 2;
+  if (encodedLength(bounded) <= encodedBudget) {
+    return bounded;
+  }
+  let low = 0;
+  let high = Math.min(raw.length, maxChars);
+  let result = '';
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const candidate = middle < raw.length ? `${raw.slice(0, Math.max(0, middle - 3))}...` : raw;
+    if (encodedLength(candidate) <= encodedBudget) {
+      result = candidate;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return result;
+}
+
+function boundBotReviewThreadPayload(
+  comments = [],
+  maxLength = MAX_COLLECTED_COMMENT_OUTPUT_LENGTH,
+) {
+  const safeMaxLength = Math.min(
+    MAX_COLLECTED_COMMENT_OUTPUT_LENGTH,
+    Math.max(4000, Number.parseInt(maxLength, 10) || MAX_COLLECTED_COMMENT_OUTPUT_LENGTH),
+  );
+  const textFields = [];
+  const bounded = (Array.isArray(comments) ? comments : []).map((comment) => {
+    const result = {
+      id: boundControllerField(comment?.id, 200),
+      thread_id: boundControllerField(comment?.thread_id, 200),
+      path: boundControllerField(comment?.path, 500),
+      line: comment?.line ?? null,
+      body: '',
+      author: boundControllerField(comment?.author, 200),
+      url: boundControllerField(comment?.url, 1000),
+      diff_hunk: '',
+      replies: (Array.isArray(comment?.replies) ? comment.replies : []).map((reply) => ({
+        author: boundControllerField(reply?.author, 200),
+        body: '',
+        url: boundControllerField(reply?.url, 1000),
+      })),
+    };
+    textFields.push({ target: result, key: 'body', value: comment?.body, maxChars: 4000 });
+    textFields.push({
+      target: result,
+      key: 'diff_hunk',
+      value: comment?.diff_hunk,
+      maxChars: 4000,
+    });
+    result.replies.forEach((reply, index) => {
+      textFields.push({
+        target: reply,
+        key: 'body',
+        value: comment.replies[index]?.body,
+        maxChars: 2000,
+      });
+    });
+    return result;
+  });
+
+  const metadataLength = JSON.stringify(bounded).length;
+  if (metadataLength > safeMaxLength) {
+    throw new Error(
+      `Bot review-thread metadata exceeds the ${safeMaxLength}-character job-output budget`,
+    );
+  }
+  let remaining = safeMaxLength - metadataLength;
+  textFields.forEach((field, index) => {
+    const remainingFields = textFields.length - index;
+    const share = Math.floor(remaining / remainingFields);
+    const value = fitJsonStringBudget(field.value, share, field.maxChars);
+    field.target[field.key] = value;
+    remaining -= JSON.stringify(value).length - 2;
+  });
+  if (JSON.stringify(bounded).length > safeMaxLength) {
+    throw new Error(`Bot review-thread payload exceeds ${safeMaxLength} characters`);
+  }
+  return bounded;
+}
+
+function collectActiveBotReviewThreads(reviewThreads = [], options = {}) {
+  const botAuthors = resolveBotAuthorSet(options.botAuthors ?? options.bot_authors);
+  const skipIfHumanReplied = normalizeBoolean(
+    options.skipIfHumanReplied ?? options.skip_if_human_replied,
+    false,
+  );
+  const ignoredPaths = options.ignoredPaths ?? options.ignored_paths ?? '';
+  const active = [];
+
+  for (const thread of Array.isArray(reviewThreads) ? reviewThreads : []) {
+    if (!thread || thread.isResolved || thread.isOutdated) {
+      continue;
+    }
+    const comments = Array.isArray(thread.comments?.nodes)
+      ? thread.comments.nodes
+      : Array.isArray(thread.comments)
+        ? thread.comments
+        : [];
+    const root = comments[0];
+    const rootLogin = root?.author?.login ?? root?.user?.login;
+    if (!root || !isBotAuthor(rootLogin, botAuthors)) {
+      continue;
+    }
+    const path = thread.path || root.path || '';
+    if (isIgnoredPath(path, ignoredPaths)) {
+      continue;
+    }
+    const replies = comments.slice(1);
+    if (
+      skipIfHumanReplied
+      && replies.some((comment) => !isBotAuthor(comment?.author?.login ?? comment?.user?.login, botAuthors))
+    ) {
+      continue;
+    }
+    active.push({
+      id: root.databaseId ?? root.id,
+      thread_id: thread.id,
+      path,
+      line: thread.line ?? root.line ?? root.originalLine ?? root.original_line,
+      body: root.body,
+      author: rootLogin,
+      url: root.url ?? root.html_url,
+      diff_hunk: root.diffHunk ?? root.diff_hunk,
+      replies: replies.map((comment) => ({
+        author: comment?.author?.login ?? comment?.user?.login ?? '',
+        body: comment?.body ?? '',
+        url: comment?.url ?? comment?.html_url ?? '',
+      })),
+    });
+  }
+
+  return boundBotReviewThreadPayload(active, options.maxOutputLength ?? options.max_output_length);
+}
+
 function markdownFenceFor(text, info = '') {
   const body = String(text ?? '');
   let fence = '```';
@@ -227,18 +373,25 @@ function resolveBotCommentAgent(labels = [], options = {}) {
   }
 }
 
-function buildBotCommentsPrompt(comments = []) {
+function buildBotCommentsPrompt(comments = [], options = {}) {
+  const headSha = String(options.headSha ?? options.head_sha ?? '').trim();
   const lines = [
     '# Fix Bot Review Comments',
     '',
-    'Review bots have left suggestions on this PR. Address each one:',
+    'Review bots have left active, non-outdated suggestions on this PR. Address each one:',
     '',
+    ...(headSha ? [`**Exact PR head:** \`${headSha}\``, ''] : []),
     '## Instructions',
     '',
-    '1. Read each bot comment below',
-    '2. Implement the suggested fix if it improves the code',
-    "3. If a suggestion is incorrect or doesn't apply, skip it and note why",
-    '4. After fixing, summarize what you addressed in your commit message',
+    '1. Re-read the exact PR head and every active thread below',
+    '2. Implement every still-valid acceptance criterion and run deterministic validation',
+    '3. If a criterion is already satisfied or invalid, make no no-op edit; ' +
+      'explain the evidence in that thread',
+    '4. Reply in each thread with the exact head and validation, then request ' +
+      'a thread-specific reviewer disposition',
+    '5. Never self-resolve a reviewer thread',
+    '6. A generic top-level review or "no issues" comment is not completion ' +
+      'while any listed thread remains active',
     '',
     '## Bot Comments to Address',
     '',
@@ -246,25 +399,38 @@ function buildBotCommentsPrompt(comments = []) {
 
   for (const comment of Array.isArray(comments) ? comments : []) {
     lines.push(
-      `### ${comment.path}:${comment.line ?? 'N/A'}`,
+      `### ${comment.thread_id || comment.id || 'unknown-thread'} — ` +
+        `${comment.path}:${comment.line ?? 'N/A'}`,
       '',
       `**From:** ${comment.author}`,
+      `**Thread:** ${comment.url || 'unavailable'}`,
       '',
       markdownFenceFor(comment.body),
       '',
       '**Context (diff hunk):**',
       markdownFenceFor(comment.diff_hunk, 'diff'),
       '',
-      '---',
-      '',
     );
+    if (Array.isArray(comment.replies) && comment.replies.length > 0) {
+      lines.push('**Thread replies:**', '');
+      comment.replies.forEach((reply) => {
+        lines.push(
+          `- **${reply.author || 'unknown'}** — ${reply.url || 'URL unavailable'}`,
+          markdownFenceFor(reply.body),
+          '',
+        );
+      });
+    }
+    lines.push('---', '');
   }
 
   lines.push(
     '## After Addressing Comments',
     '',
-    '- Commit your changes with message: "fix: address bot review comments"',
-    '- Include which suggestions you addressed vs skipped in the commit message',
+    '- Commit real changes with message: "fix: address bot review comments"',
+    '- Include which thread IDs you fixed versus dispositioned and the validation evidence',
+    '- Re-query the exact head and active review-thread set before reporting completion',
+    '- If any listed thread remains active, report its exact ID and next authority; do not claim completion',
     '',
   );
 
@@ -290,23 +456,85 @@ function getBotCommentAssignees(agent) {
   return [...(DISPATCH_AGENT_ASSIGNEES[key] || DISPATCH_AGENT_ASSIGNEES[DEFAULT_AGENT])];
 }
 
-function buildBotCommentDispatchComment({ agent = DEFAULT_AGENT, count = 0 } = {}) {
+function boundControllerField(value, limit) {
+  const normalized = String(value ?? '').trim().replace(/\s+/g, ' ');
+  return normalized.length > limit ? `${normalized.slice(0, limit - 3)}...` : normalized;
+}
+
+function buildBotCommentDispatchComments({
+  agent = DEFAULT_AGENT,
+  count = 0,
+  comments = [],
+  headSha = '',
+  maxLength = MAX_CONTROLLER_COMMENT_LENGTH,
+} = {}) {
   const marker = '<!-- bot-comment-handler -->';
-  return [
-    marker,
-    '## \u{1F916} Bot Comment Handler',
-    '',
-    `- Agent: ${agent}`,
-    `- Bot comments to address: ${count}`,
-    '',
-    'The agent has been assigned to this PR to address the bot review comments.',
-    '',
-    '### Instructions for agent',
-    '1. Implement suggested fixes that improve the code',
-    "2. Skip suggestions that don't apply (note why in your response)",
-    '',
-    'The bot comment handler workflow has prepared context in the artifacts.',
-  ].join('\n');
+  const safeMaxLength = Math.min(
+    65000,
+    Math.max(4000, Number.parseInt(maxLength, 10) || MAX_CONTROLLER_COMMENT_LENGTH),
+  );
+  const entries = (Array.isArray(comments) ? comments : []).map((comment) => [
+    `- ${boundControllerField(comment?.thread_id || comment?.id || 'unknown-thread', 200)} — ` +
+      `${boundControllerField(comment?.path || 'unknown', 260)}:${comment?.line ?? 'N/A'}`,
+    `  - ${boundControllerField(comment?.url || 'URL unavailable', 500)}`,
+    `  - Acceptance criterion: ${boundControllerField(comment?.body, 350) || 'No text supplied'}`,
+  ].join('\n'));
+  const headerReserve = 1400;
+  const entryBudget = safeMaxLength - headerReserve;
+  const pages = [[]];
+  let pageLength = 0;
+  for (const entry of entries) {
+    if (pages.at(-1).length > 0 && pageLength + entry.length + 2 > entryBudget) {
+      pages.push([]);
+      pageLength = 0;
+    }
+    pages.at(-1).push(entry);
+    pageLength += entry.length + 2;
+  }
+  const total = pages.length;
+  return pages.map((page, index) => {
+    const lines = [
+      marker,
+      `<!-- bot-comment-handler-part:${index + 1}/${total} -->`,
+      '## \u{1F916} Bot Comment Handler',
+      '',
+      `- Agent: ${boundControllerField(agent, 100)}`,
+      `- Bot comments to address: ${boundControllerField(count, 20)}`,
+      `- Exact PR head: ${boundControllerField(headSha, 100) || 'unavailable'}`,
+      `- Controller part: ${index + 1} of ${total}`,
+      '',
+      'The agent is reassigned only after every controller part is durable on the PR.',
+      'Each entry links to the authoritative review thread containing its full context.',
+      '',
+      '### Active thread controller',
+      '',
+      ...page.flatMap((entry) => [entry, '']),
+      '### Required outcome',
+      '1. Inspect every listed active thread on the exact head.',
+      '2. Implement and validate any still-valid criterion; do not make no-op edits.',
+      '3. Reply with exact-head evidence and request a thread-specific reviewer disposition.',
+      '4. Never self-resolve reviewer threads.',
+      '5. Do not report completion while any listed thread remains active; ' +
+        'a generic top-level review is insufficient.',
+    ];
+    const body = lines.join('\n');
+    if (body.length > safeMaxLength) {
+      throw new Error(
+        `Bot comment controller part ${index + 1}/${total} exceeds ${safeMaxLength} characters`,
+      );
+    }
+    return body;
+  });
+}
+
+function buildBotCommentDispatchComment(options = {}) {
+  const parts = buildBotCommentDispatchComments(options);
+  if (parts.length !== 1) {
+    throw new Error(
+      'Controller context requires multiple parts; use buildBotCommentDispatchComments',
+    );
+  }
+  return parts[0];
 }
 
 function normalizeTerminalDispositionRecord(input) {
@@ -327,8 +555,8 @@ function buildReviewThreadTerminalDisposition(options = {}) {
     pr_number: prNumber,
     disposition: found ? 'unresolved-bot-comments' : 'no-unresolved-bot-comments',
     reason: found
-      ? 'Bot review comments remain unresolved and agent handling is eligible.'
-      : 'No unresolved bot review comments matched the handler filters.',
+      ? 'Active, non-outdated bot review threads remain and agent handling is eligible.'
+      : 'No active, non-outdated bot review threads matched the handler filters.',
     workflow: options.workflow,
     run_id: options.runId ?? options.run_id,
     run_attempt: options.runAttempt ?? options.run_attempt,
@@ -430,12 +658,17 @@ async function listCommentsWithLimit(options = {}) {
 module.exports = {
   DEFAULT_PER_PAGE,
   MAX_COMMENT_PAGES,
+  MAX_CONTROLLER_COMMENT_LENGTH,
+  MAX_COLLECTED_COMMENT_OUTPUT_LENGTH,
   DEFAULT_BOT_AUTHORS,
   DISPATCH_AGENT_ASSIGNEES,
   buildBotCommentDispatchComment,
+  buildBotCommentDispatchComments,
   buildBotCommentsPrompt,
   buildReviewThreadTerminalDisposition,
   buildWrapperTerminalDisposition,
+  boundBotReviewThreadPayload,
+  collectActiveBotReviewThreads,
   collectUnresolvedBotComments,
   getBotCommentAssignees,
   isBotAuthor,

@@ -10,9 +10,12 @@ const dispositionFixtures = require('./fixtures/bot-comment-terminal-disposition
 const {
   DEFAULT_BOT_AUTHORS,
   buildBotCommentDispatchComment,
+  buildBotCommentDispatchComments,
   buildBotCommentsPrompt,
+  boundBotReviewThreadPayload,
   buildReviewThreadTerminalDisposition,
   buildWrapperTerminalDisposition,
+  collectActiveBotReviewThreads,
   collectUnresolvedBotComments,
   getBotCommentAssignees,
   isBotAuthor,
@@ -26,6 +29,7 @@ test('default bot author allowlist recognizes canonical review bots', () => {
     'copilot[bot]',
     'github-actions[bot]',
     'coderabbitai[bot]',
+    'chatgpt-codex-connector',
     'chatgpt-codex-connector[bot]',
   ]) {
     assert.equal(isBotAuthor(login, DEFAULT_BOT_AUTHORS), true, login);
@@ -122,6 +126,61 @@ test('comment collection filters ignored review paths by prefix', () => {
   assert.ok(!collected.some((comment) => comment.path.startsWith('docs/')));
 });
 
+test('active thread collection preserves reviewer debt after maintainer replies', () => {
+  const collected = collectActiveBotReviewThreads([
+    {
+      id: 'PRRT_exact',
+      isResolved: false,
+      isOutdated: false,
+      path: 'src/service.js',
+      line: 22,
+      comments: {
+        nodes: [
+          {
+            databaseId: 1005,
+            author: { login: 'chatgpt-codex-connector' },
+            body: 'Guard against missing input.',
+            url: 'https://example.test/thread',
+          },
+          {
+            databaseId: 1006,
+            author: { login: 'maintainer' },
+            body: 'Fixed on the exact head.',
+          },
+        ],
+      },
+    },
+  ]);
+
+  assert.deepEqual(collected.map((comment) => comment.thread_id), ['PRRT_exact']);
+  assert.equal(collected[0].replies[0].author, 'maintainer');
+});
+
+test('active thread output bounds bodies while preserving thread and reply metadata', () => {
+  const comments = Array.from({ length: 12 }, (_, index) => ({
+    id: index,
+    thread_id: `PRRT_${index}`,
+    path: `src/file-${index}.js`,
+    line: index + 1,
+    body: `root-${index}-${'x'.repeat(10000)}`,
+    author: 'reviewer[bot]',
+    url: `https://example.test/thread/${index}`,
+    diff_hunk: `@@ ${'y'.repeat(10000)}`,
+    replies: [{
+      author: 'maintainer',
+      body: `reply-${index}-${'z'.repeat(10000)}`,
+      url: `https://example.test/reply/${index}`,
+    }],
+  }));
+
+  const bounded = boundBotReviewThreadPayload(comments, 4000);
+
+  assert.ok(JSON.stringify(bounded).length <= 4000);
+  assert.deepEqual(bounded.map((comment) => comment.thread_id), comments.map((comment) => comment.thread_id));
+  assert.equal(bounded[0].replies[0].author, 'maintainer');
+  assert.equal(bounded[0].replies[0].url, 'https://example.test/reply/0');
+});
+
 test('agent routing sends agent:codex PRs to the Codex reusable runner', () => {
   const route = resolveBotCommentAgent([{ name: 'agent:codex' }], {
     registryPath: REGISTRY_PATH,
@@ -173,9 +232,28 @@ test('prepare prompt fixture preserves collected review comment context', () => 
   const prompt = buildBotCommentsPrompt(collected);
 
   assert.match(prompt, /# Fix Bot Review Comments/);
-  assert.match(prompt, /### src\/service\.js:22/);
+  assert.match(prompt, /src\/service\.js:22/);
   assert.match(prompt, /Guard against missing input\./);
   assert.match(prompt, /```diff\n@@ -20,7 \+20,7 @@/);
+});
+
+test('prepare prompt preserves thread reply context', () => {
+  const prompt = buildBotCommentsPrompt([{
+    thread_id: 'PRRT_reply',
+    path: 'src/app.js',
+    line: 5,
+    author: 'reviewer[bot]',
+    body: 'Original finding.',
+    replies: [{
+      author: 'maintainer',
+      body: 'This was fixed on the exact head.',
+      url: 'https://example.test/reply',
+    }],
+  }]);
+
+  assert.match(prompt, /Thread replies/);
+  assert.match(prompt, /maintainer/);
+  assert.match(prompt, /fixed on the exact head/);
 });
 
 test('prepare prompt uses longer fences when comment bodies contain fences', () => {
@@ -200,6 +278,59 @@ test('dispatch fixture selects the assignee and stable marker comment for Codex'
   assert.match(comment, /<!-- bot-comment-handler -->/);
   assert.match(comment, /- Agent: codex/);
   assert.match(comment, /- Bot comments to address: 2/);
+});
+
+test('dispatch controller splits large thread sets into bounded complete comments', () => {
+  const comments = Array.from({ length: 40 }, (_, index) => ({
+    thread_id: `PRRT_${index}`,
+    path: `src/large-${index}.js`,
+    line: index + 1,
+    url: `https://example.test/review/${index}`,
+    body: `Acceptance ${index}: ${'x'.repeat(500)}`,
+  }));
+
+  const parts = buildBotCommentDispatchComments({
+    agent: 'codex',
+    count: comments.length,
+    comments,
+    headSha: 'exact-head',
+    maxLength: 4000,
+  });
+
+  assert.ok(parts.length > 1);
+  assert.ok(parts.every((part) => part.length <= 4000));
+  assert.ok(parts.every((part) => part.includes('<!-- bot-comment-handler -->')));
+  assert.ok(parts.every((part) => part.includes('- Exact PR head: exact-head')));
+  const combined = parts.join('\n');
+  for (const comment of comments) {
+    const entry = `- ${comment.thread_id} —`;
+    assert.equal(combined.split(entry).length - 1, 1, comment.thread_id);
+  }
+
+  assert.throws(
+    () => buildBotCommentDispatchComment({
+      agent: 'codex',
+      count: comments.length,
+      comments,
+      headSha: 'exact-head',
+      maxLength: 4000,
+    }),
+    /use buildBotCommentDispatchComments/,
+  );
+});
+
+test('dispatch controller bounds interpolated header fields', () => {
+  const [part] = buildBotCommentDispatchComments({
+    agent: 'a'.repeat(1000),
+    count: '9'.repeat(1000),
+    headSha: 'h'.repeat(1000),
+    maxLength: 4000,
+  });
+
+  assert.ok(part.length <= 4000);
+  assert.match(part, /- Agent: a{97}\.\.\./);
+  assert.match(part, /- Bot comments to address: 9{17}\.\.\./);
+  assert.match(part, /- Exact PR head: h{97}\.\.\./);
 });
 
 test('dispatch assignee fallbacks match registry-owned automation users', () => {
