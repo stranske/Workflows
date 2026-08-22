@@ -126,18 +126,17 @@ class ProgressReviewResult(BaseModel):
 
 def build_review_payload(result: ProgressReviewResult) -> dict:
     payload = result.model_dump()
-    if payload.get("review") is None:
-        suggestions = []
-        analysis = result.analysis
-        if analysis and analysis.blocking_issues:
-            suggestions.extend([item for item in analysis.blocking_issues if item])
-        if analysis and analysis.scope_drift_identified:
-            suggestions.extend([item for item in analysis.scope_drift_identified if item])
-        payload["review"] = {
-            "score": result.alignment_score,
-            "feedback": result.feedback_for_agent,
-            "suggestions": "; ".join(suggestions),
-        }
+    suggestions = []
+    analysis = result.analysis
+    if analysis.blocking_issues:
+        suggestions.extend([item for item in analysis.blocking_issues if item])
+    if analysis.scope_drift_identified:
+        suggestions.extend([item for item in analysis.scope_drift_identified if item])
+    payload["review"] = {
+        "score": result.alignment_score,
+        "feedback": result.feedback_for_agent,
+        "suggestions": "; ".join(suggestions),
+    }
     return payload
 
 

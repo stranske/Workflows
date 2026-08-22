@@ -21,6 +21,7 @@ def test_build_review_payload_includes_review_fields():
         use_llm=False,
     )
 
+    assert "review" not in result.model_dump()
     payload = progress_reviewer.build_review_payload(result)
     review = payload.get("review")
 

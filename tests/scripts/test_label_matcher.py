@@ -9,7 +9,10 @@ from scripts.langchain import label_matcher, semantic_matcher
 def test_keyword_matching_rejects_short_prefix_false_positives() -> None:
     assert label_matcher._token_matches_keyword("doctor", "doc") is False
     assert label_matcher._token_matches_keyword("doc", "doctor") is False
+    assert label_matcher._token_matches_keyword("documentary", "doc") is False
+    assert label_matcher._token_matches_keyword("defective", "defect") is False
     assert label_matcher._token_matches_keyword("doctor", "doctors") is True
+    assert label_matcher._token_matches_keyword("docs", "documentation") is True
 
 
 class DummyFAISS:

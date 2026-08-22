@@ -139,34 +139,22 @@ _COMMON_STOPWORDS = {
 }
 _BUG_KEYWORDS = {
     "bug",
-    "bugs",
-    "buggy",
     "crash",
-    "crashes",
-    "crashed",
     "panic",
-    "panics",
     "error",
-    "errors",
     "exception",
-    "exceptions",
     "traceback",
     "stacktrace",
     "failure",
-    "failures",
     "broken",
     "regression",
     "defect",
 }
 _FEATURE_KEYWORDS = {
     "feature",
-    "features",
     "enhancement",
-    "enhancements",
     "request",
-    "requests",
     "improvement",
-    "improvements",
     "support",
     "add",
     "enable",
@@ -177,15 +165,34 @@ _FEATURE_PHRASES = {
 }
 _DOCS_KEYWORDS = {
     "doc",
-    "docs",
-    "documentation",
     "readme",
     "guide",
-    "guides",
     "example",
-    "examples",
     "tutorial",
-    "tutorials",
+}
+
+# Keep keyword matching explicit: all non-exact matches must appear here.
+_KEYWORD_ALIASES = {
+    "bug": frozenset({"bugs", "buggy"}),
+    "crash": frozenset({"crashed", "crashes"}),
+    "doctor": frozenset({"doctors"}),
+    "doc": frozenset({"docs", "documentation"}),
+    "enhancement": frozenset({"enhancements"}),
+    "error": frozenset({"errors"}),
+    "example": frozenset({"examples"}),
+    "exception": frozenset({"exceptions"}),
+    "failure": frozenset({"failures"}),
+    "feature": frozenset({"features"}),
+    "guide": frozenset({"guides"}),
+    "improvement": frozenset({"improvements"}),
+    "panic": frozenset({"panics"}),
+    "request": frozenset({"requests"}),
+    "tutorial": frozenset({"tutorials"}),
+}
+_KEYWORD_ALIAS_TO_CANONICAL = {
+    variant: canonical
+    for canonical, aliases in _KEYWORD_ALIASES.items()
+    for variant in aliases | {canonical}
 }
 
 logger = logging.getLogger(__name__)
@@ -345,12 +352,9 @@ def _exact_short_label_match(label_store: LabelVectorStore, query: str) -> Label
 def _token_matches_keyword(token: str, keyword: str) -> bool:
     if token == keyword:
         return True
-    # Only allow prefix matching for tokens >= 4 chars to avoid false positives
-    # from short tokens like "d" matching "defect" or "a" matching "add"
-    if len(token) >= 4 and len(keyword) >= 4 and token.startswith(keyword):
-        return True
-    # Check if keyword starts with token (both must be >= 4 chars)
-    return len(token) >= 4 and len(keyword) >= 4 and keyword.startswith(token)
+    token_canonical = _KEYWORD_ALIAS_TO_CANONICAL.get(token)
+    keyword_canonical = _KEYWORD_ALIAS_TO_CANONICAL.get(keyword)
+    return token_canonical is not None and token_canonical == keyword_canonical
 
 
 def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
