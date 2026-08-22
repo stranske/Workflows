@@ -697,6 +697,9 @@ def test_legacy_semantic_marker_renderer_remains_frozen() -> None:
 
     markers = fix_agent._legacy_markers_by_finding(plan)
 
+    assert fix_agent._legacy_v1_finding_marker(finding) == (
+        "<!-- docs-drift-finding:385af7eefcea21bd -->"
+    )
     assert markers[finding] == "<!-- docs-drift-fix-agent:1eb8a2ac0eb58e5f -->"
 
 
@@ -716,6 +719,69 @@ def test_legacy_semantic_dedupe_reconstructs_only_preexisting_truncated_claim() 
 
     assert len(fix_agent.dedupe_findings(findings)) == 2
     assert len(fix_agent._legacy_v1_dedupe_findings(findings)) == 1
+
+
+def test_apply_issues_reuses_legacy_semantic_per_finding_marker(monkeypatch) -> None:
+    claim = "shared prefix " + "x" * 160 + " first ending"
+    finding = fix_agent.Finding(
+        source="semantic-scan",
+        kind="semantic_drift",
+        doc_path="README.md",
+        target=claim[:160],
+        detail=claim,
+        classification="stale",
+        authoritative_source="scripts/source.py",
+    )
+    batch = fix_agent.RepairBatch("docs-drift-01", (finding,))
+    plan = {
+        "repo": "stranske/Workflows",
+        "docs": ["README.md"],
+        "max_per_batch": 5,
+        "findings": [fix_agent.asdict(finding)],
+        "batches": [
+            {
+                "batch_id": batch.batch_id,
+                "issue_title": "[Docs Drift] Repair docs-drift-01",
+                "issue_body": fix_agent.build_issue_body(batch),
+                "findings": [fix_agent.asdict(finding)],
+            }
+        ],
+    }
+    old_marker = fix_agent._legacy_v1_finding_marker(finding)
+    calls: list[list[str]] = []
+
+    class Result:
+        returncode = 0
+        stderr = ""
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    def fake_run(args, **kwargs):  # noqa: ANN001
+        call = list(args)
+        calls.append(call)
+        if call[:3] == ["gh", "issue", "list"]:
+            search = call[call.index("--search") + 1]
+            if old_marker in search:
+                return Result(
+                    fix_agent.json.dumps(
+                        [
+                            {
+                                "body": f"Existing legacy semantic issue.\n\n{old_marker}\n",
+                                "url": "https://x/1",
+                            }
+                        ]
+                    )
+                )
+            return Result("[]")
+        return Result("https://x/2\n")
+
+    monkeypatch.setattr(fix_agent.subprocess, "run", fake_run)
+
+    result = fix_agent.apply_issues(plan)
+
+    assert result[0]["disposition"] == "already-open"
+    assert not [call for call in calls if call[:3] == ["gh", "issue", "create"]]
 
 
 def test_apply_issues_reuses_matching_open_issue(monkeypatch) -> None:

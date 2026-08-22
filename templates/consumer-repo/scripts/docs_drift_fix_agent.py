@@ -625,6 +625,7 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
         marker_indexes: dict[str, set[int]] = {legacy_marker: set(range(len(findings)))}
         for index, finding in enumerate(findings):
             marker_indexes.setdefault(markers[index], set()).add(index)
+            marker_indexes.setdefault(_legacy_v1_finding_marker(finding), set()).add(index)
             old_marker = legacy_markers.get(finding)
             if old_marker:
                 marker_indexes.setdefault(old_marker, set()).add(index)
@@ -751,6 +752,16 @@ def _finding_marker(finding: Finding) -> str:
             finding.doc_path,
             _finding_identity(finding),
         )
+    )
+    digest = hashlib.sha256(identity.encode()).hexdigest()[:16]
+    return f"<!-- docs-drift-finding:{digest} -->"
+
+
+def _legacy_v1_finding_marker(finding: Finding) -> str:
+    """Return the target-truncated per-finding marker emitted by the prior release."""
+    identity = "\0".join(
+        value.strip().lower()
+        for value in (finding.source, finding.kind, finding.doc_path, finding.target)
     )
     digest = hashlib.sha256(identity.encode()).hexdigest()[:16]
     return f"<!-- docs-drift-finding:{digest} -->"
