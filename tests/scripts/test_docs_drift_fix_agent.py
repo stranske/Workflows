@@ -188,9 +188,7 @@ def test_cli_rejects_missing_configured_docs(tmp_path: Path, capsys) -> None:
         "repos:\n  stranske/consumer:\n    docs:\n      - path: AGENTS.md\n      - path: docs/missing.md\n",
     )
 
-    exit_code = fix_agent.main(
-        ["--repo-root", str(root), "--repo", "stranske/consumer", "--json"]
-    )
+    exit_code = fix_agent.main(["--repo-root", str(root), "--repo", "stranske/consumer", "--json"])
 
     assert exit_code == 2
     assert (

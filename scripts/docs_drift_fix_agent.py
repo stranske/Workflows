@@ -298,8 +298,7 @@ def build_repair_prompt(
         f"- `{cmd}`" for cmd in (informational_checks or informational_commands())
     )
     semantic_lines = "\n".join(
-        f"- {requirement}"
-        for requirement in semantic_verification_requirements(batch.findings)
+        f"- {requirement}" for requirement in semantic_verification_requirements(batch.findings)
     )
     semantic_section = (
         f"\nRequired semantic evidence:\n{semantic_lines}\n" if semantic_lines else ""
@@ -345,12 +344,9 @@ def build_pr_plan(
         f"- [ ] `{cmd}`" for cmd in (informational_checks or informational_commands())
     )
     semantic_lines = "\n".join(
-        f"- [ ] {requirement}"
-        for requirement in semantic_verification_requirements(batch.findings)
+        f"- [ ] {requirement}" for requirement in semantic_verification_requirements(batch.findings)
     )
-    semantic_section = (
-        f"\n## Semantic Evidence\n{semantic_lines}\n" if semantic_lines else ""
-    )
+    semantic_section = f"\n## Semantic Evidence\n{semantic_lines}\n" if semantic_lines else ""
     findings = "\n".join(_finding_line(finding) for finding in batch.findings)
     docs = "\n".join(f"- [ ] `{doc}`" for doc in doc_paths)
     return f"""# Docs Drift Repair Plan: {batch.batch_id}
@@ -387,8 +383,7 @@ def build_issue_body(
         for cmd in (checks or verification_commands(findings=batch.findings))
     )
     semantic_items = "\n".join(
-        f"- [ ] {requirement}"
-        for requirement in semantic_verification_requirements(batch.findings)
+        f"- [ ] {requirement}" for requirement in semantic_verification_requirements(batch.findings)
     )
     info_items = "\n".join(
         f"- [ ] `{cmd}` was reviewed for remaining non-batch findings."
@@ -473,9 +468,7 @@ def default_docs_from_config(repo_root: Path, *, repo: str = DEFAULT_REPO) -> li
     candidates = docs or list(check_docs_drift.DEFAULT_DOCS)
     missing = [doc for doc in candidates if not (repo_root / doc).is_file()]
     if docs and missing:
-        raise FileNotFoundError(
-            f"configured docs not found for {repo}: {', '.join(missing)}"
-        )
+        raise FileNotFoundError(f"configured docs not found for {repo}: {', '.join(missing)}")
     return [doc for doc in candidates if (repo_root / doc).is_file()]
 
 
@@ -524,9 +517,7 @@ def build_plan(
             {
                 "batch_id": batch.batch_id,
                 "findings": [asdict(finding) for finding in batch.findings],
-                "semantic_verification": list(
-                    semantic_verification_requirements(batch.findings)
-                ),
+                "semantic_verification": list(semantic_verification_requirements(batch.findings)),
                 "repair_prompt": build_repair_prompt(
                     batch,
                     repo=repo,
