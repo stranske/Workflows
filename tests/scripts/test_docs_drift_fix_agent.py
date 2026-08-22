@@ -121,6 +121,27 @@ def test_verification_commands_keep_semantic_only_batch_actionable() -> None:
     ]
 
 
+def test_semantic_batch_requires_authoritative_source_evidence() -> None:
+    finding = fix_agent.Finding(
+        source="semantic-scan",
+        kind="semantic_drift",
+        doc_path="AGENTS.md",
+        target="Old command",
+        detail="Old command",
+        classification="stale",
+        authoritative_source="scripts/new.py:1",
+    )
+    batch = fix_agent.RepairBatch(batch_id="docs-drift-01", findings=(finding,))
+
+    requirement = fix_agent.semantic_verification_requirements(batch.findings)[0]
+
+    assert "Manually compare `AGENTS.md` claim `Old command`" in requirement
+    assert "`scripts/new.py:1`" in requirement
+    assert requirement in fix_agent.build_repair_prompt(batch)
+    assert f"- [ ] {requirement}" in fix_agent.build_pr_plan(batch)
+    assert f"- [ ] {requirement}" in fix_agent.build_issue_body(batch)
+
+
 def test_verification_commands_keep_mixed_semantic_batch_actionable() -> None:
     findings = [
         fix_agent.Finding(
@@ -144,7 +165,7 @@ def test_verification_commands_keep_mixed_semantic_batch_actionable() -> None:
     assert shlex.split(commands[0])[-2:] == ["--only", "scripts/missing.py"]
 
 
-def test_default_docs_from_config_uses_only_docs_present_in_consumer(tmp_path: Path) -> None:
+def test_default_docs_from_config_rejects_missing_configured_docs(tmp_path: Path) -> None:
     root = tmp_path / "consumer"
     _write(root / "AGENTS.md", "Consumer guidance.\n")
     _write(
@@ -152,7 +173,45 @@ def test_default_docs_from_config_uses_only_docs_present_in_consumer(tmp_path: P
         "repos:\n  stranske/consumer:\n    docs:\n      - path: AGENTS.md\n      - path: docs/missing.md\n",
     )
 
-    assert fix_agent.default_docs_from_config(root, repo="stranske/consumer") == ["AGENTS.md"]
+    with pytest.raises(
+        FileNotFoundError,
+        match=r"configured docs not found for stranske/consumer: docs/missing.md",
+    ):
+        fix_agent.default_docs_from_config(root, repo="stranske/consumer")
+
+
+def test_cli_rejects_missing_configured_docs(tmp_path: Path, capsys) -> None:
+    root = tmp_path / "consumer"
+    _write(root / "AGENTS.md", "Consumer guidance.\n")
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        "repos:\n  stranske/consumer:\n    docs:\n      - path: AGENTS.md\n      - path: docs/missing.md\n",
+    )
+
+    exit_code = fix_agent.main(
+        ["--repo-root", str(root), "--repo", "stranske/consumer", "--json"]
+    )
+
+    assert exit_code == 2
+    assert (
+        "configured docs not found for stranske/consumer: docs/missing.md"
+        in capsys.readouterr().err
+    )
+
+
+def test_default_docs_from_config_returns_complete_configured_set(tmp_path: Path) -> None:
+    root = tmp_path / "consumer"
+    _write(root / "AGENTS.md", "Consumer guidance.\n")
+    _write(root / "docs/guide.md", "Guide.\n")
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        "repos:\n  stranske/consumer:\n    docs:\n      - path: AGENTS.md\n      - path: docs/guide.md\n",
+    )
+
+    assert fix_agent.default_docs_from_config(root, repo="stranske/consumer") == [
+        "AGENTS.md",
+        "docs/guide.md",
+    ]
 
 
 @pytest.mark.parametrize(
