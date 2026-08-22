@@ -36,10 +36,13 @@ def test_every_maintained_consumer_has_an_observability_state() -> None:
 
     evidence_modes = {entry["evidence_mode"] for entry in registry["repos"]}
     assert evidence_modes == {"artifact", "langsmith-direct"}
+    # Membership is pinned ON PURPOSE: the allowlist is an EXEMPTION from observability, so adding
+    # a repo must require a visible test change rather than passing silently.
     assert {entry["repo"] for entry in allowlist["repos"]} == {
         "stranske/Template",
         "stranske/Ready",
         "stranske/Collab-Admin",
+        "stranske/Orchestrator",
     }
     assert {entry["status"] for entry in allowlist["repos"]} == {"not-applicable"}
 

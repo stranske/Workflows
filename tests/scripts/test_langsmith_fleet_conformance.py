@@ -101,4 +101,10 @@ def test_conformance_reports_direct_and_not_applicable_without_artifacts(tmp_pat
     assert rows[("stranske/Travel-Plan-Permission", "agent-automation")]["status"] == "direct"
     assert rows[("stranske/Ready", "")]["status"] == "not-applicable"
     assert report["status_counts"]["direct"] == 3
-    assert report["status_counts"]["not-applicable"] == 3
+    # Derived: one per allowlisted repo. Pinned at 3 until a 14th consumer was allowlisted.
+    # Membership itself is pinned deliberately in test_langsmith_metrics_dashboard.py; this count
+    # is incidental, so deriving it stops the 15th consumer breaking it again.
+    import json as _json
+    _allow = _json.loads((Path(__file__).resolve().parents[2] / "config"
+                          / "langsmith_fleet_allowlist.json").read_text(encoding="utf-8"))
+    assert report["status_counts"]["not-applicable"] == len(_allow["repos"])
