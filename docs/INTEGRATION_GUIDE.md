@@ -453,6 +453,13 @@ Set these in your repo's Settings → Secrets → Actions:
 | `OWNER_PR_PAT` | Agent PR creation | Create PAT with `repo` scope |
 | `PYPI_TOKEN` | Publishing packages | From pypi.org |
 
+> **This table is a starting point, not the full set.** A first-party consumer
+> actually carries ~15 secrets (App IDs and private keys for the Workflows,
+> keepalive and bot-comment Apps; agent CLI credentials; provider API keys).
+> `templates/consumer-repo/docs/SETUP_CHECKLIST.md` §3.2 is the authoritative list.
+> Corrected 2026-08-21: onboarding `stranske/Orchestrator` against this table alone
+> produced a repo with 4 of the 15 secrets and no indication anything was missing.
+
 ### Branch Protection
 
 For the gate pattern to work:

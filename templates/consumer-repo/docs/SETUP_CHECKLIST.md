@@ -313,6 +313,27 @@ Add each secret:
 - [ ] `CLAUDE_API_STRANSKE` — Required for verify/decompose/optimizer workflows
 - [ ] `CLAUDE_CODE_OAUTH_TOKEN` (or `CLAUDE_AUTH_JSON`) — Required for Claude CLI workflow runs
 
+#### Verify each token's IDENTITY before writing it
+
+Whatever the source, confirm a PAT authenticates as the account you expect before
+setting it. This is cheap and it catches the failure that silent copy/paste does not:
+
+```bash
+GH_TOKEN='<candidate>' gh api user --jq .login     # expect stranske-automation-bot for SERVICE_BOT_PAT
+```
+
+Two real errors during the 2026-08-21 Orchestrator onboarding, both caught this way
+and neither visible from the value itself:
+
+* the label/value pairing was ambiguous where two tokens sat under one heading —
+  identity resolved which was which;
+* both `*_APP_ID` secrets were set to surrounding prose (`"App ID - 2529721"`, and
+  the sub-heading `"App ID"`) rather than the number. App IDs are 6-9 digits; if the
+  value is not all digits, it is wrong.
+
+- [ ] Every PAT verified to authenticate as the intended account
+- [ ] Every `*_APP_ID` confirmed to be digits only
+
 ### 3.2.1 Bulk PAT Sync (No Organization Required)
 
 If you manage multiple repositories without GitHub organization secrets, use the
@@ -1141,19 +1162,19 @@ versions change, add your repo to these three workflows:
 - [ ] Confirmed the repo appears in the shared registered-repository output
 - [ ] Confirmed `templates/consumer-repo/docs/LABELS.md` is the label-doc source
 
-### 10.3 Dev Tool Version Sync
+### 10.3 Dev Tool Version Sync — DERIVED, no action needed
 
-3. Add your repo to `REGISTERED_CONSUMER_REPOS` in:
-   - File: `.github/workflows/maint-52-sync-dev-versions.yml`
-   - Purpose: Syncs `autofix-versions.env` (ruff, black, mypy versions)
+`maint-52-sync-dev-versions.yml` no longer keeps its own repo list. It checks out
+`maint-68-sync-consumer-repos.yml` plus `scripts/list_registered_consumer_repos.py`
+and derives the set from §10.1 (see maint-52 lines ~85-86). The same is true of
+`maint-65-sync-label-docs.yml` (§10.2).
 
-   ```yaml
-   REGISTERED_CONSUMER_REPOS: |
-     stranske/Travel-Plan-Permission
-     stranske/your-repo  # Add your repo here
-   ```
+**So the "THREE workflows" framing above is out of date: there is ONE list
+(§10.1) and two derived consumers.** Corrected 2026-08-21 while onboarding
+`stranske/Orchestrator`, where following the old instruction would have meant
+editing a `REGISTERED_CONSUMER_REPOS` block that no longer exists in maint-52.
 
-- [ ] Added to `maint-52-sync-dev-versions.yml`
+- [ ] Confirmed `maint-52` derives from §10.1 (no separate edit required)
 
 ### 10.4 Verify Sync Works
 
@@ -1183,6 +1204,125 @@ gh workflow run "Maint 52 Sync Dev Versions" \
 
 **Note**: Repos with custom Gate workflows should still be registered—only
 the thin caller workflows are synced, not custom implementations.
+
+---
+
+## Phase 11: Coupled Inventories (REQUIRED — the tests enforce these)
+
+> Added 2026-08-21 after onboarding `stranske/Orchestrator` as consumer 14.
+> Registering in §10.1 alone left **six failing tests**. The consumer list is
+> duplicated across several places that must move together, and none of them was
+> documented. The tests caught every one — this phase just writes down what they
+> already know, so the next onboarding is not a debugging exercise.
+
+**Do §10.1 first, then work this list, then run §11.6 to confirm.**
+
+### 11.1 Regenerate the Renovate ownership preset
+
+`renovate-presets/consumer-managed-paths.json` is GENERATED from the sync manifest,
+so a new consumer leaves it stale. A stale preset lets the consumer's own Renovate
+open PRs against maint-68-owned paths, which the next sync silently discards
+(precedent: `Inv-Man-Intake#838`, `Manager-Database#1347`, both closed unmerged).
+
+```bash
+python3 scripts/generate_consumer_renovate_ownership.py        # writes the preset
+python3 scripts/generate_consumer_renovate_ownership.py --check # CI-style drift check
+```
+
+- [ ] Preset regenerated and committed
+
+*Note:* running the Python suite writes to `input.txt` and `topics.json` at the repo
+root as a test side-effect. Restore them (`git checkout -- input.txt topics.json`)
+before committing, or they will ride along in your PR.
+
+### 11.2 LangSmith fleet: add to the managed set
+
+`scripts/langsmith_fleet.py` holds `MANAGED_CONSUMER_REPOS`, a hardcoded second copy
+of §10.1's list. `test_langsmith_fleet.py` asserts the two are identical, so it must
+be updated in lockstep.
+
+- [ ] Added to `MANAGED_CONSUMER_REPOS`
+
+### 11.3 LangSmith fleet: classify as registry OR allowlist
+
+Every managed consumer must appear in exactly one of:
+
+* `config/langsmith_fleet_registry.json` — the repo emits traces, and
+* `config/langsmith_fleet_allowlist.json` — the repo is explicitly not applicable.
+
+The allowlist is **schema-validated** and every entry needs all four fields:
+`repo`, `status` (must be `not-applicable`), `reason`, and
+`registry_activation_condition` (what would later move it into the registry).
+Omitting `registry_activation_condition` fails the whole allowlist load and breaks
+~16 tests at once, with an error that names the index rather than the field you
+were thinking about.
+
+- [ ] Classified in exactly one of registry / allowlist, with all four fields if allowlisted
+
+### 11.4 Count assertions vs membership assertions
+
+Adding a consumer moves several hardcoded numbers. When you hit one, decide which
+kind it is — the distinction matters and both appear in this repo:
+
+* **Incidental counts** — "how many are allowlisted right now". DERIVE these from the
+  config so the next consumer does not break them again. Sites already converted:
+  `test_langsmith_fleet.py`, `test_metrics_dashboard_generator.py` (x3),
+  `test_langsmith_fleet_conformance.py`, and the `status_rows` total.
+* **Deliberate membership** — the exact allowlist SET in
+  `test_langsmith_metrics_dashboard.py` stays a literal on purpose. An allowlist is an
+  exemption from observability; extending it should require a visible test change
+  rather than passing silently.
+
+- [ ] Counts derived, membership pinned
+
+### 11.5 Two files that are easy to edit in the wrong place
+
+Both were got wrong during the Orchestrator onboarding and caught in review:
+
+* **Routing labels go in `.github/labels-core.yml`**, which Maint 69 syncs — not
+  `.github/labels.yml`. Labels added to the latter never reach consumers. This is
+  also why `refactor`, `cross-repo`, `epic`, `runtime-ac`, `testgen` and
+  `tracker:durable` existed on 12 repos by hand but on no newly-onboarded one:
+  applying `labels.yml` gave a fresh consumer 41 labels and **none** that
+  `backlog.classify()` routes on.
+* **The agent-runner contract to edit is the ROOT `docs/contracts/agent-runner-output.md`**,
+  which the sync manifest selects — not `templates/consumer-repo/docs/contracts/...`.
+  Editing only the template copy leaves the change inert.
+
+- [ ] Labels in `labels-core.yml`; contract edited at the manifest-selected path
+
+### 11.6 Verify — run the tests, they are the real checklist
+
+```bash
+python3 -m pytest -q tests/ -k "langsmith or metrics_dashboard or label or renovate or dependency_bot or consumer or manifest"
+```
+
+Expect zero failures. This is the only reliable way to find a coupled inventory
+that has drifted; the cascade is not visible by reading.
+
+- [ ] Suite green for the selection above
+
+### 11.7 When a consumer must keep its own context file
+
+`CLAUDE.md` is overwrite-by-default: only 5 of 227 manifest entries are
+`create_only`. If a repo's `CLAUDE.md` or `AGENTS.md` is load-bearing for that repo
+(for example a tool whose agent rules ARE its safety net), add a `skip_repos` entry
+with a reason in `.github/sync-manifest.yml` rather than letting the template
+overwrite it. Precedent: `Trend_Model_Project` skips `AGENTS.md`;
+`Orchestrator` skips `CLAUDE.md`.
+
+- [ ] `skip_repos` added if the repo owns its context file
+
+### 11.8 Registration is not consent to be a SUBJECT
+
+Being registered makes a repo a sync **target**. Some Workflows-side machinery also
+treats registered consumers as **subjects** — `consumer_sync_artifact_ingest`
+derives its drift cohort from `REGISTERED_CONSUMER_REPOS`. A repo that HOSTS such a
+detector must be excluded explicitly, or it becomes a subject of its own detector
+and can feed its own promotion gate. Do not rely on it being absent from some other
+registry; that protection disappears the moment the repo is added there.
+
+- [ ] Subject-vs-target considered for any repo that hosts fleet tooling
 
 ---
 
