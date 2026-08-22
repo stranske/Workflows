@@ -417,8 +417,8 @@ function buildReviewThreadTerminalDisposition(options = {}) {
     pr_number: prNumber,
     disposition: found ? 'unresolved-bot-comments' : 'no-unresolved-bot-comments',
     reason: found
-      ? 'Bot review comments remain unresolved and agent handling is eligible.'
-      : 'No unresolved bot review comments matched the handler filters.',
+      ? 'Active, non-outdated bot review threads remain and agent handling is eligible.'
+      : 'No active, non-outdated bot review threads matched the handler filters.',
     workflow: options.workflow,
     run_id: options.runId ?? options.run_id,
     run_attempt: options.runAttempt ?? options.run_attempt,

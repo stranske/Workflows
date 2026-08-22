@@ -270,6 +270,8 @@ jobs:
       - name: Detect agent from PR labels
         id: agent
         uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -283,7 +285,7 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-            const prNumber = parseInt('${{ inputs.pr_number }}');
+            const prNumber = Number.parseInt(process.env.PR_NUMBER || '', 10);
 
             let pr;
             try {
@@ -330,6 +332,11 @@ jobs:
       - name: Collect unresolved bot comments
         id: collect
         uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          BOT_AUTHORS: ${{ inputs.bot_authors }}
+          SKIP_IF_HUMAN_REPLIED: ${{ inputs.skip_if_human_replied }}
+          IGNORED_PATHS: ${{ inputs.ignored_paths }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -358,10 +365,10 @@ jobs:
             const buildReviewThreadTerminalDisposition =
               botHandler.buildReviewThreadTerminalDisposition;
             const { withRetry } = retryHelpers;
-            const prNumber = parseInt('${{ inputs.pr_number }}');
-            const botAuthors = '${{ inputs.bot_authors }}';
-            const skipIfHumanReplied = ${{ inputs.skip_if_human_replied }};
-            const ignoredPaths = '${{ inputs.ignored_paths }}'
+            const prNumber = Number.parseInt(process.env.PR_NUMBER || '', 10);
+            const botAuthors = process.env.BOT_AUTHORS || '';
+            const skipIfHumanReplied = process.env.SKIP_IF_HUMAN_REPLIED === 'true';
+            const ignoredPaths = (process.env.IGNORED_PATHS || '')
               .split(',')
               .map(s => s.trim())
               .filter(Boolean);
@@ -370,8 +377,8 @@ jobs:
             console.log(`Bot authors: ${botAuthors}`);
 
             // REST review comments do not expose thread resolution or outdated state.
-            // Query the complete active review-thread set and fail closed if a single
-            // thread exceeds the bounded nested-comment page.
+            // Query the complete active review-thread set and paginate long nested
+            // comment connections so one busy thread cannot hide the rest.
             const query = `
               query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
                 repository(owner: $owner, name: $repo) {
@@ -386,7 +393,7 @@ jobs:
                         path
                         line
                         comments(first: 100) {
-                          pageInfo { hasNextPage }
+                          pageInfo { hasNextPage endCursor }
                           nodes {
                             id
                             databaseId
@@ -398,6 +405,27 @@ jobs:
                             author { login }
                           }
                         }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+            const threadCommentsQuery = `
+              query($threadId: ID!, $cursor: String) {
+                node(id: $threadId) {
+                  ... on PullRequestReviewThread {
+                    comments(first: 100, after: $cursor) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes {
+                        id
+                        databaseId
+                        body
+                        url
+                        diffHunk
+                        line
+                        originalLine
+                        author { login }
                       }
                     }
                   }
@@ -418,13 +446,41 @@ jobs:
               if (!pullRequest) {
                 throw new Error(`PR #${prNumber} was not returned by GraphQL`);
               }
+              if (headSha && pullRequest.headRefOid !== headSha) {
+                throw new Error(
+                  `PR head changed during collection: ${headSha} -> ` +
+                  `${pullRequest.headRefOid}`
+                );
+              }
               headSha = pullRequest.headRefOid;
               const page = pullRequest.reviewThreads;
               for (const thread of page.nodes || []) {
-                if (thread.comments?.pageInfo?.hasNextPage) {
-                  throw new Error(`Review thread ${thread.id} exceeds 100 comments`);
+                let commentsPage = thread.comments;
+                const comments = [...(commentsPage?.nodes || [])];
+                while (commentsPage?.pageInfo?.hasNextPage) {
+                  const commentData = await withRetry(() => github.graphql(
+                    threadCommentsQuery,
+                    {
+                      threadId: thread.id,
+                      cursor: commentsPage.pageInfo.endCursor,
+                    }
+                  ));
+                  commentsPage = commentData.node?.comments;
+                  if (!commentsPage) {
+                    throw new Error(`Review thread ${thread.id} pagination failed`);
+                  }
+                  comments.push(...(commentsPage.nodes || []));
                 }
-                reviewThreads.push(thread);
+                reviewThreads.push({
+                  ...thread,
+                  comments: {
+                    nodes: comments,
+                    pageInfo: commentsPage?.pageInfo || {
+                      hasNextPage: false,
+                      endCursor: null,
+                    },
+                  },
+                });
               }
               cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
             } while (cursor);
@@ -470,7 +526,7 @@ jobs:
             core.setOutput('comments', JSON.stringify(botComments));
             core.setOutput('head_sha', headSha);
 
-            console.log(`Found ${botComments.length} unresolved bot comments`);
+            console.log(`Found ${botComments.length} active bot review threads`);
 
             if (botComments.length > 0) {
               console.log('Comments to address:');
@@ -497,8 +553,8 @@ jobs:
                   pr_number: prNumber,
                   disposition: found ? 'unresolved-bot-comments' : 'no-unresolved-bot-comments',
                   reason: found
-                    ? 'Bot review comments remain unresolved and agent handling is eligible.'
-                    : 'No unresolved bot review comments matched the handler filters.',
+                    ? 'Active bot review threads remain and agent handling is eligible.'
+                    : 'No active bot review threads matched the handler filters.',
                   workflow: context.workflow,
                   run_id: context.runId,
                   run_attempt: context.runAttempt,
@@ -519,6 +575,9 @@ jobs:
       - name: Auto-dismiss review comments on ignored paths
         if: steps.collect.outputs.found == 'true'
         uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          IGNORED_PATHS: ${{ inputs.ignored_paths }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -534,8 +593,8 @@ jobs:
               task: 'bot-comment-dismiss',
               capabilities: ['pull-requests:write'],
             });
-            const prNumber = parseInt('${{ inputs.pr_number }}');
-            const ignoredPaths = '${{ inputs.ignored_paths }}'
+            const prNumber = Number.parseInt(process.env.PR_NUMBER || '', 10);
+            const ignoredPaths = (process.env.IGNORED_PATHS || '')
               .split(',')
               .map(s => s.trim())
               .filter(Boolean);
@@ -568,16 +627,18 @@ jobs:
         uses: actions/github-script@v9
         env:
           COMMENTS_JSON: ${{ steps.collect.outputs.comments }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          AGENT: ${{ steps.agent.outputs.agent }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
             const comments = JSON.parse(process.env.COMMENTS_JSON);
             const count = comments.length;
-            const agent = '${{ steps.agent.outputs.agent }}';
-            const dryRun = ${{ inputs.dry_run }};
+            const agent = process.env.AGENT || '';
+            const dryRun = process.env.DRY_RUN === 'true';
 
             let summary = `## 🤖 Bot Comment Handler\n\n`;
-            summary += `Found **${count}** unresolved bot comment(s) to address.\n\n`;
+            summary += `Found **${count}** active bot review thread(s) to address.\n\n`;
             summary += `| File | Line | Bot | Preview |\n`;
             summary += `|------|------|-----|--------|\n`;
 
@@ -815,6 +876,9 @@ jobs:
         env:
           COMMENTS_JSON: ${{ needs.collect.outputs.comments_json }}
           HEAD_SHA: ${{ needs.collect.outputs.head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          AGENT: ${{ needs.collect.outputs.agent }}
+          COMMENTS_COUNT: ${{ needs.collect.outputs.comments_count }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
@@ -828,9 +892,9 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry, paginateWithRetry } = retryHelpers;
-            const prNumber = parseInt('${{ inputs.pr_number }}');
-            const agent = '${{ needs.collect.outputs.agent }}';
-            const count = '${{ needs.collect.outputs.comments_count }}';
+            const prNumber = Number.parseInt(process.env.PR_NUMBER || '', 10);
+            const agent = process.env.AGENT || '';
+            const count = process.env.COMMENTS_COUNT || '0';
             const comments = JSON.parse(process.env.COMMENTS_JSON || '[]');
             const headSha = process.env.HEAD_SHA || '';
             const {owner, repo} = context.repo;

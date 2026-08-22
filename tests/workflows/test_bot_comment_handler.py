@@ -360,6 +360,9 @@ def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatc
     assert call_inputs["skip_if_human_replied"]["default"] is False
 
     assert "reviewThreads(first: 100, after: $cursor)" in workflow_text
+    assert "comments(first: 100, after: $cursor)" in workflow_text
+    assert "threadCommentsQuery" in workflow_text
+    assert "exceeds 100 comments" not in workflow_text
     assert "isResolved" in workflow_text
     assert "isOutdated" in workflow_text
     assert "chatgpt-codex-connector,chatgpt-codex-connector[bot]" in workflow_text
@@ -376,9 +379,20 @@ def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatc
     assignment = dispatch_script.index("github.rest.issues.addAssignees")
     assert context_write < assignment
     assert "github.rest.issues.removeAssignees" in dispatch_script
-    assert "comments, headSha" in dispatch_script
+    assert "buildBotCommentDispatchComment" in dispatch_script
+    assert "comments" in dispatch_script
+    assert "headSha" in dispatch_script
     assert "github.rest.users.getAuthenticated" in dispatch_script
     assert "String(c.user?.login || '').toLowerCase() === authenticatedLogin" in dispatch_script
     head_revalidation = dispatch_script.index("pr.head?.sha !== headSha")
     assert context_write < head_revalidation < assignment
     assert "Recollect before assignment" in dispatch_script
+
+    for job in workflow["jobs"].values():
+        for step in job.get("steps", []):
+            script = step.get("with", {}).get("script", "")
+            if not script:
+                continue
+            assert "${{ inputs." not in script
+            assert "${{ needs." not in script
+            assert "${{ steps." not in script

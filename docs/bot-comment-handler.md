@@ -34,11 +34,11 @@ The workflow reads the PR's labels to determine which agent to use:
 | Label | Agent | Workflow |
 |-------|-------|----------|
 | `agent:codex` | Codex CLI | `reusable-codex-run.yml` |
-| (none) | Codex (default) | `reusable-codex-run.yml` |
+| `agent:claude` | Claude | `reusable-claude-run.yml` |
+| `agent:gemini` | Gemini | `reusable-gemini-run.yml` |
+| (none) | Registry default | Registry-selected runner |
 
 **To switch agents:** Change the PR label. No workflow changes needed.
-
-Only `agent:codex` is currently implemented in this repository. Other `agent:*` labels may be reserved for future expansion.
 
 ## Bot Authors
 
@@ -53,7 +53,7 @@ Configure via the `bot_authors` input.
 
 ### What Gets Processed
 
-- ✅ Unresolved review comments from known bots
+- ✅ Active, non-outdated review threads from known bots
 - ✅ Inline code suggestions
 - ✅ Active comments where a human has replied (review debt is still active)
 - ❌ General PR comments (not inline reviews)
@@ -116,7 +116,7 @@ Create `autofix:bot-comments` label in your repository:
 ### One-off PRs
 
 Add the `autofix:bot-comments` label to any PR with bot review comments. The workflow will:
-1. Collect all unresolved bot comments
+1. Collect all active, non-outdated bot review threads
 2. Persist exact-head thread context on the PR
 3. Reassign the configured agent to trigger a fresh bounded attempt
 4. Remove the label after processing
@@ -146,7 +146,7 @@ gh workflow run agents-bot-comment-handler.yml -f pr_number=123
 |-------|---------|-------------|
 | `pr_number` | (required) | PR number to process |
 | `dry_run` | `false` | Preview without triggering agent |
-| `bot_authors` | `copilot[bot],github-actions[bot],coderabbitai[bot]` | Bot login names to process |
+| `bot_authors` | Copilot, GitHub Actions, CodeRabbit, Codex connector | Bot login names to process |
 | `skip_if_human_replied` | `false` | Legacy escape hatch; when true, suppress active threads after any non-bot reply |
 
 ### Secrets
