@@ -44,6 +44,45 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ---
 
+## Routing Labels
+
+These decide which lane picks work up. `backlog.classify()` reads them in a fixed
+precedence chain — `cross_repo` > `epic` > `codemod` > `runtime_ac` > `testgen` >
+`mechanical` > `implement` — so a label here is not cosmetic: it selects the
+dispatch path.
+
+They are synced from `.github/labels-core.yml` by Maint 69. They are deliberately
+NOT in `.github/labels.yml`, which Maint 69 does not sync.
+
+Documented 2026-08-22. They were created by hand across 12 repos on 2026-08-20 and
+appeared in no inventory, so a freshly-onboarded consumer received 41 labels and
+none that route work. Found while onboarding `stranske/Orchestrator`.
+
+### `refactor`
+Mechanical or codemod-style change. Routes to the codemod lane.
+
+### `cross-repo`
+A coordinated change spanning several fleet repos. Highest precedence in the chain,
+because a cross-repo change mislabelled as anything else loses its coordination.
+
+### `epic`
+A parent issue decomposed into children. Note the parent/child distinction: a title
+matching `[Epic #NNN]` is a CHILD and falls through to ordinary handling; only the
+`[epic]` parent is treated as a container.
+
+### `testgen`
+Test generation or coverage work. Routes to the testgen lane.
+
+### `runtime-ac`
+Acceptance criteria that must be verified by executing the runtime, not by reading
+the diff. Consumed by the closer's runtime-AC gate rather than the opener.
+
+### `tracker:durable`
+A permanently-open tracker: an issue designed never to close (dashboards, health
+reports, sync-failure trackers). Excluded from open-issue backlog counts, so a
+standing tracker cannot masquerade as unfinished work. Durability is inferred from
+recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
+
 ## Autofix Labels
 
 ### `autofix`
