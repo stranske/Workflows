@@ -76,6 +76,15 @@ def test_template_has_version_and_anchors() -> None:
     assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in text
     assert sync_status_file_ignores.PATTERN_BLOCK_END in text
     assert sync_status_file_ignores.TEMPLATE_VERSION_PREFIX in text
+    template_version = next(
+        line for line in text.splitlines() if line.startswith("# Template-Version:")
+    )
+    fallback_version = next(
+        line
+        for line in sync_status_file_ignores.GITIGNORE_BLOCK_HEADER.splitlines()
+        if line.startswith("# Template-Version:")
+    )
+    assert fallback_version == template_version
 
 
 def test_load_template_patterns_requires_version_marker(
@@ -113,6 +122,7 @@ def test_check_gitignore_content_ignores_comments_and_negation() -> None:
     assert status["codex-prompt.md"] is True
     assert status["codex-output.md"] is False
     assert status["ci/autofix/history.json"] is True
+    assert status["!/.github/scripts/node_modules/"] is False
 
 
 def test_get_missing_patterns_returns_missing_only() -> None:
@@ -144,6 +154,19 @@ def test_print_check_report_all_present(capsys: pytest.CaptureFixture[str]) -> N
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "All canonical patterns present" in captured.out
+
+
+def test_print_check_report_rejects_legacy_node_modules_conflict(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    content = _full_gitignore_content() + "node_modules/\n"
+
+    exit_code = sync_status_file_ignores.print_check_report(content, "demo")
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Conflicting legacy patterns" in captured.out
+    assert "node_modules/" in captured.out
 
 
 def test_print_check_report_no_present(capsys: pytest.CaptureFixture[str]) -> None:
@@ -564,6 +587,36 @@ def test_apply_block_appends_and_preserves_repo_local_rules(tmp_path: Path) -> N
     assert content.count(sync_status_file_ignores.PATTERN_BLOCK_END) == 1
     for pattern in sync_status_file_ignores.CANONICAL_PATTERNS:
         assert pattern in content
+
+
+def test_apply_block_removes_legacy_unanchored_node_modules_rule(tmp_path: Path) -> None:
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("# Node.js\nnode_modules/\nkeep-me\n", encoding="utf-8")
+
+    result = sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    content = gitignore.read_text(encoding="utf-8")
+    assert result["changed"] is True
+    assert "keep-me" in content
+    assert content.count("\nnode_modules/\n") == 1
+    assert "\n!/.github/scripts/node_modules/\n" in content
+    assert "\n!/.github/scripts/node_modules/**\n" in content
+
+
+def test_apply_block_handles_only_legacy_node_modules_rule(tmp_path: Path) -> None:
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("node_modules/\n", encoding="utf-8")
+
+    result = sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    assert result["changed"] is True
+    content = gitignore.read_text(encoding="utf-8")
+    assert content.count("\nnode_modules/\n") == 1
+    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in content
+
+
+def test_conflict_check_accepts_managed_node_modules_exceptions() -> None:
+    assert sync_status_file_ignores.get_conflicting_patterns(_full_gitignore_content()) == []
 
 
 def test_apply_block_is_idempotent(tmp_path: Path) -> None:

@@ -211,10 +211,46 @@ def batch_findings(
     if max_per_batch <= 0:
         raise ValueError("max_per_batch must be positive")
     unique = dedupe_findings(findings)
+    # ``check_docs_drift --only`` selects deterministic findings by target path.
+    # Keep every occurrence of one deterministic target atomic so a bounded
+    # batch never fails because the same target is still cited by another doc
+    # assigned to a different batch.
+    groups: list[list[Finding]] = []
+    group_indexes: dict[tuple[str, str], int] = {}
+    for finding in unique:
+        key = (
+            ("deterministic-target", finding.target.strip().lower())
+            if finding.source == "deterministic"
+            else (
+                "finding",
+                "\0".join(
+                    (
+                        finding.source,
+                        finding.kind,
+                        finding.doc_path,
+                        finding.target,
+                    )
+                ).lower(),
+            )
+        )
+        if key not in group_indexes:
+            group_indexes[key] = len(groups)
+            groups.append([])
+        groups[group_indexes[key]].append(finding)
+
     batches: list[RepairBatch] = []
-    for index in range(0, len(unique), max_per_batch):
-        chunk = tuple(unique[index : index + max_per_batch])
-        batches.append(RepairBatch(batch_id=f"docs-drift-{len(batches) + 1:02d}", findings=chunk))
+    chunk: list[Finding] = []
+    for group in groups:
+        if chunk and len(chunk) + len(group) > max_per_batch:
+            batches.append(
+                RepairBatch(batch_id=f"docs-drift-{len(batches) + 1:02d}", findings=tuple(chunk))
+            )
+            chunk = []
+        chunk.extend(group)
+    if chunk:
+        batches.append(
+            RepairBatch(batch_id=f"docs-drift-{len(batches) + 1:02d}", findings=tuple(chunk))
+        )
     return batches
 
 
@@ -509,6 +545,8 @@ def build_plan(
     return {
         "repo": repo,
         "repo_root": str(repo_root),
+        "docs": docs_to_scan,
+        "max_per_batch": max_per_batch,
         "finding_count": len(findings),
         "batch_count": len(batches),
         "checks": list(verification_commands(docs_to_scan)),
@@ -557,53 +595,97 @@ def write_plan_outputs(plan: dict[str, Any], out_dir: Path) -> None:
 def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
     created: list[dict[str, Any]] = []
     existing_by_marker: dict[str, str] = {}
+    legacy_markers = _legacy_markers_by_finding(plan)
     for batch in plan["batches"]:
-        issue_body = batch["issue_body"]
-        digest = hashlib.sha256(f"{batch['issue_title']}\0{issue_body}".encode()).hexdigest()[:16]
-        marker = f"<!-- docs-drift-fix-agent:{digest} -->"
-        list_result = subprocess.run(
-            [
-                "gh",
-                "issue",
-                "list",
-                "--repo",
-                plan["repo"],
-                "--state",
-                "open",
-                "--label",
-                "documentation",
-                "--search",
-                f'"{marker}" in:body',
-                "--limit",
-                "1",
-                "--json",
-                "body,url",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=60,
+        serialized_findings = batch.get("findings") or []
+        findings = tuple(Finding(**finding) for finding in serialized_findings)
+        legacy_issue_body = str(batch["issue_body"])
+        legacy_marker = _legacy_batch_marker(str(batch["issue_title"]), legacy_issue_body)
+        markers = [_finding_marker(finding) for finding in findings]
+        marker_indexes: dict[str, set[int]] = {legacy_marker: set(range(len(findings)))}
+        for index, finding in enumerate(findings):
+            marker_indexes.setdefault(markers[index], set()).add(index)
+            old_marker = legacy_markers.get(finding)
+            if old_marker:
+                marker_indexes.setdefault(old_marker, set()).add(index)
+        if not findings:
+            marker_indexes = {legacy_marker: set()}
+
+        covered_markers: dict[str, str] = {}
+        covered_indexes: set[int] = set()
+        for marker, indexes in marker_indexes.items():
+            if marker in existing_by_marker:
+                covered_markers[marker] = existing_by_marker[marker]
+                covered_indexes.update(indexes)
+                continue
+            list_result = subprocess.run(
+                [
+                    "gh",
+                    "issue",
+                    "list",
+                    "--repo",
+                    plan["repo"],
+                    "--state",
+                    "open",
+                    "--label",
+                    "documentation",
+                    "--search",
+                    f'"{marker}" in:body',
+                    "--limit",
+                    "1",
+                    "--json",
+                    "body,url",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+            if list_result.returncode != 0:
+                raise RuntimeError(f"gh issue list failed: {list_result.stderr.strip()}")
+            matches = json.loads(list_result.stdout or "[]")
+            if not isinstance(matches, list):
+                raise ValueError("gh issue list returned a non-list payload")
+            for row in matches:
+                if isinstance(row, Mapping) and marker in str(row.get("body") or ""):
+                    url = str(row.get("url") or "")
+                    existing_by_marker[marker] = url
+                    covered_markers[marker] = url
+                    covered_indexes.update(indexes)
+                    break
+
+        uncovered_findings = tuple(
+            finding for index, finding in enumerate(findings) if index not in covered_indexes
         )
-        if list_result.returncode != 0:
-            raise RuntimeError(f"gh issue list failed: {list_result.stderr.strip()}")
-        matches = json.loads(list_result.stdout or "[]")
-        if not isinstance(matches, list):
-            raise ValueError("gh issue list returned a non-list payload")
-        for row in matches:
-            if isinstance(row, Mapping) and marker in str(row.get("body") or ""):
-                existing_by_marker[marker] = str(row.get("url") or "")
-                break
-        if marker in existing_by_marker:
+
+        if not uncovered_findings and covered_markers:
             created.append(
                 {
                     "batch_id": batch["batch_id"],
                     "disposition": "already-open",
                     "returncode": 0,
-                    "stdout": existing_by_marker[marker],
+                    "stdout": "\n".join(sorted(set(covered_markers.values()))),
                     "stderr": "",
                 }
             )
             continue
+
+        if findings:
+            issue_batch = RepairBatch(
+                batch_id=str(batch["batch_id"]),
+                findings=uncovered_findings,
+            )
+            docs = plan.get("docs") or sorted({finding.doc_path for finding in uncovered_findings})
+            issue_body = build_issue_body(
+                issue_batch,
+                repo=plan["repo"],
+                checks=verification_commands(docs, uncovered_findings),
+                informational_checks=informational_commands(docs),
+            )
+            issue_markers = [_finding_marker(finding) for finding in uncovered_findings]
+        else:
+            issue_body = legacy_issue_body
+            issue_markers = [legacy_marker]
         result = subprocess.run(
             [
                 "gh",
@@ -614,7 +696,7 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
                 "--title",
                 batch["issue_title"],
                 "--body",
-                f"{issue_body.rstrip()}\n\n{marker}\n",
+                f"{issue_body.rstrip()}\n\n{' '.join(issue_markers)}\n",
                 "--label",
                 "documentation",
             ],
@@ -637,6 +719,59 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
                 f"gh issue create failed for {batch['batch_id']}: {result.stderr.strip()}"
             )
     return created
+
+
+def _finding_marker(finding: Finding) -> str:
+    """Return a stable issue marker independent of mutable batch ordering/body text."""
+    identity = "\0".join(
+        value.strip().lower()
+        for value in (finding.source, finding.kind, finding.doc_path, finding.target)
+    )
+    digest = hashlib.sha256(identity.encode()).hexdigest()[:16]
+    return f"<!-- docs-drift-finding:{digest} -->"
+
+
+def _legacy_batch_marker(issue_title: str, issue_body: str) -> str:
+    """Return the body-derived marker emitted before per-finding identities existed."""
+    digest = hashlib.sha256(f"{issue_title}\0{issue_body}".encode()).hexdigest()[:16]
+    return f"<!-- docs-drift-fix-agent:{digest} -->"
+
+
+def _legacy_markers_by_finding(plan: Mapping[str, Any]) -> dict[Finding, str]:
+    """Reconstruct pre-atomic batch markers so existing issues survive the migration."""
+    serialized = plan.get("findings") or []
+    if not serialized:
+        serialized = [
+            finding
+            for batch in plan.get("batches") or []
+            for finding in (batch.get("findings") or [])
+        ]
+    findings = dedupe_findings(
+        [Finding(**finding) for finding in serialized if isinstance(finding, Mapping)]
+    )
+    try:
+        max_per_batch = int(plan.get("max_per_batch") or DEFAULT_MAX_PER_BATCH)
+    except (TypeError, ValueError):
+        max_per_batch = DEFAULT_MAX_PER_BATCH
+    if max_per_batch <= 0:
+        max_per_batch = DEFAULT_MAX_PER_BATCH
+    docs = plan.get("docs") or sorted({finding.doc_path for finding in findings})
+    markers: dict[Finding, str] = {}
+    for offset in range(0, len(findings), max_per_batch):
+        chunk = tuple(findings[offset : offset + max_per_batch])
+        batch_id = f"docs-drift-{offset // max_per_batch + 1:02d}"
+        legacy_batch = RepairBatch(batch_id=batch_id, findings=chunk)
+        issue_title = f"[Docs Drift] Repair {batch_id}"
+        issue_body = build_issue_body(
+            legacy_batch,
+            repo=str(plan["repo"]),
+            checks=verification_commands(docs, chunk),
+            informational_checks=informational_commands(docs),
+        )
+        marker = _legacy_batch_marker(issue_title, issue_body)
+        for finding in chunk:
+            markers[finding] = marker
+    return markers
 
 
 def format_summary(plan: dict[str, Any], out_dir: Path | None = None) -> str:

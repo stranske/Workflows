@@ -52,8 +52,10 @@ env/
 venv/
 ENV/
 
-# Node.js
+# Node.js: ignore dependency installs at every depth except the deliberately vendored workflow tree.
 node_modules/
+!/.github/scripts/node_modules/
+!/.github/scripts/node_modules/**
 # Ignore package files at workspace root only (subdirs like .github/scripts need them)
 /package.json
 /package-lock.json
