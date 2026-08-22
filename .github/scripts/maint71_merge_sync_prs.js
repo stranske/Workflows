@@ -1843,6 +1843,15 @@ async function run({ github, context, core }) {
           branch: pr.head.ref,
           head_sha: pr.head.sha,
           delivery_generation: selection.deliveryRecord?.generation || '',
+          // The review-window result is itself a durable Maint 82 handoff.
+          // New stable candidates have no delivery marker yet, so bind it to
+          // the exact Maint 68 dispatch identity before the early continue.
+          plan_id: selection.deliveryRecord?.plan_id || expectedPlanId,
+          plan_scope: metadata?.plan_scope || expectedPlanScope,
+          scope_base_sha: metadata?.scope_base_sha || expectedScopeBaseSha,
+          source_commit: selection.deliveryRecord?.source_commit
+            || metadata?.source_commit
+            || expectedSourceCommit,
           delivery_lane: generatedDeliveryLane(pr.head.ref),
           delivery_disposition: 'awaiting-review-window',
           blocker_owner: 'maint-71',

@@ -66,6 +66,15 @@ def test_maint71_handoffs_preserve_the_dispatch_immutable_binding():
     assert "expectedSourceCommit" in executor
 
 
+def test_maint71_review_window_handoff_preserves_dispatch_immutable_binding():
+    executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text(encoding="utf-8")
+    pending_result = executor.rsplit("if (!reviewWindow.ready) {", 1)[1].split("continue;")[0]
+
+    assert "status: 'review_window_pending'" in pending_result
+    assert "plan_id: selection.deliveryRecord?.plan_id || expectedPlanId" in pending_result
+    assert "source_commit: selection.deliveryRecord?.source_commit" in pending_result
+
+
 def test_campaign_workflow_bot_agnostic_identity():
     data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
 
