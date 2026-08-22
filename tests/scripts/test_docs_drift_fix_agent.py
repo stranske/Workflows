@@ -310,6 +310,28 @@ def test_batch_findings_respects_max_per_batch() -> None:
     assert [batch.batch_id for batch in batches] == ["docs-drift-01", "docs-drift-02"]
 
 
+def test_batch_findings_keeps_duplicate_deterministic_target_atomic() -> None:
+    findings = [
+        fix_agent.Finding(
+            source="deterministic",
+            kind="dangling_reference",
+            doc_path=doc_path,
+            target="scripts/shared_missing.py",
+            detail="missing",
+        )
+        for doc_path in ("docs/a.md", "docs/b.md")
+    ]
+
+    batches = fix_agent.batch_findings(findings, max_per_batch=1)
+
+    assert len(batches) == 1
+    assert {finding.doc_path for finding in batches[0].findings} == {
+        "docs/a.md",
+        "docs/b.md",
+    }
+    assert fix_agent._only_arg(batches[0].findings) == " --only scripts/shared_missing.py"
+
+
 def test_dedupe_prefers_deterministic_finding() -> None:
     semantic = fix_agent.Finding(
         source="semantic-scan",
@@ -471,9 +493,100 @@ def test_cli_apply_creates_one_issue_per_batch(tmp_path: Path, monkeypatch, caps
     capsys.readouterr()
     issue_calls = [call for call in calls if call[:3] == ["gh", "issue", "create"]]
     assert len(issue_calls) == 2
-    assert all(
-        "<!-- docs-drift-fix-agent:" in call[call.index("--body") + 1] for call in issue_calls
+    assert all("<!-- docs-drift-finding:" in call[call.index("--body") + 1] for call in issue_calls)
+
+
+def test_finding_marker_is_stable_across_mutable_batch_text() -> None:
+    finding = fix_agent.Finding(
+        source="deterministic",
+        kind="dangling_reference",
+        doc_path="docs/ci/WORKFLOWS.md",
+        target="scripts/missing.py",
+        detail="first detail",
     )
+    revised = fix_agent.Finding(
+        source=finding.source,
+        kind=finding.kind,
+        doc_path=finding.doc_path,
+        target=finding.target,
+        detail="new detail after plan refresh",
+        classification="changed classification",
+    )
+
+    assert fix_agent._finding_marker(finding) == fix_agent._finding_marker(revised)
+
+
+def test_apply_issues_excludes_findings_already_covered_by_open_issue(monkeypatch) -> None:
+    covered = fix_agent.Finding(
+        source="deterministic",
+        kind="dangling_reference",
+        doc_path="docs/a.md",
+        target="scripts/covered.py",
+        detail="missing",
+    )
+    uncovered = fix_agent.Finding(
+        source="deterministic",
+        kind="dangling_reference",
+        doc_path="docs/b.md",
+        target="scripts/new.py",
+        detail="missing",
+    )
+    plan = {
+        "repo": "stranske/Workflows",
+        "docs": ["docs/a.md", "docs/b.md"],
+        "batches": [
+            {
+                "batch_id": "docs-drift-01",
+                "issue_title": "[Docs Drift] Repair docs-drift-01",
+                "issue_body": "Mutable original body.\n",
+                "findings": [
+                    fix_agent.asdict(covered),
+                    fix_agent.asdict(uncovered),
+                ],
+            }
+        ],
+    }
+    covered_marker = fix_agent._finding_marker(covered)
+    uncovered_marker = fix_agent._finding_marker(uncovered)
+    calls: list[list[str]] = []
+
+    class Result:
+        returncode = 0
+        stderr = ""
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    def fake_run(args, **kwargs):  # noqa: ANN001
+        call = list(args)
+        calls.append(call)
+        if call[:3] == ["gh", "issue", "list"]:
+            marker = call[call.index("--search") + 1]
+            if covered_marker in marker:
+                return Result(
+                    json.dumps(
+                        [
+                            {
+                                "body": f"Existing.\n\n{covered_marker}\n",
+                                "url": "https://github.com/stranske/Workflows/issues/1",
+                            }
+                        ]
+                    )
+                )
+            return Result("[]")
+        return Result("https://github.com/stranske/Workflows/issues/2\n")
+
+    monkeypatch.setattr(fix_agent.subprocess, "run", fake_run)
+
+    result = fix_agent.apply_issues(plan)
+
+    assert result[0]["disposition"] == "created"
+    create_call = next(call for call in calls if call[:3] == ["gh", "issue", "create"])
+    body = create_call[create_call.index("--body") + 1]
+    assert "scripts/new.py" in body
+    assert uncovered_marker in body
+    assert "scripts/covered.py" not in body
+    assert covered_marker not in body
 
 
 def test_apply_issues_reuses_matching_open_issue(monkeypatch) -> None:

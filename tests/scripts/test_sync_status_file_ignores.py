@@ -146,6 +146,19 @@ def test_print_check_report_all_present(capsys: pytest.CaptureFixture[str]) -> N
     assert "All canonical patterns present" in captured.out
 
 
+def test_print_check_report_rejects_legacy_node_modules_conflict(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    content = _full_gitignore_content() + "node_modules/\n"
+
+    exit_code = sync_status_file_ignores.print_check_report(content, "demo")
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Conflicting legacy patterns" in captured.out
+    assert "node_modules/" in captured.out
+
+
 def test_print_check_report_no_present(capsys: pytest.CaptureFixture[str]) -> None:
     exit_code = sync_status_file_ignores.print_check_report("", "demo")
 
@@ -564,6 +577,19 @@ def test_apply_block_appends_and_preserves_repo_local_rules(tmp_path: Path) -> N
     assert content.count(sync_status_file_ignores.PATTERN_BLOCK_END) == 1
     for pattern in sync_status_file_ignores.CANONICAL_PATTERNS:
         assert pattern in content
+
+
+def test_apply_block_removes_legacy_unanchored_node_modules_rule(tmp_path: Path) -> None:
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("# Node.js\nnode_modules/\nkeep-me\n", encoding="utf-8")
+
+    result = sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    content = gitignore.read_text(encoding="utf-8")
+    assert result["changed"] is True
+    assert "keep-me" in content
+    assert "\nnode_modules/\n" not in content
+    assert "\n/node_modules/\n" in content
 
 
 def test_apply_block_is_idempotent(tmp_path: Path) -> None:

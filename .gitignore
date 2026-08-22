@@ -53,7 +53,7 @@ venv/
 ENV/
 
 # Node.js
-node_modules/
+/node_modules/
 # Ignore package files at workspace root only (subdirs like .github/scripts need them)
 /package.json
 /package-lock.json

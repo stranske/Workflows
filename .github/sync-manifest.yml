@@ -233,6 +233,9 @@ scripts:
   - source: scripts/docs_drift_fix_agent.py
     description: "Builds bounded deterministic documentation-drift repair plans and idempotent issue batches"
     template_sync: exact
+  - source: scripts/sync_status_file_ignores.py
+    description: "Validates and updates the managed consumer .gitignore status-file block, including legacy conflict cleanup"
+    template_sync: exact
   - source: config/source_of_truth_docs.yml
     description: "Defines the canonical documentation paths scanned by the docs drift fix agent"
     template_sync: exact
