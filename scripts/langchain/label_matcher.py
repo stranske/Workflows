@@ -177,7 +177,7 @@ _KEYWORD_ALIASES = {
     "crash": frozenset({"crashed", "crashes", "crashing"}),
     "defect": frozenset({"defects"}),
     "doctor": frozenset({"doctors"}),
-    "doc": frozenset({"docs", "documentation"}),
+    "doc": frozenset({"docs", "document", "documentation"}),
     "enhancement": frozenset({"enhancements"}),
     "error": frozenset({"errors"}),
     "example": frozenset({"examples"}),

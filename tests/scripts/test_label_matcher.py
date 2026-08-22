@@ -13,6 +13,7 @@ def test_keyword_matching_rejects_short_prefix_false_positives() -> None:
     assert label_matcher._token_matches_keyword("defective", "defect") is False
     assert label_matcher._token_matches_keyword("doctor", "doctors") is True
     assert label_matcher._token_matches_keyword("docs", "documentation") is True
+    assert label_matcher._token_matches_keyword("document", "documentation") is True
     assert label_matcher._token_matches_keyword("crashing", "crash") is True
     assert label_matcher._token_matches_keyword("regressions", "regression") is True
     assert label_matcher._token_matches_keyword("defects", "defect") is True
