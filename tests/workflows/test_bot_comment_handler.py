@@ -237,6 +237,47 @@ def test_bot_comment_handler_callers_retain_manual_trigger_after_dispatch_abort(
     assert "needs.bot_comments.outputs.agent_triggered == 'true'" in consolidated_if
 
 
+def test_reusable_handler_transports_thread_context_by_artifact() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
+    jobs = workflow["jobs"]
+    collect = jobs["collect"]
+    prepare = jobs["prepare"]
+    dispatch = jobs["dispatch"]
+
+    assert "comments_json" not in collect["outputs"]
+    collect_script = next(step for step in collect["steps"] if step.get("id") == "collect")["with"][
+        "script"
+    ]
+    assert "bot-comment-thread-context/comments.json" in collect_script
+    assert "core.setOutput('comments'" not in collect_script
+
+    context_upload = next(
+        step for step in collect["steps"] if step.get("name") == "Upload bot comment thread context"
+    )
+    assert context_upload["uses"] == "actions/upload-artifact@v7"
+    assert context_upload["with"]["name"] == (
+        "bot-comment-thread-context-${{ github.run_id }}-${{ github.run_attempt }}"
+    )
+    assert context_upload["with"]["path"] == "bot-comment-thread-context/comments.json"
+
+    for job in (prepare, dispatch):
+        download = next(
+            step
+            for step in job["steps"]
+            if step.get("name") == "Download bot comment thread context"
+        )
+        assert download["uses"] == "actions/download-artifact@v8"
+        assert download["with"]["name"] == context_upload["with"]["name"]
+
+    prompt_step = next(step for step in prepare["steps"] if step.get("id") == "prompt")
+    dispatch_step = next(step for step in dispatch["steps"] if step.get("id") == "dispatch")
+    for step in (prompt_step, dispatch_step):
+        assert "COMMENTS_JSON" not in step.get("env", {})
+        assert "readFileSync('bot-comment-thread-context/comments.json'" in (
+            step.get("run") or step.get("with", {}).get("script", "")
+        )
+
+
 def test_canonical_bot_comment_handler_direct_app_tokens_prefer_client_id() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
     resolve_job = workflow["jobs"]["resolve"]
