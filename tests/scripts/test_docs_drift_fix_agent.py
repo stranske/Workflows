@@ -767,7 +767,10 @@ def test_apply_issues_reuses_legacy_semantic_per_finding_marker(monkeypatch) -> 
                     fix_agent.json.dumps(
                         [
                             {
-                                "body": f"Existing legacy semantic issue.\n\n{old_marker}\n",
+                                "body": (
+                                    "Existing legacy semantic issue.\n\n"
+                                    f"{fix_agent._finding_line(finding)}\n\n{old_marker}\n"
+                                ),
                                 "url": "https://x/1",
                             }
                         ]
@@ -832,7 +835,15 @@ def test_apply_issues_legacy_semantic_marker_covers_only_original_representative
             if old_marker in search:
                 return Result(
                     fix_agent.json.dumps(
-                        [{"body": f"Legacy issue.\n\n{old_marker}\n", "url": "https://x/1"}]
+                        [
+                            {
+                                "body": (
+                                    "Legacy issue.\n\n"
+                                    f"{fix_agent._finding_line(findings[0])}\n\n{old_marker}\n"
+                                ),
+                                "url": "https://x/1",
+                            }
+                        ]
                     )
                 )
             return Result("[]")
@@ -847,6 +858,79 @@ def test_apply_issues_legacy_semantic_marker_covers_only_original_representative
     body = create_call[create_call.index("--body") + 1]
     assert findings[0].detail not in body
     assert findings[1].detail in body
+
+
+def test_apply_issues_legacy_marker_matches_claim_stored_in_existing_issue(
+    monkeypatch,
+) -> None:
+    prefix = "shared prefix " + "x" * 160
+    findings = tuple(
+        fix_agent.Finding(
+            source="semantic-scan",
+            kind="semantic_drift",
+            doc_path="README.md",
+            target=(prefix + ending)[:160],
+            detail=prefix + ending,
+            classification="stale",
+        )
+        for ending in (" a-new-claim", " b-existing-claim")
+    )
+    batch = fix_agent.RepairBatch("docs-drift-01", findings)
+    plan = {
+        "repo": "stranske/Workflows",
+        "docs": ["README.md"],
+        "max_per_batch": 5,
+        "findings": [fix_agent.asdict(finding) for finding in findings],
+        "batches": [
+            {
+                "batch_id": batch.batch_id,
+                "issue_title": "[Docs Drift] Repair docs-drift-01",
+                "issue_body": fix_agent.build_issue_body(batch),
+                "findings": [fix_agent.asdict(finding) for finding in findings],
+            }
+        ],
+    }
+    old_marker = fix_agent._legacy_v1_finding_marker(findings[1])
+    calls: list[list[str]] = []
+
+    class Result:
+        returncode = 0
+        stderr = ""
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    def fake_run(args, **kwargs):  # noqa: ANN001
+        call = list(args)
+        calls.append(call)
+        if call[:3] == ["gh", "issue", "list"]:
+            search = call[call.index("--search") + 1]
+            if old_marker in search:
+                return Result(
+                    fix_agent.json.dumps(
+                        [
+                            {
+                                "body": (
+                                    "Existing issue for claim B.\n\n"
+                                    f"{fix_agent._finding_line(findings[1])}\n\n{old_marker}\n"
+                                ),
+                                "url": "https://x/1",
+                            }
+                        ]
+                    )
+                )
+            return Result("[]")
+        return Result("https://x/2\n")
+
+    monkeypatch.setattr(fix_agent.subprocess, "run", fake_run)
+
+    result = fix_agent.apply_issues(plan)
+
+    assert result[0]["disposition"] == "created"
+    [create_call] = [call for call in calls if call[:3] == ["gh", "issue", "create"]]
+    body = create_call[create_call.index("--body") + 1]
+    assert findings[0].detail in body
+    assert findings[1].detail not in body
 
 
 def test_apply_issues_reuses_matching_open_issue(monkeypatch) -> None:

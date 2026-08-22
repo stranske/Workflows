@@ -614,9 +614,8 @@ def write_plan_outputs(plan: dict[str, Any], out_dir: Path) -> None:
 
 def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
     created: list[dict[str, Any]] = []
-    existing_by_marker: dict[str, str] = {}
+    existing_by_marker: dict[str, tuple[str, str]] = {}
     legacy_markers = _legacy_markers_by_finding(plan)
-    legacy_representatives = set(legacy_markers)
     for batch in plan["batches"]:
         serialized_findings = batch.get("findings") or []
         findings = tuple(Finding(**finding) for finding in serialized_findings)
@@ -624,10 +623,13 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
         legacy_marker = _legacy_batch_marker(str(batch["issue_title"]), legacy_issue_body)
         markers = [_finding_marker(finding) for finding in findings]
         marker_indexes: dict[str, set[int]] = {legacy_marker: set(range(len(findings)))}
+        legacy_finding_markers: set[str] = set()
         for index, finding in enumerate(findings):
             marker_indexes.setdefault(markers[index], set()).add(index)
-            if finding in legacy_representatives:
-                marker_indexes.setdefault(_legacy_v1_finding_marker(finding), set()).add(index)
+            legacy_finding_marker = _legacy_v1_finding_marker(finding)
+            marker_indexes.setdefault(legacy_finding_marker, set()).add(index)
+            if legacy_finding_marker != markers[index]:
+                legacy_finding_markers.add(legacy_finding_marker)
             old_marker = legacy_markers.get(finding)
             if old_marker:
                 marker_indexes.setdefault(old_marker, set()).add(index)
@@ -638,9 +640,18 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
         covered_indexes: set[int] = set()
         for marker, indexes in marker_indexes.items():
             if marker in existing_by_marker:
-                covered_markers[marker] = existing_by_marker[marker]
-                covered_indexes.update(indexes)
-                continue
+                body, url = existing_by_marker[marker]
+                matched_indexes = indexes
+                if marker in legacy_finding_markers:
+                    matched_indexes = {
+                        index
+                        for index in indexes
+                        if _legacy_v1_issue_body_contains_finding(body, findings[index])
+                    }
+                if matched_indexes or marker not in legacy_finding_markers:
+                    covered_markers[marker] = url
+                    covered_indexes.update(matched_indexes)
+                    continue
             list_result = subprocess.run(
                 [
                     "gh",
@@ -670,11 +681,21 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
             if not isinstance(matches, list):
                 raise ValueError("gh issue list returned a non-list payload")
             for row in matches:
-                if isinstance(row, Mapping) and marker in str(row.get("body") or ""):
+                body = str(row.get("body") or "") if isinstance(row, Mapping) else ""
+                if isinstance(row, Mapping) and marker in body:
                     url = str(row.get("url") or "")
-                    existing_by_marker[marker] = url
+                    matched_indexes = indexes
+                    if marker in legacy_finding_markers:
+                        matched_indexes = {
+                            index
+                            for index in indexes
+                            if _legacy_v1_issue_body_contains_finding(body, findings[index])
+                        }
+                    if not matched_indexes and marker in legacy_finding_markers:
+                        continue
+                    existing_by_marker[marker] = (body, url)
                     covered_markers[marker] = url
-                    covered_indexes.update(indexes)
+                    covered_indexes.update(matched_indexes)
                     break
 
         uncovered_findings = tuple(
@@ -767,6 +788,16 @@ def _legacy_v1_finding_marker(finding: Finding) -> str:
     )
     digest = hashlib.sha256(identity.encode()).hexdigest()[:16]
     return f"<!-- docs-drift-finding:{digest} -->"
+
+
+def _legacy_v1_issue_body_contains_finding(body: str, finding: Finding) -> bool:
+    """Match a shared legacy marker to the exact finding serialized in its issue body."""
+    pattern = (
+        rf"^- `{re.escape(finding.doc_path)}`: {re.escape(finding.kind)}"
+        rf"(?: \([^\r\n]*\))?; target `{re.escape(finding.target)}`; "
+        rf"{re.escape(finding.detail)}(?:; source=[^\r\n]*)?$"
+    )
+    return re.search(pattern, body, flags=re.MULTILINE) is not None
 
 
 def _legacy_batch_marker(issue_title: str, issue_body: str) -> str:
