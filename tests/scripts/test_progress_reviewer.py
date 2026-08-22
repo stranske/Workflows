@@ -44,9 +44,7 @@ def test_build_review_payload_filters_and_orders_suggestions():
 
     payload = progress_reviewer.build_review_payload(result)
 
-    assert payload["review"]["suggestions"] == (
-        "Missing acceptance evidence; Unrelated refactor"
-    )
+    assert payload["review"]["suggestions"] == ("Missing acceptance evidence; Unrelated refactor")
 
 
 def test_json_output_contains_review_fields():
