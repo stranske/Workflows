@@ -377,3 +377,8 @@ def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatc
     assert context_write < assignment
     assert "github.rest.issues.removeAssignees" in dispatch_script
     assert "comments, headSha" in dispatch_script
+    assert "github.rest.users.getAuthenticated" in dispatch_script
+    assert "String(c.user?.login || '').toLowerCase() === authenticatedLogin" in dispatch_script
+    head_revalidation = dispatch_script.index("pr.head?.sha !== headSha")
+    assert context_write < head_revalidation < assignment
+    assert "Recollect before assignment" in dispatch_script

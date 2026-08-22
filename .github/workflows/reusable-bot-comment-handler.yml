@@ -872,7 +872,19 @@ jobs:
               github.rest.issues.listComments,
               { owner, repo, issue_number: prNumber, per_page: 100 }
             );
-            const existing = existingComments.find(c => c.body && c.body.includes(marker));
+            const { data: authenticated } = await withRetry(() =>
+              github.rest.users.getAuthenticated()
+            );
+            const authenticatedLogin = String(authenticated?.login || '').toLowerCase();
+            if (!authenticatedLogin) {
+              core.setOutput('triggered', 'false');
+              core.setFailed('Could not determine the controller comment identity');
+              return;
+            }
+            const existing = existingComments.find(c =>
+              c.body?.includes(marker)
+              && String(c.user?.login || '').toLowerCase() === authenticatedLogin
+            );
 
             if (existing) {
               await withRetry(() => github.rest.issues.updateComment({
@@ -902,6 +914,14 @@ jobs:
                 repo,
                 pull_number: prNumber,
               }));
+              if (!headSha || pr.head?.sha !== headSha) {
+                core.setOutput('triggered', 'false');
+                core.setFailed(
+                  `PR head changed after collection: expected ${headSha || 'missing'}, ` +
+                  `observed ${pr.head?.sha || 'missing'}. Recollect before assignment.`
+                );
+                return;
+              }
               const assigned = new Set(
                 (pr.assignees || []).map(item => String(item.login || '').toLowerCase())
               );
