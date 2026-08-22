@@ -76,6 +76,15 @@ def test_template_has_version_and_anchors() -> None:
     assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in text
     assert sync_status_file_ignores.PATTERN_BLOCK_END in text
     assert sync_status_file_ignores.TEMPLATE_VERSION_PREFIX in text
+    template_version = next(
+        line for line in text.splitlines() if line.startswith("# Template-Version:")
+    )
+    fallback_version = next(
+        line
+        for line in sync_status_file_ignores.GITIGNORE_BLOCK_HEADER.splitlines()
+        if line.startswith("# Template-Version:")
+    )
+    assert fallback_version == template_version
 
 
 def test_load_template_patterns_requires_version_marker(

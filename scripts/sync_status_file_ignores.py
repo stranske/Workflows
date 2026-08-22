@@ -80,7 +80,7 @@ GITIGNORE_BLOCK_HEADER = """# ==================================================
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
-# Template-Version: 2
+# Template-Version: 3
 # BEGIN WORKFLOWS STATUS FILES
 """
 
