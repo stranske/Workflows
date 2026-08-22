@@ -10,10 +10,19 @@ from tools import harvest_verifier_corpus as hv
 NOW = datetime(2026, 7, 25, tzinfo=UTC)
 
 
-def _rec(pr, *, merged=True, days_ago=40, reverted=False, followup=False, resolved=False):
+def _rec(
+    pr,
+    *,
+    merged=True,
+    days_ago=40,
+    reverted=False,
+    followup=False,
+    resolved=False,
+    now=NOW,
+):
     merged_at = None
     if merged:
-        merged_at = datetime(2026, 7, 25, tzinfo=UTC).fromordinal(NOW.toordinal() - days_ago)
+        merged_at = now.fromordinal(now.toordinal() - days_ago)
         merged_at = merged_at.replace(tzinfo=UTC).isoformat()
     return {
         "repo": "stranske/Demo",
@@ -129,7 +138,11 @@ def test_main_dry_run_and_write(tmp_path, capsys):
         }
     }
     corpus = {"corpus_version": "v1", "cases": []}
-    records = [_rec(1, days_ago=40), _rec(2, days_ago=2)]
+    current_now = datetime.now(UTC)
+    records = [
+        _rec(1, days_ago=40, now=current_now),
+        _rec(2, days_ago=2, now=current_now),
+    ]
     pol_p = tmp_path / "policy.json"
     cor_p = tmp_path / "corpus.json"
     stg_p = tmp_path / "staging.json"
