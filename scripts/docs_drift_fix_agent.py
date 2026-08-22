@@ -762,6 +762,107 @@ def _legacy_batch_marker(issue_title: str, issue_body: str) -> str:
     return f"<!-- docs-drift-fix-agent:{digest} -->"
 
 
+def _legacy_v1_dedupe_findings(findings: Sequence[Finding]) -> list[Finding]:
+    """Reproduce target-truncated dedupe used by legacy body-hash issues."""
+    priority = {"deterministic": 0, "semantic-scan": 1}
+    ordered = sorted(
+        findings, key=lambda f: (priority.get(f.source, 9), f.doc_path, f.kind, f.target)
+    )
+    seen: set[tuple[str, str, str]] = set()
+    out: list[Finding] = []
+    for finding in ordered:
+        key = (
+            finding.doc_path.strip().lower(),
+            finding.kind.strip().lower(),
+            finding.target.strip().lower(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(finding)
+    return sorted(out, key=lambda f: (f.doc_path, f.source, f.kind, f.target))
+
+
+def _legacy_v1_issue_body(batch: RepairBatch, *, repo: str, docs: Sequence[str]) -> str:
+    """Freeze the pre-per-finding body renderer used to derive legacy markers."""
+    finding_lines: list[str] = []
+    for finding in batch.findings:
+        suffix = f" ({finding.classification})" if finding.classification else ""
+        source = f"; source={finding.authoritative_source}" if finding.authoritative_source else ""
+        finding_lines.append(
+            f"- `{finding.doc_path}`: {finding.kind}{suffix}; target `{finding.target}`; "
+            f"{finding.detail}{source}"
+        )
+    findings = "\n".join(finding_lines)
+    doc_paths = sorted({finding.doc_path for finding in batch.findings})
+    docs_tasks = "\n".join(
+        f"- [ ] Update `{doc}` so its cited claims match the current tree." for doc in doc_paths
+    )
+    docs_arg = _docs_arg(docs)
+    only_arg = _only_arg(batch.findings)
+    legacy_checks = (
+        f"python3 scripts/check_docs_drift.py --json{docs_arg}{only_arg}",
+        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py",
+    )
+    check_items = "\n".join(
+        f"- [ ] `{command}` passes after the repair." for command in legacy_checks
+    )
+    semantic_requirements: list[str] = []
+    for finding in batch.findings:
+        if finding.source != "semantic-scan":
+            continue
+        source = finding.authoritative_source or "the authoritative implementation"
+        requirement = (
+            f"Manually compare `{finding.doc_path}` claim `{finding.target}` against "
+            f"`{source}` and record the before/after evidence in the pull request body."
+        )
+        if requirement not in semantic_requirements:
+            semantic_requirements.append(requirement)
+    semantic_items = "\n".join(f"- [ ] {requirement}" for requirement in semantic_requirements)
+    info_command = f"python3 scripts/docs_drift_fix_agent.py --repo-root . --json{docs_arg}"
+    info_items = f"- [ ] `{info_command}` was reviewed for remaining non-batch findings."
+    evidence = "\n".join(
+        f"- `{finding.doc_path}` -> `{finding.target}` ({finding.source}/{finding.kind})"
+        for finding in batch.findings
+    )
+    return f"""## Why
+The docs-drift fix-agent found source-of-truth documentation claims that no longer match current repository state in `{repo}`. Stale operational docs mislead agents and humans during workflow maintenance.
+
+## Scope
+Repair only the docs named in this issue for batch `{batch.batch_id}`:
+
+{findings}
+
+## Non-Goals
+- Do not change workflow YAML, scripts, templates, generated artifacts, or consumer repositories.
+- Do not broaden the docs or rewrite unrelated sections.
+- Do not resolve findings outside this batch.
+
+## Tasks
+{docs_tasks}
+- [ ] Keep each edit tied to one listed finding and preserve unrelated wording.
+- [ ] Include the relevant before/after claim in the pull request body.
+- [ ] Run the bounded docs-drift and Python compile verification commands.
+- [ ] Refresh the full fix-agent plan as informational context.
+
+## Acceptance Criteria
+{check_items}
+{semantic_items}
+- [ ] The pull request changes only documentation files for this batch.
+- [ ] The PR body lists each repaired finding and the source used to verify it.
+
+## Informational Checks
+These commands may still report findings for other batches and should not block this batch once the required checks pass:
+
+{info_items}
+
+## Implementation Notes
+Use `scripts/docs_drift_fix_agent.py` output for the repair prompt and plan. Evidence trace:
+
+{evidence}
+"""
+
+
 def _legacy_markers_by_finding(plan: Mapping[str, Any]) -> dict[Finding, str]:
     """Reconstruct pre-atomic batch markers so existing issues survive the migration."""
     serialized = plan.get("findings") or []
@@ -771,7 +872,7 @@ def _legacy_markers_by_finding(plan: Mapping[str, Any]) -> dict[Finding, str]:
             for batch in plan.get("batches") or []
             for finding in (batch.get("findings") or [])
         ]
-    findings = dedupe_findings(
+    findings = _legacy_v1_dedupe_findings(
         [Finding(**finding) for finding in serialized if isinstance(finding, Mapping)]
     )
     try:
@@ -787,12 +888,7 @@ def _legacy_markers_by_finding(plan: Mapping[str, Any]) -> dict[Finding, str]:
         batch_id = f"docs-drift-{offset // max_per_batch + 1:02d}"
         legacy_batch = RepairBatch(batch_id=batch_id, findings=chunk)
         issue_title = f"[Docs Drift] Repair {batch_id}"
-        issue_body = build_issue_body(
-            legacy_batch,
-            repo=str(plan["repo"]),
-            checks=verification_commands(docs, chunk),
-            informational_checks=informational_commands(docs),
-        )
+        issue_body = _legacy_v1_issue_body(legacy_batch, repo=str(plan["repo"]), docs=docs)
         marker = _legacy_batch_marker(issue_title, issue_body)
         for finding in chunk:
             markers[finding] = marker

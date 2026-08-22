@@ -471,6 +471,9 @@ def test_main_repo_success(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     encoded = base64.b64encode(_full_gitignore_content().encode("utf-8")).decode("utf-8")
+    package = base64.b64encode(
+        b'{"dependencies":{"minimatch":"file:node_modules/minimatch"}}'
+    ).decode("utf-8")
 
     class DummyResult:
         returncode = 0
@@ -479,7 +482,13 @@ def test_main_repo_success(
 
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: DummyResult())
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        result = DummyResult()
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            result.stdout = package
+        return result
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/repo"])
 
     exit_code = sync_status_file_ignores.main()
@@ -487,6 +496,66 @@ def test_main_repo_success(
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "All canonical patterns present" in captured.out
+
+
+def test_main_repo_specializes_registry_consumer_check(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry_patterns = sync_status_file_ignores.canonical_patterns(
+        preserve_vendored_node_modules=False
+    )
+    encoded = base64.b64encode(("\n".join(registry_patterns) + "\n").encode()).decode()
+    package = base64.b64encode(b'{"dependencies":{"minimatch":"^10.0.1"}}').decode()
+
+    class DummyResult:
+        returncode = 0
+        stderr = ""
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            return DummyResult(package)
+        return DummyResult(encoded)
+
+    monkeypatch.setattr(sync_status_file_ignores.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/registry-repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "All canonical patterns present" in captured.out
+
+
+def test_main_repo_rejects_stale_registry_exceptions(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    encoded = base64.b64encode(_full_gitignore_content().encode()).decode()
+    package = base64.b64encode(b'{"dependencies":{"minimatch":"^10.0.1"}}').decode()
+
+    class DummyResult:
+        returncode = 0
+        stderr = ""
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            return DummyResult(package)
+        return DummyResult(encoded)
+
+    monkeypatch.setattr(sync_status_file_ignores.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/registry-repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Conflicting legacy patterns" in captured.out
+    assert "!/.github/scripts/node_modules/**" in captured.out
 
 
 def test_main_repo_error(

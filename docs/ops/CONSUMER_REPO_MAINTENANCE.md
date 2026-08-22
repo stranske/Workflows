@@ -306,6 +306,10 @@ uploaded `sync-plan-scope.json` records both plan IDs, the exact base/head,
 changed paths, selected targets, dependency targets, and ignored paths.
 If no manifest-managed source matches the range, Maint 68 records the empty
 scope and skips the consumer fan-out entirely.
+Changes to the status-ignore reconciler, its consumer copy, or the consumer
+`.gitignore` template require `full` scope because that managed block is applied
+only by plan-wide reconciliation; the scope selector fails closed if such a
+range is requested as `source-delta`.
 
 Start a bounded source-delta candidate with the source repair's exact first
 parent and merged head:

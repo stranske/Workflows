@@ -676,6 +676,48 @@ def test_apply_issues_reuses_legacy_markers_after_atomic_regrouping(monkeypatch)
     assert not [call for call in calls if call[:3] == ["gh", "issue", "create"]]
 
 
+def test_legacy_semantic_marker_renderer_remains_frozen() -> None:
+    claim = "shared prefix " + "x" * 160 + " first ending"
+    finding = fix_agent.Finding(
+        source="semantic-scan",
+        kind="semantic_drift",
+        doc_path="README.md",
+        target=claim[:160],
+        detail=claim,
+        classification="stale",
+        authoritative_source="scripts/source.py",
+    )
+    plan = {
+        "repo": "stranske/Workflows",
+        "docs": ["README.md"],
+        "max_per_batch": 5,
+        "findings": [fix_agent.asdict(finding)],
+        "batches": [],
+    }
+
+    markers = fix_agent._legacy_markers_by_finding(plan)
+
+    assert markers[finding] == "<!-- docs-drift-fix-agent:1eb8a2ac0eb58e5f -->"
+
+
+def test_legacy_semantic_dedupe_reconstructs_only_preexisting_truncated_claim() -> None:
+    prefix = "shared prefix " + "x" * 160
+    findings = [
+        fix_agent.Finding(
+            source="semantic-scan",
+            kind="semantic_drift",
+            doc_path="README.md",
+            target=(prefix + ending)[:160],
+            detail=prefix + ending,
+            classification="stale",
+        )
+        for ending in (" first ending", " second ending")
+    ]
+
+    assert len(fix_agent.dedupe_findings(findings)) == 2
+    assert len(fix_agent._legacy_v1_dedupe_findings(findings)) == 1
+
+
 def test_apply_issues_reuses_matching_open_issue(monkeypatch) -> None:
     plan = {
         "repo": "stranske/Workflows",

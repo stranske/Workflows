@@ -20,6 +20,13 @@ except ModuleNotFoundError:  # Direct script execution puts scripts/ on sys.path
 SCOPE_SCHEMA = "workflows.consumer-sync-plan-scope/v1"
 SCOPES = {"full", "source-delta"}
 MANIFEST_PATH = ".github/sync-manifest.yml"
+FULL_SCOPE_ONLY_PATHS = frozenset(
+    {
+        "scripts/sync_status_file_ignores.py",
+        "templates/consumer-repo/.gitignore",
+        "templates/consumer-repo/scripts/sync_status_file_ignores.py",
+    }
+)
 
 
 class PlanScopeError(ValueError):
@@ -105,6 +112,8 @@ def select_plan(
         raise PlanScopeError("source_delta_requires_source_commit")
     if mode == "source-delta" and MANIFEST_PATH in normalized_paths:
         raise PlanScopeError("manifest_change_requires_full_scope")
+    if mode == "source-delta" and FULL_SCOPE_ONLY_PATHS.intersection(normalized_paths):
+        raise PlanScopeError("status_ignore_change_requires_full_scope")
 
     if mode == "full":
         scoped = dict(plan)

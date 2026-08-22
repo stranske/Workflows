@@ -31,6 +31,7 @@ import base64
 import binascii
 import json
 import logging
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -505,19 +506,24 @@ def print_check_report(
 
 def decode_repo_gitignore(encoded: str, repo: str) -> str | None:
     """Decode base64 gitignore content fetched from the GitHub API."""
+    return decode_repo_file(encoded, repo, ".gitignore")
+
+
+def decode_repo_file(encoded: str, repo: str, path: str) -> str | None:
+    """Decode base64 repository content fetched from the GitHub API."""
     if not encoded:
-        print(f"Error fetching .gitignore from {repo}: empty response", file=sys.stderr)
+        print(f"Error fetching {path} from {repo}: empty response", file=sys.stderr)
         return None
     sanitized = "".join(encoded.split())
     try:
         decoded_bytes = base64.b64decode(sanitized, validate=True)
     except (binascii.Error, ValueError) as exc:
-        print(f"Error decoding .gitignore from {repo}: {exc}", file=sys.stderr)
+        print(f"Error decoding {path} from {repo}: {exc}", file=sys.stderr)
         return None
     try:
         return decoded_bytes.decode()
     except UnicodeDecodeError as exc:
-        print(f"Error decoding .gitignore from {repo}: {exc}", file=sys.stderr)
+        print(f"Error decoding {path} from {repo}: {exc}", file=sys.stderr)
         return None
 
 
@@ -609,8 +615,6 @@ def main() -> int:
 
     if args.repo:
         # Check remote repo via GitHub API
-        import subprocess
-
         result = subprocess.run(
             [
                 "gh",
@@ -630,7 +634,42 @@ def main() -> int:
         content = decode_repo_gitignore(result.stdout.strip(), args.repo)
         if content is None:
             return 1
-        return print_check_report(content, args.repo)
+
+        package_path = ".github/scripts/package.json"
+        package_result = subprocess.run(
+            [
+                "gh",
+                "api",
+                f"repos/{args.repo}/contents/{package_path}",
+                "--jq",
+                ".content",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        preserve_vendored = False
+        if package_result.returncode == 0:
+            package_content = decode_repo_file(
+                package_result.stdout.strip(), args.repo, package_path
+            )
+            if package_content is None:
+                return 1
+            try:
+                package_payload = json.loads(package_content)
+            except json.JSONDecodeError as exc:
+                print(f"Error parsing {package_path} from {args.repo}: {exc}", file=sys.stderr)
+                return 1
+            preserve_vendored = _package_payload_declares_vendored_node_modules(package_payload)
+        elif "404" not in package_result.stderr:
+            print(f"Error fetching {package_path} from {args.repo}", file=sys.stderr)
+            print(package_result.stderr, file=sys.stderr)
+            return 1
+
+        return print_check_report(
+            content,
+            args.repo,
+            preserve_vendored_node_modules=preserve_vendored,
+        )
 
     # Default: print help
     parser.print_help()
