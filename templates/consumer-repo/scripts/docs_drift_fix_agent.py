@@ -104,7 +104,10 @@ def detect_configured_repo(repo_root: Path) -> str | None:
     config_path = repo_root / DEFAULT_DOCS_CONFIG
     if not config_path.is_file():
         return None
-    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    try:
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"invalid docs config YAML: {exc}") from exc
     repos = data.get("repos", {}) if isinstance(data, Mapping) else {}
     if not isinstance(repos, Mapping):
         return None
@@ -402,7 +405,10 @@ def default_docs_from_config(repo_root: Path, *, repo: str = DEFAULT_REPO) -> li
     config_path = repo_root / DEFAULT_DOCS_CONFIG
     if not config_path.is_file():
         return [doc for doc in check_docs_drift.DEFAULT_DOCS if (repo_root / doc).is_file()]
-    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    try:
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"invalid docs config YAML: {exc}") from exc
     if not isinstance(data, Mapping):
         raise ValueError("docs config must contain a top-level mapping")
     repos = data.get("repos", {})

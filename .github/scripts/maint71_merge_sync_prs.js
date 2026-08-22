@@ -1833,6 +1833,29 @@ async function run({ github, context, core }) {
       console.log(`Branch: ${pr.head.ref}`);
       console.log(`Created: ${pr.created_at}`);
 
+      // A stable candidate normally receives this from its delivery marker.
+      // During the first reconciliation, derive the same immutable generation
+      // from the Maint 68 marker; do not emit a handoff the campaign will drop.
+      const handoffDeliveryGeneration = selection.deliveryRecord?.generation
+        || metadata?.template_hash
+        || '';
+      if (!handoffDeliveryGeneration) {
+        console.log('Delivery contract blocks handoff: missing delivery generation');
+        results.push({
+          owner,
+          repo,
+          pr: pr.number,
+          branch: pr.head.ref,
+          head_sha: pr.head.sha,
+          status: 'delivery_contract_blocked',
+          delivery_disposition: 'source-binding-blocked',
+          blocker_owner: 'maint-68',
+          next_command: 'refresh-candidate-from-exact-plan',
+          delivery_reason: 'missing_delivery_generation',
+        });
+        continue;
+      }
+
       const reviewWindow = evaluatePostPushReviewWindow(pr, new Date().toISOString());
       if (!reviewWindow.ready) {
         console.log(`Post-push review window remains open until ${reviewWindow.eligible_at || 'unknown'}`);
@@ -1842,7 +1865,7 @@ async function run({ github, context, core }) {
           pr: pr.number,
           branch: pr.head.ref,
           head_sha: pr.head.sha,
-          delivery_generation: selection.deliveryRecord?.generation || '',
+          delivery_generation: handoffDeliveryGeneration,
           // The review-window result is itself a durable Maint 82 handoff.
           // New stable candidates have no delivery marker yet, so bind it to
           // the exact Maint 68 dispatch identity before the early continue.
@@ -1852,6 +1875,12 @@ async function run({ github, context, core }) {
           source_commit: selection.deliveryRecord?.source_commit
             || metadata?.source_commit
             || expectedSourceCommit,
+          canary_baseline_evidence_json: selectedSyncHash === 'candidate'
+            ? rawBaselineEvidence
+            : '',
+          campaign_no_change_evidence_json: requestedSyncHash === 'campaign'
+            ? rawCampaignNoChangeEvidence
+            : '',
           delivery_lane: generatedDeliveryLane(pr.head.ref),
           delivery_disposition: 'awaiting-review-window',
           blocker_owner: 'maint-71',
@@ -1904,7 +1933,7 @@ async function run({ github, context, core }) {
         pr: pr.number,
         branch: pr.head.ref,
         head_sha: pr.head.sha,
-        delivery_generation: deliveryRecord?.generation || '',
+        delivery_generation: deliveryRecord?.generation || handoffDeliveryGeneration,
         // A freshly created stable candidate has no prior delivery marker yet.
         // Preserve the immutable Maint 68 handoff in the durable Maint 82
         // continuation rather than emitting an unbound retry.

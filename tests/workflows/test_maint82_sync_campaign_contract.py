@@ -73,6 +73,9 @@ def test_maint71_review_window_handoff_preserves_dispatch_immutable_binding():
     assert "status: 'review_window_pending'" in pending_result
     assert "plan_id: selection.deliveryRecord?.plan_id || expectedPlanId" in pending_result
     assert "source_commit: selection.deliveryRecord?.source_commit" in pending_result
+    assert "delivery_generation: handoffDeliveryGeneration" in pending_result
+    assert "canary_baseline_evidence_json" in pending_result
+    assert "campaign_no_change_evidence_json" in pending_result
 
 
 def test_campaign_workflow_bot_agnostic_identity():

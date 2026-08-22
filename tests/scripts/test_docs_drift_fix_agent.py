@@ -155,6 +155,21 @@ def test_default_docs_from_config_uses_only_docs_present_in_consumer(tmp_path: P
     assert fix_agent.default_docs_from_config(root, repo="stranske/consumer") == ["AGENTS.md"]
 
 
+@pytest.mark.parametrize(
+    "loader",
+    [
+        lambda root: fix_agent.detect_configured_repo(root),
+        lambda root: fix_agent.default_docs_from_config(root, repo="stranske/consumer"),
+    ],
+)
+def test_docs_config_malformed_yaml_is_a_value_error(tmp_path: Path, loader) -> None:
+    root = tmp_path / "consumer"
+    _write(root / fix_agent.DEFAULT_DOCS_CONFIG, "repos: [\n")
+
+    with pytest.raises(ValueError, match="invalid docs config YAML"):
+        loader(root)
+
+
 def test_detect_repo_slug_uses_origin_remote(tmp_path: Path, monkeypatch) -> None:
     class Result:
         returncode = 0
