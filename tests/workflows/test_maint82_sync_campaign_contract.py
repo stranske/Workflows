@@ -76,6 +76,7 @@ def test_maint71_review_window_handoff_preserves_dispatch_immutable_binding():
     assert "delivery_generation: handoffDeliveryGeneration" in pending_result
     assert "canary_baseline_evidence_json" in pending_result
     assert "campaign_no_change_evidence_json" in pending_result
+    assert "continuation_lane: requestedSyncHash === 'campaign' ? 'campaign' : ''" in pending_result
 
 
 def test_campaign_workflow_bot_agnostic_identity():

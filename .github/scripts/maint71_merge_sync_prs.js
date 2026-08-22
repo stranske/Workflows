@@ -1882,6 +1882,7 @@ async function run({ github, context, core }) {
             ? rawCampaignNoChangeEvidence
             : '',
           delivery_lane: generatedDeliveryLane(pr.head.ref),
+          continuation_lane: requestedSyncHash === 'campaign' ? 'campaign' : '',
           delivery_disposition: 'awaiting-review-window',
           blocker_owner: 'maint-71',
           next_command: reviewWindow.eligible_at

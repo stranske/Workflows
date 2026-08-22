@@ -2226,6 +2226,54 @@ test('buildDeliveryHandoff preserves the restart fields for a generated PR', () 
   });
 });
 
+test('buildDeliveryHandoff serializes review-window and delivery context bindings', () => {
+  const immutable = {
+    plan_id: `sha256:${'a'.repeat(64)}`,
+    plan_scope: 'source-delta',
+    scope_base_sha: 'b'.repeat(40),
+    source_commit: 'c'.repeat(40),
+  };
+  const reviewWindow = buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Travel-Plan-Permission', pr: 1464,
+    branch: 'sync/workflows-candidate', head_sha: 'd'.repeat(40),
+    delivery_generation: 'candidate-generation', ...immutable,
+    canary_baseline_evidence_json: '{"results":[]}',
+    campaign_no_change_evidence_json: '{"results":[]}',
+    continuation_lane: 'campaign', delivery_disposition: 'awaiting-review-window',
+    blocker_owner: 'maint-71', next_command: 'rerun-after:2026-08-15T12:07:00Z',
+    status: 'review_window_pending', review_window_eligible_at: '2026-08-15T12:07:00Z',
+  }, '2026-08-15T12:00:00Z');
+  assert.deepEqual(
+    {
+      plan_id: reviewWindow.plan_id,
+      plan_scope: reviewWindow.plan_scope,
+      scope_base_sha: reviewWindow.scope_base_sha,
+      source_commit: reviewWindow.source_commit,
+      delivery_generation: reviewWindow.delivery_generation,
+      lane: reviewWindow.continuation.lane,
+      canary_baseline_evidence_json: reviewWindow.canary_baseline_evidence_json,
+      campaign_no_change_evidence_json: reviewWindow.campaign_no_change_evidence_json,
+    },
+    { ...immutable, delivery_generation: 'candidate-generation', lane: 'campaign',
+      canary_baseline_evidence_json: '{"results":[]}', campaign_no_change_evidence_json: '{"results":[]}' },
+  );
+
+  const delivery = buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Travel-Plan-Permission', pr: 1464,
+    branch: 'sync/workflows-candidate', head_sha: 'e'.repeat(40),
+    delivery_generation: 'record-generation', ...immutable,
+    delivery_disposition: 'awaiting-review-window', blocker_owner: 'maint-71',
+    next_command: 'rerun-after:2026-08-15T12:07:00Z', status: 'review_window_pending',
+    review_window_eligible_at: '2026-08-15T12:07:00Z',
+  }, '2026-08-15T12:00:00Z');
+  assert.deepEqual(
+    [delivery.plan_id, delivery.plan_scope, delivery.scope_base_sha,
+      delivery.source_commit, delivery.delivery_generation, delivery.continuation.lane],
+    [immutable.plan_id, immutable.plan_scope, immutable.scope_base_sha,
+      immutable.source_commit, 'record-generation', 'candidate'],
+  );
+});
+
 test('buildDeliveryHandoff rewrites terminal merge outcomes', () => {
   assert.deepEqual(buildDeliveryHandoff({
     owner: 'stranske', repo: 'Ready', pr: 11, branch: 'sync/workflows-abc',
