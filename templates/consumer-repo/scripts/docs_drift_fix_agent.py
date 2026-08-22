@@ -182,6 +182,13 @@ def findings_from_scan_json(payload: dict[str, Any], *, repo: str) -> list[Findi
     return findings
 
 
+def _finding_identity(finding: Finding) -> str:
+    """Return the full stable identity while allowing bounded display targets."""
+    if finding.source == "semantic-scan":
+        return finding.detail.strip() or finding.target.strip()
+    return finding.target.strip()
+
+
 def dedupe_findings(findings: Sequence[Finding]) -> list[Finding]:
     """Collapse obvious duplicates while preferring deterministic findings."""
     priority = {"deterministic": 0, "semantic-scan": 1}
@@ -189,16 +196,26 @@ def dedupe_findings(findings: Sequence[Finding]) -> list[Finding]:
         findings, key=lambda f: (priority.get(f.source, 9), f.doc_path, f.kind, f.target)
     )
     seen: set[tuple[str, str, str]] = set()
+    deterministic_targets: set[tuple[str, str, str]] = set()
     out: list[Finding] = []
     for finding in ordered:
-        key = (
+        target_key = (
             finding.doc_path.strip().lower(),
             finding.kind.strip().lower(),
             finding.target.strip().lower(),
         )
+        if finding.source == "semantic-scan" and target_key in deterministic_targets:
+            continue
+        key = (
+            finding.doc_path.strip().lower(),
+            finding.kind.strip().lower(),
+            _finding_identity(finding).lower(),
+        )
         if key in seen:
             continue
         seen.add(key)
+        if finding.source == "deterministic":
+            deterministic_targets.add(target_key)
         out.append(finding)
     return sorted(out, key=lambda f: (f.doc_path, f.source, f.kind, f.target))
 
@@ -228,7 +245,7 @@ def batch_findings(
                         finding.source,
                         finding.kind,
                         finding.doc_path,
-                        finding.target,
+                        _finding_identity(finding),
                     )
                 ).lower(),
             )
@@ -275,10 +292,13 @@ def verification_commands(
     """Commands that must pass after a single repair batch."""
     docs_arg = _docs_arg(docs)
     only_arg = _only_arg(findings)
-    return (
-        f"python3 scripts/check_docs_drift.py --json{docs_arg}{only_arg}",
-        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py",
+    commands: list[str] = []
+    if findings is None or any(finding.source == "deterministic" for finding in findings):
+        commands.append(f"python3 scripts/check_docs_drift.py --json{docs_arg}{only_arg}")
+    commands.append(
+        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py"
     )
+    return tuple(commands)
 
 
 def semantic_verification_requirements(
@@ -594,7 +614,7 @@ def write_plan_outputs(plan: dict[str, Any], out_dir: Path) -> None:
 
 def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
     created: list[dict[str, Any]] = []
-    existing_by_marker: dict[str, str] = {}
+    existing_by_marker: dict[str, tuple[str, str]] = {}
     legacy_markers = _legacy_markers_by_finding(plan)
     for batch in plan["batches"]:
         serialized_findings = batch.get("findings") or []
@@ -603,8 +623,13 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
         legacy_marker = _legacy_batch_marker(str(batch["issue_title"]), legacy_issue_body)
         markers = [_finding_marker(finding) for finding in findings]
         marker_indexes: dict[str, set[int]] = {legacy_marker: set(range(len(findings)))}
+        legacy_finding_markers: set[str] = set()
         for index, finding in enumerate(findings):
             marker_indexes.setdefault(markers[index], set()).add(index)
+            legacy_finding_marker = _legacy_v1_finding_marker(finding)
+            marker_indexes.setdefault(legacy_finding_marker, set()).add(index)
+            if legacy_finding_marker != markers[index]:
+                legacy_finding_markers.add(legacy_finding_marker)
             old_marker = legacy_markers.get(finding)
             if old_marker:
                 marker_indexes.setdefault(old_marker, set()).add(index)
@@ -615,9 +640,18 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
         covered_indexes: set[int] = set()
         for marker, indexes in marker_indexes.items():
             if marker in existing_by_marker:
-                covered_markers[marker] = existing_by_marker[marker]
-                covered_indexes.update(indexes)
-                continue
+                body, url = existing_by_marker[marker]
+                matched_indexes = indexes
+                if marker in legacy_finding_markers:
+                    matched_indexes = {
+                        index
+                        for index in indexes
+                        if _legacy_v1_issue_body_contains_finding(body, findings[index])
+                    }
+                if matched_indexes or marker not in legacy_finding_markers:
+                    covered_markers[marker] = url
+                    covered_indexes.update(matched_indexes)
+                    continue
             list_result = subprocess.run(
                 [
                     "gh",
@@ -647,11 +681,21 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
             if not isinstance(matches, list):
                 raise ValueError("gh issue list returned a non-list payload")
             for row in matches:
-                if isinstance(row, Mapping) and marker in str(row.get("body") or ""):
+                body = str(row.get("body") or "") if isinstance(row, Mapping) else ""
+                if isinstance(row, Mapping) and marker in body:
                     url = str(row.get("url") or "")
-                    existing_by_marker[marker] = url
+                    matched_indexes = indexes
+                    if marker in legacy_finding_markers:
+                        matched_indexes = {
+                            index
+                            for index in indexes
+                            if _legacy_v1_issue_body_contains_finding(body, findings[index])
+                        }
+                    if not matched_indexes and marker in legacy_finding_markers:
+                        continue
+                    existing_by_marker[marker] = (body, url)
                     covered_markers[marker] = url
-                    covered_indexes.update(indexes)
+                    covered_indexes.update(matched_indexes)
                     break
 
         uncovered_findings = tuple(
@@ -725,16 +769,142 @@ def _finding_marker(finding: Finding) -> str:
     """Return a stable issue marker independent of mutable batch ordering/body text."""
     identity = "\0".join(
         value.strip().lower()
+        for value in (
+            finding.source,
+            finding.kind,
+            finding.doc_path,
+            _finding_identity(finding),
+        )
+    )
+    digest = hashlib.sha256(identity.encode()).hexdigest()[:16]
+    return f"<!-- docs-drift-finding:{digest} -->"
+
+
+def _legacy_v1_finding_marker(finding: Finding) -> str:
+    """Return the target-truncated per-finding marker emitted by the prior release."""
+    identity = "\0".join(
+        value.strip().lower()
         for value in (finding.source, finding.kind, finding.doc_path, finding.target)
     )
     digest = hashlib.sha256(identity.encode()).hexdigest()[:16]
     return f"<!-- docs-drift-finding:{digest} -->"
 
 
+def _legacy_v1_issue_body_contains_finding(body: str, finding: Finding) -> bool:
+    """Match a shared legacy marker to the exact finding serialized in its issue body."""
+    pattern = (
+        rf"^- `{re.escape(finding.doc_path)}`: {re.escape(finding.kind)}"
+        rf"(?: \([^\r\n]*\))?; target `{re.escape(finding.target)}`; "
+        rf"{re.escape(finding.detail)}(?:; source=[^\r\n]*)?$"
+    )
+    return re.search(pattern, body, flags=re.MULTILINE) is not None
+
+
 def _legacy_batch_marker(issue_title: str, issue_body: str) -> str:
     """Return the body-derived marker emitted before per-finding identities existed."""
     digest = hashlib.sha256(f"{issue_title}\0{issue_body}".encode()).hexdigest()[:16]
     return f"<!-- docs-drift-fix-agent:{digest} -->"
+
+
+def _legacy_v1_dedupe_findings(findings: Sequence[Finding]) -> list[Finding]:
+    """Reproduce target-truncated dedupe used by legacy body-hash issues."""
+    priority = {"deterministic": 0, "semantic-scan": 1}
+    ordered = sorted(
+        findings, key=lambda f: (priority.get(f.source, 9), f.doc_path, f.kind, f.target)
+    )
+    seen: set[tuple[str, str, str]] = set()
+    out: list[Finding] = []
+    for finding in ordered:
+        key = (
+            finding.doc_path.strip().lower(),
+            finding.kind.strip().lower(),
+            finding.target.strip().lower(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(finding)
+    return sorted(out, key=lambda f: (f.doc_path, f.source, f.kind, f.target))
+
+
+def _legacy_v1_issue_body(batch: RepairBatch, *, repo: str, docs: Sequence[str]) -> str:
+    """Freeze the pre-per-finding body renderer used to derive legacy markers."""
+    finding_lines: list[str] = []
+    for finding in batch.findings:
+        suffix = f" ({finding.classification})" if finding.classification else ""
+        source = f"; source={finding.authoritative_source}" if finding.authoritative_source else ""
+        finding_lines.append(
+            f"- `{finding.doc_path}`: {finding.kind}{suffix}; target `{finding.target}`; "
+            f"{finding.detail}{source}"
+        )
+    findings = "\n".join(finding_lines)
+    doc_paths = sorted({finding.doc_path for finding in batch.findings})
+    docs_tasks = "\n".join(
+        f"- [ ] Update `{doc}` so its cited claims match the current tree." for doc in doc_paths
+    )
+    docs_arg = _docs_arg(docs)
+    only_arg = _only_arg(batch.findings)
+    legacy_checks = (
+        f"python3 scripts/check_docs_drift.py --json{docs_arg}{only_arg}",
+        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py",
+    )
+    check_items = "\n".join(
+        f"- [ ] `{command}` passes after the repair." for command in legacy_checks
+    )
+    semantic_requirements: list[str] = []
+    for finding in batch.findings:
+        if finding.source != "semantic-scan":
+            continue
+        source = finding.authoritative_source or "the authoritative implementation"
+        requirement = (
+            f"Manually compare `{finding.doc_path}` claim `{finding.target}` against "
+            f"`{source}` and record the before/after evidence in the pull request body."
+        )
+        if requirement not in semantic_requirements:
+            semantic_requirements.append(requirement)
+    semantic_items = "\n".join(f"- [ ] {requirement}" for requirement in semantic_requirements)
+    info_command = f"python3 scripts/docs_drift_fix_agent.py --repo-root . --json{docs_arg}"
+    info_items = f"- [ ] `{info_command}` was reviewed for remaining non-batch findings."
+    evidence = "\n".join(
+        f"- `{finding.doc_path}` -> `{finding.target}` ({finding.source}/{finding.kind})"
+        for finding in batch.findings
+    )
+    return f"""## Why
+The docs-drift fix-agent found source-of-truth documentation claims that no longer match current repository state in `{repo}`. Stale operational docs mislead agents and humans during workflow maintenance.
+
+## Scope
+Repair only the docs named in this issue for batch `{batch.batch_id}`:
+
+{findings}
+
+## Non-Goals
+- Do not change workflow YAML, scripts, templates, generated artifacts, or consumer repositories.
+- Do not broaden the docs or rewrite unrelated sections.
+- Do not resolve findings outside this batch.
+
+## Tasks
+{docs_tasks}
+- [ ] Keep each edit tied to one listed finding and preserve unrelated wording.
+- [ ] Include the relevant before/after claim in the pull request body.
+- [ ] Run the bounded docs-drift and Python compile verification commands.
+- [ ] Refresh the full fix-agent plan as informational context.
+
+## Acceptance Criteria
+{check_items}
+{semantic_items}
+- [ ] The pull request changes only documentation files for this batch.
+- [ ] The PR body lists each repaired finding and the source used to verify it.
+
+## Informational Checks
+These commands may still report findings for other batches and should not block this batch once the required checks pass:
+
+{info_items}
+
+## Implementation Notes
+Use `scripts/docs_drift_fix_agent.py` output for the repair prompt and plan. Evidence trace:
+
+{evidence}
+"""
 
 
 def _legacy_markers_by_finding(plan: Mapping[str, Any]) -> dict[Finding, str]:
@@ -746,7 +916,7 @@ def _legacy_markers_by_finding(plan: Mapping[str, Any]) -> dict[Finding, str]:
             for batch in plan.get("batches") or []
             for finding in (batch.get("findings") or [])
         ]
-    findings = dedupe_findings(
+    findings = _legacy_v1_dedupe_findings(
         [Finding(**finding) for finding in serialized if isinstance(finding, Mapping)]
     )
     try:
@@ -762,12 +932,7 @@ def _legacy_markers_by_finding(plan: Mapping[str, Any]) -> dict[Finding, str]:
         batch_id = f"docs-drift-{offset // max_per_batch + 1:02d}"
         legacy_batch = RepairBatch(batch_id=batch_id, findings=chunk)
         issue_title = f"[Docs Drift] Repair {batch_id}"
-        issue_body = build_issue_body(
-            legacy_batch,
-            repo=str(plan["repo"]),
-            checks=verification_commands(docs, chunk),
-            informational_checks=informational_commands(docs),
-        )
+        issue_body = _legacy_v1_issue_body(legacy_batch, repo=str(plan["repo"]), docs=docs)
         marker = _legacy_batch_marker(issue_title, issue_body)
         for finding in chunk:
             markers[finding] = marker

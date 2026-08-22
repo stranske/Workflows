@@ -38,6 +38,15 @@ def _template_block_patterns() -> list[str]:
     return patterns
 
 
+def _write_consumer_package(repo_root: Path, dependency: str) -> None:
+    package_path = repo_root / ".github/scripts/package.json"
+    package_path.parent.mkdir(parents=True, exist_ok=True)
+    package_path.write_text(
+        '{"dependencies":{"minimatch":"' + dependency + '"}}\n',
+        encoding="utf-8",
+    )
+
+
 def test_generate_minimal_block_includes_header_and_patterns() -> None:
     block = sync_status_file_ignores.generate_minimal_block()
 
@@ -386,6 +395,23 @@ def test_main_print_block(
     assert captured.out == sync_status_file_ignores.load_template_block()
 
 
+def test_main_print_block_specializes_registry_consumer(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _write_consumer_package(tmp_path, "^10.0.1")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["script", "--print-block"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == sync_status_file_ignores.load_template_block(
+        preserve_vendored_node_modules=False
+    )
+    assert "!/.github/scripts/node_modules/" not in captured.out
+
+
 def test_main_print_patterns(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -436,6 +462,7 @@ def test_main_gitignore_path_reports_missing(
 def test_main_check_local_ok(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     gitignore_path = tmp_path / ".gitignore"
     gitignore_path.write_text(_full_gitignore_content(), encoding="utf-8")
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "argv", ["script", "--check"])
 
@@ -461,6 +488,9 @@ def test_main_repo_success(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     encoded = base64.b64encode(_full_gitignore_content().encode("utf-8")).decode("utf-8")
+    package = base64.b64encode(
+        b'{"dependencies":{"minimatch":"file:node_modules/minimatch"}}'
+    ).decode("utf-8")
 
     class DummyResult:
         returncode = 0
@@ -469,7 +499,13 @@ def test_main_repo_success(
 
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: DummyResult())
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        result = DummyResult()
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            result.stdout = package
+        return result
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/repo"])
 
     exit_code = sync_status_file_ignores.main()
@@ -477,6 +513,66 @@ def test_main_repo_success(
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "All canonical patterns present" in captured.out
+
+
+def test_main_repo_specializes_registry_consumer_check(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry_patterns = sync_status_file_ignores.canonical_patterns(
+        preserve_vendored_node_modules=False
+    )
+    encoded = base64.b64encode(("\n".join(registry_patterns) + "\n").encode()).decode()
+    package = base64.b64encode(b'{"dependencies":{"minimatch":"^10.0.1"}}').decode()
+
+    class DummyResult:
+        returncode = 0
+        stderr = ""
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            return DummyResult(package)
+        return DummyResult(encoded)
+
+    monkeypatch.setattr(sync_status_file_ignores.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/registry-repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "All canonical patterns present" in captured.out
+
+
+def test_main_repo_rejects_stale_registry_exceptions(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    encoded = base64.b64encode(_full_gitignore_content().encode()).decode()
+    package = base64.b64encode(b'{"dependencies":{"minimatch":"^10.0.1"}}').decode()
+
+    class DummyResult:
+        returncode = 0
+        stderr = ""
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    def fake_run(args: list[str], **kwargs: object) -> DummyResult:
+        if str(args[2]).endswith(".github/scripts/package.json"):
+            return DummyResult(package)
+        return DummyResult(encoded)
+
+    monkeypatch.setattr(sync_status_file_ignores.subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/registry-repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Conflicting legacy patterns" in captured.out
+    assert "!/.github/scripts/node_modules/**" in captured.out
 
 
 def test_main_repo_error(
@@ -575,6 +671,7 @@ def test_apply_block_appends_and_preserves_repo_local_rules(tmp_path: Path) -> N
     # clobber repo-local rules. The whole point of the managed block is that it does not.
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("# repo-local rule\n*.tmp\n", encoding="utf-8")
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
 
     result = sync_status_file_ignores.apply_block_to_file(gitignore)
     assert result["action"] == "appended"
@@ -592,6 +689,7 @@ def test_apply_block_appends_and_preserves_repo_local_rules(tmp_path: Path) -> N
 def test_apply_block_removes_legacy_unanchored_node_modules_rule(tmp_path: Path) -> None:
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("# Node.js\nnode_modules/\nkeep-me\n", encoding="utf-8")
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
 
     result = sync_status_file_ignores.apply_block_to_file(gitignore)
 
@@ -606,6 +704,7 @@ def test_apply_block_removes_legacy_unanchored_node_modules_rule(tmp_path: Path)
 def test_apply_block_handles_only_legacy_node_modules_rule(tmp_path: Path) -> None:
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("node_modules/\n", encoding="utf-8")
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
 
     result = sync_status_file_ignores.apply_block_to_file(gitignore)
 
@@ -617,6 +716,52 @@ def test_apply_block_handles_only_legacy_node_modules_rule(tmp_path: Path) -> No
 
 def test_conflict_check_accepts_managed_node_modules_exceptions() -> None:
     assert sync_status_file_ignores.get_conflicting_patterns(_full_gitignore_content()) == []
+
+
+def test_apply_block_keeps_vendored_exceptions_only_for_file_dependency(
+    tmp_path: Path,
+) -> None:
+    gitignore = tmp_path / ".gitignore"
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
+
+    sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    content = gitignore.read_text(encoding="utf-8")
+    assert "\n!/.github/scripts/node_modules/\n" in content
+    assert "\n!/.github/scripts/node_modules/**\n" in content
+
+
+def test_apply_block_removes_vendored_exceptions_for_registry_dependency(
+    tmp_path: Path,
+) -> None:
+    gitignore = tmp_path / ".gitignore"
+    _write_consumer_package(tmp_path, "^10.0.0")
+    gitignore.write_text(
+        sync_status_file_ignores.load_template_block(preserve_vendored_node_modules=True),
+        encoding="utf-8",
+    )
+
+    result = sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    content = gitignore.read_text(encoding="utf-8")
+    assert result["action"] == "replaced"
+    assert "!/.github/scripts/node_modules/" not in content
+    assert "!/.github/scripts/node_modules/**" not in content
+    assert (
+        sync_status_file_ignores.get_conflicting_patterns(
+            content, preserve_vendored_node_modules=False
+        )
+        == []
+    )
+    assert sync_status_file_ignores.apply_block_to_file(gitignore)["changed"] is False
+
+
+def test_registry_consumer_check_rejects_stale_vendored_exceptions() -> None:
+    conflicts = sync_status_file_ignores.get_conflicting_patterns(
+        _full_gitignore_content(), preserve_vendored_node_modules=False
+    )
+
+    assert conflicts == sorted(sync_status_file_ignores.VENDORED_NODE_MODULE_EXCEPTIONS)
 
 
 def test_apply_block_is_idempotent(tmp_path: Path) -> None:

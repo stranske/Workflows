@@ -185,6 +185,25 @@ def test_manifest_change_requires_full_scope() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "changed_path",
+    [
+        "scripts/sync_status_file_ignores.py",
+        "templates/consumer-repo/.gitignore",
+        "templates/consumer-repo/scripts/sync_status_file_ignores.py",
+    ],
+)
+def test_status_ignore_change_requires_full_scope(changed_path: str) -> None:
+    with pytest.raises(PlanScopeError, match="status_ignore_change_requires_full_scope"):
+        select_plan(
+            plan(),
+            mode="source-delta",
+            changed_paths=[changed_path],
+            base_sha="1" * 40,
+            source_commit="2" * 40,
+        )
+
+
 def test_cli_uses_exact_git_range_and_emits_scope_outputs(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
