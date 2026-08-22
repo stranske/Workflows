@@ -124,7 +124,6 @@ jobs:
     outputs:
       comments_found: ${{ steps.collect.outputs.found }}
       comments_count: ${{ steps.collect.outputs.count }}
-      comments_json: ${{ steps.collect.outputs.comments }}
       head_sha: ${{ steps.collect.outputs.head_sha }}
       active_thread_fingerprint: ${{ steps.collect.outputs.active_thread_fingerprint }}
       agent: ${{ steps.agent.outputs.agent }}
@@ -577,9 +576,13 @@ jobs:
             );
             core.setOutput('found', found ? 'true' : 'false');
             core.setOutput('count', botComments.length);
-            core.setOutput('comments', JSON.stringify(botComments));
             core.setOutput('head_sha', headSha);
             core.setOutput('active_thread_fingerprint', activeThreadFingerprint);
+            fs.mkdirSync('bot-comment-thread-context', { recursive: true });
+            fs.writeFileSync(
+              'bot-comment-thread-context/comments.json',
+              `${JSON.stringify(botComments)}\n`
+            );
 
             console.log(`Found ${botComments.length} active bot review threads`);
 
@@ -681,13 +684,15 @@ jobs:
         if: steps.collect.outputs.found == 'true'
         uses: actions/github-script@v9
         env:
-          COMMENTS_JSON: ${{ steps.collect.outputs.comments }}
           DRY_RUN: ${{ inputs.dry_run }}
           AGENT: ${{ steps.agent.outputs.agent }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
-            const comments = JSON.parse(process.env.COMMENTS_JSON);
+            const fs = require('fs');
+            const comments = JSON.parse(
+              fs.readFileSync('bot-comment-thread-context/comments.json', 'utf8')
+            );
             const count = comments.length;
             const agent = process.env.AGENT || '';
             const dryRun = process.env.DRY_RUN === 'true';
@@ -713,6 +718,14 @@ jobs:
             }
 
             await core.summary.addRaw(summary).write();
+
+      - name: Upload bot comment thread context
+        uses: actions/upload-artifact@v7
+        with:
+          name: bot-comment-thread-context-${{ github.run_id }}-${{ github.run_attempt }}
+          path: bot-comment-thread-context/comments.json
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Post terminal disposition summary
         if: always()
@@ -747,10 +760,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Download bot comment thread context
+        uses: actions/download-artifact@v8
+        with:
+          name: bot-comment-thread-context-${{ github.run_id }}-${{ github.run_attempt }}
+          path: bot-comment-thread-context
+
       - name: Generate bot comments prompt
         id: prompt
         env:
-          COMMENTS_JSON: ${{ needs.collect.outputs.comments_json }}
           HEAD_SHA: ${{ needs.collect.outputs.head_sha }}
         run: |
           set -euo pipefail
@@ -808,7 +826,9 @@ jobs:
             typeof botHandler.buildBotCommentsPrompt === 'function'
               ? botHandler.buildBotCommentsPrompt
               : fallbackPrompt;
-          const comments = JSON.parse(process.env.COMMENTS_JSON || '[]');
+          const comments = JSON.parse(
+            fs.readFileSync('bot-comment-thread-context/comments.json', 'utf8')
+          );
           fs.writeFileSync(
             '.github/codex/prompts/fix_bot_comments_dynamic.md',
             buildBotCommentsPrompt(comments, { headSha: process.env.HEAD_SHA })
@@ -816,7 +836,8 @@ jobs:
           NODE
 
           echo "ready=true" >> "$GITHUB_OUTPUT"
-          echo "Generated prompt with $(echo "${COMMENTS_JSON}" | jq length) comments"
+          comment_count=$(jq length bot-comment-thread-context/comments.json)
+          echo "Generated prompt with ${comment_count} comments"
 
       - name: Upload prompt artifact
         uses: actions/upload-artifact@v7
@@ -943,11 +964,16 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
+      - name: Download bot comment thread context
+        uses: actions/download-artifact@v8
+        with:
+          name: bot-comment-thread-context-${{ github.run_id }}-${{ github.run_attempt }}
+          path: bot-comment-thread-context
+
       - name: Assign agent and post context comment
         id: dispatch
         uses: actions/github-script@v9
         env:
-          COMMENTS_JSON: ${{ needs.collect.outputs.comments_json }}
           HEAD_SHA: ${{ needs.collect.outputs.head_sha }}
           PR_NUMBER: ${{ inputs.pr_number }}
           AGENT: ${{ needs.collect.outputs.agent }}
@@ -971,7 +997,9 @@ jobs:
             const prNumber = Number.parseInt(process.env.PR_NUMBER || '', 10);
             const agent = process.env.AGENT || '';
             const count = process.env.COMMENTS_COUNT || '0';
-            const comments = JSON.parse(process.env.COMMENTS_JSON || '[]');
+            const comments = JSON.parse(
+              fs.readFileSync('bot-comment-thread-context/comments.json', 'utf8')
+            );
             const headSha = process.env.HEAD_SHA || '';
             const activeThreadFingerprint = process.env.ACTIVE_THREAD_FINGERPRINT || '';
             const authKind = process.env.AUTH_KIND || '';

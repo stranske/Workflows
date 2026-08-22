@@ -61,6 +61,11 @@ Configure via the `bot_authors` input.
 - ❌ General PR comments (not inline reviews)
 - ❌ Resolved or outdated threads
 
+The collector bounds review text below the GitHub job-output ceiling and moves
+the complete thread metadata between jobs as a short-lived artifact. Prompt and
+dispatch steps read that file directly, avoiding Linux environment-variable
+size limits while retaining every active thread ID and authoritative URL.
+
 ### Agent Instructions
 
 The agent is instructed to:
