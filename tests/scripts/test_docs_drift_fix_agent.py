@@ -175,7 +175,9 @@ def test_detect_repo_slug_returns_none_for_unknown_origin(tmp_path: Path, monkey
     assert fix_agent.detect_repo_slug(tmp_path) is None
 
 
-def test_detect_configured_repo_uses_checkout_name_when_origin_is_unavailable(tmp_path: Path) -> None:
+def test_detect_configured_repo_uses_checkout_name_when_origin_is_unavailable(
+    tmp_path: Path,
+) -> None:
     root = tmp_path / "Portable-Alpha-Extension-Model"
     root.mkdir()
     _write(
