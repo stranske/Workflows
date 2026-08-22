@@ -245,6 +245,29 @@ def verification_commands(
     )
 
 
+def semantic_verification_requirements(
+    findings: Sequence[Finding] | None = None,
+) -> tuple[str, ...]:
+    """Return required human evidence for semantic-only drift findings.
+
+    The deterministic checker cannot prove that a stale or contradictory claim
+    was repaired. Keep that limitation explicit in every generated artifact so
+    a green deterministic command cannot satisfy a semantic repair by itself.
+    """
+    requirements: list[str] = []
+    for finding in findings or ():
+        if finding.source != "semantic-scan":
+            continue
+        source = finding.authoritative_source or "the authoritative implementation"
+        requirement = (
+            f"Manually compare `{finding.doc_path}` claim `{finding.target}` against "
+            f"`{source}` and record the before/after evidence in the pull request body."
+        )
+        if requirement not in requirements:
+            requirements.append(requirement)
+    return tuple(requirements)
+
+
 def informational_commands(docs: Sequence[str] | None = None) -> tuple[str, ...]:
     """Commands that refresh full-plan context but may still report other batches."""
     docs_arg = _docs_arg(docs)
@@ -274,6 +297,12 @@ def build_repair_prompt(
     info_lines = "\n".join(
         f"- `{cmd}`" for cmd in (informational_checks or informational_commands())
     )
+    semantic_lines = "\n".join(
+        f"- {requirement}" for requirement in semantic_verification_requirements(batch.findings)
+    )
+    semantic_section = (
+        f"\nRequired semantic evidence:\n{semantic_lines}\n" if semantic_lines else ""
+    )
     return f"""You are repairing documentation drift in {repo}.
 
 Goal: open one focused docs-only fix PR for repair batch `{batch.batch_id}`.
@@ -289,6 +318,7 @@ Rules:
 
 Required verification before opening the PR:
 {check_lines}
+{semantic_section}
 
 Informational full-plan refresh:
 {info_lines}
@@ -313,6 +343,10 @@ def build_pr_plan(
     info_lines = "\n".join(
         f"- [ ] `{cmd}`" for cmd in (informational_checks or informational_commands())
     )
+    semantic_lines = "\n".join(
+        f"- [ ] {requirement}" for requirement in semantic_verification_requirements(batch.findings)
+    )
+    semantic_section = f"\n## Semantic Evidence\n{semantic_lines}\n" if semantic_lines else ""
     findings = "\n".join(_finding_line(finding) for finding in batch.findings)
     docs = "\n".join(f"- [ ] `{doc}`" for doc in doc_paths)
     return f"""# Docs Drift Repair Plan: {batch.batch_id}
@@ -325,6 +359,7 @@ def build_pr_plan(
 
 ## Verification
 {check_lines}
+{semantic_section}
 
 ## Informational Refresh
 {info_lines}
@@ -346,6 +381,9 @@ def build_issue_body(
     check_items = "\n".join(
         f"- [ ] `{cmd}` passes after the repair."
         for cmd in (checks or verification_commands(findings=batch.findings))
+    )
+    semantic_items = "\n".join(
+        f"- [ ] {requirement}" for requirement in semantic_verification_requirements(batch.findings)
     )
     info_items = "\n".join(
         f"- [ ] `{cmd}` was reviewed for remaining non-batch findings."
@@ -377,6 +415,7 @@ Repair only the docs named in this issue for batch `{batch.batch_id}`:
 
 ## Acceptance Criteria
 {check_items}
+{semantic_items}
 - [ ] The pull request changes only documentation files for this batch.
 - [ ] The PR body lists each repaired finding and the source used to verify it.
 
@@ -427,6 +466,9 @@ def default_docs_from_config(repo_root: Path, *, repo: str = DEFAULT_REPO) -> li
         if isinstance(item, dict) and item.get("path")
     ]
     candidates = docs or list(check_docs_drift.DEFAULT_DOCS)
+    missing = [doc for doc in candidates if not (repo_root / doc).is_file()]
+    if docs and missing:
+        raise FileNotFoundError(f"configured docs not found for {repo}: {', '.join(missing)}")
     return [doc for doc in candidates if (repo_root / doc).is_file()]
 
 
@@ -475,6 +517,7 @@ def build_plan(
             {
                 "batch_id": batch.batch_id,
                 "findings": [asdict(finding) for finding in batch.findings],
+                "semantic_verification": list(semantic_verification_requirements(batch.findings)),
                 "repair_prompt": build_repair_prompt(
                     batch,
                     repo=repo,
