@@ -363,6 +363,7 @@ jobs:
                 };
             const botHandler = require('./.github/scripts/bot-comment-handler.js');
             const collectActiveBotReviewThreads = botHandler.collectActiveBotReviewThreads;
+            const boundBotReviewThreadPayload = botHandler.boundBotReviewThreadPayload;
             const buildReviewThreadTerminalDisposition =
               botHandler.buildReviewThreadTerminalDisposition;
             const { withRetry } = retryHelpers;
@@ -518,7 +519,53 @@ jobs:
                   author: comments[0]?.author?.login,
                   url: comments[0]?.url,
                   diff_hunk: comments[0]?.diffHunk,
+                  replies: comments.slice(1).map(comment => ({
+                    author: comment?.author?.login || '',
+                    body: comment?.body || '',
+                    url: comment?.url || '',
+                  })),
                 }));
+            }
+
+            if (typeof boundBotReviewThreadPayload === 'function') {
+              botComments = boundBotReviewThreadPayload(botComments);
+            } else {
+              // Rollout-safe fallback for callers still checking out an older helper.
+              const textFields = [];
+              botComments = botComments.map(comment => {
+                const bounded = {
+                  ...comment,
+                  body: '',
+                  diff_hunk: '',
+                  replies: (comment.replies || []).map(reply => ({ ...reply, body: '' })),
+                };
+                textFields.push({ target: bounded, key: 'body', value: comment.body });
+                textFields.push({ target: bounded, key: 'diff_hunk', value: comment.diff_hunk });
+                bounded.replies.forEach((reply, index) => textFields.push({
+                  target: reply,
+                  key: 'body',
+                  value: comment.replies[index]?.body,
+                }));
+                return bounded;
+              });
+              const maxOutputLength = 450000;
+              let serializedLength = JSON.stringify(botComments).length;
+              if (serializedLength > maxOutputLength) {
+                throw new Error('Bot review-thread metadata exceeds the job-output budget');
+              }
+              textFields.forEach((field, index) => {
+                const remainingFields = textFields.length - index;
+                const available = Math.floor(
+                  (maxOutputLength - serializedLength) / remainingFields
+                );
+                const raw = String(field.value || '');
+                let value = raw.slice(0, Math.min(raw.length, available, 4000));
+                while (JSON.stringify(value).length - 2 > available) {
+                  value = value.slice(0, Math.floor(value.length / 2));
+                }
+                field.target[field.key] = value;
+                serializedLength += JSON.stringify(value).length - 2;
+              });
             }
 
             const found = botComments.length > 0;
@@ -855,6 +902,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           if [ -n "${TOKEN_OUTPUT}" ]; then
+            if [ -z "${APP_SLUG}" ]; then
+              echo "GitHub App token was minted without an app-slug output" >&2
+              exit 1
+            fi
             {
               echo "token=${TOKEN_OUTPUT}"
               echo "auth_kind=app-installation"

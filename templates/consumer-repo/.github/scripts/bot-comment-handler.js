@@ -3,6 +3,7 @@
 const DEFAULT_PER_PAGE = 100;
 const MAX_COMMENT_PAGES = 10;
 const MAX_CONTROLLER_COMMENT_LENGTH = 60000;
+const MAX_COLLECTED_COMMENT_OUTPUT_LENGTH = 450000;
 const DEFAULT_BOT_AUTHORS = Object.freeze([
   'copilot[bot]',
   'github-actions[bot]',
@@ -163,6 +164,95 @@ function collectUnresolvedBotComments(comments = [], options = {}) {
   return botComments;
 }
 
+function fitJsonStringBudget(value, encodedBudget, maxChars) {
+  const raw = String(value ?? '');
+  if (encodedBudget <= 0 || maxChars <= 0 || !raw) {
+    return '';
+  }
+  const bounded = raw.length > maxChars ? `${raw.slice(0, Math.max(0, maxChars - 3))}...` : raw;
+  const encodedLength = (candidate) => JSON.stringify(candidate).length - 2;
+  if (encodedLength(bounded) <= encodedBudget) {
+    return bounded;
+  }
+  let low = 0;
+  let high = Math.min(raw.length, maxChars);
+  let result = '';
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const candidate = middle < raw.length ? `${raw.slice(0, Math.max(0, middle - 3))}...` : raw;
+    if (encodedLength(candidate) <= encodedBudget) {
+      result = candidate;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return result;
+}
+
+function boundBotReviewThreadPayload(
+  comments = [],
+  maxLength = MAX_COLLECTED_COMMENT_OUTPUT_LENGTH,
+) {
+  const safeMaxLength = Math.min(
+    MAX_COLLECTED_COMMENT_OUTPUT_LENGTH,
+    Math.max(4000, Number.parseInt(maxLength, 10) || MAX_COLLECTED_COMMENT_OUTPUT_LENGTH),
+  );
+  const textFields = [];
+  const bounded = (Array.isArray(comments) ? comments : []).map((comment) => {
+    const result = {
+      id: boundControllerField(comment?.id, 200),
+      thread_id: boundControllerField(comment?.thread_id, 200),
+      path: boundControllerField(comment?.path, 500),
+      line: comment?.line ?? null,
+      body: '',
+      author: boundControllerField(comment?.author, 200),
+      url: boundControllerField(comment?.url, 1000),
+      diff_hunk: '',
+      replies: (Array.isArray(comment?.replies) ? comment.replies : []).map((reply) => ({
+        author: boundControllerField(reply?.author, 200),
+        body: '',
+        url: boundControllerField(reply?.url, 1000),
+      })),
+    };
+    textFields.push({ target: result, key: 'body', value: comment?.body, maxChars: 4000 });
+    textFields.push({
+      target: result,
+      key: 'diff_hunk',
+      value: comment?.diff_hunk,
+      maxChars: 4000,
+    });
+    result.replies.forEach((reply, index) => {
+      textFields.push({
+        target: reply,
+        key: 'body',
+        value: comment.replies[index]?.body,
+        maxChars: 2000,
+      });
+    });
+    return result;
+  });
+
+  const metadataLength = JSON.stringify(bounded).length;
+  if (metadataLength > safeMaxLength) {
+    throw new Error(
+      `Bot review-thread metadata exceeds the ${safeMaxLength}-character job-output budget`,
+    );
+  }
+  let remaining = safeMaxLength - metadataLength;
+  textFields.forEach((field, index) => {
+    const remainingFields = textFields.length - index;
+    const share = Math.floor(remaining / remainingFields);
+    const value = fitJsonStringBudget(field.value, share, field.maxChars);
+    field.target[field.key] = value;
+    remaining -= JSON.stringify(value).length - 2;
+  });
+  if (JSON.stringify(bounded).length > safeMaxLength) {
+    throw new Error(`Bot review-thread payload exceeds ${safeMaxLength} characters`);
+  }
+  return bounded;
+}
+
 function collectActiveBotReviewThreads(reviewThreads = [], options = {}) {
   const botAuthors = resolveBotAuthorSet(options.botAuthors ?? options.bot_authors);
   const skipIfHumanReplied = normalizeBoolean(
@@ -214,7 +304,7 @@ function collectActiveBotReviewThreads(reviewThreads = [], options = {}) {
     });
   }
 
-  return active;
+  return boundBotReviewThreadPayload(active, options.maxOutputLength ?? options.max_output_length);
 }
 
 function markdownFenceFor(text, info = '') {
@@ -320,9 +410,18 @@ function buildBotCommentsPrompt(comments = [], options = {}) {
       '**Context (diff hunk):**',
       markdownFenceFor(comment.diff_hunk, 'diff'),
       '',
-      '---',
-      '',
     );
+    if (Array.isArray(comment.replies) && comment.replies.length > 0) {
+      lines.push('**Thread replies:**', '');
+      comment.replies.forEach((reply) => {
+        lines.push(
+          `- **${reply.author || 'unknown'}** — ${reply.url || 'URL unavailable'}`,
+          markdownFenceFor(reply.body),
+          '',
+        );
+      });
+    }
+    lines.push('---', '');
   }
 
   lines.push(
@@ -399,9 +498,9 @@ function buildBotCommentDispatchComments({
       `<!-- bot-comment-handler-part:${index + 1}/${total} -->`,
       '## \u{1F916} Bot Comment Handler',
       '',
-      `- Agent: ${agent}`,
-      `- Bot comments to address: ${count}`,
-      `- Exact PR head: ${headSha || 'unavailable'}`,
+      `- Agent: ${boundControllerField(agent, 100)}`,
+      `- Bot comments to address: ${boundControllerField(count, 20)}`,
+      `- Exact PR head: ${boundControllerField(headSha, 100) || 'unavailable'}`,
       `- Controller part: ${index + 1} of ${total}`,
       '',
       'The agent is reassigned only after every controller part is durable on the PR.',
@@ -429,7 +528,13 @@ function buildBotCommentDispatchComments({
 }
 
 function buildBotCommentDispatchComment(options = {}) {
-  return buildBotCommentDispatchComments(options)[0];
+  const parts = buildBotCommentDispatchComments(options);
+  if (parts.length !== 1) {
+    throw new Error(
+      'Controller context requires multiple parts; use buildBotCommentDispatchComments',
+    );
+  }
+  return parts[0];
 }
 
 function normalizeTerminalDispositionRecord(input) {
@@ -554,6 +659,7 @@ module.exports = {
   DEFAULT_PER_PAGE,
   MAX_COMMENT_PAGES,
   MAX_CONTROLLER_COMMENT_LENGTH,
+  MAX_COLLECTED_COMMENT_OUTPUT_LENGTH,
   DEFAULT_BOT_AUTHORS,
   DISPATCH_AGENT_ASSIGNEES,
   buildBotCommentDispatchComment,
@@ -561,6 +667,7 @@ module.exports = {
   buildBotCommentsPrompt,
   buildReviewThreadTerminalDisposition,
   buildWrapperTerminalDisposition,
+  boundBotReviewThreadPayload,
   collectActiveBotReviewThreads,
   collectUnresolvedBotComments,
   getBotCommentAssignees,

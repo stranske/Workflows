@@ -219,6 +219,12 @@ def test_bot_comment_handler_callers_retain_manual_trigger_after_dispatch_abort(
     consolidated = _load_yaml(
         ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml"
     )
+    reusable = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
+    reusable_triggers = reusable.get("on", reusable.get(True))
+    reusable_outputs = reusable_triggers["workflow_call"]["outputs"]
+
+    assert "comments_found" in reusable_outputs
+    assert "agent_triggered" in reusable_outputs
 
     canonical_if = canonical["jobs"]["cleanup"]["if"]
     assert "needs.handle.result == 'success'" in canonical_if
@@ -415,6 +421,8 @@ def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatc
     )
     assert "APP_SLUG" in auth_step["env"]
     assert "auth_kind=app-installation" in auth_step["run"]
+    assert 'if [ -z "${APP_SLUG}" ]' in auth_step["run"]
+    assert "without an app-slug output" in auth_step["run"]
     assert "controller_login=${APP_SLUG}[bot]" in auth_step["run"]
     assert "auth_kind=service-pat" in auth_step["run"]
     assert "controller_login=github-actions[bot]" in auth_step["run"]
