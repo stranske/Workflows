@@ -112,13 +112,38 @@ def test_verification_commands_keep_semantic_only_batch_actionable() -> None:
 
     commands = fix_agent.verification_commands(["AGENTS.md"], [finding])
 
-    assert shlex.split(commands[0]) == [
-        "python3",
-        "scripts/check_docs_drift.py",
-        "--json",
-        "--docs",
-        "AGENTS.md",
-    ]
+    assert commands == (
+        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py",
+    )
+
+
+def test_semantic_findings_with_same_display_prefix_keep_full_identities() -> None:
+    prefix = "shared prefix " + "x" * 160
+    payload = {
+        "by_repo": [
+            {
+                "repo": "stranske/Workflows",
+                "drift_instances": [
+                    {
+                        "doc_path": "README.md",
+                        "claim": prefix + " first ending",
+                        "classification": "stale",
+                    },
+                    {
+                        "doc_path": "README.md",
+                        "claim": prefix + " second ending",
+                        "classification": "stale",
+                    },
+                ],
+            }
+        ]
+    }
+
+    findings = fix_agent.findings_from_scan_json(payload, repo="stranske/Workflows")
+
+    assert len({finding.target for finding in findings}) == 1
+    assert len(fix_agent.dedupe_findings(findings)) == 2
+    assert len({fix_agent._finding_marker(finding) for finding in findings}) == 2
 
 
 def test_semantic_batch_requires_authoritative_source_evidence() -> None:

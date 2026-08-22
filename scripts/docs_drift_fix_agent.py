@@ -182,6 +182,13 @@ def findings_from_scan_json(payload: dict[str, Any], *, repo: str) -> list[Findi
     return findings
 
 
+def _finding_identity(finding: Finding) -> str:
+    """Return the full stable identity while allowing bounded display targets."""
+    if finding.source == "semantic-scan":
+        return finding.detail.strip() or finding.target.strip()
+    return finding.target.strip()
+
+
 def dedupe_findings(findings: Sequence[Finding]) -> list[Finding]:
     """Collapse obvious duplicates while preferring deterministic findings."""
     priority = {"deterministic": 0, "semantic-scan": 1}
@@ -189,16 +196,26 @@ def dedupe_findings(findings: Sequence[Finding]) -> list[Finding]:
         findings, key=lambda f: (priority.get(f.source, 9), f.doc_path, f.kind, f.target)
     )
     seen: set[tuple[str, str, str]] = set()
+    deterministic_targets: set[tuple[str, str, str]] = set()
     out: list[Finding] = []
     for finding in ordered:
-        key = (
+        target_key = (
             finding.doc_path.strip().lower(),
             finding.kind.strip().lower(),
             finding.target.strip().lower(),
         )
+        if finding.source == "semantic-scan" and target_key in deterministic_targets:
+            continue
+        key = (
+            finding.doc_path.strip().lower(),
+            finding.kind.strip().lower(),
+            _finding_identity(finding).lower(),
+        )
         if key in seen:
             continue
         seen.add(key)
+        if finding.source == "deterministic":
+            deterministic_targets.add(target_key)
         out.append(finding)
     return sorted(out, key=lambda f: (f.doc_path, f.source, f.kind, f.target))
 
@@ -228,7 +245,7 @@ def batch_findings(
                         finding.source,
                         finding.kind,
                         finding.doc_path,
-                        finding.target,
+                        _finding_identity(finding),
                     )
                 ).lower(),
             )
@@ -275,10 +292,13 @@ def verification_commands(
     """Commands that must pass after a single repair batch."""
     docs_arg = _docs_arg(docs)
     only_arg = _only_arg(findings)
-    return (
-        f"python3 scripts/check_docs_drift.py --json{docs_arg}{only_arg}",
-        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py",
+    commands: list[str] = []
+    if findings is None or any(finding.source == "deterministic" for finding in findings):
+        commands.append(f"python3 scripts/check_docs_drift.py --json{docs_arg}{only_arg}")
+    commands.append(
+        "python3 -m py_compile scripts/check_docs_drift.py scripts/docs_drift_fix_agent.py"
     )
+    return tuple(commands)
 
 
 def semantic_verification_requirements(
@@ -725,7 +745,12 @@ def _finding_marker(finding: Finding) -> str:
     """Return a stable issue marker independent of mutable batch ordering/body text."""
     identity = "\0".join(
         value.strip().lower()
-        for value in (finding.source, finding.kind, finding.doc_path, finding.target)
+        for value in (
+            finding.source,
+            finding.kind,
+            finding.doc_path,
+            _finding_identity(finding),
+        )
     )
     digest = hashlib.sha256(identity.encode()).hexdigest()[:16]
     return f"<!-- docs-drift-finding:{digest} -->"

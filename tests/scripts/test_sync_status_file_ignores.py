@@ -38,6 +38,15 @@ def _template_block_patterns() -> list[str]:
     return patterns
 
 
+def _write_consumer_package(repo_root: Path, dependency: str) -> None:
+    package_path = repo_root / ".github/scripts/package.json"
+    package_path.parent.mkdir(parents=True, exist_ok=True)
+    package_path.write_text(
+        '{"dependencies":{"minimatch":"' + dependency + '"}}\n',
+        encoding="utf-8",
+    )
+
+
 def test_generate_minimal_block_includes_header_and_patterns() -> None:
     block = sync_status_file_ignores.generate_minimal_block()
 
@@ -436,6 +445,7 @@ def test_main_gitignore_path_reports_missing(
 def test_main_check_local_ok(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     gitignore_path = tmp_path / ".gitignore"
     gitignore_path.write_text(_full_gitignore_content(), encoding="utf-8")
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "argv", ["script", "--check"])
 
@@ -575,6 +585,7 @@ def test_apply_block_appends_and_preserves_repo_local_rules(tmp_path: Path) -> N
     # clobber repo-local rules. The whole point of the managed block is that it does not.
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("# repo-local rule\n*.tmp\n", encoding="utf-8")
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
 
     result = sync_status_file_ignores.apply_block_to_file(gitignore)
     assert result["action"] == "appended"
@@ -592,6 +603,7 @@ def test_apply_block_appends_and_preserves_repo_local_rules(tmp_path: Path) -> N
 def test_apply_block_removes_legacy_unanchored_node_modules_rule(tmp_path: Path) -> None:
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("# Node.js\nnode_modules/\nkeep-me\n", encoding="utf-8")
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
 
     result = sync_status_file_ignores.apply_block_to_file(gitignore)
 
@@ -606,6 +618,7 @@ def test_apply_block_removes_legacy_unanchored_node_modules_rule(tmp_path: Path)
 def test_apply_block_handles_only_legacy_node_modules_rule(tmp_path: Path) -> None:
     gitignore = tmp_path / ".gitignore"
     gitignore.write_text("node_modules/\n", encoding="utf-8")
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
 
     result = sync_status_file_ignores.apply_block_to_file(gitignore)
 
@@ -617,6 +630,52 @@ def test_apply_block_handles_only_legacy_node_modules_rule(tmp_path: Path) -> No
 
 def test_conflict_check_accepts_managed_node_modules_exceptions() -> None:
     assert sync_status_file_ignores.get_conflicting_patterns(_full_gitignore_content()) == []
+
+
+def test_apply_block_keeps_vendored_exceptions_only_for_file_dependency(
+    tmp_path: Path,
+) -> None:
+    gitignore = tmp_path / ".gitignore"
+    _write_consumer_package(tmp_path, "file:node_modules/minimatch")
+
+    sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    content = gitignore.read_text(encoding="utf-8")
+    assert "\n!/.github/scripts/node_modules/\n" in content
+    assert "\n!/.github/scripts/node_modules/**\n" in content
+
+
+def test_apply_block_removes_vendored_exceptions_for_registry_dependency(
+    tmp_path: Path,
+) -> None:
+    gitignore = tmp_path / ".gitignore"
+    _write_consumer_package(tmp_path, "^10.0.0")
+    gitignore.write_text(
+        sync_status_file_ignores.load_template_block(preserve_vendored_node_modules=True),
+        encoding="utf-8",
+    )
+
+    result = sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    content = gitignore.read_text(encoding="utf-8")
+    assert result["action"] == "replaced"
+    assert "!/.github/scripts/node_modules/" not in content
+    assert "!/.github/scripts/node_modules/**" not in content
+    assert (
+        sync_status_file_ignores.get_conflicting_patterns(
+            content, preserve_vendored_node_modules=False
+        )
+        == []
+    )
+    assert sync_status_file_ignores.apply_block_to_file(gitignore)["changed"] is False
+
+
+def test_registry_consumer_check_rejects_stale_vendored_exceptions() -> None:
+    conflicts = sync_status_file_ignores.get_conflicting_patterns(
+        _full_gitignore_content(), preserve_vendored_node_modules=False
+    )
+
+    assert conflicts == sorted(sync_status_file_ignores.VENDORED_NODE_MODULE_EXCEPTIONS)
 
 
 def test_apply_block_is_idempotent(tmp_path: Path) -> None:

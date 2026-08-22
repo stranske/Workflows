@@ -29,9 +29,11 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 # Canonical status file patterns that should be ignored
 # These are the minimum patterns needed to prevent merge conflicts
@@ -68,8 +70,8 @@ FALLBACK_PATTERNS: list[str] = [
     # Wrong package manager artifacts (defense-in-depth)
     "Pipfile.lock",
     "poetry.lock",
-    # Accidentally-committed dependency trees. Keep nested installs ignored while explicitly
-    # preserving the deliberately vendored .github/scripts/node_modules tree.
+    # Accidentally-committed dependency trees. The vendored-tree exceptions are retained only
+    # for consumers whose package manifest deliberately uses a file:node_modules dependency.
     "node_modules/",
     "!/.github/scripts/node_modules/",
     "!/.github/scripts/node_modules/**",
@@ -82,7 +84,7 @@ GITIGNORE_BLOCK_HEADER = """# ==================================================
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
-# Template-Version: 4
+# Template-Version: 5
 # BEGIN WORKFLOWS STATUS FILES
 """
 
@@ -162,6 +164,53 @@ def _load_template_patterns() -> list[str]:
 
 CANONICAL_PATTERNS: list[str] = _load_template_patterns() or FALLBACK_PATTERNS
 LEGACY_CONFLICTING_PATTERNS = frozenset({"node_modules/"})
+VENDORED_NODE_MODULE_EXCEPTIONS = frozenset(
+    {
+        "!/.github/scripts/node_modules/",
+        "!/.github/scripts/node_modules/**",
+    }
+)
+PACKAGE_DEPENDENCY_SECTIONS = (
+    "dependencies",
+    "devDependencies",
+    "optionalDependencies",
+    "peerDependencies",
+)
+
+
+def _package_payload_declares_vendored_node_modules(payload: Any) -> bool:
+    """Return whether a package manifest deliberately references a vendored dependency."""
+    if not isinstance(payload, dict):
+        return False
+    for section_name in PACKAGE_DEPENDENCY_SECTIONS:
+        section = payload.get(section_name)
+        if not isinstance(section, dict):
+            continue
+        if any(
+            isinstance(value, str) and value.strip().startswith("file:node_modules/")
+            for value in section.values()
+        ):
+            return True
+    return False
+
+
+def package_declares_vendored_node_modules(repo_root: Path) -> bool:
+    """Inspect the consumer package manifest that owns the targeted vendored tree."""
+    package_path = Path(repo_root) / ".github/scripts/package.json"
+    try:
+        payload = json.loads(package_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    return _package_payload_declares_vendored_node_modules(payload)
+
+
+def canonical_patterns(*, preserve_vendored_node_modules: bool = True) -> list[str]:
+    """Return canonical patterns specialized to the consumer dependency layout."""
+    if preserve_vendored_node_modules:
+        return list(CANONICAL_PATTERNS)
+    return [
+        pattern for pattern in CANONICAL_PATTERNS if pattern not in VENDORED_NODE_MODULE_EXCEPTIONS
+    ]
 
 
 def load_template_gitignore() -> str:
@@ -173,17 +222,17 @@ def load_template_gitignore() -> str:
     return generate_minimal_block()
 
 
-def load_template_block() -> str:
+def load_template_block(*, preserve_vendored_node_modules: bool = True) -> str:
     """Load the shared status file .gitignore block from the template."""
     lines = _read_template_lines()
     if lines is None:
-        return generate_minimal_block()
+        return generate_minimal_block(preserve_vendored_node_modules=preserve_vendored_node_modules)
     try:
         _validate_template_markers(lines)
     except MissingTemplateMarkerError:
         raise
     except TemplateBlockError:
-        return generate_minimal_block()
+        return generate_minimal_block(preserve_vendored_node_modules=preserve_vendored_node_modules)
     header_index = next(
         (
             idx
@@ -220,14 +269,21 @@ def load_template_block() -> str:
         if end is None or not (start < header_index < end_marker_index < end):
             _raise_template_error("invalid status block boundary ordering")
     except TemplateBlockError:
-        return generate_minimal_block()
-    return "\n".join(lines[start:end]).rstrip("\n") + "\n"
+        return generate_minimal_block(preserve_vendored_node_modules=preserve_vendored_node_modules)
+    block_lines = lines[start:end]
+    if not preserve_vendored_node_modules:
+        block_lines = [
+            line for line in block_lines if line.strip() not in VENDORED_NODE_MODULE_EXCEPTIONS
+        ]
+    return "\n".join(block_lines).rstrip("\n") + "\n"
 
 
-def generate_minimal_block() -> str:
+def generate_minimal_block(*, preserve_vendored_node_modules: bool = True) -> str:
     """Generate minimal .gitignore block from canonical patterns."""
     lines = [GITIGNORE_BLOCK_HEADER.strip()]
-    for pattern in CANONICAL_PATTERNS:
+    for pattern in canonical_patterns(
+        preserve_vendored_node_modules=preserve_vendored_node_modules
+    ):
         lines.append(pattern)
     lines.append(PATTERN_BLOCK_END)
     return "\n".join(lines) + "\n"
@@ -271,14 +327,19 @@ def _managed_block_span(lines: list[str]) -> tuple[int, int] | None:
     return start, end
 
 
-def apply_block_to_file(gitignore_path: Path, *, dry_run: bool = False) -> dict[str, object]:
+def apply_block_to_file(
+    gitignore_path: Path,
+    *,
+    dry_run: bool = False,
+    preserve_vendored_node_modules: bool | None = None,
+) -> dict[str, object]:
     """Idempotently merge the managed block into a consumer repo's .gitignore.
 
     Replace-in-place when the block is already there and append when it is not. Preserve repo-local
     rules except for exact legacy patterns known to defeat a canonical replacement. In particular,
-    remove a repo-local bare ``node_modules/`` rule because its position can override the managed
-    exceptions for the deliberately vendored ``.github/scripts/node_modules`` tree. The managed
-    block supplies the all-depth ignore followed by the targeted vendored-tree exceptions.
+    remove a repo-local bare ``node_modules/`` rule. The managed block supplies the all-depth
+    ignore and retains targeted exceptions only when ``.github/scripts/package.json`` declares
+    a deliberate ``file:node_modules/`` dependency.
     Writing only on a real change keeps a scheduled sync a no-op when there is nothing to do.
 
     When ``dry_run`` is true, report whether a write would occur without mutating the file so
@@ -286,7 +347,11 @@ def apply_block_to_file(gitignore_path: Path, *, dry_run: bool = False) -> dict[
     sync summary.
     """
     path = Path(gitignore_path)
-    block = load_template_block().rstrip("\n")
+    if preserve_vendored_node_modules is None:
+        preserve_vendored_node_modules = package_declares_vendored_node_modules(path.parent)
+    block = load_template_block(
+        preserve_vendored_node_modules=preserve_vendored_node_modules
+    ).rstrip("\n")
     existing = path.read_bytes().decode("utf-8") if path.is_file() else ""
     newline = "\r\n" if "\r\n" in existing else "\n"
     lines = existing.splitlines()
@@ -294,7 +359,10 @@ def apply_block_to_file(gitignore_path: Path, *, dry_run: bool = False) -> dict[
     span = _managed_block_span(lines)
 
     def without_conflicts(repo_lines: list[str]) -> list[str]:
-        return [line for line in repo_lines if line.strip() not in LEGACY_CONFLICTING_PATTERNS]
+        conflicts = set(LEGACY_CONFLICTING_PATTERNS)
+        if not preserve_vendored_node_modules:
+            conflicts.update(VENDORED_NODE_MODULE_EXCEPTIONS)
+        return [line for line in repo_lines if line.strip() not in conflicts]
 
     if span is not None:
         start, end = span
@@ -321,7 +389,9 @@ def apply_block_to_file(gitignore_path: Path, *, dry_run: bool = False) -> dict[
     return {"path": str(path), "action": action if changed else "unchanged", "changed": changed}
 
 
-def check_gitignore_content(content: str) -> dict[str, bool]:
+def check_gitignore_content(
+    content: str, *, preserve_vendored_node_modules: bool = True
+) -> dict[str, bool]:
     """Check which canonical patterns are present in .gitignore content."""
     # Normalize: remove comments and empty lines for comparison
     lines = set()
@@ -330,26 +400,34 @@ def check_gitignore_content(content: str) -> dict[str, bool]:
         if stripped and not stripped.startswith("#"):
             lines.add(stripped)
 
-    return {pattern: pattern in lines for pattern in CANONICAL_PATTERNS}
+    return {
+        pattern: pattern in lines
+        for pattern in canonical_patterns(
+            preserve_vendored_node_modules=preserve_vendored_node_modules
+        )
+    }
 
 
-def get_missing_patterns(content: str) -> list[str]:
+def get_missing_patterns(content: str, *, preserve_vendored_node_modules: bool = True) -> list[str]:
     """Get list of canonical patterns missing from .gitignore."""
-    status = check_gitignore_content(content)
+    status = check_gitignore_content(
+        content, preserve_vendored_node_modules=preserve_vendored_node_modules
+    )
     return [pattern for pattern, present in status.items() if not present]
 
 
-def get_conflicting_patterns(content: str) -> list[str]:
+def get_conflicting_patterns(
+    content: str, *, preserve_vendored_node_modules: bool = True
+) -> list[str]:
     """Return legacy rules ordered after the managed vendored-tree exceptions."""
     patterns = [
         line.strip()
         for line in content.splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
-    required_exceptions = {
-        "!/.github/scripts/node_modules/",
-        "!/.github/scripts/node_modules/**",
-    }
+    if not preserve_vendored_node_modules:
+        return sorted(pattern for pattern in VENDORED_NODE_MODULE_EXCEPTIONS if pattern in patterns)
+    required_exceptions = VENDORED_NODE_MODULE_EXCEPTIONS
     last_conflict = max(
         (index for index, pattern in enumerate(patterns) if pattern in LEGACY_CONFLICTING_PATTERNS),
         default=-1,
@@ -380,22 +458,34 @@ def generate_append_block(missing: list[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def print_check_report(content: str, repo_name: str = "local") -> int:
+def print_check_report(
+    content: str,
+    repo_name: str = "local",
+    *,
+    preserve_vendored_node_modules: bool = True,
+) -> int:
     """Print a report of pattern coverage and return exit code."""
-    status = check_gitignore_content(content)
+    expected_patterns = canonical_patterns(
+        preserve_vendored_node_modules=preserve_vendored_node_modules
+    )
+    status = check_gitignore_content(
+        content, preserve_vendored_node_modules=preserve_vendored_node_modules
+    )
     missing = [p for p, present in status.items() if not present]
-    conflicting = get_conflicting_patterns(content)
+    conflicting = get_conflicting_patterns(
+        content, preserve_vendored_node_modules=preserve_vendored_node_modules
+    )
     present = [p for p, present in status.items() if present]
 
     print(f"\n=== Status File .gitignore Check: {repo_name} ===\n")
 
     if present:
-        print(f"✓ Present ({len(present)}/{len(CANONICAL_PATTERNS)}):")
+        print(f"✓ Present ({len(present)}/{len(expected_patterns)}):")
         for p in present:
             print(f"  ✓ {p}")
 
     if missing:
-        print(f"\n✗ Missing ({len(missing)}/{len(CANONICAL_PATTERNS)}):")
+        print(f"\n✗ Missing ({len(missing)}/{len(expected_patterns)}):")
         for p in missing:
             print(f"  ✗ {p}")
         print("\nTo fix, add these patterns to .gitignore:")
@@ -492,7 +582,12 @@ def main() -> int:
             print(f"Error: {args.gitignore_path} not found", file=sys.stderr)
             return 1
         content = args.gitignore_path.read_text()
-        return print_check_report(content, str(args.gitignore_path))
+        preserve_vendored = package_declares_vendored_node_modules(args.gitignore_path.parent)
+        return print_check_report(
+            content,
+            str(args.gitignore_path),
+            preserve_vendored_node_modules=preserve_vendored,
+        )
 
     if args.check:
         # Check local repo's .gitignore
@@ -501,7 +596,11 @@ def main() -> int:
             print("No .gitignore found in current directory", file=sys.stderr)
             return 1
         content = local_gitignore.read_text()
-        return print_check_report(content, "local")
+        return print_check_report(
+            content,
+            "local",
+            preserve_vendored_node_modules=package_declares_vendored_node_modules(Path.cwd()),
+        )
 
     if args.apply:
         result = apply_block_to_file(Path(args.apply))
