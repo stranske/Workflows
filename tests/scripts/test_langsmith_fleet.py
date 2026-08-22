@@ -205,7 +205,7 @@ def test_markdown_summary_renders_mixed_valid_invalid_missing_rows() -> None:
     assert "- Invalid: 1" in markdown
     assert "- Missing: 1" in markdown
     assert "- Direct evidence: 3" in markdown
-    assert "- Not applicable: 3" in markdown
+    assert "- Not applicable: 4" in markdown
 
     # Per-repo status rows, one per status flavor.
     assert (

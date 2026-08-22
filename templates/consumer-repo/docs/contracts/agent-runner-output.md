@@ -1,8 +1,8 @@
 # Agent Runner Output Contract
 
-**Version:** 1.1
+**Version:** 1.2
 **Status:** Canonical specification
-**Last Updated:** July 10, 2026
+**Last Updated:** August 21, 2026
 
 ## Purpose
 

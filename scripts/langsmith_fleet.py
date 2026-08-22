@@ -43,6 +43,7 @@ MANAGED_CONSUMER_REPOS = {
     "stranske/Collab-Admin",
     "stranske/learning-management-system",
     "stranske/Fine-Art-Archive",
+    "stranske/Orchestrator",
 }
 REQUIRED_ACTIVE_REPO_ISSUES = {
     "stranske/trip-planner": 1208,

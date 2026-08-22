@@ -18,6 +18,12 @@
       "status": "not-applicable",
       "reason": "Inactive administrative/template consumer that receives fleet updates without operating a substantive traced runtime.",
       "registry_activation_condition": "Register any substantive repository created from this source when it gains an LLM-backed runtime or agent-observability surface."
+    },
+    {
+      "repo": "stranske/Orchestrator",
+      "status": "not-applicable",
+      "reason": "Local agent-orchestration tool repo; receives consumer sync for agent machinery but has no substantive LangSmith-traced runtime surface (offload-only Brain runs).",
+      "registry_activation_condition": "Register when Orchestrator gains an LLM-backed runtime or agent-observability surface that should participate in fleet LangSmith metrics."
     }
   ]
 }

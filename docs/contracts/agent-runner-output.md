@@ -1,8 +1,8 @@
 # Agent Runner Output Contract
 
-**Version:** 1.1
+**Version:** 1.2
 **Status:** Canonical specification
-**Last Updated:** July 10, 2026
+**Last Updated:** August 21, 2026
 
 ## Purpose
 
@@ -118,6 +118,7 @@ they MUST NOT infer capability identity or effects from free-form agent prose.
 | `supervision-mode` | string | `shadow` \| `human-reviewed` \| `human-on-exception` \| `unattended` | `shadow` |
 | `capability-evidence-status` | string | `accepted` \| `rejected` \| `not-evaluated` | `accepted` |
 | `terminal-disposition` | string | `success` \| `failure` \| `no-change` \| `blocked` \| `cancelled` | `no-change` |
+| `subject-id` | string | **Optional (v1.2).** The `owner/repo` whose state the effect acted on. Omit when the effect has no single subject. | `stranske/ready` |
 
 Evidence is all-or-none: if any field is non-empty, every field is required.
 Invalid or partial evidence fails before agent execution. Empty evidence retains
@@ -220,6 +221,13 @@ New optional outputs MAY be added without breaking compatibility:
 - Add output with default empty string value
 - Update this document
 - Update all existing runners to provide the output
+
+`subject-id` was added in **v1.2** under the same additive rule: runners that do not emit it
+remain compliant, and consumers treat an absent or empty value as "no subject". It exists because
+the consumer side promotes a capability on *distinct durable subjects*, and without a subject it had
+nothing to count — it fell back to the delivering PR, under which several PRs from one batch would
+have posed as independent evidence. A subject MUST be a repository (`owner/repo`), never prose, so
+the count cannot be inflated with free text.
 
 Capability evidence added in v1.1 follows this rule: all existing runners
 provide the outputs, and all values remain empty unless a caller supplies one
