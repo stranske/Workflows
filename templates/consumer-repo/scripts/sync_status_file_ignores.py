@@ -572,7 +572,14 @@ def main() -> int:
 
     if args.print_block:
         try:
-            print(load_template_block(), end="")
+            print(
+                load_template_block(
+                    preserve_vendored_node_modules=package_declares_vendored_node_modules(
+                        Path.cwd()
+                    )
+                ),
+                end="",
+            )
         except TemplateBlockError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1

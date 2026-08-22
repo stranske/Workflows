@@ -109,6 +109,9 @@ enabler delivered with this contract:
   canonical all-depth rule. Targeted exceptions for `.github/scripts/node_modules`
   are retained only when that consumer's `.github/scripts/package.json` declares a
   `file:node_modules/` dependency; registry-installed consumers keep the tree ignored.
+  The local `--check`, `--apply`, and `--print-block` paths all inspect that package
+  manifest before selecting the managed block, so printed repair output cannot
+  reintroduce vendored-tree exceptions into a registry-installed consumer.
   This keeps ordinary nested installs ignored without hiding a deliberately vendored
   workflow dependency. (The whole consumer `.gitignore`
   is intentionally in the sync-manifest

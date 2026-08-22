@@ -395,6 +395,23 @@ def test_main_print_block(
     assert captured.out == sync_status_file_ignores.load_template_block()
 
 
+def test_main_print_block_specializes_registry_consumer(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _write_consumer_package(tmp_path, "^10.0.1")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["script", "--print-block"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == sync_status_file_ignores.load_template_block(
+        preserve_vendored_node_modules=False
+    )
+    assert "!/.github/scripts/node_modules/" not in captured.out
+
+
 def test_main_print_patterns(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

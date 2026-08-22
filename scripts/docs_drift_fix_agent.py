@@ -616,6 +616,7 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
     created: list[dict[str, Any]] = []
     existing_by_marker: dict[str, str] = {}
     legacy_markers = _legacy_markers_by_finding(plan)
+    legacy_representatives = set(legacy_markers)
     for batch in plan["batches"]:
         serialized_findings = batch.get("findings") or []
         findings = tuple(Finding(**finding) for finding in serialized_findings)
@@ -625,7 +626,8 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
         marker_indexes: dict[str, set[int]] = {legacy_marker: set(range(len(findings)))}
         for index, finding in enumerate(findings):
             marker_indexes.setdefault(markers[index], set()).add(index)
-            marker_indexes.setdefault(_legacy_v1_finding_marker(finding), set()).add(index)
+            if finding in legacy_representatives:
+                marker_indexes.setdefault(_legacy_v1_finding_marker(finding), set()).add(index)
             old_marker = legacy_markers.get(finding)
             if old_marker:
                 marker_indexes.setdefault(old_marker, set()).add(index)
