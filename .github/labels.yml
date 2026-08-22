@@ -143,3 +143,27 @@
 - name: reminder
   color: d4c5f9
   description: Reminder for future action
+
+# ROUTING LABELS — load-bearing for lane dispatch.
+# These were created by hand across the fleet on 2026-08-20 but never added here, so the
+# canonical inventory did not contain the labels `backlog.classify()` actually routes on.
+# A newly-onboarded consumer therefore received 41 labels and none that make lane routing
+# work — discovered while onboarding stranske/Orchestrator on 2026-08-21.
+- name: refactor
+  color: '5319e7'
+  description: Mechanical/codemod-style change; routes to the codemod lane
+- name: cross-repo
+  color: '1d76db'
+  description: Coordinated change spanning multiple fleet repos
+- name: epic
+  color: 'b60205'
+  description: Parent issue decomposed into child issues
+- name: runtime-ac
+  color: '0e8a16'
+  description: Acceptance criteria verified by executing the runtime, not by inspection
+- name: testgen
+  color: 'fbca04'
+  description: Test generation / coverage work; routes to the testgen lane
+- name: tracker:durable
+  color: 'c5def5'
+  description: Permanently-open tracker; excluded from open-issue backlog counts

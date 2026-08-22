@@ -825,6 +825,15 @@ docs:
   - source: CLAUDE.md
     target: CLAUDE.md
     description: "Context file for Claude/AI assistants"
+    skip_repos:
+      - repo: stranske/Orchestrator
+        reason: >-
+          Orchestrator is the local agent-orchestration TOOL, not a product consumer. Its CLAUDE.md
+          is the tool's own safety net: the tool-vs-evidence split, the three-trees rule (clone /
+          launchd mirror / $ORCH_STATE_DIR), and the requirement to verify with verify.py rather
+          than a shell loop over test files. CLAUDE.md is the file agents auto-load every session,
+          so it is the enforcement mechanism; overwriting it with the consumer template would
+          silently remove those rules. Consumer conventions are referenced FROM that file instead.
 
   - source: docs/contracts/agent-runner-output.md
     target: docs/contracts/agent-runner-output.md

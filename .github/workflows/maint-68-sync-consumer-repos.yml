@@ -79,6 +79,7 @@ env:
     stranske/Collab-Admin
     stranske/learning-management-system
     stranske/Fine-Art-Archive
+    stranske/Orchestrator
 
 concurrency:
   group: sync-consumer-repos-${{ github.repository }}-${{ github.ref }}
