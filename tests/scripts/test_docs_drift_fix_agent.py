@@ -589,6 +589,68 @@ def test_apply_issues_excludes_findings_already_covered_by_open_issue(monkeypatc
     assert covered_marker not in body
 
 
+def test_apply_issues_reuses_legacy_markers_after_atomic_regrouping(monkeypatch) -> None:
+    findings = [
+        fix_agent.Finding(
+            source="deterministic",
+            kind="dangling_reference",
+            doc_path=doc_path,
+            target=target,
+            detail="missing",
+        )
+        for doc_path, target in (
+            ("docs/a.md", "scripts/shared.py"),
+            ("docs/b.md", "scripts/other.py"),
+            ("docs/c.md", "scripts/shared.py"),
+        )
+    ]
+    batches = fix_agent.batch_findings(findings, max_per_batch=2)
+    plan = {
+        "repo": "stranske/Workflows",
+        "docs": [finding.doc_path for finding in findings],
+        "max_per_batch": 2,
+        "findings": [fix_agent.asdict(finding) for finding in findings],
+        "batches": [
+            {
+                "batch_id": batch.batch_id,
+                "issue_title": f"[Docs Drift] Repair {batch.batch_id}",
+                "issue_body": fix_agent.build_issue_body(batch),
+                "findings": [fix_agent.asdict(finding) for finding in batch.findings],
+            }
+            for batch in batches
+        ],
+    }
+    old_markers = set(fix_agent._legacy_markers_by_finding(plan).values())
+    calls: list[list[str]] = []
+
+    class Result:
+        returncode = 0
+        stderr = ""
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    def fake_run(args, **kwargs):  # noqa: ANN001
+        call = list(args)
+        calls.append(call)
+        search = call[call.index("--search") + 1]
+        marker = next((candidate for candidate in old_markers if candidate in search), None)
+        if marker:
+            return Result(
+                fix_agent.json.dumps(
+                    [{"body": f"Existing legacy issue.\n\n{marker}\n", "url": "https://x/1"}]
+                )
+            )
+        return Result("[]")
+
+    monkeypatch.setattr(fix_agent.subprocess, "run", fake_run)
+
+    result = fix_agent.apply_issues(plan)
+
+    assert {row["disposition"] for row in result} == {"already-open"}
+    assert not [call for call in calls if call[:3] == ["gh", "issue", "create"]]
+
+
 def test_apply_issues_reuses_matching_open_issue(monkeypatch) -> None:
     plan = {
         "repo": "stranske/Workflows",

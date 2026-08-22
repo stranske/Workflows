@@ -122,6 +122,7 @@ def test_check_gitignore_content_ignores_comments_and_negation() -> None:
     assert status["codex-prompt.md"] is True
     assert status["codex-output.md"] is False
     assert status["ci/autofix/history.json"] is True
+    assert status["!/.github/scripts/node_modules/"] is False
 
 
 def test_get_missing_patterns_returns_missing_only() -> None:
@@ -597,8 +598,25 @@ def test_apply_block_removes_legacy_unanchored_node_modules_rule(tmp_path: Path)
     content = gitignore.read_text(encoding="utf-8")
     assert result["changed"] is True
     assert "keep-me" in content
-    assert "\nnode_modules/\n" not in content
-    assert "\n/node_modules/\n" in content
+    assert content.count("\nnode_modules/\n") == 1
+    assert "\n!/.github/scripts/node_modules/\n" in content
+    assert "\n!/.github/scripts/node_modules/**\n" in content
+
+
+def test_apply_block_handles_only_legacy_node_modules_rule(tmp_path: Path) -> None:
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text("node_modules/\n", encoding="utf-8")
+
+    result = sync_status_file_ignores.apply_block_to_file(gitignore)
+
+    assert result["changed"] is True
+    content = gitignore.read_text(encoding="utf-8")
+    assert content.count("\nnode_modules/\n") == 1
+    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in content
+
+
+def test_conflict_check_accepts_managed_node_modules_exceptions() -> None:
+    assert sync_status_file_ignores.get_conflicting_patterns(_full_gitignore_content()) == []
 
 
 def test_apply_block_is_idempotent(tmp_path: Path) -> None:

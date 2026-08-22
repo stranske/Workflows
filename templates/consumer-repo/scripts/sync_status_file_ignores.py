@@ -68,9 +68,11 @@ FALLBACK_PATTERNS: list[str] = [
     # Wrong package manager artifacts (defense-in-depth)
     "Pipfile.lock",
     "poetry.lock",
-    # Accidentally-committed dependency trees. Root-anchored: .github/scripts/node_modules is
-    # deliberately vendored (see the template .gitignore comment) and must stay tracked.
-    "/node_modules/",
+    # Accidentally-committed dependency trees. Keep nested installs ignored while explicitly
+    # preserving the deliberately vendored .github/scripts/node_modules tree.
+    "node_modules/",
+    "!/.github/scripts/node_modules/",
+    "!/.github/scripts/node_modules/**",
 ]
 
 GITIGNORE_BLOCK_HEADER = """# =============================================================================
@@ -80,7 +82,7 @@ GITIGNORE_BLOCK_HEADER = """# ==================================================
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
-# Template-Version: 3
+# Template-Version: 4
 # BEGIN WORKFLOWS STATUS FILES
 """
 
@@ -274,8 +276,9 @@ def apply_block_to_file(gitignore_path: Path, *, dry_run: bool = False) -> dict[
 
     Replace-in-place when the block is already there and append when it is not. Preserve repo-local
     rules except for exact legacy patterns known to defeat a canonical replacement. In particular,
-    remove a bare ``node_modules/`` rule because it also ignores the deliberately vendored
-    ``.github/scripts/node_modules`` tree; the managed block supplies the safe root-only form.
+    remove a repo-local bare ``node_modules/`` rule because its position can override the managed
+    exceptions for the deliberately vendored ``.github/scripts/node_modules`` tree. The managed
+    block supplies the all-depth ignore followed by the targeted vendored-tree exceptions.
     Writing only on a real change keeps a scheduled sync a no-op when there is nothing to do.
 
     When ``dry_run`` is true, report whether a write would occur without mutating the file so
@@ -303,7 +306,8 @@ def apply_block_to_file(gitignore_path: Path, *, dry_run: bool = False) -> dict[
         action = "replaced"
     elif lines:
         repo_lines = without_conflicts(lines)
-        merged = repo_lines + ([""] if repo_lines[-1].strip() else []) + block.splitlines()
+        merged = repo_lines + ([""] if repo_lines and repo_lines[-1].strip() else [])
+        merged += block.splitlines()
         action = "appended"
     else:
         merged = block.splitlines()
@@ -324,9 +328,6 @@ def check_gitignore_content(content: str) -> dict[str, bool]:
     for line in content.splitlines():
         stripped = line.strip()
         if stripped and not stripped.startswith("#"):
-            # Handle negation patterns (lines starting with !)
-            if stripped.startswith("!"):
-                continue  # Skip negation patterns
             lines.add(stripped)
 
     return {pattern: pattern in lines for pattern in CANONICAL_PATTERNS}
@@ -339,13 +340,30 @@ def get_missing_patterns(content: str) -> list[str]:
 
 
 def get_conflicting_patterns(content: str) -> list[str]:
-    """Return exact legacy rules that override safer managed replacements."""
-    present = {
+    """Return legacy rules ordered after the managed vendored-tree exceptions."""
+    patterns = [
         line.strip()
         for line in content.splitlines()
         if line.strip() and not line.lstrip().startswith("#")
+    ]
+    required_exceptions = {
+        "!/.github/scripts/node_modules/",
+        "!/.github/scripts/node_modules/**",
     }
-    return sorted(LEGACY_CONFLICTING_PATTERNS & present)
+    last_conflict = max(
+        (index for index, pattern in enumerate(patterns) if pattern in LEGACY_CONFLICTING_PATTERNS),
+        default=-1,
+    )
+    last_exceptions = {
+        pattern: max(
+            (index for index, candidate in enumerate(patterns) if candidate == pattern),
+            default=-1,
+        )
+        for pattern in required_exceptions
+    }
+    if last_conflict >= 0 and any(index < last_conflict for index in last_exceptions.values()):
+        return sorted(LEGACY_CONFLICTING_PATTERNS)
+    return []
 
 
 def generate_append_block(missing: list[str]) -> str:

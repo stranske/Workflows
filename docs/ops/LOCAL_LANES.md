@@ -105,9 +105,10 @@ enabler delivered with this contract:
   that ignores `keepalive_status.md`, `pr_body.md`, and the autofix status
   files. The validator itself is copy-synced to `scripts/sync_status_file_ignores.py`
   so the command named in the managed block exists in every consumer. Applying
-  the block also removes the exact legacy `node_modules/` rule, which otherwise
-  overrides the canonical `/node_modules/` rule and hides the deliberately
-  vendored `.github/scripts/node_modules` tree. (The whole consumer `.gitignore`
+  the block also removes repo-local copies of `node_modules/` and writes one
+  canonical all-depth rule followed by targeted exceptions for the deliberately
+  vendored `.github/scripts/node_modules` tree. This keeps ordinary nested installs
+  ignored without hiding the vendored workflow dependency. (The whole consumer `.gitignore`
   is intentionally in the sync-manifest
   `excluded:` list as "repo-specific"; the status-file script owns the managed
   block, which is the correct propagation path for this entry.)
