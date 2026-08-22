@@ -648,8 +648,8 @@ def apply_issues(plan: dict[str, Any]) -> list[dict[str, Any]]:
         else:
             uncovered_findings = tuple(
                 finding
-                for finding, marker in zip(findings, markers)
-                if marker not in covered_markers
+                for index, finding in enumerate(findings)
+                if markers[index] not in covered_markers
             )
 
         if not uncovered_findings and covered_markers:
