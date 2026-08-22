@@ -175,6 +175,17 @@ def test_detect_repo_slug_returns_none_for_unknown_origin(tmp_path: Path, monkey
     assert fix_agent.detect_repo_slug(tmp_path) is None
 
 
+def test_detect_configured_repo_uses_checkout_name_when_origin_is_unavailable(tmp_path: Path) -> None:
+    root = tmp_path / "Portable-Alpha-Extension-Model"
+    root.mkdir()
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        "repos:\n  stranske/Portable-Alpha-Extension-Model:\n    local_path: Portable-Alpha-Extension-Model\n",
+    )
+
+    assert fix_agent.detect_configured_repo(root) == "stranske/Portable-Alpha-Extension-Model"
+
+
 def test_cli_requires_repo_when_origin_is_unknown(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setattr(fix_agent, "detect_repo_slug", lambda root: None)
 
