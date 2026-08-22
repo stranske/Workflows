@@ -928,7 +928,7 @@ jobs:
             const {owner, repo} = context.repo;
             const botHandler = require('./.github/scripts/bot-comment-handler.js');
             const getBotCommentAssignees = botHandler.getBotCommentAssignees;
-            const buildBotCommentDispatchComment = botHandler.buildBotCommentDispatchComment;
+            const buildBotCommentDispatchComments = botHandler.buildBotCommentDispatchComments;
             const fallbackAssignees = {
               'codex': ['chatgpt-codex-connector'],
               'claude': ['copilot'],
@@ -941,22 +941,50 @@ jobs:
             // Persist exact-head, thread-specific context before assignment. Assignment
             // is the trigger, so reversing this order can start a context-free generic review.
             const marker = '<!-- bot-comment-handler -->';
-            const comment = typeof buildBotCommentDispatchComment === 'function'
-              ? buildBotCommentDispatchComment({ agent, count, comments, headSha })
-              : [
-                  marker,
-                  '## 🤖 Bot Comment Handler',
-                  '',
-                  `- Agent: ${agent}`,
-                  `- Bot comments to address: ${count}`,
-                  `- Exact PR head: ${headSha || 'unavailable'}`,
-                  '',
-                  ...comments.map(item =>
-                    `- ${item.thread_id || item.id}: ${item.url || item.path || 'unknown'}`
-                  ),
-                  '',
-                  'Address or disposition every listed thread. A generic review is not completion.'
-                ].join('\n');
+            const buildFallbackDispatchComments = () => {
+              const maxLength = 60000;
+              const entries = comments.map(item => {
+                const threadId = String(item.thread_id || item.id || 'unknown-thread')
+                  .slice(0, 200);
+                const path = String(item.path || 'unknown').slice(0, 260);
+                const url = String(item.url || 'URL unavailable').slice(0, 500);
+                const criterion = String(item.body || 'Read the linked review thread')
+                  .replace(/\s+/g, ' ').slice(0, 350);
+                return `- ${threadId} — ${path}:${item.line ?? 'N/A'}\n` +
+                  `  - ${url}\n  - Acceptance criterion: ${criterion}`;
+              });
+              const pages = [[]];
+              let length = 0;
+              for (const entry of entries) {
+                if (pages.at(-1).length > 0 && length + entry.length + 2 > 58000) {
+                  pages.push([]);
+                  length = 0;
+                }
+                pages.at(-1).push(entry);
+                length += entry.length + 2;
+              }
+              return pages.map((page, index) => [
+                marker,
+                `<!-- bot-comment-handler-part:${index + 1}/${pages.length} -->`,
+                '## 🤖 Bot Comment Handler',
+                '',
+                `- Agent: ${agent}`,
+                `- Bot comments to address: ${count}`,
+                `- Exact PR head: ${headSha || 'unavailable'}`,
+                `- Controller part: ${index + 1} of ${pages.length}`,
+                '',
+                ...page.flatMap(entry => [entry, '']),
+                'Address or disposition every linked thread. A generic review is not completion.'
+              ].join('\n')).map(body => {
+                if (body.length > maxLength) {
+                  throw new Error(`Fallback controller comment exceeds ${maxLength} characters`);
+                }
+                return body;
+              });
+            };
+            const controllerBodies = typeof buildBotCommentDispatchComments === 'function'
+              ? buildBotCommentDispatchComments({ agent, count, comments, headSha })
+              : buildFallbackDispatchComments();
 
             // Find existing bot-comment-handler comment to avoid duplicates
             const existingComments = await paginateWithRetry(
@@ -979,29 +1007,44 @@ jobs:
               core.setFailed('Could not determine the controller comment identity');
               return;
             }
-            const existing = existingComments.find(c =>
+            const existing = existingComments.filter(c =>
               c.body?.includes(marker)
+              && !c.body?.includes('<!-- bot-comment-handler-retired -->')
               && String(c.user?.login || '').toLowerCase() === authenticatedLogin
-            );
+            ).sort((left, right) => left.id - right.id);
 
-            if (existing) {
+            for (const [index, body] of controllerBodies.entries()) {
+              const prior = existing[index];
+              if (prior) {
+                await withRetry(() => github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: prior.id,
+                  body,
+                }));
+                core.info(`Updated controller part ${index + 1} in comment #${prior.id}`);
+              } else {
+                await withRetry(() => github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body,
+                }));
+                core.info(`Created controller part ${index + 1} on PR #${prNumber}`);
+              }
+            }
+            for (const stale of existing.slice(controllerBodies.length)) {
               await withRetry(() => github.rest.issues.updateComment({
                 owner,
                 repo,
-                comment_id: existing.id,
-                body: comment
+                comment_id: stale.id,
+                body: [
+                  marker,
+                  '<!-- bot-comment-handler-retired -->',
+                  'This controller part was superseded by a smaller exact-head thread set.'
+                ].join('\n'),
               }));
-              core.info(
-                `Updated existing bot-comment-handler comment #${existing.id} on PR #${prNumber}`
-              );
-            } else {
-              await withRetry(() => github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prNumber,
-                body: comment
-              }));
-              core.info(`Created new bot-comment-handler comment on PR #${prNumber}`);
+              core.info(`Retired stale controller comment #${stale.id}`);
             }
 
             // Reassignment creates a fresh trigger even when a prior attempt left the

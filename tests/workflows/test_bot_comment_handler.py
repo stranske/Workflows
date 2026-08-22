@@ -214,6 +214,23 @@ def test_bot_comment_handler_callers_pass_app_client_id() -> None:
             assert secrets.get("gh_app_private_key") == expected_secrets["gh_app_private_key"]
 
 
+def test_bot_comment_handler_callers_retain_manual_trigger_after_dispatch_abort() -> None:
+    canonical = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
+    consolidated = _load_yaml(
+        ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml"
+    )
+
+    canonical_if = canonical["jobs"]["cleanup"]["if"]
+    assert "needs.handle.result == 'success'" in canonical_if
+    assert "needs.handle.outputs.comments_found != 'true'" in canonical_if
+    assert "needs.handle.outputs.agent_triggered == 'true'" in canonical_if
+
+    consolidated_if = consolidated["jobs"]["cleanup_bot_comment_label"]["if"]
+    assert "needs.bot_comments.result == 'success'" in consolidated_if
+    assert "needs.bot_comments.outputs.comments_found != 'true'" in consolidated_if
+    assert "needs.bot_comments.outputs.agent_triggered == 'true'" in consolidated_if
+
+
 def test_canonical_bot_comment_handler_direct_app_tokens_prefer_client_id() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
     resolve_job = workflow["jobs"]["resolve"]
@@ -409,7 +426,10 @@ def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatc
     assignment = dispatch_script.index("github.rest.issues.addAssignees")
     assert context_write < assignment
     assert "github.rest.issues.removeAssignees" in dispatch_script
-    assert "buildBotCommentDispatchComment" in dispatch_script
+    assert "buildBotCommentDispatchComments" in dispatch_script
+    assert "controllerBodies.entries()" in dispatch_script
+    assert "bot-comment-handler-retired" in dispatch_script
+    assert "Fallback controller comment exceeds" in dispatch_script
     assert "comments" in dispatch_script
     assert "headSha" in dispatch_script
     assert "authKind === 'service-pat'" in dispatch_script

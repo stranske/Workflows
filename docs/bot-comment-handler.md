@@ -9,7 +9,7 @@ Automatically addresses review comments from bots (Copilot, CodeRabbit, etc.) us
 │         reusable-bot-comment-handler.yml (Workflows repo)       │
 │  - Collects active, non-outdated reviewThreads via GraphQL     │
 │  - Detects agent from PR labels (agent:codex, agent:claude)    │
-│  - Persists context, revalidates head/thread set, then assigns  │
+│  - Persists bounded context, revalidates snapshot, then assigns │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┼───────────────┐
@@ -121,9 +121,10 @@ Create `autofix:bot-comments` label in your repository:
 Add the `autofix:bot-comments` label to any PR with bot review comments. The workflow will:
 1. Collect all active, non-outdated bot review threads
 2. Persist exact-head thread context on the PR
-3. Re-query the active thread set and abort if it differs from the persisted snapshot
-4. Reassign the configured agent to trigger a fresh bounded attempt
-5. Remove the label after processing
+3. Split large controller context into bounded comments that retain every thread link
+4. Re-query the active thread set and abort if it differs from the persisted snapshot
+5. Reassign the configured agent to trigger a fresh bounded attempt
+6. Remove the label only after successful assignment or a proven no-thread result; retain it when dispatch aborts so a later event can recollect
 
 ### Agent PRs (Automatic)
 

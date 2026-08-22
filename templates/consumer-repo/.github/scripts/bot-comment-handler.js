@@ -2,6 +2,7 @@
 
 const DEFAULT_PER_PAGE = 100;
 const MAX_COMMENT_PAGES = 10;
+const MAX_CONTROLLER_COMMENT_LENGTH = 60000;
 const DEFAULT_BOT_AUTHORS = Object.freeze([
   'copilot[bot]',
   'github-actions[bot]',
@@ -356,47 +357,79 @@ function getBotCommentAssignees(agent) {
   return [...(DISPATCH_AGENT_ASSIGNEES[key] || DISPATCH_AGENT_ASSIGNEES[DEFAULT_AGENT])];
 }
 
-function buildBotCommentDispatchComment({
+function boundControllerField(value, limit) {
+  const normalized = String(value ?? '').trim().replace(/\s+/g, ' ');
+  return normalized.length > limit ? `${normalized.slice(0, limit - 3)}...` : normalized;
+}
+
+function buildBotCommentDispatchComments({
   agent = DEFAULT_AGENT,
   count = 0,
   comments = [],
   headSha = '',
+  maxLength = MAX_CONTROLLER_COMMENT_LENGTH,
 } = {}) {
   const marker = '<!-- bot-comment-handler -->';
-  const lines = [
-    marker,
-    '## \u{1F916} Bot Comment Handler',
-    '',
-    `- Agent: ${agent}`,
-    `- Bot comments to address: ${count}`,
-    `- Exact PR head: ${headSha || 'unavailable'}`,
-    '',
-    'The agent is being reassigned only after this exact thread context is durable on the PR.',
-    '',
-    '### Active thread controller',
-  ];
-  for (const comment of Array.isArray(comments) ? comments : []) {
-    const body = String(comment?.body || '').trim();
-    const boundedBody = body.length > 350 ? `${body.slice(0, 347)}...` : body;
-    lines.push(
-      '',
-      `- ${comment?.thread_id || comment?.id || 'unknown-thread'} — ` +
-        `${comment?.path || 'unknown'}:${comment?.line ?? 'N/A'}`,
-      `  - ${comment?.url || 'URL unavailable'}`,
-      `  - Acceptance criterion: ${boundedBody.replace(/\n/g, ' ') || 'No text supplied'}`,
-    );
-  }
-  lines.push(
-    '',
-    '### Required outcome',
-    '1. Inspect every listed active thread on the exact head.',
-    '2. Implement and validate any still-valid criterion; do not make no-op edits.',
-    '3. Reply with exact-head evidence and request a thread-specific reviewer disposition.',
-    '4. Never self-resolve reviewer threads.',
-    '5. Do not report completion while any listed thread remains active; ' +
-      'a generic top-level review is insufficient.',
+  const safeMaxLength = Math.min(
+    65000,
+    Math.max(4000, Number.parseInt(maxLength, 10) || MAX_CONTROLLER_COMMENT_LENGTH),
   );
-  return lines.join('\n');
+  const entries = (Array.isArray(comments) ? comments : []).map((comment) => [
+    `- ${boundControllerField(comment?.thread_id || comment?.id || 'unknown-thread', 200)} — ` +
+      `${boundControllerField(comment?.path || 'unknown', 260)}:${comment?.line ?? 'N/A'}`,
+    `  - ${boundControllerField(comment?.url || 'URL unavailable', 500)}`,
+    `  - Acceptance criterion: ${boundControllerField(comment?.body, 350) || 'No text supplied'}`,
+  ].join('\n'));
+  const headerReserve = 1400;
+  const entryBudget = safeMaxLength - headerReserve;
+  const pages = [[]];
+  let pageLength = 0;
+  for (const entry of entries) {
+    if (pages.at(-1).length > 0 && pageLength + entry.length + 2 > entryBudget) {
+      pages.push([]);
+      pageLength = 0;
+    }
+    pages.at(-1).push(entry);
+    pageLength += entry.length + 2;
+  }
+  const total = pages.length;
+  return pages.map((page, index) => {
+    const lines = [
+      marker,
+      `<!-- bot-comment-handler-part:${index + 1}/${total} -->`,
+      '## \u{1F916} Bot Comment Handler',
+      '',
+      `- Agent: ${agent}`,
+      `- Bot comments to address: ${count}`,
+      `- Exact PR head: ${headSha || 'unavailable'}`,
+      `- Controller part: ${index + 1} of ${total}`,
+      '',
+      'The agent is reassigned only after every controller part is durable on the PR.',
+      'Each entry links to the authoritative review thread containing its full context.',
+      '',
+      '### Active thread controller',
+      '',
+      ...page.flatMap((entry) => [entry, '']),
+      '### Required outcome',
+      '1. Inspect every listed active thread on the exact head.',
+      '2. Implement and validate any still-valid criterion; do not make no-op edits.',
+      '3. Reply with exact-head evidence and request a thread-specific reviewer disposition.',
+      '4. Never self-resolve reviewer threads.',
+      '5. Do not report completion while any listed thread remains active; ' +
+        'a generic top-level review is insufficient.',
+    ];
+    const body = lines.join('\n');
+    if (body.length > safeMaxLength) {
+      throw new Error(
+        `Bot comment controller part ${index + 1}/${total} exceeds ${safeMaxLength} characters`,
+      );
+    }
+    return body;
+  });
+}
+
+function buildBotCommentDispatchComment(options = {}) {
+  return buildBotCommentDispatchComments(options)[0];
 }
 
 function normalizeTerminalDispositionRecord(input) {
@@ -520,9 +553,11 @@ async function listCommentsWithLimit(options = {}) {
 module.exports = {
   DEFAULT_PER_PAGE,
   MAX_COMMENT_PAGES,
+  MAX_CONTROLLER_COMMENT_LENGTH,
   DEFAULT_BOT_AUTHORS,
   DISPATCH_AGENT_ASSIGNEES,
   buildBotCommentDispatchComment,
+  buildBotCommentDispatchComments,
   buildBotCommentsPrompt,
   buildReviewThreadTerminalDisposition,
   buildWrapperTerminalDisposition,

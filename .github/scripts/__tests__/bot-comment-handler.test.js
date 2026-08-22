@@ -10,6 +10,7 @@ const dispositionFixtures = require('./fixtures/bot-comment-terminal-disposition
 const {
   DEFAULT_BOT_AUTHORS,
   buildBotCommentDispatchComment,
+  buildBotCommentDispatchComments,
   buildBotCommentsPrompt,
   buildReviewThreadTerminalDisposition,
   buildWrapperTerminalDisposition,
@@ -232,6 +233,34 @@ test('dispatch fixture selects the assignee and stable marker comment for Codex'
   assert.match(comment, /<!-- bot-comment-handler -->/);
   assert.match(comment, /- Agent: codex/);
   assert.match(comment, /- Bot comments to address: 2/);
+});
+
+test('dispatch controller splits large thread sets into bounded complete comments', () => {
+  const comments = Array.from({ length: 40 }, (_, index) => ({
+    thread_id: `PRRT_${index}`,
+    path: `src/large-${index}.js`,
+    line: index + 1,
+    url: `https://example.test/review/${index}`,
+    body: `Acceptance ${index}: ${'x'.repeat(500)}`,
+  }));
+
+  const parts = buildBotCommentDispatchComments({
+    agent: 'codex',
+    count: comments.length,
+    comments,
+    headSha: 'exact-head',
+    maxLength: 4000,
+  });
+
+  assert.ok(parts.length > 1);
+  assert.ok(parts.every((part) => part.length <= 4000));
+  assert.ok(parts.every((part) => part.includes('<!-- bot-comment-handler -->')));
+  assert.ok(parts.every((part) => part.includes('- Exact PR head: exact-head')));
+  const combined = parts.join('\n');
+  for (const comment of comments) {
+    const entry = `- ${comment.thread_id} —`;
+    assert.equal(combined.split(entry).length - 1, 1, comment.thread_id);
+  }
 });
 
 test('dispatch assignee fallbacks match registry-owned automation users', () => {
