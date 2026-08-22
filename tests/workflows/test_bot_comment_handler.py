@@ -22,6 +22,28 @@ def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     assert "chatgpt-codex-connector[bot]" in bot_authors
 
 
+def test_reusable_bot_comment_handler_revalidates_active_threads_before_dispatch() -> None:
+    workflow_path = ROOT / ".github/workflows/reusable-bot-comment-handler.yml"
+    workflow = _load_yaml(workflow_path)
+    collect_outputs = workflow["jobs"]["collect"]["outputs"]
+    dispatch_step = next(
+        step
+        for step in workflow["jobs"]["dispatch"]["steps"]
+        if step.get("name") == "Assign agent and post context comment"
+    )
+    dispatch_script = dispatch_step["with"]["script"]
+
+    assert collect_outputs["active_thread_fingerprint"] == (
+        "${{ steps.collect.outputs.active_thread_fingerprint }}"
+    )
+    assert dispatch_step["env"]["ACTIVE_THREAD_FINGERPRINT"] == (
+        "${{ needs.collect.outputs.active_thread_fingerprint }}"
+    )
+    assert "reviewThreads(first: 100, after: $cursor)" in dispatch_script
+    assert "assertExactDispatchSnapshot('before assignment')" in dispatch_script
+    assert "assertExactDispatchSnapshot('after stale assignment removal')" in dispatch_script
+
+
 def test_reusable_bot_comment_handler_has_manual_terminal_probe() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
     triggers = workflow.get("on") or workflow.get(True) or {}
@@ -393,14 +415,18 @@ def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatc
     assert "authKind === 'service-pat'" in dispatch_script
     assert "github.rest.users.getAuthenticated" in dispatch_script
     assert "String(c.user?.login || '').toLowerCase() === authenticatedLogin" in dispatch_script
-    head_revalidation = dispatch_script.index("assertExactHead('before assignment')")
-    assert context_write < head_revalidation < assignment
+    snapshot_revalidation = dispatch_script.index(
+        "assertExactDispatchSnapshot('before assignment')"
+    )
+    assert context_write < snapshot_revalidation < assignment
     remove_assignment = dispatch_script.index("github.rest.issues.removeAssignees")
     post_remove_revalidation = dispatch_script.index(
-        "assertExactHead('after stale assignment removal')"
+        "assertExactDispatchSnapshot('after stale assignment removal')"
     )
     assert remove_assignment < post_remove_revalidation < assignment
-    assert "currentPr.head?.sha !== headSha" in dispatch_script
+    assert "activeThreadFingerprint" in dispatch_script
+    assert "Active review-thread set changed" in dispatch_script
+    assert "observedHeadSha !== headSha" in dispatch_script
     assert "Recollect before assignment" in dispatch_script
 
     for job in workflow["jobs"].values():

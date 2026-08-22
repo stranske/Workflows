@@ -126,6 +126,7 @@ jobs:
       comments_count: ${{ steps.collect.outputs.count }}
       comments_json: ${{ steps.collect.outputs.comments }}
       head_sha: ${{ steps.collect.outputs.head_sha }}
+      active_thread_fingerprint: ${{ steps.collect.outputs.active_thread_fingerprint }}
       agent: ${{ steps.agent.outputs.agent }}
       agent_workflow: ${{ steps.agent.outputs.workflow }}
       app_auth_mode: ${{ steps.app-creds.outputs.app_auth_mode }}
@@ -521,10 +522,17 @@ jobs:
             }
 
             const found = botComments.length > 0;
+            const activeThreadFingerprint = JSON.stringify(
+              reviewThreads
+                .filter(thread => !thread.isResolved && !thread.isOutdated)
+                .map(thread => thread.id)
+                .sort()
+            );
             core.setOutput('found', found ? 'true' : 'false');
             core.setOutput('count', botComments.length);
             core.setOutput('comments', JSON.stringify(botComments));
             core.setOutput('head_sha', headSha);
+            core.setOutput('active_thread_fingerprint', activeThreadFingerprint);
 
             console.log(`Found ${botComments.length} active bot review threads`);
 
@@ -893,6 +901,7 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
           AGENT: ${{ needs.collect.outputs.agent }}
           COMMENTS_COUNT: ${{ needs.collect.outputs.comments_count }}
+          ACTIVE_THREAD_FINGERPRINT: ${{ needs.collect.outputs.active_thread_fingerprint }}
           AUTH_KIND: ${{ steps.auth.outputs.auth_kind }}
           CONTROLLER_LOGIN: ${{ steps.auth.outputs.controller_login }}
         with:
@@ -913,6 +922,7 @@ jobs:
             const count = process.env.COMMENTS_COUNT || '0';
             const comments = JSON.parse(process.env.COMMENTS_JSON || '[]');
             const headSha = process.env.HEAD_SHA || '';
+            const activeThreadFingerprint = process.env.ACTIVE_THREAD_FINGERPRINT || '';
             const authKind = process.env.AUTH_KIND || '';
             const controllerLogin = process.env.CONTROLLER_LOGIN || '';
             const {owner, repo} = context.repo;
@@ -997,22 +1007,66 @@ jobs:
             // Reassignment creates a fresh trigger even when a prior attempt left the
             // connector assigned. The exact context above is durable before either edge.
             try {
-              const assertExactHead = async (stage) => {
-                const { data: currentPr } = await withRetry(() => github.rest.pulls.get({
-                  owner,
-                  repo,
-                  pull_number: prNumber,
-                }));
-                if (!headSha || currentPr.head?.sha !== headSha) {
+              const activeThreadsQuery = `
+                query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      headRefOid
+                      reviewThreads(first: 100, after: $cursor) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes { id isResolved isOutdated }
+                      }
+                    }
+                  }
+                }
+              `;
+              const assertExactDispatchSnapshot = async (stage) => {
+                const threadIds = [];
+                let cursor = null;
+                let observedHeadSha = '';
+                do {
+                  const data = await withRetry(() => github.graphql(activeThreadsQuery, {
+                    owner,
+                    repo,
+                    number: prNumber,
+                    cursor,
+                  }));
+                  const pullRequest = data.repository?.pullRequest;
+                  if (!pullRequest) {
+                    throw new Error(`PR #${prNumber} was not returned while ${stage}`);
+                  }
+                  if (observedHeadSha && pullRequest.headRefOid !== observedHeadSha) {
+                    throw new Error(`PR head changed while reading active threads ${stage}`);
+                  }
+                  observedHeadSha = pullRequest.headRefOid;
+                  const page = pullRequest.reviewThreads;
+                  threadIds.push(...(page.nodes || [])
+                    .filter(thread => !thread.isResolved && !thread.isOutdated)
+                    .map(thread => thread.id));
+                  cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+                } while (cursor);
+                if (!headSha || observedHeadSha !== headSha) {
                   throw new Error(
                     `PR head changed ${stage}: expected ${headSha || 'missing'}, ` +
-                    `observed ${currentPr.head?.sha || 'missing'}. ` +
+                    `observed ${observedHeadSha || 'missing'}. ` +
                     'Recollect before assignment.'
                   );
                 }
-                return currentPr;
+                const observedFingerprint = JSON.stringify(threadIds.sort());
+                if (!activeThreadFingerprint || observedFingerprint !== activeThreadFingerprint) {
+                  throw new Error(
+                    `Active review-thread set changed ${stage}: expected ` +
+                    `${activeThreadFingerprint || 'missing'}, observed ${observedFingerprint}. ` +
+                    'Recollect before assignment.'
+                  );
+                }
               };
-              const pr = await assertExactHead('before assignment');
+              const { data: pr } = await withRetry(() => github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber,
+              }));
+              await assertExactDispatchSnapshot('before assignment');
               const assigned = new Set(
                 (pr.assignees || []).map(item => String(item.login || '').toLowerCase())
               );
@@ -1025,7 +1079,7 @@ jobs:
                   assignees: alreadyAssigned,
                 }));
                 core.info(`Removed stale assignment for ${alreadyAssigned.join(', ')}`);
-                await assertExactHead('after stale assignment removal');
+                await assertExactDispatchSnapshot('after stale assignment removal');
               }
               await withRetry(() => github.rest.issues.addAssignees({
                 owner,
