@@ -13,6 +13,7 @@ const {
   buildBotCommentsPrompt,
   buildReviewThreadTerminalDisposition,
   buildWrapperTerminalDisposition,
+  collectActiveBotReviewThreads,
   collectUnresolvedBotComments,
   getBotCommentAssignees,
   isBotAuthor,
@@ -26,6 +27,7 @@ test('default bot author allowlist recognizes canonical review bots', () => {
     'copilot[bot]',
     'github-actions[bot]',
     'coderabbitai[bot]',
+    'chatgpt-codex-connector',
     'chatgpt-codex-connector[bot]',
   ]) {
     assert.equal(isBotAuthor(login, DEFAULT_BOT_AUTHORS), true, login);
@@ -122,6 +124,36 @@ test('comment collection filters ignored review paths by prefix', () => {
   assert.ok(!collected.some((comment) => comment.path.startsWith('docs/')));
 });
 
+test('active thread collection preserves reviewer debt after maintainer replies', () => {
+  const collected = collectActiveBotReviewThreads([
+    {
+      id: 'PRRT_exact',
+      isResolved: false,
+      isOutdated: false,
+      path: 'src/service.js',
+      line: 22,
+      comments: {
+        nodes: [
+          {
+            databaseId: 1005,
+            author: { login: 'chatgpt-codex-connector' },
+            body: 'Guard against missing input.',
+            url: 'https://example.test/thread',
+          },
+          {
+            databaseId: 1006,
+            author: { login: 'maintainer' },
+            body: 'Fixed on the exact head.',
+          },
+        ],
+      },
+    },
+  ]);
+
+  assert.deepEqual(collected.map((comment) => comment.thread_id), ['PRRT_exact']);
+  assert.equal(collected[0].replies[0].author, 'maintainer');
+});
+
 test('agent routing sends agent:codex PRs to the Codex reusable runner', () => {
   const route = resolveBotCommentAgent([{ name: 'agent:codex' }], {
     registryPath: REGISTRY_PATH,
@@ -173,7 +205,7 @@ test('prepare prompt fixture preserves collected review comment context', () => 
   const prompt = buildBotCommentsPrompt(collected);
 
   assert.match(prompt, /# Fix Bot Review Comments/);
-  assert.match(prompt, /### src\/service\.js:22/);
+  assert.match(prompt, /src\/service\.js:22/);
   assert.match(prompt, /Guard against missing input\./);
   assert.match(prompt, /```diff\n@@ -20,7 \+20,7 @@/);
 });

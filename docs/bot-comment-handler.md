@@ -7,9 +7,9 @@ Automatically addresses review comments from bots (Copilot, CodeRabbit, etc.) us
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │         reusable-bot-comment-handler.yml (Workflows repo)       │
-│  - Collects unresolved bot comments via GitHub API             │
+│  - Collects active, non-outdated reviewThreads via GraphQL     │
 │  - Detects agent from PR labels (agent:codex, agent:claude)    │
-│  - Posts @agent command to trigger fix                          │
+│  - Persists exact thread context, then (re)assigns the agent    │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┼───────────────┐
@@ -55,22 +55,31 @@ Configure via the `bot_authors` input.
 
 - ✅ Unresolved review comments from known bots
 - ✅ Inline code suggestions
-- ❌ Comments where a human has already replied (skipped by default)
+- ✅ Active comments where a human has replied (review debt is still active)
 - ❌ General PR comments (not inline reviews)
-- ❌ Resolved threads
+- ❌ Resolved or outdated threads
 
 ### Agent Instructions
 
 The agent is instructed to:
 1. **Fix** suggestions that improve the code
 2. **Skip** suggestions that don't apply or are incorrect
-3. **Document** decisions in the commit message
+3. **Reply** with exact-head validation and request a thread-specific reviewer disposition
+4. **Keep active debt visible** until the originating reviewer or an authorized human resolves it
+
+The handler never treats a generic top-level review, a successful workflow, or
+an agent assignment as completion. It writes the exact head, thread IDs, URLs,
+and bounded acceptance criteria to the durable handler comment before assigning
+the agent. When the agent is already assigned from an earlier attempt, the
+handler removes and restores that assignment only after the context is present,
+so the new trigger cannot start from stale or missing instructions.
 
 ### After Processing
 
-- Agent commits fixes with message documenting what was addressed vs skipped
+- Agent commits real fixes with a message naming the handled thread IDs
+- Already-satisfied or invalid findings receive thread-specific evidence, not no-op edits
 - Summary posted to workflow run showing all comments found
-- Skipped/complex items are highlighted in the summary for potential follow-up
+- Remaining active thread IDs stay explicit for the next controller action
 
 ## Consumer Repo Setup
 
@@ -104,8 +113,9 @@ Create `autofix:bot-comments` label in your repository:
 
 Add the `autofix:bot-comments` label to any PR with bot review comments. The workflow will:
 1. Collect all unresolved bot comments
-2. Post `@<agent>` command to trigger the agent
-3. Remove the label after processing
+2. Persist exact-head thread context on the PR
+3. Reassign the configured agent to trigger a fresh bounded attempt
+4. Remove the label after processing
 
 ### Agent PRs (Automatic)
 
@@ -133,7 +143,7 @@ gh workflow run agents-bot-comment-handler.yml -f pr_number=123
 | `pr_number` | (required) | PR number to process |
 | `dry_run` | `false` | Preview without triggering agent |
 | `bot_authors` | `copilot[bot],github-actions[bot],coderabbitai[bot]` | Bot login names to process |
-| `skip_if_human_replied` | `true` | Skip threads with human replies |
+| `skip_if_human_replied` | `false` | Legacy escape hatch; when true, suppress active threads after any non-bot reply |
 
 ### Secrets
 
@@ -221,13 +231,15 @@ overall bot-comment auth coverage hard-block policy is explicitly approved.
 
 - Check that bot authors match exactly (including `[bot]` suffix)
 - Verify comments are review comments, not PR comments
-- Check if threads were already resolved
+- Check if threads were already resolved or outdated
+- Do not infer resolution from a human reply; the default controller keeps such threads active
 
 ### Agent not triggered
 
 - Ensure `dry_run` is not enabled
 - Check workflow permissions (needs `pull-requests: write`)
 - Verify authentication tokens are configured
+- Confirm the exact-context comment was written before the assignment event
 
 ### Gate trigger not working
 

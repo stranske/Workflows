@@ -346,3 +346,34 @@ def test_reusable_bot_comment_handler_dismisses_ignored_reviews() -> None:
     script = dismiss_step.get("with", {}).get("script", "")
     assert "autoDismissReviewComments" in script
     assert "bot-comment-dismiss.js" in script
+
+
+def test_reusable_handler_uses_complete_active_threads_and_context_first_dispatch() -> None:
+    workflow_path = ROOT / ".github/workflows/reusable-bot-comment-handler.yml"
+    workflow = _load_yaml(workflow_path)
+    workflow_text = workflow_path.read_text(encoding="utf-8")
+
+    triggers = workflow.get("on", workflow.get(True))
+    dispatch_inputs = triggers["workflow_dispatch"]["inputs"]
+    call_inputs = triggers["workflow_call"]["inputs"]
+    assert dispatch_inputs["skip_if_human_replied"]["default"] is False
+    assert call_inputs["skip_if_human_replied"]["default"] is False
+
+    assert "reviewThreads(first: 100, after: $cursor)" in workflow_text
+    assert "isResolved" in workflow_text
+    assert "isOutdated" in workflow_text
+    assert "chatgpt-codex-connector,chatgpt-codex-connector[bot]" in workflow_text
+    assert "github.rest.pulls.listReviewComments" not in workflow_text
+
+    dispatch_script = next(
+        step for step in workflow["jobs"]["dispatch"]["steps"] if step.get("id") == "dispatch"
+    )["with"]["script"]
+    context_write = min(
+        index
+        for needle in ("github.rest.issues.updateComment", "github.rest.issues.createComment")
+        if (index := dispatch_script.find(needle)) >= 0
+    )
+    assignment = dispatch_script.index("github.rest.issues.addAssignees")
+    assert context_write < assignment
+    assert "github.rest.issues.removeAssignees" in dispatch_script
+    assert "comments, headSha" in dispatch_script

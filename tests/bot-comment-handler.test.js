@@ -4,6 +4,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  buildBotCommentDispatchComment,
+  buildBotCommentsPrompt,
+  collectActiveBotReviewThreads,
   collectUnresolvedBotComments,
   getBotCommentAssignees,
   listCommentsWithLimit,
@@ -83,4 +86,90 @@ test('bot-comment-handler parses string boolean options', () => {
 
 test('bot-comment-handler resolves assignees from agent registry', () => {
   assert.deepEqual(getBotCommentAssignees('claude'), ['stranske-automation-bot']);
+});
+
+test('bot-comment-handler keeps active bot threads after a human reply by default', () => {
+  const threads = [
+    {
+      id: 'PRRT_active',
+      isResolved: false,
+      isOutdated: false,
+      path: 'src/app.py',
+      line: 12,
+      comments: {
+        nodes: [
+          {
+            databaseId: 10,
+            author: { login: 'chatgpt-codex-connector' },
+            body: 'Cover the execution path.',
+            url: 'https://example.test/thread',
+          },
+          {
+            databaseId: 11,
+            author: { login: 'maintainer' },
+            body: 'Fixed on the current head.',
+          },
+        ],
+      },
+    },
+    {
+      id: 'PRRT_resolved',
+      isResolved: true,
+      isOutdated: false,
+      path: 'src/old.py',
+      comments: {
+        nodes: [
+          { databaseId: 12, author: { login: 'chatgpt-codex-connector' }, body: 'Old.' },
+        ],
+      },
+    },
+    {
+      id: 'PRRT_outdated',
+      isResolved: false,
+      isOutdated: true,
+      path: 'src/old.py',
+      comments: {
+        nodes: [
+          { databaseId: 13, author: { login: 'chatgpt-codex-connector' }, body: 'Old.' },
+        ],
+      },
+    },
+  ];
+
+  const result = collectActiveBotReviewThreads(threads);
+  assert.deepEqual(result.map((comment) => comment.thread_id), ['PRRT_active']);
+  assert.equal(result[0].replies[0].author, 'maintainer');
+  assert.deepEqual(
+    collectActiveBotReviewThreads(threads, { skipIfHumanReplied: true }),
+    [],
+  );
+});
+
+test('bot-comment prompt requires exact-thread disposition instead of generic review', () => {
+  const comments = [
+    {
+      id: 10,
+      thread_id: 'PRRT_active',
+      path: 'src/app.py',
+      line: 12,
+      author: 'chatgpt-codex-connector',
+      body: 'Cover the execution path.',
+      url: 'https://example.test/thread',
+      diff_hunk: '@@ -1 +1 @@',
+    },
+  ];
+  const prompt = buildBotCommentsPrompt(comments, { headSha: 'abc123' });
+  const dispatch = buildBotCommentDispatchComment({
+    agent: 'codex',
+    count: 1,
+    comments,
+    headSha: 'abc123',
+  });
+
+  for (const text of [prompt, dispatch]) {
+    assert.match(text, /PRRT_active/);
+    assert.match(text, /abc123/);
+    assert.match(text, /generic top-level review|generic review/i);
+    assert.match(text, /Never self-resolve/i);
+  }
 });

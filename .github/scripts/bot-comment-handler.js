@@ -6,6 +6,7 @@ const DEFAULT_BOT_AUTHORS = Object.freeze([
   'copilot[bot]',
   'github-actions[bot]',
   'coderabbitai[bot]',
+  'chatgpt-codex-connector',
   'chatgpt-codex-connector[bot]',
 ]);
 const DEFAULT_AGENT = 'codex';
@@ -161,6 +162,60 @@ function collectUnresolvedBotComments(comments = [], options = {}) {
   return botComments;
 }
 
+function collectActiveBotReviewThreads(reviewThreads = [], options = {}) {
+  const botAuthors = resolveBotAuthorSet(options.botAuthors ?? options.bot_authors);
+  const skipIfHumanReplied = normalizeBoolean(
+    options.skipIfHumanReplied ?? options.skip_if_human_replied,
+    false,
+  );
+  const ignoredPaths = options.ignoredPaths ?? options.ignored_paths ?? '';
+  const active = [];
+
+  for (const thread of Array.isArray(reviewThreads) ? reviewThreads : []) {
+    if (!thread || thread.isResolved || thread.isOutdated) {
+      continue;
+    }
+    const comments = Array.isArray(thread.comments?.nodes)
+      ? thread.comments.nodes
+      : Array.isArray(thread.comments)
+        ? thread.comments
+        : [];
+    const root = comments[0];
+    const rootLogin = root?.author?.login ?? root?.user?.login;
+    if (!root || !isBotAuthor(rootLogin, botAuthors)) {
+      continue;
+    }
+    const path = thread.path || root.path || '';
+    if (isIgnoredPath(path, ignoredPaths)) {
+      continue;
+    }
+    const replies = comments.slice(1);
+    if (
+      skipIfHumanReplied
+      && replies.some((comment) => !isBotAuthor(comment?.author?.login ?? comment?.user?.login, botAuthors))
+    ) {
+      continue;
+    }
+    active.push({
+      id: root.databaseId ?? root.id,
+      thread_id: thread.id,
+      path,
+      line: thread.line ?? root.line ?? root.originalLine ?? root.original_line,
+      body: root.body,
+      author: rootLogin,
+      url: root.url ?? root.html_url,
+      diff_hunk: root.diffHunk ?? root.diff_hunk,
+      replies: replies.map((comment) => ({
+        author: comment?.author?.login ?? comment?.user?.login ?? '',
+        body: comment?.body ?? '',
+        url: comment?.url ?? comment?.html_url ?? '',
+      })),
+    });
+  }
+
+  return active;
+}
+
 function markdownFenceFor(text, info = '') {
   const body = String(text ?? '');
   let fence = '```';
@@ -227,18 +282,25 @@ function resolveBotCommentAgent(labels = [], options = {}) {
   }
 }
 
-function buildBotCommentsPrompt(comments = []) {
+function buildBotCommentsPrompt(comments = [], options = {}) {
+  const headSha = String(options.headSha ?? options.head_sha ?? '').trim();
   const lines = [
     '# Fix Bot Review Comments',
     '',
-    'Review bots have left suggestions on this PR. Address each one:',
+    'Review bots have left active, non-outdated suggestions on this PR. Address each one:',
     '',
+    ...(headSha ? [`**Exact PR head:** \`${headSha}\``, ''] : []),
     '## Instructions',
     '',
-    '1. Read each bot comment below',
-    '2. Implement the suggested fix if it improves the code',
-    "3. If a suggestion is incorrect or doesn't apply, skip it and note why",
-    '4. After fixing, summarize what you addressed in your commit message',
+    '1. Re-read the exact PR head and every active thread below',
+    '2. Implement every still-valid acceptance criterion and run deterministic validation',
+    '3. If a criterion is already satisfied or invalid, make no no-op edit; ' +
+      'explain the evidence in that thread',
+    '4. Reply in each thread with the exact head and validation, then request ' +
+      'a thread-specific reviewer disposition',
+    '5. Never self-resolve a reviewer thread',
+    '6. A generic top-level review or "no issues" comment is not completion ' +
+      'while any listed thread remains active',
     '',
     '## Bot Comments to Address',
     '',
@@ -246,9 +308,11 @@ function buildBotCommentsPrompt(comments = []) {
 
   for (const comment of Array.isArray(comments) ? comments : []) {
     lines.push(
-      `### ${comment.path}:${comment.line ?? 'N/A'}`,
+      `### ${comment.thread_id || comment.id || 'unknown-thread'} — ` +
+        `${comment.path}:${comment.line ?? 'N/A'}`,
       '',
       `**From:** ${comment.author}`,
+      `**Thread:** ${comment.url || 'unavailable'}`,
       '',
       markdownFenceFor(comment.body),
       '',
@@ -263,8 +327,10 @@ function buildBotCommentsPrompt(comments = []) {
   lines.push(
     '## After Addressing Comments',
     '',
-    '- Commit your changes with message: "fix: address bot review comments"',
-    '- Include which suggestions you addressed vs skipped in the commit message',
+    '- Commit real changes with message: "fix: address bot review comments"',
+    '- Include which thread IDs you fixed versus dispositioned and the validation evidence',
+    '- Re-query the exact head and active review-thread set before reporting completion',
+    '- If any listed thread remains active, report its exact ID and next authority; do not claim completion',
     '',
   );
 
@@ -290,23 +356,47 @@ function getBotCommentAssignees(agent) {
   return [...(DISPATCH_AGENT_ASSIGNEES[key] || DISPATCH_AGENT_ASSIGNEES[DEFAULT_AGENT])];
 }
 
-function buildBotCommentDispatchComment({ agent = DEFAULT_AGENT, count = 0 } = {}) {
+function buildBotCommentDispatchComment({
+  agent = DEFAULT_AGENT,
+  count = 0,
+  comments = [],
+  headSha = '',
+} = {}) {
   const marker = '<!-- bot-comment-handler -->';
-  return [
+  const lines = [
     marker,
     '## \u{1F916} Bot Comment Handler',
     '',
     `- Agent: ${agent}`,
     `- Bot comments to address: ${count}`,
+    `- Exact PR head: ${headSha || 'unavailable'}`,
     '',
-    'The agent has been assigned to this PR to address the bot review comments.',
+    'The agent is being reassigned only after this exact thread context is durable on the PR.',
     '',
-    '### Instructions for agent',
-    '1. Implement suggested fixes that improve the code',
-    "2. Skip suggestions that don't apply (note why in your response)",
+    '### Active thread controller',
+  ];
+  for (const comment of Array.isArray(comments) ? comments : []) {
+    const body = String(comment?.body || '').trim();
+    const boundedBody = body.length > 350 ? `${body.slice(0, 347)}...` : body;
+    lines.push(
+      '',
+      `- ${comment?.thread_id || comment?.id || 'unknown-thread'} — ` +
+        `${comment?.path || 'unknown'}:${comment?.line ?? 'N/A'}`,
+      `  - ${comment?.url || 'URL unavailable'}`,
+      `  - Acceptance criterion: ${boundedBody.replace(/\n/g, ' ') || 'No text supplied'}`,
+    );
+  }
+  lines.push(
     '',
-    'The bot comment handler workflow has prepared context in the artifacts.',
-  ].join('\n');
+    '### Required outcome',
+    '1. Inspect every listed active thread on the exact head.',
+    '2. Implement and validate any still-valid criterion; do not make no-op edits.',
+    '3. Reply with exact-head evidence and request a thread-specific reviewer disposition.',
+    '4. Never self-resolve reviewer threads.',
+    '5. Do not report completion while any listed thread remains active; ' +
+      'a generic top-level review is insufficient.',
+  );
+  return lines.join('\n');
 }
 
 function normalizeTerminalDispositionRecord(input) {
@@ -436,6 +526,7 @@ module.exports = {
   buildBotCommentsPrompt,
   buildReviewThreadTerminalDisposition,
   buildWrapperTerminalDisposition,
+  collectActiveBotReviewThreads,
   collectUnresolvedBotComments,
   getBotCommentAssignees,
   isBotAuthor,
