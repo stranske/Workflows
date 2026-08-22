@@ -94,6 +94,31 @@ def detect_repo_slug(repo_root: Path) -> str | None:
     return f"{match.group(1)}/{match.group(2)}" if match else None
 
 
+def detect_configured_repo(repo_root: Path) -> str | None:
+    """Infer a registered repo from its configured local checkout name.
+
+    Consumer checkouts occasionally use a non-GitHub origin (for example, a
+    local mirror), so remote parsing alone must not silently fall back to the
+    Workflows default configuration.
+    """
+    config_path = repo_root / DEFAULT_DOCS_CONFIG
+    if not config_path.is_file():
+        return None
+    try:
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"invalid docs config YAML: {exc}") from exc
+    repos = data.get("repos", {}) if isinstance(data, Mapping) else {}
+    if not isinstance(repos, Mapping):
+        return None
+    matches = [
+        str(slug)
+        for slug, entry in repos.items()
+        if isinstance(entry, Mapping) and str(entry.get("local_path") or "") == repo_root.name
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _doc_from_detail(detail: str) -> str:
     match = re.search(r"Referenced in ([^`]+)$", detail or "")
     if match:
@@ -380,7 +405,10 @@ def default_docs_from_config(repo_root: Path, *, repo: str = DEFAULT_REPO) -> li
     config_path = repo_root / DEFAULT_DOCS_CONFIG
     if not config_path.is_file():
         return [doc for doc in check_docs_drift.DEFAULT_DOCS if (repo_root / doc).is_file()]
-    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    try:
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"invalid docs config YAML: {exc}") from exc
     if not isinstance(data, Mapping):
         raise ValueError("docs config must contain a top-level mapping")
     repos = data.get("repos", {})
@@ -611,7 +639,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         scan_json = args.scan_json.expanduser().resolve() if args.scan_json else None
         if scan_json is not None and not scan_json.is_file():
             raise FileNotFoundError(f"scan json not found: {scan_json}")
-        repo = args.repo or detect_repo_slug(repo_root)
+        repo = args.repo or detect_repo_slug(repo_root) or detect_configured_repo(repo_root)
         if repo is None:
             raise ValueError("could not determine GitHub repo from origin; pass --repo")
         plan = build_plan(

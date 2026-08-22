@@ -2226,6 +2226,350 @@ test('buildDeliveryHandoff preserves the restart fields for a generated PR', () 
   });
 });
 
+test('buildDeliveryHandoff serializes review-window and delivery context bindings', () => {
+  const immutable = {
+    plan_id: `sha256:${'a'.repeat(64)}`,
+    plan_scope: 'source-delta',
+    scope_base_sha: 'b'.repeat(40),
+    source_commit: 'c'.repeat(40),
+  };
+  const reviewWindow = buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Travel-Plan-Permission', pr: 1464,
+    branch: 'sync/workflows-candidate', head_sha: 'd'.repeat(40),
+    delivery_generation: 'candidate-generation', ...immutable,
+    canary_baseline_evidence_json: '{"results":[]}',
+    campaign_no_change_evidence_json: '{"results":[]}',
+    continuation_lane: 'campaign', delivery_disposition: 'awaiting-review-window',
+    blocker_owner: 'maint-71', next_command: 'rerun-after:2026-08-15T12:07:00Z',
+    status: 'review_window_pending', review_window_eligible_at: '2026-08-15T12:07:00Z',
+  }, '2026-08-15T12:00:00Z');
+  assert.deepEqual(
+    {
+      plan_id: reviewWindow.plan_id,
+      plan_scope: reviewWindow.plan_scope,
+      scope_base_sha: reviewWindow.scope_base_sha,
+      source_commit: reviewWindow.source_commit,
+      delivery_generation: reviewWindow.delivery_generation,
+      lane: reviewWindow.continuation.lane,
+      canary_baseline_evidence_json: reviewWindow.canary_baseline_evidence_json,
+      campaign_no_change_evidence_json: reviewWindow.campaign_no_change_evidence_json,
+    },
+    { ...immutable, delivery_generation: 'candidate-generation', lane: 'campaign',
+      canary_baseline_evidence_json: '{"results":[]}', campaign_no_change_evidence_json: '{"results":[]}' },
+  );
+
+  const delivery = buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Travel-Plan-Permission', pr: 1464,
+    branch: 'sync/workflows-candidate', head_sha: 'e'.repeat(40),
+    delivery_generation: 'record-generation', ...immutable,
+    delivery_disposition: 'awaiting-review-window', blocker_owner: 'maint-71',
+    next_command: 'rerun-after:2026-08-15T12:07:00Z', status: 'review_window_pending',
+    review_window_eligible_at: '2026-08-15T12:07:00Z',
+  }, '2026-08-15T12:00:00Z');
+  assert.deepEqual(
+    [delivery.plan_id, delivery.plan_scope, delivery.scope_base_sha,
+      delivery.source_commit, delivery.delivery_generation, delivery.continuation.lane],
+    [immutable.plan_id, immutable.plan_scope, immutable.scope_base_sha,
+      immutable.source_commit, 'record-generation', 'candidate'],
+  );
+});
+
+test('maint71 execution emits a fully bound review-window handoff', async () => {
+  const originalCwd = process.cwd();
+  const envKeys = [
+    'REGISTERED_REPOS_INPUT', 'CLEANUP_BRANCHES_INPUT', 'DRY_RUN_INPUT',
+    'AUTO_MERGE_INPUT', 'ACTIVE_SYNC_HASH_INPUT', 'EXPECTED_PLAN_ID_INPUT',
+    'EXPECTED_PLAN_SCOPE_INPUT', 'EXPECTED_SCOPE_BASE_SHA_INPUT',
+    'EXPECTED_SOURCE_COMMIT_INPUT', 'OWNER_PR_PAT',
+    'CONSUMER_SYNC_CANARIES_PATH', 'TRUSTED_SYNC_ACTORS',
+    'SYNC_PR_MERGE_REPORT_JSON',
+  ];
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-review-window-'));
+  const reportPath = path.join(tempDir, 'artifacts', 'merge-report.json');
+  const canaryConfigPath = path.join(tempDir, 'consumer-sync-canaries.json');
+  const repository = 'stranske/Travel-Plan-Permission';
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const scopeBaseSha = 'b'.repeat(40);
+  const sourceCommit = 'c'.repeat(40);
+  const headSha = 'd'.repeat(40);
+  const observedAt = new Date().toISOString();
+  fs.writeFileSync(canaryConfigPath, JSON.stringify({ canaries: [{ repo: repository }] }));
+  const metadata = {
+    schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
+    plan_id: planId, plan_scope: 'source-delta', scope_base_sha: scopeBaseSha,
+    source_commit: sourceCommit, source_sha: sourceCommit,
+    template_hash: 'candidate-generation', sync_phase: 'canary',
+  };
+  const record = {
+    schema: 'sync-pr-delivery-record/v1',
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    plan_id: planId, generation: 'record-generation', repository,
+    desired_tree_hash: 'tree-abc', source_commit: sourceCommit,
+    head_observed_sha: headSha, head_observed_at: observedAt,
+    lease_expires_at: '2099-08-14T00:00:00Z', predecessor_prs: [], successor_prs: [],
+  };
+  const candidate = {
+    number: 1464, title: 'chore: sync workflow templates',
+    body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify(metadata)} -->\n` +
+      `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+    created_at: observedAt, updated_at: observedAt,
+    base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: headSha },
+    user: { login: 'stranske' },
+  };
+  const github = {
+    paginate: async (_method, params) => params.state === 'open' ? [candidate] : [],
+    rest: {
+      pulls: { list: () => {}, get: async () => ({ data: candidate }) },
+      git: { getCommit: async () => ({ data: { message: '' } }) },
+      repos: { createDispatchEvent: async () => ({}) },
+    },
+  };
+  const failures = [];
+  const core = {
+    notice: () => {}, warning: () => {}, setFailed: (message) => failures.push(message),
+    summary: { addRaw: () => ({ write: async () => {} }) },
+  };
+
+  try {
+    process.chdir(tempDir);
+    process.env.REGISTERED_REPOS_INPUT = repository;
+    process.env.CLEANUP_BRANCHES_INPUT = 'false';
+    process.env.DRY_RUN_INPUT = 'true';
+    process.env.AUTO_MERGE_INPUT = 'false';
+    process.env.ACTIVE_SYNC_HASH_INPUT = 'candidate';
+    process.env.EXPECTED_PLAN_ID_INPUT = planId;
+    process.env.EXPECTED_PLAN_SCOPE_INPUT = 'source-delta';
+    process.env.EXPECTED_SCOPE_BASE_SHA_INPUT = scopeBaseSha;
+    process.env.EXPECTED_SOURCE_COMMIT_INPUT = sourceCommit;
+    process.env.OWNER_PR_PAT = 'test-owner-token';
+    process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
+    process.env.TRUSTED_SYNC_ACTORS = 'stranske';
+    process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
+
+    await run({
+      github, core,
+      context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+        runId: 71, runNumber: 71, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit },
+    });
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.results[0].status, 'review_window_pending');
+    assert.deepEqual(
+      report.handoff_records.map((handoff) => ({
+        plan_id: handoff.plan_id, plan_scope: handoff.plan_scope,
+        scope_base_sha: handoff.scope_base_sha, source_commit: handoff.source_commit,
+        delivery_generation: handoff.delivery_generation, lane: handoff.continuation.lane,
+      })),
+      [{ plan_id: planId, plan_scope: 'source-delta', scope_base_sha: scopeBaseSha,
+        source_commit: sourceCommit, delivery_generation: 'record-generation', lane: 'candidate' }],
+    );
+    assert.deepEqual(failures, []);
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('maint71 execution preserves delivery-record precedence in the normal delivery context', async () => {
+  const originalCwd = process.cwd();
+  const envKeys = [
+    'REGISTERED_REPOS_INPUT', 'CLEANUP_BRANCHES_INPUT', 'DRY_RUN_INPUT',
+    'AUTO_MERGE_INPUT', 'ACTIVE_SYNC_HASH_INPUT', 'EXPECTED_PLAN_ID_INPUT',
+    'EXPECTED_PLAN_SCOPE_INPUT', 'EXPECTED_SCOPE_BASE_SHA_INPUT',
+    'EXPECTED_SOURCE_COMMIT_INPUT', 'OWNER_PR_PAT',
+    'CONSUMER_SYNC_CANARIES_PATH', 'TRUSTED_SYNC_ACTORS',
+    'SYNC_PR_MERGE_REPORT_JSON',
+  ];
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-delivery-context-'));
+  const reportPath = path.join(tempDir, 'artifacts', 'merge-report.json');
+  const canaryConfigPath = path.join(tempDir, 'consumer-sync-canaries.json');
+  const repository = 'stranske/Travel-Plan-Permission';
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const scopeBaseSha = 'b'.repeat(40);
+  const sourceCommit = 'c'.repeat(40);
+  const headSha = 'd'.repeat(40);
+  fs.writeFileSync(canaryConfigPath, JSON.stringify({ canaries: [{ repo: repository }] }));
+  const metadata = {
+    schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
+    plan_id: planId, plan_scope: 'source-delta', scope_base_sha: scopeBaseSha,
+    source_commit: sourceCommit, source_sha: sourceCommit,
+    // A distinct metadata fallback proves the delivery record wins.
+    template_hash: 'metadata-fallback-generation', sync_phase: 'canary',
+  };
+  const record = {
+    schema: 'sync-pr-delivery-record/v1',
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    plan_id: planId, generation: 'delivery-record-generation', repository,
+    desired_tree_hash: 'tree-abc', source_commit: sourceCommit,
+    head_observed_sha: headSha, head_observed_at: '2020-08-14T00:00:00Z',
+    lease_expires_at: '2099-08-14T00:00:00Z', predecessor_prs: [], successor_prs: [],
+  };
+  const candidate = {
+    number: 1464, title: 'chore: sync workflow templates',
+    body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify(metadata)} -->\n` +
+      `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+    created_at: '2020-08-14T00:00:00Z', updated_at: '2020-08-14T00:00:00Z',
+    base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: headSha },
+    user: { login: 'stranske' },
+  };
+  const github = {
+    paginate: async (_method, params) => {
+      if (params.state === 'open') return [candidate];
+      if (params.ref === headSha) {
+        return [{ name: 'Gate / gate', status: 'completed', conclusion: 'success' }];
+      }
+      return [];
+    },
+    graphql: async () => ({
+      repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } } },
+    }),
+    rest: {
+      pulls: { list: () => {}, get: async () => ({ data: candidate }) },
+      checks: { listForRef: () => {} },
+      git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
+      repos: {
+        getBranchProtection: async () => ({
+          data: { required_status_checks: { contexts: ['Gate / gate'], checks: [] } },
+        }),
+        getCombinedStatusForRef: async () => ({ data: { statuses: [] } }),
+        createDispatchEvent: async () => ({}),
+      },
+    },
+  };
+  const failures = [];
+  const core = {
+    notice: () => {}, warning: () => {}, setFailed: (message) => failures.push(message),
+    summary: { addRaw: () => ({ write: async () => {} }) },
+  };
+
+  try {
+    process.chdir(tempDir);
+    process.env.REGISTERED_REPOS_INPUT = repository;
+    process.env.CLEANUP_BRANCHES_INPUT = 'false';
+    process.env.DRY_RUN_INPUT = 'true';
+    process.env.AUTO_MERGE_INPUT = 'false';
+    process.env.ACTIVE_SYNC_HASH_INPUT = 'candidate';
+    process.env.EXPECTED_PLAN_ID_INPUT = planId;
+    process.env.EXPECTED_PLAN_SCOPE_INPUT = 'source-delta';
+    process.env.EXPECTED_SCOPE_BASE_SHA_INPUT = scopeBaseSha;
+    process.env.EXPECTED_SOURCE_COMMIT_INPUT = sourceCommit;
+    process.env.OWNER_PR_PAT = 'test-owner-token';
+    process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
+    process.env.TRUSTED_SYNC_ACTORS = 'stranske';
+    process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
+
+    await run({
+      github, core,
+      context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+        runId: 72, runNumber: 72, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit },
+    });
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.results[0].status, 'delivery_contract_blocked');
+    assert.deepEqual(
+      report.handoff_records.map((handoff) => ({
+        plan_id: handoff.plan_id, plan_scope: handoff.plan_scope,
+        scope_base_sha: handoff.scope_base_sha, source_commit: handoff.source_commit,
+        delivery_generation: handoff.delivery_generation, lane: handoff.continuation.lane,
+      })),
+      [{ plan_id: planId, plan_scope: 'source-delta', scope_base_sha: scopeBaseSha,
+        source_commit: sourceCommit, delivery_generation: 'delivery-record-generation', lane: 'candidate' }],
+    );
+    assert.deepEqual(failures, []);
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('maint71 fails closed before emitting a handoff for a new candidate without a delivery record', async () => {
+  const originalCwd = process.cwd();
+  const envKeys = [
+    'REGISTERED_REPOS_INPUT', 'CLEANUP_BRANCHES_INPUT', 'DRY_RUN_INPUT',
+    'AUTO_MERGE_INPUT', 'ACTIVE_SYNC_HASH_INPUT', 'EXPECTED_PLAN_ID_INPUT',
+    'EXPECTED_PLAN_SCOPE_INPUT', 'EXPECTED_SCOPE_BASE_SHA_INPUT',
+    'EXPECTED_SOURCE_COMMIT_INPUT', 'OWNER_PR_PAT',
+    'CONSUMER_SYNC_CANARIES_PATH', 'TRUSTED_SYNC_ACTORS',
+    'SYNC_PR_MERGE_REPORT_JSON',
+  ];
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-missing-record-'));
+  const reportPath = path.join(tempDir, 'artifacts', 'merge-report.json');
+  const canaryConfigPath = path.join(tempDir, 'consumer-sync-canaries.json');
+  const repository = 'stranske/Travel-Plan-Permission';
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const scopeBaseSha = 'b'.repeat(40);
+  const sourceCommit = 'c'.repeat(40);
+  fs.writeFileSync(canaryConfigPath, JSON.stringify({ canaries: [{ repo: repository }] }));
+  const candidate = {
+    number: 1465, title: 'chore: sync workflow templates',
+    body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify({
+      schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
+      plan_id: planId, plan_scope: 'source-delta', scope_base_sha: scopeBaseSha,
+      source_commit: sourceCommit, source_sha: sourceCommit,
+      template_hash: 'metadata-generation', sync_phase: 'canary',
+    })} -->`,
+    created_at: '2020-08-14T00:00:00Z', updated_at: '2020-08-14T00:00:00Z',
+    base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: 'd'.repeat(40) },
+    user: { login: 'stranske' },
+  };
+  const github = {
+    paginate: async (_method, params) => params.state === 'open' ? [candidate] : [],
+    rest: { pulls: { list: () => {} }, git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) } },
+  };
+  const failures = [];
+  const core = {
+    notice: () => {}, warning: () => {}, setFailed: (message) => failures.push(message),
+    summary: { addRaw: () => ({ write: async () => {} }) },
+  };
+
+  try {
+    process.chdir(tempDir);
+    process.env.REGISTERED_REPOS_INPUT = repository;
+    process.env.CLEANUP_BRANCHES_INPUT = 'false';
+    process.env.DRY_RUN_INPUT = 'true';
+    process.env.AUTO_MERGE_INPUT = 'false';
+    process.env.ACTIVE_SYNC_HASH_INPUT = 'candidate';
+    process.env.EXPECTED_PLAN_ID_INPUT = planId;
+    process.env.EXPECTED_PLAN_SCOPE_INPUT = 'source-delta';
+    process.env.EXPECTED_SCOPE_BASE_SHA_INPUT = scopeBaseSha;
+    process.env.EXPECTED_SOURCE_COMMIT_INPUT = sourceCommit;
+    process.env.OWNER_PR_PAT = 'test-owner-token';
+    process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
+    process.env.TRUSTED_SYNC_ACTORS = 'stranske';
+    process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
+
+    await run({
+      github, core,
+      context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+        runId: 73, runNumber: 73, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit },
+    });
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.results[0].status, 'delivery_contract_blocked');
+    assert.equal(report.results[0].delivery_reason, 'missing_delivery_record');
+    assert.deepEqual(report.handoff_records, []);
+    assert.deepEqual(failures, []);
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('buildDeliveryHandoff rewrites terminal merge outcomes', () => {
   assert.deepEqual(buildDeliveryHandoff({
     owner: 'stranske', repo: 'Ready', pr: 11, branch: 'sync/workflows-abc',

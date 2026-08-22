@@ -155,6 +155,21 @@ def test_default_docs_from_config_uses_only_docs_present_in_consumer(tmp_path: P
     assert fix_agent.default_docs_from_config(root, repo="stranske/consumer") == ["AGENTS.md"]
 
 
+@pytest.mark.parametrize(
+    "loader",
+    [
+        lambda root: fix_agent.detect_configured_repo(root),
+        lambda root: fix_agent.default_docs_from_config(root, repo="stranske/consumer"),
+    ],
+)
+def test_docs_config_malformed_yaml_is_a_value_error(tmp_path: Path, loader) -> None:
+    root = tmp_path / "consumer"
+    _write(root / fix_agent.DEFAULT_DOCS_CONFIG, "repos: [\n")
+
+    with pytest.raises(ValueError, match="invalid docs config YAML"):
+        loader(root)
+
+
 def test_detect_repo_slug_uses_origin_remote(tmp_path: Path, monkeypatch) -> None:
     class Result:
         returncode = 0
@@ -173,6 +188,19 @@ def test_detect_repo_slug_returns_none_for_unknown_origin(tmp_path: Path, monkey
     monkeypatch.setattr(fix_agent.subprocess, "run", lambda *args, **kwargs: Result())
 
     assert fix_agent.detect_repo_slug(tmp_path) is None
+
+
+def test_detect_configured_repo_uses_checkout_name_when_origin_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "Portable-Alpha-Extension-Model"
+    root.mkdir()
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        "repos:\n  stranske/Portable-Alpha-Extension-Model:\n    local_path: Portable-Alpha-Extension-Model\n",
+    )
+
+    assert fix_agent.detect_configured_repo(root) == "stranske/Portable-Alpha-Extension-Model"
 
 
 def test_cli_requires_repo_when_origin_is_unknown(tmp_path: Path, monkeypatch, capsys) -> None:
