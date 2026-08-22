@@ -57,6 +57,15 @@ def test_maint71_dispatches_machine_readable_handoffs_to_campaign():
     assert "Maint 71 handoff dispatch failed (non-blocking)" in executor
 
 
+def test_maint71_handoffs_preserve_the_dispatch_immutable_binding():
+    executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text(encoding="utf-8")
+
+    assert "plan_id: deliveryRecord?.plan_id || expectedPlanId" in executor
+    assert "plan_scope: metadata?.plan_scope || expectedPlanScope" in executor
+    assert "scope_base_sha: metadata?.scope_base_sha || expectedScopeBaseSha" in executor
+    assert "expectedSourceCommit" in executor
+
+
 def test_campaign_workflow_bot_agnostic_identity():
     data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
 

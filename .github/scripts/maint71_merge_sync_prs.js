@@ -1896,10 +1896,13 @@ async function run({ github, context, core }) {
         branch: pr.head.ref,
         head_sha: pr.head.sha,
         delivery_generation: deliveryRecord?.generation || '',
-        plan_id: deliveryRecord?.plan_id || '',
-        plan_scope: metadata?.plan_scope || '',
-        scope_base_sha: metadata?.scope_base_sha || '',
-        source_commit: deliveryRecord?.source_commit || metadata?.source_commit || '',
+        // A freshly created stable candidate has no prior delivery marker yet.
+        // Preserve the immutable Maint 68 handoff in the durable Maint 82
+        // continuation rather than emitting an unbound retry.
+        plan_id: deliveryRecord?.plan_id || expectedPlanId,
+        plan_scope: metadata?.plan_scope || expectedPlanScope,
+        scope_base_sha: metadata?.scope_base_sha || expectedScopeBaseSha,
+        source_commit: deliveryRecord?.source_commit || metadata?.source_commit || expectedSourceCommit,
         canary_baseline_evidence_json: selectedSyncHash === 'candidate'
           ? rawBaselineEvidence
           : '',
