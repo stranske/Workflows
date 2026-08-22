@@ -174,7 +174,8 @@ _DOCS_KEYWORDS = {
 # Keep keyword matching explicit: all non-exact matches must appear here.
 _KEYWORD_ALIASES = {
     "bug": frozenset({"bugs", "buggy"}),
-    "crash": frozenset({"crashed", "crashes"}),
+    "crash": frozenset({"crashed", "crashes", "crashing"}),
+    "defect": frozenset({"defects"}),
     "doctor": frozenset({"doctors"}),
     "doc": frozenset({"docs", "documentation"}),
     "enhancement": frozenset({"enhancements"}),
@@ -186,6 +187,7 @@ _KEYWORD_ALIASES = {
     "guide": frozenset({"guides"}),
     "improvement": frozenset({"improvements"}),
     "panic": frozenset({"panics"}),
+    "regression": frozenset({"regressions"}),
     "request": frozenset({"requests"}),
     "tutorial": frozenset({"tutorials"}),
 }
