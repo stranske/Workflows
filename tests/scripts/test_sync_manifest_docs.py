@@ -11,23 +11,24 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / ".github" / "sync-manifest.yml"
 
 
-def test_manifest_issue_citations_mark_closed_as_resolved() -> None:
-    """Closed issue citations must carry an explicit resolved: marker in Gate CI."""
+def test_manifest_issue_citations_are_explicitly_stateful() -> None:
+    """Manifest citations name whether the referenced issue is open or resolved."""
     offenders = [
         line.strip()
         for line in MANIFEST.read_text(encoding="utf-8").splitlines()
-        if re.findall(r"#\d+", line) and "resolved:" not in line
+        if re.findall(r"#\d+", line)
+        and not re.search(r"\b(?:open|resolved):\s*(?:issue\s*)?#\d+", line)
     ]
     assert offenders == []
 
 
 def test_manifest_issue_references_are_open() -> None:
-    """Live guard for any future non-resolved manifest issue citations."""
+    """Live guard for manifest citations explicitly marked as open."""
     if not (os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")):
         pytest.skip("GH_TOKEN or GITHUB_TOKEN is required to verify manifest issue references")
 
     for line in MANIFEST.read_text(encoding="utf-8").splitlines():
-        if "resolved:" in line:
+        if "open:" not in line:
             continue
         for issue_number in re.findall(r"#(\d+)", line):
             result = subprocess.run(
