@@ -53,7 +53,9 @@ def test_tracker_run_lookup_uses_get_for_query_parameters(monkeypatch) -> None:
         captured.extend(command)
         return "[]"
 
-    monkeypatch.setattr(check_durable_tracker_liveness.subprocess, "check_output", fake_check_output)
+    monkeypatch.setattr(
+        check_durable_tracker_liveness.subprocess, "check_output", fake_check_output
+    )
 
     assert (
         check_durable_tracker_liveness._latest_executable_run(
