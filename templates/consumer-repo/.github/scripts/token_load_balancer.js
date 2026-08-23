@@ -65,8 +65,16 @@ const invalidAuthWarningMemory = new Set();
  * Based on analysis of actual usage across workflows
  */
 const TOKEN_CAPABILITIES = {
-  GITHUB_TOKEN: ['read-repo', 'write-repo', 'pr-update', 'labels', 'comments'],
-  PAT: ['read-repo', 'write-repo', 'pr-update', 'labels', 'comments', 'cross-repo', 'workflow-dispatch'],
+  GITHUB_TOKEN: ['read-repo', 'write-repo', 'pr-update', 'labels', 'comments', 'statuses'],
+  PAT: ['read-repo', 'write-repo', 'pr-update', 'labels', 'comments', 'cross-repo', 'workflow-dispatch', 'statuses'],
+  // NO `statuses` FOR APP, and that omission is measured, not assumed. A GitHub App only holds the
+  // scopes its INSTALLATION was granted, and the installations in use here do not include Commit
+  // statuses. Observed 2026-08-23 in stranske/Orchestrator: the Gate's own status post selected
+  // WORKFLOWS_APP and got `POST /repos/.../statuses/<sha> - 403`, while the same job's
+  // GITHUB_TOKEN was granted `Statuses: write` and posted fine minutes earlier.
+  // If an App installation is later granted Commit statuses, add 'statuses' back here -- but
+  // verify against the installation, because a wrong entry here is silent: the balancer hands out
+  // a token that cannot do the job and the caller sees a 403 it did not ask for.
   APP: ['read-repo', 'write-repo', 'pr-update', 'labels', 'comments', 'workflow-dispatch'],
 };
 
@@ -140,7 +148,12 @@ const CAPABILITY_ALIASES = {
   'rate_limit:read': ['read-repo'],
   'deployments:write': ['write-repo'],
   'checks:read': ['read-repo'],
-  'statuses:write': ['write-repo'],
+  // `statuses:write` maps to its OWN capability, not to the generic `write-repo`. It aliased to
+  // `write-repo` until 2026-08-23, which all three token types claim -- so declaring
+  // `capabilities: ['statuses:write']` selected an App that cannot write statuses and the
+  // declaration was decorative. A capability alias must name what the API endpoint actually
+  // requires; collapsing a narrow scope into a broad one makes the filter unable to filter.
+  'statuses:write': ['statuses'],
 };
 
 function normalizeCapabilities(capabilities = []) {

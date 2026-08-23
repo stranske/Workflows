@@ -1091,6 +1091,29 @@ jobs:
               github,
               core,
               task: 'gate-commit-status',
+              // `env: {}` PINS THIS CALL TO THE WORKFLOW TOKEN, and it is load-bearing.
+              // With the default `env: process.env` the token load balancer collects every App
+              // and PAT secret this job exposes and scores them
+              // (`percentRemaining + priority*10 + typeBonus + taskBonus`), so which token posts
+              // the Gate's status depends on rate-limit state and varies run to run. `POST /statuses/{sha}` needs the
+              // `statuses` scope: GITHUB_TOKEN has it here (this job declares `statuses: write`),
+              // an App installation only has it if it was granted Commit statuses -- and the
+              // installations in use are not. When the balancer picked the App the post 403'd and
+              // the swallow left the PREVIOUS status in place, so a green run kept a red
+              // `Gate / gate` that nothing could clear. Measured in stranske/Orchestrator on
+              // 2026-08-23: `Selected token: WORKFLOWS_APP` then `POST .../statuses/... - 403`,
+              // one line after `STATE: success`; a run minutes earlier posted fine with identical
+              // declared permissions because the balancer chose differently.
+              //
+              // WHY THE PIN AND NOT `capabilities: ['statuses:write']`: the declaration is now
+              // honest (that alias maps to its own `statuses` capability, which APP does not
+              // claim), but this file is distributed `create_only`, so a consumer's Gate can sit
+              // at an old revision while token_load_balancer.js is synced forward independently.
+              // The pin needs no agreement between the two files; the declaration would.
+              //
+              // This is one API call per run, so losing rate-limit spreading costs nothing.
+              // Retries still apply -- only the token source is fixed.
+              env: {},
             });
             const owner = context.repo.owner;
             const repo = context.repo.repo;

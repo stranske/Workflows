@@ -352,10 +352,20 @@ async function withRetry(fn, options = {}) {
       }
 
       if (integrationPermissionError && task === 'gate-commit-status') {
+        // NAME THE TOKEN. This swallow is deliberate -- a status post must not fail the Gate --
+        // but until 2026-08-23 it said only "blocked by permissions", which reads as a repo
+        // misconfiguration and sent a reader to check `permissions:` blocks that were already
+        // correct. The real cause is WHICH token was selected, so the message has to carry it:
+        // a green run leaving a red status is otherwise indistinguishable from a settings problem.
+        const refusedBy = currentTokenSource || 'the workflow token';
         logWithCore(
           core,
           'warning',
-          'Gate commit status update blocked by permissions; leaving existing status untouched.'
+          `Gate commit status update blocked by permissions (token: ${refusedBy}); `
+          + 'leaving the EXISTING status in place, so a stale one can outlive this run. '
+          + 'That token lacks the `statuses` scope: declare '
+          + "`capabilities: ['statuses:write']` or pin the call to the workflow token with "
+          + '`env: {}`.'
         );
         return null;
       }
