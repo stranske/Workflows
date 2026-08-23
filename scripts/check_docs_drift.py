@@ -335,7 +335,9 @@ def format_human_report(report: dict[str, object]) -> str:
     assert isinstance(summary, dict)
     drift_count = summary["drift"]
     lines = [f"Docs drift: {drift_count}"]
-    for record in report["drift"]:
+    drift = report["drift"]
+    assert isinstance(drift, list)
+    for record in drift:
         assert isinstance(record, dict)
         lines.append(f"{record['type']}  {record['path']}  \u2014 {record.get('detail', '')}")
     return "\n".join(lines)
