@@ -560,6 +560,7 @@ def build_report(
     missing: set[str],
     errors: set[str],
     obsolete: set[str],
+    unmeasured_create_only: set[str] | None = None,
     skipped: set[str] | None = None,
     open_sync_prs: list[dict[str, object]] | None = None,
     sync_pr_lookup_errors: list[str] | None = None,
@@ -568,6 +569,7 @@ def build_report(
     candidate_repos: set[str] | None = None,
     now: datetime | None = None,
 ) -> dict[str, object]:
+    unmeasured_create_only = unmeasured_create_only or set()
     skipped = skipped or set()
     open_sync_prs = open_sync_prs or []
     sync_pr_lookup_errors = sync_pr_lookup_errors or []
@@ -576,6 +578,7 @@ def build_report(
         "missing": len(missing),
         "errors": len(errors),
         "obsolete": len(obsolete),
+        "unmeasured_create_only": len(unmeasured_create_only),
     }
     expected_branch = SYNC_DELIVERY_BRANCH if current_plan_id.startswith("sha256:") else ""
     known_repos = set(repos)
@@ -675,6 +678,7 @@ def build_report(
         "missing": sorted_items(missing),
         "errors": sorted_items(errors),
         "obsolete": sorted_items(obsolete),
+        "unmeasured_create_only": sorted_items(unmeasured_create_only),
     }
     if token_diagnostics:
         report["token_diagnostics"] = token_diagnostics
@@ -692,7 +696,7 @@ def write_summary_markdown(path: str, report: dict[str, object]) -> None:
         handle.write("## Consumer Sync Drift Check\n")
         handle.write(f"Checked repos: {', '.join(str(repo) for repo in repos)}\n\n")
         handle.write("### Counts\n")
-        for category in ("drift", "missing", "errors", "obsolete"):
+        for category in ("drift", "missing", "errors", "obsolete", "unmeasured_create_only"):
             handle.write(f"- {category}: {counts.get(category, 0)}\n")
         handle.write("\n")
 
@@ -777,6 +781,7 @@ def write_summary_markdown(path: str, report: dict[str, object]) -> None:
             ("Errors", "errors"),
             ("Obsolete files present (should be removed)", "obsolete"),
             ("Skipped by manifest policy", "skipped"),
+            ("Create-only positions not measured", "unmeasured_create_only"),
         ):
             items = report.get(key, [])
             if not isinstance(items, list) or not items:
@@ -954,6 +959,7 @@ def main() -> int:
     missing: set[str] = set()
     errors: set[str] = set()
     obsolete: set[str] = set()
+    unmeasured_create_only: set[str] = set()
     skipped: set[str] = set()
 
     remote_trees: dict[str, dict[str, dict[str, object]]] = {}
@@ -1009,6 +1015,7 @@ def main() -> int:
                 if entry.sync_mode == "create_only" and not repo_overwrites_create_only(
                     entry, repo
                 ):
+                    unmeasured_create_only.add(f"{repo}: {entry.target}")
                     continue
                 skip_reason = manifest_skip_reason(entry, repo)
                 if skip_reason:
@@ -1035,6 +1042,7 @@ def main() -> int:
         missing=missing,
         errors=errors,
         obsolete=obsolete,
+        unmeasured_create_only=unmeasured_create_only,
         skipped=skipped,
         open_sync_prs=open_sync_prs,
         sync_pr_lookup_errors=sync_pr_lookup_errors,

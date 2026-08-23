@@ -5,7 +5,14 @@ const GENERATED_BODY_RE = /^\s*## Consumer Repo Drift Detected\b/;
 
 function countsLine(report) {
   const counts = report && report.counts ? report.counts : {};
-  return `drift=${counts.drift || 0}, missing=${counts.missing || 0}, errors=${counts.errors || 0}, obsolete=${counts.obsolete || 0}`;
+  return `drift=${counts.drift || 0}, missing=${counts.missing || 0}, errors=${counts.errors || 0}, obsolete=${counts.obsolete || 0}, unmeasured_create_only=${counts.unmeasured_create_only || 0}`;
+}
+
+function unmeasuredCreateOnlyTargets(report) {
+  const positions = Array.isArray(report && report.unmeasured_create_only)
+    ? report.unmeasured_create_only
+    : [];
+  return [...new Set(positions.map((position) => String(position).split(': ', 2)[1]).filter(Boolean))].sort();
 }
 
 function formatRepoGaps(report, limit = 10) {
@@ -84,6 +91,7 @@ function compactMarkerPayload(report, options = {}) {
       missing: counts.missing || 0,
       errors: counts.errors || 0,
       obsolete: counts.obsolete || 0,
+      unmeasured_create_only: counts.unmeasured_create_only || 0,
     },
     top_repo_gaps: limitedArray(report && report.top_repo_gaps, 10),
     path_prefix_counts: report && report.path_prefix_counts ? report.path_prefix_counts : {},
@@ -164,7 +172,7 @@ function formatIssueBody(report, options = {}) {
   }
   lines.push(
     '### Notes',
-    '- Files marked with `sync_mode: create_only` are excluded from this check.',
+    `- Files marked with \`sync_mode: create_only\` are excluded from drift classification; ${report && report.counts ? report.counts.unmeasured_create_only || 0 : 0} positions are not measured (${unmeasuredCreateOnlyTargets(report).join(', ') || 'no affected targets'}).`,
     '- Workflows-Integration-Tests is validated separately by Health 67.',
     '',
     formatIssueMarker(report, options),
