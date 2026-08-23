@@ -291,7 +291,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          # scripts/api_client (reached via the shared liveness probe) imports
+          # requests. The pin is read from requirements.txt so it cannot drift,
+          # and only that package is installed: `pip install -r requirements.txt`
+          # would drag langchain, faiss, pandas and numpy onto a read-only check.
           pip install pyyaml
+          requests_pin=$(grep -E '^requests==' requirements.txt)
+          if [ -z "${requests_pin}" ]; then
+            echo "::error::no requests== pin found in requirements.txt"
+            exit 1
+          fi
+          pip install --quiet "${requests_pin}"
           set +e
           python3 scripts/check_durable_tracker_liveness.py --comment-on-failure
           checker_status=$?

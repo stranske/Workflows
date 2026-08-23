@@ -15,6 +15,20 @@ from typing import Any
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+# scripts/check_api_wrapper_guard.py forbids raw GitHub API shell-outs in
+# scripts/: everything goes through the sanctioned api_client wrapper. (That guard
+# matches comment text too, so this note deliberately avoids naming the banned
+# invocation literally.) Reusing the sweep's fetch also means ONE probe
+# implementation and ONE rate-limit policy for the two liveness tools, which is
+# the consolidation #3189 raised. It brings pacing plus a real backoff for
+# GitHub's SECONDARY rate limit - a separate cap on rapid sequential requests,
+# invisible to /rate_limit - which this probe previously had no defence against
+# at all: one 403 aborted the whole liveness check.
+from scripts.workflow_startup_failure_diagnostic import _gh_api  # noqa: E402
+
 CONFIG_PATH = REPO_ROOT / "config" / "durable_tracker_liveness.yml"
 TRACKER_DOC = REPO_ROOT / "docs" / "ops" / "DURABLE_TRACKING_ISSUES.md"
 EXECUTABLE_CONCLUSIONS = frozenset({"success", "failure", "cancelled", "timed_out"})
@@ -51,31 +65,42 @@ def tracker_doc_workflows() -> set[str]:
 
 
 def _latest_executable_run(repo: str, workflow_file: str, token: str) -> dict[str, Any] | None:
-    raw = subprocess.check_output(
-        [
-            "gh",
-            "api",
-            f"repos/{repo}/actions/workflows/{workflow_file}/runs",
-            "--method",
-            "GET",
-            "-f",
-            "per_page=100",
-            "--jq",
-            ".workflow_runs",
-        ],
-        text=True,
-        env={**os.environ, "GH_TOKEN": token},
-    )
-    runs = json.loads(raw)
+    """Newest run of ``workflow_file`` that actually executed, or None.
+
+    Returns None only when the history genuinely contains no executable run. A
+    failed lookup RAISES (via the wrapper) rather than returning None, because
+    None reads as "no executable run" and would blame the workflow for the
+    checker's own inability to look.
+    """
+    payload = _gh_api(f"repos/{repo}/actions/workflows/{workflow_file}/runs?per_page=100", token)
+    runs = payload.get("workflow_runs")
     if not isinstance(runs, list):
         return None
     for run in runs:
         if not isinstance(run, dict):
             continue
-        conclusion = str(run.get("conclusion") or "")
-        if conclusion in EXECUTABLE_CONCLUSIONS:
+        if str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS:
             return run
     return None
+
+
+def _held_by_workflow_protection(runs_probe_empty: bool, repo: str, workflow_file: str) -> str:
+    """Name the hold explicitly when that is why nothing executed.
+
+    "no executable run found" is true but unactionable. If every recent run is a
+    zero-job ``action_required``, the cause is GitHub's suspicious-workflow
+    protection, no REST endpoint clears it, and the remedy is a web-UI approval.
+    Saying so turns a tracker comment into something someone can act on.
+    """
+    if not runs_probe_empty:
+        return ""
+    return (
+        f" Every recent run of {workflow_file} concluded action_required with zero jobs, "
+        f"which is GitHub's suspicious-workflow protection, not a scheduling problem. "
+        f"No REST endpoint clears it: use Approve and run in the web UI. "
+        f"See scripts/workflow_startup_failure_diagnostic.py --sweep --repo {repo} "
+        f"for the fleet-wide view and a benign/needs-eyes verdict per held workflow."
+    )
 
 
 def _hours_since(iso_timestamp: str) -> float:
@@ -107,7 +132,10 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                     "workflow": workflow,
                     "issue": issue,
                     "healthy": False,
-                    "reason": "no executable run found (only action_required/skipped)",
+                    "reason": (
+                        "no executable run found (only action_required/skipped)."
+                        + _held_by_workflow_protection(True, repo, workflow)
+                    ),
                 }
             )
             continue
