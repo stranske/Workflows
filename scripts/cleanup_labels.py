@@ -20,7 +20,10 @@ import json
 import os
 import sys
 from collections.abc import Iterable
+from pathlib import Path
 from typing import NamedTuple
+
+from scripts.list_registered_consumer_repos import extract_repos
 
 # Try to import github, fall back to instructions
 try:
@@ -225,15 +228,10 @@ NORMALIZED_INFORMATIONAL_LABELS = {normalize_label_name(label) for label in INFO
 NORMALIZED_BLOAT_LABELS = {normalize_label_name(label) for label in BLOAT_LABELS}
 
 # Consumer repos to audit
-CONSUMER_REPOS = [
-    "stranske/Manager-Database",
-    "stranske/Template",
-    "stranske/trip-planner",
-    "stranske/Travel-Plan-Permission",
-    "stranske/Portable-Alpha-Extension-Model",
-    "stranske/Trend_Model_Project",
-    "stranske/Collab-Admin",
-]
+CONSUMER_REPOS = extract_repos(
+    Path(__file__).resolve().parents[1]
+    / ".github/workflows/maint-68-sync-consumer-repos.yml"
+)
 
 
 def get_github_client() -> Github:

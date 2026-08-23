@@ -178,7 +178,11 @@ def read_allowlist(path: Path) -> TemplateDriftAllowlist:
                 template_path=parser.get(section, "template"),
                 main_sha256=parser.get(section, "main_sha256"),
                 template_sha256=parser.get(section, "template_sha256"),
-                reason=parser.get(section, "reason", fallback=""),
+                reason=parser.get(
+                    section,
+                    "divergence",
+                    fallback=parser.get(section, "reason", fallback=""),
+                ),
             )
         )
     return TemplateDriftAllowlist(tuple(entries))

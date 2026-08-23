@@ -45,137 +45,177 @@ main = .github/workflows/agents-63-issue-intake.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-intake.yml
 main_sha256 = 200757cbb8d1801434ac3acb9e517a90ea37aa06e57ce925e8ac4480d829fc7f
 template_sha256 = 9176b7cffc68dba50fa7ff9c6a2386383c237433ac5a656053eccdd202628c6d
-reason = Intentional divergence re-reviewed 2026-08-16: root and consumer intake surfaces both remove the operator draft toggle and always hand off ready-for-review automation PRs; root retains its richer failure summary while the consumer remains a pinned, minimal bridge contract.
+divergence = Intentional divergence re-reviewed 2026-08-16: root and consumer intake surfaces both remove the operator draft toggle and always hand off ready-for-review automation PRs; root retains its richer failure summary while the consumer remains a pinned, minimal bridge contract.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-71-codex-belt-dispatcher.yml
 main_sha256 = 0e9a4c7e7b120985fd9684a9e4f89049601b2bbc0b9da9bee5510d3ec1c3c175
 template_sha256 = 6a7b6e203f6ac2837bc09dc2dc6620faa37b72cb78068af1bb77779e246cb1dd
-reason = Intentional divergence re-baselined 2026-08-16: workflow_dispatch inputs (force_issue, agent_key) are now passed to the github-script step via step-level env: and read through process.env instead of being interpolated into the script body, removing a script-injection surface that caused GitHub to block the workflow as possibly malicious in consumer repos. Applied identically to both surfaces; consumer action pinning and Codex-specific wording preserved.
+divergence = Intentional divergence re-baselined 2026-08-16: workflow_dispatch inputs (force_issue, agent_key) are now passed to the github-script step via step-level env: and read through process.env instead of being interpolated into the script body, removing a script-injection surface that caused GitHub to block the workflow as possibly malicious in consumer repos. Applied identically to both surfaces; consumer action pinning and Codex-specific wording preserved.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.3]
 main = .github/workflows/agents-72-codex-belt-worker.yml
 template = templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml
 main_sha256 = 905e1a6487c44f0705b4c83294fa5cc9e2693cfdf2927994f6dc28912516b758
 template_sha256 = f8ce0688837030094e20af4aee01d25274dbffcb3eeec3fa5b34da16318f3993
-reason = Existing reviewed baseline drift re-baselined 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer worker workflow_call surfaces while preserving consumer action pinning and guarded merge wording.
+divergence = Existing reviewed baseline drift re-baselined 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer worker workflow_call surfaces while preserving consumer action pinning and guarded merge wording.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.4]
 main = .github/workflows/agents-73-codex-belt-conveyor.yml
 template = templates/consumer-repo/.github/workflows/agents-73-codex-belt-conveyor.yml
 main_sha256 = c0f900cf6fd9d88b6f34538644b52e172fac31a599a2b1f95e650589c9f92012
 template_sha256 = a1531951216890c2e7f766e53aaaa53ad6da1e2d94dd8a2db3889311672a13ec
-reason = Intentional divergence re-reviewed 2026-08-10: root conveyor labels Gate and changed-file checks as authoritative; the consumer adds explicit best-effort rationale for only post-merge cleanup calls while preserving its action pins and Codex-specific behavior.
+divergence = Intentional divergence re-reviewed 2026-08-10: root conveyor labels Gate and changed-file checks as authoritative; the consumer adds explicit best-effort rationale for only post-merge cleanup calls while preserving its action pins and Codex-specific behavior.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.5]
 main = .github/workflows/agents-auto-label.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
 main_sha256 = 84edb688a3f3629e206432bc63a891f7b7b6e8737d53044ddecce50f97f64231
 template_sha256 = 7ca1550aa40b09a0c3f42d2ce3450551008aec62ed8dc94b6dc59a98bff16c78
-reason = Intentional divergence updated 2026-08-05: root and consumer workflows both isolate the eligibility sparse checkout under eligibility-source/ while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
+divergence = Intentional divergence updated 2026-08-05: root and consumer workflows both isolate the eligibility sparse checkout under eligibility-source/ while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-autofix-dispatcher.yml
 main_sha256 = d50546b43254e3374d53a8efb27b3f47efbddce20ae4511579a103bd6ca1e27c
 template_sha256 = 533b0f2241708e39e97de00bbae0795b7f9d95f32d9337e0ddcf51ed4fa4c76b
-reason = Intentional divergence re-reviewed 2026-08-23: the Workflows-local dispatcher resolves and invokes the in-repository reusable autofix surface, while the consumer wrapper uses the published Workflows workflow with pinned actions and consumer secret wiring. Do not align wholesale because that would remove the consumer deployment contract.
+divergence = Intentional divergence re-reviewed 2026-08-23: the Workflows-local dispatcher resolves and invokes the in-repository reusable autofix surface, while the consumer wrapper uses the published Workflows workflow with pinned actions and consumer secret wiring. Do not align wholesale because that would remove the consumer deployment contract.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.7]
 main = .github/workflows/agents-capability-check.yml
 template = templates/consumer-repo/.github/workflows/agents-capability-check.yml
 main_sha256 = 6a31f201710befd79283a59228524d279345f3b3351aa1e5bdf373da770590a3
 template_sha256 = 92a2ab44ada9e1e5238f8117071df1b86f4c5b300a086b3c970bda623076b9cd
-reason = Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
+divergence = Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.8]
 main = .github/workflows/agents-decompose.yml
 template = templates/consumer-repo/.github/workflows/agents-decompose.yml
 main_sha256 = 03bf9ec09953e0b1298783b1d14f030fefd40f00a61caf404cf0b562297a1e82
 template_sha256 = 8964f9a4cdb6ffd724cba533befd09ba30336b4d9d2b3047351d045a39ed5949
-reason = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
+divergence = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.9]
 main = .github/workflows/agents-dedup.yml
 template = templates/consumer-repo/.github/workflows/agents-dedup.yml
 main_sha256 = 95d9d1c0acd6fbc143b1eb56e0c0741be370b2ab8853ed660ac1249821ea41dd
 template_sha256 = aa6c161b640eb303df8d47bc4d85535210f9cc7a49e4f165059432d6f0106bd2
-reason = Intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
+divergence = Intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.10]
 main = .github/workflows/agents-guard.yml
 template = templates/consumer-repo/.github/workflows/agents-guard.yml
 main_sha256 = eb5a10b5246ab1aa94afa481ed40e6a330a44be935f581827f6a49527b73e19f
 template_sha256 = a8bc6224681c3fbb3314a393135188bca1b1362439cfd509b81eceb1acc0e8cd
-reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard workflows differ for pinned consumer actions/App-token setup; stranske/Workflows digest pins were refreshed together in root and consumer guard surfaces after Renovate moved the Workflows digest to ebef44a.
+divergence = Intentional divergence re-baselined 2026-06-30: root and consumer guard workflows differ for pinned consumer actions/App-token setup; stranske/Workflows digest pins were refreshed together in root and consumer guard surfaces after Renovate moved the Workflows digest to ebef44a.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
 main_sha256 = 6f27295c98bd7d94f1768b7036718c7331bbea281fd67faf4c110fe32da52696
 template_sha256 = 1754c7ce1a227199af13bb746d80e506442d0e2572879f2fdfba284a88845238
-reason = Fingerprints refreshed 2026-08-23: both surfaces now read the issue number from the step-level EVENT_ISSUE_NUMBER env var instead of interpolating ${{ github.event.issue.number }} into the run: body, removing a template-injection surface of the same shape that caused agents-71-codex-belt-dispatcher to be blocked as possibly malicious in consumer repos (#3127, 2026-08-16). Applied identically to root and consumer, so it introduces no new divergence. Underlying divergence unchanged: Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes live format eligibility checks, format-lease release when those checks skip work, checkout-aware path validation, explicit guard retry dispatch, and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
+divergence = Fingerprints refreshed 2026-08-23: both surfaces now read the issue number from the step-level EVENT_ISSUE_NUMBER env var instead of interpolating ${{ github.event.issue.number }} into the run: body, removing a template-injection surface of the same shape that caused agents-71-codex-belt-dispatcher to be blocked as possibly malicious in consumer repos (#3127, 2026-08-16). Applied identically to root and consumer, so it introduces no new divergence. Underlying divergence unchanged: Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes live format eligibility checks, format-lease release when those checks skip work, checkout-aware path validation, explicit guard retry dispatch, and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml
 main_sha256 = 68ed7a2824a3536bf5e57699f0065646840335a5d36747758cb1ed2d1568288b
 template_sha256 = 93bfd23d1fecd7769aff11c80cfc78e7e50465d8f8172b6f4c63911b63addebc
-reason = Intentional divergence re-reviewed 2026-08-15: both reporters mint the dedicated KEEPALIVE_APP token with WORKFLOWS_APP fallback, fail closed before trusted summary writes, and record the selected App writer. The root keeps its in-repo setup helpers while the consumer retains state fingerprinting and SHA-pinned actions; do not align wholesale.
+divergence = Intentional divergence re-reviewed 2026-08-15: both reporters mint the dedicated KEEPALIVE_APP token with WORKFLOWS_APP fallback, fail closed before trusted summary writes, and record the selected App writer. The root keeps its in-repo setup helpers while the consumer retains state fingerprinting and SHA-pinned actions; do not align wholesale.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.13]
 main = .github/workflows/agents-keepalive-sweep.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml
 main_sha256 = d298749854d5a646fae5197fd242ef656487b7a57d6f2e690cd52e838d2fb9e1
 template_sha256 = 147d4da9048717e1cf86bcacfd51b4080cc3e228ff7851c3acf2d8fefc2a54ac
-reason = Intentional divergence re-reviewed 2026-08-13: root and consumer sweeps share HMAC-signed due-authority claims bound to repository, PR, fingerprint, nonce, and exact sweep run; missing signing material fails closed to ordinary non-forced rechecks. Both bypass state debounce for ordinary sweep recovery, retain completed-runner debounce for ordinary wakeups, and bypass runner debounce only for a verified signed due claim, while the consumer retains its consolidated gate-followup dispatch path, inverted mode guard, and pinned action contract.
+divergence = Intentional divergence re-reviewed 2026-08-13: root and consumer sweeps share HMAC-signed due-authority claims bound to repository, PR, fingerprint, nonce, and exact sweep run; missing signing material fails closed to ordinary non-forced rechecks. Both bypass state debounce for ordinary sweep recovery, retain completed-runner debounce for ordinary wakeups, and bypass runner debounce only for a verified signed due claim, while the consumer retains its consolidated gate-followup dispatch path, inverted mode guard, and pinned action contract.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.14]
 main = .github/workflows/agents-verifier.yml
 template = templates/consumer-repo/.github/workflows/agents-verifier.yml
 main_sha256 = 5e1cb04f45d27ccd30395eb804203677db130c7f1bcabf8054d80cb22c189e97
 template_sha256 = 9c803d40ce8b26f4450a60d6f821eb2cadbd59c42b47259d3394ad1d932fee0f
-reason = Intentional divergence re-reviewed 2026-08-23: the Workflows verifier retains its local corpus and provider plumbing, while the consumer verifier calls the distributed surface with consumer-specific action pins and token setup. Do not align wholesale because those execution environments are intentionally different.
+divergence = Intentional divergence re-reviewed 2026-08-23: the Workflows verifier retains its local corpus and provider plumbing, while the consumer verifier calls the distributed surface with consumer-specific action pins and token setup. Do not align wholesale because those execution environments are intentionally different.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.15]
 main = .github/workflows/agents-weekly-metrics.yml
 template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
 main_sha256 = 6e48b36caaa2865c66fe978b75e775687b96b69eae74c5adbc1355346819f271
 template_sha256 = 865fe609fbc6fde8f0f9faf338d8ba9e9e573448e8dc454fb759df003bd9b437
-reason = Intentional divergence (re-baselined 2026-07-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after the durable-label guard was added to the template. Do not align: would strip consumer action pins.
+divergence = Intentional divergence (re-baselined 2026-07-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after the durable-label guard was added to the template. Do not align: would strip consumer action pins.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.16]
 main = .github/workflows/agents-auto-pilot.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-pilot.yml
 main_sha256 = 68e132fb70a176cbfab05714eb828f3debcde9326d5fcf1cf5a667d0a2675e0d
 template_sha256 = 843461352cf105f1e6bc0f50c60403f08fe4100fc529b1b301579306343d80a9
-reason = Fingerprints refreshed 2026-08-23: both surfaces now pass the named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer so it introduces no new divergence. That removal is what cleared GitHub's suspicious-workflow hold on agents-dedup (#3185), which then ran at run_attempt 1 with nothing approved after 22 days held. Underlying divergence unchanged: Intentional divergence reviewed 2026-08-21: the Workflows-local auto-pilot retains Workflows-only PR-meta and keepalive fallbacks, while the consumer template dispatches only the consolidated Agents 80 and Agents 81 entry points. The sync manifest delivers the consumer-specific template so retired Workflows-local targets cannot be restored in consumer repositories.
+divergence = Fingerprints refreshed 2026-08-23: both surfaces now pass the named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer so it introduces no new divergence. That removal is what cleared GitHub's suspicious-workflow hold on agents-dedup (#3185), which then ran at run_attempt 1 with nothing approved after 22 days held. Underlying divergence unchanged: Intentional divergence reviewed 2026-08-21: the Workflows-local auto-pilot retains Workflows-only PR-meta and keepalive fallbacks, while the consumer template dispatches only the consolidated Agents 80 and Agents 81 entry points. The sync manifest delivers the consumer-specific template so retired Workflows-local targets cannot be restored in consumer repositories.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.17]
 main = .github/workflows/autofix.yml
 template = templates/consumer-repo/.github/workflows/autofix.yml
 main_sha256 = 81f2268c29cc8b5da388a44eab46a8613df153d9e4e83449ab3a5070c03558a7
 template_sha256 = 88cf48708d972137ef8e9fb3efc2323ee93c8cab16eaba0fc22c8c11ea6695c4
-reason = Intentional divergence reviewed 2026-08-23: the Workflows source runs its local reusable autofix workflow and uses the repository's CI concurrency/context contract; the consumer template calls the published reusable workflow with SHA-pinned actions, SERVICE_BOT_PAT, and workflow-run PR context recovery. Do not align wholesale because the consumer is a deployable wrapper rather than the source implementation.
+divergence = Intentional divergence reviewed 2026-08-23: the Workflows source runs its local reusable autofix workflow and uses the repository's CI concurrency/context contract; the consumer template calls the published reusable workflow with SHA-pinned actions, SERVICE_BOT_PAT, and workflow-run PR context recovery. Do not align wholesale because the consumer is a deployable wrapper rather than the source implementation.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.18]
 main = .github/workflows/maint-coverage-guard.yml
 template = templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
 main_sha256 = 3b08ecd7c98a8c0f9281136be6013f3602faecf07adc90ee38687f990fc7ffa6
 template_sha256 = e7badb31c3a806d89cbf4a3d87368e0f98785683f901cf0130f64e1c000fdb1a
-reason = Intentional divergence reviewed 2026-08-23: Workflows uses its local artifact-cache action and helper sparse checkout, while consumers mint an App token and download coverage artifacts through pinned public actions. The artifact retrieval routes are deliberately different because consumers cannot rely on Workflows-local actions.
+divergence = Intentional divergence reviewed 2026-08-23: Workflows uses its local artifact-cache action and helper sparse checkout, while consumers mint an App token and download coverage artifacts through pinned public actions. The artifact retrieval routes are deliberately different because consumers cannot rely on Workflows-local actions.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.19]
 main = .github/workflows/pr-00-gate.yml
 template = templates/consumer-repo/.github/workflows/pr-00-gate.yml
 main_sha256 = b10972cc49cce6879f6ccd70af19343ab40330572c5c0003a7140350c87c9a4e
 template_sha256 = ae8266ef5429f5ef5f0982292dd8fd3572358352e285976fe006011d5926f2c5
-reason = Intentional divergence reviewed 2026-08-23: the source Gate runs Workflows-only package, ledger, and diff-quality jobs with local reusable workflows; the consumer Gate uses published reusable workflows, pinned actions, and skips unavailable Workflows-local deliberate-break helpers. The consumer template must remain a bootstrap-safe deployment surface.
+divergence = Intentional divergence reviewed 2026-08-23: the source Gate runs Workflows-only package, ledger, and diff-quality jobs with local reusable workflows; the consumer Gate uses published reusable workflows, pinned actions, and skips unavailable Workflows-local deliberate-break helpers. The consumer template must remain a bootstrap-safe deployment surface.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23
 
 [pair.20]
 main = .github/workflows/reusable-pr-context.yml
 template = templates/consumer-repo/.github/workflows/reusable-pr-context.yml
 main_sha256 = 34f19d0bc75d0b3dbf4d897d38a45ccc20a453a3467c930cb749b6881cfe724f
 template_sha256 = d4ac61af664ce7330a019ce09b2db451e234ebc9b720827320f1c2db32e35eb5
-reason = Intentional divergence reviewed 2026-08-23: Workflows keeps local setup-api-client, cancellation, and full multi-agent label detection; the consumer uses pinned actions, App-token setup, and only the consumer-supported routing labels. These execution contexts are intentionally not byte-identical.
+divergence = Intentional divergence reviewed 2026-08-23: Workflows keeps local setup-api-client, cancellation, and full multi-agent label detection; the consumer uses pinned actions, App-token setup, and only the consumer-supported routing labels. These execution contexts are intentionally not byte-identical.
+divergence_reviewed = 2026-08-23
+fingerprint_refreshed = 2026-08-23

@@ -33,8 +33,8 @@ version: 1
 workflows:
   # Core CI/CD
   - source: .github/workflows/pr-00-gate.yml
-    description: "Gate workflow - runs tests, lint, type checking before merge. Bootstrap note: the expanded template Gate is not yet fresh-consumer deployable; see issue #2158 before seeding it into new repos."
-    sync_mode: create_only  # Don't overwrite existing consumer Gate files; fresh repos can still receive this file, so follow #2158 before first seeding.
+    description: "Gate workflow - runs tests, lint, type checking before merge. It remains create-only because consumers own their coverage and runtime policy."
+    sync_mode: create_only  # Do not overwrite consumer-specific Gate coverage, runtime, or policy.
     overwrite_repos:
       - stranske/Template
     skip_repos:
@@ -63,7 +63,7 @@ workflows:
     description: "Gate followups hub - consolidates keepalive and autofix followups"
 
   - source: .github/workflows/agents-keepalive-sweep.yml
-    description: "Keepalive sweep (#2267) - periodic level-based resync; dispatches the loop for open agent PRs so silent zero-commit stalls resurface"
+    description: "Keepalive sweep - periodic level-based resync; dispatches the loop for open agent PRs so silent zero-commit stalls resurface"
 
   # Agent system - execution
   - source: .github/workflows/agents-keepalive-loop-reporter.yml
@@ -558,7 +558,7 @@ scripts:
 
   # Agent helper scripts and copy-delivered LangChain workflow support
   #
-  # delivery: channel annotation (issue #2347)
+  # delivery: channel annotation (resolved: issue #2347)
   #   copy    = physically copy-synced into the consumer tree by maint-68 and
   #             read from the consumer's own working directory at runtime.
   #   runtime = NOT copy-synced; the consuming consumer-template workflow does a
@@ -658,7 +658,7 @@ scripts:
     description: "PR verifier - validates PR changes against acceptance criteria"
     delivery: copy
 
-  # NOTE (issue #2347): scripts/langchain/followup_issue_generator.py was MOVED
+  # NOTE (resolved: issue #2347): scripts/langchain/followup_issue_generator.py was MOVED
   # out of this copy-sync set into the `runtime_fetched:` section below. It is
   # delivered to consumers ONLY via runtime sparse-checkout (see that section).
 
@@ -886,7 +886,7 @@ docs:
 
   - source: docs/SETUP_CHECKLIST.md
     target: docs/SETUP_CHECKLIST.md
-    description: "Consumer repo setup checklist. Includes the default_workflow_permissions=write step in section 3.3.1 that prevents a Gate startup_failure on fresh consumers (see #2157). Synced so it no longer drifts across the fleet."
+    description: "Consumer repo setup checklist. Includes the default_workflow_permissions=write step in section 3.3.1 that prevents a Gate startup_failure on fresh consumers (resolved: #2157). Synced so it no longer drifts across the fleet."
 
   # ---- Shared design system (fleet UX consistency) ----
   # CSS tokens/components + a Streamlit adapter kit + the presentation-patterns
@@ -933,7 +933,7 @@ git_config:
     description: "CodeRabbit auto-review config - skips maintenance-bot PRs (renovate/dependabot/github-actions/keepalive) and generated sync/draft PRs, while keeping substantial agent-authored PR reviews enabled. Advisory/non-gating per fleet rule."
 
 
-# Workflows-owned runtime-fetched scripts (issue #2347)
+# Workflows-owned runtime-fetched scripts (resolved: issue #2347)
 #
 # These files are intentionally NOT copy-synced into consumer repos. The
 # consumer-template workflows that use them perform a runtime sparse-checkout of
