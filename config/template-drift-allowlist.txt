@@ -85,9 +85,9 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 [pair.7]
 main = .github/workflows/agents-capability-check.yml
 template = templates/consumer-repo/.github/workflows/agents-capability-check.yml
-main_sha256 = e1f4d43bc8b5f2ef0b314d086a070c5ddb7e45f932ed3192d0933732bbff179c
-template_sha256 = 95312f7a0aa3f2c442556ff304dede0a5a06b1301f1e3ffca60130678e23ecb5
-reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
+main_sha256 = 6a31f201710befd79283a59228524d279345f3b3351aa1e5bdf373da770590a3
+template_sha256 = f295e850992e119a0105921eb0c56cc6573fd368a38bbe0f9624fe0ae904a70c
+reason = Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
 
 [pair.8]
 main = .github/workflows/agents-decompose.yml

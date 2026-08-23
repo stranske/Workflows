@@ -861,7 +861,9 @@ class TestCheckCapabilityAliasRemoved:
     def test_classify_capabilities_is_canonical_entrypoint(self) -> None:
         assert callable(classify_capabilities)
 
-    @pytest.mark.parametrize("path", CAPABILITY_CHECK_SCRIPT_PATHS, ids=lambda p: str(p.relative_to(REPO_ROOT)))
+    @pytest.mark.parametrize(
+        "path", CAPABILITY_CHECK_SCRIPT_PATHS, ids=lambda p: str(p.relative_to(REPO_ROOT))
+    )
     def test_capability_check_scripts_do_not_define_alias(self, path: Path) -> None:
         source = path.read_text(encoding="utf-8")
         assert "check_capability" not in source
