@@ -57,6 +57,7 @@ const {
   collectReviewerEvidence,
   legacyStatusAsCheck,
   mergeMethodPolicyAllowsFallback,
+  isResolvableProofThread,
   normalizeReviewPolicy,
   parseNoChangeEvidenceDocument,
   parseReviewResolutionProofs,
@@ -626,6 +627,13 @@ test('review resolution proof is exact-head, source-linked, and actor-bound', ()
   });
   assert.equal(changedHead.ok, false);
   assert.ok(changedHead.errors.includes('head_mismatch'));
+});
+
+test('proof-bound resolution permits an unresolved outdated thread', () => {
+  assert.equal(isResolvableProofThread({ isResolved: false, isOutdated: true }), true);
+  assert.equal(isResolvableProofThread({ isResolved: false, isOutdated: false }), true);
+  assert.equal(isResolvableProofThread({ isResolved: true, isOutdated: true }), false);
+  assert.equal(isResolvableProofThread(null), false);
 });
 
 test('maint71 run writes reports and records a no-PR result with fake action clients', async () => {

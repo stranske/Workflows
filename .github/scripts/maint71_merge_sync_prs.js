@@ -72,6 +72,15 @@ function parseReviewResolutionProofs(raw = '') {
   return proofs;
 }
 
+// A proof-bound resolution is safe for either a current or outdated thread.
+// GitHub rulesets can still require an outdated conversation to be resolved,
+// and the proof validation below binds this mutation to the exact PR head and
+// a merged Workflows source fix. Ordinary merge eligibility remains stricter:
+// it continues to require zero active non-outdated threads.
+function isResolvableProofThread(thread) {
+  return Boolean(thread && !thread.isResolved);
+}
+
 function parseNoChangeEvidenceDocument(raw = '', {
   lane,
   requestedSyncHash,
@@ -737,8 +746,8 @@ async function run({ github, context, core }) {
           continue;
         }
         const thread = (threads?.nodes || []).find((item) => item.id === proof.thread_id);
-        if (!thread || thread.isResolved || thread.isOutdated) {
-          errors.push(`${proof.thread_id}:thread_not_active`);
+        if (!isResolvableProofThread(thread)) {
+          errors.push(`${proof.thread_id}:thread_not_resolvable`);
           continue;
         }
         if (dryRun && !resolutionOnly) {
@@ -2684,5 +2693,6 @@ module.exports = {
   parseReviewResolutionProofs,
   run,
   selectReconciliationTargets,
+  isResolvableProofThread,
   validateReviewResolutionProof,
 };
