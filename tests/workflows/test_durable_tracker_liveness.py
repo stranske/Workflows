@@ -46,7 +46,9 @@ def test_liveness_config_has_literal_expected_tracker_contract() -> None:
     assert observed == EXPECTED_TRACKERS
 
 
-def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(monkeypatch) -> None:
+def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
+    monkeypatch,
+) -> None:
     trackers = [
         {"workflow": "event.yml", "issue": 1, "event_driven": True},
         {"workflow": "recent.yml", "issue": 2, "max_age_hours": 24},
@@ -54,8 +56,16 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
         {"workflow": "absent.yml", "issue": 4, "max_age_hours": 24},
     ]
     runs = {
-        "recent.yml": {"conclusion": "success", "created_at": "recent", "html_url": "https://run/recent"},
-        "stale.yml": {"conclusion": "failure", "created_at": "stale", "html_url": "https://run/stale"},
+        "recent.yml": {
+            "conclusion": "success",
+            "created_at": "recent",
+            "html_url": "https://run/recent",
+        },
+        "stale.yml": {
+            "conclusion": "failure",
+            "created_at": "stale",
+            "html_url": "https://run/stale",
+        },
         "absent.yml": None,
     }
     monkeypatch.setattr(check_durable_tracker_liveness, "_load_config", lambda: trackers)
@@ -71,10 +81,38 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
     )
 
     assert check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token") == [
-        {"workflow": "event.yml", "issue": 1, "healthy": True, "reason": "event-driven workflow excluded from age-based liveness"},
-        {"workflow": "recent.yml", "issue": 2, "healthy": True, "latest_conclusion": "success", "latest_created_at": "recent", "hours_since": 1.0, "max_age_hours": 24.0, "run_url": "https://run/recent"},
-        {"workflow": "stale.yml", "issue": 3, "healthy": False, "latest_conclusion": "failure", "latest_created_at": "stale", "hours_since": 25.0, "max_age_hours": 24.0, "run_url": "https://run/stale"},
-        {"workflow": "absent.yml", "issue": 4, "healthy": False, "reason": "no executable run found (only action_required/skipped)"},
+        {
+            "workflow": "event.yml",
+            "issue": 1,
+            "healthy": True,
+            "reason": "event-driven workflow excluded from age-based liveness",
+        },
+        {
+            "workflow": "recent.yml",
+            "issue": 2,
+            "healthy": True,
+            "latest_conclusion": "success",
+            "latest_created_at": "recent",
+            "hours_since": 1.0,
+            "max_age_hours": 24.0,
+            "run_url": "https://run/recent",
+        },
+        {
+            "workflow": "stale.yml",
+            "issue": 3,
+            "healthy": False,
+            "latest_conclusion": "failure",
+            "latest_created_at": "stale",
+            "hours_since": 25.0,
+            "max_age_hours": 24.0,
+            "run_url": "https://run/stale",
+        },
+        {
+            "workflow": "absent.yml",
+            "issue": 4,
+            "healthy": False,
+            "reason": "no executable run found (only action_required/skipped)",
+        },
     ]
 
 
