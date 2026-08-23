@@ -122,23 +122,19 @@ def test_langsmith_patterns_are_root_anchored_and_spare_the_tracked_schema(
         target.touch()
 
     def ignored(rel: str) -> bool:
-        return run(
-            ["git", "check-ignore", "-q", rel], cwd=tmp_path, check=False
-        ).returncode == 0
+        return run(["git", "check-ignore", "-q", rel], cwd=tmp_path, check=False).returncode == 0
 
     # The per-run artifact lands in the root, and that is the only place it lands.
     assert ignored(debris), f"{debris} must be ignored -- it is per-run CI debris"
     # The schema is committed source and must survive the pattern.
-    assert not ignored(schema), (
-        f"{schema} must stay trackable; the langsmith-fleet rules lost their root anchor"
-    )
+    assert not ignored(
+        schema
+    ), f"{schema} must stay trackable; the langsmith-fleet rules lost their root anchor"
 
     # And the anchoring is visible in the canonical list itself, so a future edit that
     # re-broadens it has to delete a leading slash on purpose.
     langsmith = [
-        pattern
-        for pattern in sync_status_file_ignores.CANONICAL_PATTERNS
-        if "langsmith" in pattern
+        pattern for pattern in sync_status_file_ignores.CANONICAL_PATTERNS if "langsmith" in pattern
     ]
     assert langsmith, "the langsmith-fleet debris patterns went missing from the canonical list"
     assert all(pattern.startswith("/") for pattern in langsmith), langsmith

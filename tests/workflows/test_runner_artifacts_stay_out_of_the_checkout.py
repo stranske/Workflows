@@ -104,7 +104,9 @@ def upload_artifact_paths(rel: str) -> list[str]:
 
 def commit_step_exclusions() -> list[str]:
     """The `git reset HEAD --` denylist the commit step subtracts from `git add -A`."""
-    match = re.search(r"git reset HEAD -- \\\n(.*?)\n\s*2>/dev/null", workflow_text(CODEX_RUN), re.S)
+    match = re.search(
+        r"git reset HEAD -- \\\n(.*?)\n\s*2>/dev/null", workflow_text(CODEX_RUN), re.S
+    )
     assert match, (
         "could not locate the commit step's `git reset HEAD --` exclusion list in "
         f"{CODEX_RUN}; this guard can no longer tell which artifacts are excluded"
@@ -157,7 +159,9 @@ def test_worker_attempt_artifact_is_written_outside_the_checkout():
         "PR #2856 defect, which reached six consumer repos. Write it under RUNNER_TEMP; the "
         "upload-artifact step accepts any path."
     )
-    assert "RUNNER_TEMP" in text, f"{CODEX_RUN} no longer stages the worker attempt under RUNNER_TEMP"
+    assert (
+        "RUNNER_TEMP" in text
+    ), f"{CODEX_RUN} no longer stages the worker attempt under RUNNER_TEMP"
 
 
 def test_worker_attempt_artifact_is_uploaded_from_outside_the_checkout():
@@ -222,9 +226,7 @@ def test_known_in_checkout_entries_state_a_reason():
 
 def test_known_in_checkout_has_no_stale_entries():
     """An allowlisted path that is no longer uploaded anywhere must be deleted, not carried."""
-    uploaded = {
-        path for rel in REUSABLE_RUN_WORKFLOWS for path in upload_artifact_paths(rel)
-    }
+    uploaded = {path for rel in REUSABLE_RUN_WORKFLOWS for path in upload_artifact_paths(rel)}
     stale = sorted(set(KNOWN_IN_CHECKOUT) - uploaded)
     assert not stale, (
         f"KNOWN_IN_CHECKOUT names {stale}, which no upload-artifact step references any more. "
