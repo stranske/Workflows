@@ -1893,10 +1893,20 @@ jobs:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          mkdir -p error-diagnostics
+          # Written OUTSIDE the checkout. This directory only ever feeds the
+          # upload-artifact step below, and a staging directory in the working tree is a
+          # liability: the commit step earlier in this job runs `git add -A` minus a
+          # hand-curated exclusion list this path is not on. It has been safe only because
+          # that step happens to run FIRST -- ordering, not a safety property. Reorder the
+          # steps or add a later commit step and it becomes the
+          # langsmith-fleet-worker-attempt.json defect (PR #3210), which reached six
+          # consumer repos. RUNNER_TEMP is wiped between jobs and is never part of the
+          # repository, so the class is removed rather than the exclusion list extended.
+          DIAG_DIR="${RUNNER_TEMP:-/tmp}/error-diagnostics"
+          mkdir -p "$DIAG_DIR"
 
           # Create JSON diagnostics file
-          cat > error-diagnostics/diagnostics.json << JSONEOF
+          cat > "$DIAG_DIR"/diagnostics.json << JSONEOF
           {
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "run_id": "${{ github.run_id }}",
@@ -1912,7 +1922,7 @@ jobs:
           JSONEOF
 
           # Create human-readable diagnostics
-          cat > error-diagnostics/README.md << MDEOF
+          cat > "$DIAG_DIR"/README.md << MDEOF
           # Codex Run Error Diagnostics
 
           **Generated:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -1941,17 +1951,17 @@ jobs:
 
           # Copy codex output if available
           if [ -f "codex-output.md" ]; then
-            cp codex-output.md error-diagnostics/
+            cp codex-output.md "$DIAG_DIR"/
           fi
 
-          echo "Created error diagnostics in error-diagnostics/"
+          echo "Created error diagnostics in $DIAG_DIR"
 
       - name: Upload error diagnostics
         if: always() && steps.run_codex.outputs.exit-code != '0'
         uses: actions/upload-artifact@v7
         with:
           name: error-diagnostics-${{ inputs.mode }}-${{ github.run_id }}
-          path: error-diagnostics/
+          path: ${{ runner.temp }}/error-diagnostics/
           retention-days: 30
 
       - name: Post PR comment on non-transient failure
