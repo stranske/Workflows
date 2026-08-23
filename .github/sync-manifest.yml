@@ -33,7 +33,7 @@ version: 1
 workflows:
   # Core CI/CD
   - source: .github/workflows/pr-00-gate.yml
-    description: "Gate workflow - runs tests, lint, type checking before merge. It remains create-only because consumers own their coverage and runtime policy."
+    description: "Gate workflow - runs tests, lint, type checking before merge. It remains create-only and not yet fresh-consumer deployable (#2158) because consumers own their coverage and runtime policy."
     sync_mode: create_only  # Do not overwrite consumer-specific Gate coverage, runtime, or policy.
     overwrite_repos:
       - stranske/Template
