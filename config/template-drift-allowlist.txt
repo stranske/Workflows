@@ -115,9 +115,9 @@ fingerprint_refreshed = 2026-08-23
 [pair.9]
 main = .github/workflows/agents-dedup.yml
 template = templates/consumer-repo/.github/workflows/agents-dedup.yml
-main_sha256 = 95d9d1c0acd6fbc143b1eb56e0c0741be370b2ab8853ed660ac1249821ea41dd
+main_sha256 = ed04c329fe0d0bed4136a11c23e11cee740af22e7ec46bdaad831d9ef4df1f99
 template_sha256 = aa6c161b640eb303df8d47bc4d85535210f9cc7a49e4f165059432d6f0106bd2
-divergence = Intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
+divergence = Root sparse-checkout now also fetches pyproject.toml, README.md, scripts/__init__.py and scripts/langchain; without them `pip install -e ".[langchain]"` failed and `from scripts.langchain.issue_dedup import ...` could not resolve, so the job could never complete - hidden for 22 days by GitHub's suspicious-workflow hold. Root only: the consumer template does a full checkout and already guards the install for consumers that are not installable packages. Prior divergence unchanged: Intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 

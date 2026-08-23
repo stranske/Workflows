@@ -28,8 +28,15 @@ jobs:
       - name: Compute REPORTER value
         id: set-reporter
         env:
-          REPORTER_FROM_CALL: ${{ fromJson(github.event.inputs || '{}').reporter || '' }}
-          REPORTER_FROM_DISPATCH: ${{ fromJson(github.event.inputs || '{}').REPORTER || '' }}
+          # `inputs` covers workflow_call AND workflow_dispatch, so no JSON
+          # round-trip is needed. The previous expression was
+          # fromJson(github.event.inputs || '{}'), which FAILS on
+          # workflow_dispatch: github.event.inputs is an OBJECT there, not a JSON
+          # string, so the run never starts -
+          # "Unexpected character encountered while parsing value: O".
+          # Scheduled and pull_request runs passed because inputs is null there,
+          # which is why this stayed hidden since 2026-06.
+          REPORTER_FROM_CALL: ${{ inputs.reporter || '' }}
           REPORTER_FROM_VAR: ${{ vars.HEALTH42_REPORTER || '' }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
@@ -37,8 +44,6 @@ jobs:
             echo "reporter=${REPORTER_FROM_CALL}" >> "$GITHUB_OUTPUT"
           elif [ -n "${REPORTER_FROM_VAR}" ]; then
             echo "reporter=${REPORTER_FROM_VAR}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${REPORTER_FROM_DISPATCH}" ]; then
-            echo "reporter=${REPORTER_FROM_DISPATCH}" >> "$GITHUB_OUTPUT"
           elif [ "${EVENT_NAME}" = "pull_request" ]; then
             echo "reporter=github-pr-review" >> "$GITHUB_OUTPUT"
           else
