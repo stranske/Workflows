@@ -91,6 +91,38 @@ jobs:
       reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
     secrets: inherit
 
+  workflow-liveness:
+    name: workflow liveness (zero-job approval holds)
+    needs: detect
+    # Schedule/dispatch only. The sweep costs ~1 API call per active workflow,
+    # so it must not run on every workflow-file push.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      # Deliberately hosted here rather than in a workflow of its own, and
+      # deliberately NOT given setup-api-client or `toJSON(secrets)`: every
+      # workflow held by GitHub's suspicious-workflow protection carries that
+      # pattern. A detector that can be held by the condition it detects reports
+      # nothing and looks green - which is exactly how maint-46-post-ci, the
+      # repo's own CI failure reporter, went dark for 11 days.
+      - name: Confirm every active workflow still executes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/workflow_startup_failure_diagnostic.py \
+            --sweep --repo "${GITHUB_REPOSITORY}"
+
   branch-protection-verify:
     name: branch protection sweep
     needs: detect

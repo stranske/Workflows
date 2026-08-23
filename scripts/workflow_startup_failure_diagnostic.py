@@ -1,5 +1,26 @@
 #!/usr/bin/env python3
-"""Diagnose zero-job workflow startup failures and approval holds."""
+"""Diagnose zero-job workflow startup failures and approval holds.
+
+Two modes:
+
+* ``--run-id`` diagnoses one run (parse-time startup failures, approval holds).
+* ``--sweep`` walks every workflow in one or more repositories and reports the
+  ones whose recent runs are dominated by zero-job ``action_required`` holds.
+  This is the executable form of the liveness oracle in
+  ``docs/ops/DURABLE_TRACKING_ISSUES.md``: confirm liveness from the workflow
+  run history, not from tracker activity. A held workflow emits no jobs, no
+  logs, no annotations and burns no minutes, so nothing else notices it.
+
+The sweep always reports the blocking quantity AND the drainable quantity in
+the same line. "12 held" reads as a backlog to work through; "12 held, 0
+clearable by API" reads as a deadlock. The drainable count is measured per
+run (fork-PR holds accept the REST approval endpoint; unproven-workflow holds
+do not), never assumed.
+
+The sweep reports and fails. It must never approve a run: auto-approving a
+hold GitHub raised on suspicion of malice would turn a safety mechanism into a
+rubber stamp.
+"""
 
 from __future__ import annotations
 
@@ -172,6 +193,215 @@ def _classify_zero_job_approval_hold(
     }
 
 
+DRAINABLE_ROOT_CAUSES = frozenset({"fork_contributor_approval_hold"})
+
+HELD_RUN_CONCLUSION = "action_required"
+
+
+def _iter_paginated(
+    path: str, key: str, token: str, per_page: int = 100, max_pages: int = 20
+) -> list[dict[str, Any]]:
+    """Collect ``key`` entries across pages. Stops on the first short page."""
+    items: list[dict[str, Any]] = []
+    joiner = "&" if "?" in path else "?"
+    for page in range(1, max_pages + 1):
+        payload = _gh_api(f"{path}{joiner}per_page={per_page}&page={page}", token)
+        batch = payload.get(key, [])
+        if not isinstance(batch, list) or not batch:
+            break
+        items.extend(x for x in batch if isinstance(x, dict))
+        if len(batch) < per_page:
+            break
+    return items
+
+
+def _days_between(earlier: str, later: str) -> int | None:
+    """Whole days between two GitHub ISO-8601 timestamps."""
+    from datetime import datetime
+
+    try:
+        a = datetime.fromisoformat(earlier.replace("Z", "+00:00"))
+        b = datetime.fromisoformat(later.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return max(0, (b - a).days)
+
+
+def _utc_now_iso() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _find_hold_onset(
+    repo: str, workflow_id: Any, token: str, max_pages: int = 10
+) -> tuple[int, str | None, bool]:
+    """Walk back to the newest run that actually executed.
+
+    Returns ``(consecutive_held, onset, truncated)``. The streak routinely
+    exceeds one page: a workflow triggered hourly discards 20 runs in under a
+    day, so reading the onset off a single sample page reports a three-week
+    outage as hours old - which is the same silence this sweep exists to break.
+    ``truncated`` means the streak outran ``max_pages``, so the onset is a lower
+    bound rather than the real one.
+    """
+    streak = 0
+    onset: str | None = None
+    for page in range(1, max_pages + 1):
+        payload = _gh_api(
+            f"repos/{repo}/actions/workflows/{workflow_id}/runs?per_page=100&page={page}",
+            token,
+        )
+        runs = payload.get("workflow_runs", [])
+        if not isinstance(runs, list) or not runs:
+            return streak, onset, False
+        for run in runs:
+            if not isinstance(run, dict) or run.get("conclusion") != HELD_RUN_CONCLUSION:
+                return streak, onset, False
+            streak += 1
+            created = str(run.get("created_at") or "").strip()
+            if created:
+                onset = created
+        if len(runs) < 100:
+            return streak, onset, False
+    return streak, onset, True
+
+
+def sweep_repository(
+    repo: str,
+    token: str,
+    sample: int = 20,
+    threshold: float = 0.9,
+    min_runs: int = 5,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Report workflows in ``repo`` whose recent history is dominated by holds.
+
+    A workflow is held when at least ``min_runs`` runs were sampled and the held
+    share reaches ``threshold``. The newest held run is confirmed to have zero
+    jobs, which is what separates this class from a deployment-approval gate.
+    """
+    workflows = _iter_paginated(f"repos/{repo}/actions/workflows", "workflows", token)
+    held: list[dict[str, Any]] = []
+    scanned = 0
+
+    for workflow in workflows:
+        workflow_id = workflow.get("id")
+        if workflow_id is None or workflow.get("state") != "active":
+            continue
+        path = str(workflow.get("path") or "")
+        if not path.startswith(".github/workflows/"):
+            continue
+        scanned += 1
+
+        payload = _gh_api(
+            f"repos/{repo}/actions/workflows/{workflow_id}/runs?per_page={sample}", token
+        )
+        runs = payload.get("workflow_runs", [])
+        if not isinstance(runs, list) or len(runs) < min_runs:
+            continue
+        held_runs = [
+            r for r in runs if isinstance(r, dict) and r.get("conclusion") == HELD_RUN_CONCLUSION
+        ]
+        if len(held_runs) / len(runs) < threshold:
+            continue
+
+        newest = held_runs[0]
+        run_id = newest.get("id")
+        jobs_payload = _gh_api(f"repos/{repo}/actions/runs/{run_id}/jobs", token)
+        jobs = jobs_payload.get("jobs", [])
+        if isinstance(jobs, list) and jobs:
+            # Jobs exist, so this is a deployment/environment gate, not the
+            # zero-job protection hold this sweep exists to surface.
+            continue
+
+        classification = _classify_zero_job_approval_hold(repo, int(run_id), newest)
+        streak, onset, truncated = _find_hold_onset(repo, workflow_id, token)
+        reference = now or _utc_now_iso()
+        held.append(
+            {
+                "repo": repo,
+                "workflow": path,
+                "name": workflow.get("name"),
+                "held_runs_sampled": len(held_runs),
+                "runs_sampled": len(runs),
+                "consecutive_held": streak,
+                "onset": onset,
+                "onset_truncated": truncated,
+                "days_held": _days_between(onset, reference) if onset else None,
+                "newest_held_run": run_id,
+                "suspected_root_cause": classification["suspected_root_cause"],
+                "drainable_by_api": classification["suspected_root_cause"] in DRAINABLE_ROOT_CAUSES,
+                "approval_url": classification["approval_url"],
+                "remediation": classification["remediation"],
+            }
+        )
+
+    return {"repo": repo, "workflows_scanned": scanned, "held": held}
+
+
+def sweep(
+    repos: list[str],
+    token: str | None = None,
+    sample: int = 20,
+    threshold: float = 0.9,
+    min_runs: int = 5,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Sweep every repository and aggregate the blocking/drainable pair."""
+    auth = token or _github_token()
+    repo_reports = [
+        sweep_repository(repo, auth, sample=sample, threshold=threshold, min_runs=min_runs, now=now)
+        for repo in repos
+    ]
+    held = [h for report in repo_reports for h in report["held"]]
+    drainable = [h for h in held if h["drainable_by_api"]]
+    oldest = None
+    for entry in held:
+        if entry["days_held"] is None:
+            continue
+        if oldest is None or entry["days_held"] > oldest["days_held"]:
+            oldest = entry
+    return {
+        "repos": repos,
+        "workflows_scanned": sum(r["workflows_scanned"] for r in repo_reports),
+        "held_count": len(held),
+        "drainable_count": len(drainable),
+        "held_runs_discarded": sum(h["consecutive_held"] for h in held),
+        "oldest_hold": oldest,
+        "held": held,
+        "per_repo": [
+            {"repo": r["repo"], "workflows_scanned": r["workflows_scanned"], "held": len(r["held"])}
+            for r in repo_reports
+        ],
+    }
+
+
+def format_sweep_summary(report: dict[str, Any]) -> str:
+    """One line carrying the blocking quantity and the drainable quantity.
+
+    Printed on green runs too, so a passing sweep always states what it checked.
+    """
+    held = report["held_count"]
+    drainable = report["drainable_count"]
+    scanned = report["workflows_scanned"]
+    if not held:
+        return f"workflow liveness: 0 held / {scanned} active workflows scanned - all executing"
+    oldest = report["oldest_hold"]
+    tail = ""
+    if oldest:
+        prefix = ">=" if oldest["onset_truncated"] else ""
+        tail = (
+            f"; oldest {prefix}{oldest['days_held']}d " f"({oldest['workflow'].rsplit('/', 1)[-1]})"
+        )
+    remedy = "web approval required" if drainable < held else "REST approval available"
+    return (
+        f"workflow liveness: {held} held / {drainable} clearable by API - {remedy}"
+        f"{tail}; {report['held_runs_discarded']} runs discarded; "
+        f"{scanned} active workflows scanned"
+    )
+
+
 def _classify_startup_failure(summary: str, title: str, text: str) -> tuple[str, str]:
     """Best-effort classification for parse-time startup failures."""
     blob = "\n".join((title, summary, text)).lower()
@@ -194,14 +424,122 @@ def _guess_parse_cause(blob: str) -> str:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo", required=True, help="Repository in owner/name format")
-    parser.add_argument("--run-id", required=True, type=int, help="Workflow run ID")
+    parser.add_argument("--repo", help="Repository in owner/name format")
+    parser.add_argument("--run-id", type=int, help="Workflow run ID (single-run mode)")
+    parser.add_argument(
+        "--sweep",
+        action="store_true",
+        help="Sweep every active workflow for zero-job action_required holds",
+    )
+    parser.add_argument(
+        "--repos",
+        default="",
+        help="Comma-separated extra repositories to include in the sweep",
+    )
+    parser.add_argument("--sample", type=int, default=20, help="Runs sampled per workflow")
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.9,
+        help="Held share of sampled runs before a workflow counts as held",
+    )
+    parser.add_argument(
+        "--min-runs", type=int, default=5, help="Minimum sampled runs before judging a workflow"
+    )
+    parser.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Exit 0 even when holds are found (sweep mode)",
+    )
     return parser
+
+
+def _sweep_repos(args: argparse.Namespace) -> list[str]:
+    repos = [args.repo] if args.repo else []
+    repos += [r.strip() for r in str(args.repos or "").split(",") if r.strip()]
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for repo in repos:
+        if repo not in seen:
+            seen.add(repo)
+            ordered.append(repo)
+    return ordered
+
+
+def _run_sweep(args: argparse.Namespace) -> int:
+    repos = _sweep_repos(args)
+    if not repos:
+        print(
+            "workflow_startup_failure_diagnostic: --sweep needs --repo and/or --repos",
+            file=sys.stderr,
+        )
+        return 1
+    report = sweep(
+        repos,
+        sample=args.sample,
+        threshold=args.threshold,
+        min_runs=args.min_runs,
+    )
+    summary = format_sweep_summary(report)
+    print(summary)
+    for entry in report["held"]:
+        print(
+            f"  HELD {entry['repo']} {entry['workflow']}"
+            f" - {entry['consecutive_held']} consecutive held runs,"
+            f" {'>=' if entry['onset_truncated'] else ''}{entry['days_held']}d,"
+            f" {entry['suspected_root_cause']}"
+            f" -> {entry['approval_url']}"
+        )
+    print(json.dumps(report, indent=2))
+    _write_step_summary(summary, report)
+    if report["held_count"] and not args.report_only:
+        return 1
+    return 0
+
+
+def _write_step_summary(summary: str, report: dict[str, Any]) -> None:
+    """Mirror the sweep verdict into the Actions step summary when present."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    lines = [f"### Workflow liveness sweep\n\n{summary}\n"]
+    if report["held"]:
+        lines.append(
+            "\n| repo | workflow | held/sampled | days | cause | approve |\n"
+            "|---|---|---|---|---|---|\n"
+        )
+        for entry in report["held"]:
+            lines.append(
+                f"| {entry['repo']} | `{entry['workflow'].rsplit('/', 1)[-1]}` |"
+                f" {entry['held_runs_sampled']}/{entry['runs_sampled']} |"
+                f" {'&ge;' if entry['onset_truncated'] else ''}{entry['days_held']} |"
+                f" {entry['suspected_root_cause']} |"
+                f" [run]({entry['approval_url']}) |\n"
+            )
+        lines.append(
+            "\nNo REST endpoint clears an unproven-workflow hold. Use **Approve and "
+            "run** in an authenticated web session; this sweep never approves.\n"
+        )
+    try:
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write("".join(lines))
+    except OSError:
+        pass
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    if args.sweep:
+        try:
+            return _run_sweep(args)
+        except (subprocess.CalledProcessError, ValueError, json.JSONDecodeError) as exc:
+            print(f"workflow_startup_failure_diagnostic: {exc}", file=sys.stderr)
+            return 1
+
+    if not args.repo or args.run_id is None:
+        parser.error("--repo and --run-id are required unless --sweep is given")
 
     try:
         report = diagnose_startup_failure(args.repo, args.run_id)
