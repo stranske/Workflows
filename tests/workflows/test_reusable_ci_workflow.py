@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
+import pytest
 import yaml
 
 WORKFLOW_PATH = Path(".github/workflows/reusable-10-ci-python.yml")
@@ -400,3 +403,231 @@ def test_working_directory_propagates_to_steps() -> None:
 
     coverage_upload = next(step for step in steps if step.get("name") == "Upload coverage artifact")
     assert coverage_upload["with"]["path"] == "${{ env.PROJECT_ROOT }}/artifacts/coverage"
+
+
+# --- Coverage config / editable-install gating -----------------------------
+#
+# Regression cover for a pair of mutually exclusive assumptions: the pytest
+# step used to pass --cov-config=pyproject.toml unconditionally (fatal for a
+# consumer without that file), while the install steps treated the mere
+# presence of pyproject.toml as proof of an installable distribution. A
+# non-package consumer could satisfy neither, so `coverage: true` was unusable.
+
+_ARGS_START = 'args=("--junitxml=pytest-junit.xml")'
+_PREDICATE_START = "pyproject_declares_distribution() {"
+_EDITABLE_SPEC = "specs+=('-e' '.[app,dev]')"
+
+
+def _install_steps() -> list[dict]:
+    workflow = _load_workflow()
+    steps = [
+        step
+        for job in workflow["jobs"].values()
+        for step in (job.get("steps") or [])
+        if step.get("name") == "Install dependencies"
+    ]
+    assert len(steps) == 4, f"expected 4 install steps, found {len(steps)}"
+    return steps
+
+
+def _pytest_step_script() -> str:
+    workflow = _load_workflow()
+    steps = workflow["jobs"]["tests"]["steps"]
+    step = next(s for s in steps if s.get("name") == "Pytest (unit tests with coverage)")
+    return step["run"]
+
+
+def _block(script: str, opener: str, terminator: str) -> str:
+    """Extract the shell block starting at `opener`, up to its matching terminator.
+
+    Matching is by indentation rather than by a literal end marker, so the block
+    survives reformatting of its interior. YAML block scalars arrive dedented.
+    """
+    lines = script.splitlines()
+    starts = [n for n, line in enumerate(lines) if line.strip().startswith(opener)]
+    assert starts, f"no line starting {opener!r} in step script"
+    start = starts[0]
+    indent = len(lines[start]) - len(lines[start].lstrip())
+    for n in range(start + 1, len(lines)):
+        line = lines[n]
+        if not line.strip():
+            continue
+        if (len(line) - len(line.lstrip())) == indent and line.strip() == terminator:
+            return textwrap.dedent("\n".join(lines[start : n + 1]))
+    raise AssertionError(f"unterminated {opener!r} block (expected {terminator!r})")
+
+
+def _coverage_arg_script() -> str:
+    """The shipped coverage-arg builder, wrapped so it prints the args it built."""
+    script = _pytest_step_script()
+    assert _ARGS_START in script, "pytest step no longer seeds args the expected way"
+    block = _block(script, 'if [ "${COVERAGE_ENABLED}" = "true" ]; then', "fi")
+    assert "--cov" in block, "coverage conditional no longer builds coverage args"
+    return (
+        "set -euo pipefail\n"
+        + _ARGS_START
+        + "\n"
+        + block
+        + '\nif [ ${#args[@]} -gt 0 ]; then printf "%s\\n" "${args[@]}"; fi\n'
+    )
+
+
+def _built_coverage_args(cwd: Path, coverage_enabled: str = "true") -> list[str]:
+    result = subprocess.run(
+        ["bash", "-c", _coverage_arg_script()],
+        cwd=cwd,
+        env={"PATH": os.environ["PATH"], "COVERAGE_ENABLED": coverage_enabled},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.split()
+
+
+def _predicate_definition() -> str:
+    """The shipped pyproject_declares_distribution helper."""
+    script = _install_steps()[0]["run"]
+    assert _PREDICATE_START in script, "install step no longer defines the predicate"
+    return _block(script, _PREDICATE_START, "}")
+
+
+def _predicate_script() -> str:
+    return _predicate_definition() + "\npyproject_declares_distribution\n"
+
+
+def test_coverage_args_omit_cov_config_when_pyproject_absent(tmp_path: Path) -> None:
+    """A consumer with no pyproject.toml must fall back to coverage's discovery."""
+    absent = tmp_path / "absent"
+    absent.mkdir()
+    args = _built_coverage_args(absent)
+    assert "--cov" in args
+    assert not any(a.startswith("--cov-config") for a in args), args
+    # Reporting is unaffected by the guard.
+    assert "--cov-report=xml:coverage.xml" in args
+
+    present = tmp_path / "present"
+    present.mkdir()
+    (present / "pyproject.toml").write_text(
+        "[tool.coverage.run]\nbranch = true\n", encoding="utf-8"
+    )
+    assert "--cov-config=pyproject.toml" in _built_coverage_args(present)
+
+    # Coverage disabled: no coverage args at all, with or without the file.
+    assert _built_coverage_args(present, "false") == ["--junitxml=pytest-junit.xml"]
+
+
+def test_pytest_collects_with_coverage_and_no_pyproject(tmp_path: Path) -> None:
+    """End-to-end: the built args must let pytest actually collect and run.
+
+    Before the fix this died with
+    `coverage.exceptions.ConfigError: Couldn't read 'pyproject.toml' as a
+    config file` for every test on every matrix runtime.
+    """
+    pytest.importorskip("pytest_cov", reason="pytest-cov not installed in this environment")
+
+    consumer = tmp_path / "flat-module-consumer"
+    consumer.mkdir()
+    # Mirrors a non-package consumer: flat root modules, no build backend.
+    (consumer / "thing.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    (consumer / "test_thing.py").write_text(
+        "from thing import add\n\n\ndef test_add():\n    assert add(1, 2) == 3\n",
+        encoding="utf-8",
+    )
+    assert not (consumer / "pyproject.toml").exists()
+
+    args = _built_coverage_args(consumer)
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", *args, "-p", "no:cacheprovider", "-q"],
+        cwd=consumer,
+        env={**os.environ, "PYTHONPATH": str(consumer)},
+        capture_output=True,
+        text=True,
+    )
+    combined = result.stdout + result.stderr
+    assert "ConfigError" not in combined, combined
+    assert result.returncode == 0, combined
+    assert (consumer / "coverage.xml").is_file(), "coverage report should still be produced"
+
+
+def test_pyproject_declares_distribution_requires_real_metadata(tmp_path: Path) -> None:
+    """Only a pyproject that declares a distribution should mean "installable"."""
+    probe = _predicate_script()
+
+    def declares(name: str, content: str | None) -> bool:
+        case = tmp_path / name
+        case.mkdir()
+        if content is not None:
+            (case / "pyproject.toml").write_text(content, encoding="utf-8")
+        return subprocess.run(["bash", "-c", probe], cwd=case).returncode == 0
+
+    # Not a distribution.
+    assert not declares("missing", None)
+    assert not declares("config-only", "[tool.coverage.run]\nbranch = true\n")
+    assert not declares(
+        "tool-only", "[tool.ruff]\nline-length = 88\n\n[tool.mypy]\nstrict = true\n"
+    )
+
+    # Genuine distributions, in each form the fleet uses.
+    assert declares("pep621", '[project]\nname = "demo"\nversion = "0.1.0"\n')
+    assert declares("backend-only", '[build-system]\nrequires = ["setuptools"]\n')
+    assert declares("poetry", '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n')
+    # Whitespace and trailing comments are still table headers.
+    assert declares("spaced", "  [ project ]  # metadata\nname = 'demo'\n")
+    # A [project] mention that is not a table header must not count.
+    assert not declares(
+        "mention",
+        '[tool.coverage.run]\nomit = ["[project]"]\n',
+    )
+
+
+def test_all_install_steps_gate_editable_install_on_distribution_metadata() -> None:
+    """All four install steps must share the gate, not just the tests job.
+
+    Fixing one leaves lint/format/mypy still failing for the same consumer.
+    """
+    for step in _install_steps():
+        script = step["run"]
+        assert _PREDICATE_START in script, "install step lost the distribution predicate"
+        assert "if pyproject_declares_distribution" in script
+        # The bare filename gate must not survive anywhere near the editable install.
+        assert "if [ -f pyproject.toml ]; then\n            specs+=" not in script
+        assert "if [ -f pyproject.toml ]; then\n              specs+=" not in script
+
+
+def test_config_only_pyproject_does_not_request_editable_install(tmp_path: Path) -> None:
+    """The gate's actual effect on the install spec list."""
+    script = _install_steps()[-1]["run"]
+    gate = _block(script, "if pyproject_declares_distribution", "fi")
+    assert _EDITABLE_SPEC in gate, "gate no longer guards the editable install"
+
+    probe = (
+        "set -euo pipefail\n"
+        + _predicate_definition()
+        + "\nspecs=()\n"
+        + gate
+        + '\nif [ ${#specs[@]} -gt 0 ]; then printf "%s\\n" "${specs[@]}"; fi\n'
+    )
+
+    def specs_for(name: str, files: dict[str, str]) -> list[str]:
+        case = tmp_path / name
+        case.mkdir()
+        for fname, content in files.items():
+            (case / fname).write_text(content, encoding="utf-8")
+        result = subprocess.run(["bash", "-c", probe], cwd=case, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        return result.stdout.split()
+
+    assert (
+        specs_for("config-only", {"pyproject.toml": "[tool.coverage.run]\nbranch = true\n"}) == []
+    )
+    assert specs_for("nothing", {}) == []
+    # Still installs where it should.
+    assert specs_for("pep621", {"pyproject.toml": '[project]\nname = "d"\nversion = "1"\n'}) == [
+        "-e",
+        ".[app,dev]",
+    ]
+    # A config-only pyproject alongside a legacy setup.py is still a package.
+    assert specs_for(
+        "legacy",
+        {"pyproject.toml": "[tool.coverage.run]\nbranch = true\n", "setup.py": "pass\n"},
+    ) == ["-e", ".[app,dev]"]
