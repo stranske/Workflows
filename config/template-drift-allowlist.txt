@@ -4,19 +4,6 @@
 # If either file changes, the fingerprint no longer matches and Health 74 fails
 # until the template is aligned or this baseline is deliberately re-reviewed.
 #
-# 2026-08-23 re-baseline: refreshed the consumer template fingerprints for
-# auto-label, capability-check, decompose and dedup after each guarded its
-# editable install on a packaging file existing, with a tools/requirements-llm.txt
-# fallback. A consumer need not be an installable package (the template ships no
-# pyproject.toml), so `pip install -e ".[langchain]"` exited 1 on one -- the same
-# defect that made the backplane-conformance stub a hard red gate instead of the
-# opt-in skip its own header promises. Deliberately NOT applied to the root
-# workflows: this repo has a pyproject.toml declaring a langchain extra, so the
-# guard's first branch always fires there and the install already works. The
-# consumer-only guard is enforced by
-# tests/workflows/test_consumer_template_pip_install_guard.py, so a wholesale
-# align cannot silently strip it.
-#
 # 2026-07-24b re-baseline: fingerprints regenerated after check_template_drift.py
 # gained action-pin canonicalization (uses:<action>@<ref> collapses to @<pinned>).
 # From here, Renovate action-pin bumps and the intentional pinned-vs-floating
@@ -86,35 +73,35 @@ main = .github/workflows/agents-auto-label.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
 main_sha256 = 84edb688a3f3629e206432bc63a891f7b7b6e8737d53044ddecce50f97f64231
 template_sha256 = 7ca1550aa40b09a0c3f42d2ce3450551008aec62ed8dc94b6dc59a98bff16c78
-reason = Fingerprints refreshed 2026-08-23: both surfaces now pass the named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer so it introduces no new divergence. That removal is what cleared GitHub's suspicious-workflow hold on agents-dedup (#3185), which then ran at run_attempt 1 with nothing approved after 22 days held. Underlying divergence unchanged: Fingerprints refreshed 2026-08-23: the consumer template now guards its editable install on a packaging file existing, falling back to tools/requirements-llm.txt, because a consumer need not be an installable package (the template ships no pyproject.toml) and `pip install -e ".[langchain]"` exited 1 on such a repo - see stranske/Orchestrator, 128 flat root modules with no pyproject.toml/setup.py/setup.cfg. Consumer-only by design, so NOT applied to root: this repo has a pyproject.toml declaring a langchain extra, where the guard's first branch always fires and the install already works. Enforced by tests/workflows/test_consumer_template_pip_install_guard.py, which fails if the guard is stripped from the template - including by a wholesale align. Underlying divergence unchanged: intentional divergence updated 2026-08-05: root and consumer workflows both isolate the eligibility sparse checkout under eligibility-source/ while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
+reason = Intentional divergence updated 2026-08-05: root and consumer workflows both isolate the eligibility sparse checkout under eligibility-source/ while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
 
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-autofix-dispatcher.yml
 main_sha256 = d50546b43254e3374d53a8efb27b3f47efbddce20ae4511579a103bd6ca1e27c
 template_sha256 = 533b0f2241708e39e97de00bbae0795b7f9d95f32d9337e0ddcf51ed4fa4c76b
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence re-reviewed 2026-08-23: the Workflows-local dispatcher resolves and invokes the in-repository reusable autofix surface, while the consumer wrapper uses the published Workflows workflow with pinned actions and consumer secret wiring. Do not align wholesale because that would remove the consumer deployment contract.
 
 [pair.7]
 main = .github/workflows/agents-capability-check.yml
 template = templates/consumer-repo/.github/workflows/agents-capability-check.yml
 main_sha256 = 6a31f201710befd79283a59228524d279345f3b3351aa1e5bdf373da770590a3
 template_sha256 = 92a2ab44ada9e1e5238f8117071df1b86f4c5b300a086b3c970bda623076b9cd
-reason = Fingerprints refreshed 2026-08-23: the consumer template now guards its editable install on a packaging file existing, falling back to tools/requirements-llm.txt, because a consumer need not be an installable package (the template ships no pyproject.toml) and `pip install -e ".[langchain]"` exited 1 on such a repo - see stranske/Orchestrator, 128 flat root modules with no pyproject.toml/setup.py/setup.cfg. Consumer-only by design, so NOT applied to root: this repo has a pyproject.toml declaring a langchain extra, where the guard's first branch always fires and the install already works. Enforced by tests/workflows/test_consumer_template_pip_install_guard.py, which fails if the guard is stripped from the template - including by a wholesale align. Underlying divergence unchanged: intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
+reason = Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
 
 [pair.8]
 main = .github/workflows/agents-decompose.yml
 template = templates/consumer-repo/.github/workflows/agents-decompose.yml
 main_sha256 = 03bf9ec09953e0b1298783b1d14f030fefd40f00a61caf404cf0b562297a1e82
 template_sha256 = 8964f9a4cdb6ffd724cba533befd09ba30336b4d9d2b3047351d045a39ed5949
-reason = Fingerprints refreshed 2026-08-23: the consumer template now guards its editable install on a packaging file existing, falling back to tools/requirements-llm.txt, because a consumer need not be an installable package (the template ships no pyproject.toml) and `pip install -e ".[langchain]"` exited 1 on such a repo - see stranske/Orchestrator, 128 flat root modules with no pyproject.toml/setup.py/setup.cfg. Consumer-only by design, so NOT applied to root: this repo has a pyproject.toml declaring a langchain extra, where the guard's first branch always fires and the install already works. Enforced by tests/workflows/test_consumer_template_pip_install_guard.py, which fails if the guard is stripped from the template - including by a wholesale align. Underlying divergence unchanged: intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
+reason = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
 
 [pair.9]
 main = .github/workflows/agents-dedup.yml
 template = templates/consumer-repo/.github/workflows/agents-dedup.yml
 main_sha256 = 95d9d1c0acd6fbc143b1eb56e0c0741be370b2ab8853ed660ac1249821ea41dd
 template_sha256 = aa6c161b640eb303df8d47bc4d85535210f9cc7a49e4f165059432d6f0106bd2
-reason = Fingerprints refreshed 2026-08-23: the consumer template now guards its editable install on a packaging file existing, falling back to tools/requirements-llm.txt, because a consumer need not be an installable package (the template ships no pyproject.toml) and `pip install -e ".[langchain]"` exited 1 on such a repo - see stranske/Orchestrator, 128 flat root modules with no pyproject.toml/setup.py/setup.cfg. Consumer-only by design, so NOT applied to root: this repo has a pyproject.toml declaring a langchain extra, where the guard's first branch always fires and the install already works. Enforced by tests/workflows/test_consumer_template_pip_install_guard.py, which fails if the guard is stripped from the template - including by a wholesale align. Underlying divergence unchanged: intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
+reason = Intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
 
 [pair.10]
 main = .github/workflows/agents-guard.yml
@@ -128,7 +115,7 @@ main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
 main_sha256 = 6f27295c98bd7d94f1768b7036718c7331bbea281fd67faf4c110fe32da52696
 template_sha256 = 1754c7ce1a227199af13bb746d80e506442d0e2572879f2fdfba284a88845238
-reason = Fingerprints refreshed 2026-08-23: both surfaces now pass the named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer so it introduces no new divergence. That removal is what cleared GitHub's suspicious-workflow hold on agents-dedup (#3185), which then ran at run_attempt 1 with nothing approved after 22 days held. Underlying divergence unchanged: Fingerprints refreshed 2026-08-23: both surfaces now read the issue number from the step-level EVENT_ISSUE_NUMBER env var instead of interpolating ${{ github.event.issue.number }} into the run: body, removing a template-injection surface of the same shape that caused agents-71-codex-belt-dispatcher to be blocked as possibly malicious in consumer repos (#3127, 2026-08-16). Applied identically to root and consumer, so it introduces no new divergence. Underlying divergence unchanged: Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes live format eligibility checks, format-lease release when those checks skip work, checkout-aware path validation, explicit guard retry dispatch, and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
+reason = Fingerprints refreshed 2026-08-23: both surfaces now read the issue number from the step-level EVENT_ISSUE_NUMBER env var instead of interpolating ${{ github.event.issue.number }} into the run: body, removing a template-injection surface of the same shape that caused agents-71-codex-belt-dispatcher to be blocked as possibly malicious in consumer repos (#3127, 2026-08-16). Applied identically to root and consumer, so it introduces no new divergence. Underlying divergence unchanged: Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes live format eligibility checks, format-lease release when those checks skip work, checkout-aware path validation, explicit guard retry dispatch, and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
@@ -149,7 +136,7 @@ main = .github/workflows/agents-verifier.yml
 template = templates/consumer-repo/.github/workflows/agents-verifier.yml
 main_sha256 = 5e1cb04f45d27ccd30395eb804203677db130c7f1bcabf8054d80cb22c189e97
 template_sha256 = 9c803d40ce8b26f4450a60d6f821eb2cadbd59c42b47259d3394ad1d932fee0f
-reason = Existing reviewed baseline drift; align the template or update this fingerprint deliberately.
+reason = Intentional divergence re-reviewed 2026-08-23: the Workflows verifier retains its local corpus and provider plumbing, while the consumer verifier calls the distributed surface with consumer-specific action pins and token setup. Do not align wholesale because those execution environments are intentionally different.
 
 [pair.15]
 main = .github/workflows/agents-weekly-metrics.yml
@@ -164,3 +151,31 @@ template = templates/consumer-repo/.github/workflows/agents-auto-pilot.yml
 main_sha256 = 68e132fb70a176cbfab05714eb828f3debcde9326d5fcf1cf5a667d0a2675e0d
 template_sha256 = 843461352cf105f1e6bc0f50c60403f08fe4100fc529b1b301579306343d80a9
 reason = Fingerprints refreshed 2026-08-23: both surfaces now pass the named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer so it introduces no new divergence. That removal is what cleared GitHub's suspicious-workflow hold on agents-dedup (#3185), which then ran at run_attempt 1 with nothing approved after 22 days held. Underlying divergence unchanged: Intentional divergence reviewed 2026-08-21: the Workflows-local auto-pilot retains Workflows-only PR-meta and keepalive fallbacks, while the consumer template dispatches only the consolidated Agents 80 and Agents 81 entry points. The sync manifest delivers the consumer-specific template so retired Workflows-local targets cannot be restored in consumer repositories.
+
+[pair.17]
+main = .github/workflows/autofix.yml
+template = templates/consumer-repo/.github/workflows/autofix.yml
+main_sha256 = 81f2268c29cc8b5da388a44eab46a8613df153d9e4e83449ab3a5070c03558a7
+template_sha256 = 88cf48708d972137ef8e9fb3efc2323ee93c8cab16eaba0fc22c8c11ea6695c4
+reason = Intentional divergence reviewed 2026-08-23: the Workflows source runs its local reusable autofix workflow and uses the repository's CI concurrency/context contract; the consumer template calls the published reusable workflow with SHA-pinned actions, SERVICE_BOT_PAT, and workflow-run PR context recovery. Do not align wholesale because the consumer is a deployable wrapper rather than the source implementation.
+
+[pair.18]
+main = .github/workflows/maint-coverage-guard.yml
+template = templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
+main_sha256 = 3b08ecd7c98a8c0f9281136be6013f3602faecf07adc90ee38687f990fc7ffa6
+template_sha256 = e7badb31c3a806d89cbf4a3d87368e0f98785683f901cf0130f64e1c000fdb1a
+reason = Intentional divergence reviewed 2026-08-23: Workflows uses its local artifact-cache action and helper sparse checkout, while consumers mint an App token and download coverage artifacts through pinned public actions. The artifact retrieval routes are deliberately different because consumers cannot rely on Workflows-local actions.
+
+[pair.19]
+main = .github/workflows/pr-00-gate.yml
+template = templates/consumer-repo/.github/workflows/pr-00-gate.yml
+main_sha256 = b10972cc49cce6879f6ccd70af19343ab40330572c5c0003a7140350c87c9a4e
+template_sha256 = ae8266ef5429f5ef5f0982292dd8fd3572358352e285976fe006011d5926f2c5
+reason = Intentional divergence reviewed 2026-08-23: the source Gate runs Workflows-only package, ledger, and diff-quality jobs with local reusable workflows; the consumer Gate uses published reusable workflows, pinned actions, and skips unavailable Workflows-local deliberate-break helpers. The consumer template must remain a bootstrap-safe deployment surface.
+
+[pair.20]
+main = .github/workflows/reusable-pr-context.yml
+template = templates/consumer-repo/.github/workflows/reusable-pr-context.yml
+main_sha256 = 34f19d0bc75d0b3dbf4d897d38a45ccc20a453a3467c930cb749b6881cfe724f
+template_sha256 = d4ac61af664ce7330a019ce09b2db451e234ebc9b720827320f1c2db32e35eb5
+reason = Intentional divergence reviewed 2026-08-23: Workflows keeps local setup-api-client, cancellation, and full multi-agent label detection; the consumer uses pinned actions, App-token setup, and only the consumer-supported routing labels. These execution contexts are intentionally not byte-identical.

@@ -207,7 +207,7 @@ def discover_workflow_pairs(repo_root: Path) -> list[WorkflowPair]:
 
     pairs: dict[tuple[str, str], WorkflowPair] = {}
 
-    for main_path in sorted(main_dir.glob("agents-*.yml")):
+    for main_path in sorted(main_dir.glob("*.yml")):
         template_name = WORKFLOW_ALIAS_MAPPINGS.get(main_path.name, main_path.name)
         template_path = template_dir / template_name
         if (

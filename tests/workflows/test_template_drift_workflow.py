@@ -9,6 +9,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "health-74-template-drift.yml"
 
 
+def test_template_drift_workflow_triggers_on_all_root_workflows() -> None:
+    source = WORKFLOW.read_text(encoding="utf-8")
+    assert ".github/workflows/*.yml" in source
+    assert "agents-*.yml" not in source
+
+
 def test_template_drift_workflow_installs_pyyaml_before_checker() -> None:
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     steps = workflow["jobs"]["check-drift"]["steps"]
