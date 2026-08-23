@@ -164,8 +164,12 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
 
 
@@ -382,8 +386,12 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Run agent preflight probes
         id: agent_preflight
@@ -591,8 +599,12 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Token / Env Probe
         shell: bash
@@ -1055,8 +1067,12 @@ jobs:
       - name: Setup API client
         uses: ./workflows-lib/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
       - name: Set scripts path
         run: |

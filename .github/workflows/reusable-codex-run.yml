@@ -358,7 +358,7 @@ jobs:
           workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
           workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           workflows_ref: ${{ inputs.workflows_ref }}
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
           runner_mode: ${{ inputs.mode }}
           runner_pr_number: ${{ inputs.pr_number }}
@@ -434,8 +434,10 @@ jobs:
       - name: Setup Workflows API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           install_dir: ${{ github.workspace }}/.workflows-lib/.github/scripts
 
       - name: Validate workflows tooling
