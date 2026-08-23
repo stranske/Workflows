@@ -79,6 +79,6 @@ def test_manifest_issue_references_are_open() -> None:
                     f"timed out checking manifest issue #{issue_number}: {line.strip()}",
                     pytrace=False,
                 )
-            assert result.stdout.strip() == "OPEN", (
-                f"manifest references closed issue #{issue_number}: {line.strip()}"
-            )
+            assert (
+                result.stdout.strip() == "OPEN"
+            ), f"manifest references closed issue #{issue_number}: {line.strip()}"

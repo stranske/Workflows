@@ -43,8 +43,7 @@ template = legacy-template.yml
 main_sha256 = main-legacy
 template_sha256 = template-legacy
 reason = legacy rationale
-""".strip()
-        + "\n",
+""".strip() + "\n",
         encoding="utf-8",
     )
 
