@@ -14,6 +14,12 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.list_registered_consumer_repos import extract_repos  # noqa: E402
+
 SCHEMA_VERSION = "langsmith-fleet/v1"
 SCHEMA_PATH = Path("docs/contracts/schemas/langsmith-fleet-v1.schema.json")
 REGISTRY_SCHEMA_VERSION = "langsmith-fleet-registry/v1"
@@ -29,22 +35,11 @@ PAUSE_METADATA_FIELDS = (
     "resume_condition",
     "review_by",
 )
-MANAGED_CONSUMER_REPOS = {
-    "stranske/Travel-Plan-Permission",
-    "stranske/Template",
-    "stranske/Counter_Risk",
-    "stranske/Pension-Data",
-    "stranske/Inv-Man-Intake",
-    "stranske/Ready",
-    "stranske/trip-planner",
-    "stranske/Manager-Database",
-    "stranske/Portable-Alpha-Extension-Model",
-    "stranske/Trend_Model_Project",
-    "stranske/Collab-Admin",
-    "stranske/learning-management-system",
-    "stranske/Fine-Art-Archive",
-    "stranske/Orchestrator",
-}
+MANAGED_CONSUMER_REPOS = set(
+    extract_repos(
+        Path(__file__).resolve().parents[1] / ".github/workflows/maint-68-sync-consumer-repos.yml"
+    )
+)
 REQUIRED_ACTIVE_REPO_ISSUES = {
     "stranske/trip-planner": 1208,
     "stranske/Pension-Data": 445,

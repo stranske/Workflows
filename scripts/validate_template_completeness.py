@@ -26,12 +26,10 @@ WORKFLOWS_ONLY = {
     # Maintenance workflows specific to Workflows repo
     "maint-52-sync-dev-versions.yml",
     "maint-68-sync-consumer-repos.yml",
-    "maint-post-ci.yml",
     # Health checks specific to Workflows repo
     "health-68-consumer-sync-drift.yml",
     "health-70-validate-sync-manifest.yml",
     "health-71-sync-health-check.yml",
-    "health-72-template-lint.yml",
     "health-75-api-rate-diagnostic.yml",
     "health-76-codex-cli-freshness.yml",
     # Debug/testing workflows
@@ -41,12 +39,11 @@ WORKFLOWS_ONLY = {
     "agents-keepalive-branch-sync.yml",
     "agents-keepalive-dispatch-handler.yml",
     # Workflows repo specific features
-    "agents-weekly-metrics.yml",
     "agents-moderate-connector.yml",
     # Older versions superseded in consumer repos
     "agents-63-issue-intake.yml",  # consumers have agents-issue-intake.yml
     "agents-64-verify-agent-assignment.yml",  # verification is different
-    "agents-70-orchestrator.yml",  # consumers have agents-orchestrator.yml
+    "agents-70-orchestrator.yml",  # retired from consumers; agents-80/81 replace it
     "agents-pr-meta-v4.yml",  # consumers have agents-80-pr-event-hub.yml
     # First-party workflows retained in Workflows; consumer templates use
     # agents-80-pr-event-hub.yml and agents-81-gate-followups.yml instead.
@@ -59,7 +56,6 @@ WORKFLOWS_ONLY = {
     "reusable-codex-run.yml",
     "reusable-10-ci-python.yml",
     "reusable-18-autofix.yml",
-    "reusable-pr-context.yml",
 }
 
 
