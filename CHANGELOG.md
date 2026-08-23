@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.0](https://github.com/stranske/Workflows/compare/v1.29.1...v1.30.0) (2026-08-23)
+
+
+### Features
+
+* **liveness:** auto-review each hold, run daily, and survive the API ([#3196](https://github.com/stranske/Workflows/issues/3196)) ([3c3104a](https://github.com/stranske/Workflows/commit/3c3104a5d54b285ad434bb7c60b668bafa8a5bfe))
+
+
+### Bug Fixes
+
+* **agents-dedup,health-42:** two bugs the holds were hiding ([#3207](https://github.com/stranske/Workflows/issues/3207)) ([7cdba71](https://github.com/stranske/Workflows/commit/7cdba71df54573c84c5ed3585e028cd0916fbfc1))
+* **agents:** pass named secrets on the five workflows still held ([#3206](https://github.com/stranske/Workflows/issues/3206)) ([861847a](https://github.com/stranske/Workflows/commit/861847aa702f9028d55c77ba338a47fd3a30838c))
+* **ci:** let non-package consumers use coverage in reusable-10 ([#3202](https://github.com/stranske/Workflows/issues/3202)) ([7f00027](https://github.com/stranske/Workflows/commit/7f000278268226ce2c86c86f0d9520238e5a0e25))
+* **health:** restore Health 68 execution and assert durable-tracker liveness ([#3189](https://github.com/stranske/Workflows/issues/3189)) ([72a74ec](https://github.com/stranske/Workflows/commit/72a74ec63c8d90f5cb5267189c6991207ea40a17))
+* **labels:** quote label colours so js-yaml keeps them strings ([#3197](https://github.com/stranske/Workflows/issues/3197)) ([28742ea](https://github.com/stranske/Workflows/commit/28742eadf1fb4c888cf0506c73cc046cef42e508))
+* **liveness:** install the requests pin the sweep needs ([#3200](https://github.com/stranske/Workflows/issues/3200)) ([7216806](https://github.com/stranske/Workflows/commit/7216806cd5f7623bf7aba27f8c218388d5c2a61c))
+* **liveness:** make the sweep importable when run by file path ([#3199](https://github.com/stranske/Workflows/issues/3199)) ([1478857](https://github.com/stranske/Workflows/commit/14788576927db916bf9b3e21bfd6b718837db2cc))
+* **runner:** stage error diagnostics outside the checkout, in all four runners ([#3212](https://github.com/stranske/Workflows/issues/3212)) ([866344f](https://github.com/stranske/Workflows/commit/866344fa06f666aec22a5702fd094094858114f3))
+* **runner:** write the worker-attempt artifact outside the checkout ([#3210](https://github.com/stranske/Workflows/issues/3210)) ([fa0ba78](https://github.com/stranske/Workflows/commit/fa0ba785988e4a5ee9a25e8dfb8e259626a6aca9))
+* **sync:** cover every shared workflow drift pair ([#3194](https://github.com/stranske/Workflows/issues/3194)) ([9f044aa](https://github.com/stranske/Workflows/commit/9f044aa08096e975e4602e40f79bf0bb3d7e64a2))
+* **sync:** make sync rationale checks self-validating ([08b1c35](https://github.com/stranske/Workflows/commit/08b1c35312a5cb5f0d3041bf0100614316b133e5))
+* **sync:** resolve proof-bound outdated review threads ([#3191](https://github.com/stranske/Workflows/issues/3191)) ([b21dc78](https://github.com/stranske/Workflows/commit/b21dc7887ba6ad8a9851ad982a4bd8865f0a338f))
+* **templates:** guard the consumer editable install on packaging metadata ([#3201](https://github.com/stranske/Workflows/issues/3201)) ([2af0965](https://github.com/stranske/Workflows/commit/2af096520a75c3586da4bba76f791360d8066c1e))
+* **tokens:** statuses:write aliased to write-repo, so declaring it filtered nothing ([#3213](https://github.com/stranske/Workflows/issues/3213)) ([eb734c7](https://github.com/stranske/Workflows/commit/eb734c75b6622f287bcc8f8383f45a4b6610b02a))
+* **tracker-liveness:** retry the probe, and name the hold it finds ([#3208](https://github.com/stranske/Workflows/issues/3208)) ([f592f24](https://github.com/stranske/Workflows/commit/f592f24cc5c64c188ee97b6bf2ccf4166bbda55f))
+* **workflows:** stop passing the whole secrets context, fleet-wide ([#3209](https://github.com/stranske/Workflows/issues/3209)) ([650639e](https://github.com/stranske/Workflows/commit/650639e194e3e4a6e8cccd7d578b9447e732391b))
+
 ## [1.29.1](https://github.com/stranske/Workflows/compare/v1.29.0...v1.29.1) (2026-08-23)
 
 
