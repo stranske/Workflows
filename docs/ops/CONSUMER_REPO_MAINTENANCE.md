@@ -528,8 +528,11 @@ operator may pass `review_resolution_json` to Maint 71. Each
 `workflows-sync-review-resolution/v1` proof names one thread, PR, exact head,
 Workflows source-fix SHA, evidence URL, and reason. Maint 71 verifies that the
 fix is contained in the delivery's recorded source commit and re-reads the
-thread before resolving it. A source fix without this exact proof, a later
-candidate plan, or a passing Gate never resolves the current PR's review debt.
+thread before resolving it. Proof-bound resolution may also clear an outdated
+thread that branch protection still treats as unresolved; that path does not
+waive the zero active non-outdated thread requirement for ordinary merge
+eligibility. A source fix without this exact proof, a later candidate plan, or a
+passing Gate never resolves the current PR's review debt.
 
 A non-empty workflow-sync selector applies only to the `sync/workflows-*` lane.
 An open sibling `deps/sync-dev-versions-*` delivery is therefore ignored for

@@ -78,7 +78,11 @@ function parseReviewResolutionProofs(raw = '') {
 // a merged Workflows source fix. Ordinary merge eligibility remains stricter:
 // it continues to require zero active non-outdated threads.
 function isResolvableProofThread(thread) {
-  return Boolean(thread && !thread.isResolved);
+  return Boolean(
+    thread
+    && typeof thread === 'object'
+    && thread.isResolved === false,
+  );
 }
 
 function parseNoChangeEvidenceDocument(raw = '', {

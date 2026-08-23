@@ -633,6 +633,8 @@ test('proof-bound resolution permits an unresolved outdated thread', () => {
   assert.equal(isResolvableProofThread({ isResolved: false, isOutdated: true }), true);
   assert.equal(isResolvableProofThread({ isResolved: false, isOutdated: false }), true);
   assert.equal(isResolvableProofThread({ isResolved: true, isOutdated: true }), false);
+  assert.equal(isResolvableProofThread({ isOutdated: true }), false);
+  assert.equal(isResolvableProofThread({ isResolved: null, isOutdated: true }), false);
   assert.equal(isResolvableProofThread(null), false);
 });
 
