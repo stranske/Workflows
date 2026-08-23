@@ -58,15 +58,16 @@ WORKER_ATTEMPT_BASENAME = "langsmith-fleet-worker-attempt.json"
 # Artifact paths that ARE inside the checkout and are deliberately not excluded/ignored. Each entry
 # is an incident record: say why it is safe, so the next reader can tell a reviewed decision from an
 # oversight. Anything not listed here must be excluded, ignored, or written outside the checkout.
-KNOWN_IN_CHECKOUT: dict[str, str] = {
-    "error-diagnostics/": (
-        "Created by the 'Create error diagnostics' step, which runs AFTER the commit step in the "
-        "same job, so `git add -A` never sees it. That is step ORDERING, not a safety property: "
-        "reorder the steps, or add a second commit step later in the job, and this becomes the "
-        "langsmith-fleet-worker-attempt.json defect again. Prefer moving it under RUNNER_TEMP if it "
-        "is ever touched."
-    ),
-}
+#
+# EMPTY, and worth keeping empty. It held `error-diagnostics/` until 2026-08-23, justified by "its
+# step runs AFTER the commit step, so `git add -A` never sees it". That was true and it was still
+# the wrong kind of reason: step ORDERING is not a safety property, so the entry was a deferral
+# wearing the costume of a rationale. All four registered runners now stage that directory under
+# RUNNER_TEMP, which removed the last in-checkout artifact and the entry with it.
+#
+# Adding one back is permitted, but say what makes the path SAFE, not merely that it currently is.
+# "Nothing commits after it today" is the former; "git can never see it" is the latter.
+KNOWN_IN_CHECKOUT: dict[str, str] = {}
 
 
 def workflow_text(rel: str) -> str:
