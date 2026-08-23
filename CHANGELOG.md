@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.29.0](https://github.com/stranske/Workflows/compare/v1.28.2...v1.29.0) (2026-08-23)
+
+
+### Features
+
+* **health-40:** assert workflow liveness from run history ([#3184](https://github.com/stranske/Workflows/issues/3184)) ([cb2c01f](https://github.com/stranske/Workflows/commit/cb2c01f2ffad538690d10adb2630641f42954a47))
+
+
+### Bug Fixes
+
+* **agents-dedup:** pass named secrets instead of the whole context ([#3185](https://github.com/stranske/Workflows/issues/3185)) ([ee232ef](https://github.com/stranske/Workflows/commit/ee232ef9a26d10debec6f2189f970628f8610b8e))
+* **agents:** make review debt dispatch thread-aware ([2082d07](https://github.com/stranske/Workflows/commit/2082d0774b163b79b46183661883cead0cfa8540))
+* **agents:** migrate capability check off check_capability alias ([#3173](https://github.com/stranske/Workflows/issues/3173)) ([5c87b72](https://github.com/stranske/Workflows/commit/5c87b72130df903db5aaa381371dfb61097aba68))
+* **agents:** transport bot thread context by artifact ([#3171](https://github.com/stranske/Workflows/issues/3171)) ([2cafe88](https://github.com/stranske/Workflows/commit/2cafe88e5226cbf19e8d3bf36c1b5074e9141fc0))
+* **docs-drift:** honor Trend agents filename casing ([fb30d4f](https://github.com/stranske/Workflows/commit/fb30d4f7adf507d5cac0ad352591a6f8cc4f3868))
+* **docs-drift:** scope consumer config locally ([#3178](https://github.com/stranske/Workflows/issues/3178)) ([ebf666f](https://github.com/stranske/Workflows/commit/ebf666f28cf9196074640203e1f8d0978189f0ad))
+* **issue-optimizer:** read the issue number from env, not interpolation ([#3187](https://github.com/stranske/Workflows/issues/3187)) ([21b9285](https://github.com/stranske/Workflows/commit/21b9285c5dfbdab7097eec3b5b40ed2e95acc615))
+* **labels:** restore common feature verb aliases ([#3175](https://github.com/stranske/Workflows/issues/3175)) ([07850bb](https://github.com/stranske/Workflows/commit/07850bbc638d3e294492f824586da2ce3315c8c4))
+* **liveness:** judge holds by the newest run, not the held share ([#3188](https://github.com/stranske/Workflows/issues/3188)) ([43528a9](https://github.com/stranske/Workflows/commit/43528a9f1ea30fe720a942c9cfd3c36a30f939b0))
+* **sync:** specialize drift repair by consumer ([#3168](https://github.com/stranske/Workflows/issues/3168)) ([607f2ab](https://github.com/stranske/Workflows/commit/607f2ab4cd03dd4bd87d2ec149e4063e30cc9330))
+* **sync:** typecheck manifest docs helpers ([#3176](https://github.com/stranske/Workflows/issues/3176)) ([451b609](https://github.com/stranske/Workflows/commit/451b60904e096f60551e911c9758af2df0d39442))
+* **sync:** verify signed heads with app token ([#3174](https://github.com/stranske/Workflows/issues/3174)) ([82e70e5](https://github.com/stranske/Workflows/commit/82e70e59b29ce6f85294b8f3720c453b8f83b5bc))
+
 ## [1.28.2](https://github.com/stranske/Workflows/compare/v1.28.1...v1.28.2) (2026-08-22)
 
 
