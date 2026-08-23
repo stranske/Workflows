@@ -99,9 +99,9 @@ reason = Intentional divergence re-baselined 2026-08-09: root-only warning-only 
 [pair.9]
 main = .github/workflows/agents-dedup.yml
 template = templates/consumer-repo/.github/workflows/agents-dedup.yml
-main_sha256 = 4cb7a051fddd34137caf3fb359eaee09162b6f0b61de3a14b31f350ae4e77479
-template_sha256 = 373becf5260e775b0ed7340fb8c24709a17fcf5ecd4962607ebf61b79d778de8
-reason = Intentional divergence (re-baselined 2026-06-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after #2391/#2394 bumps. Do not align: would strip consumer action pins.
+main_sha256 = 95d9d1c0acd6fbc143b1eb56e0c0741be370b2ab8853ed660ac1249821ea41dd
+template_sha256 = 392b9354a9e14e85ea47fb6e921cacf5216227e5c615a2725eb5f22249860e41
+reason = Intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
 
 [pair.10]
 main = .github/workflows/agents-guard.yml

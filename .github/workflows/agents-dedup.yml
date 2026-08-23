@@ -42,8 +42,22 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # Named secret inputs instead of `secrets: ${{ toJSON(secrets) }}`.
+          # The action jq-extracts exactly these keys from that blob, and already
+          # declares each as an individual input, so this is behaviour-preserving.
+          # GitHub's suspicious-workflow protection has held every run of this
+          # workflow since 2026-08-01; the whole-context handoff is the one pattern
+          # common to all held workflows fleet-wide. See the liveness sweep in
+          # health-40 for detection.
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          keepalive_app_id: ${{ secrets.KEEPALIVE_APP_ID }}
+          keepalive_app_private_key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
 
 
 
