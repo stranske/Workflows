@@ -85,8 +85,8 @@ This file is the agent-generic contract. Keep it materially aligned with `CLAUDE
 
 ### Definition Of Done
 
-- Workflow additions or renames must update docs/ci/WORKFLOWS.md, docs/ci/WORKFLOW_SYSTEM.md, and the workflow naming tests. (tasks: implement, mechanical, testgen)
-- Consumer-facing files usually need sync-manifest/template coverage, not just the root copy. (tasks: implement, mechanical)
+- Workflow additions or renames must update docs/ci/WORKFLOWS.md, docs/ci/WORKFLOW_SYSTEM.md, and the workflow naming tests.
+- Consumer-facing files usually need sync-manifest/template coverage, not just the root copy.
 - Route-weight codemod/refactor issues must produce the requested code or test change for the closer lane to validate; campaign plans, backfill plans, or analysis artifacts are not completion unless the issue explicitly asks for them. (tasks: codemod)
 - Epic or cross-repo documentation issues must create the named Markdown artifact at the requested path; dry-run rollout JSON or execution plans alone do not satisfy documentation acceptance criteria. (tasks: epic, cross_repo)
 
