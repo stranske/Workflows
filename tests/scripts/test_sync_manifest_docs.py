@@ -21,9 +21,22 @@ def test_manifest_issue_references_are_open() -> None:
             continue
         for issue_number in re.findall(r"#(\d+)", line):
             result = subprocess.run(
-                ["gh", "issue", "view", issue_number, "--repo", "stranske/Workflows", "--json", "state", "--jq", ".state"],
+                [
+                    "gh",
+                    "issue",
+                    "view",
+                    issue_number,
+                    "--repo",
+                    "stranske/Workflows",
+                    "--json",
+                    "state",
+                    "--jq",
+                    ".state",
+                ],
                 check=True,
                 capture_output=True,
                 text=True,
             )
-            assert result.stdout.strip() == "OPEN", f"manifest references closed issue #{issue_number}: {line.strip()}"
+            assert (
+                result.stdout.strip() == "OPEN"
+            ), f"manifest references closed issue #{issue_number}: {line.strip()}"

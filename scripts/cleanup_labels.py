@@ -229,8 +229,7 @@ NORMALIZED_BLOAT_LABELS = {normalize_label_name(label) for label in BLOAT_LABELS
 
 # Consumer repos to audit
 CONSUMER_REPOS = extract_repos(
-    Path(__file__).resolve().parents[1]
-    / ".github/workflows/maint-68-sync-consumer-repos.yml"
+    Path(__file__).resolve().parents[1] / ".github/workflows/maint-68-sync-consumer-repos.yml"
 )
 
 

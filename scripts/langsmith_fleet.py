@@ -32,8 +32,7 @@ PAUSE_METADATA_FIELDS = (
 )
 MANAGED_CONSUMER_REPOS = set(
     extract_repos(
-        Path(__file__).resolve().parents[1]
-        / ".github/workflows/maint-68-sync-consumer-repos.yml"
+        Path(__file__).resolve().parents[1] / ".github/workflows/maint-68-sync-consumer-repos.yml"
     )
 )
 REQUIRED_ACTIVE_REPO_ISSUES = {

@@ -27,9 +27,7 @@ def test_get_workflows_returns_top_level_yml_files_only(tmp_path: Path) -> None:
 def test_workflows_only_is_live_and_consistent() -> None:
     root = Path(__file__).resolve().parents[2]
     root_workflows = validator.get_workflows(root / ".github/workflows")
-    template_workflows = validator.get_workflows(
-        root / "templates/consumer-repo/.github/workflows"
-    )
+    template_workflows = validator.get_workflows(root / "templates/consumer-repo/.github/workflows")
     manifest_workflows = validator.get_manifest_workflows(root / ".github/sync-manifest.yml")
 
     assert root_workflows >= validator.WORKFLOWS_ONLY
