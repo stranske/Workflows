@@ -113,9 +113,9 @@ reason = Intentional divergence re-baselined 2026-06-30: root and consumer guard
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = 32a4dd4b3b2c744fe11abf0cfe60e47464fe4ca63836af2560ac5002f3912441
-template_sha256 = 145e47655f8153d50970ea51e99aa833e74698fce915a2c124e1463f1b194e85
-reason = Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes live format eligibility checks, format-lease release when those checks skip work, checkout-aware path validation, explicit guard retry dispatch, and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
+main_sha256 = 815372cd8a0981510741d0d30195f1c25d60e881c60c9d88bfc2ee730ffd73b0
+template_sha256 = 1b3567e764da3d7406ef3b0847953d734d94be685712b3f320601b9654d3fc57
+reason = Fingerprints refreshed 2026-08-23: both surfaces now read the issue number from the step-level EVENT_ISSUE_NUMBER env var instead of interpolating ${{ github.event.issue.number }} into the run: body, removing a template-injection surface of the same shape that caused agents-71-codex-belt-dispatcher to be blocked as possibly malicious in consumer repos (#3127, 2026-08-16). Applied identically to root and consumer, so it introduces no new divergence. Underlying divergence unchanged: Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes live format eligibility checks, format-lease release when those checks skip work, checkout-aware path validation, explicit guard retry dispatch, and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
