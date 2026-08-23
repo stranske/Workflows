@@ -135,7 +135,7 @@ jobs:
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
                 };
-            const { withRetry } = retryHelpers;
+            const { withRetry, paginateWithRetry } = retryHelpers;
 
             const summary = [];
             // Aggregated across every repo so a failed write can fail the JOB. Without this,
@@ -157,12 +157,15 @@ jobs:
               // Get existing labels
               let existingLabels = [];
               try {
-                const { data } = await withRetry(() => github.rest.issues.listLabelsForRepo({
-                  owner,
-                  repo,
-                  per_page: 100
-                }));
-                existingLabels = data;
+                existingLabels = await paginateWithRetry(
+                  github,
+                  github.rest.issues.listLabelsForRepo,
+                  {
+                    owner,
+                    repo,
+                    per_page: 100,
+                  },
+                );
               } catch (e) {
                 summary.push(`❌ Failed to fetch labels: ${e.message}\n\n`);
                 totalErrors++;
