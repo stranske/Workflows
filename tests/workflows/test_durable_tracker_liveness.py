@@ -145,20 +145,21 @@ ABSENT_REASON = (
 )
 
 
-def test_tracker_run_lookup_uses_get_for_query_parameters(monkeypatch) -> None:
-    captured: list[str] = []
+def test_tracker_run_lookup_goes_through_the_sanctioned_wrapper(monkeypatch) -> None:
+    """The probe must not shell out to the raw API.
 
-    class _Ok:
-        returncode, stdout, stderr = 0, "[]", ""
+    scripts/check_api_wrapper_guard.py forbids that in scripts/, and CI enforces
+    it - this PR was rejected once for exactly that. Replaces an older test that
+    asserted the shell-out forced GET; the wrapper owns the HTTP method now, and
+    reusing it also gives this probe the pacing and backoff it never had.
+    """
+    seen: list[str] = []
 
-    def fake_run(command, **_kwargs):
-        # The probe moved from subprocess.check_output to subprocess.run so it can
-        # inspect the exit code and retry a transient rate limit instead of
-        # raising. The GET requirement it pins here is unchanged.
-        captured.extend(command)
-        return _Ok()
+    def fake_gh_api(path: str, token: str | None = None) -> dict[str, object]:
+        seen.append(path)
+        return {"workflow_runs": []}
 
-    monkeypatch.setattr(check_durable_tracker_liveness.subprocess, "run", fake_run)
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
 
     assert (
         check_durable_tracker_liveness._latest_executable_run(
@@ -166,8 +167,10 @@ def test_tracker_run_lookup_uses_get_for_query_parameters(monkeypatch) -> None:
         )
         is None
     )
-    method_index = captured.index("--method")
-    assert captured[method_index + 1] == "GET"
+    assert seen == [
+        "repos/stranske/Workflows/actions/workflows/"
+        "health-68-consumer-sync-drift.yml/runs?per_page=100"
+    ]
 
 
 def test_tracker_doc_table_links_match_config() -> None:
@@ -203,52 +206,6 @@ def test_tracker_doc_table_links_match_config() -> None:
 # nothing, which is the failure it exists to prevent.
 
 
-def test_transient_rate_limit_is_retried_not_fatal(monkeypatch) -> None:
-    import scripts.check_durable_tracker_liveness as mod
-
-    calls = {"n": 0}
-
-    class _R:
-        def __init__(self, rc, out="", err=""):
-            self.returncode, self.stdout, self.stderr = rc, out, err
-
-    def fake_run(cmd, **kwargs):
-        calls["n"] += 1
-        if calls["n"] == 1:
-            return _R(1, "", "API rate limit exceeded for user ID 1")
-        return _R(0, '[{"conclusion": "success", "created_at": "2026-08-23T00:00:00Z"}]')
-
-    monkeypatch.setattr(mod.subprocess, "run", fake_run)
-    monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
-
-    run = mod._latest_executable_run("owner/repo", "wf.yml", "t")
-
-    assert calls["n"] == 2, "a transient rate limit must be retried, not fatal"
-    assert run is not None and run["conclusion"] == "success"
-
-
-def test_non_transient_failure_raises_rather_than_looking_healthy(monkeypatch) -> None:
-    """An API failure must not be reported as 'no executable run'.
-
-    Returning None on a hard error would blame the workflow for the checker's
-    own inability to look.
-    """
-    import scripts.check_durable_tracker_liveness as mod
-
-    class _R:
-        returncode, stdout, stderr = 1, "", "Not Found"
-
-    monkeypatch.setattr(mod.subprocess, "run", lambda cmd, **kw: _R())
-    monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
-
-    try:
-        mod._latest_executable_run("owner/repo", "wf.yml", "t")
-    except RuntimeError as exc:
-        assert "gh api failed" in str(exc)
-    else:  # pragma: no cover
-        raise AssertionError("expected RuntimeError on a non-transient failure")
-
-
 def test_hold_is_named_not_just_reported_as_missing() -> None:
     """ "no executable run" is true but unactionable; name the hold and the remedy."""
     import scripts.check_durable_tracker_liveness as mod
@@ -259,3 +216,24 @@ def test_hold_is_named_not_just_reported_as_missing() -> None:
     assert "Approve and run" in msg
     assert "No REST endpoint clears it" in msg
     assert mod._held_by_workflow_protection(False, "owner/repo", "health-68.yml") == ""
+
+
+def test_api_failure_propagates_instead_of_looking_healthy(monkeypatch) -> None:
+    """A failed lookup must not read as "no executable run".
+
+    Returning None on an API error would blame the workflow for the checker's own
+    inability to look. The wrapper raises; this pins that the probe does not
+    swallow it.
+    """
+
+    def boom(path: str, token: str | None = None):
+        raise RuntimeError("GitHub API error 403: rate limit")
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", boom)
+
+    try:
+        check_durable_tracker_liveness._latest_executable_run("o/r", "wf.yml", "t")
+    except RuntimeError as exc:
+        assert "403" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("expected the API failure to propagate")
