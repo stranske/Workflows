@@ -32,7 +32,7 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
     assert "github.event_name == 'workflow_run'" in text
     assert "| jq -r --argjson current" in text
     assert '.conclusion == "cancelled"' not in text
-    assert "branch: \"main\"" in text or "branch: 'main'" in text
+    assert 'branch: "main"' in text or "branch: 'main'" in text
 
 
 def test_consumer_drift_debounce_filters_main_before_ordering() -> None:
@@ -54,9 +54,7 @@ def test_consumer_drift_debounce_filters_main_before_ordering() -> None:
 
     def selected(values: list[dict]) -> int | None:
         eligible = [
-            run
-            for run in values
-            if run["conclusion"] in {"success", "failure", "timed_out"}
+            run for run in values if run["conclusion"] in {"success", "failure", "timed_out"}
         ]
         return eligible[0]["id"] if eligible else None
 
