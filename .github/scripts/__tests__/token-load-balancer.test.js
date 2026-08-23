@@ -170,3 +170,98 @@ test('hasHealthyTokens: returns true when mixed critical and healthy tokens exis
   ]);
   assert.equal(balancer.hasHealthyTokens(), true);
 });
+
+// ---------------------------------------------------------------------------
+// statuses:write capability filtering
+//
+// Regression guard for the defect these cover: `statuses:write` aliased to the generic
+// `write-repo`, which GITHUB_TOKEN, PAT *and* APP all claim, so declaring the capability
+// filtered nothing and the balancer could hand out an App installation without the Commit
+// statuses scope. Observed in stranske/Orchestrator on 2026-08-23: the Gate's own status post
+// selected WORKFLOWS_APP and got a 403, the swallow left the previous status in place, and a
+// fully green run kept a red `Gate / gate` that nothing could clear.
+// ---------------------------------------------------------------------------
+
+test('TOKEN_CAPABILITIES: statuses is held by GITHUB_TOKEN and PAT but NOT by APP', () => {
+  assert.ok(balancer.TOKEN_CAPABILITIES.GITHUB_TOKEN.includes('statuses'));
+  assert.ok(balancer.TOKEN_CAPABILITIES.PAT.includes('statuses'));
+  assert.equal(
+    balancer.TOKEN_CAPABILITIES.APP.includes('statuses'),
+    false,
+    'APP must not claim `statuses`: an App installation only has Commit statuses if it was '
+    + 'granted them, and the installations in use were not. A wrong entry here is silent -- the '
+    + 'balancer hands out a token that 403s on POST /statuses/{sha}.'
+  );
+});
+
+// A multi-token "the App must not win on capacity" test was written and then REMOVED. Selection
+// scores `percentRemaining + priority*10 + typeBonus + taskBonus`, so an ineligible App with more
+// headroom should out-score a statuses-capable token -- but the test passed even with the alias
+// deliberately broken, i.e. for a reason not established (getOptimalToken refreshes rate limits,
+// which appears to discard seeded capacities). A test that passes for an unknown reason is a false
+// comfort, not coverage, so the guard here is the two assertions below, both of which DO fail when
+// the alias is reverted to ['write-repo']: the table itself, and the App-only selection.
+
+/** Register a single token of one type, healthy, so eligibility alone decides the answer. */
+function seedOnly(type) {
+  balancer.tokenRegistry.tokens.clear();
+  balancer.tokenRegistry.lastRefresh = 0;
+  balancer.registerToken({
+    id: type,
+    token: `fake-token-${type}`,
+    type,
+    source: type,
+    capabilities: balancer.TOKEN_CAPABILITIES[type],
+    priority: 5,
+  });
+  const info = balancer.tokenRegistry.tokens.get(type);
+  info.rateLimit.remaining = 5000;
+  info.rateLimit.limit = 5000;
+  info.rateLimit.used = 0;
+  info.rateLimit.percentUsed = 0;
+  info.rateLimit.percentRemaining = 100;
+}
+
+test('a broad write-repo request still accepts APP, so the fix narrowed nothing else', async () => {
+  // Asserted on ELIGIBILITY, not on who wins: selection is deterministic given equal capacity,
+  // so "APP shows up eventually" would never hold regardless of the capability tables.
+  seedOnly('APP');
+  const selection = await balancer.getOptimalToken({
+    capabilities: ['contents:write'],
+    minRemaining: 1,
+  });
+  assert.equal(
+    selection?.source ?? null,
+    'APP',
+    'APP should still satisfy a generic write-repo request; if it does not, the capability change '
+    + 'over-narrowed and every App-backed caller just lost its token'
+  );
+});
+
+test('statuses:write with only an APP registered returns no token rather than a doomed one', async () => {
+  balancer.tokenRegistry.tokens.clear();
+  balancer.tokenRegistry.lastRefresh = 0;
+  balancer.registerToken({
+    id: 'APP',
+    token: 'fake-token-APP',
+    type: 'APP',
+    source: 'APP',
+    capabilities: balancer.TOKEN_CAPABILITIES.APP,
+    priority: 5,
+  });
+  const info = balancer.tokenRegistry.tokens.get('APP');
+  info.rateLimit.remaining = 5000;
+  info.rateLimit.limit = 5000;
+  info.rateLimit.percentRemaining = 100;
+
+  const selection = await balancer.getOptimalToken({
+    capabilities: ['statuses:write'],
+    minRemaining: 1,
+  });
+  assert.equal(
+    selection?.source ?? null,
+    null,
+    'handing back an APP that cannot write statuses is worse than handing back nothing: the '
+    + 'caller falls through to its own github client, which is the token that actually has the scope'
+  );
+});
