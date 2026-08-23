@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from scripts import check_consumer_sync_drift
 from scripts.sync_manifest_compiler import (
@@ -53,6 +54,7 @@ def test_build_report_returns_machine_readable_counts() -> None:
         "missing": 1,
         "errors": 0,
         "obsolete": 1,
+        "unmeasured_create_only": 0,
     }
     assert report["repo_summaries"] == {
         "owner/a": {"drift": 0, "missing": 1, "errors": 0, "obsolete": 1},
@@ -85,6 +87,66 @@ def test_build_report_returns_machine_readable_counts() -> None:
     assert report["sync_remediation"]["repo_states"]["owner/a"]["state"] == "untracked_drift"
     assert report["drift"] == ["owner/b: .github/workflows/a.yml"]
     assert report["token_diagnostics"] == token_diagnostics
+
+
+def test_report_counts_create_only_exclusions(tmp_path, monkeypatch) -> None:
+    """Create-only reporting includes repos whose tree retrieval failed."""
+    source = tmp_path / ".github" / "workflows" / "example.yml"
+    source.parent.mkdir(parents=True)
+    source.write_text("name: Example\n", encoding="utf-8")
+    manifest = tmp_path / "sync-manifest.yml"
+    manifest.write_text("version: 1\n", encoding="utf-8")
+    report_path = tmp_path / "report.json"
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/example.yml",
+        sync_mode="create_only",
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+        removals=(),
+    )
+    args = SimpleNamespace(
+        repos="owner/a,owner/b",
+        manifest=str(manifest),
+        canaries="unused.json",
+        report_json=str(report_path),
+        summary="",
+    )
+
+    monkeypatch.setattr(check_consumer_sync_drift, "COPY_SYNCED_SECTIONS", ("workflows",))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [{"token": "x"}])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "select_read_token",
+        lambda **_kwargs: (object(), {}),
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda _session, repo: (
+            ({}, None) if repo == "owner/a" else (None, "owner/b: failed to fetch remote tree")
+        ),
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_open_sync_prs",
+        lambda _session, _repo: ([], None),
+    )
+
+    assert check_consumer_sync_drift.main() == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["counts"]["unmeasured_create_only"] == 2
+    assert report["unmeasured_create_only"] == [
+        "owner/a: .github/workflows/example.yml",
+        "owner/b: .github/workflows/example.yml",
+    ]
+    assert report["errors"] == ["owner/b: failed to fetch remote tree"]
+    assert report["status"] == "drift"
 
 
 def test_token_candidates_deduplicates_without_exposing_values() -> None:
@@ -172,7 +234,13 @@ def test_build_report_surfaces_manifest_skips_without_failing() -> None:
     )
 
     assert report["status"] == "converged"
-    assert report["counts"] == {"drift": 0, "missing": 0, "errors": 0, "obsolete": 0}
+    assert report["counts"] == {
+        "drift": 0,
+        "missing": 0,
+        "errors": 0,
+        "obsolete": 0,
+        "unmeasured_create_only": 0,
+    }
     assert report["skip_count"] == 1
     assert report["skipped"] == ["owner/custom: AGENTS.md (Uses historical Agents.md casing)"]
     assert report["sync_remediation"]["state"] == "converged"
@@ -568,6 +636,7 @@ def test_write_summary_markdown_groups_and_bounds_items(tmp_path) -> None:
     contents = output.read_text(encoding="utf-8")
     assert "### Counts" in contents
     assert "- drift: 55" in contents
+    assert "- unmeasured_create_only: 0" in contents
     assert "- owner/repo: drift=55, missing=1, errors=0, obsolete=0" in contents
     assert "- owner/repo: total=56, drift=55, missing=1, errors=0, obsolete=0" in contents
     assert "- drift: .github/workflows=55" in contents

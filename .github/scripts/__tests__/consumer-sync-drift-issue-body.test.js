@@ -11,7 +11,11 @@ const {
 } = require('../consumer_sync_drift_issue_body');
 
 const report = {
-  counts: { drift: 27, missing: 73, errors: 0, obsolete: 0 },
+  counts: { drift: 27, missing: 73, errors: 0, obsolete: 0, unmeasured_create_only: 68 },
+  unmeasured_create_only: [
+    'owner/a: .github/workflows/pr-00-gate.yml',
+    'owner/b: .github/workflows/pr-00-gate.yml',
+  ],
   top_repo_gaps: [
     { repo: 'owner/a', total: 100, drift: 27, missing: 73, errors: 0, obsolete: 0 },
     { repo: 'owner/b', total: 4, drift: 4, missing: 0, errors: 0, obsolete: 0 },
@@ -48,7 +52,7 @@ const report = {
 };
 
 test('countsLine renders stable drift counts', () => {
-  assert.equal(countsLine(report), 'drift=27, missing=73, errors=0, obsolete=0');
+  assert.equal(countsLine(report), 'drift=27, missing=73, errors=0, obsolete=0, unmeasured_create_only=68');
 });
 
 test('formatIssueBody includes actionable repo, prefix, and command details', () => {
@@ -70,6 +74,7 @@ test('formatIssueBody includes actionable repo, prefix, and command details', ()
   assert.match(body, /"schema":"consumer-sync-drift-issue\/v1"/);
   assert.match(body, /"run_id":"1"/);
   assert.match(body, /"missing":73/);
+  assert.match(body, /68 positions are not measured \(.github\/workflows\/pr-00-gate.yml\)/);
 });
 
 test('formatIssueComment stays compact for existing issue updates', () => {
@@ -79,7 +84,7 @@ test('formatIssueComment stays compact for existing issue updates', () => {
   });
 
   assert.match(body, /Drift still detected in \[run #124\]/);
-  assert.match(body, /Counts: drift=27, missing=73, errors=0, obsolete=0/);
+  assert.match(body, /Counts: drift=27, missing=73, errors=0, obsolete=0, unmeasured_create_only=68/);
   assert.match(body, /Highest-impact repos:/);
   assert.match(body, /Open sync PRs:/);
 });
@@ -95,7 +100,7 @@ test('compactMarkerPayload exposes the current drift checkpoint', () => {
   assert.equal(payload.schema, 'consumer-sync-drift-issue/v1');
   assert.equal(payload.artifact, 'consumer-sync-drift-report');
   assert.equal(payload.run_id, '1');
-  assert.deepEqual(payload.counts, { drift: 27, missing: 73, errors: 0, obsolete: 0 });
+  assert.deepEqual(payload.counts, { drift: 27, missing: 73, errors: 0, obsolete: 0, unmeasured_create_only: 68 });
   assert.equal(payload.top_repo_gaps.length, 2);
   assert.equal(payload.sync_remediation.state, 'pending_sync_prs');
   assert.equal(payload.sync_remediation.open_pr_count, 1);
