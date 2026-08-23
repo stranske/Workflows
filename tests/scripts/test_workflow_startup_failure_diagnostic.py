@@ -6,6 +6,18 @@ import pytest
 from scripts import workflow_startup_failure_diagnostic as diag
 
 
+@pytest.fixture(autouse=True)
+def _list_endpoint_follows_the_object_stub(monkeypatch):
+    """Route _gh_api_list through whatever _gh_api a test installed.
+
+    review_hold reads the commits endpoint, whose success body is an ARRAY, so it
+    uses _gh_api_list. Tests stub _gh_api only; without this the list call escapes
+    to the real network. Resolved at call time so fixture/monkeypatch order does
+    not matter.
+    """
+    monkeypatch.setattr(diag, "_gh_api_list", lambda path, token=None: diag._gh_api(path, token))
+
+
 def test_collect_startup_failures_filters_by_run_and_conclusion() -> None:
     payload = {
         "check_runs": [
@@ -63,11 +75,17 @@ def test_gh_api_rejects_non_object_response(monkeypatch) -> None:
         url: str,
         token: str,
         payload: object | None = None,
+        **kwargs: object,
     ) -> list[str]:
         assert method == "GET"
         assert url.endswith("/repos/owner/repo/actions/runs/123")
         assert token == "test-token"
         assert payload is None
+        # A secondary rate limit needs a minute or more; api_client's defaults
+        # (3 attempts, 1s backoff) give up in ~3 seconds, so the sweep must pass
+        # its own policy or the daily job dies on its own traffic.
+        assert kwargs["max_attempts"] >= 5
+        assert kwargs["backoff"] >= 4
         return ["not", "an", "object"]
 
     monkeypatch.setattr(diag, "_github_token", fail_if_token_requested)
@@ -347,17 +365,27 @@ def _sweep_stub(
     jobs: list[dict[str, Any]] | None = None,
     onset_pages: list[list[dict[str, Any]]] | None = None,
     workflow_path: str = ".github/workflows/agents-dedup.yml",
+    commits: list[dict[str, Any]] | None = None,
+    patch: str = "",
 ):
-    """Build a path-dispatching _gh_api fake for one active workflow."""
+    """Build a path-dispatching _gh_api fake for one active workflow.
+
+    Also serves the two commit endpoints the auto-review uses, so a test that
+    only cares about hold detection does not have to describe a diff.
+    """
     pages = onset_pages if onset_pages is not None else [runs]
 
-    def fake_gh_api(path: str, token: str | None = None) -> dict[str, Any]:
+    def fake_gh_api(path: str, token: str | None = None) -> Any:
         if "/actions/workflows?" in path:
             return {
                 "workflows": [{"id": 7, "state": "active", "name": "Dedup", "path": workflow_path}]
             }
         if "/jobs" in path:
             return {"jobs": jobs or []}
+        if "/commits?" in path:
+            return commits or []
+        if "/commits/" in path:
+            return {"files": [{"filename": workflow_path, "patch": patch}]}
         if "per_page=100" in path:
             page = int(path.rsplit("page=", 1)[-1])
             batch = pages[page - 1] if page <= len(pages) else []
@@ -553,3 +581,192 @@ def test_fmt_days_never_prints_a_bare_none() -> None:
     assert diag._fmt_days({"days_held": None}) == "age unknown"
     assert diag._fmt_days({"days_held": 22, "onset_truncated": False}) == "22d"
     assert diag._fmt_days({"days_held": 9, "onset_truncated": True}) == ">=9d"
+
+
+# --- auto-review ------------------------------------------------------------
+#
+# Clearing a hold costs a human ~5 seconds of clicking and ~2 minutes of working
+# out whether the file is safe to approve. The second part is mechanical, so the
+# sweep does it: diff the file against its last healthy run and say whether any
+# ADDED line is the kind of thing a reviewer must actually look at.
+#
+# The verdict is decision support, never authorisation. Nothing here approves.
+
+
+def _commit(sha: str, subject: str) -> dict[str, Any]:
+    return {"sha": sha, "commit": {"message": subject}}
+
+
+def test_review_reports_benign_when_nothing_risky_was_added(monkeypatch) -> None:
+    monkeypatch.setattr(
+        diag,
+        "_gh_api",
+        _sweep_stub(
+            runs=[],
+            commits=[_commit("abc12345", "chore(deps): bump actions/setup-python to v7")],
+            patch="@@\n-          python-version: '3.13'\n+          python-version: '3.14'\n",
+        ),
+    )
+    out = diag.review_hold("owner/repo", ".github/workflows/agents-dedup.yml", "2026-08-01", "t")
+    assert out["verdict"] == "benign"
+    assert out["commits"][0]["sha"] == "abc12345"
+
+
+def test_review_flags_event_interpolation_added_to_a_body(monkeypatch) -> None:
+    monkeypatch.setattr(
+        diag,
+        "_gh_api",
+        _sweep_stub(
+            runs=[],
+            commits=[_commit("def67890", "fix: recheck eligibility")],
+            patch='@@\n+            gh issue view "${{ github.event.issue.number }}" --json labels\n',
+        ),
+    )
+    out = diag.review_hold("owner/repo", ".github/workflows/agents-dedup.yml", "2026-08-01", "t")
+    assert out["verdict"] == "needs-eyes"
+    assert "interpolated" in out["reason"]
+
+
+def test_review_says_no_edit_when_the_file_was_never_touched(monkeypatch) -> None:
+    monkeypatch.setattr(diag, "_gh_api", _sweep_stub(runs=[], commits=[]))
+    out = diag.review_hold("owner/repo", ".github/workflows/x.yml", "2026-08-01", "t")
+    assert out["verdict"] == "no-edit"
+
+
+def test_review_does_not_call_an_error_body_benign(monkeypatch) -> None:
+    """A failed commit lookup must never read as reassuring.
+
+    The commits endpoint returns a bare array; an object is an error body. Treating
+    that as "no commits" would print `benign` for a file nobody managed to inspect
+    - the same silent-plausible-wrongness this whole sweep exists to remove.
+    """
+
+    def boom(path, token=None):
+        raise ValueError("404 Not Found")
+
+    monkeypatch.setattr(diag, "_gh_api_list", boom)
+    out = diag.review_hold("owner/repo", ".github/workflows/x.yml", "2026-08-01", "t")
+    assert out["verdict"] == "unknown"
+    assert out["verdict"] != "benign"
+
+
+def test_review_verdict_unknown_without_a_healthy_run() -> None:
+    out = diag.review_hold("owner/repo", ".github/workflows/x.yml", None, "t")
+    assert out["verdict"] == "unknown"
+
+
+def test_sweep_summary_reports_the_triage_split(monkeypatch) -> None:
+    runs = [_held_run(1200 + i, "2026-08-01T00:00:00Z") for i in range(20)]
+    history = runs + [{"id": 1199, "conclusion": "success", "created_at": "2026-07-31T00:00:00Z"}]
+    monkeypatch.setattr(
+        diag,
+        "_gh_api",
+        _sweep_stub(
+            runs=runs,
+            onset_pages=[history],
+            commits=[_commit("aaa11111", "chore: bump pin")],
+            patch="@@\n+          python-version: '3.14'\n",
+        ),
+    )
+    report = diag.sweep(["owner/repo"], token="t", now="2026-08-23T00:00:00Z")
+    assert report["held_count"] == 1
+    assert report["benign_count"] == 1
+    assert report["needs_eyes_count"] == 0
+    assert "1 benign, 0 need eyes" in diag.format_sweep_summary(report)
+
+
+def test_review_does_not_repaginate_run_history(monkeypatch) -> None:
+    """Cost guard: the onset walk and the review share one pass over run history.
+
+    In CI this sweep spends the GitHub App INSTALLATION token, which every
+    workflow in the fleet shares and which was observed exhausted at 5000/5000
+    while workflows were resuming. An earlier draft walked the run pages twice per
+    held workflow - once for the onset, once to find the last healthy run - which
+    doubled the cost of the most expensive part for no new information, since the
+    run that ends the held streak IS the last healthy run.
+    """
+    runs = [_held_run(1300 + i, "2026-08-20T00:00:00Z") for i in range(20)]
+    history = runs + [{"id": 1299, "conclusion": "success", "created_at": "2026-08-01T00:00:00Z"}]
+    calls: list[str] = []
+    inner = _sweep_stub(
+        runs=runs,
+        onset_pages=[history],
+        commits=[_commit("bbb22222", "chore: bump")],
+        patch="@@\n+          python-version: '3.14'\n",
+    )
+
+    def counting(path: str, token: str | None = None) -> Any:
+        calls.append(path)
+        return inner(path, token)
+
+    monkeypatch.setattr(diag, "_gh_api", counting)
+    report = diag.sweep(["owner/repo"], token="t", now="2026-08-23T00:00:00Z")
+
+    assert report["held_count"] == 1
+    # The review still resolved a last-healthy run, so it had the data it needed.
+    assert report["held"][0]["review"]["verdict"] == "benign"
+    history_pages = [p for p in calls if "/runs?per_page=100" in p]
+    assert len(history_pages) == 1, (
+        f"run history paginated {len(history_pages)} times for one held workflow; "
+        f"the onset walk must hand its last-healthy run to the review: {history_pages}"
+    )
+
+
+def test_sweep_ignores_stale_held_siblings_after_an_approval(monkeypatch) -> None:
+    """Approval is forward-looking, so leftover held runs are not a live block.
+
+    Approving a run marks that workflow FILE VERSION trusted for FUTURE runs; it
+    does not retroactively release runs already created. A burst of runs from one
+    moment therefore leaves held siblings behind, and the newest by created_at can
+    be one of them while the workflow is healthy for new events.
+
+    Observed on agents-63-issue-intake, agents-capability-check and
+    agents-decompose: the approved runs reached attempt 2 and executed while
+    same-second siblings stayed at attempt 1 and action_required. Reporting those
+    as held sends someone to click a button that changes nothing.
+    """
+    burst = "2026-08-23T04:11:08Z"
+    runs = [
+        _held_run(1400, burst),  # stale sibling, never approved
+        {  # the one that was approved and ran
+            "id": 1401,
+            "conclusion": "skipped",
+            "status": "completed",
+            "event": "issues",
+            "created_at": burst,
+        },
+        {
+            "id": 1399,
+            "conclusion": "success",
+            "status": "completed",
+            "event": "issues",
+            "created_at": "2026-08-23T03:00:00Z",
+        },
+    ]
+    monkeypatch.setattr(diag, "_gh_api", _sweep_stub(runs=runs, onset_pages=[runs]))
+
+    report = diag.sweep(["owner/repo"], token="t", now="2026-08-23T06:00:00Z")
+
+    assert report["held_count"] == 0, (
+        "a held sibling of an approved run is not a live block; the file version "
+        "is trusted and new events will execute"
+    )
+
+
+def test_sweep_still_reports_when_nothing_executed_at_or_after_the_hold(monkeypatch) -> None:
+    """The converse: an older success must not excuse a newer hold."""
+    runs = [
+        _held_run(1500, "2026-08-23T05:00:00Z"),
+        {
+            "id": 1499,
+            "conclusion": "success",
+            "status": "completed",
+            "event": "issues",
+            "created_at": "2026-08-22T05:00:00Z",
+        },
+    ]
+    monkeypatch.setattr(diag, "_gh_api", _sweep_stub(runs=runs, onset_pages=[runs]))
+
+    report = diag.sweep(["owner/repo"], token="t", now="2026-08-23T06:00:00Z")
+
+    assert report["held_count"] == 1
