@@ -47,6 +47,6 @@ def test_manifest_issue_references_are_open() -> None:
                 capture_output=True,
                 text=True,
             )
-            assert result.stdout.strip() == "OPEN", (
-                f"manifest references closed issue #{issue_number}: {line.strip()}"
-            )
+            assert (
+                result.stdout.strip() == "OPEN"
+            ), f"manifest references closed issue #{issue_number}: {line.strip()}"
