@@ -1,0 +1,34 @@
+{
+  "prNumber": 402,
+  "issueNumber": 402,
+  "headSequence": [
+    "sha0",
+    "sha0",
+    "sha0",
+    "sha0",
+    "sha0",
+    "sha0",
+    "sha0",
+    "sha0",
+    "sha0",
+    "sha1",
+    "sha1"
+  ],
+  "headFetchDelaysMs": [0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0],
+  "labelsSequence": [["agents:keepalive", "agent:codex", "agents:sync-required"]],
+  "env": {
+    "TRACE": "trace-update-branch-virtual-clock",
+    "ROUND": "3",
+    "HEAD_BRANCH": "codex/issue-402",
+    "BASE_BRANCH": "main",
+    "PREVIOUS_HEAD": "sha0",
+    "AGENT_STATE": "done",
+    "TTL_SHORT_MS": "5",
+    "POLL_SHORT_MS": "1",
+    "TTL_LONG_MS": "5",
+    "POLL_LONG_MS": "1"
+  },
+  "updateBranch": {
+    "status": 202
+  }
+}

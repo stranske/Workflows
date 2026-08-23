@@ -75,6 +75,9 @@ async function main() {
   const headSequence = Array.isArray(scenario.headSequence)
     ? scenario.headSequence.slice()
     : [];
+  const headFetchDelaysMs = Array.isArray(scenario.headFetchDelaysMs)
+    ? scenario.headFetchDelaysMs.map((value) => Math.max(0, Number(value) || 0))
+    : [];
   const defaultHead = scenario.previousHead || headSequence[0] || 'sha-initial';
   let headIndex = 0;
   const takeHead = () => {
@@ -150,6 +153,10 @@ async function main() {
     rest: {
       pulls: {
         get: async () => {
+          const fetchDelayMs = headFetchDelaysMs[events.headFetches.length] || 0;
+          if (fetchDelayMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, fetchDelayMs));
+          }
           const sha = takeHead();
           events.headFetches.push(sha);
           return {
@@ -341,7 +348,15 @@ async function main() {
   env.MERGE_METHOD = normaliseEnvValue(env.MERGE_METHOD) || 'squash';
   env.DELETE_TEMP_BRANCH = normaliseEnvValue(env.DELETE_TEMP_BRANCH) || 'true';
 
-  await runKeepalivePostWork({ core, github, context, env });
+  let virtualNowMs = 0;
+  const clock = {
+    now: () => virtualNowMs,
+    sleep: async (ms) => {
+      virtualNowMs += Math.max(0, Number(ms) || 0);
+    },
+  };
+
+  await runKeepalivePostWork({ core, github, context, env, clock });
 
   const payload = {
     info,

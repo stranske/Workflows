@@ -173,12 +173,14 @@ function parseAgentState(env = {}) {
   return response;
 }
 
-async function pollForHeadChange({ fetchHead, initialSha, timeoutMs, intervalMs, label, core }) {
-  const start = Date.now();
+async function pollForHeadChange({ fetchHead, initialSha, timeoutMs, intervalMs, label, core, clock }) {
+  const now = typeof clock?.now === 'function' ? clock.now : Date.now;
+  const pollSleep = typeof clock?.sleep === 'function' ? clock.sleep : delay;
+  const start = now();
   let attempts = 0;
   let lastSha = initialSha;
 
-  while (Date.now() - start <= timeoutMs) {
+  while (now() - start <= timeoutMs) {
     attempts += 1;
     try {
       const { headSha } = await fetchHead();
@@ -186,21 +188,21 @@ async function pollForHeadChange({ fetchHead, initialSha, timeoutMs, intervalMs,
         lastSha = headSha;
       }
       if (headSha && headSha !== initialSha) {
-        return { changed: true, headSha, attempts, elapsedMs: Date.now() - start };
+        return { changed: true, headSha, attempts, elapsedMs: now() - start };
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       core?.warning?.(`Failed to poll head during ${label || 'poll'}: ${message}`);
     }
 
-    if (Date.now() - start >= timeoutMs) {
+    if (now() - start >= timeoutMs) {
       break;
     }
 
-    await delay(intervalMs);
+    await pollSleep(intervalMs);
   }
 
-  return { changed: false, headSha: lastSha, attempts, elapsedMs: Date.now() - start };
+  return { changed: false, headSha: lastSha, attempts, elapsedMs: now() - start };
 }
 
 function buildSummaryRecorder(summary) {
@@ -529,6 +531,7 @@ async function attemptUpdateBranchViaApi({
   record,
   appendRound,
   statusMode = 'active',
+  clock,
 }) {
   if (!Number.isFinite(prNumber) || prNumber <= 0 || !baselineHead) {
     record('Update-branch API', appendRound('skipped: missing PR context or baseline head.'));
@@ -575,6 +578,7 @@ async function attemptUpdateBranchViaApi({
       intervalMs: pollIntervalMs,
       label: 'update-branch-api',
       core,
+      clock,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -595,7 +599,13 @@ async function attemptUpdateBranchViaApi({
   };
 }
 
-async function runKeepalivePostWork({ core, github: rawGithub, context, env = process.env }) {
+async function runKeepalivePostWork({
+  core,
+  github: rawGithub,
+  context,
+  env = process.env,
+  clock = { now: Date.now, sleep: delay },
+}) {
   // Wrap github client with rate-limit-aware retry
   let github;
   try {
@@ -1229,6 +1239,7 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
       intervalMs: pollLong,
       label: 'api-update-branch',
       core,
+      clock,
     });
 
     if (pollResult?.changed) {
@@ -1327,6 +1338,7 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
       intervalMs: pollLong,
       label: 'helper-sync',
       core,
+      clock,
     });
 
     if (pollResult?.changed) {
@@ -1359,6 +1371,7 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
     intervalMs: pollShort,
     label: 'comment-wait',
     core,
+    clock,
   });
   if (shortPoll.changed) {
     success = true;
@@ -1407,6 +1420,7 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
       record,
       appendRound,
       statusMode,
+      clock,
     });
     if (apiResult?.attempted) {
       if (apiResult?.changed) {
