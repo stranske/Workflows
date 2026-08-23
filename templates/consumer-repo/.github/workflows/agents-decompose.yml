@@ -35,7 +35,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e ".[langchain]" --quiet
+          # Guarded: a consumer need not be an installable package (the template
+          # ships no pyproject.toml), and one that is need not declare a
+          # `langchain` extra. Fall back to the fleet's canonical LLM pins, which
+          # the sync manifest delivers to every consumer, so the langchain imports
+          # below still resolve instead of failing at import time.
+          if [ -f pyproject.toml ] || [ -f setup.py ] || [ -f setup.cfg ]; then
+            pip install -e ".[langchain]" --quiet
+          elif [ -f tools/requirements-llm.txt ]; then
+            echo "No packaging metadata; installing LLM pins from tools/requirements-llm.txt."
+            python -m pip install -r tools/requirements-llm.txt --quiet
+          else
+            echo "No packaging metadata and no tools/requirements-llm.txt; skipping install."
+          fi
 
       - name: Extract issue content
         id: extract
