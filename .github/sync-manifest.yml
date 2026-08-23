@@ -214,6 +214,8 @@ prompts:
 codex_config:
   - source: .github/codex/AGENT_INSTRUCTIONS.md
     description: "Agent instructions - base instructions for all Codex runs"
+  - source: config/source_of_truth_docs.yml
+    description: "Defines consumer-local documentation paths without distributing the Workflows fleet registry"
 
 # Scripts required by consumer workflows
 # Note: These scripts are synced because they're referenced by reusable workflows
@@ -235,9 +237,6 @@ scripts:
     template_sync: exact
   - source: scripts/sync_status_file_ignores.py
     description: "Validates and updates the managed consumer .gitignore status-file block, including legacy conflict cleanup"
-    template_sync: exact
-  - source: config/source_of_truth_docs.yml
-    description: "Defines the canonical documentation paths scanned by the docs drift fix agent"
     template_sync: exact
   - source: .github/scripts/issue_format.py
     description: "Pure-stdlib validator for AGENT_ISSUE_FORMAT compliance. Single fleet definition of agent-processable; used by agents-issue-format-guard.yml and callable directly by local filers to pre-flight before gh issue create (non-zero exit = unfit). Do not fork per repo."

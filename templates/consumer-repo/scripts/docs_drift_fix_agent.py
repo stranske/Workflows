@@ -516,14 +516,40 @@ def default_docs_from_config(repo_root: Path, *, repo: str = DEFAULT_REPO) -> li
         repo_config = {}
     if not isinstance(repo_config, Mapping):
         raise ValueError(f"docs config entry for {repo!r} must be a mapping")
-    docs = [
-        str(item.get("path"))
-        for item in repo_config.get("docs") or []
-        if isinstance(item, dict) and item.get("path")
-    ]
+    consumer_config = data.get("consumer", {})
+    if consumer_config is None:
+        consumer_config = {}
+    if not isinstance(consumer_config, Mapping):
+        raise ValueError("docs config 'consumer' must be a mapping")
+    raw_docs = repo_config.get("docs") or consumer_config.get("docs") or []
+    if not isinstance(raw_docs, list):
+        raise ValueError("docs config 'docs' must be a list")
+    docs: list[str] = []
+    missing: list[str] = []
+    for item in raw_docs:
+        if not isinstance(item, Mapping) or not item.get("path"):
+            continue
+        configured = Path(str(item["path"]))
+        resolved = configured
+        if item.get("case_insensitive") is True:
+            parent = repo_root / configured.parent
+            matches = (
+                [
+                    candidate
+                    for candidate in parent.iterdir()
+                    if candidate.name.casefold() == configured.name.casefold()
+                ]
+                if parent.is_dir()
+                else []
+            )
+            if len(matches) == 1 and matches[0].is_file():
+                resolved = configured.parent / matches[0].name
+        if (repo_root / resolved).is_file():
+            docs.append(resolved.as_posix())
+        else:
+            missing.append(configured.as_posix())
     candidates = docs or list(check_docs_drift.DEFAULT_DOCS)
-    missing = [doc for doc in candidates if not (repo_root / doc).is_file()]
-    if docs and missing:
+    if raw_docs and missing:
         raise FileNotFoundError(f"configured docs not found for {repo}: {', '.join(missing)}")
     return [doc for doc in candidates if (repo_root / doc).is_file()]
 
