@@ -30,6 +30,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from typing import Any
 
 from scripts import api_client
@@ -43,17 +44,59 @@ def _github_token() -> str:
     return result.stdout.strip()
 
 
-def _gh_api(path: str, token: str | None = None) -> dict[str, Any]:
+# GitHub enforces a SECONDARY rate limit on rapid sequential requests, separate
+# from the hourly quota and invisible to /rate_limit - it answers 403 with a
+# "rate limit" message while /rate_limit still reports thousands remaining. A
+# repo-wide sweep is ~1 call per workflow, which trips it. Two defences:
+#
+#   * pace requests, so the burst threshold is not reached; and
+#   * retry with a backoff long enough to matter. api_client already recognises
+#     the 403, but its defaults (3 attempts, 1s backoff) give up after ~3 seconds
+#     when a secondary limit wants a minute or more.
+#
+# Without both, the daily liveness job dies on its own API usage - a detector
+# that cannot survive its own traffic reports nothing, which is the failure this
+# whole module exists to prevent.
+_PACE_SECONDS = float(os.environ.get("WORKFLOW_SWEEP_PACE_SECONDS", "0.12"))
+_RETRY_ATTEMPTS = int(os.environ.get("WORKFLOW_SWEEP_RETRY_ATTEMPTS", "6"))
+_RETRY_BACKOFF = float(os.environ.get("WORKFLOW_SWEEP_RETRY_BACKOFF", "8"))
+
+
+def _pace() -> None:
+    if _PACE_SECONDS > 0:
+        time.sleep(_PACE_SECONDS)
+
+
+def _get_json(path: str, token: str | None = None) -> Any:
     auth_token = token or _github_token()
-    data = api_client._request_json(
+    _pace()
+    return api_client._request_json(
         "GET",
         f"{api_client.GITHUB_API}/{path.lstrip('/')}",
         auth_token,
         payload=None,
+        max_attempts=_RETRY_ATTEMPTS,
+        backoff=_RETRY_BACKOFF,
     )
+
+
+def _gh_api(path: str, token: str | None = None) -> dict[str, Any]:
+    data = _get_json(path, token)
     if not isinstance(data, dict):
         raise ValueError(f"Expected JSON object from GitHub API path {path}")
     return data
+
+
+def _gh_api_list(path: str, token: str | None = None) -> list[Any]:
+    """GET a path whose success body is a JSON array.
+
+    ``_gh_api`` raises on anything that is not an object, so routing the commits
+    endpoint through it turns every review into a ValueError that aborts the whole
+    sweep. Returns [] for an object, which is what an error body looks like -
+    callers must treat [] as "could not determine", never as "nothing found".
+    """
+    data = _get_json(path, token)
+    return data if isinstance(data, list) else []
 
 
 def _collect_startup_failures(
@@ -235,15 +278,21 @@ def _utc_now_iso() -> str:
 
 def _find_hold_onset(
     repo: str, workflow_id: Any, token: str, max_pages: int = 10
-) -> tuple[int, str | None, bool]:
+) -> tuple[int, str | None, bool, str | None]:
     """Walk back to the newest run that actually executed.
 
-    Returns ``(consecutive_held, onset, truncated)``. The streak routinely
+    Returns ``(consecutive_held, onset, truncated, last_healthy)``. The streak routinely
     exceeds one page: a workflow triggered hourly discards 20 runs in under a
     day, so reading the onset off a single sample page reports a three-week
     outage as hours old - which is the same silence this sweep exists to break.
     ``truncated`` means the streak outran ``max_pages``, so the onset is a lower
     bound rather than the real one.
+
+    ``last_healthy`` is the timestamp of the run that broke the streak - the newest
+    run that actually executed. It falls out of this walk for free, so the review
+    must not re-paginate the same pages to find it: that doubled the API cost of
+    every held workflow, and this sweep spends the installation token the whole
+    fleet shares.
     """
     streak = 0
     onset: str | None = None
@@ -254,17 +303,94 @@ def _find_hold_onset(
         )
         runs = payload.get("workflow_runs", [])
         if not isinstance(runs, list) or not runs:
-            return streak, onset, False
+            return streak, onset, False, None
         for run in runs:
             if not isinstance(run, dict) or run.get("conclusion") != HELD_RUN_CONCLUSION:
-                return streak, onset, False
+                healthy = str((run or {}).get("created_at") or "").strip() or None
+                return streak, onset, False, healthy
             streak += 1
             created = str(run.get("created_at") or "").strip()
             if created:
                 onset = created
         if len(runs) < 100:
-            return streak, onset, False
-    return streak, onset, True
+            return streak, onset, False, None
+    return streak, onset, True, None
+
+
+# Additions a reviewer must actually look at before approving a held workflow.
+# GitHub's banner asks a human to review the file; these are the shapes worth a
+# human's attention. Everything else (a dependency pin bump, a log string) is
+# what the review is trying NOT to spend time on.
+REVIEW_PATTERNS: tuple[tuple[str, str], ...] = (
+    (r"\$\{\{[^}]*(?:github\.event|inputs)\.", "event/input interpolated into a body"),
+    (r"\b(?:curl|wget)\b", "network fetch"),
+    (r"\|\s*(?:bash|sh)\b", "pipe to shell"),
+    (r"base64\s+-d", "base64 decode"),
+    (r"uses:\s*(?!\./|actions/|github/)\S", "third-party action"),
+    (r"^\s*permissions:", "permissions change"),
+)
+
+
+def review_hold(
+    repo: str, workflow_path: str, since: str | None, token: str, max_commits: int = 3
+) -> dict[str, Any]:
+    """Summarise what changed in a held workflow file since it last executed.
+
+    This is the expensive half of clearing a hold. The click takes seconds; working
+    out whether the file is safe to approve is what costs minutes, and it is
+    mechanical. Doing it here turns the human step into "read the verdict, click".
+
+    A verdict of ``benign`` means no addition matched REVIEW_PATTERNS. It is an aid
+    to a human decision, never an authorisation - nothing in this module approves
+    anything.
+    """
+    if not since:
+        return {"verdict": "unknown", "reason": "no healthy run in range", "commits": []}
+    encoded = workflow_path.replace("#", "%23")
+    try:
+        commits = _gh_api_list(
+            f"repos/{repo}/commits?path={encoded}&since={since}&per_page={max_commits}", token
+        )
+    except (ValueError, OSError):
+        # A failed lookup must not read as reassuring: "benign" for a file nobody
+        # managed to inspect is exactly the plausible-but-wrong output this sweep
+        # exists to remove.
+        return {"verdict": "unknown", "reason": "commit lookup failed", "commits": []}
+    if not commits:
+        return {"verdict": "no-edit", "reason": "no commit touched the file", "commits": []}
+
+    findings: set[str] = set()
+    seen = []
+    for commit in commits[:max_commits]:
+        sha = str(commit.get("sha") or "")
+        detail = _gh_api(f"repos/{repo}/commits/{sha}", token)
+        files = detail.get("files") if isinstance(detail, dict) else None
+        patch = ""
+        if isinstance(files, list):
+            for entry in files:
+                if isinstance(entry, dict) and entry.get("filename") == workflow_path:
+                    patch = str(entry.get("patch") or "")
+                    break
+        added = [
+            line[1:]
+            for line in patch.split("\n")
+            if line.startswith("+") and not line.startswith("+++")
+        ]
+        hits = {
+            label
+            for line in added
+            for pattern, label in REVIEW_PATTERNS
+            if re.search(pattern, line)
+        }
+        findings |= hits
+        message = str((commit.get("commit") or {}).get("message") or "").split("\n")[0]
+        seen.append({"sha": sha[:8], "subject": message[:60], "findings": sorted(hits)})
+
+    return {
+        "verdict": "needs-eyes" if findings else "benign",
+        "reason": ", ".join(sorted(findings)) if findings else "no risky additions",
+        "commits": seen,
+    }
 
 
 def sweep_repository(
@@ -274,6 +400,7 @@ def sweep_repository(
     threshold: float = 0.0,
     min_runs: int = 1,
     now: str | None = None,
+    review: bool = True,
 ) -> dict[str, Any]:
     """Report workflows in ``repo`` whose recent history is dominated by holds.
 
@@ -301,20 +428,39 @@ def sweep_repository(
         if len(runs) < min_runs:
             continue
 
-        # Judge the NEWEST run, because "held" means "blocked right now".
-        # Judging the held SHARE of the sample instead reports a workflow that
-        # has already recovered: history dominates the window for a long outage,
-        # so a freshly-fixed workflow still scores 19/20 and the sweep cries wolf
-        # forever. That defect shipped once and was caught by running the sweep
-        # against a workflow whose newest run had just gone green.
-        if runs[0].get("conclusion") != HELD_RUN_CONCLUSION:
-            continue
-
+        # "Held" means "blocked right now", and deciding that needs care in two
+        # directions, both learned the hard way.
+        #
+        # Judging the held SHARE of the sample reports a workflow that has already
+        # recovered, because history dominates the window for a long outage.
+        #
+        # Judging only runs[0] is also wrong. Approving a run marks that workflow
+        # FILE VERSION trusted going FORWARD; it does not retroactively release
+        # runs already created. So a burst of runs from one moment leaves stale
+        # held siblings behind after the approval, and the newest by created_at can
+        # be one of them while the workflow is perfectly healthy for new events.
+        # Observed exactly this: three workflows whose approved runs went to
+        # attempt 2 and executed, while same-second siblings stayed at attempt 1.
+        #
+        # The honest test: is there any run at or after the newest held run that
+        # actually executed? If so, the file version is trusted and new events will
+        # run.
         held_runs = [r for r in runs if r.get("conclusion") == HELD_RUN_CONCLUSION]
+        if not held_runs:
+            continue
+        newest_held_at = str(held_runs[0].get("created_at") or "")
+        executed_after = [
+            r
+            for r in runs
+            if r.get("conclusion") != HELD_RUN_CONCLUSION
+            and str(r.get("created_at") or "") >= newest_held_at
+        ]
+        if executed_after:
+            continue
         if threshold and len(held_runs) / len(runs) < threshold:
             continue
 
-        newest = runs[0]
+        newest = held_runs[0]
         run_id = newest.get("id")
         jobs_payload = _gh_api(f"repos/{repo}/actions/runs/{run_id}/jobs", token)
         jobs = jobs_payload.get("jobs", [])
@@ -324,8 +470,11 @@ def sweep_repository(
             continue
 
         classification = _classify_zero_job_approval_hold(repo, int(run_id), newest)
-        streak, onset, truncated = _find_hold_onset(repo, workflow_id, token)
+        streak, onset, truncated, last_healthy = _find_hold_onset(repo, workflow_id, token)
         reference = now or _utc_now_iso()
+        assessment: dict[str, Any] = {"verdict": "skipped", "reason": "review disabled"}
+        if review:
+            assessment = review_hold(repo, path, last_healthy, token)
         held.append(
             {
                 "repo": repo,
@@ -342,6 +491,7 @@ def sweep_repository(
                 "drainable_by_api": classification["suspected_root_cause"] in DRAINABLE_ROOT_CAUSES,
                 "approval_url": classification["approval_url"],
                 "remediation": classification["remediation"],
+                "review": assessment,
             }
         )
 
@@ -355,11 +505,20 @@ def sweep(
     threshold: float = 0.0,
     min_runs: int = 1,
     now: str | None = None,
+    review: bool = True,
 ) -> dict[str, Any]:
     """Sweep every repository and aggregate the blocking/drainable pair."""
     auth = token or _github_token()
     repo_reports = [
-        sweep_repository(repo, auth, sample=sample, threshold=threshold, min_runs=min_runs, now=now)
+        sweep_repository(
+            repo,
+            auth,
+            sample=sample,
+            threshold=threshold,
+            min_runs=min_runs,
+            now=now,
+            review=review,
+        )
         for repo in repos
     ]
     held = [h for report in repo_reports for h in report["held"]]
@@ -374,6 +533,10 @@ def sweep(
         "repos": repos,
         "workflows_scanned": sum(r["workflows_scanned"] for r in repo_reports),
         "held_count": len(held),
+        "benign_count": sum(1 for h in held if h.get("review", {}).get("verdict") == "benign"),
+        "needs_eyes_count": sum(
+            1 for h in held if h.get("review", {}).get("verdict") == "needs-eyes"
+        ),
         "drainable_count": len(drainable),
         "held_runs_discarded": sum(h["consecutive_held"] for h in held),
         "oldest_hold": oldest,
@@ -411,9 +574,15 @@ def format_sweep_summary(report: dict[str, Any]) -> str:
             f"; oldest {prefix}{oldest['days_held']}d " f"({oldest['workflow'].rsplit('/', 1)[-1]})"
         )
     remedy = "web approval required" if drainable < held else "REST approval available"
+    triage = ""
+    if report.get("needs_eyes_count") or report.get("benign_count"):
+        triage = (
+            f"; {report.get('benign_count', 0)} benign, "
+            f"{report.get('needs_eyes_count', 0)} need eyes"
+        )
     return (
         f"workflow liveness: {held} held / {drainable} clearable by API - {remedy}"
-        f"{tail}; {report['held_runs_discarded']} runs discarded; "
+        f"{tail}{triage}; {report['held_runs_discarded']} runs discarded; "
         f"{scanned} active workflows scanned"
     )
 
@@ -466,6 +635,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-runs", type=int, default=1, help="Minimum sampled runs before judging a workflow"
     )
     parser.add_argument(
+        "--no-review",
+        action="store_true",
+        help="Skip the per-hold diff review (fewer API calls, less useful output)",
+    )
+    parser.add_argument(
         "--report-only",
         action="store_true",
         help="Exit 0 even when holds are found (sweep mode)",
@@ -498,6 +672,7 @@ def _run_sweep(args: argparse.Namespace) -> int:
         sample=args.sample,
         threshold=args.threshold,
         min_runs=args.min_runs,
+        review=not args.no_review,
     )
     summary = format_sweep_summary(report)
     print(summary)
@@ -506,7 +681,8 @@ def _run_sweep(args: argparse.Namespace) -> int:
             f"  HELD {entry['repo']} {entry['workflow']}"
             f" - {entry['consecutive_held']} consecutive held runs,"
             f" {_fmt_days(entry)},"
-            f" {entry['suspected_root_cause']}"
+            f" review={entry.get('review', {}).get('verdict', '?')}"
+            f" ({entry.get('review', {}).get('reason', '')})"
             f" -> {entry['approval_url']}"
         )
     print(json.dumps(report, indent=2))
@@ -524,16 +700,17 @@ def _write_step_summary(summary: str, report: dict[str, Any]) -> None:
     lines = [f"### Workflow liveness sweep\n\n{summary}\n"]
     if report["held"]:
         lines.append(
-            "\n| repo | workflow | held/sampled | days | cause | approve |\n"
-            "|---|---|---|---|---|---|\n"
+            "\n| repo | workflow | held | days | review | why | approve |\n"
+            "|---|---|---|---|---|---|---|\n"
         )
         for entry in report["held"]:
             lines.append(
                 f"| {entry['repo']} | `{entry['workflow'].rsplit('/', 1)[-1]}` |"
-                f" {entry['held_runs_sampled']}/{entry['runs_sampled']} |"
+                f" {entry['consecutive_held']} |"
                 f" {_fmt_days(entry)} |"
-                f" {entry['suspected_root_cause']} |"
-                f" [run]({entry['approval_url']}) |\n"
+                f" **{entry.get('review', {}).get('verdict', '?')}** |"
+                f" {entry.get('review', {}).get('reason', '')} |"
+                f" [approve]({entry['approval_url']}) |\n"
             )
         lines.append(
             "\nNo REST endpoint clears an unproven-workflow hold. Use **Approve and "

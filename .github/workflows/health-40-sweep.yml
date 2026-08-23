@@ -8,7 +8,13 @@ on:
         type: boolean
         default: true
   schedule:
+    # Weekly: the full sweep (actionlint + branch protection + liveness).
     - cron: '5 5 * * 1'
+    # Daily: workflow liveness only. A suspicious-workflow hold can appear within
+    # hours of any workflow-file edit, so a weekly-only check leaves a workflow
+    # silently dead for up to seven days. The liveness job is ~1 API call per
+    # workflow, so daily is cheap; the other jobs stay weekly (see DAILY_CRON).
+    - cron: '25 6 * * *'
   pull_request:
   push:
     branches: [main]
@@ -85,7 +91,10 @@ jobs:
   actionlint:
     name: workflow lint (maint-36)
     needs: detect
-    if: needs.detect.outputs.workflows == 'true'
+    # Excluded from the daily liveness tick so its cadence is unchanged.
+    if: >-
+      needs.detect.outputs.workflows == 'true' &&
+      github.event.schedule != '25 6 * * *'
     uses: ./.github/workflows/health-42-actionlint.yml
     with:
       reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
@@ -128,7 +137,8 @@ jobs:
     needs: detect
     if: >-
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
-      needs.detect.outputs.run_branch_protection != 'false'
+      needs.detect.outputs.run_branch_protection != 'false' &&
+      github.event.schedule != '25 6 * * *'
     permissions:
       contents: read
       pull-requests: read
