@@ -281,3 +281,28 @@ jobs:
               echo "**Hours since last success:** ${{ steps.check.outputs.hours_since_success }}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Assert durable tracker workflow liveness
+        id: tracker_liveness
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          pip install pyyaml
+          if python3 scripts/check_durable_tracker_liveness.py --comment-on-failure; then
+            echo "status=healthy" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=unhealthy" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Tracker liveness summary
+        if: always() && steps.tracker_liveness.outcome == 'failure'
+        run: |
+          {
+            echo "## Durable tracker liveness"
+            echo ""
+            echo "At least one durable tracker source workflow has no executable run inside its configured cadence."
+            echo "FYI comments were posted on the affected tracker issue(s); no gate was opened or closed."
+          } >> "$GITHUB_STEP_SUMMARY"

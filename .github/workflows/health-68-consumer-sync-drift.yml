@@ -15,6 +15,9 @@ on:
   workflow_run:
     workflows: [Merge Sync PRs]
     types: [completed]
+  schedule:
+    # Daily self-healing cadence; workflow_run remains debounced below.
+    - cron: '15 6 * * *'
   workflow_dispatch:
     inputs:
       repos:
@@ -24,10 +27,10 @@ on:
 
 permissions:
   contents: read
-  issues: write
+  actions: read
 
 concurrency:
-  group: consumer-sync-drift-${{ github.repository }}-${{ github.ref }}
+  group: health-68-consumer-sync-drift
   cancel-in-progress: true
 
 jobs:
@@ -37,6 +40,8 @@ jobs:
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
+    outputs:
+      drift_failed: ${{ steps.compare.outcome == 'failure' }}
     steps:
       - name: Checkout Workflows repo
         uses: actions/checkout@v7
@@ -47,18 +52,47 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
-
+      - name: Debounce workflow_run fan-out
+        id: debounce
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEBOUNCE_MINUTES: '30'
+        run: |
+          set -euo pipefail
+          latest_created="$(
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/health-68-consumer-sync-drift.yml/runs?per_page=20" \
+              --jq '[.workflow_runs[] | select(.id != '"${GITHUB_RUN_ID}"') | select(.conclusion == "success" or .conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")][0].created_at // empty']'
+          )
+          if [ -z "$latest_created" ]; then
+            echo "No prior executable Health 68 run; continuing."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest_epoch="$(date -d "$latest_created" +%s)"
+          now_epoch="$(date -u +%s)"
+          age_minutes=$(( (now_epoch - latest_epoch) / 60 ))
+          echo "Last executable Health 68 run was ${age_minutes} minutes ago at ${latest_created}."
+          if [ "$age_minutes" -lt "$DEBOUNCE_MINUTES" ]; then
+            echo "Skipping debounced workflow_run fan-out (< ${DEBOUNCE_MINUTES} minutes)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Setup Python
+        if: steps.debounce.outputs.skip != 'true'
         uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
       - name: Install dependencies
+        if: steps.debounce.outputs.skip != 'true'
         run: pip install pyyaml requests
 
       - name: Compare consumer repos to templates
         id: compare
+        if: steps.debounce.outputs.skip != 'true'
         env:
           CONSUMER_SYNC_DRIFT_REPORT_JSON: artifacts/consumer-sync-drift-report.json
           INPUT_REPOS: ${{ inputs.repos }}
@@ -74,7 +108,7 @@ jobs:
             --report-json "$CONSUMER_SYNC_DRIFT_REPORT_JSON"
 
       - name: Upload drift report
-        if: ${{ always() }}
+        if: ${{ always() && steps.debounce.outputs.skip != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: consumer-sync-drift-report
@@ -82,8 +116,31 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  publish-drift:
+    name: Publish actionable drift tracker update
+    needs: check-drift
+    if: ${{ needs.check-drift.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v7
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      - name: Download drift report
+        uses: actions/download-artifact@v6
+        with:
+          name: consumer-sync-drift-report
+          path: artifacts
+
       - name: Create drift issue
-        if: ${{ failure() }}
         uses: actions/github-script@v9
         with:
           script: |

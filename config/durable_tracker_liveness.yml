@@ -1,0 +1,21 @@
+# Workflows monitored by Health 71 durable-tracker liveness assertions.
+# Each entry must match a row in docs/ops/DURABLE_TRACKING_ISSUES.md.
+trackers:
+  - workflow: agents-weekly-metrics.yml
+    issue: 2211
+    max_age_hours: 192
+  - workflow: maint-82-sync-dependency-campaign.yml
+    issue: 1836
+    max_age_hours: 1
+  - workflow: health-83-dependency-sync-efficiency.yml
+    issue: 2897
+    max_age_hours: 192
+  - workflow: health-68-consumer-sync-drift.yml
+    issue: 2210
+    max_age_hours: 48
+  - workflow: maint-69-sync-integration-repo.yml
+    issue: 2470
+    max_age_hours: 168
+  - workflow: maint-80-langsmith-metrics-dashboard.yml
+    issue: 2415
+    max_age_hours: 192

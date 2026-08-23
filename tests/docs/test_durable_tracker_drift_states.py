@@ -56,17 +56,17 @@ def test_tracker_doc_documents_every_state_the_checker_emits() -> None:
     )
 
 
-def test_tracker_doc_does_not_promise_a_cron_health_68_no_longer_has() -> None:
+def test_tracker_doc_documents_daily_schedule_for_health_68() -> None:
     text = TRACKER_DOC.read_text(encoding="utf-8")
     workflow = HEALTH_68.read_text(encoding="utf-8")
     row = _ROW_2210.search(text)
     assert row, "missing #2210 cadence row in the durable tracker table"
     cadence = row.group(1)
 
-    assert "schedule:" not in workflow, "Health 68 regained a cron; update the tracker doc row"
-    assert "05:10" not in cadence and "cron" not in cadence.lower()
+    assert "schedule:" in workflow, "Health 68 must declare a daily schedule trigger"
+    assert "daily" in cadence.lower() or "06:15" in cadence
     assert "Merge Sync PRs" in cadence
-    assert "successful main-branch" in cadence
+    assert "successful main-branch" in cadence or "debounced" in cadence
     assert "qualifying" in cadence and "push" in cadence
     assert "manual dispatch" in cadence
 
