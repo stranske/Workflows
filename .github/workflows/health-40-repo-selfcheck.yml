@@ -1043,12 +1043,14 @@ jobs:
             core.info(`Closed tracker issue #${existing.number}.`);
 
       - name: Update repo health snapshot issue
-        if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
+        if: always()
         uses: actions/github-script@v9
         env:
           ISSUE_BODY_PATH: repo-health-issue.md
         with:
-          github-token: ${{ steps.branch-token.outputs.token }}
+          # Issue mutations use the repository-scoped installation token. The
+          # branch-protection token is intentionally limited to admin probes.
+          github-token: ${{ github.token }}
           script: |
             // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
@@ -1119,7 +1121,7 @@ jobs:
               per_page: 100,
             });
 
-            const matches = issues.filter((issue) => issue.title.startsWith(issueTitle));
+            const matches = issues.filter((issue) => issue.title === issueTitle);
             let target = matches.find((issue) => issue.state === 'open');
             if (!target) {
               target = matches[0];

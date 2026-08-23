@@ -6,6 +6,8 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/health-40-repo-selfcheck.yml"
 
@@ -46,3 +48,25 @@ def test_close_tracker_gate_requires_positive_checks_ran_signal() -> None:
         text,
         flags=re.DOTALL,
     )
+
+
+def _workflow_step(name: str) -> dict:
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    return next(
+        step for step in workflow["jobs"]["repo-health"]["steps"] if step.get("name") == name
+    )
+
+
+def test_snapshot_issue_uses_repo_token_even_without_admin_token() -> None:
+    step = _workflow_step("Update repo health snapshot issue")
+
+    assert step["if"] == "always()"
+    assert step["with"]["github-token"] == "${{ github.token }}"
+    assert "steps.branch-token.outputs.token" not in step["with"]["github-token"]
+
+
+def test_snapshot_issue_does_not_reuse_failure_tracker_prefix_match() -> None:
+    script = _workflow_step("Update repo health snapshot issue")["with"]["script"]
+
+    assert "issue.title === issueTitle" in script
+    assert "issue.title.startsWith(issueTitle)" not in script
