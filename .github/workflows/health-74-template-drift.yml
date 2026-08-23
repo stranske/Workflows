@@ -3,13 +3,13 @@ name: Health 74 Template Drift
 on:
   push:
     paths:
-      - '.github/workflows/agents-*.yml'
+      - '.github/workflows/*.yml'
       - 'templates/consumer-repo/.github/workflows/*.yml'
       - 'scripts/check_template_drift.py'
       - 'config/template-drift-allowlist.txt'
   pull_request:
     paths:
-      - '.github/workflows/agents-*.yml'
+      - '.github/workflows/*.yml'
       - 'templates/consumer-repo/.github/workflows/*.yml'
       - 'scripts/check_template_drift.py'
       - 'config/template-drift-allowlist.txt'

@@ -17,7 +17,7 @@ def test_pair_discovery_covers_every_shared_basename() -> None:
     }
     covered = {pair.main_path.name for pair in discover_workflow_pairs(REPO_ROOT)}
     missing = sorted(shared - covered)
-    assert not missing, (
+    assert missing == [], (
         "these basenames exist in BOTH .github/workflows/ and "
         "templates/consumer-repo/.github/workflows/ but have no drift pair: " + ", ".join(missing)
     )
