@@ -531,6 +531,18 @@ jobs:
             tools_skipped+=("$1")
           }
 
+          # A pyproject.toml that only carries tool configuration (e.g.
+          # [tool.coverage]) is not an installable distribution. Treat the repo
+          # as a package only when it declares [project] (PEP 621),
+          # [build-system], or [tool.poetry]; otherwise `-e .[app,dev]` fails
+          # for a consumer that merely wants somewhere to keep tool config.
+          pyproject_declares_distribution() {
+            [ -f pyproject.toml ] || return 1
+            grep -Eq \
+              '^[[:space:]]*\[[[:space:]]*(project|build-system|tool\.poetry)[[:space:]]*\]' \
+              pyproject.toml
+          }
+
           if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
             export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
           fi
@@ -543,9 +555,8 @@ jobs:
               specs+=('-r' 'requirements.lock')
             fi
 
-            if [ -f pyproject.toml ]; then
-              specs+=('-e' '.[app,dev]')
-            elif [ -f setup.cfg ] || [ -f setup.py ]; then
+            if pyproject_declares_distribution \
+              || [ -f setup.cfg ] || [ -f setup.py ]; then
               specs+=('-e' '.[app,dev]')
             fi
           fi
@@ -933,6 +944,18 @@ jobs:
             tools_skipped+=("$1")
           }
 
+          # A pyproject.toml that only carries tool configuration (e.g.
+          # [tool.coverage]) is not an installable distribution. Treat the repo
+          # as a package only when it declares [project] (PEP 621),
+          # [build-system], or [tool.poetry]; otherwise `-e .[app,dev]` fails
+          # for a consumer that merely wants somewhere to keep tool config.
+          pyproject_declares_distribution() {
+            [ -f pyproject.toml ] || return 1
+            grep -Eq \
+              '^[[:space:]]*\[[[:space:]]*(project|build-system|tool\.poetry)[[:space:]]*\]' \
+              pyproject.toml
+          }
+
           if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
             export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
           fi
@@ -945,9 +968,8 @@ jobs:
               specs+=('-r' 'requirements.lock')
             fi
 
-            if [ -f pyproject.toml ]; then
-              specs+=('-e' '.[app,dev]')
-            elif [ -f setup.cfg ] || [ -f setup.py ]; then
+            if pyproject_declares_distribution \
+              || [ -f setup.cfg ] || [ -f setup.py ]; then
               specs+=('-e' '.[app,dev]')
             fi
           fi
@@ -1316,6 +1338,18 @@ jobs:
             tools_skipped+=("$1")
           }
 
+          # A pyproject.toml that only carries tool configuration (e.g.
+          # [tool.coverage]) is not an installable distribution. Treat the repo
+          # as a package only when it declares [project] (PEP 621),
+          # [build-system], or [tool.poetry]; otherwise `-e .[app,dev]` fails
+          # for a consumer that merely wants somewhere to keep tool config.
+          pyproject_declares_distribution() {
+            [ -f pyproject.toml ] || return 1
+            grep -Eq \
+              '^[[:space:]]*\[[[:space:]]*(project|build-system|tool\.poetry)[[:space:]]*\]' \
+              pyproject.toml
+          }
+
           if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
             export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
           fi
@@ -1327,9 +1361,8 @@ jobs:
             specs+=('-r' 'requirements.lock')
           fi
 
-          if [ -f pyproject.toml ]; then
-            specs+=('-e' '.[app,dev]')
-          elif [ -f setup.cfg ] || [ -f setup.py ]; then
+          if pyproject_declares_distribution \
+            || [ -f setup.cfg ] || [ -f setup.py ]; then
             specs+=('-e' '.[app,dev]')
           fi
 
@@ -1668,6 +1701,18 @@ jobs:
             tools_skipped+=("$1")
           }
 
+          # A pyproject.toml that only carries tool configuration (e.g.
+          # [tool.coverage]) is not an installable distribution. Treat the repo
+          # as a package only when it declares [project] (PEP 621),
+          # [build-system], or [tool.poetry]; otherwise `-e .[app,dev]` fails
+          # for a consumer that merely wants somewhere to keep tool config.
+          pyproject_declares_distribution() {
+            [ -f pyproject.toml ] || return 1
+            grep -Eq \
+              '^[[:space:]]*\[[[:space:]]*(project|build-system|tool\.poetry)[[:space:]]*\]' \
+              pyproject.toml
+          }
+
           if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
             export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
           fi
@@ -1679,9 +1724,8 @@ jobs:
             specs+=('-r' 'requirements.lock')
           fi
 
-          if [ -f pyproject.toml ]; then
-            specs+=('-e' '.[app,dev]')
-          elif [ -f setup.cfg ] || [ -f setup.py ]; then
+          if pyproject_declares_distribution \
+            || [ -f setup.cfg ] || [ -f setup.py ]; then
             specs+=('-e' '.[app,dev]')
           fi
 
@@ -1972,7 +2016,14 @@ jobs:
           set -euo pipefail
           args=("--junitxml=pytest-junit.xml")
           if [ "${COVERAGE_ENABLED}" = "true" ]; then
-            args+=("--cov" "--cov-config=pyproject.toml")
+            args+=("--cov")
+            # Only pin the config when the file exists; coverage otherwise
+            # discovers .coveragerc / setup.cfg / tox.ini on its own. Passing a
+            # missing path is fatal ("Couldn't read 'pyproject.toml' as a config
+            # file") and kills collection before any test runs.
+            if [ -f pyproject.toml ]; then
+              args+=("--cov-config=pyproject.toml")
+            fi
             args+=("--cov-report=xml:coverage.xml")
             args+=("--cov-report=term-missing")
             args+=("--cov-report=json:coverage.json")
