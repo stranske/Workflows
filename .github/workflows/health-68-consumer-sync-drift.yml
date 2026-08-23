@@ -145,7 +145,7 @@ jobs:
   publish-drift:
     name: Publish actionable drift tracker update
     needs: check-drift
-    if: ${{ needs.check-drift.result == 'failure' }}
+    if: ${{ always() && needs.check-drift.outputs.drift_failed == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

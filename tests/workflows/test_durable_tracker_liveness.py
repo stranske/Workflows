@@ -13,6 +13,15 @@ TRACKER_DOC = Path("docs/ops/DURABLE_TRACKING_ISSUES.md")
 LIVENESS_CONFIG = Path("config/durable_tracker_liveness.yml")
 HEALTH_71 = Path(".github/workflows/health-71-sync-health-check.yml")
 
+EXPECTED_TRACKERS = {
+    "agents-weekly-metrics.yml": (2211, 192),
+    "maint-82-sync-dependency-campaign.yml": (1836, 1),
+    "health-83-dependency-sync-efficiency.yml": (2897, 192),
+    "health-68-consumer-sync-drift.yml": (2210, 48),
+    "maint-69-sync-integration-repo.yml": (2470, None),
+    "maint-80-langsmith-metrics-dashboard.yml": (2415, 192),
+}
+
 
 def _configured_workflows() -> set[str]:
     config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
@@ -26,6 +35,47 @@ def test_every_tracked_workflow_has_a_liveness_assertion() -> None:
     extra = sorted(configured - documented)
     assert not missing, f"tracker table workflows missing liveness config: {missing}"
     assert not extra, f"liveness config has undocumented workflows: {extra}"
+
+
+def test_liveness_config_has_literal_expected_tracker_contract() -> None:
+    config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
+    observed = {
+        entry["workflow"]: (int(entry["issue"]), entry.get("max_age_hours"))
+        for entry in config["trackers"]
+    }
+    assert observed == EXPECTED_TRACKERS
+
+
+def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(monkeypatch) -> None:
+    trackers = [
+        {"workflow": "event.yml", "issue": 1, "event_driven": True},
+        {"workflow": "recent.yml", "issue": 2, "max_age_hours": 24},
+        {"workflow": "stale.yml", "issue": 3, "max_age_hours": 24},
+        {"workflow": "absent.yml", "issue": 4, "max_age_hours": 24},
+    ]
+    runs = {
+        "recent.yml": {"conclusion": "success", "created_at": "recent", "html_url": "https://run/recent"},
+        "stale.yml": {"conclusion": "failure", "created_at": "stale", "html_url": "https://run/stale"},
+        "absent.yml": None,
+    }
+    monkeypatch.setattr(check_durable_tracker_liveness, "_load_config", lambda: trackers)
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_latest_executable_run",
+        lambda _repo, workflow, _token: runs[workflow],
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_hours_since",
+        lambda created: 1.0 if created == "recent" else 25.0,
+    )
+
+    assert check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token") == [
+        {"workflow": "event.yml", "issue": 1, "healthy": True, "reason": "event-driven workflow excluded from age-based liveness"},
+        {"workflow": "recent.yml", "issue": 2, "healthy": True, "latest_conclusion": "success", "latest_created_at": "recent", "hours_since": 1.0, "max_age_hours": 24.0, "run_url": "https://run/recent"},
+        {"workflow": "stale.yml", "issue": 3, "healthy": False, "latest_conclusion": "failure", "latest_created_at": "stale", "hours_since": 25.0, "max_age_hours": 24.0, "run_url": "https://run/stale"},
+        {"workflow": "absent.yml", "issue": 4, "healthy": False, "reason": "no executable run found (only action_required/skipped)"},
+    ]
 
 
 def test_health_71_invokes_durable_tracker_liveness_check() -> None:

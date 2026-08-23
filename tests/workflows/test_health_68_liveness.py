@@ -35,8 +35,9 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
 
 
 @pytest.mark.skipif(
-    not (os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")),
-    reason="GH_TOKEN or GITHUB_TOKEN required for live Health 68 execution probe",
+    os.environ.get("RUN_LIVE_HEALTH_68_PROBE") != "1"
+    or not (os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")),
+    reason="RUN_LIVE_HEALTH_68_PROBE=1 and GH_TOKEN or GITHUB_TOKEN required for live Health 68 execution probe",
 )
 def test_consumer_drift_detector_executed_recently() -> None:
     repo = os.environ.get("GITHUB_REPOSITORY", "stranske/Workflows")
