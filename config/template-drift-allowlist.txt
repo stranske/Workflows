@@ -63,7 +63,7 @@ main = .github/workflows/agents-72-codex-belt-worker.yml
 template = templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml
 main_sha256 = 905e1a6487c44f0705b4c83294fa5cc9e2693cfdf2927994f6dc28912516b758
 template_sha256 = f8ce0688837030094e20af4aee01d25274dbffcb3eeec3fa5b34da16318f3993
-divergence = Existing reviewed baseline drift re-baselined 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer worker workflow_call surfaces while preserving consumer action pinning and guarded merge wording.
+divergence = Intentional divergence re-reviewed 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer worker workflow_call surfaces while preserving consumer action pinning and guarded merge wording.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
@@ -205,9 +205,9 @@ fingerprint_refreshed = 2026-08-23
 [pair.19]
 main = .github/workflows/pr-00-gate.yml
 template = templates/consumer-repo/.github/workflows/pr-00-gate.yml
-main_sha256 = b10972cc49cce6879f6ccd70af19343ab40330572c5c0003a7140350c87c9a4e
+main_sha256 = 33f7c2ff2b5da5a426d8a4907e0af939392c74447641c925a7d7e991663a54c5
 template_sha256 = ae8266ef5429f5ef5f0982292dd8fd3572358352e285976fe006011d5926f2c5
-divergence = Intentional divergence reviewed 2026-08-23: the source Gate runs Workflows-only package, ledger, and diff-quality jobs with local reusable workflows; the consumer Gate uses published reusable workflows, pinned actions, and skips unavailable Workflows-local deliberate-break helpers. The consumer template must remain a bootstrap-safe deployment surface.
+divergence = Intentional divergence reviewed 2026-08-23: the source Gate runs Workflows-only package, ledger, diff-quality, and live sync-manifest issue-state checks with the read-scoped workflow token; the consumer Gate uses published reusable workflows, pinned actions, and skips unavailable Workflows-local deliberate-break helpers. The consumer template must remain a bootstrap-safe deployment surface.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 

@@ -387,6 +387,11 @@ jobs:
           --head HEAD
         env:
           PR_BODY: ${{ github.event.pull_request.body || '' }}
+      - name: Verify open sync-manifest issue citations
+        if: ${{ hashFiles('tests/scripts/test_sync_manifest_docs.py') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -m pytest tests/scripts/test_sync_manifest_docs.py -q
       - name: Apply runtime acceptance-criteria label
         if: ${{ steps.deliberate_break.outputs.has_marker == 'true' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
