@@ -90,7 +90,7 @@ def test_build_report_returns_machine_readable_counts() -> None:
 
 
 def test_report_counts_create_only_exclusions(tmp_path, monkeypatch) -> None:
-    """The checker reports skipped create-only pairs without changing its exit code."""
+    """Create-only reporting includes repos whose tree retrieval failed."""
     source = tmp_path / ".github" / "workflows" / "example.yml"
     source.parent.mkdir(parents=True)
     source.write_text("name: Example\n", encoding="utf-8")
@@ -128,7 +128,9 @@ def test_report_counts_create_only_exclusions(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         check_consumer_sync_drift,
         "fetch_remote_tree",
-        lambda _session, _repo: ({}, None),
+        lambda _session, repo: (
+            ({}, None) if repo == "owner/a" else (None, "owner/b: failed to fetch remote tree")
+        ),
     )
     monkeypatch.setattr(
         check_consumer_sync_drift,
@@ -136,14 +138,15 @@ def test_report_counts_create_only_exclusions(tmp_path, monkeypatch) -> None:
         lambda _session, _repo: ([], None),
     )
 
-    assert check_consumer_sync_drift.main() == 0
+    assert check_consumer_sync_drift.main() == 1
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["counts"]["unmeasured_create_only"] == 2
     assert report["unmeasured_create_only"] == [
         "owner/a: .github/workflows/example.yml",
         "owner/b: .github/workflows/example.yml",
     ]
-    assert report["status"] == "converged"
+    assert report["errors"] == ["owner/b: failed to fetch remote tree"]
+    assert report["status"] == "drift"
 
 
 def test_token_candidates_deduplicates_without_exposing_values() -> None:

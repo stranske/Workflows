@@ -1011,11 +1011,18 @@ def main() -> int:
                 errors.add(f"{section}: missing local file for {entry.source}")
                 continue
 
+            # Create-only entries intentionally are not compared against consumer
+            # trees. Count the full selected manifest surface before remote
+            # retrieval outcomes can remove a repository from ``remote_trees``.
+            if entry.sync_mode == "create_only":
+                for repo in repos:
+                    if not repo_overwrites_create_only(entry, repo):
+                        unmeasured_create_only.add(f"{repo}: {entry.target}")
+
             for repo in remote_trees:
                 if entry.sync_mode == "create_only" and not repo_overwrites_create_only(
                     entry, repo
                 ):
-                    unmeasured_create_only.add(f"{repo}: {entry.target}")
                     continue
                 skip_reason = manifest_skip_reason(entry, repo)
                 if skip_reason:
