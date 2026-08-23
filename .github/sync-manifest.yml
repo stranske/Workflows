@@ -17,7 +17,9 @@
 #   docs: Documentation files synced to consumer repos
 #
 # Each entry can specify:
-#   - source: Path relative to templates/consumer-repo/ (or .github/ for reusable-only)
+#   - source: Safe path relative to the declared source_tree
+#   - source_tree: Optional `template` or `root`; defaults to the section owner.
+#       Template-owned sections fail closed when their consumer-template source is absent.
 #   - target: Path in consumer repo (defaults to same as source)
 #   - description: What this file does (required for documentation)
 #   - skip_repos: Optional list of repo-specific exclusions with a reason.
@@ -116,7 +118,8 @@ workflows:
   - source: .github/workflows/agents-pr-health.yml
     description: "PR health scanner - periodic conflict resolution and failing check re-dispatch"
 
-  - source: templates/consumer-repo/.github/workflows/agents-auto-pilot.yml
+  - source: .github/workflows/agents-auto-pilot.yml
+    source_tree: template
     target: .github/workflows/agents-auto-pilot.yml
     description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify)"
 
@@ -762,6 +765,7 @@ actions:
     description: "Unified API client setup - installs @octokit deps and exports all load balancer tokens"
 
   - source: .github/actions/agent-run-base/
+    source_tree: root
     is_directory: true
     description: "Shared agent runner setup action - required by reusable-codex-run.yml and reusable-claude-run.yml"
 
@@ -798,6 +802,7 @@ llm_config:
 # Documentation synced to consumer repos
 docs:
   - source: docs/MODEL_SELECTION_POLICY.md
+    source_tree: root
     target: docs/MODEL_SELECTION_POLICY.md
     description: "Auditable auxiliary-model evaluation, selection, and refresh policy"
 
@@ -809,7 +814,8 @@ docs:
     target: docs/CI_SYSTEM_GUIDE.md
     description: "Guide to the CI system for agents"
 
-  - source: templates/consumer-repo/docs/LABELS.md
+  - source: docs/LABELS.md
+    source_tree: template
     target: docs/LABELS.md
     description: "Label definitions and usage"
 
@@ -846,10 +852,12 @@ docs:
   # (docs/contracts/research-backplane-contract.md) are intentionally NOT synced
   # (Workflows-only single source of truth); see research-backplane-contract.md.
   - source: docs/contracts/run-contract-v1.md
+    source_tree: root
     target: docs/contracts/run-contract-v1.md
     description: "Research-backplane run-contract/v1 wire-format spec - participants need it to implement an emitter/ingest adapter"
 
   - source: docs/contracts/identity-map-conventions.md
+    source_tree: root
     target: docs/contracts/identity-map-conventions.md
     description: "Canonical entity-ID conventions for run-contract/v1 identity_refs / evidence entity_ref - participants emit against these"
 
@@ -862,14 +870,17 @@ docs:
     description: "JSON Schema (draft 2020-12) for capability-bundle/v1 keepalive prompt fragments and gate metadata"
 
   - source: docs/contracts/schemas/run-contract-v1.schema.json
+    source_tree: root
     target: docs/contracts/schemas/run-contract-v1.schema.json
     description: "JSON Schema (draft 2020-12) for run-contract/v1 run envelopes - loaded by the validator and local helpers so participants validate without a Workflows checkout"
 
   - source: docs/contracts/schemas/artifact-manifest-v1.schema.json
+    source_tree: root
     target: docs/contracts/schemas/artifact-manifest-v1.schema.json
     description: "JSON Schema (draft 2020-12) for artifact-manifest/v1 - the named-artifact manifest a run envelope references"
 
   - source: docs/contracts/schemas/evidence-object-v1.schema.json
+    source_tree: root
     target: docs/contracts/schemas/evidence-object-v1.schema.json
     description: "JSON Schema (draft 2020-12) for evidence-object/v1 - attributable evidence objects (the satellite schema consumers like the LMS would ingest)"
 

@@ -34,6 +34,7 @@ COPY_SYNCED_SECTIONS: tuple[str, ...] = (
 )
 ROOT_SOURCE_SECTIONS = {"scripts", "templates"}
 TEMPLATE_SOURCE_SECTIONS = set(COPY_SYNCED_SECTIONS) - ROOT_SOURCE_SECTIONS
+ALLOWED_SOURCE_TREES: frozenset[str] = frozenset({"root", "template"})
 IGNORED_METADATA_SECTIONS = {"excluded", "runtime_fetched"}
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
@@ -69,12 +70,14 @@ class ManifestEntry:
     content_sha256: str
     effect_fingerprint: str
     requires: tuple[str, ...] = ()
+    source_tree: str = "template"
 
     def plan_record(self) -> dict[str, Any]:
         skip_reasons = {rule.repo: rule.reason for rule in self.skip_repos}
         return {
             "section": self.section,
             "source": self.source,
+            "source_tree": self.source_tree,
             "resolved_source": self.resolved_source,
             "target": self.target,
             "description": self.description,
@@ -221,21 +224,33 @@ def _parse_skip_repos(raw: Any, *, context: str) -> tuple[tuple[SkipRepo, ...], 
     return tuple(rules), errors
 
 
-def _source_candidates(repo_root: Path, source: str, section: str) -> tuple[list[Path], str | None]:
+def _default_source_tree(section: str) -> tuple[str | None, str | None]:
+    if section in ROOT_SOURCE_SECTIONS:
+        return "root", None
+    if section in TEMPLATE_SOURCE_SECTIONS:
+        return "template", None
+    return None, f"unknown source ownership policy for section {section}"
+
+
+def _source_candidates(
+    repo_root: Path, source: str, source_tree: str
+) -> tuple[list[Path], str | None]:
     root = repo_root / source
     template = repo_root / "templates" / "consumer-repo" / source
-    if section in ROOT_SOURCE_SECTIONS:
-        return [root, template], None
-    if section in TEMPLATE_SOURCE_SECTIONS:
-        return [template, root], None
-    return [template, root], f"unknown source ownership policy for section {section}"
+    if source_tree == "root":
+        return [root], None
+    if source_tree == "template":
+        return [template], None
+    return [], f"unsupported source_tree {source_tree!r}"
 
 
 def _resolve_source(
-    *, repo_root: Path, source: str, section: str, context: str
+    *, repo_root: Path, source: str, section: str, context: str, source_tree: str | None = None
 ) -> tuple[str, Path | None, list[str]]:
-    candidates, policy_error = _source_candidates(repo_root, source, section)
-    errors = [f"{context}: {policy_error}"] if policy_error else []
+    default_source_tree, default_error = _default_source_tree(section)
+    selected_source_tree = source_tree or default_source_tree
+    candidates, policy_error = _source_candidates(repo_root, source, selected_source_tree or "")
+    errors = [f"{context}: {error}" for error in (default_error, policy_error) if error]
     existing = [candidate for candidate in candidates if candidate.exists()]
     if not existing:
         searched = ", ".join(
@@ -260,7 +275,7 @@ def _resolve_source(
             if not child.is_symlink():
                 continue
             try:
-                Path(os.path.realpath(child, strict=True)).relative_to(root)
+                child.resolve(strict=True).relative_to(root)
             except (RuntimeError, ValueError):
                 return (
                     "",
@@ -285,29 +300,23 @@ def _resolve_source(
 def resolve_source_path(
     source: str, section: str | None, *, repo_root: Path = Path(".")
 ) -> Path | None:
-    """Resolve one source using the compiler's canonical ownership policy.
+    """Resolve one legacy caller path without changing its fallback contract.
 
-    ``section=None`` preserves the drift checker's legacy compatibility lookup:
-    prefer the consumer template and then fall back to the repository root.
-    Manifest compilation always supplies a section and therefore remains bound
-    to the explicit ownership policy.
+    Manifest compilation records an explicit source tree and never calls this
+    compatibility helper. Drift-check callers still use section precedence with
+    a root/template fallback while migrating to compiled-plan records.
     """
     source, error = _safe_relative_path(source, "source", "source resolution")
     if error:
         return None
     root = repo_root.resolve()
-    if section is None:
-        for candidate in (root / "templates" / "consumer-repo" / source, root / source):
-            if candidate.exists() and candidate.resolve().is_relative_to(root):
-                return candidate
-        return None
-    _resolved, path, errors = _resolve_source(
-        repo_root=root,
-        source=source,
-        section=section,
-        context=f"section '{section}'",
-    )
-    return None if errors else path
+    template = root / "templates" / "consumer-repo" / source
+    local = root / source
+    candidates = (local, template) if section in ROOT_SOURCE_SECTIONS else (template, local)
+    for candidate in candidates:
+        if candidate.exists() and candidate.resolve().is_relative_to(root):
+            return candidate
+    return None
 
 
 def _compile_entry(
@@ -323,6 +332,7 @@ def _compile_entry(
         return None, [f"{context}: entry must be a mapping"]
     allowed = {
         "source",
+        "source_tree",
         "target",
         "description",
         "sync_mode",
@@ -339,6 +349,15 @@ def _compile_entry(
     source, source_error = _safe_relative_path(raw.get("source"), "source", context)
     if source_error:
         errors.append(source_error)
+    default_source_tree, source_tree_error = _default_source_tree(section)
+    raw_source_tree = raw.get("source_tree", default_source_tree)
+    if not isinstance(raw_source_tree, str) or raw_source_tree not in ALLOWED_SOURCE_TREES:
+        errors.append(f"{context}: source_tree must be one of {sorted(ALLOWED_SOURCE_TREES)}")
+        source_tree = default_source_tree or ""
+    else:
+        source_tree = raw_source_tree
+    if source_tree_error:
+        errors.append(f"{context}: {source_tree_error}")
     target, error = _safe_relative_path(raw.get("target", source), "target", context)
     if error:
         errors.append(error)
@@ -391,6 +410,7 @@ def _compile_entry(
             source=source,
             section=section,
             context=context,
+            source_tree=source_tree,
         )
         errors.extend(source_errors)
     if resolved_path is not None:
@@ -405,6 +425,7 @@ def _compile_entry(
     effect_core = {
         "section": section,
         "source": source,
+        "source_tree": source_tree,
         "resolved_source": resolved_source,
         "target": target,
         "sync_mode": sync_mode,
@@ -433,6 +454,7 @@ def _compile_entry(
             content_sha256=content_sha256,
             effect_fingerprint=_stable_hash("consumer-sync-source-effect", effect_core),
             requires=tuple(requires),
+            source_tree=source_tree,
         ),
         [],
     )

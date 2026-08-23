@@ -72,7 +72,14 @@ def write_manifest(tmp_path: Path, manifest: dict) -> Path:
         if section == "version":
             continue
         for entry in entries:
-            source = tmp_path / "templates" / "consumer-repo" / entry["source"]
+            source_tree = entry.get(
+                "source_tree",
+                "root" if section in {"scripts", "templates"} else "template",
+            )
+            source_root = (
+                tmp_path if source_tree == "root" else tmp_path / "templates" / "consumer-repo"
+            )
+            source = source_root / entry["source"]
             if entry.get("is_directory"):
                 source.mkdir(parents=True, exist_ok=True)
                 (source / "index.js").write_text("// fixture\n", encoding="utf-8")

@@ -12,7 +12,8 @@ def test_consumer_template_labels_doc_is_the_manifest_source() -> None:
 
     assert labels_entry == [
         {
-            "source": "templates/consumer-repo/docs/LABELS.md",
+            "source": "docs/LABELS.md",
+            "source_tree": "template",
             "target": "docs/LABELS.md",
             "description": "Label definitions and usage",
         }

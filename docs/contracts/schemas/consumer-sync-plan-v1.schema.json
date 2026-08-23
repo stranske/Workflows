@@ -46,6 +46,7 @@
       "required": [
         "section",
         "source",
+        "source_tree",
         "resolved_source",
         "target",
         "description",
@@ -63,6 +64,7 @@
       "properties": {
         "section": {"type": "string", "minLength": 1},
         "source": {"$ref": "#/$defs/safePath"},
+        "source_tree": {"enum": ["root", "template"]},
         "resolved_source": {"$ref": "#/$defs/safePath"},
         "target": {"$ref": "#/$defs/safePath"},
         "description": {"type": "string", "minLength": 1},

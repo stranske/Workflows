@@ -94,7 +94,8 @@ def test_auto_pilot_sync_uses_consumer_specific_source() -> None:
 
     assert auto_pilot == [
         {
-            "source": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
+            "source": ".github/workflows/agents-auto-pilot.yml",
+            "source_tree": "template",
             "target": ".github/workflows/agents-auto-pilot.yml",
             "description": (
                 "Auto-pilot - end-to-end automation orchestrator "
