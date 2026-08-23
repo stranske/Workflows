@@ -205,6 +205,28 @@ def test_default_docs_from_config_rejects_missing_configured_docs(tmp_path: Path
         fix_agent.default_docs_from_config(root, repo="stranske/consumer")
 
 
+def test_trend_config_uses_historical_agents_filename(tmp_path: Path) -> None:
+    root = tmp_path / "Trend_Model_Project"
+    _write(root / "README.md", "Trend docs.\n")
+    _write(
+        root / "Agents.md",
+        "Read `docs/WORKFLOW_GUIDE.md` from stranske/Workflows before editing.\n",
+    )
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        (ROOT / fix_agent.DEFAULT_DOCS_CONFIG).read_text(encoding="utf-8"),
+    )
+
+    assert fix_agent.default_docs_from_config(root, repo="stranske/Trend_Model_Project") == [
+        "README.md",
+        "Agents.md",
+    ]
+    assert (
+        fix_agent.build_plan(repo_root=root, repo="stranske/Trend_Model_Project")["finding_count"]
+        == 0
+    )
+
+
 def test_cli_rejects_missing_configured_docs(tmp_path: Path, capsys) -> None:
     root = tmp_path / "consumer"
     _write(root / "AGENTS.md", "Consumer guidance.\n")
