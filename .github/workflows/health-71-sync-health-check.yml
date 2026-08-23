@@ -39,7 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
       - name: Install GitHub API dependencies
@@ -279,5 +281,47 @@ jobs:
             fi
             if [ -n "${{ steps.check.outputs.hours_since_success }}" ]; then
               echo "**Hours since last success:** ${{ steps.check.outputs.hours_since_success }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Assert durable tracker workflow liveness
+        id: tracker_liveness
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          pip install pyyaml
+          set +e
+          python3 scripts/check_durable_tracker_liveness.py --comment-on-failure
+          checker_status=$?
+          set -e
+          case "$checker_status" in
+            0)
+              echo "status=healthy" >> "$GITHUB_OUTPUT"
+              ;;
+            1)
+              echo "status=unhealthy" >> "$GITHUB_OUTPUT"
+              exit 1
+              ;;
+            *)
+              echo "status=error" >> "$GITHUB_OUTPUT"
+              exit "$checker_status"
+              ;;
+          esac
+
+      - name: Tracker liveness summary
+        if: always() && steps.tracker_liveness.outputs.status != 'healthy'
+        env:
+          TRACKER_LIVENESS_STATUS: ${{ steps.tracker_liveness.outputs.status }}
+        run: |
+          {
+            echo "## Durable tracker liveness"
+            echo ""
+            if [ "$TRACKER_LIVENESS_STATUS" = "unhealthy" ]; then
+              echo "At least one durable tracker source workflow has no executable run inside its configured cadence."
+              echo "FYI comments were posted on the affected tracker issue(s); no gate was opened or closed."
+            else
+              echo "The tracker-liveness checker encountered a coverage, setup, or runtime error; no liveness disposition was inferred."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
