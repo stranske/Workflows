@@ -123,6 +123,7 @@ def test_keepalive_poll_budget_is_virtual_not_wall_clock() -> None:
     events = data["events"]
     outputs = data["outputs"]
     assert events["dispatches"] == []
+    assert events["workflowDispatches"] == []
     assert outputs["mode"] == "update-branch-api"
     assert outputs["status"] == "in_sync"
 
