@@ -6,7 +6,6 @@ import re
 from pathlib import Path
 
 import yaml
-
 from scripts.check_durable_tracker_liveness import tracker_doc_workflows
 
 TRACKER_DOC = Path("docs/ops/DURABLE_TRACKING_ISSUES.md")

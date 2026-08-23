@@ -68,9 +68,7 @@ def test_consumer_drift_detector_executed_recently() -> None:
     assert latest_executable, "no executable Health 68 run found"
     created = datetime.fromisoformat(latest_executable.replace("Z", "+00:00"))
     hours = (datetime.now(UTC) - created).total_seconds() / 3600.0
-    assert hours <= 48, (
-        f"newest executable Health 68 run is {latest_executable} ({hours:.1f}h old)"
-    )
+    assert hours <= 48, f"newest executable Health 68 run is {latest_executable} ({hours:.1f}h old)"
 
 
 def test_health_68_issue_publish_job_is_split() -> None:
