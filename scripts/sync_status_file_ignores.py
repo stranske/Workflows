@@ -34,7 +34,7 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 # Canonical status file patterns that should be ignored
 # These are the minimum patterns needed to prevent merge conflicts
@@ -112,7 +112,7 @@ def _read_template_lines() -> list[str] | None:
     return template_path.read_text(encoding="utf-8").splitlines()
 
 
-def _raise_template_error(message: str, *, missing: bool = False) -> None:
+def _raise_template_error(message: str, *, missing: bool = False) -> NoReturn:
     LOGGER.critical("Template sentinel validation failed: %s", message)
     if missing:
         raise MissingTemplateMarkerError(message)
@@ -141,6 +141,9 @@ def _validate_template_markers(lines: list[str]) -> tuple[int, int, int]:
         missing.append("missing status block end marker")
     if missing:
         _raise_template_error(", ".join(missing), missing=True)
+    assert version_index is not None
+    assert start is not None
+    assert end is not None
     if end <= start or version_index > start:
         _raise_template_error("status block markers are out of order")
     return version_index, start, end
@@ -616,8 +619,8 @@ def main() -> int:
         )
 
     if args.apply:
-        result = apply_block_to_file(Path(args.apply))
-        print(f"{result['action']}: {result['path']}")
+        apply_result = apply_block_to_file(Path(args.apply))
+        print(f"{apply_result['action']}: {apply_result['path']}")
         return 0
 
     if args.repo:
