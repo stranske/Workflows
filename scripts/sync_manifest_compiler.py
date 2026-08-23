@@ -352,9 +352,7 @@ def _compile_entry(
     default_source_tree, source_tree_error = _default_source_tree(section)
     raw_source_tree = raw.get("source_tree", default_source_tree)
     if not isinstance(raw_source_tree, str) or raw_source_tree not in ALLOWED_SOURCE_TREES:
-        errors.append(
-            f"{context}: source_tree must be one of {sorted(ALLOWED_SOURCE_TREES)}"
-        )
+        errors.append(f"{context}: source_tree must be one of {sorted(ALLOWED_SOURCE_TREES)}")
         source_tree = default_source_tree or ""
     else:
         source_tree = raw_source_tree

@@ -148,8 +148,10 @@ workflows:
 """,
     )
 
-    assert compile_manifest(manifest).section("workflows")[0].resolved_source.startswith(
-        "templates/consumer-repo/"
+    assert (
+        compile_manifest(manifest)
+        .section("workflows")[0]
+        .resolved_source.startswith("templates/consumer-repo/")
     )
     template_source.unlink()
     try:
