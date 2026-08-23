@@ -23,7 +23,11 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import NamedTuple
 
-from scripts.list_registered_consumer_repos import extract_repos
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.list_registered_consumer_repos import extract_repos  # noqa: E402
 
 # Try to import github, fall back to instructions
 try:

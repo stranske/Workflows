@@ -13,7 +13,12 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
-from scripts.list_registered_consumer_repos import extract_repos
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.list_registered_consumer_repos import extract_repos  # noqa: E402
 
 SCHEMA_VERSION = "langsmith-fleet/v1"
 SCHEMA_PATH = Path("docs/contracts/schemas/langsmith-fleet-v1.schema.json")

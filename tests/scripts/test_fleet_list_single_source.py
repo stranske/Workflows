@@ -12,5 +12,7 @@ MANIFEST = ROOT / ".github/workflows/maint-68-sync-consumer-repos.yml"
 def test_no_second_consumer_repo_literal() -> None:
     registered = extract_repos(MANIFEST)
 
+    assert MANIFEST.name == "maint-68-sync-consumer-repos.yml"
+    assert len(registered) >= 10
     assert registered == cleanup_labels.CONSUMER_REPOS
     assert set(registered) == langsmith_fleet.MANAGED_CONSUMER_REPOS

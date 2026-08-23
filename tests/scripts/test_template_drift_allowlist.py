@@ -11,6 +11,9 @@ def test_every_pair_states_its_divergence() -> None:
     parser = configparser.ConfigParser(interpolation=None)
     parser.read(ALLOWLIST, encoding="utf-8")
 
+    assert ALLOWLIST.name == "template-drift-allowlist.txt"
+    assert len(parser.sections()) >= 1
+
     for section in parser.sections():
         divergence = parser.get(section, "divergence", fallback="").strip()
         reviewed = parser.get(section, "divergence_reviewed", fallback="").strip()
