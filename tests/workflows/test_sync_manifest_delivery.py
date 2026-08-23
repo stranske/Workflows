@@ -598,14 +598,11 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
     assert "published_reason=$(jq -r" in source
     source_lines = source.splitlines()
     signed_helper_lines = [
-        index
-        for index, line in enumerate(source_lines)
-        if "create_signed_sync_commit.js" in line
+        index for index, line in enumerate(source_lines) if "create_signed_sync_commit.js" in line
     ]
     assert len(signed_helper_lines) == 4
     assert all(
-        source_lines[index - 1].strip()
-        == 'GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \\'
+        source_lines[index - 1].strip() == 'GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \\'
         for index in signed_helper_lines
     )
     assert "existing_verification=$(node" not in source
