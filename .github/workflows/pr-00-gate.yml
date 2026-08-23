@@ -391,6 +391,7 @@ jobs:
         if: ${{ hashFiles('tests/scripts/test_sync_manifest_docs.py') != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: python -m pytest tests/scripts/test_sync_manifest_docs.py -q
       - name: Apply runtime acceptance-criteria label
         if: ${{ steps.deliberate_break.outputs.has_marker == 'true' }}
