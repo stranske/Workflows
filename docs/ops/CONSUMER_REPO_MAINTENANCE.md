@@ -227,6 +227,13 @@ Maint 68 is manifest-driven:
   repository-level directories like `.github/scripts/` (for shared scripts).
 - **Which repos** receive updates are listed in `REGISTERED_CONSUMER_REPOS`.
 
+The fleet-wide docs registry and scorecard settings remain in the Workflows
+root `config/source_of_truth_docs.yml`. The manifest resolves the same target
+from `templates/consumer-repo/` for consumers, where the file names only the
+local README and agent guidance (with case-insensitive `AGENTS.md` discovery).
+Do not distribute the fleet registry to consumers or add repo-specific fleet
+entries to the consumer template.
+
 #### Manifest Schema and Compiler
 
 `.github/sync-manifest.yml` is parsed by a **typed, deterministic compiler**

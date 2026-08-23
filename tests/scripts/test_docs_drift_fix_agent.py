@@ -259,6 +259,48 @@ def test_default_docs_from_config_returns_complete_configured_set(tmp_path: Path
     ]
 
 
+def test_consumer_config_scans_only_local_docs_and_preserves_agents_casing(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "Trend_Model_Project"
+    _write(root / "README.md", "Trend docs.\n")
+    _write(root / "Agents.md", "Agent guidance.\n")
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        """consumer:
+  docs:
+    - path: README.md
+    - path: AGENTS.md
+      case_insensitive: true
+""",
+    )
+
+    assert fix_agent.default_docs_from_config(root, repo="stranske/Trend_Model_Project") == [
+        "README.md",
+        "Agents.md",
+    ]
+
+
+def test_consumer_config_rejects_missing_local_doc(tmp_path: Path) -> None:
+    root = tmp_path / "consumer"
+    _write(root / "README.md", "Consumer docs.\n")
+    _write(
+        root / fix_agent.DEFAULT_DOCS_CONFIG,
+        "consumer:\n  docs:\n    - path: README.md\n    - path: AGENTS.md\n",
+    )
+
+    with pytest.raises(FileNotFoundError, match=r"configured docs not found.*AGENTS.md"):
+        fix_agent.default_docs_from_config(root, repo="stranske/consumer")
+
+
+def test_consumer_config_rejects_invalid_docs_shape(tmp_path: Path) -> None:
+    root = tmp_path / "consumer"
+    _write(root / fix_agent.DEFAULT_DOCS_CONFIG, "consumer:\n  docs: README.md\n")
+
+    with pytest.raises(ValueError, match=r"docs config 'docs' must be a list"):
+        fix_agent.default_docs_from_config(root, repo="stranske/consumer")
+
+
 @pytest.mark.parametrize(
     "loader",
     [
