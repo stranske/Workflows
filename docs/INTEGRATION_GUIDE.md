@@ -746,6 +746,34 @@ endpoint does not cover that class of hold. If the event is `pull_request` but
 fork status cannot be determined, report an unspecified approval hold and
 inspect `event` + `head_repository` before choosing remediation.
 
+**Find every held workflow, not just one run:**
+```bash
+python scripts/workflow_startup_failure_diagnostic.py --sweep --repo OWNER/REPO
+```
+
+The sweep walks every active workflow, flags those whose recent runs are
+dominated by zero-job `action_required`, and prints the blocking quantity
+alongside the drainable one:
+
+```
+workflow liveness: 11 held / 0 clearable by API - web approval required; oldest 22d (...)
+```
+
+`11 held` on its own reads as a backlog to work through; `11 held, 0 clearable by
+API` reads as a deadlock, which is what it is. The drainable count is measured
+per run rather than assumed - fork-PR holds accept the REST approval endpoint and
+unproven-workflow holds do not, so `POST .../approve` answers
+`403 "This run is not from a fork pull request or queued by the Actions bot"`.
+
+Onset is found by paginating back to the last run that executed, not from the
+sample page: a workflow triggered hourly discards 20 runs in under a day, so a
+single page reports a three-week outage as hours old.
+
+The sweep reports and fails. It never approves a run - auto-clearing a hold
+GitHub raised on suspicion of malice would make the protection a rubber stamp.
+Add `--repos a/b,c/d` to cover consumer repositories, whose synced copies of
+these workflows are held independently.
+
 
 ### Startup Failure (Caller Workflow Permissions)
 
