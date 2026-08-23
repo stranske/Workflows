@@ -49,10 +49,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 
-REUSABLE_RUN_WORKFLOWS = (
-    ".github/workflows/reusable-codex-run.yml",
-    ".github/workflows/reusable-claude-run.yml",
-)
+AGENT_REGISTRY = ".github/agents/registry.yml"
 CODEX_RUN = ".github/workflows/reusable-codex-run.yml"
 CONSUMER_TEMPLATE_GITIGNORE = "templates/consumer-repo/.gitignore"
 
@@ -76,6 +73,18 @@ def workflow_text(rel: str) -> str:
     path = ROOT / rel
     assert path.is_file(), f"missing workflow file: {rel}"
     return path.read_text(encoding="utf-8")
+
+
+def registered_runner_workflows() -> tuple[str, ...]:
+    """Runner workflows named by the live agent registry, not a hand-maintained subset."""
+    registry = yaml.safe_load((ROOT / AGENT_REGISTRY).read_text(encoding="utf-8"))
+    workflows = {
+        str(agent["runner_workflow"])
+        for agent in (registry.get("agents") or {}).values()
+        if agent.get("runner_workflow")
+    }
+    assert workflows, f"{AGENT_REGISTRY} names no reusable agent runner workflows"
+    return tuple(sorted(workflows))
 
 
 def upload_artifact_paths(rel: str) -> list[str]:
@@ -102,14 +111,12 @@ def upload_artifact_paths(rel: str) -> list[str]:
     return found
 
 
-def commit_step_exclusions() -> list[str]:
+def commit_step_exclusions(rel: str) -> list[str]:
     """The `git reset HEAD --` denylist the commit step subtracts from `git add -A`."""
-    match = re.search(
-        r"git reset HEAD -- \\\n(.*?)\n\s*2>/dev/null", workflow_text(CODEX_RUN), re.S
-    )
+    match = re.search(r"git reset HEAD -- \\\n(.*?)\n\s*2>/dev/null", workflow_text(rel), re.S)
     assert match, (
         "could not locate the commit step's `git reset HEAD --` exclusion list in "
-        f"{CODEX_RUN}; this guard can no longer tell which artifacts are excluded"
+        f"{rel}; this guard can no longer tell which artifacts are excluded"
     )
     return [
         line.strip().rstrip("\\").strip()
@@ -128,13 +135,13 @@ def template_ignore_patterns() -> list[str]:
 
 
 def covered_by(path: str, patterns: list[str]) -> bool:
-    """Is `path` matched by any pattern? Compared both ways, since either side may carry the glob."""
+    """Whether an exclusion or ignore pattern covers the whole uploaded path/glob."""
     bare = path.rstrip("/")
     for pattern in patterns:
         pat = pattern.lstrip("/").rstrip("/")
         if not pat or pattern.startswith("!"):
             continue
-        if fnmatch.fnmatch(bare, pat) or fnmatch.fnmatch(pat, bare):
+        if fnmatch.fnmatch(bare, pat):
             return True
     return False
 
@@ -192,10 +199,10 @@ def test_worker_attempt_emitter_heredoc_compiles():
         )
 
 
-@pytest.mark.parametrize("workflow_rel", REUSABLE_RUN_WORKFLOWS)
+@pytest.mark.parametrize("workflow_rel", registered_runner_workflows())
 def test_every_uploaded_artifact_is_uncommittable(workflow_rel: str):
     """The checklist, as a gate: an artifact step may not leave a committable file behind."""
-    exclusions = commit_step_exclusions()
+    exclusions = commit_step_exclusions(workflow_rel)
     ignores = template_ignore_patterns()
 
     offenders = []
@@ -226,9 +233,17 @@ def test_known_in_checkout_entries_state_a_reason():
 
 def test_known_in_checkout_has_no_stale_entries():
     """An allowlisted path that is no longer uploaded anywhere must be deleted, not carried."""
-    uploaded = {path for rel in REUSABLE_RUN_WORKFLOWS for path in upload_artifact_paths(rel)}
+    uploaded = {
+        path for rel in registered_runner_workflows() for path in upload_artifact_paths(rel)
+    }
     stale = sorted(set(KNOWN_IN_CHECKOUT) - uploaded)
     assert not stale, (
         f"KNOWN_IN_CHECKOUT names {stale}, which no upload-artifact step references any more. "
         "Remove the entry — a stale allowlist entry silently widens the gate."
     )
+
+
+def test_uploaded_glob_requires_a_covering_pattern_not_a_single_file_match():
+    """A file inside an uploaded glob must not be mistaken for coverage of the whole glob."""
+    assert not covered_by("foo/*.json", ["foo/report.json"])
+    assert covered_by("foo/report.json", ["foo/*.json"])

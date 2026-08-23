@@ -1663,8 +1663,8 @@ jobs:
           git reset HEAD -- \
             codex-output*.md \
             codex-prompt*.md \
-            codex-session-*.jsonl \
-            codex-analysis-*.json \
+            codex-session*.jsonl \
+            codex-analysis*.json \
             claude-output*.md \
             claude-prompt*.md \
             claude-session*.log \
