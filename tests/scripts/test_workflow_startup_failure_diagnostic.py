@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -770,3 +774,36 @@ def test_sweep_still_reports_when_nothing_executed_at_or_after_the_hold(monkeypa
     report = diag.sweep(["owner/repo"], token="t", now="2026-08-23T06:00:00Z")
 
     assert report["held_count"] == 1
+
+
+def test_script_runs_when_invoked_by_path_without_pythonpath() -> None:
+    """The invocation CI actually uses must import cleanly.
+
+    health-40 runs `python scripts/workflow_startup_failure_diagnostic.py --sweep`
+    and docs/INTEGRATION_GUIDE.md documents the same file-path form. Running a
+    file by path does NOT put the repo root on sys.path, so `from scripts import
+    api_client` raised ModuleNotFoundError and the liveness job failed on every
+    run - while every local check passed, because they were run with PYTHONPATH
+    set or via `python -m`.
+
+    The whole point of this module is to notice when a workflow stops executing.
+    Shipping it in a form that cannot execute was the same class of defect, so
+    this test exercises the real invocation with a clean environment rather than a
+    convenient one.
+    """
+    root = Path(__file__).resolve().parents[2]
+    script = root / "scripts" / "workflow_startup_failure_diagnostic.py"
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=str(root),
+        timeout=60,
+    )
+
+    assert "ModuleNotFoundError" not in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    assert "--sweep" in result.stdout

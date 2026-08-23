@@ -31,9 +31,19 @@ import re
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
-from scripts import api_client
+# Invoked BOTH as `python -m scripts.workflow_startup_failure_diagnostic` and as
+# `python scripts/workflow_startup_failure_diagnostic.py` (health-40 and the
+# INTEGRATION_GUIDE recipe use the file-path form). The path form leaves the repo
+# root off sys.path, so `from scripts import api_client` raises
+# ModuleNotFoundError. Same bootstrap the other ten scripts here use.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts import api_client  # noqa: E402
 
 
 def _github_token() -> str:
