@@ -596,6 +596,9 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
     assert 'git config user.name "github-actions[bot]"' not in source
     assert "published_verified=$(jq -r" in source
     assert "published_reason=$(jq -r" in source
+    assert source.count('GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \\') == 4
+    assert "existing_verification=$(node" not in source
+    assert "published_verification=$(node" not in source
     assert 'head_observed_sha="$signed_commit_sha"' in source
     assert "head_observed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" in source
     assert '--arg head_observed_sha "$head_observed_sha"' in source

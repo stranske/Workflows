@@ -417,9 +417,11 @@ Every real head update is fail-closed on commit identity. Maint 68 mints a
 repository-scoped Workflows GitHub App installation token, uploads the staged
 blobs/tree through GitHub's Git database API, and creates the commit without
 custom author, committer, or signature fields. GitHub therefore signs the App
-commit. Maint 68 compares the returned tree to `git write-tree`, requires a
-`verified=true` / `reason=valid` signature, and only then atomically publishes
-the stable branch with `--force-with-lease`. An existing exact-tree delivery
+commit. The same repository-scoped App token verifies both an existing stable
+head and the newly published head, so an exhausted owner PAT cannot interrupt
+signed-delivery proof. Maint 68 compares the returned tree to `git write-tree`,
+requires a `verified=true` / `reason=valid` signature, and only then atomically
+publishes the stable branch with `--force-with-lease`. An existing exact-tree delivery
 with an unsigned head is replaced rather than treated as a no-op. Maint 71
 independently requires a valid cryptographic signature on the exact workflow-
 sync PR head before merge. This accepts GitHub App, GPG, SSH, and S/MIME

@@ -1104,11 +1104,13 @@ jobs:
             existing_head=$(git rev-parse FETCH_HEAD)
             existing_base=$(git rev-parse "${existing_head}^")
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
-            existing_verification=$(node \
-              ../workflows/.github/scripts/create_signed_sync_commit.js \
-              --operation verify-commit \
-              --repository "$TARGET_REPOSITORY" \
-              --commit-sha "$existing_head")
+            existing_verification=$(
+              GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \
+                ../workflows/.github/scripts/create_signed_sync_commit.js \
+                --operation verify-commit \
+                --repository "$TARGET_REPOSITORY" \
+                --commit-sha "$existing_head"
+            )
             existing_verified=$(jq -r '.verified // false' <<<"$existing_verification")
             existing_verification_reason=$(jq -r '.verification_reason // "missing"' <<<"$existing_verification")
             existing_body_file=$(mktemp)
@@ -1378,11 +1380,13 @@ jobs:
               git push --quiet origin "$signed_commit_sha:refs/heads/$branch_name"
             fi
 
-            published_verification=$(node \
-              ../workflows/.github/scripts/create_signed_sync_commit.js \
-              --operation verify-commit \
-              --repository "$TARGET_REPOSITORY" \
-              --commit-sha "$signed_commit_sha")
+            published_verification=$(
+              GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \
+                ../workflows/.github/scripts/create_signed_sync_commit.js \
+                --operation verify-commit \
+                --repository "$TARGET_REPOSITORY" \
+                --commit-sha "$signed_commit_sha"
+            )
             published_verified=$(jq -r '.verified // false' <<<"$published_verification")
             published_reason=$(jq -r '.verification_reason // "missing"' <<<"$published_verification")
             if [ "$published_verified" != "true" ] || [ "$published_reason" != "valid" ]; then
