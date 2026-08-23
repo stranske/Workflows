@@ -93,7 +93,7 @@ repos:
     docs:
       - path: README.md
         focus: operational overview and execution entry points
-      - path: AGENTS.md
+      - path: Agents.md
         focus: agent runtime constraints and repo-specific guardrails
   stranske/tim-bot:
     local_path: tim-bot
