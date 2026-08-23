@@ -142,6 +142,7 @@ def _fallback_marker(section: str, markdown: str = "") -> DeliberateBreakSpec | 
     test_file_match = re.search(r"`([^`]*(?:test|tests)[^`]*\.py)`", named_line)
     test_name_match = (
         re.search(r"\btest\s+`([^`]+)`", named_line)
+        or re.search(r"`(test_[A-Za-z_][A-Za-z0-9_]*)`", named_line)
         or re.search(r"\bwith\s+`([^`]+)`", named_line)
         or re.search(r"\bwith\s+`?([A-Za-z_][A-Za-z0-9_]*)`?", named_line)
     )

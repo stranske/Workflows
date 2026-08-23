@@ -118,6 +118,16 @@ def test_keepalive_sync_update_branch_success() -> None:
     )
 
 
+def test_keepalive_poll_budget_is_virtual_not_wall_clock() -> None:
+    data = _run_scenario("update_branch_virtual_clock")
+    events = data["events"]
+    outputs = data["outputs"]
+    assert events["dispatches"] == []
+    assert events["workflowDispatches"] == []
+    assert outputs["mode"] == "update-branch-api"
+    assert outputs["status"] == "in_sync"
+
+
 def test_keepalive_sync_create_pr_flow() -> None:
     data = _run_scenario("create_pr")
     events = data["events"]

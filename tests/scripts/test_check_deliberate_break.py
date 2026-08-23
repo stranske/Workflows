@@ -119,6 +119,20 @@ def test_issue_acceptance_wording_is_supported() -> None:
     assert spec.break_file == "scripts/check_deliberate_break.py"
 
 
+def test_issue_acceptance_named_test_precedes_harness_description() -> None:
+    spec = parse_deliberate_break_spec(
+        "## Acceptance Criteria\n\n"
+        "- [ ] **Named test:** a new `test_virtual_poll_budget` in "
+        "`tests/workflows/test_keepalive_post_work.py`, running the scenario "
+        "with the harness's fake clock.\n"
+        "- [ ] **Deliberate-break → revert:** restore the wall-clock form in "
+        "` .github/scripts/keepalive_post_work.js`.\n"
+    )
+
+    assert spec is not None
+    assert spec.test_id == "tests/workflows/test_keepalive_post_work.py::test_virtual_poll_budget"
+
+
 def test_issue_3007_acceptance_wording_is_supported() -> None:
     spec = parse_deliberate_break_spec(
         "## Tasks\n\n"
