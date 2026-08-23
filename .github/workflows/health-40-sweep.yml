@@ -119,6 +119,20 @@ jobs:
         with:
           python-version: '3.14'
 
+      - name: Install the API client dependency
+        run: |
+          set -euo pipefail
+          # scripts/api_client imports requests. The pin is read from
+          # requirements.txt so it cannot drift from the fleet's version, and only
+          # that one package is installed: `pip install -r requirements.txt` would
+          # drag in langchain, faiss, pandas and numpy for a read-only sweep.
+          pin=$(grep -E '^requests==' requirements.txt)
+          if [ -z "${pin}" ]; then
+            echo "::error::no requests== pin found in requirements.txt"
+            exit 1
+          fi
+          python -m pip install --quiet "${pin}"
+
       # Deliberately hosted here rather than in a workflow of its own, and
       # deliberately NOT given setup-api-client or `toJSON(secrets)`: every
       # workflow held by GitHub's suspicious-workflow protection carries that
