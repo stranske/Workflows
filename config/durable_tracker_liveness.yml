@@ -15,7 +15,7 @@ trackers:
     max_age_hours: 48
   - workflow: maint-69-sync-integration-repo.yml
     issue: 2470
-    max_age_hours: 168
+    event_driven: true
   - workflow: maint-80-langsmith-metrics-dashboard.yml
     issue: 2415
     max_age_hours: 192

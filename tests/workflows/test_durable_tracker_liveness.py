@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 import yaml
+from scripts import check_durable_tracker_liveness
 from scripts.check_durable_tracker_liveness import tracker_doc_workflows
 
 TRACKER_DOC = Path("docs/ops/DURABLE_TRACKING_ISSUES.md")
@@ -31,6 +32,37 @@ def test_health_71_invokes_durable_tracker_liveness_check() -> None:
     text = HEALTH_71.read_text(encoding="utf-8")
     assert "check_durable_tracker_liveness.py" in text
     assert "--comment-on-failure" in text
+
+
+def test_event_driven_tracker_is_not_subject_to_age_liveness() -> None:
+    config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
+    tracker = next(
+        entry
+        for entry in config["trackers"]
+        if entry["workflow"] == "maint-69-sync-integration-repo.yml"
+    )
+
+    assert tracker["event_driven"] is True
+    assert "max_age_hours" not in tracker
+
+
+def test_tracker_run_lookup_uses_get_for_query_parameters(monkeypatch) -> None:
+    captured: list[str] = []
+
+    def fake_check_output(command, **_kwargs):
+        captured.extend(command)
+        return "[]"
+
+    monkeypatch.setattr(check_durable_tracker_liveness.subprocess, "check_output", fake_check_output)
+
+    assert (
+        check_durable_tracker_liveness._latest_executable_run(
+            "stranske/Workflows", "health-68-consumer-sync-drift.yml", "token"
+        )
+        is None
+    )
+    method_index = captured.index("--method")
+    assert captured[method_index + 1] == "GET"
 
 
 def test_tracker_doc_table_links_match_config() -> None:

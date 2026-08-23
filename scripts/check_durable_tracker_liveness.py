@@ -56,6 +56,8 @@ def _latest_executable_run(repo: str, workflow_file: str, token: str) -> dict[st
             "gh",
             "api",
             f"repos/{repo}/actions/workflows/{workflow_file}/runs",
+            "--method",
+            "GET",
             "-f",
             "per_page=100",
             "--jq",
@@ -87,6 +89,16 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
     for entry in _load_config():
         workflow = str(entry["workflow"])
         issue = int(entry["issue"])
+        if entry.get("event_driven") is True:
+            results.append(
+                {
+                    "workflow": workflow,
+                    "issue": issue,
+                    "healthy": True,
+                    "reason": "event-driven workflow excluded from age-based liveness",
+                }
+            )
+            continue
         max_age_hours = float(entry["max_age_hours"])
         latest = _latest_executable_run(repo, workflow, auth)
         if latest is None:

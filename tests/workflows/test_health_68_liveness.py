@@ -30,6 +30,8 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "Debounce workflow_run fan-out" in text
     assert "github.event_name == 'workflow_run'" in text
+    assert "--jq '[.workflow_runs[]" in text
+    assert ".conclusion == \"cancelled\"" not in text
 
 
 @pytest.mark.skipif(
