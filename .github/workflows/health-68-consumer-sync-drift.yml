@@ -61,8 +61,33 @@ jobs:
         run: |
           set -euo pipefail
           latest_created="$(
-            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/health-68-consumer-sync-drift.yml/runs?per_page=20" \
-              | jq -r --argjson current "$GITHUB_RUN_ID" \
+            node -e '
+            const { Octokit } = require("@octokit/rest");
+            const { createTokenAwareRetry } = require("./.github/scripts/github-api-with-retry.js");
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+
+            (async () => {
+              const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: "health-68-consumer-sync-drift-debounce",
+                capabilities: ["actions:read"],
+              });
+              const response = await withRetry(() => github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: "health-68-consumer-sync-drift.yml",
+                per_page: 20,
+              }));
+              process.stdout.write(JSON.stringify(response.data));
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+            ' | jq -r --argjson current "$GITHUB_RUN_ID" \
                 '[.workflow_runs[] | select(.id != $current) | select(.conclusion == "success" or .conclusion == "failure" or .conclusion == "timed_out")][0].created_at // empty'
           )"
           if [ -z "$latest_created" ]; then
