@@ -17,6 +17,9 @@ def test_keyword_matching_rejects_short_prefix_false_positives() -> None:
     assert label_matcher._token_matches_keyword("crashing", "crash") is True
     assert label_matcher._token_matches_keyword("regressions", "regression") is True
     assert label_matcher._token_matches_keyword("defects", "defect") is True
+    assert label_matcher._token_matches_keyword("improve", "improvement") is True
+    assert label_matcher._token_matches_keyword("enhance", "enhancement") is True
+    assert label_matcher._token_matches_keyword("panicking", "panic") is True
 
 
 class DummyFAISS:
@@ -253,6 +256,7 @@ def test_find_similar_labels_keyword_bug_inflection_aliases() -> None:
 
     for query in (
         "App keeps crashing on login",
+        "The service is panicking under load",
         "Recent regressions in nightly build",
         "Two defects in checkout flow",
     ):
@@ -260,6 +264,26 @@ def test_find_similar_labels_keyword_bug_inflection_aliases() -> None:
         names = [match.label.name for match in matches]
         assert "type:bug" in names, query
         assert "type:feature" not in names
+
+
+def test_find_similar_labels_keyword_feature_verb_aliases() -> None:
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(),
+        provider="unit-test",
+        model="unit-test-model",
+        is_fallback=True,
+        labels=labels,
+    )
+
+    for query in ("Please improve caching", "Please enhance caching"):
+        matches = label_matcher.find_similar_labels(vector_store, query, threshold=0.8)
+        names = [match.label.name for match in matches]
+        assert "type:feature" in names, query
+        assert "type:bug" not in names
 
 
 def test_find_similar_labels_keyword_feature_match():
