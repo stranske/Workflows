@@ -62,8 +62,9 @@ jobs:
           set -euo pipefail
           latest_created="$(
             gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/health-68-consumer-sync-drift.yml/runs?per_page=20" \
-              --jq '[.workflow_runs[] | select(.id != '"${GITHUB_RUN_ID}"') | select(.conclusion == "success" or .conclusion == "failure" or .conclusion == "timed_out")][0].created_at // empty'
-          )
+              | jq -r --argjson current "$GITHUB_RUN_ID" \
+                '[.workflow_runs[] | select(.id != $current) | select(.conclusion == "success" or .conclusion == "failure" or .conclusion == "timed_out")][0].created_at // empty'
+          )"
           if [ -z "$latest_created" ]; then
             echo "No prior executable Health 68 run; continuing."
             echo "skip=false" >> "$GITHUB_OUTPUT"
