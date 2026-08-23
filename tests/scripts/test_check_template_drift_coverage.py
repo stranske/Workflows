@@ -11,7 +11,8 @@ def test_pair_discovery_covers_every_shared_basename() -> None:
     main_names = {p.name for p in main_dir.glob("*.yml")}
     template_names = {p.name for p in template_dir.glob("*.yml")}
     shared = {
-        name for name in main_names & template_names
+        name
+        for name in main_names & template_names
         if WORKFLOW_ALIAS_MAPPINGS.get(name, name) in template_names
     }
     covered = {pair.main_path.name for pair in discover_workflow_pairs(REPO_ROOT)}
