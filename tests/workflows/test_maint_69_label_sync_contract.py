@@ -11,6 +11,7 @@ while syncing nothing (see issue #3007):
 These tests pin both fixes plus the ``issues: write`` permission.
 """
 
+import re
 from pathlib import Path
 
 import yaml
@@ -87,3 +88,71 @@ def test_label_sync_records_fetch_errors_before_failing_the_aggregate() -> None:
     failure_index = script.index("core.setFailed", summary_index)
 
     assert fetch_index < fetch_error_index < increment_index < summary_index < failure_index
+
+
+# --- label colours must survive a YAML 1.2 loader -------------------------
+#
+# Third defect in this workflow, found 2026-08-23 once the hold on maint-69 was
+# lifted: 79 label-sync errors across 14 repos, every one of them
+#
+#     For 'properties/color', 53190000000 is not a string.
+#
+# 53190000000 is `5319e7` read as scientific notation. The sync step runs
+# `yaml.load` from js-yaml, whose YAML 1.2 core schema resolves `5319e7` to a
+# float; PyYAML follows YAML 1.1, which requires a decimal point, so it keeps the
+# same text as a string. Every local check therefore passed while the deployed
+# job failed against the API -- the two loaders disagreed and only one of them
+# ran in CI.
+#
+# The invariant is loader-independent and cheap: colours are quoted in the source.
+# Checking the PyYAML-parsed value cannot catch this, because PyYAML is the loader
+# that gets it right, so these tests read the raw text.
+
+LABEL_FILES = (Path(".github/labels-core.yml"), Path(".github/labels.yml"))
+
+_COLOR_LINE = re.compile(r"^\s*color:\s*(\S+)\s*$", re.MULTILINE)
+# What a YAML 1.2 core-schema loader would resolve to a number rather than a str.
+_NUMERIC_LOOKING = re.compile(r"^(?:[0-9]+(?:[eE][+-]?[0-9]+)?|0[xX][0-9a-fA-F]+)$")
+
+
+def _color_values(path: Path) -> list[str]:
+    return _COLOR_LINE.findall(path.read_text(encoding="utf-8"))
+
+
+def test_every_label_colour_is_quoted_in_source() -> None:
+    """Quoting is the invariant, because it is loader-independent."""
+    for path in LABEL_FILES:
+        values = _color_values(path)
+        assert values, f"{path} parsed no colours - the regex or the file shape changed"
+        unquoted = [v for v in values if v[:1] not in "\"'"]
+        assert not unquoted, (
+            f"{path} has unquoted label colours {unquoted}. js-yaml resolves an "
+            f"unquoted hex colour like 5319e7 to the number 5.319e10, and the "
+            f'GitHub API rejects it with "is not a string". Quote it.'
+        )
+
+
+def test_no_label_colour_would_be_coerced_to_a_number() -> None:
+    """Belt and braces: catch a numeric-looking colour even if quoting slips.
+
+    `123456` is as dangerous as `5319e7` -- both are valid hex colours and both
+    resolve to numbers unquoted.
+    """
+    for path in LABEL_FILES:
+        for value in _color_values(path):
+            bare = value.strip("\"'")
+            if value[:1] in "\"'":
+                continue  # quoted, so the loader keeps it a string
+            assert not _NUMERIC_LOOKING.match(
+                bare
+            ), f"{path}: colour {value} would be loaded as a number by js-yaml"
+
+
+def test_label_colours_are_six_hex_digits() -> None:
+    """A colour the API will accept: exactly six hex digits, no leading '#'."""
+    for path in LABEL_FILES:
+        for value in _color_values(path):
+            bare = value.strip("\"'")
+            assert re.fullmatch(
+                r"[0-9a-fA-F]{6}", bare
+            ), f"{path}: {value!r} is not a bare six-hex-digit colour"
