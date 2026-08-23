@@ -6,6 +6,7 @@ import json
 import sys
 import types
 from io import StringIO
+from pathlib import Path
 from typing import Any
 from unittest import mock
 from unittest.mock import MagicMock, patch
@@ -833,3 +834,42 @@ class TestIsMultiActionTask:
         assert mock_chain.invoke.call_count == 1
         call_args = mock_chain.invoke.call_args
         assert "config" in call_args[1]
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CAPABILITY_CHECK_WORKFLOW_PATHS = (
+    REPO_ROOT / ".github" / "workflows" / "agents-capability-check.yml",
+    REPO_ROOT
+    / "templates"
+    / "consumer-repo"
+    / ".github"
+    / "workflows"
+    / "agents-capability-check.yml",
+)
+CAPABILITY_CHECK_SCRIPT_PATHS = (
+    REPO_ROOT / "scripts" / "langchain" / "capability_check.py",
+    REPO_ROOT / "templates" / "consumer-repo" / "scripts" / "langchain" / "capability_check.py",
+)
+
+
+class TestCheckCapabilityAliasRemoved:
+    """Guard against restoring the deprecated check_capability alias."""
+
+    def test_check_capability_alias_not_exported(self) -> None:
+        assert not hasattr(capability_check, "check_capability")
+
+    def test_classify_capabilities_is_canonical_entrypoint(self) -> None:
+        assert callable(classify_capabilities)
+
+    @pytest.mark.parametrize("path", CAPABILITY_CHECK_SCRIPT_PATHS, ids=lambda p: str(p.relative_to(REPO_ROOT)))
+    def test_capability_check_scripts_do_not_define_alias(self, path: Path) -> None:
+        source = path.read_text(encoding="utf-8")
+        assert "check_capability" not in source
+
+    @pytest.mark.parametrize(
+        "path", CAPABILITY_CHECK_WORKFLOW_PATHS, ids=lambda p: str(p.relative_to(REPO_ROOT))
+    )
+    def test_capability_check_workflows_use_classify_capabilities(self, path: Path) -> None:
+        source = path.read_text(encoding="utf-8")
+        assert "classify_capabilities" in source
+        assert "check_capability" not in source
