@@ -1174,6 +1174,7 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import tempfile
           from datetime import datetime, timezone
 
           payload = {
@@ -1193,9 +1194,20 @@ jobs:
               "pr_number": os.environ.get("PR_NUMBER", ""),
               "emitted_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
           }
-          with open("langsmith-fleet-worker-attempt.json", "w", encoding="utf-8") as fh:
+          # Write OUTSIDE the checkout. This file exists only to feed the upload-artifact
+          # step below, and a staging file in the working tree is a liability: the commit
+          # step later in this job runs `git add -A` and then subtracts a hand-curated
+          # exclusion list, so any artifact not on that list is committed onto whatever PR
+          # is open. This one was not, so it landed in six consumer repos and collided
+          # there with the copy the previous merge had left on main. RUNNER_TEMP is wiped
+          # between jobs and is never part of the repository, which removes the class
+          # rather than adding entry N+1 to the list.
+          out_dir = os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()
+          out_path = os.path.join(out_dir, "langsmith-fleet-worker-attempt.json")
+          with open(out_path, "w", encoding="utf-8") as fh:
               json.dump(payload, fh, indent=2, sort_keys=True)
               fh.write("\n")
+          print(f"worker model attempt artifact written to {out_path}")
           PY
 
       - name: Upload worker model attempt artifact
@@ -1203,7 +1215,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: langsmith-fleet-v1-worker-attempt-${{ inputs.pr_number || github.run_id }}
-          path: langsmith-fleet-worker-attempt.json
+          path: ${{ runner.temp }}/langsmith-fleet-worker-attempt.json
           retention-days: 30
 
       - name: Analyze Codex session
@@ -1651,8 +1663,8 @@ jobs:
           git reset HEAD -- \
             codex-output*.md \
             codex-prompt*.md \
-            codex-session-*.jsonl \
-            codex-analysis-*.json \
+            codex-session*.jsonl \
+            codex-analysis*.json \
             claude-output*.md \
             claude-prompt*.md \
             claude-session*.log \

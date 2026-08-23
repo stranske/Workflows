@@ -68,6 +68,18 @@ FALLBACK_PATTERNS: list[str] = [
     "workloop-state.md",
     # Test/coverage artifacts
     "coverage.xml",
+    # Per-run agent execution telemetry (HIGH conflict risk). reusable-codex-run.yml rewrites
+    # this into the checkout root every agent round to stage its upload-artifact step; while
+    # tracked, codex-autofix committed the diff onto whatever PR was open and the next PR
+    # collided with main's copy. Patterns, not the literal name, because the file is named after
+    # the role recorded; bounded by extension so langsmith_*.py sources stay committable.
+    # ROOT-ANCHORED, and that leading slash is load-bearing. Unanchored, a gitignore pattern
+    # matches at EVERY depth, so `langsmith-fleet*.json` also swallowed this repo's own tracked
+    # docs/contracts/schemas/langsmith-fleet-v1.schema.json -- verified with check-ignore, not
+    # inferred. Same near-miss as the node_modules work: the debris lands in the checkout ROOT,
+    # so that is the only place the pattern should reach.
+    "/langsmith-fleet*.json",
+    "/langsmith-fleet*.ndjson",
     # Wrong package manager artifacts (defense-in-depth)
     "Pipfile.lock",
     "poetry.lock",
@@ -85,7 +97,7 @@ GITIGNORE_BLOCK_HEADER = """# ==================================================
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
-# Template-Version: 5
+# Template-Version: 6
 # BEGIN WORKFLOWS STATUS FILES
 """
 

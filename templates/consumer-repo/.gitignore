@@ -146,7 +146,7 @@ cython_debug/
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
-# Template-Version: 5
+# Template-Version: 6
 # BEGIN WORKFLOWS STATUS FILES
 
 # Agent working files (HIGH conflict risk)
@@ -187,6 +187,22 @@ workloop-state.md
 
 # Test/coverage artifacts
 coverage.xml
+
+# Per-run agent execution telemetry (HIGH conflict risk)
+# reusable-codex-run.yml writes langsmith-fleet-worker-attempt.json into the checkout
+# root on every agent round, only to stage the actions/upload-artifact step that
+# follows it. While tracked, every round produced a diff that codex-autofix committed
+# onto whatever PR was open, so the next PR collided with the copy the last merge left
+# on main. A PATTERN, not the literal: the file is named after the ROLE recorded, so a
+# verifier or evaluator attempt arrives as a sibling. Bounded to the two extensions the
+# langsmith-fleet/v1 schema emits, so langsmith_*.py sources and langsmith-fleet-*.md
+# docs stay committable. ROOT-ANCHORED: unanchored, a pattern matches at every depth, and
+# `langsmith-fleet*.json` also swallowed Workflows' own tracked
+# docs/contracts/schemas/langsmith-fleet-v1.schema.json (verified with check-ignore). The
+# debris only ever lands in the checkout root, so that is all the pattern should reach --
+# the same anchoring lesson the node_modules entry below records.
+/langsmith-fleet*.json
+/langsmith-fleet*.ndjson
 
 # Wrong package manager artifacts (defense-in-depth)
 Pipfile.lock

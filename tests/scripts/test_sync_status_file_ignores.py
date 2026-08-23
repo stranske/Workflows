@@ -96,6 +96,50 @@ def test_template_has_version_and_anchors() -> None:
     assert fallback_version == template_version
 
 
+def test_langsmith_patterns_are_root_anchored_and_spare_the_tracked_schema(
+    tmp_path: Path,
+) -> None:
+    """The langsmith-fleet debris rules must reach the checkout ROOT and nothing deeper.
+
+    Unanchored, a gitignore pattern matches at every depth, so `langsmith-fleet*.json`
+    also matched this repo's own tracked `docs/contracts/schemas/langsmith-fleet-v1.schema.json`
+    -- silently making a load-bearing contract file untrackable. That is the same near-miss
+    the vendored-node_modules exception records, so it gets the same kind of guard: asserted
+    against real `git check-ignore`, not against the pattern string. Drop either leading
+    slash in FALLBACK_PATTERNS and the schema assertion below fails.
+    """
+    subprocess = pytest.importorskip("subprocess")
+    run = subprocess.run
+
+    run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / ".gitignore").write_text(_full_gitignore_content(), encoding="utf-8")
+
+    debris = "langsmith-fleet-worker-attempt.json"
+    schema = "docs/contracts/schemas/langsmith-fleet-v1.schema.json"
+    for rel in (debris, schema):
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.touch()
+
+    def ignored(rel: str) -> bool:
+        return run(["git", "check-ignore", "-q", rel], cwd=tmp_path, check=False).returncode == 0
+
+    # The per-run artifact lands in the root, and that is the only place it lands.
+    assert ignored(debris), f"{debris} must be ignored -- it is per-run CI debris"
+    # The schema is committed source and must survive the pattern.
+    assert not ignored(
+        schema
+    ), f"{schema} must stay trackable; the langsmith-fleet rules lost their root anchor"
+
+    # And the anchoring is visible in the canonical list itself, so a future edit that
+    # re-broadens it has to delete a leading slash on purpose.
+    langsmith = [
+        pattern for pattern in sync_status_file_ignores.CANONICAL_PATTERNS if "langsmith" in pattern
+    ]
+    assert langsmith, "the langsmith-fleet debris patterns went missing from the canonical list"
+    assert all(pattern.startswith("/") for pattern in langsmith), langsmith
+
+
 def test_load_template_patterns_requires_version_marker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
