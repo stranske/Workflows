@@ -44,12 +44,13 @@ jobs:
       drift_failed: ${{ steps.compare.outcome == 'failure' }}
     steps:
       - name: Checkout Workflows repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
       - name: Debounce workflow_run fan-out
@@ -80,6 +81,7 @@ jobs:
                 owner,
                 repo,
                 workflow_id: "health-68-consumer-sync-drift.yml",
+                branch: "main",
                 per_page: 20,
               }));
               process.stdout.write(JSON.stringify(response.data));
@@ -152,16 +154,17 @@ jobs:
       issues: write
     steps:
       - name: Checkout Workflows repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
       - name: Download drift report
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: consumer-sync-drift-report
           path: artifacts

@@ -39,7 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
       - name: Install GitHub API dependencies
@@ -310,11 +312,13 @@ jobs:
 
       - name: Tracker liveness summary
         if: always() && steps.tracker_liveness.outputs.status != 'healthy'
+        env:
+          TRACKER_LIVENESS_STATUS: ${{ steps.tracker_liveness.outputs.status }}
         run: |
           {
             echo "## Durable tracker liveness"
             echo ""
-            if [ "${{ steps.tracker_liveness.outputs.status }}" = "unhealthy" ]; then
+            if [ "$TRACKER_LIVENESS_STATUS" = "unhealthy" ]; then
               echo "At least one durable tracker source workflow has no executable run inside its configured cadence."
               echo "FYI comments were posted on the affected tracker issue(s); no gate was opened or closed."
             else

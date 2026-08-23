@@ -32,6 +32,37 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
     assert "github.event_name == 'workflow_run'" in text
     assert "| jq -r --argjson current" in text
     assert '.conclusion == "cancelled"' not in text
+    assert "branch: \"main\"" in text or "branch: 'main'" in text
+
+
+def test_consumer_drift_debounce_filters_main_before_ordering() -> None:
+    """Non-main runs must not suppress workflow_run fan-out for main."""
+    runs = [
+        {
+            "id": 2,
+            "head_branch": "feature/test",
+            "conclusion": "success",
+            "created_at": "2026-08-23T07:20:00Z",
+        },
+        {
+            "id": 1,
+            "head_branch": "main",
+            "conclusion": "success",
+            "created_at": "2026-08-23T07:00:00Z",
+        },
+    ]
+
+    def selected(values: list[dict]) -> int | None:
+        eligible = [
+            run
+            for run in values
+            if run["conclusion"] in {"success", "failure", "timed_out"}
+        ]
+        return eligible[0]["id"] if eligible else None
+
+    assert selected(runs) == 2
+    main_only = [run for run in runs if run["head_branch"] == "main"]
+    assert selected(main_only) == 1
 
 
 @pytest.mark.skipif(
