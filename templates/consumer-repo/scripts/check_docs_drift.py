@@ -247,7 +247,7 @@ def _numbered_list_block_bounds(text: str, offset: int) -> tuple[int, int] | Non
 
 def _is_explicit_upstream_reference(doc_path: Path, text: str, offset: int) -> bool:
     """Return whether an inline path is explicitly qualified as Workflows-owned."""
-    if doc_path.name != "AGENTS.md":
+    if doc_path.name.casefold() != "agents.md":
         return False
     line_start = text.rfind("\n", 0, offset) + 1
     line_end = text.find("\n", offset)
