@@ -249,7 +249,8 @@ Validated fields for each sync entry:
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `source` | safe relative path, required | Resolved once using section ownership policy |
+| `source` | safe relative path, required | Resolved once from its declared source tree |
+| `source_tree` | `"template"` or `"root"`, optional | Defaults to the section owner; selects exactly one source tree with no fallback |
 | `target` | safe relative path, optional | Defaults to `source`; effective targets must be unique |
 | `description` | str, required | Included in the plan for operator summaries |
 | `sync_mode` | `"create_only"` or absent | `None` = always overwrite |
@@ -263,8 +264,9 @@ Validated fields for each sync entry:
 Removal targets are typed separately and cannot collide with a copy target.
 `excluded:` and `runtime_fetched:` remain metadata-only sections.
 
-Each normalized copy record adds `resolved_source`, `content_sha256`, and a
-stable `effect_fingerprint`; the plan adds `manifest_sha256` and `plan_id`.
+Each normalized copy record adds its resolved `source_tree`, `resolved_source`,
+`content_sha256`, and a stable `effect_fingerprint`; the plan adds
+`manifest_sha256` and `plan_id`.
 Directory content hashes are computed from a sorted relative-path/content
 inventory, so identical inputs produce byte-identical JSON.
 

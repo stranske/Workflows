@@ -46,6 +46,8 @@ workflows:
     plan = compiled.to_plan()
 
     assert entry.resolved_source == ("templates/consumer-repo/.github/workflows/autofix.yml")
+    assert entry.source_tree == "template"
+    assert plan["entries"][0]["source_tree"] == "template"
     assert entry.target == entry.source
     assert entry.delivery == "copy"
     assert entry.content_sha256.startswith("sha256:")
@@ -71,6 +73,7 @@ scripts:
     entry = compile_manifest(manifest).section("scripts")[0]
 
     assert entry.resolved_source == "scripts/tool.py"
+    assert entry.source_tree == "root"
     assert entry.target == "scripts/renamed.py"
     assert entry.content_sha256.endswith(
         __import__("hashlib").sha256(root_source.read_bytes()).hexdigest()
@@ -112,6 +115,53 @@ workflows:
 
     with pytest.raises(ManifestCompileError, match="not deliverable"):
         compile_manifest(manifest)
+
+
+def test_workflow_source_never_falls_back_to_root(tmp_path: Path) -> None:
+    """Template-owned workflows must fail rather than silently use a root twin."""
+    root = Path(__file__).parents[2]
+    compiled = compile_manifest(root / ".github" / "sync-manifest.yml", repo_root=root)
+
+    workflows = compiled.section("workflows")
+    assert workflows
+    assert all(
+        entry.resolved_source.startswith("templates/consumer-repo/")
+        for entry in workflows
+        if entry.source_tree == "template"
+    )
+    auto_pilot = next(
+        entry for entry in workflows if entry.target == ".github/workflows/agents-auto-pilot.yml"
+    )
+    assert auto_pilot.source == ".github/workflows/agents-auto-pilot.yml"
+    assert auto_pilot.source_tree == "template"
+
+    source = ".github/workflows/reusable-pr-context.yml"
+    write_source(tmp_path, source, template=False, content="root-only twin\n")
+    template_source = write_source(tmp_path, source, template=True, content="template source\n")
+    manifest = write_manifest(
+        tmp_path,
+        """version: 1
+workflows:
+  - source: .github/workflows/reusable-pr-context.yml
+    source_tree: template
+    description: Reusable PR context
+""",
+    )
+
+    assert compile_manifest(manifest).section("workflows")[0].resolved_source.startswith(
+        "templates/consumer-repo/"
+    )
+    template_source.unlink()
+    try:
+        compile_manifest(manifest)
+    except ManifestCompileError as exc:
+        assert "templates/consumer-repo/.github/workflows/reusable-pr-context.yml" in str(exc)
+    else:
+        fallback = compile_manifest(manifest).section("workflows")[0]
+        pytest.fail(
+            "template workflow fell back to the root twin instead of failing: "
+            f"{fallback.resolved_source}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -436,6 +486,7 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
     assert plan["schema"] == PLAN_SCHEMA
     Draft202012Validator(schema).validate(plan)
     assert len(plan["entries"]) > 200
+    assert all(entry["source_tree"] in {"root", "template"} for entry in plan["entries"])
     assert all(entry["resolved_source"] for entry in plan["entries"])
     assert len({entry["target"] for entry in plan["entries"]}) == len(plan["entries"])
 
