@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -51,31 +52,88 @@ def tracker_doc_workflows() -> set[str]:
 
 
 def _latest_executable_run(repo: str, workflow_file: str, token: str) -> dict[str, Any] | None:
-    raw = subprocess.check_output(
-        [
-            "gh",
-            "api",
-            f"repos/{repo}/actions/workflows/{workflow_file}/runs",
-            "--method",
-            "GET",
-            "-f",
-            "per_page=100",
-            "--jq",
-            ".workflow_runs",
-        ],
-        text=True,
-        env={**os.environ, "GH_TOKEN": token},
-    )
-    runs = json.loads(raw)
+    """Newest run of ``workflow_file`` that actually executed, or None.
+
+    Deliberately still shells to ``gh`` rather than sharing
+    ``workflow_startup_failure_diagnostic``'s HTTP layer. That module imports
+    ``requests`` via ``scripts.api_client``, and health-71 installs only
+    ``pyyaml`` -- importing it here would reproduce the exact
+    ``ModuleNotFoundError: requests`` that broke the health-40 liveness job. The
+    two probes therefore share a purpose and not a transport; the overlap is
+    ~15 lines, and forcing one transport would cost health-71 a dependency and an
+    edit that re-arms the suspicious-workflow scan on it.
+
+    What was NOT optional is the retry. This ran with no backoff at all, so a
+    single GitHub *secondary* rate-limit 403 -- a separate cap on rapid
+    sequential requests, invisible to /rate_limit -- raised CalledProcessError
+    and aborted the whole liveness check. That is the same trap the sweep hit.
+    """
+    attempts, backoff = 5, 8.0
+    raw = ""
+    for attempt in range(1, attempts + 1):
+        result = subprocess.run(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/actions/workflows/{workflow_file}/runs",
+                "--method",
+                "GET",
+                "-f",
+                "per_page=100",
+                "--jq",
+                ".workflow_runs",
+            ],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "GH_TOKEN": token},
+        )
+        if result.returncode == 0:
+            raw = result.stdout
+            break
+        combined = (result.stdout + result.stderr).lower()
+        transient = "rate limit" in combined or "was submitted too quickly" in combined
+        if attempt < attempts and transient:
+            time.sleep(backoff * attempt)
+            continue
+        # Non-transient, or out of attempts: surface it rather than reporting a
+        # healthy-looking None, which would read as "no executable run" and
+        # blame the workflow for an API failure.
+        raise RuntimeError(
+            f"gh api failed for {workflow_file} after {attempt} attempt(s): "
+            f"{result.stderr.strip()[:300]}"
+        )
+
+    try:
+        runs = json.loads(raw)
+    except ValueError:
+        return None
     if not isinstance(runs, list):
         return None
     for run in runs:
         if not isinstance(run, dict):
             continue
-        conclusion = str(run.get("conclusion") or "")
-        if conclusion in EXECUTABLE_CONCLUSIONS:
+        if str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS:
             return run
     return None
+
+
+def _held_by_workflow_protection(runs_probe_empty: bool, repo: str, workflow_file: str) -> str:
+    """Name the hold explicitly when that is why nothing executed.
+
+    "no executable run found" is true but unactionable. If every recent run is a
+    zero-job ``action_required``, the cause is GitHub's suspicious-workflow
+    protection, no REST endpoint clears it, and the remedy is a web-UI approval.
+    Saying so turns a tracker comment into something someone can act on.
+    """
+    if not runs_probe_empty:
+        return ""
+    return (
+        f" Every recent run of {workflow_file} concluded action_required with zero jobs, "
+        f"which is GitHub's suspicious-workflow protection, not a scheduling problem. "
+        f"No REST endpoint clears it: use Approve and run in the web UI. "
+        f"See scripts/workflow_startup_failure_diagnostic.py --sweep --repo {repo} "
+        f"for the fleet-wide view and a benign/needs-eyes verdict per held workflow."
+    )
 
 
 def _hours_since(iso_timestamp: str) -> float:
@@ -107,7 +165,10 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                     "workflow": workflow,
                     "issue": issue,
                     "healthy": False,
-                    "reason": "no executable run found (only action_required/skipped)",
+                    "reason": (
+                        "no executable run found (only action_required/skipped)."
+                        + _held_by_workflow_protection(True, repo, workflow)
+                    ),
                 }
             )
             continue

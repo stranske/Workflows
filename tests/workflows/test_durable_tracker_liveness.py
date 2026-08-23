@@ -111,7 +111,7 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
             "workflow": "absent.yml",
             "issue": 4,
             "healthy": False,
-            "reason": "no executable run found (only action_required/skipped)",
+            "reason": ABSENT_REASON,
         },
     ]
 
@@ -134,16 +134,31 @@ def test_event_driven_tracker_is_not_subject_to_age_liveness() -> None:
     assert "max_age_hours" not in tracker
 
 
+# The absent-run reason now also names the cause and the remedy: "no executable
+# run found" is true but unactionable, and the cause is almost always GitHub's
+# suspicious-workflow protection, which no REST endpoint can clear.
+ABSENT_REASON = (
+    "no executable run found (only action_required/skipped)."
+    + check_durable_tracker_liveness._held_by_workflow_protection(
+        True, "stranske/Workflows", "absent.yml"
+    )
+)
+
+
 def test_tracker_run_lookup_uses_get_for_query_parameters(monkeypatch) -> None:
     captured: list[str] = []
 
-    def fake_check_output(command, **_kwargs):
-        captured.extend(command)
-        return "[]"
+    class _Ok:
+        returncode, stdout, stderr = 0, "[]", ""
 
-    monkeypatch.setattr(
-        check_durable_tracker_liveness.subprocess, "check_output", fake_check_output
-    )
+    def fake_run(command, **_kwargs):
+        # The probe moved from subprocess.check_output to subprocess.run so it can
+        # inspect the exit code and retry a transient rate limit instead of
+        # raising. The GET requirement it pins here is unchanged.
+        captured.extend(command)
+        return _Ok()
+
+    monkeypatch.setattr(check_durable_tracker_liveness.subprocess, "run", fake_run)
 
     assert (
         check_durable_tracker_liveness._latest_executable_run(
@@ -177,3 +192,70 @@ def test_tracker_doc_table_links_match_config() -> None:
             f"config issue #{issue} maps to {workflow}, "
             f"tracker doc maps to {issue_to_workflow.get(issue)}"
         )
+
+
+# --- probe robustness (added 2026-08-23) ---------------------------------
+#
+# The probe originally shelled to `gh` with no retry, so one GitHub SECONDARY
+# rate-limit 403 -- a separate cap on rapid sequential requests, invisible to
+# /rate_limit -- raised CalledProcessError and aborted the whole liveness check.
+# The sweep hit the same trap. A liveness checker that dies on API noise reports
+# nothing, which is the failure it exists to prevent.
+
+
+def test_transient_rate_limit_is_retried_not_fatal(monkeypatch) -> None:
+    import scripts.check_durable_tracker_liveness as mod
+
+    calls = {"n": 0}
+
+    class _R:
+        def __init__(self, rc, out="", err=""):
+            self.returncode, self.stdout, self.stderr = rc, out, err
+
+    def fake_run(cmd, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return _R(1, "", "API rate limit exceeded for user ID 1")
+        return _R(0, '[{"conclusion": "success", "created_at": "2026-08-23T00:00:00Z"}]')
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
+
+    run = mod._latest_executable_run("owner/repo", "wf.yml", "t")
+
+    assert calls["n"] == 2, "a transient rate limit must be retried, not fatal"
+    assert run is not None and run["conclusion"] == "success"
+
+
+def test_non_transient_failure_raises_rather_than_looking_healthy(monkeypatch) -> None:
+    """An API failure must not be reported as 'no executable run'.
+
+    Returning None on a hard error would blame the workflow for the checker's
+    own inability to look.
+    """
+    import scripts.check_durable_tracker_liveness as mod
+
+    class _R:
+        returncode, stdout, stderr = 1, "", "Not Found"
+
+    monkeypatch.setattr(mod.subprocess, "run", lambda cmd, **kw: _R())
+    monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
+
+    try:
+        mod._latest_executable_run("owner/repo", "wf.yml", "t")
+    except RuntimeError as exc:
+        assert "gh api failed" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("expected RuntimeError on a non-transient failure")
+
+
+def test_hold_is_named_not_just_reported_as_missing() -> None:
+    """ "no executable run" is true but unactionable; name the hold and the remedy."""
+    import scripts.check_durable_tracker_liveness as mod
+
+    msg = mod._held_by_workflow_protection(True, "owner/repo", "health-68.yml")
+
+    assert "suspicious-workflow protection" in msg
+    assert "Approve and run" in msg
+    assert "No REST endpoint clears it" in msg
+    assert mod._held_by_workflow_protection(False, "owner/repo", "health-68.yml") == ""
