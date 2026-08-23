@@ -80,14 +80,14 @@ jobs:
           import sys
           sys.path.insert(0, '.')
 
-          from scripts.langchain.capability_check import check_capability
+          from scripts.langchain.capability_check import classify_capabilities
 
           # Read extracted content
           tasks = open('tasks.md').read()
           acceptance = open('acceptance.md').read()
 
           # Run capability check
-          result = check_capability(tasks, acceptance)
+          result = classify_capabilities(tasks, acceptance)
 
           if result is None:
               print('::warning::Could not run capability check (LLM unavailable)')
