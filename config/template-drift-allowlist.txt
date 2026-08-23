@@ -43,36 +43,36 @@
 [pair.1]
 main = .github/workflows/agents-63-issue-intake.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-intake.yml
-main_sha256 = 200757cbb8d1801434ac3acb9e517a90ea37aa06e57ce925e8ac4480d829fc7f
+main_sha256 = 756b0e4deaf5efd4138f785b857d57ed271bd30f9facc3daa4a6125db14edbb2
 template_sha256 = 9176b7cffc68dba50fa7ff9c6a2386383c237433ac5a656053eccdd202628c6d
-divergence = Intentional divergence re-reviewed 2026-08-16: root and consumer intake surfaces both remove the operator draft toggle and always hand off ready-for-review automation PRs; root retains its richer failure summary while the consumer remains a pinned, minimal bridge contract.
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-16: root and consumer intake surfaces both remove the operator draft toggle and always hand off ready-for-review automation PRs; root retains its richer failure summary while the consumer remains a pinned, minimal bridge contract.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-71-codex-belt-dispatcher.yml
-main_sha256 = 0e9a4c7e7b120985fd9684a9e4f89049601b2bbc0b9da9bee5510d3ec1c3c175
-template_sha256 = 6a7b6e203f6ac2837bc09dc2dc6620faa37b72cb78068af1bb77779e246cb1dd
-divergence = Intentional divergence re-baselined 2026-08-16: workflow_dispatch inputs (force_issue, agent_key) are now passed to the github-script step via step-level env: and read through process.env instead of being interpolated into the script body, removing a script-injection surface that caused GitHub to block the workflow as possibly malicious in consumer repos. Applied identically to both surfaces; consumer action pinning and Codex-specific wording preserved.
+main_sha256 = 30efb3219ab077a1d1824609fd9dfa2076215df3b401810f77ce940fb0684ba8
+template_sha256 = 6267586ece8e0f7def29cd4f8a2a93334e14da8bdaa69ac503e3acf4cfaaf09c
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-16: workflow_dispatch inputs (force_issue, agent_key) are now passed to the github-script step via step-level env: and read through process.env instead of being interpolated into the script body, removing a script-injection surface that caused GitHub to block the workflow as possibly malicious in consumer repos. Applied identically to both surfaces; consumer action pinning and Codex-specific wording preserved.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
 [pair.3]
 main = .github/workflows/agents-72-codex-belt-worker.yml
 template = templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml
-main_sha256 = 905e1a6487c44f0705b4c83294fa5cc9e2693cfdf2927994f6dc28912516b758
-template_sha256 = f8ce0688837030094e20af4aee01d25274dbffcb3eeec3fa5b34da16318f3993
-divergence = Intentional divergence re-reviewed 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer worker workflow_call surfaces while preserving consumer action pinning and guarded merge wording.
+main_sha256 = c29efcc115d9b0d0dc8a43c09f2b1f7637750bc75caaebded1e4a5d90d732f5d
+template_sha256 = b74a4089e9fcc8bae6680f2c7e977b27123515f33765547a0795fd5116380163
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer worker workflow_call surfaces while preserving consumer action pinning and guarded merge wording.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
 [pair.4]
 main = .github/workflows/agents-73-codex-belt-conveyor.yml
 template = templates/consumer-repo/.github/workflows/agents-73-codex-belt-conveyor.yml
-main_sha256 = c0f900cf6fd9d88b6f34538644b52e172fac31a599a2b1f95e650589c9f92012
-template_sha256 = a1531951216890c2e7f766e53aaaa53ad6da1e2d94dd8a2db3889311672a13ec
-divergence = Intentional divergence re-reviewed 2026-08-10: root conveyor labels Gate and changed-file checks as authoritative; the consumer adds explicit best-effort rationale for only post-merge cleanup calls while preserving its action pins and Codex-specific behavior.
+main_sha256 = a5a04dd66ad11945e37acf671403772c708abd979cf0c77b93c20c1053628f6e
+template_sha256 = 39d8211d29aaab8d1c7dfcd2ea427c4963ec0804bf0ccdec59657f334eb58b59
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-10: root conveyor labels Gate and changed-file checks as authoritative; the consumer adds explicit best-effort rationale for only post-merge cleanup calls while preserving its action pins and Codex-specific behavior.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
@@ -88,27 +88,27 @@ fingerprint_refreshed = 2026-08-23
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-autofix-dispatcher.yml
-main_sha256 = d50546b43254e3374d53a8efb27b3f47efbddce20ae4511579a103bd6ca1e27c
-template_sha256 = 533b0f2241708e39e97de00bbae0795b7f9d95f32d9337e0ddcf51ed4fa4c76b
-divergence = Intentional divergence re-reviewed 2026-08-23: the Workflows-local dispatcher resolves and invokes the in-repository reusable autofix surface, while the consumer wrapper uses the published Workflows workflow with pinned actions and consumer secret wiring. Do not align wholesale because that would remove the consumer deployment contract.
+main_sha256 = d356688a1be87c03a5c42b4dfa336d7c6aee991dff9769b9641fca5026a84f78
+template_sha256 = 392f70210bdf8ba8c2e3de4b7de292f5e8006eaae9e08b1cee52c276f8cb9b21
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-23: the Workflows-local dispatcher resolves and invokes the in-repository reusable autofix surface, while the consumer wrapper uses the published Workflows workflow with pinned actions and consumer secret wiring. Do not align wholesale because that would remove the consumer deployment contract.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
 [pair.7]
 main = .github/workflows/agents-capability-check.yml
 template = templates/consumer-repo/.github/workflows/agents-capability-check.yml
-main_sha256 = 6a31f201710befd79283a59228524d279345f3b3351aa1e5bdf373da770590a3
-template_sha256 = 92a2ab44ada9e1e5238f8117071df1b86f4c5b300a086b3c970bda623076b9cd
-divergence = Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
+main_sha256 = fd15a87ee9e5dfa7f93c48aa372d87b4c7172a2148f90aba6f25a1f6c9b5ccbe
+template_sha256 = d64c56f967166f803f054b9d81e2390dadd8dc5984bb280271f09bf4fffd9702
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
 [pair.8]
 main = .github/workflows/agents-decompose.yml
 template = templates/consumer-repo/.github/workflows/agents-decompose.yml
-main_sha256 = 03bf9ec09953e0b1298783b1d14f030fefd40f00a61caf404cf0b562297a1e82
-template_sha256 = 8964f9a4cdb6ffd724cba533befd09ba30336b4d9d2b3047351d045a39ed5949
-divergence = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
+main_sha256 = 66b4596b399d478f5070cedd81cd92b8952f2f82dc17bdf129c200614e09da13
+template_sha256 = 48cb4ecee47f756d64c3c76a8f47cac01468c9df5ceae50a86508eadb7d8b589
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
@@ -124,9 +124,9 @@ fingerprint_refreshed = 2026-08-23
 [pair.10]
 main = .github/workflows/agents-guard.yml
 template = templates/consumer-repo/.github/workflows/agents-guard.yml
-main_sha256 = eb5a10b5246ab1aa94afa481ed40e6a330a44be935f581827f6a49527b73e19f
-template_sha256 = a8bc6224681c3fbb3314a393135188bca1b1362439cfd509b81eceb1acc0e8cd
-divergence = Intentional divergence re-baselined 2026-06-30: root and consumer guard workflows differ for pinned consumer actions/App-token setup; stranske/Workflows digest pins were refreshed together in root and consumer guard surfaces after Renovate moved the Workflows digest to ebef44a.
+main_sha256 = db19a7be90004acf658ace7ba2e635dc26f918ed8a52934f5c09d8923a0962e8
+template_sha256 = 6d43d956981cbb1f9f4bc0ccc91cbcc086dc6078c10b0d9afa9e9968e8a6e952
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-06-30: root and consumer guard workflows differ for pinned consumer actions/App-token setup; stranske/Workflows digest pins were refreshed together in root and consumer guard surfaces after Renovate moved the Workflows digest to ebef44a.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
@@ -142,9 +142,9 @@ fingerprint_refreshed = 2026-08-23
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml
-main_sha256 = 68ed7a2824a3536bf5e57699f0065646840335a5d36747758cb1ed2d1568288b
+main_sha256 = 402354e7e7bb43302bf2c31d00c69ece239c3a13407ef96c29d702afb00c8bda
 template_sha256 = 93bfd23d1fecd7769aff11c80cfc78e7e50465d8f8172b6f4c63911b63addebc
-divergence = Intentional divergence re-reviewed 2026-08-15: both reporters mint the dedicated KEEPALIVE_APP token with WORKFLOWS_APP fallback, fail closed before trusted summary writes, and record the selected App writer. The root keeps its in-repo setup helpers while the consumer retains state fingerprinting and SHA-pinned actions; do not align wholesale.
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-15: both reporters mint the dedicated KEEPALIVE_APP token with WORKFLOWS_APP fallback, fail closed before trusted summary writes, and record the selected App writer. The root keeps its in-repo setup helpers while the consumer retains state fingerprinting and SHA-pinned actions; do not align wholesale.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
@@ -160,18 +160,18 @@ fingerprint_refreshed = 2026-08-23
 [pair.14]
 main = .github/workflows/agents-verifier.yml
 template = templates/consumer-repo/.github/workflows/agents-verifier.yml
-main_sha256 = 5e1cb04f45d27ccd30395eb804203677db130c7f1bcabf8054d80cb22c189e97
-template_sha256 = 9c803d40ce8b26f4450a60d6f821eb2cadbd59c42b47259d3394ad1d932fee0f
-divergence = Intentional divergence re-reviewed 2026-08-23: the Workflows verifier retains its local corpus and provider plumbing, while the consumer verifier calls the distributed surface with consumer-specific action pins and token setup. Do not align wholesale because those execution environments are intentionally different.
+main_sha256 = 9eac4dcf473c8be04bdd6cf168dda13da2d1a2c3b19a69c091b67fe3ad47eabe
+template_sha256 = a7692b7c3a3cf030e18c7f97ad2fc62bb8def38a3f52546bea5dc3276faf3b23
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-23: the Workflows verifier retains its local corpus and provider plumbing, while the consumer verifier calls the distributed surface with consumer-specific action pins and token setup. Do not align wholesale because those execution environments are intentionally different.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
 [pair.15]
 main = .github/workflows/agents-weekly-metrics.yml
 template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
-main_sha256 = 6e48b36caaa2865c66fe978b75e775687b96b69eae74c5adbc1355346819f271
-template_sha256 = 865fe609fbc6fde8f0f9faf338d8ba9e9e573448e8dc454fb759df003bd9b437
-divergence = Intentional divergence (re-baselined 2026-07-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after the durable-label guard was added to the template. Do not align: would strip consumer action pins.
+main_sha256 = fbb51ad2a0f26947a12c4f02b42d6c193c1ac5f1a1489348a9b6e72b451e3dab
+template_sha256 = d0e9aeeea4504f905d95c109f7d96948eace09b8d4481a570657725e2cb7869c
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence (re-baselined 2026-07-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after the durable-label guard was added to the template. Do not align: would strip consumer action pins.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
@@ -196,26 +196,26 @@ fingerprint_refreshed = 2026-08-23
 [pair.18]
 main = .github/workflows/maint-coverage-guard.yml
 template = templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
-main_sha256 = 3b08ecd7c98a8c0f9281136be6013f3602faecf07adc90ee38687f990fc7ffa6
-template_sha256 = e7badb31c3a806d89cbf4a3d87368e0f98785683f901cf0130f64e1c000fdb1a
-divergence = Intentional divergence reviewed 2026-08-23: Workflows uses its local artifact-cache action and helper sparse checkout, while consumers mint an App token and download coverage artifacts through pinned public actions. The artifact retrieval routes are deliberately different because consumers cannot rely on Workflows-local actions.
+main_sha256 = b5abffe1fd6332e6b074882fc9dfeceefbd3b7b28123d651379611124976727f
+template_sha256 = 11bfac33337f971fb17be0666cf76ecf005c75347607858aa6bd7feb970b4918
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence reviewed 2026-08-23: Workflows uses its local artifact-cache action and helper sparse checkout, while consumers mint an App token and download coverage artifacts through pinned public actions. The artifact retrieval routes are deliberately different because consumers cannot rely on Workflows-local actions.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
 [pair.19]
 main = .github/workflows/pr-00-gate.yml
 template = templates/consumer-repo/.github/workflows/pr-00-gate.yml
-main_sha256 = 03e408f560326e9692ede373803f753224c0f4ac68bd9661a85923017b5c906c
-template_sha256 = ae8266ef5429f5ef5f0982292dd8fd3572358352e285976fe006011d5926f2c5
-divergence = Intentional divergence reviewed 2026-08-23: the source Gate runs Workflows-only package, ledger, diff-quality, and live sync-manifest issue-state checks with GH_TOKEN and GITHUB_TOKEN exported for the pytest guard; the consumer Gate uses published reusable workflows, pinned actions, and skips unavailable Workflows-local deliberate-break helpers. The consumer template must remain a bootstrap-safe deployment surface.
+main_sha256 = e65e060fd26897215b04311a9b030460c5b95758ec83e68bb970b458f1264541
+template_sha256 = fb63d85eec60e6822b1c0b35466f5677653051b7db436bd74383fdbff154f1b9
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence reviewed 2026-08-23: the source Gate runs Workflows-only package, ledger, diff-quality, and live sync-manifest issue-state checks with GH_TOKEN and GITHUB_TOKEN exported for the pytest guard; the consumer Gate uses published reusable workflows, pinned actions, and skips unavailable Workflows-local deliberate-break helpers. The consumer template must remain a bootstrap-safe deployment surface.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
 [pair.20]
 main = .github/workflows/reusable-pr-context.yml
 template = templates/consumer-repo/.github/workflows/reusable-pr-context.yml
-main_sha256 = 34f19d0bc75d0b3dbf4d897d38a45ccc20a453a3467c930cb749b6881cfe724f
+main_sha256 = 37a931f9827b6b8abdcd4801f7d09ac76610a61cca3a3e64f58625a202d5db81
 template_sha256 = d4ac61af664ce7330a019ce09b2db451e234ebc9b720827320f1c2db32e35eb5
-divergence = Intentional divergence reviewed 2026-08-23: Workflows keeps local setup-api-client, cancellation, and full multi-agent label detection; the consumer uses pinned actions, App-token setup, and only the consumer-supported routing labels. These execution contexts are intentionally not byte-identical.
+divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence reviewed 2026-08-23: Workflows keeps local setup-api-client, cancellation, and full multi-agent label detection; the consumer uses pinned actions, App-token setup, and only the consumer-supported routing labels. These execution contexts are intentionally not byte-identical.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23

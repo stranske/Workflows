@@ -311,8 +311,11 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ env.GH_BELT_TOKEN }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Resolve Workflows ref
         id: workflows_ref
@@ -643,8 +646,11 @@ jobs:
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         uses: ./.belt-tools/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ env.GH_BELT_TOKEN }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Validate ledger base branch
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}

@@ -107,8 +107,10 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          workflows_app_id: ${{ secrets.workflows_app_id }}
+          workflows_app_private_key: ${{ secrets.workflows_app_private_key }}
 
       - name: Resolve Workflows ref
         id: workflows_ref

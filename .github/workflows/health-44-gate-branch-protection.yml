@@ -109,7 +109,7 @@ jobs:
         if: steps.fingerprint.outputs.should_run == 'true'
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
 
 

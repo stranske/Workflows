@@ -277,8 +277,12 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          owner_pr_pat: ${{ secrets.owner_pr_pat }}
+          workflows_app_id: ${{ secrets.workflows_app_id }}
+          workflows_app_private_key: ${{ secrets.workflows_app_private_key }}
       - name: Echo received inputs
         run: |
           echo "Inputs JSON:"
@@ -1505,8 +1509,12 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          owner_pr_pat: ${{ secrets.owner_pr_pat }}
+          workflows_app_id: ${{ secrets.workflows_app_id }}
+          workflows_app_private_key: ${{ secrets.workflows_app_private_key }}
 
       - name: Format issues
         env:

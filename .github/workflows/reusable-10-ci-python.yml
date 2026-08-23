@@ -418,8 +418,10 @@ jobs:
       - name: Setup API client
         uses: ./.workflows-lib/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          workflows_app_id: ${{ secrets.workflows_app_id }}
+          workflows_app_private_key: ${{ secrets.workflows_app_private_key }}
 
       - name: Checkout repository
         if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
@@ -2710,8 +2712,10 @@ jobs:
       - name: Setup API client
         uses: ./.workflows-lib/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          workflows_app_id: ${{ secrets.workflows_app_id }}
+          workflows_app_private_key: ${{ secrets.workflows_app_private_key }}
 
       - name: Summarize check outcomes
         run: |

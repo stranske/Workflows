@@ -130,8 +130,13 @@ jobs:
       - name: Setup API client
         uses: ./consumer/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Determine Workflows workflow ref
         id: workflows_workflow_ref
@@ -313,8 +318,13 @@ jobs:
       - name: Setup API client
         uses: ./workflows-lib/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
 
       - name: Run orchestrator
@@ -390,8 +400,13 @@ jobs:
       - name: Setup API client
         uses: ./workflows-lib/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
 
       - name: Evaluate keepalive gate
@@ -547,8 +562,13 @@ jobs:
       - name: Setup API client
         uses: ./workflows-lib/.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
 
       - name: Upsert PR body sections

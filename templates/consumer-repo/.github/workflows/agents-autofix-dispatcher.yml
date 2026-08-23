@@ -43,8 +43,22 @@ jobs:
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
-          secrets: ${{ toJSON(secrets) }}
+          # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ steps.app_token.outputs.token || github.token }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          keepalive_app_id: ${{ secrets.KEEPALIVE_APP_ID }}
+          keepalive_app_private_key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
+          gh_app_id: ${{ secrets.GH_APP_ID }}
+          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          app_1_id: ${{ secrets.APP_1_ID }}
+          app_1_private_key: ${{ secrets.APP_1_PRIVATE_KEY }}
+          app_2_id: ${{ secrets.APP_2_ID }}
+          app_2_private_key: ${{ secrets.APP_2_PRIVATE_KEY }}
 
       - name: Acknowledge consolidated autofix handling
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
