@@ -271,8 +271,8 @@ def sweep_repository(
     repo: str,
     token: str,
     sample: int = 20,
-    threshold: float = 0.9,
-    min_runs: int = 5,
+    threshold: float = 0.0,
+    min_runs: int = 1,
     now: str | None = None,
 ) -> dict[str, Any]:
     """Report workflows in ``repo`` whose recent history is dominated by holds.
@@ -297,16 +297,24 @@ def sweep_repository(
         payload = _gh_api(
             f"repos/{repo}/actions/workflows/{workflow_id}/runs?per_page={sample}", token
         )
-        runs = payload.get("workflow_runs", [])
-        if not isinstance(runs, list) or len(runs) < min_runs:
-            continue
-        held_runs = [
-            r for r in runs if isinstance(r, dict) and r.get("conclusion") == HELD_RUN_CONCLUSION
-        ]
-        if len(held_runs) / len(runs) < threshold:
+        runs = [r for r in payload.get("workflow_runs", []) if isinstance(r, dict)]
+        if len(runs) < min_runs:
             continue
 
-        newest = held_runs[0]
+        # Judge the NEWEST run, because "held" means "blocked right now".
+        # Judging the held SHARE of the sample instead reports a workflow that
+        # has already recovered: history dominates the window for a long outage,
+        # so a freshly-fixed workflow still scores 19/20 and the sweep cries wolf
+        # forever. That defect shipped once and was caught by running the sweep
+        # against a workflow whose newest run had just gone green.
+        if runs[0].get("conclusion") != HELD_RUN_CONCLUSION:
+            continue
+
+        held_runs = [r for r in runs if r.get("conclusion") == HELD_RUN_CONCLUSION]
+        if threshold and len(held_runs) / len(runs) < threshold:
+            continue
+
+        newest = runs[0]
         run_id = newest.get("id")
         jobs_payload = _gh_api(f"repos/{repo}/actions/runs/{run_id}/jobs", token)
         jobs = jobs_payload.get("jobs", [])
@@ -344,8 +352,8 @@ def sweep(
     repos: list[str],
     token: str | None = None,
     sample: int = 20,
-    threshold: float = 0.9,
-    min_runs: int = 5,
+    threshold: float = 0.0,
+    min_runs: int = 1,
     now: str | None = None,
 ) -> dict[str, Any]:
     """Sweep every repository and aggregate the blocking/drainable pair."""
@@ -375,6 +383,14 @@ def sweep(
             for r in repo_reports
         ],
     }
+
+
+def _fmt_days(entry: dict[str, Any]) -> str:
+    """Render days-held without ever printing a bare None."""
+    days = entry.get("days_held")
+    if days is None:
+        return "age unknown"
+    return f"{'>=' if entry.get('onset_truncated') else ''}{days}d"
 
 
 def format_sweep_summary(report: dict[str, Any]) -> str:
@@ -440,11 +456,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--threshold",
         type=float,
-        default=0.9,
-        help="Held share of sampled runs before a workflow counts as held",
+        default=0.0,
+        help=(
+            "Optional extra filter: minimum held share of the sampled runs. "
+            "Held is decided by the newest run; this only suppresses noise."
+        ),
     )
     parser.add_argument(
-        "--min-runs", type=int, default=5, help="Minimum sampled runs before judging a workflow"
+        "--min-runs", type=int, default=1, help="Minimum sampled runs before judging a workflow"
     )
     parser.add_argument(
         "--report-only",
@@ -486,7 +505,7 @@ def _run_sweep(args: argparse.Namespace) -> int:
         print(
             f"  HELD {entry['repo']} {entry['workflow']}"
             f" - {entry['consecutive_held']} consecutive held runs,"
-            f" {'>=' if entry['onset_truncated'] else ''}{entry['days_held']}d,"
+            f" {_fmt_days(entry)},"
             f" {entry['suspected_root_cause']}"
             f" -> {entry['approval_url']}"
         )
@@ -512,7 +531,7 @@ def _write_step_summary(summary: str, report: dict[str, Any]) -> None:
             lines.append(
                 f"| {entry['repo']} | `{entry['workflow'].rsplit('/', 1)[-1]}` |"
                 f" {entry['held_runs_sampled']}/{entry['runs_sampled']} |"
-                f" {'&ge;' if entry['onset_truncated'] else ''}{entry['days_held']} |"
+                f" {_fmt_days(entry)} |"
                 f" {entry['suspected_root_cause']} |"
                 f" [run]({entry['approval_url']}) |\n"
             )

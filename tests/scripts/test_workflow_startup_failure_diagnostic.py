@@ -493,3 +493,63 @@ def test_sweep_main_fails_on_hold_and_report_only_passes(monkeypatch) -> None:
 def test_sweep_requires_a_repository(capsys) -> None:
     assert diag.main(["--sweep"]) == 1
     assert "--sweep needs --repo" in capsys.readouterr().err
+
+
+def test_sweep_does_not_report_a_workflow_that_has_recovered(monkeypatch) -> None:
+    """Regression guard for a defect that shipped in the first sweep.
+
+    A long outage fills the sample window with held runs. When the workflow is
+    finally approved and executes, the held SHARE is still ~95%, so a
+    share-based rule keeps reporting it as held forever - the detector cries
+    wolf and becomes as useless as the silence it replaced. Held must be decided
+    by the NEWEST run.
+
+    Deleting the `runs[0].get("conclusion") != HELD_RUN_CONCLUSION` guard in
+    sweep_repository makes this test fail with held_count == 1.
+    """
+    recovered = [
+        {
+            "id": 900,
+            "conclusion": "success",
+            "status": "completed",
+            "event": "workflow_run",
+            "created_at": "2026-08-23T05:21:42Z",
+        }
+    ] + [_held_run(800 + i, "2026-08-01T00:00:00Z") for i in range(19)]
+    monkeypatch.setattr(diag, "_gh_api", _sweep_stub(runs=recovered))
+
+    report = diag.sweep(["owner/repo"], token="t", now="2026-08-23T06:00:00Z")
+
+    assert report["held_count"] == 0
+    assert "0 held" in diag.format_sweep_summary(report)
+
+
+def test_sweep_still_reports_a_single_fresh_hold(monkeypatch) -> None:
+    """Early detection matters: one held newest run is already an outage.
+
+    A share threshold would have suppressed this (1 held of 20 = 5%), which is
+    exactly the just-edited-and-blocked case the sweep exists to catch in a day
+    rather than three weeks.
+    """
+    runs = [_held_run(1000, "2026-08-23T05:00:00Z")] + [
+        {
+            "id": 1001 + i,
+            "conclusion": "success",
+            "status": "completed",
+            "event": "issues",
+            "created_at": "2026-08-22T00:00:00Z",
+        }
+        for i in range(19)
+    ]
+    monkeypatch.setattr(diag, "_gh_api", _sweep_stub(runs=runs, onset_pages=[runs]))
+
+    report = diag.sweep(["owner/repo"], token="t", now="2026-08-23T05:30:00Z")
+
+    assert report["held_count"] == 1
+    assert report["held"][0]["consecutive_held"] == 1
+
+
+def test_fmt_days_never_prints_a_bare_none() -> None:
+    assert diag._fmt_days({"days_held": None}) == "age unknown"
+    assert diag._fmt_days({"days_held": 22, "onset_truncated": False}) == "22d"
+    assert diag._fmt_days({"days_held": 9, "onset_truncated": True}) == ">=9d"
