@@ -205,9 +205,9 @@ fingerprint_refreshed = 2026-08-23
 [pair.19]
 main = .github/workflows/pr-00-gate.yml
 template = templates/consumer-repo/.github/workflows/pr-00-gate.yml
-main_sha256 = 33f7c2ff2b5da5a426d8a4907e0af939392c74447641c925a7d7e991663a54c5
+main_sha256 = 03e408f560326e9692ede373803f753224c0f4ac68bd9661a85923017b5c906c
 template_sha256 = ae8266ef5429f5ef5f0982292dd8fd3572358352e285976fe006011d5926f2c5
-divergence = Intentional divergence reviewed 2026-08-23: the source Gate runs Workflows-only package, ledger, diff-quality, and live sync-manifest issue-state checks with the read-scoped workflow token; the consumer Gate uses published reusable workflows, pinned actions, and skips unavailable Workflows-local deliberate-break helpers. The consumer template must remain a bootstrap-safe deployment surface.
+divergence = Intentional divergence reviewed 2026-08-23: the source Gate runs Workflows-only package, ledger, diff-quality, and live sync-manifest issue-state checks with GH_TOKEN and GITHUB_TOKEN exported for the pytest guard; the consumer Gate uses published reusable workflows, pinned actions, and skips unavailable Workflows-local deliberate-break helpers. The consumer template must remain a bootstrap-safe deployment surface.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-23
 
