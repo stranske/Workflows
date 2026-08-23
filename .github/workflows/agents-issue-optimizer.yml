@@ -120,28 +120,28 @@ jobs:
           elif [[ "$LABEL_NAME" == "agents:optimize" ]]; then
             # Skip if auto-pilot label is present (auto-pilot runs optimizer inline)
             # Use pipefail to ensure gh errors cause check to fail-closed
-            if gh issue view "${{ github.event.issue.number }}" --json labels \
+            if gh issue view "$EVENT_ISSUE_NUMBER" --json labels \
                 --jq '.labels[].name' | grep -qx 'agents:auto-pilot'; then
               echo "should_run=false" >> "$GITHUB_OUTPUT"
               echo "Skipping: auto-pilot label present (runs inline)"
             else
               {
                 echo "phase=analyze"
-                echo "issue_number=${{ github.event.issue.number }}"
+                echo "issue_number=$EVENT_ISSUE_NUMBER"
                 echo "should_run=true"
               } >> "$GITHUB_OUTPUT"
             fi
           elif [[ "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
             # Skip if auto-pilot label is present (auto-pilot manages this label for state)
             # Use pipefail to ensure gh errors cause check to fail-closed
-            if gh issue view "${{ github.event.issue.number }}" --json labels \
+            if gh issue view "$EVENT_ISSUE_NUMBER" --json labels \
                 --jq '.labels[].name' | grep -qx 'agents:auto-pilot'; then
               echo "should_run=false" >> "$GITHUB_OUTPUT"
               echo "Skipping: auto-pilot label present (manages apply inline)"
             else
               {
                 echo "phase=apply"
-                echo "issue_number=${{ github.event.issue.number }}"
+                echo "issue_number=$EVENT_ISSUE_NUMBER"
                 echo "should_run=true"
               } >> "$GITHUB_OUTPUT"
             fi
