@@ -873,5 +873,6 @@ class TestCheckCapabilityAliasRemoved:
     )
     def test_capability_check_workflows_use_classify_capabilities(self, path: Path) -> None:
         source = path.read_text(encoding="utf-8")
-        assert "classify_capabilities" in source
+        assert "from scripts.langchain.capability_check import classify_capabilities" in source
+        assert "result = classify_capabilities(tasks, acceptance)" in source
         assert "check_capability" not in source
