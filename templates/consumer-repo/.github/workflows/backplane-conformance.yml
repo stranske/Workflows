@@ -32,7 +32,16 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.14'
-      - run: pip install -e .
+      # Guarded: a consumer need not be an installable package (the template ships
+      # no pyproject.toml). An unconditional editable install exits 1 on such a repo
+      # and fails this job, which fails `conformance` via `needs` - turning the
+      # documented opt-in skip above into a hard gate failure.
+      - run: |
+          if [ -f pyproject.toml ] || [ -f setup.py ] || [ -f setup.cfg ]; then
+            pip install -e .
+          else
+            echo "No packaging metadata; skipping editable install (opt-in stub not yet tuned)."
+          fi
       # Repo-specific: invoke the tool's reference run to emit run.json + manifest.
       # Replace the placeholder below with the repo's emitter once it exists, e.g.:
       #   one-pdf-pilot --out artifacts/reference            # Pension-Data

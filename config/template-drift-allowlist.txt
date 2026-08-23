@@ -4,6 +4,19 @@
 # If either file changes, the fingerprint no longer matches and Health 74 fails
 # until the template is aligned or this baseline is deliberately re-reviewed.
 #
+# 2026-08-23 re-baseline: refreshed the consumer template fingerprints for
+# auto-label, capability-check, decompose and dedup after each guarded its
+# editable install on a packaging file existing, with a tools/requirements-llm.txt
+# fallback. A consumer need not be an installable package (the template ships no
+# pyproject.toml), so `pip install -e ".[langchain]"` exited 1 on one -- the same
+# defect that made the backplane-conformance stub a hard red gate instead of the
+# opt-in skip its own header promises. Deliberately NOT applied to the root
+# workflows: this repo has a pyproject.toml declaring a langchain extra, so the
+# guard's first branch always fires there and the install already works. The
+# consumer-only guard is enforced by
+# tests/workflows/test_consumer_template_pip_install_guard.py, so a wholesale
+# align cannot silently strip it.
+#
 # 2026-07-24b re-baseline: fingerprints regenerated after check_template_drift.py
 # gained action-pin canonicalization (uses:<action>@<ref> collapses to @<pinned>).
 # From here, Renovate action-pin bumps and the intentional pinned-vs-floating
@@ -72,8 +85,8 @@ reason = Intentional divergence re-reviewed 2026-08-10: root conveyor labels Gat
 main = .github/workflows/agents-auto-label.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
 main_sha256 = 2b69ddf783e49273b966ab87f0caaf65c0a3c2b803bf46eba240d0637eeda00b
-template_sha256 = 60a5f4bff00adcf4ab9fe967f6f0d4b53d8be8d1111c545aa0778c7424ff69b9
-reason = Intentional divergence updated 2026-08-05: root and consumer workflows both isolate the eligibility sparse checkout under eligibility-source/ while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
+template_sha256 = 58d7bbb15949da1592127dd479a02fa2fa6ac74ffa9570f2af677598c1096da1
+reason = Fingerprints refreshed 2026-08-23: the consumer template now guards its editable install on a packaging file existing, falling back to tools/requirements-llm.txt, because a consumer need not be an installable package (the template ships no pyproject.toml) and `pip install -e ".[langchain]"` exited 1 on such a repo - see stranske/Orchestrator, 128 flat root modules with no pyproject.toml/setup.py/setup.cfg. Consumer-only by design, so NOT applied to root: this repo has a pyproject.toml declaring a langchain extra, where the guard's first branch always fires and the install already works. Enforced by tests/workflows/test_consumer_template_pip_install_guard.py, which fails if the guard is stripped from the template - including by a wholesale align. Underlying divergence unchanged: intentional divergence updated 2026-08-05: root and consumer workflows both isolate the eligibility sparse checkout under eligibility-source/ while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
 
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml
@@ -86,22 +99,22 @@ reason = Existing reviewed baseline drift; align the template or update this fin
 main = .github/workflows/agents-capability-check.yml
 template = templates/consumer-repo/.github/workflows/agents-capability-check.yml
 main_sha256 = 6a31f201710befd79283a59228524d279345f3b3351aa1e5bdf373da770590a3
-template_sha256 = f295e850992e119a0105921eb0c56cc6573fd368a38bbe0f9624fe0ae904a70c
-reason = Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
+template_sha256 = 92a2ab44ada9e1e5238f8117071df1b86f4c5b300a086b3c970bda623076b9cd
+reason = Fingerprints refreshed 2026-08-23: the consumer template now guards its editable install on a packaging file existing, falling back to tools/requirements-llm.txt, because a consumer need not be an installable package (the template ships no pyproject.toml) and `pip install -e ".[langchain]"` exited 1 on such a repo - see stranske/Orchestrator, 128 flat root modules with no pyproject.toml/setup.py/setup.cfg. Consumer-only by design, so NOT applied to root: this repo has a pyproject.toml declaring a langchain extra, where the guard's first branch always fires and the install already works. Enforced by tests/workflows/test_consumer_template_pip_install_guard.py, which fails if the guard is stripped from the template - including by a wholesale align. Underlying divergence unchanged: intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
 
 [pair.8]
 main = .github/workflows/agents-decompose.yml
 template = templates/consumer-repo/.github/workflows/agents-decompose.yml
 main_sha256 = 03bf9ec09953e0b1298783b1d14f030fefd40f00a61caf404cf0b562297a1e82
-template_sha256 = ea4373306a028425bc147bdd7e003118aab99130f872fb313644cdcf8ba36b84
-reason = Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
+template_sha256 = 8964f9a4cdb6ffd724cba533befd09ba30336b4d9d2b3047351d045a39ed5949
+reason = Fingerprints refreshed 2026-08-23: the consumer template now guards its editable install on a packaging file existing, falling back to tools/requirements-llm.txt, because a consumer need not be an installable package (the template ships no pyproject.toml) and `pip install -e ".[langchain]"` exited 1 on such a repo - see stranske/Orchestrator, 128 flat root modules with no pyproject.toml/setup.py/setup.cfg. Consumer-only by design, so NOT applied to root: this repo has a pyproject.toml declaring a langchain extra, where the guard's first branch always fires and the install already works. Enforced by tests/workflows/test_consumer_template_pip_install_guard.py, which fails if the guard is stripped from the template - including by a wholesale align. Underlying divergence unchanged: intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
 
 [pair.9]
 main = .github/workflows/agents-dedup.yml
 template = templates/consumer-repo/.github/workflows/agents-dedup.yml
 main_sha256 = 95d9d1c0acd6fbc143b1eb56e0c0741be370b2ab8853ed660ac1249821ea41dd
-template_sha256 = 392b9354a9e14e85ea47fb6e921cacf5216227e5c615a2725eb5f22249860e41
-reason = Intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
+template_sha256 = aa6c161b640eb303df8d47bc4d85535210f9cc7a49e4f165059432d6f0106bd2
+reason = Fingerprints refreshed 2026-08-23: the consumer template now guards its editable install on a packaging file existing, falling back to tools/requirements-llm.txt, because a consumer need not be an installable package (the template ships no pyproject.toml) and `pip install -e ".[langchain]"` exited 1 on such a repo - see stranske/Orchestrator, 128 flat root modules with no pyproject.toml/setup.py/setup.cfg. Consumer-only by design, so NOT applied to root: this repo has a pyproject.toml declaring a langchain extra, where the guard's first branch always fires and the install already works. Enforced by tests/workflows/test_consumer_template_pip_install_guard.py, which fails if the guard is stripped from the template - including by a wholesale align. Underlying divergence unchanged: intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
 
 [pair.10]
 main = .github/workflows/agents-guard.yml
