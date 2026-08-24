@@ -118,24 +118,61 @@ jobs:
             exit 0
           fi
 
-          # shellcheck disable=SC2016  # GraphQL variables must remain literal.
-          review_query='query($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { isResolved isOutdated } } } } }'
-          active_threads="$(gh api graphql -f query="$review_query" -f owner="${GITHUB_REPOSITORY%/*}" -f repo="${GITHUB_REPOSITORY#*/}" -F number="$PR_NUMBER" --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select((.isResolved | not) and (.isOutdated | not))] | length')"
-          if [ "$active_threads" != "0" ]; then
-            echo "::notice::$active_threads active review thread(s) remain; auto-merge remains disabled."
-            exit 0
-          fi
-
-          final_head="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
-          merge_state="$(gh pr view "$PR_NUMBER" --json mergeStateStatus --jq .mergeStateStatus)"
-          if [ "$final_head" != "$initial_head" ] || [ "$merge_state" != "CLEAN" ]; then
-            echo "::notice::Corpus PR changed or is not clean after gate re-read; auto-merge remains disabled."
-            exit 0
-          fi
-
-          echo "review_window_passed=true" >> "$GITHUB_OUTPUT"
+          echo "initial_head=$initial_head" >> "$GITHUB_OUTPUT"
+          echo "checks_passed=true" >> "$GITHUB_OUTPUT"
+      - name: Re-read exact head and active review threads
+        if: steps.review_window.outputs.checks_passed == 'true'
+        id: review_gate
+        uses: actions/github-script@v9
+        env:
+          INITIAL_HEAD: ${{ steps.review_window.outputs.initial_head }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT }}
+          script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'verifier-corpus-review-gate',
+              capabilities: ['pulls:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const number = Number(process.env.PR_NUMBER);
+            const query = `
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    headRefOid
+                    mergeStateStatus
+                    reviewThreads(first: 100) {
+                      nodes { isResolved isOutdated }
+                    }
+                  }
+                }
+              }
+            `;
+            const data = await withRetry((client) => client.graphql(query, {
+              owner,
+              repo,
+              number,
+            }));
+            const pr = data.repository.pullRequest;
+            const activeThreads = pr.reviewThreads.nodes.filter(
+              (thread) => !thread.isResolved && !thread.isOutdated,
+            ).length;
+            if (activeThreads !== 0) {
+              core.notice(`${activeThreads} active review thread(s) remain; auto-merge remains disabled.`);
+              return;
+            }
+            if (pr.headRefOid !== process.env.INITIAL_HEAD || pr.mergeStateStatus !== 'CLEAN') {
+              core.notice('Corpus PR changed or is not clean after gate re-read; auto-merge remains disabled.');
+              return;
+            }
+            core.setOutput('review_window_passed', 'true');
       - name: Enable auto-merge
-        if: steps.review_window.outputs.review_window_passed == 'true'
+        if: steps.review_gate.outputs.review_window_passed == 'true'
         env:
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
