@@ -1044,11 +1044,13 @@ jobs:
 
       - name: Update repo health snapshot issue
         if: always()
+        continue-on-error: true
         uses: actions/github-script@v9
         env:
           ISSUE_BODY_PATH: repo-health-issue.md
         with:
-          # Issue mutations use the repository-scoped installation token. The
+          # Start with the repository token; createTokenAwareRetry rotates
+          # across the registered issue-capable credentials at runtime. The
           # branch-protection token is intentionally limited to admin probes.
           github-token: ${{ github.token }}
           script: |
@@ -1061,11 +1063,21 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
+                  createTokenAwareRetry: async ({ github: githubInstance }) => ({
+                    github: githubInstance,
+                    withRetry: (fn) => fn(githubInstance),
+                    paginateWithRetry: (method, params) =>
+                      githubInstance.paginate(method, params),
+                  }),
                 };
-            const { withRetry, paginateWithRetry } = retryHelpers;
+            const { withRetry, paginateWithRetry } = await retryHelpers.createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'repo-health-snapshot',
+              capabilities: ['issues:write'],
+              minRemaining: 50,
+            });
 
             if (!path || !fs.existsSync(path)) {
               core.info('No snapshot body found; skipping pinned issue update.');
@@ -1083,8 +1095,8 @@ jobs:
 
             async function ensureLabel() {
               try {
-                  await withRetry(() =>
-                    github.rest.issues.getLabel({
+                  await withRetry((client) =>
+                    client.rest.issues.getLabel({
                       owner,
                       repo,
                       name: labelName,
@@ -1097,7 +1109,7 @@ jobs:
                 }
 
                 try {
-                  await withRetry(() => github.rest.issues.createLabel({
+                  await withRetry((client) => client.rest.issues.createLabel({
                     owner,
                     repo,
                     name: labelName,
@@ -1114,7 +1126,7 @@ jobs:
 
             await ensureLabel();
 
-            const issues = await paginateWithRetry(github, github.rest.issues.listForRepo, {
+            const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
               owner,
               repo,
               state: 'all',
@@ -1128,7 +1140,7 @@ jobs:
             }
 
             if (!target) {
-              const created = await withRetry(() => github.rest.issues.create({
+              const created = await withRetry((client) => client.rest.issues.create({
                 owner,
                 repo,
                 title: issueTitle,
@@ -1145,7 +1157,7 @@ jobs:
               );
               existingLabels.add(labelName);
 
-              await withRetry(() => github.rest.issues.update({
+              await withRetry((client) => client.rest.issues.update({
                 owner,
                 repo,
                 issue_number: target.number,
@@ -1157,7 +1169,7 @@ jobs:
             }
 
             try {
-              await withRetry(() => github.rest.issues.pin({
+              await withRetry((client) => client.rest.issues.pin({
                 owner,
                 repo,
                 issue_number: target.number,

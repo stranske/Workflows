@@ -57,12 +57,19 @@ def _workflow_step(name: str) -> dict:
     )
 
 
-def test_snapshot_issue_uses_repo_token_even_without_admin_token() -> None:
+def test_snapshot_issue_uses_issue_token_chain_even_without_admin_token() -> None:
     step = _workflow_step("Update repo health snapshot issue")
 
     assert step["if"] == "always()"
+    assert step["continue-on-error"] is True
     assert step["with"]["github-token"] == "${{ github.token }}"
     assert "steps.branch-token.outputs.token" not in step["with"]["github-token"]
+
+    script = step["with"]["script"]
+    assert "await retryHelpers.createTokenAwareRetry({" in script
+    assert "capabilities: ['issues:write']" in script
+    assert "withRetry((client) => client.rest.issues.update" in script
+    assert "withRetry((client) => client.rest.issues.create" in script
 
 
 def test_snapshot_issue_does_not_reuse_failure_tracker_prefix_match() -> None:
