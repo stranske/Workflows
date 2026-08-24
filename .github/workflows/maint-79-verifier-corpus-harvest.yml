@@ -141,39 +141,57 @@ jobs:
             const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
             const number = Number(process.env.PR_NUMBER);
             const query = `
-              query($owner: String!, $repo: String!, $number: Int!) {
+              query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
                 repository(owner: $owner, name: $repo) {
                   pullRequest(number: $number) {
                     headRefOid
                     mergeStateStatus
-                    reviewThreads(first: 100) {
+                    reviewThreads(first: 100, after: $cursor) {
+                      pageInfo { hasNextPage endCursor }
                       nodes { isResolved isOutdated }
                     }
                   }
                 }
               }
             `;
-            const data = await withRetry((client) => client.graphql(query, {
-              owner,
-              repo,
-              number,
-            }));
-            const pr = data.repository.pullRequest;
-            const activeThreads = pr.reviewThreads.nodes.filter(
-              (thread) => !thread.isResolved && !thread.isOutdated,
-            ).length;
+            let cursor = null;
+            let activeThreads = 0;
+            let headRefOid = null;
+            let mergeStateStatus = null;
+            do {
+              const data = await withRetry((client) => client.graphql(query, {
+                owner,
+                repo,
+                number,
+                cursor,
+              }));
+              const pr = data.repository.pullRequest;
+              headRefOid = pr.headRefOid;
+              mergeStateStatus = pr.mergeStateStatus;
+              const reviewThreads = pr.reviewThreads;
+              activeThreads += reviewThreads.nodes.filter(
+                (thread) => !thread.isResolved && !thread.isOutdated,
+              ).length;
+              if (reviewThreads.pageInfo.hasNextPage) {
+                cursor = reviewThreads.pageInfo.endCursor;
+              } else {
+                cursor = null;
+              }
+            } while (cursor);
             if (activeThreads !== 0) {
               core.notice(`${activeThreads} active review thread(s) remain; auto-merge remains disabled.`);
               return;
             }
-            if (pr.headRefOid !== process.env.INITIAL_HEAD || pr.mergeStateStatus !== 'CLEAN') {
+            if (headRefOid !== process.env.INITIAL_HEAD || mergeStateStatus !== 'CLEAN') {
               core.notice('Corpus PR changed or is not clean after gate re-read; auto-merge remains disabled.');
               return;
             }
             core.setOutput('review_window_passed', 'true');
+            core.setOutput('validated_head', headRefOid);
       - name: Enable auto-merge
         if: steps.review_gate.outputs.review_window_passed == 'true'
         env:
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
-        run: gh pr merge "$PR_NUMBER" --squash --auto
+          VALIDATED_HEAD: ${{ steps.review_gate.outputs.validated_head }}
+        run: gh pr merge "$PR_NUMBER" --squash --auto --match-head-commit "$VALIDATED_HEAD"
