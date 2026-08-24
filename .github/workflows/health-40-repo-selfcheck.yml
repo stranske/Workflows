@@ -1169,12 +1169,28 @@ jobs:
             }
 
             try {
-              await withRetry((client) => client.rest.issues.pin({
-                owner,
-                repo,
-                issue_number: target.number,
-              }));
-              core.info(`Pinned snapshot issue #${target.number}.`);
+              const pinnedState = await withRetry((client) => client.graphql(
+                `query($issueId: ID!) {
+                  node(id: $issueId) {
+                    ... on Issue { isPinned }
+                  }
+                }`,
+                { issueId: target.node_id },
+              ));
+
+              if (pinnedState.node?.isPinned) {
+                core.info(`Snapshot issue #${target.number} is already pinned.`);
+              } else {
+                await withRetry((client) => client.graphql(
+                  `mutation($issueId: ID!) {
+                    pinIssue(input: { issueId: $issueId }) {
+                      issue { number }
+                    }
+                  }`,
+                  { issueId: target.node_id },
+                ));
+                core.info(`Pinned snapshot issue #${target.number}.`);
+              }
             } catch (error) {
               core.warning(`Failed to pin issue #${target.number}: ${error.message || error}`);
             }
