@@ -77,3 +77,11 @@ def test_snapshot_issue_does_not_reuse_failure_tracker_prefix_match() -> None:
 
     assert "issue.title === issueTitle" in script
     assert "issue.title.startsWith(issueTitle)" not in script
+
+
+def test_snapshot_issue_uses_supported_idempotent_pin_mutation() -> None:
+    script = _workflow_step("Update repo health snapshot issue")["with"]["script"]
+
+    assert "client.rest.issues.pin" not in script
+    assert "... on Issue { isPinned }" in script
+    assert "pinIssue(input: { issueId: $issueId })" in script
