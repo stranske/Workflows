@@ -1059,6 +1059,7 @@ jobs:
             const path = process.env.ISSUE_BODY_PATH || '';
             const issueTitle = '[health] repository self-check';
             const labelName = 'health:repo';
+            const trackerLabelName = 'tracker:durable';
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -1145,7 +1146,7 @@ jobs:
                 repo,
                 title: issueTitle,
                 body,
-                labels: [labelName],
+                labels: [labelName, trackerLabelName],
               }));
               target = created.data;
               core.info(`Opened snapshot issue #${target.number}.`);
@@ -1156,6 +1157,7 @@ jobs:
                   )
               );
               existingLabels.add(labelName);
+              existingLabels.add(trackerLabelName);
 
               await withRetry((client) => client.rest.issues.update({
                 owner,

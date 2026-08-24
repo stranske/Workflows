@@ -85,3 +85,11 @@ def test_snapshot_issue_uses_supported_idempotent_pin_mutation() -> None:
     assert "client.rest.issues.pin" not in script
     assert "... on Issue { isPinned }" in script
     assert "pinIssue(input: { issueId: $issueId })" in script
+
+
+def test_snapshot_issue_is_created_and_updated_as_a_durable_tracker() -> None:
+    script = _workflow_step("Update repo health snapshot issue")["with"]["script"]
+
+    assert "const trackerLabelName = 'tracker:durable';" in script
+    assert "labels: [labelName, trackerLabelName]" in script
+    assert "existingLabels.add(trackerLabelName);" in script

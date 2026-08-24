@@ -20,6 +20,7 @@ EXPECTED_TRACKERS = {
     "health-68-consumer-sync-drift.yml": (2210, 48),
     "maint-69-sync-integration-repo.yml": (2470, None),
     "maint-80-langsmith-metrics-dashboard.yml": (2415, 192),
+    "health-40-repo-selfcheck.yml": (3218, 192),
 }
 
 

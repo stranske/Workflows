@@ -41,6 +41,7 @@ failure-notification path.
 | [#2210](https://github.com/stranske/Workflows/issues/2210) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 06:15 UTC schedule, debounced successful main-branch `Merge Sync PRs` runs, qualifying manifest/template/script/tool pushes, or manual dispatch | Body rewritten in place, but only for actionable states |
 | [#2470](https://github.com/stranske/Workflows/issues/2470) | 🚨 Integration-Tests Sync Failed - Action Required | [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) | On qualifying template/config pushes or manual dispatch | Stuck-window marker in body + recovery comment |
 | [#2415](https://github.com/stranske/Workflows/issues/2415) | 📊 LangSmith Trace Coverage Dashboard | [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) | Mondays 09:00 UTC + manual dispatch | Body rewritten in place |
+| [#3218](https://github.com/stranske/Workflows/issues/3218) | [health] repository self-check | [`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml) | Mondays 06:20 UTC + manual dispatch | Body rewritten in place and issue kept pinned |
 
 The signal flow each tracker carries:
 
