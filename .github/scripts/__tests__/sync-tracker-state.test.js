@@ -431,6 +431,25 @@ test('findOrCreateTracker creates a durable tracker when none is found', async (
   assert.equal(retryOptions.at(-1).allowNonIdempotentRetries, false);
 });
 
+test('findOrCreateTracker creates a transient alert without the durable label', async () => {
+  const github = mockGithub();
+
+  const alert = await findOrCreateTracker({
+    github,
+    owner: 'stranske',
+    repo: 'Workflows',
+    label: 'consumer-sync',
+    titlePattern: /^Consumer repo drift detected$/,
+    title: 'Consumer repo drift detected',
+    body: 'Actionable drift is present.',
+    durable: false,
+  });
+
+  assert.equal(alert.sync_tracker_created, true);
+  assert.deepEqual(github.calls.createdIssues[0].labels, ['automated', 'consumer-sync']);
+  assert.doesNotMatch(github.calls.createdIssues[0].body, /Durable tracker/);
+});
+
 test('findOrCreateTracker can return null without creating', async () => {
   const github = mockGithub();
 
@@ -474,6 +493,25 @@ test('updateTrackerBody preserves the durable-tracker header', async () => {
   assert.match(updated.body, /> \*\*Durable tracker\*\* - this issue stays open/);
   assert.match(updated.body, /New generated content/);
   assert.equal(github.calls.updatedIssues[0].issue_number, 12);
+});
+
+test('updateTrackerBody can replace a legacy durable body for a transient alert', async () => {
+  const github = mockGithub();
+
+  const updated = await updateTrackerBody({
+    github,
+    owner: 'stranske',
+    repo: 'Workflows',
+    tracker: {
+      number: 12,
+      body: '> **Durable tracker** - legacy contract.\n\nOld generated content.',
+    },
+    newBody: '## Consumer Repo Drift Detected\n\nAction is required.',
+    preserveDurableHeader: false,
+  });
+
+  assert.doesNotMatch(updated.body, /Durable tracker/);
+  assert.match(updated.body, /Action is required/);
 });
 
 test('preserveDurableTrackerHeader does not duplicate an existing generated header', () => {

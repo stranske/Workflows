@@ -17,7 +17,6 @@ EXPECTED_TRACKERS = {
     "agents-weekly-metrics.yml": (2211, 192),
     "maint-82-sync-dependency-campaign.yml": (1836, 1),
     "health-83-dependency-sync-efficiency.yml": (2897, 192),
-    "health-68-consumer-sync-drift.yml": (2210, 48),
     "maint-69-sync-integration-repo.yml": (2470, None),
     "maint-80-langsmith-metrics-dashboard.yml": (2415, 192),
     "maint-77-model-registry-freshness.yml": (2905, 192),

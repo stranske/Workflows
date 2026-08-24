@@ -70,6 +70,9 @@ test('formatIssueBody includes actionable repo, prefix, and command details', ()
   assert.match(body, /Open sync PRs/);
   assert.match(body, /owner\/a#42: `sync\/workflows-abc123`/);
   assert.match(body, /consumer-sync-drift-report/);
+  assert.match(body, /\*\*Transient alert\*\*/);
+  assert.match(body, /closes this issue automatically after a clean comparison/);
+  assert.doesNotMatch(body, /\*\*Durable tracker\*\*/);
   assert.match(body, /<!-- consumer-sync-drift:v1 /);
   assert.match(body, /"schema":"consumer-sync-drift-issue\/v1"/);
   assert.match(body, /"run_id":"1"/);

@@ -122,10 +122,10 @@ For bugs affecting multiple repos, create a tracking issue with:
 - [ ] Fix commits/PRs for each location
 - [ ] Verification steps
 
-> Not to be confused with the **durable tracker** for consumer-sync drift
-> ([#2210](https://github.com/stranske/Workflows/issues/2210)), which the
-> `Health 68 Consumer Sync Drift` workflow re-uses across cycles and refreshes
-> when drift is detected. A clean run does not close the tracker. See
+> Not to be confused with the **transient alert** for actionable consumer-sync
+> drift ([#2210](https://github.com/stranske/Workflows/issues/2210)), which
+> `Health 68 Consumer Sync Drift` refreshes while the incident persists and
+> closes after a clean comparison. See
 > [`DURABLE_TRACKING_ISSUES.md`](DURABLE_TRACKING_ISSUES.md).
 
 ---
@@ -751,6 +751,10 @@ promoted PRs with Maint 71 using `active_sync_hash=delivery`.
 Workflows runs **Health 68 Consumer Sync Drift Check** to detect divergence between
 templates/manifest entries and the registered consumer repos. It runs daily and
 after template/manifest/script changes.
+
+Actionable `stale`, `blocked`, or `untracked_drift` states create or refresh one
+transient alert. `converged` and `covered` states exit cleanly; the clean run
+closes any open alert so a recovered incident cannot remain as a stale red issue.
 
 - Files marked with `sync_mode: create_only` are excluded, except for repos
   listed in the entry's `overwrite_repos` override.

@@ -262,6 +262,7 @@ async function findOrCreateTracker({
   markerComment = '',
   labels = [],
   createIfMissing = true,
+  durable = true,
   core = console,
   withRetry = null,
 } = {}) {
@@ -269,6 +270,12 @@ async function findOrCreateTracker({
     throw new Error('findOrCreateTracker requires github, owner, and repo');
   }
   const tracker = await findTracker({ github, owner, repo, label, titlePattern, markerPattern, core, withRetry });
+  const managedLabels = [
+    ...(durable ? [DURABLE_TRACKER_LABEL] : []),
+    AUTOMATED_LABEL,
+    label,
+    ...labels,
+  ];
   if (tracker) {
     if (createIfMissing) {
       await ensureLabels({
@@ -276,7 +283,7 @@ async function findOrCreateTracker({
         owner,
         repo,
         issueNumber: tracker.number,
-        labels: [DURABLE_TRACKER_LABEL, AUTOMATED_LABEL, label, ...labels],
+        labels: managedLabels,
         core,
         withRetry,
       });
@@ -302,9 +309,9 @@ async function findOrCreateTracker({
       repo,
       title: issueTitle,
       body: createBody,
-      labels: unique([DURABLE_TRACKER_LABEL, AUTOMATED_LABEL, label, ...labels]),
+      labels: unique(managedLabels),
     }),
-    `${owner}/${repo} create durable tracker`,
+    `${owner}/${repo} create ${durable ? 'durable tracker' : 'transient alert'}`,
     { github, core, withRetry },
   );
   const created = response?.data || null;
@@ -349,13 +356,16 @@ async function updateTrackerBody({
   tracker,
   newBody,
   title = null,
+  preserveDurableHeader = true,
   core = console,
   withRetry = null,
 } = {}) {
   if (!github || !owner || !repo || !tracker?.number) {
     throw new Error('updateTrackerBody requires github, owner, repo, and tracker.number');
   }
-  const body = preserveDurableTrackerHeader(tracker.body || '', newBody);
+  const body = preserveDurableHeader
+    ? preserveDurableTrackerHeader(tracker.body || '', newBody)
+    : cleanString(newBody);
   const params = { owner, repo, issue_number: tracker.number, body };
   if (title) {
     params.title = title;

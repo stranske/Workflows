@@ -10,9 +10,6 @@ trackers:
   - workflow: health-83-dependency-sync-efficiency.yml
     issue: 2897
     max_age_hours: 192
-  - workflow: health-68-consumer-sync-drift.yml
-    issue: 2210
-    max_age_hours: 48
   - workflow: maint-69-sync-integration-repo.yml
     issue: 2470
     event_driven: true

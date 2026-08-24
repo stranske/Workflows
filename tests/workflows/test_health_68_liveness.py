@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,8 +11,6 @@ import pytest
 import yaml
 
 WORKFLOW = Path(".github/workflows/health-68-consumer-sync-drift.yml")
-TRACKER_DOC = Path("docs/ops/DURABLE_TRACKING_ISSUES.md")
-LIVENESS_CONFIG = Path("config/durable_tracker_liveness.yml")
 
 
 def _workflow_triggers() -> dict:
@@ -113,19 +110,15 @@ def test_health_68_issue_publish_job_is_split() -> None:
     assert "Create drift issue" in publish_section
 
 
-def test_tracker_doc_lists_daily_schedule_for_health_68() -> None:
-    text = TRACKER_DOC.read_text(encoding="utf-8")
-    row = re.search(
-        r"\| \[#2210\].*?\|.*?\|.*?\| (.*?) \|",
-        text,
-        re.DOTALL,
-    )
-    assert row, "missing #2210 cadence row"
-    cadence = row.group(1)
-    assert "schedule" in cadence.lower() or "daily" in cadence.lower()
-
-
-def test_liveness_config_includes_health_68() -> None:
-    config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
-    workflows = {entry["workflow"] for entry in config["trackers"]}
-    assert "health-68-consumer-sync-drift.yml" in workflows
+def test_health_68_closes_only_after_an_executed_clean_comparison() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "drift_clean: ${{ steps.compare.outcome == 'success' }}" in text
+    assert "resolve-drift:" in text
+    resolve_section = text.split("resolve-drift:", 1)[1]
+    assert "needs.check-drift.result == 'success'" in resolve_section
+    assert "needs.check-drift.outputs.drift_clean == 'true'" in resolve_section
+    assert "inputs.repos == ''" in resolve_section
+    assert "createIfMissing: false" in resolve_section
+    assert "state: 'closed'" in resolve_section
+    assert "state_reason: 'completed'" in resolve_section
+    assert "tracker:durable" in resolve_section
