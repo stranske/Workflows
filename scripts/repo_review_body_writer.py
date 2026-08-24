@@ -23,7 +23,7 @@ This pass invokes a focused agent per repo that:
 Per the iter-9 sync-pre-step in round-1, the local repo should already be at
 origin head when this runs. If callers want to verify, they can pass
 `--require-clean-sync` which checks that the repo's HEAD matches `origin/main`
-or `origin/phase-3` before spawning the agent.
+before spawning the agent.
 
 Usage:
 
@@ -122,8 +122,7 @@ def canonical_body_writer_prompt() -> Path:
 
 
 def verify_clean_sync(repo_path: Path) -> tuple[bool, str]:
-    """Confirm `repo_path` is at origin/main or origin/phase-3 HEAD with no
-    review-blocking dirty changes."""
+    """Confirm `repo_path` is at origin/main HEAD with no review-blocking changes."""
 
     def _git(args: list[str]) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -135,12 +134,11 @@ def verify_clean_sync(repo_path: Path) -> tuple[bool, str]:
         )
 
     head = _git(["rev-parse", "HEAD"]).stdout.strip()
-    for branch in ("main", "phase-3"):
-        ref = _git(["rev-parse", f"origin/{branch}"])
-        if ref.returncode == 0 and ref.stdout.strip() == head:
-            return True, f"HEAD matches origin/{branch} ({head[:12]})"
+    ref = _git(["rev-parse", "origin/main"])
+    if ref.returncode == 0 and ref.stdout.strip() == head:
+        return True, f"HEAD matches origin/main ({head[:12]})"
     return False, (
-        f"HEAD ({head[:12]}) does not match origin/main or origin/phase-3; "
+        f"HEAD ({head[:12]}) does not match origin/main; "
         "run round-1-runner first or pass --skip-sync-check"
     )
 

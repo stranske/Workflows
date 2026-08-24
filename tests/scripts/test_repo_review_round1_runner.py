@@ -292,7 +292,7 @@ class TestSyncRepoToOrigin:
         assert "git fetch failed" in message
         assert "network error" in message
 
-    def test_failure_on_missing_main_and_phase3(self, tmp_path: Path) -> None:
+    def test_failure_on_missing_main(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
@@ -309,7 +309,7 @@ class TestSyncRepoToOrigin:
             elif "status" in args:
                 return self._make_result(0, "")  # clean
             elif "--verify" in args:
-                # Both main and phase-3 don't exist
+                # The canonical main branch does not exist.
                 return self._make_result(1, "")
             return self._make_result(0)
 
@@ -322,7 +322,7 @@ class TestSyncRepoToOrigin:
             ok, message = runner.sync_repo_to_origin(repo_path)
 
         assert ok is False
-        assert "neither origin/main nor origin/phase-3 exists" in message
+        assert "origin/main does not exist" in message
 
     def test_failure_on_checkout_error(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"

@@ -10,7 +10,7 @@ under its Non-Goals. This module pins the body-writer's pure logic:
 - ``canonical_body_writer_prompt`` — points at the source-of-truth prompt
 - ``build_prompt`` — header injection + prompt template inclusion
 - ``verify_clean_sync`` — guard that confirms the local repo is at
-  origin/main or origin/phase-3 head (uses a real git fixture repo)
+  origin/main head (uses a real git fixture repo)
 
 We don't exercise ``run_body_writer`` / ``run()`` here — those shell out to
 agent invocations that belong in integration coverage. The pure logic is
@@ -320,16 +320,6 @@ def test_verify_clean_sync_fails_when_head_diverges(fake_repo: Path) -> None:
     ok, message = body_writer.verify_clean_sync(fake_repo)
     assert ok is False
     assert "does not match" in message
-
-
-def test_verify_clean_sync_accepts_origin_phase_3(fake_repo: Path) -> None:
-    # Point origin/phase-3 at HEAD; remove origin/main so only phase-3 matches.
-    head = _run(fake_repo, "rev-parse", "HEAD").stdout.strip()
-    _run(fake_repo, "update-ref", "refs/remotes/origin/phase-3", head)
-    _run(fake_repo, "update-ref", "-d", "refs/remotes/origin/main")
-    ok, message = body_writer.verify_clean_sync(fake_repo)
-    assert ok is True
-    assert "phase-3" in message
 
 
 # ---------------------------------------------------------------------------
