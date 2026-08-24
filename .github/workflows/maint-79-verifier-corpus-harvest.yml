@@ -123,7 +123,7 @@ jobs:
       - name: Re-read exact head and active review threads
         if: steps.review_window.outputs.checks_passed == 'true'
         id: review_gate
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           INITIAL_HEAD: ${{ steps.review_window.outputs.initial_head }}
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
