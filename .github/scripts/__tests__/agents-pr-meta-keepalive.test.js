@@ -47,7 +47,7 @@ test('automation summary comment is upgraded to next keepalive round', async () 
                 repo: { fork: false, owner: { login: 'stranske' } },
               },
               base: {
-                ref: 'phase-2-dev',
+                ref: 'main',
                 repo: { owner: { login: 'stranske' } },
               },
             },
@@ -127,7 +127,7 @@ test('automation summary with round but no marker is ignored', async () => {
           return {
             data: {
               head: { ref: 'codex/issue-3419', repo: { fork: false, owner: { login: 'stranske' } } },
-              base: { ref: 'phase-2-dev', repo: { owner: { login: 'stranske' } } },
+              base: { ref: 'main', repo: { owner: { login: 'stranske' } } },
             },
           };
         },
@@ -221,7 +221,7 @@ test('manual restated instructions are autopatched to the next round', async () 
                 repo: { fork: false, owner: { login: 'stranske' } },
               },
               base: {
-                ref: 'phase-2-dev',
+                ref: 'main',
                 repo: { owner: { login: 'stranske' } },
               },
             },
@@ -319,7 +319,7 @@ test('keepalive detection captures instruction body without status bundle', asyn
           return {
             data: {
               head: { ref: 'codex/issue-1', repo: { fork: false, owner: { login: 'stranske' } } },
-              base: { ref: 'phase-2-dev', repo: { owner: { login: 'stranske' } } },
+              base: { ref: 'main', repo: { owner: { login: 'stranske' } } },
             },
           };
         },

@@ -7,6 +7,18 @@ const DEFAULT_REVIEW_POLICY = Object.freeze({
   non_response_patterns: [],
 });
 
+const GENERATED_DELIVERY_REQUIRED_CONTEXTS = Object.freeze(['Gate / gate']);
+
+function enforceGeneratedDeliveryRequiredContexts(contexts = []) {
+  const enforced = new Set(
+    [...(contexts || [])].map((context) => String(context || '').trim()).filter(Boolean),
+  );
+  for (const context of GENERATED_DELIVERY_REQUIRED_CONTEXTS) {
+    enforced.add(context);
+  }
+  return enforced;
+}
+
 function legacyStatusAsCheck(status = {}) {
   const state = String(status.state || '').toLowerCase();
   return {
@@ -587,7 +599,13 @@ async function run({ github, context, core }) {
     return { contexts: requiredContexts, source: 'rulesets' };
   }
 
-  async function classifyRequiredChecksForRef({ owner, repo, branch, ref }) {
+  async function classifyRequiredChecksForRef({
+    owner,
+    repo,
+    branch,
+    ref,
+    enforceGeneratedDeliveryGate = false,
+  }) {
     const { data: combinedStatus } = await withRetry((client) =>
       client.rest.repos.getCombinedStatusForRef({ owner, repo, ref }),
     );
@@ -608,11 +626,11 @@ async function run({ github, context, core }) {
       ...statusAsChecks.filter((status) => !checkNames.has(String(status.name || '').trim())),
     ];
     const requiredCheckPolicy = await getRequiredContexts({ owner, repo, branch });
-    const requiredContexts = requiredCheckPolicy.contexts;
-    let classification = requiredContexts.size > 0
-      ? classifySyncPrChecks({ checkRuns: allChecks, requiredContexts })
-      : { status: 'ready', failed: [], pending: [] };
-    if (requiredContexts.size > 0 && classification.status === 'ready') {
+    const requiredContexts = enforceGeneratedDeliveryGate
+      ? enforceGeneratedDeliveryRequiredContexts(requiredCheckPolicy.contexts)
+      : requiredCheckPolicy.contexts;
+    let classification = classifySyncPrChecks({ checkRuns: allChecks, requiredContexts });
+    if (classification.status === 'ready') {
       const seenNames = new Set(
         allChecks.map((check) => String(check?.name || '').trim()).filter(Boolean),
       );
@@ -1134,6 +1152,7 @@ async function run({ github, context, core }) {
     expectMerged,
     requireSealedDelivery = false,
     requireVerifiedHead = false,
+    requireGeneratedDeliveryGate = false,
   }) {
     const data = await github.graphql(
       `query($owner: String!, $repo: String!, $number: Int!, $head: GitObjectID!) {
@@ -1248,6 +1267,27 @@ async function run({ github, context, core }) {
         activeReviewThreads,
         freshHeadSha: freshPr.headRefOid,
       };
+    }
+    // A rerun can turn Gate red without changing the head after the earlier
+    // delivery classification. Recheck required contexts at the final merge
+    // boundary rather than treating exact-head review evidence as sufficient.
+    if (requireGeneratedDeliveryGate) {
+      const finalCheckEvidence = await classifyRequiredChecksForRef({
+        owner,
+        repo,
+        branch: pr.base.ref,
+        ref: pr.head.sha,
+        enforceGeneratedDeliveryGate: true,
+      });
+      if (finalCheckEvidence.classification.status !== 'ready') {
+        return {
+          ok: false,
+          reason: finalCheckEvidence.classification.status,
+          activeReviewThreads,
+          freshHeadSha: freshPr.headRefOid,
+          finalCheckEvidence,
+        };
+      }
     }
     return {
       ok: true,
@@ -1913,6 +1953,7 @@ async function run({ github, context, core }) {
         repo,
         branch: pr.base.ref,
         ref: pr.head.sha,
+        enforceGeneratedDeliveryGate: true,
       });
       const {
         allChecks,
@@ -2324,6 +2365,7 @@ async function run({ github, context, core }) {
         expectMerged: recoveredMergedCandidate,
         requireSealedDelivery: stableDelivery && !recoveredMergedCandidate,
         requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
+        requireGeneratedDeliveryGate: !recoveredMergedCandidate,
       });
       if (!finalGate.ok) {
         console.log(`Final exact-head review gate blocked delivery: ${finalGate.reason}`);
@@ -2367,6 +2409,21 @@ async function run({ github, context, core }) {
             status: 'head_commit_unverified',
             observed_head_sha: finalGate.freshHeadSha || '',
             signature_state: finalGate.signatureState || 'MISSING',
+          });
+        } else if (['checks_failed', 'checks_pending'].includes(finalGate.reason)) {
+          const finalClassification = finalGate.finalCheckEvidence?.classification || {};
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: finalGate.reason === 'checks_failed'
+              ? 'check-failed'
+              : 'awaiting-checks',
+            blocker_owner: 'consumer',
+            next_command: finalGate.reason === 'checks_failed'
+              ? 'repair-failing-gate'
+              : 'rerun-after-gate-completes',
+            status: finalGate.reason,
+            failed_checks: (finalClassification.failed || []).map((check) => check.name),
+            pending_checks: (finalClassification.pending || []).map((check) => check.name),
           });
         } else {
           results.push({
@@ -2477,6 +2534,7 @@ async function run({ github, context, core }) {
                 expectMerged: false,
                 requireSealedDelivery: stableDelivery,
                 requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
+                requireGeneratedDeliveryGate: true,
               });
               if (!retryGate.ok) {
                 throw new Error(`merge retry gate blocked: ${retryGate.reason}`);
@@ -2690,6 +2748,7 @@ async function run({ github, context, core }) {
 module.exports = {
   campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,
+  enforceGeneratedDeliveryRequiredContexts,
   legacyStatusAsCheck,
   mergeMethodPolicyAllowsFallback,
   normalizeReviewPolicy,

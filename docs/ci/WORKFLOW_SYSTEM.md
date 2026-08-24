@@ -889,7 +889,7 @@ snapshots for audit trails.
 - Gate summary job posts a single consolidated summary; autofix artifacts or commits are attached where allowed.
 - Gate summary job remains informational—expect its guidance in the pull-request timeline, not in the required status list.
 
-### Required vs informational checks on `phase-2-dev`
+### Required vs informational checks on `main`
 
 > **Quick reference.** Gate / `gate` must finish green on every pull request
 > before merge. Agents Guard / **Enforce agents workflow protections** auto-attaches as a
@@ -897,7 +897,7 @@ snapshots for audit trails.
 > protected automation gated without widening the branch rule for every change.
 > Gate summary job publishes an informational timeline comment **after** Gate
 > succeeds and the PR lands. Every new pull request into
-> `phase-2-dev` should show **Gate / gate** under **Required checks**—treat a
+> `main` should show **Gate / gate** under **Required checks**—treat a
 > missing Gate status as an incident and follow the branch-protection
 > playbook. Maintainers should continue to find Gate summary job exclusively as the
 > post-merge timeline summary.
@@ -937,7 +937,7 @@ snapshots for audit trails.
 > confirm it posted as the informational roll-up.
 
 > ✅ **What to expect in the UI.** The Checks tab shows **Gate / gate** under the
-> **Required** heading for every PR into `phase-2-dev`. Branch protection also
+> **Required** heading for every PR into `main`. Branch protection also
 > enforces **Health 45 Agents Guard / Enforce agents workflow protections**, so
 > when a PR touches `agents-*.yml` GitHub adds that context to the required list
 > automatically.
@@ -984,7 +984,7 @@ snapshots for audit trails.
 > informational.
 
 - **Required before merge.** Gate / `gate` must finish green on every pull
-  request into `phase-2-dev`. Branch protection enforces this context and every
+  request into `main`. Branch protection enforces this context and every
   PR shows the check under **Required** in the Checks tab. When you touch
   `agents-*.yml`, GitHub automatically adds **Agents Guard / Enforce agents
   workflow protections** to the required list for that PR because the branch rule
@@ -1030,7 +1030,7 @@ branch-protection rulebook without re-learning the terminology.
    - Health 44 resolves the branch name automatically through `repos.get`. No
      manual input is required for scheduled runs.
    - For ad-hoc verification, run `gh api repos/<owner>/<repo> --jq .default_branch`
-     or read the repository settings (currently `phase-2-dev`).
+     or read the repository settings (currently `main`).
 2. **Verify enforcement credentials.**
    - Create a fine-grained personal access token with
      `Administration: Read and write` on the repository.
@@ -1040,7 +1040,7 @@ branch-protection rulebook without re-learning the terminology.
      still fails if Gate is not required.
 3. **Configure branch protection manually when adjusting via the UI.**
    - Navigate to **Settings → Branches → Add branch protection rule** and target
-     the default branch (`phase-2-dev`). Review [GitHub’s branch protection
+     the default branch (`main`). Review [GitHub’s branch protection
      guide](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-protected-branches)
      if any UI labels change.
    - Enable **Require status checks to pass before merging**, then select
@@ -1054,7 +1054,7 @@ branch-protection rulebook without re-learning the terminology.
    - Enable **Require branches to be up to date before merging** to match the
      automation policy.
    - Click **Save changes**, then open or refresh a pull request aimed at
-     `phase-2-dev` to confirm the **Checks** tab shows **Gate / gate** under
+     `main` to confirm the **Checks** tab shows **Gate / gate** under
      **Required checks**. If Gate summary job appears in that list, revisit the
      branch rule immediately and deselect it so the workflow stays informational.
 4. **Run the enforcement script locally when needed.**

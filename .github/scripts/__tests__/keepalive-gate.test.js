@@ -156,7 +156,7 @@ test('countActive matches runs tagged via concurrency group', async () => {
     'agents-70-orchestrator.yml|queued': [
       {
         id: 615,
-        head_branch: 'phase-2-dev',
+        head_branch: 'main',
         concurrency: 'agents-70-orchestrator-42-keepalive-trace1234',
         pull_requests: [],
       },
