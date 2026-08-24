@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.1](https://github.com/stranske/Workflows/compare/v1.30.0...v1.30.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* **gate:** the guarded-merge review window is satisfied by the first review, not a quorum ([#3222](https://github.com/stranske/Workflows/issues/3222)) ([7dfe373](https://github.com/stranske/Workflows/commit/7dfe373d29bc3ad2acdfedcb6d3104e6c708946e))
+* **health:** classify snapshot as durable ([#3220](https://github.com/stranske/Workflows/issues/3220)) ([4e44925](https://github.com/stranske/Workflows/commit/4e449251ca48d0ae1755d7a14152c52506d3dd0f))
+* **health:** pin snapshot with GraphQL ([#3219](https://github.com/stranske/Workflows/issues/3219)) ([22c0960](https://github.com/stranske/Workflows/commit/22c0960afdea405a662225bde5e0b0a171e47ca7))
+* **health:** register recurring evidence trackers ([#3221](https://github.com/stranske/Workflows/issues/3221)) ([bae4fd1](https://github.com/stranske/Workflows/commit/bae4fd166e7d3abed15ebb3543dc6bfcb2bb3c18))
+* **health:** tolerate exhausted snapshot token ([#3217](https://github.com/stranske/Workflows/issues/3217)) ([bfbf4a0](https://github.com/stranske/Workflows/commit/bfbf4a0c95446c8b798f497e6d9561c6f395f12a))
+* **health:** use issue-scoped token for snapshot ([#3215](https://github.com/stranske/Workflows/issues/3215)) ([17721f4](https://github.com/stranske/Workflows/commit/17721f4af1a05a632cfc8ad4bf3d7cde1e7c7577))
+* **labels:** paginate existing labels before sync ([#3214](https://github.com/stranske/Workflows/issues/3214)) ([63ca346](https://github.com/stranske/Workflows/commit/63ca3467bbc7e94e41a03feac103fa769e979eb2))
+* **sync:** regularize default branch as main ([1452e43](https://github.com/stranske/Workflows/commit/1452e43ddb417e2e509958aa0d07613853096d8a))
+* **sync:** regularize default branch as main ([454fc6f](https://github.com/stranske/Workflows/commit/454fc6f78d2b06cc14530c2e219e906b52ea62a5))
+
 ## [1.30.0](https://github.com/stranske/Workflows/compare/v1.29.1...v1.30.0) (2026-08-23)
 
 
