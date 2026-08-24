@@ -22,6 +22,7 @@ trackers:
   - workflow: maint-77-model-registry-freshness.yml
     issue: 2905
     max_age_hours: 192
+    events: [schedule, workflow_dispatch]
   - workflow: health-84-langsmith-observability.yml
     issue: 3123
     max_age_hours: 48

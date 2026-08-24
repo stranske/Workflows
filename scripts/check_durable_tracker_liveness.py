@@ -64,7 +64,12 @@ def tracker_doc_workflows() -> set[str]:
     return {name for name in workflows if name.endswith(".yml")}
 
 
-def _latest_executable_run(repo: str, workflow_file: str, token: str) -> dict[str, Any] | None:
+def _latest_executable_run(
+    repo: str,
+    workflow_file: str,
+    token: str,
+    allowed_events: frozenset[str] | None = None,
+) -> dict[str, Any] | None:
     """Newest run of ``workflow_file`` that actually executed, or None.
 
     Returns None only when the history genuinely contains no executable run. A
@@ -78,6 +83,8 @@ def _latest_executable_run(repo: str, workflow_file: str, token: str) -> dict[st
         return None
     for run in runs:
         if not isinstance(run, dict):
+            continue
+        if allowed_events and str(run.get("event") or "") not in allowed_events:
             continue
         if str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS:
             return run
@@ -125,7 +132,13 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
             )
             continue
         max_age_hours = float(entry["max_age_hours"])
-        latest = _latest_executable_run(repo, workflow, auth)
+        configured_events = entry.get("events")
+        allowed_events = (
+            frozenset(str(event) for event in configured_events)
+            if isinstance(configured_events, list) and configured_events
+            else None
+        )
+        latest = _latest_executable_run(repo, workflow, auth, allowed_events)
         if latest is None:
             results.append(
                 {
@@ -148,6 +161,7 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                 "healthy": healthy,
                 "latest_conclusion": latest.get("conclusion"),
                 "latest_created_at": latest.get("created_at"),
+                "latest_event": latest.get("event"),
                 "hours_since": round(hours, 2),
                 "max_age_hours": max_age_hours,
                 "run_url": latest.get("html_url"),

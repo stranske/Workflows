@@ -51,7 +51,9 @@ The signal flow each tracker carries:
 - **#2905** — model-registry freshness and provider-catalog evidence. Catalog
   additions are review candidates, not approved selections; the tracker remains
   open while Maint 77 refreshes the facts and a paired benchmark or explicit
-  catalog review resolves the finding.
+  catalog review resolves the finding. Health 71 counts only scheduled and
+  manually dispatched Maint 77 runs for tracker liveness; pull-request runs
+  validate registry edits but do not publish this evidence issue.
 - **#2415** — LangSmith fleet observability status. Read the evidence mode as
   well as the status: `valid`/`missing`/`stale`/`invalid` are artifact-backed;
   `direct` means Workflows-owned direct tracing with no repo-local artifact;

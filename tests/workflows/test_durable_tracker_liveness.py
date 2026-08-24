@@ -75,7 +75,7 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
     monkeypatch.setattr(
         check_durable_tracker_liveness,
         "_latest_executable_run",
-        lambda _repo, workflow, _token: runs[workflow],
+        lambda _repo, workflow, _token, _events: runs[workflow],
     )
     monkeypatch.setattr(
         check_durable_tracker_liveness,
@@ -96,6 +96,7 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
             "healthy": True,
             "latest_conclusion": "success",
             "latest_created_at": "recent",
+            "latest_event": None,
             "hours_since": 1.0,
             "max_age_hours": 24.0,
             "run_url": "https://run/recent",
@@ -106,6 +107,7 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
             "healthy": False,
             "latest_conclusion": "failure",
             "latest_created_at": "stale",
+            "latest_event": None,
             "hours_since": 25.0,
             "max_age_hours": 24.0,
             "run_url": "https://run/stale",
@@ -135,6 +137,46 @@ def test_event_driven_tracker_is_not_subject_to_age_liveness() -> None:
 
     assert tracker["event_driven"] is True
     assert "max_age_hours" not in tracker
+
+
+def test_model_registry_liveness_counts_only_tracker_publishing_events() -> None:
+    config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
+    tracker = next(
+        entry
+        for entry in config["trackers"]
+        if entry["workflow"] == "maint-77-model-registry-freshness.yml"
+    )
+
+    assert tracker["events"] == ["schedule", "workflow_dispatch"]
+
+
+def test_latest_executable_run_skips_non_publishing_pull_request_runs(monkeypatch) -> None:
+    runs = [
+        {
+            "event": "pull_request",
+            "conclusion": "success",
+            "created_at": "newer",
+        },
+        {
+            "event": "workflow_dispatch",
+            "conclusion": "success",
+            "created_at": "tracker-publishing",
+        },
+    ]
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_gh_api",
+        lambda _path, _token: {"workflow_runs": runs},
+    )
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "maint-77-model-registry-freshness.yml",
+        "token",
+        frozenset({"schedule", "workflow_dispatch"}),
+    )
+
+    assert latest == runs[1]
 
 
 # The absent-run reason now also names the cause and the remedy: "no executable
