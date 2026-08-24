@@ -129,7 +129,7 @@ Example snippet (use in any workflow/job that must push commits or dispatch work
   id: app_token
   uses: actions/create-github-app-token@v1
   with:
-    app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+    client-id: ${{ secrets.WORKFLOWS_APP_ID }}
     private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 ```
 Then use it:
@@ -223,7 +223,7 @@ jobs:
         id: app_token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          client-id: ${{ secrets.WORKFLOWS_APP_ID }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - uses: actions/checkout@v4
