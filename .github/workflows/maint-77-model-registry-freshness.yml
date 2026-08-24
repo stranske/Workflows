@@ -190,9 +190,15 @@ jobs:
           EXISTING=$(gh issue list --search "$TITLE in:title" --state open \
             --json number --jq '.[0].number' 2>/dev/null)
           if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" \
+              --add-label "automated" \
+              --add-label "tracker:durable"
             gh issue comment "$EXISTING" --body-file "$BODY_FILE"
             echo "::warning::Refreshed existing freshness issue #$EXISTING"
           else
-            gh issue create --title "$TITLE" --body-file "$BODY_FILE" --label "automated"
+            gh issue create \
+              --title "$TITLE" \
+              --body-file "$BODY_FILE" \
+              --label "automated,tracker:durable"
             echo "::warning::Opened model-registry freshness issue"
           fi
