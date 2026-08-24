@@ -2088,6 +2088,54 @@ jobs:
             const reviewWindowMs = 7 * 60 * 1000;
             let reviewSleepBudgetMs = reviewWindowMs + 60 * 1000;
             const reviewWindowMarker = '<!-- agents-guarded-merge-review-window:v1 ';
+            // THE WINDOW EXISTS TO GIVE REVIEWERS A CHANCE, NOT TO COLLECT A QUORUM.
+            // `reviewWindowMs` is a flat 7-minute grace period after the head settles, and it was
+            // waited out even when a review had ALREADY landed on that exact head. With more than
+            // one review bot configured that reads as "waiting for the others", which is not what
+            // the guard is for: one review on the current head means the opportunity was taken, and
+            // the remaining minutes buy nothing. Multiple reviewers stay valuable — a merge just
+            // stops being contingent on a second one arriving.
+            // Scoped to the EXACT head on purpose: a review of an older commit says nothing about
+            // the code being merged, so it must not short-circuit the window. When no review has
+            // landed the full grace period still applies, unchanged.
+            const reviewPresenceCache = new Map();
+            async function headHasReview(prNumber, headSha) {
+              if (!headSha) return false;
+              const key = `${prNumber}@${headSha}`;
+              if (reviewPresenceCache.has(key)) return reviewPresenceCache.get(key);
+              let present = false;
+              try {
+                const reviews = await paginateWithRetry(github.rest.pulls.listReviews, {
+                  owner, repo, pull_number: prNumber, per_page: 100,
+                });
+                present = (reviews || []).some((review) => {
+                  if (String(review?.commit_id || '') !== headSha) return false;
+                  // COMMENTED counts: an advisory bot review is exactly the signal being waited
+                  // for. A PENDING (unsubmitted) review is not a review yet.
+                  return ['APPROVED', 'CHANGES_REQUESTED', 'COMMENTED'].includes(
+                    String(review?.state || '').toUpperCase(),
+                  );
+                });
+              } catch (error) {
+                // Fail toward the EXISTING behaviour: if the question cannot be answered, wait the
+                // full window rather than merging early on an unverified assumption.
+                core.info(`headHasReview(${prNumber}) unavailable: ${error?.message || error}`);
+                present = false;
+              }
+              reviewPresenceCache.set(key, present);
+              return present;
+            }
+            async function reviewWindowRemainingMs(prNumber, headSha, observedAtMs) {
+              const remaining = reviewWindowMs - (Date.now() - observedAtMs);
+              if (remaining <= 0) return remaining;
+              if (await headHasReview(prNumber, headSha)) {
+                core.info(
+                  `Review window satisfied early for #${prNumber}: a review is already in on ${headSha.slice(0, 12)}.`,
+                );
+                return 0;
+              }
+              return remaining;
+            }
             let authenticatedLogin = '';
             const reviewWindowObservations = new Map();
 
@@ -2333,9 +2381,12 @@ jobs:
                   || await reviewWindowObservation(prNumber, headSha);
                 reviewWindowObservations.set(observationKey, observation);
                 if (Number.isFinite(observation.observedAtMs)) {
+                  // Short-circuit here too, or the job SLEEPS the full window before reaching the
+                  // per-PR checks that would have passed immediately — the wait this change is
+                  // about is mostly spent in that sleep.
                   maxRemainingMs = Math.max(
                     maxRemainingMs,
-                    reviewWindowMs - (Date.now() - observation.observedAtMs)
+                    await reviewWindowRemainingMs(prNumber, headSha, observation.observedAtMs),
                   );
                 }
               }
@@ -2441,7 +2492,9 @@ jobs:
                   failure: observation.failure || 'Unable to establish the exact-head review window.',
                 };
               }
-              const remainingMs = reviewWindowMs - (Date.now() - observation.observedAtMs);
+              const remainingMs = await reviewWindowRemainingMs(
+                prNumber, originalHead, observation.observedAtMs,
+              );
               if (remainingMs > 0) {
                 const requestedSleepMs = remainingMs + 1000;
                 if (requestedSleepMs > reviewSleepBudgetMs) {
@@ -2490,8 +2543,9 @@ jobs:
                   return finalObservation.failure
                     || 'Unable to revalidate the exact-head review window before merge.';
                 }
-                const finalReviewRemainingMs = reviewWindowMs
-                  - (Date.now() - finalObservation.observedAtMs);
+                const finalReviewRemainingMs = await reviewWindowRemainingMs(
+                  prNumber, expectedHead, finalObservation.observedAtMs,
+                );
                 if (finalReviewRemainingMs > 0) {
                   return 'A newer head transition restarted the review window before merge.';
                 }
