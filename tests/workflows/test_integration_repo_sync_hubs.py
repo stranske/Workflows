@@ -75,8 +75,21 @@ def test_sync_manifest_removes_stale_consumer_local_workflow_syncer() -> None:
     assert ".github/workflows/maint-sync-workflows.yml" in removal_targets
 
 
-def test_integration_sync_recovery_instructions_preserve_durable_tracker() -> None:
+def test_integration_sync_failure_is_a_transient_alert() -> None:
     source = SYNC_WORKFLOW.read_text(encoding="utf-8")
 
-    assert "Do not close this durable tracker after recovery." in source
-    assert "Close this issue once the next run succeeds." not in source
+    assert "> **Transient alert**" in source
+    assert "durable: false" in source
+    assert "preserveDurableHeader: false" in source
+    assert "Do not close this durable tracker after recovery." not in source
+
+
+def test_integration_sync_success_closes_even_a_marker_free_legacy_alert() -> None:
+    source = SYNC_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "if (!alert)" in source
+    assert "if (!alert || !parseStuckWindow" not in source
+    assert "title: '✅ Integration-Tests Sync Recovered'" in source
+    assert "name: 'tracker:durable'" in source
+    assert "state: 'closed'" in source
+    assert "state_reason: 'completed'" in source
