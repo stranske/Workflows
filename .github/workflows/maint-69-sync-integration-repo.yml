@@ -46,6 +46,8 @@ jobs:
             templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml
             templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml
             .github/workflows/autofix-versions.env
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
             .github/scripts/sync_tracker_state
             scripts/sync_dev_dependencies.py
           sparse-checkout-cone-mode: false
@@ -248,36 +250,97 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Clear stuck-window status
-        if: steps.token.outputs.token_available == 'true' && success()
+      - name: Setup API client
+        if: >-
+          steps.token.outputs.token_available == 'true' &&
+          inputs.dry_run != true &&
+          success()
+        uses: ./workflows/.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          install_dir: workflows/.github/scripts
+
+      - name: Resolve recovered integration sync alert
+        if: >-
+          steps.token.outputs.token_available == 'true' &&
+          inputs.dry_run != true &&
+          success()
         uses: actions/github-script@v9
         with:
           script: |
+            const { createTokenAwareRetry } = require(
+              './workflows/.github/scripts/github-api-with-retry.js'
+            );
+            const { github: api, withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-69-resolve-integration-sync-alert',
+              capabilities: ['issues:write'],
+            });
             const {
               appendTrackerComment,
-              clearStuckWindow,
+              clearStuckWindowBody,
+              extractDurableTrackerHeader,
               findOrCreateTracker,
-              parseStuckWindow,
+              updateTrackerBody,
             } = require('./workflows/.github/scripts/sync_tracker_state');
-            const tracker = await findOrCreateTracker({
-              github,
+            const alert = await findOrCreateTracker({
+              github: api,
               context,
               label: 'integration-sync-failure',
               titlePattern: /^🚨 Integration-Tests Sync Failed/,
               createIfMissing: false,
               core,
+              withRetry,
             });
-            if (!tracker || !parseStuckWindow(tracker.body || '')) {
+            if (!alert) {
               return;
             }
-            await clearStuckWindow({ github, context, tracker, core });
-            await appendTrackerComment({
-              github,
+            let recoveredBody = clearStuckWindowBody(alert.body || '');
+            const durableHeader = extractDurableTrackerHeader(recoveredBody);
+            if (durableHeader) {
+              recoveredBody = recoveredBody
+                .replace(durableHeader, '')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+            }
+            await updateTrackerBody({
+              github: api,
               context,
-              tracker,
+              tracker: alert,
+              title: '✅ Integration-Tests Sync Recovered',
+              newBody: recoveredBody,
+              preserveDurableHeader: false,
               core,
-              comment: `### ✅ Integration sync recovered\n\nThe stuck-window marker was cleared by ${context.workflow} run ${context.runId}.`,
+              withRetry,
             });
+            await appendTrackerComment({
+              github: api,
+              context,
+              tracker: alert,
+              core,
+              withRetry,
+              comment: `### ✅ Integration sync recovered\n\n${context.workflow} run ${context.runId} completed successfully. This transient alert is now resolved.`,
+            });
+            try {
+              await withRetry((client) => client.rest.issues.removeLabel({
+                ...context.repo,
+                issue_number: alert.number,
+                name: 'tracker:durable',
+              }));
+            } catch (error) {
+              // # best-effort: legacy alerts may never have carried the durable label.
+              if (error.status !== 404) throw error;
+            }
+            await withRetry((client) => client.rest.issues.update({
+              ...context.repo,
+              issue_number: alert.number,
+              state: 'closed',
+              state_reason: 'completed',
+            }));
 
   # ============================================================================
   # FAILURE NOTIFICATION: Create issue when sync fails
@@ -337,7 +400,7 @@ jobs:
             const now = new Date().toISOString();
             const baseBody = `## 🚨 Integration-Tests Sync Failed
 
-            > **Durable tracker** — see [\`docs/ops/DURABLE_TRACKING_ISSUES.md\`](https://github.com/stranske/Workflows/blob/main/docs/ops/DURABLE_TRACKING_ISSUES.md). The stuck-window marker below is maintained by \`maint-69-sync-integration-repo.yml\`.
+            > **Transient alert** — this issue remains open only while the integration sync is failing. The next successful non-dry run closes it automatically.
 
             The maint-69 sync workflow failed to push template updates to \`stranske/Workflows-Integration-Tests\`.
 
@@ -359,7 +422,7 @@ jobs:
             1. Open the [failed run](${process.env.RUN_URL}) and check the \`Commit and push\` step for the actual error.
             2. If auth failed: rotate \`OWNER_PR_PAT\` (preferred) or \`SERVICE_BOT_PAT\` in repo secrets.
             3. Re-trigger: \`gh workflow run 'Maint 69 Sync Integration Repo' --repo ${context.repo.owner}/${context.repo.repo}\`
-            4. Do not close this durable tracker after recovery. The next successful non-dry run clears the stuck-window marker and appends a recovery comment.
+            4. Confirm the next successful non-dry run closes this alert automatically.
 
             ---
             *Automatically created by the maint-69 failure handler.*`;
@@ -385,13 +448,22 @@ jobs:
               title,
               body,
               labels: ['bug'],
+              durable: false,
               core,
             });
             if (tracker.sync_tracker_created) {
               core.warning(`Created new integration sync failure tracker #${tracker.number}`);
               return;
             }
-            await updateTrackerBody({ github, context, tracker, newBody: body, title, core });
+            await updateTrackerBody({
+              github,
+              context,
+              tracker,
+              newBody: body,
+              title,
+              preserveDurableHeader: false,
+              core,
+            });
             await appendTrackerComment({
               github,
               context,

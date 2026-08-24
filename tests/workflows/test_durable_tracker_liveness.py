@@ -17,7 +17,6 @@ EXPECTED_TRACKERS = {
     "agents-weekly-metrics.yml": (2211, 192),
     "maint-82-sync-dependency-campaign.yml": (1836, 1),
     "health-83-dependency-sync-efficiency.yml": (2897, 192),
-    "maint-69-sync-integration-repo.yml": (2470, None),
     "maint-80-langsmith-metrics-dashboard.yml": (2415, 192),
     "maint-77-model-registry-freshness.yml": (2905, 192),
     "health-84-langsmith-observability.yml": (3123, 48),
@@ -124,18 +123,6 @@ def test_health_71_invokes_durable_tracker_liveness_check() -> None:
     text = HEALTH_71.read_text(encoding="utf-8")
     assert "check_durable_tracker_liveness.py" in text
     assert "--comment-on-failure" in text
-
-
-def test_event_driven_tracker_is_not_subject_to_age_liveness() -> None:
-    config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
-    tracker = next(
-        entry
-        for entry in config["trackers"]
-        if entry["workflow"] == "maint-69-sync-integration-repo.yml"
-    )
-
-    assert tracker["event_driven"] is True
-    assert "max_age_hours" not in tracker
 
 
 def test_model_registry_liveness_counts_only_tracker_publishing_events() -> None:

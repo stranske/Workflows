@@ -4,7 +4,8 @@ A small number of GitHub issues in this repo are **durable trackers**: a single
 issue that an automation re-uses across many cycles. These issues stay open by
 design. They are not work items to be triaged, assigned, or closed during normal
 sweeps — they are dashboards or queues whose lifetime is tied to the underlying
-controller, not to a single fix.
+controller, not to a single fix. Failure notifications such as the integration
+sync alert are transient and do not belong in this inventory.
 
 This page lists the current durable trackers, explains how to recognize them,
 and tells automations and humans how to treat them.
@@ -25,7 +26,7 @@ transition comments. Check the `Update style` column before assuming how a
 tracker carries current state. Either way, **the issue itself is the dashboard**:
 do not close it during routine triage. Each controller has its own lifecycle;
 for example, closing the active `#1836` campaign queue stops that controller's
-work, while `#2470` is recreated only through its failure-notification path.
+work.
 
 ---
 
@@ -36,7 +37,6 @@ work, while `#2470` is recreated only through its failure-notification path.
 | [#2211](https://github.com/stranske/Workflows/issues/2211) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
 | [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependency campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 10 minutes + Mondays 10:30 UTC | Body rewritten in place; due transient delivery lanes are serialized, while actionable delivery blockers do not suppress corrective candidate work |
 | [#2897](https://github.com/stranske/Workflows/issues/2897) | Dependency/sync maintenance-efficiency advisory report | [`health-83-dependency-sync-efficiency.yml`](../../.github/workflows/health-83-dependency-sync-efficiency.yml) | Weekly Mondays 11:15 UTC + `workflow_dispatch` | Comment appended only on material-evidence fingerprint change |
-| [#2470](https://github.com/stranske/Workflows/issues/2470) | 🚨 Integration-Tests Sync Failed - Action Required | [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) | On qualifying template/config pushes or manual dispatch | Stuck-window marker in body + recovery comment |
 | [#2415](https://github.com/stranske/Workflows/issues/2415) | 📊 LangSmith Trace Coverage Dashboard | [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) | Mondays 09:00 UTC + manual dispatch | Body rewritten in place |
 | [#2905](https://github.com/stranske/Workflows/issues/2905) | LLM model registry needs evidence review | [`maint-77-model-registry-freshness.yml`](../../.github/workflows/maint-77-model-registry-freshness.yml) | Mondays 05:20 UTC + manual dispatch | Evidence comment appended while freshness or catalog findings persist |
 | [#3123](https://github.com/stranske/Workflows/issues/3123) | 🔭 LangSmith Observability Health | [`health-84-langsmith-observability.yml`](../../.github/workflows/health-84-langsmith-observability.yml) | Daily 10:15 UTC + manual dispatch | Body rewritten in place; comment appended on health transition |
@@ -78,8 +78,6 @@ and a 72-hour lease. Stable consumer deliveries also record `staging`,
 Maint 71 may merge only a current, unexpired exact-head-sealed record;
 markerless, stale, or expired attempts are reported for terminal disposition
 rather than becoming an immortal coordination queue.
-- **#2470** — stuck-window marker for the integration-repo template sync. A `<!-- sync-tracker-stuck-window:v1 ... -->` marker in the body means the sync is currently failing. The next successful non-dry run with a sync token strips the marker and appends a `✅ Integration sync recovered` comment, but never closes the issue, so a marker-free body carrying a recovery comment is the healthy resting state. The generated resolution steps explicitly preserve that durable lifecycle.
-
 ### Superseded tracker numbers
 
 A controller re-mints its tracker if the previous one is closed, so tracker
@@ -122,8 +120,8 @@ same change.
   tracker numbers* above — the surviving tracker must stay open).
 - **Read the latest comment / body**, not the original creation body. The
   original snapshot is frozen at issue creation; current state lives further
-  down (or in the rewritten body for `#1836` / `#2470`).
-- **A red signal** (parse errors > 0 in `#2211`, a stuck-window marker present in `#2470`,
+  down (or in the rewritten body for `#1836`).
+- **A red signal** (parse errors > 0 in `#2211`,
   unclaimed `needs-local-codex` items in `#1836`) means the underlying system
   needs attention — but the fix lands in code or in another repo, not by
   closing the tracker.
@@ -137,6 +135,12 @@ same change.
 
 Some auto-bot issues *are* normal work items and should be closed when
 addressed. Examples:
+
+- **Integration sync failure alerts** — `maint-69-sync-integration-repo.yml`
+  creates or refreshes one open alert while its push to
+  `Workflows-Integration-Tests` is failing. The next successful non-dry run
+  removes any legacy durable marker/label, adds recovery evidence, and closes
+  the alert as completed. A later incident creates a new alert.
 
 - **#2210 / Health 68 consumer drift alerts** — fan-out alerts across registered
   consumer repos. Health 68 creates or refreshes one open issue only while drift
