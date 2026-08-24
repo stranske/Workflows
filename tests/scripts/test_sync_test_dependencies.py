@@ -60,7 +60,7 @@ def test_detect_local_project_modules_finds_top_level_test_helpers(
     detected = std._detect_local_project_modules()
 
     assert {"conftest", "helpers", "support"}.issubset(detected)
-    assert "test_helpers" not in detected
+    assert "test_helpers" in detected
     assert "adapter" not in detected
 
 
@@ -402,19 +402,20 @@ def test_tests_dir_on_pythonpath_ignores_non_table_pyproject_shapes(
     assert std._tests_dir_on_pythonpath() is False
 
 
-def test_detect_local_project_modules_skips_pythonpath_read_for_unpackaged_tests(
+def test_detect_local_project_modules_keeps_importable_unpacked_test_modules(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
     (tests_dir / "helpers.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tests_dir / "test_contract.py").write_text("VALUE = 2\n", encoding="utf-8")
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(std, "_tests_dir_on_pythonpath", lambda: pytest.fail("unexpected read"))
 
     detected = std._detect_local_project_modules()
 
-    assert "helpers" in detected
+    assert {"helpers", "test_contract"}.issubset(detected)
 
 
 def test_extract_imports_from_file_parses_top_level_imports(tmp_path: Path) -> None:
