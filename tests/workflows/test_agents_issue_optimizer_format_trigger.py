@@ -10,6 +10,7 @@ GUARD_PATH = Path(".github/workflows/agents-issue-format-guard.yml")
 CONSUMER_GUARD_PATH = Path(
     "templates/consumer-repo/.github/workflows/agents-issue-format-guard.yml"
 )
+WORKFLOW_CATALOG_PATH = Path("docs/ci/WORKFLOWS.md")
 
 
 def _load_workflow() -> dict:
@@ -66,6 +67,10 @@ def test_automated_issues_are_exempt_and_release_stale_format_leases() -> None:
         assert text.count('. == "automated"') >= 1
         assert "issue body explicitly forbids dispatch" in text
         assert "could not re-check issue eligibility; refusing format work" in text
+
+    catalog = WORKFLOW_CATALOG_PATH.read_text(encoding="utf-8")
+    assert "durable, wontfix, automated, and bot-authored issues remain exempt" in catalog
+    assert "an exempt issue immediately releases any stale `agents:format` lease" in catalog
 
 
 def test_format_optimizer_releases_lease_after_eligibility_skip() -> None:
