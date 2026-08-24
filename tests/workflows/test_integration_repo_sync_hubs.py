@@ -84,6 +84,24 @@ def test_integration_sync_failure_is_a_transient_alert() -> None:
     assert "Do not close this durable tracker after recovery." not in source
 
 
+def test_integration_sync_checks_out_the_retry_helpers_runtime_dependencies() -> None:
+    workflow = _workflow()
+    checkout = next(
+        step
+        for step in workflow["jobs"]["sync"]["steps"]
+        if step.get("name") == "Checkout Workflows repo"
+    )
+    sparse_checkout = str(checkout["with"]["sparse-checkout"])
+
+    for helper in (
+        ".github/scripts/error_classifier.js",
+        ".github/scripts/github-api-with-retry.js",
+        ".github/scripts/github-rate-limited-wrapper.js",
+        ".github/scripts/token_load_balancer.js",
+    ):
+        assert helper in sparse_checkout
+
+
 def test_integration_sync_success_closes_even_a_marker_free_legacy_alert() -> None:
     source = SYNC_WORKFLOW.read_text(encoding="utf-8")
 

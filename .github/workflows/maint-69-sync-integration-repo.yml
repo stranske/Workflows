@@ -47,8 +47,11 @@ jobs:
             templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml
             .github/workflows/autofix-versions.env
             .github/actions/setup-api-client
+            .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/github-rate-limited-wrapper.js
             .github/scripts/sync_tracker_state
+            .github/scripts/token_load_balancer.js
             scripts/sync_dev_dependencies.py
           sparse-checkout-cone-mode: false
 
