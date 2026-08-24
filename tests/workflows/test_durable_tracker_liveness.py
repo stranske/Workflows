@@ -150,24 +150,30 @@ def test_model_registry_liveness_counts_only_tracker_publishing_events() -> None
     assert tracker["events"] == ["schedule", "workflow_dispatch"]
 
 
-def test_latest_executable_run_skips_non_publishing_pull_request_runs(monkeypatch) -> None:
-    runs = [
-        {
-            "event": "pull_request",
-            "conclusion": "success",
-            "created_at": "newer",
-        },
-        {
-            "event": "workflow_dispatch",
-            "conclusion": "success",
-            "created_at": "tracker-publishing",
-        },
-    ]
-    monkeypatch.setattr(
-        check_durable_tracker_liveness,
-        "_gh_api",
-        lambda _path, _token: {"workflow_runs": runs},
-    )
+def test_latest_executable_run_queries_publishing_events_before_history_limit(
+    monkeypatch,
+) -> None:
+    seen: list[str] = []
+    scheduled = {
+        "event": "schedule",
+        "conclusion": "success",
+        "created_at": "2026-08-20T00:00:00Z",
+    }
+    dispatched = {
+        "event": "workflow_dispatch",
+        "conclusion": "success",
+        "created_at": "2026-08-21T00:00:00Z",
+    }
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        seen.append(path)
+        if "event=schedule" in path:
+            return {"workflow_runs": [scheduled]}
+        if "event=workflow_dispatch" in path:
+            return {"workflow_runs": [dispatched]}
+        raise AssertionError(f"unfiltered run history requested: {path}")
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
 
     latest = check_durable_tracker_liveness._latest_executable_run(
         "stranske/Workflows",
@@ -176,7 +182,39 @@ def test_latest_executable_run_skips_non_publishing_pull_request_runs(monkeypatc
         frozenset({"schedule", "workflow_dispatch"}),
     )
 
-    assert latest == runs[1]
+    assert latest == dispatched
+    assert seen == [
+        "repos/stranske/Workflows/actions/workflows/maint-77-model-registry-freshness.yml/"
+        "runs?per_page=100&event=schedule&page=1",
+        "repos/stranske/Workflows/actions/workflows/maint-77-model-registry-freshness.yml/"
+        "runs?per_page=100&event=workflow_dispatch&page=1",
+    ]
+
+
+def test_latest_executable_run_paginates_event_filtered_history(monkeypatch) -> None:
+    held_runs = [{"conclusion": "action_required"} for _ in range(100)]
+    executable = {
+        "event": "schedule",
+        "conclusion": "success",
+        "created_at": "2026-08-20T00:00:00Z",
+    }
+    seen: list[str] = []
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        seen.append(path)
+        return {"workflow_runs": held_runs if path.endswith("&page=1") else [executable]}
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "maint-77-model-registry-freshness.yml",
+        "token",
+        frozenset({"schedule"}),
+    )
+
+    assert latest == executable
+    assert seen[-1].endswith("event=schedule&page=2")
 
 
 # The absent-run reason now also names the cause and the remedy: "no executable

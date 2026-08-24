@@ -77,18 +77,39 @@ def _latest_executable_run(
     None reads as "no executable run" and would blame the workflow for the
     checker's own inability to look.
     """
-    payload = _gh_api(f"repos/{repo}/actions/workflows/{workflow_file}/runs?per_page=100", token)
-    runs = payload.get("workflow_runs")
-    if not isinstance(runs, list):
+    base_path = f"repos/{repo}/actions/workflows/{workflow_file}/runs?per_page=100"
+    events: tuple[str | None, ...] = tuple(sorted(allowed_events)) if allowed_events else (None,)
+    candidates: list[dict[str, Any]] = []
+    for event in events:
+        page = 1
+        while True:
+            path = base_path
+            if event is not None:
+                path += f"&event={event}&page={page}"
+            elif page > 1:
+                path += f"&page={page}"
+            payload = _gh_api(path, token)
+            runs = payload.get("workflow_runs")
+            if not isinstance(runs, list):
+                break
+            candidate = next(
+                (
+                    run
+                    for run in runs
+                    if isinstance(run, dict)
+                    and str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS
+                ),
+                None,
+            )
+            if candidate is not None:
+                candidates.append(candidate)
+                break
+            if len(runs) < 100:
+                break
+            page += 1
+    if not candidates:
         return None
-    for run in runs:
-        if not isinstance(run, dict):
-            continue
-        if allowed_events and str(run.get("event") or "") not in allowed_events:
-            continue
-        if str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS:
-            return run
-    return None
+    return max(candidates, key=lambda run: str(run.get("created_at") or ""))
 
 
 def _held_by_workflow_protection(runs_probe_empty: bool, repo: str, workflow_file: str) -> str:
