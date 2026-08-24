@@ -1,4 +1,4 @@
-"""Keep the #2210 durable-tracker doc honest about Health 68's drift states (issue #2878).
+"""Keep the #2210 transient-alert doc honest about Health 68's drift states.
 
 The #2878 task list required both `CONSUMER_REPO_MAINTENANCE.md` and
 `DURABLE_TRACKING_ISSUES.md` to carry the state and SLO contract; only the first
@@ -18,17 +18,14 @@ CHECKER = REPO_ROOT / "scripts" / "check_consumer_sync_drift.py"
 HEALTH_68 = REPO_ROOT / ".github" / "workflows" / "health-68-consumer-sync-drift.yml"
 
 _SECTION_2210 = re.compile(
-    r"- \*\*#2210\*\* —.*?(?=\n- \*\*#|\n### |\n## |\Z)",
+    r"- \*\*#2210(?: / [^*]+)?\*\* —.*?(?=\n- \*\*#|\n### |\n## |\Z)",
     re.DOTALL,
-)
-_ROW_2210 = re.compile(
-    r"\| \[#2210\].*?\|.*?\|.*?\| (.*?) \|",
 )
 
 
 def _section_2210(text: str) -> str:
     match = _SECTION_2210.search(text)
-    assert match, "DURABLE_TRACKING_ISSUES.md is missing the #2210 signal-flow section"
+    assert match, "DURABLE_TRACKING_ISSUES.md is missing the #2210 alert section"
     return match.group(0)
 
 
@@ -49,26 +46,21 @@ def test_tracker_doc_documents_every_state_the_checker_emits() -> None:
         "covered",
         "stale",
         "untracked_drift",
-    }, "the checker state contract changed; update this gate and the durable tracker documentation"
+    }, "the checker state contract changed; update this gate and the alert documentation"
     assert documented == emitted, (
         f"doc/code state mismatch in the #2210 table: "
         f"extra={sorted(documented - emitted)} missing={sorted(emitted - documented)}"
     )
 
 
-def test_tracker_doc_documents_daily_schedule_for_health_68() -> None:
-    text = TRACKER_DOC.read_text(encoding="utf-8")
+def test_alert_doc_and_workflow_define_clean_run_closure() -> None:
+    section = _section_2210(TRACKER_DOC.read_text(encoding="utf-8"))
     workflow = HEALTH_68.read_text(encoding="utf-8")
-    row = _ROW_2210.search(text)
-    assert row, "missing #2210 cadence row in the durable tracker table"
-    cadence = row.group(1)
-
     assert "schedule:" in workflow, "Health 68 must declare a daily schedule trigger"
-    assert "daily" in cadence.lower() or "06:15" in cadence
-    assert "Merge Sync PRs" in cadence
-    assert "successful main-branch" in cadence or "debounced" in cadence
-    assert "qualifying" in cadence and "push" in cadence
-    assert "manual dispatch" in cadence
+    assert "closes it on the next clean comparison" in section
+    assert "resolve-drift:" in workflow
+    assert "inputs.repos == ''" in workflow.split("resolve-drift:", 1)[1]
+    assert "state: 'closed'" in workflow
 
 
 def test_tracker_doc_states_that_covered_drift_is_silent() -> None:
@@ -78,14 +70,12 @@ def test_tracker_doc_states_that_covered_drift_is_silent() -> None:
     assert "| 0 |" in covered_row.group(0)
     assert "| No |" in covered_row.group(0)
     assert "silent" in section
-    assert "nothing actionable" in section
+    assert "nothing\n  actionable" in section or "nothing actionable" in section
     assert "CONSUMER_REPO_MAINTENANCE.md#drift-coverage-states" in section
 
 
 def test_tracker_doc_red_signal_includes_global_comparison_errors() -> None:
-    text = TRACKER_DOC.read_text(encoding="utf-8")
-    assert "global comparison error" in text
-    assert re.search(
-        r"stale`/`blocked`/`untracked_drift` state or a global comparison error",
-        text,
-    )
+    section = _section_2210(TRACKER_DOC.read_text(encoding="utf-8"))
+    assert "global comparison error" in section
+    assert "`blocked`" in section
+    assert "non-zero | Yes" in section

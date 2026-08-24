@@ -36,7 +36,6 @@ work, while `#2470` is recreated only through its failure-notification path.
 | [#2211](https://github.com/stranske/Workflows/issues/2211) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
 | [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependabot campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 10 minutes + Mondays 10:30 UTC | Body rewritten in place; due transient delivery lanes are serialized, while actionable delivery blockers do not suppress corrective candidate work |
 | [#2897](https://github.com/stranske/Workflows/issues/2897) | Dependency/sync maintenance-efficiency advisory report | [`health-83-dependency-sync-efficiency.yml`](../../.github/workflows/health-83-dependency-sync-efficiency.yml) | Weekly Mondays 11:15 UTC + `workflow_dispatch` | Comment appended only on material-evidence fingerprint change |
-| [#2210](https://github.com/stranske/Workflows/issues/2210) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 06:15 UTC schedule, debounced successful main-branch `Merge Sync PRs` runs, qualifying manifest/template/script/tool pushes, or manual dispatch | Body rewritten in place, but only for actionable states |
 | [#2470](https://github.com/stranske/Workflows/issues/2470) | 🚨 Integration-Tests Sync Failed - Action Required | [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) | On qualifying template/config pushes or manual dispatch | Stuck-window marker in body + recovery comment |
 | [#2415](https://github.com/stranske/Workflows/issues/2415) | 📊 LangSmith Trace Coverage Dashboard | [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) | Mondays 09:00 UTC + manual dispatch | Body rewritten in place |
 | [#2905](https://github.com/stranske/Workflows/issues/2905) | LLM model registry needs evidence review | [`maint-77-model-registry-freshness.yml`](../../.github/workflows/maint-77-model-registry-freshness.yml) | Mondays 05:20 UTC + manual dispatch | Evidence comment appended while freshness or catalog findings persist |
@@ -79,19 +78,6 @@ and a 72-hour lease. Stable consumer deliveries also record `staging`,
 Maint 71 may merge only a current, unexpired exact-head-sealed record;
 markerless, stale, or expired attempts are reported for terminal disposition
 rather than becoming an immortal coordination queue.
-- **#2210** — fan-out drift report across registered consumer repos. `Health 68` creates or refreshes it when drift is **actionable**; a clean run does not close it, so its latest body must be read as the last detected signal rather than an automatic current-status promise. Since #2878 the checker classifies each consumer as `converged`, `covered`, `blocked`, `untracked_drift`, or `stale`, and only the actionable states reach this tracker:
-
-  | State | Meaning | Exit code | Touches #2210 |
-  |-------|---------|-----------|---------------|
-  | `converged` | No drift against the compiled plan | 0 | No |
-  | `covered` | Drift exists, but an open stable candidate/delivery PR matches the current plan and is inside the 36-hour coverage lease | 0 | No |
-  | `stale` | A plan-matching sync PR is open but has not been updated inside the lease | non-zero | Yes |
-  | `blocked` | A global comparison error, or a per-repo lookup/content error, prevented classification | non-zero | Yes |
-  | `untracked_drift` | Drift with no open PR on the current plan's branch (including a superseded hash) | non-zero | Yes |
-
-  Two consequences for anyone reading this tracker. **Drift alone is no longer a red signal** — expected in-flight propagation is `covered`, exits zero, and is deliberately silent, which is what stopped the 249-runs-zero-successes / 223-comments pattern that motivated #2878. And **an unchanged covered state appends nothing**, so a gap in comments now means "nothing actionable", not "the workflow stopped running". Confirm liveness from the workflow run history, not from tracker activity. That oracle is implemented by the `workflow-liveness` job in [`health-40-sweep.yml`](../../.github/workflows/health-40-sweep.yml), which runs `scripts/workflow_startup_failure_diagnostic.py --sweep` weekly and fails when a workflow's recent runs are dominated by zero-job `action_required` holds. It was added after `Health 68` was held by GitHub's suspicious-workflow protection for 22 days (587 discarded runs, this tracker frozen since 2026-07-31) with no signal anywhere: a held run starts no jobs, writes no logs and bills no minutes. The full state and SLO contract lives in [`CONSUMER_REPO_MAINTENANCE.md`](CONSUMER_REPO_MAINTENANCE.md#drift-coverage-states).
-
-  Health 68 also reports `counts.unmeasured_create_only` and its affected targets. This is a visibility-only number: `create_only` positions remain excluded from drift and do not change the exit code, but the tracker now makes the intentionally unmeasured surface explicit.
 - **#2470** — stuck-window marker for the integration-repo template sync. A `<!-- sync-tracker-stuck-window:v1 ... -->` marker in the body means the sync is currently failing. The next successful non-dry run with a sync token strips the marker and appends a `✅ Integration sync recovered` comment, but never closes the issue, so a marker-free body carrying a recovery comment is the healthy resting state. The generated resolution steps explicitly preserve that durable lifecycle.
 
 ### Superseded tracker numbers
@@ -102,7 +88,6 @@ numbers change over time. Numbers that appear in older comments and commits:
 | Controller | Superseded | Current |
 |------------|-----------|---------|
 | `agents-weekly-metrics.yml` | [#1796](https://github.com/stranske/Workflows/issues/1796) — closed 2026-08-01 as a duplicate; last comment 2026-05-25 | [#2211](https://github.com/stranske/Workflows/issues/2211) |
-| `health-68-consumer-sync-drift.yml` | [#1868](https://github.com/stranske/Workflows/issues/1868) — closed 2026-05-14 | [#2210](https://github.com/stranske/Workflows/issues/2210) |
 
 When a controller's tracker is replaced, update the table above in the same
 change so this page never points at a closed issue.
@@ -137,11 +122,8 @@ same change.
   tracker numbers* above — the surviving tracker must stay open).
 - **Read the latest comment / body**, not the original creation body. The
   original snapshot is frozen at issue creation; current state lives further
-  down (or in the rewritten body for `#1836` / `#2210` / `#2470`).
-- **A red signal** (parse errors > 0 in `#2211`, an actionable
-  `stale`/`blocked`/`untracked_drift` state or a global comparison error listed
-  in `#2210` — a raw drift count is not one, since `covered` drift is expected,
-  a stuck-window marker present in `#2470`,
+  down (or in the rewritten body for `#1836` / `#2470`).
+- **A red signal** (parse errors > 0 in `#2211`, a stuck-window marker present in `#2470`,
   unclaimed `needs-local-codex` items in `#1836`) means the underlying system
   needs attention — but the fix lands in code or in another repo, not by
   closing the tracker.
@@ -155,6 +137,31 @@ same change.
 
 Some auto-bot issues *are* normal work items and should be closed when
 addressed. Examples:
+
+- **#2210 / Health 68 consumer drift alerts** — fan-out alerts across registered
+  consumer repos. Health 68 creates or refreshes one open issue only while drift
+  is actionable and closes it on the next clean comparison. A later incident
+  creates a new issue instead of reopening a permanent red dashboard. Since
+  #2878 the checker classifies each consumer as `converged`, `covered`,
+  `blocked`, `untracked_drift`, or `stale`:
+
+  | State | Meaning | Exit code | Opens or refreshes an alert |
+  |-------|---------|-----------|-----------------------------|
+  | `converged` | No drift against the compiled plan | 0 | No |
+  | `covered` | Drift exists, but an open stable candidate/delivery PR matches the current plan and is inside the 36-hour coverage lease | 0 | No |
+  | `stale` | A plan-matching sync PR is open but has not been updated inside the lease | non-zero | Yes |
+  | `blocked` | A global comparison error, or a per-repo lookup/content error, prevented classification | non-zero | Yes |
+  | `untracked_drift` | Drift with no open PR on the current plan's branch (including a superseded hash) | non-zero | Yes |
+
+  Drift alone is not a red signal: expected in-flight propagation is `covered`,
+  exits zero, and is deliberately silent. A gap in comments means "nothing
+  actionable," not that the workflow stopped running. Confirm liveness from the
+  workflow run history and the `workflow-liveness` job in
+  [`health-40-sweep.yml`](../../.github/workflows/health-40-sweep.yml). The full
+  state and SLO contract lives in
+  [`CONSUMER_REPO_MAINTENANCE.md`](CONSUMER_REPO_MAINTENANCE.md#drift-coverage-states).
+  Health 68 also reports `counts.unmeasured_create_only`; those positions remain
+  visibility-only and do not change the exit code.
 
 - `⚠️ CODEX_AUTH_JSON expires in N hours` — transient alert, fresh issue per
   expiry window. Close after token rotation.

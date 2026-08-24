@@ -135,10 +135,10 @@ function formatIssueBody(report, options = {}) {
   const lines = [
     '## Consumer Repo Drift Detected',
     '',
-    '> **Durable tracker** — see [`docs/ops/DURABLE_TRACKING_ISSUES.md`](https://github.com/stranske/Workflows/blob/main/docs/ops/DURABLE_TRACKING_ISSUES.md). The body below is regenerated each cycle by `health-68-consumer-sync-drift.yml`; auto-resolves on the next clean run.',
+    '> **Transient alert** — Health 68 refreshes this issue while drift is actionable and closes it automatically on the next clean run.',
     '',
     isCovered
-      ? 'Detected drift is covered by current, unexpired compiler-plan sync PRs; no tracker comment is needed.'
+      ? 'Detected drift is covered by current, unexpired compiler-plan sync PRs; no alert comment is needed.'
       : 'One or more consumer repos have actionable drift from the Workflows templates or manifest entries.',
     '',
     `**Check Details:** ${runLink}`,
@@ -153,7 +153,7 @@ function formatIssueBody(report, options = {}) {
     '### Required Actions',
     ...followUpLines(report),
     '- Review `consumer-sync-drift-report` for exact file paths.',
-    '- Close this issue when Health 68 passes.',
+    '- Health 68 closes this issue automatically after a clean comparison.',
     '',
   ];
   if (remediation.expected_branch) {

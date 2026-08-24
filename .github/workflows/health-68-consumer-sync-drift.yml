@@ -42,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       drift_failed: ${{ steps.compare.outcome == 'failure' }}
+      drift_clean: ${{ steps.compare.outcome == 'success' }}
     steps:
       - name: Checkout Workflows repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -145,7 +146,7 @@ jobs:
           retention-days: 14
 
   publish-drift:
-    name: Publish actionable drift tracker update
+    name: Publish actionable drift alert
     needs: check-drift
     if: ${{ always() && needs.check-drift.outputs.drift_failed == 'true' }}
     runs-on: ubuntu-latest
@@ -251,6 +252,7 @@ jobs:
               title,
               body,
               labels: ['automation'],
+              durable: false,
               core,
               withRetry,
             }));
@@ -266,6 +268,7 @@ jobs:
                 context,
                 tracker,
                 newBody: body,
+                preserveDurableHeader: false,
                 core,
                 withRetry,
               }));
@@ -295,3 +298,88 @@ jobs:
               }
               console.log(`Added comment to existing issue #${tracker.number}`);
             }
+
+  resolve-drift:
+    name: Resolve recovered drift alert
+    needs: check-drift
+    if: >-
+      ${{ always() && needs.check-drift.result == 'success' &&
+          inputs.repos == '' &&
+          needs.check-drift.outputs.drift_clean == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Close recovered drift alert
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const {
+              appendTrackerComment,
+              findOrCreateTracker,
+            } = require('./.github/scripts/sync_tracker_state');
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-68-resolve-drift-alert',
+              capabilities: ['issues:write'],
+            });
+            const alert = await findOrCreateTracker({
+              github,
+              context,
+              label: 'consumer-sync',
+              titlePattern: /^🔄 Consumer repo drift detected$/,
+              markerPattern: /consumer-sync-drift:v1/,
+              createIfMissing: false,
+              durable: false,
+              core,
+              withRetry,
+            });
+            if (!alert) {
+              core.info('No open consumer drift alert to close.');
+              return;
+            }
+
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}` +
+              `/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            await appendTrackerComment({
+              github,
+              context,
+              tracker: alert,
+              comment: `### ✅ Consumer sync drift resolved\n\nHealth 68 completed a clean comparison in [run ${process.env.GITHUB_RUN_ID}](${runUrl}).`,
+              core,
+              withRetry,
+            });
+            try {
+              await withRetry((client) => client.rest.issues.removeLabel({
+                ...context.repo,
+                issue_number: alert.number,
+                name: 'tracker:durable',
+              }));
+            } catch (error) {
+              if ((error.status || error?.response?.status) !== 404) {
+                throw error;
+              }
+            }
+            await withRetry((client) => client.rest.issues.update({
+              ...context.repo,
+              issue_number: alert.number,
+              state: 'closed',
+              state_reason: 'completed',
+            }));
+            core.notice(`Closed recovered consumer drift alert #${alert.number}`);
