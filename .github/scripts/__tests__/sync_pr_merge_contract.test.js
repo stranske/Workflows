@@ -55,6 +55,7 @@ const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
 const {
   campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,
+  enforceGeneratedDeliveryRequiredContexts,
   legacyStatusAsCheck,
   mergeMethodPolicyAllowsFallback,
   isResolvableProofThread,
@@ -65,6 +66,21 @@ const {
   selectReconciliationTargets,
   validateReviewResolutionProof,
 } = require('../maint71_merge_sync_prs');
+
+test('Maint 71 always requires the generated delivery Gate context', () => {
+  assert.deepEqual(
+    [...enforceGeneratedDeliveryRequiredContexts([])],
+    ['Gate / gate'],
+  );
+  assert.deepEqual(
+    [...enforceGeneratedDeliveryRequiredContexts(['repo-local / required'])],
+    ['repo-local / required', 'Gate / gate'],
+  );
+  assert.deepEqual(
+    [...enforceGeneratedDeliveryRequiredContexts(['Gate / gate'])],
+    ['Gate / gate'],
+  );
+});
 
 test('Maint 71 falls back only when repository policy rejects a merge method', () => {
   for (const [method, message] of [

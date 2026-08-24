@@ -7,6 +7,18 @@ const DEFAULT_REVIEW_POLICY = Object.freeze({
   non_response_patterns: [],
 });
 
+const GENERATED_DELIVERY_REQUIRED_CONTEXTS = Object.freeze(['Gate / gate']);
+
+function enforceGeneratedDeliveryRequiredContexts(contexts = []) {
+  const enforced = new Set(
+    [...(contexts || [])].map((context) => String(context || '').trim()).filter(Boolean),
+  );
+  for (const context of GENERATED_DELIVERY_REQUIRED_CONTEXTS) {
+    enforced.add(context);
+  }
+  return enforced;
+}
+
 function legacyStatusAsCheck(status = {}) {
   const state = String(status.state || '').toLowerCase();
   return {
@@ -587,7 +599,13 @@ async function run({ github, context, core }) {
     return { contexts: requiredContexts, source: 'rulesets' };
   }
 
-  async function classifyRequiredChecksForRef({ owner, repo, branch, ref }) {
+  async function classifyRequiredChecksForRef({
+    owner,
+    repo,
+    branch,
+    ref,
+    enforceGeneratedDeliveryGate = false,
+  }) {
     const { data: combinedStatus } = await withRetry((client) =>
       client.rest.repos.getCombinedStatusForRef({ owner, repo, ref }),
     );
@@ -608,11 +626,11 @@ async function run({ github, context, core }) {
       ...statusAsChecks.filter((status) => !checkNames.has(String(status.name || '').trim())),
     ];
     const requiredCheckPolicy = await getRequiredContexts({ owner, repo, branch });
-    const requiredContexts = requiredCheckPolicy.contexts;
-    let classification = requiredContexts.size > 0
-      ? classifySyncPrChecks({ checkRuns: allChecks, requiredContexts })
-      : { status: 'ready', failed: [], pending: [] };
-    if (requiredContexts.size > 0 && classification.status === 'ready') {
+    const requiredContexts = enforceGeneratedDeliveryGate
+      ? enforceGeneratedDeliveryRequiredContexts(requiredCheckPolicy.contexts)
+      : requiredCheckPolicy.contexts;
+    let classification = classifySyncPrChecks({ checkRuns: allChecks, requiredContexts });
+    if (classification.status === 'ready') {
       const seenNames = new Set(
         allChecks.map((check) => String(check?.name || '').trim()).filter(Boolean),
       );
@@ -1913,6 +1931,7 @@ async function run({ github, context, core }) {
         repo,
         branch: pr.base.ref,
         ref: pr.head.sha,
+        enforceGeneratedDeliveryGate: true,
       });
       const {
         allChecks,
@@ -2690,6 +2709,7 @@ async function run({ github, context, core }) {
 module.exports = {
   campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,
+  enforceGeneratedDeliveryRequiredContexts,
   legacyStatusAsCheck,
   mergeMethodPolicyAllowsFallback,
   normalizeReviewPolicy,
