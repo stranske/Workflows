@@ -200,7 +200,16 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "client.rest.issues.createComment",
         "const observation = reviewWindowObservations.get(observationKey)",
         "await reviewWindowObservation(prNumber, originalHead)",
-        "Date.now() - observation.observedAtMs",
+        # The window is still measured from the persisted observation; the arithmetic moved into
+        # `reviewWindowRemainingMs(prNumber, headSha, observedAtMs)` so all three consumers share
+        # one implementation and the FIRST review on the exact head can short-circuit it. Pinning
+        # the helper and its call keeps the binding asserted without pinning one inlined expression.
+        "const remaining = reviewWindowMs - (Date.now() - observedAtMs);",
+        "async function reviewWindowRemainingMs(prNumber, headSha, observedAtMs)",
+        "await reviewWindowRemainingMs(",
+        # And the short-circuit must stay scoped to the EXACT head: a review of an older commit
+        # says nothing about the code being merged.
+        "if (String(review?.commit_id || '') !== headSha) return false;",
         "Review window not elapsed; deferring to a later run.",
         "reviewThreads(first: 100, after: $cursor)",
         "!thread.isResolved && !thread.isOutdated",
@@ -272,7 +281,9 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "mergeBoundaryLinkedIssueSnapshot.updatedAt !== finalLinkedIssueSnapshot.updatedAt",
         "Linked issue changed during final merge validation.",
         "const finalObservation = await reviewWindowObservation(prNumber, expectedHead)",
-        "const finalReviewRemainingMs = reviewWindowMs",
+        # Same relocation: the pre-merge revalidation now goes through the shared helper, so the
+        # first review on the exact head short-circuits it there too.
+        "const finalReviewRemainingMs = await reviewWindowRemainingMs(",
         "A newer head transition restarted the review window before merge.",
         "const triggeringPrNumber = Number(",
         "No triggering PR number; refusing a repository-wide merge scan.",
