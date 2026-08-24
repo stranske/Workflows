@@ -28,7 +28,7 @@ on:
         default: ''
         type: string
       base_ref:
-        description: 'Optional base branch/ref for conflict surfacing (e.g., phase-3).'
+        description: 'Optional base branch/ref for conflict surfacing (e.g., main).'
         required: false
         default: ''
         type: string

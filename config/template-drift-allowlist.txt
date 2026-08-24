@@ -133,9 +133,9 @@ fingerprint_refreshed = 2026-08-23
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = e9e51d4b4966ddf73d32e0e88bad784b505971cc16fe3c2e40ca4b5f5df56493
-template_sha256 = f06ac2666d1bc75fc6987aa9e6ab4fa1a00c241c95ad13ffff49ae1c45b006a3
-divergence = Fingerprints refreshed 2026-08-24: both surfaces now treat automated issues as format-ineligible, complementing the shared guard cleanup that removes stale agents:format leases from exempt issues. Applied identically to root and consumer, so it introduces no new divergence. Prior fingerprint refresh 2026-08-23: both surfaces read the issue number from the step-level EVENT_ISSUE_NUMBER env var instead of interpolating ${{ github.event.issue.number }} into the run: body, removing a template-injection surface of the same shape that caused agents-71-codex-belt-dispatcher to be blocked as possibly malicious in consumer repos (#3127, 2026-08-16). Underlying divergence unchanged: Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes live format eligibility checks, format-lease release when those checks skip work, checkout-aware path validation, explicit guard retry dispatch, and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
+main_sha256 = 7584c3546fc1c568fec4c1efa0ee5c65ff52ac4e58c67d59a6f3fce054bcd490
+template_sha256 = eb9a174e05137d58b4cc3559e7178560104243387ed8efc464c7ae56bd38a57a
+divergence = Fingerprints refreshed 2026-08-24: both surfaces now build the optimizer recovery link from the repository default branch instead of the retired Trend-only phase-3 branch. Applied identically to root and consumer, so it introduces no new divergence. Prior fingerprint refresh 2026-08-24: both surfaces treat automated issues as format-ineligible, complementing the shared guard cleanup that removes stale agents:format leases from exempt issues. Underlying divergence unchanged: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Do not align wholesale — that would strip consumer action pins/token setup.
 divergence_reviewed = 2026-08-24
 fingerprint_refreshed = 2026-08-24
 

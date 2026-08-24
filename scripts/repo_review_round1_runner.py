@@ -144,7 +144,7 @@ def sync_repo_to_origin(
     *,
     timeout: int = 120,
 ) -> tuple[bool, str]:
-    """Sync the local working tree to origin's primary branch (main, then phase-3).
+    """Sync the local working tree to origin's canonical main branch.
 
     Per the iter-9 lesson: round-1 reviewers MUST run against current main, not
     a stale local checkout. A stale checkout silently produces false negatives
@@ -152,7 +152,7 @@ def sync_repo_to_origin(
     positives (gaps that have already shipped in unpulled PRs get re-raised).
 
     Procedure: stash any dirty changes (preserved as a stash entry), checkout
-    the canonical branch (try `main` then `phase-3`), `git pull --ff-only`.
+    the canonical `main` branch, `git pull --ff-only`.
     Returns (ok, summary). Untracked workloop-state.md is removed proactively
     because upstream often adds a tracked version with the same name.
     """
@@ -200,15 +200,11 @@ def sync_repo_to_origin(
             if stash.returncode == 0:
                 notes.append("stashed dirty changes")
 
-        # 4. Determine target branch — try main, fall back to phase-3.
-        target = None
-        for candidate in ("main", "phase-3"):
-            check = _git(["rev-parse", "--verify", f"origin/{candidate}"])
-            if check.returncode == 0:
-                target = candidate
-                break
-        if target is None:
-            return False, "neither origin/main nor origin/phase-3 exists"
+        # 4. Confirm the fleet's canonical branch exists.
+        target = "main"
+        check = _git(["rev-parse", "--verify", "origin/main"])
+        if check.returncode != 0:
+            return False, "origin/main does not exist"
 
         # 5. Checkout the target branch if not already on it.
         current = _git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
