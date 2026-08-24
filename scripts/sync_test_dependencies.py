@@ -221,7 +221,7 @@ def _detect_local_project_modules() -> set[str]:
             elif item.suffix == ".py":
                 if item.name == "conftest.py":
                     detected.add("conftest")
-                elif not item.name.startswith("test_") and item.name != "__init__.py":
+                elif item.name != "__init__.py":
                     detected.add(item.stem)
 
     return detected
