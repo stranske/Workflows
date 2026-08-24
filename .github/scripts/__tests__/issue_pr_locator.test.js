@@ -11,7 +11,7 @@ function buildCandidate(overrides) {
   return {
     number: overrides.number || 1,
     headRef: overrides.headRef || 'codex/issue-1',
-    baseRef: overrides.baseRef || 'phase-2-dev',
+    baseRef: overrides.baseRef || 'main',
     body: overrides.body || '',
     title: overrides.title || '',
     draft: Boolean(overrides.draft),

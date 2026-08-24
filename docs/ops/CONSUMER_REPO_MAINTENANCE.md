@@ -413,8 +413,12 @@ and cannot create false `target_missing` failures.
 Maint 71 reads required contexts from legacy branch protection when available,
 then from active repository and inherited organization rulesets. It fails
 closed if neither protection surface is visible. A successful ruleset query
-that returns no required checks is authoritative, so cancelled informational
-jobs do not become invented required failures.
+that returns no required checks is authoritative for ordinary repository-local
+contexts. Generated sync deliveries additionally require `Gate / gate`, even
+when the consumer ruleset is empty, and Maint 71 rechecks that context on the
+exact head immediately before every merge attempt. Cancelled informational
+jobs therefore do not become invented required failures, while the shared
+delivery contract cannot merge around a failed or missing Gate.
 
 Maint 68 creates stable deliveries ready for review with
 `sync:delivery-staging` and disables auto-merge before every real head update.

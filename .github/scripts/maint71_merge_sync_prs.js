@@ -1152,6 +1152,7 @@ async function run({ github, context, core }) {
     expectMerged,
     requireSealedDelivery = false,
     requireVerifiedHead = false,
+    requireGeneratedDeliveryGate = false,
   }) {
     const data = await github.graphql(
       `query($owner: String!, $repo: String!, $number: Int!, $head: GitObjectID!) {
@@ -1266,6 +1267,27 @@ async function run({ github, context, core }) {
         activeReviewThreads,
         freshHeadSha: freshPr.headRefOid,
       };
+    }
+    // A rerun can turn Gate red without changing the head after the earlier
+    // delivery classification. Recheck required contexts at the final merge
+    // boundary rather than treating exact-head review evidence as sufficient.
+    if (requireGeneratedDeliveryGate) {
+      const finalCheckEvidence = await classifyRequiredChecksForRef({
+        owner,
+        repo,
+        branch: pr.base.ref,
+        ref: pr.head.sha,
+        enforceGeneratedDeliveryGate: true,
+      });
+      if (finalCheckEvidence.classification.status !== 'ready') {
+        return {
+          ok: false,
+          reason: finalCheckEvidence.classification.status,
+          activeReviewThreads,
+          freshHeadSha: freshPr.headRefOid,
+          finalCheckEvidence,
+        };
+      }
     }
     return {
       ok: true,
@@ -2343,6 +2365,7 @@ async function run({ github, context, core }) {
         expectMerged: recoveredMergedCandidate,
         requireSealedDelivery: stableDelivery && !recoveredMergedCandidate,
         requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
+        requireGeneratedDeliveryGate: !recoveredMergedCandidate,
       });
       if (!finalGate.ok) {
         console.log(`Final exact-head review gate blocked delivery: ${finalGate.reason}`);
@@ -2386,6 +2409,21 @@ async function run({ github, context, core }) {
             status: 'head_commit_unverified',
             observed_head_sha: finalGate.freshHeadSha || '',
             signature_state: finalGate.signatureState || 'MISSING',
+          });
+        } else if (['checks_failed', 'checks_pending'].includes(finalGate.reason)) {
+          const finalClassification = finalGate.finalCheckEvidence?.classification || {};
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: finalGate.reason === 'checks_failed'
+              ? 'check-failed'
+              : 'awaiting-checks',
+            blocker_owner: 'consumer',
+            next_command: finalGate.reason === 'checks_failed'
+              ? 'repair-failing-gate'
+              : 'rerun-after-gate-completes',
+            status: finalGate.reason,
+            failed_checks: (finalClassification.failed || []).map((check) => check.name),
+            pending_checks: (finalClassification.pending || []).map((check) => check.name),
           });
         } else {
           results.push({
@@ -2496,6 +2534,7 @@ async function run({ github, context, core }) {
                 expectMerged: false,
                 requireSealedDelivery: stableDelivery,
                 requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
+                requireGeneratedDeliveryGate: true,
               });
               if (!retryGate.ok) {
                 throw new Error(`merge retry gate blocked: ${retryGate.reason}`);
