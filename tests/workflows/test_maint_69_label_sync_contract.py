@@ -90,6 +90,20 @@ def test_label_sync_records_fetch_errors_before_failing_the_aggregate() -> None:
     assert fetch_index < fetch_error_index < increment_index < summary_index < failure_index
 
 
+def test_label_sync_paginates_all_existing_labels_before_creating() -> None:
+    """Labels after page one must not be mistaken for missing labels."""
+    script = _step(SYNC_STEP)["with"]["script"]
+
+    assert "const { withRetry, paginateWithRetry } = retryHelpers;" in script
+    pagination_index = script.index("existingLabels = await paginateWithRetry(")
+    list_method_index = script.index("github.rest.issues.listLabelsForRepo", pagination_index)
+    map_index = script.index("const existingMap = new Map(existingLabels", list_method_index)
+    assert pagination_index < list_method_index < map_index
+    assert (
+        "const { data } = await withRetry(() => github.rest.issues.listLabelsForRepo" not in script
+    )
+
+
 # --- label colours must survive a YAML 1.2 loader -------------------------
 #
 # Third defect in this workflow, found 2026-08-23 once the hold on maint-69 was
