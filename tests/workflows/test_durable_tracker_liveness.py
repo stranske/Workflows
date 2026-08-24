@@ -20,6 +20,8 @@ EXPECTED_TRACKERS = {
     "health-68-consumer-sync-drift.yml": (2210, 48),
     "maint-69-sync-integration-repo.yml": (2470, None),
     "maint-80-langsmith-metrics-dashboard.yml": (2415, 192),
+    "maint-77-model-registry-freshness.yml": (2905, 192),
+    "health-84-langsmith-observability.yml": (3123, 48),
     "health-40-repo-selfcheck.yml": (3218, 192),
 }
 
@@ -73,7 +75,7 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
     monkeypatch.setattr(
         check_durable_tracker_liveness,
         "_latest_executable_run",
-        lambda _repo, workflow, _token: runs[workflow],
+        lambda _repo, workflow, _token, _events: runs[workflow],
     )
     monkeypatch.setattr(
         check_durable_tracker_liveness,
@@ -94,6 +96,7 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
             "healthy": True,
             "latest_conclusion": "success",
             "latest_created_at": "recent",
+            "latest_event": None,
             "hours_since": 1.0,
             "max_age_hours": 24.0,
             "run_url": "https://run/recent",
@@ -104,6 +107,7 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
             "healthy": False,
             "latest_conclusion": "failure",
             "latest_created_at": "stale",
+            "latest_event": None,
             "hours_since": 25.0,
             "max_age_hours": 24.0,
             "run_url": "https://run/stale",
@@ -133,6 +137,84 @@ def test_event_driven_tracker_is_not_subject_to_age_liveness() -> None:
 
     assert tracker["event_driven"] is True
     assert "max_age_hours" not in tracker
+
+
+def test_model_registry_liveness_counts_only_tracker_publishing_events() -> None:
+    config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
+    tracker = next(
+        entry
+        for entry in config["trackers"]
+        if entry["workflow"] == "maint-77-model-registry-freshness.yml"
+    )
+
+    assert tracker["events"] == ["schedule", "workflow_dispatch"]
+
+
+def test_latest_executable_run_queries_publishing_events_before_history_limit(
+    monkeypatch,
+) -> None:
+    seen: list[str] = []
+    scheduled = {
+        "event": "schedule",
+        "conclusion": "success",
+        "created_at": "2026-08-20T00:00:00Z",
+    }
+    dispatched = {
+        "event": "workflow_dispatch",
+        "conclusion": "success",
+        "created_at": "2026-08-21T00:00:00Z",
+    }
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        seen.append(path)
+        if "event=schedule" in path:
+            return {"workflow_runs": [scheduled]}
+        if "event=workflow_dispatch" in path:
+            return {"workflow_runs": [dispatched]}
+        raise AssertionError(f"unfiltered run history requested: {path}")
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "maint-77-model-registry-freshness.yml",
+        "token",
+        frozenset({"schedule", "workflow_dispatch"}),
+    )
+
+    assert latest == dispatched
+    assert seen == [
+        "repos/stranske/Workflows/actions/workflows/maint-77-model-registry-freshness.yml/"
+        "runs?per_page=100&event=schedule&page=1",
+        "repos/stranske/Workflows/actions/workflows/maint-77-model-registry-freshness.yml/"
+        "runs?per_page=100&event=workflow_dispatch&page=1",
+    ]
+
+
+def test_latest_executable_run_paginates_event_filtered_history(monkeypatch) -> None:
+    held_runs = [{"conclusion": "action_required"} for _ in range(100)]
+    executable = {
+        "event": "schedule",
+        "conclusion": "success",
+        "created_at": "2026-08-20T00:00:00Z",
+    }
+    seen: list[str] = []
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        seen.append(path)
+        return {"workflow_runs": held_runs if path.endswith("&page=1") else [executable]}
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "maint-77-model-registry-freshness.yml",
+        "token",
+        frozenset({"schedule"}),
+    )
+
+    assert latest == executable
+    assert seen[-1].endswith("event=schedule&page=2")
 
 
 # The absent-run reason now also names the cause and the remedy: "no executable

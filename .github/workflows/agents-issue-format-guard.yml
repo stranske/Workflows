@@ -37,6 +37,7 @@ jobs:
       ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
       (github.event.label.name == 'agents:auto-pilot-pause' ||
       github.event.label.name == 'needs-human' ||
+      github.event.label.name == 'automated' ||
       github.event.label.name == 'tracker:durable' || github.event.label.name == 'wontfix'))
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +65,7 @@ jobs:
             echo "Issue is closed — nothing to format."
             exempt=true
           fi
-          if jq -e '[.labels[].name] | any(. == "tracker:durable" or . == "wontfix")' issue.json >/dev/null; then exempt=true; fi
+          if jq -e '[.labels[].name] | any(. == "tracker:durable" or . == "wontfix" or . == "automated")' issue.json >/dev/null; then exempt=true; fi
           if jq -e '[.labels[].name] | any(. == "agents:auto-pilot-pause" or . == "needs-human")' issue.json >/dev/null; then held=true; fi
           if jq -er '.author.login // ""' issue.json | grep -qiE '(\[bot\]|^renovate$|^dependabot$)'; then exempt=true; fi
           if grep -qiE 'do not dispatch|not a (repo|cloud) coding task' body.md; then exempt=true; fi
@@ -74,6 +75,20 @@ jobs:
             echo "held=$held"
             echo "state=$(jq -r '.state' issue.json)"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Clear stale format lease from exempt issues
+        if: steps.issue.outputs.exempt == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          set -euo pipefail
+          if jq -e '[.labels[].name] | any(. == "agents:format")' \
+              issue.json >/dev/null; then
+            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --remove-label "agents:format"
+            echo "Exempt issue — cleared stale agents:format lease."
+          fi
 
       - name: Setup API client
         if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true'

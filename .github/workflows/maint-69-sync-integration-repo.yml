@@ -359,7 +359,7 @@ jobs:
             1. Open the [failed run](${process.env.RUN_URL}) and check the \`Commit and push\` step for the actual error.
             2. If auth failed: rotate \`OWNER_PR_PAT\` (preferred) or \`SERVICE_BOT_PAT\` in repo secrets.
             3. Re-trigger: \`gh workflow run 'Maint 69 Sync Integration Repo' --repo ${context.repo.owner}/${context.repo.repo}\`
-            4. Close this issue once the next run succeeds.
+            4. Do not close this durable tracker after recovery. The next successful non-dry run clears the stuck-window marker and appends a recovery comment.
 
             ---
             *Automatically created by the maint-69 failure handler.*`;

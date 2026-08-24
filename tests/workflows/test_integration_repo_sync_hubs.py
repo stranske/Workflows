@@ -73,3 +73,10 @@ def test_sync_manifest_removes_stale_consumer_local_workflow_syncer() -> None:
     }
 
     assert ".github/workflows/maint-sync-workflows.yml" in removal_targets
+
+
+def test_integration_sync_recovery_instructions_preserve_durable_tracker() -> None:
+    source = SYNC_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "Do not close this durable tracker after recovery." in source
+    assert "Close this issue once the next run succeeds." not in source

@@ -133,11 +133,11 @@ fingerprint_refreshed = 2026-08-23
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = 6f27295c98bd7d94f1768b7036718c7331bbea281fd67faf4c110fe32da52696
-template_sha256 = 1754c7ce1a227199af13bb746d80e506442d0e2572879f2fdfba284a88845238
-divergence = Fingerprints refreshed 2026-08-23: both surfaces now read the issue number from the step-level EVENT_ISSUE_NUMBER env var instead of interpolating ${{ github.event.issue.number }} into the run: body, removing a template-injection surface of the same shape that caused agents-71-codex-belt-dispatcher to be blocked as possibly malicious in consumer repos (#3127, 2026-08-16). Applied identically to root and consumer, so it introduces no new divergence. Underlying divergence unchanged: Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes live format eligibility checks, format-lease release when those checks skip work, checkout-aware path validation, explicit guard retry dispatch, and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
-divergence_reviewed = 2026-08-23
-fingerprint_refreshed = 2026-08-23
+main_sha256 = e9e51d4b4966ddf73d32e0e88bad784b505971cc16fe3c2e40ca4b5f5df56493
+template_sha256 = f06ac2666d1bc75fc6987aa9e6ab4fa1a00c241c95ad13ffff49ae1c45b006a3
+divergence = Fingerprints refreshed 2026-08-24: both surfaces now treat automated issues as format-ineligible, complementing the shared guard cleanup that removes stale agents:format leases from exempt issues. Applied identically to root and consumer, so it introduces no new divergence. Prior fingerprint refresh 2026-08-23: both surfaces read the issue number from the step-level EVENT_ISSUE_NUMBER env var instead of interpolating ${{ github.event.issue.number }} into the run: body, removing a template-injection surface of the same shape that caused agents-71-codex-belt-dispatcher to be blocked as possibly malicious in consumer repos (#3127, 2026-08-16). Underlying divergence unchanged: Intentional divergence re-baselined 2026-08-11: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Shared behavioral contract includes live format eligibility checks, format-lease release when those checks skip work, checkout-aware path validation, explicit guard retry dispatch, and quoted lowercase identifier acceptance. Do not align wholesale — that would strip consumer action pins/token setup.
+divergence_reviewed = 2026-08-24
+fingerprint_refreshed = 2026-08-24
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
