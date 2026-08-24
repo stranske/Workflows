@@ -118,6 +118,7 @@ jobs:
             exit 0
           fi
 
+          # shellcheck disable=SC2016  # GraphQL variables must remain literal.
           review_query='query($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { isResolved isOutdated } } } } }'
           active_threads="$(gh api graphql -f query="$review_query" -f owner="${GITHUB_REPOSITORY%/*}" -f repo="${GITHUB_REPOSITORY#*/}" -F number="$PR_NUMBER" --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select((.isResolved | not) and (.isOutdated | not))] | length')"
           if [ "$active_threads" != "0" ]; then
