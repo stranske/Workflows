@@ -70,6 +70,7 @@ jobs:
                 . == "agents:auto-pilot-pause" or
                 . == "needs-human" or
                 . == "tracker:durable" or
+                . == "automated" or
                 . == "wontfix"
               )' /tmp/format-eligibility.json >/dev/null; then
               echo "Skipping format: issue is held, exempt, or owned by auto-pilot."
