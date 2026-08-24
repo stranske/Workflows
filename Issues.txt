@@ -38,4 +38,4 @@
  - Prefer config format:
    - JSON: easiest to parse without extra deps
    - Example schema: `{ "packs": [ { "name": "...", "repo": "stranske/Trend_Model_Project", "ref": "<sha>", "paths": ["..."] } ] }`
- - Trend’s default branch is `phase-3`; for reproducibility, packs should pin to a commit SHA.
+ - Trend’s default branch is `main`; for reproducibility, packs should pin to a commit SHA.
