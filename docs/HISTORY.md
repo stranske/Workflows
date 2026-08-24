@@ -21,7 +21,7 @@ quiet stretch where the system was used by consumers without active rebuilds.
 | 2. v1.1.x release & first Feb push | 2026-01-13 → 2026-02-10 | 832 | 81 → 94 | 229 | `v1.1.0`/`v1.1.1`/`v1.1.2` (1-26 → 1-31) | Verifier follow-up pipeline, GitHub-App token minting, sync-quality surveillance triad |
 | 3. Feb consolidation push | 2026-02-11 → 2026-02-28 | 413 | 94 → 98 | 232 | — | Claude becomes first-class agent, agent-agnostic belt rename, LangSmith integration, +4 consumers |
 | 4. Production quiet | 2026-03-01 → 2026-04-11 | 45 | 98 → 99 | 232 | — | PR-health scanner subsystem, Claude code-review opt-in, real consumer use without rebuilds |
-| 5. Post-quiet re-engagement | 2026-04-12 → 2026-04-29 | 240 | 99 → 101 | 260 | — | Repo-review subsystem, sync/Dependabot campaign queue, action-pin contract, Python 3.12 fleet pin, durable-tracker convention |
+| 5. Post-quiet re-engagement | 2026-04-12 → 2026-04-29 | 240 | 99 → 101 | 260 | — | Repo-review subsystem, sync/dependency campaign queue, action-pin contract, Python 3.12 fleet pin, durable-tracker convention |
 | 6. Fleet review & systemic optimization | 2026-04-30 → 2026-05-07 (current) | 106 | 101 → 100 | 280 | — | 6-phase systematic review of all 101 workflows, 11 systemic fixes (state-fingerprint, event-eligibility, path-classifier, runner-lib, sync-tracker-state, issue-pr-context, verifier-config, reusable-ci-scope, artifact-cache, bot-comment-handler-fixtures, agents-guard split), Wave 0 deprecated-template cleanup, workflow-local follow-ons |
 
 Counts cover the period through commit `969b8381` on 2026-05-07. Workflow file
@@ -206,7 +206,7 @@ biggest architectural additions:
   Reviews now require semantic content, evidence traces, process-chain
   checkpoints, duplicate detection, and freshness checks before issues are
   filed.
-- **Sync/Dependabot campaign queue** — [`maint-82-sync-dependency-campaign.yml`](../.github/workflows/maint-82-sync-dependency-campaign.yml)
+- **Sync/Dependency campaign queue** — [`maint-82-sync-dependency-campaign.yml`](../.github/workflows/maint-82-sync-dependency-campaign.yml)
   + [`.github/scripts/sync_dependency_campaign.js`](../.github/scripts/sync_dependency_campaign.js)
   with claim-leases, source-review history, source-freshness tracking, and
   parse contracts so concurrent sync/dependency-bot sweeps don't race or
@@ -574,7 +574,7 @@ As of 2026-05-07 (HEAD `969b8381`):
     repo) with `--compare A.json B.json` mode; T0 + T+7 snapshots
     captured, T+30 / T+60 milestones queued.
 - **Active surfaces carried from Phase 5**: repo-review pipeline with
-  quality gates, sync/Dependabot campaign queue with claim-leases,
+  quality gates, sync/dependency campaign queue with claim-leases,
   bot-comment auth coverage with eligibility-gated hard-block, Codex CLI
   freshness monitoring, action-pin contract, Python-3.12 fleet pin,
   durable-tracker convention. The repo-review pipeline expanded to a

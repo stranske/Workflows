@@ -9,7 +9,11 @@ const {
 
 const CAMPAIGN_SCHEMA = 'sync-dependabot-campaign/v1';
 const CAMPAIGN_MARKER = 'sync-dependabot-campaign:v1';
-const CAMPAIGN_TITLE = 'Sync/Dependabot campaign queue';
+const CAMPAIGN_TITLE = 'Sync/Dependency campaign queue';
+const CAMPAIGN_TITLE_PATTERN = /^Sync\/(?:Dependency|Dependabot) campaign queue$/;
+// The persisted schema, dispatch slug, label, and counters retain the historical
+// Dependabot name so existing campaign state remains readable across the Renovate
+// migration. User-facing text is bot-agnostic because both bot authors are tracked.
 const LABEL_CAMPAIGN = 'campaign:sync-dependabot';
 const LABEL_ACTIVE = 'campaign:active';
 const LABEL_NEEDS_LOCAL_CODEX = 'campaign:needs-local-codex';
@@ -1077,11 +1081,11 @@ function formatCampaignBody(state) {
     : ['| - | - | - | - | No local Codex work is queued. |'];
 
   const lines = [
-    '# Sync/Dependabot Campaign Queue',
+    '# Sync/Dependency Campaign Queue',
     '',
     '> **Durable tracker** — see [`docs/ops/DURABLE_TRACKING_ISSUES.md`](https://github.com/stranske/Workflows/blob/main/docs/ops/DURABLE_TRACKING_ISSUES.md). The body below is regenerated each cycle by `maint-82-sync-dependency-campaign.yml`; do not close as part of routine triage.',
     '',
-    'Remote GitHub Actions owns discovery for sync-generated and Dependabot PR rounds. Local Codex should only claim items from this issue when `needs-local-codex` work is queued.',
+    'Remote GitHub Actions owns discovery for sync-generated and dependency-bot PR rounds (Renovate plus legacy Dependabot). Local Codex should only claim items from this issue when `needs-local-codex` work is queued.',
     '',
     '## Summary',
     '',
@@ -1089,7 +1093,7 @@ function formatCampaignBody(state) {
     `- Current sync hash: ${state.current_sync_hash || '-'}`,
     `- Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
     `- Open sync PRs: ${stats.sync_prs_open || 0}`,
-    `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
+    `- Open dependency PRs: ${stats.dependabot_prs_open || 0}`,
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
     `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
@@ -1257,7 +1261,7 @@ function formatCompactCampaignBody(state) {
       ))
     : ['| - | - | - |'];
   return [
-    '# Sync/Dependabot Campaign Queue',
+    '# Sync/Dependency Campaign Queue',
     '',
     'Remote discovery found more review-thread work than fits in a full GitHub issue body. The marker below retains the compact machine-readable queue for the local watcher.',
     '',
@@ -1265,7 +1269,7 @@ function formatCompactCampaignBody(state) {
     `- Current sync hash: ${state.current_sync_hash || '-'}`,
     `- Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
     `- Open sync PRs: ${stats.sync_prs_open || 0}`,
-    `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
+    `- Open dependency PRs: ${stats.dependabot_prs_open || 0}`,
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
     `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
@@ -1503,7 +1507,7 @@ async function findCampaignIssue(github, owner, repo, core, withRetry = null) {
     owner,
     repo,
     label: LABEL_CAMPAIGN,
-    titlePattern: /^Sync\/Dependabot campaign queue$/,
+    titlePattern: CAMPAIGN_TITLE_PATTERN,
     markerPattern: /sync-dependabot-campaign:v1/,
     createIfMissing: false,
     core,
@@ -1513,7 +1517,7 @@ async function findCampaignIssue(github, owner, repo, core, withRetry = null) {
 
 async function ensureLabel(github, owner, repo, name, color, description, core, withRetry = null) {
   try {
-    await callWithRetry(
+    const response = await callWithRetry(
       (client) => client.rest.issues.getLabel({ owner, repo, name }),
       `${owner}/${repo} label ${name}`,
       core,
@@ -1521,6 +1525,27 @@ async function ensureLabel(github, owner, repo, name, color, description, core, 
       withRetry,
       github,
     );
+    const current = response?.data || {};
+    if (
+      cleanString(current.color).toLowerCase() !== cleanString(color).toLowerCase() ||
+      cleanString(current.description) !== cleanString(description)
+    ) {
+      await callWithRetry(
+        (client) => client.rest.issues.updateLabel({
+          owner,
+          repo,
+          name,
+          new_name: name,
+          color,
+          description,
+        }),
+        `${owner}/${repo} update label ${name}`,
+        core,
+        1,
+        withRetry,
+        github,
+      );
+    }
   } catch (error) {
     if ((error.status || error?.response?.status) !== 404) {
       throw error;
@@ -1537,7 +1562,7 @@ async function ensureLabel(github, owner, repo, name, color, description, core, 
 }
 
 async function applyCampaignLabels(github, owner, repo, issueNumber, needsLocalCodex, core, withRetry = null) {
-  await ensureLabel(github, owner, repo, LABEL_CAMPAIGN, '0e8a16', 'Sync/Dependabot campaign queue', core, withRetry);
+  await ensureLabel(github, owner, repo, LABEL_CAMPAIGN, '0e8a16', 'Sync/dependency campaign queue', core, withRetry);
   await ensureLabel(github, owner, repo, LABEL_ACTIVE, '1d76db', 'Active campaign controller issue', core, withRetry);
   await ensureLabel(
     github,
@@ -1629,7 +1654,7 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
   const errors = cleanArray(state.errors);
   const validation = state.validation || validateCampaignState(state);
   const lines = [
-    '## Sync/Dependabot Campaign Run',
+    '## Sync/Dependency Campaign Run',
     '',
     `- Schema: ${state.schema || CAMPAIGN_SCHEMA}`,
     `- Updated: ${cleanString(state.updated_at) || '-'}`,
@@ -1640,7 +1665,7 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     `- Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
     `- Repos failed: ${stats.repos_failed || 0}`,
     `- Open sync PRs: ${stats.sync_prs_open || 0}`,
-    `- Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
+    `- Open dependency PRs: ${stats.dependabot_prs_open || 0}`,
     `- Active review threads queued: ${stats.active_review_threads || 0}`,
     `- Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
     `- Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,
@@ -1762,7 +1787,7 @@ async function runCampaign({
       owner: campaignOwner,
       repo: campaignRepo,
       label: LABEL_CAMPAIGN,
-      titlePattern: /^Sync\/Dependabot campaign queue$/,
+      titlePattern: CAMPAIGN_TITLE_PATTERN,
       markerPattern: /sync-dependabot-campaign:v1/,
       title: CAMPAIGN_TITLE,
       body,
@@ -1808,6 +1833,7 @@ module.exports = {
   CAMPAIGN_SCHEMA,
   CAMPAIGN_MARKER,
   CAMPAIGN_TITLE,
+  CAMPAIGN_TITLE_PATTERN,
   DELIVERY_HANDOFF_SCHEMA,
   LABEL_CAMPAIGN,
   LABEL_ACTIVE,
@@ -1817,6 +1843,7 @@ module.exports = {
   buildQueueItem,
   classifyPullRequest,
   discoverRepoWork,
+  ensureLabel,
   findCampaignIssue,
   formatCampaignBody,
   formatCampaignMarker,
