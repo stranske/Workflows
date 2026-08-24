@@ -11,6 +11,7 @@ CONSUMER_GUARD_PATH = Path(
     "templates/consumer-repo/.github/workflows/agents-issue-format-guard.yml"
 )
 WORKFLOW_CATALOG_PATH = Path("docs/ci/WORKFLOWS.md")
+CONSUMER_GUIDE_PATH = Path("templates/consumer-repo/WORKFLOW_USER_GUIDE.md")
 
 
 def _load_workflow() -> dict:
@@ -30,6 +31,21 @@ def test_issue_optimizer_checks_for_format_label() -> None:
     text = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "agents:format" in text
     assert "phase=format" in text
+
+
+def test_recursion_guard_links_to_managed_recovery_procedures() -> None:
+    recovery_anchor = "#auto-pilot-recovery-procedures"
+    root_text = WORKFLOW_PATH.read_text(encoding="utf-8")
+    consumer_text = CONSUMER_WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert "/blob/${DEFAULT_BRANCH}/templates/consumer-repo/WORKFLOW_USER_GUIDE.md" in root_text
+    assert "/blob/${DEFAULT_BRANCH}/WORKFLOW_USER_GUIDE.md" in consumer_text
+    for text in (root_text, consumer_text):
+        assert recovery_anchor in text
+        assert "/blob/${DEFAULT_BRANCH}/Agents.md" not in text
+
+    guide = CONSUMER_GUIDE_PATH.read_text(encoding="utf-8")
+    assert "### Auto-pilot recovery procedures" in guide
+    assert "Remove `agents:auto-pilot-pause`" in guide
 
 
 def test_format_optimizer_rechecks_live_hold_and_exemption_state() -> None:

@@ -284,7 +284,7 @@ jobs:
             # Post warning comment
             REPO="${{ github.repository }}"
             DOCS_URL="https://github.com/${REPO}"
-            DOCS_URL+="/blob/${DEFAULT_BRANCH}/Agents.md"
+            DOCS_URL+="/blob/${DEFAULT_BRANCH}/WORKFLOW_USER_GUIDE.md"
             DOCS_URL+="#auto-pilot-recovery-procedures"
             printf '%s\n' \
               "## ⚠️ Optimizer Paused" \
