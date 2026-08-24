@@ -173,7 +173,7 @@ jobs:
                 `Current sync hash: ${result.state.current_sync_hash || '-'}`,
                 `Repos checked: ${stats.repos_checked || 0}/${stats.repos_requested || 0}`,
                 `Open sync PRs: ${stats.sync_prs_open || 0}`,
-                `Open Dependabot PRs: ${stats.dependabot_prs_open || 0}`,
+                `Open dependency PRs: ${stats.dependabot_prs_open || 0}`,
                 `Active review threads queued: ${stats.active_review_threads || 0}`,
                 `Items needing local Codex: ${stats.items_needing_local_codex || 0}`,
                 `Actionable local Codex items: ${stats.items_actionable_local_codex || 0}`,

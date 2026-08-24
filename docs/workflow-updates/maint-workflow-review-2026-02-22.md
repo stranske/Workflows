@@ -154,7 +154,7 @@ This log mirrors the health-workflow audit but targets the `maint-*` workflows. 
 ### `maint-dependabot-weekly-sweep.yml`
 
 - **Purpose**: Retired weekly automation that scanned consumer repos for open Dependabot PRs and auto-merged them when checks passed.
-- **Retirement note**: The workflow was removed when the repo moved to bot-agnostic dependency handling; queue visibility now lives in the Sync/Dependabot campaign surfaces.
+- **Retirement note**: The workflow was removed when the repo moved to bot-agnostic dependency handling; queue visibility now lives in the Sync/Dependency campaign surfaces.
 
 ### `maint-sync-env-from-pyproject.yml`
 - **Purpose**: Keeps `.github/workflows/autofix-versions.env` aligned with `pyproject.toml` whenever main receives dependency updates.

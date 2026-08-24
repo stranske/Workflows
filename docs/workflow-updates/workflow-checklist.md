@@ -80,7 +80,7 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `maint-coverage-guard.yml` | Removed rate-limit + guard job App-token mints; shared API client handles retries. |
 | [x] | `maint-auto-label-dep-prs.yml` | Reviewed – already minimal (gh CLI adds label via default token for dependency-bot PRs). |
 | [x] | `maint-auto-lock-deps.yml` | Reviewed – regenerates requirements.lock via uv when dependency bots touch lock inputs. |
-| [x] | `maint-dependabot-weekly-sweep.yml` | Retired; dependency-bot queueing now flows through Renovate plus the Sync/Dependabot campaign surfaces. |
+| [x] | `maint-dependabot-weekly-sweep.yml` | Retired; dependency-bot queueing now flows through Renovate plus the Sync/Dependency campaign surfaces. |
 | [x] | `maint-sync-action-versions.yml` | Reviewed – already syncing template action pins via automated PRs. |
 | [x] | `maint-sync-env-from-pyproject.yml` | Dropped the app-token mint; env sync now commits with the default token. |
 | [x] | `pr-00-gate.yml` | Still the required PR orchestrator; ledger-validation now inherits the doc-only fast-path so README-only PRs skip the Python boot/install cycle while full runs continue to guard `.agents/**` ledgers. |

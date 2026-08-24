@@ -4,9 +4,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  CAMPAIGN_TITLE,
+  CAMPAIGN_TITLE_PATTERN,
   buildQueueItem,
   collectActiveBotThreads,
   discoverRepoWork,
+  ensureLabel,
   findCampaignIssue,
   formatCampaignBody,
   formatCampaignMarker,
@@ -24,6 +27,51 @@ const {
   verboseDryRunLoggingEnabled,
   validateCampaignState,
 } = require('../sync_dependency_campaign.js');
+
+test('campaign uses bot-agnostic public terminology while recognizing the legacy title', () => {
+  assert.equal(CAMPAIGN_TITLE, 'Sync/Dependency campaign queue');
+  assert.equal(CAMPAIGN_TITLE_PATTERN.test(CAMPAIGN_TITLE), true);
+  assert.equal(CAMPAIGN_TITLE_PATTERN.test('Sync/Dependabot campaign queue'), true);
+});
+
+test('ensureLabel refreshes stale metadata on an existing campaign label', async () => {
+  const updates = [];
+  const github = {
+    rest: {
+      issues: {
+        getLabel: async () => ({
+          data: {
+            color: '0e8a16',
+            description: 'Sync/Dependabot campaign queue',
+          },
+        }),
+        updateLabel: async (params) => {
+          updates.push(params);
+          return { data: params };
+        },
+      },
+    },
+  };
+
+  await ensureLabel(
+    github,
+    'stranske',
+    'Workflows',
+    'campaign:sync-dependabot',
+    '0e8a16',
+    'Sync/dependency campaign queue',
+    console,
+  );
+
+  assert.deepEqual(updates, [{
+    owner: 'stranske',
+    repo: 'Workflows',
+    name: 'campaign:sync-dependabot',
+    new_name: 'campaign:sync-dependabot',
+    color: '0e8a16',
+    description: 'Sync/dependency campaign queue',
+  }]);
+});
 
 test('mergeDeliveryHandoffs retains one current record per generated PR', () => {
   const stale = {
@@ -844,7 +892,8 @@ test('formatCampaignBody renders queue rows and marker', () => {
 
   const body = formatCampaignBody(state);
 
-  assert.match(body, /Sync\/Dependabot Campaign Queue/);
+  assert.match(body, /Sync\/Dependency Campaign Queue/);
+  assert.match(body, /Open dependency PRs: 1/);
   assert.match(body, /stranske\/App#10/);
   assert.equal(parseCampaignMarker(body).stats.items_needing_local_codex, 1);
 });
@@ -1085,8 +1134,8 @@ test('findCampaignIssue only returns marker-backed campaign issues', async () =>
             number: issueNumber,
             title:
               issueNumber === 12
-                ? 'Sync/Dependabot campaign queue - old'
-                : 'Sync/Dependabot campaign queue',
+                ? 'Sync/Dependency campaign queue - old'
+                : 'Sync/Dependency campaign queue',
             body: issueNumber === 12 ? 'matching title without marker' : markerBody,
             html_url: `https://github.test/issues/${issueNumber}`,
           },
@@ -1099,13 +1148,13 @@ test('findCampaignIssue only returns marker-backed campaign issues', async () =>
       return [
         {
           number: 12,
-          title: 'Sync/Dependabot campaign queue - old',
+          title: 'Sync/Dependency campaign queue - old',
           labels: [{ name: 'campaign:sync-dependabot' }],
           pull_request: null,
         },
         {
           number: 13,
-          title: 'Sync/Dependabot campaign queue',
+          title: 'Sync/Dependency campaign queue',
           labels: [{ name: 'campaign:sync-dependabot' }],
           pull_request: null,
         },
@@ -1129,7 +1178,7 @@ test('findCampaignIssue does not fall back to unmarked title matches', async () 
       },
     },
     paginate: async () => [
-      { number: 12, title: 'Sync/Dependabot campaign queue', pull_request: null },
+      { number: 12, title: 'Sync/Dependency campaign queue', pull_request: null },
     ],
   };
 
@@ -1147,7 +1196,7 @@ test('findCampaignIssue falls back to active campaign labels', async () => {
         get: async ({ issue_number: issueNumber }) => ({
           data: {
             number: issueNumber,
-            title: 'Sync/Dependabot campaign queue',
+            title: 'Sync/Dependency campaign queue',
             body: markerBody,
             labels: [
               { name: 'campaign:sync-dependabot' },
@@ -1162,7 +1211,7 @@ test('findCampaignIssue falls back to active campaign labels', async () => {
         return [
           {
             number: 1836,
-            title: 'Sync/Dependabot campaign queue',
+            title: 'Sync/Dependency campaign queue',
             pull_request: null,
             labels: [
               { name: 'campaign:sync-dependabot' },
@@ -1233,7 +1282,7 @@ test('formats campaign run summary as compact artifact markdown', () => {
     html_url: 'https://github.com/stranske/Workflows/issues/99',
   });
 
-  assert.match(summary, /Sync\/Dependabot Campaign Run/);
+  assert.match(summary, /Sync\/Dependency Campaign Run/);
   assert.match(summary, /Run ID: 12345/);
   assert.match(summary, /Campaign issue: https:\/\/github.com\/stranske\/Workflows\/issues\/99/);
   assert.match(summary, /Repos checked: 2\/3/);
