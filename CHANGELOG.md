@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.2](https://github.com/stranske/Workflows/compare/v1.30.1...v1.30.2) (2026-08-24)
+
+
+### Bug Fixes
+
+* **health:** close recovered consumer drift alerts ([#3224](https://github.com/stranske/Workflows/issues/3224)) ([a992e09](https://github.com/stranske/Workflows/commit/a992e09b1bfb602c79512514c51a01c9bb67e642))
+* **sync:** modernize dependency campaign terminology ([#3225](https://github.com/stranske/Workflows/issues/3225)) ([9e8a0c9](https://github.com/stranske/Workflows/commit/9e8a0c9904dbf5af64fd074814cc1134ca5cae67))
+
 ## [1.30.1](https://github.com/stranske/Workflows/compare/v1.30.0...v1.30.1) (2026-08-24)
 
 
