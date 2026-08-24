@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.5](https://github.com/stranske/Workflows/compare/v1.30.4...v1.30.5) (2026-08-24)
+
+
+### Bug Fixes
+
+* gate verifier corpus auto-merge review window ([7d64fbf](https://github.com/stranske/Workflows/commit/7d64fbf22fee6f9331eba57179e41d0e3658ba2b))
+* gate verifier corpus auto-merge review window ([dc32f14](https://github.com/stranske/Workflows/commit/dc32f14646d4b9b7d1605cd79216fd6e221896e4))
+* link optimizer pauses to recovery guide ([d911ce7](https://github.com/stranske/Workflows/commit/d911ce72d30767d8f77dbec22b4396d8217ed220))
+* paginate review threads and pin auto-merge head ([761a0f2](https://github.com/stranske/Workflows/commit/761a0f22a0defda4c7740fa685c38f53ee46c466))
+* pin review gate action ([f1b4833](https://github.com/stranske/Workflows/commit/f1b4833dd32c1eb5f23a152bf22db6682b1fe568))
+* preserve literal GraphQL variables in lint ([40d53d1](https://github.com/stranske/Workflows/commit/40d53d1742ffa0d71424a1ec88f2bfc1aeb3ca5a))
+* require Gate before generated sync merges ([36de7a6](https://github.com/stranske/Workflows/commit/36de7a62e0ac74700156adb96c2f8136cd2e63eb))
+* require Gate before generated sync merges ([a1641d2](https://github.com/stranske/Workflows/commit/a1641d2bd4ac4b13b641e455a37488dcb9dfc5fb))
+* route review gate through API wrapper ([cddd466](https://github.com/stranske/Workflows/commit/cddd466281b508808f5c1bd5224575c0892c2e08))
+* **sync:** recheck generated delivery Gate before merge ([399a2c3](https://github.com/stranske/Workflows/commit/399a2c324ed5106cdf9b6cbe8327ff7d82803b3a))
+* **sync:** treat importable test modules as local ([#3239](https://github.com/stranske/Workflows/issues/3239)) ([a377fd3](https://github.com/stranske/Workflows/commit/a377fd30ac155cc18978829064ed5b09aa11c34d))
+
 ## [1.30.4](https://github.com/stranske/Workflows/compare/v1.30.3...v1.30.4) (2026-08-24)
 
 
