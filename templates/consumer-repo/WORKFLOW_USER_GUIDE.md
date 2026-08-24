@@ -460,6 +460,22 @@ Orchestrates entire pipeline:
 
 ## Troubleshooting
 
+### Auto-pilot recovery procedures
+
+When the issue optimizer detects more than three runs for the same issue in one
+hour, it applies `agents:auto-pilot-pause` to stop the recursion.
+
+1. Inspect the recent `agents-issue-optimizer.yml` runs and the issue body for
+   repeated tasks, malformed sections, or a failing formatter.
+2. Repair the issue body or the Workflows source that caused the repeated run.
+3. Confirm that the issue is no longer being redispatched and that its body is
+   valid before resuming automation.
+4. Remove `agents:auto-pilot-pause` to allow the issue through the normal format
+   and auto-pilot gates again.
+
+Do not remove the pause label before correcting the cause; doing so can restart
+the same recursion and exhaust the bounded retry cap again.
+
 ### Issue: Agent Not Starting
 
 **Symptoms:** Added `agent:codex` but nothing happens

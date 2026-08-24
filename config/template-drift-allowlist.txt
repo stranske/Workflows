@@ -133,9 +133,9 @@ fingerprint_refreshed = 2026-08-23
 [pair.11]
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = 7584c3546fc1c568fec4c1efa0ee5c65ff52ac4e58c67d59a6f3fce054bcd490
-template_sha256 = eb9a174e05137d58b4cc3559e7178560104243387ed8efc464c7ae56bd38a57a
-divergence = Fingerprints refreshed 2026-08-24: both surfaces now build the optimizer recovery link from the repository default branch instead of the retired Trend-only phase-3 branch. Applied identically to root and consumer, so it introduces no new divergence. Prior fingerprint refresh 2026-08-24: both surfaces treat automated issues as format-ineligible, complementing the shared guard cleanup that removes stale agents:format leases from exempt issues. Underlying divergence unchanged: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Do not align wholesale — that would strip consumer action pins/token setup.
+main_sha256 = b61916120daf41bf2786b801d1a4a22e68304730b33cb539495c7ed420a15158
+template_sha256 = 0d90f40aa1e697e7b38db0980f7509d6ebb4fe155716a48e6c05772891209aee
+divergence = Fingerprints refreshed 2026-08-24: both surfaces now link recursion-pause comments to the managed WORKFLOW_USER_GUIDE recovery section instead of a nonexistent Agents.md anchor. The Workflows-local surface links to templates/consumer-repo/WORKFLOW_USER_GUIDE.md because there is no root guide, while the distributed consumer links to its root WORKFLOW_USER_GUIDE.md. Prior fingerprint refresh 2026-08-24: both surfaces treat automated issues as format-ineligible, complementing the shared guard cleanup that removes stale agents:format leases from exempt issues. Underlying divergence unchanged: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Do not align wholesale — that would strip consumer action pins/token setup.
 divergence_reviewed = 2026-08-24
 fingerprint_refreshed = 2026-08-24
 
