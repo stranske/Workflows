@@ -80,8 +80,62 @@ jobs:
             merging or reverting each PR. The semantic NON_PASS categories
             (stale-verifier-claim, review-thread-debt, missing-acceptance-criterion)
             remain owner-sourced and are never machine-added.
-      - name: Enable auto-merge
+      - name: Enforce review window before auto-merge
         if: steps.cpr.outputs.pull-request-number
+        id: review_window
         env:
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
-        run: gh pr merge "${{ steps.cpr.outputs.pull-request-number }}" --squash --auto
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          set -uo pipefail
+
+          initial_head="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          if [ -z "$initial_head" ]; then
+            echo "::warning::Unable to identify the corpus PR head; auto-merge remains disabled."
+            exit 0
+          fi
+
+          # A newly pushed head must remain available for review for seven full
+          # minutes before this workflow can arm or execute its merge.
+          sleep 420
+
+          current_head="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          if [ "$current_head" != "$initial_head" ]; then
+            echo "::notice::Corpus PR head changed during the review window; auto-merge remains disabled."
+            exit 0
+          fi
+
+          # Do not arm auto-merge until required checks have actually reported
+          # and passed on the unchanged head. A timeout leaves the PR for the
+          # next maintenance run rather than merging on an incomplete signal.
+          if ! required_checks="$(timeout 1200 gh pr checks "$PR_NUMBER" --required --watch --interval 30 2>&1)"; then
+            printf '%s\n' "$required_checks"
+            echo "::notice::Required checks are incomplete or failing; auto-merge remains disabled."
+            exit 0
+          fi
+          if [ -z "$required_checks" ]; then
+            echo "::warning::No required checks reported; auto-merge remains disabled."
+            exit 0
+          fi
+
+          review_query='query($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { isResolved isOutdated } } } } }'
+          active_threads="$(gh api graphql -f query="$review_query" -f owner="${GITHUB_REPOSITORY%/*}" -f repo="${GITHUB_REPOSITORY#*/}" -F number="$PR_NUMBER" --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select((.isResolved | not) and (.isOutdated | not))] | length')"
+          if [ "$active_threads" != "0" ]; then
+            echo "::notice::$active_threads active review thread(s) remain; auto-merge remains disabled."
+            exit 0
+          fi
+
+          final_head="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          merge_state="$(gh pr view "$PR_NUMBER" --json mergeStateStatus --jq .mergeStateStatus)"
+          if [ "$final_head" != "$initial_head" ] || [ "$merge_state" != "CLEAN" ]; then
+            echo "::notice::Corpus PR changed or is not clean after gate re-read; auto-merge remains disabled."
+            exit 0
+          fi
+
+          echo "review_window_passed=true" >> "$GITHUB_OUTPUT"
+      - name: Enable auto-merge
+        if: steps.review_window.outputs.review_window_passed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        run: gh pr merge "$PR_NUMBER" --squash --auto
