@@ -19,6 +19,12 @@ trackers:
   - workflow: maint-80-langsmith-metrics-dashboard.yml
     issue: 2415
     max_age_hours: 192
+  - workflow: maint-77-model-registry-freshness.yml
+    issue: 2905
+    max_age_hours: 192
+  - workflow: health-84-langsmith-observability.yml
+    issue: 3123
+    max_age_hours: 48
   - workflow: health-40-repo-selfcheck.yml
     issue: 3218
     max_age_hours: 192

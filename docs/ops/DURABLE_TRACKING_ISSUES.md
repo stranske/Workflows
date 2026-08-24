@@ -19,15 +19,13 @@ metrics summary). Without a tracker convention each run would either:
 - Open a fresh issue every cycle (rapidly creating dozens of duplicates), or
 - Have no surfaced state at all.
 
-The trackers below solve this by reusing one issue per controller. The bot
-either appends a comment per cycle (`#2211`) or rewrites the body in place
-(`#1836`, `#2210`, `#2415`); `#2470` is a hybrid that stamps a marker into the
-body and appends a recovery comment. Check the `Update style` column before
-assuming append-versus-rewrite handling. Either way, **the issue itself is the
-dashboard**: do not close it during routine triage. Each controller has its own
-lifecycle; for example, closing the active `#1836` campaign queue stops that
-controller's work, while `#2470` is recreated only through its
-failure-notification path.
+The trackers below solve this by reusing one issue per controller. The bot may
+append a comment, rewrite the body in place, or combine a body marker with
+transition comments. Check the `Update style` column before assuming how a
+tracker carries current state. Either way, **the issue itself is the dashboard**:
+do not close it during routine triage. Each controller has its own lifecycle;
+for example, closing the active `#1836` campaign queue stops that controller's
+work, while `#2470` is recreated only through its failure-notification path.
 
 ---
 
@@ -41,6 +39,8 @@ failure-notification path.
 | [#2210](https://github.com/stranske/Workflows/issues/2210) | 🔄 Consumer repo drift detected | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 06:15 UTC schedule, debounced successful main-branch `Merge Sync PRs` runs, qualifying manifest/template/script/tool pushes, or manual dispatch | Body rewritten in place, but only for actionable states |
 | [#2470](https://github.com/stranske/Workflows/issues/2470) | 🚨 Integration-Tests Sync Failed - Action Required | [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) | On qualifying template/config pushes or manual dispatch | Stuck-window marker in body + recovery comment |
 | [#2415](https://github.com/stranske/Workflows/issues/2415) | 📊 LangSmith Trace Coverage Dashboard | [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) | Mondays 09:00 UTC + manual dispatch | Body rewritten in place |
+| [#2905](https://github.com/stranske/Workflows/issues/2905) | LLM model registry needs evidence review | [`maint-77-model-registry-freshness.yml`](../../.github/workflows/maint-77-model-registry-freshness.yml) | Mondays 05:20 UTC + manual dispatch | Evidence comment appended while freshness or catalog findings persist |
+| [#3123](https://github.com/stranske/Workflows/issues/3123) | 🔭 LangSmith Observability Health | [`health-84-langsmith-observability.yml`](../../.github/workflows/health-84-langsmith-observability.yml) | Daily 10:15 UTC + manual dispatch | Body rewritten in place; comment appended on health transition |
 | [#3218](https://github.com/stranske/Workflows/issues/3218) | [health] repository self-check | [`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml) | Mondays 06:20 UTC + manual dispatch | Body rewritten in place and issue kept pinned |
 
 The signal flow each tracker carries:
@@ -48,6 +48,10 @@ The signal flow each tracker carries:
 - **#2211** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
 - **#1836** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
 - **#2897** — Health 83 dependency/sync maintenance-efficiency advisory evidence. Comments append only when the material-evidence fingerprint changes; do not redirect this signal onto `#1836`.
+- **#2905** — model-registry freshness and provider-catalog evidence. Catalog
+  additions are review candidates, not approved selections; the tracker remains
+  open while Maint 77 refreshes the facts and a paired benchmark or explicit
+  catalog review resolves the finding.
 - **#2415** — LangSmith fleet observability status. Read the evidence mode as
   well as the status: `valid`/`missing`/`stale`/`invalid` are artifact-backed;
   `direct` means Workflows-owned direct tracing with no repo-local artifact;
@@ -55,6 +59,13 @@ The signal flow each tracker carries:
   consumers. Only artifact-backed `missing`, `stale`, or `invalid` rows are
   actionable coverage debt. A missing row means the dashboard lacks evidence,
   not that the tracker itself should be closed.
+- **#3123** — independent LangSmith observability sentinel. The body is the
+  current health snapshot. A degraded state carries `needs-human` and
+  `agent:needs-attention`; a healthy transition removes those labels but does
+  not close the tracker.
+- **#3218** — repository governance snapshot. The body records label inventory,
+  branch-protection, and privileged-enforcement state, and the controller keeps
+  the issue pinned for operator visibility.
 
 ### Leased generated delivery attempts
 
