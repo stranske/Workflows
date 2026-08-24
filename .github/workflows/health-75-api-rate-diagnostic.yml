@@ -135,7 +135,7 @@ jobs:
         if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          client-id: ${{ env.WORKFLOWS_APP_ID }}
           private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
@@ -154,7 +154,7 @@ jobs:
         uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
-          app-id: ${{ env.KEEPALIVE_APP_ID }}
+          client-id: ${{ env.KEEPALIVE_APP_ID }}
           private-key: ${{ env.KEEPALIVE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
@@ -173,7 +173,7 @@ jobs:
         uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
-          app-id: ${{ env.GH_APP_ID }}
+          client-id: ${{ env.GH_APP_ID }}
           private-key: ${{ env.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
@@ -496,7 +496,7 @@ jobs:
         if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          client-id: ${{ env.WORKFLOWS_APP_ID }}
           private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 

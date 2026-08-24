@@ -801,7 +801,7 @@ jobs:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
           KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || '' }}
         with:
-          app-id: ${{ env.KEEPALIVE_APP_ID }}
+          client-id: ${{ env.KEEPALIVE_APP_ID }}
           private-key: ${{ env.KEEPALIVE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
@@ -821,7 +821,7 @@ jobs:
           WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
           WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
         with:
-          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          client-id: ${{ env.WORKFLOWS_APP_ID }}
           private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
@@ -1582,7 +1582,7 @@ jobs:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
           KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || '' }}
         with:
-          app-id: ${{ env.KEEPALIVE_APP_ID }}
+          client-id: ${{ env.KEEPALIVE_APP_ID }}
           private-key: ${{ env.KEEPALIVE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
@@ -1602,7 +1602,7 @@ jobs:
           WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
           WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
         with:
-          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          client-id: ${{ env.WORKFLOWS_APP_ID }}
           private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
@@ -1800,7 +1800,7 @@ jobs:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID }}
           KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
         with:
-          app-id: ${{ secrets.KEEPALIVE_APP_ID }}
+          client-id: ${{ secrets.KEEPALIVE_APP_ID }}
           private-key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
