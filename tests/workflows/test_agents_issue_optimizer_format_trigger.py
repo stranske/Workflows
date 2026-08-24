@@ -55,7 +55,7 @@ def test_automated_issues_are_exempt_and_release_stale_format_leases() -> None:
     ):
         assert text.count('. == "automated"') >= 1
         assert "Clear stale format lease from exempt issues" in text
-        assert 'steps.issue.outputs.exempt == \'true\'' in text
+        assert "steps.issue.outputs.exempt == 'true'" in text
         assert '--remove-label "agents:format"' in text
 
     for text in (
