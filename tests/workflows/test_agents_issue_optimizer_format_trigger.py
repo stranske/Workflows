@@ -53,6 +53,7 @@ def test_automated_issues_are_exempt_and_release_stale_format_leases() -> None:
         GUARD_PATH.read_text(encoding="utf-8"),
         CONSUMER_GUARD_PATH.read_text(encoding="utf-8"),
     ):
+        assert "github.event.label.name == 'automated'" in text
         assert text.count('. == "automated"') >= 1
         assert "Clear stale format lease from exempt issues" in text
         assert "steps.issue.outputs.exempt == 'true'" in text

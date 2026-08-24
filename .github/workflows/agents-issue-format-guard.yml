@@ -37,6 +37,7 @@ jobs:
       ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
       (github.event.label.name == 'agents:auto-pilot-pause' ||
       github.event.label.name == 'needs-human' ||
+      github.event.label.name == 'automated' ||
       github.event.label.name == 'tracker:durable' || github.event.label.name == 'wontfix'))
     runs-on: ubuntu-latest
     steps:
