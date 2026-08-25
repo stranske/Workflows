@@ -93,18 +93,19 @@ def _latest_executable_run(
             runs = payload.get("workflow_runs")
             if not isinstance(runs, list):
                 break
-            candidate = next(
-                (
-                    run
-                    for run in runs
-                    if isinstance(run, dict)
-                    and str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS
-                    and (
-                        require_step is None or _run_completed_step(repo, run, token, require_step)
-                    )
-                ),
-                None,
-            )
+            candidate = None
+            for run in runs:
+                if not isinstance(run, dict):
+                    continue
+                if str(run.get("conclusion") or "") not in EXECUTABLE_CONCLUSIONS:
+                    continue
+                if require_step is None:
+                    candidate = run
+                    break
+                completed_at = _run_completed_step(repo, run, token, require_step)
+                if completed_at:
+                    candidate = {**run, "required_step_completed_at": completed_at}
+                    break
             if candidate is not None:
                 candidates.append(candidate)
                 break
@@ -113,29 +114,33 @@ def _latest_executable_run(
             page += 1
     if not candidates:
         return None
-    return max(candidates, key=lambda run: str(run.get("created_at") or ""))
+    return max(
+        candidates,
+        key=lambda run: str(run.get("required_step_completed_at") or run.get("created_at") or ""),
+    )
 
 
-def _run_completed_step(repo: str, run: dict[str, Any], token: str, require_step: str) -> bool:
-    """Return whether a completed workflow run executed ``require_step``."""
+def _run_completed_step(
+    repo: str, run: dict[str, Any], token: str, require_step: str
+) -> str | None:
+    """Return ``require_step``'s completion time when the run executed it."""
     run_id = run.get("id")
     if not isinstance(run_id, int):
-        return False
+        return None
     payload = _gh_api(f"repos/{repo}/actions/runs/{run_id}/jobs?per_page=100", token)
     jobs = payload.get("jobs")
     if not isinstance(jobs, list):
-        return False
-    return any(
-        isinstance(job, dict)
-        and isinstance(job.get("steps"), list)
-        and any(
-            isinstance(step, dict)
-            and step.get("name") == require_step
-            and step.get("conclusion") != "skipped"
-            for step in job["steps"]
-        )
-        for job in jobs
-    )
+        return None
+    for job in jobs:
+        if not isinstance(job, dict) or not isinstance(job.get("steps"), list):
+            continue
+        for step in job["steps"]:
+            if not isinstance(step, dict) or step.get("name") != require_step:
+                continue
+            completed_at = step.get("completed_at")
+            if step.get("conclusion") != "skipped" and isinstance(completed_at, str):
+                return completed_at
+    return None
 
 
 def _held_by_workflow_protection(runs_probe_empty: bool, repo: str, workflow_file: str) -> str:
@@ -186,7 +191,9 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
             else None
         )
         require_step = entry.get("require_step")
-        if require_step is not None and not isinstance(require_step, str):
+        if require_step is not None and (
+            not isinstance(require_step, str) or not require_step.strip()
+        ):
             raise ValueError(f"{workflow} require_step must be a string")
         latest_run = _latest_executable_run(repo, workflow, auth, allowed_events)
         latest = _latest_executable_run(repo, workflow, auth, allowed_events, require_step)
@@ -221,7 +228,8 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                 result["reason"] += _held_by_workflow_protection(True, repo, workflow)
             results.append(result)
             continue
-        hours = _hours_since(str(latest["created_at"]))
+        measured_at = str(latest.get("required_step_completed_at") or latest["created_at"])
+        hours = _hours_since(measured_at)
         healthy = hours <= max_age_hours
         results.append(
             {
@@ -246,6 +254,7 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                         round(latest_run_hours, 2) if latest_run_hours is not None else None
                     ),
                     "latest_comparing_created_at": latest.get("created_at"),
+                    "latest_comparing_completed_at": latest.get("required_step_completed_at"),
                     "hours_since_latest_comparing": round(hours, 2),
                 }
             )

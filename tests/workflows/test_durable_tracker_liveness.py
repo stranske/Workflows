@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 from scripts import check_durable_tracker_liveness
 from scripts.check_durable_tracker_liveness import tracker_doc_workflows
@@ -234,7 +235,11 @@ def test_liveness_ignores_runs_whose_comparison_step_was_skipped(monkeypatch) ->
                 "jobs": [
                     {
                         "steps": [
-                            {"name": "Compare consumer repos to templates", "conclusion": "success"}
+                            {
+                                "name": "Compare consumer repos to templates",
+                                "conclusion": "success",
+                                "completed_at": "2026-08-24T11:05:00Z",
+                            }
                         ]
                     }
                 ]
@@ -250,7 +255,9 @@ def test_liveness_ignores_runs_whose_comparison_step_was_skipped(monkeypatch) ->
         require_step="Compare consumer repos to templates",
     )
 
-    assert latest == compared
+    assert latest is not None
+    assert latest["id"] == compared["id"]
+    assert latest["required_step_completed_at"] == "2026-08-24T11:05:00Z"
 
 
 def test_latest_executable_run_stops_after_newest_qualifying_step(monkeypatch) -> None:
@@ -275,7 +282,11 @@ def test_latest_executable_run_stops_after_newest_qualifying_step(monkeypatch) -
                 "jobs": [
                     {
                         "steps": [
-                            {"name": "Compare consumer repos to templates", "conclusion": "success"}
+                            {
+                                "name": "Compare consumer repos to templates",
+                                "conclusion": "success",
+                                "completed_at": "2026-08-24T12:05:00Z",
+                            }
                         ]
                     }
                 ]
@@ -284,20 +295,72 @@ def test_latest_executable_run_stops_after_newest_qualifying_step(monkeypatch) -
 
     monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
 
-    assert (
-        check_durable_tracker_liveness._latest_executable_run(
-            "stranske/Workflows",
-            "health-68-consumer-sync-drift.yml",
-            "token",
-            require_step="Compare consumer repos to templates",
-        )
-        == newest
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "health-68-consumer-sync-drift.yml",
+        "token",
+        require_step="Compare consumer repos to templates",
     )
+
+    assert latest is not None
+    assert latest["id"] == newest["id"]
     assert seen == [
         "repos/stranske/Workflows/actions/workflows/health-68-consumer-sync-drift.yml/"
         "runs?per_page=100",
         "repos/stranske/Workflows/actions/runs/2/jobs?per_page=100",
     ]
+
+
+@pytest.mark.parametrize("require_step", ["", " \t "])
+def test_evaluate_trackers_rejects_blank_required_step(monkeypatch, require_step: str) -> None:
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "health-68-consumer-sync-drift.yml",
+                "issue": 3249,
+                "max_age_hours": 48,
+                "require_step": require_step,
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="require_step must be a string"):
+        check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+
+
+def test_evaluate_trackers_uses_required_step_completion_time(monkeypatch) -> None:
+    tracker = {
+        "workflow": "health-68-consumer-sync-drift.yml",
+        "issue": 3249,
+        "max_age_hours": 48,
+        "require_step": "Compare consumer repos to templates",
+    }
+    latest_run = {"created_at": "2026-08-24T10:00:00Z", "conclusion": "success"}
+    compared_run = {
+        **latest_run,
+        "required_step_completed_at": "2026-08-24T11:50:00Z",
+    }
+    monkeypatch.setattr(check_durable_tracker_liveness, "_load_config", lambda: [tracker])
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_latest_executable_run",
+        lambda _repo, _workflow, _token, _events=None, require_step=None: (
+            compared_run if require_step else latest_run
+        ),
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_hours_since",
+        lambda timestamp: 1.0 if timestamp.endswith("11:50:00Z") else 50.0,
+    )
+
+    result = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")[0]
+
+    assert result["healthy"] is True
+    assert result["hours_since"] == 1.0
+    assert result["latest_comparing_completed_at"] == "2026-08-24T11:50:00Z"
 
 
 def test_health_68_liveness_requires_comparison_step() -> None:

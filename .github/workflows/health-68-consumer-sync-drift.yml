@@ -95,11 +95,11 @@ jobs:
                   run_id: run.id,
                   per_page: 100,
                 }));
-                const compared = jobs.data.jobs.some((job) => job.steps?.some(
+                const comparisonStep = jobs.data.jobs.flatMap((job) => job.steps || []).find(
                   (step) => step.name === "Compare consumer repos to templates" && step.conclusion !== "skipped",
-                ));
-                if (compared) {
-                  process.stdout.write(run.created_at);
+                );
+                if (comparisonStep?.completed_at) {
+                  process.stdout.write(comparisonStep.completed_at);
                   return;
                 }
               }

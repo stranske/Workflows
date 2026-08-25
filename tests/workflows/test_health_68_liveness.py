@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -11,6 +12,33 @@ import pytest
 import yaml
 
 WORKFLOW = Path(".github/workflows/health-68-consumer-sync-drift.yml")
+
+
+def _comparison_completed_at(jobs: list[dict]) -> str | None:
+    for job in jobs:
+        for step in job.get("steps", []):
+            if (
+                step.get("name") == "Compare consumer repos to templates"
+                and step.get("conclusion") != "skipped"
+                and isinstance(step.get("completed_at"), str)
+            ):
+                return str(step["completed_at"])
+    return None
+
+
+def _latest_comparing_completed_at(
+    runs: list[dict], jobs_for_run: Callable[[int], list[dict]]
+) -> str | None:
+    for run in runs:
+        if str(run.get("conclusion") or "") not in {"success", "failure", "cancelled", "timed_out"}:
+            continue
+        run_id = run.get("id")
+        if not isinstance(run_id, int):
+            continue
+        completed_at = _comparison_completed_at(jobs_for_run(run_id))
+        if completed_at:
+            return completed_at
+    return None
 
 
 def _workflow_triggers() -> dict:
@@ -29,6 +57,7 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
     assert "github.event_name == 'workflow_run'" in text
     assert "listJobsForWorkflowRun" in text
     assert 'step.name === "Compare consumer repos to templates"' in text
+    assert "comparisonStep.completed_at" in text
     assert 'branch: "main"' in text or "branch: 'main'" in text
 
 
@@ -79,24 +108,55 @@ def test_consumer_drift_detector_executed_recently() -> None:
         text=True,
         env={**os.environ, "GH_TOKEN": token},
     )
-    latest_executable: str | None = None
-    for line in payload.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        import json
+    import json
 
-        run = json.loads(line)
-        conclusion = str(run.get("conclusion") or "")
-        if conclusion not in {"success", "failure", "cancelled", "timed_out"}:
-            continue
-        latest_executable = str(run.get("created_at"))
-        break
+    runs = [json.loads(line) for line in payload.splitlines() if line.strip()]
+
+    def jobs_for_run(run_id: int) -> list[dict]:
+        jobs_payload = subprocess.check_output(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/actions/runs/{run_id}/jobs",
+                "-q",
+                ".jobs",
+            ],
+            text=True,
+            env={**os.environ, "GH_TOKEN": token},
+        )
+        return json.loads(jobs_payload)
+
+    latest_executable = _latest_comparing_completed_at(runs, jobs_for_run)
 
     assert latest_executable, "no executable Health 68 run found"
-    created = datetime.fromisoformat(latest_executable.replace("Z", "+00:00"))
-    hours = (datetime.now(UTC) - created).total_seconds() / 3600.0
-    assert hours <= 48, f"newest executable Health 68 run is {latest_executable} ({hours:.1f}h old)"
+    completed = datetime.fromisoformat(latest_executable.replace("Z", "+00:00"))
+    hours = (datetime.now(UTC) - completed).total_seconds() / 3600.0
+    assert hours <= 48, f"newest comparing Health 68 run is {latest_executable} ({hours:.1f}h old)"
+
+
+def test_live_probe_uses_an_older_run_when_the_newer_comparison_was_skipped() -> None:
+    runs = [
+        {"id": 2, "conclusion": "success"},
+        {"id": 1, "conclusion": "success"},
+    ]
+    jobs = {
+        2: [{"steps": [{"name": "Compare consumer repos to templates", "conclusion": "skipped"}]}],
+        1: [
+            {
+                "steps": [
+                    {
+                        "name": "Compare consumer repos to templates",
+                        "conclusion": "success",
+                        "completed_at": "2026-08-24T11:05:00Z",
+                    }
+                ]
+            }
+        ],
+    }
+
+    assert (
+        _latest_comparing_completed_at(runs, lambda run_id: jobs[run_id]) == "2026-08-24T11:05:00Z"
+    )
 
 
 def test_live_probe_skips_only_without_a_token() -> None:
