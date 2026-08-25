@@ -2481,11 +2481,22 @@ jobs:
           if [ -n "$COVERAGE_MIN" ]; then
             MIN_ARG="--minimum $COVERAGE_MIN"
           fi
+          # The baseline lives at the PROJECT root, which is NOT the workspace root for a
+          # consumer that sets `working-directory` -- stranske/Travel-Plan-Permission really does.
+          # Those consumers were reading a path that does not exist, and an unread baseline used
+          # to render as 0.00% with a delta measured against nothing. Workspace root is kept as a
+          # fallback so the `working-directory: "."` consumers (every other repo in the fleet)
+          # resolve to exactly the same file as before.
+          BASELINE_PATH="${PROJECT_ROOT}/config/coverage-baseline.json"
+          if [ ! -f "${BASELINE_PATH}" ]; then
+            BASELINE_PATH="${WORKSPACE_ROOT}/config/coverage-baseline.json"
+          fi
           # shellcheck disable=SC2086
           python "${GITHUB_WORKSPACE}/tools/coverage_trend.py" \
             --coverage-xml coverage.xml \
             --coverage-json coverage.json \
-            --baseline "${GITHUB_WORKSPACE}/config/coverage-baseline.json" \
+            --baseline "${BASELINE_PATH}" \
+            --project-root "${PROJECT_ROOT}" \
             --summary-path coverage-summary.md \
             --job-summary "$GITHUB_STEP_SUMMARY" \
             --artifact-path coverage-trend.json \
