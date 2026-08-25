@@ -143,7 +143,7 @@ addressed. Examples:
   removes any legacy durable marker/label, adds recovery evidence, and closes
   the alert as completed. A later incident creates a new alert.
 
-- **Health 68 consumer drift alerts** — fan-out alerts across registered
+- **#2210 / Health 68 consumer drift alerts** — fan-out alerts across registered
   consumer repos. Health 68 creates or refreshes one open issue only while drift
   is actionable and closes it on the next clean comparison. A later incident
   creates a new issue instead of reopening a permanent red dashboard. Since
