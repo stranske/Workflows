@@ -41,7 +41,7 @@ work.
 | [#2905](https://github.com/stranske/Workflows/issues/2905) | LLM model registry needs evidence review | [`maint-77-model-registry-freshness.yml`](../../.github/workflows/maint-77-model-registry-freshness.yml) | Mondays 05:20 UTC + manual dispatch | Evidence comment appended while freshness or catalog findings persist |
 | [#3123](https://github.com/stranske/Workflows/issues/3123) | 🔭 LangSmith Observability Health | [`health-84-langsmith-observability.yml`](../../.github/workflows/health-84-langsmith-observability.yml) | Daily 10:15 UTC + manual dispatch | Body rewritten in place; comment appended on health transition |
 | [#3218](https://github.com/stranske/Workflows/issues/3218) | [health] repository self-check | [`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml) | Mondays 06:20 UTC + manual dispatch | Body rewritten in place and issue kept pinned |
-| [#2210](https://github.com/stranske/Workflows/issues/2210) | Health 68 consumer drift liveness | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 06:15 UTC + qualifying `workflow_run` fan-out | Liveness is measured from the latest comparison step, not a debounced no-op run |
+| [#3249](https://github.com/stranske/Workflows/issues/3249) | Health 68 comparison liveness tracker | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 06:15 UTC + qualifying `workflow_run` fan-out | Liveness is measured from the latest comparison step, not a debounced no-op run; the transient drift alert remains independently auto-closing |
 
 The signal flow each tracker carries:
 
@@ -143,7 +143,7 @@ addressed. Examples:
   removes any legacy durable marker/label, adds recovery evidence, and closes
   the alert as completed. A later incident creates a new alert.
 
-- **#2210 / Health 68 consumer drift alerts** — fan-out alerts across registered
+- **Health 68 consumer drift alerts** — fan-out alerts across registered
   consumer repos. Health 68 creates or refreshes one open issue only while drift
   is actionable and closes it on the next clean comparison. A later incident
   creates a new issue instead of reopening a permanent red dashboard. Since
@@ -162,7 +162,9 @@ addressed. Examples:
   exits zero, and is deliberately silent. A gap in comments means "nothing
   actionable," not that the workflow stopped running. Confirm liveness from the
   workflow run history and the `workflow-liveness` job in
-  [`health-40-sweep.yml`](../../.github/workflows/health-40-sweep.yml). The full
+  [`health-40-sweep.yml`](../../.github/workflows/health-40-sweep.yml). The durable
+  liveness warning destination is [#3249](https://github.com/stranske/Workflows/issues/3249),
+  not an auto-closing drift alert. The full
   state and SLO contract lives in
   [`CONSUMER_REPO_MAINTENANCE.md`](CONSUMER_REPO_MAINTENANCE.md#drift-coverage-states).
   Health 68 also reports `counts.unmeasured_create_only`; those positions remain

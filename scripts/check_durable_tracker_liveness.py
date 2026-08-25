@@ -93,20 +93,21 @@ def _latest_executable_run(
             runs = payload.get("workflow_runs")
             if not isinstance(runs, list):
                 break
-            candidates_on_page = [
-                run
-                for run in runs
-                if isinstance(run, dict)
-                and str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS
-            ]
-            if require_step:
-                candidates_on_page = [
+            candidate = next(
+                (
                     run
-                    for run in candidates_on_page
-                    if _run_completed_step(repo, run, token, require_step)
-                ]
-            if candidates_on_page:
-                candidates.extend(candidates_on_page)
+                    for run in runs
+                    if isinstance(run, dict)
+                    and str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS
+                    and (
+                        require_step is None
+                        or _run_completed_step(repo, run, token, require_step)
+                    )
+                ),
+                None,
+            )
+            if candidate is not None:
+                candidates.append(candidate)
                 break
             if len(runs) < 100:
                 break

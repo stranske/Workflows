@@ -21,7 +21,7 @@ EXPECTED_TRACKERS = {
     "maint-77-model-registry-freshness.yml": (2905, 192),
     "health-84-langsmith-observability.yml": (3123, 48),
     "health-40-repo-selfcheck.yml": (3218, 192),
-    "health-68-consumer-sync-drift.yml": (2210, 48),
+    "health-68-consumer-sync-drift.yml": (3249, 48),
 }
 
 
@@ -251,6 +251,50 @@ def test_liveness_ignores_runs_whose_comparison_step_was_skipped(monkeypatch) ->
     )
 
     assert latest == compared
+
+
+def test_latest_executable_run_stops_after_newest_qualifying_step(monkeypatch) -> None:
+    newest = {
+        "id": 2,
+        "conclusion": "success",
+        "created_at": "2026-08-24T12:00:00Z",
+    }
+    older = {
+        "id": 1,
+        "conclusion": "success",
+        "created_at": "2026-08-24T11:00:00Z",
+    }
+    seen: list[str] = []
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        seen.append(path)
+        if path.endswith("runs?per_page=100"):
+            return {"workflow_runs": [newest, older]}
+        if path.endswith("runs/2/jobs?per_page=100"):
+            return {
+                "jobs": [
+                    {
+                        "steps": [
+                            {"name": "Compare consumer repos to templates", "conclusion": "success"}
+                        ]
+                    }
+                ]
+            }
+        raise AssertionError(path)
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+
+    assert check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "health-68-consumer-sync-drift.yml",
+        "token",
+        require_step="Compare consumer repos to templates",
+    ) == newest
+    assert seen == [
+        "repos/stranske/Workflows/actions/workflows/health-68-consumer-sync-drift.yml/"
+        "runs?per_page=100",
+        "repos/stranske/Workflows/actions/runs/2/jobs?per_page=100",
+    ]
 
 
 def test_health_68_liveness_requires_comparison_step() -> None:
