@@ -497,8 +497,7 @@ def test_require_step_probe_budget_interleaves_allowed_events(monkeypatch) -> No
 def test_require_step_probe_budget_caps_inner_round_robin_pass(monkeypatch) -> None:
     """A round-robin pass with one probe left must not probe every event stream."""
     never_qualifies = [
-        {"id": index, "conclusion": "success", "created_at": f"event-{index}"}
-        for index in range(5)
+        {"id": index, "conclusion": "success", "created_at": f"event-{index}"} for index in range(5)
     ]
     probed: list[int] = []
 
