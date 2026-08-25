@@ -410,7 +410,10 @@ def test_execution_liveness_requires_main_branch_runs(monkeypatch) -> None:
     (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
 
     assert result["healthy"] is True
-    assert any("branch=main" in path for path in seen)
+    branch_filtered = [path for path in seen if "branch=main" in path]
+    assert branch_filtered, "required-step lookup did not filter on the production branch"
+    assert "branch=main" not in seen[0], "bare run-age lookup must stay unfiltered"
+    assert all("health-68-consumer-sync-drift.yml" in path for path in branch_filtered)
 
 
 def test_require_step_probe_budget_spans_paginated_history(monkeypatch) -> None:
@@ -489,6 +492,36 @@ def test_require_step_probe_budget_interleaves_allowed_events(monkeypatch) -> No
     assert latest is not None
     assert latest["id"] == 100
     assert probed[:2] == [0, 100]
+
+
+def test_require_step_probe_budget_caps_inner_round_robin_pass(monkeypatch) -> None:
+    """A round-robin pass with one probe left must not probe every event stream."""
+    never_qualifies = [
+        {"id": index, "conclusion": "success", "created_at": f"event-{index}"}
+        for index in range(5)
+    ]
+    probed: list[int] = []
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        return {"workflow_runs": never_qualifies}
+
+    def all_skipped(_repo: str, run_id: int, _step: str, _token: str) -> str:
+        probed.append(run_id)
+        return "skipped"
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+    monkeypatch.setattr(check_durable_tracker_liveness, "run_step_conclusion", all_skipped)
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "health-68-consumer-sync-drift.yml",
+        "token",
+        frozenset({"schedule", "workflow_dispatch", "push", "pull_request"}),
+        require_step="Compare consumer repos to templates",
+    )
+
+    assert latest is None
+    assert len(probed) == check_durable_tracker_liveness.STEP_PROBE_LIMIT
 
 
 # The absent-run reason now also names the cause and the remedy: "no executable

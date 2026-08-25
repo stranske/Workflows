@@ -192,6 +192,8 @@ def _latest_executable_run(
         while remaining_step_probes > 0:
             progressed = False
             for state in states:
+                if remaining_step_probes <= 0:
+                    break
                 if state["complete"]:
                     continue
                 while not state["pending"] and not state["exhausted"]:
