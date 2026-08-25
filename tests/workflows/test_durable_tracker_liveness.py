@@ -500,6 +500,7 @@ def test_require_step_probe_budget_caps_inner_round_robin_pass(monkeypatch) -> N
         {"id": index, "conclusion": "success", "created_at": f"event-{index}"} for index in range(5)
     ]
     probed: list[int] = []
+    monkeypatch.setattr(check_durable_tracker_liveness, "STEP_PROBE_LIMIT", 3)
 
     def fake_gh_api(path: str, _token: str) -> dict[str, object]:
         return {"workflow_runs": never_qualifies}
