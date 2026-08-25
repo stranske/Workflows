@@ -196,8 +196,8 @@ fingerprint_refreshed = 2026-08-23
 [pair.18]
 main = .github/workflows/maint-coverage-guard.yml
 template = templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
-main_sha256 = 1cddc39b72f3bec92fad1aebf9611b8ef94fc143b8c37b247bd5b8ff0665ed72
-template_sha256 = f05ad135b5cf9360430f4c84f56e122c2b7bbdd7c8d502681b56630c57d14e15
+main_sha256 = 903e1ed67c9ad7c2a400356cf84d5b9f7fb73f1aab2e7e04ed29be8641686355
+template_sha256 = 9bf9f65003ccdee0a0f1daf7799221f10532a793c5af633a27d7177c669f51bc
 divergence = Coverage guard re-reviewed 2026-08-25: both root and consumer selectors now require the trend artifact alongside the coverage payload. coverage_guard.py makes a missing trend a successful no-op, so accepting payload-only runs incorrectly reported evaluation success without comparing coverage or updating breach issues. The same condition and failure mode are applied to both surfaces; the remaining execution-path differences are intentional. Prior divergence unchanged: Guard made able to RUN 2026-08-25: the monitor had never executed to completion in ANY repo, for three independent and silent reasons. (a) pr-00-gate.yml uploads the payload under the ARTIFACT name `gate-coverage.json` while the guard required `gate-coverage` -- a paired literal that disagreed, so discovery found two of three artifacts every time and reported none usable; discovery now accepts either name and EMITS the one it found. (b) history remains optional; the guard needs the trend payload to evaluate a baseline. (c) the guard job is gated on the rate-limit job, so a low-quota SKIP left the WORKFLOW GREEN with nothing checked; the always-run report job now states which happened. Prior divergence unchanged: consumer workflows use pinned public actions and an App token while Workflows uses local artifact-cache helpers and sparse checkout.
 divergence_reviewed = 2026-08-25
 fingerprint_refreshed = 2026-08-25
