@@ -21,6 +21,7 @@ EXPECTED_TRACKERS = {
     "maint-77-model-registry-freshness.yml": (2905, 192),
     "health-84-langsmith-observability.yml": (3123, 48),
     "health-40-repo-selfcheck.yml": (3218, 192),
+    "health-68-consumer-sync-drift.yml": (2210, 48),
 }
 
 
@@ -73,7 +74,7 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
     monkeypatch.setattr(
         check_durable_tracker_liveness,
         "_latest_executable_run",
-        lambda _repo, workflow, _token, _events: runs[workflow],
+        lambda _repo, workflow, _token, _events=None, _step=None: runs[workflow],
     )
     monkeypatch.setattr(
         check_durable_tracker_liveness,
@@ -201,6 +202,50 @@ def test_latest_executable_run_paginates_event_filtered_history(monkeypatch) -> 
 
     assert latest == executable
     assert seen[-1].endswith("event=schedule&page=2")
+
+
+def test_liveness_ignores_runs_whose_comparison_step_was_skipped(monkeypatch) -> None:
+    skipped = {
+        "id": 2,
+        "conclusion": "success",
+        "created_at": "2026-08-24T12:00:00Z",
+    }
+    compared = {
+        "id": 1,
+        "conclusion": "success",
+        "created_at": "2026-08-24T11:00:00Z",
+    }
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        if path.endswith("runs?per_page=100"):
+            return {"workflow_runs": [skipped, compared]}
+        if path.endswith("runs/2/jobs?per_page=100"):
+            return {"jobs": [{"steps": [{"name": "Compare consumer repos to templates", "conclusion": "skipped"}]}]}
+        if path.endswith("runs/1/jobs?per_page=100"):
+            return {"jobs": [{"steps": [{"name": "Compare consumer repos to templates", "conclusion": "success"}]}]}
+        raise AssertionError(path)
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "health-68-consumer-sync-drift.yml",
+        "token",
+        require_step="Compare consumer repos to templates",
+    )
+
+    assert latest == compared
+
+
+def test_health_68_liveness_requires_comparison_step() -> None:
+    config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
+    tracker = next(
+        entry
+        for entry in config["trackers"]
+        if entry["workflow"] == "health-68-consumer-sync-drift.yml"
+    )
+
+    assert tracker["require_step"] == "Compare consumer repos to templates"
 
 
 # The absent-run reason now also names the cause and the remedy: "no executable

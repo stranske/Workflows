@@ -23,3 +23,7 @@ trackers:
   - workflow: health-40-repo-selfcheck.yml
     issue: 3218
     max_age_hours: 192
+  - workflow: health-68-consumer-sync-drift.yml
+    issue: 2210
+    max_age_hours: 48
+    require_step: Compare consumer repos to templates

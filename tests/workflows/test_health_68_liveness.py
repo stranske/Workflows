@@ -27,8 +27,8 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "Debounce workflow_run fan-out" in text
     assert "github.event_name == 'workflow_run'" in text
-    assert "| jq -r --argjson current" in text
-    assert '.conclusion == "cancelled"' not in text
+    assert "listJobsForWorkflowRun" in text
+    assert 'step.name === "Compare consumer repos to templates"' in text
     assert 'branch: "main"' in text or "branch: 'main'" in text
 
 
@@ -61,9 +61,8 @@ def test_consumer_drift_debounce_filters_main_before_ordering() -> None:
 
 
 @pytest.mark.skipif(
-    os.environ.get("RUN_LIVE_HEALTH_68_PROBE") != "1"
-    or not (os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")),
-    reason="RUN_LIVE_HEALTH_68_PROBE=1 and GH_TOKEN or GITHUB_TOKEN required for live Health 68 execution probe",
+    not (os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")),
+    reason="GH_TOKEN or GITHUB_TOKEN required for live Health 68 execution probe",
 )
 def test_consumer_drift_detector_executed_recently() -> None:
     repo = os.environ.get("GITHUB_REPOSITORY", "stranske/Workflows")
@@ -98,6 +97,14 @@ def test_consumer_drift_detector_executed_recently() -> None:
     created = datetime.fromisoformat(latest_executable.replace("Z", "+00:00"))
     hours = (datetime.now(UTC) - created).total_seconds() / 3600.0
     assert hours <= 48, f"newest executable Health 68 run is {latest_executable} ({hours:.1f}h old)"
+
+
+def test_live_probe_skips_only_without_a_token() -> None:
+    text = WORKFLOW.parent.parent.parent / "tests/workflows/test_health_68_liveness.py"
+    source = text.read_text(encoding="utf-8").split("def test_live_probe_skips", 1)[0]
+
+    assert "RUN_LIVE_HEALTH_68_PROBE" not in source
+    assert "GH_TOKEN or GITHUB_TOKEN required" in source
 
 
 def test_health_68_issue_publish_job_is_split() -> None:

@@ -43,6 +43,7 @@ jobs:
     outputs:
       drift_failed: ${{ steps.compare.outcome == 'failure' }}
       drift_clean: ${{ steps.compare.outcome == 'success' }}
+      compared: ${{ steps.compare.outcome != 'skipped' }}
     steps:
       - name: Checkout Workflows repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -85,13 +86,28 @@ jobs:
                 branch: "main",
                 per_page: 20,
               }));
-              process.stdout.write(JSON.stringify(response.data));
+              for (const run of response.data.workflow_runs) {
+                if (run.id === Number(process.env.GITHUB_RUN_ID)) continue;
+                if (!["success", "failure", "timed_out"].includes(run.conclusion)) continue;
+                const jobs = await withRetry(() => github.rest.actions.listJobsForWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: run.id,
+                  per_page: 100,
+                }));
+                const compared = jobs.data.jobs.some((job) => job.steps?.some(
+                  (step) => step.name === "Compare consumer repos to templates" && step.conclusion !== "skipped",
+                ));
+                if (compared) {
+                  process.stdout.write(run.created_at);
+                  return;
+                }
+              }
             })().catch((error) => {
               console.error(error);
               process.exit(1);
             });
-            ' | jq -r --argjson current "$GITHUB_RUN_ID" \
-                '[.workflow_runs[] | select(.id != $current) | select(.conclusion == "success" or .conclusion == "failure" or .conclusion == "timed_out")][0].created_at // empty'
+            '
           )"
           if [ -z "$latest_created" ]; then
             echo "No prior executable Health 68 run; continuing."

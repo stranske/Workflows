@@ -41,6 +41,7 @@ work.
 | [#2905](https://github.com/stranske/Workflows/issues/2905) | LLM model registry needs evidence review | [`maint-77-model-registry-freshness.yml`](../../.github/workflows/maint-77-model-registry-freshness.yml) | Mondays 05:20 UTC + manual dispatch | Evidence comment appended while freshness or catalog findings persist |
 | [#3123](https://github.com/stranske/Workflows/issues/3123) | 🔭 LangSmith Observability Health | [`health-84-langsmith-observability.yml`](../../.github/workflows/health-84-langsmith-observability.yml) | Daily 10:15 UTC + manual dispatch | Body rewritten in place; comment appended on health transition |
 | [#3218](https://github.com/stranske/Workflows/issues/3218) | [health] repository self-check | [`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml) | Mondays 06:20 UTC + manual dispatch | Body rewritten in place and issue kept pinned |
+| [#2210](https://github.com/stranske/Workflows/issues/2210) | Health 68 consumer drift liveness | [`health-68-consumer-sync-drift.yml`](../../.github/workflows/health-68-consumer-sync-drift.yml) | Daily 06:15 UTC + qualifying `workflow_run` fan-out | Liveness is measured from the latest comparison step, not a debounced no-op run |
 
 The signal flow each tracker carries:
 
