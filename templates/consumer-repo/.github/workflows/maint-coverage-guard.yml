@@ -289,7 +289,6 @@ jobs:
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.trend_artifact_name }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        continue-on-error: true
         with:
           name: ${{ steps.discover.outputs.trend_artifact_name }}
           run-id: ${{ steps.discover.outputs.run_id }}
@@ -309,7 +308,6 @@ jobs:
       - name: Download coverage payload artifact
         if: ${{ steps.discover.outputs.coverage_artifact_name }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        continue-on-error: true
         with:
           name: ${{ steps.discover.outputs.coverage_artifact_name }}
           run-id: ${{ steps.discover.outputs.run_id }}
@@ -381,6 +379,13 @@ jobs:
 
           if [ -f "config/coverage-baseline.json" ]; then
             ARGS+=(--baseline-path "config/coverage-baseline.json")
+          fi
+
+          if [ -z "$TREND_PATH" ] || [ -z "$COVERAGE_PATH" ]; then
+            echo "Required coverage artifacts are missing after download."
+            echo "TREND_PATH=${TREND_PATH:-<missing>}"
+            echo "COVERAGE_PATH=${COVERAGE_PATH:-<missing>}"
+            exit 1
           fi
 
           python tools/coverage_guard.py "${ARGS[@]}"
