@@ -58,12 +58,12 @@ def test_every_pair_states_its_divergence() -> None:
         reviewed = entry.get("divergence_reviewed", "").strip()
         refreshed = entry.get("fingerprint_refreshed", "").strip()
         assert divergence and "Existing reviewed baseline drift" not in divergence
-        assert re.fullmatch(r"20\d\d-\d\d-\d\d", reviewed), (
-            f"{section}: divergence_reviewed must be an ISO date, got {reviewed!r}"
-        )
-        assert re.fullmatch(r"20\d\d-\d\d-\d\d", refreshed), (
-            f"{section}: fingerprint_refreshed must be an ISO date, got {refreshed!r}"
-        )
+        assert re.fullmatch(
+            r"20\d\d-\d\d-\d\d", reviewed
+        ), f"{section}: divergence_reviewed must be an ISO date, got {reviewed!r}"
+        assert re.fullmatch(
+            r"20\d\d-\d\d-\d\d", refreshed
+        ), f"{section}: fingerprint_refreshed must be an ISO date, got {refreshed!r}"
 
         stated = stated_review_date(divergence)
         if stated is None:
@@ -74,10 +74,9 @@ def test_every_pair_states_its_divergence() -> None:
                 f"divergence_reviewed says {reviewed}"
             )
 
-    assert mismatched == [], (
-        "divergence_reviewed disagrees with the pair's own rationale:\n"
-        + "\n".join(mismatched)
-    )
+    assert (
+        mismatched == []
+    ), "divergence_reviewed disagrees with the pair's own rationale:\n" + "\n".join(mismatched)
     assert len(unstated) <= MAX_PAIRS_WITHOUT_A_STATED_REVIEW, (
         f"{len(unstated)} pairs state no review date in their rationale, so their "
         f"divergence_reviewed cannot be checked against anything: {unstated}"
@@ -121,9 +120,10 @@ def test_divergence_reviewed_is_not_a_copy_of_fingerprint_refreshed() -> None:
             "and the rationale does not record a review on that date"
         )
 
-    assert offenders == [], (
-        "a fingerprint refresh appears to have carried the review claim with it:\n"
-        + "\n".join(offenders)
+    assert (
+        offenders == []
+    ), "a fingerprint refresh appears to have carried the review claim with it:\n" + "\n".join(
+        offenders
     )
 
 

@@ -188,9 +188,7 @@ def read_allowlist(path: Path) -> TemplateDriftAllowlist:
                     "divergence",
                     fallback=parser.get(section, "reason", fallback=""),
                 ),
-                divergence_reviewed=parser.get(
-                    section, "divergence_reviewed", fallback=""
-                ).strip(),
+                divergence_reviewed=parser.get(section, "divergence_reviewed", fallback="").strip(),
                 fingerprint_refreshed=parser.get(
                     section, "fingerprint_refreshed", fallback=""
                 ).strip(),
