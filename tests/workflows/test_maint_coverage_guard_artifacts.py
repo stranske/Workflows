@@ -15,6 +15,8 @@ import pytest
 def test_coverage_guard_selects_only_runs_with_payload_and_trend(workflow_path: str) -> None:
     workflow = Path(workflow_path).read_text(encoding="utf-8")
 
-    assert "const hasTrend = availableCoverageArtifactNames.has(trendArtifactName);" in workflow
-    assert "if (payloadName && hasTrend)" in workflow
-    assert "coverage payload and trend on a successful Gate run" in workflow
+    assert workflow.count(
+        "const hasTrend = availableCoverageArtifactNames.has(trendArtifactName);"
+    ) == 1
+    assert workflow.count("if (payloadName && hasTrend)") == 1
+    assert workflow.count("coverage payload and trend on a successful Gate run") == 1
