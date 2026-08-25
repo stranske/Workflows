@@ -549,7 +549,9 @@ jobs:
 
 ```json
 {
-  "coverage": 80.0,
+  "line": 80.0,
+  "warn_drop": 1.0,
+  "recovery_days": 3,
   "updated": "2025-12-30",
   "notes": "Initial baseline - adjust based on project maturity"
 }
@@ -568,6 +570,13 @@ Copy from `templates/consumer-repo/.github/workflows/maint-coverage-guard.yml`
 | **Low Coverage Alert** | Files below 50% threshold highlighted separately |
 | **Baseline Issue** | Auto-created/updated issue when coverage drops below baseline |
 | **Trend Artifacts** | `coverage-trend.json` and `coverage-trend-history.ndjson` for analysis |
+
+**Guard tolerance and recovery:** `warn_drop` is a percentage-point allowance below
+the baseline (default `1.0` if omitted). A run creates or updates a breach issue only
+when `current < baseline - warn_drop`; a smaller drop is an intentional no-op. An open
+breach issue closes only after coverage is at or above the full baseline for
+`recovery_days` consecutive samples (default `3`), so the warning allowance never
+closes an issue early.
 
 **Soft vs Hard Gate:**
 
