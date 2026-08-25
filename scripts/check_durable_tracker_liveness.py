@@ -33,6 +33,11 @@ CONFIG_PATH = REPO_ROOT / "config" / "durable_tracker_liveness.yml"
 TRACKER_DOC = REPO_ROOT / "docs" / "ops" / "DURABLE_TRACKING_ISSUES.md"
 EXECUTABLE_CONCLUSIONS = frozenset({"success", "failure", "cancelled", "timed_out"})
 
+# How many job-level-executable runs to probe per page when a tracker configures
+# `require_step`. Bounded so a workflow that has been debouncing for weeks costs a
+# fixed number of jobs calls rather than one per run in its history.
+STEP_PROBE_LIMIT = 20
+
 
 def _github_token() -> str:
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
@@ -42,11 +47,30 @@ def _github_token() -> str:
 
 
 def _load_config() -> list[dict[str, Any]]:
+    """Every monitored workflow: durable trackers first, then execution-only entries.
+
+    `execution_liveness` entries are monitored the same way but own NO durable
+    tracker issue, so they are excluded from the config-vs-doc coverage equality in
+    `main()` and are never commented on. Health 68 is the motivating case: its #2210
+    is a TRANSIENT alert that the workflow itself opens and closes (see
+    docs/ops/DURABLE_TRACKING_ISSUES.md, "Distinguishing trackers from transient
+    alerts"), so listing it under `trackers:` would assert a durable relationship
+    that does not exist — the same false machine-readable claim #3244 is about.
+    """
     data = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
     trackers = data.get("trackers")
     if not isinstance(trackers, list) or not trackers:
         raise ValueError(f"{CONFIG_PATH} must define a non-empty trackers list")
-    return trackers
+    entries = [{**entry, "durable": True} for entry in trackers]
+    execution_only = data.get("execution_liveness") or []
+    if not isinstance(execution_only, list):
+        raise ValueError(f"{CONFIG_PATH} execution_liveness must be a list when present")
+    entries.extend({**entry, "durable": False} for entry in execution_only)
+    return entries
+
+
+def _durable_tracker_workflows() -> set[str]:
+    return {str(entry["workflow"]) for entry in _load_config() if entry.get("durable")}
 
 
 def tracker_doc_workflows() -> set[str]:
@@ -64,11 +88,37 @@ def tracker_doc_workflows() -> set[str]:
     return {name for name in workflows if name.endswith(".yml")}
 
 
+def run_step_conclusion(
+    repo: str,
+    run_id: Any,
+    step_name: str,
+    token: str,
+) -> str | None:
+    """Conclusion of ``step_name`` in ``run_id``, or None when the step is absent.
+
+    None means "this run has no such step" — a different fact from "the step ran
+    and was skipped", which returns ``"skipped"``. Collapsing the two is the
+    defect this module is being fixed for, one level up.
+    """
+    payload = _gh_api(f"repos/{repo}/actions/runs/{run_id}/jobs?per_page=100", token)
+    jobs = payload.get("jobs")
+    if not isinstance(jobs, list):
+        return None
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        for step in job.get("steps") or []:
+            if isinstance(step, dict) and str(step.get("name") or "") == step_name:
+                return str(step.get("conclusion") or "")
+    return None
+
+
 def _latest_executable_run(
     repo: str,
     workflow_file: str,
     token: str,
     allowed_events: frozenset[str] | None = None,
+    require_step: str | None = None,
 ) -> dict[str, Any] | None:
     """Newest run of ``workflow_file`` that actually executed, or None.
 
@@ -76,6 +126,13 @@ def _latest_executable_run(
     failed lookup RAISES (via the wrapper) rather than returning None, because
     None reads as "no executable run" and would blame the workflow for the
     checker's own inability to look.
+
+    ``require_step`` narrows "executed" from the JOB conclusion to a named STEP.
+    A job whose work step was skipped still concludes ``success`` — Health 68's
+    debounce does exactly that — so without this the newest run is evidence that
+    the workflow was TRIGGERED, never that it did anything. With it, a run counts
+    only when the named step reached a conclusion other than ``skipped``.
+    When ``require_step`` is None the job conclusion is used, unchanged.
     """
     base_path = f"repos/{repo}/actions/workflows/{workflow_file}/runs?per_page=100"
     events: tuple[str | None, ...] = tuple(sorted(allowed_events)) if allowed_events else (None,)
@@ -92,15 +149,25 @@ def _latest_executable_run(
             runs = payload.get("workflow_runs")
             if not isinstance(runs, list):
                 break
-            candidate = next(
-                (
-                    run
-                    for run in runs
-                    if isinstance(run, dict)
-                    and str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS
-                ),
-                None,
-            )
+            executable = [
+                run
+                for run in runs
+                if isinstance(run, dict)
+                and str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS
+            ]
+            candidate = None
+            if require_step is None:
+                candidate = executable[0] if executable else None
+            else:
+                # Newest-first, and only over runs that already cleared the job-level
+                # filter, so the extra jobs call is paid once per plausible run rather
+                # than once per run in history.
+                for run in executable[:STEP_PROBE_LIMIT]:
+                    conclusion = run_step_conclusion(repo, run.get("id"), require_step, token)
+                    if conclusion is not None and conclusion != "skipped":
+                        candidate = dict(run)
+                        candidate["required_step_conclusion"] = conclusion
+                        break
             if candidate is not None:
                 candidates.append(candidate)
                 break
@@ -141,7 +208,8 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
     results: list[dict[str, Any]] = []
     for entry in _load_config():
         workflow = str(entry["workflow"])
-        issue = int(entry["issue"])
+        raw_issue = entry.get("issue")
+        issue = int(raw_issue) if raw_issue is not None else None
         if entry.get("event_driven") is True:
             results.append(
                 {
@@ -159,6 +227,8 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
             if isinstance(configured_events, list) and configured_events
             else None
         )
+        require_step = entry.get("require_step")
+        require_step = str(require_step) if require_step else None
         latest = _latest_executable_run(repo, workflow, auth, allowed_events)
         if latest is None:
             results.append(
@@ -174,20 +244,52 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
             )
             continue
         hours = _hours_since(str(latest["created_at"]))
-        healthy = hours <= max_age_hours
-        results.append(
-            {
-                "workflow": workflow,
-                "issue": issue,
-                "healthy": healthy,
-                "latest_conclusion": latest.get("conclusion"),
-                "latest_created_at": latest.get("created_at"),
-                "latest_event": latest.get("event"),
-                "hours_since": round(hours, 2),
-                "max_age_hours": max_age_hours,
-                "run_url": latest.get("html_url"),
-            }
-        )
+        result: dict[str, Any] = {
+            "workflow": workflow,
+            "issue": issue,
+            "healthy": hours <= max_age_hours,
+            "latest_conclusion": latest.get("conclusion"),
+            "latest_created_at": latest.get("created_at"),
+            "latest_event": latest.get("event"),
+            "hours_since": round(hours, 2),
+            "max_age_hours": max_age_hours,
+            "run_url": latest.get("html_url"),
+        }
+
+        # THE BLOCKING QUANTITY AND THE DRAINABLE QUANTITY, SIDE BY SIDE.
+        # `hours_since` alone answers "was this workflow triggered recently", which a
+        # debounced no-op satisfies forever. `hours_since_executing_run` answers "did
+        # it DO anything recently", which is the number the tracker actually depends
+        # on. Reporting only the first is what let seven consecutive comparison-free
+        # `success` runs read as health.
+        if require_step is not None:
+            result["require_step"] = require_step
+            executed = _latest_executable_run(repo, workflow, auth, allowed_events, require_step)
+            if executed is None:
+                # Distinguishable from "no runs at all" above: runs exist, they
+                # concluded, and not one of them ran the step. Never silently reuse
+                # `hours_since` here — that would rebuild the very defect this branch
+                # exists to detect, one level up.
+                result["latest_executing_created_at"] = None
+                result["hours_since_executing_run"] = None
+                result["healthy"] = False
+                result["reason"] = (
+                    f"no run in the {STEP_PROBE_LIMIT} newest executable runs ran step "
+                    f"{require_step!r}; every one of them concluded without doing the work, "
+                    f"so the newest run at {latest.get('created_at')} is evidence the workflow "
+                    f"was triggered, not that it executed."
+                )
+            else:
+                executing_hours = _hours_since(str(executed["created_at"]))
+                result["latest_executing_created_at"] = executed.get("created_at")
+                result["latest_executing_conclusion"] = executed.get("conclusion")
+                result["required_step_conclusion"] = executed.get("required_step_conclusion")
+                result["hours_since_executing_run"] = round(executing_hours, 2)
+                result["executing_run_url"] = executed.get("html_url")
+                # Health is decided by the EXECUTING run. The bare run age stays in the
+                # payload so a reader can see the gap between the two.
+                result["healthy"] = executing_hours <= max_age_hours
+        results.append(result)
     return results
 
 
@@ -206,7 +308,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
-    configured = {str(entry["workflow"]) for entry in _load_config()}
+    configured = _durable_tracker_workflows()
     documented = tracker_doc_workflows()
     missing_from_config = sorted(documented - configured)
     extra_in_config = sorted(configured - documented)
@@ -231,6 +333,21 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.comment_on_failure and unhealthy:
         for item in unhealthy:
+            # An execution_liveness entry has no durable tracker to comment on. It is
+            # still reported and still fails the exit code; it just has no issue.
+            if item.get("issue") is None:
+                continue
+            require_step = item.get("require_step")
+            executed_lines = ""
+            if require_step:
+                executed_lines = (
+                    f"- Required step: `{require_step}`\n"
+                    f"- Latest run that RAN that step: "
+                    f"{item.get('latest_executing_created_at') or 'none in recent history'}\n"
+                    f"- Hours since that run: {item.get('hours_since_executing_run', 'n/a')}\n"
+                    f"- That run's step conclusion: "
+                    f"{item.get('required_step_conclusion', 'n/a')}\n"
+                )
             body = (
                 "## Durable tracker liveness alert\n\n"
                 f"Source workflow `{item['workflow']}` has no executable run inside its "
@@ -238,8 +355,10 @@ def main(argv: list[str] | None = None) -> int:
                 f"- Latest executable run: {item.get('latest_created_at', 'none')}\n"
                 f"- Conclusion: {item.get('latest_conclusion', 'n/a')}\n"
                 f"- Hours since: {item.get('hours_since', 'n/a')}\n"
-                f"- Run URL: {item.get('run_url', 'n/a')}\n\n"
-                "Confirm liveness from workflow run history, not tracker comment activity."
+                f"- Run URL: {item.get('run_url', 'n/a')}\n"
+                + executed_lines
+                + (f"\n{item['reason']}\n" if item.get("reason") else "")
+                + "\nConfirm liveness from workflow run history, not tracker comment activity."
             )
             _comment_on_tracker(args.repo, int(item["issue"]), body, token)
 

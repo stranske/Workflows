@@ -119,6 +119,175 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
     ]
 
 
+def test_liveness_ignores_runs_whose_comparison_step_was_skipped(monkeypatch) -> None:
+    """A run that concluded without running the work step is not evidence of life.
+
+    Health 68's debounce skips the comparison steps while the JOB still concludes
+    `success`, so the bare conclusion says only that the workflow was triggered.
+    Measured live 2026-08-24: the seven newest `success` runs all had this step
+    `skipped`, and the newest run that actually compared had FAILED four hours
+    earlier — the oracle called that healthy.
+
+    Two runs go in: a newer `success` whose step was skipped, and an older
+    `success` whose step ran. The reported age must be measured from the OLDER one.
+    """
+    # THE WIRING, ASSERTED AGAINST THE SHIPPED CONFIG, NOT THE MONKEYPATCHED ONE.
+    # The behaviour below is exercised through a stub config, so on its own it would
+    # keep passing after `require_step` was deleted from the real file -- a gate that
+    # cannot notice its own disconnection. Both halves have to be here.
+    shipped = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
+    health_68 = next(
+        entry
+        for entry in shipped.get("execution_liveness") or []
+        if entry["workflow"] == "health-68-consumer-sync-drift.yml"
+    )
+    assert health_68.get("require_step") == "Compare consumer repos to templates", (
+        "health-68 has no require_step in the shipped config, so in production the "
+        "checker is back to reading the bare job conclusion"
+    )
+
+    newer = {
+        "id": 2,
+        "conclusion": "success",
+        "created_at": "2026-08-24T22:18:09Z",
+        "html_url": "https://run/newer",
+    }
+    older = {
+        "id": 1,
+        "conclusion": "success",
+        "created_at": "2026-08-24T20:29:59Z",
+        "html_url": "https://run/older",
+    }
+    step_conclusions = {2: "skipped", 1: "success"}
+
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "health-68-consumer-sync-drift.yml",
+                "issue": None,
+                "max_age_hours": 48,
+                "require_step": "Compare consumer repos to templates",
+                "durable": False,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_gh_api",
+        lambda path, _token: {"workflow_runs": [newer, older]},
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "run_step_conclusion",
+        lambda _repo, run_id, _step, _token: step_conclusions[run_id],
+    )
+    ages = {"2026-08-24T22:18:09Z": 1.0, "2026-08-24T20:29:59Z": 3.0}
+    monkeypatch.setattr(check_durable_tracker_liveness, "_hours_since", lambda ts: ages[ts])
+
+    (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+
+    # The bare run age still reports the NEWER run -- both numbers are published.
+    assert result["latest_created_at"] == newer["created_at"]
+    assert result["hours_since"] == 1.0
+    # Liveness is measured from the OLDER run, the one that actually compared.
+    assert result["latest_executing_created_at"] == older["created_at"]
+    assert result["hours_since_executing_run"] == 3.0
+    assert result["required_step_conclusion"] == "success"
+
+
+def test_liveness_says_so_when_nothing_in_history_ran_the_step(monkeypatch) -> None:
+    """ "Ran and compared nothing" must not be silently reported as an age.
+
+    The fix for #3243 must not rebuild #3243 one level up: when no run in the probed
+    window executed the required step, the checker has to SAY that, not fall back to
+    the bare run age and look healthy.
+    """
+    runs = [
+        {"id": n, "conclusion": "success", "created_at": f"2026-08-24T2{n}:00:00Z"}
+        for n in range(3)
+    ]
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "health-68-consumer-sync-drift.yml",
+                "issue": None,
+                "max_age_hours": 48,
+                "require_step": "Compare consumer repos to templates",
+                "durable": False,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness, "_gh_api", lambda path, _token: {"workflow_runs": runs}
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "run_step_conclusion",
+        lambda _repo, _run_id, _step, _token: "skipped",
+    )
+    monkeypatch.setattr(check_durable_tracker_liveness, "_hours_since", lambda _ts: 0.1)
+
+    (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+
+    assert result["healthy"] is False, "0.1h since a no-op run must not read as healthy"
+    assert result["hours_since_executing_run"] is None
+    assert result["latest_executing_created_at"] is None
+    assert "Compare consumer repos to templates" in result["reason"]
+    assert "triggered, not that it executed" in result["reason"]
+
+
+def test_run_step_conclusion_distinguishes_absent_from_skipped(monkeypatch) -> None:
+    """`None` (no such step) and `"skipped"` (step ran, was skipped) are different facts."""
+    payload = {
+        "jobs": [
+            {
+                "name": "Validate consumer repo drift",
+                "steps": [
+                    {"name": "Debounce workflow_run fan-out", "conclusion": "success"},
+                    {"name": "Compare consumer repos to templates", "conclusion": "skipped"},
+                ],
+            }
+        ]
+    }
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", lambda _p, _t: payload)
+
+    assert (
+        check_durable_tracker_liveness.run_step_conclusion(
+            "o/r", 1, "Compare consumer repos to templates", "t"
+        )
+        == "skipped"
+    )
+    assert check_durable_tracker_liveness.run_step_conclusion("o/r", 1, "No Such Step", "t") is None
+
+
+def test_execution_liveness_entries_are_excluded_from_tracker_doc_coverage() -> None:
+    """An execution-only entry must not be required to have a durable-tracker row.
+
+    #2210 is a TRANSIENT alert Health 68 opens and closes, and it is currently
+    closed. Listing health-68 under `trackers:` would assert a durable relationship
+    that does not exist.
+    """
+    config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
+    execution_only = {str(entry["workflow"]) for entry in config.get("execution_liveness") or []}
+    assert "health-68-consumer-sync-drift.yml" in execution_only
+
+    durable = check_durable_tracker_liveness._durable_tracker_workflows()
+    assert "health-68-consumer-sync-drift.yml" not in durable
+    assert durable == tracker_doc_workflows()
+
+    entry = next(
+        item
+        for item in config["execution_liveness"]
+        if item["workflow"] == "health-68-consumer-sync-drift.yml"
+    )
+    assert entry["require_step"] == "Compare consumer repos to templates"
+    assert entry["issue"] is None, "a transient alert is not a durable tracker to comment on"
+
+
 def test_health_71_invokes_durable_tracker_liveness_check() -> None:
     text = HEALTH_71.read_text(encoding="utf-8")
     assert "check_durable_tracker_liveness.py" in text
