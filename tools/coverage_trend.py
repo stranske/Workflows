@@ -137,17 +137,18 @@ def _get_hotspots(
     limit: int = 15,
     low_threshold: float = 50.0,
     project_root: Path | None = None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Extract hotspot files from coverage.json.
 
     `project_root` defaults to None, which keeps every row -- the behaviour callers had before
-    contamination filtering existed. Pass a root to drop rows measured outside the project; they
-    are RETURNED rather than discarded, so the caller can report how many there were.
+    contamination filtering existed. Pass a root to drop rows measured outside the project.
+    The two-value return shape is deliberately preserved because consumer repositories call this
+    helper directly; callers that need the excluded paths can use ``_partition_files``.
 
     Returns:
-        Tuple of (all_hotspots sorted by coverage, low_coverage_files below threshold, foreign)
+        Tuple of (all_hotspots sorted by coverage, low_coverage_files below threshold)
     """
-    files, foreign = _partition_files(coverage_json.get("files", {}), project_root)
+    files, _foreign = _partition_files(coverage_json.get("files", {}), project_root)
     all_files = []
 
     for filepath, data in files.items():
@@ -171,7 +172,7 @@ def _get_hotspots(
     hotspots = all_files[:limit]
     low_coverage = [f for f in all_files if f["coverage"] < low_threshold][:limit]
 
-    return hotspots, low_coverage, foreign
+    return hotspots, low_coverage
 
 
 def _format_hotspot_table(files: list[dict[str, Any]], title: str) -> str:
@@ -236,15 +237,16 @@ def main(args: list[str] | None = None) -> int:
     passes_minimum = current_coverage >= parsed.minimum
 
     # Get hotspots
-    hotspots, low_coverage, foreign_files = _get_hotspots(
+    hotspots, low_coverage = _get_hotspots(
         coverage_data,
         limit=parsed.hotspot_limit,
         low_threshold=parsed.low_threshold,
         project_root=parsed.project_root,
     )
-    project_only = _percent_from_rows(
-        _partition_files(coverage_data.get("files", {}), parsed.project_root)[0]
+    project_files, foreign_files = _partition_files(
+        coverage_data.get("files", {}), parsed.project_root
     )
+    project_only = _percent_from_rows(project_files)
 
     # Generate trend record
     trend_record = {
