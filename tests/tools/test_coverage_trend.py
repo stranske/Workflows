@@ -60,11 +60,10 @@ def test_get_hotspots_handles_missing_fields() -> None:
         }
     }
 
-    hotspots, low_coverage, foreign = coverage_trend._get_hotspots(
+    hotspots, low_coverage = coverage_trend._get_hotspots(
         coverage_json, limit=2, low_threshold=50.0
     )
 
-    assert foreign == []
     assert [spot["file"] for spot in hotspots] == ["src/c.py", "src/a.py"]
     assert [spot["file"] for spot in low_coverage] == ["src/c.py", "src/a.py"]
     assert hotspots[0]["covered_lines"] == 0
@@ -93,11 +92,10 @@ def test_get_hotspots_applies_limits_and_threshold() -> None:
         }
     }
 
-    hotspots, low_coverage, foreign = coverage_trend._get_hotspots(
+    hotspots, low_coverage = coverage_trend._get_hotspots(
         coverage_json, limit=2, low_threshold=50.0
     )
 
-    assert foreign == []
     assert [spot["file"] for spot in hotspots] == ["src/low.py", "src/mid.py"]
     assert [spot["file"] for spot in low_coverage] == ["src/low.py"]
 
@@ -540,9 +538,10 @@ def _contaminated_coverage() -> dict:
 
 
 def test_foreign_rows_are_excluded_from_hotspots_and_reported(tmp_path: Path) -> None:
-    hotspots, low_coverage, foreign = coverage_trend._get_hotspots(
+    hotspots, low_coverage = coverage_trend._get_hotspots(
         _contaminated_coverage(), limit=15, low_threshold=50.0, project_root=tmp_path
     )
+    _inside, foreign = coverage_trend._partition_files(_contaminated_coverage()["files"], tmp_path)
 
     assert [spot["file"] for spot in hotspots] == ["src/real.py"]
     assert low_coverage == []
@@ -551,7 +550,8 @@ def test_foreign_rows_are_excluded_from_hotspots_and_reported(tmp_path: Path) ->
 
 def test_foreign_rows_are_kept_when_no_project_root_is_given() -> None:
     """Default stays permissive: filtering is opt-in, so no existing caller changes behaviour."""
-    hotspots, _low, foreign = coverage_trend._get_hotspots(_contaminated_coverage(), limit=15)
+    hotspots, _low = coverage_trend._get_hotspots(_contaminated_coverage(), limit=15)
+    _inside, foreign = coverage_trend._partition_files(_contaminated_coverage()["files"], None)
 
     assert foreign == []
     assert len(hotspots) == 2
