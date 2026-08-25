@@ -451,8 +451,28 @@ jobs:
             echo "scripts/requirements.txt not found; skipping scripts requirements."
           fi
 
-          if [ -f pyproject.toml ]; then
+          # GATED ON A DECLARED DISTRIBUTION, not on the file's presence. `[ -f pyproject.toml ]`
+          # is true for a repo that uses pyproject.toml purely as TOOL CONFIG (ruff/mypy/pytest
+          # settings, no `[project]`, no build backend) -- a shape this fleet actively supports and
+          # `reusable-10-ci-python.yml` already guards for with the same helper below. On such a
+          # repo `pip install -e .` does not fail loudly; setuptools runs a legacy build and emits
+          # `UNKNOWN.egg-info/` beside the sources, so CI believes it installed the project and has
+          # in fact installed something anonymous. Observed on stranske/Orchestrator 2026-08-24,
+          # where the agent run's own `git add -A` then COMMITTED all four generated files to the
+          # PR. Two costs, one silent: wasted install time on every agent run, and build debris in
+          # the working tree of a job that stages whatever it finds.
+          pyproject_declares_distribution() {
+            [ -f pyproject.toml ] || return 1
+            grep -Eq \
+              '^[[:space:]]*\[[[:space:]]*(project|build-system|tool\.poetry)[[:space:]]*\]' \
+              pyproject.toml
+          }
+
+          if pyproject_declares_distribution || [ -f setup.cfg ] || [ -f setup.py ]; then
             python -m pip install -e ".[dev]" || python -m pip install -e .
+          elif [ -f pyproject.toml ]; then
+            echo "pyproject.toml present but declares no distribution ([project]/[build-system]/" \
+                 "[tool.poetry]) and no setup.py/setup.cfg; skipping editable install."
           fi
 
       - name: Install Workflows repo LLM dependencies
