@@ -205,12 +205,14 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                 result.update(
                     {
                         "require_step": require_step,
-                        "latest_run_created_at": latest_run.get("created_at") if latest_run else None,
-                        "hours_since_latest_run": round(
-                            _hours_since(str(latest_run["created_at"]))
-                        )
-                        if latest_run
-                        else None,
+                        "latest_run_created_at": (
+                            latest_run.get("created_at") if latest_run else None
+                        ),
+                        "hours_since_latest_run": (
+                            round(_hours_since(str(latest_run["created_at"])))
+                            if latest_run
+                            else None
+                        ),
                         "latest_comparing_created_at": None,
                         "hours_since_latest_comparing": None,
                     }
@@ -240,9 +242,9 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                 {
                     "require_step": require_step,
                     "latest_run_created_at": latest_run.get("created_at") if latest_run else None,
-                    "hours_since_latest_run": round(latest_run_hours, 2)
-                    if latest_run_hours is not None
-                    else None,
+                    "hours_since_latest_run": (
+                        round(latest_run_hours, 2) if latest_run_hours is not None else None
+                    ),
                     "latest_comparing_created_at": latest.get("created_at"),
                     "hours_since_latest_comparing": round(hours, 2),
                 }

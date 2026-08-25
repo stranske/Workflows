@@ -220,9 +220,25 @@ def test_liveness_ignores_runs_whose_comparison_step_was_skipped(monkeypatch) ->
         if path.endswith("runs?per_page=100"):
             return {"workflow_runs": [skipped, compared]}
         if path.endswith("runs/2/jobs?per_page=100"):
-            return {"jobs": [{"steps": [{"name": "Compare consumer repos to templates", "conclusion": "skipped"}]}]}
+            return {
+                "jobs": [
+                    {
+                        "steps": [
+                            {"name": "Compare consumer repos to templates", "conclusion": "skipped"}
+                        ]
+                    }
+                ]
+            }
         if path.endswith("runs/1/jobs?per_page=100"):
-            return {"jobs": [{"steps": [{"name": "Compare consumer repos to templates", "conclusion": "success"}]}]}
+            return {
+                "jobs": [
+                    {
+                        "steps": [
+                            {"name": "Compare consumer repos to templates", "conclusion": "success"}
+                        ]
+                    }
+                ]
+            }
         raise AssertionError(path)
 
     monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
