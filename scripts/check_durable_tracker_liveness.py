@@ -33,9 +33,9 @@ CONFIG_PATH = REPO_ROOT / "config" / "durable_tracker_liveness.yml"
 TRACKER_DOC = REPO_ROOT / "docs" / "ops" / "DURABLE_TRACKING_ISSUES.md"
 EXECUTABLE_CONCLUSIONS = frozenset({"success", "failure", "cancelled", "timed_out"})
 
-# How many job-level-executable runs to probe per page when a tracker configures
-# `require_step`. Bounded so a workflow that has been debouncing for weeks costs a
-# fixed number of jobs calls rather than one per run in its history.
+# How many job-level-executable runs to probe across a complete lookup when a tracker
+# configures `require_step`. Bounded so a workflow that has been debouncing for weeks
+# costs a fixed number of jobs calls rather than one per run in its history.
 STEP_PROBE_LIMIT = 20
 
 
@@ -119,6 +119,7 @@ def _latest_executable_run(
     token: str,
     allowed_events: frozenset[str] | None = None,
     require_step: str | None = None,
+    branch: str | None = None,
 ) -> dict[str, Any] | None:
     """Newest run of ``workflow_file`` that actually executed, or None.
 
@@ -135,11 +136,16 @@ def _latest_executable_run(
     When ``require_step`` is None the job conclusion is used, unchanged.
     """
     base_path = f"repos/{repo}/actions/workflows/{workflow_file}/runs?per_page=100"
+    if branch is not None:
+        base_path += f"&branch={branch}"
     events: tuple[str | None, ...] = tuple(sorted(allowed_events)) if allowed_events else (None,)
     candidates: list[dict[str, Any]] = []
+    remaining_step_probes = STEP_PROBE_LIMIT
     for event in events:
         page = 1
         while True:
+            if require_step is not None and remaining_step_probes <= 0:
+                break
             path = base_path
             if event is not None:
                 path += f"&event={event}&page={page}"
@@ -160,9 +166,13 @@ def _latest_executable_run(
                 candidate = executable[0] if executable else None
             else:
                 # Newest-first, and only over runs that already cleared the job-level
-                # filter, so the extra jobs call is paid once per plausible run rather
-                # than once per run in history.
-                for run in executable[:STEP_PROBE_LIMIT]:
+                # filter. The budget applies to this complete lookup, including every
+                # history page and configured event, so no quiet historical tail can
+                # turn a fixed probe bound into unbounded API work.
+                for run in executable:
+                    if remaining_step_probes <= 0:
+                        break
+                    remaining_step_probes -= 1
                     conclusion = run_step_conclusion(repo, run.get("id"), require_step, token)
                     if conclusion is not None and conclusion != "skipped":
                         candidate = dict(run)
@@ -264,7 +274,14 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
         # `success` runs read as health.
         if require_step is not None:
             result["require_step"] = require_step
-            executed = _latest_executable_run(repo, workflow, auth, allowed_events, require_step)
+            executed = _latest_executable_run(
+                repo,
+                workflow,
+                auth,
+                allowed_events,
+                require_step,
+                branch="main",
+            )
             if executed is None:
                 # Distinguishable from "no runs at all" above: runs exist, they
                 # concluded, and not one of them ran the step. Never silently reuse
