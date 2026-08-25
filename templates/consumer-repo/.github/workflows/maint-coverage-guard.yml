@@ -193,10 +193,10 @@ jobs:
             // create-only, so a producer rename reaches NEW repos only, while this file is
             // sync-managed and reaches all of them.
             const coveragePayloadNames = ['gate-coverage', 'gate-coverage.json'];
-            // Trend and history are ENRICHMENT, not requirements. Their download steps already
-            // tolerate absence and the guard already omits their CLI arguments when they are
-            // missing, so requiring them made every repo that has not enabled the soft gate
-            // permanently unusable -- a gate demanding an artifact its own subject need not emit.
+            // The guard cannot evaluate a baseline from the payload alone: coverage_guard.py
+            // deliberately treats a missing trend payload as a no-op.  Only select runs that
+            // carry the trend artifact, otherwise this job can report success without checking
+            // coverage or updating a breach issue.
             const trendArtifactName = 'gate-coverage-trend';
             const historyArtifactName = 'gate-coverage-trend-history';
             let candidate = null;
@@ -231,12 +231,11 @@ jobs:
               const payloadName = coveragePayloadNames.find((artifactName) =>
                 availableCoverageArtifactNames.has(artifactName),
               );
-              if (payloadName) {
+              const hasTrend = availableCoverageArtifactNames.has(trendArtifactName);
+              if (payloadName && hasTrend) {
                 candidate = run;
                 resolvedPayloadName = payloadName;
-                resolvedTrendName = availableCoverageArtifactNames.has(trendArtifactName)
-                  ? trendArtifactName
-                  : '';
+                resolvedTrendName = trendArtifactName;
                 resolvedHistoryName = availableCoverageArtifactNames.has(historyArtifactName)
                   ? historyArtifactName
                   : '';
@@ -244,8 +243,8 @@ jobs:
               }
               core.info(
                 [
-                  `Skipping Gate run ${run.id}; no coverage payload artifact.`,
-                  `Looked for: ${coveragePayloadNames.join(' or ')}.`,
+                  `Skipping Gate run ${run.id}; required coverage artifacts are incomplete.`,
+                  `Looked for payload (${coveragePayloadNames.join(' or ')}) and ${trendArtifactName}.`,
                 ].join(' '),
               );
             }
@@ -263,14 +262,14 @@ jobs:
               core.warning(
                 [
                   'Unable to locate a recent successful Gate workflow run carrying a coverage',
-                  'payload artifact (gate-coverage or gate-coverage.json). If the Gate ran but',
-                  'published neither, coverage is not being measured in this repo: check that',
+                  'payload artifact (gate-coverage or gate-coverage.json) and a coverage trend.',
+                  'If the Gate ran but published neither, coverage is not being measured in this repo: check that',
                   'the reusable CI caller sets coverage: true and enable-soft-gate: true.',
               ].join(' '),
               );
               core.setOutput('run_id', '');
               core.setFailed(
-                'Coverage verification could not find required coverage artifacts on a successful Gate run.',
+                'Coverage verification could not find a coverage payload and trend on a successful Gate run.',
               );
               return;
             }
@@ -290,7 +289,6 @@ jobs:
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.trend_artifact_name }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        continue-on-error: true
         with:
           name: ${{ steps.discover.outputs.trend_artifact_name }}
           run-id: ${{ steps.discover.outputs.run_id }}
@@ -310,7 +308,6 @@ jobs:
       - name: Download coverage payload artifact
         if: ${{ steps.discover.outputs.coverage_artifact_name }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        continue-on-error: true
         with:
           name: ${{ steps.discover.outputs.coverage_artifact_name }}
           run-id: ${{ steps.discover.outputs.run_id }}
@@ -382,6 +379,13 @@ jobs:
 
           if [ -f "config/coverage-baseline.json" ]; then
             ARGS+=(--baseline-path "config/coverage-baseline.json")
+          fi
+
+          if [ -z "$TREND_PATH" ] || [ -z "$COVERAGE_PATH" ]; then
+            echo "Required coverage artifacts are missing after download."
+            echo "TREND_PATH=${TREND_PATH:-<missing>}"
+            echo "COVERAGE_PATH=${COVERAGE_PATH:-<missing>}"
+            exit 1
           fi
 
           python tools/coverage_guard.py "${ARGS[@]}"
