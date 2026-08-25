@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.check.outputs.proceed || 'true' }}
+      remaining: ${{ steps.check.outputs.remaining || '' }}
     steps:
       - name: Checkout retry helpers
         uses: actions/checkout@v7
@@ -172,12 +173,27 @@ jobs:
               ['success', 'neutral'].includes(run.conclusion || ''),
             );
             const runsToProbe = successfulRuns.slice(0, 10);
-            const requiredCoverageArtifactNames = new Set([
-              'gate-coverage-trend',
-              'gate-coverage-trend-history',
-              'gate-coverage',
-            ]);
+            // THE PAYLOAD IS THE ONLY REQUIREMENT, AND IT HAS TWO NAMES IN THE WILD.
+            // pr-00-gate.yml uploads it under the ARTIFACT name `gate-coverage.json` (the FILE
+            // inside is gate-coverage.json; the step conflated the two), while this guard was
+            // written against `gate-coverage`. A paired literal in two files that disagreed, so
+            // the guard probed ten successful runs, found two of three artifacts every time, and
+            // reported no usable run at all -- in every consumer repo, for as long as it existed.
+            //
+            // Accept BOTH here rather than renaming the producer: pr-00-gate.yml is distributed
+            // create-only, so a producer rename reaches NEW repos only, while this file is
+            // sync-managed and reaches all of them.
+            const coveragePayloadNames = ['gate-coverage', 'gate-coverage.json'];
+            // Trend and history are ENRICHMENT, not requirements. Their download steps already
+            // tolerate absence and the guard already omits their CLI arguments when they are
+            // missing, so requiring them made every repo that has not enabled the soft gate
+            // permanently unusable -- a gate demanding an artifact its own subject need not emit.
+            const trendArtifactName = 'gate-coverage-trend';
+            const historyArtifactName = 'gate-coverage-trend-history';
             let candidate = null;
+            let resolvedPayloadName = '';
+            let resolvedTrendName = '';
+            let resolvedHistoryName = '';
             for (const run of runsToProbe) {
               let artifacts = [];
               try {
@@ -203,17 +219,24 @@ jobs:
                   .filter((artifact) => !artifact.expired)
                   .map((artifact) => artifact.name),
               );
-              const missingCoverageArtifactNames = [...requiredCoverageArtifactNames].filter(
-                (artifactName) => !availableCoverageArtifactNames.has(artifactName),
+              const payloadName = coveragePayloadNames.find((artifactName) =>
+                availableCoverageArtifactNames.has(artifactName),
               );
-              if (!missingCoverageArtifactNames.length) {
+              if (payloadName) {
                 candidate = run;
+                resolvedPayloadName = payloadName;
+                resolvedTrendName = availableCoverageArtifactNames.has(trendArtifactName)
+                  ? trendArtifactName
+                  : '';
+                resolvedHistoryName = availableCoverageArtifactNames.has(historyArtifactName)
+                  ? historyArtifactName
+                  : '';
                 break;
               }
               core.info(
                 [
-                  `Skipping Gate run ${run.id}; missing required coverage artifacts:`,
-                  missingCoverageArtifactNames.join(', '),
+                  `Skipping Gate run ${run.id}; no coverage payload artifact.`,
+                  `Looked for: ${coveragePayloadNames.join(' or ')}.`,
                 ].join(' '),
               );
             }
@@ -230,9 +253,10 @@ jobs:
             if (!candidate) {
               core.warning(
                 [
-                  'Unable to locate a recent successful Gate workflow run with required',
-                  'coverage artifacts: gate-coverage-trend, gate-coverage-trend-history,',
-                  'gate-coverage.',
+                  'Unable to locate a recent successful Gate workflow run carrying a coverage',
+                  'payload artifact (gate-coverage or gate-coverage.json). If the Gate ran but',
+                  'published neither, coverage is not being measured in this repo: check that',
+                  'the reusable CI caller sets coverage: true and enable-soft-gate: true.',
               ].join(' '),
               );
               core.setOutput('run_id', '');
@@ -244,42 +268,50 @@ jobs:
 
             core.setOutput('run_id', String(candidate.id || ''));
             core.setOutput('run_number', String(candidate.run_number || ''));
+            // The downloader learns the names from the producer's actual artifact list instead of
+            // repeating a literal. A name that is discovered cannot drift from the name that
+            // exists, which is the whole defect this replaces.
+            core.setOutput('coverage_artifact_name', resolvedPayloadName);
+            core.setOutput('trend_artifact_name', resolvedTrendName);
+            core.setOutput('history_artifact_name', resolvedHistoryName);
             core.setOutput('run_url', candidate.html_url || '');
             const url = candidate.html_url || 'no url';
             core.notice(`Using Gate workflow run ${candidate.id} (${url})`);
 
       - name: Download coverage trend artifact
-        if: ${{ steps.discover.outputs.run_id }}
+        if: ${{ steps.discover.outputs.trend_artifact_name }}
         id: coverage-trend-cache
         uses: ./.github/actions/artifact-cache
         with:
           cache-key-base: gate-coverage-trend-${{ steps.discover.outputs.run_id }}
           window-resolution: weekly
-          artifact-name: gate-coverage-trend
+          artifact-name: ${{ steps.discover.outputs.trend_artifact_name }}
           artifact-path: coverage_artifacts/trend
           producer-run-id: ${{ steps.discover.outputs.run_id }}
-          fail-fast: 'true'
+          # Enrichment, not a requirement: fail-fast here turned an absent optional artifact into
+          # a dead guard, and the guard already omits the CLI argument when the file is missing.
+          fail-fast: 'false'
 
       - name: Download coverage trend history artifact
-        if: ${{ steps.discover.outputs.run_id }}
+        if: ${{ steps.discover.outputs.history_artifact_name }}
         id: coverage-trend-history-cache
         uses: ./.github/actions/artifact-cache
         with:
           cache-key-base: gate-coverage-trend-history-${{ steps.discover.outputs.run_id }}
           window-resolution: weekly
-          artifact-name: gate-coverage-trend-history
+          artifact-name: ${{ steps.discover.outputs.history_artifact_name }}
           artifact-path: coverage_artifacts/history
           producer-run-id: ${{ steps.discover.outputs.run_id }}
-          fail-fast: 'true'
+          fail-fast: 'false'
 
       - name: Download coverage payload artifact
-        if: ${{ steps.discover.outputs.run_id }}
+        if: ${{ steps.discover.outputs.coverage_artifact_name }}
         id: coverage-payload-cache
         uses: ./.github/actions/artifact-cache
         with:
           cache-key-base: gate-coverage-${{ steps.discover.outputs.run_id }}
           window-resolution: weekly
-          artifact-name: gate-coverage
+          artifact-name: ${{ steps.discover.outputs.coverage_artifact_name }}
           artifact-path: coverage_artifacts/payload
           producer-run-id: ${{ steps.discover.outputs.run_id }}
           fail-fast: 'true'
@@ -352,3 +384,39 @@ jobs:
           fi
 
           python tools/coverage_guard.py "${ARGS[@]}"
+
+  # A SKIPPED GUARD USED TO BE INDISTINGUISHABLE FROM A PASSING ONE. `guard` is gated on the
+  # rate-limit job, so when quota is low the job is skipped and the WORKFLOW IS GREEN with nothing
+  # checked. stranske/Workflows' three most recent runs all read `success` at the workflow level
+  # and `coverage baseline monitor: skipped` at the job level -- which is how a monitor that has
+  # never once executed came to look healthy for months. This job always runs and says which
+  # happened, so the run's own summary distinguishes "checked, and it was fine" from "did not
+  # check". It deliberately does NOT fail on a deferral: the quota gate is legitimate, and turning
+  # a deferral into a red would train everyone to ignore the red.
+  report:
+    name: coverage guard outcome
+    needs: [rate-limit-check, guard]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record whether the guard actually evaluated
+        env:
+          PROCEED: ${{ needs.rate-limit-check.outputs.proceed }}
+          GUARD_RESULT: ${{ needs.guard.result }}
+        run: |
+          if [ "${GUARD_RESULT}" = "skipped" ]; then
+            if [ "${PROCEED}" = "true" ]; then
+              REASON="the guard job was skipped for a reason other than API quota"
+            else
+              REASON="API quota was below the threshold, so the check was deferred"
+            fi
+            {
+              echo "### Coverage guard: NOT EVALUATED"
+              echo ""
+              echo "Coverage was **not** checked on this run - ${REASON}."
+              echo "A green run here does not mean coverage is healthy."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice title=Coverage guard not evaluated::${REASON}"
+          else
+            echo "### Coverage guard: evaluated (${GUARD_RESULT})" >> "$GITHUB_STEP_SUMMARY"
+          fi
