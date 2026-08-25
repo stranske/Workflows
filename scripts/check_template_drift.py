@@ -9,6 +9,7 @@ import hashlib
 import re
 import sys
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 
 import yaml
@@ -31,6 +32,8 @@ class AllowlistEntry:
     main_sha256: str
     template_sha256: str
     reason: str
+    divergence_reviewed: str = ""
+    fingerprint_refreshed: str = ""
 
     def allows(
         self,
@@ -79,6 +82,8 @@ class PairResult:
     main_sha256: str
     template_sha256: str
     reason: str = ""
+    divergence_reviewed: str = ""
+    fingerprint_refreshed: str = ""
 
 
 # Matches a GitHub Actions `uses:` line and captures the action path (owner/repo,
@@ -183,6 +188,12 @@ def read_allowlist(path: Path) -> TemplateDriftAllowlist:
                     "divergence",
                     fallback=parser.get(section, "reason", fallback=""),
                 ),
+                divergence_reviewed=parser.get(
+                    section, "divergence_reviewed", fallback=""
+                ).strip(),
+                fingerprint_refreshed=parser.get(
+                    section, "fingerprint_refreshed", fallback=""
+                ).strip(),
             )
         )
     return TemplateDriftAllowlist(tuple(entries))
@@ -255,6 +266,8 @@ def check_pairs(
         template_text = pair.template_path.read_text(encoding="utf-8")
         template_hash = normalized_sha256(template_text)
 
+        reviewed = ""
+        refreshed = ""
         if normalize_text(main_text) == normalize_text(template_text):
             status = "in_sync"
             reason = ""
@@ -265,17 +278,20 @@ def check_pairs(
             template_text=template_text,
         ):
             status = "allowlisted"
-            reason = next(
+            matched = next(
                 (
-                    entry.reason
+                    entry
                     for entry in allowlist.entries
                     if entry.main_path == main_rel
                     and entry.template_path == template_rel
                     and entry.main_sha256 == main_hash
                     and entry.template_sha256 == template_hash
                 ),
-                "",
+                None,
             )
+            reason = matched.reason if matched else ""
+            reviewed = matched.divergence_reviewed if matched else ""
+            refreshed = matched.fingerprint_refreshed if matched else ""
         else:
             status = "drift"
             reason = "unallowlisted content differs"
@@ -288,9 +304,24 @@ def check_pairs(
                 main_sha256=main_hash,
                 template_sha256=template_hash,
                 reason=reason,
+                divergence_reviewed=reviewed,
+                fingerprint_refreshed=refreshed,
             )
         )
     return results
+
+
+def _days_since(iso_date: str, *, today: date | None = None) -> int | None:
+    """Whole days since ``iso_date``, or None when it does not parse.
+
+    None is returned rather than 0 so an unparseable date reads as "unknown" and
+    not as "reviewed today".
+    """
+    try:
+        parsed = datetime.strptime(iso_date.strip(), "%Y-%m-%d").date()
+    except (ValueError, AttributeError):
+        return None
+    return ((today or date.today()) - parsed).days
 
 
 def render_summary(results: list[PairResult]) -> str:
@@ -319,12 +350,43 @@ def render_summary(results: list[PairResult]) -> str:
         lines.append("")
 
     if counts["allowlisted"]:
+        allowlisted = [result for result in results if result.status == "allowlisted"]
+        # THE COUPLED-BUMP COUNT, REPORTED WHERE THE PAIRS ARE READ.
+        # `divergence_reviewed` is a judgement that two files SHOULD differ;
+        # `fingerprint_refreshed` is a mechanical hash bump. Equal dates on many pairs
+        # is the signature of the second being copied into the first, which is the
+        # false claim the field split existed to remove. Reported, never enforced: a
+        # stale review date must not block a fingerprint refresh, or the gate blocks
+        # its own drain.
+        coupled = [
+            result
+            for result in allowlisted
+            if result.divergence_reviewed
+            and result.divergence_reviewed == result.fingerprint_refreshed
+        ]
         lines.extend(["## Allowlisted Baseline Drift", ""])
-        for result in results:
-            if result.status == "allowlisted":
-                lines.append(f"- `{result.main_path}` -> `{result.template_path}`")
-                if result.reason:
-                    lines.append(f"  - reason: {result.reason}")
+        lines.append(
+            f"- pairs where divergence_reviewed == fingerprint_refreshed: "
+            f"{len(coupled)} of {len(allowlisted)}"
+        )
+        lines.append("")
+        for result in allowlisted:
+            lines.append(f"- `{result.main_path}` -> `{result.template_path}`")
+            if result.divergence_reviewed:
+                age = _days_since(result.divergence_reviewed)
+                age_text = f"{age}d ago" if age is not None else "unparseable date"
+                marker = (
+                    " (SAME DATE as fingerprint_refreshed - likely a coupled bump)"
+                    if result.divergence_reviewed == result.fingerprint_refreshed
+                    else ""
+                )
+                lines.append(
+                    f"  - divergence reviewed: {result.divergence_reviewed} "
+                    f"({age_text}); fingerprint refreshed: "
+                    f"{result.fingerprint_refreshed or 'unset'}{marker}"
+                )
+            if result.reason:
+                lines.append(f"  - reason: {result.reason}")
         lines.append("")
 
     return "\n".join(lines)
