@@ -449,6 +449,48 @@ def test_require_step_probe_budget_spans_paginated_history(monkeypatch) -> None:
     assert len(probed) == check_durable_tracker_liveness.STEP_PROBE_LIMIT
 
 
+def test_require_step_probe_budget_interleaves_allowed_events(monkeypatch) -> None:
+    """One noisy event stream must not starve a later configured event."""
+    scheduled = [
+        {"id": index, "conclusion": "success", "created_at": f"schedule-{index}"}
+        for index in range(check_durable_tracker_liveness.STEP_PROBE_LIMIT)
+    ]
+    dispatched = [
+        {
+            "id": 100,
+            "conclusion": "success",
+            "created_at": "workflow-dispatch-newer",
+        }
+    ]
+    probed: list[int] = []
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        if "event=schedule" in path:
+            return {"workflow_runs": scheduled}
+        if "event=workflow_dispatch" in path:
+            return {"workflow_runs": dispatched}
+        raise AssertionError(f"unexpected history query: {path}")
+
+    def step_conclusion(_repo: str, run_id: int, _step: str, _token: str) -> str:
+        probed.append(run_id)
+        return "success" if run_id == 100 else "skipped"
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+    monkeypatch.setattr(check_durable_tracker_liveness, "run_step_conclusion", step_conclusion)
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "health-68-consumer-sync-drift.yml",
+        "token",
+        frozenset({"schedule", "workflow_dispatch"}),
+        require_step="Compare consumer repos to templates",
+    )
+
+    assert latest is not None
+    assert latest["id"] == 100
+    assert probed[:2] == [0, 100]
+
+
 # The absent-run reason now also names the cause and the remedy: "no executable
 # run found" is true but unactionable, and the cause is almost always GitHub's
 # suspicious-workflow protection, which no REST endpoint can clear.

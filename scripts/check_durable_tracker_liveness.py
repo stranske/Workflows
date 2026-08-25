@@ -139,51 +139,81 @@ def _latest_executable_run(
     if branch is not None:
         base_path += f"&branch={branch}"
     events: tuple[str | None, ...] = tuple(sorted(allowed_events)) if allowed_events else (None,)
-    candidates: list[dict[str, Any]] = []
-    remaining_step_probes = STEP_PROBE_LIMIT
-    for event in events:
-        page = 1
-        while True:
-            if require_step is not None and remaining_step_probes <= 0:
-                break
-            path = base_path
-            if event is not None:
-                path += f"&event={event}&page={page}"
-            elif page > 1:
-                path += f"&page={page}"
-            payload = _gh_api(path, token)
-            runs = payload.get("workflow_runs")
-            if not isinstance(runs, list):
-                break
-            executable = [
+
+    def runs_path(event: str | None, page: int) -> str:
+        path = base_path
+        if event is not None:
+            return f"{path}&event={event}&page={page}"
+        return f"{path}&page={page}" if page > 1 else path
+
+    def executable_runs(path: str) -> tuple[list[dict[str, Any]], bool]:
+        payload = _gh_api(path, token)
+        runs = payload.get("workflow_runs")
+        if not isinstance(runs, list):
+            return [], True
+        return (
+            [
                 run
                 for run in runs
                 if isinstance(run, dict)
                 and str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS
-            ]
-            candidate = None
-            if require_step is None:
-                candidate = executable[0] if executable else None
-            else:
-                # Newest-first, and only over runs that already cleared the job-level
-                # filter. The budget applies to this complete lookup, including every
-                # history page and configured event, so no quiet historical tail can
-                # turn a fixed probe bound into unbounded API work.
-                for run in executable:
-                    if remaining_step_probes <= 0:
-                        break
-                    remaining_step_probes -= 1
-                    conclusion = run_step_conclusion(repo, run.get("id"), require_step, token)
-                    if conclusion is not None and conclusion != "skipped":
-                        candidate = dict(run)
-                        candidate["required_step_conclusion"] = conclusion
-                        break
-            if candidate is not None:
-                candidates.append(candidate)
+            ],
+            len(runs) < 100,
+        )
+
+    candidates: list[dict[str, Any]] = []
+    if require_step is None:
+        for event in events:
+            page = 1
+            while True:
+                executable, exhausted = executable_runs(runs_path(event, page))
+                if executable:
+                    candidates.append(executable[0])
+                    break
+                if exhausted:
+                    break
+                page += 1
+    else:
+        # Probe one run from each configured event stream before returning to the
+        # next run in any stream.  The cap remains global, but an older event (for
+        # example, schedule) cannot spend every probe before a newer permitted
+        # event (for example, workflow_dispatch) gets a chance to qualify.
+        states = [
+            {
+                "event": event,
+                "page": 1,
+                "pending": [],
+                "exhausted": False,
+                "complete": False,
+            }
+            for event in events
+        ]
+        remaining_step_probes = STEP_PROBE_LIMIT
+        while remaining_step_probes > 0:
+            progressed = False
+            for state in states:
+                if state["complete"]:
+                    continue
+                while not state["pending"] and not state["exhausted"]:
+                    executable, exhausted = executable_runs(
+                        runs_path(state["event"], state["page"])
+                    )
+                    state["page"] += 1
+                    state["pending"].extend(executable)
+                    state["exhausted"] = exhausted
+                if not state["pending"]:
+                    continue
+                progressed = True
+                run = state["pending"].pop(0)
+                remaining_step_probes -= 1
+                conclusion = run_step_conclusion(repo, run.get("id"), require_step, token)
+                if conclusion is not None and conclusion != "skipped":
+                    candidate = dict(run)
+                    candidate["required_step_conclusion"] = conclusion
+                    candidates.append(candidate)
+                    state["complete"] = True
+            if not progressed:
                 break
-            if len(runs) < 100:
-                break
-            page += 1
     if not candidates:
         return None
     return max(candidates, key=lambda run: str(run.get("created_at") or ""))
