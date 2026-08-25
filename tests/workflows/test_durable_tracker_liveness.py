@@ -284,12 +284,15 @@ def test_latest_executable_run_stops_after_newest_qualifying_step(monkeypatch) -
 
     monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
 
-    assert check_durable_tracker_liveness._latest_executable_run(
-        "stranske/Workflows",
-        "health-68-consumer-sync-drift.yml",
-        "token",
-        require_step="Compare consumer repos to templates",
-    ) == newest
+    assert (
+        check_durable_tracker_liveness._latest_executable_run(
+            "stranske/Workflows",
+            "health-68-consumer-sync-drift.yml",
+            "token",
+            require_step="Compare consumer repos to templates",
+        )
+        == newest
+    )
     assert seen == [
         "repos/stranske/Workflows/actions/workflows/health-68-consumer-sync-drift.yml/"
         "runs?per_page=100",

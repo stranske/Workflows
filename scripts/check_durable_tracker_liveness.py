@@ -100,8 +100,7 @@ def _latest_executable_run(
                     if isinstance(run, dict)
                     and str(run.get("conclusion") or "") in EXECUTABLE_CONCLUSIONS
                     and (
-                        require_step is None
-                        or _run_completed_step(repo, run, token, require_step)
+                        require_step is None or _run_completed_step(repo, run, token, require_step)
                     )
                 ),
                 None,
