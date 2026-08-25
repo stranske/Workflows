@@ -148,6 +148,11 @@ def load_baseline(path: Path) -> BaselineConfig:
     )
 
 
+def is_coverage_breach(current: float, baseline: float, warn_drop: float) -> bool:
+    """Return whether coverage exceeds the configured drop allowance."""
+    return current < baseline - warn_drop
+
+
 def compute_top_files(coverage_data: dict[str, Any], limit: int = 15) -> list[FileCoverage]:
     """Return the most useful file-level coverage rows for issue comments."""
     files = coverage_data.get("files", {})
@@ -680,6 +685,7 @@ def main(args: list[str] | None = None) -> int:
         )
         return 0
     delta = current - baseline
+    warn_drop = load_baseline(parsed.baseline_path).warn_drop
     configured_recovery_window = max(
         1,
         _to_int(
@@ -714,7 +720,7 @@ def main(args: list[str] | None = None) -> int:
         return 0
 
     # Create or update issue
-    if current < baseline:
+    if is_coverage_breach(current, baseline, warn_drop):
         try:
             _find_or_create_issue(
                 repo=parsed.repo,
@@ -726,6 +732,12 @@ def main(args: list[str] | None = None) -> int:
             print(f"Failed to create or update coverage issue: {exc}", file=sys.stderr)
             return 1
     else:
+        if current < baseline:
+            print(
+                f"Coverage {current:.2f}% is within the configured {warn_drop:.2f}-point "
+                f"drop allowance below baseline {baseline:.2f}% - no new issue needed"
+            )
+            return 0
         print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no open issue needed")
         if not _recovery_window_satisfied(
             trend_data,

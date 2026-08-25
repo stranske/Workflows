@@ -46,6 +46,11 @@ def test_load_baseline_enforces_minimum_recovery_days(tmp_path: Path) -> None:
     assert baseline.recovery_days == 3
 
 
+def test_coverage_breach_requires_drop_beyond_warn_threshold() -> None:
+    assert not coverage_guard.is_coverage_breach(84.0, 85.0, 1.0)
+    assert coverage_guard.is_coverage_breach(83.99, 85.0, 1.0)
+
+
 def test_compute_top_files_prioritises_missing_lines() -> None:
     coverage = {
         "files": {
