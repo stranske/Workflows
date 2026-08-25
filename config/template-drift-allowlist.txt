@@ -46,7 +46,7 @@ template = templates/consumer-repo/.github/workflows/agents-issue-intake.yml
 main_sha256 = 756b0e4deaf5efd4138f785b857d57ed271bd30f9facc3daa4a6125db14edbb2
 template_sha256 = 9176b7cffc68dba50fa7ff9c6a2386383c237433ac5a656053eccdd202628c6d
 divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-16: root and consumer intake surfaces both remove the operator draft toggle and always hand off ready-for-review automation PRs; root retains its richer failure summary while the consumer remains a pinned, minimal bridge contract.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-08-16
 fingerprint_refreshed = 2026-08-23
 
 [pair.2]
@@ -55,7 +55,7 @@ template = templates/consumer-repo/.github/workflows/agents-71-codex-belt-dispat
 main_sha256 = 3c82e9805bcc8995d5bb157b0e8582675c05450d51dea6c548ace338d96200ab
 template_sha256 = 95a70c45498449e6c15f8e231a38a808824e9a42ed16c583219f4a5c71d363d2
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-16: workflow_dispatch inputs (force_issue, agent_key) are now passed to the github-script step via step-level env: and read through process.env instead of being interpolated into the script body, removing a script-injection surface that caused GitHub to block the workflow as possibly malicious in consumer repos. Applied identically to both surfaces; consumer action pinning and Codex-specific wording preserved.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-08-16
 fingerprint_refreshed = 2026-08-24
 
 [pair.3]
@@ -64,7 +64,7 @@ template = templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker
 main_sha256 = d38c8fa8c9a0b8d22cc2618073f3df7e66e5933cedbda9adfe696ebe26bfc56a
 template_sha256 = abea1d00c85b0d2207746e916a3d1e581fc30f21274ea0c5b45479a604e558cb
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-06-20: exported Orchestrator skill inputs were added to both root and consumer worker workflow_call surfaces while preserving consumer action pinning and guarded merge wording.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-06-20
 fingerprint_refreshed = 2026-08-24
 
 [pair.4]
@@ -73,7 +73,7 @@ template = templates/consumer-repo/.github/workflows/agents-73-codex-belt-convey
 main_sha256 = 0e1002a98faad1c4444923a7924dc2fd2a1e4f0115d074cd130e8f35e3209033
 template_sha256 = 07d5ef489140f7d55a6733d4e1c73d5d3bc17bad33ce9df216767ecb1395be79
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-10: root conveyor labels Gate and changed-file checks as authoritative; the consumer adds explicit best-effort rationale for only post-merge cleanup calls while preserving its action pins and Codex-specific behavior.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-08-10
 fingerprint_refreshed = 2026-08-24
 
 [pair.5]
@@ -82,7 +82,7 @@ template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
 main_sha256 = 84edb688a3f3629e206432bc63a891f7b7b6e8737d53044ddecce50f97f64231
 template_sha256 = 7ca1550aa40b09a0c3f42d2ce3450551008aec62ed8dc94b6dc59a98bff16c78
 divergence = Intentional divergence updated 2026-08-05: root and consumer workflows both isolate the eligibility sparse checkout under eligibility-source/ while retaining consumer SHA pins and auth plumbing. Do not align wholesale: that would strip the consumer security contract.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-08-05
 fingerprint_refreshed = 2026-08-23
 
 [pair.6]
@@ -100,7 +100,7 @@ template = templates/consumer-repo/.github/workflows/agents-capability-check.yml
 main_sha256 = fd15a87ee9e5dfa7f93c48aa372d87b4c7172a2148f90aba6f25a1f6c9b5ccbe
 template_sha256 = d64c56f967166f803f054b9d81e2390dadd8dc5984bb280271f09bf4fffd9702
 divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-08-22
 fingerprint_refreshed = 2026-08-23
 
 [pair.8]
@@ -109,7 +109,7 @@ template = templates/consumer-repo/.github/workflows/agents-decompose.yml
 main_sha256 = 66b4596b399d478f5070cedd81cd92b8952f2f82dc17bdf129c200614e09da13
 template_sha256 = 48cb4ecee47f756d64c3c76a8f47cac01468c9df5ceae50a86508eadb7d8b589
 divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-08-09
 fingerprint_refreshed = 2026-08-23
 
 [pair.9]
@@ -127,7 +127,7 @@ template = templates/consumer-repo/.github/workflows/agents-guard.yml
 main_sha256 = db19a7be90004acf658ace7ba2e635dc26f918ed8a52934f5c09d8923a0962e8
 template_sha256 = b62efff58577347cf8e868a4915dba9ba2553e281b06f205e9a667a3e6dc1237
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-06-30: root and consumer guard workflows differ for pinned consumer actions/App-token setup; stranske/Workflows digest pins were refreshed together in root and consumer guard surfaces after Renovate moved the Workflows digest to ebef44a.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-06-30
 fingerprint_refreshed = 2026-08-24
 
 [pair.11]
@@ -136,7 +136,7 @@ template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
 main_sha256 = b61916120daf41bf2786b801d1a4a22e68304730b33cb539495c7ed420a15158
 template_sha256 = 45fdba5ac386129273a32fac7d40fd13f9b8b28de06f8fc90254353be7435a97
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Fingerprints refreshed 2026-08-24: both surfaces now link recursion-pause comments to the managed WORKFLOW_USER_GUIDE recovery section instead of a nonexistent Agents.md anchor. The Workflows-local surface links to templates/consumer-repo/WORKFLOW_USER_GUIDE.md because there is no root guide, while the distributed consumer links to its root WORKFLOW_USER_GUIDE.md. Prior fingerprint refresh 2026-08-24: both surfaces treat automated issues as format-ineligible, complementing the shared guard cleanup that removes stale agents:format leases from exempt issues. Underlying divergence unchanged: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Do not align wholesale — that would strip consumer action pins/token setup.
-divergence_reviewed = 2026-08-24
+divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-08-24
 
 [pair.12]
@@ -145,7 +145,7 @@ template = templates/consumer-repo/.github/workflows/agents-keepalive-loop-repor
 main_sha256 = b57ab568475f34cab079bdbb3b55229b393c2bd482dd91951b331b78a039c097
 template_sha256 = fc2e824dc22b1f7677ca92f9877d0a27898975adb56e26b2933190f87787a2ea
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-15: both reporters mint the dedicated KEEPALIVE_APP token with WORKFLOWS_APP fallback, fail closed before trusted summary writes, and record the selected App writer. The root keeps its in-repo setup helpers while the consumer retains state fingerprinting and SHA-pinned actions; do not align wholesale.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-08-15
 fingerprint_refreshed = 2026-08-24
 
 [pair.13]
@@ -154,7 +154,7 @@ template = templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml
 main_sha256 = d298749854d5a646fae5197fd242ef656487b7a57d6f2e690cd52e838d2fb9e1
 template_sha256 = 147d4da9048717e1cf86bcacfd51b4080cc3e228ff7851c3acf2d8fefc2a54ac
 divergence = Intentional divergence re-reviewed 2026-08-13: root and consumer sweeps share HMAC-signed due-authority claims bound to repository, PR, fingerprint, nonce, and exact sweep run; missing signing material fails closed to ordinary non-forced rechecks. Both bypass state debounce for ordinary sweep recovery, retain completed-runner debounce for ordinary wakeups, and bypass runner debounce only for a verified signed due claim, while the consumer retains its consolidated gate-followup dispatch path, inverted mode guard, and pinned action contract.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-08-13
 fingerprint_refreshed = 2026-08-23
 
 [pair.14]
@@ -172,7 +172,7 @@ template = templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml
 main_sha256 = fbb51ad2a0f26947a12c4f02b42d6c193c1ac5f1a1489348a9b6e72b451e3dab
 template_sha256 = ee03c1c1168a8e127e863b22e1e45591ba9f6975a8bc04a6b9c92a06a4835921
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence (re-baselined 2026-07-14): consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Fingerprints refreshed after the durable-label guard was added to the template. Do not align: would strip consumer action pins.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-07-14
 fingerprint_refreshed = 2026-08-24
 
 [pair.16]
@@ -181,7 +181,7 @@ template = templates/consumer-repo/.github/workflows/agents-auto-pilot.yml
 main_sha256 = 1af7c27fc8f3751e708d3bdd6af6eb5f33faec31a896ec307f852cfe9498a095
 template_sha256 = 3bf6229c41eae2862f79b6977274f91a0b7cf0ec842ac20e5d6e45f8d310ee4e
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Fingerprints refreshed 2026-08-23: both surfaces now pass the named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer so it introduces no new divergence. That removal is what cleared GitHub's suspicious-workflow hold on agents-dedup (#3185), which then ran at run_attempt 1 with nothing approved after 22 days held. Underlying divergence unchanged: Intentional divergence reviewed 2026-08-21: the Workflows-local auto-pilot retains Workflows-only PR-meta and keepalive fallbacks, while the consumer template dispatches only the consolidated Agents 80 and Agents 81 entry points. The sync manifest delivers the consumer-specific template so retired Workflows-local targets cannot be restored in consumer repositories.
-divergence_reviewed = 2026-08-23
+divergence_reviewed = 2026-08-21
 fingerprint_refreshed = 2026-08-24
 
 [pair.17]
