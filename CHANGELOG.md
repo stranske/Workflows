@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.7](https://github.com/stranske/Workflows/compare/v1.30.6...v1.30.7) (2026-08-25)
+
+
+### Bug Fixes
+
+* **coverage:** require trend artifact for guard runs ([#3258](https://github.com/stranske/Workflows/issues/3258)) ([ac13627](https://github.com/stranske/Workflows/commit/ac1362752fb27979bdc87577a0c2f423b9d4889e))
+* **health:** bound required-step liveness probes ([#3256](https://github.com/stranske/Workflows/issues/3256)) ([5ba3910](https://github.com/stranske/Workflows/commit/5ba391025f8dfb9873cc417a62461f0cf807d8b6))
+
 ## [1.30.6](https://github.com/stranske/Workflows/compare/v1.30.5...v1.30.6) (2026-08-25)
 
 
