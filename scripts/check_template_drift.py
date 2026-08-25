@@ -374,7 +374,7 @@ def render_summary(results: list[PairResult]) -> str:
                 age = _days_since(result.divergence_reviewed)
                 age_text = f"{age}d ago" if age is not None else "unparseable date"
                 marker = (
-                    " (SAME DATE as fingerprint_refreshed - likely a coupled bump)"
+                    " (same date as fingerprint_refreshed)"
                     if result.divergence_reviewed == result.fingerprint_refreshed
                     else ""
                 )
@@ -400,10 +400,9 @@ def print_allowlist_template(results: list[PairResult]) -> None:
         print(f"template = {result.template_path}")
         print(f"main_sha256 = {result.main_sha256}")
         print(f"template_sha256 = {result.template_sha256}")
-        print(
-            "reason = Existing reviewed baseline drift; align the template or "
-            "update this fingerprint deliberately."
-        )
+        print("divergence = Explain why these files intentionally differ.")
+        print("divergence_reviewed = YYYY-MM-DD  # date that rationale was reviewed")
+        print("fingerprint_refreshed = YYYY-MM-DD  # date hashes were refreshed")
         print()
 
 

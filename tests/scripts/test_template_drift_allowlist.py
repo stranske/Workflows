@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections
 import configparser
 import re
+from datetime import date
 from pathlib import Path
 
 from scripts.check_template_drift import read_allowlist
@@ -34,6 +35,14 @@ def stated_review_date(divergence: str) -> str | None:
     return match.group(1) if match else None
 
 
+def is_calendar_date(value: str) -> bool:
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
 def _pairs() -> dict[str, configparser.SectionProxy]:
     parser = configparser.ConfigParser(interpolation=None)
     parser.read(ALLOWLIST, encoding="utf-8")
@@ -58,12 +67,12 @@ def test_every_pair_states_its_divergence() -> None:
         reviewed = entry.get("divergence_reviewed", "").strip()
         refreshed = entry.get("fingerprint_refreshed", "").strip()
         assert divergence and "Existing reviewed baseline drift" not in divergence
-        assert re.fullmatch(
-            r"20\d\d-\d\d-\d\d", reviewed
-        ), f"{section}: divergence_reviewed must be an ISO date, got {reviewed!r}"
-        assert re.fullmatch(
-            r"20\d\d-\d\d-\d\d", refreshed
-        ), f"{section}: fingerprint_refreshed must be an ISO date, got {refreshed!r}"
+        assert is_calendar_date(
+            reviewed
+        ), f"{section}: divergence_reviewed must be a calendar date, got {reviewed!r}"
+        assert is_calendar_date(
+            refreshed
+        ), f"{section}: fingerprint_refreshed must be a calendar date, got {refreshed!r}"
 
         stated = stated_review_date(divergence)
         if stated is None:
@@ -147,6 +156,12 @@ def test_review_date_parser_reads_the_verb_not_a_bare_date() -> None:
         "Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-16: ..."
     )
     assert stated_review_date(layered) == "2026-08-16"
+
+
+def test_calendar_date_validation_rejects_date_shaped_typos() -> None:
+    assert is_calendar_date("2026-08-24")
+    assert not is_calendar_date("2026-99-99")
+    assert not is_calendar_date("2026-02-30")
 
 
 def test_read_allowlist_prefers_divergence_and_supports_legacy_reason(tmp_path: Path) -> None:
