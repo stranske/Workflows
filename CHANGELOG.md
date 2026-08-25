@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.6](https://github.com/stranske/Workflows/compare/v1.30.5...v1.30.6) (2026-08-25)
+
+
+### Bug Fixes
+
+* **agent-runs:** gate the editable install on a DECLARED distribution, not on pyproject.toml existing ([#3245](https://github.com/stranske/Workflows/issues/3245)) ([945b44f](https://github.com/stranske/Workflows/commit/945b44f19140cca9c96064e34a919b77e59a0bdb))
+* **ci:** don't pass a new flag to the OLD script copy consumers still have ([#3253](https://github.com/stranske/Workflows/issues/3253)) ([1e354f8](https://github.com/stranske/Workflows/commit/1e354f8fd74126774778a8840a7981d441894e1d))
+* **coverage-guard:** the monitor has never once executed — three independent reasons, all silent ([#3252](https://github.com/stranske/Workflows/issues/3252)) ([fa3f996](https://github.com/stranske/Workflows/commit/fa3f996b9f376ecf0a49d7bb701309f528b4a30e))
+* **coverage:** project-only coverage was a DIFFERENT METRIC, not a cleaner one ([#3254](https://github.com/stranske/Workflows/issues/3254)) ([09d2328](https://github.com/stranske/Workflows/commit/09d2328dabdf1d0fd8c0a49c1e851c9ade765336))
+* **coverage:** the trend reporter could not fail — an unread baseline scored 0.00% and always "improved" ([#3251](https://github.com/stranske/Workflows/issues/3251)) ([3da34a1](https://github.com/stranske/Workflows/commit/3da34a18d5e3b3eec477604430699c7c9258e26d))
+* **health:** measure whether Health 68 COMPARED, not whether it concluded ([#3247](https://github.com/stranske/Workflows/issues/3247)) ([6f7f745](https://github.com/stranske/Workflows/commit/6f7f74561eb676abacbb47639da8c989f745c96e))
+* **sync:** give each pair the review date its own rationale records ([#3250](https://github.com/stranske/Workflows/issues/3250)) ([c8459fd](https://github.com/stranske/Workflows/commit/c8459fd1b595f9593755dd62d94bd559317e1020))
+
 ## [1.30.5](https://github.com/stranske/Workflows/compare/v1.30.4...v1.30.5) (2026-08-24)
 
 
