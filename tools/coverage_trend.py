@@ -96,17 +96,34 @@ def _partition_files(
 
 
 def _percent_from_rows(files: dict[str, Any]) -> float | None:
-    """Recompute a coverage percentage from per-file rows, or None when there are none."""
+    """Recompute a coverage percentage from per-file rows, or None when there are none.
+
+    ON THE SAME BASIS AS `current`, which is coverage.py's `totals.percent_covered`. With branch
+    coverage enabled that is (covered_lines + covered_branches) over (statements + branches), NOT
+    statements alone -- coverage.py reports the statements-only figure separately, as
+    `percent_statements_covered`.
+
+    The first version summed lines only, and the failure did not look like a failure: it produced
+    a plausible number about three points away, so `current_project_only` read as though
+    contamination had cost three points on repos where NOTHING was contaminated. Measured on
+    stranske/Pension-Data (foreign_file_count 0): statements-only 90.96%, line+branch 87.78%, and
+    coverage.py's own percent_covered 87.78%. The invariant that catches it is cheap and is now a
+    test -- with no foreign rows this MUST equal `current`.
+    """
     covered = 0
     missing = 0
+    covered_branches = 0
+    num_branches = 0
     for data in files.values():
         summary = data.get("summary", {}) if isinstance(data, dict) else {}
         covered += int(summary.get("covered_lines", 0) or 0)
         missing += int(summary.get("missing_lines", 0) or 0)
-    total = covered + missing
-    if total <= 0:
+        covered_branches += int(summary.get("covered_branches", 0) or 0)
+        num_branches += int(summary.get("num_branches", 0) or 0)
+    denominator = covered + missing + num_branches
+    if denominator <= 0:
         return None
-    return covered / total * 100.0
+    return (covered + covered_branches) / denominator * 100.0
 
 
 def _extract_coverage_percent(coverage_json: dict[str, Any]) -> float:

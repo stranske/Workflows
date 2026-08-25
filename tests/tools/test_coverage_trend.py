@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from tools import coverage_trend
 
 
@@ -635,3 +636,90 @@ def test_every_row_foreign_is_reported_as_a_wrong_root_not_as_contamination(
     summary = summary_path.read_text(encoding="utf-8")
     assert "wrong `--project-root`" in summary
     assert "omit" not in summary, "must not send the reader to fix coverage config"
+
+
+# ---------------------------------------------------------------------------------------------
+# THE INVARIANT THAT CATCHES A METRIC SWITCH: with no rows outside the project, the project-only
+# figure MUST equal what coverage.py measured. The first version of _percent_from_rows summed
+# lines only, so on any repo with branch coverage enabled it silently reported STATEMENT coverage
+# beside a LINE+BRANCH `current` -- a plausible number about three points away, which reads as
+# "contamination cost three points" on a repo with zero contamination. Numbers below are the real
+# stranske/Pension-Data Gate payload (foreign_file_count 0): statements-only 90.96%, line+branch
+# 87.78%, coverage.py's own percent_covered 87.78%.
+# ---------------------------------------------------------------------------------------------
+
+
+def _branch_coverage_payload() -> dict:
+    """A two-file payload with branch data whose totals are internally consistent."""
+    files = {
+        "src/a.py": {
+            "summary": {
+                "covered_lines": 80,
+                "missing_lines": 20,
+                "covered_branches": 6,
+                "num_branches": 10,
+                "percent_covered": 78.18,
+            }
+        },
+        "src/b.py": {
+            "summary": {
+                "covered_lines": 40,
+                "missing_lines": 10,
+                "covered_branches": 4,
+                "num_branches": 10,
+                "percent_covered": 73.33,
+            }
+        },
+    }
+    covered = 120
+    missing = 30
+    covered_branches = 10
+    num_branches = 20
+    percent = (covered + covered_branches) / (covered + missing + num_branches) * 100.0
+    return {"totals": {"percent_covered": percent}, "files": files}
+
+
+def test_project_only_uses_the_same_basis_as_current_when_nothing_is_foreign(
+    tmp_path: Path,
+) -> None:
+    payload = _branch_coverage_payload()
+    coverage_json = tmp_path / "coverage.json"
+    artifact_path = tmp_path / "trend.json"
+    _write_json(coverage_json, payload)
+
+    coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--artifact-path",
+            str(artifact_path),
+            "--project-root",
+            str(tmp_path),
+            "--soft",
+        ]
+    )
+
+    record = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert record["foreign_file_count"] == 0
+    assert record["current_project_only"] == pytest.approx(record["current"], abs=1e-6), (
+        "with nothing excluded these are the same measurement; a gap here means the two numbers "
+        "are on different bases, which reads as contamination that did not happen"
+    )
+
+
+def test_project_only_counts_branches_not_just_statements() -> None:
+    """Pin the basis directly, so the invariant test above cannot pass for the wrong reason."""
+    payload = _branch_coverage_payload()
+    percent = coverage_trend._percent_from_rows(payload["files"])
+
+    assert percent == pytest.approx(76.470588, abs=1e-5)  # (120+10)/(120+30+20)
+    statements_only = 120 / (120 + 30) * 100.0
+    assert percent != pytest.approx(statements_only, abs=1e-5), "must not be statements-only"
+
+
+def test_project_only_falls_back_to_statements_without_branch_data() -> None:
+    """Branch coverage is optional; a payload without it still yields a usable number."""
+    files = {
+        "src/a.py": {"summary": {"covered_lines": 90, "missing_lines": 10}},
+    }
+    assert coverage_trend._percent_from_rows(files) == pytest.approx(90.0, abs=1e-6)
