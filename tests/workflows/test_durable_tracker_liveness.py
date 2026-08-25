@@ -372,6 +372,158 @@ def test_latest_executable_run_paginates_event_filtered_history(monkeypatch) -> 
     assert seen[-1].endswith("event=schedule&page=2")
 
 
+def test_execution_liveness_requires_main_branch_runs(monkeypatch) -> None:
+    """Health 68's required-step evidence must describe the production branch."""
+    seen: list[str] = []
+    run = {
+        "id": 7,
+        "conclusion": "success",
+        "created_at": "main-run",
+        "html_url": "https://run/main",
+    }
+
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "health-68-consumer-sync-drift.yml",
+                "issue": None,
+                "max_age_hours": 48,
+                "require_step": "Compare consumer repos to templates",
+                "durable": False,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_gh_api",
+        lambda path, _token: seen.append(path) or {"workflow_runs": [run]},
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "run_step_conclusion",
+        lambda *_args: "success",
+    )
+    monkeypatch.setattr(check_durable_tracker_liveness, "_hours_since", lambda _ts: 1.0)
+
+    (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+
+    assert result["healthy"] is True
+    branch_filtered = [path for path in seen if "branch=main" in path]
+    assert branch_filtered, "required-step lookup did not filter on the production branch"
+    assert "branch=main" not in seen[0], "bare run-age lookup must stay unfiltered"
+    assert all("health-68-consumer-sync-drift.yml" in path for path in branch_filtered)
+
+
+def test_require_step_probe_budget_spans_paginated_history(monkeypatch) -> None:
+    """A page boundary must not reset the fixed step-probe budget."""
+    first_page = [
+        {"id": index, "conclusion": "success", "created_at": f"first-{index}"}
+        for index in range(10)
+    ] + [{"conclusion": "queued"} for _ in range(90)]
+    second_page = [
+        {"id": 100 + index, "conclusion": "success", "created_at": f"second-{index}"}
+        for index in range(100)
+    ]
+    seen_paths: list[str] = []
+    probed: list[int] = []
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        seen_paths.append(path)
+        return {"workflow_runs": second_page if path.endswith("&page=2") else first_page}
+
+    def all_skipped(_repo: str, run_id: int, _step: str, _token: str) -> str:
+        probed.append(run_id)
+        return "skipped"
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+    monkeypatch.setattr(check_durable_tracker_liveness, "run_step_conclusion", all_skipped)
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "health-68-consumer-sync-drift.yml",
+        "token",
+        require_step="Compare consumer repos to templates",
+    )
+
+    assert latest is None
+    assert any(path.endswith("&page=2") for path in seen_paths)
+    assert len(probed) == check_durable_tracker_liveness.STEP_PROBE_LIMIT
+
+
+def test_require_step_probe_budget_interleaves_allowed_events(monkeypatch) -> None:
+    """One noisy event stream must not starve a later configured event."""
+    scheduled = [
+        {"id": index, "conclusion": "success", "created_at": f"schedule-{index}"}
+        for index in range(check_durable_tracker_liveness.STEP_PROBE_LIMIT)
+    ]
+    dispatched = [
+        {
+            "id": 100,
+            "conclusion": "success",
+            "created_at": "workflow-dispatch-newer",
+        }
+    ]
+    probed: list[int] = []
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        if "event=schedule" in path:
+            return {"workflow_runs": scheduled}
+        if "event=workflow_dispatch" in path:
+            return {"workflow_runs": dispatched}
+        raise AssertionError(f"unexpected history query: {path}")
+
+    def step_conclusion(_repo: str, run_id: int, _step: str, _token: str) -> str:
+        probed.append(run_id)
+        return "success" if run_id == 100 else "skipped"
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+    monkeypatch.setattr(check_durable_tracker_liveness, "run_step_conclusion", step_conclusion)
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "health-68-consumer-sync-drift.yml",
+        "token",
+        frozenset({"schedule", "workflow_dispatch"}),
+        require_step="Compare consumer repos to templates",
+    )
+
+    assert latest is not None
+    assert latest["id"] == 100
+    assert probed[:2] == [0, 100]
+
+
+def test_require_step_probe_budget_caps_inner_round_robin_pass(monkeypatch) -> None:
+    """A round-robin pass with one probe left must not probe every event stream."""
+    never_qualifies = [
+        {"id": index, "conclusion": "success", "created_at": f"event-{index}"} for index in range(5)
+    ]
+    probed: list[int] = []
+    monkeypatch.setattr(check_durable_tracker_liveness, "STEP_PROBE_LIMIT", 3)
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        return {"workflow_runs": never_qualifies}
+
+    def all_skipped(_repo: str, run_id: int, _step: str, _token: str) -> str:
+        probed.append(run_id)
+        return "skipped"
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+    monkeypatch.setattr(check_durable_tracker_liveness, "run_step_conclusion", all_skipped)
+
+    latest = check_durable_tracker_liveness._latest_executable_run(
+        "stranske/Workflows",
+        "health-68-consumer-sync-drift.yml",
+        "token",
+        frozenset({"schedule", "workflow_dispatch", "push", "pull_request"}),
+        require_step="Compare consumer repos to templates",
+    )
+
+    assert latest is None
+    assert len(probed) == check_durable_tracker_liveness.STEP_PROBE_LIMIT
+
+
 # The absent-run reason now also names the cause and the remedy: "no executable
 # run found" is true but unactionable, and the cause is almost always GitHub's
 # suspicious-workflow protection, which no REST endpoint can clear.
