@@ -2491,12 +2491,25 @@ jobs:
           if [ ! -f "${BASELINE_PATH}" ]; then
             BASELINE_PATH="${WORKSPACE_ROOT}/config/coverage-baseline.json"
           fi
+          # THE REUSABLE WORKFLOW SHIPS INSTANTLY VIA @main; THE SCRIPT IT RUNS DOES NOT.
+          # This invokes the CONSUMER's `tools/coverage_trend.py`, a sync-managed file COPY that
+          # only arrives on the next maint-68 run (daily, 05:00 UTC). So for one sync window this
+          # workflow is newer than the script it calls, and passing a flag the older script does
+          # not know makes argparse exit 2 and fails the step -- in every consumer at once.
+          # Probe instead of assume; the flag is optional by design (the script defaults to cwd,
+          # which is already correct for every `working-directory: "."` consumer). Remove this
+          # shim once the fleet has synced past 2026-08-25.
+          PROJECT_ROOT_ARG=""
+          if python "${GITHUB_WORKSPACE}/tools/coverage_trend.py" --help 2>/dev/null \
+              | grep -q -- '--project-root'; then
+            PROJECT_ROOT_ARG="--project-root ${PROJECT_ROOT}"
+          fi
           # shellcheck disable=SC2086
           python "${GITHUB_WORKSPACE}/tools/coverage_trend.py" \
             --coverage-xml coverage.xml \
             --coverage-json coverage.json \
             --baseline "${BASELINE_PATH}" \
-            --project-root "${PROJECT_ROOT}" \
+            ${PROJECT_ROOT_ARG} \
             --summary-path coverage-summary.md \
             --job-summary "$GITHUB_STEP_SUMMARY" \
             --artifact-path coverage-trend.json \
