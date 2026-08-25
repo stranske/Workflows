@@ -43,6 +43,12 @@ jobs:
     outputs:
       drift_failed: ${{ steps.compare.outcome == 'failure' }}
       drift_clean: ${{ steps.compare.outcome == 'success' }}
+      # Did this run COMPARE, as distinct from merely concluding? A debounced run
+      # concludes `success` with every comparison step `skipped`, so the job
+      # conclusion cannot answer that and any oracle reading it counts a no-op as
+      # evidence of life. Kept beside the two drift outputs so the three are read
+      # together.
+      compared: ${{ steps.compare.outcome != 'skipped' }}
     steps:
       - name: Checkout Workflows repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,14 +66,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           DEBOUNCE_MINUTES: '30'
+          # The step whose conclusion decides whether a run COMPARED. Must match the
+          # `name:` of the compare step below, and the `require_step` value in
+          # config/durable_tracker_liveness.yml.
+          COMPARE_STEP_NAME: 'Compare consumer repos to templates'
+          # How many prior runs to probe for that step before giving up and running.
+          COMPARE_PROBE_LIMIT: '15'
         run: |
           set -euo pipefail
+          # Age is measured from the last run that actually COMPARED, never from the
+          # last run that merely concluded. The old selector accepted any
+          # success/failure/timed_out run, which INCLUDED this step's own debounced
+          # no-ops, so the clock reset on nothing happening and the effective interval
+          # drifted with trigger volume instead of tracking real comparisons.
           latest_created="$(
             node -e '
             const { Octokit } = require("@octokit/rest");
             const { createTokenAwareRetry } = require("./.github/scripts/github-api-with-retry.js");
             const core = { info: () => {}, warning: console.warn, debug: () => {} };
             const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+            const stepName = process.env.COMPARE_STEP_NAME;
+            const probeLimit = Number(process.env.COMPARE_PROBE_LIMIT || "15");
+            const currentId = String(process.env.GITHUB_RUN_ID || "");
 
             (async () => {
               const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
@@ -85,25 +105,46 @@ jobs:
                 branch: "main",
                 per_page: 20,
               }));
-              process.stdout.write(JSON.stringify(response.data));
+              const executable = new Set(["success", "failure", "timed_out"]);
+              const candidates = (response.data.workflow_runs || [])
+                .filter((run) => String(run.id) !== currentId)
+                .filter((run) => executable.has(String(run.conclusion || "")))
+                .slice(0, probeLimit);
+              for (const run of candidates) {
+                const jobs = await withRetry(() => github.rest.actions.listJobsForWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: run.id,
+                  per_page: 100,
+                }));
+                const ran = (jobs.data.jobs || []).some((job) =>
+                  (job.steps || []).some((step) =>
+                    step.name === stepName && step.conclusion !== "skipped"
+                  )
+                );
+                if (ran) {
+                  process.stdout.write(String(run.created_at || ""));
+                  return;
+                }
+              }
+              process.stdout.write("");
             })().catch((error) => {
               console.error(error);
               process.exit(1);
             });
-            ' | jq -r --argjson current "$GITHUB_RUN_ID" \
-                '[.workflow_runs[] | select(.id != $current) | select(.conclusion == "success" or .conclusion == "failure" or .conclusion == "timed_out")][0].created_at // empty'
+            '
           )"
           if [ -z "$latest_created" ]; then
-            echo "No prior executable Health 68 run; continuing."
+            echo "No prior Health 68 run COMPARED within the probed window; continuing."
             echo "skip=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           latest_epoch="$(date -d "$latest_created" +%s)"
           now_epoch="$(date -u +%s)"
           age_minutes=$(( (now_epoch - latest_epoch) / 60 ))
-          echo "Last executable Health 68 run was ${age_minutes} minutes ago at ${latest_created}."
+          echo "Last Health 68 run that COMPARED was ${age_minutes} minutes ago at ${latest_created}."
           if [ "$age_minutes" -lt "$DEBOUNCE_MINUTES" ]; then
-            echo "Skipping debounced workflow_run fan-out (< ${DEBOUNCE_MINUTES} minutes)."
+            echo "Skipping debounced workflow_run fan-out (< ${DEBOUNCE_MINUTES} minutes since the last comparison)."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi

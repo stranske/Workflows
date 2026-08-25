@@ -23,3 +23,25 @@ trackers:
   - workflow: health-40-repo-selfcheck.yml
     issue: 3218
     max_age_hours: 192
+
+# Workflows whose EXECUTION is monitored but which own no durable tracker issue, so
+# they have no row in docs/ops/DURABLE_TRACKING_ISSUES.md's tracker table and are
+# excluded from the config-vs-doc coverage equality. They are reported by
+# `check_durable_tracker_liveness.py` and count toward its exit code; they are never
+# commented on, because there is no durable issue to comment on.
+execution_liveness:
+  # Health 68 concludes `success` while its comparison steps are SKIPPED by the
+  # workflow_run debounce, so the job conclusion says only that the workflow was
+  # triggered. `require_step` moves the liveness question from "did a run happen"
+  # to "did a run compare". Measured 2026-08-24: the seven most recent `success`
+  # runs all had this step `skipped`; the newest run that actually compared was
+  # 32774227027, which FAILED.
+  #
+  # #2210 is deliberately absent: it is a TRANSIENT alert this workflow opens and
+  # closes (docs/ops/DURABLE_TRACKING_ISSUES.md, "Distinguishing trackers from
+  # transient alerts") and it is currently CLOSED. Listing it as a durable tracker
+  # would be a false machine-readable claim.
+  - workflow: health-68-consumer-sync-drift.yml
+    issue: null
+    max_age_hours: 48
+    require_step: Compare consumer repos to templates
