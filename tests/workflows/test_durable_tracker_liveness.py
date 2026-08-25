@@ -198,7 +198,7 @@ def test_liveness_ignores_runs_whose_comparison_step_was_skipped(monkeypatch) ->
 
 
 def test_liveness_says_so_when_nothing_in_history_ran_the_step(monkeypatch) -> None:
-    """"Ran and compared nothing" must not be silently reported as an age.
+    """ "Ran and compared nothing" must not be silently reported as an age.
 
     The fix for #3243 must not rebuild #3243 one level up: when no run in the probed
     window executed the required step, the checker has to SAY that, not fall back to
@@ -261,9 +261,7 @@ def test_run_step_conclusion_distinguishes_absent_from_skipped(monkeypatch) -> N
         )
         == "skipped"
     )
-    assert (
-        check_durable_tracker_liveness.run_step_conclusion("o/r", 1, "No Such Step", "t") is None
-    )
+    assert check_durable_tracker_liveness.run_step_conclusion("o/r", 1, "No Such Step", "t") is None
 
 
 def test_execution_liveness_entries_are_excluded_from_tracker_doc_coverage() -> None:
