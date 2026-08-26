@@ -351,6 +351,7 @@ jobs:
           for candidate in \
             "coverage_artifacts/payload/artifacts/coverage/runtimes/3.12/coverage.json" \
             "coverage_artifacts/payload/artifacts/coverage/runtimes/3.13/coverage.json" \
+            "coverage_artifacts/payload/gate-coverage.json" \
             "coverage_artifacts/payload/coverage.json" \
             "coverage_artifacts/coverage.json"; do
             if [ -f "$candidate" ]; then

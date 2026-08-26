@@ -21,3 +21,4 @@ def test_coverage_guard_selects_only_runs_with_payload_and_trend(workflow_path: 
     )
     assert workflow.count("if (payloadName && hasTrend)") == 1
     assert workflow.count("coverage payload and trend on a successful Gate run") == 1
+    assert '"coverage_artifacts/payload/gate-coverage.json"' in workflow
