@@ -669,13 +669,19 @@ test('maint71 run writes reports and records a no-PR result with fake action cli
   const summaries = [];
   const failures = [];
   const paginateCalls = [];
+  const pullsListCalls = [];
   const github = {
     paginate: async (method, params) => {
       paginateCalls.push({ method, params });
       return [];
     },
     rest: {
-      pulls: { list: () => {} },
+      pulls: {
+        list: async (params) => {
+          pullsListCalls.push(params);
+          return { data: [] };
+        },
+      },
       repos: { createDispatchEvent: () => {} },
     },
   };
@@ -711,8 +717,13 @@ test('maint71 run writes reports and records a no-PR result with fake action cli
     });
 
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    assert.equal(paginateCalls.length, 1);
-    assert.equal(paginateCalls[0].params.repo, 'Ready');
+    assert.equal(paginateCalls.length, 0);
+    assert.equal(pullsListCalls.length, 1);
+    assert.equal(pullsListCalls[0].repo, 'Ready');
+    assert.equal(pullsListCalls[0].state, 'all');
+    assert.equal(pullsListCalls[0].sort, 'updated');
+    assert.equal(pullsListCalls[0].direction, 'desc');
+    assert.equal(pullsListCalls[0].per_page, 100);
     assert.equal(report.summary.no_prs, 1);
     assert.equal(fs.existsSync(path.join(tempDir, 'artifacts', 'sync-canary-evidence.json')), true);
     assert.deepEqual(failures, []);
@@ -803,7 +814,7 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
         : []
     ),
     rest: {
-      pulls: { list: () => {} },
+      pulls: { list: async () => ({ data: [] }) },
       checks: { listForRef: () => {} },
       repos: {
         get: async () => ({ data: { default_branch: 'main' } }),
@@ -974,7 +985,7 @@ test('maint71 accepts exact-tree no-change delivery evidence without a redundant
   const github = {
     paginate: async () => [],
     rest: {
-      pulls: { list: () => {} },
+      pulls: { list: async () => ({ data: [] }) },
       repos: {
         get: async () => ({ data: { default_branch: 'main' } }),
         getBranchProtection: async () => {
@@ -1078,6 +1089,7 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
     created_at: '2026-08-11T05:22:39Z',
     updated_at: '2026-08-11T07:31:00Z',
     merged_at: '2026-08-11T07:31:00Z',
+    state: 'closed',
     base: { ref: 'main' },
     head: { ref: 'sync/workflows-candidate', sha: 'head-abc' },
     user: { login: 'stranske' },
@@ -1086,12 +1098,11 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
     ...mergedCandidate,
     number: 1428,
     merged_at: null,
+    state: 'open',
     head: { ref: 'deps/sync-dev-versions-other', sha: 'head-other' },
   };
   const github = {
     paginate: async (_method, params) => {
-      if (params.state === 'open') return [unrelatedOpenDelivery];
-      if (params.state === 'closed') return [mergedCandidate];
       if (params.ref === 'head-abc') {
         return [
           { name: 'Gate / gate', status: 'completed', conclusion: 'success' },
@@ -1123,7 +1134,7 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
     }),
     rest: {
       pulls: {
-        list: () => {},
+        list: async () => ({ data: [unrelatedOpenDelivery, mergedCandidate] }),
         get: async () => ({ data: mergedCandidate }),
       },
       checks: { listForRef: () => {} },
@@ -1246,16 +1257,13 @@ test('maint71 prepare pass recovers an already-merged campaign row', async () =>
     created_at: '2026-08-11T05:22:39Z',
     updated_at: '2026-08-11T07:31:00Z',
     merged_at: '2026-08-11T07:31:00Z',
+    state: 'closed',
     base: { ref: 'main' },
     head: { ref: 'sync/workflows-delivery', sha: 'head-campaign' },
     user: { login: 'stranske' },
   };
   const github = {
-    paginate: async (_method, params) => {
-      if (params.state === 'open') return [];
-      if (params.state === 'closed') return [mergedCampaign];
-      return [];
-    },
+    paginate: async () => [],
     graphql: async () => ({
       repository: {
         object: {
@@ -1274,7 +1282,7 @@ test('maint71 prepare pass recovers an already-merged campaign row', async () =>
     }),
     rest: {
       pulls: {
-        list: () => {},
+        list: async () => ({ data: [mergedCampaign] }),
         get: async () => ({ data: mergedCampaign }),
       },
       checks: { listForRef: () => {} },
@@ -2339,14 +2347,14 @@ test('maint71 execution emits a fully bound review-window handoff', async () => 
     number: 1464, title: 'chore: sync workflow templates',
     body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify(metadata)} -->\n` +
       `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
-    created_at: observedAt, updated_at: observedAt,
+    created_at: observedAt, updated_at: observedAt, state: 'open',
     base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: headSha },
     user: { login: 'stranske' },
   };
   const github = {
-    paginate: async (_method, params) => params.state === 'open' ? [candidate] : [],
+    paginate: async () => [],
     rest: {
-      pulls: { list: () => {}, get: async () => ({ data: candidate }) },
+      pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       git: { getCommit: async () => ({ data: { message: '' } }) },
       repos: { createDispatchEvent: async () => ({}) },
     },
@@ -2440,13 +2448,12 @@ test('maint71 execution preserves delivery-record precedence in the normal deliv
     number: 1464, title: 'chore: sync workflow templates',
     body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify(metadata)} -->\n` +
       `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
-    created_at: '2020-08-14T00:00:00Z', updated_at: '2020-08-14T00:00:00Z',
+    created_at: '2020-08-14T00:00:00Z', updated_at: '2020-08-14T00:00:00Z', state: 'open',
     base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: headSha },
     user: { login: 'stranske' },
   };
   const github = {
     paginate: async (_method, params) => {
-      if (params.state === 'open') return [candidate];
       if (params.ref === headSha) {
         return [{ name: 'Gate / gate', status: 'completed', conclusion: 'success' }];
       }
@@ -2456,7 +2463,7 @@ test('maint71 execution preserves delivery-record precedence in the normal deliv
       repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } } },
     }),
     rest: {
-      pulls: { list: () => {}, get: async () => ({ data: candidate }) },
+      pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       checks: { listForRef: () => {} },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
       repos: {
@@ -2545,13 +2552,16 @@ test('maint71 fails closed before emitting a handoff for a new candidate without
       source_commit: sourceCommit, source_sha: sourceCommit,
       template_hash: 'metadata-generation', sync_phase: 'canary',
     })} -->`,
-    created_at: '2020-08-14T00:00:00Z', updated_at: '2020-08-14T00:00:00Z',
+    created_at: '2020-08-14T00:00:00Z', updated_at: '2020-08-14T00:00:00Z', state: 'open',
     base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: 'd'.repeat(40) },
     user: { login: 'stranske' },
   };
   const github = {
-    paginate: async (_method, params) => params.state === 'open' ? [candidate] : [],
-    rest: { pulls: { list: () => {} }, git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) } },
+    paginate: async () => [],
+    rest: {
+      pulls: { list: async () => ({ data: [candidate] }) },
+      git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
+    },
   };
   const failures = [];
   const core = {
@@ -2884,4 +2894,84 @@ test('buildMarkdownSummary includes non-zero statuses and artifact name', () => 
   assert.match(markdown, /\| merged \| 1 \|/);
   assert.match(markdown, /\| merge_blocked_runtime_ac \| 1 \|/);
   assert.match(markdown, /sync-pr-merge-report/);
+});
+
+test('maint71 circuit-breaks the repo loop on terminal primary rate-limit exhaustion', async () => {
+  const originalCwd = process.cwd();
+  const envKeys = [
+    'REGISTERED_REPOS_INPUT', 'CLEANUP_BRANCHES_INPUT', 'DRY_RUN_INPUT',
+    'AUTO_MERGE_INPUT', 'OWNER_PR_PAT', 'SYNC_PR_MERGE_REPORT_JSON',
+  ];
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-circuit-break-'));
+  const reportPath = path.join(tempDir, 'artifacts', 'merge-report.json');
+
+  // Every call sees an exhausted primary rate limit with no rotation
+  // available (no tokenRegistry passed to withRetry). If the circuit breaker
+  // fails, this stub would be invoked once per repo instead of once total.
+  const pullsListCallsByRepo = [];
+  const github = {
+    paginate: async () => [],
+    rest: {
+      pulls: {
+        list: async (params) => {
+          pullsListCallsByRepo.push(params.repo);
+          const error = new Error('API rate limit exceeded for installation ID 123.');
+          error.status = 403;
+          error.response = { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-limit': '5000' } };
+          throw error;
+        },
+      },
+      repos: { createDispatchEvent: async () => ({}) },
+    },
+  };
+  const failures = [];
+  const core = {
+    notice: () => {}, warning: () => {}, setFailed: (message) => failures.push(message),
+    summary: { addRaw: () => ({ write: async () => {} }) },
+  };
+
+  try {
+    process.chdir(tempDir);
+    process.env.REGISTERED_REPOS_INPUT = 'stranske/RepoA,stranske/RepoB,stranske/RepoC';
+    process.env.CLEANUP_BRANCHES_INPUT = 'false';
+    process.env.DRY_RUN_INPUT = 'true';
+    process.env.AUTO_MERGE_INPUT = 'false';
+    process.env.OWNER_PR_PAT = 'test-owner-token';
+    process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
+
+    await run({
+      github,
+      core,
+      context: {
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        payload: {},
+        runId: 99,
+        runNumber: 99,
+        workflow: 'Maint 71',
+        ref: 'refs/heads/main',
+        sha: 'abc',
+      },
+    });
+
+    // The exhausted credential must only ever be tried against the first repo.
+    assert.deepEqual(pullsListCallsByRepo, ['RepoA']);
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.results.length, 3);
+    assert.equal(report.results[0].repo, 'RepoA');
+    assert.equal(report.results[0].status, 'error');
+    assert.equal(report.results[1].repo, 'RepoB');
+    assert.equal(report.results[1].status, 'deferred_rate_limit');
+    assert.equal(report.results[2].repo, 'RepoC');
+    assert.equal(report.results[2].status, 'deferred_rate_limit');
+    assert.deepEqual(failures, []);
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });

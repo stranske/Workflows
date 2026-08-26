@@ -1298,7 +1298,8 @@ async function run({ github, context, core }) {
     };
   }
   
-  for (const repoEntry of targetRepos) {
+  for (let repoIndex = 0; repoIndex < targetRepos.length; repoIndex += 1) {
+    const repoEntry = targetRepos[repoIndex];
     const [entryOwner, entryRepo] = repoEntry.includes('/')
       ? repoEntry.split('/')
       : [defaultOwner, repoEntry];
@@ -1314,25 +1315,29 @@ async function run({ github, context, core }) {
     console.log(`\n=== ${owner}/${repo} ===`);
   
     try {
-      // Find open sync PRs (paginate — first page alone can miss open sync heads).
-      const prs = await withRetry((client) =>
-        client.paginate(client.rest.pulls.list, {
+      // Single bounded fetch of the most recently updated PRs (open + closed
+      // together), split in memory below. Two separate unbounded `.paginate()`
+      // calls here previously meant a repo with a long PR history could exhaust
+      // rate limit budget before ever reaching the merge logic; sync/cleanup
+      // targets are always among the most recently updated PRs, so the most
+      // recent page is sufficient.
+      const recentPRsResponse = await withRetry((client) =>
+        client.rest.pulls.list({
           owner,
           repo,
-          state: 'open',
+          state: 'all',
+          sort: 'updated',
+          direction: 'desc',
           per_page: 100,
         }),
       );
-  
+      const recentPRs = recentPRsResponse?.data || [];
+
+      const prs = recentPRs.filter((pr) => pr.state === 'open');
       const syncPRs = prs.filter((pr) => isTrustedGeneratedDeliveryPr(pr, trustedSyncActors));
       let closedPRs = [];
       if (cleanupBranches || selectedSyncHash === 'candidate' || requestedSyncHash === 'campaign') {
-        closedPRs = await withRetry((client) => client.paginate(client.rest.pulls.list, {
-          owner,
-          repo,
-          state: 'closed',
-          per_page: 100,
-        }));
+        closedPRs = recentPRs.filter((pr) => pr.state === 'closed');
       }
   
       if (cleanupBranches) {
@@ -2629,9 +2634,39 @@ async function run({ github, context, core }) {
     } catch (e) {
       console.log(`✗ Error processing ${repo}: ${e.message}`);
       results.push({ owner, repo, status: 'error', error: e.message });
+
+      // A primary rate-limit error that reaches this outer catch is always
+      // terminal: withRetry already tried token rotation and found no
+      // alternative (see github-api-with-retry.js), so this credential is
+      // exhausted for the remainder of the run. Stop instead of calling every
+      // remaining repo with a token that is already known to fail.
+      const isPrimaryRateLimitExhausted =
+        typeof retryHelpers.isRateLimitError === 'function' &&
+        typeof retryHelpers.isSecondaryRateLimitError === 'function' &&
+        retryHelpers.isRateLimitError(e) &&
+        !retryHelpers.isSecondaryRateLimitError(e);
+      if (isPrimaryRateLimitExhausted) {
+        const deferredRepos = targetRepos.slice(repoIndex + 1);
+        for (const deferredEntry of deferredRepos) {
+          const [deferredOwner, deferredRepo] = deferredEntry.includes('/')
+            ? deferredEntry.split('/')
+            : [defaultOwner, deferredEntry];
+          results.push({
+            owner: deferredOwner || defaultOwner,
+            repo: deferredRepo,
+            status: 'deferred_rate_limit',
+            error: 'Skipped: primary rate limit exhausted earlier in this run.',
+          });
+        }
+        console.log(
+          `✗ Primary rate limit exhausted; deferring ${deferredRepos.length} ` +
+            'remaining repo(s) instead of calling them with an exhausted credential.',
+        );
+        break;
+      }
     }
   }
-  
+
   // Summary
   console.log('\n=== Summary ===');
   console.log(JSON.stringify(results, null, 2));

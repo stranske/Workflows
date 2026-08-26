@@ -66,6 +66,14 @@ example: `GITHUB_TOKEN`, `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT`, `OWNER_PR_PAT`,
 `KEEPALIVE_APP_PRIVATE_KEY`, `GH_APP_ID`/`GH_APP_PRIVATE_KEY`). The wrapper
 handles selecting and switching between them when rate limits are exhausted.
 
+Primary exhaustion circuit-breaks immediately after token rotation has no
+eligible alternative; it does not spend the retry budget on a credential known
+to be empty. GitHub Actions runs append a redacted, bounded
+`rate-limit-incident/v1` row to `artifacts/rate-limit-incidents.ndjson`, which
+high-volume workflows upload with their normal evidence. Secondary throttles
+retain bounded exponential backoff because their recovery window is short and
+request-path-specific.
+
 For consistent configuration across workflows, use the composite action:
 
 ```yaml
