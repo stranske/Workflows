@@ -168,7 +168,12 @@ permissions:
   statuses: read
 
 concurrency:
-  group: consumer-sync-api-heavy-${{ github.repository }}
+  group: >-
+    merge-sync-prs-${{ github.repository }}-${{
+      inputs.active_sync_hash ||
+      github.event.client_payload.active_sync_hash ||
+      'unscoped'
+    }}
   cancel-in-progress: false
 
 jobs:
@@ -599,7 +604,6 @@ jobs:
             artifacts/sync-pr-merge-report.json
             artifacts/sync-canary-evidence.json
             artifacts/sync-campaign-commit-authorization.json
-            artifacts/rate-limit-incidents.ndjson
           if-no-files-found: warn
 
       - name: Refresh stale candidate bases
@@ -829,3 +833,12 @@ jobs:
               },
             }));
             core.notice(`Dispatched exact-plan promotion for ${decision.plan_id}`);
+
+      - name: Upload final rate limit incidents
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sync-pr-rate-limit-incidents
+          path: artifacts/rate-limit-incidents.ndjson
+          if-no-files-found: ignore
+          retention-days: 14

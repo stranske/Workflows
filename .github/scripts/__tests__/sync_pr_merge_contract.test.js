@@ -57,6 +57,7 @@ const {
   collectReviewerEvidence,
   enforceGeneratedDeliveryRequiredContexts,
   legacyStatusAsCheck,
+  listMaint71PullRequests,
   mergeMethodPolicyAllowsFallback,
   isResolvableProofThread,
   normalizeReviewPolicy,
@@ -717,13 +718,11 @@ test('maint71 run writes reports and records a no-PR result with fake action cli
     });
 
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    assert.equal(paginateCalls.length, 0);
-    assert.equal(pullsListCalls.length, 1);
-    assert.equal(pullsListCalls[0].repo, 'Ready');
-    assert.equal(pullsListCalls[0].state, 'all');
-    assert.equal(pullsListCalls[0].sort, 'updated');
-    assert.equal(pullsListCalls[0].direction, 'desc');
-    assert.equal(pullsListCalls[0].per_page, 100);
+    assert.equal(paginateCalls.length, 1);
+    assert.equal(paginateCalls[0].params.repo, 'Ready');
+    assert.equal(paginateCalls[0].params.state, 'open');
+    assert.equal(paginateCalls[0].params.per_page, 100);
+    assert.equal(pullsListCalls.length, 0);
     assert.equal(report.summary.no_prs, 1);
     assert.equal(fs.existsSync(path.join(tempDir, 'artifacts', 'sync-canary-evidence.json')), true);
     assert.deepEqual(failures, []);
@@ -1114,7 +1113,7 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
           { name: 'Resolve Context', status: 'completed', conclusion: 'cancelled' },
         ];
       }
-      return [];
+      return params.state === 'open' ? [unrelatedOpenDelivery] : [];
     },
     graphql: async () => ({
       repository: {
@@ -1134,7 +1133,11 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
     }),
     rest: {
       pulls: {
-        list: async () => ({ data: [unrelatedOpenDelivery, mergedCandidate] }),
+        list: async (params) => ({
+          data: params.head === 'stranske:sync/workflows-candidate'
+            ? [mergedCandidate]
+            : [],
+        }),
         get: async () => ({ data: mergedCandidate }),
       },
       checks: { listForRef: () => {} },
@@ -1282,7 +1285,11 @@ test('maint71 prepare pass recovers an already-merged campaign row', async () =>
     }),
     rest: {
       pulls: {
-        list: async () => ({ data: [mergedCampaign] }),
+        list: async (params) => ({
+          data: params.head === 'stranske:sync/workflows-delivery'
+            ? [mergedCampaign]
+            : [],
+        }),
         get: async () => ({ data: mergedCampaign }),
       },
       checks: { listForRef: () => {} },
@@ -2352,7 +2359,7 @@ test('maint71 execution emits a fully bound review-window handoff', async () => 
     user: { login: 'stranske' },
   };
   const github = {
-    paginate: async () => [],
+    paginate: async (_method, params) => params.state === 'open' ? [candidate] : [],
     rest: {
       pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       git: { getCommit: async () => ({ data: { message: '' } }) },
@@ -2454,6 +2461,7 @@ test('maint71 execution preserves delivery-record precedence in the normal deliv
   };
   const github = {
     paginate: async (_method, params) => {
+      if (params.state === 'open') return [candidate];
       if (params.ref === headSha) {
         return [{ name: 'Gate / gate', status: 'completed', conclusion: 'success' }];
       }
@@ -2557,7 +2565,7 @@ test('maint71 fails closed before emitting a handoff for a new candidate without
     user: { login: 'stranske' },
   };
   const github = {
-    paginate: async () => [],
+    paginate: async (_method, params) => params.state === 'open' ? [candidate] : [],
     rest: {
       pulls: { list: async () => ({ data: [candidate] }) },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
@@ -2911,7 +2919,7 @@ test('maint71 circuit-breaks the repo loop on terminal primary rate-limit exhaus
   // fails, this stub would be invoked once per repo instead of once total.
   const pullsListCallsByRepo = [];
   const github = {
-    paginate: async () => [],
+    paginate: async (method, params) => method(params),
     rest: {
       pulls: {
         list: async (params) => {
@@ -2974,4 +2982,47 @@ test('maint71 circuit-breaks the repo loop on terminal primary rate-limit exhaus
     }
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+});
+
+test('Maint 71 discovers an open generated PR beyond the first 100 results', async () => {
+  const ordinary = Array.from({ length: 100 }, (_, index) => ({
+    number: index + 1,
+    state: 'open',
+    head: { ref: `feature/${index + 1}` },
+  }));
+  const hiddenGenerated = {
+    number: 501,
+    state: 'open',
+    head: { ref: 'sync/workflows-candidate' },
+  };
+  const closedQueries = [];
+  const client = {
+    paginate: async (_method, params) => {
+      assert.equal(params.state, 'open');
+      return [...ordinary, hiddenGenerated];
+    },
+    rest: {
+      pulls: {
+        list: async (params) => {
+          closedQueries.push(params);
+          return { data: [{ number: 600 + closedQueries.length, state: 'closed' }] };
+        },
+      },
+    },
+  };
+  const inventory = await listMaint71PullRequests({
+    owner: 'stranske',
+    repo: 'Ready',
+    withRetry: (fn) => fn(client),
+    includeClosed: true,
+  });
+
+  assert.equal(inventory.open.length, 101);
+  assert.equal(inventory.open.at(-1), hiddenGenerated);
+  assert.equal(inventory.closed.length, 2);
+  assert.deepEqual(
+    closedQueries.map((query) => query.head),
+    ['stranske:sync/workflows-candidate', 'stranske:sync/workflows-delivery'],
+  );
+  assert.ok(closedQueries.every((query) => query.per_page === 1));
 });
