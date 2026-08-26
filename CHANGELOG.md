@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.8](https://github.com/stranske/Workflows/compare/v1.30.7...v1.30.8) (2026-08-26)
+
+
+### Bug Fixes
+
+* **api:** circuit-break exhausted GitHub requests ([#3266](https://github.com/stranske/Workflows/issues/3266)) ([df6a796](https://github.com/stranske/Workflows/commit/df6a796a3b7af92d3f3726463645eb22522691e4))
+* **coverage:** honor configured warning drop ([9e65213](https://github.com/stranske/Workflows/commit/9e6521368a7ec42b2f9424880263d89a7cffdd68)), closes [#3262](https://github.com/stranske/Workflows/issues/3262)
+* **coverage:** preserve hotspot helper API ([2ca9251](https://github.com/stranske/Workflows/commit/2ca9251a5e17a7e69e5f41e2d439aa8b189d8927))
+* **coverage:** preserve hotspot helper API ([ce151bf](https://github.com/stranske/Workflows/commit/ce151bf876e138aae58861c9b9d508b1e683426e))
+* **coverage:** recognize gate coverage payload filename ([52c5b27](https://github.com/stranske/Workflows/commit/52c5b275c1a70e25b24e0451ac44f11bef7acae1))
+
 ## [1.30.7](https://github.com/stranske/Workflows/compare/v1.30.6...v1.30.7) (2026-08-25)
 
 
