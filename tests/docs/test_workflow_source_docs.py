@@ -67,6 +67,16 @@ def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
     assert 'autofixDispatch --> autofixLoop["Agents Autofix Loop' in doc
 
 
+def test_workflows_doc_explains_coverage_guard_tolerance_and_recovery() -> None:
+    doc = WORKFLOWS_DOC.read_text(encoding="utf-8")
+
+    assert "warn_drop" in doc
+    assert "defaults to `1.0`" in doc
+    assert "current < baseline - warn_drop" in doc
+    assert "recovery_days" in doc
+    assert "never authorizes early closure" in doc
+
+
 def test_agent_routing_doc_covers_enabled_registry_agents() -> None:
     registry = yaml.safe_load(AGENT_REGISTRY.read_text(encoding="utf-8"))
     routing_doc = MULTI_AGENT_ROUTING_DOC.read_text(encoding="utf-8")
