@@ -65,23 +65,38 @@ function recordRateLimitIncident(error, options = {}, contextInfo = {}) {
         : isRateLimitError(error)
           ? 'primary_rate_limit'
           : 'transient_error');
+    const surface = options.task || contextInfo.task || 'github-api-with-retry';
+    const runId = process.env.GITHUB_RUN_ID ||
+      `sync:${crypto.createHash('sha256').update(rawMessage).digest('hex').slice(0, 16)}`;
+    const idempotencyKey = [
+      runId,
+      'github-actions',
+      'rate_limit',
+      surface,
+      contextInfo.tokenSource || options.tokenSource || 'unknown',
+    ].join('|');
 
     const incident = {
       schema: 'rate-limit-incident/v1',
+      incident_id: crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 16),
+      idempotency_key: idempotencyKey,
       ts: Math.floor(Date.now() / 1000),
       agent: 'github-actions',
       provider: 'github',
-      surface: options.task || contextInfo.task || 'github-api-with-retry',
+      surface,
       category: 'rate_limit',
       subcategory,
       status: 'exhausted',
       target: process.env.GITHUB_REPOSITORY || null,
+      credential_pool: contextInfo.tokenSource || options.tokenSource || null,
+      resource: headers['x-ratelimit-resource'] || 'core',
+      reroute: contextInfo.reroute || null,
       evidence_hash: crypto.createHash('sha256').update(rawMessage).digest('hex').slice(0, 16),
       evidence_excerpt: evidenceExcerpt,
       remaining: rateLimitInfo.remaining,
       limit: rateLimitInfo.limit,
       reset_at: rateLimitInfo.reset,
-      run_id: process.env.GITHUB_RUN_ID || null,
+      run_id: runId,
       extra: {
         token_source: contextInfo.tokenSource || options.tokenSource || null,
         http_status: Number.isFinite(status) ? status : null,
@@ -470,6 +485,7 @@ async function withRetry(fn, options = {}) {
           task,
           tokenSource: currentTokenSource,
           errorCategory: 'primary_rate_limit_exhausted',
+          reroute: 'caller_circuit_break',
         });
         throw error;
       }
@@ -506,11 +522,14 @@ async function withRetry(fn, options = {}) {
           `${errorMsg}. Token: ${currentTokenSource || 'unknown'}. ` +
           annotationDetails
         );
-        recordRateLimitIncident(error, options, {
-          task,
-          tokenSource: currentTokenSource,
-          errorCategory: secondaryRateLimit ? 'secondary_rate_limit' : rateLimitError ? 'primary_rate_limit' : 'transient_error',
-        });
+        if (secondaryRateLimit || rateLimitError) {
+          recordRateLimitIncident(error, options, {
+            task,
+            tokenSource: currentTokenSource,
+            errorCategory: secondaryRateLimit ? 'secondary_rate_limit' : 'primary_rate_limit',
+            reroute: secondaryRateLimit ? 'bounded_backoff_exhausted' : 'caller_circuit_break',
+          });
+        }
         throw error;
       }
 
