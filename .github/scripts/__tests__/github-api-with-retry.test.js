@@ -415,7 +415,11 @@ test('withRetry fails fast on primary rate limit exhaustion and logs incident', 
 
   assert.equal(incident.schema, 'rate-limit-incident/v1');
   assert.equal(incident.provider, 'github');
+  assert.match(incident.incident_id, /^[0-9a-f]{16}$/);
   assert.equal(incident.surface, 'test-fail-fast');
+  assert.equal(incident.credential_pool, 'TOKEN_A');
+  assert.equal(incident.resource, 'core');
+  assert.equal(incident.reroute, 'caller_circuit_break');
   assert.equal(incident.extra.token_source, 'TOKEN_A');
   assert.equal(incident.subcategory, 'primary_rate_limit_exhausted');
   assert.equal(incident.status, 'exhausted');
@@ -452,6 +456,23 @@ test('withRetry preserves retries for secondary rate limit errors', async () => 
 
   assert.equal(callCount, 3); // initial attempt + 2 retries
   assert.equal(retryDelays.length, 2);
+});
+
+test('withRetry does not record ordinary transient failures as rate-limit incidents', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rate-limit-test-'));
+  const incidentLogPath = path.join(tmpDir, 'incidents.ndjson');
+  const error = new Error('upstream service unavailable');
+  error.status = 503;
+  error.request = { method: 'GET' };
+
+  await assert.rejects(
+    withRetry(async () => { throw error; }, { maxRetries: 0, incidentLogPath }),
+    /unavailable/
+  );
+  assert.equal(fs.existsSync(incidentLogPath), false);
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
 test('withRetry incident logging appends to and preserves existing NDJSON rows', async () => {
