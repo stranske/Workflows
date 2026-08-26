@@ -369,3 +369,184 @@ test('withRetry records token usage when headers lack rate limit fields', async 
     debugMessages.some((message) => message.includes('Token TOKEN_A response usage recorded'))
   );
 });
+
+test('withRetry fails fast on primary rate limit exhaustion and logs incident', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rate-limit-test-'));
+  const incidentLogPath = path.join(tmpDir, 'incidents.ndjson');
+
+  let callCount = 0;
+  const github = { token: 'token-a' };
+  const startedAt = process.hrtime.bigint();
+
+  await assert.rejects(
+    async () => withRetry(
+      async () => {
+        callCount += 1;
+        const error = new Error('API rate limit exceeded for token secret_token_xyz');
+        error.status = 403;
+        error.response = { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-limit': '5000' } };
+        throw error;
+      },
+      {
+        github,
+        tokenSource: 'TOKEN_A',
+        task: 'test-fail-fast',
+        maxRetries: 5,
+        initialDelay: 5000,
+        incidentLogPath,
+      }
+    ),
+    /API rate limit exceeded/
+  );
+  const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+
+  // Must fail fast on first attempt without retrying 5 times or sleeping
+  // through any backoff delay (initialDelay above is deliberately large so a
+  // stray sleep would make this test slow and flaky, not just wrong).
+  assert.equal(callCount, 1);
+  assert.ok(elapsedMs < 500, `expected no sleep, took ${elapsedMs}ms`);
+
+  // Verify NDJSON incident record
+  assert.ok(fs.existsSync(incidentLogPath));
+  const content = fs.readFileSync(incidentLogPath, 'utf8').trim();
+  const incident = JSON.parse(content.split('\n')[0]);
+
+  assert.equal(incident.schema, 'rate-limit-incident/v1');
+  assert.equal(incident.provider, 'github');
+  assert.match(incident.incident_id, /^[0-9a-f]{16}$/);
+  assert.equal(incident.surface, 'test-fail-fast');
+  assert.equal(incident.credential_pool, 'TOKEN_A');
+  assert.equal(incident.resource, 'core');
+  assert.equal(incident.reroute, 'caller_circuit_break');
+  assert.equal(incident.extra.token_source, 'TOKEN_A');
+  assert.equal(incident.subcategory, 'primary_rate_limit_exhausted');
+  assert.equal(incident.status, 'exhausted');
+  assert.equal(incident.remaining, 0);
+  assert.equal(incident.limit, 5000);
+  assert.equal(incident.evidence_excerpt.includes('secret_token_xyz'), false);
+  assert.match(incident.evidence_hash, /^[0-9a-f]{16}$/);
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+test('withRetry preserves retries for secondary rate limit errors', async () => {
+  let callCount = 0;
+  const retryDelays = [];
+  const github = { token: 'token-a' };
+
+  await assert.rejects(
+    async () => withRetry(
+      async () => {
+        callCount += 1;
+        const error = new Error('You have exceeded a secondary rate limit');
+        error.status = 403;
+        throw error;
+      },
+      {
+        github,
+        maxRetries: 2,
+        initialDelay: 10,
+        onRetry: (attempt, err, delay) => retryDelays.push({ attempt, delay }),
+      }
+    ),
+    /secondary rate limit/
+  );
+
+  assert.equal(callCount, 3); // initial attempt + 2 retries
+  assert.equal(retryDelays.length, 2);
+});
+
+test('withRetry does not record ordinary transient failures as rate-limit incidents', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rate-limit-test-'));
+  const incidentLogPath = path.join(tmpDir, 'incidents.ndjson');
+  const error = new Error('upstream service unavailable');
+  error.status = 503;
+  error.request = { method: 'GET' };
+
+  await assert.rejects(
+    withRetry(async () => { throw error; }, { maxRetries: 0, incidentLogPath }),
+    /unavailable/
+  );
+  assert.equal(fs.existsSync(incidentLogPath), false);
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+test('withRetry incident logging appends to and preserves existing NDJSON rows', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rate-limit-test-'));
+  const incidentLogPath = path.join(tmpDir, 'incidents.ndjson');
+  const priorRow = JSON.stringify({ schema: 'rate-limit-incident/v1', surface: 'prior-run' });
+  fs.writeFileSync(incidentLogPath, priorRow + '\n', 'utf8');
+
+  const github = { token: 'token-a' };
+  await assert.rejects(
+    async () => withRetry(
+      async () => {
+        const error = new Error('API rate limit exceeded');
+        error.status = 403;
+        error.response = { headers: { 'x-ratelimit-remaining': '0' } };
+        throw error;
+      },
+      { github, tokenSource: 'TOKEN_A', task: 'test-preserve-rows', incidentLogPath }
+    ),
+    /API rate limit exceeded/
+  );
+
+  const rows = fs.readFileSync(incidentLogPath, 'utf8').trim().split('\n');
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0], priorRow);
+  assert.equal(JSON.parse(rows[1]).surface, 'test-preserve-rows');
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+test('withRetry only defaults the incident log path under artifacts/ when GITHUB_ACTIONS=true', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const originalCwd = process.cwd();
+  const originalGithubActions = process.env.GITHUB_ACTIONS;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rate-limit-test-'));
+  const defaultRelativePath = path.join('artifacts', 'rate-limit-incidents.ndjson');
+
+  const throwRateLimit = async () => {
+    const github = { token: 'token-a' };
+    await assert.rejects(
+      withRetry(
+        async () => {
+          const error = new Error('API rate limit exceeded');
+          error.status = 403;
+          error.response = { headers: { 'x-ratelimit-remaining': '0' } };
+          throw error;
+        },
+        { github, tokenSource: 'TOKEN_A', task: 'test-default-path' }
+      ),
+      /API rate limit exceeded/
+    );
+  };
+
+  try {
+    process.chdir(tmpDir);
+
+    delete process.env.GITHUB_ACTIONS;
+    await throwRateLimit();
+    assert.equal(
+      fs.existsSync(defaultRelativePath),
+      false,
+      'no incident log should be written outside GitHub Actions without an explicit path'
+    );
+
+    process.env.GITHUB_ACTIONS = 'true';
+    await throwRateLimit();
+    assert.equal(fs.existsSync(defaultRelativePath), true);
+  } finally {
+    process.chdir(originalCwd);
+    if (originalGithubActions === undefined) delete process.env.GITHUB_ACTIONS;
+    else process.env.GITHUB_ACTIONS = originalGithubActions;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});

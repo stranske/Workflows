@@ -247,6 +247,40 @@ function selectReconciliationTargets({
   );
 }
 
+async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed = false }) {
+  const {
+    SYNC_CANDIDATE_BRANCH,
+    SYNC_DELIVERY_BRANCH,
+  } = require('./sync_pr_merge_contract.js');
+  // Open generated deliveries must be complete: omitting an older open stable
+  // head can turn target_missing into a false terminal state or expose its live
+  // branch to cleanup. Open inventories are normally one page, but correctness
+  // cannot depend on that being true.
+  const open = await withRetry((client) => client.paginate(
+    client.rest.pulls.list,
+    { owner, repo, state: 'open', per_page: 100 },
+  ));
+  if (!includeClosed) return { open, closed: [] };
+
+  // Merged recovery needs only the reusable candidate and delivery heads. Query
+  // those heads directly instead of paginating the repository's entire closed
+  // PR history; the newest matching row is first and is sufficient.
+  const closed = [];
+  for (const branch of [SYNC_CANDIDATE_BRANCH, SYNC_DELIVERY_BRANCH]) {
+    const response = await withRetry((client) => client.rest.pulls.list({
+      owner,
+      repo,
+      state: 'closed',
+      head: `${owner}:${branch}`,
+      sort: 'updated',
+      direction: 'desc',
+      per_page: 1,
+    }));
+    if (response?.data?.[0]) closed.push(response.data[0]);
+  }
+  return { open, closed };
+}
+
 async function collectReviewerEvidence({
   owner,
   repo,
@@ -526,6 +560,14 @@ async function run({ github, context, core }) {
     core,
     ...options,
   });
+  const isPrimaryRateLimitExhausted = (error) =>
+    typeof retryHelpers.isRateLimitError === 'function'
+    && typeof retryHelpers.isSecondaryRateLimitError === 'function'
+    && retryHelpers.isRateLimitError(error)
+    && !retryHelpers.isSecondaryRateLimitError(error);
+  const rethrowPrimaryRateLimit = (error) => {
+    if (isPrimaryRateLimitExhausted(error)) throw error;
+  };
   async function getRequiredContexts({ owner, repo, branch }) {
     try {
       const { data: protection } = await withRetry((client) =>
@@ -1298,7 +1340,8 @@ async function run({ github, context, core }) {
     };
   }
   
-  for (const repoEntry of targetRepos) {
+  for (let repoIndex = 0; repoIndex < targetRepos.length; repoIndex += 1) {
+    const repoEntry = targetRepos[repoIndex];
     const [entryOwner, entryRepo] = repoEntry.includes('/')
       ? repoEntry.split('/')
       : [defaultOwner, repoEntry];
@@ -1314,26 +1357,16 @@ async function run({ github, context, core }) {
     console.log(`\n=== ${owner}/${repo} ===`);
   
     try {
-      // Find open sync PRs (paginate — first page alone can miss open sync heads).
-      const prs = await withRetry((client) =>
-        client.paginate(client.rest.pulls.list, {
-          owner,
-          repo,
-          state: 'open',
-          per_page: 100,
-        }),
-      );
-  
+      const pullRequests = await listMaint71PullRequests({
+        owner,
+        repo,
+        withRetry,
+        includeClosed:
+          cleanupBranches || selectedSyncHash === 'candidate' || requestedSyncHash === 'campaign',
+      });
+      const prs = pullRequests.open;
       const syncPRs = prs.filter((pr) => isTrustedGeneratedDeliveryPr(pr, trustedSyncActors));
-      let closedPRs = [];
-      if (cleanupBranches || selectedSyncHash === 'candidate' || requestedSyncHash === 'campaign') {
-        closedPRs = await withRetry((client) => client.paginate(client.rest.pulls.list, {
-          owner,
-          repo,
-          state: 'closed',
-          per_page: 100,
-        }));
-      }
+      const closedPRs = pullRequests.closed;
   
       if (cleanupBranches) {
         try {
@@ -1376,6 +1409,7 @@ async function run({ github, context, core }) {
               console.log(`✓ Deleted leftover branch ${branch}`);
               results.push({ owner, repo, branch, status: 'branch_deleted' });
             } catch (branchErr) {
+              rethrowPrimaryRateLimit(branchErr);
               console.log(
                 `⚠ Could not delete leftover branch ${branch}: ${branchErr.message}`,
               );
@@ -1389,6 +1423,7 @@ async function run({ github, context, core }) {
             }
           }
         } catch (cleanupErr) {
+          rethrowPrimaryRateLimit(cleanupErr);
           console.log(`⚠ Sync branch cleanup failed: ${cleanupErr.message}`);
           results.push({
             owner,
@@ -1717,6 +1752,7 @@ async function run({ github, context, core }) {
                 }));
                 console.log('✓ Branch deleted');
               } catch (delErr) {
+                rethrowPrimaryRateLimit(delErr);
                 console.log(`⚠ Branch delete failed: ${delErr.message}`);
               }
               results.push({
@@ -1727,6 +1763,7 @@ async function run({ github, context, core }) {
                 status: 'stale_closed',
               });
             } catch (staleErr) {
+              rethrowPrimaryRateLimit(staleErr);
               console.log(`✗ Stale close failed: ${staleErr.message}`);
               results.push({
                 owner,
@@ -1837,6 +1874,7 @@ async function run({ github, context, core }) {
           ? selection.deliveryRecord.head_observed_at
           : '';
       } catch (error) {
+        rethrowPrimaryRateLimit(error);
         const message = String(error?.message || error);
         console.log(`Unable to refresh generated PR #${pr.number}: ${message}`);
         results.push({
@@ -2328,6 +2366,7 @@ async function run({ github, context, core }) {
             branch_update_started: true,
           });
         } catch (error) {
+          rethrowPrimaryRateLimit(error);
           const message = String(error?.message || error);
           console.log(`Unable to update behind PR #${pr.number}: ${message}`);
           results.push({ ...deliveryContext, status: 'branch_update_failed', error: message });
@@ -2347,6 +2386,7 @@ async function run({ github, context, core }) {
             allowSealedSyncDelivery: stableDelivery,
           });
         } catch (guardError) {
+          rethrowPrimaryRateLimit(guardError);
           const message = String(guardError?.message || guardError);
           console.log(`Runtime AC merge guard blocked PR #${pr.number}: ${message}`);
           results.push({
@@ -2558,6 +2598,7 @@ async function run({ github, context, core }) {
             merged = true;
             break;
           } catch (e) {
+            rethrowPrimaryRateLimit(e);
             lastError = e;
             const message = String(e?.message || 'unknown error');
             console.log(`⚠ Merge attempt failed (method=${merge_method}): ${message}`);
@@ -2586,6 +2627,7 @@ async function run({ github, context, core }) {
               name: 'sync:delivery-staging',
             }));
           } catch (labelError) {
+            rethrowPrimaryRateLimit(labelError);
             core.notice(
               `Merged PR #${pr.number}, but final delivery-label cleanup failed: ` +
                 `${labelError.message || labelError}`,
@@ -2606,6 +2648,7 @@ async function run({ github, context, core }) {
             status: 'branch_deleted',
           });
         } catch (e) {
+          rethrowPrimaryRateLimit(e);
           console.log(`⚠ Could not delete branch: ${e.message}`);
           results.push({
             ...deliveryContext,
@@ -2619,6 +2662,7 @@ async function run({ github, context, core }) {
           status: 'merged',
         });
       } catch (e) {
+        rethrowPrimaryRateLimit(e);
         console.log(`✗ Merge failed: ${e.message}`);
         results.push({
           ...deliveryContext,
@@ -2629,9 +2673,34 @@ async function run({ github, context, core }) {
     } catch (e) {
       console.log(`✗ Error processing ${repo}: ${e.message}`);
       results.push({ owner, repo, status: 'error', error: e.message });
+
+      // A primary rate-limit error that reaches this outer catch is always
+      // terminal: withRetry already tried token rotation and found no
+      // alternative (see github-api-with-retry.js), so this credential is
+      // exhausted for the remainder of the run. Stop instead of calling every
+      // remaining repo with a token that is already known to fail.
+      if (isPrimaryRateLimitExhausted(e)) {
+        const deferredRepos = targetRepos.slice(repoIndex + 1);
+        for (const deferredEntry of deferredRepos) {
+          const [deferredOwner, deferredRepo] = deferredEntry.includes('/')
+            ? deferredEntry.split('/')
+            : [defaultOwner, deferredEntry];
+          results.push({
+            owner: deferredOwner || defaultOwner,
+            repo: deferredRepo,
+            status: 'deferred_rate_limit',
+            error: 'Skipped: primary rate limit exhausted earlier in this run.',
+          });
+        }
+        console.log(
+          `✗ Primary rate limit exhausted; deferring ${deferredRepos.length} ` +
+            'remaining repo(s) instead of calling them with an exhausted credential.',
+        );
+        break;
+      }
     }
   }
-  
+
   // Summary
   console.log('\n=== Summary ===');
   console.log(JSON.stringify(results, null, 2));
@@ -2750,6 +2819,7 @@ module.exports = {
   collectReviewerEvidence,
   enforceGeneratedDeliveryRequiredContexts,
   legacyStatusAsCheck,
+  listMaint71PullRequests,
   mergeMethodPolicyAllowsFallback,
   normalizeReviewPolicy,
   parseNoChangeEvidenceDocument,

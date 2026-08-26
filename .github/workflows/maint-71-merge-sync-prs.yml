@@ -833,3 +833,12 @@ jobs:
               },
             }));
             core.notice(`Dispatched exact-plan promotion for ${decision.plan_id}`);
+
+      - name: Upload final rate limit incidents
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sync-pr-rate-limit-incidents
+          path: artifacts/rate-limit-incidents.ndjson
+          if-no-files-found: ignore
+          retention-days: 14

@@ -17,7 +17,100 @@
  * so all GitHub-API retry/pagination/backoff helpers live in one module.
  */
 
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
+
+function recordRateLimitIncident(error, options = {}, contextInfo = {}) {
+  try {
+    const explicitLogPath = options.incidentLogPath ||
+      process.env.RATE_LIMIT_INCIDENT_LOG_PATH ||
+      process.env.RATE_LIMIT_INCIDENTS_PATH ||
+      null;
+    // Outside Actions (local runs, unrelated scripts, most unit tests), don't
+    // default to writing under artifacts/ unless a path was explicitly given.
+    const logPath = explicitLogPath ||
+      (process.env.GITHUB_ACTIONS === 'true' ? 'artifacts/rate-limit-incidents.ndjson' : null);
+    if (!logPath) {
+      return;
+    }
+
+    const dir = path.dirname(logPath);
+    if (dir && !fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const headers = normaliseHeaders(error?.response?.headers || error?.headers);
+    const rateLimitInfo = extractRateLimitInfo(headers);
+    const status = error?.status || error?.response?.status || null;
+
+    const rawMessage = String(error?.message || error?.response?.data?.message || '');
+    let evidenceExcerpt = rawMessage;
+    if (process.env.GH_TOKEN) {
+      evidenceExcerpt = evidenceExcerpt.split(process.env.GH_TOKEN).join('[REDACTED]');
+    }
+    if (process.env.GITHUB_TOKEN) {
+      evidenceExcerpt = evidenceExcerpt.split(process.env.GITHUB_TOKEN).join('[REDACTED]');
+    }
+    evidenceExcerpt = evidenceExcerpt
+      .replace(/(?:api[_-]?key|token|secret|password)\s*(?:=|:|\s)\s*[^\s,;]+/gi, '[REDACTED]')
+      .replace(/(?:github_pat_|sk-)[A-Za-z0-9_-]{12,}/gi, '[REDACTED]');
+    if (evidenceExcerpt.length > 500) {
+      evidenceExcerpt = evidenceExcerpt.slice(0, 500) + '...[TRUNCATED]';
+    }
+    const subcategory = contextInfo.errorCategory ||
+      (isSecondaryRateLimitError(error)
+        ? 'secondary_rate_limit'
+        : isRateLimitError(error)
+          ? 'primary_rate_limit'
+          : 'transient_error');
+    const surface = options.task || contextInfo.task || 'github-api-with-retry';
+    const runId = process.env.GITHUB_RUN_ID ||
+      `sync:${crypto.createHash('sha256').update(rawMessage).digest('hex').slice(0, 16)}`;
+    const idempotencyKey = [
+      runId,
+      'github-actions',
+      'rate_limit',
+      surface,
+      contextInfo.tokenSource || options.tokenSource || 'unknown',
+    ].join('|');
+
+    const incident = {
+      schema: 'rate-limit-incident/v1',
+      incident_id: crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 16),
+      idempotency_key: idempotencyKey,
+      ts: Math.floor(Date.now() / 1000),
+      agent: 'github-actions',
+      provider: 'github',
+      surface,
+      category: 'rate_limit',
+      subcategory,
+      status: 'exhausted',
+      target: process.env.GITHUB_REPOSITORY || null,
+      credential_pool: contextInfo.tokenSource || options.tokenSource || null,
+      resource: headers['x-ratelimit-resource'] || 'core',
+      reroute: contextInfo.reroute || null,
+      evidence_hash: crypto.createHash('sha256').update(rawMessage).digest('hex').slice(0, 16),
+      evidence_excerpt: evidenceExcerpt,
+      remaining: rateLimitInfo.remaining,
+      limit: rateLimitInfo.limit,
+      reset_at: rateLimitInfo.reset,
+      run_id: runId,
+      extra: {
+        token_source: contextInfo.tokenSource || options.tokenSource || null,
+        http_status: Number.isFinite(status) ? status : null,
+        workflow: process.env.GITHUB_WORKFLOW || null,
+      },
+    };
+
+    fs.appendFileSync(logPath, JSON.stringify(incident) + '\n', 'utf8');
+  } catch (err) {
+    if (options.core && typeof options.core.warning === 'function') {
+      options.core.warning(`Failed to record rate limit incident: ${err.message}`);
+    }
+  }
+}
 
 // NOTE: `github-rate-limited-wrapper.js` requires THIS module
 // (createTokenAwareRetry), so it is required lazily inside the functions that
@@ -381,6 +474,20 @@ async function withRetry(fn, options = {}) {
         if (switched) {
           continue;
         }
+        // Primary rate limit exhausted and no alternative token found -> FAIL FAST
+        const errorMsg = `Primary rate limit exhausted and no alternative token found. Token: ${currentTokenSource || 'unknown'}.`;
+        logWithCore(
+          core,
+          'error',
+          `${errorMsg} Check token rotation and rate limit budgets.`
+        );
+        recordRateLimitIncident(error, options, {
+          task,
+          tokenSource: currentTokenSource,
+          errorCategory: 'primary_rate_limit_exhausted',
+          reroute: 'caller_circuit_break',
+        });
+        throw error;
       }
 
       // Don't retry if we've exhausted attempts
@@ -415,6 +522,14 @@ async function withRetry(fn, options = {}) {
           `${errorMsg}. Token: ${currentTokenSource || 'unknown'}. ` +
           annotationDetails
         );
+        if (secondaryRateLimit || rateLimitError) {
+          recordRateLimitIncident(error, options, {
+            task,
+            tokenSource: currentTokenSource,
+            errorCategory: secondaryRateLimit ? 'secondary_rate_limit' : 'primary_rate_limit',
+            reroute: secondaryRateLimit ? 'bounded_backoff_exhausted' : 'caller_circuit_break',
+          });
+        }
         throw error;
       }
 
@@ -958,6 +1073,7 @@ function createRateLimitAwareClient(github, options = {}) {
 module.exports = {
   isRateLimitError,
   isSecondaryRateLimitError,
+  recordRateLimitIncident,
   withRetry,
   paginateWithRetry,
   createTokenAwareRetry,

@@ -60,87 +60,41 @@ jobs:
         with:
           github_token: ${{ github.token }}
 
+      - name: Restore comparison timestamp marker
+        if: github.event_name == 'workflow_run'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/health-68-last-compared
+          key: health-68-last-compared-${{ github.run_id }}
+          restore-keys: |
+            health-68-last-compared-
+
       - name: Debounce workflow_run fan-out
         id: debounce
         if: github.event_name == 'workflow_run'
         env:
-          GH_TOKEN: ${{ github.token }}
           DEBOUNCE_MINUTES: '30'
-          # The step whose conclusion decides whether a run COMPARED. Must match the
-          # `name:` of the compare step below, and the `require_step` value in
-          # config/durable_tracker_liveness.yml.
-          COMPARE_STEP_NAME: 'Compare consumer repos to templates'
-          # How many prior runs to probe for that step before giving up and running.
-          COMPARE_PROBE_LIMIT: '15'
         run: |
           set -euo pipefail
-          # Age is measured from the last run that actually COMPARED, never from the
-          # last run that merely concluded. The old selector accepted any
-          # success/failure/timed_out run, which INCLUDED this step's own debounced
-          # no-ops, so the clock reset on nothing happening and the effective interval
-          # drifted with trigger volume instead of tracking real comparisons.
-          latest_created="$(
-            node -e '
-            const { Octokit } = require("@octokit/rest");
-            const { createTokenAwareRetry } = require("./.github/scripts/github-api-with-retry.js");
-            const core = { info: () => {}, warning: console.warn, debug: () => {} };
-            const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
-            const stepName = process.env.COMPARE_STEP_NAME;
-            const probeLimit = Number(process.env.COMPARE_PROBE_LIMIT || "15");
-            const currentId = String(process.env.GITHUB_RUN_ID || "");
-
-            (async () => {
-              const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
-              const { withRetry } = await createTokenAwareRetry({
-                github,
-                core,
-                env: process.env,
-                task: "health-68-consumer-sync-drift-debounce",
-                capabilities: ["actions:read"],
-              });
-              const response = await withRetry(() => github.rest.actions.listWorkflowRuns({
-                owner,
-                repo,
-                workflow_id: "health-68-consumer-sync-drift.yml",
-                branch: "main",
-                per_page: 20,
-              }));
-              const executable = new Set(["success", "failure", "timed_out"]);
-              const candidates = (response.data.workflow_runs || [])
-                .filter((run) => String(run.id) !== currentId)
-                .filter((run) => executable.has(String(run.conclusion || "")))
-                .slice(0, probeLimit);
-              for (const run of candidates) {
-                const jobs = await withRetry(() => github.rest.actions.listJobsForWorkflowRun({
-                  owner,
-                  repo,
-                  run_id: run.id,
-                  per_page: 100,
-                }));
-                const ran = (jobs.data.jobs || []).some((job) =>
-                  (job.steps || []).some((step) =>
-                    step.name === stepName && step.conclusion !== "skipped"
-                  )
-                );
-                if (ran) {
-                  process.stdout.write(String(run.created_at || ""));
-                  return;
-                }
-              }
-              process.stdout.write("");
-            })().catch((error) => {
-              console.error(error);
-              process.exit(1);
-            });
-            '
-          )"
-          if [ -z "$latest_created" ]; then
-            echo "No prior Health 68 run COMPARED within the probed window; continuing."
+          marker_file=".cache/health-68-last-compared/timestamp"
+          if [ ! -f "$marker_file" ]; then
+            echo "No prior Health 68 comparison cache marker found; continuing."
             echo "skip=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          latest_epoch="$(date -d "$latest_created" +%s)"
+          latest_created="$(cat "$marker_file")"
+          if [ -z "$latest_created" ]; then
+            echo "Empty Health 68 comparison cache marker; continuing."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest_epoch="$(date -d "$latest_created" +%s 2>/dev/null || date -u -d "$latest_created" +%s 2>/dev/null || echo 0)"
           now_epoch="$(date -u +%s)"
+          if [ "$latest_epoch" -eq 0 ]; then
+            echo "Could not parse timestamp '$latest_created'; continuing."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           age_minutes=$(( (now_epoch - latest_epoch) / 60 ))
           echo "Last Health 68 run that COMPARED was ${age_minutes} minutes ago at ${latest_created}."
           if [ "$age_minutes" -lt "$DEBOUNCE_MINUTES" ]; then
@@ -177,13 +131,35 @@ jobs:
             --summary "$GITHUB_STEP_SUMMARY" \
             --report-json "$CONSUMER_SYNC_DRIFT_REPORT_JSON"
 
+      - name: Update comparison timestamp marker
+        if: ${{ always() && (steps.compare.outcome == 'success' || steps.compare.outcome == 'failure') }}
+        run: |
+          mkdir -p .cache/health-68-last-compared
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .cache/health-68-last-compared/timestamp
+
+      - name: Save comparison timestamp marker
+        if: ${{ always() && (steps.compare.outcome == 'success' || steps.compare.outcome == 'failure') }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/health-68-last-compared
+          key: health-68-last-compared-${{ github.run_id }}-${{ github.run_attempt }}
+
       - name: Upload drift report
         if: ${{ always() && steps.debounce.outputs.skip != 'true' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: consumer-sync-drift-report
           path: artifacts/consumer-sync-drift-report.json
           if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload rate limit incidents
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: health-68-check-drift-rate-limit-incidents
+          path: artifacts/rate-limit-incidents.ndjson
+          if-no-files-found: ignore
           retention-days: 14
 
   publish-drift:
@@ -340,6 +316,15 @@ jobs:
               console.log(`Added comment to existing issue #${tracker.number}`);
             }
 
+      - name: Upload rate limit incidents
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: health-68-publish-drift-rate-limit-incidents
+          path: artifacts/rate-limit-incidents.ndjson
+          if-no-files-found: ignore
+          retention-days: 14
+
   resolve-drift:
     name: Resolve recovered drift alert
     needs: check-drift
@@ -424,3 +409,12 @@ jobs:
               state_reason: 'completed',
             }));
             core.notice(`Closed recovered consumer drift alert #${alert.number}`);
+
+      - name: Upload rate limit incidents
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: health-68-resolve-drift-rate-limit-incidents
+          path: artifacts/rate-limit-incidents.ndjson
+          if-no-files-found: ignore
+          retention-days: 14

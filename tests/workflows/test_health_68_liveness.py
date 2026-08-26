@@ -27,22 +27,24 @@ COMPARE_STEP = "Compare consumer repos to templates"
 
 
 def test_consumer_drift_detector_debounces_workflow_run() -> None:
-    """The debounce must clock the last run that COMPARED, not the last that concluded.
+    """The debounce must clock the last run that COMPARED using an Actions cache marker.
 
-    The old selector accepted any success/failure/timed_out run, which included this
-    step's own debounced no-ops, so the 30-minute clock reset on nothing happening.
+    The old fan-out queried GitHub API for prior workflow runs and listJobsForWorkflowRun.
+    The new mechanism uses actions/cache to store and restore a comparison timestamp marker.
     """
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "Debounce workflow_run fan-out" in text
     assert "github.event_name == 'workflow_run'" in text
-    assert '.conclusion == "cancelled"' not in text
-    assert 'branch: "main"' in text or "branch: 'main'" in text
+    assert "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in text
+    assert "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in text
 
-    # The selector reads a per-step comparison marker...
-    assert "COMPARE_STEP_NAME" in text
-    assert f"COMPARE_STEP_NAME: '{COMPARE_STEP}'" in text
-    assert "listJobsForWorkflowRun" in text
-    assert 'step.conclusion !== "skipped"' in text
+    # Only completed comparison attempts update the cache marker.
+    assert "steps.compare.outcome == 'success'" in text
+    assert "steps.compare.outcome == 'failure'" in text
+
+    # API fan-out calls are no longer used for debounce
+    assert "listJobsForWorkflowRun" not in text
+    assert "listWorkflowRuns" not in text
 
     # ...and no longer selects purely on the run conclusion. The old jq selector is
     # pinned as ABSENT so restoring it is a test failure, not a silent regression.
@@ -51,13 +53,8 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
     ), "the bare-conclusion jq selector is back; it counts debounced no-ops as runs"
 
 
-def test_debounce_step_name_matches_the_step_it_measures() -> None:
-    """One name, defined once, consumed by the workflow AND the liveness config.
-
-    A matching pair of literals drifts; renaming the compare step without renaming
-    the marker would leave the debounce measuring a step that no longer exists and
-    silently falling back to "nothing compared, run anyway".
-    """
+def test_liveness_config_names_the_compare_step() -> None:
+    """The durable liveness probe must still inspect the actual compare step."""
     import yaml as _yaml
 
     text = WORKFLOW.read_text(encoding="utf-8")
@@ -65,9 +62,6 @@ def test_debounce_step_name_matches_the_step_it_measures() -> None:
     steps = data["jobs"]["check-drift"]["steps"]
     step_names = [str(step.get("name") or "") for step in steps]
     assert COMPARE_STEP in step_names, "the step the debounce measures must exist"
-
-    debounce = next(step for step in steps if step.get("name") == "Debounce workflow_run fan-out")
-    assert debounce["env"]["COMPARE_STEP_NAME"] == COMPARE_STEP
 
     config = _yaml.safe_load(
         Path("config/durable_tracker_liveness.yml").read_text(encoding="utf-8")

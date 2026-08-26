@@ -2,7 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
 
 const {
   DEFAULT_CATEGORIES,
@@ -12,25 +13,41 @@ const {
 
 const CONFIG = { categories: DEFAULT_CATEGORIES };
 const SINCE = '2026-02-03';
+const execFileAsync = promisify(execFile);
 
-function runGh(args) {
-  return execFileSync('gh', args, {
-    cwd: process.cwd(),
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+function isTransientGhFailure(error) {
+  const detail = `${error?.message || ''}\n${error?.stderr || ''}`;
+  return /GraphQL: Something went wrong|HTTP (?:5\d\d|429)|secondary rate limit/i.test(detail);
 }
 
-function requireGh() {
+async function runGh(args, { attempts = 1 } = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const { stdout } = await execFileAsync('gh', args, {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+      });
+      return stdout;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || !isTransientGhFailure(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+    }
+  }
+  throw lastError;
+}
+
+async function requireGh() {
   try {
-    runGh(['auth', 'status']);
+    await runGh(['auth', 'status']);
   } catch (error) {
     throw new Error(`gh authentication is required for path-classifier replay: ${error.message}`);
   }
 }
 
-function listRecentMergedPullRequests() {
-  const raw = runGh([
+async function listRecentMergedPullRequests() {
+  const raw = await runGh([
     'pr',
     'list',
     '--repo',
@@ -43,7 +60,7 @@ function listRecentMergedPullRequests() {
     `merged:>=${SINCE}`,
     '--json',
     'number,mergedAt,files',
-  ]);
+  ], { attempts: 3 });
   return JSON.parse(raw);
 }
 
@@ -59,9 +76,9 @@ test('historical merged PR replay matches classification expectations for last 9
   skip: process.env.PATH_CLASSIFIER_REPLAY !== '1'
     ? 'set PATH_CLASSIFIER_REPLAY=1 to run live GitHub replay'
     : false,
-}, () => {
-  requireGh();
-  const pullRequests = listRecentMergedPullRequests();
+}, async () => {
+  await requireGh();
+  const pullRequests = await listRecentMergedPullRequests();
   assert.ok(pullRequests.length > 0, 'expected at least one merged PR in replay window');
 
   const failures = [];
