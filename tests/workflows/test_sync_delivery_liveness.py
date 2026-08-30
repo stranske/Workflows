@@ -71,3 +71,13 @@ def test_sync_lifecycle_chains_and_has_event_plus_timer_fallbacks():
     assert "github.event.workflow_run.head_branch == 'sync/workflows-candidate'" in followups
     assert "event_type: 'merge-sync-prs'" in followups
     assert ": 'dev-tool';" in followups
+
+
+def test_maint68_holds_stable_generation_when_a_legacy_sync_pr_is_open():
+    maint68 = Path(".github/workflows/maint-68-sync-consumer-repos.yml").read_text()
+
+    assert "const legacyInFlight = !exists && await isConsumerOpenPr" in maint68
+    assert "/^sync\\/workflows-(?!candidate$|delivery$).+/" in maint68
+    assert "legacy_in_flight" in maint68
+    assert "must reach terminal disposition before migration" in maint68
+    assert "steps.open_pr.outputs.legacy_in_flight != 'true'" in maint68

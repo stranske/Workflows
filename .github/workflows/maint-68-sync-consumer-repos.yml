@@ -996,14 +996,30 @@ jobs:
               branchPattern: new RegExp(`^${escapeRegex(branchName)}$`),
               core,
             });
+            // Stable candidate/delivery branches supersede the older
+            // generation-named branches.  A non-terminal legacy PR must still
+            // hold the lane: creating a stable PR beside it converts one
+            // delivery attempt into an avoidable replacement.
+            const legacyInFlight = !exists && await isConsumerOpenPr({
+              github,
+              consumerRepo: process.env.TARGET_REPOSITORY,
+              branchPattern: /^sync\/workflows-(?!candidate$|delivery$).+/,
+              core,
+            });
             core.setOutput('exists', exists ? 'true' : 'false');
+            core.setOutput('legacy_in_flight', legacyInFlight ? 'true' : 'false');
             if (exists) {
               core.notice(`Existing sync PR is already open for ${branchName}`);
+            }
+            if (legacyInFlight) {
+              core.warning(
+                `Holding ${branchName}: a legacy sync/workflows-* PR is still open and must reach terminal disposition before migration.`,
+              );
             }
 
       - name: Create sync PR
         id: create_pr
-        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
+        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true && steps.open_pr.outputs.legacy_in_flight != 'true'
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
           SIGNED_COMMIT_TOKEN: ${{ steps.workflows_app_token.outputs.token }}
