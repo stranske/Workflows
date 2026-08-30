@@ -20,5 +20,8 @@ def test_coverage_guard_selects_only_runs_with_payload_and_trend(workflow_path: 
         == 1
     )
     assert workflow.count("if (payloadName && hasTrend)") == 1
-    assert workflow.count("coverage payload and trend on a successful Gate run") == 1
+    assert workflow.count("Coverage verification could not proceed: ${missingPairReason}.") == 1
+    assert workflow.count("no gate-coverage artifacts were published") == 1
+    assert workflow.count("published coverage artifact names did not match") == 1
+    assert workflow.count("coverage payloads were published without ${trendArtifactName}") == 1
     assert '"coverage_artifacts/payload/gate-coverage.json"' in workflow
