@@ -357,9 +357,7 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                 "workflow": workflow,
                 "issue": issue,
                 "healthy": False,
-                "reason": _no_executable_run_reason(
-                    target_repo, workflow, auth, allowed_events
-                ),
+                "reason": _no_executable_run_reason(target_repo, workflow, auth, allowed_events),
             }
             result["held_zero_job_run_count"] = _held_zero_job_run_count(
                 target_repo, workflow, auth, allowed_events
