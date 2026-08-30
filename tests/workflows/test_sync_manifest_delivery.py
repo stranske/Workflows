@@ -719,9 +719,7 @@ def test_fine_art_archive_context_files_are_skip_synced() -> None:
     docs = manifest.get("docs") or []
     for source in ("AGENTS.md", "CLAUDE.md"):
         entries = [
-            entry
-            for entry in docs
-            if isinstance(entry, dict) and entry.get("source") == source
+            entry for entry in docs if isinstance(entry, dict) and entry.get("source") == source
         ]
         assert len(entries) == 1, f"expected exactly one docs entry for {source}"
         reasons = _skip_repo_reasons(entries[0])
@@ -730,6 +728,6 @@ def test_fine_art_archive_context_files_are_skip_synced() -> None:
             "template sync would overwrite the consumer's repo-owned guidance again "
             "(incident faee7246, Workflows#3275)"
         )
-        assert "faee7246" in reasons["stranske/Fine-Art-Archive"], (
-            f"{source}: the Fine-Art-Archive skip reason must cite incident commit faee7246"
-        )
+        assert (
+            "faee7246" in reasons["stranske/Fine-Art-Archive"]
+        ), f"{source}: the Fine-Art-Archive skip reason must cite incident commit faee7246"
