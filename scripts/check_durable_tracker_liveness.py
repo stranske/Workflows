@@ -248,19 +248,57 @@ def _held_by_workflow_protection(runs_probe_empty: bool, repo: str, workflow_fil
     )
 
 
-def _no_executable_run_reason(repo: str, workflow_file: str, token: str) -> str:
-    """Explain an absent executable run without mistaking every absence for a hold."""
-    payload = _gh_api(
-        f"repos/{repo}/actions/workflows/{workflow_file}/runs?per_page=100",
-        token,
+def _recent_workflow_runs(
+    repo: str,
+    workflow_file: str,
+    token: str,
+    allowed_events: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Return recent runs constrained to the same event scope as liveness."""
+    events: tuple[str | None, ...] = tuple(sorted(allowed_events)) if allowed_events else (None,)
+    runs: list[dict[str, Any]] = []
+    for event in events:
+        path = f"repos/{repo}/actions/workflows/{workflow_file}/runs?per_page=100"
+        if event is not None:
+            path += f"&event={event}"
+        payload = _gh_api(path, token)
+        candidates = payload.get("workflow_runs")
+        if isinstance(candidates, list):
+            runs.extend(run for run in candidates if isinstance(run, dict))
+    return runs
+
+
+def _held_zero_job_run_count(
+    repo: str,
+    workflow_file: str,
+    token: str,
+    allowed_events: frozenset[str] | None = None,
+) -> int:
+    """Count recent zero-job protection holds for a tracker alert."""
+    held = [
+        run
+        for run in _recent_workflow_runs(repo, workflow_file, token, allowed_events)
+        if run.get("conclusion") == "action_required"
+    ]
+    return sum(
+        _gh_api(f"repos/{repo}/actions/runs/{run.get('id')}/jobs?per_page=1", token).get("total_count")
+        == 0
+        for run in held
     )
-    runs = payload.get("workflow_runs")
-    if not isinstance(runs, list) or not runs:
+
+
+def _no_executable_run_reason(
+    repo: str,
+    workflow_file: str,
+    token: str,
+    allowed_events: frozenset[str] | None = None,
+) -> str:
+    """Explain an absent executable run without mistaking every absence for a hold."""
+    runs = _recent_workflow_runs(repo, workflow_file, token, allowed_events)
+    if not runs:
         return "no workflow runs found."
     conclusions = {str(run.get("conclusion") or "") for run in runs if isinstance(run, dict)}
-    held = [
-        run for run in runs if isinstance(run, dict) and run.get("conclusion") == "action_required"
-    ]
+    held = [run for run in runs if run.get("conclusion") == "action_required"]
     if held:
         held_zero_job = []
         for run in held:
@@ -318,7 +356,9 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                     "workflow": workflow,
                     "issue": issue,
                     "healthy": False,
-                    "reason": (_no_executable_run_reason(target_repo, workflow, auth)),
+                    "reason": _no_executable_run_reason(
+                        target_repo, workflow, auth, allowed_events
+                    ),
                 }
             )
             continue
@@ -335,6 +375,10 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
             "max_age_hours": max_age_hours,
             "run_url": latest.get("html_url"),
         }
+        if not result["healthy"]:
+            result["held_zero_job_run_count"] = _held_zero_job_run_count(
+                target_repo, workflow, auth, allowed_events
+            )
 
         # THE BLOCKING QUANTITY AND THE DRAINABLE QUANTITY, SIDE BY SIDE.
         # `hours_since` alone answers "was this workflow triggered recently", which a
@@ -408,9 +452,11 @@ def comment_unhealthy_trackers(unhealthy: list[dict[str, Any]], token: str) -> N
             )
         body = (
             "## Durable tracker liveness alert\n\n"
-            f"Source workflow `{item['workflow']}` has no executable run inside its "
+            f"Source workflow `{item['workflow']}` has a last successful write outside its "
             f"{item.get('max_age_hours', '?')}h cadence.\n\n"
             f"- Latest executable run: {item.get('latest_created_at', 'none')}\n"
+            f"- Held/missed zero-job `action_required` runs: "
+            f"{item.get('held_zero_job_run_count', 0)}\n"
             f"- Conclusion: {item.get('latest_conclusion', 'n/a')}\n"
             f"- Hours since: {item.get('hours_since', 'n/a')}\n"
             f"- Run URL: {item.get('run_url', 'n/a')}\n"

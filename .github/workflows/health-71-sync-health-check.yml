@@ -291,7 +291,9 @@ jobs:
         id: tracker_liveness
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Consumer trackers require Actions-read and issue-comment access in
+          # their owning repositories. The default token is repository-scoped.
+          GH_TOKEN: ${{ secrets.DURABLE_TRACKER_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           # scripts/api_client (reached via the shared liveness probe) imports
