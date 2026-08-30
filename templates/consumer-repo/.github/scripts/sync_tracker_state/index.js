@@ -437,7 +437,13 @@ async function isConsumerOpenPr({
   }
   return pulls.some((pull) => {
     const headRef = cleanString(pull?.head?.ref || pull?.headRefName || pull?.head_ref);
-    return patternMatches(headRef, branchPattern);
+    const headRepository = cleanString(
+      pull?.head?.repo?.full_name || pull?.head?.repo?.nameWithOwner,
+    ).toLowerCase();
+    return (
+      headRepository === parsed.fullName.toLowerCase()
+      && patternMatches(headRef, branchPattern)
+    );
   });
 }
 
