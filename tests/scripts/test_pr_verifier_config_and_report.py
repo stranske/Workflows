@@ -18,6 +18,7 @@ say" rather than "no provider answered".
 from __future__ import annotations
 
 import pytest
+from scripts.langchain import pr_verifier
 from scripts.langchain.pr_verifier import (
     EvaluationResult,
     _build_llm_config,
@@ -198,3 +199,217 @@ def test_the_model_is_named_in_the_details_when_known():
     )
     assert "- **Model:** claude-x" in report
     assert "- **Model:** gemini-y" in report
+
+
+# ---------------------------------------------------------------------------------------------
+# `main` — 43 unexercised statements, and the CLI every verifier run enters through.
+#
+# It reads `sys.argv` directly, so the tests set it. Everything that would reach an LLM or the
+# GitHub API is stubbed; what is under test is the wiring around those calls, which is where the
+# silent failures live.
+# ---------------------------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def clean_run_env(monkeypatch):
+    for var in ("GITHUB_RUN_ID", "GITHUB_SERVER_URL", "GITHUB_REPOSITORY"):
+        monkeypatch.delenv(var, raising=False)
+
+
+def _stub_evaluation(monkeypatch, **kwargs):
+    result = EvaluationResult(
+        verdict=kwargs.pop("verdict", "CONCERNS"),
+        summary=kwargs.pop("summary", "a summary"),
+        raw_content=kwargs.pop("raw_content", "the raw content"),
+        **kwargs,
+    )
+    monkeypatch.setattr(pr_verifier, "evaluate_pr", lambda *a, **k: result)
+    return result
+
+
+def _argv(monkeypatch, tmp_path, *args):
+    """Always supply a context file.
+
+    `_load_text(None)` reads STDIN, so a test that omits it hangs on the terminal rather than
+    exercising anything — which is how the first draft of these failed with "reading from stdin
+    while output is captured" instead of a real assertion.
+    """
+    context = tmp_path / "context.md"
+    if not context.exists():
+        context.write_text("Pull request: [#7](https://x/pull/7)\n", encoding="utf-8")
+    monkeypatch.setattr(
+        pr_verifier.sys, "argv", ["pr_verifier.py", "--context-file", str(context), *args]
+    )
+
+
+def test_a_failed_follow_up_issue_does_not_lose_the_evaluation(
+    tmp_path, monkeypatch, capsys, clean_run_env
+):
+    """The contract that matters most here.
+
+    Issue creation touches the GitHub API and can fail for reasons that have nothing to do with
+    the verdict — rate limits, a missing token, a label that does not exist. If that took the run
+    down, a transient API problem would discard a completed evaluation and the PR would show no
+    result at all.
+    """
+    _stub_evaluation(monkeypatch)
+    monkeypatch.setattr(
+        pr_verifier,
+        "_create_followup_issue",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("rate limited")),
+    )
+    _argv(monkeypatch, tmp_path, "--create-issue")
+    pr_verifier.main()
+    captured = capsys.readouterr()
+    assert "Failed to create follow-up issue: rate limited" in captured.err
+    assert "the raw content" in captured.out, "the evaluation must still be reported"
+
+
+def test_a_created_issue_is_announced_on_stderr_not_stdout(
+    tmp_path, monkeypatch, capsys, clean_run_env
+):
+    """stdout is the evaluation payload; a caller piping it must not receive chatter."""
+    _stub_evaluation(monkeypatch)
+    monkeypatch.setattr(pr_verifier, "_create_followup_issue", lambda *a, **k: 4242)
+    _argv(monkeypatch, tmp_path, "--create-issue")
+    pr_verifier.main()
+    captured = capsys.readouterr()
+    assert "Created follow-up issue #4242." in captured.err
+    assert "4242" not in captured.out
+
+
+def test_the_default_issue_label_routes_to_an_agent(tmp_path, monkeypatch, clean_run_env):
+    """A wrong default sends every follow-up to an agent that is not working the PR."""
+    _stub_evaluation(monkeypatch)
+    seen: dict = {}
+
+    def capture(result, context, *, labels, run_url):
+        seen["labels"] = labels
+        return 1
+
+    monkeypatch.setattr(pr_verifier, "_create_followup_issue", capture)
+    _argv(monkeypatch, tmp_path, "--create-issue")
+    pr_verifier.main()
+    assert seen["labels"] == ["agent:codex"]
+
+
+def test_explicit_labels_replace_the_default(tmp_path, monkeypatch, clean_run_env):
+    _stub_evaluation(monkeypatch)
+    seen: dict = {}
+    monkeypatch.setattr(
+        pr_verifier,
+        "_create_followup_issue",
+        lambda result, context, *, labels, run_url: seen.setdefault("labels", labels) and 1,
+    )
+    _argv(
+        monkeypatch,
+        tmp_path,
+        "--create-issue",
+        "--issue-label",
+        "agent:claude",
+        "--issue-label",
+        "bug",
+    )
+    pr_verifier.main()
+    assert seen["labels"] == ["agent:claude", "bug"]
+
+
+def test_the_run_url_needs_every_part_or_none_of_it(tmp_path, monkeypatch, clean_run_env):
+    """A half-built run URL is a dead link in an issue that outlives the run.
+
+    Each variable is absent in a real context — locally none are set, and a workflow can carry
+    some without the others — so a partial URL must be no URL rather than a broken one.
+    """
+    _stub_evaluation(monkeypatch)
+    seen: dict = {}
+    monkeypatch.setattr(
+        pr_verifier,
+        "_create_followup_issue",
+        lambda result, context, *, labels, run_url: seen.setdefault("url", run_url) or 1,
+    )
+    monkeypatch.setenv("GITHUB_RUN_ID", "77")
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    # GITHUB_REPOSITORY deliberately absent
+    _argv(monkeypatch, tmp_path, "--create-issue")
+    pr_verifier.main()
+    assert seen["url"] is None
+
+
+def test_a_complete_environment_builds_the_run_url(tmp_path, monkeypatch, clean_run_env):
+    _stub_evaluation(monkeypatch)
+    seen: dict = {}
+    monkeypatch.setattr(
+        pr_verifier,
+        "_create_followup_issue",
+        lambda result, context, *, labels, run_url: seen.setdefault("url", run_url) or 1,
+    )
+    monkeypatch.setenv("GITHUB_RUN_ID", "77")
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    _argv(monkeypatch, tmp_path, "--create-issue")
+    pr_verifier.main()
+    assert seen["url"] == "https://github.com/stranske/Workflows/actions/runs/77"
+
+
+def test_no_issue_is_created_without_the_flag(tmp_path, monkeypatch, clean_run_env):
+    """Creating an issue is a side effect on a real repository; it must be opt-in."""
+    _stub_evaluation(monkeypatch)
+
+    def must_not_run(*a, **k):
+        raise AssertionError("an issue was created without --create-issue")
+
+    monkeypatch.setattr(pr_verifier, "_create_followup_issue", must_not_run)
+    _argv(monkeypatch, tmp_path)
+    pr_verifier.main()
+
+
+def test_output_falls_back_from_raw_content_to_summary(
+    tmp_path, monkeypatch, capsys, clean_run_env
+):
+    """An empty stdout would read as "the verifier said nothing" rather than "it had no raw text"."""
+    _stub_evaluation(monkeypatch, raw_content=None, summary="only a summary")
+    _argv(monkeypatch, tmp_path)
+    pr_verifier.main()
+    assert "only a summary" in capsys.readouterr().out
+
+
+def test_the_output_file_receives_the_same_text_as_stdout(
+    tmp_path, monkeypatch, capsys, clean_run_env
+):
+    _stub_evaluation(monkeypatch)
+    out = tmp_path / "evaluation.md"
+    _argv(monkeypatch, tmp_path, "--output-file", str(out))
+    pr_verifier.main()
+    printed = capsys.readouterr().out
+    assert out.read_text(encoding="utf-8") == "the raw content"
+    assert "the raw content" in printed
+
+
+def test_json_mode_emits_a_parseable_payload(tmp_path, monkeypatch, capsys, clean_run_env):
+    """Downstream steps parse stdout; prose in JSON mode strands them."""
+    import json as _json
+
+    _stub_evaluation(monkeypatch, verdict="FAIL")
+    _argv(monkeypatch, tmp_path, "--json")
+    pr_verifier.main()
+    payload = _json.loads(capsys.readouterr().out.strip())
+    assert payload["verdict"] == "FAIL"
+
+
+def test_compare_mode_never_runs_the_single_provider_path(
+    tmp_path, monkeypatch, capsys, clean_run_env
+):
+    """The two modes are exclusive. Running both would double every LLM call in the job."""
+
+    def must_not_run(*a, **k):
+        raise AssertionError("evaluate_pr ran in compare mode")
+
+    monkeypatch.setattr(pr_verifier, "evaluate_pr", must_not_run)
+    monkeypatch.setattr(
+        pr_verifier,
+        "evaluate_pr_multiple",
+        lambda *a, **k: [EvaluationResult(verdict="PASS", summary="one")],
+    )
+    _argv(monkeypatch, tmp_path, "--compare")
+    pr_verifier.main()
+    assert "Provider Comparison Report" in capsys.readouterr().out
