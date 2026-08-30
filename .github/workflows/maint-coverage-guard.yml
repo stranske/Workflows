@@ -239,7 +239,33 @@ jobs:
             // Accept BOTH here rather than renaming the producer: pr-00-gate.yml is distributed
             // create-only, so a producer rename reaches NEW repos only, while this file is
             // sync-managed and reaches all of them.
+            //
+            // AND IT HAS A THIRD SHAPE, WHICH IS THE ONE ALMOST EVERY REPO ACTUALLY USES. The
+            // producer runs under a version matrix, so the artifact it publishes is suffixed:
+            // `gate-coverage-3.12-1` and `gate-coverage-3.13-1`. Measured 2026-08-30 across the
+            // lane fleet, EIGHT repos published a trend, a summary and both suffixed payloads --
+            // everything this job needs -- and every one was skipped, because an exact-name list
+            // can never match a name that carries a matrix suffix. The guard had failed in all 13
+            // repos, continuously; two more names would not have fixed it, so the match is by
+            // PREFIX with the non-payload artifacts excluded by name.
+            //
+            // Note what the exclusions are: `-trend`, `-trend-history`, `-summary` and `-delta`
+            // all share the `gate-coverage` prefix, so a bare prefix match would have selected the
+            // TREND as the payload and compared coverage against itself.
             const coveragePayloadNames = ['gate-coverage', 'gate-coverage.json'];
+            const payloadPrefix = 'gate-coverage';
+            const notAPayload = /^gate-coverage-(trend|summary|delta)/;
+            const payloadCandidates = (names) => {
+              const exact = coveragePayloadNames.filter((name) => names.has(name));
+              const suffixed = [...names]
+                .filter((name) => name.startsWith(payloadPrefix) && !notAPayload.test(name))
+                .filter((name) => !coveragePayloadNames.includes(name))
+                .sort();
+              // Exact names first so a repo where this already worked is untouched; the suffixed
+              // ones are SORTED rather than taken in listing order, because the API's order is not
+              // stable and a coverage figure that depends on it would move for no reason.
+              return [...exact, ...suffixed];
+            };
             // The guard cannot evaluate a baseline from the payload alone: coverage_guard.py
             // deliberately treats a missing trend payload as a no-op.  Only select runs that
             // carry the trend artifact, otherwise this job can report success without checking
@@ -250,6 +276,7 @@ jobs:
             let resolvedPayloadName = '';
             let resolvedTrendName = '';
             let resolvedHistoryName = '';
+            const seenCoverageArtifacts = new Set();
             for (const run of runsToProbe) {
               let artifacts = [];
               try {
@@ -270,14 +297,27 @@ jobs:
                 continue;
               }
 
+              // Accumulated ACROSS runs so the failure message can distinguish "no coverage
+              // artifacts anywhere" from "artifacts under names this job cannot use". Those are
+              // opposite findings and only one of them means coverage is off.
               const availableCoverageArtifactNames = new Set(
                 artifacts
                   .filter((artifact) => !artifact.expired)
                   .map((artifact) => artifact.name),
               );
-              const payloadName = coveragePayloadNames.find((artifactName) =>
-                availableCoverageArtifactNames.has(artifactName),
-              );
+              for (const name of availableCoverageArtifactNames) {
+                if (name.startsWith(payloadPrefix)) seenCoverageArtifacts.add(name);
+              }
+              const candidateNames = payloadCandidates(availableCoverageArtifactNames);
+              const payloadName = candidateNames[0] || '';
+              if (candidateNames.length > 1) {
+                core.info(
+                  `Gate run ${run.id} carries ${candidateNames.length} coverage payloads ` +
+                    `(${candidateNames.join(', ')}); using ${payloadName}. They are the same ` +
+                    'suite on different interpreters, so the choice is fixed rather than left ' +
+                    'to listing order.',
+                );
+              }
               const hasTrend = availableCoverageArtifactNames.has(trendArtifactName);
               if (payloadName && hasTrend) {
                 candidate = run;
@@ -291,7 +331,11 @@ jobs:
               core.info(
                 [
                   `Skipping Gate run ${run.id}; required coverage artifacts are incomplete.`,
-                  `Looked for payload (${coveragePayloadNames.join(' or ')}) and ${trendArtifactName}.`,
+                  payloadName
+                    ? `Found payload ${payloadName} but no ${trendArtifactName}.`
+                    : seenCoverageArtifacts.size
+                      ? `No usable payload among ${[...seenCoverageArtifacts].sort().join(', ')}.`
+                      : 'This run published no gate-coverage artifacts at all.',
                 ].join(' '),
               );
             }
@@ -306,13 +350,27 @@ jobs:
             }
 
             if (!candidate) {
+              // THREE FINDINGS, NOT ONE. "This repo does not measure coverage", "it measures it
+              // and publishes it under a name I do not recognise" and "it publishes a payload but
+              // no trend" have completely different fixes, and the single message this replaced
+              // asserted the first in all three cases. It told eight repos that were measuring
+              // coverage, and publishing it, to go and switch coverage on.
               core.warning(
-                [
-                  'Unable to locate a recent successful Gate workflow run carrying a coverage',
-                  'payload artifact (gate-coverage or gate-coverage.json) and a coverage trend.',
-                  'If the Gate ran but published neither, coverage is not being measured in this repo: check that',
-                  'the reusable CI caller sets coverage: true and enable-soft-gate: true.',
-              ].join(' '),
+                seenCoverageArtifacts.size === 0
+                  ? [
+                      'Unable to locate a recent successful Gate workflow run carrying any',
+                      'gate-coverage artifact. Coverage is most likely not being measured here:',
+                      'check that the reusable CI caller sets coverage: true and',
+                      'enable-soft-gate: true.',
+                    ].join(' ')
+                  : [
+                      'Gate runs DID publish coverage artifacts, but none of them formed a usable',
+                      `pair. Seen: ${[...seenCoverageArtifacts].sort().join(', ')}.`,
+                      `A payload is any gate-coverage* artifact except ${'-trend'}/-summary/-delta;`,
+                      `a trend is ${trendArtifactName}. Coverage IS being measured in this repo --`,
+                      'what is missing is the artifact this job needs, so do not switch coverage',
+                      'on again, publish the missing half.',
+                    ].join(' '),
               );
               core.setOutput('run_id', '');
               core.setFailed(
