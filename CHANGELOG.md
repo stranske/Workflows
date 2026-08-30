@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.9](https://github.com/stranske/Workflows/compare/v1.30.8...v1.30.9) (2026-08-30)
+
+
+### Bug Fixes
+
+* **api:** bind heavy jobs to the checked credential pool ([#3273](https://github.com/stranske/Workflows/issues/3273)) ([22b0591](https://github.com/stranske/Workflows/commit/22b05912a332ad0ae5727e2dc037cb1e585d351d))
+* **coverage-guard:** the payload artifact has a matrix suffix, so an exact-name list never matched it ([b0236a1](https://github.com/stranske/Workflows/commit/b0236a190a69ae2eb8b899ad43274d7bacff670d))
+* **coverage-guard:** which workflow carries a repo's coverage is a per-repo fact, not a constant ([#3270](https://github.com/stranske/Workflows/issues/3270)) ([1fc9cab](https://github.com/stranske/Workflows/commit/1fc9caba04579c7a4cf35dc070ad7cbde63763f9))
+
 ## [1.30.8](https://github.com/stranske/Workflows/compare/v1.30.7...v1.30.8) (2026-08-26)
 
 
