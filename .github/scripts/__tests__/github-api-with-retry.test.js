@@ -10,6 +10,7 @@ const {
   withRetry,
   paginateWithRetry,
   createTokenAwareRetry,
+  checkRateLimitStatus,
 } = require(path.join(__dirname, '../github-api-with-retry'));
 
 test('exports rate limit classifiers for workflow fail-open guards', () => {
@@ -549,4 +550,111 @@ test('withRetry only defaults the incident log path under artifacts/ when GITHUB
     else process.env.GITHUB_ACTIONS = originalGithubActions;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('checkRateLimitStatus fails closed on probe errors by default', async () => {
+  const github = {
+    rest: {
+      rateLimit: {
+        get: async () => {
+          throw new Error('probe failed');
+        },
+      },
+    },
+  };
+
+  const status = await checkRateLimitStatus(github, { threshold: 1000, failOpen: false });
+  assert.equal(status.safe, false);
+  assert.equal(status.state, 'unknown');
+  assert.equal(status.error, 'probe failed');
+});
+
+test('checkRateLimitStatus can fail open for ancillary probes', async () => {
+  const github = {
+    rest: {
+      rateLimit: {
+        get: async () => {
+          throw new Error('probe failed');
+        },
+      },
+    },
+  };
+
+  const status = await checkRateLimitStatus(github, { threshold: 1000, failOpen: true });
+  assert.equal(status.safe, true);
+  assert.equal(status.state, 'safe');
+  assert.equal(status.error, 'probe failed');
+});
+
+test('checkRateLimitStatus blocks API-heavy work below threshold', async () => {
+  const github = {
+    rest: {
+      rateLimit: {
+        get: async () => ({
+          data: {
+            resources: {
+              core: { remaining: 50, limit: 5000, reset: 1_700_000_000 },
+            },
+          },
+        }),
+      },
+    },
+  };
+
+  const status = await checkRateLimitStatus(github, { threshold: 1000, failOpen: false });
+  assert.equal(status.safe, false);
+  assert.equal(status.state, 'low');
+  assert.equal(status.remaining, 50);
+});
+
+test('checkRateLimitStatus protects a percentage reserve plus forecast cost', async () => {
+  const github = {
+    rest: {
+      rateLimit: {
+        get: async () => ({
+          data: {
+            resources: {
+              core: { remaining: 249, limit: 1000, reset: 1_700_000_000 },
+            },
+          },
+        }),
+      },
+    },
+  };
+
+  const status = await checkRateLimitStatus(github, {
+    threshold: 0,
+    reserveFraction: 0.15,
+    estimatedCost: 100,
+    failOpen: false,
+  });
+  assert.equal(status.requiredRemaining, 250);
+  assert.equal(status.safe, false);
+});
+
+test('checkRateLimitStatus probes an already wrapped consuming pool without reselection', async () => {
+  const github = {
+    rest: {
+      rateLimit: {
+        get: async () => ({
+          data: {
+            resources: {
+              core: { remaining: 4000, limit: 5000, reset: 1_700_000_000 },
+            },
+          },
+        }),
+      },
+    },
+  };
+  Object.defineProperty(github, '__rateLimitWrapped', { value: true });
+  Object.defineProperty(github, '__getTokenSource', { value: () => 'WORKFLOWS_APP' });
+
+  const status = await checkRateLimitStatus(github, {
+    threshold: 0,
+    reserveFraction: 0.15,
+    estimatedCost: 100,
+    failOpen: false,
+  });
+  assert.equal(status.safe, true);
+  assert.equal(status.credentialPoolId, 'WORKFLOWS_APP');
 });

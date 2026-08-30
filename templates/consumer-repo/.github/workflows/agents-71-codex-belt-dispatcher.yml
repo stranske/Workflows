@@ -192,11 +192,31 @@ jobs:
         run: |
           echo "dry_run=${{ inputs.dry_run }}" >>"$GITHUB_OUTPUT"
 
-      - name: Checkout repo (for retry helpers)
+      - name: Checkout consumer repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ env.GH_DISPATCH_TOKEN }}
           fetch-depth: 1
+
+      - name: Resolve Workflows ref
+        id: workflows_ref
+        uses: ./.github/actions/resolve-default-branch
+
+      - name: Checkout Workflows retry helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stranske/Workflows
+          ref: ${{ steps.workflows_ref.outputs.ref }}
+          token: ${{ env.GH_DISPATCH_TOKEN }}
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/agents/registry.yml
+            .github/scripts/agent_registry.js
+            .github/scripts/error_classifier.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/github-rate-limited-wrapper.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -206,24 +226,21 @@ jobs:
           actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
           workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
           workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          install_dir: ${{ runner.temp }}/belt-api-client
 
-      - name: Resolve Workflows ref
-        id: workflows_ref
-        uses: ./.github/actions/resolve-default-branch
-
-      - name: Checkout (for retry helpers)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: stranske/Workflows
-          ref: ${{ steps.workflows_ref.outputs.ref }}
-          sparse-checkout: |
-            .github/actions/setup-api-client
-            .github/agents/registry.yml
-            .github/scripts/agent_registry.js
-            .github/scripts/error_classifier.js
-            .github/scripts/github-api-with-retry.js
-            .github/scripts/token_load_balancer.js
-          sparse-checkout-cone-mode: false
+      - name: Stage API helpers outside checkout clean path
+        shell: bash
+        run: |
+          set -euo pipefail
+          helper_dir="${RUNNER_TEMP}/belt-api-client"
+          mkdir -p "$helper_dir"
+          cp \
+            .github/scripts/error_classifier.js \
+            .github/scripts/github-api-with-retry.js \
+            .github/scripts/github-rate-limited-wrapper.js \
+            .github/scripts/token_load_balancer.js \
+            "$helper_dir/"
+          echo "BELT_API_HELPER_DIR=$helper_dir" >>"$GITHUB_ENV"
 
       - name: Resolve candidate issue
         id: pick
@@ -234,12 +251,33 @@ jobs:
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
+            const path = require('path');
+            const { checkRateLimitStatus, createTokenAwareRetry } = require(
+              path.join(process.env.BELT_API_HELPER_DIR, 'github-api-with-retry.js')
+            );
+            const retry = await createTokenAwareRetry({
               github,
               core,
               task: 'codex-belt-dispatcher-pick',
             });
+            const api = retry.github;
+            const { withRetry } = retry;
+            const rateStatus = await checkRateLimitStatus(api, {
+              threshold: 0,
+              reserveFraction: 0.15,
+              estimatedCost: 25,
+              core,
+              env: process.env,
+              failOpen: false,
+            });
+            core.setOutput('credential_pool_id', rateStatus.credentialPoolId || 'unknown');
+            if (!rateStatus.safe || rateStatus.state !== 'safe') {
+              core.setFailed(
+                `Dispatcher selection deferred: credential pool ` +
+                `${rateStatus.credentialPoolId || 'unknown'} is ${rateStatus.state || 'unknown'}.`
+              );
+              return;
+            }
             const forced = process.env.FORCE_ISSUE || '';
             const agentKey = String(process.env.AGENT_KEY || 'codex').trim().toLowerCase() || 'codex';
             const { owner, repo } = context.repo;
@@ -356,12 +394,32 @@ jobs:
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
+            const path = require('path');
+            const { checkRateLimitStatus, createTokenAwareRetry } = require(
+              path.join(process.env.BELT_API_HELPER_DIR, 'github-api-with-retry.js')
+            );
+            const retry = await createTokenAwareRetry({
               github,
               core,
               task: 'codex-belt-dispatcher-transition',
             });
+            const api = retry.github;
+            const { withRetry } = retry;
+            const rateStatus = await checkRateLimitStatus(api, {
+              threshold: 0,
+              reserveFraction: 0.15,
+              estimatedCost: 10,
+              core,
+              env: process.env,
+              failOpen: false,
+            });
+            if (!rateStatus.safe || rateStatus.state !== 'safe') {
+              core.setFailed(
+                `Issue transition deferred: credential pool ` +
+                `${rateStatus.credentialPoolId || 'unknown'} is ${rateStatus.state || 'unknown'}.`
+              );
+              return;
+            }
             const issue = Number('${{ steps.pick.outputs.issue }}');
             if (!issue) { return; }
             const { owner, repo } = context.repo;

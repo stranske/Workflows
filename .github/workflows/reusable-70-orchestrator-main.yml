@@ -3183,6 +3183,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       items: ${{ steps.scan.outputs.items || '[]' }}
+      credential_pool_id: ${{ steps.scan.outputs.credential_pool_id || 'unknown' }}
     env:
       MAX_PROMOTIONS: ${{ inputs.conveyor_max_merges }}
     steps:
@@ -3191,17 +3192,56 @@ jobs:
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
+            .github/actions/setup-api-client
             .github/scripts
           sparse-checkout-cone-mode: false
           fetch-depth: 1
-      - name: Identify ready belt PRs
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Preflight API budget and identify ready belt PRs
         id: scan
         uses: actions/github-script@v9
+        env:
+          API_RESERVE_FRACTION: '0.15'
+          API_FORECAST_CALLS: '200'
         with:
           script: |
             // Do not remove checkout; local helper is required.
+            const { ensureRateLimitWrapped } = require(
+              './.github/scripts/github-rate-limited-wrapper.js'
+            );
+            const { checkRateLimitStatus } = require('./.github/scripts/github-api-with-retry.js');
             const { identifyReadyCodexPRs } = require('./.github/scripts/agents_belt_scan.js');
-            await identifyReadyCodexPRs({ github, context, core, env: process.env });
+            const api = await ensureRateLimitWrapped({ github, core, env: process.env });
+            const status = await checkRateLimitStatus(api, {
+              threshold: 0,
+              reserveFraction: Number(process.env.API_RESERVE_FRACTION || '0.15'),
+              estimatedCost: Number.parseInt(process.env.API_FORECAST_CALLS || '200', 10),
+              core,
+              env: process.env,
+              failOpen: false,
+            });
+            core.setOutput('credential_pool_id', status.credentialPoolId || 'unknown');
+            core.setOutput('rate_limit_state', status.state || 'unknown');
+            if (!status.safe || status.state !== 'safe') {
+              core.setOutput('items', '[]');
+              const detail = status.error
+                ? `probe failed for pool ${status.credentialPoolId || 'unknown'}: ${status.error}`
+                : `pool ${status.credentialPoolId || 'unknown'} has ${status.remaining}/` +
+                  `${status.limit}; ${status.requiredRemaining} required for reserve + forecast`;
+              core.setFailed(`Belt scan deferred — ${detail}`);
+              return;
+            }
+            await identifyReadyCodexPRs({ github: api, context, core, env: process.env });
 
   belt-conveyor:
     name: Promote belt PRs
@@ -3239,9 +3279,21 @@ jobs:
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
+            .github/actions/setup-api-client
             .github/scripts
           sparse-checkout-cone-mode: false
           fetch-depth: 1
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Merge belt PRs tagged for automerge
         id: automerge
         uses: actions/github-script@v9
@@ -3253,24 +3305,41 @@ jobs:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const label = (process.env.AUTOMERGE_LABEL || 'automerge').trim();
-            const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const { assertRuntimeAcMergeAllowed } = require('./.github/scripts/runtime_ac_merge_guard.js');
-            const retryHelpers = fs.existsSync(retryHelperPath)
-              ? require(retryHelperPath)
-              : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
-                };
-            const { withRetry, paginateWithRetry } = retryHelpers;
+            const { checkRateLimitStatus, createTokenAwareRetry } = require(retryHelperPath);
+            const retry = await createTokenAwareRetry({
+              github,
+              core,
+              task: 'belt-automerge',
+              capabilities: ['pull-requests:write', 'contents:write', 'checks:read'],
+            });
+            const api = retry.github;
+            const { withRetry, paginateWithRetry } = retry;
+            const rateStatus = await checkRateLimitStatus(api, {
+              threshold: 0,
+              reserveFraction: 0.15,
+              estimatedCost: 200,
+              core,
+              env: process.env,
+              failOpen: false,
+            });
+            core.setOutput('credential_pool_id', rateStatus.credentialPoolId || 'unknown');
+            if (!rateStatus.safe || rateStatus.state !== 'safe') {
+              core.setFailed(
+                `Belt automerge deferred: credential pool ` +
+                `${rateStatus.credentialPoolId || 'unknown'} is ` +
+                `${rateStatus.state || 'unknown'}.`
+              );
+              return;
+            }
             const summary = core.summary;
             const { owner, repo } = context.repo;
 
             let defaultBranch = (process.env.DEFAULT_BRANCH || '').trim();
             if (!defaultBranch) {
-              const { data: repoInfo } = await withRetry(() => {
-                return github.rest.repos.get({ owner, repo });
+              const { data: repoInfo } = await withRetry((client) => {
+                return client.rest.repos.get({ owner, repo });
               });
               defaultBranch = repoInfo.default_branch || '';
             }
@@ -3291,8 +3360,8 @@ jobs:
             async function loadPullRequest(pull_number) {
               let attempt = 0;
               while (true) {
-                const { data: pr } = await withRetry(() => {
-                  return github.rest.pulls.get({ owner, repo, pull_number });
+                const { data: pr } = await withRetry((client) => {
+                  return client.rest.pulls.get({ owner, repo, pull_number });
                 });
                 if (!pr) {
                   return null;
@@ -3311,10 +3380,13 @@ jobs:
               }
             }
 
-            const issues = await paginateWithRetry(
-              github, github.rest.issues.listForRepo,
-              { owner, repo, state: 'open', labels: label, per_page: 100 }
-            );
+            const issues = await paginateWithRetry(api.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              labels: label,
+              per_page: 100,
+            });
 
             const rows = [];
             const merged = [];
@@ -3364,8 +3436,8 @@ jobs:
                       if (!headSha) {
                         note = 'Missing head SHA for pull request.';
                       } else {
-                        const { data: combined } = await withRetry(() => {
-                          return github.rest.repos.getCombinedStatusForRef({
+                        const { data: combined } = await withRetry((client) => {
+                          return client.rest.repos.getCombinedStatusForRef({
                             owner,
                             repo,
                             ref: headSha,
@@ -3377,8 +3449,8 @@ jobs:
                           let checksOk = true;
                           let failingCheck = '';
                           try {
-                            const { data: checks } = await withRetry(() => {
-                              return github.rest.checks.listForRef({
+                            const { data: checks } = await withRetry((client) => {
+                              return client.rest.checks.listForRef({
                                 owner,
                                 repo,
                                 ref: headSha,
@@ -3415,12 +3487,14 @@ jobs:
                           let bootstrapOnly = false;
                           if (checksOk) {
                             try {
-                              const { data: prFiles } = await withRetry(() => github.rest.pulls.listFiles({
-                                owner,
-                                repo,
-                                pull_number: prNumber,
-                                per_page: 100,
-                              }));
+                              const { data: prFiles } = await withRetry((client) =>
+                                client.rest.pulls.listFiles({
+                                  owner,
+                                  repo,
+                                  pull_number: prNumber,
+                                  per_page: 100,
+                                })
+                              );
                               const placeholder = /^agents\/[a-z][a-z0-9_-]*-\d+\.md$/i;
                               bootstrapOnly = prFiles.length > 0
                                 && prFiles.every((f) => placeholder.test(f.filename));
@@ -3445,7 +3519,7 @@ jobs:
                             };
                             try {
                               await assertRuntimeAcMergeAllowed({
-                                github,
+                                github: api,
                                 core,
                                 owner,
                                 repo,
@@ -3453,8 +3527,8 @@ jobs:
                                 withRetry,
                                 source: 'reusable-70-orchestrator-main automerge sweep',
                               });
-                              const response = await withRetry(() => {
-                                return github.rest.pulls.merge(mergeParams);
+                              const response = await withRetry((client) => {
+                                return client.rest.pulls.merge(mergeParams);
                               });
                               if (response && response.data && response.data.merged) {
                                 status = 'merged';

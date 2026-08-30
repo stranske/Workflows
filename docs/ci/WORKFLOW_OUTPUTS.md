@@ -20,6 +20,8 @@ reusable workflow in the no-output section.
 | `reusable-20-pr-meta.yml` | `keepalive_detected` | string (boolean-like) | Whether a keepalive comment was detected | `needs.pr_meta.outputs.keepalive_detected` |
 | `reusable-20-pr-meta.yml` | `keepalive_reason` | string | Reason for keepalive dispatch decision | `needs.pr_meta.outputs.keepalive_reason` |
 | `reusable-70-orchestrator-init.yml` | `rate_limit_safe` | string (boolean-like) | Whether rate limit is safe to proceed | `needs.init.outputs.rate_limit_safe` |
+| `reusable-70-orchestrator-init.yml` | `rate_limit_state` | string | Rate-limit preflight state: safe, low, or unknown | `needs.init.outputs.rate_limit_state` |
+| `reusable-70-orchestrator-init.yml` | `credential_pool_id` | string | Non-secret pool consumed by idle-precheck, or the initial pool if deferred | `needs.init.outputs.credential_pool_id` |
 | `reusable-70-orchestrator-init.yml` | `has_work` | string (boolean-like) | Whether there is work to do | `needs.init.outputs.has_work` |
 | `reusable-70-orchestrator-init.yml` | `token_source` | string | Which token to use for keepalive | `needs.init.outputs.token_source` |
 | `reusable-70-orchestrator-init.yml` | `enable_readiness` | string (boolean-like) | Resolved flag for the readiness probe. | `needs.init.outputs.enable_readiness` |

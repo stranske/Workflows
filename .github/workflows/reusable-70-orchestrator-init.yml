@@ -40,7 +40,15 @@ on:
     outputs:
       rate_limit_safe:
         description: 'Whether rate limit is safe to proceed'
-        value: ${{ jobs.rate-limit-check.outputs.safe }}
+        value: ${{ jobs.idle-precheck.outputs.safe || jobs.rate-limit-check.outputs.safe }}
+      credential_pool_id:
+        description: 'Non-secret pool consumed by idle-precheck, or the initial pool if deferred'
+        value: >-
+          ${{ jobs.idle-precheck.outputs.credential_pool_id ||
+              jobs.rate-limit-check.outputs.credential_pool_id }}
+      rate_limit_state:
+        description: 'Rate-limit preflight state: safe, low, or unknown'
+        value: ${{ jobs.idle-precheck.outputs.state || jobs.rate-limit-check.outputs.state }}
       has_work:
         description: 'Whether there is work to do'
         value: ${{ jobs.idle-precheck.outputs.has_work }}
@@ -114,7 +122,10 @@ jobs:
     name: Rate limit pre-check
     runs-on: ubuntu-latest
     outputs:
-      safe: ${{ steps.check.outputs.safe || 'true' }}
+      # Missing or failed monitoring is unsafe for API-heavy work.
+      safe: ${{ steps.check.outputs.safe || 'false' }}
+      state: ${{ steps.check.outputs.state || 'unknown' }}
+      credential_pool_id: ${{ steps.check.outputs.credential_pool_id || '' }}
       remaining: ${{ steps.check.outputs.remaining || '-1' }}
       reset_time: ${{ steps.check.outputs.reset_time || '' }}
     steps:
@@ -143,17 +154,28 @@ jobs:
         id: check
         uses: actions/github-script@v9
         env:
-          RATE_LIMIT_THRESHOLD: '1000'
+          RATE_LIMIT_THRESHOLD: '0'
+          API_RESERVE_FRACTION: '0.15'
+          API_FORECAST_CALLS: '250'
         with:
           script: |
             const path = require('path');
             const { checkRateLimitStatus } = require(
               path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/github-api-with-retry.js')
             );
-            const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '500', 10);
-            const status = await checkRateLimitStatus(github, { threshold, core });
+            const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '0', 10);
+            const status = await checkRateLimitStatus(github, {
+              threshold,
+              reserveFraction: Number(process.env.API_RESERVE_FRACTION || '0.15'),
+              estimatedCost: parseInt(process.env.API_FORECAST_CALLS || '250', 10),
+              core,
+              env: process.env,
+              failOpen: false,
+            });
 
             core.setOutput('safe', status.safe ? 'true' : 'false');
+            core.setOutput('state', status.state || 'unknown');
+            core.setOutput('credential_pool_id', status.credentialPoolId || 'unknown');
             core.setOutput('remaining', String(status.remaining));
             core.setOutput('reset_time', status.resetTime || '');
             core.setOutput('percent_used', String(status.percentUsed));
@@ -162,15 +184,26 @@ jobs:
             summary.addHeading('Rate Limit Status', 3);
             summary.addHeading('Personal Access Token (PAT)', 4);
             if (status.error) {
-              summary.addRaw(`⚠️ Could not check rate limit: ${status.error}`).addEOL();
-              summary.addRaw('Proceeding with orchestrator run.').addEOL();
+              const pool = status.credentialPoolId || 'unknown';
+              summary
+                .addRaw(`⛔ Could not verify rate limit for pool \`${pool}\`: ${status.error}`)
+                .addEOL();
+              summary
+                .addRaw('Deferring orchestrator run until the credential pool can be probed.')
+                .addEOL();
             } else {
               const icon = status.safe ? '✅' : '⛔';
                 const remainingLine =
                   `${icon} **${status.remaining}** / ${status.limit} requests remaining ` +
                   `(${status.percentUsed}% used)`;
                 summary.addRaw(remainingLine).addEOL();
-              summary.addRaw(`Threshold: ${threshold} | Resets at: ${status.resetTime}`).addEOL();
+              summary
+                .addRaw(
+                  `Required: ${status.requiredRemaining} ` +
+                    `(${status.reserveCalls} reserve + ${status.estimatedCost} forecast) | ` +
+                    `Resets at: ${status.resetTime}`,
+                )
+                .addEOL();
               if (!status.safe) {
                 const waitMinutes = Math.ceil(status.waitTimeMs / 60000);
                   summary
@@ -193,19 +226,25 @@ jobs:
                 .addEOL();
             await summary.write();
             if (!status.safe) {
-              const notice =
-                `Rate limit low (${status.remaining}/${status.limit}). ` +
-                `Deferring this orchestrator run until ${status.resetTime}.`;
+              const notice = status.error
+                ? `Rate-limit state unknown for ${status.credentialPoolId || 'unknown'}; deferring.`
+                : `Rate limit low (${status.remaining}/${status.limit}); ` +
+                  `deferring until ${status.resetTime}.`;
               core.notice(notice);
             }
 
   idle-precheck:
     name: Idle precheck
     needs: rate-limit-check
-    if: needs.rate-limit-check.outputs.safe == 'true'
+    if: |
+      needs.rate-limit-check.outputs.safe == 'true' &&
+      needs.rate-limit-check.outputs.state == 'safe'
     runs-on: ubuntu-latest
     outputs:
       has_work: ${{ steps.precheck.outputs.has_work || 'false' }}
+      safe: ${{ steps.precheck.outputs.safe || 'false' }}
+      state: ${{ steps.precheck.outputs.state || 'unknown' }}
+      credential_pool_id: ${{ steps.precheck.outputs.credential_pool_id || '' }}
     steps:
       - name: Checkout retry helpers
         uses: actions/checkout@v7
@@ -216,6 +255,15 @@ jobs:
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Count agent issues
         id: precheck
@@ -230,16 +278,36 @@ jobs:
             const summary = core.summary;
             const { owner, repo } = context.repo;
             const started = Date.now();
-            const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
-            const retryHelpers = fs.existsSync(retryHelperPath)
-              ? require(retryHelperPath)
-              : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
-                };
-            const { paginateWithRetry } = retryHelpers;
+            const retryHelpers = require(retryHelperPath);
+            const { checkRateLimitStatus, createTokenAwareRetry } = retryHelpers;
+            const retry = await createTokenAwareRetry({
+              github,
+              core,
+              task: 'idle-precheck',
+            });
+            const api = retry.github;
+            const { paginateWithRetry } = retry;
+            const rateStatus = await checkRateLimitStatus(api, {
+              threshold: 0,
+              reserveFraction: 0.15,
+              estimatedCost: 100,
+              core,
+              env: process.env,
+              failOpen: false,
+            });
+            core.setOutput('safe', rateStatus.safe ? 'true' : 'false');
+            core.setOutput('state', rateStatus.state || 'unknown');
+            core.setOutput('credential_pool_id', rateStatus.credentialPoolId || 'unknown');
+            if (!rateStatus.safe || rateStatus.state !== 'safe') {
+              core.setOutput('has_work', 'false');
+              core.setFailed(
+                `Idle precheck deferred: credential pool ` +
+                `${rateStatus.credentialPoolId || 'unknown'} is ` +
+                `${rateStatus.state || 'unknown'}.`
+              );
+              return;
+            }
             const isRateLimitError = retryHelpers.isRateLimitError || ((error) => {
               const status = error?.status || error?.response?.status;
               const rawMessage = error?.message || error?.response?.data?.message || '';
@@ -316,10 +384,12 @@ jobs:
             } else {
               let openIssues = [];
               try {
-                openIssues = await paginateWithRetry(
-                  github, github.rest.issues.listForRepo,
-                  { owner, repo, state: 'open', per_page: 100 }
-                );
+                openIssues = await paginateWithRetry(api.rest.issues.listForRepo, {
+                  owner,
+                  repo,
+                  state: 'open',
+                  per_page: 100,
+                });
               } catch (error) {
                 if (!isRateLimitError(error)) {
                   throw error;
