@@ -1785,3 +1785,96 @@ def test_a_response_with_no_content_attribute_is_stringified():
 def test_non_ascii_survives_normalisation():
     """`ensure_ascii=False` matters: escaped sequences would reach a human-readable issue body."""
     assert "café" in _normalised(_FakeResponse({"note": "café"}))
+
+
+# =================================================================================================
+# `_prepare_iteration_details` — ENTIRELY unexercised, and it is what tells the next agent what
+# went wrong last time.
+#
+# Three return paths, and they are three different findings that must not be conflated:
+#
+#   1. no log at all            -> nothing was recorded
+#   2. a log with no failures   -> something was recorded, and it went fine
+#   3. failures                 -> here is what to avoid
+#
+# Collapsing 1 into 2 would tell an agent "previous iterations completed without recorded
+# failures" when the truth is that nobody looked. It always returns a string, so every way of
+# being wrong here is silent, and the cost lands on the next agent repeating the same mistake.
+# =================================================================================================
+
+
+def test_no_log_says_nothing_was_recorded():
+    assert (
+        followup_issue_generator._prepare_iteration_details("")
+        == "No previous iteration details available."
+    )
+
+
+def test_a_clean_log_says_it_went_fine_which_is_not_the_same_thing():
+    """The distinction that matters. "No log" and "a log showing success" are opposite facts."""
+    out = followup_issue_generator._prepare_iteration_details("step one ok\nstep two ok\n")
+    assert "completed without recorded failures" in out
+    assert out != followup_issue_generator._prepare_iteration_details("")
+
+
+def test_a_failure_line_is_reported_with_surrounding_context():
+    """Two lines either side, because a bare error line rarely says what led to it."""
+    log = "\n".join(f"line {n}" for n in range(1, 11))
+    log = log.replace("line 6", "line 6 ERROR: the build failed")
+    out = followup_issue_generator._prepare_iteration_details(log)
+    assert "ERROR: the build failed" in out
+    assert "line 4" in out and "line 8" in out, "context above and below must travel with it"
+    assert "line 1" not in out, "context is bounded; the whole log is not the answer"
+
+
+@pytest.mark.parametrize(
+    "needle",
+    [
+        "error",
+        "failed",
+        "exception",
+        "timeout",
+        "could not",
+        "unable to",
+        "blocked by",
+        "missing",
+        "not found",
+        "rejected",
+        "invalid",
+    ],
+)
+def test_every_declared_failure_word_is_actually_matched(needle):
+    """The table is the contract. A word listed but not matched is a failure class that silently
+    never reaches the next agent."""
+    out = followup_issue_generator._prepare_iteration_details(f"something {needle} here")
+    assert "completed without recorded failures" not in out
+    assert needle in out.lower()
+
+
+def test_matching_is_case_insensitive():
+    """Real logs shout. `ERROR:` and `Timeout` must not slip past a lowercase table."""
+    out = followup_issue_generator._prepare_iteration_details("FATAL: Connection TIMEOUT reached")
+    assert "TIMEOUT" in out
+
+
+def test_identical_context_blocks_are_not_repeated():
+    """A retry loop emits the same failure many times; five copies of one block crowd out the
+    other four contexts the reader is allowed to see."""
+    log = "\n".join(["setup", "error: same thing", "teardown"] * 4)
+    out = followup_issue_generator._prepare_iteration_details(log)
+    assert out.count("error: same thing") < 4
+
+
+def test_at_most_five_failure_contexts_are_included():
+    """A cap, because this text is pasted into an issue body a human and an agent both read."""
+    log = "\n".join(f"distinct error number {n}" for n in range(30))
+    out = followup_issue_generator._prepare_iteration_details(log)
+    assert out.count("```") <= 12, "five fenced blocks is ten fences, plus slack for formatting"
+
+
+def test_the_output_is_fenced_so_it_survives_markdown():
+    """This lands in an issue body. Unfenced log text renders as broken markdown, and a stack
+    trace full of underscores and asterisks becomes unreadable."""
+    out = followup_issue_generator._prepare_iteration_details("error: *boom* _here_")
+    assert "```" in out
+    assert "*boom*" in out
