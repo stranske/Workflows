@@ -468,6 +468,12 @@ for Maint 71's final per-PR merge gate. This preserves one update-in-place
 review surface without letting ordinary PR minimization merge it before fleet
 delivery is complete.
 
+When a consumer still has an open legacy generation-named
+`sync/workflows-*` pull request, Maint 68 holds the stable candidate/delivery
+branch rather than creating a parallel replacement. The legacy attempt must
+reach terminal disposition before the stable branch becomes its successor; a
+release source commit is not authority to replace an in-flight review surface.
+
 The standard Gate's generated-delivery job invokes the Workflows-owned
 `generated-delivery-seal` action directly. It does not execute seal policy from
 the consumer pull request checkout, so a candidate that changes the local path

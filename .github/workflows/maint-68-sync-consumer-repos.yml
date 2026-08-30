@@ -976,7 +976,7 @@ jobs:
 
       - name: Check for existing sync PR
         id: open_pr
-        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
+        if: steps.sync.outcome == 'success' && inputs.dry_run != true
         uses: actions/github-script@v9
         env:
           SYNC_BRANCH: ${{ needs.prepare.outputs.sync_branch }}
@@ -996,14 +996,30 @@ jobs:
               branchPattern: new RegExp(`^${escapeRegex(branchName)}$`),
               core,
             });
+            // Stable candidate/delivery branches supersede the older
+            // generation-named branches.  A non-terminal legacy PR must still
+            // hold the lane: creating a stable PR beside it converts one
+            // delivery attempt into an avoidable replacement.
+            const legacyInFlight = await isConsumerOpenPr({
+              github,
+              consumerRepo: process.env.TARGET_REPOSITORY,
+              branchPattern: /^sync\/workflows-[0-9a-f]{12}$/i,
+              core,
+            });
             core.setOutput('exists', exists ? 'true' : 'false');
+            core.setOutput('legacy_in_flight', legacyInFlight ? 'true' : 'false');
             if (exists) {
               core.notice(`Existing sync PR is already open for ${branchName}`);
+            }
+            if (legacyInFlight) {
+              core.warning(
+                `Holding ${branchName}: a legacy sync/workflows-* PR is still open and must reach terminal disposition before migration.`,
+              );
             }
 
       - name: Create sync PR
         id: create_pr
-        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
+        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true && steps.open_pr.outputs.legacy_in_flight != 'true'
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
           SIGNED_COMMIT_TOKEN: ${{ steps.workflows_app_token.outputs.token }}
@@ -1537,6 +1553,7 @@ jobs:
           LABELS_OUTCOME: ${{ steps.labels.outcome || 'skipped' }}
           CREATE_PR_OUTCOME: ${{ steps.create_pr.outcome || 'skipped' }}
           CREATE_PR_STATUS: ${{ steps.create_pr.outputs.status || '' }}
+          LEGACY_IN_FLIGHT: ${{ steps.open_pr.outputs.legacy_in_flight || 'false' }}
           PR_NUMBER: ${{ steps.create_pr.outputs.pr_number || '' }}
           PR_URL: ${{ steps.create_pr.outputs.pr_url || '' }}
           HAS_CHANGES: ${{ steps.sync.outputs.has_changes || 'false' }}
@@ -1558,11 +1575,14 @@ jobs:
           labels_outcome = os.environ.get("LABELS_OUTCOME", "skipped")
           create_outcome = os.environ.get("CREATE_PR_OUTCOME", "skipped")
           create_status = os.environ.get("CREATE_PR_STATUS", "")
+          legacy_in_flight = os.environ.get("LEGACY_IN_FLIGHT", "false") == "true"
 
           if sync_outcome == "failure":
               status = "sync_failed"
           elif labels_outcome == "failure":
               status = "label_failed"
+          elif legacy_in_flight:
+              status = "legacy_hold"
           elif not has_changes:
               status = "no_changes"
           elif dry_run:
@@ -1768,8 +1788,34 @@ jobs:
           path: artifacts/consumer-sync-results
           merge-multiple: true
 
+      - name: Stop reconciliation when a legacy sync PR holds generation
+        id: legacy_hold
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const resultsDir = 'artifacts/consumer-sync-results';
+          const held = fs.existsSync(resultsDir)
+            ? fs.readdirSync(resultsDir)
+                .filter((name) => name.endsWith('.json'))
+                .map((name) => JSON.parse(fs.readFileSync(path.join(resultsDir, name), 'utf8')))
+                .filter((result) => result.status === 'legacy_hold')
+                .map((result) => result.repo)
+            : [];
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `present=${held.length ? 'true' : 'false'}\n`,
+          );
+          if (held.length) {
+            console.log(
+              `::notice::Maint 71 reconciliation suppressed while legacy sync PRs hold generation: ${held.join(', ')}`,
+            );
+          }
+          NODE
+
       - name: Build exact no-change canary evidence
         id: baseline
+        if: steps.legacy_hold.outputs.present != 'true'
         env:
           SYNC_PHASE: ${{ needs.prepare.outputs.phase }}
           PLAN_ID: ${{ needs.prepare.outputs.plan_id }}
@@ -1857,6 +1903,7 @@ jobs:
           NODE
 
       - name: Setup API client
+        if: steps.legacy_hold.outputs.present != 'true'
         uses: ./.github/actions/setup-api-client
         with:
           github_token: ${{ github.token }}
@@ -1864,6 +1911,7 @@ jobs:
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
 
       - name: Dispatch Maint 71 for the generated lane
+        if: steps.legacy_hold.outputs.present != 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           SYNC_PHASE: ${{ needs.prepare.outputs.phase }}

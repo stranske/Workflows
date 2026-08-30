@@ -1062,14 +1062,14 @@ test('discoverRepoWork scans paginated PR results', async () => {
           number: 101,
           title: 'human PR',
           user: { login: 'stranske' },
-          head: { ref: 'feature/human', sha: 'human-sha' },
+          head: { ref: 'feature/human', sha: 'human-sha', repo: { full_name: 'stranske/App' } },
         },
         {
           number: 102,
           title: 'Bump package',
           html_url: 'https://github.com/stranske/App/pull/102',
           user: { login: 'dependabot[bot]' },
-          head: { ref: 'dependabot/npm/pkg-2', sha: 'dep-sha' },
+          head: { ref: 'dependabot/npm/pkg-2', sha: 'dep-sha', repo: { full_name: 'stranske/App' } },
           base: { ref: 'main' },
         },
       ];
