@@ -559,21 +559,44 @@ test('isConsumerOpenPr matches open consumer PR branches by pattern', async () =
 });
 
 test('isConsumerOpenPr ignores foreign heads and accepts only a consumer-owned legacy hash', async () => {
-  const github = mockGithub({
-    pulls: [
-      { number: 1, head: { ref: 'sync/workflows-0123456789ab', repo: { full_name: 'fork/Ready' } } },
-      { number: 2, head: { ref: 'sync/workflows-arbitrary', repo: { full_name: 'stranske/Ready' } } },
-      { number: 3, head: { ref: 'sync/workflows-fedcba987654', repo: { full_name: 'stranske/Ready' } } },
-    ],
-  });
+  const pattern = /^sync\/workflows-[0-9a-f]{12}$/i;
+  const base = { consumerRepo: 'stranske/Ready', branchPattern: pattern };
 
   assert.equal(
     await isConsumerOpenPr({
-      github,
-      consumerRepo: 'stranske/Ready',
-      branchPattern: /^sync\/workflows-[0-9a-f]{12}$/i,
+      ...base,
+      github: mockGithub({
+        pulls: [
+          { number: 1, head: { ref: 'sync/workflows-0123456789ab', repo: { full_name: 'fork/Ready' } } },
+        ],
+      }),
+    }),
+    false,
+    'foreign matching branch must be rejected',
+  );
+  assert.equal(
+    await isConsumerOpenPr({
+      ...base,
+      github: mockGithub({
+        pulls: [
+          { number: 2, head: { ref: 'sync/workflows-arbitrary', repo: { full_name: 'stranske/Ready' } } },
+        ],
+      }),
+    }),
+    false,
+    'consumer-owned malformed branch must be rejected',
+  );
+  assert.equal(
+    await isConsumerOpenPr({
+      ...base,
+      github: mockGithub({
+        pulls: [
+          { number: 3, head: { ref: 'sync/workflows-fedcba987654', repo: { full_name: 'stranske/Ready' } } },
+        ],
+      }),
     }),
     true,
+    'valid consumer-owned hash branch must match',
   );
 });
 

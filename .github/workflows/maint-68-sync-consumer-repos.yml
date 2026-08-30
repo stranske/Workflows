@@ -976,7 +976,7 @@ jobs:
 
       - name: Check for existing sync PR
         id: open_pr
-        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
+        if: steps.sync.outcome == 'success' && inputs.dry_run != true
         uses: actions/github-script@v9
         env:
           SYNC_BRANCH: ${{ needs.prepare.outputs.sync_branch }}
@@ -1000,7 +1000,7 @@ jobs:
             // generation-named branches.  A non-terminal legacy PR must still
             // hold the lane: creating a stable PR beside it converts one
             // delivery attempt into an avoidable replacement.
-            const legacyInFlight = !exists && await isConsumerOpenPr({
+            const legacyInFlight = await isConsumerOpenPr({
               github,
               consumerRepo: process.env.TARGET_REPOSITORY,
               branchPattern: /^sync\/workflows-[0-9a-f]{12}$/i,
@@ -1581,12 +1581,12 @@ jobs:
               status = "sync_failed"
           elif labels_outcome == "failure":
               status = "label_failed"
+          elif legacy_in_flight:
+              status = "legacy_hold"
           elif not has_changes:
               status = "no_changes"
           elif dry_run:
               status = "dry_run_changes"
-          elif legacy_in_flight:
-              status = "legacy_hold"
           elif create_outcome == "failure":
               status = "create_pr_failed"
           else:
@@ -1807,8 +1807,8 @@ jobs:
             `present=${held.length ? 'true' : 'false'}\\n`,
           );
           if (held.length) {
-            core.notice(
-              `Maint 71 reconciliation suppressed while legacy sync PRs hold generation: ${held.join(', ')}`,
+            console.log(
+              `::notice::Maint 71 reconciliation suppressed while legacy sync PRs hold generation: ${held.join(', ')}`,
             );
           }
           NODE
