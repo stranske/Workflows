@@ -1660,3 +1660,247 @@ def test_base_command_launch_failure_is_reported_as_command_unavailable(
         "command": list(spec.command),
         "detail": "base-only command is unavailable",
     }
+
+
+# =================================================================================================
+# Interpreter resolution and output plumbing.
+#
+# Ranked here by `escaped_defect_priority`: this module carries more fix commits and more churn
+# than anything else in the repo, and 88 of its statements were unexercised. The branches below are
+# the ones that decide WHICH PYTHON runs a deliberate-break check. Every one of them returns None
+# on a shape it cannot verify, and every one was unexercised — so a wrong answer here would run the
+# check under an unintended interpreter, and the check's verdict is what gates a PR.
+# =================================================================================================
+
+
+def _launcher(tmp_path: Path, shebang: str, *, resolve=lambda name: f"/resolved/{name}"):
+    script = tmp_path / "pytest-shim"
+    script.write_text(f"{shebang}\nprint('hi')\n", encoding="utf-8")
+    return deliberate_break._python_shebang_launcher(script, resolve)
+
+
+def test_a_plain_python_shebang_is_used_as_the_launcher(tmp_path):
+    assert _launcher(tmp_path, "#!/usr/bin/python3.12") == ("/usr/bin/python3.12",)
+
+
+def test_interpreter_flags_are_preserved(tmp_path):
+    """Dropping a flag silently changes how the verification runs.
+
+    `-S` and friends alter import behaviour, so a launcher that keeps only the interpreter would
+    run the candidate under a different environment than the one the shebang asked for.
+    """
+    assert _launcher(tmp_path, "#!/usr/bin/env -S python3 -X utf8") == (
+        "/resolved/python3",
+        "-X",
+        "utf8",
+    )
+
+
+def test_an_env_shebang_resolves_the_interpreter_by_name(tmp_path):
+    assert _launcher(tmp_path, "#!/usr/bin/env python3") == ("/resolved/python3",)
+
+
+def test_an_env_name_that_cannot_be_resolved_is_refused(tmp_path):
+    """Refusing beats guessing: an unresolvable name would otherwise be executed as written."""
+    assert _launcher(tmp_path, "#!/usr/bin/env python3", resolve=lambda name: None) is None
+
+
+@pytest.mark.parametrize(
+    "shebang, why",
+    [
+        ("#!/bin/sh", "a non-Python interpreter must not be accepted as a Python launcher"),
+        ("#!/usr/bin/env bash", "env pointing at a non-Python name must be refused"),
+        ("#!", "a bare #! names no interpreter"),
+        ("# not a shebang at all", "a file whose first line is not a shebang has no launcher"),
+        ('#!/usr/bin/env "python3', "an unbalanced quote must be refused, not raised"),
+    ],
+)
+def test_a_shape_that_cannot_be_verified_returns_none(tmp_path, shebang, why):
+    assert _launcher(tmp_path, shebang) is None, why
+
+
+def test_an_unreadable_script_returns_none_rather_than_raising(tmp_path):
+    """The caller treats None as "no launcher"; an exception here would abort the whole check."""
+    missing = tmp_path / "does-not-exist"
+    assert deliberate_break._python_shebang_launcher(missing, lambda n: n) is None
+
+
+def test_an_empty_file_returns_none(tmp_path):
+    """`splitlines()[0]` on an empty file raises IndexError — caught, not propagated."""
+    empty = tmp_path / "empty"
+    empty.write_text("", encoding="utf-8")
+    assert deliberate_break._python_shebang_launcher(empty, lambda n: n) is None
+
+
+def test_a_versioned_python_name_is_recognised(tmp_path):
+    """`python3.12.1` and `python` are both legitimate; the pattern must accept the whole family."""
+    for name in ("python", "python3", "python3.12", "python3.12.1"):
+        assert _launcher(tmp_path, f"#!/usr/bin/{name}") == (f"/usr/bin/{name}",), name
+
+
+def test_github_output_is_appended_not_overwritten(tmp_path, monkeypatch):
+    """Two writers in one job must both survive; opening in write mode would drop the first."""
+    out = tmp_path / "github-output"
+    out.write_text("existing=1\n", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    deliberate_break._write_github_output(verdict="PASS", reason="ok")
+    assert out.read_text(encoding="utf-8") == "existing=1\nverdict=PASS\nreason=ok\n"
+
+
+def test_github_output_is_a_no_op_outside_actions(tmp_path, monkeypatch):
+    """Running this script locally must not fail for want of a CI-only variable."""
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    deliberate_break._write_github_output(verdict="PASS")  # must not raise
+
+
+def test_github_output_ignores_an_empty_variable(monkeypatch):
+    """An empty GITHUB_OUTPUT is not a path. Treating it as one would write to the repo root."""
+    monkeypatch.setenv("GITHUB_OUTPUT", "")
+    deliberate_break._write_github_output(verdict="PASS")  # must not raise
+
+
+# =================================================================================================
+# `main` — the exit-code contract, which is what actually gates a PR.
+#
+# 23 contiguous statements, none of them exercised. The two directions fail differently and both
+# fail badly: a SKIP that exits non-zero blocks every PR that carries no marker, and a BROKEN or
+# HOLLOW verdict that exits zero lets a defective break through with a green check — a gate whose
+# own report is the only thing saying it worked.
+# =================================================================================================
+
+MARKER = (
+    "<!-- deliberate-break: "
+    "test=tests/test_app.py::test_value "
+    "test-file=tests/test_app.py "
+    "break-file=app.py -->"
+)
+
+
+def _capture_outputs(tmp_path, monkeypatch):
+    out = tmp_path / "gh-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    return out
+
+
+def _stub_verdict(monkeypatch, verdict: str) -> dict:
+    seen: dict = {}
+
+    def fake(spec, **kwargs):
+        seen.update(kwargs)
+        seen["spec"] = spec
+        return {"verdict": verdict, "reason": "stubbed"}
+
+    monkeypatch.setattr(deliberate_break, "verify_spec", fake)
+    return seen
+
+
+def test_no_marker_skips_and_exits_zero(tmp_path, monkeypatch, capsys):
+    """Most PRs carry no marker. Exiting non-zero here would block all of them."""
+    _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", "an ordinary pull request body")
+    assert deliberate_break.main([]) == 0
+    assert "skipped: no deliberate-break marker" in capsys.readouterr().out
+
+
+def test_no_marker_reports_has_marker_false_not_silence(tmp_path, monkeypatch, capsys):
+    """`has_marker` is how the workflow tells "no marker" from "the check did not run".
+
+    Emitting nothing would make a skipped check and a crashed one look identical downstream.
+    """
+    out = _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", "no marker here")
+    deliberate_break.main([])
+    capsys.readouterr()
+    written = out.read_text(encoding="utf-8")
+    assert "has_marker=false" in written
+    assert f"verdict={deliberate_break.VERDICT_SKIPPED}" in written
+
+
+def test_a_passing_verdict_exits_zero(tmp_path, monkeypatch, capsys):
+    _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", MARKER)
+    _stub_verdict(monkeypatch, VERDICT_PASS)
+    assert deliberate_break.main([]) == 0
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("verdict", [VERDICT_BROKEN, VERDICT_HOLLOW, "ERROR"])
+def test_any_non_passing_verdict_exits_non_zero(tmp_path, monkeypatch, capsys, verdict):
+    """The whole point of the gate. PASS is the ONLY green verdict — including for values this
+    module does not enumerate, which is why an unknown string is parametrised here too."""
+    _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", MARKER)
+    _stub_verdict(monkeypatch, verdict)
+    assert deliberate_break.main([]) == 1
+    capsys.readouterr()
+
+
+def test_the_verdict_reaches_the_workflow_output(tmp_path, monkeypatch, capsys):
+    out = _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", MARKER)
+    _stub_verdict(monkeypatch, VERDICT_HOLLOW)
+    deliberate_break.main([])
+    capsys.readouterr()
+    written = out.read_text(encoding="utf-8")
+    assert "has_marker=true" in written
+    assert f"verdict={VERDICT_HOLLOW}" in written
+
+
+def test_the_body_file_wins_over_the_environment(tmp_path, monkeypatch, capsys):
+    """A file is passed explicitly; an env var is ambient. Reading the wrong one silently checks
+    the wrong PR."""
+    _capture_outputs(tmp_path, monkeypatch)
+    body_file = tmp_path / "body.md"
+    body_file.write_text(MARKER, encoding="utf-8")
+    monkeypatch.setenv("PR_BODY", "no marker in the environment")
+    seen = _stub_verdict(monkeypatch, VERDICT_PASS)
+    assert deliberate_break.main(["--pr-body-file", str(body_file)]) == 0
+    capsys.readouterr()
+    assert seen["spec"] is not None, "the marker in the FILE must be the one parsed"
+
+
+def test_a_custom_body_env_name_is_honoured(tmp_path, monkeypatch, capsys):
+    _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", "no marker here")
+    monkeypatch.setenv("OTHER_BODY", MARKER)
+    _stub_verdict(monkeypatch, VERDICT_PASS)
+    assert deliberate_break.main(["--pr-body-env", "OTHER_BODY"]) == 0
+    capsys.readouterr()
+
+
+def test_no_tamper_check_inverts_into_enforce_tamper(tmp_path, monkeypatch, capsys):
+    """An inverted flag is easy to get backwards, and getting it backwards disables the tamper
+    check on every run while the flag still reads as opt-in."""
+    _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", MARKER)
+
+    seen = _stub_verdict(monkeypatch, VERDICT_PASS)
+    deliberate_break.main([])
+    capsys.readouterr()
+    assert seen["enforce_tamper"] is True, "tamper checking must be ON by default"
+
+    seen = _stub_verdict(monkeypatch, VERDICT_PASS)
+    deliberate_break.main(["--no-tamper-check"])
+    capsys.readouterr()
+    assert seen["enforce_tamper"] is False
+
+
+def test_base_and_head_reach_verify_spec(tmp_path, monkeypatch, capsys):
+    """Comparing the wrong revisions produces a confident verdict about the wrong diff."""
+    _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", MARKER)
+    seen = _stub_verdict(monkeypatch, VERDICT_PASS)
+    deliberate_break.main(["--base", "origin/release", "--head", "abc123"])
+    capsys.readouterr()
+    assert seen["base"] == "origin/release"
+    assert seen["head"] == "abc123"
+
+
+def test_the_result_is_printed_as_parseable_json(tmp_path, monkeypatch, capsys):
+    """Downstream steps read stdout. Human-readable-only output would strand them."""
+    _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", MARKER)
+    _stub_verdict(monkeypatch, VERDICT_BROKEN)
+    deliberate_break.main([])
+    printed = capsys.readouterr().out.strip().splitlines()[-1]
+    assert json.loads(printed)["verdict"] == VERDICT_BROKEN
