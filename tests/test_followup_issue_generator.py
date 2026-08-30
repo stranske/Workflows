@@ -1675,3 +1675,113 @@ def test_invoke_llm_typeerror_fallback_logs_and_retries(
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# =================================================================================================
+# `_invoke_llm` response normalisation.
+#
+# Ranked third in this repository by `escaped_defect_priority` and 36 statements unexercised in one
+# nested function. What it normalises is the LLM's answer into the text that BECOMES a filed issue,
+# so every failure here is silent by construction: a wrong normalisation still returns a string,
+# the issue is still opened, and it contains a Python repr instead of prose.
+#
+# The list branch is not an edge case. Anthropic-style responses return content as a LIST OF
+# BLOCKS, so that path is the ordinary one for a whole provider — and it was entirely unexercised.
+#
+# Driven through `_invoke_llm` with fake clients rather than by reaching into the closure: the
+# function is nested, and extracting it would be a production change for a test's convenience.
+# =================================================================================================
+
+
+class _FakeResponse:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeClient:
+    """Accepts the message-list signature, like a real LangChain client."""
+
+    def __init__(self, response):
+        self._response = response
+        self.calls: list[tuple] = []
+
+    def invoke(self, messages, config=None):
+        self.calls.append((messages, config))
+        return self._response
+
+
+def _normalised(response) -> str:
+    text, _trace_id, _trace_url = followup_issue_generator._invoke_llm(
+        "a prompt",
+        _FakeClient(response),
+        operation="test",
+        pr_number=1,
+        issue_number=2,
+    )
+    return text
+
+
+def test_a_plain_string_content_passes_through():
+    assert _normalised(_FakeResponse("hello")) == "hello"
+
+
+def test_anthropic_style_content_blocks_are_joined_into_text():
+    """The ordinary response shape for a whole provider, and it was never exercised.
+
+    Without this branch the caller receives `[{'type': 'text', 'text': ...}]` — a repr that is
+    still a string, so the issue is still filed and still looks like output.
+    """
+    blocks = [
+        {"type": "text", "text": "First half. "},
+        {"type": "text", "text": "Second half."},
+    ]
+    assert _normalised(_FakeResponse(blocks)) == "First half. Second half."
+
+
+def test_a_block_carrying_content_instead_of_text_is_read():
+    assert _normalised(_FakeResponse([{"content": "from content"}])) == "from content"
+
+
+def test_text_wins_over_content_when_a_block_has_both():
+    """Both keys appear in the wild; picking the wrong one silently truncates the answer."""
+    block = [{"text": "the answer", "content": "metadata, not the answer"}]
+    assert _normalised(_FakeResponse(block)) == "the answer"
+
+
+def test_bare_strings_in_the_list_are_kept():
+    assert _normalised(_FakeResponse(["a", "b"])) == "ab"
+
+
+def test_an_unrecognised_block_is_serialised_rather_than_dropped():
+    """Dropping it would lose part of the answer with nothing to show that anything went missing.
+
+    Serialising is ugly and visible, which is the right trade for a shape nobody anticipated.
+    """
+    out = _normalised(_FakeResponse([{"type": "tool_use", "id": "abc"}]))
+    assert json.loads(out) == {"type": "tool_use", "id": "abc"}
+
+
+def test_a_non_string_non_dict_item_is_stringified():
+    assert _normalised(_FakeResponse([42])) == "42"
+
+
+def test_a_list_that_normalises_to_nothing_falls_back_to_the_raw_content():
+    """Empty output would read as "the model said nothing" rather than "this was not understood"."""
+    out = _normalised(_FakeResponse([{"unknown": ""}, "   "]))
+    assert out.strip() != "", "an unreadable response must not normalise to an empty string"
+
+
+def test_dict_content_is_serialised_deterministically():
+    """Sorted keys: two identical responses must not produce two different issue bodies."""
+    out = _normalised(_FakeResponse({"b": 2, "a": 1}))
+    assert out == '{"a": 1, "b": 2}'
+
+
+def test_a_response_with_no_content_attribute_is_stringified():
+    """Some clients return a bare string. Returning None here would file an empty issue."""
+    assert _normalised("just a string") == "just a string"
+
+
+def test_non_ascii_survives_normalisation():
+    """`ensure_ascii=False` matters: escaped sequences would reach a human-readable issue body."""
+    assert "café" in _normalised(_FakeResponse({"note": "café"}))
