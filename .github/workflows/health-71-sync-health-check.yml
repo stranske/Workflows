@@ -63,7 +63,10 @@ jobs:
       - name: Check recent sync runs
         id: check
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The tracker list includes consumer repositories, so use the
+          # organization/App token when available. The default GITHUB_TOKEN is
+          # repository-scoped and cannot create the consumer alert comments.
+          GH_TOKEN: ${{ secrets.DURABLE_TRACKER_TOKEN || secrets.GITHUB_TOKEN }}
           LOOKBACK: ${{ inputs.lookback_runs || 5 }}
           MAX_AGE_HOURS: ${{ inputs.max_age_hours || 72 }}
         run: |
