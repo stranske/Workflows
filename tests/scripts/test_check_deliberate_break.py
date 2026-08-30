@@ -1860,12 +1860,14 @@ def test_the_body_file_wins_over_the_environment(tmp_path, monkeypatch, capsys):
 
 
 def test_a_custom_body_env_name_is_honoured(tmp_path, monkeypatch, capsys):
-    _capture_outputs(tmp_path, monkeypatch)
+    out = _capture_outputs(tmp_path, monkeypatch)
     monkeypatch.setenv("PR_BODY", "no marker here")
     monkeypatch.setenv("OTHER_BODY", MARKER)
-    _stub_verdict(monkeypatch, VERDICT_PASS)
+    seen = _stub_verdict(monkeypatch, VERDICT_PASS)
     assert deliberate_break.main(["--pr-body-env", "OTHER_BODY"]) == 0
     capsys.readouterr()
+    assert seen["spec"] is not None, "the marker in OTHER_BODY must reach verify_spec"
+    assert "has_marker=true" in out.read_text(encoding="utf-8")
 
 
 def test_no_tamper_check_inverts_into_enforce_tamper(tmp_path, monkeypatch, capsys):
