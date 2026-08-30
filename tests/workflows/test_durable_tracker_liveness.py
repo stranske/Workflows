@@ -207,8 +207,46 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
             "issue": 4,
             "healthy": False,
             "reason": ABSENT_REASON,
+            "held_zero_job_run_count": 0,
         },
     ]
+
+
+def test_absent_zero_job_hold_includes_count_in_alert(monkeypatch) -> None:
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "held.yml",
+                "issue": 499,
+                "repo": "stranske/Counter_Risk",
+                "max_age_hours": 336,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness, "_latest_executable_run", lambda *_args: None
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness, "_no_executable_run_reason", lambda *_args: ABSENT_REASON
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness, "_held_zero_job_run_count", lambda *_args: 3
+    )
+    posted: list[tuple[str, int, str]] = []
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_comment_on_tracker",
+        lambda repo, issue, body, _token: posted.append((repo, issue, body)),
+    )
+
+    (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+
+    assert result["held_zero_job_run_count"] == 3
+    check_durable_tracker_liveness.comment_unhealthy_trackers([result], "token")
+    assert posted[0][:2] == ("stranske/Counter_Risk", 499)
+    assert "Held/missed zero-job `action_required` runs: 3" in posted[0][2]
 
 
 def test_metrics_staleness_detector_fires_loud_path(monkeypatch) -> None:

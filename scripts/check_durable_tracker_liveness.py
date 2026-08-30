@@ -352,17 +352,19 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
         require_step = str(require_step) if require_step else None
         latest = _latest_executable_run(target_repo, workflow, auth, allowed_events)
         if latest is None:
-            results.append(
-                {
-                    "repo": target_repo,
-                    "workflow": workflow,
-                    "issue": issue,
-                    "healthy": False,
-                    "reason": _no_executable_run_reason(
-                        target_repo, workflow, auth, allowed_events
-                    ),
-                }
+            result = {
+                "repo": target_repo,
+                "workflow": workflow,
+                "issue": issue,
+                "healthy": False,
+                "reason": _no_executable_run_reason(
+                    target_repo, workflow, auth, allowed_events
+                ),
+            }
+            result["held_zero_job_run_count"] = _held_zero_job_run_count(
+                target_repo, workflow, auth, allowed_events
             )
+            results.append(result)
             continue
         hours = _hours_since(str(latest["created_at"]))
         result: dict[str, Any] = {
