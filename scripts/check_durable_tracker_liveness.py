@@ -281,7 +281,9 @@ def _held_zero_job_run_count(
         if run.get("conclusion") == "action_required"
     ]
     return sum(
-        _gh_api(f"repos/{repo}/actions/runs/{run.get('id')}/jobs?per_page=1", token).get("total_count")
+        _gh_api(f"repos/{repo}/actions/runs/{run.get('id')}/jobs?per_page=1", token).get(
+            "total_count"
+        )
         == 0
         for run in held
     )
