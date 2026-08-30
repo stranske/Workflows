@@ -133,7 +133,7 @@ def test_both_copies_carry_the_same_matcher():
 
 @pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
 def test_the_failure_message_can_say_measured_under_an_unusable_name(guard):
-    """ "Not measured" and "measured, unusable name" are opposite findings with different fixes.
+    """Two opposite findings, with different fixes, that used to share one message.
 
     The message this replaced asserted the first in every case, which is how eight repos that were
     measuring coverage were told to go and switch coverage on.
