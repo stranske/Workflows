@@ -108,14 +108,18 @@ def test_comment_unhealthy_trackers_uses_configured_consumer_repository(monkeypa
     assert "336h cadence" in posted[0][2]
 
 
-def test_absent_run_reason_distinguishes_skipped_history_from_workflow_protection(monkeypatch) -> None:
+def test_absent_run_reason_distinguishes_skipped_history_from_workflow_protection(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(
         check_durable_tracker_liveness,
         "_gh_api",
         lambda _path, _token: {"workflow_runs": [{"conclusion": "skipped"}]},
     )
 
-    reason = check_durable_tracker_liveness._no_executable_run_reason("o/r", "workflow.yml", "token")
+    reason = check_durable_tracker_liveness._no_executable_run_reason(
+        "o/r", "workflow.yml", "token"
+    )
 
     assert reason == "no executable run found (only skipped runs)."
 

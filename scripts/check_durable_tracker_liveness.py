@@ -258,7 +258,9 @@ def _no_executable_run_reason(repo: str, workflow_file: str, token: str) -> str:
     if not isinstance(runs, list) or not runs:
         return "no workflow runs found."
     conclusions = {str(run.get("conclusion") or "") for run in runs if isinstance(run, dict)}
-    held = [run for run in runs if isinstance(run, dict) and run.get("conclusion") == "action_required"]
+    held = [
+        run for run in runs if isinstance(run, dict) and run.get("conclusion") == "action_required"
+    ]
     if held:
         held_zero_job = []
         for run in held:
@@ -316,9 +318,7 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
                     "workflow": workflow,
                     "issue": issue,
                     "healthy": False,
-                    "reason": (
-                        _no_executable_run_reason(target_repo, workflow, auth)
-                    ),
+                    "reason": (_no_executable_run_reason(target_repo, workflow, auth)),
                 }
             )
             continue
