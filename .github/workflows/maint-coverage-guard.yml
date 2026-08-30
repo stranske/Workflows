@@ -475,6 +475,20 @@ jobs:
           done
 
           # Check for coverage json
+          # THE ARTIFACT IS FOUND AND THE FILE INSIDE IT IS NOT. This list is the same shape of
+          # defect as the artifact-NAME list one step earlier: seven hardcoded paths against a
+          # producer that writes somewhere else. Verified 2026-08-30 by downloading
+          # stranske/Counter_Risk's real `gate-coverage-3.12-1` -- it holds `index.ndjson` and
+          # `runtimes/3.12/coverage.json`, extracting to
+          # `coverage_artifacts/payload/runtimes/3.12/coverage.json`, one directory level from the
+          # first candidate and matched by none of them. The list also hardcodes the Python
+          # versions, so a matrix change breaks it silently and later.
+          #
+          # Literals first, so a repo where they already work is untouched and this change cannot
+          # alter a working resolution. Then FIND the payload rather than guess where it is: a
+          # file is the payload when it PARSES and carries `totals.percent_covered`, which is what
+          # the guard actually reads. That test cannot drift from the producer's directory layout,
+          # because it does not mention the layout.
           for candidate in \
             "coverage_artifacts/payload/coverage/runtimes/3.12/coverage.json" \
             "coverage_artifacts/payload/coverage/runtimes/3.13/coverage.json" \
@@ -488,6 +502,18 @@ jobs:
               break
             fi
           done
+          # `sort` so an artifact holding two runtimes resolves to the SAME file every run: they
+          # are one suite on different interpreters, and a figure that moved with directory order
+          # would be noise reported as a coverage change.
+          if [ -z "$COVERAGE_PATH" ]; then
+            while IFS= read -r found; do
+              if python -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d,dict) and 'percent_covered' in (d.get('totals') or {}) else 1)" "$found" 2>/dev/null; then
+                COVERAGE_PATH="$found"
+                echo "::notice title=Coverage payload located by search::No known path matched; found ${found} by looking for a JSON carrying totals.percent_covered."
+                break
+              fi
+            done < <(find coverage_artifacts -type f -name '*.json' 2>/dev/null | sort)
+          fi
 
           # Build args
           ARGS=(
@@ -515,6 +541,11 @@ jobs:
             echo "Required coverage artifacts are missing after download."
             echo "TREND_PATH=${TREND_PATH:-<missing>}"
             echo "COVERAGE_PATH=${COVERAGE_PATH:-<missing>}"
+            # WHAT WAS ACTUALLY THERE. Without this, the message says a file is missing and gives
+            # no way to tell "the artifact was empty" from "the artifact was full and nothing in
+            # it looked like a coverage report" -- and the second is what really happened.
+            echo "--- files downloaded (the search covered every .json among these) ---"
+            find coverage_artifacts -type f 2>/dev/null | head -50 || echo "(coverage_artifacts is absent or empty)"
             exit 1
           fi
 
