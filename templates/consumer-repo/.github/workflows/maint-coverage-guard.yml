@@ -286,6 +286,7 @@ jobs:
             let resolvedTrendName = '';
             let resolvedHistoryName = '';
             const seenCoverageArtifacts = new Set();
+            const seenPayloadArtifacts = new Set();
             for (const run of runsToProbe) {
               let artifacts = [];
               try {
@@ -318,6 +319,7 @@ jobs:
                 if (name.startsWith(payloadPrefix)) seenCoverageArtifacts.add(name);
               }
               const candidateNames = payloadCandidates(availableCoverageArtifactNames);
+              for (const name of candidateNames) seenPayloadArtifacts.add(name);
               const payloadName = candidateNames[0] || '';
               if (candidateNames.length > 1) {
                 core.info(
@@ -372,19 +374,31 @@ jobs:
                       'check that the reusable CI caller sets coverage: true and',
                       'enable-soft-gate: true.',
                     ].join(' ')
-                  : [
-                      'Gate runs DID publish coverage artifacts, but none of them formed a usable',
-                      `pair. Seen: ${[...seenCoverageArtifacts].sort().join(', ')}.`,
-                      `A payload is any gate-coverage* artifact except ${'-trend'}/-summary/-delta;`,
-                      `a trend is ${trendArtifactName}. Coverage IS being measured in this repo --`,
-                      'what is missing is the artifact this job needs, so do not switch coverage',
-                      'on again, publish the missing half.',
-                    ].join(' '),
+                  : seenPayloadArtifacts.size === 0
+                    ? [
+                        'Gate runs DID publish gate-coverage artifacts, but none matched a',
+                        'supported payload shape.',
+                        `Seen: ${[...seenCoverageArtifacts].sort().join(', ')}.`,
+                        `A payload is any gate-coverage* artifact except ${'-trend'}/-summary/-delta.`,
+                        'Coverage IS being measured in this repo, but the payload names are',
+                        'unusable by this guard; align the producer name or matcher.',
+                      ].join(' ')
+                    : [
+                        'Gate runs DID publish usable coverage payloads, but none had the required',
+                        `${trendArtifactName} on the same run.`,
+                        `Payloads seen: ${[...seenPayloadArtifacts].sort().join(', ')}.`,
+                        'Coverage IS being measured in this repo; publish the missing trend',
+                        'artifact rather than enabling coverage again.',
+                      ].join(' '),
               );
               core.setOutput('run_id', '');
-              core.setFailed(
-                'Coverage verification could not find a coverage payload and trend on a successful Gate run.',
-              );
+              const missingPairReason =
+                seenCoverageArtifacts.size === 0
+                  ? 'no gate-coverage artifacts were published'
+                  : seenPayloadArtifacts.size === 0
+                    ? 'published coverage artifact names did not match a supported payload shape'
+                    : `coverage payloads were published without ${trendArtifactName}`;
+              core.setFailed(`Coverage verification could not proceed: ${missingPairReason}.`);
               return;
             }
 
@@ -463,6 +477,8 @@ jobs:
 
           # Check for coverage json
           for candidate in \
+            "coverage_artifacts/payload/coverage/runtimes/3.12/coverage.json" \
+            "coverage_artifacts/payload/coverage/runtimes/3.13/coverage.json" \
             "coverage_artifacts/payload/artifacts/coverage/runtimes/3.12/coverage.json" \
             "coverage_artifacts/payload/artifacts/coverage/runtimes/3.13/coverage.json" \
             "coverage_artifacts/payload/gate-coverage.json" \

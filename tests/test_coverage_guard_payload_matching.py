@@ -133,11 +133,24 @@ def test_both_copies_carry_the_same_matcher():
 
 @pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
 def test_the_failure_message_can_say_measured_under_an_unusable_name(guard):
-    """Two opposite findings, with different fixes, that used to share one message.
+    """Three findings, with different fixes, that used to share one message.
 
     The message this replaced asserted the first in every case, which is how eight repos that were
     measuring coverage were told to go and switch coverage on.
     """
     text = guard.read_text(encoding="utf-8")
-    assert "seenCoverageArtifacts.size === 0" in text, "the two findings must be branched apart"
+    assert "seenCoverageArtifacts.size === 0" in text
+    assert "seenPayloadArtifacts.size === 0" in text
+    assert "payload names are" in text
+    assert "unusable by this guard" in text
+    assert "without ${trendArtifactName}" in text
+    assert "publish the missing trend" in text
     assert "Coverage IS being measured in this repo" in text
+
+
+@pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
+def test_the_downloaded_matrix_payload_layout_is_probed(guard):
+    """The downloaded artifact starts at coverage/, not artifacts/coverage/."""
+    text = guard.read_text(encoding="utf-8")
+    assert '"coverage_artifacts/payload/coverage/runtimes/3.12/coverage.json"' in text
+    assert '"coverage_artifacts/payload/coverage/runtimes/3.13/coverage.json"' in text
