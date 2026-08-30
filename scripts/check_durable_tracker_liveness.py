@@ -250,11 +250,13 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
     results: list[dict[str, Any]] = []
     for entry in _load_config():
         workflow = str(entry["workflow"])
+        target_repo = str(entry.get("repo") or repo)
         raw_issue = entry.get("issue")
         issue = int(raw_issue) if raw_issue is not None else None
         if entry.get("event_driven") is True:
             results.append(
                 {
+                    "repo": target_repo,
                     "workflow": workflow,
                     "issue": issue,
                     "healthy": True,
@@ -271,22 +273,24 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
         )
         require_step = entry.get("require_step")
         require_step = str(require_step) if require_step else None
-        latest = _latest_executable_run(repo, workflow, auth, allowed_events)
+        latest = _latest_executable_run(target_repo, workflow, auth, allowed_events)
         if latest is None:
             results.append(
                 {
+                    "repo": target_repo,
                     "workflow": workflow,
                     "issue": issue,
                     "healthy": False,
                     "reason": (
                         "no executable run found (only action_required/skipped)."
-                        + _held_by_workflow_protection(True, repo, workflow)
+                        + _held_by_workflow_protection(True, target_repo, workflow)
                     ),
                 }
             )
             continue
         hours = _hours_since(str(latest["created_at"]))
         result: dict[str, Any] = {
+            "repo": target_repo,
             "workflow": workflow,
             "issue": issue,
             "healthy": hours <= max_age_hours,
@@ -307,7 +311,7 @@ def evaluate_trackers(repo: str, token: str | None = None) -> list[dict[str, Any
         if require_step is not None:
             result["require_step"] = require_step
             executed = _latest_executable_run(
-                repo,
+                target_repo,
                 workflow,
                 auth,
                 allowed_events,
@@ -409,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
                 + (f"\n{item['reason']}\n" if item.get("reason") else "")
                 + "\nConfirm liveness from workflow run history, not tracker comment activity."
             )
-            _comment_on_tracker(args.repo, int(item["issue"]), body, token)
+            _comment_on_tracker(str(item["repo"]), int(item["issue"]), body, token)
 
     return 1 if unhealthy else 0
 
