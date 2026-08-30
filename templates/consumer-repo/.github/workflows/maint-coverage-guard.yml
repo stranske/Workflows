@@ -143,8 +143,44 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
-            const workflowId = '.github/workflows/pr-00-gate.yml';
             const fs = require('fs');
+            // WHICH WORKFLOW CARRIES THIS REPO'S COVERAGE IS A PER-REPO FACT, AND IT WAS HARDCODED.
+            //
+            // Two repos are invisible to this guard for the same reason, and neither is
+            // misconfigured. stranske/Counter_Risk deliberately measures coverage on ci.yml -- its
+            // Gate carries an explicit "PR Gate is optimized for fast feedback. Full coverage
+            // enforcement runs on main" rationale. stranske/Orchestrator publishes its only honest
+            // figure (80.3% combined, against the 34.11% its Gate reports for pytest alone) from a
+            // job in ci.yml, because 79 of its 102 modules are exercised by --selftest subprocesses
+            // that pytest-cov cannot see. A guard that can only ever look at pr-00-gate.yml reports
+            // "no coverage" for both, which is indistinguishable from a repo that has none.
+            //
+            // Read from config/coverage-baseline.json, which is the right home: it is already the
+            // per-repo coverage config and is explicitly EXCLUDED from template sync ("Each repo
+            // maintains its own coverage baseline"), so a repo can answer this without diverging
+            // from the synced workflow.
+            //
+            // The default is exactly the previous behaviour, so no repo changes unless it opts in,
+            // and an unreadable or malformed config falls back to it rather than failing: a guard
+            // that died on its own config would be worse than one that looks in one place.
+            const DEFAULT_WORKFLOWS = ['.github/workflows/pr-00-gate.yml'];
+            let workflowIds = DEFAULT_WORKFLOWS;
+            let workflowSource = 'default';
+            try {
+              const cfgRaw = fs.readFileSync('config/coverage-baseline.json', 'utf8');
+              const cfg = JSON.parse(cfgRaw);
+              const declared = cfg.source_workflows;
+              if (Array.isArray(declared) && declared.length) {
+                workflowIds = declared.filter((w) => typeof w === 'string' && w.trim());
+                workflowSource = 'config/coverage-baseline.json';
+              }
+            } catch (err) {
+              core.info(
+                `coverage-baseline.json not read for source_workflows (${err.message}); ` +
+                  'using the default workflow list'
+              );
+            }
+            core.info(`Searching for coverage in: ${workflowIds.join(', ')} (from ${workflowSource})`);
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -155,21 +191,41 @@ jobs:
                 };
             const { paginateWithRetry, withRetry } = retryHelpers;
 
-            const runs = await paginateWithRetry(
-              github, github.rest.actions.listWorkflowRuns,
-              {
-                owner,
-                repo,
-                workflow_id: workflowId,
-                status: 'completed',
-                per_page: 50,
-              },
-            );
+            // Every configured workflow is listed and the runs POOLED, rather than stopping at the
+            // first that returns anything. A repo can legitimately publish coverage from more than
+            // one workflow, and taking only the first would make the ORDER of a config list into a
+            // silent filter.
+            let runs = [];
+            const searched = [];
+            for (const wf of workflowIds) {
+              try {
+                const found = await paginateWithRetry(
+                  github, github.rest.actions.listWorkflowRuns,
+                  {
+                    owner,
+                    repo,
+                    workflow_id: wf,
+                    status: 'completed',
+                    per_page: 50,
+                  },
+                );
+                searched.push(`${wf} (${found.length} run(s))`);
+                runs = runs.concat(found);
+              } catch (err) {
+                // A workflow named in config that does not exist here is a CONFIG error worth
+                // naming, not a reason to abandon the others.
+                searched.push(`${wf} (UNAVAILABLE: ${err.message})`);
+              }
+            }
 
             if (!runs.length) {
-              core.warning('No Gate workflow runs found.');
+              core.warning(`No completed runs found in: ${searched.join('; ')}`);
               core.setOutput('run_id', '');
-              core.setFailed('Coverage verification requires at least one completed Gate workflow run.');
+              core.setFailed(
+                'Coverage verification requires at least one completed run in a configured ' +
+                  `workflow. Searched: ${searched.join('; ')}. If this repo publishes coverage ` +
+                  'elsewhere, add source_workflows to config/coverage-baseline.json.'
+              );
               return;
             }
 

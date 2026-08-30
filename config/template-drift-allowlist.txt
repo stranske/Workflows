@@ -196,11 +196,11 @@ fingerprint_refreshed = 2026-08-23
 [pair.18]
 main = .github/workflows/maint-coverage-guard.yml
 template = templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
-main_sha256 = 26c7283102800ebe956adfe55f53f7207c8bf683f5e14d0140f2b80b805f94a1
-template_sha256 = f52695b8421f9e9578a97ff12111434d216325e2fe3df04b291eee083d4ecbc8
-divergence = Coverage guard fingerprint refreshed 2026-08-26: both root and consumer selectors now recognize the downloaded `coverage_artifacts/payload/gate-coverage.json` filename, preventing the source/template artifact-name mismatch from hiding usable Gate coverage. The remaining root/template differences are still intentional: consumers use pinned public actions and an App token while Workflows uses local artifact-cache helpers and sparse checkout. Prior divergence unchanged: Coverage guard re-reviewed 2026-08-25: both selectors require the trend artifact alongside the coverage payload, because coverage_guard.py makes a missing trend a successful no-op.
+main_sha256 = 42efcb7f19dc11582a8b137f857d0a6008c96930dc90189eca40c9f362787131
+template_sha256 = 64b4b1f8806a90fc099cc7fc35c6f8b1da91afaf046f9face8a78a14aa493995
+divergence = Guard reads a per-repo workflow list 2026-08-30: which workflow carries a repo's coverage is a PER-REPO fact and was hardcoded to pr-00-gate.yml, so two repos were invisible to the guard for the same reason and neither is misconfigured -- stranske/Counter_Risk measures coverage on ci.yml by documented judgement, and stranske/Orchestrator publishes its only honest figure (80.3% combined, against the 34.11% its Gate reports for pytest alone) from a ci.yml job, because 79 of its 102 modules run under --selftest subprocesses pytest-cov cannot see. Reading source_workflows from config/coverage-baseline.json puts the answer in the file that is already the per-repo coverage config and already excluded from sync. The default is exactly the previous behaviour and an unreadable config falls back to it, so no repo changes unless it opts in. Applied IDENTICALLY to root and consumer, so it introduces NO NEW divergence; fingerprints refreshed for it and divergence_reviewed deliberately keeps its old date. Prior divergence unchanged: Coverage guard fingerprint refreshed 2026-08-26: both root and consumer selectors now recognize the downloaded `coverage_artifacts/payload/gate-coverage.json` filename, preventing the source/template artifact-name mismatch from hiding usable Gate coverage. The remaining root/template differences are still intentional: consumers use pinned public actions and an App token while Workflows uses local artifact-cache helpers and sparse checkout. Prior divergence unchanged: Coverage guard re-reviewed 2026-08-25: both selectors require the trend artifact alongside the coverage payload, because coverage_guard.py makes a missing trend a successful no-op.
 divergence_reviewed = 2026-08-25
-fingerprint_refreshed = 2026-08-26
+fingerprint_refreshed = 2026-08-30
 
 [pair.19]
 main = .github/workflows/pr-00-gate.yml
