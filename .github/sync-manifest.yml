@@ -829,11 +829,24 @@ docs:
     skip_repos:
       - repo: stranske/Trend_Model_Project
         reason: "Repo keeps historical Agents.md casing to avoid case-only path conflicts"
+      - repo: stranske/Fine-Art-Archive
+        reason: >-
+          Sync commit faee7246 (2026-08-25) overwrote this file and silently deleted 60 lines of
+          repo-owned research guidance ("Identifying a Work: Reverse Image Search Is the Next
+          Step"). That guidance is archive-specific and belongs to the consumer, not the shared
+          template; the docs section is overwrite-synced, so the only protection is skipping the
+          repo here. Incident: open: #3275.
 
   - source: CLAUDE.md
     target: CLAUDE.md
     description: "Context file for Claude/AI assistants"
     skip_repos:
+      - repo: stranske/Fine-Art-Archive
+        reason: >-
+          Same incident as the AGENTS.md skip above: sync commit faee7246 (2026-08-25) deleted the
+          identical 60-line repo-owned reverse-image-search section from this file too. The repo
+          maintains its own CLAUDE.md with archive-specific rules; overwrite-sync would delete
+          them again. Incident: open: #3275.
       - repo: stranske/Orchestrator
         reason: >-
           Orchestrator is the local agent-orchestration TOOL, not a product consumer. Its CLAUDE.md

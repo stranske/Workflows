@@ -240,11 +240,10 @@
       "enabled": false
     },
     {
-      "description": "stranske/Collab-Admin, stranske/Counter_Risk, stranske/Fine-Art-Archive, stranske/Inv-Man-Intake, stranske/Manager-Database, stranske/Pension-Data, stranske/Portable-Alpha-Extension-Model, stranske/Ready, stranske/Travel-Plan-Permission, stranske/learning-management-system additionally has 6 manifest-managed path(s) that at least one other consumer owns via skip_repos, create_only, or an overwrite_repos opt-in.",
+      "description": "stranske/Collab-Admin, stranske/Counter_Risk, stranske/Inv-Man-Intake, stranske/Manager-Database, stranske/Pension-Data, stranske/Portable-Alpha-Extension-Model, stranske/Ready, stranske/Travel-Plan-Permission, stranske/learning-management-system additionally has 6 manifest-managed path(s) that at least one other consumer owns via skip_repos, create_only, or an overwrite_repos opt-in.",
       "matchRepositories": [
         "stranske/Collab-Admin",
         "stranske/Counter_Risk",
-        "stranske/Fine-Art-Archive",
         "stranske/Inv-Man-Intake",
         "stranske/Manager-Database",
         "stranske/Pension-Data",
@@ -260,6 +259,19 @@
         ".github/scripts/package.json",
         "AGENTS.md",
         "CLAUDE.md"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "stranske/Fine-Art-Archive additionally has 4 manifest-managed path(s) that at least one other consumer owns via skip_repos, create_only, or an overwrite_repos opt-in.",
+      "matchRepositories": [
+        "stranske/Fine-Art-Archive"
+      ],
+      "matchFileNames": [
+        ".github/scripts/node_modules/balanced-match/**",
+        ".github/scripts/node_modules/brace-expansion/**",
+        ".github/scripts/node_modules/minimatch/**",
+        ".github/scripts/package.json"
       ],
       "enabled": false
     },

@@ -696,3 +696,38 @@ def test_delivery_lease_contract_is_copy_synced_with_the_gate() -> None:
     assert (REPO_ROOT / "templates" / "consumer-repo" / source).read_bytes() == (
         REPO_ROOT / source
     ).read_bytes()
+
+
+def _skip_repo_reasons(entry: dict) -> dict[str, str]:
+    """Map repo -> reason for an entry's skip_repos, tolerating bare-string rules."""
+    reasons: dict[str, str] = {}
+    for rule in entry.get("skip_repos") or []:
+        if isinstance(rule, dict):
+            reasons[str(rule.get("repo"))] = str(rule.get("reason") or "")
+        elif isinstance(rule, str):
+            reasons[rule] = ""
+    return reasons
+
+
+def test_fine_art_archive_context_files_are_skip_synced() -> None:
+    """Regression for Workflows#3275: sync commit faee7246 (2026-08-25) overwrote
+    Fine-Art-Archive's AGENTS.md and CLAUDE.md, deleting 60 lines of repo-owned
+    guidance, because the docs section is overwrite-synced and neither entry named
+    the repo in skip_repos. Both entries must skip stranske/Fine-Art-Archive, and
+    the reason must cite the incident commit so the rule stays auditable."""
+    manifest = _load_manifest()
+    docs = manifest.get("docs") or []
+    for source in ("AGENTS.md", "CLAUDE.md"):
+        entries = [
+            entry for entry in docs if isinstance(entry, dict) and entry.get("source") == source
+        ]
+        assert len(entries) == 1, f"expected exactly one docs entry for {source}"
+        reasons = _skip_repo_reasons(entries[0])
+        assert "stranske/Fine-Art-Archive" in reasons, (
+            f"{source}: stranske/Fine-Art-Archive missing from skip_repos - the next "
+            "template sync would overwrite the consumer's repo-owned guidance again "
+            "(incident faee7246, Workflows#3275)"
+        )
+        assert (
+            "faee7246" in reasons["stranske/Fine-Art-Archive"]
+        ), f"{source}: the Fine-Art-Archive skip reason must cite incident commit faee7246"
