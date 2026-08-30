@@ -527,8 +527,8 @@ test('preserveDurableTrackerHeader does not duplicate an existing generated head
 test('isConsumerOpenPr matches open consumer PR branches by pattern', async () => {
   const github = mockGithub({
     pulls: [
-      { number: 1, head: { ref: 'feature/manual-change' } },
-      { number: 2, head: { ref: 'sync/workflows-abc123' } },
+      { number: 1, head: { ref: 'feature/manual-change', repo: { full_name: 'stranske/Ready' } } },
+      { number: 2, head: { ref: 'sync/workflows-abc123', repo: { full_name: 'stranske/Ready' } } },
     ],
   });
 
@@ -558,6 +558,25 @@ test('isConsumerOpenPr matches open consumer PR branches by pattern', async () =
   );
 });
 
+test('isConsumerOpenPr ignores foreign heads and accepts only a consumer-owned legacy hash', async () => {
+  const github = mockGithub({
+    pulls: [
+      { number: 1, head: { ref: 'sync/workflows-0123456789ab', repo: { full_name: 'fork/Ready' } } },
+      { number: 2, head: { ref: 'sync/workflows-arbitrary', repo: { full_name: 'stranske/Ready' } } },
+      { number: 3, head: { ref: 'sync/workflows-fedcba987654', repo: { full_name: 'stranske/Ready' } } },
+    ],
+  });
+
+  assert.equal(
+    await isConsumerOpenPr({
+      github,
+      consumerRepo: 'stranske/Ready',
+      branchPattern: /^sync\/workflows-[0-9a-f]{12}$/i,
+    }),
+    true,
+  );
+});
+
 test('isConsumerOpenPr manually paginates when github.paginate is unavailable', async () => {
   const pageOne = Array.from({ length: 100 }, (_, index) => ({
     number: index + 1,
@@ -570,7 +589,9 @@ test('isConsumerOpenPr manually paginates when github.paginate is unavailable', 
         list: async (params) => {
           calls.push(params);
           return {
-            data: params.page === 1 ? pageOne : [{ number: 101, head: { ref: 'sync/workflows-next' } }],
+            data: params.page === 1
+              ? pageOne
+              : [{ number: 101, head: { ref: 'sync/workflows-next', repo: { full_name: 'stranske/Ready' } } }],
           };
         },
       },
@@ -592,7 +613,7 @@ test('isConsumerOpenPr uses token-aware retry injected clients', async () => {
   const primary = mockGithub({ pulls: [] });
   delete primary.paginate;
   const injected = mockGithub({
-    pulls: [{ number: 7, head: { ref: 'sync/workflows-injected-client' } }],
+    pulls: [{ number: 7, head: { ref: 'sync/workflows-injected-client', repo: { full_name: 'stranske/Ready' } } }],
   });
   delete injected.paginate;
   const clients = [];
