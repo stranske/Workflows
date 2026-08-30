@@ -84,5 +84,7 @@ def test_maint68_holds_stable_generation_when_a_legacy_sync_pr_is_open():
     assert "steps.open_pr.outputs.legacy_in_flight != 'true'" in maint68
     assert 'elif legacy_in_flight:\n              status = "legacy_hold"' in maint68
     assert "Stop reconciliation when a legacy sync PR holds generation" in maint68
+    assert r"present=${held.length ? 'true' : 'false'}\n" in maint68
+    assert r"present=${held.length ? 'true' : 'false'}\\n" not in maint68
     assert "steps.legacy_hold.outputs.present != 'true'" in maint68
     assert "steps.sync.outcome == 'success' && inputs.dry_run != true" in maint68

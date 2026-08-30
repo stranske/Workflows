@@ -1804,7 +1804,7 @@ jobs:
             : [];
           fs.appendFileSync(
             process.env.GITHUB_OUTPUT,
-            `present=${held.length ? 'true' : 'false'}\\n`,
+            `present=${held.length ? 'true' : 'false'}\n`,
           );
           if (held.length) {
             console.log(
