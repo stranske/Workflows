@@ -43,7 +43,10 @@ Some repos cannot use the template `pr-00-gate.yml` because:
   check that forbids tracked `node_modules/` anywhere in the repo.
 - **Fine-Art-Archive**: Keeps a fleet-preset Renovate exception for
   `jsonschema<4.23.0` because newer non-major releases currently violate the
-  repo's supported dependency range and fail Gate.
+  repo's supported dependency range and fail Gate. It also owns its root
+  `AGENTS.md` and `CLAUDE.md`: the manifest excludes both files from
+  overwrite-sync because they contain archive-specific reverse-image-search
+  guidance.
 
 For these repos:
 - The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
@@ -64,7 +67,9 @@ For these repos:
 - `Fine-Art-Archive` still receives the managed `.github/renovate.json`; its
   dependency exception is centralized in `renovate-presets/fleet.json` with a
   repository-scoped package rule, not patched directly in the consumer repo.
-- Other files listed in the sync manifest continue to sync normally.
+- Other files listed in the sync manifest continue to sync normally; the
+  Fine-Art-Archive root-guidance exception is limited to `AGENTS.md` and
+  `CLAUDE.md`.
 
 Maint 68 implements these exceptions through each entry's typed manifest
 `skip_repos` rules. There is no separate hard-coded custom-Gate list in the
