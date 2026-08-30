@@ -454,7 +454,7 @@ def comment_unhealthy_trackers(unhealthy: list[dict[str, Any]], token: str) -> N
             )
         body = (
             "## Durable tracker liveness alert\n\n"
-            f"Source workflow `{item['workflow']}` has a last successful write outside its "
+            f"Source workflow `{item['workflow']}` latest executable run is outside its "
             f"{item.get('max_age_hours', '?')}h cadence.\n\n"
             f"- Latest executable run: {item.get('latest_created_at', 'none')}\n"
             f"- Held/missed zero-job `action_required` runs: "

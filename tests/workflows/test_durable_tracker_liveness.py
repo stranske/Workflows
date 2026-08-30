@@ -297,6 +297,55 @@ def test_metrics_staleness_detector_fires_loud_path(monkeypatch) -> None:
     assert "Held/missed zero-job `action_required` runs: 4" in posted[0][2]
 
 
+def test_stale_failed_run_alert_does_not_claim_successful_write(monkeypatch) -> None:
+    """A stale failed executable run must not be described as a successful write."""
+    stale_failed_run = {
+        "conclusion": "failure",
+        "created_at": "2026-08-01T06:00:00Z",
+        "html_url": "https://run/stale-failed",
+    }
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "agents-weekly-metrics.yml",
+                "issue": 499,
+                "repo": "stranske/Counter_Risk",
+                "max_age_hours": 336,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_latest_executable_run",
+        lambda *_args, **_kwargs: stale_failed_run,
+    )
+    monkeypatch.setattr(check_durable_tracker_liveness, "_hours_since", lambda _created: 337.0)
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_held_zero_job_run_count",
+        lambda *_args, **_kwargs: 0,
+    )
+    posted: list[tuple[str, int, str]] = []
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_comment_on_tracker",
+        lambda repo, issue, body, _token: posted.append((repo, issue, body)),
+    )
+
+    (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+    assert result["healthy"] is False
+    assert result["latest_conclusion"] == "failure"
+
+    check_durable_tracker_liveness.comment_unhealthy_trackers([result], "token")
+    body = posted[0][2]
+    assert "latest executable run is outside its" in body
+    assert "336" in body and "h cadence" in body
+    assert "Conclusion: failure" in body
+    assert "successful write" not in body.lower()
+
+
 def test_no_executable_run_reason_respects_configured_events(monkeypatch) -> None:
     seen: list[str] = []
 
