@@ -189,6 +189,20 @@ Initializes the token registry and returns wrapped API helpers.
 
 **Returns:** `{ github, withRetry, paginateWithRetry, tokenRegistry, getTokenSource }`
 
+### `checkRateLimitStatus(github, options)`
+
+Probes the **same wrapped credential pool** that downstream API-heavy jobs will use after `setup-api-client`.
+
+**Options:**
+- `threshold` (optional): Minimum remaining core quota required (default: shared helper threshold)
+- `reserveFraction` (optional): Fraction of the credential pool kept in reserve (for example `0.15`)
+- `estimatedCost` (optional): Forecast calls for the guarded operation, added to the reserve
+- `core` (optional): GitHub Actions core for logging
+- `env` (optional): Environment variables (defaults to `process.env`)
+- `failOpen` (optional): When `true`, probe errors return `safe: true` for ancillary/non-heavy callers. API-heavy orchestrator and belt-scan preflights must pass `failOpen: false`.
+
+**Returns:** `{ safe, state, remaining, limit, requiredRemaining, reserveCalls, estimatedCost, credentialPoolId, resetTime, error? }`
+
 ### `withRetry(fn, overrideOptions)`
 
 Wraps an API call with retry logic and token switching.

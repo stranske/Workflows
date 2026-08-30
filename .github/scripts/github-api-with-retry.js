@@ -986,15 +986,43 @@ async function withBackoff(apiCall, options = {}) {
  * Check current rate limit status and report whether it's safe to proceed.
  */
 async function checkRateLimitStatus(github, options = {}) {
-  const { threshold = RATE_LIMIT_THRESHOLD, core = null, env = process.env } = options;
+  const {
+    threshold = RATE_LIMIT_THRESHOLD,
+    reserveFraction = 0,
+    estimatedCost = 0,
+    core = null,
+    env = process.env,
+    failOpen = false,
+  } = options;
 
   let client = github;
-  try {
-    // Lazy require breaks the github-rate-limited-wrapper <-> this-module cycle.
-    const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
-    client = await ensureRateLimitWrapped({ github, core, env });
-  } catch (error) {
-    client = github;
+  let credentialPoolId = null;
+  let tokenSourceReader = null;
+  if (github?.__rateLimitWrapped === true) {
+    credentialPoolId = github.__getTokenSource?.() || null;
+    tokenSourceReader = github.__getTokenSource || null;
+  } else {
+    try {
+      const retry = await createTokenAwareRetry({
+        github,
+        core,
+        env,
+        task: 'rate-limit-preflight',
+      });
+      client = retry.github || github;
+      credentialPoolId = retry.getTokenSource?.() || null;
+      tokenSourceReader = retry.getTokenSource || null;
+    } catch (error) {
+      try {
+        // Lazy require breaks the github-rate-limited-wrapper <-> this-module cycle.
+        const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+        client = await ensureRateLimitWrapped({ github, core, env });
+        credentialPoolId = client.__getTokenSource?.() || null;
+        tokenSourceReader = client.__getTokenSource || null;
+      } catch (wrapError) {
+        client = github;
+      }
+    }
   }
 
   try {
@@ -1005,18 +1033,29 @@ async function checkRateLimitStatus(github, options = {}) {
     const resetTimestamp = coreLimit.reset || 0;
     const resetTime = new Date(resetTimestamp * 1000);
 
-    const safe = remaining >= threshold;
+    const normalizedReserve = Math.max(0, Math.min(Number(reserveFraction) || 0, 1));
+    const normalizedEstimate = Math.max(0, Number.parseInt(estimatedCost, 10) || 0);
+    const reserveCalls = Math.ceil(limit * normalizedReserve);
+    const requiredRemaining = Math.max(Number(threshold) || 0, reserveCalls + normalizedEstimate);
+    const safe = remaining >= requiredRemaining;
     const percentUsed = limit > 0 ? Math.round(((limit - remaining) / limit) * 100) : 0;
+    credentialPoolId = tokenSourceReader?.() || credentialPoolId;
 
     const status = {
       safe,
+      state: safe ? 'safe' : 'low',
       remaining,
       limit,
       threshold,
+      reserveFraction: normalizedReserve,
+      reserveCalls,
+      estimatedCost: normalizedEstimate,
+      requiredRemaining,
       percentUsed,
       resetTimestamp,
       resetTime: resetTime.toISOString(),
       waitTimeMs: safe ? 0 : calculateWaitUntilReset(resetTimestamp),
+      credentialPoolId,
     };
 
     if (!safe) {
@@ -1024,7 +1063,8 @@ async function checkRateLimitStatus(github, options = {}) {
         core,
         'warning',
         `Rate limit low: ${remaining}/${limit} remaining (${percentUsed}% used). ` +
-          `Threshold: ${threshold}. Resets at ${status.resetTime}`
+          `Required: ${requiredRemaining} (${reserveCalls} reserve + ` +
+          `${normalizedEstimate} forecast). Resets at ${status.resetTime}`
       );
     } else {
       logWithCore(core, 'info', `Rate limit OK: ${remaining}/${limit} remaining (${percentUsed}% used)`);
@@ -1036,15 +1076,21 @@ async function checkRateLimitStatus(github, options = {}) {
     logWithCore(core, 'warning', `Failed to check rate limit: ${message}`);
 
     return {
-      safe: true,
+      safe: failOpen,
+      state: failOpen ? 'safe' : 'unknown',
       remaining: -1,
       limit: -1,
       threshold,
+      reserveFraction: Math.max(0, Math.min(Number(reserveFraction) || 0, 1)),
+      reserveCalls: -1,
+      estimatedCost: Math.max(0, Number.parseInt(estimatedCost, 10) || 0),
+      requiredRemaining: -1,
       percentUsed: -1,
       resetTimestamp: 0,
       resetTime: '',
       waitTimeMs: 0,
       error: message,
+      credentialPoolId,
     };
   }
 }
