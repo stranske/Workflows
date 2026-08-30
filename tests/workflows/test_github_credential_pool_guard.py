@@ -51,9 +51,9 @@ def _assert_setup_after_final_checkout(job_name: str, steps: list[dict[str, Any]
     for index, step in enumerate(steps):
         if index <= setup_indices[-1]:
             continue
-        assert not _is_checkout_step(step), (
-            f"{job_name}: checkout step '{step.get('name')}' must not follow setup-api-client"
-        )
+        assert not _is_checkout_step(
+            step
+        ), f"{job_name}: checkout step '{step.get('name')}' must not follow setup-api-client"
 
 
 def test_belt_scan_ready_prs_orders_setup_and_preflight():
@@ -95,7 +95,9 @@ def test_agents_71_dispatcher_setup_survives_later_checkouts():
     job = _load_workflow_yaml("agents-71-codex-belt-dispatcher.yml")["jobs"]["dispatch"]
     steps = job.get("steps") or []
     setup_steps = [step for step in steps if _step_uses(step, SETUP_ACTION)]
-    assert len(setup_steps) == 1, "Agents 71 must install the API client exactly once per dispatch job"
+    assert (
+        len(setup_steps) == 1
+    ), "Agents 71 must install the API client exactly once per dispatch job"
     setup_index = steps.index(setup_steps[0])
     workflows_checkout_index = next(
         index
@@ -104,7 +106,9 @@ def test_agents_71_dispatcher_setup_survives_later_checkouts():
     )
     assert setup_index > workflows_checkout_index
     install_dir = (setup_steps[0].get("with") or {}).get("install_dir", "")
-    assert "runner.temp" in install_dir, "Agents 71 must install API deps outside workspace checkouts"
+    assert (
+        "runner.temp" in install_dir
+    ), "Agents 71 must install API deps outside workspace checkouts"
 
     stage_index = next(
         index
@@ -117,7 +121,7 @@ def test_agents_71_dispatcher_setup_survives_later_checkouts():
     assert "github-api-with-retry.js" in stage_script
     assert "github-rate-limited-wrapper.js" in stage_script
 
-    for index, step in enumerate(steps[setup_index + 1 :], start=setup_index + 1):
+    for _index, step in enumerate(steps[setup_index + 1 :], start=setup_index + 1):
         if _is_checkout_step(step):
             assert install_dir, "later checkouts require a stable install_dir"
 
