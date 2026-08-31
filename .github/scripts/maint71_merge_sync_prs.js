@@ -1175,15 +1175,27 @@ async function run({ github, context, core }) {
       pull_number: pr.number,
       body,
     }));
-    // Trigger a fresh Gate run from the sealed body while retaining the
-    // staging hold label. Generic merge lanes remain blocked; Maint 71 alone
-    // may override that hold after the new Gate succeeds on this exact head.
+    // Trigger a fresh Gate run from the sealed body.  The delivery state is
+    // now sealed, so delivery-ready replaces the mutually exclusive staging
+    // label; the exact-head Gate and Maint 71's dedicated merge guard remain
+    // the authority for the final merge.
     await withRetry((client) => client.rest.issues.addLabels({
       owner,
       repo,
       issue_number: pr.number,
       labels: ['sync:delivery-ready'],
     }));
+    try {
+      await withRetry((client) => client.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: pr.number,
+        name: 'sync:delivery-staging',
+      }));
+      console.log(`Removed stale sync:delivery-staging label from sealed delivery PR #${pr.number}`);
+    } catch (labelError) {
+      if (labelError?.status !== 404) throw labelError;
+    }
     return { sealedAt, reviewEvidence, body, dryRun: false };
   }
 

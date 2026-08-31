@@ -195,6 +195,53 @@ test('campaign continuations preserve idempotency and immutable plan bindings', 
   });
 });
 
+test('campaign-prepared delivery handoffs are planned once and named in the run summary', () => {
+  const preparedDelivery = {
+    schema: 'workflows-generated-delivery-handoff/v1',
+    repository: 'stranske/Travel-Plan-Permission',
+    pr: 1480,
+    branch: 'sync/workflows-delivery',
+    head_sha: 'delivery-head',
+    delivery_generation: 'delivery-generation',
+    disposition: 'current',
+    blocker_owner: 'maint-71',
+    next_command: 'merge-current-delivery',
+    check_state: 'ready',
+    review_state: 'clear',
+    observed_at: '2026-08-31T10:00:00Z',
+    continuation: {
+      class: 'terminal', lane: 'delivery', reason: 'campaign_prepared',
+      resume_after: '', key: 'prepared-delivery-key',
+    },
+  };
+  const planned = planMaint71Continuations([preparedDelivery], {
+    now: '2026-08-31T10:00:00Z',
+  });
+  assert.deepEqual(planned.map((item) => ({ lane: item.lane, reason: item.reason })), [{
+    lane: 'delivery', reason: 'campaign_prepared_delivery_merge',
+  }]);
+
+  const summary = formatCampaignRunSummaryMarkdown({
+    updated_at: '2026-08-31T10:00:00Z', delivery_handoffs: [preparedDelivery], stats: {},
+  });
+  assert.match(summary, /stranske\/Travel-Plan-Permission#1480: lane=delivery; class=transient;/);
+  assert.match(summary, /status=campaign_prepared_delivery_merge; planner=planned/);
+
+  const terminalCandidate = {
+    ...preparedDelivery,
+    repository: 'stranske/Template',
+    pr: 1013,
+    branch: 'sync/workflows-candidate',
+    continuation: {
+      class: 'terminal', lane: 'candidate', reason: 'campaign_prepared',
+      resume_after: '', key: 'prepared-candidate-key',
+    },
+  };
+  assert.equal(planMaint71Continuations([terminalCandidate], {
+    now: '2026-08-31T10:00:00Z',
+  }).length, 0);
+});
+
 test('normalizeDeliveryHandoff rejects incomplete restart fields', () => {
   assert.equal(normalizeDeliveryHandoff({
     schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
