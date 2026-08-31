@@ -674,7 +674,11 @@ jobs:
 
           # Do not advertise a formatted issue until it satisfies the same
           # fleet contract enforced by the issue-event guard.
-          python3 .github/scripts/issue_format.py /tmp/formatted_body.md
+          if ! python3 .github/scripts/issue_format.py /tmp/formatted_body.md \
+              > /tmp/format_validation_report.md 2>&1; then
+            cat /tmp/format_validation_report.md
+            exit 1
+          fi
 
           # Update issue body with formatted version
           node - <<'NODE'
@@ -811,6 +815,31 @@ jobs:
             });
           NODE
             echo "Labels updated: removed format, added formatted"
+          fi
+
+      - name: Report workflow failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "${ISSUE_NUMBER}" ]; then
+            {
+              cat <<COMMENT
+          ⚠️ **Workflow failed**
+
+          The agents-issue-optimizer workflow encountered an error.
+
+          **Details**: [View workflow run](${RUN_URL})
+          COMMENT
+              if [[ -s /tmp/format_validation_report.md ]]; then
+                printf '\n**Format validation report:**\n```text\n'
+                sed -n '1,160p' /tmp/format_validation_report.md
+                printf '```\n'
+              fi
+            } | gh issue comment "${ISSUE_NUMBER}" --body-file - || true
           fi
 
       - name: Release failed format lease

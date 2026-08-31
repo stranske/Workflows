@@ -35,6 +35,14 @@ def _resolve_step_script(path: Path) -> str:
     raise AssertionError(f"'Resolve issue' step not found in {path}")
 
 
+def _cleanup_step_script(path: Path) -> str:
+    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    for step in workflow["jobs"]["check"]["steps"]:
+        if step.get("name") == "Clear stale format lease from exempt issues":
+            return step["run"]
+    raise AssertionError(f"'Clear stale format lease from exempt issues' step not found in {path}")
+
+
 def _run_resolve_step(tmp_path: Path, script: str, issue_json: str) -> dict[str, str]:
     """Run the real step with `gh` stubbed to return the fixture payload."""
     bin_dir = tmp_path / "bin"
@@ -121,3 +129,13 @@ def test_both_guard_copies_carry_the_closed_check() -> None:
         assert "ascii_downcase" in _resolve_step_script(
             path
         ), f"{path} lacks the closed-state check"
+
+
+def test_closed_issue_cleanup_removes_format_and_pause_labels() -> None:
+    """Closed cleanup may release a stale pause; open held issues remain untouched."""
+    for path in GUARD_PATHS:
+        cleanup = _cleanup_step_script(path)
+        assert '--remove-label "agents:format"' in cleanup
+        assert '--remove-label "agents:auto-pilot-pause"' in cleanup
+        assert 'ascii_downcase' in cleanup
+        assert '== "closed"' in cleanup
