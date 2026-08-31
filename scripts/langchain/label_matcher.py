@@ -471,8 +471,7 @@ def issue_auto_apply_matches(
     candidates = [
         match
         for match in _sorted_matches(matches)
-        if match.score >= threshold
-        and match.label.name.lower() not in _PR_SCOPED_ISSUE_LABELS
+        if match.score >= threshold and match.label.name.lower() not in _PR_SCOPED_ISSUE_LABELS
     ]
     if not candidates:
         return []
