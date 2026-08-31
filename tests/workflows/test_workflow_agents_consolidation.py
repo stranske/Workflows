@@ -655,7 +655,7 @@ def test_auto_label_templates_use_the_shared_issue_safe_auto_apply_gate():
     ):
         text = matcher.read_text(encoding="utf-8")
         assert "DEFAULT_LABEL_AUTO_APPLY_MARGIN = 0.05" in text
-        assert "def _bounded_diverse_matches" in text
+        assert "def bounded_diverse_matches" in text
 
 
 def test_consumer_sync_diff_keeps_functional_lines_in_comparison():
