@@ -169,8 +169,10 @@ jobs:
           sys.path.insert(0, '.')
 
           from scripts.langchain.label_matcher import (
+              bounded_diverse_matches,
               build_label_vector_store,
               find_similar_labels,
+              issue_auto_apply_matches,
               LabelRecord,
           )
 
@@ -221,8 +223,9 @@ jobs:
                   f.write('has_suggestions=false\n')
               sys.exit(0)
 
-          # Find matches
-          matches = find_similar_labels(store, query, threshold=suggest_threshold, k=5)
+          # Find matches — diverse=False so same-family competitors are visible
+          # to issue_auto_apply_matches for correct margin evaluation.
+          matches = find_similar_labels(store, query, threshold=suggest_threshold, k=10, diverse=False)
 
           if not matches:
               print("No label matches found above threshold")
@@ -230,19 +233,11 @@ jobs:
                   f.write('has_suggestions=false\n')
               sys.exit(0)
 
-          # Separate auto-apply from suggestions
-          auto_apply = [m for m in matches if m.score >= auto_threshold]
-          suggestions = [m for m in matches if suggest_threshold <= m.score < auto_threshold]
-
-          # IMPORTANT: Only auto-apply the BEST matching label, not all above threshold
-          # This prevents over-labeling issues with multiple labels like bug+enhancement
-          if auto_apply:
-              best_match = auto_apply[0]  # matches are already sorted by score descending
-              auto_apply = [best_match]
-              # Move other high-confidence matches to suggestions
-              for m in matches[1:]:
-                  if m.score >= auto_threshold and m not in suggestions:
-                      suggestions.insert(0, m)
+          # Auto-apply: margin check must see same-family competitors.
+          auto_apply = issue_auto_apply_matches(matches, threshold=auto_threshold)
+          # Suggestions display: apply family diversity so each family shows once.
+          diverse_matches = bounded_diverse_matches(matches, 5)
+          suggestions = [m for m in diverse_matches if m not in auto_apply]
 
           print(f"Auto-apply labels ({auto_threshold}+ confidence):")
           for m in auto_apply:

@@ -421,6 +421,139 @@ def test_find_similar_labels_dedupes_normalized_keyword_matches():
     assert matches[0].label.name == "Documentation"
 
 
+def test_body_naming_labels_does_not_sweep_inventory() -> None:
+    labels = [
+        label_matcher.LabelRecord(name="agent-high-privilege"),
+        label_matcher.LabelRecord(name="agent:codex"),
+        label_matcher.LabelRecord(name="agent:claude"),
+        label_matcher.LabelRecord(name="status:ready"),
+        label_matcher.LabelRecord(name="status:in-progress"),
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="documentation"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(),
+        provider="unit-test",
+        model="unit-test-model",
+        is_fallback=True,
+        labels=labels,
+    )
+
+    matches = label_matcher.find_similar_labels(
+        vector_store,
+        "Agent high privilege label must not auto-apply while a bug status is reviewed.",
+        threshold=0.0,
+        k=5,
+    )
+
+    names = [match.label.name for match in matches]
+    assert len(matches) <= 5
+    assert sum(name.startswith("agent:") or name.startswith("agent-") for name in names) <= 1
+    assert sum(name.startswith("status:") for name in names) <= 1
+    auto_apply = label_matcher.issue_auto_apply_matches(matches, threshold=0.9)
+    assert "agent-high-privilege" not in [match.label.name for match in auto_apply]
+    privileged = next(match for match in matches if match.label.name == "agent-high-privilege")
+    assert label_matcher.issue_auto_apply_matches([privileged], threshold=0.9) == []
+
+
+def test_keyword_overlap_scores_generic_single_tokens_below_auto_apply_threshold() -> None:
+    label = label_matcher.LabelRecord(name="agent-high-privilege")
+    assert label_matcher._keyword_match_score(label, "agent review") == pytest.approx(0.95 / 3)
+
+
+def test_issue_auto_apply_requires_a_unique_non_pr_scoped_winner() -> None:
+    bug = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="type:bug"),
+        score=0.95,
+        raw_score=0.95,
+        score_type="keyword",
+    )
+    feature = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="type:feature"),
+        score=0.93,
+        raw_score=0.93,
+        score_type="keyword",
+    )
+    assert label_matcher.issue_auto_apply_matches([bug, feature], threshold=0.9) == []
+    assert label_matcher.issue_auto_apply_matches([bug], threshold=0.9) == [bug]
+
+
+def test_issue_auto_apply_rejects_at_exact_margin_boundary() -> None:
+    # difference == margin (0.05) must be rejected; winning requires strictly more
+    winner = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="type:bug"),
+        score=0.95,
+        raw_score=0.95,
+        score_type="keyword",
+    )
+    runner_up = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="type:feature"),
+        score=0.90,
+        raw_score=0.90,
+        score_type="keyword",
+    )
+    # 0.95 - 0.90 == 0.05 == default margin → must NOT auto-apply
+    assert label_matcher.issue_auto_apply_matches([winner, runner_up], threshold=0.9) == []
+    # 0.95 - 0.89 == 0.06 > 0.05 → may auto-apply
+    close_but_clear = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="type:feature"),
+        score=0.89,
+        raw_score=0.89,
+        score_type="keyword",
+    )
+    assert label_matcher.issue_auto_apply_matches([winner, close_but_clear], threshold=0.9) == [
+        winner
+    ]
+
+
+def test_issue_auto_apply_sees_same_family_competitors_via_diverse_false() -> None:
+    # Without diverse=False, bounded_diverse_matches removes agent:claude before the margin
+    # check, so agent:codex would be auto-applied despite a dangerously close score.
+    # With diverse=False the caller passes both and the margin check correctly rejects.
+    codex = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="agent:codex"),
+        score=0.94,
+        raw_score=0.94,
+        score_type="relevance",
+    )
+    claude = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="agent:claude"),
+        score=0.93,
+        raw_score=0.93,
+        score_type="relevance",
+    )
+    # Deduped list (diverse=True path) only shows codex → margin check never fires
+    deduped = label_matcher.bounded_diverse_matches([codex, claude], 5)
+    assert deduped == [codex]
+    assert label_matcher.issue_auto_apply_matches(deduped, threshold=0.9) == [codex]  # BUG path
+    # Raw list (diverse=False path) → margin check correctly rejects (0.94 - 0.93 = 0.01 <= 0.05)
+    assert label_matcher.issue_auto_apply_matches([codex, claude], threshold=0.9) == []
+
+
+def test_bounded_diverse_matches_returns_empty_for_non_positive_limits() -> None:
+    match = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="type:bug"),
+        score=0.95,
+        raw_score=0.95,
+        score_type="keyword",
+    )
+    assert label_matcher.bounded_diverse_matches([match], 0) == []
+    assert label_matcher.bounded_diverse_matches([match], -1) == []
+
+
+def test_find_similar_labels_rejects_negative_k() -> None:
+    labels = [label_matcher.LabelRecord(name="type:bug")]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(),
+        provider="unit-test",
+        model="unit-test-model",
+        is_fallback=False,
+        labels=labels,
+    )
+    with pytest.raises(ValueError, match="k must be a positive integer"):
+        label_matcher.find_similar_labels(vector_store, "crash", k=-1)
+
+
 def test_resolve_label_match_keyword_bug_match():
     labels = [
         label_matcher.LabelRecord(name="type:bug"),

@@ -640,6 +640,24 @@ def test_consumer_auto_label_preserves_campaign_guards_and_query_bound():
     ), "Consumer auto-label must truncate the query before semantic matching"
 
 
+def test_auto_label_templates_use_the_shared_issue_safe_auto_apply_gate():
+    for workflow in (
+        WORKFLOWS_DIR / "agents-auto-label.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-auto-label.yml"),
+    ):
+        text = workflow.read_text(encoding="utf-8")
+        assert "issue_auto_apply_matches" in text
+        assert "auto_apply = issue_auto_apply_matches(matches, threshold=auto_threshold)" in text
+
+    for matcher in (
+        Path("scripts/langchain/label_matcher.py"),
+        Path("templates/consumer-repo/scripts/langchain/label_matcher.py"),
+    ):
+        text = matcher.read_text(encoding="utf-8")
+        assert "DEFAULT_LABEL_AUTO_APPLY_MARGIN = 0.05" in text
+        assert "def bounded_diverse_matches" in text
+
+
 def test_consumer_sync_diff_keeps_functional_lines_in_comparison():
     text = (WORKFLOWS_DIR / "maint-68-sync-consumer-repos.yml").read_text(encoding="utf-8")
     assert (
