@@ -421,6 +421,63 @@ def test_find_similar_labels_dedupes_normalized_keyword_matches():
     assert matches[0].label.name == "Documentation"
 
 
+def test_body_naming_labels_does_not_sweep_inventory() -> None:
+    labels = [
+        label_matcher.LabelRecord(name="agent-high-privilege"),
+        label_matcher.LabelRecord(name="agent:codex"),
+        label_matcher.LabelRecord(name="agent:claude"),
+        label_matcher.LabelRecord(name="status:ready"),
+        label_matcher.LabelRecord(name="status:in-progress"),
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="documentation"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(),
+        provider="unit-test",
+        model="unit-test-model",
+        is_fallback=True,
+        labels=labels,
+    )
+
+    matches = label_matcher.find_similar_labels(
+        vector_store,
+        "Agent high privilege label must not auto-apply while a bug status is reviewed.",
+        threshold=0.0,
+        k=5,
+    )
+
+    names = [match.label.name for match in matches]
+    assert len(matches) <= 5
+    assert sum(name.startswith("agent:") or name.startswith("agent-") for name in names) <= 1
+    assert sum(name.startswith("status:") for name in names) <= 1
+    auto_apply = label_matcher.issue_auto_apply_matches(matches, threshold=0.9)
+    assert "agent-high-privilege" not in [match.label.name for match in auto_apply]
+    privileged = next(match for match in matches if match.label.name == "agent-high-privilege")
+    assert label_matcher.issue_auto_apply_matches([privileged], threshold=0.9) == []
+
+
+def test_keyword_overlap_scores_generic_single_tokens_below_auto_apply_threshold() -> None:
+    label = label_matcher.LabelRecord(name="agent-high-privilege")
+    assert label_matcher._keyword_match_score(label, "agent review") == pytest.approx(0.95 / 3)
+
+
+def test_issue_auto_apply_requires_a_unique_non_pr_scoped_winner() -> None:
+    bug = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="type:bug"),
+        score=0.95,
+        raw_score=0.95,
+        score_type="keyword",
+    )
+    feature = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="type:feature"),
+        score=0.93,
+        raw_score=0.93,
+        score_type="keyword",
+    )
+    assert label_matcher.issue_auto_apply_matches([bug, feature], threshold=0.9) == []
+    assert label_matcher.issue_auto_apply_matches([bug], threshold=0.9) == [bug]
+
+
 def test_resolve_label_match_keyword_bug_match():
     labels = [
         label_matcher.LabelRecord(name="type:bug"),

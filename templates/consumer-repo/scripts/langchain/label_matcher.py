@@ -38,11 +38,13 @@ class LabelMatch:
 
 DEFAULT_LABEL_SIMILARITY_THRESHOLD = 0.8
 DEFAULT_LABEL_SIMILARITY_K = 5
+DEFAULT_LABEL_AUTO_APPLY_MARGIN = 0.05
 SHORT_LABEL_LENGTH = 4
 KEYWORD_BUG_SCORE = 0.91
 KEYWORD_FEATURE_SCORE = 0.9
 KEYWORD_DOCS_SCORE = 0.9
 _IGNORED_LABEL_TOKENS = {"type", "kind"}
+_PR_SCOPED_ISSUE_LABELS = frozenset({"agent-high-privilege"})
 # Common words that appear in label descriptions but shouldn't trigger keyword matching
 _COMMON_STOPWORDS = {
     "this",
@@ -341,11 +343,12 @@ def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
     # Only match on significant tokens, excluding common stopwords
     significant_tokens = tokens - _COMMON_STOPWORDS
 
-    # Require label NAME to appear in query for high-confidence keyword match
-    # (not just overlapping description tokens)
+    # Score overlap against the complete label name. A generic word such as
+    # "agent" must not make every agent-related label look like a 95% match.
     label_name_tokens = _tokenize(label.name) - _IGNORED_LABEL_TOKENS
-    if label_name_tokens and label_name_tokens.intersection(significant_tokens):
-        return 0.95
+    overlap = label_name_tokens.intersection(significant_tokens)
+    if overlap:
+        return 0.95 * len(overlap) / len(label_name_tokens)
 
     # Use label NAME only (not description) for category matching to avoid false positives
     # e.g., "duplicate" description contains "request" but shouldn't match feature keywords
@@ -396,6 +399,61 @@ def _keyword_matches(
     return matches
 
 
+def _exclusive_label_family(label_name: str) -> str | None:
+    normalized = label_name.lower()
+    if normalized.startswith("status:"):
+        return "status"
+    if normalized.startswith("agent:") or normalized.startswith("agent-"):
+        return "agent"
+    return None
+
+
+def _bounded_diverse_matches(matches: Iterable[LabelMatch], limit: int) -> list[LabelMatch]:
+    selected: list[LabelMatch] = []
+    selected_families: set[str] = set()
+    for match in matches:
+        family = _exclusive_label_family(match.label.name)
+        if family is not None and family in selected_families:
+            continue
+        selected.append(match)
+        if family is not None:
+            selected_families.add(family)
+        if len(selected) == limit:
+            break
+    return selected
+
+
+def _sorted_matches(matches: Iterable[LabelMatch]) -> list[LabelMatch]:
+    return sorted(
+        matches,
+        key=lambda match: (
+            match.score_type != "keyword",
+            -match.score,
+            _normalize_label(match.label.name),
+        ),
+    )
+
+
+def issue_auto_apply_matches(
+    matches: Iterable[LabelMatch],
+    *,
+    threshold: float,
+    margin: float = DEFAULT_LABEL_AUTO_APPLY_MARGIN,
+) -> list[LabelMatch]:
+    """Return one safe issue label only when it wins by a meaningful margin."""
+    candidates = [
+        match
+        for match in _sorted_matches(matches)
+        if match.score >= threshold
+        and match.label.name.lower() not in _PR_SCOPED_ISSUE_LABELS
+    ]
+    if not candidates:
+        return []
+    if len(candidates) > 1 and candidates[0].score - candidates[1].score < margin:
+        return []
+    return [candidates[0]]
+
+
 def find_similar_labels(
     label_store: LabelVectorStore,
     query: str,
@@ -417,8 +475,7 @@ def find_similar_labels(
         score_type = "distance"
     else:
         matches = _keyword_matches(label_store.labels, query, threshold=threshold)
-        matches.sort(key=lambda match: match.score, reverse=True)
-        return matches
+        return _bounded_diverse_matches(_sorted_matches(matches), k or DEFAULT_LABEL_SIMILARITY_K)
 
     limit = k or DEFAULT_LABEL_SIMILARITY_K
     try:
@@ -452,8 +509,7 @@ def find_similar_labels(
                 matches.append(match)
                 seen.add(normalized)
 
-    matches.sort(key=lambda match: match.score, reverse=True)
-    return matches
+    return _bounded_diverse_matches(_sorted_matches(matches), limit)
 
 
 def resolve_label_match(

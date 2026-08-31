@@ -171,6 +171,7 @@ jobs:
           from scripts.langchain.label_matcher import (
               build_label_vector_store,
               find_similar_labels,
+              issue_auto_apply_matches,
               LabelRecord,
           )
 
@@ -231,18 +232,14 @@ jobs:
               sys.exit(0)
 
           # Separate auto-apply from suggestions
-          auto_apply = [m for m in matches if m.score >= auto_threshold]
+          auto_apply = issue_auto_apply_matches(matches, threshold=auto_threshold)
           suggestions = [m for m in matches if suggest_threshold <= m.score < auto_threshold]
 
-          # IMPORTANT: Only auto-apply the BEST matching label, not all above threshold
-          # This prevents over-labeling issues with multiple labels like bug+enhancement
-          if auto_apply:
-              best_match = auto_apply[0]  # matches are already sorted by score descending
-              auto_apply = [best_match]
-              # Move other high-confidence matches to suggestions
-              for m in matches[1:]:
-                  if m.score >= auto_threshold and m not in suggestions:
-                      suggestions.insert(0, m)
+          # Only a unique, non-PR-scoped winner may be auto-applied. Other
+          # high-confidence matches remain suggestions for a human to review.
+          for m in matches:
+              if m.score >= auto_threshold and m not in auto_apply and m not in suggestions:
+                  suggestions.insert(0, m)
 
           print(f"Auto-apply labels ({auto_threshold}+ confidence):")
           for m in auto_apply:
