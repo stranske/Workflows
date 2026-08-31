@@ -199,7 +199,13 @@ def _infer_break_file(break_line: str, named_line: str, markdown: str) -> str | 
 
 def parse_deliberate_break_spec(markdown: str) -> DeliberateBreakSpec | None:
     section = _acceptance_criteria(markdown)
-    return _explicit_marker(section) or _fallback_marker(section, markdown)
+    # Prefer an explicit marker anywhere in the PR body so auto-status
+    # rewrites of the Acceptance Criteria section cannot drop it.
+    return (
+        _explicit_marker(markdown)
+        or _explicit_marker(section)
+        or _fallback_marker(section, markdown)
+    )
 
 
 def _pytest_command(test_id: str) -> tuple[str, ...]:

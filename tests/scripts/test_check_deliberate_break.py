@@ -146,6 +146,25 @@ def test_fallback_ignores_english_with_a_phrase() -> None:
     assert spec is None
 
 
+def test_explicit_marker_outside_acceptance_section_is_honored() -> None:
+    """Markers outside auto-status AC text must still drive deliberate-break."""
+    spec = parse_deliberate_break_spec(
+        "## Acceptance Criteria\n"
+        "- Named test: `tests/workflows/test_issue_bridge_seed.py` with prose.\n"
+        "- Deliberate-break → revert: restore constant marker.\n\n"
+        "<!-- deliberate-break: "
+        "test=tests/workflows/test_issue_bridge_seed.py::"
+        "TestIssueBridgeSeed::test_mk_step_marker_includes_run_unique_token "
+        "test-file=tests/workflows/test_issue_bridge_seed.py "
+        "break-file=.github/workflows/reusable-agents-issue-bridge.yml -->\n"
+    )
+    assert spec is not None
+    assert (
+        spec.test_id
+        == "tests/workflows/test_issue_bridge_seed.py::TestIssueBridgeSeed::test_mk_step_marker_includes_run_unique_token"
+    )
+
+
 def test_issue_3007_acceptance_wording_is_supported() -> None:
     spec = parse_deliberate_break_spec(
         "## Tasks\n\n"
