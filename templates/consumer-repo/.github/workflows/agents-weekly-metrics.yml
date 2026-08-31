@@ -350,6 +350,7 @@ jobs:
             const body = fs.existsSync(summaryPath)
               ? fs.readFileSync(summaryPath, 'utf8')
               : 'No metrics available.';
+            const datedBody = `Last successful write: ${new Date().toISOString()}\n\n${body}`;
             const title = 'Agent metrics weekly summary';
             const repoLabels = await paginateWithRetry(
               github,
@@ -373,7 +374,7 @@ jobs:
                 owner,
                 repo,
                 title,
-                body: 'Tracking issue for weekly agent workflow metrics.\n\n' + body,
+                body: datedBody,
                 labels: hasDurableTrackerLabel
                   ? ['tracker:durable', 'automated']
                   : ['automated'],
@@ -384,7 +385,7 @@ jobs:
                 owner,
                 repo,
                 issue_number: target.number,
-                body,
+                body: datedBody,
               }));
               const hasLabel = (target.labels || []).some(
                 l => (typeof l === 'string' ? l : l?.name) === 'tracker:durable'

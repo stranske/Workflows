@@ -3,7 +3,20 @@
 trackers:
   - workflow: agents-weekly-metrics.yml
     issue: 2211
-    max_age_hours: 192
+    repo: stranske/Workflows
+    max_age_hours: 336
+  - workflow: agents-weekly-metrics.yml
+    issue: 499
+    repo: stranske/Counter_Risk
+    max_age_hours: 336
+  - workflow: agents-weekly-metrics.yml
+    issue: 330
+    repo: stranske/Inv-Man-Intake
+    max_age_hours: 336
+  - workflow: agents-weekly-metrics.yml
+    issue: 343
+    repo: stranske/Pension-Data
+    max_age_hours: 336
   - workflow: maint-82-sync-dependency-campaign.yml
     issue: 1836
     max_age_hours: 1

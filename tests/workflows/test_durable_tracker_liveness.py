@@ -14,19 +14,25 @@ LIVENESS_CONFIG = Path("config/durable_tracker_liveness.yml")
 HEALTH_71 = Path(".github/workflows/health-71-sync-health-check.yml")
 
 EXPECTED_TRACKERS = {
-    "agents-weekly-metrics.yml": (2211, 192),
-    "maint-82-sync-dependency-campaign.yml": (1836, 1),
-    "health-83-dependency-sync-efficiency.yml": (2897, 192),
-    "maint-80-langsmith-metrics-dashboard.yml": (2415, 192),
-    "maint-77-model-registry-freshness.yml": (2905, 192),
-    "health-84-langsmith-observability.yml": (3123, 48),
-    "health-40-repo-selfcheck.yml": (3218, 192),
+    ("stranske/Workflows", "agents-weekly-metrics.yml"): (2211, 336),
+    ("stranske/Counter_Risk", "agents-weekly-metrics.yml"): (499, 336),
+    ("stranske/Inv-Man-Intake", "agents-weekly-metrics.yml"): (330, 336),
+    ("stranske/Pension-Data", "agents-weekly-metrics.yml"): (343, 336),
+    ("stranske/Workflows", "maint-82-sync-dependency-campaign.yml"): (1836, 1),
+    ("stranske/Workflows", "health-83-dependency-sync-efficiency.yml"): (2897, 192),
+    ("stranske/Workflows", "maint-80-langsmith-metrics-dashboard.yml"): (2415, 192),
+    ("stranske/Workflows", "maint-77-model-registry-freshness.yml"): (2905, 192),
+    ("stranske/Workflows", "health-84-langsmith-observability.yml"): (3123, 48),
+    ("stranske/Workflows", "health-40-repo-selfcheck.yml"): (3218, 192),
 }
 
 
-def _configured_workflows() -> set[str]:
+def _configured_workflows() -> set[tuple[str, str]]:
     config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
-    return {str(entry["workflow"]) for entry in config["trackers"]}
+    return {
+        (str(entry.get("repo") or "stranske/Workflows"), str(entry["workflow"]))
+        for entry in config["trackers"]
+    }
 
 
 def test_every_tracked_workflow_has_a_liveness_assertion() -> None:
@@ -41,10 +47,81 @@ def test_every_tracked_workflow_has_a_liveness_assertion() -> None:
 def test_liveness_config_has_literal_expected_tracker_contract() -> None:
     config = yaml.safe_load(LIVENESS_CONFIG.read_text(encoding="utf-8"))
     observed = {
-        entry["workflow"]: (int(entry["issue"]), entry.get("max_age_hours"))
+        (str(entry.get("repo") or "stranske/Workflows"), entry["workflow"]): (
+            int(entry["issue"]),
+            entry.get("max_age_hours"),
+        )
         for entry in config["trackers"]
     }
     assert observed == EXPECTED_TRACKERS
+
+
+def test_consumer_metrics_tracker_uses_its_configured_repository(monkeypatch) -> None:
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "agents-weekly-metrics.yml",
+                "issue": 499,
+                "repo": "stranske/Counter_Risk",
+                "max_age_hours": 336,
+            }
+        ],
+    )
+    seen: list[str] = []
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_latest_executable_run",
+        lambda repo, *_args, **_kwargs: seen.append(repo)
+        or {"conclusion": "success", "created_at": "recent", "html_url": "https://run/recent"},
+    )
+    monkeypatch.setattr(check_durable_tracker_liveness, "_hours_since", lambda _created: 1.0)
+
+    (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+
+    assert result["repo"] == "stranske/Counter_Risk"
+    assert seen == ["stranske/Counter_Risk"]
+
+
+def test_comment_unhealthy_trackers_uses_configured_consumer_repository(monkeypatch) -> None:
+    posted: list[tuple[str, int, str]] = []
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_comment_on_tracker",
+        lambda repo, issue, body, _token: posted.append((repo, issue, body)),
+    )
+
+    check_durable_tracker_liveness.comment_unhealthy_trackers(
+        [
+            {
+                "repo": "stranske/Counter_Risk",
+                "issue": 499,
+                "workflow": "agents-weekly-metrics.yml",
+                "max_age_hours": 336,
+            }
+        ],
+        "token",
+    )
+
+    assert posted[0][:2] == ("stranske/Counter_Risk", 499)
+    assert "336h cadence" in posted[0][2]
+
+
+def test_absent_run_reason_distinguishes_skipped_history_from_workflow_protection(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_gh_api",
+        lambda _path, _token: {"workflow_runs": [{"conclusion": "skipped"}]},
+    )
+
+    reason = check_durable_tracker_liveness._no_executable_run_reason(
+        "o/r", "workflow.yml", "token"
+    )
+
+    assert reason == "no executable run found (only skipped runs)."
 
 
 def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
@@ -77,18 +154,30 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
     )
     monkeypatch.setattr(
         check_durable_tracker_liveness,
+        "_no_executable_run_reason",
+        lambda *_args, **_kwargs: ABSENT_REASON,
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
         "_hours_since",
         lambda created: 1.0 if created == "recent" else 25.0,
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_held_zero_job_run_count",
+        lambda *_args, **_kwargs: 0,
     )
 
     assert check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token") == [
         {
+            "repo": "stranske/Workflows",
             "workflow": "event.yml",
             "issue": 1,
             "healthy": True,
             "reason": "event-driven workflow excluded from age-based liveness",
         },
         {
+            "repo": "stranske/Workflows",
             "workflow": "recent.yml",
             "issue": 2,
             "healthy": True,
@@ -100,6 +189,7 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
             "run_url": "https://run/recent",
         },
         {
+            "repo": "stranske/Workflows",
             "workflow": "stale.yml",
             "issue": 3,
             "healthy": False,
@@ -109,14 +199,171 @@ def test_evaluate_trackers_classifies_event_driven_recent_stale_and_absent_runs(
             "hours_since": 25.0,
             "max_age_hours": 24.0,
             "run_url": "https://run/stale",
+            "held_zero_job_run_count": 0,
         },
         {
+            "repo": "stranske/Workflows",
             "workflow": "absent.yml",
             "issue": 4,
             "healthy": False,
             "reason": ABSENT_REASON,
+            "held_zero_job_run_count": 0,
         },
     ]
+
+
+def test_absent_zero_job_hold_includes_count_in_alert(monkeypatch) -> None:
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "held.yml",
+                "issue": 499,
+                "repo": "stranske/Counter_Risk",
+                "max_age_hours": 336,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness, "_latest_executable_run", lambda *_args: None
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness, "_no_executable_run_reason", lambda *_args: ABSENT_REASON
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness, "_held_zero_job_run_count", lambda *_args: 3
+    )
+    posted: list[tuple[str, int, str]] = []
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_comment_on_tracker",
+        lambda repo, issue, body, _token: posted.append((repo, issue, body)),
+    )
+
+    (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+
+    assert result["held_zero_job_run_count"] == 3
+    check_durable_tracker_liveness.comment_unhealthy_trackers([result], "token")
+    assert posted[0][:2] == ("stranske/Counter_Risk", 499)
+    assert "Held/missed zero-job `action_required` runs: 3" in posted[0][2]
+
+
+def test_metrics_staleness_detector_fires_loud_path(monkeypatch) -> None:
+    """A consumer tracker stale for two cadence periods must create a loud alert."""
+    stale_run = {
+        "conclusion": "success",
+        "created_at": "2026-08-01T06:00:00Z",
+        "html_url": "https://run/stale",
+    }
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "agents-weekly-metrics.yml",
+                "issue": 499,
+                "repo": "stranske/Counter_Risk",
+                "max_age_hours": 336,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_latest_executable_run",
+        lambda *_args, **_kwargs: stale_run,
+    )
+    monkeypatch.setattr(check_durable_tracker_liveness, "_hours_since", lambda _created: 337.0)
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_held_zero_job_run_count",
+        lambda *_args, **_kwargs: 4,
+    )
+    posted: list[tuple[str, int, str]] = []
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_comment_on_tracker",
+        lambda repo, issue, body, _token: posted.append((repo, issue, body)),
+    )
+
+    (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+    assert result["healthy"] is False
+    assert result["latest_created_at"] == "2026-08-01T06:00:00Z"
+    assert result["held_zero_job_run_count"] == 4
+
+    check_durable_tracker_liveness.comment_unhealthy_trackers([result], "token")
+    assert posted[0][:2] == ("stranske/Counter_Risk", 499)
+    assert "2026-08-01T06:00:00Z" in posted[0][2]
+    assert "Held/missed zero-job `action_required` runs: 4" in posted[0][2]
+
+
+def test_stale_failed_run_alert_does_not_claim_successful_write(monkeypatch) -> None:
+    """A stale failed executable run must not be described as a successful write."""
+    stale_failed_run = {
+        "conclusion": "failure",
+        "created_at": "2026-08-01T06:00:00Z",
+        "html_url": "https://run/stale-failed",
+    }
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_load_config",
+        lambda: [
+            {
+                "workflow": "agents-weekly-metrics.yml",
+                "issue": 499,
+                "repo": "stranske/Counter_Risk",
+                "max_age_hours": 336,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_latest_executable_run",
+        lambda *_args, **_kwargs: stale_failed_run,
+    )
+    monkeypatch.setattr(check_durable_tracker_liveness, "_hours_since", lambda _created: 337.0)
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_held_zero_job_run_count",
+        lambda *_args, **_kwargs: 0,
+    )
+    posted: list[tuple[str, int, str]] = []
+    monkeypatch.setattr(
+        check_durable_tracker_liveness,
+        "_comment_on_tracker",
+        lambda repo, issue, body, _token: posted.append((repo, issue, body)),
+    )
+
+    (result,) = check_durable_tracker_liveness.evaluate_trackers("stranske/Workflows", "token")
+    assert result["healthy"] is False
+    assert result["latest_conclusion"] == "failure"
+
+    check_durable_tracker_liveness.comment_unhealthy_trackers([result], "token")
+    body = posted[0][2]
+    assert "latest executable run is outside its" in body
+    assert "336" in body and "h cadence" in body
+    assert "Conclusion: failure" in body
+    assert "successful write" not in body.lower()
+
+
+def test_no_executable_run_reason_respects_configured_events(monkeypatch) -> None:
+    seen: list[str] = []
+
+    def fake_gh_api(path: str, _token: str) -> dict[str, object]:
+        seen.append(path)
+        if "event=schedule" in path:
+            return {"workflow_runs": [{"conclusion": "skipped"}]}
+        raise AssertionError(f"unexpected event scope: {path}")
+
+    monkeypatch.setattr(check_durable_tracker_liveness, "_gh_api", fake_gh_api)
+
+    assert (
+        check_durable_tracker_liveness._no_executable_run_reason(
+            "o/r", "workflow.yml", "token", frozenset({"schedule"})
+        )
+        == "no executable run found (only skipped runs)."
+    )
+    assert seen == ["repos/o/r/actions/workflows/workflow.yml/runs?per_page=100&event=schedule"]
 
 
 def test_liveness_ignores_runs_whose_comparison_step_was_skipped(monkeypatch) -> None:
@@ -524,15 +771,8 @@ def test_require_step_probe_budget_caps_inner_round_robin_pass(monkeypatch) -> N
     assert len(probed) == check_durable_tracker_liveness.STEP_PROBE_LIMIT
 
 
-# The absent-run reason now also names the cause and the remedy: "no executable
-# run found" is true but unactionable, and the cause is almost always GitHub's
-# suspicious-workflow protection, which no REST endpoint can clear.
-ABSENT_REASON = (
-    "no executable run found (only action_required/skipped)."
-    + check_durable_tracker_liveness._held_by_workflow_protection(
-        True, "stranske/Workflows", "absent.yml"
-    )
-)
+# An absent history is distinct from a zero-job workflow-protection hold.
+ABSENT_REASON = "no workflow runs found."
 
 
 def test_tracker_run_lookup_goes_through_the_sanctioned_wrapper(monkeypatch) -> None:
