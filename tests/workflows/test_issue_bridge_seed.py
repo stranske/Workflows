@@ -112,6 +112,31 @@ class TestIssueBridgeSeed(unittest.TestCase):
         )
         assert run.count("COMMITS_AHEAD=") == 1
 
+    def test_empty_diff_skip_persists_summary_and_gates_pr_only_steps(self) -> None:
+        """A zero-ahead return must not leave downstream steps operating on PR 0."""
+        step = self._step_by_name("Open or reuse PR (create mode)")
+        script = (step.get("with") or {}).get("script") or ""
+        self.assertIn("core.setOutput('number', '')", script)
+        self.assertIn("core.setOutput('skipped_no_pr', 'true')", script)
+        self.assertIn("await core.summary.addRaw(summary).write()", script)
+
+        pr_only_steps = (
+            "Label PR with agent",
+            "Populate PR body context section",
+            "Post issue context on PR",
+            "Post agent command as service user",
+            "Post agent command (fallback as github-actions)",
+            "Prompt human to post agent command",
+            "Link PR on original issue (fallback)",
+        )
+        for name in pr_only_steps:
+            condition = self._step_by_name(name).get("if") or ""
+            self.assertIn(
+                "steps.pr.outputs.number != ''",
+                condition,
+                f"{name} must skip when no PR was created",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

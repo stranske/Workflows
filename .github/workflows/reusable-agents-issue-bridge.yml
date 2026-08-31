@@ -1111,7 +1111,10 @@ jobs:
                   '',
                   'No PR was created. Remove poison markers from base or delete the empty branch, then re-run.',
                 ].join('\n');
-                core.summary.addRaw(summary);
+                core.setOutput('created', 'false');
+                core.setOutput('number', '');
+                core.setOutput('skipped_no_pr', 'true');
+                await core.summary.addRaw(summary).write();
                 await withRetry(() =>
                   github.rest.issues.createComment({
                     owner,
@@ -1231,6 +1234,7 @@ jobs:
             core.setOutput('issue_title', issueTitle || '');
             core.setOutput('missing_sections', missingSections.join(',') || '');
 
+            core.setOutput('skipped_no_pr', 'false');
             core.setOutput('number', String(pr.number));
 
             let assignees = ['stranske-automation-bot'];
@@ -1273,7 +1277,7 @@ jobs:
             }
 
       - name: Label PR with agent
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
           PR: ${{ steps.pr.outputs.number }}
@@ -1313,7 +1317,7 @@ jobs:
             );
 
       - name: Populate PR body context section
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
@@ -1343,7 +1347,7 @@ jobs:
             });
 
       - name: Post issue context on PR
-        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
           ISSUE_BODY: ${{ steps.pr.outputs.issue_body }}
@@ -1570,6 +1574,7 @@ jobs:
           ${{
             steps.ctx.outputs.has_issue == 'true' &&
             steps.mode.outputs.mode != 'invite' &&
+            steps.pr.outputs.number != '' &&
             env.SERVICE_BOT_PAT != '' &&
             steps.agent_comment.outputs.post == 'true'
           }}
@@ -1621,6 +1626,7 @@ jobs:
           ${{
             steps.ctx.outputs.has_issue == 'true' &&
             steps.mode.outputs.mode != 'invite' &&
+            steps.pr.outputs.number != '' &&
             env.SERVICE_BOT_PAT == '' &&
             steps.agent_comment.outputs.post == 'true'
           }}
@@ -1672,6 +1678,7 @@ jobs:
           ${{
             steps.ctx.outputs.has_issue == 'true' &&
             steps.mode.outputs.mode != 'invite' &&
+            steps.pr.outputs.number != '' &&
             steps.agent_comment.outputs.post != 'true'
           }}
         uses: actions/github-script@v9
@@ -1732,7 +1739,7 @@ jobs:
             );
 
       - name: Link PR on original issue (fallback)
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
