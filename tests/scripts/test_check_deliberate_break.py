@@ -157,21 +157,15 @@ def test_fallback_test_name_parser_rejects_near_misses_and_accepts_valid_tokens(
         assert _extract_fallback_test_name(named_line) is None
 
     assert (
-        _extract_fallback_test_name(
-            "Named test: `tests/test_app.py` with `test_widget`."
-        )
+        _extract_fallback_test_name("Named test: `tests/test_app.py` with `test_widget`.")
         == "test_widget"
     )
     assert (
-        _extract_fallback_test_name(
-            "Named test: run `tests/test_app.py` with test_widget."
-        )
+        _extract_fallback_test_name("Named test: run `tests/test_app.py` with test_widget.")
         == "test_widget"
     )
     assert (
-        _extract_fallback_test_name(
-            "Named test: add `tests/test_app.py` with `test_widget`."
-        )
+        _extract_fallback_test_name("Named test: add `tests/test_app.py` with `test_widget`.")
         == "test_widget"
     )
 
