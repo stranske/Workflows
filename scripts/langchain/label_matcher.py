@@ -437,6 +437,8 @@ def _exclusive_label_family(label_name: str) -> str | None:
 
 def bounded_diverse_matches(matches: Iterable[LabelMatch], limit: int) -> list[LabelMatch]:
     """Return up to *limit* matches with at most one per exclusive label family."""
+    if limit < 1:
+        return []
     selected: list[LabelMatch] = []
     selected_families: set[str] = set()
     for match in matches:

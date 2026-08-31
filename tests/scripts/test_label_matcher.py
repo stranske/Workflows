@@ -530,6 +530,17 @@ def test_issue_auto_apply_sees_same_family_competitors_via_diverse_false() -> No
     assert label_matcher.issue_auto_apply_matches([codex, claude], threshold=0.9) == []
 
 
+def test_bounded_diverse_matches_returns_empty_for_non_positive_limits() -> None:
+    match = label_matcher.LabelMatch(
+        label=label_matcher.LabelRecord(name="type:bug"),
+        score=0.95,
+        raw_score=0.95,
+        score_type="keyword",
+    )
+    assert label_matcher.bounded_diverse_matches([match], 0) == []
+    assert label_matcher.bounded_diverse_matches([match], -1) == []
+
+
 def test_find_similar_labels_rejects_negative_k() -> None:
     labels = [label_matcher.LabelRecord(name="type:bug")]
     vector_store = label_matcher.LabelVectorStore(

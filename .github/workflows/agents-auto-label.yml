@@ -242,12 +242,7 @@ jobs:
           auto_apply = issue_auto_apply_matches(matches, threshold=auto_threshold)
           # Suggestions display: apply family diversity so each family shows once.
           diverse_matches = bounded_diverse_matches(matches, 5)
-          suggestions = [m for m in diverse_matches if suggest_threshold <= m.score < auto_threshold]
-
-          # Other high-confidence matches remain as suggestions for human review.
-          for m in matches:
-              if m.score >= auto_threshold and m not in auto_apply and m not in suggestions:
-                  suggestions.append(m)
+          suggestions = [m for m in diverse_matches if m not in auto_apply]
 
           print(f"Auto-apply labels ({auto_threshold}+ confidence):")
           for m in auto_apply:
