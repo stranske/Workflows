@@ -418,6 +418,7 @@ jobs:
                 });
               }
             } catch (error) {
+              // # best-effort: label metadata is optional once deliberate-break passed; rate-limit or duplicate-label failures must not block Gate.
               core.warning(
                 `Skipping acceptance-criteria label (non-blocking): ${error.message}`
               );
