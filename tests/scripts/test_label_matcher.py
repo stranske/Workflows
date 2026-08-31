@@ -501,7 +501,9 @@ def test_issue_auto_apply_rejects_at_exact_margin_boundary() -> None:
         raw_score=0.89,
         score_type="keyword",
     )
-    assert label_matcher.issue_auto_apply_matches([winner, close_but_clear], threshold=0.9) == [winner]
+    assert label_matcher.issue_auto_apply_matches([winner, close_but_clear], threshold=0.9) == [
+        winner
+    ]
 
 
 def test_issue_auto_apply_sees_same_family_competitors_via_diverse_false() -> None:
