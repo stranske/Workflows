@@ -568,6 +568,717 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-08-24"
+    },
+    {
+      "case_id": "workflows-2898",
+      "repo": "stranske/Workflows",
+      "pr": 2898,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2896",
+      "repo": "stranske/Workflows",
+      "pr": 2896,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2895",
+      "repo": "stranske/Workflows",
+      "pr": 2895,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2893",
+      "repo": "stranske/Workflows",
+      "pr": 2893,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2891",
+      "repo": "stranske/Workflows",
+      "pr": 2891,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2889",
+      "repo": "stranske/Workflows",
+      "pr": 2889,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2888",
+      "repo": "stranske/Workflows",
+      "pr": 2888,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2887",
+      "repo": "stranske/Workflows",
+      "pr": 2887,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2886",
+      "repo": "stranske/Workflows",
+      "pr": 2886,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2885",
+      "repo": "stranske/Workflows",
+      "pr": 2885,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2875",
+      "repo": "stranske/Workflows",
+      "pr": 2875,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2874",
+      "repo": "stranske/Workflows",
+      "pr": 2874,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2873",
+      "repo": "stranske/Workflows",
+      "pr": 2873,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2872",
+      "repo": "stranske/Workflows",
+      "pr": 2872,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2871",
+      "repo": "stranske/Workflows",
+      "pr": 2871,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2870",
+      "repo": "stranske/Workflows",
+      "pr": 2870,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "workflows-2869",
+      "repo": "stranske/Workflows",
+      "pr": 2869,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "travel-plan-permission-1364",
+      "repo": "stranske/Travel-Plan-Permission",
+      "pr": 1364,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "travel-plan-permission-1363",
+      "repo": "stranske/Travel-Plan-Permission",
+      "pr": 1363,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "travel-plan-permission-1362",
+      "repo": "stranske/Travel-Plan-Permission",
+      "pr": 1362,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "travel-plan-permission-1361",
+      "repo": "stranske/Travel-Plan-Permission",
+      "pr": 1361,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "trend_model_project-5769",
+      "repo": "stranske/Trend_Model_Project",
+      "pr": 5769,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "trend_model_project-5768",
+      "repo": "stranske/Trend_Model_Project",
+      "pr": 5768,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "trend_model_project-5767",
+      "repo": "stranske/Trend_Model_Project",
+      "pr": 5767,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "portable-alpha-extension-model-2181",
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2181,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "portable-alpha-extension-model-2180",
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2180,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "portable-alpha-extension-model-2179",
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2179,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "counter_risk-902",
+      "repo": "stranske/Counter_Risk",
+      "pr": 902,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "counter_risk-901",
+      "repo": "stranske/Counter_Risk",
+      "pr": 901,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "manager-database-1513",
+      "repo": "stranske/Manager-Database",
+      "pr": 1513,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "manager-database-1512",
+      "repo": "stranske/Manager-Database",
+      "pr": 1512,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "manager-database-1511",
+      "repo": "stranske/Manager-Database",
+      "pr": 1511,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "inv-man-intake-877",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 877,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "inv-man-intake-876",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 876,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "inv-man-intake-875",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 875,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "inv-man-intake-874",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 874,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "pension-data-796",
+      "repo": "stranske/Pension-Data",
+      "pr": 796,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "pension-data-795",
+      "repo": "stranske/Pension-Data",
+      "pr": 795,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "pension-data-794",
+      "repo": "stranske/Pension-Data",
+      "pr": 794,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "pension-data-793",
+      "repo": "stranske/Pension-Data",
+      "pr": 793,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "ready-487",
+      "repo": "stranske/Ready",
+      "pr": 487,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "ready-486",
+      "repo": "stranske/Ready",
+      "pr": 486,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "ready-485",
+      "repo": "stranske/Ready",
+      "pr": 485,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "ready-484",
+      "repo": "stranske/Ready",
+      "pr": 484,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "trip-planner-1610",
+      "repo": "stranske/trip-planner",
+      "pr": 1610,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "trip-planner-1609",
+      "repo": "stranske/trip-planner",
+      "pr": 1609,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "trip-planner-1608",
+      "repo": "stranske/trip-planner",
+      "pr": 1608,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "learning-management-system-491",
+      "repo": "stranske/learning-management-system",
+      "pr": 491,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "learning-management-system-490",
+      "repo": "stranske/learning-management-system",
+      "pr": 490,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "learning-management-system-489",
+      "repo": "stranske/learning-management-system",
+      "pr": 489,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "learning-management-system-488",
+      "repo": "stranske/learning-management-system",
+      "pr": 488,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-400",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 400,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-399",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 399,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-398",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 398,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-397",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 397,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-396",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 396,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-395",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 395,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-394",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 394,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-393",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 393,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-392",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 392,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-391",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 391,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-390",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 390,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-389",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 389,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-388",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 388,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-387",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 387,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-386",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 386,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-385",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 385,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-384",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 384,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-382",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 382,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-381",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 381,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-380",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 380,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-379",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 379,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-378",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 378,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-377",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 377,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-376",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 376,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-375",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 375,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-374",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 374,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-372",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 372,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
+    },
+    {
+      "case_id": "fine-art-archive-371",
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 371,
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-08-31"
     }
   ]
 }
