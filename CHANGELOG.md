@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.10](https://github.com/stranske/Workflows/compare/v1.30.9...v1.30.10) (2026-08-31)
+
+
+### Bug Fixes
+
+* **agents:** make format guard lint-aware ([#3289](https://github.com/stranske/Workflows/issues/3289)) ([f7d1440](https://github.com/stranske/Workflows/commit/f7d1440e497ece87a4eedf1f6f3ddac853b48bba))
+* **coverage-guard:** find the report inside the artifact instead of guessing its path ([#3277](https://github.com/stranske/Workflows/issues/3277)) ([822a526](https://github.com/stranske/Workflows/commit/822a526fc15420793312e73ed89f341cff440499))
+* **health:** monitor consumer metrics trackers ([#3276](https://github.com/stranske/Workflows/issues/3276)) ([0768104](https://github.com/stranske/Workflows/commit/076810479b5d3cf75ba8faf1920d135004f9ece1))
+* **manifest:** [#3275](https://github.com/stranske/Workflows/issues/3275) is closed, and these skip entries are what closed it ([#3283](https://github.com/stranske/Workflows/issues/3283)) ([fa78f7f](https://github.com/stranske/Workflows/commit/fa78f7f55699d54cea417c909409d545e6053fc7))
+* resume prepared delivery handoffs ([#3293](https://github.com/stranske/Workflows/issues/3293)) ([e9289e9](https://github.com/stranske/Workflows/commit/e9289e95cebbe9fe6f9a10e81fa342567f85cd8a))
+* **sync:** hold legacy PRs before stable delivery ([#3278](https://github.com/stranske/Workflows/issues/3278)) ([8e47a45](https://github.com/stranske/Workflows/commit/8e47a450110e08a4f5252f9656a554241be2d218))
+* **sync:** protect Fine-Art-Archive AGENTS.md/CLAUDE.md from overwrite-sync ([#3275](https://github.com/stranske/Workflows/issues/3275)) ([57ed5e6](https://github.com/stranske/Workflows/commit/57ed5e61307cd02b9a05622988da0c746ec36b69))
+
 ## [1.30.9](https://github.com/stranske/Workflows/compare/v1.30.8...v1.30.9) (2026-08-30)
 
 
