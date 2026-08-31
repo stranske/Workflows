@@ -89,8 +89,12 @@ jobs:
               --remove-label "agents:format"
             echo "Exempt issue — cleared stale agents:format lease."
           fi
-          if [[ "$(jq -r '.state // "" | ascii_downcase' issue.json)" == "closed" ]] && \
-              jq -e '[.labels[].name] | any(. == "agents:auto-pilot-pause")' issue.json >/dev/null; then
+          # A close event can race a reopen. Re-read the current state before
+          # lifting a pause label so an open issue never loses its hold.
+          gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels,state \
+            > cleanup_issue.json
+          if [[ "$(jq -r '.state // "" | ascii_downcase' cleanup_issue.json)" == "closed" ]] && \
+              jq -e '[.labels[].name] | any(. == "agents:auto-pilot-pause")' cleanup_issue.json >/dev/null; then
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" \
               --remove-label "agents:auto-pilot-pause"
             echo "Closed issue — cleared stale agents:auto-pilot-pause hold."

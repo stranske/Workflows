@@ -575,9 +575,13 @@ def validate(body: str, repo_root: Path | None = None) -> Report:
             "",
             prose,
         )
-        hits = [word for word in BANNED_ADJECTIVES if re.search(rf"\b{word}\b", prose, re.I)]
-        if "clean" in hits and re.search(r"\b(?:exit|exits|exited)\s+clean\b", prose, re.I):
-            hits.remove("clean")
+        # The measurable exit-status idiom "exits clean" is allowed, but only
+        # that phrase is exempt: another subjective use of "clean" in the same
+        # criterion must remain visible to the adjective check.
+        adjective_prose = re.sub(r"\b(?:exit|exits|exited)\s+clean\b", "", prose, flags=re.I)
+        hits = [
+            word for word in BANNED_ADJECTIVES if re.search(rf"\b{word}\b", adjective_prose, re.I)
+        ]
         if hits:
             report.problems.append(
                 "`Acceptance Criteria` uses subjective wording ("
