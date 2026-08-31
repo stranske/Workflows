@@ -123,6 +123,30 @@ def _explicit_marker(section: str) -> DeliberateBreakSpec | None:
     return None
 
 
+def _extract_fallback_test_name(named_line: str) -> str | None:
+    """Extract a pytest test name from acceptance-criteria prose."""
+
+    quoted_with = re.search(r"\bwith\s+`([^`]+)`", named_line)
+    if quoted_with:
+        return quoted_with.group(1).strip()
+
+    quoted_test = re.search(r"\btest\s+`([^`]+)`", named_line)
+    if quoted_test:
+        return quoted_test.group(1).strip()
+
+    backtick_test = re.search(r"`(test_[A-Za-z_][A-Za-z0-9_]*)`", named_line)
+    if backtick_test:
+        return backtick_test.group(1)
+
+    unquoted = re.search(r"\bwith\s+(test_[A-Za-z_][A-Za-z0-9_]*)", named_line)
+    if unquoted:
+        name = unquoted.group(1)
+        tail = named_line[unquoted.end() :]
+        if not tail or tail[0] not in "_A-Za-z0-9":
+            return name
+    return None
+
+
 def _fallback_marker(section: str, markdown: str = "") -> DeliberateBreakSpec | None:
     named_line = next(
         (line for line in section.splitlines() if "named test:" in line.lower()),
@@ -140,20 +164,13 @@ def _fallback_marker(section: str, markdown: str = "") -> DeliberateBreakSpec | 
         return None
 
     test_file_match = re.search(r"`([^`]*(?:test|tests)[^`]*\.py)`", named_line)
-    test_name_match = (
-        re.search(r"\btest\s+`([^`]+)`", named_line)
-        or re.search(r"`(test_[A-Za-z_][A-Za-z0-9_]*)`", named_line)
-        or re.search(r"\bwith\s+`([^`]+)`", named_line)
-        # Unquoted form must look like a pytest node id (test_*), not English
-        # "with a non-crashing …" / "with the harness …".
-        or re.search(r"\bwith\s+`?(test_[A-Za-z0-9_]*)`?", named_line)
-    )
+    test_name = _extract_fallback_test_name(named_line)
     break_file = _infer_break_file(break_line, named_line, markdown)
-    if not test_file_match or not test_name_match or not break_file:
+    if not test_file_match or not test_name or not break_file:
         return None
 
     test_file = test_file_match.group(1)
-    test_id = f"{test_file}::{test_name_match.group(1)}"
+    test_id = f"{test_file}::{test_name}"
     return DeliberateBreakSpec(test_id, test_file, break_file, _pytest_command(test_id))
 
 
