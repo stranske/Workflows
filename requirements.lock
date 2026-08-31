@@ -43,7 +43,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   click
     #   pytest
     #   tqdm
-coverage==7.15.4
+coverage==7.16.0
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov
@@ -298,7 +298,7 @@ rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
-ruff==0.16.4
+ruff==0.16.5
     # via workflows (pyproject.toml)
 six==1.17.0
     # via python-dateutil
