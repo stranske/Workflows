@@ -140,7 +140,11 @@ def _fallback_marker(section: str, markdown: str = "") -> DeliberateBreakSpec | 
         return None
 
     test_file_match = re.search(r"`([^`]*(?:test|tests)[^`]*\.py)`", named_line)
-    test_name_match = re.search(r"\bwith\s+`?([A-Za-z_][A-Za-z0-9_]*)`?", named_line)
+    # Unquoted form must look like a pytest node id (test_*), not English
+    # "with a non-crashing …" / "with the harness …".
+    test_name_match = re.search(r"\bwith\s+`([^`]+)`", named_line) or re.search(
+        r"\bwith\s+`?(test_[A-Za-z0-9_]*)`?", named_line
+    )
     break_file = _infer_break_file(break_line, named_line, markdown)
     if not test_file_match or not test_name_match or not break_file:
         return None

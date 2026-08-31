@@ -133,6 +133,19 @@ def test_issue_acceptance_named_test_precedes_harness_description() -> None:
     assert spec.test_id == "tests/workflows/test_keepalive_post_work.py::test_virtual_poll_budget"
 
 
+def test_fallback_ignores_english_with_a_phrase() -> None:
+    """Do not treat 'with a …' as a pytest node id (Gate false FAIL_BROKEN)."""
+    spec = parse_deliberate_break_spec(
+        "## Acceptance Criteria\n"
+        "- [x] Named test: `tests/workflows/test_issue_bridge_seed.py`, "
+        "asserts (a) run-unique token and (b) ahead-of-base guard with a "
+        "non-crashing report branch.\n"
+        "- [x] Deliberate-break → revert: restore constant marker in "
+        "`.github/workflows/reusable-agents-issue-bridge.yml`.\n"
+    )
+    assert spec is None
+
+
 def test_issue_3007_acceptance_wording_is_supported() -> None:
     spec = parse_deliberate_break_spec(
         "## Tasks\n\n"
