@@ -435,7 +435,8 @@ def _exclusive_label_family(label_name: str) -> str | None:
     return None
 
 
-def _bounded_diverse_matches(matches: Iterable[LabelMatch], limit: int) -> list[LabelMatch]:
+def bounded_diverse_matches(matches: Iterable[LabelMatch], limit: int) -> list[LabelMatch]:
+    """Return up to *limit* matches with at most one per exclusive label family."""
     selected: list[LabelMatch] = []
     selected_families: set[str] = set()
     for match in matches:
@@ -448,6 +449,9 @@ def _bounded_diverse_matches(matches: Iterable[LabelMatch], limit: int) -> list[
         if len(selected) == limit:
             break
     return selected
+
+
+_bounded_diverse_matches = bounded_diverse_matches
 
 
 def _sorted_matches(matches: Iterable[LabelMatch]) -> list[LabelMatch]:
@@ -475,7 +479,7 @@ def issue_auto_apply_matches(
     ]
     if not candidates:
         return []
-    if len(candidates) > 1 and candidates[0].score - candidates[1].score < margin:
+    if len(candidates) > 1 and candidates[0].score - candidates[1].score <= margin:
         return []
     return [candidates[0]]
 
@@ -486,7 +490,17 @@ def find_similar_labels(
     *,
     threshold: float | None = None,
     k: int | None = None,
+    diverse: bool = True,
 ) -> list[LabelMatch]:
+    """Find labels matching *query*.
+
+    When *diverse* is True (default), at most one match per exclusive label
+    family (``agent:*``, ``status:*``) is returned.  Pass ``diverse=False``
+    when the caller needs to see same-family competitors — for example, to
+    compute a meaningful margin before auto-applying a single label.
+    """
+    if k is not None and k < 1:
+        raise ValueError(f"k must be a positive integer or None, got {k!r}")
     label_store = _ensure_label_store(label_store)
     query = _ensure_query_text(query)
     if not query.strip():
@@ -501,7 +515,10 @@ def find_similar_labels(
         score_type = "distance"
     else:
         matches = _keyword_matches(label_store.labels, query, threshold=threshold)
-        return _bounded_diverse_matches(_sorted_matches(matches), k or DEFAULT_LABEL_SIMILARITY_K)
+        sorted_matches = _sorted_matches(matches)
+        if not diverse:
+            return sorted_matches
+        return bounded_diverse_matches(sorted_matches, k or DEFAULT_LABEL_SIMILARITY_K)
 
     limit = k or DEFAULT_LABEL_SIMILARITY_K
     try:
@@ -535,7 +552,10 @@ def find_similar_labels(
                 matches.append(match)
                 seen.add(normalized)
 
-    return _bounded_diverse_matches(_sorted_matches(matches), limit)
+    sorted_matches = _sorted_matches(matches)
+    if not diverse:
+        return sorted_matches
+    return bounded_diverse_matches(sorted_matches, limit)
 
 
 def resolve_label_match(
