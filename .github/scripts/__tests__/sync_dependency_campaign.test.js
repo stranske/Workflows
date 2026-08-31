@@ -195,6 +195,81 @@ test('campaign continuations preserve idempotency and immutable plan bindings', 
   });
 });
 
+test('campaign-prepared delivery handoffs resume campaign authorization and are named in the run summary', () => {
+  const preparedDelivery = {
+    schema: 'workflows-generated-delivery-handoff/v1',
+    repository: 'stranske/Travel-Plan-Permission',
+    pr: 1480,
+    branch: 'sync/workflows-delivery',
+    head_sha: 'delivery-head',
+    delivery_generation: 'delivery-generation',
+    disposition: 'current',
+    blocker_owner: 'maint-71',
+    next_command: 'merge-current-delivery',
+    check_state: 'ready',
+    review_state: 'clear',
+    observed_at: '2026-08-31T10:00:00Z',
+    continuation: {
+      class: 'terminal', lane: 'delivery', reason: 'campaign_prepared',
+      resume_after: '', key: 'prepared-delivery-key',
+    },
+  };
+  const planned = planMaint71Continuations([preparedDelivery], {
+    now: '2026-08-31T10:00:00Z',
+  });
+  assert.deepEqual(planned.map((item) => ({ lane: item.lane, reason: item.reason })), [{
+    lane: 'campaign', reason: 'campaign_prepared_authorization',
+  }]);
+
+  const summary = formatCampaignRunSummaryMarkdown({
+    updated_at: '2026-08-31T10:00:00Z', delivery_handoffs: [preparedDelivery], stats: {},
+  });
+  assert.match(summary, /stranske\/Travel-Plan-Permission#1480: lane=campaign; class=transient;/);
+  assert.match(summary, /status=campaign_prepared_authorization; planner=planned/);
+
+  const terminalCandidate = {
+    ...preparedDelivery,
+    repository: 'stranske/Template',
+    pr: 1013,
+    branch: 'sync/workflows-candidate',
+    continuation: {
+      class: 'terminal', lane: 'candidate', reason: 'campaign_prepared',
+      resume_after: '', key: 'prepared-candidate-key',
+    },
+  };
+  assert.equal(planMaint71Continuations([terminalCandidate], {
+    now: '2026-08-31T10:00:00Z',
+  }).length, 0);
+});
+
+test('continuation planner verdicts use the full handoff identity and escape summary controls', () => {
+  const first = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,
+    head_sha: 'head-1', delivery_generation: 'g1', disposition: 'current',
+    blocker_owner: 'maint-71', next_command: 'merge-current-delivery',
+    check_state: 'ready', review_state: 'clear', observed_at: '2026-08-31T10:00:00Z',
+    continuation: {
+      class: 'transient', lane: 'campaign', reason: 'safe\nvalue',
+      resume_after: '2026-08-31T10:00:00Z', key: 'shared-key',
+    },
+  };
+  const second = {
+    ...first,
+    repository: 'stranske/Ready-Two',
+    pr: 12,
+    head_sha: 'head-2',
+    delivery_generation: 'g2',
+    observed_at: '2026-08-31T10:01:00Z',
+    continuation: { ...first.continuation, reason: 'later' },
+  };
+  const summary = formatCampaignRunSummaryMarkdown({
+    updated_at: '2026-08-31T10:02:00Z', delivery_handoffs: [first, second], stats: {},
+  });
+  assert.match(summary, /status=safe value; planner=planned/);
+  assert.match(summary, /stranske\/Ready-Two#12: lane=campaign; class=transient; status=later; planner=skipped:another-earlier-handoff-for-lane/);
+  assert.doesNotMatch(summary, /safe\nvalue/);
+});
+
 test('normalizeDeliveryHandoff rejects incomplete restart fields', () => {
   assert.equal(normalizeDeliveryHandoff({
     schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 11,

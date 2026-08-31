@@ -401,19 +401,56 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
   };
 }
 
+function deliveryHandoffIdentity(record = {}, continuation = {}) {
+  return [
+    cleanString(record.repository),
+    cleanInteger(record.pr),
+    cleanString(continuation.lane),
+    cleanString(continuation.key),
+  ].join('\u0000');
+}
+
+function summaryValue(value, fallback = '-') {
+  const normalized = cleanString(value).replace(/[\u0000-\u001f\u007f]/g, ' ');
+  return normalized || fallback;
+}
+
+function preparedDeliveryContinuation(record = {}) {
+  const continuation = record.continuation || {};
+  // A campaign-prepared delivery must resume the campaign selector, not the
+  // ordinary delivery selector: only the campaign path rebuilds and supplies
+  // the fleet-wide exact-head authorization required before any merge. Candidate
+  // preparation remains terminal because it is evidence for that later commit.
+  if (
+    continuation.class === 'terminal'
+    && continuation.lane === 'delivery'
+    && continuation.reason === 'campaign_prepared'
+    && record.next_command === 'merge-current-delivery'
+  ) {
+    return {
+      ...continuation,
+      class: 'transient',
+      lane: 'campaign',
+      reason: 'campaign_prepared_authorization',
+      resume_after: record.observed_at,
+    };
+  }
+  return continuation;
+}
+
 function planMaint71Continuations(records = [], { now = new Date().toISOString() } = {}) {
   const nowMs = Date.parse(now);
   if (!Number.isFinite(nowMs)) throw new Error(`invalid continuation time: ${now}`);
   const handoffs = cleanArray(records)
     .map((record) => normalizeDeliveryHandoff(record))
     .filter(Boolean);
-  const deliveryActive = handoffs.some((record) =>
-    record.continuation.lane === 'delivery'
-    && record.continuation.class === 'transient',
-  );
+  const deliveryActive = handoffs.some((record) => {
+    const continuation = preparedDeliveryContinuation(record);
+    return continuation.lane === 'delivery' && continuation.class === 'transient';
+  });
   const dueByLane = new Map();
   for (const record of handoffs) {
-    const continuation = record.continuation;
+    const continuation = preparedDeliveryContinuation(record);
     if (continuation.class !== 'transient') continue;
     if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) continue;
     if (deliveryActive && continuation.lane === 'candidate') continue;
@@ -445,6 +482,43 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
     ? ['campaign', 'delivery', 'dev-tool']
     : ['candidate', 'campaign', 'delivery', 'dev-tool'];
   return order.map((lane) => dueByLane.get(lane)).filter(Boolean);
+}
+
+function formatMaint71ContinuationPlannerRows(records = [], { now = new Date().toISOString() } = {}) {
+  const handoffs = cleanArray(records)
+    .map((record) => normalizeDeliveryHandoff(record))
+    .filter(Boolean);
+  const plannedHandoffs = new Set(
+    planMaint71Continuations(handoffs, { now }).map((continuation) => deliveryHandoffIdentity(
+      continuation,
+      { lane: continuation.lane, key: continuation.continuation_key },
+    )),
+  );
+  return handoffs.map((record) => {
+    const continuation = preparedDeliveryContinuation(record);
+    const planned = plannedHandoffs.has(deliveryHandoffIdentity(record, continuation));
+    let verdict = 'planned';
+    if (!planned) {
+      if (continuation.class !== 'transient') {
+        verdict = `skipped:class=${continuation.class || 'missing'}:${continuation.reason || 'unknown'}`;
+      } else if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) {
+        verdict = `skipped:unsupported-lane:${continuation.lane || 'missing'}`;
+      } else {
+        const dueMs = Date.parse(continuation.resume_after || record.observed_at);
+        verdict = Number.isFinite(dueMs) && dueMs > Date.parse(now)
+          ? `skipped:not-due-until:${new Date(dueMs).toISOString()}`
+          : 'skipped:another-earlier-handoff-for-lane';
+      }
+    }
+    return {
+      repository: record.repository,
+      pr: record.pr,
+      lane: continuation.lane || '-',
+      class: continuation.class || '-',
+      status: continuation.reason || '-',
+      verdict,
+    };
+  });
 }
 
 function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', limit = DEFAULT_MAX_DELIVERY_HANDOFFS) {
@@ -1696,6 +1770,20 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     }
   }
 
+  const continuationRows = formatMaint71ContinuationPlannerRows(state.delivery_handoffs, {
+    now: cleanString(state.updated_at) || new Date().toISOString(),
+  });
+  if (continuationRows.length > 0) {
+    lines.push('', '### Maint 71 Delivery Handoffs', '');
+    for (const row of continuationRows) {
+      lines.push(
+        `- ${summaryValue(row.repository)}#${summaryValue(row.pr)}: ` +
+          `lane=${summaryValue(row.lane)}; class=${summaryValue(row.class)}; ` +
+          `status=${summaryValue(row.status)}; planner=${summaryValue(row.verdict)}`,
+      );
+    }
+  }
+
   return `${lines.join('\n')}\n`;
 }
 
@@ -1848,6 +1936,7 @@ module.exports = {
   formatCampaignBody,
   formatCampaignMarker,
   formatCampaignRunSummaryMarkdown,
+  formatMaint71ContinuationPlannerRows,
   formatDryRunSummary,
   isDependabotPullRequest,
   isSyncPullRequest,

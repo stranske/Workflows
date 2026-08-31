@@ -1175,9 +1175,10 @@ async function run({ github, context, core }) {
       pull_number: pr.number,
       body,
     }));
-    // Trigger a fresh Gate run from the sealed body while retaining the
-    // staging hold label. Generic merge lanes remain blocked; Maint 71 alone
-    // may override that hold after the new Gate succeeds on this exact head.
+    // Trigger a fresh Gate run from the sealed body. Keep the staging hold
+    // until the Maint 71 exact-head merge completes: generic merge lanes use
+    // it as their hard stop, while this workflow's dedicated guard explicitly
+    // authorizes the sealed delivery path.
     await withRetry((client) => client.rest.issues.addLabels({
       owner,
       repo,
