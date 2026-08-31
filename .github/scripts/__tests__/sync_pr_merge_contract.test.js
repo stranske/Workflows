@@ -83,15 +83,15 @@ test('Maint 71 always requires the generated delivery Gate context', () => {
   );
 });
 
-test('Maint 71 replaces the staging label when it seals a delivery', () => {
+test('Maint 71 retains the staging merge hold while it seals a delivery', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'maint71_merge_sync_prs.js'), 'utf8');
   const sealStart = source.indexOf('async function sealStableDelivery');
   const sealEnd = source.indexOf('async function confirmExactHeadReviewClear', sealStart);
   const seal = source.slice(sealStart, sealEnd);
 
   assert.match(seal, /labels: \['sync:delivery-ready'\]/);
-  assert.match(seal, /name: 'sync:delivery-staging'/);
-  assert.match(seal, /Removed stale sync:delivery-staging label/);
+  assert.match(seal, /Keep the staging hold/);
+  assert.doesNotMatch(seal, /removeLabel/);
 });
 
 test('Maint 71 falls back only when repository policy rejects a merge method', () => {

@@ -401,13 +401,26 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
   };
 }
 
+function deliveryHandoffIdentity(record = {}, continuation = {}) {
+  return [
+    cleanString(record.repository),
+    cleanInteger(record.pr),
+    cleanString(continuation.lane),
+    cleanString(continuation.key),
+  ].join('\u0000');
+}
+
+function summaryValue(value, fallback = '-') {
+  const normalized = cleanString(value).replace(/[\u0000-\u001f\u007f]/g, ' ');
+  return normalized || fallback;
+}
+
 function preparedDeliveryContinuation(record = {}) {
   const continuation = record.continuation || {};
-  // A campaign-prepared *delivery* has already crossed Maint 71's immutable
-  // evidence gate.  It is not terminal while its bound PR remains unmerged:
-  // this is the one handoff that must re-enter the delivery executor to run
-  // merge-current-delivery.  Candidate preparation remains terminal because
-  // it is evidence for the later campaign authorization, not a merge request.
+  // A campaign-prepared delivery must resume the campaign selector, not the
+  // ordinary delivery selector: only the campaign path rebuilds and supplies
+  // the fleet-wide exact-head authorization required before any merge. Candidate
+  // preparation remains terminal because it is evidence for that later commit.
   if (
     continuation.class === 'terminal'
     && continuation.lane === 'delivery'
@@ -417,7 +430,8 @@ function preparedDeliveryContinuation(record = {}) {
     return {
       ...continuation,
       class: 'transient',
-      reason: 'campaign_prepared_delivery_merge',
+      lane: 'campaign',
+      reason: 'campaign_prepared_authorization',
       resume_after: record.observed_at,
     };
   }
@@ -474,12 +488,15 @@ function formatMaint71ContinuationPlannerRows(records = [], { now = new Date().t
   const handoffs = cleanArray(records)
     .map((record) => normalizeDeliveryHandoff(record))
     .filter(Boolean);
-  const plannedKeys = new Set(
-    planMaint71Continuations(handoffs, { now }).map((continuation) => continuation.continuation_key),
+  const plannedHandoffs = new Set(
+    planMaint71Continuations(handoffs, { now }).map((continuation) => deliveryHandoffIdentity(
+      continuation,
+      { lane: continuation.lane, key: continuation.continuation_key },
+    )),
   );
   return handoffs.map((record) => {
     const continuation = preparedDeliveryContinuation(record);
-    const planned = plannedKeys.has(continuation.key);
+    const planned = plannedHandoffs.has(deliveryHandoffIdentity(record, continuation));
     let verdict = 'planned';
     if (!planned) {
       if (continuation.class !== 'transient') {
@@ -1760,8 +1777,9 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     lines.push('', '### Maint 71 Delivery Handoffs', '');
     for (const row of continuationRows) {
       lines.push(
-        `- ${row.repository}#${row.pr}: lane=${row.lane}; class=${row.class}; ` +
-          `status=${row.status}; planner=${row.verdict}`,
+        `- ${summaryValue(row.repository)}#${summaryValue(row.pr)}: ` +
+          `lane=${summaryValue(row.lane)}; class=${summaryValue(row.class)}; ` +
+          `status=${summaryValue(row.status)}; planner=${summaryValue(row.verdict)}`,
       );
     }
   }
