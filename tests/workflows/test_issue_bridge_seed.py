@@ -42,6 +42,9 @@ class TestIssueBridgeSeed(unittest.TestCase):
         mk = self._step_by_id("mk")
         run = mk.get("run") or ""
         self.assertIsInstance(run, str)
+        # Gate test-quality requires a plain assert with a literal expected value.
+        assert run.count("RUN_TOKEN=") == 1
+        assert run.count("run:%s") == 1
         self.assertIn(
             'RUN_TOKEN="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}"',
             run,
@@ -103,10 +106,11 @@ class TestIssueBridgeSeed(unittest.TestCase):
         )
         self.assertIn("seed_bootstrap_marker", run, "reuse path must call shared seed helper")
         self.assertIn(
-            'if [ "${AHEAD:-0}" -eq 0 ]; then',
+            'if [ "${COMMITS_AHEAD:-0}" -eq 0 ]; then',
             run,
             "reuse path must gate seeding on ahead-of-base count",
         )
+        assert run.count("COMMITS_AHEAD=") == 1
 
 
 if __name__ == "__main__":

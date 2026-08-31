@@ -686,8 +686,8 @@ jobs:
             git fetch origin "$HEAD_BRANCH"
             git checkout -B "$HEAD_BRANCH" "origin/${HEAD_BRANCH}"
             git pull --ff-only origin "$HEAD_BRANCH"
-            AHEAD="$(commits_ahead_of_base)"
-            if [ "${AHEAD:-0}" -eq 0 ]; then
+            COMMITS_AHEAD="$(commits_ahead_of_base)"
+            if [ "${COMMITS_AHEAD:-0}" -eq 0 ]; then
               echo "Reused branch has no commits ahead of ${BASE_BRANCH}; seeding run-unique marker."
               seed_bootstrap_marker
               git push origin "HEAD:${HEAD_BRANCH}"
