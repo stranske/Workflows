@@ -658,29 +658,46 @@ jobs:
 
           git fetch origin "$BASE_BRANCH" || true
 
+          RUN_TOKEN="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}"
+
+          seed_bootstrap_marker() {
+            mkdir -p agents
+            printf "<!-- bootstrap for %s on issue #%s run:%s -->\n" \
+              "$AGENT" \
+              "$ISSUE_NUM" \
+              "$RUN_TOKEN" \
+              > "agents/${AGENT}-${ISSUE_NUM}.md"
+            # Stage only the intended bootstrap file — 'git add -A' would capture
+            # vendored node_modules changes made by setup-api-client npm install.
+            git add "agents/${AGENT}-${ISSUE_NUM}.md" || true
+            if ! git diff --cached --quiet; then
+              git commit -m "chore(${AGENT}): bootstrap issue #${ISSUE_NUM} (run ${RUN_TOKEN})"
+            else
+              echo "No changes to commit after seeding marker; branch may already match base."
+            fi
+          }
+
+          commits_ahead_of_base() {
+            git rev-list --count "origin/${BASE_BRANCH}..HEAD" 2>/dev/null || echo 0
+          }
+
           if git ls-remote --exit-code --heads origin "$HEAD_BRANCH" > /dev/null 2>&1; then
             echo "Reusing existing branch ${HEAD_BRANCH} for issue #${ISSUE_NUM}."
             git fetch origin "$HEAD_BRANCH"
             git checkout -B "$HEAD_BRANCH" "origin/${HEAD_BRANCH}"
             git pull --ff-only origin "$HEAD_BRANCH"
+            COMMITS_AHEAD="$(commits_ahead_of_base)"
+            if [ "${COMMITS_AHEAD:-0}" -eq 0 ]; then
+              echo "Reused branch has no commits ahead of ${BASE_BRANCH}; seeding run-unique marker."
+              seed_bootstrap_marker
+              git push origin "HEAD:${HEAD_BRANCH}"
+            fi
             echo "branch=${HEAD_BRANCH}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           git checkout -B "$HEAD_BRANCH" "origin/${BASE_BRANCH}"
-          mkdir -p agents
-          printf "<!-- bootstrap for %s on issue #%s -->\n" \
-            "$AGENT" \
-            "$ISSUE_NUM" \
-            > "agents/${AGENT}-${ISSUE_NUM}.md"
-          # Stage only the intended bootstrap file — 'git add -A' would capture
-          # vendored node_modules changes made by setup-api-client npm install.
-          git add "agents/${AGENT}-${ISSUE_NUM}.md" || true
-          if ! git diff --cached --quiet; then
-            git commit -m "chore(${AGENT}): bootstrap issue #${ISSUE_NUM}"
-          else
-            echo "No changes to commit; proceeding to push branch with existing tree."
-          fi
+          seed_bootstrap_marker
           git push origin "HEAD:${HEAD_BRANCH}"
           echo "branch=${HEAD_BRANCH}" >> "$GITHUB_OUTPUT"
 
@@ -1071,6 +1088,46 @@ jobs:
             issueBody = formattedBody || issueBody || '';
 
             if (!pr) {
+              const { data: comparison } = await withRetry(() =>
+                github.rest.repos.compareCommits({
+                  owner,
+                  repo,
+                  base,
+                  head,
+                }),
+              );
+              if ((comparison.ahead_by || 0) === 0) {
+                const markerPath = `agents/${agentKey}-${issue_number}.md`;
+                const summary = [
+                  '## Issue bridge: cannot open PR — branch has no commits ahead of base',
+                  '',
+                  `- Base: \`${base}\``,
+                  `- Head: \`${head}\``,
+                  `- ahead_by: 0`,
+                  '',
+                  'Likely causes:',
+                  `- Bootstrap marker already exists on base at \`${markerPath}\``,
+                  '- Reused branch is stale/empty and seeding did not produce a new commit',
+                  '',
+                  'No PR was created. Remove poison markers from base or delete the empty branch, then re-run.',
+                ].join('\n');
+                core.setOutput('created', 'false');
+                core.setOutput('number', '');
+                core.setOutput('skipped_no_pr', 'true');
+                await core.summary.addRaw(summary).write();
+                await withRetry(() =>
+                  github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number,
+                    body: summary,
+                  }),
+                );
+                core.warning(
+                  `Skipped pulls.create for issue #${issue_number}: head ${head} has no commits ahead of ${base}.`,
+                );
+                return;
+              }
 
               const repoUrl = `https://github.com/${owner}/${repo}`;
               const issueUrl = `${repoUrl}/issues/${issue_number}`;
@@ -1177,6 +1234,7 @@ jobs:
             core.setOutput('issue_title', issueTitle || '');
             core.setOutput('missing_sections', missingSections.join(',') || '');
 
+            core.setOutput('skipped_no_pr', 'false');
             core.setOutput('number', String(pr.number));
 
             let assignees = ['stranske-automation-bot'];
@@ -1219,7 +1277,7 @@ jobs:
             }
 
       - name: Label PR with agent
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
           PR: ${{ steps.pr.outputs.number }}
@@ -1259,7 +1317,7 @@ jobs:
             );
 
       - name: Populate PR body context section
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
@@ -1289,7 +1347,7 @@ jobs:
             });
 
       - name: Post issue context on PR
-        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
           ISSUE_BODY: ${{ steps.pr.outputs.issue_body }}
@@ -1516,6 +1574,7 @@ jobs:
           ${{
             steps.ctx.outputs.has_issue == 'true' &&
             steps.mode.outputs.mode != 'invite' &&
+            steps.pr.outputs.number != '' &&
             env.SERVICE_BOT_PAT != '' &&
             steps.agent_comment.outputs.post == 'true'
           }}
@@ -1567,6 +1626,7 @@ jobs:
           ${{
             steps.ctx.outputs.has_issue == 'true' &&
             steps.mode.outputs.mode != 'invite' &&
+            steps.pr.outputs.number != '' &&
             env.SERVICE_BOT_PAT == '' &&
             steps.agent_comment.outputs.post == 'true'
           }}
@@ -1618,6 +1678,7 @@ jobs:
           ${{
             steps.ctx.outputs.has_issue == 'true' &&
             steps.mode.outputs.mode != 'invite' &&
+            steps.pr.outputs.number != '' &&
             steps.agent_comment.outputs.post != 'true'
           }}
         uses: actions/github-script@v9
@@ -1678,7 +1739,7 @@ jobs:
             );
 
       - name: Link PR on original issue (fallback)
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}

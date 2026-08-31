@@ -12,6 +12,7 @@ from scripts.check_deliberate_break import (
     VERDICT_BROKEN,
     VERDICT_HOLLOW,
     VERDICT_PASS,
+    _extract_fallback_test_name,
     parse_deliberate_break_spec,
     verify_spec,
 )
@@ -131,6 +132,78 @@ def test_issue_acceptance_named_test_precedes_harness_description() -> None:
 
     assert spec is not None
     assert spec.test_id == "tests/workflows/test_keepalive_post_work.py::test_virtual_poll_budget"
+
+
+def test_fallback_ignores_english_with_a_phrase() -> None:
+    """Do not treat 'with a …' as a pytest node id (Gate false FAIL_BROKEN)."""
+    spec = parse_deliberate_break_spec(
+        "## Acceptance Criteria\n"
+        "- [x] Named test: `tests/workflows/test_issue_bridge_seed.py`, "
+        "asserts (a) run-unique token and (b) ahead-of-base guard with a "
+        "non-crashing report branch.\n"
+        "- [x] Deliberate-break → revert: restore constant marker in "
+        "`.github/workflows/reusable-agents-issue-bridge.yml`.\n"
+    )
+    assert spec is None
+
+
+def test_fallback_test_name_parser_rejects_near_misses_and_accepts_valid_tokens() -> None:
+    """Quoted, unquoted, and malformed named-test prose must parse predictably."""
+    reject_cases = [
+        "Named test: `tests/test_app.py`, guard with a non-crashing branch.",
+        "Named test: `tests/test_app.py` with the harness's fake clock.",
+    ]
+    for named_line in reject_cases:
+        assert _extract_fallback_test_name(named_line) is None
+
+    assert (
+        _extract_fallback_test_name("Named test: `tests/test_app.py` with `test_widget`.")
+        == "test_widget"
+    )
+    assert (
+        _extract_fallback_test_name("Named test: run `tests/test_app.py` with test_widget.")
+        == "test_widget"
+    )
+    assert (
+        _extract_fallback_test_name("Named test: add `tests/test_app.py` with `test_widget`.")
+        == "test_widget"
+    )
+
+
+def test_consumer_template_fallback_test_name_matches_main_parser() -> None:
+    consumer_path = (
+        Path(__file__).resolve().parents[2]
+        / "templates/consumer-repo/scripts/check_deliberate_break.py"
+    )
+    consumer_source = consumer_path.read_text(encoding="utf-8")
+    start = consumer_source.index("def _extract_fallback_test_name")
+    end = consumer_source.index("\ndef _fallback_marker", start)
+    namespace: dict[str, object] = {}
+    exec(consumer_source[start:end], {"re": __import__("re")}, namespace)
+    consumer_extract = namespace["_extract_fallback_test_name"]
+
+    sample = "Named test: `tests/test_app.py` with test_widget."
+    assert consumer_extract(sample) == _extract_fallback_test_name(sample)
+
+
+def test_explicit_marker_outside_acceptance_section_is_honored() -> None:
+    """Markers outside auto-status AC text must still drive deliberate-break."""
+    spec = parse_deliberate_break_spec(
+        "## Acceptance Criteria\n"
+        "- Named test: `tests/workflows/test_issue_bridge_seed.py` with prose.\n"
+        "- Deliberate-break → revert: restore constant marker.\n\n"
+        "## Additional context\n"
+        "<!-- deliberate-break: "
+        "test=tests/workflows/test_issue_bridge_seed.py::"
+        "TestIssueBridgeSeed::test_mk_step_marker_includes_run_unique_token "
+        "test-file=tests/workflows/test_issue_bridge_seed.py "
+        "break-file=.github/workflows/reusable-agents-issue-bridge.yml -->\n"
+    )
+    assert spec is not None
+    assert (
+        spec.test_id
+        == "tests/workflows/test_issue_bridge_seed.py::TestIssueBridgeSeed::test_mk_step_marker_includes_run_unique_token"
+    )
 
 
 def test_issue_3007_acceptance_wording_is_supported() -> None:

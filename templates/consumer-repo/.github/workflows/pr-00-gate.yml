@@ -373,25 +373,33 @@ jobs:
           skipping opt-in deliberate-break check."
       - name: Apply runtime acceptance-criteria label
         if: ${{ steps.deliberate_break.outputs.has_marker == 'true' }}
+        continue-on-error: true
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const issue_number = context.payload.pull_request.number;
-            const { data: issue } = await github.rest.issues.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number,
-            });
-            const labels = issue.labels.map((label) =>
-              typeof label === 'string' ? label : label.name
-            );
-            if (!labels.includes('acceptance-criteria')) {
-              await github.rest.issues.addLabels({
+            try {
+              const { data: issue } = await github.rest.issues.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number,
-                labels: ['acceptance-criteria'],
               });
+              const labels = issue.labels.map((label) =>
+                typeof label === 'string' ? label : label.name
+              );
+              if (!labels.includes('acceptance-criteria')) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number,
+                  labels: ['acceptance-criteria'],
+                });
+              }
+            } catch (error) {
+              // # best-effort: label metadata is optional once deliberate-break passed; rate-limit or duplicate-label failures must not block Gate.
+              core.warning(
+                `Skipping acceptance-criteria label (non-blocking): ${error.message}`
+              );
             }
 
   docker-smoke:
