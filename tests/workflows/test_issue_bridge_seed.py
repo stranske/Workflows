@@ -45,20 +45,25 @@ class TestIssueBridgeSeed(unittest.TestCase):
         # Gate test-quality requires a plain assert with a literal expected value.
         assert run.count("RUN_TOKEN=") == 1
         assert run.count("run:%s") == 1
+        # Printf format: three %s slots (agent, issue, run token) — not the constant two-slot form.
+        printf_unique = 'printf "<!-- bootstrap for %s on issue #%s run:%s -->\\n"'
+        printf_constant = 'printf "<!-- bootstrap for %s on issue #%s -->\\n"'
+        assert run.count(printf_unique) == 1
+        assert run.count(printf_constant) == 0
         self.assertIn(
             'RUN_TOKEN="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}"',
             run,
             "mk step must define a run-unique RUN_TOKEN",
         )
         self.assertIn(
-            'printf "<!-- bootstrap for %s on issue #%s run:%s -->\\n"',
+            printf_unique,
             run,
             "mk step printf must embed run token in marker content",
         )
         self.assertIn('"$RUN_TOKEN"', run, "mk step must pass RUN_TOKEN into marker content")
         # Constant-only marker (no run token) must not be the printf format.
         self.assertNotIn(
-            'printf "<!-- bootstrap for %s on issue #%s -->\\n"',
+            printf_constant,
             run,
             "mk step must not use constant marker content without a run-unique component",
         )
@@ -70,29 +75,48 @@ class TestIssueBridgeSeed(unittest.TestCase):
         self.assertIsInstance(script, str)
         self.assertIn("compareCommits", script, "create-mode must compare head vs base")
         self.assertIn("ahead_by", script, "create-mode must inspect ahead_by")
-        create_idx = script.find("pulls.create")
+        # Exact zero-ahead guard that must precede the pulls.create API call.
+        guard = "if ((comparison.ahead_by || 0) === 0)"
+        create_call = "github.rest.pulls.create"
+        assert script.count(guard) == 1
+        assert script.count(create_call) == 1
+        create_idx = script.find(create_call)
         ahead_idx = script.find("ahead_by")
-        self.assertGreater(create_idx, 0, "pulls.create must be present in create mode")
+        guard_idx = script.find(guard)
+        self.assertGreater(create_idx, 0, "pulls.create API call must be present in create mode")
         self.assertGreater(ahead_idx, 0, "ahead_by guard must be present in create mode")
         self.assertLess(
             ahead_idx,
             create_idx,
             "ahead_by guard must appear before pulls.create",
         )
+        self.assertLess(
+            guard_idx,
+            create_idx,
+            "zero-ahead guard must gate pulls.create",
+        )
+        # Non-crashing report branch: summarize, comment, warn, then return (no setFailed).
+        skip_slice = script[guard_idx:create_idx]
         self.assertIn(
             "Skipped pulls.create",
-            script,
+            skip_slice,
             "create-mode must report non-crashing skip when ahead_by is zero",
         )
         self.assertIn(
             "core.summary.addRaw",
-            script,
+            skip_slice,
             "create-mode must write a step summary on the skip path",
         )
         self.assertIn(
             "issues.createComment",
-            script,
+            skip_slice,
             "create-mode must comment on the issue on the skip path",
+        )
+        self.assertIn("return;", skip_slice, "skip path must return without crashing the job")
+        self.assertNotIn(
+            "core.setFailed",
+            skip_slice,
+            "zero-ahead skip must be non-crashing (no setFailed)",
         )
 
     def test_reuse_path_seeds_when_branch_not_ahead_of_base(self) -> None:
