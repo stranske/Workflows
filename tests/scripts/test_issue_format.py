@@ -373,6 +373,68 @@ def test_runner_and_curl_are_accepted_gates() -> None:
 
 
 @pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_gate_accepts_lint_commands(validator_path: Path) -> None:
+    validator = _validator(validator_path)
+    accepted = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Run ruff check --fix .\n\n"
+        + "## Acceptance Criteria\n- ruff check --select UP007,UP045 . exits 0.\n"
+    )
+    assert accepted.ok, accepted.as_markdown()
+
+    missing_gate = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Run ruff check --fix .\n\n"
+        + "## Acceptance Criteria\n- The formatting policy remains documented.\n"
+    )
+    assert not missing_gate.ok
+    assert any("names no test" in problem for problem in missing_gate.problems)
+
+
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_paem2248_shape_conforms(validator_path: Path) -> None:
+    validator = _validator(validator_path)
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Run ruff check --fix .\n- [ ] Run mypy .\n\n"
+        + "## Acceptance Criteria\n- ruff check --select UP007,UP045 . exits clean.\n"
+    )
+    assert report.ok, report.as_markdown()
+
+
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_exit_clean_exemption_does_not_hide_other_clean_wording(validator_path: Path) -> None:
+    validator = _validator(validator_path)
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Run ruff check --fix .\n\n"
+        + "## Acceptance Criteria\n- ruff check . exits clean and produces clean output.\n"
+    )
+    assert not report.ok
+    assert any(
+        "subjective wording" in problem and "clean" in problem for problem in report.problems
+    )
+
+
+@pytest.mark.parametrize(
     "criterion",
     [
         "API returns 400 status for invalid input",

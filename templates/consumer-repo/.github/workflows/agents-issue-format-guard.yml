@@ -2,7 +2,7 @@ name: Agents Issue Format Guard
 
 on:
   issues:
-    types: [opened, edited, reopened, labeled, unlabeled]
+    types: [opened, edited, reopened, closed, labeled, unlabeled]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -31,7 +31,7 @@ jobs:
     if: >-
       github.event_name != 'issues' ||
       github.event.action == 'opened' || github.event.action == 'edited' ||
-      github.event.action == 'reopened' ||
+      github.event.action == 'reopened' || github.event.action == 'closed' ||
       (github.event.action == 'unlabeled' &&
       github.event.label.name == 'agents:format') ||
       ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
@@ -88,6 +88,16 @@ jobs:
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" \
               --remove-label "agents:format"
             echo "Exempt issue — cleared stale agents:format lease."
+          fi
+          # A close event can race a reopen. Re-read the current state before
+          # lifting a pause label so an open issue never loses its hold.
+          gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels,state \
+            > cleanup_issue.json
+          if [[ "$(jq -r '.state // "" | ascii_downcase' cleanup_issue.json)" == "closed" ]] && \
+              jq -e '[.labels[].name] | any(. == "agents:auto-pilot-pause")' cleanup_issue.json >/dev/null; then
+            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --remove-label "agents:auto-pilot-pause"
+            echo "Closed issue — cleared stale agents:auto-pilot-pause hold."
           fi
 
       - name: Setup API client

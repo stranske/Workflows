@@ -618,7 +618,11 @@ jobs:
           # Keep the format-result label truthful: the generated issue must
           # pass the canonical Workflows validator before it can be marked
           # agents:formatted below.
-          python workflows-scripts/.github/scripts/issue_format.py /tmp/formatted_body.md
+          if ! python workflows-scripts/.github/scripts/issue_format.py /tmp/formatted_body.md \
+              > /tmp/format_validation_report.md 2>&1; then
+            cat /tmp/format_validation_report.md
+            exit 1
+          fi
 
           # Update issue body with formatted version
           gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/formatted_body.md
@@ -653,18 +657,20 @@ jobs:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -n "${ISSUE_NUMBER}" ]; then
-            body=$(cat <<'COMMENT'
+            {
+              cat <<COMMENT
           ⚠️ **Workflow failed**
 
           The agents-issue-optimizer workflow encountered an error.
 
-          **Details**: [View workflow run](RUN_URL_PLACEHOLDER)
-
-          Please check the logs and retry if needed.
+          **Details**: [View workflow run](${RUN_URL})
           COMMENT
-          )
-            body="${body//RUN_URL_PLACEHOLDER/${RUN_URL}}"
-            gh issue comment "${ISSUE_NUMBER}" --body "$body" || true
+              if [[ -s /tmp/format_validation_report.md ]]; then
+                printf '\n**Format validation report:**\n```text\n'
+                sed -n '1,160p' /tmp/format_validation_report.md
+                printf '```\n'
+              fi
+            } | gh issue comment "${ISSUE_NUMBER}" --body-file - || true
           fi
 
       - name: Release failed format lease

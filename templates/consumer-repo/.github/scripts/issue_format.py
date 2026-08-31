@@ -60,13 +60,19 @@ RECOMMENDED: dict[str, tuple[str, ...]] = {
     "Implementation Notes": ("implementation notes",),
     "Non-Goals": ("non-goals", "out of scope", "constraints"),
 }
+_LINT_COMMAND = (
+    r"\b(?:ruff(?:\s+check)?|mypy|black\s+--check|isort\s+--check|flake8|"
+    r"pylint|eslint|prettier\s+--check|tsc\s+--noEmit)\b"
+)
 GATE = re.compile(
     r"(tests?/[\w./-]+\.py(::[\w:\[\]-]+)?"
     r"|\btest_[\w]+"
     r"|\bpytest\b|\b(?:python(?:3)?\s+-m\s+(?:unittest|pytest)\b)"
     r"|\bnode\s+--test\b|\b(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b"
     r"|\b(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b"
-    r"|\bgh workflow run\b|\bgh run\b"
+    + r"|"
+    + _LINT_COMMAND
+    + r"|\bgh workflow run\b|\bgh run\b"
     r"|\bcurl\b|\bHTTP [1-5]\d\d\b"
     r"|\b(?:API|endpoint|request|response)\s+(?:returns?|responds with)\s+[1-5]\d\d(?:\s+status)?\b"
     r"|\bsmoke\b|\bverif\w*)",
@@ -100,7 +106,8 @@ _TASK_COMMAND = (
     r"(?:python(?:3)?\s+-m\s+(?:pytest|unittest)\b|pytest\b|node\s+--test\b|"
     r"(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:test|vitest|jest|playwright)\b|"
     r"(?:make|just|cargo|go|dotnet)\s+(?:test|check)\b|"
-    r"gh\s+(?:workflow\s+run|run)\s+\S+|curl\s+\S+)"
+    + _LINT_COMMAND
+    + r"|gh\s+(?:workflow\s+run|run)\s+\S+|curl\s+\S+)"
 )
 
 
@@ -539,10 +546,16 @@ def validate(body: str, repo_root: Path | None = None) -> Report:
             report.problems.append(
                 "`Tasks` has no checkbox items (`- [ ] …`); agents track progress by them."
             )
-        elif any(not _task_has_concrete_target(item) for item in task_items):
-            report.problems.append(
-                "`Tasks` must name a concrete file, symbol, path, config key, job, or command."
+        else:
+            offending_item = next(
+                (item for item in task_items if not _task_has_concrete_target(item)), None
             )
+            if offending_item is not None:
+                preview = " ".join(offending_item.split())[:160]
+                report.problems.append(
+                    "`Tasks` item must name a concrete file, symbol, path, config key, job, or "
+                    f"command: `{preview}`."
+                )
 
     acceptance_at = _find(body, REQUIRED["Acceptance Criteria"])
     if acceptance_at is not None:
@@ -562,7 +575,13 @@ def validate(body: str, repo_root: Path | None = None) -> Report:
             "",
             prose,
         )
-        hits = [word for word in BANNED_ADJECTIVES if re.search(rf"\b{word}\b", prose, re.I)]
+        # The measurable exit-status idiom "exits clean" is allowed, but only
+        # that phrase is exempt: another subjective use of "clean" in the same
+        # criterion must remain visible to the adjective check.
+        adjective_prose = re.sub(r"\b(?:exit|exits|exited)\s+clean\b", "", prose, flags=re.I)
+        hits = [
+            word for word in BANNED_ADJECTIVES if re.search(rf"\b{word}\b", adjective_prose, re.I)
+        ]
         if hits:
             report.problems.append(
                 "`Acceptance Criteria` uses subjective wording ("

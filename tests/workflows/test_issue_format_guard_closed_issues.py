@@ -35,6 +35,14 @@ def _resolve_step_script(path: Path) -> str:
     raise AssertionError(f"'Resolve issue' step not found in {path}")
 
 
+def _cleanup_step_script(path: Path) -> str:
+    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    for step in workflow["jobs"]["check"]["steps"]:
+        if step.get("name") == "Clear stale format lease from exempt issues":
+            return step["run"]
+    raise AssertionError(f"'Clear stale format lease from exempt issues' step not found in {path}")
+
+
 def _run_resolve_step(tmp_path: Path, script: str, issue_json: str) -> dict[str, str]:
     """Run the real step with `gh` stubbed to return the fixture payload."""
     bin_dir = tmp_path / "bin"
@@ -71,6 +79,42 @@ def _run_resolve_step(tmp_path: Path, script: str, issue_json: str) -> dict[str,
             key, _, value = line.partition("=")
             outputs[key] = value
     return outputs
+
+
+def _run_cleanup_step(tmp_path: Path, script: str, initial_issue: str, current_issue: str) -> str:
+    """Run cleanup with a fresh issue read that may differ from event-time state."""
+    bin_dir = tmp_path / "cleanup-bin"
+    bin_dir.mkdir(exist_ok=True)
+    (tmp_path / "issue.json").write_text(initial_issue, encoding="utf-8")
+    current = tmp_path / "current.json"
+    current.write_text(current_issue, encoding="utf-8")
+    calls = tmp_path / "gh-calls.txt"
+    gh_stub = bin_dir / "gh"
+    gh_stub.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        'if [[ "$1 $2" == "issue view" ]]; then\n'
+        f"  cat '{current}'\n"
+        "else\n"
+        f"  printf '%s\\n' \"$*\" >> '{calls}'\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    gh_stub.chmod(0o755)
+    completed = subprocess.run(
+        ["bash", "-c", script],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        env={
+            "PATH": f"{bin_dir}:{shutil.os.environ['PATH']}",
+            "GITHUB_REPOSITORY": "stranske/Fine-Art-Archive",
+            "NUMBER": "464",
+            "GH_TOKEN": "stub",
+        },
+    )
+    assert completed.returncode == 0, f"cleanup failed: {completed.stderr}"
+    return calls.read_text(encoding="utf-8") if calls.exists() else ""
 
 
 # The #464 shape: closed, and carrying none of the pre-existing exemption signals.
@@ -121,3 +165,31 @@ def test_both_guard_copies_carry_the_closed_check() -> None:
         assert "ascii_downcase" in _resolve_step_script(
             path
         ), f"{path} lacks the closed-state check"
+
+
+def test_closed_issue_cleanup_removes_format_and_pause_labels() -> None:
+    """Closed cleanup may release a stale pause; open held issues remain untouched."""
+    for path in GUARD_PATHS:
+        cleanup = _cleanup_step_script(path)
+        assert '--remove-label "agents:format"' in cleanup
+        assert '--remove-label "agents:auto-pilot-pause"' in cleanup
+        assert "ascii_downcase" in cleanup
+        assert '== "closed"' in cleanup
+
+
+@skip_if_no_jq
+@pytest.mark.parametrize("guard_path", GUARD_PATHS, ids=lambda p: str(p.relative_to(REPO_ROOT)))
+def test_closed_cleanup_rechecks_state_before_removing_pause_label(
+    tmp_path: Path, guard_path: Path
+) -> None:
+    initial = CLOSED_ISSUE.replace(
+        '{"name": "agents:format"}, {"name": "agents:formatted"}',
+        '{"name": "agents:format"}, {"name": "agents:auto-pilot-pause"}',
+    )
+    reopened = initial.replace('"state": "CLOSED"', '"state": "OPEN"')
+    calls = _run_cleanup_step(tmp_path, _cleanup_step_script(guard_path), initial, reopened)
+    assert "--remove-label agents:format" in calls
+    assert "--remove-label agents:auto-pilot-pause" not in calls
+
+    calls = _run_cleanup_step(tmp_path, _cleanup_step_script(guard_path), initial, initial)
+    assert "--remove-label agents:auto-pilot-pause" in calls

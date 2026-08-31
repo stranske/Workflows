@@ -131,13 +131,15 @@ divergence_reviewed = 2026-06-30
 fingerprint_refreshed = 2026-08-24
 
 [pair.11]
+# 2026-08-31: refreshed after paired format-validator failure diagnostics; root and consumer
+# retain their established in-tree versus sparse-checkout issue-update implementations.
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = b61916120daf41bf2786b801d1a4a22e68304730b33cb539495c7ed420a15158
-template_sha256 = 45fdba5ac386129273a32fac7d40fd13f9b8b28de06f8fc90254353be7435a97
+main_sha256 = c698c97ed40607102a7e5e112ffcf3cd2357e4370a1f8fb80e73b3a0e647b6c8
+template_sha256 = 010ed4ca9f3124647a99d8b71fd3d8afe16fbac64cef3d23b0462c53afc11e4b
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Fingerprints refreshed 2026-08-24: both surfaces now link recursion-pause comments to the managed WORKFLOW_USER_GUIDE recovery section instead of a nonexistent Agents.md anchor. The Workflows-local surface links to templates/consumer-repo/WORKFLOW_USER_GUIDE.md because there is no root guide, while the distributed consumer links to its root WORKFLOW_USER_GUIDE.md. Prior fingerprint refresh 2026-08-24: both surfaces treat automated issues as format-ineligible, complementing the shared guard cleanup that removes stale agents:format leases from exempt issues. Underlying divergence re-reviewed 2026-08-23: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Do not align wholesale — that would strip consumer action pins/token setup.
 divergence_reviewed = 2026-08-23
-fingerprint_refreshed = 2026-08-24
+fingerprint_refreshed = 2026-08-31
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml

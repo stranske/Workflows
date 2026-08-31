@@ -118,6 +118,10 @@ def test_issue_optimizer_validates_format_and_apply_bodies() -> None:
         "python workflows-scripts/.github/scripts/issue_format.py /tmp/updated_body.md"
         in consumer_text
     )
+    for workflow in (text, consumer_text):
+        assert "format_validation_report.md" in workflow
+        assert "**Format validation report:**" in workflow
+        assert 'gh issue comment "${ISSUE_NUMBER}" --body-file -' in workflow
 
 
 def test_format_guard_deduplicates_inflight_optimizer_dispatch() -> None:
