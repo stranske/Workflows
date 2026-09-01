@@ -6,6 +6,11 @@
 # never re-evaluated. This periodic sweep re-runs the loop for every open PR carrying an
 # `agent:*` label, so stalls resurface on their own.
 #
+# Mode split (#3299): consolidated repos (`vars.USE_CONSOLIDATED_WORKFLOWS == 'true'`) and
+# non-consolidated repos (`!= 'true'`, including unset) each get an hourly re-evaluation
+# job. Previously only consolidated mode ran; non-consolidated repos had no periodic path
+# and a missed initial dispatch stranded eligible PRs forever.
+#
 # Safety: this only *dispatches the existing loop* — it makes no dispatch decision of its
 # own. The loop's state-fingerprint/debounce makes an unchanged PR a near-free no-op, and
 # the operator guardrails (`agents:paused` / `needs-human` / `agents:max-runs:0`) ensure
@@ -34,10 +39,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  sweep:
-    name: Re-evaluate stalled agent PRs
+  # Always runs so a skipped mode job is distinguishable from a healthy quiet
+  # re-evaluation (0 eligible PRs). GitHub's job-level `if:` skip leaves no
+  # summary of its own; this job names the inactive path explicitly.
+  name_mode:
+    name: Name keepalive sweep mode
     runs-on: ubuntu-latest
-    # Consumers run the loop via agents-81 only in consolidated mode.
+    steps:
+      - name: Write named mode / skip reason to run summary
+        env:
+          USE_CONSOLIDATED: ${{ vars.USE_CONSOLIDATED_WORKFLOWS }}
+        run: |
+          if [ "${USE_CONSOLIDATED}" = "true" ]; then
+            {
+              echo "Keepalive sweep mode: consolidated (vars.USE_CONSOLIDATED_WORKFLOWS=='true')."
+              echo "Skipped job: sweep_nonconsolidated (consolidated path owns periodic re-evaluation)."
+            } >> "${GITHUB_STEP_SUMMARY}"
+          else
+            {
+              echo "Keepalive sweep mode: non-consolidated fallback (vars.USE_CONSOLIDATED_WORKFLOWS != 'true', including unset)."
+              echo "Active job: sweep_nonconsolidated — periodic re-evaluation runs for eligible agent PRs."
+              echo "Skipped job: sweep_consolidated — vars.USE_CONSOLIDATED_WORKFLOWS unset — no periodic re-evaluation in this repo via the consolidated path."
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+  sweep_consolidated:
+    name: Re-evaluate stalled agent PRs (consolidated)
+    runs-on: ubuntu-latest
     if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true'
     steps:
       - name: Checkout API client helpers
@@ -174,8 +202,149 @@ jobs:
             }
             await core.summary
               .addRaw(
-                `Keepalive sweep: ${eligible.length} agent PR(s) eligible, ` +
-                `${dispatched} re-evaluated, ${challenged} due authority claim(s) challenged ` +
-                `(dry_run=${dryRun}).`,
+                `Keepalive sweep (consolidated mode; vars.USE_CONSOLIDATED_WORKFLOWS=='true'): ` +
+                `${eligible.length} agent PR(s) eligible, ${dispatched} re-evaluated, ` +
+                `${challenged} due authority claim(s) challenged (dry_run=${dryRun}).`,
+              )
+              .write();
+
+  sweep_nonconsolidated:
+    name: Re-evaluate stalled agent PRs (non-consolidated)
+    runs-on: ubuntu-latest
+    if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true'
+    steps:
+      - name: Checkout API client helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/error_classifier.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/keepalive_challenge_due.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Dispatch keepalive loop for open agent PRs
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          AUTHORITY_CHALLENGE_SIGNING_KEY: >-
+            ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const crypto = require('node:crypto');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const {
+              selectDueAuthorityChallenge,
+              signAuthorityChallengeClaim,
+            } = require('./.github/scripts/keepalive_challenge_due.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'consumer-keepalive-sweep-nonconsolidated',
+            });
+            const dryRun = String(
+              (context.payload.inputs && context.payload.inputs.dry_run) || 'false',
+            ) === 'true';
+            const { owner, repo } = context.repo;
+            const repository = `${owner}/${repo}`;
+            const sweepRunId = process.env.GITHUB_RUN_ID || '';
+            const sweepRunAttempt = process.env.GITHUB_RUN_ATTEMPT || '';
+            const signingKey = process.env.AUTHORITY_CHALLENGE_SIGNING_KEY || '';
+            const prs = await withRetry((client) => client.paginate(client.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            }));
+            const eligible = prs.filter((pr) =>
+              !pr.draft && (pr.labels || []).some((l) => /^agent:/i.test(l.name || '')),
+            );
+            core.info(
+              'Non-consolidated mode (vars.USE_CONSOLIDATED_WORKFLOWS != \'true\'): ' +
+              `Open PRs: ${prs.length}; non-draft agent-labelled: ${eligible.length}`,
+            );
+            let dispatched = 0;
+            let challenged = 0;
+            for (const pr of eligible) {
+              if (dryRun) {
+                core.info(`[dry-run] would re-evaluate PR #${pr.number}`);
+                continue;
+              }
+              try {
+                let dueChallenge = null;
+                if ((pr.labels || []).some((label) => label.name === 'agent:needs-attention')) {
+                  const comments = await withRetry((client) => client.paginate(
+                    client.rest.issues.listComments,
+                    { owner, repo, issue_number: pr.number, per_page: 100 },
+                  ));
+                  dueChallenge = selectDueAuthorityChallenge({
+                    labels: pr.labels || [],
+                    comments,
+                    now: new Date(),
+                  });
+                }
+                let authorityClaim = {};
+                if (dueChallenge) {
+                  const nonce = crypto.randomBytes(32).toString('hex');
+                  const signature = signAuthorityChallengeClaim({
+                    signingKey,
+                    repository,
+                    prNumber: pr.number,
+                    boundaryFingerprint: dueChallenge.boundaryFingerprint,
+                    nonce,
+                    sweepRunId,
+                    sweepRunAttempt,
+                  });
+                  if (!signature) {
+                    core.warning(
+                      `PR #${pr.number}: due authority challenge cannot be signed; ` +
+                      'dispatching only an ordinary non-forced sweep recheck.',
+                    );
+                    dueChallenge = null;
+                  } else {
+                    challenged += 1;
+                    core.info(
+                      `PR #${pr.number}: independently rechecking signed authority claim ` +
+                      `(due ${dueChallenge.dueAt}; ${dueChallenge.nextAction || dueChallenge.key || 'no detail'})`,
+                    );
+                    authorityClaim = {
+                      authority_challenge_claim: JSON.stringify({
+                        signature,
+                        nonce,
+                        sweep_run_id: sweepRunId,
+                        sweep_run_attempt: sweepRunAttempt,
+                      }),
+                    };
+                  }
+                }
+                await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+                  owner,
+                  repo,
+                  workflow_id: 'agents-81-gate-followups.yml',
+                  ref: context.payload.repository.default_branch,
+                  inputs: {
+                    pr_number: String(pr.number),
+                    force_retry: String(Boolean(dueChallenge)),
+                    sweep_recheck: 'true',
+                    authority_challenge_fingerprint:
+                      dueChallenge?.boundaryFingerprint || '',
+                    ...authorityClaim,
+                  },
+                }));
+                dispatched += 1;
+              } catch (error) {
+                core.warning(`Failed to dispatch loop for PR #${pr.number}: ${error.message}`);
+              }
+            }
+            await core.summary
+              .addRaw(
+                `Keepalive sweep (non-consolidated mode; vars.USE_CONSOLIDATED_WORKFLOWS != 'true'): ` +
+                `${eligible.length} agent PR(s) eligible, ${dispatched} re-evaluated, ` +
+                `${challenged} due authority claim(s) challenged (dry_run=${dryRun}).`,
               )
               .write();
