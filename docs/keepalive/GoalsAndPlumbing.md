@@ -64,7 +64,7 @@ Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label
 | **Consumer consolidated** | `== 'true'` | `sweep_consolidated` | `agents-81-gate-followups.yml` |
 | **Consumer non-consolidated** | `!= 'true'` or unset | `sweep_nonconsolidated` | `agents-81-gate-followups.yml` |
 
-The sweep makes no dispatch decision of its own — it only re-runs the loop. Unchanged PRs are near-free no-ops via state fingerprint/debounce. Run summaries name the active mode so a structurally quiet sweep (`vars.USE_CONSOLIDATED_WORKFLOWS unset — no periodic re-evaluation`) is distinguishable from a healthy quiet one.
+The sweep makes no dispatch decision of its own — it only re-runs the loop. Unchanged PRs are near-free no-ops via state fingerprint/debounce. The consumer template always runs a `name_mode` job that records which path is active and which is skipped, so a structurally inactive path (`vars.USE_CONSOLIDATED_WORKFLOWS unset — no periodic re-evaluation in this repo` via the consolidated job) is distinguishable from a healthy quiet re-evaluation (fallback or consolidated job ran; 0 eligible PRs).
 
 `agent:auto` delegation policy reads capacity on **keepalive ticks** (`docs/LABELS.md`); those ticks come from the sweep jobs above in each mode, not from a silent workflow skip.
 

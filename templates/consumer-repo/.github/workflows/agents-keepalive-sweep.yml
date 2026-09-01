@@ -39,6 +39,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Always runs so a skipped mode job is distinguishable from a healthy quiet
+  # re-evaluation (0 eligible PRs). GitHub's job-level `if:` skip leaves no
+  # summary of its own; this job names the inactive path explicitly.
+  name_mode:
+    name: Name keepalive sweep mode
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write named mode / skip reason to run summary
+        env:
+          USE_CONSOLIDATED: ${{ vars.USE_CONSOLIDATED_WORKFLOWS }}
+        run: |
+          if [ "${USE_CONSOLIDATED}" = "true" ]; then
+            {
+              echo "Keepalive sweep mode: consolidated (vars.USE_CONSOLIDATED_WORKFLOWS=='true')."
+              echo "Skipped job: sweep_nonconsolidated (consolidated path owns periodic re-evaluation)."
+            } >> "${GITHUB_STEP_SUMMARY}"
+          else
+            {
+              echo "Keepalive sweep mode: non-consolidated fallback (vars.USE_CONSOLIDATED_WORKFLOWS != 'true', including unset)."
+              echo "Active job: sweep_nonconsolidated — periodic re-evaluation runs for eligible agent PRs."
+              echo "Skipped job: sweep_consolidated — vars.USE_CONSOLIDATED_WORKFLOWS unset — no periodic re-evaluation in this repo via the consolidated path."
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
   sweep_consolidated:
     name: Re-evaluate stalled agent PRs (consolidated)
     runs-on: ubuntu-latest
