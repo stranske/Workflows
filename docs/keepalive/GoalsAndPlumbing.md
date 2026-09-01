@@ -56,7 +56,7 @@ Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
 ### Periodic re-evaluation (keepalive sweep)
 
-Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label event fires. The hourly `agents-keepalive-sweep.yml` workflow dispatches the existing keepalive loop for every open non-draft PR carrying an `agent:*` label:
+Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label event fires. The hourly `agents-keepalive-sweep.yml` workflow selects every open non-draft PR carrying an `agent:*` label and dispatches the PR's registered evaluation workflow:
 
 | Mode | `vars.USE_CONSOLIDATED_WORKFLOWS` | Sweep job | Loop dispatched |
 |------|-----------------------------------|-----------|-----------------|
@@ -64,7 +64,7 @@ Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label
 | **Consumer consolidated** | `== 'true'` | `sweep_consolidated` | `agents-81-gate-followups.yml` |
 | **Consumer non-consolidated** | `!= 'true'` or unset | `sweep_nonconsolidated` | `agents-81-gate-followups.yml` |
 
-The sweep makes no dispatch decision of its own — it only re-runs the loop. Unchanged PRs are near-free no-ops via state fingerprint/debounce. The consumer template always runs a `name_mode` job that records which path is active and which is skipped, so a structurally inactive path (`vars.USE_CONSOLIDATED_WORKFLOWS unset — no periodic re-evaluation in this repo` via the consolidated job) is distinguishable from a healthy quiet re-evaluation (fallback or consolidated job ran; 0 eligible PRs).
+The sweep makes no new routing decision — it re-dispatches the PR's already-registered evaluation workflow. Consolidated mode dispatches `agents-keepalive-loop.yml` directly (the full guardrail-and-dispatch loop). Non-consolidated mode dispatches `agents-81-gate-followups.yml`, which triggers a gate-followup evaluation; the keepalive loop's guardrail check runs as part of that dispatch, not as a standalone wakeup. Unchanged PRs are near-free no-ops via state fingerprint/debounce. The consumer template always runs a `name_mode` job that records which path is active and which is skipped, so a structurally inactive path (`vars.USE_CONSOLIDATED_WORKFLOWS unset — no periodic re-evaluation in this repo` via the consolidated job) is distinguishable from a healthy quiet re-evaluation (fallback or consolidated job ran; 0 eligible PRs).
 
 `agent:auto` delegation policy reads capacity on **keepalive ticks** (`docs/LABELS.md`); those ticks come from the sweep jobs above in each mode, not from a silent workflow skip.
 
