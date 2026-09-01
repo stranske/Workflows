@@ -54,6 +54,20 @@ Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
 > **Multi-Agent Note:** The `agent:*` label determines which agent workflow runs. See [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) for details.
 
+### Periodic re-evaluation (keepalive sweep)
+
+Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label event fires. The hourly `agents-keepalive-sweep.yml` workflow dispatches the existing keepalive loop for every open non-draft PR carrying an `agent:*` label:
+
+| Mode | `vars.USE_CONSOLIDATED_WORKFLOWS` | Sweep job | Loop dispatched |
+|------|-----------------------------------|-----------|-----------------|
+| **Root Workflows repo** | `!= 'true'` (default) | root `agents-keepalive-sweep.yml` | `agents-keepalive-loop.yml` |
+| **Consumer consolidated** | `== 'true'` | `sweep_consolidated` | `agents-81-gate-followups.yml` |
+| **Consumer non-consolidated** | `!= 'true'` or unset | `sweep_nonconsolidated` | `agents-81-gate-followups.yml` |
+
+The sweep makes no dispatch decision of its own — it only re-runs the loop. Unchanged PRs are near-free no-ops via state fingerprint/debounce. Run summaries name the active mode so a structurally quiet sweep (`vars.USE_CONSOLIDATED_WORKFLOWS unset — no periodic re-evaluation`) is distinguishable from a healthy quiet one.
+
+`agent:auto` delegation policy reads capacity on **keepalive ticks** (`docs/LABELS.md`); those ticks come from the sweep jobs above in each mode, not from a silent workflow skip.
+
 ---
 
 ## 2. Repeat Contract
