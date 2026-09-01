@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.11](https://github.com/stranske/Workflows/compare/v1.30.10...v1.30.11) (2026-08-31)
+
+
+### Bug Fixes
+
+* harden issue auto-label matching ([4fde8af](https://github.com/stranske/Workflows/commit/4fde8af828aeae519114f211864ab947213c55b5))
+* **issue-bridge:** prevent empty-diff bootstrap poison-pill loop ([#3295](https://github.com/stranske/Workflows/issues/3295)) ([c106b57](https://github.com/stranske/Workflows/commit/c106b57690ab89d4b353dd32f2d254aed9d382e6))
+
 ## [1.30.10](https://github.com/stranske/Workflows/compare/v1.30.9...v1.30.10) (2026-08-31)
 
 
