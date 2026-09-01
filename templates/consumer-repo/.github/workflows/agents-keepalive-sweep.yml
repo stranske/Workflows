@@ -265,7 +265,7 @@ jobs:
               !pr.draft && (pr.labels || []).some((l) => /^agent:/i.test(l.name || '')),
             );
             core.info(
-              'Non-consolidated mode (vars.USE_CONSOLIDATED_WORKFLOWS != true): ' +
+              'Non-consolidated mode (vars.USE_CONSOLIDATED_WORKFLOWS != \'true\'): ' +
               `Open PRs: ${prs.length}; non-draft agent-labelled: ${eligible.length}`,
             );
             let dispatched = 0;
