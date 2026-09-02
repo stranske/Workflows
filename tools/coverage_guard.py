@@ -351,7 +351,7 @@ _This issue is automatically updated by the coverage guard workflow._
 def _format_recovery_body(current: float, baseline: float, delta: float, run_url: str) -> str:
     """Format a concise recovery comment for closing a breach issue."""
     source_line = f"\n\n[Gate Workflow Run]({run_url})" if run_url else ""
-    return f"""Coverage has recovered above the configured baseline.
+    return f"""Coverage has recovered to the configured warning threshold.
 
 | Metric | Value |
 |--------|-------|
@@ -686,6 +686,7 @@ def main(args: list[str] | None = None) -> int:
         return 0
     delta = current - baseline
     warn_drop = load_baseline(parsed.baseline_path).warn_drop
+    recovery_threshold = baseline - warn_drop
     configured_recovery_window = max(
         1,
         _to_int(
@@ -735,13 +736,13 @@ def main(args: list[str] | None = None) -> int:
         if current < baseline:
             print(
                 f"Coverage {current:.2f}% has not fallen more than {warn_drop:.2f} points "
-                f"below baseline {baseline:.2f}% - no new issue needed"
+                f"below baseline {baseline:.2f}% - evaluating recovery-window closure"
             )
-            return 0
-        print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no open issue needed")
+        else:
+            print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no open issue needed")
         if not _recovery_window_satisfied(
             trend_data,
-            baseline,
+            recovery_threshold,
             configured_recovery_window,
             history_records,
         ):
