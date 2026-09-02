@@ -179,7 +179,8 @@ def _extract_token_usage(entry: dict[str, Any]) -> float | None:
                 return None
             numbers.append(number)
         if numbers:
-            return sum(numbers)
+            total = sum(numbers)
+            return total if math.isfinite(total) else None
         return None
     return _safe_float(token_usage)
 

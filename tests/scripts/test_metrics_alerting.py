@@ -1,19 +1,11 @@
 from __future__ import annotations
 
 import importlib
-import importlib.util
 import json
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import ModuleType
 
 import pytest
-
-if importlib.util.find_spec("requests") is None:
-    requests_stub = ModuleType("requests")
-    requests_stub.__dict__["post"] = None
-    sys.modules["requests"] = requests_stub
 
 metrics_alerting = importlib.import_module("scripts.metrics_alerting")
 
@@ -447,6 +439,12 @@ def test_extract_token_usage_handles_totals_components_and_scalars() -> None:
     assert (
         metrics_alerting._extract_token_usage(
             {"token_usage": {"input_tokens": 10**400, "output_tokens": 10}}
+        )
+        is None
+    )
+    assert (
+        metrics_alerting._extract_token_usage(
+            {"token_usage": {"input_tokens": 1e308, "output_tokens": 1e308}}
         )
         is None
     )
