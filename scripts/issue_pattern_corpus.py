@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -43,16 +44,19 @@ class CorpusCriteria:
 
 
 def _safe_float(value: Any) -> float | None:
-    if value is None or value == "":
+    if value is None or value == "" or isinstance(value, bool):
         return None
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _safe_int(value: Any) -> int | None:
-    if value is None or value == "":
+    if value is None or value == "" or isinstance(value, bool):
+        return None
+    if isinstance(value, float) and not value.is_integer():
         return None
     try:
         return int(value)
@@ -159,6 +163,8 @@ def _split_sections(formatted_body: str) -> dict[str, list[str]]:
     current: str | None = None
     for line in formatted_body.splitlines():
         heading = line.strip()
+        if heading.lower().startswith("<details"):
+            break
         for key, header in SECTION_HEADERS.items():
             if heading == header:
                 current = key
@@ -180,11 +186,12 @@ def _section_has_content(section_key: str, lines: list[str]) -> bool:
 def _count_checklist_items(lines: list[str]) -> int:
     count = 0
     for line in lines:
-        if line.strip() == SUCCESS_PLACEHOLDERS["tasks"]:
+        if line.strip() in (
+            SUCCESS_PLACEHOLDERS["tasks"],
+            SUCCESS_PLACEHOLDERS["acceptance"],
+        ):
             return 0
-        if line.strip() == SUCCESS_PLACEHOLDERS["acceptance"]:
-            return 0
-        if line.strip().startswith("- [") and "]" in line or line.strip().startswith("- ["):
+        if line.strip().startswith("- [") and "]" in line:
             count += 1
     return count
 
