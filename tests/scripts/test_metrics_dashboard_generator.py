@@ -1,8 +1,20 @@
 import datetime as dt
+import importlib
+import importlib.util
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
-from scripts import metrics_dashboard_generator as generator
+
+# Gate's deliberate-break job intentionally installs only pytest. Keep the pure
+# dashboard-helper checks collectable there without weakening production imports.
+if importlib.util.find_spec("jsonschema") is None:
+    jsonschema_stub = ModuleType("jsonschema")
+    jsonschema_stub.__dict__["Draft202012Validator"] = object
+    sys.modules["jsonschema"] = jsonschema_stub
+
+generator = importlib.import_module("scripts.metrics_dashboard_generator")
 
 _FLEET_FIXTURE_NOW = dt.datetime(2026, 5, 25, tzinfo=dt.UTC)
 
