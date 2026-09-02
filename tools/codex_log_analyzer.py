@@ -244,7 +244,11 @@ def _first_matching_file(file_refs: list[str], files_changed: list[str]) -> str 
         for changed in files_changed:
             changed_lower = changed.lower()
             changed_base = changed_lower.split("/")[-1]
-            if changed_base == ref_base or changed_lower.endswith(ref_lower):
+            if (
+                changed_base == ref_base
+                or changed_lower == ref_lower
+                or changed_lower.endswith("/" + ref_lower)
+            ):
                 return changed
     return None
 

@@ -6,6 +6,7 @@ from tools.codex_log_analyzer import (
     _expand_synonyms,
     _extract_file_refs,
     _extract_tasks_from_markdown,
+    _first_matching_file,
     _has_exact_file_match,
     _has_test_module_match,
     _match_tasks_to_evidence,
@@ -101,6 +102,20 @@ def test_has_exact_file_match_matches_by_basename_across_directories() -> None:
     """A bare filename reference matches a changed file in any directory."""
     assert _has_exact_file_match(["auth.py"], ["src/deep/nested/auth.py"]) is True
     assert _has_exact_file_match(["auth.py"], ["src/other.py"]) is False
+
+
+def test_first_matching_file_suffix_check_requires_path_boundary() -> None:
+    """The suffix fallback must not fire on a bare substring match.
+
+    "src/subtest.py" ends with the literal string "test.py" without being a
+    nested path that ends in "/test.py" -- subtest.py is an unrelated file.
+    A nested-path reference must still match at a real path boundary, and a
+    basename match across directories must still work.
+    """
+    assert _first_matching_file(["test.py"], ["src/subtest.py"]) is None
+    matched = _first_matching_file(["auth.py"], ["src/deep/nested/auth.py"])
+    assert matched == "src/deep/nested/auth.py"
+    assert _first_matching_file(["src/auth.py"], ["src/auth.py"]) == "src/auth.py"
 
 
 def test_build_summary_reports_no_changes_detected() -> None:
