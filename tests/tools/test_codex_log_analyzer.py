@@ -118,6 +118,13 @@ def test_has_exact_file_match_suffix_check_requires_path_boundary() -> None:
     assert _has_exact_file_match(["src/auth.py"], ["src/auth.py"]) is True
 
 
+def test_exact_file_match_normalizes_windows_path_boundaries() -> None:
+    """Windows paths preserve bare-filename matching and exact evidence paths."""
+    changed = r"src\deep\auth.py"
+    assert _has_exact_file_match(["auth.py"], [changed]) is True
+    assert _first_matching_file(["auth.py"], [changed]) == changed
+
+
 def test_build_summary_reports_no_changes_detected() -> None:
     """With no matches and no file changes, the summary says nothing changed."""
     assert _build_summary([], []) == "No changes detected in codex log"
