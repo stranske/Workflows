@@ -1070,6 +1070,32 @@ async function run({ github, context, core }) {
     }
   }
 
+  async function findOpenUpstreamSyncReviewIssue(upstreamPaths = []) {
+    const repoSlug = `${context.repo.owner}/${context.repo.repo}`;
+    for (const threadPath of upstreamPaths) {
+      try {
+        const { data } = await withRetry((client) => client.rest.search.issuesAndPullRequests({
+          q: `repo:${repoSlug} is:issue is:open label:consumer-sync "${threadPath}" in:body`,
+          per_page: 10,
+          sort: 'updated',
+          order: 'desc',
+        }));
+        const match = (data.items || []).find((item) =>
+          String(item.title || '').startsWith('[sync-review]')
+          && !item.pull_request,
+        );
+        if (match) {
+          return match.number;
+        }
+      } catch (error) {
+        core.warning(
+          `Unable to search upstream sync-review issues for ${threadPath}: ${error.message || error}`,
+        );
+      }
+    }
+    return null;
+  }
+
   async function autoResolveSyncBotThreadsAndFileUpstream({
     owner,
     repo,
@@ -1109,14 +1135,24 @@ async function run({ github, context, core }) {
         console.log(`Would file upstream Workflows issue for ${upstreamPaths.join(', ')}`);
       } else {
         try {
-          const { data: issue } = await withRetry((client) => client.rest.issues.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            title,
-            body,
-            labels: ['automation', 'consumer-sync'],
-          }));
-          filedIssue = issue.number;
+          filedIssue = await findOpenUpstreamSyncReviewIssue(upstreamPaths);
+          if (filedIssue) {
+            await withRetry((client) => client.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: filedIssue,
+              body,
+            }));
+          } else {
+            const { data: issue } = await withRetry((client) => client.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['automation', 'consumer-sync'],
+            }));
+            filedIssue = issue.number;
+          }
         } catch (error) {
           errors.push(`issue_create:${error.message || error}`);
         }
@@ -2157,8 +2193,8 @@ async function run({ github, context, core }) {
         repo,
         pr.number,
       );
-      const activeReviewThreads = reviewThreadDetails.count;
-      const deliveryState = classifyGeneratedPr({
+      let activeReviewThreads = reviewThreadDetails.count;
+      let deliveryState = classifyGeneratedPr({
         pr,
         checkState: classification,
         activeReviewThreadCount: activeReviewThreads,
@@ -2203,6 +2239,7 @@ async function run({ github, context, core }) {
   
       if (deliveryState.disposition === 'review-blocked') {
         console.log(`Active review threads block merge: ${activeReviewThreads}`);
+        let reviewStillBlocked = true;
         if (deliveryState.next_command === AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND) {
           const autoResolve = await autoResolveSyncBotThreadsAndFileUpstream({
             owner,
@@ -2215,19 +2252,35 @@ async function run({ github, context, core }) {
           deliveryContext.review_upstream_issue = autoResolve.filedIssue;
           if (autoResolve.resolved.length) {
             const refreshedThreads = await fetchActiveReviewThreads(owner, repo, pr.number);
-            if (refreshedThreads.count === 0) {
+            activeReviewThreads = refreshedThreads.count;
+            deliveryState = classifyGeneratedPr({
+              pr,
+              checkState: classification,
+              activeReviewThreadCount: refreshedThreads.count,
+              reviewThreads: refreshedThreads.threads,
+              manifestSources,
+              now: new Date().toISOString(),
+            });
+            deliveryContext.delivery_disposition = deliveryState.disposition;
+            deliveryContext.blocker_owner = deliveryState.blocker_owner;
+            deliveryContext.next_command = deliveryState.next_command;
+            reviewStillBlocked = deliveryState.disposition === 'review-blocked';
+            if (!reviewStillBlocked) {
               console.log(
-                `Auto-resolved ${autoResolve.resolved.length} bot thread(s); delivery can continue next run`,
+                `Auto-resolved ${autoResolve.resolved.length} bot thread(s); ` +
+                  `disposition now ${deliveryState.disposition}`,
               );
             }
           }
         }
-        results.push({
-          ...deliveryContext,
-          status: 'review_blocked',
-          active_review_thread_count: activeReviewThreads,
-        });
-        continue;
+        if (reviewStillBlocked) {
+          results.push({
+            ...deliveryContext,
+            status: 'review_blocked',
+            active_review_thread_count: activeReviewThreads,
+          });
+          continue;
+        }
       }
   
       const stableDelivery = isStableSyncBranchName(pr.head.ref);

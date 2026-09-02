@@ -734,8 +734,8 @@ def main(args: list[str] | None = None) -> int:
     else:
         if current < baseline:
             print(
-                f"Coverage {current:.2f}% is within the configured {warn_drop:.2f}-point "
-                f"drop allowance below baseline {baseline:.2f}% - no new issue needed"
+                f"Coverage {current:.2f}% has not fallen more than {warn_drop:.2f} points "
+                f"below baseline {baseline:.2f}% - no new issue needed"
             )
             return 0
         print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no open issue needed")
