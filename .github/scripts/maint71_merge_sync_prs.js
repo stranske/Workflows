@@ -441,12 +441,21 @@ async function run({ github, context, core }) {
   const defaultOwner = context.repo.owner;
   const fs = require('fs');
   const path = require('path');
+  let manifestSources = new Set();
+  try {
+    const manifestPath = path.join(__dirname, '..', 'sync-manifest.yml');
+    manifestSources = parseManifestSyncedSources(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (error) {
+    core.warning(`Unable to read sync manifest for review routing: ${error.message || error}`);
+  }
   // Sibling-relative paths: this module lives under .github/scripts/, so
   // require('./.github/scripts/...') would resolve to a nested non-existent path.
   const retryHelperPath = path.join(__dirname, 'github-api-with-retry.js');
   const {
     buildMarkdownSummary,
     buildMergeReport,
+    AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
+    classifyReviewBlockedDisposition,
     hasCampaignCommitAuthorization,
     campaignAuthorizationAllowsMerge,
     campaignAuthorizationRowForRepository,
@@ -461,9 +470,11 @@ async function run({ github, context, core }) {
     generatedDeliveryRequiresVerifiedHead,
     generatedPrsForSyncSelector,
     isBlockingSyncSystemFailure,
+    isManifestSyncedPath,
     isStableSyncBranchName,
     normalizeSyncHash,
     parseBooleanInput,
+    parseManifestSyncedSources,
     parsePromotionEvidenceFromCommitMessage,
     requiresStrictGateBranchUpdate,
     requiredContextsFromRulesets,
@@ -1012,6 +1023,11 @@ async function run({ github, context, core }) {
   }
   
   async function activeReviewThreadCount(owner, repo, number) {
+    const details = await fetchActiveReviewThreads(owner, repo, number);
+    return details.count;
+  }
+
+  async function fetchActiveReviewThreads(owner, repo, number) {
     try {
       const data = await github.graphql(
         `query($owner: String!, $repo: String!, $number: Int!) {
@@ -1019,7 +1035,18 @@ async function run({ github, context, core }) {
             pullRequest(number: $number) {
               reviewThreads(first: 100) {
                 pageInfo { hasNextPage }
-                nodes { isResolved isOutdated }
+                nodes {
+                  id
+                  path
+                  isResolved
+                  isOutdated
+                  comments(first: 10) {
+                    nodes {
+                      path
+                      author { login }
+                    }
+                  }
+                }
               }
             }
           }
@@ -1031,15 +1058,117 @@ async function run({ github, context, core }) {
         core.warning(
           `Review-thread pagination exceeded the safe evidence window for ${owner}/${repo}#${number}`,
         );
-        return -1;
+        return { count: -1, threads: [] };
       }
-      return reviewThreads.nodes.filter(
+      const threads = (reviewThreads.nodes || []).filter(
         (thread) => !thread.isResolved && !thread.isOutdated,
-      ).length;
+      );
+      return { count: threads.length, threads };
     } catch (error) {
       core.warning(`Unable to read active review threads for ${owner}/${repo}#${number}: ${error}`);
-      return -1;
+      return { count: -1, threads: [] };
     }
+  }
+
+  async function autoResolveSyncBotThreadsAndFileUpstream({
+    owner,
+    repo,
+    pr,
+    reviewThreads,
+  }) {
+    const reviewBlock = classifyReviewBlockedDisposition({
+      activeReviewThreadCount: reviewThreads.length,
+      reviewThreads,
+      manifestSources,
+    });
+    if (reviewBlock?.next_command !== AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND) {
+      return { resolved: [], filedIssue: null, errors: ['not_auto_resolvable'] };
+    }
+
+    const resolved = [];
+    const errors = [];
+    const upstreamPaths = [...new Set(
+      reviewThreads
+        .map((thread) => String(thread.path || '').trim())
+        .filter((threadPath) => isManifestSyncedPath(threadPath, manifestSources)),
+    )];
+    let filedIssue = null;
+    if (upstreamPaths.length) {
+      const title = `[sync-review] Fix upstream manifest-synced paths blocking ${owner}/${repo}#${pr.number}`;
+      const body = [
+        '## Upstream sync review debt',
+        '',
+        `Consumer delivery PR: ${owner}/${repo}#${pr.number}`,
+        '',
+        'Manifest-synced paths with unresolved bot review threads:',
+        ...upstreamPaths.map((threadPath) => `- \`${threadPath}\` (source: \`stranske/Workflows/${threadPath}\`)`),
+        '',
+        'Fix these paths in Workflows main so the next sync regeneration outdates the consumer threads.',
+      ].join('\n');
+      if (dryRun) {
+        console.log(`Would file upstream Workflows issue for ${upstreamPaths.join(', ')}`);
+      } else {
+        try {
+          const { data: issue } = await withRetry((client) => client.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title,
+            body,
+            labels: ['automation', 'consumer-sync'],
+          }));
+          filedIssue = issue.number;
+        } catch (error) {
+          errors.push(`issue_create:${error.message || error}`);
+        }
+      }
+    }
+
+    for (const thread of reviewThreads) {
+      const threadPath = String(thread.path || '').trim();
+      if (!thread.id || !isManifestSyncedPath(threadPath, manifestSources)) {
+        continue;
+      }
+      if (dryRun) {
+        console.log(`Would resolve thread ${thread.id} on ${threadPath}`);
+        resolved.push(thread.id);
+        continue;
+      }
+      try {
+        await withRetry((client) => client.graphql(
+          `mutation($threadId: ID!) {
+            resolveReviewThread(input: {threadId: $threadId}) {
+              thread { id isResolved }
+            }
+          }`,
+          { threadId: thread.id },
+        ));
+        resolved.push(thread.id);
+      } catch (error) {
+        errors.push(`${thread.id}:${error.message || error}`);
+      }
+    }
+    if (resolved.length && !dryRun) {
+      const summary = [
+        'Maint 71 auto-resolved bot review thread(s) on manifest-synced content.',
+        ...resolved.map((threadId) => {
+          const thread = reviewThreads.find((item) => item.id === threadId);
+          const threadPath = String(thread?.path || '').trim();
+          return `- \`${threadPath}\` → upstream \`stranske/Workflows/${threadPath}\``;
+        }),
+        filedIssue ? `Upstream tracking issue: #${filedIssue}` : '',
+      ].filter(Boolean).join('\n');
+      try {
+        await withRetry((client) => client.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: pr.number,
+          body: summary,
+        }));
+      } catch (error) {
+        errors.push(`summary_comment:${error.message || error}`);
+      }
+    }
+    return { resolved, filedIssue, errors };
   }
 
   async function holdReadyStableDelivery({ owner, repo, pr }) {
@@ -1214,7 +1343,18 @@ async function run({ github, context, core }) {
             updatedAt
             reviewThreads(first: 100) {
               pageInfo { hasNextPage }
-              nodes { isResolved isOutdated }
+              nodes {
+                id
+                path
+                isResolved
+                isOutdated
+                comments(first: 10) {
+                  nodes {
+                    path
+                    author { login }
+                  }
+                }
+              }
             }
           }
         }
@@ -1298,16 +1438,18 @@ async function run({ github, context, core }) {
       };
     }
     const reviewThreads = freshPr?.reviewThreads;
+    const activeThreadNodes = (reviewThreads?.nodes || []).filter(
+      (thread) => !thread.isResolved && !thread.isOutdated,
+    );
     const activeReviewThreads = reviewThreads?.pageInfo?.hasNextPage
       ? -1
-      : (reviewThreads?.nodes || []).filter(
-          (thread) => !thread.isResolved && !thread.isOutdated,
-        ).length;
+      : activeThreadNodes.length;
     if (activeReviewThreads !== 0) {
       return {
         ok: false,
         reason: 'review_blocked',
         activeReviewThreads,
+        reviewThreads: activeThreadNodes,
         freshHeadSha: freshPr.headRefOid,
       };
     }
@@ -2010,15 +2152,18 @@ async function run({ github, context, core }) {
         pr,
         deliveryRecord,
       });
-      const activeReviewThreads = await activeReviewThreadCount(
+      const reviewThreadDetails = await fetchActiveReviewThreads(
         owner,
         repo,
         pr.number,
       );
+      const activeReviewThreads = reviewThreadDetails.count;
       const deliveryState = classifyGeneratedPr({
         pr,
         checkState: classification,
         activeReviewThreadCount: activeReviewThreads,
+        reviewThreads: reviewThreadDetails.threads,
+        manifestSources,
         now: new Date().toISOString(),
       });
       const deliveryContext = {
@@ -2058,6 +2203,25 @@ async function run({ github, context, core }) {
   
       if (deliveryState.disposition === 'review-blocked') {
         console.log(`Active review threads block merge: ${activeReviewThreads}`);
+        if (deliveryState.next_command === AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND) {
+          const autoResolve = await autoResolveSyncBotThreadsAndFileUpstream({
+            owner,
+            repo,
+            pr,
+            reviewThreads: reviewThreadDetails.threads,
+          });
+          deliveryContext.review_auto_resolved_thread_ids = autoResolve.resolved;
+          deliveryContext.review_auto_resolve_errors = autoResolve.errors;
+          deliveryContext.review_upstream_issue = autoResolve.filedIssue;
+          if (autoResolve.resolved.length) {
+            const refreshedThreads = await fetchActiveReviewThreads(owner, repo, pr.number);
+            if (refreshedThreads.count === 0) {
+              console.log(
+                `Auto-resolved ${autoResolve.resolved.length} bot thread(s); delivery can continue next run`,
+              );
+            }
+          }
+        }
         results.push({
           ...deliveryContext,
           status: 'review_blocked',
@@ -2422,13 +2586,20 @@ async function run({ github, context, core }) {
             review_window_eligible_at: finalGate.reviewWindow?.eligible_at || '',
           });
         } else if (finalGate.reason === 'review_blocked') {
+          const reviewBlock = classifyReviewBlockedDisposition({
+            activeReviewThreadCount: finalGate.activeReviewThreads,
+            reviewThreads: finalGate.reviewThreads || [],
+            manifestSources,
+          });
           results.push({
             ...deliveryContext,
             delivery_disposition: 'review-blocked',
-            blocker_owner: 'closer',
-            next_command: finalGate.activeReviewThreads < 0
-              ? 'retry-review-thread-query'
-              : 'resolve-active-review-threads',
+            blocker_owner: reviewBlock?.blocker_owner || 'closer',
+            next_command: reviewBlock?.next_command || (
+              finalGate.activeReviewThreads < 0
+                ? 'retry-review-thread-query'
+                : 'resolve-active-review-threads'
+            ),
             status: 'review_blocked',
             active_review_thread_count: finalGate.activeReviewThreads,
           });

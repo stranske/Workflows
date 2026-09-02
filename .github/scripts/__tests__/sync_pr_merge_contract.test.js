@@ -19,6 +19,9 @@ const {
   hasCampaignCommitAuthorization,
   classifyDeliveryContinuation,
   classifyGeneratedPr,
+  classifyReviewBlockedDisposition,
+  AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
+  parseManifestSyncedSources,
   classifySyncPrChecks,
   commitSignatureAllowsMerge,
   collectDeletableSyncBranches,
@@ -2132,6 +2135,62 @@ test('generated delivery classification gives sync and dev-tool lanes identical 
     classifyGeneratedPr({ pr: sync, checkState: localFail, now: '2026-08-01T00:00:00Z' }).disposition,
     'repo-local-failure',
   );
+});
+
+test('review-blocked sync bot threads on manifest-synced paths route to maint-71 auto-resolve', () => {
+  const record = '<!-- sync-pr-delivery-record:v1 {"schema":"sync-pr-delivery-record/v1","durable_issue_url":"https://github.com/stranske/Workflows/issues/1836","plan_id":"plan-abc","generation":"generation-1","repository":"stranske/Travel-Plan-Permission","desired_tree_hash":"tree-abc","source_commit":"source-abc","lease_expires_at":"2026-08-02T00:00:00Z","predecessor_prs":[],"successor_prs":[]} -->';
+  const sync = {
+    ...pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z'),
+    body: record,
+    user: { login: 'stranske' },
+  };
+  const manifestSources = parseManifestSyncedSources(`
+    - source: tools/coverage_guard.py
+      description: coverage guard helper
+  `);
+  const botThreads = [{
+    id: 'thread-1',
+    path: 'tools/coverage_guard.py',
+    isResolved: false,
+    isOutdated: false,
+    comments: {
+      nodes: [{
+        author: { login: 'copilot-pull-request-reviewer' },
+        path: 'tools/coverage_guard.py',
+      }],
+    },
+  }];
+
+  const routed = classifyGeneratedPr({
+    pr: sync,
+    activeReviewThreadCount: 1,
+    reviewThreads: botThreads,
+    manifestSources,
+    now: '2026-08-01T00:00:00Z',
+  });
+  assert.equal(routed.disposition, 'review-blocked');
+  assert.equal(routed.blocker_owner, 'maint-71');
+  assert.equal(routed.next_command, AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND);
+
+  const humanThread = [{
+    ...botThreads[0],
+    comments: { nodes: [{ author: { login: 'stranske' }, path: 'tools/coverage_guard.py' }] },
+  }];
+  const closerOwned = classifyReviewBlockedDisposition({
+    activeReviewThreadCount: 1,
+    reviewThreads: humanThread,
+    manifestSources,
+  });
+  assert.equal(closerOwned.blocker_owner, 'closer');
+  assert.equal(closerOwned.next_command, 'resolve-active-review-threads');
+
+  const deliberateBreak = classifyReviewBlockedDisposition({
+    activeReviewThreadCount: 1,
+    reviewThreads: botThreads,
+    manifestSources,
+  });
+  assert.notEqual(deliberateBreak.blocker_owner, 'closer');
+  assert.notEqual(deliberateBreak.next_command, 'resolve-active-review-threads');
 });
 
 test('selectActiveSyncPr honors target hash instead of newest PR', () => {

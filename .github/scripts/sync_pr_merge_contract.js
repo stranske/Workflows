@@ -92,7 +92,109 @@ function isTrustedGeneratedDeliveryPr(pr, trustedActors = []) {
   return isGeneratedDeliveryBranchName(pr?.head?.ref) && new Set(trustedActors).has(actor);
 }
 
-function classifyGeneratedPr({ pr = {}, checkState = {}, activeReviewThreadCount = 0, now } = {}) {
+const SYNC_BOT_REVIEW_AUTHORS = new Set([
+  'copilot-pull-request-reviewer',
+  'copilot[bot]',
+  'coderabbitai[bot]',
+  'coderabbitai',
+]);
+
+const AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND = 'auto-resolve-sync-bot-threads-and-file-upstream';
+
+function normalizeLogin(login) {
+  return String(login || '').trim().toLowerCase();
+}
+
+function isSyncBotReviewer(login) {
+  return SYNC_BOT_REVIEW_AUTHORS.has(normalizeLogin(login));
+}
+
+function parseManifestSyncedSources(yamlText = '') {
+  const sources = new Set();
+  for (const line of String(yamlText || '').split('\n')) {
+    const listMatch = line.match(/^\s*-\s*source:\s*(.+)\s*$/);
+    if (listMatch) {
+      sources.add(listMatch[1].trim());
+      continue;
+    }
+    const inlineMatch = line.match(/^\s*source:\s*(.+)\s*$/);
+    if (inlineMatch) {
+      sources.add(inlineMatch[1].trim());
+    }
+  }
+  return sources;
+}
+
+function isManifestSyncedPath(path, manifestSources = new Set()) {
+  const cleanPath = String(path || '').trim().replace(/^\.\//, '');
+  return Boolean(cleanPath) && manifestSources.has(cleanPath);
+}
+
+function normalizeActiveReviewThreads(reviewThreads = []) {
+  return (reviewThreads || [])
+    .filter((thread) => thread && !thread.isResolved && !thread.isOutdated)
+    .map((thread) => {
+      const comments = thread.comments?.nodes || thread.comments || [];
+      const firstComment = comments[0] || {};
+      const author = firstComment.author?.login
+        || firstComment.user?.login
+        || thread.author?.login
+        || '';
+      return {
+        id: thread.id || '',
+        path: String(thread.path || firstComment.path || '').trim(),
+        author: String(author).trim(),
+        botAuthored: isSyncBotReviewer(author),
+      };
+    });
+}
+
+function classifyReviewBlockedDisposition({
+  activeReviewThreadCount,
+  reviewThreads = [],
+  manifestSources = new Set(),
+} = {}) {
+  const reviewThreadCount = Number(activeReviewThreadCount);
+  if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
+    return {
+      disposition: 'review-blocked',
+      blocker_owner: 'closer',
+      next_command: 'retry-review-thread-query',
+    };
+  }
+  if (reviewThreadCount === 0) {
+    return null;
+  }
+
+  const activeThreads = normalizeActiveReviewThreads(reviewThreads);
+  if (
+    activeThreads.length > 0
+    && activeThreads.every(
+      (thread) => thread.botAuthored && isManifestSyncedPath(thread.path, manifestSources),
+    )
+  ) {
+    return {
+      disposition: 'review-blocked',
+      blocker_owner: 'maint-71',
+      next_command: AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
+    };
+  }
+
+  return {
+    disposition: 'review-blocked',
+    blocker_owner: 'closer',
+    next_command: 'resolve-active-review-threads',
+  };
+}
+
+function classifyGeneratedPr({
+  pr = {},
+  checkState = {},
+  activeReviewThreadCount = 0,
+  reviewThreads = [],
+  manifestSources = null,
+  now,
+} = {}) {
   const record = parseDeliveryRecord(pr.body || '');
   const lane = generatedDeliveryLane(pr?.head?.ref || pr?.headRefName);
   if (!lane) {
@@ -116,10 +218,14 @@ function classifyGeneratedPr({ pr = {}, checkState = {}, activeReviewThreadCount
   }
   const reviewThreadCount = Number(activeReviewThreadCount);
   if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
-    return { disposition: 'review-blocked', blocker_owner: 'closer', next_command: 'retry-review-thread-query' };
+    return classifyReviewBlockedDisposition({ activeReviewThreadCount: reviewThreadCount });
   }
   if (reviewThreadCount > 0) {
-    return { disposition: 'review-blocked', blocker_owner: 'closer', next_command: 'resolve-active-review-threads' };
+    return classifyReviewBlockedDisposition({
+      activeReviewThreadCount: reviewThreadCount,
+      reviewThreads,
+      manifestSources: manifestSources || new Set(),
+    });
   }
   if (checkState.status === 'checks_pending') {
     return { disposition: 'awaiting-checks', blocker_owner: 'ci', next_command: 'await-required-checks' };
@@ -1376,6 +1482,7 @@ function buildMarkdownSummary(report) {
 }
 
 module.exports = {
+  AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
   REPORT_SCHEMA,
   SYNC_BRANCH_PREFIX,
   SYNC_CANDIDATE_BRANCH,
@@ -1385,6 +1492,11 @@ module.exports = {
   GENERATED_DELIVERY_BRANCH_PREFIXES,
   branchNameFromRef,
   classifyGeneratedPr,
+  classifyReviewBlockedDisposition,
+  isManifestSyncedPath,
+  isSyncBotReviewer,
+  normalizeActiveReviewThreads,
+  parseManifestSyncedSources,
   classifySyncPrChecks,
   candidateEvidenceAllowsMutation,
   buildCampaignCommitAuthorization,

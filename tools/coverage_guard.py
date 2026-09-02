@@ -149,7 +149,7 @@ def load_baseline(path: Path) -> BaselineConfig:
 
 
 def is_coverage_breach(current: float, baseline: float, warn_drop: float) -> bool:
-    """Return whether coverage exceeds the configured drop allowance."""
+    """Return whether coverage falls more than ``warn_drop`` points below baseline."""
     return current < baseline - warn_drop
 
 
