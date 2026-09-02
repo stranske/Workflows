@@ -685,7 +685,8 @@ def main(args: list[str] | None = None) -> int:
         )
         return 0
     delta = current - baseline
-    warn_drop = load_baseline(parsed.baseline_path).warn_drop
+    baseline_config = load_baseline(parsed.baseline_path)
+    warn_drop = baseline_config.warn_drop
     recovery_threshold = baseline - warn_drop
     configured_recovery_window = max(
         1,
@@ -698,7 +699,7 @@ def main(args: list[str] | None = None) -> int:
                     baseline_data.get("recovery_runs", baseline_data.get("recovery_days")),
                 )
             ),
-            1,
+            baseline_config.recovery_days,
         ),
     )
     issue_labels = (

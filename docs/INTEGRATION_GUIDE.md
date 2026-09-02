@@ -576,9 +576,9 @@ Copy from `templates/consumer-repo/.github/workflows/maint-coverage-guard.yml`
 **Guard tolerance and recovery:** `warn_drop` is a percentage-point allowance below
 the baseline (default `1.0` if omitted). A run creates or updates a breach issue only
 when `current < baseline - warn_drop`; a smaller drop is an intentional no-op. An open
-breach issue closes only after coverage is at or above the full baseline for
-`recovery_days` consecutive samples (default `3`), so the warning allowance never
-closes an issue early.
+breach issue closes only after coverage reaches `baseline - warn_drop` for the
+configured `recovery_days` consecutive samples (default `3`). The warning allowance
+changes the recovery threshold, not the default confirmation window.
 
 **Soft vs Hard Gate:**
 
