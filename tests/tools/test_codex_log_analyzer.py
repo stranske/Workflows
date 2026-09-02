@@ -105,17 +105,17 @@ def test_has_exact_file_match_matches_by_basename_across_directories() -> None:
 
 
 def test_first_matching_file_suffix_check_requires_path_boundary() -> None:
-    """The suffix fallback must not fire on a bare substring match.
-
-    "src/subtest.py" ends with the literal string "test.py" without being a
-    nested path that ends in "/test.py" -- subtest.py is an unrelated file.
-    A nested-path reference must still match at a real path boundary, and a
-    basename match across directories must still work.
-    """
+    """The selector rejects bare suffixes while keeping valid nested paths."""
     assert _first_matching_file(["test.py"], ["src/subtest.py"]) is None
     matched = _first_matching_file(["auth.py"], ["src/deep/nested/auth.py"])
     assert matched == "src/deep/nested/auth.py"
     assert _first_matching_file(["src/auth.py"], ["src/auth.py"]) == "src/auth.py"
+
+
+def test_has_exact_file_match_suffix_check_requires_path_boundary() -> None:
+    """The boolean matcher must reject a bare suffix but retain exact paths."""
+    assert _has_exact_file_match(["test.py"], ["src/subtest.py"]) is False
+    assert _has_exact_file_match(["src/auth.py"], ["src/auth.py"]) is True
 
 
 def test_build_summary_reports_no_changes_detected() -> None:
