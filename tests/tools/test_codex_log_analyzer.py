@@ -118,6 +118,13 @@ def test_has_exact_file_match_suffix_check_requires_path_boundary() -> None:
     assert _has_exact_file_match(["src/auth.py"], ["src/auth.py"]) is True
 
 
+def test_exact_file_match_rejects_basename_only_for_path_qualified_refs() -> None:
+    """Path-qualified references require full-path equality, not basename overlap."""
+    assert _has_exact_file_match(["src/auth.py"], ["other/auth.py"]) is False
+    assert _first_matching_file(["src/auth.py"], ["other/auth.py"]) is None
+    assert _first_matching_file(["test.py"], ["src/subtest.py", "src/test.py"]) == "src/test.py"
+
+
 def test_exact_file_match_normalizes_windows_path_boundaries() -> None:
     """Windows paths preserve bare-filename matching and exact evidence paths."""
     changed = r"src\deep\auth.py"
