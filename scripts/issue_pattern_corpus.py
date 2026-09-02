@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import re
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -32,6 +34,12 @@ SECTION_HEADERS = {
     "implementation": "## Implementation Notes",
 }
 
+_ORIGINAL_ISSUE_OPEN_RE = re.compile(
+    rf"<details\b[^>]*>\s*{re.escape(issue_formatter.ORIGINAL_ISSUE_SUMMARY)}",
+    re.IGNORECASE,
+)
+_CHECKLIST_ITEM_RE = re.compile(r"^- \[[ xX]\](?:\s|$)")
+
 
 @dataclass(frozen=True)
 class CorpusCriteria:
@@ -43,16 +51,19 @@ class CorpusCriteria:
 
 
 def _safe_float(value: Any) -> float | None:
-    if value is None or value == "":
+    if value is None or value == "" or isinstance(value, bool):
         return None
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _safe_int(value: Any) -> int | None:
-    if value is None or value == "":
+    if value is None or value == "" or isinstance(value, bool):
+        return None
+    if isinstance(value, float) and not value.is_integer():
         return None
     try:
         return int(value)
@@ -70,9 +81,10 @@ def _parse_timestamp(value: Any) -> datetime | None:
         if text.endswith("Z"):
             text = text[:-1] + "+00:00"
         try:
-            return datetime.fromisoformat(text)
+            parsed = datetime.fromisoformat(text)
         except ValueError:
             return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
     return None
 
 
@@ -155,6 +167,9 @@ def _index_post_merge(records: Iterable[dict[str, Any]]) -> dict[int, dict[str, 
 
 
 def _split_sections(formatted_body: str) -> dict[str, list[str]]:
+    archive = _ORIGINAL_ISSUE_OPEN_RE.search(formatted_body)
+    if archive:
+        formatted_body = formatted_body[: archive.start()]
     sections = {key: [] for key in SECTION_HEADERS}
     current: str | None = None
     for line in formatted_body.splitlines():
@@ -180,11 +195,12 @@ def _section_has_content(section_key: str, lines: list[str]) -> bool:
 def _count_checklist_items(lines: list[str]) -> int:
     count = 0
     for line in lines:
-        if line.strip() == SUCCESS_PLACEHOLDERS["tasks"]:
+        if line.strip() in (
+            SUCCESS_PLACEHOLDERS["tasks"],
+            SUCCESS_PLACEHOLDERS["acceptance"],
+        ):
             return 0
-        if line.strip() == SUCCESS_PLACEHOLDERS["acceptance"]:
-            return 0
-        if line.strip().startswith("- [") and "]" in line or line.strip().startswith("- ["):
+        if _CHECKLIST_ITEM_RE.match(line.strip()):
             count += 1
     return count
 
