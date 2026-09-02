@@ -227,6 +227,24 @@ def test_index_post_merge_replaces_untimestamped_record_only_with_valid_timestam
     assert corpus._index_post_merge([first, invalid])[8]["iteration_count"] == 1
 
 
+def test_index_post_merge_orders_naive_and_aware_timestamps() -> None:
+    older = {
+        "metric_type": "post-merge",
+        "pr_number": 9,
+        "timestamp": "2026-09-02T08:00:00",
+        "iteration_count": 1,
+    }
+    newer = {
+        "metric_type": "post-merge",
+        "pr_number": 9,
+        "timestamp": "2026-09-02T09:00:00Z",
+        "iteration_count": 2,
+    }
+
+    assert corpus._index_post_merge([older, newer])[9]["iteration_count"] == 2
+    assert corpus._index_post_merge([newer, older])[9]["iteration_count"] == 2
+
+
 def test_split_sections_and_content_flags_use_canonical_headers() -> None:
     sections = corpus._split_sections(
         "preamble ignored\n"

@@ -81,9 +81,10 @@ def _parse_timestamp(value: Any) -> datetime | None:
         if text.endswith("Z"):
             text = text[:-1] + "+00:00"
         try:
-            return datetime.fromisoformat(text)
+            parsed = datetime.fromisoformat(text)
         except ValueError:
             return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
     return None
 
 
