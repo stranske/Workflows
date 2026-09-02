@@ -230,11 +230,14 @@ jobs:
             '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
             || date -u -v-1H '+%Y-%m-%dT%H:%M:%SZ')
 
+          # Count only self-dispatched retries. The initial `issues:labeled` run starts
+          # formatting but is not one of the bounded retry attempts.
           # `gh run list` defaults to 20 runs, which a tight loop exhausts inside the
           # window; ask for enough history to actually see the recursion.
           # shellcheck disable=SC2016
           count=$(gh run list \
             --workflow=agents-issue-optimizer.yml \
+            --event workflow_dispatch \
             --limit 100 \
             --json conclusion,createdAt,displayTitle \
             | jq --arg cutoff "$one_hour_ago" \

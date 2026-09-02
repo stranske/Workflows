@@ -48,6 +48,16 @@ def test_recursion_guard_links_to_managed_recovery_procedures() -> None:
     assert "Remove `agents:auto-pilot-pause`" in guide
 
 
+def test_recursion_guard_counts_only_self_dispatched_retries() -> None:
+    for path in (WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH):
+        text = path.read_text(encoding="utf-8")
+        guard = text[text.index("Check optimizer recursion guard") : text.index("Get issue body")]
+        assert "--workflow=agents-issue-optimizer.yml" in guard
+        assert "--event workflow_dispatch" in guard
+        assert "--limit 100" in guard
+        assert 'and (.displayTitle | endswith($issue))' in guard
+
+
 def test_format_optimizer_rechecks_live_hold_and_exemption_state() -> None:
     for path in (WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH):
         text = path.read_text(encoding="utf-8")
