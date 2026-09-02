@@ -245,8 +245,16 @@ def test_split_sections_and_content_flags_use_canonical_headers() -> None:
     assert corpus._section_has_content("non_goals", []) is False
 
 
-def test_count_checklist_items_requires_a_closed_checkbox_marker() -> None:
-    lines = ["- [ ] open", "  - [x] done", "- [X] also done", "- [ malformed", "- plain"]
+def test_count_checklist_items_requires_a_canonical_checkbox_marker() -> None:
+    lines = [
+        "- [ ] open",
+        "  - [x] done",
+        "- [X] also done",
+        "- [ malformed",
+        "- [Documentation](https://example.invalid)",
+        "- [x]missing-space",
+        "- plain",
+    ]
 
     assert corpus._count_checklist_items(lines) == 3
 
@@ -330,6 +338,27 @@ def test_build_issue_pattern_reads_aliases_and_optional_formatted_body() -> None
     assert pattern["iteration_count"] == 4
     assert "formatted_body" in pattern
     assert "## Tasks\n- [ ] One\n- [x] Two" in pattern["formatted_body"]
+
+
+def test_build_issue_pattern_preserves_sections_after_user_details() -> None:
+    issue = {
+        "issue_number": 31,
+        "pr_number": 301,
+        "body": (
+            "## Why\nNeeded.\n\n"
+            "<details>\n<summary>Supporting evidence</summary>\nExtra context\n</details>\n\n"
+            "## Scope\nParser only.\n\n"
+            "## Tasks\n- [ ] Preserve task counts\n\n"
+            "## Acceptance Criteria\n- [ ] Count one task"
+        ),
+    }
+
+    pattern = corpus._build_issue_pattern(issue, {"completion_rate": 1.0}, include_formatted=True)
+
+    assert pattern["task_count"] == 1
+    assert pattern["acceptance_count"] == 1
+    assert pattern["sections"]["scope"] is True
+    assert "<summary>Supporting evidence</summary>" in pattern["formatted_body"]
 
 
 def test_build_issue_pattern_omits_formatted_body_by_default() -> None:

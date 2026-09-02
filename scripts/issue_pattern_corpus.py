@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -32,6 +33,12 @@ SECTION_HEADERS = {
     "acceptance": "## Acceptance Criteria",
     "implementation": "## Implementation Notes",
 }
+
+_ORIGINAL_ISSUE_OPEN_RE = re.compile(
+    rf"<details\b[^>]*>\s*{re.escape(issue_formatter.ORIGINAL_ISSUE_SUMMARY)}",
+    re.IGNORECASE,
+)
+_CHECKLIST_ITEM_RE = re.compile(r"^- \[[ xX]\](?:\s|$)")
 
 
 @dataclass(frozen=True)
@@ -159,12 +166,13 @@ def _index_post_merge(records: Iterable[dict[str, Any]]) -> dict[int, dict[str, 
 
 
 def _split_sections(formatted_body: str) -> dict[str, list[str]]:
+    archive = _ORIGINAL_ISSUE_OPEN_RE.search(formatted_body)
+    if archive:
+        formatted_body = formatted_body[: archive.start()]
     sections = {key: [] for key in SECTION_HEADERS}
     current: str | None = None
     for line in formatted_body.splitlines():
         heading = line.strip()
-        if heading.lower().startswith("<details"):
-            break
         for key, header in SECTION_HEADERS.items():
             if heading == header:
                 current = key
@@ -191,7 +199,7 @@ def _count_checklist_items(lines: list[str]) -> int:
             SUCCESS_PLACEHOLDERS["acceptance"],
         ):
             return 0
-        if line.strip().startswith("- [") and "]" in line:
+        if _CHECKLIST_ITEM_RE.match(line.strip()):
             count += 1
     return count
 
