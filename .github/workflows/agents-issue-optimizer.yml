@@ -230,8 +230,9 @@ jobs:
             '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
             || date -u -v-1H '+%Y-%m-%dT%H:%M:%SZ')
 
-          # Count only self-dispatched retries. The initial `issues:labeled` run starts
-          # formatting but is not one of the bounded retry attempts.
+          # Count only self-dispatched retries. The initial `issues:labeled` run can
+          # dispatch optimizer phases (format/analyze/apply) but is not one of the
+          # bounded self-dispatched retry attempts.
           # `gh run list` defaults to 20 runs, which a tight loop exhausts inside the
           # window; ask for enough history to actually see the recursion.
           # shellcheck disable=SC2016

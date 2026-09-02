@@ -131,12 +131,12 @@ divergence_reviewed = 2026-06-30
 fingerprint_refreshed = 2026-08-24
 
 [pair.11]
-# 2026-09-02: refreshed after the paired recursion-guard dispatch filter; root and consumer
+# 2026-09-02: refreshed after recursion-guard comment accuracy fix; root and consumer
 # retain their established in-tree versus sparse-checkout issue-update implementations.
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = cbb7410e399fb4e8cf0c9e972ccd43e57a2a6f2e8f76ad5b85f431f8eb0fd1fe
-template_sha256 = 70f141685b7052d4a5d39a1ce44a99d672eb9ed341b547a51cac7c54167ad5bc
+main_sha256 = e391cef557443c8cc059391d8ddaa3c084a5f8f5d2297d905501b0c0bc378d1b
+template_sha256 = 3e405ac97a1c52751662127f442606cd19a5ff24cb666fd037b3f4b762ab1d82
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Fingerprints refreshed 2026-08-24: both surfaces now link recursion-pause comments to the managed WORKFLOW_USER_GUIDE recovery section instead of a nonexistent Agents.md anchor. The Workflows-local surface links to templates/consumer-repo/WORKFLOW_USER_GUIDE.md because there is no root guide, while the distributed consumer links to its root WORKFLOW_USER_GUIDE.md. Prior fingerprint refresh 2026-08-24: both surfaces treat automated issues as format-ineligible, complementing the shared guard cleanup that removes stale agents:format leases from exempt issues. Underlying divergence re-reviewed 2026-08-23: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Do not align wholesale — that would strip consumer action pins/token setup.
 divergence_reviewed = 2026-08-23
 fingerprint_refreshed = 2026-09-02
