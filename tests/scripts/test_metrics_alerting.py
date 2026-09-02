@@ -310,7 +310,17 @@ def test_safe_numeric_coercions_reject_nonfinite_and_lossy_values() -> None:
             raise OverflowError
 
     assert metrics_alerting._safe_float(" 2.5 ") == 2.5
-    for invalid in (None, "", True, "bad", "nan", "inf", float("-inf"), object()):
+    for invalid in (
+        None,
+        "",
+        True,
+        "bad",
+        "nan",
+        "inf",
+        float("-inf"),
+        10**400,
+        object(),
+    ):
         assert metrics_alerting._safe_float(invalid) is None
 
     assert metrics_alerting._safe_int("4") == 4
@@ -417,14 +427,34 @@ def test_extract_token_usage_handles_totals_components_and_scalars() -> None:
         metrics_alerting._extract_token_usage(
             {
                 "token_usage": {
+                    "total_tokens": None,
                     "input_tokens": 3,
                     "output_tokens": 4,
                     "reasoning_tokens": 5,
                     "prompt_tokens": None,
+                    "completion_tokens": "",
                 }
             }
         )
         == 12
+    )
+    assert (
+        metrics_alerting._extract_token_usage(
+            {"token_usage": {"input_tokens": float("nan"), "output_tokens": 10}}
+        )
+        is None
+    )
+    assert (
+        metrics_alerting._extract_token_usage(
+            {"token_usage": {"input_tokens": 10**400, "output_tokens": 10}}
+        )
+        is None
+    )
+    assert (
+        metrics_alerting._extract_token_usage(
+            {"token_usage": {"total_tokens": "bad", "input_tokens": 3}}
+        )
+        is None
     )
     assert metrics_alerting._extract_token_usage({"token_usage_total": "7"}) == 7
     assert metrics_alerting._extract_token_usage({"token_usage": "8"}) == 8
