@@ -1,2 +1,0 @@
-<!-- bootstrap for codex on PR #1279 follow-up -->
-<!-- needs-human: keepalive_loop.js isolation requires commit history rewrite or a dedicated PR/commit that only touches .github/scripts/keepalive_loop.js. This cannot be done in agent-standard without rewriting existing history. Please split or rebase the keepalive_loop.js change into its own commit/PR to satisfy isolation-by-commit acceptance criteria. -->
