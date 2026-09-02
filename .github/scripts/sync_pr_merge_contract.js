@@ -109,25 +109,64 @@ function isSyncBotReviewer(login) {
   return SYNC_BOT_REVIEW_AUTHORS.has(normalizeLogin(login));
 }
 
-function parseManifestSyncedSources(yamlText = '') {
-  const sources = new Set();
+const ROOT_MANIFEST_SOURCE_SECTIONS = new Set(['scripts', 'templates']);
+
+function manifestSourceTreeForSection(section) {
+  return ROOT_MANIFEST_SOURCE_SECTIONS.has(section) ? 'root' : 'template';
+}
+
+function parseManifestSyncedSourceEntries(yamlText = '') {
+  const entries = new Map();
+  let section = '';
+  let current = null;
+
+  const flush = () => {
+    if (!current?.source) return;
+    const sourceTree = current.source_tree || manifestSourceTreeForSection(section);
+    const target = current.target || current.source;
+    entries.set(target, { source: current.source, sourceTree, target });
+  };
+
   for (const line of String(yamlText || '').split('\n')) {
-    const listMatch = line.match(/^\s*-\s*source:\s*(.+)\s*$/);
-    if (listMatch) {
-      sources.add(listMatch[1].trim());
+    const sectionMatch = line.match(/^([A-Za-z][A-Za-z0-9_]*):\s*$/);
+    if (sectionMatch) {
+      flush();
+      current = null;
+      section = sectionMatch[1];
       continue;
     }
-    const inlineMatch = line.match(/^\s*source:\s*(.+)\s*$/);
-    if (inlineMatch) {
-      sources.add(inlineMatch[1].trim());
+    const sourceMatch = line.match(/^\s*-\s*source:\s*(.+?)\s*$/);
+    if (sourceMatch) {
+      flush();
+      current = { source: sourceMatch[1].trim() };
+      continue;
     }
+    const fieldMatch = line.match(/^\s+(source_tree|target):\s*(.+?)\s*$/);
+    if (fieldMatch && current) current[fieldMatch[1]] = fieldMatch[2].trim();
   }
-  return sources;
+  flush();
+  return entries;
+}
+
+function parseManifestSyncedSources(yamlText = '') {
+  return new Set(parseManifestSyncedSourceEntries(yamlText).keys());
 }
 
 function isManifestSyncedPath(path, manifestSources = new Set()) {
   const cleanPath = String(path || '').trim().replace(/^\.\//, '');
   return Boolean(cleanPath) && manifestSources.has(cleanPath);
+}
+
+function resolveManifestSyncedSource(path, manifestSourceEntries = new Map()) {
+  const cleanPath = String(path || '').trim().replace(/^\.\//, '');
+  const entry = manifestSourceEntries.get(cleanPath);
+  if (!entry) return null;
+  return {
+    ...entry,
+    sourcePath: entry.sourceTree === 'template'
+      ? `templates/consumer-repo/${entry.source}`
+      : entry.source,
+  };
 }
 
 function normalizeActiveReviewThreads(reviewThreads = []) {
@@ -136,15 +175,14 @@ function normalizeActiveReviewThreads(reviewThreads = []) {
     .map((thread) => {
       const comments = thread.comments?.nodes || thread.comments || [];
       const firstComment = comments[0] || {};
-      const author = firstComment.author?.login
-        || firstComment.user?.login
-        || thread.author?.login
-        || '';
+      const authors = comments.map((comment) => comment.author?.login || comment.user?.login || '');
+      const author = authors[0] || thread.author?.login || '';
       return {
         id: thread.id || '',
         path: String(thread.path || firstComment.path || '').trim(),
         author: String(author).trim(),
-        botAuthored: isSyncBotReviewer(author),
+        botAuthored: comments.length > 0
+          && authors.every((commentAuthor) => isSyncBotReviewer(commentAuthor)),
       };
     });
 }
@@ -1496,7 +1534,9 @@ module.exports = {
   isManifestSyncedPath,
   isSyncBotReviewer,
   normalizeActiveReviewThreads,
+  parseManifestSyncedSourceEntries,
   parseManifestSyncedSources,
+  resolveManifestSyncedSource,
   classifySyncPrChecks,
   candidateEvidenceAllowsMutation,
   buildCampaignCommitAuthorization,

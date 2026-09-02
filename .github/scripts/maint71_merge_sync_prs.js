@@ -441,13 +441,6 @@ async function run({ github, context, core }) {
   const defaultOwner = context.repo.owner;
   const fs = require('fs');
   const path = require('path');
-  let manifestSources = new Set();
-  try {
-    const manifestPath = path.join(__dirname, '..', 'sync-manifest.yml');
-    manifestSources = parseManifestSyncedSources(fs.readFileSync(manifestPath, 'utf8'));
-  } catch (error) {
-    core.warning(`Unable to read sync manifest for review routing: ${error.message || error}`);
-  }
   // Sibling-relative paths: this module lives under .github/scripts/, so
   // require('./.github/scripts/...') would resolve to a nested non-existent path.
   const retryHelperPath = path.join(__dirname, 'github-api-with-retry.js');
@@ -474,10 +467,12 @@ async function run({ github, context, core }) {
     isStableSyncBranchName,
     normalizeSyncHash,
     parseBooleanInput,
+    parseManifestSyncedSourceEntries,
     parseManifestSyncedSources,
     parsePromotionEvidenceFromCommitMessage,
     requiresStrictGateBranchUpdate,
     requiredContextsFromRulesets,
+    resolveManifestSyncedSource,
     isTrustedGeneratedDeliveryPr,
     selectLatestMergedCandidatePr,
     selectLatestMergedSyncPr,
@@ -489,6 +484,16 @@ async function run({ github, context, core }) {
     validateExpectedCandidateIdentity,
     validateSourceDeltaEvidenceBinding,
   } = require('./sync_pr_merge_contract.js');
+  let manifestSources = new Set();
+  let manifestSourceEntries = new Map();
+  try {
+    const manifestPath = path.join(__dirname, '..', 'sync-manifest.yml');
+    const manifestText = fs.readFileSync(manifestPath, 'utf8');
+    manifestSources = parseManifestSyncedSources(manifestText);
+    manifestSourceEntries = parseManifestSyncedSourceEntries(manifestText);
+  } catch (error) {
+    core.warning(`Unable to read sync manifest for review routing: ${error.message || error}`);
+  }
   const {
     mergeEligibility,
     parseDeliveryRecord,
@@ -1113,11 +1118,13 @@ async function run({ github, context, core }) {
 
     const resolved = [];
     const errors = [];
-    const upstreamPaths = [...new Set(
+    const upstreamEntries = [...new Map(
       reviewThreads
-        .map((thread) => String(thread.path || '').trim())
-        .filter((threadPath) => isManifestSyncedPath(threadPath, manifestSources)),
-    )];
+        .map((thread) => resolveManifestSyncedSource(thread.path, manifestSourceEntries))
+        .filter(Boolean)
+        .map((entry) => [entry.sourcePath, entry]),
+    ).values()];
+    const upstreamPaths = upstreamEntries.map((entry) => entry.sourcePath);
     let filedIssue = null;
     if (upstreamPaths.length) {
       const title = `[sync-review] Fix upstream manifest-synced paths blocking ${owner}/${repo}#${pr.number}`;
@@ -1127,7 +1134,9 @@ async function run({ github, context, core }) {
         `Consumer delivery PR: ${owner}/${repo}#${pr.number}`,
         '',
         'Manifest-synced paths with unresolved bot review threads:',
-        ...upstreamPaths.map((threadPath) => `- \`${threadPath}\` (source: \`stranske/Workflows/${threadPath}\`)`),
+        ...upstreamEntries.map((entry) => (
+          `- consumer \`${entry.target}\` → source \`stranske/Workflows/${entry.sourcePath}\``
+        )),
         '',
         'Fix these paths in Workflows main so the next sync regeneration outdates the consumer threads.',
       ].join('\n');
@@ -1155,13 +1164,14 @@ async function run({ github, context, core }) {
           }
         } catch (error) {
           errors.push(`issue_create:${error.message || error}`);
+          return { resolved, filedIssue, errors };
         }
       }
     }
 
     for (const thread of reviewThreads) {
       const threadPath = String(thread.path || '').trim();
-      if (!thread.id || !isManifestSyncedPath(threadPath, manifestSources)) {
+      if (!thread.id || !resolveManifestSyncedSource(threadPath, manifestSourceEntries)) {
         continue;
       }
       if (dryRun) {
@@ -1189,7 +1199,8 @@ async function run({ github, context, core }) {
         ...resolved.map((threadId) => {
           const thread = reviewThreads.find((item) => item.id === threadId);
           const threadPath = String(thread?.path || '').trim();
-          return `- \`${threadPath}\` → upstream \`stranske/Workflows/${threadPath}\``;
+          const source = resolveManifestSyncedSource(threadPath, manifestSourceEntries);
+          return `- \`${threadPath}\` → upstream \`stranske/Workflows/${source.sourcePath}\``;
         }),
         filedIssue ? `Upstream tracking issue: #${filedIssue}` : '',
       ].filter(Boolean).join('\n');

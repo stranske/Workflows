@@ -21,7 +21,10 @@ const {
   classifyGeneratedPr,
   classifyReviewBlockedDisposition,
   AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
+  isManifestSyncedPath,
+  parseManifestSyncedSourceEntries,
   parseManifestSyncedSources,
+  resolveManifestSyncedSource,
   classifySyncPrChecks,
   commitSignatureAllowsMerge,
   collectDeletableSyncBranches,
@@ -2184,6 +2187,21 @@ test('review-blocked sync bot threads on manifest-synced paths route to maint-71
   assert.equal(closerOwned.blocker_owner, 'closer');
   assert.equal(closerOwned.next_command, 'resolve-active-review-threads');
 
+  const mixedThread = [{
+    ...botThreads[0],
+    comments: {
+      nodes: [
+        { author: { login: 'copilot-pull-request-reviewer' }, path: 'tools/coverage_guard.py' },
+        { author: { login: 'stranske' }, path: 'tools/coverage_guard.py' },
+      ],
+    },
+  }];
+  assert.equal(classifyReviewBlockedDisposition({
+    activeReviewThreadCount: 1,
+    reviewThreads: mixedThread,
+    manifestSources,
+  }).blocker_owner, 'closer');
+
   const deliberateBreak = classifyReviewBlockedDisposition({
     activeReviewThreadCount: 1,
     reviewThreads: botThreads,
@@ -2191,6 +2209,23 @@ test('review-blocked sync bot threads on manifest-synced paths route to maint-71
   });
   assert.notEqual(deliberateBreak.blocker_owner, 'closer');
   assert.notEqual(deliberateBreak.next_command, 'resolve-active-review-threads');
+});
+
+test('manifest source resolution preserves template ownership and consumer targets', () => {
+  const yaml = `
+workflows:
+  - source: .github/workflows/agents-auto-pilot.yml
+    source_tree: template
+    target: .github/workflows/agents-auto-pilot.yml
+`;
+  const entries = parseManifestSyncedSourceEntries(yaml);
+  assert.equal(isManifestSyncedPath('.github/workflows/agents-auto-pilot.yml', parseManifestSyncedSources(yaml)), true);
+  assert.deepEqual(resolveManifestSyncedSource('.github/workflows/agents-auto-pilot.yml', entries), {
+    source: '.github/workflows/agents-auto-pilot.yml',
+    sourceTree: 'template',
+    target: '.github/workflows/agents-auto-pilot.yml',
+    sourcePath: 'templates/consumer-repo/.github/workflows/agents-auto-pilot.yml',
+  });
 });
 
 test('selectActiveSyncPr honors target hash instead of newest PR', () => {
