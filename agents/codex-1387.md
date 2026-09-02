@@ -1,2 +1,0 @@
-<!-- bootstrap for codex on issue #1387 -->
-<!-- needs-human: update .github/workflows/reusable-bot-comment-handler.yml and templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml to call .github/scripts/bot-comment-dismiss.js (wired to list PR review comments, filter IGNORED_PATHS + BOT_AUTHORS, and delete comments). Set MAX_AGE_SECONDS=30 so ignored-path bot comments are removed within 30s, and ensure logs include bot name + file path for each dismissal. Workflow edits require agent-high-privilege. -->
