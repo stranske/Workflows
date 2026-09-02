@@ -348,10 +348,20 @@ _This issue is automatically updated by the coverage guard workflow._
     return body
 
 
-def _format_recovery_body(current: float, baseline: float, delta: float, run_url: str) -> str:
+def _format_recovery_body(
+    current: float,
+    baseline: float,
+    recovery_threshold: float,
+    delta: float,
+    run_url: str,
+) -> str:
     """Format a concise recovery comment for closing a breach issue."""
     source_line = f"\n\n[Gate Workflow Run]({run_url})" if run_url else ""
-    return f"""Coverage has recovered to the configured warning threshold.
+    if current >= baseline:
+        headline = "Coverage has recovered to or above the configured baseline."
+    else:
+        headline = "Coverage has recovered to the configured warning threshold."
+    return f"""{headline}
 
 | Metric | Value |
 |--------|-------|
@@ -741,9 +751,10 @@ def main(args: list[str] | None = None) -> int:
             )
         else:
             print(f"Coverage {current:.2f}% meets baseline {baseline:.2f}% - no open issue needed")
+        recovery_check_threshold = baseline if current >= baseline else recovery_threshold
         if not _recovery_window_satisfied(
             trend_data,
-            recovery_threshold,
+            recovery_check_threshold,
             configured_recovery_window,
             history_records,
         ):
@@ -756,7 +767,13 @@ def main(args: list[str] | None = None) -> int:
             _close_existing_issue(
                 parsed.repo,
                 parsed.issue_title,
-                _format_recovery_body(current, baseline, delta, parsed.run_url),
+                _format_recovery_body(
+                    current,
+                    baseline,
+                    recovery_threshold,
+                    delta,
+                    parsed.run_url,
+                ),
                 labels=issue_labels,
             )
         except (RuntimeError, subprocess.CalledProcessError) as exc:
