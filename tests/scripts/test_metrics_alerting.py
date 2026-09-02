@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import json
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import ModuleType
 
 import pytest
-from scripts import metrics_alerting
+
+if importlib.util.find_spec("requests") is None:
+    requests_stub = ModuleType("requests")
+    requests_stub.__dict__["post"] = None
+    sys.modules["requests"] = requests_stub
+
+metrics_alerting = importlib.import_module("scripts.metrics_alerting")
 
 
 def _build_thresholds() -> dict:
