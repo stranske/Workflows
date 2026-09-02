@@ -55,7 +55,7 @@ def test_recursion_guard_counts_only_self_dispatched_retries() -> None:
         assert "--workflow=agents-issue-optimizer.yml" in guard
         assert "--event workflow_dispatch" in guard
         assert "--limit 100" in guard
-        assert 'and (.displayTitle | endswith($issue))' in guard
+        assert "and (.displayTitle | endswith($issue))" in guard
 
 
 def test_format_optimizer_rechecks_live_hold_and_exemption_state() -> None:
