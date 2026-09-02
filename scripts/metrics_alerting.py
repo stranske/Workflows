@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -43,9 +44,10 @@ def _safe_float(value: Any) -> float | None:
     if isinstance(value, bool):
         return None
     try:
-        return float(value)
-    except (TypeError, ValueError):
+        parsed = float(value)
+    except (TypeError, ValueError, OverflowError):
         return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _safe_int(value: Any) -> int | None:
@@ -53,9 +55,11 @@ def _safe_int(value: Any) -> int | None:
         return None
     if isinstance(value, bool):
         return None
+    if isinstance(value, float) and not value.is_integer():
+        return None
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
@@ -92,7 +96,7 @@ def _filter_recent_entries(
         timestamp = _parse_timestamp(entry.get("timestamp"))
         if timestamp is None:
             continue
-        if timestamp >= cutoff:
+        if cutoff <= timestamp <= now:
             recent.append(entry)
     return recent
 
@@ -151,9 +155,13 @@ def _extract_token_usage(entry: dict[str, Any]) -> float | None:
     if token_usage is None:
         token_usage = entry.get("token_usage_total")
     if isinstance(token_usage, dict):
-        total_tokens = _safe_float(token_usage.get("total_tokens"))
-        if total_tokens is not None:
-            return total_tokens
+        if "total_tokens" in token_usage:
+            raw_total = token_usage.get("total_tokens")
+            total_tokens = _safe_float(raw_total)
+            if total_tokens is not None:
+                return total_tokens
+            if raw_total not in (None, ""):
+                return None
         keys = (
             "input_tokens",
             "output_tokens",
@@ -161,10 +169,18 @@ def _extract_token_usage(entry: dict[str, Any]) -> float | None:
             "prompt_tokens",
             "completion_tokens",
         )
-        values = [_safe_float(token_usage.get(key)) for key in keys]
-        numbers = [value for value in values if value is not None]
+        numbers: list[float] = []
+        for key in keys:
+            raw_value = token_usage.get(key)
+            if raw_value is None or raw_value == "":
+                continue
+            number = _safe_float(raw_value)
+            if number is None:
+                return None
+            numbers.append(number)
         if numbers:
-            return sum(numbers)
+            total = sum(numbers)
+            return total if math.isfinite(total) else None
         return None
     return _safe_float(token_usage)
 

@@ -1,6 +1,14 @@
+import importlib.util
 import os
+import sys
+from types import ModuleType
 
 import pytest
+
+if importlib.util.find_spec("requests") is None:
+    requests_stub = ModuleType("requests")
+    requests_stub.post = None  # type: ignore[attr-defined]
+    sys.modules["requests"] = requests_stub
 
 from tests._autofix_diag import DiagnosticsRecorder, autofix_recorder  # noqa: F401
 
