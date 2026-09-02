@@ -74,7 +74,8 @@ def test_workflows_doc_explains_coverage_guard_tolerance_and_recovery() -> None:
     assert "defaults to `1.0`" in doc
     assert "current < baseline - warn_drop" in doc
     assert "recovery_days" in doc
-    assert "never authorizes early closure" in doc
+    assert "baseline - warn_drop" in doc
+    assert "does not reduce the default confirmation window" in doc
 
 
 def test_agent_routing_doc_covers_enabled_registry_agents() -> None:

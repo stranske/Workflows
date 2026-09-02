@@ -386,7 +386,7 @@ def test_main_invokes_issue_management_when_below_baseline(
     baseline_path = tmp_path / "baseline.json"
     coverage_path = tmp_path / "coverage.json"
     _write_json(trend_path, {"current": 64.0, "baseline": 70.0})
-    _write_json(baseline_path, {"line": 70.0})
+    _write_json(baseline_path, {"line": 70.0, "recovery_window": 1})
     _write_json(
         coverage_path,
         {"files": {"src/app.py": {"summary": {"percent_covered": 64.0, "missing_lines": 3}}}},
@@ -458,7 +458,7 @@ def test_main_skips_issue_management_when_at_or_above_baseline(
     trend_path = tmp_path / "trend.json"
     baseline_path = tmp_path / "baseline.json"
     _write_json(trend_path, {"current": 72.0, "baseline": 70.0})
-    _write_json(baseline_path, {"line": 70.0})
+    _write_json(baseline_path, {"line": 70.0, "recovery_window": 1})
 
     create_calls = []
     close_calls = []
@@ -523,6 +523,168 @@ def test_main_leaves_issue_open_until_recovery_window_satisfied(
 
     assert exit_code == 0
     assert not close_calls
+
+
+def test_main_closes_existing_issue_after_within_allowance_recovery_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    history_path = tmp_path / "coverage-trend-history.ndjson"
+    _write_json(
+        trend_path,
+        {
+            "current": 69.5,
+            "baseline": 70.0,
+            "history": [{"current": 69.5}, {"current": 69.5}],
+        },
+    )
+    _write_json(baseline_path, {"line": 70.0, "warn_drop": 1.0, "recovery_window": 2})
+
+    close_calls = []
+    monkeypatch.setattr(
+        coverage_guard,
+        "_close_existing_issue",
+        lambda *args, **kwargs: close_calls.append((args, kwargs)),
+    )
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(history_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert close_calls
+    recovery_body = close_calls[0][0][2]
+    assert "configured warning threshold" in recovery_body
+
+
+def test_main_requires_baseline_samples_when_current_meets_baseline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    history_path = tmp_path / "coverage-trend-history.ndjson"
+    _write_json(
+        trend_path,
+        {
+            "current": 72.0,
+            "baseline": 70.0,
+            "history": [{"current": 69.5}, {"current": 72.0}],
+        },
+    )
+    _write_json(baseline_path, {"line": 70.0, "warn_drop": 1.0, "recovery_window": 2})
+
+    close_calls = []
+    monkeypatch.setattr(
+        coverage_guard,
+        "_close_existing_issue",
+        lambda *args, **kwargs: close_calls.append((args, kwargs)),
+    )
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(history_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert not close_calls
+
+
+def test_main_preserves_default_recovery_window_within_allowance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    _write_json(
+        trend_path,
+        {
+            "current": 69.5,
+            "baseline": 70.0,
+            "history": [{"current": 69.5}, {"current": 69.5}],
+        },
+    )
+    _write_json(baseline_path, {"line": 70.0, "warn_drop": 1.0})
+
+    close_calls = []
+    monkeypatch.setattr(
+        coverage_guard,
+        "_close_existing_issue",
+        lambda *args, **kwargs: close_calls.append((args, kwargs)),
+    )
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(tmp_path / "coverage-trend-history.ndjson"),
+        ]
+    )
+
+    assert exit_code == 0
+    assert not close_calls
+
+
+def test_main_closes_existing_issue_when_baseline_recovery_window_satisfied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    _write_json(
+        trend_path,
+        {
+            "current": 72.0,
+            "baseline": 70.0,
+            "history": [{"current": 71.0}, {"current": 72.0}],
+        },
+    )
+    _write_json(baseline_path, {"line": 70.0, "recovery_window": 2})
+
+    close_calls = []
+    monkeypatch.setattr(
+        coverage_guard,
+        "_close_existing_issue",
+        lambda *args, **kwargs: close_calls.append((args, kwargs)),
+    )
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--history-path",
+            str(tmp_path / "coverage-trend-history.ndjson"),
+        ]
+    )
+
+    assert exit_code == 0
+    assert close_calls
+    recovery_body = close_calls[0][0][2]
+    assert "configured baseline" in recovery_body
 
 
 def test_main_uses_embedded_history_when_history_file_missing(
