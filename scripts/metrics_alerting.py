@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -43,9 +44,10 @@ def _safe_float(value: Any) -> float | None:
     if isinstance(value, bool):
         return None
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _safe_int(value: Any) -> int | None:
@@ -53,9 +55,11 @@ def _safe_int(value: Any) -> int | None:
         return None
     if isinstance(value, bool):
         return None
+    if isinstance(value, float) and not value.is_integer():
+        return None
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
@@ -92,7 +96,7 @@ def _filter_recent_entries(
         timestamp = _parse_timestamp(entry.get("timestamp"))
         if timestamp is None:
             continue
-        if timestamp >= cutoff:
+        if cutoff <= timestamp <= now:
             recent.append(entry)
     return recent
 
