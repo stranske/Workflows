@@ -386,3 +386,295 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
         if line.startswith("| stranske/") and line.endswith(" |")
     ]
     assert len(status_rows) == 15
+
+
+def test_numeric_coercion_rejects_nonfinite_overflow_and_non_scalars() -> None:
+    invalid_values = (
+        None,
+        True,
+        "",
+        "not-a-number",
+        object(),
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        10**400,
+    )
+
+    assert all(generator._as_number(value) is None for value in invalid_values)
+    assert generator._as_number(3) == 3.0
+    assert generator._as_number(" 2.5 ") == 2.5
+
+
+def test_timestamp_parsing_normalizes_valid_values_and_rejects_corruption() -> None:
+    midnight = dt.datetime(2024, 1, 1, tzinfo=dt.UTC).timestamp()
+    invalid_values = (
+        None,
+        True,
+        "",
+        "not-a-timestamp",
+        [],
+        float("nan"),
+        float("inf"),
+        1e308,
+        10**400,
+    )
+
+    assert all(generator._parse_timestamp(value) is None for value in invalid_values)
+    assert generator._parse_timestamp(midnight) == midnight
+    assert generator._parse_timestamp("2024-01-01T00:00:00Z") == midnight
+    assert generator._parse_timestamp("2024-01-01T00:00:00") == midnight
+    assert generator._parse_timestamp("2024-01-01T01:00:00+01:00") == midnight
+
+
+def test_timestamp_extraction_and_metric_inference_keep_metadata_separate() -> None:
+    entry = {
+        "repo": "octo/alpha",
+        "timestamp": "invalid",
+        "recorded_at": "2024-01-01T00:00:00Z",
+        "created_at": 1_704_067_200,
+        "time": 1_704_067_200,
+        "run_started_at": 1_704_067_200,
+        "duration_ms": "2.5",
+        "success": True,
+        "status": "ok",
+    }
+
+    assert generator._extract_timestamp(entry) == 1_704_067_200.0
+    assert generator._extract_timestamp({"timestamp": "invalid"}) is None
+    assert generator._infer_numeric_fields([entry]) == ["duration_ms"]
+
+
+def test_collect_series_skips_invalid_values_and_orders_missing_timestamps() -> None:
+    entries = [
+        {"metric": "invalid", "timestamp": "1970-01-01T00:00:00Z"},
+        {"metric": 20},
+        {"metric": 10, "timestamp": "1970-01-01T00:00:02Z"},
+        {"metric": 30, "timestamp": "1970-01-01T00:00:00Z"},
+    ]
+
+    assert generator._collect_series(entries, "metric") == [30.0, 20.0, 10.0]
+
+
+def test_dashboard_renders_explicit_missing_metrics_without_counting_them() -> None:
+    output = generator.build_dashboard(
+        [{"repo": "octo/alpha", "duration_ms": 5}],
+        errors=0,
+        numeric_fields=["missing_metric", "duration_ms"],
+    )
+
+    assert "| missing_metric | n/a | n/a | n/a | n/a | n/a | n/a |" in output
+    assert "| octo/alpha | 1 | 1 | n/a |" in output
+
+
+def test_threshold_statuses_pin_both_directions_and_boundaries() -> None:
+    assert generator._status_from_threshold(None, 10, 5) == "n/a"
+    assert generator._status_from_threshold(10, 10, 5) == "OK"
+    assert generator._status_from_threshold(5, 10, 5) == "WARN"
+    assert generator._status_from_threshold(4, 10, 5) == "FAIL"
+    assert generator._status_from_threshold(5, 5, 10, higher_is_better=False) == "OK"
+    assert generator._status_from_threshold(10, 5, 10, higher_is_better=False) == "WARN"
+    assert generator._status_from_threshold(11, 5, 10, higher_is_better=False) == "FAIL"
+
+
+def test_status_for_field_handles_missing_and_untrusted_rules() -> None:
+    assert generator._status_for_field("latency", 12, None) == "n/a"
+    assert generator._status_for_field("latency", 12, {}) == "n/a"
+    assert generator._status_for_field("latency", 12, {"other": {}}) == "n/a"
+    assert generator._status_for_field("latency", 12, {"latency": {"ok": 10}}) == "n/a"
+    assert (
+        generator._status_for_field(
+            "latency",
+            12,
+            {"latency": {"ok": 10, "warn": 5, "higher_is_better": "invalid"}},
+        )
+        == "OK"
+    )
+
+
+def test_fleet_error_overlay_matches_source_lines_without_overwriting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    metrics_path = tmp_path / "metrics.ndjson"
+    metrics_path.write_text('{"repo":"octo/alpha","duration_ms":1}\n', encoding="utf-8")
+    records = [
+        generator.langsmith_fleet.FleetRecord(
+            {"repo": "octo/alpha", "surface": "agent"}, source_line=2
+        ),
+        generator.langsmith_fleet.FleetRecord(
+            {"repo": "octo/beta", "surface": "agent"}, source_line=3
+        ),
+    ]
+    errors = generator.langsmith_fleet.ValidationError
+    fleet_summary = {
+        "status_counts": {"invalid": 1},
+        "total_registry_entries": 1,
+        "total_allowlisted_repos": 0,
+        "rows": [
+            {
+                "repo": "octo/alpha",
+                "surface": "agent",
+                "evidence_mode": "artifact",
+                "issue": "octo/alpha#1",
+                "status": "invalid",
+                "record_count": 1,
+                "latest_recorded_at": "",
+                "reason": "",
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        generator.langsmith_fleet,
+        "load_ndjson",
+        lambda _path: (records, [errors(1, "unmatched parse error")]),
+    )
+    monkeypatch.setattr(generator.langsmith_fleet, "load_registry", lambda _path: {})
+    monkeypatch.setattr(generator.langsmith_fleet, "load_record_schema", lambda: {})
+    monkeypatch.setattr(
+        generator.langsmith_fleet,
+        "validate_records",
+        lambda *_args, **_kwargs: [
+            errors(2, "first matching error"),
+            errors(2, "later matching error"),
+            errors(3, "matching record without summary row"),
+        ],
+    )
+    monkeypatch.setattr(
+        generator.langsmith_fleet,
+        "summarize_fleet_records",
+        lambda *_args, **_kwargs: fleet_summary,
+    )
+
+    dashboard, parse_errors = generator.build_dashboard_from_path(
+        metrics_path,
+        fleet_records_path=tmp_path / "fleet.ndjson",
+        fleet_registry_path=tmp_path / "registry.json",
+    )
+
+    assert parse_errors == 0
+    assert "first matching error" in dashboard
+    assert "later matching error" not in dashboard
+    assert "matching record without summary row" not in dashboard
+
+
+def test_parse_field_list_handles_absent_and_blank_values() -> None:
+    assert generator._parse_field_list(None) is None
+    assert generator._parse_field_list([]) is None
+    assert generator._parse_field_list([" , ", ""]) is None
+    assert generator._parse_field_list([" duration_ms, ", " success_rate "]) == [
+        "duration_ms",
+        "success_rate",
+    ]
+
+
+def test_load_config_handles_absent_missing_and_nonobject_files(tmp_path: Path) -> None:
+    assert generator._load_config(None) == {}
+
+    missing_path = tmp_path / "missing.json"
+    with pytest.raises(FileNotFoundError, match="Config file not found"):
+        generator._load_config(missing_path)
+
+    list_path = tmp_path / "list.json"
+    list_path.write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="Config must be a JSON object"):
+        generator._load_config(list_path)
+
+
+def test_validate_config_rejects_unknown_keys_and_invalid_paths() -> None:
+    with pytest.raises(ValueError, match="Unsupported config keys: alpha, zeta"):
+        generator._validate_config({"zeta": 1, "alpha": 2})
+
+    path_keys = (
+        "metrics_path",
+        "output_path",
+        "langsmith_fleet_records_path",
+        "langsmith_fleet_registry_path",
+    )
+    for key in path_keys:
+        with pytest.raises(ValueError, match=key):
+            generator._validate_config({key: 1})
+        with pytest.raises(ValueError, match=key):
+            generator._validate_config({key: " "})
+
+    validated = generator._validate_config({key: f" {key}.json " for key in path_keys})
+    assert validated == {key: f"{key}.json" for key in path_keys}
+
+
+def test_validate_config_numeric_fields_are_names_not_coerced_objects() -> None:
+    assert generator._validate_config({"numeric_fields": " a, , b "}) == {
+        "numeric_fields": ["a", "b"]
+    }
+    assert generator._validate_config({"numeric_fields": [" a ", "", "b"]}) == {
+        "numeric_fields": ["a", "b"]
+    }
+    with pytest.raises(ValueError, match="contain only strings"):
+        generator._validate_config({"numeric_fields": ["a", True]})
+    with pytest.raises(ValueError, match="list of strings or a string"):
+        generator._validate_config({"numeric_fields": ("a",)})
+
+
+def test_validate_config_rejects_invalid_threshold_shapes_and_values() -> None:
+    invalid_configs = [
+        ({"thresholds": []}, "object mapping"),
+        ({"thresholds": {"": {"ok": 1, "warn": 0}}}, "keys"),
+        ({"thresholds": {1: {"ok": 1, "warn": 0}}}, "keys"),
+        ({"thresholds": {"metric": []}}, "must be an object"),
+        ({"thresholds": {"metric": {"ok": 1}}}, "include ok and warn"),
+        (
+            {"thresholds": {"metric": {"ok": "nan", "warn": 0}}},
+            "include ok and warn",
+        ),
+        (
+            {"thresholds": {"metric": {"ok": 1, "warn": 0, "higher_is_better": "yes"}}},
+            "must be boolean",
+        ),
+    ]
+    for config, message in invalid_configs:
+        with pytest.raises(ValueError, match=message):
+            generator._validate_config(config)
+
+    assert generator._validate_config({"thresholds": {" metric ": {"ok": "10", "warn": 5}}}) == {
+        "thresholds": {"metric": {"ok": 10.0, "warn": 5.0, "higher_is_better": True}}
+    }
+
+
+def test_resolve_config_paths_resolves_only_relative_nonempty_values(tmp_path: Path) -> None:
+    config_path = tmp_path / "config" / "settings.json"
+    absolute_output = tmp_path / "dashboard.md"
+    config = {
+        "metrics_path": "metrics.ndjson",
+        "output_path": str(absolute_output),
+        "langsmith_fleet_records_path": "",
+    }
+
+    resolved = generator._resolve_config_paths(config, config_path)
+
+    assert resolved["metrics_path"] == str((config_path.parent / "metrics.ndjson").resolve())
+    assert resolved["output_path"] == str(absolute_output)
+    assert resolved["langsmith_fleet_records_path"] == ""
+    assert config["metrics_path"] == "metrics.ndjson"
+
+
+def test_main_reports_config_and_missing_metrics_errors(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    missing_config = tmp_path / "missing-config.json"
+    assert generator.main(["--config", str(missing_config)]) == 1
+    assert "Config file not found" in capsys.readouterr().err
+
+    missing_metrics = tmp_path / "missing-metrics.ndjson"
+    assert generator.main(["--path", str(missing_metrics)]) == 1
+    assert "metrics file not found" in capsys.readouterr().err
+
+
+def test_main_reports_parse_errors_but_writes_valid_entries(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    metrics_path = tmp_path / "metrics.ndjson"
+    metrics_path.write_text('not-json\n{"repo":"octo/alpha","duration_ms":1}\n', encoding="utf-8")
+    output_path = tmp_path / "dashboard.md"
+
+    assert generator.main(["--path", str(metrics_path), "--output", str(output_path)]) == 0
+
+    assert "parse errors: 1" in capsys.readouterr().err
+    assert "Parse errors: 1" in output_path.read_text(encoding="utf-8")

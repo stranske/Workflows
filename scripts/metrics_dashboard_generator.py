@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -18,29 +19,39 @@ from src.ndjson_parser import read_ndjson_file
 
 _DEFAULT_METRICS_PATH = "metrics-history.ndjson"
 _DEFAULT_OUTPUT_PATH = "docs/metrics/WEEKLY_DASHBOARD.md"
+_TIMESTAMP_FIELDS = ("timestamp", "recorded_at", "created_at", "time", "run_started_at")
 
 
 def _as_number(value: Any) -> float | None:
     if value is None or isinstance(value, bool):
         return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        raw = value.strip()
-        if not raw:
+    try:
+        if isinstance(value, (int, float)):
+            number = float(value)
+        elif isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+            number = float(raw)
+        else:
             return None
-        try:
-            return float(raw)
-        except ValueError:
-            return None
-    return None
+    except (ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _parse_timestamp(value: Any) -> float | None:
-    if value is None:
+    if value is None or isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return float(value)
+        timestamp = _as_number(value)
+        if timestamp is None:
+            return None
+        try:
+            _dt.datetime.fromtimestamp(timestamp, tz=_dt.UTC)
+        except (OSError, OverflowError, ValueError):
+            return None
+        return timestamp
     if isinstance(value, str):
         raw = value.strip()
         if not raw:
@@ -58,7 +69,7 @@ def _parse_timestamp(value: Any) -> float | None:
 
 
 def _extract_timestamp(entry: dict[str, Any]) -> float | None:
-    for key in ("timestamp", "recorded_at", "created_at", "time", "run_started_at"):
+    for key in _TIMESTAMP_FIELDS:
         timestamp = _parse_timestamp(entry.get(key))
         if timestamp is not None:
             return timestamp
@@ -69,7 +80,7 @@ def _infer_numeric_fields(entries: list[dict[str, Any]]) -> list[str]:
     fields: set[str] = set()
     for entry in entries:
         for key, value in entry.items():
-            if key == "repo":
+            if key == "repo" or key in _TIMESTAMP_FIELDS:
                 continue
             if _as_number(value) is not None:
                 fields.add(key)
@@ -468,7 +479,9 @@ def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
         if isinstance(numeric_fields, str):
             numeric_fields = _parse_field_list([numeric_fields])
         elif isinstance(numeric_fields, list):
-            numeric_fields = [str(item).strip() for item in numeric_fields if str(item).strip()]
+            if any(not isinstance(item, str) for item in numeric_fields):
+                raise ValueError("numeric_fields must contain only strings")
+            numeric_fields = [item.strip() for item in numeric_fields if item.strip()]
         else:
             raise ValueError("numeric_fields must be a list of strings or a string")
         validated["numeric_fields"] = numeric_fields or []
