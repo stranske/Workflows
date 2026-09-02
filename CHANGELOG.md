@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.30.12](https://github.com/stranske/Workflows/compare/v1.30.11...v1.30.12) (2026-09-02)
+
+
+### Bug Fixes
+
+* **coverage:** recover breach issue within warning allowance ([cc345a9](https://github.com/stranske/Workflows/commit/cc345a97d9377ebc1c9316870270c7e2f2f986a7))
+* exclude issue-triggered runs from optimizer retries ([#3308](https://github.com/stranske/Workflows/issues/3308)) ([859191f](https://github.com/stranske/Workflows/commit/859191f93f83d2200f96b9a9e6eaa2446934964f))
+* **metrics:** harden dashboard parsing with complete branch coverage ([#3317](https://github.com/stranske/Workflows/issues/3317)) ([7c10e68](https://github.com/stranske/Workflows/commit/7c10e6835f927971d89163e4b85f14429daddd44))
+* **metrics:** keep issue-pattern corpus counts trustworthy ([#3314](https://github.com/stranske/Workflows/issues/3314)) ([ec6e724](https://github.com/stranske/Workflows/commit/ec6e724b9108e562a9d043123f6279386b51f3dc)), closes [#3312](https://github.com/stranske/Workflows/issues/3312)
+* **metrics:** reject overflowing and partial token samples ([#3312](https://github.com/stranske/Workflows/issues/3312)) ([94196ca](https://github.com/stranske/Workflows/commit/94196ca22043b63c1255540b1aa1b9486211a0e3))
+
 ## [1.30.11](https://github.com/stranske/Workflows/compare/v1.30.10...v1.30.11) (2026-08-31)
 
 
