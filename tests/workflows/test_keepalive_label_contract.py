@@ -1,8 +1,7 @@
 """Keep keepalive label documentation tied to an executable surface (#3330)."""
 
-from pathlib import Path
 import re
-
+from pathlib import Path
 
 DOCS = (
     Path("docs/LABELS.md"),
@@ -26,9 +25,7 @@ def _documentation_only_labels() -> set[str]:
 
 def _automation_surface() -> str:
     return "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in Path(".github").rglob("*")
-        if path.is_file()
+        path.read_text(encoding="utf-8") for path in Path(".github").rglob("*") if path.is_file()
     )
 
 
