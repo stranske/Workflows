@@ -905,13 +905,16 @@ async function run({ github, context, core }) {
   const reviewPolicyPath = process.env.CONSUMER_SYNC_REVIEW_POLICY_PATH ||
     path.join(__dirname, '../../config/consumer_sync_review_policy.json');
   let reviewPolicy;
+  let reviewPolicyLoaded = true;
   try {
     reviewPolicy = normalizeReviewPolicy(
       JSON.parse(fs.readFileSync(reviewPolicyPath, 'utf8')),
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Unable to load consumer sync review policy at ${reviewPolicyPath}: ${message}`);
+    core.warning(`Unable to load consumer sync review policy at ${reviewPolicyPath}: ${message}`);
+    reviewPolicy = normalizeReviewPolicy({});
+    reviewPolicyLoaded = false;
   }
   const reviewerProfiles = Array.isArray(reviewPolicy.reviewers) ? reviewPolicy.reviewers : [];
   const configuredReviewers = reviewerProfiles
@@ -1111,6 +1114,8 @@ async function run({ github, context, core }) {
       activeReviewThreadCount: reviewThreads.length,
       reviewThreads,
       manifestSources,
+      reviewerProfiles,
+      reviewPolicyLoaded,
     });
     if (reviewBlock?.next_command !== AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND) {
       return { resolved: [], filedIssue: null, errors: ['not_auto_resolvable'] };
@@ -2211,6 +2216,8 @@ async function run({ github, context, core }) {
         activeReviewThreadCount: activeReviewThreads,
         reviewThreads: reviewThreadDetails.threads,
         manifestSources,
+        reviewerProfiles,
+        reviewPolicyLoaded,
         now: new Date().toISOString(),
       });
       const deliveryContext = {
@@ -2270,6 +2277,8 @@ async function run({ github, context, core }) {
               activeReviewThreadCount: refreshedThreads.count,
               reviewThreads: refreshedThreads.threads,
               manifestSources,
+              reviewerProfiles,
+              reviewPolicyLoaded,
               now: new Date().toISOString(),
             });
             deliveryContext.delivery_disposition = deliveryState.disposition;
@@ -2654,6 +2663,8 @@ async function run({ github, context, core }) {
             activeReviewThreadCount: finalGate.activeReviewThreads,
             reviewThreads: finalGate.reviewThreads || [],
             manifestSources,
+            reviewerProfiles,
+            reviewPolicyLoaded,
           });
           results.push({
             ...deliveryContext,

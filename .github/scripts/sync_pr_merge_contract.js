@@ -92,21 +92,24 @@ function isTrustedGeneratedDeliveryPr(pr, trustedActors = []) {
   return isGeneratedDeliveryBranchName(pr?.head?.ref) && new Set(trustedActors).has(actor);
 }
 
-const SYNC_BOT_REVIEW_AUTHORS = new Set([
-  'copilot-pull-request-reviewer',
-  'copilot[bot]',
-  'coderabbitai[bot]',
-  'coderabbitai',
-]);
-
 const AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND = 'auto-resolve-sync-bot-threads-and-file-upstream';
+const REVIEW_POLICY_UNAVAILABLE_COMMAND = 'repair-consumer-sync-review-policy';
 
 function normalizeLogin(login) {
   return String(login || '').trim().toLowerCase();
 }
 
-function isSyncBotReviewer(login) {
-  return SYNC_BOT_REVIEW_AUTHORS.has(normalizeLogin(login));
+function syncBotReviewerLogins(reviewerProfiles = []) {
+  return new Set(
+    (reviewerProfiles || [])
+      .flatMap((profile) => Array.isArray(profile?.logins) ? profile.logins : [])
+      .map(normalizeLogin)
+      .filter(Boolean),
+  );
+}
+
+function isSyncBotReviewer(login, reviewerProfiles = []) {
+  return syncBotReviewerLogins(reviewerProfiles).has(normalizeLogin(login));
 }
 
 const ROOT_MANIFEST_SOURCE_SECTIONS = new Set(['scripts', 'templates']);
@@ -169,7 +172,8 @@ function resolveManifestSyncedSource(path, manifestSourceEntries = new Map()) {
   };
 }
 
-function normalizeActiveReviewThreads(reviewThreads = []) {
+function normalizeActiveReviewThreads(reviewThreads = [], reviewerProfiles = []) {
+  const syncBotLogins = syncBotReviewerLogins(reviewerProfiles);
   return (reviewThreads || [])
     .filter((thread) => thread && !thread.isResolved && !thread.isOutdated)
     .map((thread) => {
@@ -182,7 +186,7 @@ function normalizeActiveReviewThreads(reviewThreads = []) {
         path: String(thread.path || firstComment.path || '').trim(),
         author: String(author).trim(),
         botAuthored: comments.length > 0
-          && authors.every((commentAuthor) => isSyncBotReviewer(commentAuthor)),
+          && authors.every((commentAuthor) => syncBotLogins.has(normalizeLogin(commentAuthor))),
       };
     });
 }
@@ -191,7 +195,17 @@ function classifyReviewBlockedDisposition({
   activeReviewThreadCount,
   reviewThreads = [],
   manifestSources = new Set(),
+  reviewerProfiles = [],
+  reviewPolicyLoaded = true,
 } = {}) {
+  if (!reviewPolicyLoaded) {
+    return {
+      disposition: 'review-blocked',
+      blocker_owner: 'closer',
+      next_command: REVIEW_POLICY_UNAVAILABLE_COMMAND,
+    };
+  }
+
   const reviewThreadCount = Number(activeReviewThreadCount);
   if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
     return {
@@ -204,7 +218,7 @@ function classifyReviewBlockedDisposition({
     return null;
   }
 
-  const activeThreads = normalizeActiveReviewThreads(reviewThreads);
+  const activeThreads = normalizeActiveReviewThreads(reviewThreads, reviewerProfiles);
   if (
     activeThreads.length > 0
     && activeThreads.every(
@@ -231,6 +245,8 @@ function classifyGeneratedPr({
   activeReviewThreadCount = 0,
   reviewThreads = [],
   manifestSources = null,
+  reviewerProfiles = [],
+  reviewPolicyLoaded = true,
   now,
 } = {}) {
   const record = parseDeliveryRecord(pr.body || '');
@@ -255,14 +271,31 @@ function classifyGeneratedPr({
     return { disposition: 'superseded', blocker_owner: 'maint-71', next_command: 'close-or-refresh-delivery' };
   }
   const reviewThreadCount = Number(activeReviewThreadCount);
+  if (!reviewPolicyLoaded) {
+    return classifyReviewBlockedDisposition({
+      activeReviewThreadCount: reviewThreadCount,
+      reviewThreads,
+      manifestSources: manifestSources || new Set(),
+      reviewerProfiles,
+      reviewPolicyLoaded,
+    });
+  }
   if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
-    return classifyReviewBlockedDisposition({ activeReviewThreadCount: reviewThreadCount });
+    return classifyReviewBlockedDisposition({
+      activeReviewThreadCount: reviewThreadCount,
+      reviewThreads,
+      manifestSources: manifestSources || new Set(),
+      reviewerProfiles,
+      reviewPolicyLoaded,
+    });
   }
   if (reviewThreadCount > 0) {
     return classifyReviewBlockedDisposition({
       activeReviewThreadCount: reviewThreadCount,
       reviewThreads,
       manifestSources: manifestSources || new Set(),
+      reviewerProfiles,
+      reviewPolicyLoaded,
     });
   }
   if (checkState.status === 'checks_pending') {
@@ -1521,6 +1554,7 @@ function buildMarkdownSummary(report) {
 
 module.exports = {
   AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
+  REVIEW_POLICY_UNAVAILABLE_COMMAND,
   REPORT_SCHEMA,
   SYNC_BRANCH_PREFIX,
   SYNC_CANDIDATE_BRANCH,
@@ -1537,6 +1571,7 @@ module.exports = {
   parseManifestSyncedSourceEntries,
   parseManifestSyncedSources,
   resolveManifestSyncedSource,
+  syncBotReviewerLogins,
   classifySyncPrChecks,
   candidateEvidenceAllowsMutation,
   buildCampaignCommitAuthorization,
