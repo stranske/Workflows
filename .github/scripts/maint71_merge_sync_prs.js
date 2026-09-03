@@ -2216,6 +2216,8 @@ async function run({ github, context, core }) {
         activeReviewThreadCount: activeReviewThreads,
         reviewThreads: reviewThreadDetails.threads,
         manifestSources,
+        reviewerProfiles,
+        reviewPolicyLoaded,
         now: new Date().toISOString(),
       });
       const deliveryContext = {
@@ -2275,6 +2277,8 @@ async function run({ github, context, core }) {
               activeReviewThreadCount: refreshedThreads.count,
               reviewThreads: refreshedThreads.threads,
               manifestSources,
+              reviewerProfiles,
+              reviewPolicyLoaded,
               now: new Date().toISOString(),
             });
             deliveryContext.delivery_disposition = deliveryState.disposition;

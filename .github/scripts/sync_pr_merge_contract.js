@@ -173,6 +173,7 @@ function resolveManifestSyncedSource(path, manifestSourceEntries = new Map()) {
 }
 
 function normalizeActiveReviewThreads(reviewThreads = [], reviewerProfiles = []) {
+  const syncBotLogins = syncBotReviewerLogins(reviewerProfiles);
   return (reviewThreads || [])
     .filter((thread) => thread && !thread.isResolved && !thread.isOutdated)
     .map((thread) => {
@@ -185,7 +186,7 @@ function normalizeActiveReviewThreads(reviewThreads = [], reviewerProfiles = [])
         path: String(thread.path || firstComment.path || '').trim(),
         author: String(author).trim(),
         botAuthored: comments.length > 0
-          && authors.every((commentAuthor) => isSyncBotReviewer(commentAuthor, reviewerProfiles)),
+          && authors.every((commentAuthor) => syncBotLogins.has(normalizeLogin(commentAuthor))),
       };
     });
 }
@@ -272,6 +273,15 @@ function classifyGeneratedPr({
   const reviewThreadCount = Number(activeReviewThreadCount);
   if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
     return classifyReviewBlockedDisposition({ activeReviewThreadCount: reviewThreadCount });
+  }
+  if (!reviewPolicyLoaded) {
+    return classifyReviewBlockedDisposition({
+      activeReviewThreadCount: Math.max(1, reviewThreadCount),
+      reviewThreads,
+      manifestSources: manifestSources || new Set(),
+      reviewerProfiles,
+      reviewPolicyLoaded,
+    });
   }
   if (reviewThreadCount > 0) {
     return classifyReviewBlockedDisposition({
