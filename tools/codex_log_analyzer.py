@@ -227,27 +227,31 @@ def _extract_file_refs(task_lower: str) -> list[str]:
 
 def _has_exact_file_match(file_refs: list[str], files_changed: list[str]) -> bool:
     for ref in file_refs:
-        ref_lower = ref.lower()
+        ref_lower = ref.lower().replace("\\", "/")
         ref_base = ref_lower.split("/")[-1]
         for changed in files_changed:
-            changed_lower = changed.lower()
+            changed_lower = changed.lower().replace("\\", "/")
             changed_base = changed_lower.split("/")[-1]
-            if changed_base == ref_base or changed_lower.endswith(ref_lower):
+            if (
+                changed_lower == ref_lower
+                or changed_lower.endswith("/" + ref_lower)
+                or ("/" not in ref_lower and changed_base == ref_base)
+            ):
                 return True
     return False
 
 
 def _first_matching_file(file_refs: list[str], files_changed: list[str]) -> str | None:
     for ref in file_refs:
-        ref_lower = ref.lower()
+        ref_lower = ref.lower().replace("\\", "/")
         ref_base = ref_lower.split("/")[-1]
         for changed in files_changed:
-            changed_lower = changed.lower()
+            changed_lower = changed.lower().replace("\\", "/")
             changed_base = changed_lower.split("/")[-1]
             if (
-                changed_base == ref_base
-                or changed_lower == ref_lower
+                changed_lower == ref_lower
                 or changed_lower.endswith("/" + ref_lower)
+                or ("/" not in ref_lower and changed_base == ref_base)
             ):
                 return changed
     return None

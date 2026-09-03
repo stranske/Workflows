@@ -105,17 +105,31 @@ def test_has_exact_file_match_matches_by_basename_across_directories() -> None:
 
 
 def test_first_matching_file_suffix_check_requires_path_boundary() -> None:
-    """The suffix fallback must not fire on a bare substring match.
-
-    "src/subtest.py" ends with the literal string "test.py" without being a
-    nested path that ends in "/test.py" -- subtest.py is an unrelated file.
-    A nested-path reference must still match at a real path boundary, and a
-    basename match across directories must still work.
-    """
+    """The selector rejects bare suffixes while keeping valid nested paths."""
     assert _first_matching_file(["test.py"], ["src/subtest.py"]) is None
     matched = _first_matching_file(["auth.py"], ["src/deep/nested/auth.py"])
     assert matched == "src/deep/nested/auth.py"
     assert _first_matching_file(["src/auth.py"], ["src/auth.py"]) == "src/auth.py"
+
+
+def test_has_exact_file_match_suffix_check_requires_path_boundary() -> None:
+    """The boolean matcher must reject a bare suffix but retain exact paths."""
+    assert _has_exact_file_match(["test.py"], ["src/subtest.py"]) is False
+    assert _has_exact_file_match(["src/auth.py"], ["src/auth.py"]) is True
+
+
+def test_exact_file_match_rejects_basename_only_for_path_qualified_refs() -> None:
+    """Path-qualified references require full-path equality, not basename overlap."""
+    assert _has_exact_file_match(["src/auth.py"], ["other/auth.py"]) is False
+    assert _first_matching_file(["src/auth.py"], ["other/auth.py"]) is None
+    assert _first_matching_file(["test.py"], ["src/subtest.py", "src/test.py"]) == "src/test.py"
+
+
+def test_exact_file_match_normalizes_windows_path_boundaries() -> None:
+    """Windows paths preserve bare-filename matching and exact evidence paths."""
+    changed = r"src\deep\auth.py"
+    assert _has_exact_file_match(["auth.py"], [changed]) is True
+    assert _first_matching_file(["auth.py"], [changed]) == changed
 
 
 def test_build_summary_reports_no_changes_detected() -> None:
