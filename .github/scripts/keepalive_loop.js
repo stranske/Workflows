@@ -2686,11 +2686,21 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         if (process.env.HAS_CODEX_AUTH === 'true') secrets.CODEX_AUTH_JSON = true;
         if (process.env.HAS_CLAUDE_AUTH === 'true') secrets.CLAUDE_AUTH_JSON = true;
         if (process.env.HAS_CLAUDE_OAUTH === 'true') secrets.CLAUDE_CODE_OAUTH_TOKEN = true;
+        if (process.env.HAS_CURSOR_AUTH === 'true') secrets.CURSOR_API_KEY = true;
+        if (process.env.HAS_GEMINI_AUTH === 'true') secrets.GEMINI_API_KEY = true;
+        const workflowPath = process.env.GITHUB_WORKFLOW === 'Agents Gate Followups'
+          ? '.github/workflows/agents-81-gate-followups.yml'
+          : '.github/workflows/agents-keepalive-loop.yml';
+        const workflowText = fs.existsSync(workflowPath) ? fs.readFileSync(workflowPath, 'utf8') : '';
+        const runnableAgents = Object.keys(registry.agents || {}).filter((key) => (
+          new RegExp(`^  run-${key}:`, 'm').test(workflowText)
+        ));
         const decision = decideNextAgent({
           state,
           labels: labels.map(String),
           secrets,
           registry,
+          runnableAgents,
           core,
         });
         if (decision.agent) {
@@ -2705,6 +2715,21 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         core?.warning?.(`Delegation policy failed, keeping ${agentType}: ${err.message}`);
       }
     }
+
+    const configuredAgent = _agentRegistry.agents?.[agentType];
+    const workflowPath = process.env.GITHUB_WORKFLOW === 'Agents Gate Followups'
+      ? '.github/workflows/agents-81-gate-followups.yml'
+      : '.github/workflows/agents-keepalive-loop.yml';
+    const workflowText = fs.existsSync(workflowPath) ? fs.readFileSync(workflowPath, 'utf8') : '';
+    const workflowDeclaresRunner = new RegExp(`^  run-${agentType}:`, 'm').test(workflowText);
+    const runnerUnavailable = Boolean(
+      configuredAgent && (
+        configuredAgent.enabled === false ||
+        !configuredAgent.runner_workflow ||
+        configuredAgent.capabilities?.pr_keepalive !== true ||
+        !workflowDeclaresRunner
+      ),
+    );
 
     // Prefer state iteration unless config explicitly sets it (0 from config is default, not explicit)
     const configHasExplicitIteration = config.iteration > 0;
@@ -2862,6 +2887,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     } else if (hasDefinitiveConflict && hasAgentLabel && keepaliveEnabled) {
       action = 'conflict';
       reason = `merge-conflict-${conflictResult.primarySource || 'detected'}`;
+    } else if (runnerUnavailable) {
+      action = 'skip';
+      reason = `no-runner-for-agent:${agentType}`;
     } else if (!hasAgentLabel) {
       action = 'wait';
       reason = 'missing-agent-label';

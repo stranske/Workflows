@@ -20,13 +20,15 @@ const mockRegistry = {
   default_agent: 'codex',
   agents: {
     codex: {
-      required_secrets: ['CODEX_AUTH_JSON'],
-      runner_workflow: '.github/workflows/reusable-codex-run.yml',
+    required_secrets: ['CODEX_AUTH_JSON'],
+    runner_workflow: '.github/workflows/reusable-codex-run.yml',
+    capabilities: { pr_keepalive: true },
     },
     claude: {
       required_secrets: ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_AUTH_JSON'],
-      required_secrets_mode: 'any',
-      runner_workflow: '.github/workflows/reusable-claude-run.yml',
+    required_secrets_mode: 'any',
+    runner_workflow: '.github/workflows/reusable-claude-run.yml',
+    capabilities: { pr_keepalive: true },
     },
   },
 };
@@ -311,6 +313,26 @@ test('decideNextAgent continues current agent if effective', () => {
   assert.equal(result.shouldSwitch, false);
 });
 
+test('decideNextAgent replaces an unavailable persisted agent before continuation rules', () => {
+  const result = decideNextAgent({
+    state: {
+      current_agent: 'claude',
+      iteration: 18,
+      last_switch_iteration: 17,
+      effectiveness_history: [{ iteration: 18, commits: 1, tasks: 1, gate: 'pass' }],
+    },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    runnableAgents: ['codex'],
+  });
+
+  assert.equal(result.agent, 'codex');
+  assert.equal(result.shouldSwitch, true);
+  assert.equal(result.previousAgent, 'claude');
+  assert.equal(result.reason, 'claude-unavailable');
+});
+
 test('decideNextAgent switches agent if stalled and not in cooldown', () => {
   const state = {
     current_agent: 'codex',
@@ -371,6 +393,54 @@ test('decideNextAgent returns empty agent if no agents available', () => {
   assert.equal(result.agent, '');
   assert.equal(result.reason, 'no-agents-available');
   assert.equal(result.shouldSwitch, false);
+});
+
+test('decideNextAgent never selects a configured agent without a keepalive runner', () => {
+  const registry = {
+    default_agent: 'aider',
+    agents: {
+      aider: {
+        enabled: true,
+        required_secrets: ['AIDER_API_KEY'],
+        runner_workflow: '',
+        capabilities: { pr_keepalive: false },
+      },
+      codex: mockRegistry.agents.codex,
+    },
+  };
+  const result = decideNextAgent({
+    state: {},
+    labels: ['agent:auto'],
+    secrets: { AIDER_API_KEY: 'present', CODEX_AUTH_JSON: 'present' },
+    registry,
+  });
+
+  assert.equal(result.agent, 'codex');
+  assert.deepEqual(result.alternatives, []);
+});
+
+test('decideNextAgent respects the runners declared by the current workflow tree', () => {
+  const registry = {
+    default_agent: 'gemini',
+    agents: {
+      codex: mockRegistry.agents.codex,
+      gemini: {
+        required_secrets: ['GEMINI_API_KEY'],
+        runner_workflow: '.github/workflows/reusable-gemini-run.yml',
+        capabilities: { pr_keepalive: true },
+      },
+    },
+  };
+  const result = decideNextAgent({
+    state: {},
+    labels: ['agent:auto'],
+    secrets: { CODEX_AUTH_JSON: 'present', GEMINI_API_KEY: 'present' },
+    registry,
+    runnableAgents: ['codex'],
+  });
+
+  assert.equal(result.agent, 'codex');
+  assert.deepEqual(result.alternatives, []);
 });
 
 test('formatDelegationSummary formats decision with metrics', () => {

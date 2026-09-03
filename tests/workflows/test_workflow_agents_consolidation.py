@@ -858,6 +858,24 @@ def test_keepalive_metrics_emit_compact_ndjson():
         assert "metrics_json=$(jq -cn \\" in text, f"{path} must emit one JSON object per line"
 
 
+def test_consumer_gate_followups_routes_cursor_and_gemini_through_completion():
+    consumer_loop = Path(
+        "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"
+    ).read_text(encoding="utf-8")
+
+    for agent in ("cursor", "gemini"):
+        assert f"  run-{agent}:" in consumer_loop
+        assert f"Keepalive next task ({agent.title()})" in consumer_loop
+        assert f"reusable-{agent}-run.yml@main" in consumer_loop
+        assert f"needs.run-{agent}.outputs.final-message-summary" in consumer_loop
+        assert f"needs.run-{agent}.outputs.agent-execution-started" in consumer_loop
+        assert f"needs.run-{agent}.outputs.commit-sha" in consumer_loop
+        assert f"needs.run-{agent}.result" in consumer_loop
+
+    assert "HAS_CURSOR_AUTH" in consumer_loop
+    assert "HAS_GEMINI_AUTH" in consumer_loop
+
+
 def test_mark_running_uses_same_trusted_app_token_as_summary():
     root_loop = (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
     consumer_loop = Path(
