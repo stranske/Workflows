@@ -748,7 +748,13 @@ jobs:
        needs.evaluate.outputs.action == 'fix' ||
        needs.evaluate.outputs.action == 'conflict')
     uses: stranske/Workflows/.github/workflows/reusable-cursor-run.yml@main
-    secrets: inherit
+    secrets:
+      CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+      WORKFLOWS_APP_ID: >-
+        ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: >-
+        ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY ||
+            secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
       skip: >-
         ${{ needs.evaluate.outputs.action != 'run' &&
@@ -774,7 +780,13 @@ jobs:
        needs.evaluate.outputs.action == 'fix' ||
        needs.evaluate.outputs.action == 'conflict')
     uses: stranske/Workflows/.github/workflows/reusable-gemini-run.yml@main
-    secrets: inherit
+    secrets:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      WORKFLOWS_APP_ID: >-
+        ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: >-
+        ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY ||
+            secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
       skip: >-
         ${{ needs.evaluate.outputs.action != 'run' &&
