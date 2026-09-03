@@ -92,6 +92,7 @@ jobs:
       start_ts: ${{ steps.timestamps.outputs.start_ts }}
       delegation_reason: ${{ steps.evaluate.outputs.delegation_reason }}
       delegation_should_switch: ${{ steps.evaluate.outputs.delegation_should_switch }}
+      delegation_source: ${{ steps.evaluate.outputs.delegation_source }}
       agent_routing_mode: ${{ steps.evaluate.outputs.agent_routing_mode }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
@@ -293,6 +294,7 @@ jobs:
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
+          ROUTE_WEIGHTS_URL: ${{ vars.ROUTE_WEIGHTS_URL }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -331,6 +333,7 @@ jobs:
                 ),
               delegation_reason: String(result.delegationReason || ''),
               delegation_should_switch: String(result.delegationShouldSwitch || 'false'),
+              delegation_source: String(result.delegationSource || ''),
               agent_routing_mode: String(result.agentRoutingMode || ''),
             };
             for (const [key, value] of Object.entries(output)) {
@@ -1142,6 +1145,7 @@ jobs:
               ''
             }}
           PREFLIGHT_FAILURE_SUMMARY: ${{ needs.preflight.outputs.failure_summary || '' }}
+          DELEGATION_SOURCE: ${{ needs.evaluate.outputs.delegation_source }}
           FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
@@ -1247,6 +1251,7 @@ jobs:
               // Delegation policy outputs (agent:auto mode)
               delegation_reason: '${{ needs.evaluate.outputs.delegation_reason }}',
               delegation_should_switch: '${{ needs.evaluate.outputs.delegation_should_switch }}',
+              delegation_source: process.env.DELEGATION_SOURCE || '',
               agent_routing_mode: '${{ needs.evaluate.outputs.agent_routing_mode }}',
               // Agent run result - check which agent ran
               run_result: runResult,

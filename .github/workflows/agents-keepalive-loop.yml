@@ -96,6 +96,7 @@ jobs:
       worker_fallback_model: ${{ steps.evaluate.outputs.worker_fallback_model }}
       delegation_reason: ${{ steps.evaluate.outputs.delegation_reason }}
       delegation_should_switch: ${{ steps.evaluate.outputs.delegation_should_switch }}
+      delegation_source: ${{ steps.evaluate.outputs.delegation_source }}
       # task_appendix is delivered via artifact upload (keepalive-task-appendix-<pr>)
       # to avoid GitHub's secret scanner censoring the job output.
       trace: ${{ steps.evaluate.outputs.trace }}
@@ -417,6 +418,7 @@ jobs:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
           HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           HAS_CLAUDE_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          ROUTE_WEIGHTS_URL: ${{ vars.ROUTE_WEIGHTS_URL || 'https://raw.githubusercontent.com/stranske/Orchestrator/exports/route-weights/config/route-weights.json' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -501,6 +503,7 @@ jobs:
               worker_fallback_model: String(result.executionProfile?.fallback_model || ''),
               delegation_reason: String(result.delegationReason || ''),
               delegation_should_switch: String(result.delegationShouldSwitch ?? 'false'),
+              delegation_source: String(result.delegationSource || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
               prompt_mode: String(result.promptMode || 'normal'),
                 prompt_file: String(
@@ -1643,6 +1646,7 @@ jobs:
               ''
             }}
           PREFLIGHT_FAILURE_SUMMARY: ${{ needs.preflight.outputs.failure_summary || '' }}
+          DELEGATION_SOURCE: ${{ needs.evaluate.outputs.delegation_source }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
               github.actor == 'github-actions[bot]' &&
@@ -1758,6 +1762,7 @@ jobs:
               agent_routing_mode: '${{ needs.evaluate.outputs.agent_routing_mode }}',
               delegation_reason: '${{ needs.evaluate.outputs.delegation_reason }}',
               delegation_should_switch: '${{ needs.evaluate.outputs.delegation_should_switch }}',
+              delegation_source: process.env.DELEGATION_SOURCE || '',
               trace: '${{ needs.evaluate.outputs.trace }}',
               // Agent run result - check which agent ran
               run_result: runResult,
