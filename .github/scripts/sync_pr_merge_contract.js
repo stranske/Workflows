@@ -198,6 +198,14 @@ function classifyReviewBlockedDisposition({
   reviewerProfiles = [],
   reviewPolicyLoaded = true,
 } = {}) {
+  if (!reviewPolicyLoaded) {
+    return {
+      disposition: 'review-blocked',
+      blocker_owner: 'closer',
+      next_command: REVIEW_POLICY_UNAVAILABLE_COMMAND,
+    };
+  }
+
   const reviewThreadCount = Number(activeReviewThreadCount);
   if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
     return {
@@ -208,14 +216,6 @@ function classifyReviewBlockedDisposition({
   }
   if (reviewThreadCount === 0) {
     return null;
-  }
-
-  if (!reviewPolicyLoaded) {
-    return {
-      disposition: 'review-blocked',
-      blocker_owner: 'closer',
-      next_command: REVIEW_POLICY_UNAVAILABLE_COMMAND,
-    };
   }
 
   const activeThreads = normalizeActiveReviewThreads(reviewThreads, reviewerProfiles);
@@ -271,12 +271,18 @@ function classifyGeneratedPr({
     return { disposition: 'superseded', blocker_owner: 'maint-71', next_command: 'close-or-refresh-delivery' };
   }
   const reviewThreadCount = Number(activeReviewThreadCount);
-  if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
-    return classifyReviewBlockedDisposition({ activeReviewThreadCount: reviewThreadCount });
-  }
   if (!reviewPolicyLoaded) {
     return classifyReviewBlockedDisposition({
-      activeReviewThreadCount: Math.max(1, reviewThreadCount),
+      activeReviewThreadCount: reviewThreadCount,
+      reviewThreads,
+      manifestSources: manifestSources || new Set(),
+      reviewerProfiles,
+      reviewPolicyLoaded,
+    });
+  }
+  if (!Number.isFinite(reviewThreadCount) || reviewThreadCount < 0) {
+    return classifyReviewBlockedDisposition({
+      activeReviewThreadCount: reviewThreadCount,
       reviewThreads,
       manifestSources: manifestSources || new Set(),
       reviewerProfiles,

@@ -2272,6 +2272,30 @@ test('review-blocked sync thread routing derives every bot login from review pol
   assert.equal(unavailable.blocker_owner, 'closer');
   assert.equal(unavailable.next_command, REVIEW_POLICY_UNAVAILABLE_COMMAND);
 
+  const unavailableThreadQuery = classifyReviewBlockedDisposition({
+    activeReviewThreadCount: -1,
+    reviewThreads: [],
+    manifestSources,
+    reviewerProfiles: [],
+    reviewPolicyLoaded: false,
+  });
+  assert.equal(unavailableThreadQuery.next_command, REVIEW_POLICY_UNAVAILABLE_COMMAND);
+
+  const unavailableGeneratedPr = classifyGeneratedPr({
+    pr: {
+      ...pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z'),
+      body: '<!-- sync-pr-delivery-record:v1 {"schema":"sync-pr-delivery-record/v1","durable_issue_url":"https://github.com/stranske/Workflows/issues/1836","plan_id":"plan-abc","generation":"generation-1","repository":"stranske/Travel-Plan-Permission","desired_tree_hash":"tree-abc","source_commit":"source-abc","lease_expires_at":"2026-08-02T00:00:00Z","predecessor_prs":[],"successor_prs":[]} -->',
+      user: { login: 'stranske' },
+    },
+    activeReviewThreadCount: -1,
+    reviewThreads: [],
+    manifestSources,
+    reviewerProfiles: [],
+    reviewPolicyLoaded: false,
+    now: '2026-08-01T00:00:00Z',
+  });
+  assert.equal(unavailableGeneratedPr.next_command, REVIEW_POLICY_UNAVAILABLE_COMMAND);
+
   const unavailableWithoutThreads = classifyGeneratedPr({
     pr: {
       ...pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z'),
