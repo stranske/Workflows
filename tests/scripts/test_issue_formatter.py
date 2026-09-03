@@ -108,7 +108,9 @@ def test_formatted_output_validation_excludes_archived_original_issue(
     assert "scripts/live.py" in seen["body"]
 
 
-def _install_fake_langchain(monkeypatch: pytest.MonkeyPatch, mock_chain: mock.MagicMock) -> None:
+def _install_fake_langchain(
+    monkeypatch: pytest.MonkeyPatch, mock_chain: mock.MagicMock
+) -> mock.MagicMock:
     mock_template = mock.MagicMock()
     mock_template.__or__ = mock.MagicMock(return_value=mock_chain)
 
@@ -121,6 +123,7 @@ def _install_fake_langchain(monkeypatch: pytest.MonkeyPatch, mock_chain: mock.Ma
     fake_core = types.SimpleNamespace(prompts=fake_prompts)
     monkeypatch.setitem(sys.modules, "langchain_core", fake_core)
     monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
+    return mock_template
 
 
 def _extract_section(body: str, heading: str) -> str:
@@ -592,7 +595,8 @@ def test_github_models_401_retries_once_with_openai(monkeypatch: pytest.MonkeyPa
     client_requests: list[bool] = []
     primary_client = object()
     fallback_client = object()
-    mock_chain = mock.MagicMock()
+    primary_chain = object()
+    fallback_chain = object()
     valid_body = (
         "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
         "## Acceptance Criteria\n"
@@ -617,14 +621,22 @@ def test_github_models_401_retries_once_with_openai(monkeypatch: pytest.MonkeyPa
             issue_formatter.TraceInfo(trace_id="openai-fallback-trace"),
         )
 
-    _install_fake_langchain(monkeypatch, mock_chain)
+    mock_template = _install_fake_langchain(monkeypatch, mock.MagicMock())
+    mock_template.__or__.side_effect = {
+        primary_client: primary_chain,
+        fallback_client: fallback_chain,
+    }.__getitem__
     monkeypatch.setattr(issue_formatter, "_get_llm_client", get_client)
     monkeypatch.setattr(issue_formatter, "invoke_with_trace", invoke)
 
     result = issue_formatter.format_issue_body("Raw issue text", use_llm=True)
 
     assert client_requests == [False, True]
-    assert calls == [mock_chain, mock_chain]
+    assert calls == [primary_chain, fallback_chain]
+    assert mock_template.__or__.call_args_list == [
+        mock.call(primary_client),
+        mock.call(fallback_client),
+    ]
     assert result["provider_used"] == "openai"
     assert result["used_llm"] is True
     assert result["langsmith_trace_id"] == "openai-fallback-trace"
