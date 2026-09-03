@@ -141,6 +141,10 @@ test('evidence_ok: false keeps static preference exactly', () => {
   assert.equal(result.delegationSource, staticDecision.delegationSource);
   assert.equal(result.shouldSwitch, staticDecision.shouldSwitch);
   assert.deepEqual(result.alternatives, staticDecision.alternatives);
+  // reason differs by failure type (route-weights-unavailable vs route-weights-insufficient-evidence)
+  // but both must indicate static delegation
+  assert.ok(result.reason.includes('delegation_source: static'), `reason should indicate static: ${result.reason}`);
+  assert.equal(result.previousAgent, staticDecision.previousAgent);
 });
 
 test('unreachable URL → static choice', async () => {

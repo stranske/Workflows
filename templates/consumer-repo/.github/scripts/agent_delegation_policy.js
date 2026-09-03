@@ -19,6 +19,7 @@ const DEFAULT_ROUTE_WEIGHTS_URL = (
 
 const ROUTE_WEIGHTS_SCHEMA = 'orchestrator.route-weights/v1';
 const ROUTE_WEIGHTS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+const ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS = 60 * 1000;
 const ROUTE_WEIGHTS_FETCH_TIMEOUT_MS = 5000;
 
 /**
@@ -100,7 +101,11 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
     }
 
     const generatedAt = Date.parse(document.generated_at || '');
-    if (!Number.isFinite(generatedAt) || referenceTime - generatedAt > ROUTE_WEIGHTS_MAX_AGE_MS) {
+    if (
+      !Number.isFinite(generatedAt) ||
+      referenceTime - generatedAt > ROUTE_WEIGHTS_MAX_AGE_MS ||
+      generatedAt - referenceTime > ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS
+    ) {
       return null;
     }
 
@@ -126,7 +131,9 @@ function selectAgentFromRouteWeights({
   agents,
   reserve = [],
 }) {
-  const reserveSet = new Set((reserve || []).map((name) => String(name).toLowerCase()));
+  const reserveSet = new Set(
+    (Array.isArray(reserve) ? reserve : []).map((name) => String(name).toLowerCase()),
+  );
   const taskEntry = routeWeights?.task_types?.[taskType];
 
   if (!routeWeights || !taskEntry || taskEntry.evidence_ok !== true) {
