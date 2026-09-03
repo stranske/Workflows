@@ -345,6 +345,48 @@ def test_tests_dir_on_pythonpath_does_not_split_comma_separated_entries(
     assert std._tests_dir_on_pythonpath() is False
 
 
+def test_pythonpath_parser_recovers_tests_from_unbalanced_quotes() -> None:
+    """A malformed quote must not hide an otherwise explicit tests path."""
+    assert std._pythonpath_has_tests('src "tests') is True
+
+
+@pytest.mark.parametrize("pythonpath", [None, True, 3.14, {"path": "tests"}, ("tests",)])
+def test_pythonpath_parser_rejects_unsupported_value_shapes(pythonpath: object) -> None:
+    """Invalid config types must not make test helpers look importable."""
+    assert std._pythonpath_has_tests(pythonpath) is False
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        "[pytest\npythonpath = ['tests']\n",
+        'pytest = "tests"\n',
+    ],
+    ids=["invalid-toml", "pytest-not-a-table"],
+)
+def test_pytest_toml_invalid_shapes_fail_closed(tmp_path: Path, contents: str) -> None:
+    """Broken pytest.toml files must not crash or invent local modules."""
+    config_file = tmp_path / "pytest.toml"
+    config_file.write_text(contents, encoding="utf-8")
+
+    assert std._tests_dir_on_pytest_toml_pythonpath(config_file) is False
+
+
+def test_ini_pythonpath_parse_errors_fail_closed(tmp_path: Path) -> None:
+    """A malformed INI file is unusable configuration, not a tests path."""
+    config_file = tmp_path / "pytest.ini"
+    config_file.write_text("pythonpath = tests\n", encoding="utf-8")
+
+    assert std._tests_dir_on_ini_pythonpath(config_file, ("pytest",)) is False
+
+
+def test_ini_pythonpath_missing_file_fails_closed(tmp_path: Path) -> None:
+    """A disappeared config file must not be treated as enabling test imports."""
+    config_file = tmp_path / "missing-pytest.ini"
+
+    assert std._tests_dir_on_ini_pythonpath(config_file, ("pytest",)) is False
+
+
 def test_tests_dir_on_pythonpath_reads_ini_values_without_interpolation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
