@@ -21,10 +21,13 @@ const {
   classifyGeneratedPr,
   classifyReviewBlockedDisposition,
   AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
+  REVIEW_POLICY_UNAVAILABLE_COMMAND,
   isManifestSyncedPath,
+  isSyncBotReviewer,
   parseManifestSyncedSourceEntries,
   parseManifestSyncedSources,
   resolveManifestSyncedSource,
+  syncBotReviewerLogins,
   classifySyncPrChecks,
   commitSignatureAllowsMerge,
   collectDeletableSyncBranches,
@@ -2151,6 +2154,9 @@ test('review-blocked sync bot threads on manifest-synced paths route to maint-71
     - source: tools/coverage_guard.py
       description: coverage guard helper
   `);
+  const reviewerProfiles = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '../../../config/consumer_sync_review_policy.json'), 'utf8'),
+  ).reviewers;
   const botThreads = [{
     id: 'thread-1',
     path: 'tools/coverage_guard.py',
@@ -2169,6 +2175,7 @@ test('review-blocked sync bot threads on manifest-synced paths route to maint-71
     activeReviewThreadCount: 1,
     reviewThreads: botThreads,
     manifestSources,
+    reviewerProfiles,
     now: '2026-08-01T00:00:00Z',
   });
   assert.equal(routed.disposition, 'review-blocked');
@@ -2183,6 +2190,7 @@ test('review-blocked sync bot threads on manifest-synced paths route to maint-71
     activeReviewThreadCount: 1,
     reviewThreads: humanThread,
     manifestSources,
+    reviewerProfiles,
   });
   assert.equal(closerOwned.blocker_owner, 'closer');
   assert.equal(closerOwned.next_command, 'resolve-active-review-threads');
@@ -2200,15 +2208,69 @@ test('review-blocked sync bot threads on manifest-synced paths route to maint-71
     activeReviewThreadCount: 1,
     reviewThreads: mixedThread,
     manifestSources,
+    reviewerProfiles,
   }).blocker_owner, 'closer');
 
   const deliberateBreak = classifyReviewBlockedDisposition({
     activeReviewThreadCount: 1,
     reviewThreads: botThreads,
     manifestSources,
+    reviewerProfiles,
   });
   assert.notEqual(deliberateBreak.blocker_owner, 'closer');
   assert.notEqual(deliberateBreak.next_command, 'resolve-active-review-threads');
+});
+
+test('review-blocked sync thread routing derives every bot login from review policy', () => {
+  const reviewerProfiles = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '../../../config/consumer_sync_review_policy.json'), 'utf8'),
+  ).reviewers;
+  const configuredLogins = reviewerProfiles.flatMap((profile) => profile.logins);
+  assert.deepEqual([...syncBotReviewerLogins(reviewerProfiles)].sort(), configuredLogins.map((login) => login.toLowerCase()).sort());
+  for (const login of configuredLogins) assert.equal(isSyncBotReviewer(login, reviewerProfiles), true);
+
+  const manifestSources = new Set(['.github/workflows/maint-coverage-guard.yml']);
+  const reviewThreads = [
+    'chatgpt-codex-connector',
+    'chatgpt-codex-connector[bot]',
+    'copilot-pull-request-reviewer',
+    'copilot-pull-request-reviewer[bot]',
+  ].map((login, index) => ({
+    id: `thread-${index}`,
+    path: '.github/workflows/maint-coverage-guard.yml',
+    isResolved: false,
+    isOutdated: false,
+    comments: { nodes: [{ author: { login }, path: '.github/workflows/maint-coverage-guard.yml' }] },
+  }));
+  const routed = classifyReviewBlockedDisposition({
+    activeReviewThreadCount: reviewThreads.length,
+    reviewThreads,
+    manifestSources,
+    reviewerProfiles,
+  });
+  assert.equal(routed.blocker_owner, 'maint-71');
+  assert.equal(routed.next_command, AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND);
+
+  const unconfigured = [{
+    ...reviewThreads[0],
+    comments: { nodes: [{ author: { login: 'unconfigured-reviewer' }, path: '.github/workflows/maint-coverage-guard.yml' }] },
+  }];
+  assert.equal(classifyReviewBlockedDisposition({
+    activeReviewThreadCount: 1,
+    reviewThreads: unconfigured,
+    manifestSources,
+    reviewerProfiles,
+  }).blocker_owner, 'closer');
+
+  const unavailable = classifyReviewBlockedDisposition({
+    activeReviewThreadCount: 1,
+    reviewThreads: reviewThreads.slice(0, 1),
+    manifestSources,
+    reviewerProfiles: [],
+    reviewPolicyLoaded: false,
+  });
+  assert.equal(unavailable.blocker_owner, 'closer');
+  assert.equal(unavailable.next_command, REVIEW_POLICY_UNAVAILABLE_COMMAND);
 });
 
 test('manifest source resolution preserves template ownership and consumer targets', () => {
