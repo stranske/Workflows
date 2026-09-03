@@ -305,21 +305,21 @@ function decideNextAgent({
     const nextAgent = weighted.agent || alternatives[0] || currentAgent;
     const delegationSource = weighted.agent ? weighted.delegationSource : 'static';
 
+    const sourceSuffix =
+      delegationSource === 'route_weights'
+        ? 'delegation_source: route_weights'
+        : `delegation_source: static (${weighted.staticReason || 'preference-order'})`;
+
     if (nextAgent === currentAgent) {
       core?.warning?.('Stalled but no alternative agents available');
       return {
         agent: currentAgent,
-        reason: 'stalled-no-alternatives',
+        reason: `stalled-no-alternatives (${sourceSuffix})`,
         shouldSwitch: false,
         alternatives: [],
         delegationSource: 'static',
       };
     }
-
-    const sourceSuffix =
-      delegationSource === 'route_weights'
-        ? 'delegation_source: route_weights'
-        : `delegation_source: static (${weighted.staticReason || 'preference-order'})`;
     core?.info?.(`Switching from ${currentAgent} to ${nextAgent} due to stall (${sourceSuffix})`);
     return {
       agent: nextAgent,
