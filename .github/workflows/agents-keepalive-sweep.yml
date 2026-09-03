@@ -95,8 +95,12 @@ jobs:
             }));
             const eligible = prs.filter((pr) => {
               const labelNames = (pr.labels || []).map((label) => (label.name || '').toLowerCase());
+              const routingLabels = labelNames.filter((name) =>
+                name.startsWith('agent:') &&
+                !['agent:aider', 'agent:needs-attention', 'agent:rate-limited', 'agent:retry'].includes(name),
+              );
               return !pr.draft &&
-                labelNames.some((name) => /^agent:/i.test(name)) &&
+                routingLabels.length > 0 &&
                 labelNames.includes('agents:keepalive');
             });
             core.info(`Open PRs: ${prs.length}; non-draft keepalive agent PRs: ${eligible.length}`);
@@ -109,7 +113,9 @@ jobs:
               }
               try {
                 let dueChallenge = null;
-                if ((pr.labels || []).some((label) => label.name === 'agent:needs-attention')) {
+                if ((pr.labels || []).some(
+                  (label) => (label.name || '').toLowerCase() === 'agent:needs-attention',
+                )) {
                   const comments = await withRetry((client) => client.paginate(
                     client.rest.issues.listComments,
                     { owner, repo, issue_number: pr.number, per_page: 100 },

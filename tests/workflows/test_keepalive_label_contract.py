@@ -81,8 +81,24 @@ def test_disabled_labels_are_explicitly_documented_as_non_executable() -> None:
 
 
 def test_keepalive_sweeps_normalize_the_opt_in_label_before_filtering() -> None:
-    """Display casing must not make the documented opt-in label invisible."""
-    for path in SWEEP_PATHS:
-        workflow = path.read_text(encoding="utf-8")
-        assert "(label.name || '').toLowerCase()" in workflow
-        assert "labelNames.includes('agents:keepalive')" in workflow
+    """All sweep modes normalize labels and require an executable routing label."""
+    root_workflow = SWEEP_PATHS[0].read_text(encoding="utf-8")
+    consumer_workflow = SWEEP_PATHS[1].read_text(encoding="utf-8")
+    assert root_workflow.count("(label.name || '').toLowerCase()") == 2
+    assert consumer_workflow.count("(label.name || '').toLowerCase()") == 4
+    required_snippets = (
+        "labelNames.includes('agents:keepalive')",
+        "const routingLabels = labelNames.filter",
+        "'agent:aider', 'agent:needs-attention', 'agent:rate-limited', 'agent:retry'",
+        "(label.name || '').toLowerCase() === 'agent:needs-attention'",
+    )
+    for snippet in required_snippets:
+        assert root_workflow.count(snippet) == 1
+        assert consumer_workflow.count(snippet) == 2
+
+
+def test_run_cap_docs_state_the_executable_bounds() -> None:
+    """The operator docs must disclose parseRunCap's 1–5 effective range."""
+    labels_doc = Path("docs/LABELS.md").read_text(encoding="utf-8")
+    assert "Supported nonzero values are `K = 1–5`" in labels_doc
+    assert "Values above 5 are clamped to an effective cap of 5" in labels_doc

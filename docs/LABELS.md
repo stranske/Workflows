@@ -615,7 +615,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 **Effect:**
 1. Caps concurrent keepalive runs for a PR; it does not limit the total round budget.
 2. `agents:max-runs:0` is an explicit hold and prevents dispatch.
-3. Values `K >= 1` are enforced against in-progress runs by the keepalive loop when it evaluates the PR; `max_iterations` controls total rounds.
+3. Supported nonzero values are `K = 1–5`. Values above 5 are clamped to an effective cap of 5 by the keepalive loop; `max_iterations` controls total rounds.
 
 **Consumer:** `.github/scripts/keepalive_gate.js` parses the prefix, and
 `.github/scripts/keepalive_loop.js` enforces the zero-run hold alongside
