@@ -9,15 +9,24 @@
  */
 
 /** Default Orchestrator route-weights export URL (overridable via ROUTE_WEIGHTS_URL). */
-const DEFAULT_ROUTE_WEIGHTS_URL =
-  'https://raw.githubusercontent.com/stranske/Orchestrator/exports/route-weights/config/route-weights.json';
+const DEFAULT_ROUTE_WEIGHTS_URL = (
+  typeof process !== 'undefined' &&
+  process.env &&
+  process.env.ROUTE_WEIGHTS_URL
+) ? process.env.ROUTE_WEIGHTS_URL : (
+  'https://raw.githubusercontent.com/stranske/Orchestrator/exports/route-weights/config/route-weights.json'
+);
 
 const ROUTE_WEIGHTS_SCHEMA = 'orchestrator.route-weights/v1';
 const ROUTE_WEIGHTS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const ROUTE_WEIGHTS_FETCH_TIMEOUT_MS = 5000;
 
 /**
- * Maps keepalive round kinds to Orchestrator route-weights task types.
+ * Keepalive round kind → Orchestrator route-weights task type.
+ *
+ * - PR implementation-style rounds (`implement`, `run`, `fix`, `conflict`) → `implement`
+ * - PR review rounds (`review`) → `review`
+ * - PR test-writing rounds (`testgen`) → `testgen`
  * @type {Record<string, string>}
  */
 const ROUTE_WEIGHT_TASK_TYPES = {
@@ -45,23 +54,47 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
   }
 
   const referenceTime = now instanceof Date ? now.getTime() : new Date(now || Date.now()).getTime();
+  if (!Number.isFinite(referenceTime)) {
+    return null;
+  }
+
+  let timeoutId;
 
   try {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller
-      ? setTimeout(() => controller.abort(), ROUTE_WEIGHTS_FETCH_TIMEOUT_MS)
-      : null;
+    let timedOut = false;
 
-    const response = await fetchFn(url, controller ? { signal: controller.signal } : undefined);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
+    const fetchPromise = Promise.resolve()
+      .then(() => fetchFn(url, controller ? { signal: controller.signal } : undefined))
+      // Prevent unhandled rejection if the timeout “wins” the race.
+      .catch(() => null);
 
-    if (!response || response.status !== 200) {
+    const timeoutPromise = new Promise((resolve) => {
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        if (controller) {
+          try {
+            controller.abort();
+          } catch {
+            // Ignore abort errors; treat it as timeout failure.
+          }
+        }
+        resolve(null);
+      }, ROUTE_WEIGHTS_FETCH_TIMEOUT_MS);
+    });
+
+    const response = await Promise.race([fetchPromise, timeoutPromise]);
+    if (timedOut || !response || response.status !== 200) {
       return null;
     }
 
-    const document = await response.json();
+    let document;
+    try {
+      document = await response.json();
+    } catch {
+      return null;
+    }
+
     if (!document || document.schema !== ROUTE_WEIGHTS_SCHEMA) {
       return null;
     }
@@ -74,6 +107,10 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
     return document;
   } catch {
     return null;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
