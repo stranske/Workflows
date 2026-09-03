@@ -153,11 +153,11 @@ fingerprint_refreshed = 2026-08-24
 [pair.13]
 main = .github/workflows/agents-keepalive-sweep.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml
-main_sha256 = d298749854d5a646fae5197fd242ef656487b7a57d6f2e690cd52e838d2fb9e1
-template_sha256 = 91982b558d16313dc2a6a2bea353ffab9601793d285b4cb0bdc75448787af1a8
-divergence = Non-consolidated fallback re-reviewed 2026-09-01: consumer sweep now runs mutually exclusive sweep_consolidated / sweep_nonconsolidated jobs plus an ungated name_mode job that records the named skip reason when the consolidated path is inactive, so unset USE_CONSOLIDATED_WORKFLOWS still gets hourly re-evaluation via agents-81. Root retains its single inverted-mode sweep that targets agents-keepalive-loop.yml. Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-13: root and consumer sweeps share HMAC-signed due-authority claims bound to repository, PR, fingerprint, nonce, and exact sweep run; missing signing material fails closed to ordinary non-forced rechecks. Both bypass state debounce for ordinary sweep recovery, retain completed-runner debounce for ordinary wakeups, and bypass runner debounce only for a verified signed due claim, while the consumer retains its consolidated gate-followup dispatch path and pinned action contract.
-divergence_reviewed = 2026-09-01
-fingerprint_refreshed = 2026-09-01
+main_sha256 = a163e6a9ff5c55758bc9030e1ec5a1578eb4074876788a43195fe164cdf5cc04
+template_sha256 = 526cd23f10c3de5d7b7cd33ef22da4f85d480459e5feecc327f7371473ba787b
+divergence = Keepalive routing-label hardening re-reviewed 2026-09-03: root and both consumer mode sweeps normalize labels before eligibility, require a real executable routing label rather than disabled Aider or recovery-only labels, and use the normalized needs-attention signal for authority challenges. This preserves recovery dispatch for PRs that also carry a concrete route without changing the root/consumer dispatch topology. Prior divergence unchanged: Non-consolidated fallback re-reviewed 2026-09-01: consumer sweep now runs mutually exclusive sweep_consolidated / sweep_nonconsolidated jobs plus an ungated name_mode job that records the named skip reason when the consolidated path is inactive, so unset USE_CONSOLIDATED_WORKFLOWS still gets hourly re-evaluation via agents-81. Root retains its single inverted-mode sweep that targets agents-keepalive-loop.yml. Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-13: root and consumer sweeps share HMAC-signed due-authority claims bound to repository, PR, fingerprint, nonce, and exact sweep run; missing signing material fails closed to ordinary non-forced rechecks. Both bypass state debounce for ordinary sweep recovery, retain completed-runner debounce for ordinary wakeups, and bypass runner debounce only for a verified signed due claim, while the consumer retains its consolidated gate-followup dispatch path and pinned action contract.
+divergence_reviewed = 2026-09-03
+fingerprint_refreshed = 2026-09-03
 
 [pair.14]
 main = .github/workflows/agents-verifier.yml

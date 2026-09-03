@@ -33,7 +33,7 @@
 
 ## Lifecycle Overview
 
-1. **PR labeled:** A PR receives an `agent:*` label (for example, `agent:codex` or `agent:claude`).
+1. **PR labeled:** A PR receives an `agent:*` routing label (for example, `agent:codex` or `agent:claude`) and the `agents:keepalive` opt-in label.
 2. **Guarded check:** Orchestrator guardrails confirm the label, Gate success, and run-cap capacity before running the agent.
 3. **Agent execution:** The appropriate agent workflow runs with explicit task context injected into the prompt.
 4. **Timed repeats:** Subsequent Gate completions trigger re-evaluation and continue if tasks remain.
@@ -46,7 +46,7 @@
 
 Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
-1. **PR opt-in:** The PR carries an `agent:*` label (for example, `agent:codex` or `agent:claude`).
+1. **PR opt-in:** The PR carries both an `agent:*` routing label (for example, `agent:codex` or `agent:claude`) and `agents:keepalive`.
 2. **Gate green:** The Gate workflow for the current head SHA completed successfully.
 3. **Tasks present:** The PR body contains unchecked tasks in the Automated Status Summary.
 
@@ -56,7 +56,7 @@ Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
 ### Periodic re-evaluation (keepalive sweep)
 
-Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label event fires. The hourly `agents-keepalive-sweep.yml` workflow selects every open non-draft PR carrying an `agent:*` label and dispatches the PR's registered evaluation workflow:
+Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label event fires. The hourly `agents-keepalive-sweep.yml` workflow selects every open non-draft PR carrying both an `agent:*` routing label and `agents:keepalive`, then dispatches the PR's registered evaluation workflow:
 
 | Mode | `vars.USE_CONSOLIDATED_WORKFLOWS` | Sweep job | Loop dispatched |
 |------|-----------------------------------|-----------|-----------------|
@@ -86,7 +86,7 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 ## 3. Run Cap Enforcement
 
 - **Default limit:** Maximum of **1** concurrent agent run per PR.
-- **Label override:** Respect `agents:max-parallel:<K>` when present (integer 1–5).
+- **Label override:** Respect `agents:max-runs:<K>` when present (integer 1–5); `agents:max-runs:0` is an explicit hold.
 - **Enforcement:** Dispatch only when the count of in-progress runs is `< K`. If at cap, exit quietly after updating the run summary.
 - **Round budget:** The loop enforces `max_iterations` as the ordinary per-PR round budget. The default is 12 rounds unless overridden by keepalive config.
 - **Budget exhaustion:** When the current iteration reaches `max_iterations`, keepalive stops that dispatch strategy, records reason `round-budget-exhausted`, and dispatches one forced recovery lease. The durable state records that lease as issued and consumes it only after an agent runner actually starts and returns a real result. Skipped or cancelled runners, preflight-only failures, temporary operator guards, and failed direct dispatches defer the same lease for a later direct retry. Later ordinary events cannot mint a second lease for the same terminal reason and budget. Raising the budget or making later ordinary progress resets that boundary; the forced run itself may cross the persisted budget once and cannot recursively dispatch itself.

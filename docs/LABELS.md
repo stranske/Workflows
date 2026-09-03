@@ -12,7 +12,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:claude` | Issue or PR labeled | Routes the issue or PR to the Claude Code agent
 | `agent:cursor` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Cursor runner
 | `agent:gemini` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Gemini runner
-| `agent:aider` | Issue or PR labeled | Routes the issue or PR to the Aider agent for cheap, low-complexity tasks — runner lands in a follow-up phase
+| `agent:aider` | Issue or PR labeled | Reserved and disabled; no runner dispatches until its implementation lands
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; do not combine with concrete `agent:<name>` labels
 | `agent:retry` | PR labeled | Consolidated consumers require a manual Gate-followups dispatch; the root/non-consolidated keepalive workflow forces a retry and clears recovery labels
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
@@ -41,6 +41,16 @@ This document describes all labels that trigger automated workflows or affect CI
 | `verify:compare` | PR labeled | Runs verifier comparison mode after merge
 | `verify:create-issue` | PR labeled | Creates follow-up issue from verification
 | `verify:create-new-pr` | PR labeled | Creates follow-up issue and PR from verification
+
+---
+
+### Retired label names
+
+`agents:max-parallel:<K>` is retired and documentation-only. It has never been
+implemented; use `agents:max-runs:<K>` to cap concurrent keepalive runs instead; use
+the PR's `max_iterations` setting to limit the total round budget.
+`agent:codex-invite` is also retired; use the generic `agent:<name>-invite`
+mechanism when an invite-mode bridge is explicitly needed.
 
 ---
 
@@ -212,9 +222,9 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 
 **Applies to:** Issues and Pull Requests
 
-Registered ahead of its runner (lands in a follow-up phase). `agent:aider` is reserved for cheap,
-low-complexity tasks via Aider with a configurable backend model. Until its `reusable-aider-run.yml`
-runner and registry entry ship, applying this label will not dispatch a runner. See
+`agent:aider` is reserved and disabled for a future cheap, low-complexity Aider lane. Until its
+`reusable-aider-run.yml` runner and enabled registry entry ship, applying this label will not
+dispatch a runner. See
 `docs/guides/ADD_NEW_AGENT.md` and the rollout plan for sequencing.
 
 ---
@@ -603,9 +613,9 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 **Trigger:** Read during keepalive evaluation
 
 **Effect:**
-1. Caps how many keepalive rounds a PR may run.
+1. Caps concurrent keepalive runs for a PR; it does not limit the total round budget.
 2. `agents:max-runs:0` is an explicit hold and prevents dispatch.
-3. Values `K >= 1` are enforced by the keepalive loop when it evaluates the PR.
+3. Supported nonzero values are `K = 1–5`. Values above 5 are clamped to an effective cap of 5 by the keepalive loop; `max_iterations` controls total rounds.
 
 **Consumer:** `.github/scripts/keepalive_gate.js` parses the prefix, and
 `.github/scripts/keepalive_loop.js` enforces the zero-run hold alongside
