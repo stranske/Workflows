@@ -4,7 +4,8 @@
 # completions and label events; a round that ends with zero commits produces no
 # follow-up event, so a silently-stalled PR is never re-evaluated and the loop goes
 # quiet instead of escalating. This periodic sweep re-runs the loop for every open PR
-# carrying an `agent:*` label, so stalls resurface on their own.
+# carrying both `agent:*` and `agents:keepalive` labels, so stalls resurface on
+# their own without waking PRs that have not opted into the loop.
 #
 # Safety: this only *dispatches the existing loop* — it makes no dispatch decision of
 # its own. The loop's state-fingerprint/debounce makes an unchanged PR a near-free
@@ -92,10 +93,13 @@ jobs:
             const prs = await withRetry((client) => client.paginate(client.rest.pulls.list, {
               owner, repo, state: 'open', per_page: 100,
             }));
-            const eligible = prs.filter((pr) =>
-              !pr.draft && (pr.labels || []).some((l) => /^agent:/i.test(l.name || '')),
-            );
-            core.info(`Open PRs: ${prs.length}; non-draft agent-labelled: ${eligible.length}`);
+            const eligible = prs.filter((pr) => {
+              const labelNames = (pr.labels || []).map((label) => label.name || '');
+              return !pr.draft &&
+                labelNames.some((name) => /^agent:/i.test(name)) &&
+                labelNames.includes('agents:keepalive');
+            });
+            core.info(`Open PRs: ${prs.length}; non-draft keepalive agent PRs: ${eligible.length}`);
             let dispatched = 0;
             let challenged = 0;
             for (const pr of eligible) {

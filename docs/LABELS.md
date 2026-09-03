@@ -44,6 +44,15 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ---
 
+### Retired label names
+
+`agents:max-parallel:<K>` is retired and documentation-only. It has never been
+implemented; use `agents:max-runs:<K>` to cap keepalive rounds instead.
+`agent:codex-invite` is also retired; use the generic `agent:<name>-invite`
+mechanism when an invite-mode bridge is explicitly needed.
+
+---
+
 ## Routing Labels
 
 These decide which lane picks work up. `backlog.classify()` reads them in a fixed
