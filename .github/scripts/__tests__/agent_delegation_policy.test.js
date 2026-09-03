@@ -278,4 +278,3 @@ test('stalled agent never re-chosen', () => {
   assert.equal(result.delegationSource, 'route_weights');
   assert.ok(result.reason.includes('delegation_source: route_weights'));
 });
-

@@ -1646,6 +1646,7 @@ jobs:
               ''
             }}
           PREFLIGHT_FAILURE_SUMMARY: ${{ needs.preflight.outputs.failure_summary || '' }}
+          DELEGATION_SOURCE: ${{ needs.evaluate.outputs.delegation_source }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
               github.actor == 'github-actions[bot]' &&
@@ -1761,7 +1762,7 @@ jobs:
               agent_routing_mode: '${{ needs.evaluate.outputs.agent_routing_mode }}',
               delegation_reason: '${{ needs.evaluate.outputs.delegation_reason }}',
               delegation_should_switch: '${{ needs.evaluate.outputs.delegation_should_switch }}',
-              delegation_source: '${{ needs.evaluate.outputs.delegation_source }}',
+              delegation_source: process.env.DELEGATION_SOURCE || '',
               trace: '${{ needs.evaluate.outputs.trace }}',
               // Agent run result - check which agent ran
               run_result: runResult,
