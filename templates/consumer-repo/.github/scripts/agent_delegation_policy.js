@@ -8,6 +8,120 @@
  * See: docs/plans/phase-5d-delegation-policy.md
  */
 
+/** Default Orchestrator route-weights export URL (overridable via ROUTE_WEIGHTS_URL). */
+const DEFAULT_ROUTE_WEIGHTS_URL =
+  'https://raw.githubusercontent.com/stranske/Orchestrator/exports/route-weights/config/route-weights.json';
+
+const ROUTE_WEIGHTS_SCHEMA = 'orchestrator.route-weights/v1';
+const ROUTE_WEIGHTS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+const ROUTE_WEIGHTS_FETCH_TIMEOUT_MS = 5000;
+
+/**
+ * Maps keepalive round kinds to Orchestrator route-weights task types.
+ * @type {Record<string, string>}
+ */
+const ROUTE_WEIGHT_TASK_TYPES = {
+  implement: 'implement',
+  run: 'implement',
+  fix: 'implement',
+  conflict: 'implement',
+  review: 'review',
+  testgen: 'testgen',
+};
+
+/**
+ * Fetch and validate the Orchestrator route-weights export. Never throws.
+ *
+ * @param {Object} [options]
+ * @param {string} [options.url]
+ * @param {typeof fetch} [options.fetchImpl]
+ * @param {Date|number|string} [options.now]
+ * @returns {Promise<Object|null>}
+ */
+async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, now } = {}) {
+  const fetchFn = fetchImpl || (typeof fetch === 'function' ? fetch : null);
+  if (!fetchFn || !url) {
+    return null;
+  }
+
+  const referenceTime = now instanceof Date ? now.getTime() : new Date(now || Date.now()).getTime();
+
+  try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller
+      ? setTimeout(() => controller.abort(), ROUTE_WEIGHTS_FETCH_TIMEOUT_MS)
+      : null;
+
+    const response = await fetchFn(url, controller ? { signal: controller.signal } : undefined);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    if (!response || response.status !== 200) {
+      return null;
+    }
+
+    const document = await response.json();
+    if (!document || document.schema !== ROUTE_WEIGHTS_SCHEMA) {
+      return null;
+    }
+
+    const generatedAt = Date.parse(document.generated_at || '');
+    if (!Number.isFinite(generatedAt) || referenceTime - generatedAt > ROUTE_WEIGHTS_MAX_AGE_MS) {
+      return null;
+    }
+
+    return document;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {Object} options
+ * @returns {{ agent: string|null, delegationSource: 'route_weights'|'static', staticReason?: string }}
+ */
+function selectAgentFromRouteWeights({
+  routeWeights,
+  taskType,
+  currentAgent,
+  availableAgents,
+  agents,
+  reserve = [],
+}) {
+  const reserveSet = new Set((reserve || []).map((name) => String(name).toLowerCase()));
+  const taskEntry = routeWeights?.task_types?.[taskType];
+
+  if (!routeWeights || !taskEntry || taskEntry.evidence_ok !== true) {
+    return {
+      agent: null,
+      delegationSource: 'static',
+      staticReason: !routeWeights ? 'route-weights-unavailable' : 'route-weights-insufficient-evidence',
+    };
+  }
+
+  const ranking = Array.isArray(taskEntry.ranking) ? taskEntry.ranking : [];
+  for (const row of ranking) {
+    const candidate = String(row?.agent || '').toLowerCase();
+    if (!candidate || candidate === currentAgent || reserveSet.has(candidate)) {
+      continue;
+    }
+    if (!availableAgents.includes(candidate)) {
+      continue;
+    }
+    if (!hasKeepaliveRunner(agents[candidate])) {
+      continue;
+    }
+    return { agent: candidate, delegationSource: 'route_weights' };
+  }
+
+  return {
+    agent: null,
+    delegationSource: 'static',
+    staticReason: 'route-weights-no-eligible-agent',
+  };
+}
+
 /**
  * Decide which agent should run next round
  *
@@ -16,10 +130,22 @@
  * @param {Array<string>} options.labels - PR labels (strings)
  * @param {Object} options.secrets - Available secrets (keys present = available)
  * @param {Object} options.registry - Agent registry (from agent_registry.js)
+ * @param {string[]} [options.runnableAgents] - Agents with runners in the current tree
+ * @param {Object|null} [options.routeWeights] - Preloaded route-weights document
+ * @param {string} [options.roundKind='implement'] - Keepalive round kind for task-type mapping
  * @param {Object} [options.core] - GitHub Actions core for logging
- * @returns {Object} - { agent, reason, shouldSwitch, alternatives }
+ * @returns {Object} - { agent, reason, shouldSwitch, alternatives, delegationSource }
  */
-function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {}, runnableAgents, core }) {
+function decideNextAgent({
+  state = {},
+  labels = [],
+  secrets = {},
+  registry = {},
+  runnableAgents,
+  routeWeights = null,
+  roundKind = 'implement',
+  core,
+}) {
   const agents = registry.agents || {};
   const defaultAgent = registry.default_agent || 'codex';
 
@@ -129,7 +255,18 @@ function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {},
   // Rule: Switch if stalled
   if (stall.isStalled) {
     const alternatives = availableAgents.filter((a) => a !== currentAgent);
-    const nextAgent = alternatives[0] || currentAgent; // Fallback to current if no alternatives
+    const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;
+    const weighted = selectAgentFromRouteWeights({
+      routeWeights,
+      taskType,
+      currentAgent,
+      availableAgents,
+      agents,
+      reserve: routeWeights?.reserve,
+    });
+
+    const nextAgent = weighted.agent || alternatives[0] || currentAgent;
+    const delegationSource = weighted.agent ? weighted.delegationSource : 'static';
 
     if (nextAgent === currentAgent) {
       core?.warning?.('Stalled but no alternative agents available');
@@ -138,16 +275,22 @@ function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {},
         reason: 'stalled-no-alternatives',
         shouldSwitch: false,
         alternatives: [],
+        delegationSource: 'static',
       };
     }
 
-    core?.info?.(`Switching from ${currentAgent} to ${nextAgent} due to stall`);
+    const sourceSuffix =
+      delegationSource === 'route_weights'
+        ? 'delegation_source: route_weights'
+        : `delegation_source: static (${weighted.staticReason || 'preference-order'})`;
+    core?.info?.(`Switching from ${currentAgent} to ${nextAgent} due to stall (${sourceSuffix})`);
     return {
       agent: nextAgent,
-      reason: `${currentAgent}-stalled (${stall.reason})`,
+      reason: `${currentAgent}-stalled (${stall.reason}; ${sourceSuffix})`,
       shouldSwitch: true,
       previousAgent: currentAgent,
       alternatives: alternatives.filter((a) => a !== nextAgent),
+      delegationSource,
     };
   }
 
@@ -157,6 +300,7 @@ function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {},
     reason: 'continue-current',
     shouldSwitch: false,
     alternatives: availableAgents.filter((a) => a !== currentAgent),
+    delegationSource: 'static',
   };
 }
 
@@ -380,6 +524,9 @@ function formatDelegationSummary({ decision, effectiveness, state = {} }) {
   lines.push('');
   lines.push(`**Chosen:** ${decision.agent}`);
   lines.push(`**Reason:** ${decision.reason}`);
+  if (decision.delegationSource) {
+    lines.push(`**Delegation source:** ${decision.delegationSource}`);
+  }
 
   if (decision.alternatives && decision.alternatives.length > 0) {
     lines.push(`**Alternatives considered:** ${decision.alternatives.join(', ')} (not selected: ${decision.reason})`);
@@ -413,10 +560,15 @@ function formatDelegationSummary({ decision, effectiveness, state = {} }) {
 }
 
 module.exports = {
+  DEFAULT_ROUTE_WEIGHTS_URL,
+  ROUTE_WEIGHT_TASK_TYPES,
+  loadRouteWeights,
+  selectAgentFromRouteWeights,
   decideNextAgent,
   checkPrerequisites,
   calculateEffectiveness,
   detectStall,
   getExplicitAgentFromLabels,
   formatDelegationSummary,
+  hasKeepaliveRunner,
 };

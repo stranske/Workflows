@@ -14,6 +14,9 @@ const {
   detectStall,
   getExplicitAgentFromLabels,
   formatDelegationSummary,
+  loadRouteWeights,
+  selectAgentFromRouteWeights,
+  ROUTE_WEIGHT_TASK_TYPES,
 } = require('../agent_delegation_policy.js');
 
 const mockRegistry = {
@@ -467,4 +470,168 @@ test('formatDelegationSummary formats decision with metrics', () => {
   assert.ok(summary.includes('Agent Selection (auto mode)'));
   assert.ok(summary.includes('**Chosen:** codex'));
   assert.ok(summary.includes('Commits (last 3 rounds): 2'));
+});
+
+const routeWeightsRegistry = {
+  default_agent: 'codex',
+  agents: {
+    codex: {
+      required_secrets: ['CODEX_AUTH_JSON'],
+      runner_workflow: '.github/workflows/reusable-codex-run.yml',
+      capabilities: { pr_keepalive: true },
+    },
+    claude: {
+      required_secrets: ['CLAUDE_CODE_OAUTH_TOKEN'],
+      required_secrets_mode: 'any',
+      runner_workflow: '.github/workflows/reusable-claude-run.yml',
+      capabilities: { pr_keepalive: true },
+    },
+    cursor: {
+      required_secrets: ['CURSOR_API_KEY'],
+      runner_workflow: '.github/workflows/reusable-cursor-run.yml',
+      capabilities: { pr_keepalive: true },
+    },
+  },
+};
+
+const routeWeightsSecrets = {
+  CODEX_AUTH_JSON: 'present',
+  CLAUDE_CODE_OAUTH_TOKEN: 'present',
+  CURSOR_API_KEY: 'present',
+};
+
+const freshRouteWeights = {
+  schema: 'orchestrator.route-weights/v1',
+  generated_at: '2026-09-03T00:00:00Z',
+  task_types: {
+    implement: {
+      evidence_ok: true,
+      ranking: [
+        { agent: 'cursor', posterior: 0.76, n_obs: 305 },
+        { agent: 'codex', posterior: 0.67, n_obs: 282 },
+        { agent: 'claude', posterior: 0.55, n_obs: 120 },
+      ],
+    },
+  },
+  reserve: ['claude'],
+};
+
+const stalledState = {
+  current_agent: 'codex',
+  iteration: 20,
+  last_switch_iteration: 10,
+  effectiveness_history: [
+    { iteration: 18, commits: 0, tasks: 0, gate: 'fail' },
+    { iteration: 19, commits: 0, tasks: 0, gate: 'fail' },
+    { iteration: 20, commits: 0, tasks: 0, gate: 'fail' },
+  ],
+};
+
+test('route weights choose evidence-ranked agent on stall', () => {
+  const result = decideNextAgent({
+    state: stalledState,
+    labels: ['agent:auto'],
+    secrets: routeWeightsSecrets,
+    registry: routeWeightsRegistry,
+    routeWeights: freshRouteWeights,
+  });
+
+  assert.equal(result.agent, 'cursor');
+  assert.equal(result.delegationSource, 'route_weights');
+  assert.ok(result.reason.includes('delegation_source: route_weights'));
+});
+
+test('route weights fall back to static when evidence_ok is false', () => {
+  const document = {
+    ...freshRouteWeights,
+    task_types: {
+      implement: { evidence_ok: false, ranking: [{ agent: 'cursor', posterior: 0.9 }] },
+    },
+  };
+
+  const result = decideNextAgent({
+    state: stalledState,
+    labels: ['agent:auto'],
+    secrets: routeWeightsSecrets,
+    registry: routeWeightsRegistry,
+    routeWeights: document,
+  });
+
+  assert.equal(result.agent, 'claude');
+  assert.equal(result.delegationSource, 'static');
+});
+
+test('loadRouteWeights returns null on unreachable URL', async () => {
+  const result = await loadRouteWeights({
+    url: 'https://example.invalid/route-weights.json',
+    fetchImpl: async () => {
+      throw new Error('network down');
+    },
+  });
+
+  assert.equal(result, null);
+});
+
+test('loadRouteWeights returns null on stale generated_at', async () => {
+  const staleDocument = {
+    schema: 'orchestrator.route-weights/v1',
+    generated_at: '2026-01-01T00:00:00Z',
+    task_types: {},
+  };
+
+  const result = await loadRouteWeights({
+    url: 'https://example.test/route-weights.json',
+    fetchImpl: async () => ({
+      status: 200,
+      json: async () => staleDocument,
+    }),
+    now: '2026-09-03T00:00:00Z',
+  });
+
+  assert.equal(result, null);
+});
+
+test('route weights never choose reserve agents', () => {
+  const document = {
+    ...freshRouteWeights,
+    task_types: {
+      implement: {
+        evidence_ok: true,
+        ranking: [
+          { agent: 'claude', posterior: 0.99 },
+          { agent: 'cursor', posterior: 0.76 },
+        ],
+      },
+    },
+    reserve: ['claude'],
+  };
+
+  const weighted = selectAgentFromRouteWeights({
+    routeWeights: document,
+    taskType: 'implement',
+    currentAgent: 'codex',
+    availableAgents: ['codex', 'claude', 'cursor'],
+    agents: routeWeightsRegistry.agents,
+    reserve: document.reserve,
+  });
+
+  assert.equal(weighted.agent, 'cursor');
+});
+
+test('route weights never re-choose the stalled agent', () => {
+  const weighted = selectAgentFromRouteWeights({
+    routeWeights: freshRouteWeights,
+    taskType: 'implement',
+    currentAgent: 'cursor',
+    availableAgents: ['codex', 'claude', 'cursor'],
+    agents: routeWeightsRegistry.agents,
+    reserve: freshRouteWeights.reserve,
+  });
+
+  assert.equal(weighted.agent, 'codex');
+});
+
+test('ROUTE_WEIGHT_TASK_TYPES maps review rounds to review task type', () => {
+  assert.equal(ROUTE_WEIGHT_TASK_TYPES.review, 'review');
+  assert.equal(ROUTE_WEIGHT_TASK_TYPES.run, 'implement');
 });

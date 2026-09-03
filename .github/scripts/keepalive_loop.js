@@ -2578,6 +2578,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     let agentRoutingMode = 'default';
     let delegationReason = '';
     let delegationShouldSwitch = false;
+    let delegationSource = '';
     if (hasAgentLabel) {
       try {
         const { resolveAgentRoutingFromLabels } = require('./agent_registry.js');
@@ -2678,7 +2679,8 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // agent:auto delegation — resolve actual agent via policy after state is available
     if (agentRoutingMode === 'auto') {
       try {
-        const { decideNextAgent } = require('./agent_delegation_policy.js');
+        const { decideNextAgent, loadRouteWeights, DEFAULT_ROUTE_WEIGHTS_URL } =
+          require('./agent_delegation_policy.js');
         const { loadAgentRegistry } = require('./agent_registry.js');
         const registry = loadAgentRegistry();
         // Build secrets availability from env vars set by the workflow
@@ -2695,19 +2697,28 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         const runnableAgents = Object.keys(registry.agents || {}).filter((key) => (
           new RegExp(`^  run-${key}:`, 'm').test(workflowText)
         ));
+        const routeWeightsUrl = process.env.ROUTE_WEIGHTS_URL || DEFAULT_ROUTE_WEIGHTS_URL;
+        const routeWeights = await loadRouteWeights({ url: routeWeightsUrl });
+        const roundKind = state.last_action || state.pending_action || 'implement';
         const decision = decideNextAgent({
           state,
           labels: labels.map(String),
           secrets,
           registry,
           runnableAgents,
+          routeWeights,
+          roundKind,
           core,
         });
         if (decision.agent) {
           agentType = decision.agent;
           delegationReason = decision.reason;
           delegationShouldSwitch = Boolean(decision.shouldSwitch);
-          core?.info?.(`Delegation policy: ${decision.agent} (${decision.reason}, switch=${decision.shouldSwitch})`);
+          delegationSource = decision.delegationSource || 'static';
+          core?.info?.(
+            `Delegation policy: ${decision.agent} (${decision.reason}, ` +
+            `switch=${decision.shouldSwitch}, source=${delegationSource})`
+          );
         } else {
           core?.warning?.(`Delegation policy returned no agent: ${decision.reason}`);
         }
@@ -3123,6 +3134,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       agentRoutingMode,
       delegationReason,
       delegationShouldSwitch,
+      delegationSource,
       taskAppendix,
       keepaliveEnabled,
       stateCommentId: stateResult.commentId || 0,
@@ -3234,6 +3246,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     // Delegation policy inputs (from evaluate step when agent:auto is active)
     const delegationReason = normalise(inputs.delegation_reason ?? inputs.delegationReason);
     const delegationShouldSwitch = toBool(inputs.delegation_should_switch ?? inputs.delegationShouldSwitch, false);
+    const delegationSource = normalise(inputs.delegation_source ?? inputs.delegationSource);
     const agentRoutingMode = normalise(inputs.agent_routing_mode ?? inputs.agentRoutingMode);
 
     const {
@@ -3852,6 +3865,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         `| Selected agent | ${agentDisplayName} |`,
         `| Reason | ${delegationReason} |`,
       );
+      if (delegationSource) {
+        summaryLines.push(`| Delegation source | ${delegationSource} |`);
+      }
       if (delegationShouldSwitch) {
         const prevAgent = previousState?.current_agent || 'unknown';
         summaryLines.push(`| Switch | ${prevAgent} → ${agentType} |`);
@@ -4321,6 +4337,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
 
       newState.current_agent = agentType;
       newState.delegation_reason = delegationReason || previousState?.delegation_reason || '';
+      newState.delegation_source = delegationSource || previousState?.delegation_source || '';
       newState.effectiveness_history = effectivenessHistory;
 
       if (delegationShouldSwitch) {
