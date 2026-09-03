@@ -110,6 +110,39 @@ test('evidence_ok: false → static choice', () => {
   assert.ok(result.reason.includes('delegation_source: static'));
 });
 
+test('evidence_ok: false keeps static preference exactly', () => {
+  const staticDecision = decideNextAgent({
+    state: stalledStateCodex,
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: null,
+  });
+
+  const document = {
+    ...freshRouteWeights,
+    task_types: {
+      implement: {
+        evidence_ok: false,
+        ranking: [{ agent: 'cursor', posterior: 0.9 }],
+      },
+    },
+  };
+
+  const result = decideNextAgent({
+    state: stalledStateCodex,
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: document,
+  });
+
+  assert.equal(result.agent, staticDecision.agent);
+  assert.equal(result.delegationSource, staticDecision.delegationSource);
+  assert.equal(result.shouldSwitch, staticDecision.shouldSwitch);
+  assert.deepEqual(result.alternatives, staticDecision.alternatives);
+});
+
 test('unreachable URL → static choice', async () => {
   const loaded = await loadRouteWeights({
     url: 'https://example.invalid/route-weights.json',
