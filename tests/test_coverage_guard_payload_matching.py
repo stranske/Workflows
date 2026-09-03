@@ -131,12 +131,37 @@ def test_both_copies_carry_the_same_matcher():
     assert _matcher_source(GUARDS[0]) == _matcher_source(GUARDS[1])
 
 
+def _workflow_selection_source(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    start = text.index("const DEFAULT_WORKFLOWS =")
+    end = text.index("const retryHelpers", start)
+    return textwrap.dedent(text[start:end])
+
+
+def _select_workflows(path: Path, config: object) -> list[object]:
+    script = (
+        "const fs = { readFileSync: () => "
+        + json.dumps(json.dumps(config))
+        + " };\nconst core = { info: () => {} };\n"
+        + _workflow_selection_source(path)
+        + "\nconsole.log(JSON.stringify([workflowIds, workflowSource]));\n"
+    )
+    proc = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)
+
+
 @pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
 def test_configured_workflows_are_trimmed_and_keep_the_default_when_empty(guard):
     """Configuration whitespace must not turn a valid workflow into a bad API identifier."""
     text = guard.read_text(encoding="utf-8")
     start = text.index("const configuredWorkflowIds =")
-    end = text.index("            let workflowIds", start)
+    end = text.index("let workflowIds", start)
     helper = textwrap.dedent(text[start:end])
     script = (
         helper
@@ -154,6 +179,14 @@ def test_configured_workflows_are_trimmed_and_keep_the_default_when_empty(guard)
     )
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout) == [["ci.yml"], [], "non-error"]
+    assert _select_workflows(guard, {"source_workflows": ["  ", None, 4]}) == [
+        [".github/workflows/pr-00-gate.yml"],
+        "default",
+    ]
+    assert _select_workflows(guard, {"source_workflows": [" ci.yml ", ""]}) == [
+        ["ci.yml"],
+        "config/coverage-baseline.json",
+    ]
 
 
 @pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])

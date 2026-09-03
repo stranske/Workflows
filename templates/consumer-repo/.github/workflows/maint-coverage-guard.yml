@@ -238,21 +238,16 @@ jobs:
             }
 
             if (!runs.length) {
-              core.warning(`No completed runs found in: ${searched.join('; ')}`);
+              core.warning(`No successful or neutral completed runs found in: ${searched.join('; ')}`);
               core.setOutput('run_id', '');
               core.setFailed(
-                'Coverage verification requires at least one completed run in a configured ' +
-                  `workflow. Searched: ${searched.join('; ')}. If this repo publishes coverage ` +
-                  'elsewhere, add source_workflows to config/coverage-baseline.json.'
+                'Coverage verification requires at least one successful or neutral completed run ' +
+                  `in a configured workflow. Searched: ${searched.join('; ')}. If this repo ` +
+                  'publishes coverage elsewhere, add source_workflows to config/coverage-baseline.json.'
               );
               return;
             }
 
-            runs.sort(
-              (a, b) =>
-                new Date(b.run_started_at || b.created_at || 0) -
-                new Date(a.run_started_at || a.created_at || 0),
-            );
             const runsToProbe = runs.sort(
               (a, b) =>
                 new Date(b.run_started_at || b.created_at || 0) -
@@ -369,15 +364,6 @@ jobs:
                       : 'This run published no gate-coverage artifacts at all.',
                 ].join(' '),
               );
-            }
-
-            if (!candidate && !successfulRuns.length) {
-              core.warning(
-                'Unable to locate a successful or neutral completed Gate workflow run.',
-              );
-              core.setOutput('run_id', '');
-              core.setFailed('Coverage verification could not find a successful Gate workflow run.');
-              return;
             }
 
             if (!candidate) {
