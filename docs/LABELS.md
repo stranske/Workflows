@@ -10,8 +10,8 @@ This document describes all labels that trigger automated workflows or affect CI
 | `autofix:clean` | PR labeled | Triggers clean-mode autofix (more aggressive)
 | `agent:codex` | Issue or PR labeled | Routes the issue or PR to the Codex agent
 | `agent:claude` | Issue or PR labeled | Routes the issue or PR to the Claude Code agent
-| `agent:cursor` | Issue or PR labeled | Registered routing label; no consumer Gate-followup runner is currently wired
-| `agent:gemini` | Issue or PR labeled | Registered routing label; no consumer Gate-followup runner is currently wired
+| `agent:cursor` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Cursor runner
+| `agent:gemini` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Gemini runner
 | `agent:aider` | Issue or PR labeled | Routes the issue or PR to the Aider agent for cheap, low-complexity tasks — runner lands in a follow-up phase
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; do not combine with concrete `agent:<name>` labels
 | `agent:retry` | PR labeled | Consolidated consumers require a manual Gate-followups dispatch; the root/non-consolidated keepalive workflow forces a retry and clears recovery labels
@@ -179,14 +179,14 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 
 **Effect:**
 1. Identifies Cursor as the intended route in registry-aware automation
-2. Does **not** dispatch a consumer PR keepalive runner: `agents-81-gate-followups.yml` currently has runner jobs only for Codex and Claude
+2. Dispatches the `run-cursor` consumer PR keepalive job in `agents-81-gate-followups.yml`
 3. Branch prefix `cursor/issue-<number>` is reserved for Cursor work (see `.github/agents/registry.yml`)
 
 **Prerequisites:**
 - Repository has a valid `CURSOR_API_KEY` secret (per `.github/agents/registry.yml`)
 - Issue or PR should have clear requirements
 
-**Workflow:** Registry-aware workflows may recognize the label, but the consumer Gate-followup workflow has no Cursor runner job. Do not use this label to promise PR keepalive execution until that job is delivered from the canonical Workflows source.
+**Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-cursor-run.yml` after registry-backed routing and secret preflight succeed.
 
 ---
 
@@ -198,13 +198,13 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 
 **Effect:**
 1. Identifies Gemini as the intended route in registry-aware automation
-2. Does **not** dispatch a consumer PR keepalive runner: `agents-81-gate-followups.yml` currently has runner jobs only for Codex and Claude
+2. Dispatches the `run-gemini` consumer PR keepalive job in `agents-81-gate-followups.yml`
 3. Branch prefix `gemini/issue-<number>` is reserved for Gemini work
 
 **Prerequisites:**
 - Repository has a valid `GEMINI_API_KEY` secret (per `.github/agents/registry.yml`)
 
-**Workflow:** Registry-aware workflows may recognize the label, but the consumer Gate-followup workflow has no Gemini runner job. Do not use this label to promise PR keepalive execution until that job is delivered from the canonical Workflows source.
+**Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-gemini-run.yml` after registry-backed routing and secret preflight succeed.
 
 ---
 

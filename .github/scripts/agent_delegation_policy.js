@@ -19,7 +19,7 @@
  * @param {Object} [options.core] - GitHub Actions core for logging
  * @returns {Object} - { agent, reason, shouldSwitch, alternatives }
  */
-function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {}, core }) {
+function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {}, runnableAgents, core }) {
   const agents = registry.agents || {};
   const defaultAgent = registry.default_agent || 'codex';
 
@@ -58,7 +58,10 @@ function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {},
   }
 
   // Filter to available agents
-  const availableAgents = Object.keys(agents).filter((key) => agentPrereqs[key].available);
+  const availableAgents = Object.keys(agents).filter((key) => (
+    agentPrereqs[key].available && hasKeepaliveRunner(agents[key]) &&
+    (!Array.isArray(runnableAgents) || runnableAgents.includes(key))
+  ));
 
   if (availableAgents.length === 0) {
     core?.warning?.('No agents available (missing secrets)');
@@ -143,6 +146,11 @@ function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {},
     shouldSwitch: false,
     alternatives: availableAgents.filter((a) => a !== currentAgent),
   };
+}
+
+function hasKeepaliveRunner(agentConfig = {}) {
+  return Boolean(agentConfig.runner_workflow) && agentConfig.enabled !== false &&
+    agentConfig.capabilities?.pr_keepalive !== false;
 }
 
 /**
