@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import importlib.machinery
 import importlib.util
 import io
@@ -402,6 +403,17 @@ def test_formatted_output_valid_uses_canonical_contract() -> None:
     assert issue_formatter._formatted_output_valid(valid) is True
 
 
+def test_empty_formatted_output_is_invalid_without_loading_validator(monkeypatch) -> None:
+    """An empty provider response must take the fallback path even if validation is unavailable."""
+    monkeypatch.setattr(
+        issue_formatter,
+        "_issue_format_validator",
+        mock.MagicMock(side_effect=AssertionError("empty output must fail before validation")),
+    )
+
+    assert issue_formatter._formatted_output_valid("") is False
+
+
 def test_formatter_degrades_to_heading_validation_when_validator_cannot_load(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -444,6 +456,228 @@ def test_format_issue_body_llm_invalid_output_falls_back(monkeypatch: pytest.Mon
     assert result["used_llm"] is False
     assert result["provider_used"] is None
     assert "## Acceptance Criteria" in result["formatted_body"]
+
+
+def test_task_refinement_replaces_only_the_tasks_section(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A refinement must reach the issue body without disturbing its acceptance contract."""
+    formatted = """## Why
+
+Keep the formatter actionable.
+
+## Tasks
+
+- [ ] Fix
+- [ ] Add regression tests for the formatter
+
+## Acceptance Criteria
+
+- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.
+
+## Implementation Notes
+
+Preserve this note.
+"""
+    audit = "Task validation: 2 input -> 2 output"
+    seen: dict[str, object] = {}
+
+    def validate_tasks(tasks, *, context, use_llm):  # noqa: ANN001
+        seen.update(tasks=tasks, context=context, use_llm=use_llm)
+        return types.SimpleNamespace(
+            tasks=[
+                "Fix `scripts/langchain/issue_formatter.py`",
+                "Add regression tests for the formatter",
+            ],
+            audit_summary=audit,
+        )
+
+    from scripts.langchain import task_validator
+
+    monkeypatch.setattr(task_validator, "validate_tasks", validate_tasks)
+
+    updated, returned_audit = issue_formatter._validate_and_refine_tasks(formatted, use_llm=True)
+
+    assert seen == {
+        "tasks": ["Fix", "Add regression tests for the formatter"],
+        "context": formatted,
+        "use_llm": True,
+    }
+    assert _extract_section(updated, "Tasks") == (
+        "- [ ] Fix `scripts/langchain/issue_formatter.py`\n"
+        "- [ ] Add regression tests for the formatter"
+    )
+    assert _extract_section(updated, "Acceptance Criteria") == (
+        "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+    )
+    assert "Preserve this note." in updated
+    assert returned_audit == audit
+
+
+def test_task_refinement_uses_a_placeholder_when_every_task_is_dropped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An empty refinement remains visibly incomplete instead of losing the Tasks section."""
+    formatted = """## Tasks
+
+- [ ] Schedule a stakeholder meeting
+
+## Acceptance Criteria
+
+- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.
+"""
+
+    from scripts.langchain import task_validator
+
+    monkeypatch.setattr(
+        task_validator,
+        "validate_tasks",
+        lambda *_args, **_kwargs: types.SimpleNamespace(
+            tasks=[],
+            audit_summary="Task validation: 1 input -> 0 output",
+        ),
+    )
+
+    updated, audit = issue_formatter._validate_and_refine_tasks(formatted, use_llm=True)
+
+    assert _extract_section(updated, "Tasks") == "- [ ] _Not provided._"
+    assert "## Acceptance Criteria" in updated
+    assert audit == "Task validation: 1 input -> 0 output"
+
+
+def test_task_refinement_degrades_cleanly_when_validator_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A partially synced consumer must keep the original tasks rather than crash or erase them."""
+    formatted = """## Tasks
+
+- [ ] Keep the original actionable task
+
+## Acceptance Criteria
+
+- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.
+"""
+    real_import = builtins.__import__
+
+    def unavailable_validator(
+        name, globals=None, locals=None, fromlist=(), level=0
+    ):  # noqa: ANN001
+        importing_package_member = name == "scripts.langchain" and "task_validator" in fromlist
+        if importing_package_member or name == "task_validator":
+            raise ImportError("simulated missing task validator")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", unavailable_validator)
+
+    updated, audit = issue_formatter._validate_and_refine_tasks(formatted, use_llm=True)
+
+    assert updated == formatted
+    assert audit is None
+
+
+def test_github_models_auth_error_requires_both_status_and_service_name() -> None:
+    assert issue_formatter._is_github_models_auth_error(
+        RuntimeError("401 Unauthorized from GitHub Models")
+    )
+    assert not issue_formatter._is_github_models_auth_error(
+        RuntimeError("401 Unauthorized from another service")
+    )
+    assert not issue_formatter._is_github_models_auth_error(
+        RuntimeError("429 rate limited by GitHub Models")
+    )
+
+
+def test_github_models_401_retries_once_with_openai(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The provider label and trace must describe the successful fallback, not the failed primary."""
+    client_requests: list[bool] = []
+    primary_client = object()
+    fallback_client = object()
+    mock_chain = mock.MagicMock()
+    valid_body = (
+        "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
+        "## Acceptance Criteria\n"
+        "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+    )
+    calls: list[object] = []
+
+    def get_client(*, force_openai: bool = False):
+        client_requests.append(force_openai)
+        if force_openai:
+            return fallback_client, "openai"
+        return primary_client, "github-models"
+
+    def invoke(chain, payload, *, operation):  # noqa: ANN001
+        calls.append(chain)
+        assert payload == {"issue_body": "Raw issue text"}
+        assert operation == "issue_formatter"
+        if len(calls) == 1:
+            raise RuntimeError("401 Unauthorized from GitHub Models")
+        return (
+            types.SimpleNamespace(content=valid_body),
+            issue_formatter.TraceInfo(trace_id="openai-fallback-trace"),
+        )
+
+    _install_fake_langchain(monkeypatch, mock_chain)
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", get_client)
+    monkeypatch.setattr(issue_formatter, "invoke_with_trace", invoke)
+
+    result = issue_formatter.format_issue_body("Raw issue text", use_llm=True)
+
+    assert client_requests == [False, True]
+    assert calls == [mock_chain, mock_chain]
+    assert result["provider_used"] == "openai"
+    assert result["used_llm"] is True
+    assert result["langsmith_trace_id"] == "openai-fallback-trace"
+
+
+def test_github_models_401_is_not_hidden_when_openai_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client_requests: list[bool] = []
+    mock_chain = mock.MagicMock()
+
+    def get_client(*, force_openai: bool = False):
+        client_requests.append(force_openai)
+        return None if force_openai else (object(), "github-models")
+
+    _install_fake_langchain(monkeypatch, mock_chain)
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", get_client)
+    monkeypatch.setattr(
+        issue_formatter,
+        "invoke_with_trace",
+        mock.MagicMock(side_effect=RuntimeError("401 Unauthorized from GitHub Models")),
+    )
+
+    with pytest.raises(RuntimeError, match="401 Unauthorized from GitHub Models"):
+        issue_formatter.format_issue_body("Raw issue text", use_llm=True)
+
+    assert client_requests == [False, True]
+
+
+def test_non_auth_provider_failure_does_not_probe_openai(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client_requests: list[bool] = []
+    mock_chain = mock.MagicMock()
+
+    def get_client(*, force_openai: bool = False):
+        client_requests.append(force_openai)
+        if force_openai:
+            raise AssertionError("OpenAI fallback must be reserved for GitHub Models 401s")
+        return object(), "github-models"
+
+    _install_fake_langchain(monkeypatch, mock_chain)
+    monkeypatch.setattr(issue_formatter, "_get_llm_client", get_client)
+    monkeypatch.setattr(
+        issue_formatter,
+        "invoke_with_trace",
+        mock.MagicMock(side_effect=RuntimeError("429 rate limited by GitHub Models")),
+    )
+
+    with pytest.raises(RuntimeError, match="429 rate limited"):
+        issue_formatter.format_issue_body("Raw issue text", use_llm=True)
+
+    assert client_requests == [False]
 
 
 def test_format_issue_fallback_parses_aliases_and_preamble() -> None:
