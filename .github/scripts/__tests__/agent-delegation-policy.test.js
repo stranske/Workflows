@@ -20,13 +20,15 @@ const mockRegistry = {
   default_agent: 'codex',
   agents: {
     codex: {
-      required_secrets: ['CODEX_AUTH_JSON'],
-      runner_workflow: '.github/workflows/reusable-codex-run.yml',
+    required_secrets: ['CODEX_AUTH_JSON'],
+    runner_workflow: '.github/workflows/reusable-codex-run.yml',
+    capabilities: { pr_keepalive: true },
     },
     claude: {
       required_secrets: ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_AUTH_JSON'],
-      required_secrets_mode: 'any',
-      runner_workflow: '.github/workflows/reusable-claude-run.yml',
+    required_secrets_mode: 'any',
+    runner_workflow: '.github/workflows/reusable-claude-run.yml',
+    capabilities: { pr_keepalive: true },
     },
   },
 };
@@ -309,6 +311,26 @@ test('decideNextAgent continues current agent if effective', () => {
   assert.equal(result.agent, 'codex');
   assert.ok(result.reason.includes('effective'));
   assert.equal(result.shouldSwitch, false);
+});
+
+test('decideNextAgent replaces an unavailable persisted agent before continuation rules', () => {
+  const result = decideNextAgent({
+    state: {
+      current_agent: 'claude',
+      iteration: 18,
+      last_switch_iteration: 17,
+      effectiveness_history: [{ iteration: 18, commits: 1, tasks: 1, gate: 'pass' }],
+    },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    runnableAgents: ['codex'],
+  });
+
+  assert.equal(result.agent, 'codex');
+  assert.equal(result.shouldSwitch, true);
+  assert.equal(result.previousAgent, 'claude');
+  assert.equal(result.reason, 'claude-unavailable');
 });
 
 test('decideNextAgent switches agent if stalled and not in cooldown', () => {

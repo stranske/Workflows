@@ -85,6 +85,18 @@ function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {},
     };
   }
 
+  if (!availableAgents.includes(currentAgent)) {
+    const nextAgent = availableAgents.includes(defaultAgent) ? defaultAgent : availableAgents[0];
+    core?.info?.(`Switching from unavailable ${currentAgent} to ${nextAgent}`);
+    return {
+      agent: nextAgent,
+      reason: `${currentAgent}-unavailable`,
+      shouldSwitch: true,
+      previousAgent: currentAgent,
+      alternatives: availableAgents.filter((agent) => agent !== nextAgent),
+    };
+  }
+
   // Current agent exists - check if we should continue or switch
   const effectiveness = calculateEffectiveness({ history, lookbackRounds: 3, core });
   const stall = detectStall({ history, threshold: 2, core });
@@ -150,7 +162,7 @@ function decideNextAgent({ state = {}, labels = [], secrets = {}, registry = {},
 
 function hasKeepaliveRunner(agentConfig = {}) {
   return Boolean(agentConfig.runner_workflow) && agentConfig.enabled !== false &&
-    agentConfig.capabilities?.pr_keepalive !== false;
+    agentConfig.capabilities?.pr_keepalive === true;
 }
 
 /**

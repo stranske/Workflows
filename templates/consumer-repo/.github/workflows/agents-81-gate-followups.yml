@@ -437,14 +437,18 @@ jobs:
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
           case "$AGENT_TYPE" in
             claude)
-              agent_auth_ok=$([ "$HAS_CLAUDE_AUTH" = "true" ] || [ "$HAS_CLAUDE_OAUTH" = "true" ] && echo true || echo false)
+              if [ "$HAS_CLAUDE_AUTH" = "true" ] || [ "$HAS_CLAUDE_OAUTH" = "true" ]; then
+                agent_auth_ok=true
+              else
+                agent_auth_ok=false
+              fi
               ;;
             codex) agent_auth_ok=$HAS_CODEX_AUTH ;;
             cursor) agent_auth_ok=$HAS_CURSOR_AUTH ;;
             gemini) agent_auth_ok=$HAS_GEMINI_AUTH ;;
             *) agent_auth_ok=false ;;
           esac
-          if [ "$agent_auth_ok" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
+          if [ "$agent_auth_ok" = "true" ]; then
             echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
             case "$AGENT_TYPE" in
@@ -967,7 +971,9 @@ jobs:
       - name: Auto-reconcile task checkboxes
         if: |
           needs.run-codex.outputs.changes-made == 'true' ||
-          needs.run-claude.outputs.changes-made == 'true'
+          needs.run-claude.outputs.changes-made == 'true' ||
+          needs.run-cursor.outputs.changes-made == 'true' ||
+          needs.run-gemini.outputs.changes-made == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           LLM_COMPLETED_TASKS: >-

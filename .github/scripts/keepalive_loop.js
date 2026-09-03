@@ -2726,7 +2726,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       configuredAgent && (
         configuredAgent.enabled === false ||
         !configuredAgent.runner_workflow ||
-        configuredAgent.capabilities?.pr_keepalive === false ||
+        configuredAgent.capabilities?.pr_keepalive !== true ||
         !workflowDeclaresRunner
       ),
     );
