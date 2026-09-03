@@ -276,7 +276,7 @@ function calculateEffectiveness({ history = [], lookbackRounds = 3, core }) {
  *
  * @param {Object} options
  * @param {Array<Object>} options.history - Effectiveness history
- * @param {number} [options.threshold=3] - How many consecutive rounds qualify as stalled
+ * @param {number} [options.threshold=2] - How many consecutive rounds qualify as stalled
  * @param {Object} [options.core] - GitHub Actions core for logging
  * @returns {Object} - { isStalled, consecutiveRounds, reason }
  */
