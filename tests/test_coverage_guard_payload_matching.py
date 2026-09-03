@@ -132,6 +132,42 @@ def test_both_copies_carry_the_same_matcher():
 
 
 @pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
+def test_configured_workflows_are_trimmed_and_keep_the_default_when_empty(guard):
+    """Configuration whitespace must not turn a valid workflow into a bad API identifier."""
+    text = guard.read_text(encoding="utf-8")
+    start = text.index("const configuredWorkflowIds =")
+    end = text.index("            let workflowIds", start)
+    helper = textwrap.dedent(text[start:end])
+    script = (
+        helper
+        + "\nconsole.log(JSON.stringify(["
+        + "configuredWorkflowIds([' ci.yml ', '', 4]), "
+        + "configuredWorkflowIds(['   ', null]), "
+        + "errorMessage('non-error')"
+        + "]));\n"
+    )
+    proc = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout) == [["ci.yml"], [], "non-error"]
+
+
+@pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
+def test_successful_run_probe_limit_is_applied_per_configured_workflow(guard):
+    """One noisy workflow must not consume another configured workflow's probe budget."""
+    text = guard.read_text(encoding="utf-8")
+    assert "const successfulForWorkflow = found" in text
+    assert ".slice(0, 10);" in text
+    assert "runs = runs.concat(successfulForWorkflow);" in text
+    assert "const runsToProbe = runs.sort(" in text
+    assert "successfulRuns.slice(0, 10)" not in text
+
+
+@pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
 def test_the_failure_message_can_say_measured_under_an_unusable_name(guard):
     """Three findings, with different fixes, that used to share one message.
 
