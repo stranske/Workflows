@@ -33,7 +33,7 @@
 
 ## Lifecycle Overview
 
-1. **PR labeled:** A PR receives an `agent:*` label (for example, `agent:codex` or `agent:claude`).
+1. **PR labeled:** A PR receives an `agent:*` routing label (for example, `agent:codex` or `agent:claude`) and the `agents:keepalive` opt-in label.
 2. **Guarded check:** Orchestrator guardrails confirm the label, Gate success, and run-cap capacity before running the agent.
 3. **Agent execution:** The appropriate agent workflow runs with explicit task context injected into the prompt.
 4. **Timed repeats:** Subsequent Gate completions trigger re-evaluation and continue if tasks remain.
@@ -46,7 +46,7 @@
 
 Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
-1. **PR opt-in:** The PR carries an `agent:*` label (for example, `agent:codex` or `agent:claude`).
+1. **PR opt-in:** The PR carries both an `agent:*` routing label (for example, `agent:codex` or `agent:claude`) and `agents:keepalive`.
 2. **Gate green:** The Gate workflow for the current head SHA completed successfully.
 3. **Tasks present:** The PR body contains unchecked tasks in the Automated Status Summary.
 
@@ -56,7 +56,7 @@ Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
 ### Periodic re-evaluation (keepalive sweep)
 
-Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label event fires. The hourly `agents-keepalive-sweep.yml` workflow selects every open non-draft PR carrying an `agent:*` label and dispatches the PR's registered evaluation workflow:
+Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label event fires. The hourly `agents-keepalive-sweep.yml` workflow selects every open non-draft PR carrying both an `agent:*` routing label and `agents:keepalive`, then dispatches the PR's registered evaluation workflow:
 
 | Mode | `vars.USE_CONSOLIDATED_WORKFLOWS` | Sweep job | Loop dispatched |
 |------|-----------------------------------|-----------|-----------------|

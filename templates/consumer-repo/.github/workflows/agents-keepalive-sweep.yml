@@ -3,7 +3,7 @@
 # Level-based resync for the event-driven keepalive loop. The consumer loop
 # (agents-81-gate-followups.yml) reacts to Gate completions and label events; a round
 # that ends with zero commits produces no follow-up event, so a silently-stalled PR is
-# never re-evaluated. This periodic sweep re-runs the loop for every open PR carrying an
+# never re-evaluated. This periodic sweep re-runs the loop for every open PR carrying
 # both `agent:*` and `agents:keepalive` labels, so stalls resurface on their own
 # without waking PRs that have not opted into the loop.
 #
@@ -121,7 +121,7 @@ jobs:
               owner, repo, state: 'open', per_page: 100,
             }));
             const eligible = prs.filter((pr) => {
-              const labelNames = (pr.labels || []).map((label) => label.name || '');
+              const labelNames = (pr.labels || []).map((label) => (label.name || '').toLowerCase());
               return !pr.draft &&
                 labelNames.some((name) => /^agent:/i.test(name)) &&
                 labelNames.includes('agents:keepalive');
@@ -266,7 +266,7 @@ jobs:
               owner, repo, state: 'open', per_page: 100,
             }));
             const eligible = prs.filter((pr) => {
-              const labelNames = (pr.labels || []).map((label) => label.name || '');
+              const labelNames = (pr.labels || []).map((label) => (label.name || '').toLowerCase());
               return !pr.draft &&
                 labelNames.some((name) => /^agent:/i.test(name)) &&
                 labelNames.includes('agents:keepalive');

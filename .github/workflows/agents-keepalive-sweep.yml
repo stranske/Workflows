@@ -94,7 +94,7 @@ jobs:
               owner, repo, state: 'open', per_page: 100,
             }));
             const eligible = prs.filter((pr) => {
-              const labelNames = (pr.labels || []).map((label) => label.name || '');
+              const labelNames = (pr.labels || []).map((label) => (label.name || '').toLowerCase());
               return !pr.draft &&
                 labelNames.some((name) => /^agent:/i.test(name)) &&
                 labelNames.includes('agents:keepalive');
