@@ -44,6 +44,7 @@ def test_splitter_turns_fenced_response_into_stable_topic_records(monkeypatch, c
     assert [topic["extras"] for topic in topics] == ["Keep **all** details.", "Second body"]
     assert [topic["enumerator"] for topic in topics] == ["1", "2"]
     assert topics[0]["guid"] == topic_splitter._generate_guid("First issue")
+    assert topics[1]["guid"] == topic_splitter._generate_guid("Untitled Issue 2")
     assert all(topic["sections"]["acceptance_criteria"] == "" for topic in topics)
     assert "Using LLM provider: fixture-provider" in capsys.readouterr().err
 
