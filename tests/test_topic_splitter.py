@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-
 from scripts.langchain import topic_splitter
 
 
@@ -14,9 +13,9 @@ def _response(content: str) -> tuple[SimpleNamespace, SimpleNamespace]:
 
 
 def test_generate_guid_normalizes_whitespace_and_case() -> None:
-    assert topic_splitter._generate_guid("  Preserve  This\nTitle ") == topic_splitter._generate_guid(
-        "preserve this title"
-    )
+    assert topic_splitter._generate_guid(
+        "  Preserve  This\nTitle "
+    ) == topic_splitter._generate_guid("preserve this title")
 
 
 def test_splitter_refuses_to_run_without_a_configured_client(monkeypatch) -> None:
