@@ -68,8 +68,10 @@ const freshRouteWeights = {
       ],
     },
   },
-  // Keep clause reserved to validate "reserve exclusion" behavior elsewhere.
-  reserve: ['claude'],
+  // The published export reserves agents by task type as evidence rows.
+  reserve: {
+    implement: [{ agent: 'claude', n_obs: 120, posterior: 0.55 }],
+  },
 };
 
 test('fixture document → evidence-ranked choice', () => {
@@ -171,6 +173,33 @@ test('unreachable URL → static choice', async () => {
   assert.ok(result.reason.includes('delegation_source: static'));
 });
 
+test('malformed JSON → static choice', async () => {
+  const loaded = await loadRouteWeights({
+    url: 'https://example.test/route-weights.json',
+    fetchImpl: async () => ({
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('unexpected token');
+      },
+    }),
+    now,
+  });
+
+  assert.equal(loaded, null);
+
+  const result = decideNextAgent({
+    state: stalledStateCodex,
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: loaded,
+  });
+
+  assert.equal(result.agent, 'claude');
+  assert.equal(result.delegationSource, 'static');
+  assert.ok(result.reason.includes('delegation_source: static'));
+});
+
 test('stale generated_at → static choice', async () => {
   const staleDocument = {
     schema: 'orchestrator.route-weights/v1',
@@ -217,7 +246,9 @@ test('reserve never chosen', async () => {
         ],
       },
     },
-    reserve: ['claude'],
+    reserve: {
+      implement: [{ agent: 'claude', posterior: 0.99 }],
+    },
   };
 
   const loaded = await loadRouteWeights({

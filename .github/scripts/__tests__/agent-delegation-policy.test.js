@@ -513,7 +513,9 @@ const freshRouteWeights = {
       ],
     },
   },
-  reserve: ['claude'],
+  reserve: {
+    implement: [{ agent: 'claude', n_obs: 120, posterior: 0.55 }],
+  },
 };
 
 const stalledState = {
@@ -561,25 +563,60 @@ test('route weights fall back to static when evidence_ok is false', () => {
   assert.equal(result.delegationSource, 'static');
 });
 
-test('loadRouteWeights returns null on unreachable URL', async () => {
-  const result = await loadRouteWeights({
+test('unreachable route-weights URL falls back to the static choice', async () => {
+  const routeWeights = await loadRouteWeights({
     url: 'https://example.invalid/route-weights.json',
     fetchImpl: async () => {
       throw new Error('network down');
     },
   });
 
-  assert.equal(result, null);
+  const result = decideNextAgent({
+    state: stalledState,
+    labels: ['agent:auto'],
+    secrets: routeWeightsSecrets,
+    registry: routeWeightsRegistry,
+    routeWeights,
+  });
+
+  assert.equal(routeWeights, null);
+  assert.equal(result.agent, 'claude');
+  assert.equal(result.delegationSource, 'static');
+  assert.match(result.reason, /route-weights-unavailable/);
 });
 
-test('loadRouteWeights returns null on stale generated_at', async () => {
+test('malformed route-weights document falls back to the static choice', async () => {
+  const routeWeights = await loadRouteWeights({
+    url: 'https://example.test/route-weights.json',
+    fetchImpl: async () => ({
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('unexpected token');
+      },
+    }),
+  });
+
+  const result = decideNextAgent({
+    state: stalledState,
+    labels: ['agent:auto'],
+    secrets: routeWeightsSecrets,
+    registry: routeWeightsRegistry,
+    routeWeights,
+  });
+
+  assert.equal(routeWeights, null);
+  assert.equal(result.agent, 'claude');
+  assert.equal(result.delegationSource, 'static');
+});
+
+test('stale route-weights document falls back to the static choice', async () => {
   const staleDocument = {
     schema: 'orchestrator.route-weights/v1',
     generated_at: '2026-01-01T00:00:00Z',
     task_types: {},
   };
 
-  const result = await loadRouteWeights({
+  const routeWeights = await loadRouteWeights({
     url: 'https://example.test/route-weights.json',
     fetchImpl: async () => ({
       status: 200,
@@ -588,7 +625,17 @@ test('loadRouteWeights returns null on stale generated_at', async () => {
     now: '2026-09-03T00:00:00Z',
   });
 
-  assert.equal(result, null);
+  const result = decideNextAgent({
+    state: stalledState,
+    labels: ['agent:auto'],
+    secrets: routeWeightsSecrets,
+    registry: routeWeightsRegistry,
+    routeWeights,
+  });
+
+  assert.equal(routeWeights, null);
+  assert.equal(result.agent, 'claude');
+  assert.equal(result.delegationSource, 'static');
 });
 
 test('route weights never choose reserve agents', () => {
@@ -603,7 +650,9 @@ test('route weights never choose reserve agents', () => {
         ],
       },
     },
-    reserve: ['claude'],
+    reserve: {
+      implement: [{ agent: 'claude', posterior: 0.99 }],
+    },
   };
 
   const weighted = selectAgentFromRouteWeights({
