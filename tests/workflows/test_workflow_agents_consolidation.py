@@ -51,8 +51,11 @@ def test_keepalive_loop_avoids_non_actionable_runner_allocation():
     evaluate_condition = jobs["evaluate"]["if"]
     assert "github.event.pull_request.labels.*.name" in evaluate_condition
     assert "agents:keepalive" in evaluate_condition
+    assert "github.event_name != 'workflow_run'" in evaluate_condition
+    assert "github.event.workflow_run.event == 'pull_request'" in evaluate_condition
+    # Preserve head-SHA recovery when a real PR Gate omits its PR association.
     assert "workflow_run.pull_requests[0] != null" not in evaluate_condition
-    assert "resolves that\n    # case through the run head SHA" in (
+    assert "resolves that case through the run head SHA" in (
         (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
     )
     assert "test-job" not in jobs

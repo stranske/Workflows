@@ -69,12 +69,13 @@ concurrency:
 jobs:
   evaluate:
     name: Evaluate keepalive loop
-    # Avoid allocating a runner for unrelated label events.  A completed Gate
-    # can omit workflow_run.pull_requests; evaluateKeepaliveLoop resolves that
-    # case through the run head SHA before deciding whether any runner work is
-    # necessary.
+    # Avoid allocating a runner for unrelated label events and push-triggered
+    # Gate runs. A PR-triggered Gate can omit workflow_run.pull_requests;
+    # evaluateKeepaliveLoop resolves that case through the run head SHA.
     if: >-
       vars.USE_CONSOLIDATED_WORKFLOWS != 'true' &&
+      (github.event_name != 'workflow_run' ||
+       github.event.workflow_run.event == 'pull_request') &&
       (github.event_name != 'pull_request' ||
        github.event.action != 'labeled' ||
        (contains(github.event.pull_request.labels.*.name, 'agents:keepalive') &&
