@@ -770,11 +770,7 @@ def coordinate_repo(
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "body-writer.log",
         name="body-writer",
-        timeout=(
-            min(round2_timeout, 60 * 60)
-            + provider_capacity_wait_max_seconds()
-            + 600
-        ),
+        timeout=(min(round2_timeout, 60 * 60) + provider_capacity_wait_max_seconds() + 600),
         repo=repo,
         output_dir=output_dir,
         repair_attempts=repair_attempts,

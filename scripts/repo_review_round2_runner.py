@@ -566,9 +566,7 @@ def claude_capacity_reset_at(
         zone = UTC
     local_now = current_utc.astimezone(zone)
     reset_local = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if (day_hint or "").lower() == "tomorrow" or reset_local < local_now - timedelta(
-        minutes=5
-    ):
+    if (day_hint or "").lower() == "tomorrow" or reset_local < local_now - timedelta(minutes=5):
         reset_local += timedelta(days=1)
     elif reset_local < local_now:
         reset_local = local_now
