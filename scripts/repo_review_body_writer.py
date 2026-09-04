@@ -198,17 +198,18 @@ def _reference_paths(section: str) -> set[str]:
     values = [match.group(0) for match in _PATH_RE.finditer(section)]
     for code_span in re.findall(r"`([^`\n]+)`", section):
         for token in code_span.split():
-            value = token.strip("'\"(),.;")
+            value = token.strip("'\"(),;").rstrip(".")
             if (
                 "/" in value
                 and not value.startswith(("/", "http://", "https://", "github.com/"))
                 and re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_./*{}@:+-]+", value)
+                and re.search(r"[A-Za-z_]", value)
             ):
                 values.append(value)
     for value in values:
         value = value.rstrip(".,;:)")
         value = re.sub(r"::[A-Za-z0-9_]+$", "", value)
-        value = re.sub(r":\d+$", "", value)
+        value = re.sub(r"(?::\d+(?:-\d+)?|#L\d+(?:-L?\d+)?)$", "", value)
         paths.add(value)
     return paths
 

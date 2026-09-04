@@ -273,6 +273,19 @@ def test_body_quality_errors_rejects_unresolvable_paths(tmp_path: Path) -> None:
     assert any("missing/x.py" in error for error in errors)
 
 
+def test_reference_paths_normalizes_line_ranges_and_dot_directories() -> None:
+    paths = body_writer._reference_paths(
+        "Update `.github/workflows/ci.yml:20-35`, `src/app.py#L8-L12`, and "
+        "`tests/test_app.py::test_smoke`; ignore the ratio `0.55/0.25/0.20`."
+    )
+
+    assert paths == {
+        ".github/workflows/ci.yml",
+        "src/app.py",
+        "tests/test_app.py",
+    }
+
+
 # ---------------------------------------------------------------------------
 # converged_path + canonical_body_writer_prompt
 # ---------------------------------------------------------------------------
