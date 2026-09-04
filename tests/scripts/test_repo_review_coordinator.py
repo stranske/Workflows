@@ -465,9 +465,9 @@ def test_coordinate_repo_parent_timeouts_cover_capacity_deferral(
         repair_attempts=2,
     )
 
-    assert observed["round-1"] == 30 + 123 + 1500
+    assert observed["round-1"] == (2 * 30) + 123 + 1500
     assert observed["round-2"] == (3 * 2 * 40) + (3 * 123) + 1500
-    assert observed["body-writer"] == 40 + 123 + 600
+    assert observed["body-writer"] == (2 * 40) + 123 + 600
 
 
 def test_configured_repair_attempts_reads_toml_and_rejects_negative(tmp_path: Path) -> None:

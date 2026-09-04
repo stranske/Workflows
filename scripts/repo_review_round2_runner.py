@@ -110,10 +110,23 @@ _CLAUDE_CAPACITY_MARKERS = (
     "usage limit reached",
 )
 _CLAUDE_RESET_RE = re.compile(
-    r"resets?\s+(?:(today|tomorrow)\s+)?(?:at\s+)?"
-    r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)"
-    r"(?:\s*\(([^)]+)\))?",
-    re.IGNORECASE,
+    r"""
+    resets?\s+
+    (?:(?P<day_hint>today|tomorrow)|
+       (?P<date_hint>
+          (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|
+             mon|tue|wed|thu|fri|sat|sun)\b|
+          (?:january|february|march|april|may|june|july|august|september|
+             october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)
+          \s+\d{1,2}(?:,?\s+\d{4})?|
+          \d{4}-\d{2}-\d{2}
+       )
+    )?
+    \s*,?\s*(?:at\s+)?
+    (?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s*(?P<meridiem>am|pm)
+    (?:\s*\((?P<timezone>[^)]+)\))?
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 
@@ -547,7 +560,12 @@ def claude_capacity_reset_at(
     if match is None:
         return None
 
-    day_hint, hour_text, minute_text, meridiem, timezone_name = match.groups()
+    day_hint = match.group("day_hint")
+    date_hint = match.group("date_hint")
+    hour_text = match.group("hour")
+    minute_text = match.group("minute")
+    meridiem = match.group("meridiem")
+    timezone_name = match.group("timezone")
     hour = int(hour_text) % 12
     if meridiem.lower() == "pm":
         hour += 12
@@ -566,9 +584,70 @@ def claude_capacity_reset_at(
         zone = UTC
     local_now = current_utc.astimezone(zone)
     reset_local = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if (day_hint or "").lower() == "tomorrow" or reset_local < local_now - timedelta(minutes=5):
+    normalized_day = (day_hint or "").lower()
+    if normalized_day == "tomorrow":
         reset_local += timedelta(days=1)
-    elif reset_local < local_now:
+    elif date_hint:
+        normalized_date = date_hint.strip()
+        weekday_names = {
+            "mon": 0,
+            "tue": 1,
+            "wed": 2,
+            "thu": 3,
+            "fri": 4,
+            "sat": 5,
+            "sun": 6,
+        }
+        weekday = weekday_names.get(normalized_date[:3].lower())
+        if weekday is not None:
+            days_ahead = (weekday - local_now.weekday()) % 7
+            reset_local += timedelta(days=days_ahead)
+            if reset_local < local_now - timedelta(minutes=5):
+                reset_local += timedelta(days=7)
+        else:
+            parsed_date: datetime | None = None
+            has_year = bool(re.search(r"\b\d{4}\b", normalized_date))
+            formats = (
+                "%Y-%m-%d",
+                "%b %d, %Y",
+                "%B %d, %Y",
+                "%b %d %Y",
+                "%B %d %Y",
+                "%b %d",
+                "%B %d",
+            )
+            for date_format in formats:
+                try:
+                    parsed_date = datetime.strptime(normalized_date, date_format)
+                    break
+                except ValueError:
+                    continue
+            if parsed_date is None:
+                return None
+            if not has_year:
+                try:
+                    parsed_date = parsed_date.replace(year=local_now.year)
+                except ValueError:
+                    return None
+            reset_local = local_now.replace(
+                year=parsed_date.year,
+                month=parsed_date.month,
+                day=parsed_date.day,
+                hour=hour,
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
+            if not has_year and reset_local < local_now - timedelta(minutes=5):
+                try:
+                    reset_local = reset_local.replace(year=reset_local.year + 1)
+                except ValueError:
+                    return None
+            elif has_year and reset_local < local_now - timedelta(minutes=5):
+                return None
+    elif reset_local < local_now - timedelta(minutes=5):
+        reset_local += timedelta(days=1)
+    if reset_local < local_now:
         reset_local = local_now
     return reset_local.astimezone(UTC)
 
@@ -590,13 +669,6 @@ def defer_for_claude_capacity(
     wait_seconds = max(0, int((reset_at - current.astimezone(UTC)).total_seconds()))
     wait_seconds += PROVIDER_CAPACITY_WAIT_GRACE_SECONDS
     max_wait = provider_capacity_wait_max_seconds()
-    if wait_seconds > max_wait:
-        return (
-            False,
-            f"claude capacity resets at {reset_at.isoformat()}, requiring {wait_seconds}s "
-            f"which exceeds the configured {max_wait}s deferral budget",
-        )
-
     timestamp = current.astimezone(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
     preserved_log = log_file.with_name(f"{log_file.name}.capacity-{timestamp}")
     try:
@@ -605,15 +677,29 @@ def defer_for_claude_capacity(
         return False, f"cannot preserve Claude capacity evidence: {exc}"
 
     wait_file = capacity_wait_path(log_file)
-    payload = {
+    payload: dict[str, Any] = {
         "schema_version": "v1",
         "provider": "claude",
-        "state": "waiting",
         "detected_at": current.astimezone(UTC).isoformat(),
         "reset_at": reset_at.astimezone(UTC).isoformat(),
         "wait_seconds": wait_seconds,
+        "max_wait_seconds": max_wait,
         "preserved_log": str(preserved_log),
     }
+    if wait_seconds > max_wait:
+        note = (
+            f"claude capacity resets at {reset_at.isoformat()}, requiring {wait_seconds}s "
+            f"which exceeds the configured {max_wait}s deferral budget"
+        )
+        payload["state"] = "rejected"
+        payload["reason"] = note
+        try:
+            wait_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        except OSError as exc:
+            return False, f"cannot record rejected Claude capacity deferral: {exc}"
+        return False, note
+
+    payload["state"] = "waiting"
     try:
         wait_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     except OSError as exc:
