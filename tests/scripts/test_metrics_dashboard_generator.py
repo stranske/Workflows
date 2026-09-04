@@ -1,11 +1,31 @@
 import datetime as dt
 import importlib
+import json
 import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
 
 import pytest
+
+# The allowlist is the observability EXEMPTION list; it grows whenever a consumer is registered
+# without a traced runtime. Its membership is pinned on purpose in
+# tests/workflows/test_langsmith_metrics_dashboard.py, so deriving the count here keeps that
+# single visible guard and stops every legitimate registration from reddening these dashboards.
+REGISTRY_SIZE = len(
+    json.loads(
+        (Path(__file__).resolve().parents[2] / "config" / "langsmith_fleet_registry.json").read_text(
+            encoding="utf-8"
+        )
+    )["repos"]
+)
+ALLOWLIST_SIZE = len(
+    json.loads(
+        (Path(__file__).resolve().parents[2] / "config" / "langsmith_fleet_allowlist.json").read_text(
+            encoding="utf-8"
+        )
+    )["repos"]
+)
 
 # Gate's deliberate-break job intentionally installs only pytest. Keep the pure
 # dashboard-helper checks collectable there without weakening production imports.
@@ -269,7 +289,7 @@ def test_build_dashboard_from_path_includes_langsmith_fleet_status(tmp_path: Pat
     assert "- Stale: 0" in dashboard
     assert "- Invalid: 0" in dashboard
     assert "- Direct evidence: 3" in dashboard
-    assert "- Not applicable: 4" in dashboard
+    assert f"- Not applicable: {ALLOWLIST_SIZE}" in dashboard
     assert (
         "| stranske/trip-planner | planner-runtime | artifact | "
         "stranske/trip-planner#1208 | valid |" in dashboard
@@ -349,7 +369,7 @@ def test_main_langsmith_fleet_noops_without_langsmith_api_key(
     assert "## LangSmith Fleet Artifact Status" in content
     assert "- Valid: 8" in content
     assert "- Direct evidence: 3" in content
-    assert "- Not applicable: 4" in content
+    assert f"- Not applicable: {ALLOWLIST_SIZE}" in content
 
 
 def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
@@ -378,7 +398,7 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
     assert "- Invalid: 1" in dashboard
     assert "- Missing: 6" in dashboard
     assert "- Direct evidence: 3" in dashboard
-    assert "- Not applicable: 4" in dashboard
+    assert f"- Not applicable: {ALLOWLIST_SIZE}" in dashboard
     assert (
         "| stranske/Workflows | agent-automation | artifact | "
         "stranske/Workflows#2150 | valid |" in dashboard
@@ -397,7 +417,9 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
         for line in fleet_section.splitlines()
         if line.startswith("| stranske/") and line.endswith(" |")
     ]
-    assert len(status_rows) == 15
+    # One row per registry entry plus one per allowlisted exemption; both grow with legitimate
+    # registrations, so the total is derived rather than pinned.
+    assert len(status_rows) == REGISTRY_SIZE + ALLOWLIST_SIZE
 
 
 def test_numeric_coercion_rejects_nonfinite_overflow_and_non_scalars() -> None:
