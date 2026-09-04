@@ -106,6 +106,38 @@ def test_invoke_round1_preserves_and_replaces_stale_commit_findings(
     assert list(findings.parent.glob("findings.provenance.stale-*.json"))
 
 
+def test_invoke_round1_tracks_findings_as_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "stranske/Example")
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_args, **_kwargs: [])
+
+    def fake_invoke(*_args, **kwargs):
+        captured.update(kwargs)
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text("{}\n", encoding="utf-8")
+        return True, "ok"
+
+    monkeypatch.setattr(runner, "invoke_agent", fake_invoke)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc123",
+    )
+
+    assert result.succeeded is True
+    assert captured["progress_files"] == (findings,)
+
+
 def test_findings_provenance_requires_current_schema(tmp_path: Path) -> None:
     findings = tmp_path / "findings.json"
     provenance = runner.findings_provenance_path(findings)

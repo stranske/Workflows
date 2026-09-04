@@ -458,6 +458,44 @@ def test_build_prompt_replaces_invalid_utf8_in_repair_feedback(tmp_path: Path, m
     assert "failure: \ufffd\ufffd" in prompt
 
 
+def test_run_body_writer_tracks_converged_json_as_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Quiet body writers must use converged.json activity as a heartbeat."""
+    fake_prompt = tmp_path / "prompt.md"
+    fake_prompt.write_text("PROMPT_TEMPLATE_BODY\n", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "canonical_body_writer_prompt", lambda: fake_prompt)
+    output_dir = tmp_path / "out"
+    converged = body_writer.converged_path(output_dir, "stranske/Example")
+    converged.parent.mkdir(parents=True)
+    converged.write_text(
+        '{"repo":"stranske/Example","converged_candidates":[],"meta_candidate":null}',
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    def fake_invoke_agent(_agent, _prompt, **kwargs):
+        """Capture heartbeat inputs without launching an external agent."""
+        captured.update(kwargs)
+        return True, "ok"
+
+    monkeypatch.setattr(body_writer, "invoke_agent", fake_invoke_agent)
+
+    ok, _message = body_writer.run_body_writer(
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=output_dir,
+        registry_path=tmp_path / "registry.json",
+        workflows_steward_root=tmp_path,
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        agent="claude",
+    )
+
+    assert ok is True
+    assert captured["progress_files"] == (converged,)
+
+
 def test_restore_non_body_fields_keeps_only_agent_body_changes() -> None:
     before = {
         "repo": "stranske/Example",
