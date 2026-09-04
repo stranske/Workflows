@@ -189,7 +189,7 @@ jobs:
           # Install the reviewed lockfile from the immutable helper checkout.
           npm ci --prefix runner-src/.github/actions/verifier-codex-cli --ignore-scripts
           codex_cli="$(pwd)/runner-src/.github/actions/verifier-codex-cli/node_modules/.bin/codex"
-          echo "$(dirname "$codex_cli")" >> "$GITHUB_PATH"
+          dirname "$codex_cli" >> "$GITHUB_PATH"
           cli_version="$("$codex_cli" --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
           if ! printf '%s' "$cli_version" | grep -Eq '(^|[[:space:]])0\.153\.2($|[[:space:]])'; then
             echo "::error::Installed Codex CLI is not exactly 0.153.2."
