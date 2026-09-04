@@ -44,6 +44,21 @@ def _workflow_step_by_id(path: Path, step_id: str) -> dict:
     raise AssertionError(f"{path} must define step id {step_id!r}")
 
 
+def test_keepalive_loop_avoids_non_actionable_runner_allocation():
+    workflow = _load_workflow_yaml("agents-keepalive-loop.yml")
+    jobs = workflow["jobs"]
+
+    evaluate_condition = jobs["evaluate"]["if"]
+    assert "github.event.pull_request.labels.*.name" in evaluate_condition
+    assert "agents:keepalive" in evaluate_condition
+    assert "workflow_run.pull_requests[0] != null" in evaluate_condition
+    assert "test-job" not in jobs
+
+    summary_condition = jobs["summary"]["if"]
+    for action in ("run", "fix", "conflict"):
+        assert f"needs.evaluate.outputs.action == '{action}'" in summary_condition
+
+
 def test_agents_orchestrator_inputs_and_uses():
     # The orchestrator is now split: dispatcher calls init and main reusable workflows
     dispatcher = WORKFLOWS_DIR / "agents-70-orchestrator.yml"

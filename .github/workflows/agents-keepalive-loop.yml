@@ -69,7 +69,16 @@ concurrency:
 jobs:
   evaluate:
     name: Evaluate keepalive loop
-    if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true'
+    # Avoid allocating a runner for unrelated label events or Gate runs that
+    # cannot be associated with a PR.
+    if: >-
+      vars.USE_CONSOLIDATED_WORKFLOWS != 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.action != 'labeled' ||
+       (contains(github.event.pull_request.labels.*.name, 'agents:keepalive') &&
+        contains(join(github.event.pull_request.labels.*.name, ','), 'agent:'))) &&
+      (github.event_name != 'workflow_run' ||
+       github.event.workflow_run.pull_requests[0] != null)
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -741,17 +750,6 @@ jobs:
           fi
           echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
 
-  test-job:
-    name: Test job creation
-    needs: evaluate
-    if: needs.evaluate.outputs.fingerprint_should_run == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo "Test job ran!"
-          echo "Action was ${{ needs.evaluate.outputs.action }}"
-          echo "Agent was ${{ needs.evaluate.outputs.agent_type }}"
-
   # Mark agent as running before starting the actual work
   # This provides real-time visibility that the agent is actively engaged
   mark-running:
@@ -1371,12 +1369,14 @@ jobs:
       - run-claude
       - run-cursor
       - run-gemini
-    # Run if PR exists, handle skipped/failed agent jobs gracefully
-    # run-codex will be skipped when action != run/fix/conflict, which is expected
+    # Only actionable executions need a summary checkout and API client.
     if: |
       always() &&
       needs.evaluate.outputs.pr_number != '' &&
-      needs.evaluate.outputs.pr_number != '0'
+      needs.evaluate.outputs.pr_number != '0' &&
+      (needs.evaluate.outputs.action == 'run' ||
+       needs.evaluate.outputs.action == 'fix' ||
+       needs.evaluate.outputs.action == 'conflict')
     runs-on: ubuntu-latest
     environment: >-
       ${{
