@@ -9,6 +9,7 @@ from scripts import langsmith_fleet
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "config" / "langsmith_fleet_registry.json"
+FLEET_ALLOWLIST = ROOT / "config" / "langsmith_fleet_allowlist.json"
 ALLOWLIST = ROOT / "config" / "langsmith_fleet_allowlist.json"
 MAINT_68 = ROOT / ".github" / "workflows" / "maint-68-sync-consumer-repos.yml"
 AGENT_REGISTRY = ROOT / ".github" / "agents" / "registry.yml"
@@ -205,7 +206,13 @@ def test_markdown_summary_renders_mixed_valid_invalid_missing_rows() -> None:
     assert "- Invalid: 1" in markdown
     assert "- Missing: 1" in markdown
     assert "- Direct evidence: 3" in markdown
-    assert "- Not applicable: 4" in markdown
+    # Derived from the allowlist rather than pinned: the allowlist is the exemption list and grows
+    # when a new consumer is registered without a traced runtime. Its MEMBERSHIP is deliberately
+    # pinned in tests/workflows/test_langsmith_metrics_dashboard.py, which is the check that must
+    # fail visibly when a repo is exempted; pinning the count here as well only duplicates that
+    # guard and breaks on every legitimate registration.
+    allowlist = json.loads(FLEET_ALLOWLIST.read_text(encoding="utf-8"))
+    assert f"- Not applicable: {len(allowlist['repos'])}" in markdown
 
     # Per-repo status rows, one per status flavor.
     assert (

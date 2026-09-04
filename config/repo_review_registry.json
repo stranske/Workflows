@@ -114,6 +114,27 @@
       "status": "ignored",
       "cadence": "manual",
       "decision_anchor": "Template repo; include only when template-specific design work is requested."
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "local_path": "Doc-Lineage",
+      "status": "paused",
+      "cadence": "manual",
+      "decision_anchor": "Document lineage/blackline engine scaffolded 2026-09-04; activate the design review once the research-program briefs R1/R2 land its design docs and first issues."
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "local_path": "Deliverable-Render",
+      "status": "paused",
+      "cadence": "manual",
+      "decision_anchor": "Renderer library scaffolded 2026-09-04 from the work-environment inventory; activate review once the HTML hub and deck builder land."
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "local_path": "Manager-Mosaic",
+      "status": "paused",
+      "cadence": "manual",
+      "decision_anchor": "Mosaic repo created 2026-09-04 on the owner's decision; activate review once the fact and thesis models land."
     }
   ]
 }
