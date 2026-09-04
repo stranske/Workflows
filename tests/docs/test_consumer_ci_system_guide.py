@@ -86,8 +86,10 @@ def test_consumer_operator_docs_match_gate_followup_topology() -> None:
             f"| `agent:{agent}` | Issue or PR labeled | "
             f"Routes consumer Gate-followup keepalive to the {display_name} runner"
         ) in labels
-        assert f"Dispatches the `{job_id}` consumer PR keepalive job" in label_section
-        assert f"dispatches `reusable-{agent}-run.yml`" in label_section
+        assert f"On PRs, dispatches the `{job_id}` consumer keepalive job" in label_section
+        assert f"On PRs, `agents-81-gate-followups.yml` dispatches `reusable-{agent}-run.yml`" in (
+            label_section
+        )
     assert "applying the label does not trigger a retry by itself" in labels
     assert "Does not set `force_retry`" in labels
     assert "agents-keepalive-loop.yml" not in labels

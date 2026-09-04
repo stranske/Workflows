@@ -140,14 +140,14 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Effect:**
 1. Identifies Cursor as the intended route in registry-aware automation
-2. Dispatches the `run-cursor` consumer PR keepalive job in `agents-81-gate-followups.yml`
+2. On PRs, dispatches the `run-cursor` consumer keepalive job in `agents-81-gate-followups.yml`
 3. Branch prefix `cursor/issue-<number>` is reserved for Cursor work (see `.github/agents/registry.yml`)
 
 **Prerequisites:**
 - Repository has a valid `CURSOR_API_KEY` secret (per `.github/agents/registry.yml`)
 - Issue or PR should have clear requirements
 
-**Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-cursor-run.yml` after registry-backed routing and secret preflight succeed.
+**Workflow:** On PRs, `agents-81-gate-followups.yml` dispatches `reusable-cursor-run.yml` after registry-backed routing and secret preflight succeed.
 
 ---
 
@@ -159,13 +159,13 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Effect:**
 1. Identifies Gemini as the intended route in registry-aware automation
-2. Dispatches the `run-gemini` consumer PR keepalive job in `agents-81-gate-followups.yml`
+2. On PRs, dispatches the `run-gemini` consumer keepalive job in `agents-81-gate-followups.yml`
 3. Branch prefix `gemini/issue-<number>` is reserved for Gemini work
 
 **Prerequisites:**
 - Repository has a valid `GEMINI_API_KEY` secret (per `.github/agents/registry.yml`)
 
-**Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-gemini-run.yml` after registry-backed routing and secret preflight succeed.
+**Workflow:** On PRs, `agents-81-gate-followups.yml` dispatches `reusable-gemini-run.yml` after registry-backed routing and secret preflight succeed.
 
 ---
 
