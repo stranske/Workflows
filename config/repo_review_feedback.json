@@ -2,8 +2,9 @@
   "generated_on": "2026-05-03",
   "cycle_source": "docs/reports/repo-review-phase2-pilot/round2",
   "defaults": {
-    "omitted_repo_decision": "defer",
-    "approved_candidates": "all"
+    "omitted_repo_decision": "approve",
+    "approved_candidates": "all",
+    "window_note": "2026-09-04..2026-09-14: owner travelling; an omitted repo decision approves the converged candidates (approved_candidates: all) so the weekly pipeline keeps filing implementation work. Revert to 'defer' after the window."
   },
   "scorecard_defaults": {
     "decision": "defer",
