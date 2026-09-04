@@ -24,6 +24,7 @@ REFERENCE_PACK_ACTION = Path(".github/actions/agent-reference-packs/action.yml")
 REFERENCE_PACK_RUNNER_USES = "./.workflows-lib/.github/actions/agent-reference-packs"
 REFERENCE_PACK_FIXTURES = Path("tests/workflows/fixtures/reference_packs")
 MIN_CODEX_CLI_BY_RUN_MODEL = {
+    "gpt-6-astra": (0, 153, 2),
     "gpt-5.6-terra": (0, 144, 1),
     "gpt-5.5": (0, 125, 0),
 }
@@ -412,10 +413,10 @@ def test_reusable_codex_run_prefers_gpt_56_terra_with_non_codex_fallback() -> No
     resolve_step = _find_step_by_name(workflow, "Resolve Codex run model")
     run_step = _find_step_by_name(workflow, "Run Codex")
 
-    assert inputs["codex_model"]["default"] == "gpt-5.6-terra"
-    assert inputs["codex_cli_version"]["default"] == "0.144.1"
+    assert inputs["codex_model"]["default"] == "gpt-6-astra"
+    assert inputs["codex_cli_version"]["default"] == "0.153.2"
     assert resolve_step.get("id") == "codex_model"
-    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.6-terra"
+    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-6-astra"
     assert inputs["codex_fallback_models"]["default"] == "gpt-5.5"
     assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "${{ inputs.codex_fallback_models }}"
     assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]

@@ -6,8 +6,13 @@
   "selection_policy": "config/model_selection_policy.json",
   "catalog_baselines": {
     "openai": {
-      "checked_at": "2026-07-10T00:00:00Z",
-      "model_ids": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]
+      "checked_at": "2026-09-04T22:30:00Z",
+      "model_ids": [
+        "gpt-6-astra",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-5.6-luna"
+      ]
     },
     "anthropic": {
       "checked_at": "2026-07-10T00:00:00Z",
@@ -63,9 +68,32 @@
       "provider": "github-models",
       "checked_at": "2026-07-10",
       "url": "https://models.github.ai/catalog/models"
+    },
+    {
+      "source_id": "openai-astra-2026-09-04",
+      "provider": "openai",
+      "checked_at": "2026-09-04",
+      "url": "https://developers.openai.com/api/docs/models/gpt-6-astra"
     }
   ],
   "models": [
+    {
+      "model_id": "gpt-6-astra",
+      "provider": "openai",
+      "api": "responses",
+      "lifecycle": "current",
+      "positioning": "frontier",
+      "source_ids": [
+        "openai-astra-2026-09-04"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "as_of": "2026-09-04"
+      },
+      "notes": "Owner-directed high-reasoning worker migration. Balanced auxiliary evaluator selection remains independent; no benchmark promotion is claimed."
+    },
     {
       "model_id": "gpt-5.6-sol",
       "provider": "openai",
@@ -123,7 +151,9 @@
       "api": "chat",
       "lifecycle": "current",
       "positioning": "frontier",
-      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "source_ids": [
+        "anthropic-current-models-2026-07-10"
+      ],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 10.0,
@@ -137,7 +167,9 @@
       "api": "chat",
       "lifecycle": "current",
       "positioning": "high-capability",
-      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "source_ids": [
+        "anthropic-current-models-2026-07-10"
+      ],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 5.0,
@@ -151,7 +183,9 @@
       "api": "chat",
       "lifecycle": "current",
       "positioning": "balanced",
-      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "source_ids": [
+        "anthropic-current-models-2026-07-10"
+      ],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 3.0,
@@ -166,7 +200,9 @@
       "api": "chat",
       "lifecycle": "current",
       "positioning": "efficient",
-      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "source_ids": [
+        "anthropic-current-models-2026-07-10"
+      ],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 1.0,
@@ -180,7 +216,9 @@
       "api": "chat",
       "lifecycle": "current",
       "positioning": "catalog-fallback",
-      "source_ids": ["github-models-catalog-2026-07-10"],
+      "source_ids": [
+        "github-models-catalog-2026-07-10"
+      ],
       "pricing": {
         "basis": "GitHub Models quota and rate limits",
         "as_of": "2026-07-10"
@@ -200,7 +238,9 @@
       "api": "chat",
       "lifecycle": "current",
       "positioning": "incumbent-verifier",
-      "source_ids": ["openai-current-models-2026-07-10"],
+      "source_ids": [
+        "openai-current-models-2026-07-10"
+      ],
       "pricing": {
         "basis": "Observed billed cost is captured by the paired pilot",
         "as_of": "2026-07-12"
@@ -213,7 +253,9 @@
       "api": "chat",
       "lifecycle": "current",
       "positioning": "incumbent-verifier",
-      "source_ids": ["anthropic-current-models-2026-07-10"],
+      "source_ids": [
+        "anthropic-current-models-2026-07-10"
+      ],
       "pricing": {
         "basis": "Observed billed cost is captured by the paired pilot",
         "as_of": "2026-07-12"
@@ -226,7 +268,9 @@
       "api": "chat",
       "lifecycle": "current",
       "positioning": "incumbent-verifier",
-      "source_ids": ["github-models-catalog-2026-07-10"],
+      "source_ids": [
+        "github-models-catalog-2026-07-10"
+      ],
       "pricing": {
         "basis": "GitHub Models quota and rate limits",
         "as_of": "2026-07-12"
@@ -242,7 +286,9 @@
       "status": "provisional",
       "decided_at": "2026-07-31",
       "review_by": "2026-08-30",
-      "evidence_ids": ["catalog-review-2026-07-10"],
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
       "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or for the superseded incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
     },
     {
@@ -252,7 +298,9 @@
       "status": "provisional",
       "decided_at": "2026-07-31",
       "review_by": "2026-08-30",
-      "evidence_ids": ["catalog-review-2026-07-10"],
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
       "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. Cross-family relative to the superseded claude-opus incumbent, so it was human-initiated rather than auto-prepared. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or the incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
     },
     {
@@ -262,7 +310,9 @@
       "status": "provisional",
       "decided_at": "2026-07-31",
       "review_by": "2026-08-30",
-      "evidence_ids": ["catalog-review-2026-07-10"],
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
       "rationale": "Provisional catalog fallback advanced to a model confirmed present in the 2026-07-10 GitHub Models catalog baseline. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or the superseded codex-mini-latest, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
     }
   ],
@@ -274,7 +324,9 @@
       "status": "provisional",
       "decided_at": "2026-07-10",
       "review_by": "2026-07-24",
-      "evidence_ids": ["catalog-review-2026-07-10"],
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
       "rationale": "Incumbent baseline retained until a paired repository benchmark proves a replacement meets every quality gate.",
       "superseded_at": "2026-07-31",
       "superseded_by": "gpt-5.6-terra",
@@ -287,7 +339,9 @@
       "status": "provisional",
       "decided_at": "2026-07-10",
       "review_by": "2026-07-24",
-      "evidence_ids": ["catalog-review-2026-07-10"],
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
       "rationale": "Incumbent baseline retained until a paired repository benchmark proves a replacement meets every quality gate.",
       "superseded_at": "2026-07-31",
       "superseded_by": "claude-sonnet-5",
@@ -300,7 +354,9 @@
       "status": "provisional",
       "decided_at": "2026-07-10",
       "review_by": "2026-07-24",
-      "evidence_ids": ["catalog-review-2026-07-10"],
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
       "rationale": "Incumbent fallback retained until catalog availability and paired repository evidence approve a replacement.",
       "superseded_at": "2026-07-31",
       "superseded_by": "openai/gpt-5",

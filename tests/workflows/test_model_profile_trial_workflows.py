@@ -35,6 +35,7 @@ def test_dispatch_shim_is_single_arm_and_calls_only_pinned_reusable_runner():
     }
     assert all(value["required"] is True for value in inputs.values())
     assert inputs["profile_id"]["options"] == [
+        "codex-6-astra-high",
         "codex-5.6-sol-high",
         "codex-5.6-terra-high",
         "codex-5.6-luna-high",
@@ -59,7 +60,7 @@ def test_reusable_runner_is_read_only_exact_cli_and_has_no_write_lane():
     job = workflow["jobs"]["run-single-arm"]
     assert job["permissions"] == {"contents": "read"}
     source = RUNNER.read_text(encoding="utf-8")
-    assert "@openai/codex@0.144.1" in source
+    assert "@openai/codex@0.153.2" in source
     assert "--sandbox read-only" in source
     assert 'model_reasoning_effort="high"' in source
     assert "--ignore-user-config" in source
@@ -138,10 +139,11 @@ def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
         trial["collector_identity_authority"]
         == "github-actions-api/workflows-read-only-trial-artifact/v2"
     )
-    assert trial["cli_version"] == "0.144.1"
+    assert trial["cli_version"] == "0.153.2"
     assert trial["runtime_fallback_allowed"] is False
     assert trial["auxiliary_evaluator_allowed"] is False
     for profile_id in (
+        "codex-6-astra-high",
         "codex-5.6-sol-high",
         "codex-5.6-terra-high",
         "codex-5.6-luna-high",

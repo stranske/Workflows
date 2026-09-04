@@ -163,7 +163,10 @@ def _build_openai_client(
         "timeout": timeout,
         "max_retries": max_retries,
     }
-    if not _is_reasoning_model(model):
+    if model.lower().startswith("gpt-6-astra"):
+        kwargs["use_responses_api"] = True
+        kwargs["reasoning"] = {"effort": "high"}
+    elif not _is_reasoning_model(model):
         kwargs["temperature"] = 0.1
     return chat_openai(**kwargs)
 

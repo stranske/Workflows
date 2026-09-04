@@ -1089,3 +1089,19 @@ def test_build_anthropic_omits_temperature_for_newer_models():
 def test_build_anthropic_keeps_temperature_for_incumbent():
     client = _build_anthropic("claude-opus-4-6")
     assert client.kwargs["temperature"] == 0.1
+
+
+def test_astra_client_uses_high_reasoning_responses_without_sampling_controls():
+    from tools.langchain_client import _build_openai_client
+
+    received = {}
+
+    def client(**kwargs):
+        received.update(kwargs)
+        return kwargs
+
+    _build_openai_client(client, model="gpt-6-astra", token="test", timeout=30, max_retries=0)
+    assert received["use_responses_api"] is True
+    assert received["reasoning"] == {"effort": "high"}
+    assert "temperature" not in received
+    assert "top_p" not in received
