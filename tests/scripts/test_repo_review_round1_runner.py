@@ -406,6 +406,37 @@ class TestSyncRepoToOrigin:
         assert "HEAD now abc123 on origin/main" in message
         assert not any("pull" in call for call in calls)
 
+    def test_preserves_executing_steward_checkout(self, tmp_path: Path) -> None:
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        calls: list[list[str]] = []
+
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            if "fetch" in args or "status" in args:
+                return self._make_result(0, "")
+            if "--verify" in args and "origin/main" in args:
+                return self._make_result(0, "origin123")
+            if "--abbrev-ref" in args:
+                return self._make_result(0, "HEAD")
+            if args[-2:] == ["rev-parse", "HEAD"]:
+                return self._make_result(0, "repair456")
+            return self._make_result(0)
+
+        with patch("subprocess.run", fake_run):
+            ok, message = runner.sync_repo_to_origin(repo_path, preserve_checkout=True)
+
+        assert ok is True
+        assert "preserved executing steward checkout at repair456" in message
+        assert not any("checkout" in call or "pull" in call for call in calls)
+
     def test_timeout_handling(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()

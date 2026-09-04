@@ -145,6 +145,7 @@ def sync_repo_to_origin(
     repo_path: Path,
     *,
     timeout: int = 120,
+    preserve_checkout: bool = False,
 ) -> tuple[bool, str]:
     """Sync the local working tree to the exact origin/main commit.
 
@@ -155,9 +156,12 @@ def sync_repo_to_origin(
 
     Procedure: stash any dirty changes (preserved as a stash entry), fetch
     ``origin/main``, and detach at that exact commit when the current checkout
-    does not already point there. Detaching avoids two recurring local-only
-    failures: ``main`` may be owned by a sibling worktree, and a damaged
-    ``ORIG_HEAD`` can make ``git pull`` fail even after a successful fetch.
+    does not already point there. ``preserve_checkout`` is reserved for the
+    executing Workflows steward: replacing the files beneath the live runner
+    would make later phases load a different implementation. Detaching avoids
+    two recurring local-only failures: ``main`` may be owned by a sibling
+    worktree, and a damaged ``ORIG_HEAD`` can make ``git pull`` fail even after
+    a successful fetch.
     Returns (ok, summary). Untracked workloop-state.md is removed proactively
     because upstream often adds a tracked version with the same name.
     """
@@ -217,6 +221,12 @@ def sync_repo_to_origin(
         current = _git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
         current_head = _git(["rev-parse", "HEAD"]).stdout.strip()
         origin_head = check.stdout.strip()
+        if preserve_checkout:
+            notes.append(
+                "preserved executing steward checkout "
+                f"at {current_head[:12]} (origin/main {origin_head[:12]})"
+            )
+            return True, "; ".join(notes)
         if current != target or current_head != origin_head:
             checkout = _git(["checkout", "--detach", "origin/main"])
             if checkout.returncode != 0:
@@ -527,7 +537,10 @@ def run(args: argparse.Namespace) -> int:
     if not args.skip_local_sync:
         attempt = begin_attempt(state, phase="round-1-sync", agent="runner")
         save_state(output_dir, state)
-        ok, message = sync_repo_to_origin(repo_path)
+        ok, message = sync_repo_to_origin(
+            repo_path,
+            preserve_checkout=repo_path.resolve() == workflows_steward_root.resolve(),
+        )
         finish_attempt(state, attempt, succeeded=ok, notes=message[:400])
         save_state(output_dir, state)
         if not ok:
