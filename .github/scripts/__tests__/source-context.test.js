@@ -759,6 +759,10 @@ test('bound generated sync provenance overrides incidental issue text', () => {
     },
     {
       ...pull,
+      labels: [{ name: 'sync' }, { name: 'workflow:source-sync' }],
+    },
+    {
+      ...pull,
       head: { ...pull.head, ref: 'sync/workflows-candidate' },
     },
     {
@@ -772,6 +776,10 @@ test('bound generated sync provenance overrides incidental issue text', () => {
     {
       ...pull,
       body: body.replace(metadata.source_sha, 'c'.repeat(40)),
+    },
+    {
+      ...pull,
+      body: body.replace(metadata.source_repository, 'example/Other-Workflows'),
     },
   ];
   for (const unboundPull of unboundPulls) {

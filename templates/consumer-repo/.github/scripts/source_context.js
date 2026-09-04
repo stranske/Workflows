@@ -383,7 +383,7 @@ function parseConsumerSyncSource(body) {
     if (
       metadata?.schema !== 'workflows-consumer-sync-pr/v1' ||
       !/^[^/\s]+\/[^/\s]+$/.test(consumerRepo) ||
-      !/^[^/\s]+\/[^/\s]+$/.test(sourceRepository) ||
+      sourceRepository !== 'stranske/Workflows' ||
       !/^sha256:[0-9a-f]{64}$/i.test(planId) ||
       !/^[0-9a-f]{40}$/i.test(sourceCommit) ||
       sourceSha !== sourceCommit ||
@@ -415,6 +415,7 @@ function hasBoundGeneratedSyncContext(pull = {}, syncSource = parseConsumerSyncS
   const baseRepo = cleanString(pull?.base?.repo?.full_name);
   return (
     labels.includes('sync') &&
+    labels.includes('automated') &&
     labels.includes('workflow:source-sync') &&
     branch === syncSource.sync_branch &&
     (!headRepo || headRepo === syncSource.consumer_repo) &&
