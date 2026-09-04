@@ -121,7 +121,12 @@ def validate_findings_provenance(
     if not isinstance(data, dict):
         return ["findings provenance must be an object"]
     errors: list[str] = []
-    for key, expected in (("repo", repo), ("agent", agent), ("source_commit", source_commit)):
+    for key, expected in (
+        ("schema", "repo-review-round1-provenance/v1"),
+        ("repo", repo),
+        ("agent", agent),
+        ("source_commit", source_commit),
+    ):
         if data.get(key) != expected:
             errors.append(f"provenance {key}={data.get(key)!r}, expected {expected!r}")
     return errors
@@ -562,6 +567,26 @@ def invoke_round1_agent(
         )
         if not ok:
             last_error = f"attempt {attempt + 1}: {message}"
+            if findings_path.is_file():
+                errors = _validate_findings_file(findings_path, expected_repo=repo)
+                if not errors:
+                    try:
+                        write_findings_provenance(
+                            findings_path,
+                            repo=repo,
+                            agent=agent,
+                            source_commit=source_commit,
+                        )
+                    except OSError as exc:
+                        last_error += f"; cannot attest defensive findings: {exc}"
+                    else:
+                        return AgentResult(
+                            agent=agent,
+                            findings_path=findings_path,
+                            log_path=log_path,
+                            succeeded=True,
+                            spawned=True,
+                        )
             continue
 
         if not findings_path.is_file():

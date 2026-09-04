@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -105,6 +106,63 @@ def test_invoke_round1_preserves_and_replaces_stale_commit_findings(
     assert list(findings.parent.glob("findings.provenance.stale-*.json"))
 
 
+def test_findings_provenance_requires_current_schema(tmp_path: Path) -> None:
+    findings = tmp_path / "findings.json"
+    provenance = runner.findings_provenance_path(findings)
+    provenance.write_text(
+        json.dumps(
+            {
+                "schema": "repo-review-round1-provenance/v0",
+                "repo": "stranske/Example",
+                "agent": "codex",
+                "source_commit": "abc123",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    errors = runner.validate_findings_provenance(
+        findings,
+        repo="stranske/Example",
+        agent="codex",
+        source_commit="abc123",
+    )
+
+    assert any("provenance schema" in error for error in errors)
+
+
+def test_invoke_round1_attests_valid_defensive_output_after_agent_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "stranske/Example")
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_args, **_kwargs: [])
+
+    def failed_after_write(*_args, **_kwargs):
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text('{"defensive": true}\n', encoding="utf-8")
+        return False, "timed out"
+
+    monkeypatch.setattr(runner, "invoke_agent", failed_after_write)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc123",
+    )
+
+    assert result.succeeded is True
+    assert result.spawned is True
+    provenance = json.loads(runner.findings_provenance_path(findings).read_text(encoding="utf-8"))
+    assert provenance["source_commit"] == "abc123"
+
+
 def test_findings_path_handles_repo_names_with_multiple_slashes(tmp_path: Path) -> None:
     output_dir = tmp_path / "output"
     result = runner.round1_findings_path(output_dir, "claude", "org/suborg/project")
@@ -122,6 +180,71 @@ def test_findings_path_preserves_existing_path_content(tmp_path: Path) -> None:
     output_dir.mkdir(parents=True)
     result = runner.round1_findings_path(output_dir, "codex", "stranske/Example")
     assert result == output_dir / "round1" / "codex" / "stranske__Example" / "findings.json"
+
+
+@pytest.mark.parametrize("failure", ["nonzero", "timeout"])
+def test_run_fails_closed_when_source_commit_cannot_be_resolved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    repo = "stranske/Example"
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+    output_dir = tmp_path / "out"
+    review_inputs = runner.review_inputs_path(output_dir, repo)
+    review_inputs.parent.mkdir(parents=True)
+    review_inputs.write_text("review input\n", encoding="utf-8")
+    registry_path = tmp_path / "Workflows-steward" / "config" / "registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo=repo, local_path="repo")],
+            [],
+        ),
+    )
+    invoked = False
+
+    def unexpected_agent(**_kwargs):
+        nonlocal invoked
+        invoked = True
+        raise AssertionError("agent must not run without a source commit")
+
+    monkeypatch.setattr(runner, "invoke_round1_agent", unexpected_agent)
+    if failure == "timeout":
+
+        def fake_run(*_args, **_kwargs):
+            raise subprocess.TimeoutExpired(["git", "rev-parse", "HEAD"], 30)
+
+    else:
+
+        def fake_run(*_args, **_kwargs):
+            return subprocess.CompletedProcess(
+                args=["git"], returncode=1, stdout="", stderr="bad revision"
+            )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repo=repo,
+        skip_local_sync=True,
+        skip_map_refresh=True,
+        agents=["codex", "claude"],
+        turn_timeout=30,
+        retries=1,
+        gitnexus_bin="gitnexus",
+        map_refresh_timeout=30,
+    )
+
+    assert runner.run(args) == 1
+    assert invoked is False
+    state = runner.load_state(output_dir, repo)
+    assert state.status == "round1-failed"
+    assert "cannot resolve review source commit" in state.notes
 
 
 class TestReviewInputsPath:
