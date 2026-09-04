@@ -352,6 +352,13 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     assert "--draft" not in source
     assert "sync:delivery-staging" in source
     assert "sync:delivery-ready" in source
+    assert (
+        "workflow:source-sync|PR source is a sync or maintenance campaign|1d76db"
+        in source
+    )
+    assert '<!-- workflow-source:sync_campaign -->' in source
+    assert '--add-label "sync,automated,workflow:source-sync"' in source
+    assert '--label "sync,automated,workflow:source-sync"' in source
     continuation_names = [step.get("name") for step in continuation["steps"]]
     assert "Build exact no-change canary evidence" in continuation_names
     assert "Record exact consumer base" in [step.get("name") for step in sync["steps"]]

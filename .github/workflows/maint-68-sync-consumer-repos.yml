@@ -935,21 +935,21 @@ jobs:
         run: |
           cd consumer
 
-          # Required labels for sync PRs
-          required_labels=("sync" "automated" "sync:delivery-staging" "sync:delivery-ready")
+          # Required labels for sync PRs. Keep source provenance distinct from
+          # mutable delivery state so downstream event handlers can fail closed
+          # without mistaking file-summary issue references for source issues.
+          required_label_specs=(
+            "sync|Automated sync from Workflows|0e8a16"
+            "automated|Automated sync from Workflows|0e8a16"
+            "workflow:source-sync|PR source is a sync or maintenance campaign|1d76db"
+            "sync:delivery-staging|Generated delivery is mutable and must not merge|d93f0b"
+            "sync:delivery-ready|Generated delivery is sealed to its exact reviewed head|0e8a16"
+          )
 
-          for label in "${required_labels[@]}"; do
+          for label_spec in "${required_label_specs[@]}"; do
+            IFS='|' read -r label description color <<<"$label_spec"
             if ! gh label list --json name -q ".[].name" | grep -q "^${label}$"; then
               echo "Creating label: $label"
-              description="Automated sync from Workflows"
-              color="0e8a16"
-              if [ "$label" = "sync:delivery-staging" ]; then
-                description="Generated delivery is mutable and must not merge"
-                color="d93f0b"
-              elif [ "$label" = "sync:delivery-ready" ]; then
-                description="Generated delivery is sealed to its exact reviewed head"
-                color="0e8a16"
-              fi
               gh label create "$label" --description "$description" --color "$color" || true
             fi
           done
@@ -1492,12 +1492,14 @@ jobs:
           **Consumer repo:** \`$TARGET_REPOSITORY\`
           **Manifest:** \`.github/sync-manifest.yml\`
 
+          <!-- workflow-source:sync_campaign -->
           <!-- workflows-consumer-sync:v1 $sync_marker -->
           <!-- sync-pr-delivery-record:v1 $delivery_marker -->
 
           autofix: false"
 
           if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --add-label "sync,automated,workflow:source-sync"
             gh pr edit "$existing_pr" --body "$pr_body"
             pr_number="$existing_pr"
             pr_url="https://github.com/$TARGET_REPOSITORY/pull/$existing_pr"
@@ -1507,7 +1509,8 @@ jobs:
               --head "$branch_name" \
               --title "chore: sync workflow templates" \
               --body "$pr_body" \
-              --label "sync,automated,sync:delivery-staging")
+              --label "sync,automated,workflow:source-sync" \
+              --label "sync:delivery-staging")
             pr_number=$(gh pr list --head "$branch_name" \
               --json number,headRefName,isCrossRepository \
               | jq -r --arg branch "$branch_name" \
