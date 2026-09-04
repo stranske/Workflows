@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import yaml
+from scripts.sync_manifest_compiler import compile_manifest
+
 GUIDE = Path("templates/consumer-repo/docs/CI_SYSTEM_GUIDE.md")
 
 
@@ -33,12 +36,25 @@ def test_consumer_ci_guide_matches_current_agent_entrypoints() -> None:
 
 
 def test_consumer_operator_docs_match_gate_followup_topology() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
     root_labels = Path("docs/LABELS.md").read_text(encoding="utf-8")
-    labels = Path("templates/consumer-repo/docs/LABELS.md").read_text(encoding="utf-8")
     setup = Path("templates/consumer-repo/docs/SETUP_CHECKLIST.md").read_text(encoding="utf-8")
-    gate_followups = Path(
-        "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"
-    ).read_text(encoding="utf-8")
+    compiled = compile_manifest(repo_root / ".github/sync-manifest.yml", repo_root=repo_root)
+    labels_entry = next(
+        entry for entry in compiled.section("docs") if entry.target == "docs/LABELS.md"
+    )
+    gate_followups_entry = next(
+        entry
+        for entry in compiled.section("workflows")
+        if entry.target == ".github/workflows/agents-81-gate-followups.yml"
+    )
+    assert labels_entry.source_tree == "template"
+    assert gate_followups_entry.source_tree == "template"
+    labels = (repo_root / labels_entry.resolved_source).read_text(encoding="utf-8")
+    gate_followups = yaml.safe_load(
+        (repo_root / gate_followups_entry.resolved_source).read_text(encoding="utf-8")
+    )
+    jobs = gate_followups["jobs"]
 
     assert "Root/non-consolidated: sets `force_retry=true`" in root_labels
     assert ".github/workflows/agents-keepalive-loop.yml" in root_labels
@@ -49,8 +65,12 @@ def test_consumer_operator_docs_match_gate_followup_topology() -> None:
         assert retired_surface not in labels
 
     for agent, display_name in (("cursor", "Cursor"), ("gemini", "Gemini")):
-        assert f"reusable-{agent}-run.yml@main" in gate_followups
+        job_id = f"run-{agent}"
+        job = jobs[job_id]
+        assert job["uses"] == f"stranske/Workflows/.github/workflows/reusable-{agent}-run.yml@main"
+        assert f"needs.evaluate.outputs.agent_type == '{agent}'" in job["if"]
         assert f"Routes consumer Gate-followup keepalive to the {display_name} runner" in labels
+        assert f"Dispatches the `{job_id}` consumer PR keepalive job" in labels
         assert f"dispatches `reusable-{agent}-run.yml`" in labels
     assert "applying the label does not trigger a retry by itself" in labels
     assert "Does not set `force_retry`" in labels
