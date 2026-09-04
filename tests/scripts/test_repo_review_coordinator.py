@@ -475,6 +475,9 @@ def test_run_returns_nonzero_after_body_writer_repairs_exhausted(
     registry_path.parent.mkdir(parents=True)
     registry_path.write_text("{}", encoding="utf-8")
     output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    for name in coordinator.AGGREGATE_OUTPUT_NAMES:
+        (output_dir / name).write_text("stale\n", encoding="utf-8")
     monkeypatch.setattr(
         coordinator,
         "load_registry",
@@ -519,8 +522,76 @@ def test_run_returns_nonzero_after_body_writer_repairs_exhausted(
 
     assert rc == 1
     assert calls.count("body-writer") == 3
+    assert "final-evaluator" not in calls
     repairs = list((output_dir / "repairs" / "stranske__Example").glob("*/repair.json"))
     assert len(repairs) == 2
+    failure = json.loads((output_dir / "repo-review-run-failure.json").read_text())
+    assert failure["repo"] == "stranske/Example"
+    assert failure["phase"] == "body-writer"
+    assert len(failure["quarantined_aggregate_outputs"]) == 4
+    assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
+    assert all(
+        (output_dir / path).read_text(encoding="utf-8") == "stale\n"
+        for path in failure["quarantined_aggregate_outputs"]
+    )
+
+
+def test_run_stops_before_next_repo_when_repairs_are_exhausted(tmp_path: Path, monkeypatch) -> None:
+    """A required-phase failure must block later repos and aggregate outputs."""
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    repos = ["stranske/First", "stranske/Second"]
+    monkeypatch.setattr(
+        coordinator,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo=repo, status="active") for repo in repos],
+            [],
+        ),
+    )
+    coordinated: list[str] = []
+
+    def fake_coordinate_repo(**kwargs):
+        """Record the only repo the fail-closed loop may execute."""
+        coordinated.append(kwargs["repo"])
+        return {
+            "repo": kwargs["repo"],
+            "round1": {"succeeded": True},
+            "round2": {"succeeded": True},
+            "body_writer": {"succeeded": False},
+            "skip_gate_fired": False,
+        }
+
+    monkeypatch.setattr(coordinator, "coordinate_repo", fake_coordinate_repo)
+    monkeypatch.setattr(
+        coordinator,
+        "run_subprocess",
+        lambda _cmd, **kwargs: coordinator.StepResult(
+            name=kwargs["name"], succeeded=True, duration_seconds=0.01
+        ),
+    )
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=[],
+        agents=["codex", "claude"],
+        skip_preflight=False,
+        skip_gitnexus_preflight=True,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=1,
+        repair_attempts=2,
+        docs_drift_timeout=30,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
+    )
+
+    assert coordinator.run(args) == 1
+    assert coordinated == ["stranske/First"]
 
 
 def test_coordinate_repo_repairs_failed_round1_then_retries(tmp_path: Path, monkeypatch) -> None:
@@ -583,3 +654,58 @@ def test_prepare_round2_retry_quarantines_poisoned_turn_outputs(tmp_path: Path) 
     assert not turn_file.exists()
     assert not (repo_dir / "converged.json").exists()
     assert any("turn-1" in path for path in repair["quarantined"])
+
+
+def test_prepare_body_retry_carries_validator_feedback_into_next_attempt(tmp_path: Path) -> None:
+    """The next body attempt receives the exact prior deterministic failure."""
+    output_dir = tmp_path / "review"
+    repo = "stranske/Example"
+    repo_dir = output_dir / "round2" / "stranske__Example"
+    repo_dir.mkdir(parents=True)
+    converged = repo_dir / "converged.json"
+    baseline = repo_dir / "converged.pre-body-writer.json"
+    converged.write_text('{"body":"invalid"}\n', encoding="utf-8")
+    baseline.write_text('{"body":""}\n', encoding="utf-8")
+    failed_log = output_dir / "logs" / "coordinator" / "body-writer.log"
+    failed_log.parent.mkdir(parents=True)
+    failed_log.write_text(
+        "candidate #1: Tasks reference 1 distinct repository paths\n",
+        encoding="utf-8",
+    )
+
+    coordinator.prepare_phase_retry(
+        phase="body-writer",
+        repo=repo,
+        output_dir=output_dir,
+        failed_log=failed_log,
+        repair_number=1,
+    )
+
+    assert converged.read_text(encoding="utf-8") == baseline.read_text(encoding="utf-8")
+    feedback = (repo_dir / "body-writer-repair-feedback.txt").read_text(encoding="utf-8")
+    assert "schema-only validation is insufficient" in feedback
+    assert "candidate #1: Tasks reference 1 distinct repository paths" in feedback
+
+
+def test_prepare_body_retry_replaces_invalid_utf8_diagnostics(tmp_path: Path) -> None:
+    """Corrupt log bytes become replacement text instead of an I/O failure."""
+    output_dir = tmp_path / "review"
+    repo = "stranske/Example"
+    repo_dir = output_dir / "round2" / "stranske__Example"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / "converged.json").write_text("{}\n", encoding="utf-8")
+    (repo_dir / "converged.pre-body-writer.json").write_text("{}\n", encoding="utf-8")
+    failed_log = output_dir / "logs" / "coordinator" / "body-writer.log"
+    failed_log.parent.mkdir(parents=True)
+    failed_log.write_bytes(b"validator failure: \xff\xfe\n")
+
+    coordinator.prepare_phase_retry(
+        phase="body-writer",
+        repo=repo,
+        output_dir=output_dir,
+        failed_log=failed_log,
+        repair_number=1,
+    )
+
+    feedback = (repo_dir / "body-writer-repair-feedback.txt").read_text(encoding="utf-8")
+    assert "validator failure: \ufffd\ufffd" in feedback

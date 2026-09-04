@@ -273,6 +273,33 @@ def test_body_quality_errors_rejects_unresolvable_paths(tmp_path: Path) -> None:
     assert any("missing/x.py" in error for error in errors)
 
 
+def test_body_quality_errors_does_not_treat_expected_repo_slug_as_path(tmp_path: Path) -> None:
+    """Repository identity is metadata, not a repository-relative file path."""
+    for relative in (
+        "src/a.py",
+        "src/b.py",
+        "tests/test_a.py",
+        "docs/a.md",
+        "docs/b.md",
+        "scripts/check.py",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("ok\n", encoding="utf-8")
+    body = CLEAN_BODY.replace(
+        "github.com/.../issues/908",
+        "`stranske/Example` and github.com/.../issues/908",
+    )
+
+    errors = body_writer.body_quality_errors(
+        body,
+        repo_path=tmp_path,
+        expected_repo="stranske/Example",
+    )
+
+    assert not any("stranske/Example" in error for error in errors)
+
+
 def test_reference_paths_normalizes_line_ranges_and_dot_directories() -> None:
     paths = body_writer._reference_paths(
         "Update `.github/workflows/ci.yml:20-35`, `src/app.py#L8-L12`, and "
@@ -336,6 +363,7 @@ def test_build_prompt_injects_repo_variables(tmp_path: Path, monkeypatch) -> Non
     assert "PROMPT_TEMPLATE_BODY" in prompt
     # The agent should be told to validate via the round-2 schema script.
     assert "scripts/repo_review_round2_schema.py" in prompt
+    assert "--validate-only" in prompt
 
 
 def test_build_prompt_requires_rewrite_of_nonempty_invalid_body(
@@ -362,6 +390,72 @@ def test_build_prompt_requires_rewrite_of_nonempty_invalid_body(
     assert "BODY REPAIR REQUIRED" in prompt
     assert "candidate #1 'Repair me'" in prompt
     assert "rewrite every target" in prompt
+
+
+def test_build_prompt_includes_prior_deterministic_failure_feedback(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A retry prompt must expose the prior deterministic rejection details."""
+    fake_prompt = tmp_path / "prompt.md"
+    fake_prompt.write_text("PROMPT_TEMPLATE_BODY\n", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "canonical_body_writer_prompt", lambda: fake_prompt)
+    output_dir = tmp_path / "out"
+    path = body_writer.converged_path(output_dir, "stranske/Workflows")
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        '{"repo":"stranske/Workflows","converged_candidates":[],"meta_candidate":null}',
+        encoding="utf-8",
+    )
+    body_writer.repair_feedback_path(output_dir, "stranske/Workflows").write_text(
+        "candidate #2: Tasks reference 1 distinct repository paths; at least 4 are required\n",
+        encoding="utf-8",
+    )
+
+    prompt = body_writer.build_prompt(
+        repo="stranske/Workflows",
+        output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+    )
+
+    assert "PRIOR DETERMINISTIC VALIDATOR FEEDBACK" in prompt
+    assert "candidate #2: Tasks reference 1 distinct repository paths" in prompt
+    assert "schema-only validation is insufficient" in prompt
+
+
+def test_build_prompt_uses_resolved_custom_registry_path(tmp_path: Path, monkeypatch) -> None:
+    """The suggested validate-only command must use the caller's registry."""
+    fake_prompt = tmp_path / "prompt.md"
+    fake_prompt.write_text("PROMPT_TEMPLATE_BODY\n", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "canonical_body_writer_prompt", lambda: fake_prompt)
+    custom_registry = tmp_path / "custom config" / "registry.json"
+
+    prompt = body_writer.build_prompt(
+        repo="stranske/Workflows",
+        output_dir=tmp_path / "out",
+        repo_path=tmp_path / "repo",
+        registry_path=custom_registry.resolve(),
+    )
+
+    assert f"--registry '{custom_registry.resolve()}'" in prompt
+
+
+def test_build_prompt_replaces_invalid_utf8_in_repair_feedback(tmp_path: Path, monkeypatch) -> None:
+    """Binary-corrupted diagnostics must remain promptable without crashing."""
+    fake_prompt = tmp_path / "prompt.md"
+    fake_prompt.write_text("PROMPT_TEMPLATE_BODY\n", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "canonical_body_writer_prompt", lambda: fake_prompt)
+    output_dir = tmp_path / "out"
+    feedback = body_writer.repair_feedback_path(output_dir, "stranske/Workflows")
+    feedback.parent.mkdir(parents=True)
+    feedback.write_bytes(b"failure: \xff\xfe\n")
+
+    prompt = body_writer.build_prompt(
+        repo="stranske/Workflows",
+        output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+    )
+
+    assert "failure: \ufffd\ufffd" in prompt
 
 
 def test_restore_non_body_fields_keeps_only_agent_body_changes() -> None:
@@ -413,6 +507,7 @@ def _run_args(output_dir: Path, registry_path: Path) -> SimpleNamespace:
         skip_sync_check=False,
         agent="claude",
         timeout=30,
+        validate_only=False,
     )
 
 
@@ -429,6 +524,81 @@ def _write_empty_converged(output_dir: Path) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _configure_validate_only_run(
+    tmp_path: Path,
+    output_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> SimpleNamespace:
+    """Build validate-only arguments with agent execution pinned unreachable."""
+    steward = tmp_path / "Workflows-steward"
+    registry_path = steward / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        body_writer,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", local_path="Workflows-steward")],
+            [],
+        ),
+    )
+
+    def unexpected_agent(**_kwargs):
+        """Fail loudly if validate-only crosses the agent boundary."""
+        raise AssertionError("validate-only must never invoke an agent")
+
+    monkeypatch.setattr(body_writer, "run_body_writer", unexpected_agent)
+    args = _run_args(output_dir, registry_path)
+    args.validate_only = True
+    return args
+
+
+def test_validate_only_entrypoint_accepts_valid_data_without_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Valid data exits zero through the argument-driven no-agent path."""
+    output_dir = tmp_path / "out"
+    _write_empty_converged(output_dir)
+    args = _configure_validate_only_run(tmp_path, output_dir, monkeypatch)
+    monkeypatch.setattr(body_writer, "validate_converged_set", lambda *_args, **_kwargs: [])
+
+    assert body_writer.run(args) == 0
+
+
+def test_validate_only_entrypoint_rejects_schema_errors_without_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Schema failures exit nonzero through the argument-driven no-agent path."""
+    output_dir = tmp_path / "out"
+    _write_empty_converged(output_dir)
+    args = _configure_validate_only_run(tmp_path, output_dir, monkeypatch)
+    monkeypatch.setattr(
+        body_writer,
+        "validate_converged_set",
+        lambda *_args, **_kwargs: ["schema is invalid"],
+    )
+
+    assert body_writer.run(args) == 1
+
+
+def test_validate_only_entrypoint_rejects_body_quality_errors_without_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Body failures exit nonzero through the argument-driven no-agent path."""
+    output_dir = tmp_path / "out"
+    _write_empty_converged(output_dir)
+    path = body_writer.converged_path(output_dir, "stranske/Example")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["converged_candidates"] = [{"title": "Bad body", "body": "too short"}]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    args = _configure_validate_only_run(tmp_path, output_dir, monkeypatch)
+    monkeypatch.setattr(body_writer, "validate_converged_set", lambda *_args, **_kwargs: [])
+
+    assert body_writer.run(args) == 1
 
 
 def test_run_skips_sync_verification_for_executing_steward(
