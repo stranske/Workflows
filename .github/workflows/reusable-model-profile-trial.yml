@@ -186,12 +186,13 @@ jobs:
         id: cli
         run: |
           set -euo pipefail
-          # zizmor: ignore[adhoc-install] The subscription CLI has no supported lockfile runner;
-          # this canary pins one immutable npm version and fails unless codex reports it exactly.
-          npm install -g "@openai/codex@0.144.1"
-          cli_version="$(codex --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
-          if ! printf '%s' "$cli_version" | grep -Eq '(^|[[:space:]])0\.144\.1($|[[:space:]])'; then
-            echo "::error::Installed Codex CLI is not exactly 0.144.1."
+          # Install the reviewed lockfile from the immutable helper checkout.
+          npm ci --prefix runner-src/.github/actions/verifier-codex-cli --ignore-scripts
+          codex_cli="$(pwd)/runner-src/.github/actions/verifier-codex-cli/node_modules/.bin/codex"
+          dirname "$codex_cli" >> "$GITHUB_PATH"
+          cli_version="$("$codex_cli" --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
+          if ! printf '%s' "$cli_version" | grep -Eq '(^|[[:space:]])0\.153\.2($|[[:space:]])'; then
+            echo "::error::Installed Codex CLI is not exactly 0.153.2."
             exit 1
           fi
           echo "cli-version=$cli_version" >> "$GITHUB_OUTPUT"

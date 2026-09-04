@@ -102,7 +102,7 @@ def _artifact(tmp_path: Path, **overrides):
         "requested_model": "gpt-5.6-sol",
         "requested_reasoning_effort": "high",
         "runner_version": PINNED_REF,
-        "cli_version": "codex-cli 0.144.1",
+        "cli_version": "codex-cli 0.153.2",
         "session_stream": stream,
         "codex_home": codex_home,
         "final_message": final_message,
@@ -207,7 +207,7 @@ def test_thread_identity_must_come_from_exact_matching_rollout(tmp_path):
         requested_model="gpt-5.6-sol",
         requested_reasoning_effort="high",
         runner_version=PINNED_REF,
-        cli_version="codex-cli 0.144.1",
+        cli_version="codex-cli 0.153.2",
         session_stream=tmp_path / "stream.jsonl",
         codex_home=tmp_path / "codex-home",
         final_message=final_message,
@@ -247,7 +247,7 @@ def test_failed_cli_with_malformed_stream_still_emits_failure_artifact(tmp_path)
         requested_model="gpt-5.6-sol",
         requested_reasoning_effort="high",
         runner_version=PINNED_REF,
-        cli_version="codex-cli 0.144.1",
+        cli_version="codex-cli 0.153.2",
         session_stream=stream,
         codex_home=tmp_path / "codex-home",
         final_message=final_message,
@@ -289,3 +289,15 @@ def test_source_manifest_is_stable_and_detects_ignored_file_changes(tmp_path):
     ignored.write_text("after\n", encoding="utf-8")
     after = contract.source_manifest(checkout)
     assert before["aggregate_sha256"] != after["aggregate_sha256"]
+
+
+def test_live_catalog_and_execution_registry_resolve_every_trial_arm():
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    registry = yaml.safe_load((root / ".github/agents/registry.yml").read_text())
+    models = json.loads((root / "config/model_registry.json").read_text())
+    for profile_id, expected_model in contract.EXPECTED_PROFILES.items():
+        result = contract.resolve_profile(registry, models, profile_id)
+        assert result["model"] == expected_model
+        assert result["permission_mode"] == "read-only"
