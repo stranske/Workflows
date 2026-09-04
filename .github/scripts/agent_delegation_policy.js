@@ -19,7 +19,6 @@ const DEFAULT_ROUTE_WEIGHTS_URL = (
 
 const ROUTE_WEIGHTS_SCHEMA = 'orchestrator.route-weights/v1';
 const ROUTE_WEIGHTS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
-const ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS = 60 * 1000;
 const ROUTE_WEIGHTS_FETCH_TIMEOUT_MS = 5000;
 
 /**
@@ -103,8 +102,7 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
     const generatedAt = Date.parse(document.generated_at || '');
     if (
       !Number.isFinite(generatedAt) ||
-      referenceTime - generatedAt > ROUTE_WEIGHTS_MAX_AGE_MS ||
-      generatedAt - referenceTime > ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS
+      referenceTime - generatedAt > ROUTE_WEIGHTS_MAX_AGE_MS
     ) {
       return null;
     }
@@ -120,6 +118,27 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
 }
 
 /**
+ * Return the reserved agent names for a route-weights task type.
+ *
+ * The export currently stores reservations by task type as rows, while an
+ * array of strings is accepted for backward-compatible fixtures and exports.
+ *
+ * @param {Object|Array|string[]|undefined} reserve
+ * @param {string} taskType
+ * @returns {string[]}
+ */
+function getRouteWeightReserveAgents(reserve, taskType) {
+  const entries = Array.isArray(reserve)
+    ? reserve
+    : (Array.isArray(reserve?.[taskType]) ? reserve[taskType] : []);
+
+  return entries
+    .map((entry) => (typeof entry === 'string' ? entry : entry?.agent))
+    .filter(Boolean)
+    .map((agent) => String(agent).toLowerCase());
+}
+
+/**
  * @param {Object} options
  * @returns {{ agent: string|null, delegationSource: 'route_weights'|'static', staticReason?: string }}
  */
@@ -129,12 +148,11 @@ function selectAgentFromRouteWeights({
   currentAgent,
   availableAgents,
   agents,
-  reserve = [],
+  reserve = routeWeights?.reserve,
 }) {
-  const reserveSet = new Set(
-    (Array.isArray(reserve) ? reserve : []).map((name) => String(name).toLowerCase()),
-  );
+  const reserveSet = new Set(getRouteWeightReserveAgents(reserve, taskType));
   const taskEntry = routeWeights?.task_types?.[taskType];
+  const normalizedCurrentAgent = String(currentAgent || '').toLowerCase();
 
   if (!routeWeights || !taskEntry || taskEntry.evidence_ok !== true) {
     return {
@@ -147,7 +165,7 @@ function selectAgentFromRouteWeights({
   const ranking = Array.isArray(taskEntry.ranking) ? taskEntry.ranking : [];
   for (const row of ranking) {
     const candidate = String(row?.agent || '').toLowerCase();
-    if (!candidate || candidate === currentAgent || reserveSet.has(candidate)) {
+    if (!candidate || candidate === normalizedCurrentAgent || reserveSet.has(candidate)) {
       continue;
     }
     if (!availableAgents.includes(candidate)) {
@@ -309,7 +327,16 @@ function decideNextAgent({
       reserve: routeWeights?.reserve,
     });
 
-    const nextAgent = weighted.agent || alternatives[0] || currentAgent;
+    // A valid evidence-bearing export may never be bypassed to select one of
+    // its explicitly reserved seats. The ordinary static fallback remains
+    // unchanged when the export is absent or lacks sufficient evidence.
+    const eligibleStaticAlternatives = routeWeights?.task_types?.[taskType]?.evidence_ok === true
+      ? alternatives.filter((agent) => !getRouteWeightReserveAgents(
+        routeWeights.reserve,
+        taskType,
+      ).includes(String(agent).toLowerCase()))
+      : alternatives;
+    const nextAgent = weighted.agent || eligibleStaticAlternatives[0] || currentAgent;
     const delegationSource = weighted.agent ? weighted.delegationSource : 'static';
 
     const sourceSuffix =
@@ -608,6 +635,7 @@ module.exports = {
   ROUTE_WEIGHT_TASK_TYPES,
   loadRouteWeights,
   selectAgentFromRouteWeights,
+  getRouteWeightReserveAgents,
   decideNextAgent,
   checkPrerequisites,
   calculateEffectiveness,
