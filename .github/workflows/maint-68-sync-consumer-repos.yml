@@ -81,6 +81,7 @@ env:
     stranske/Fine-Art-Archive
     stranske/Orchestrator
     stranske/Doc-Lineage
+    stranske/Deliverable-Render
 
 concurrency:
   group: sync-consumer-repos-${{ github.repository }}-${{ github.ref }}

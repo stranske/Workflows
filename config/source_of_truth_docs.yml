@@ -165,3 +165,8 @@ repos:
     docs:
       - path: README.md
         focus: intent, scope and interoperability commitments of the document-lineage engine
+  stranske/Deliverable-Render:
+    local_path: Deliverable-Render
+    docs:
+      - path: README.md
+        focus: renderer scope and the environment constraints the outputs must respect

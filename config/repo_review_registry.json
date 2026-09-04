@@ -121,6 +121,13 @@
       "status": "paused",
       "cadence": "manual",
       "decision_anchor": "Document lineage/blackline engine scaffolded 2026-09-04; activate the design review once the research-program briefs R1/R2 land its design docs and first issues."
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "local_path": "Deliverable-Render",
+      "status": "paused",
+      "cadence": "manual",
+      "decision_anchor": "Renderer library scaffolded 2026-09-04 from the work-environment inventory; activate review once the HTML hub and deck builder land."
     }
   ]
 }

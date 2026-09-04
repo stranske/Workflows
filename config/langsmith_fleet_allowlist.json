@@ -30,6 +30,12 @@
       "status": "not-applicable",
       "reason": "New consumer created 2026-09-04 from the Template; document-lineage engine with no LLM-backed runtime yet.",
       "registry_activation_condition": "Move to the LangSmith registry when Doc-Lineage gains an LLM-backed extraction or agent-observability surface."
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "status": "not-applicable",
+      "reason": "New consumer created 2026-09-04; deterministic renderers with no LLM-backed runtime.",
+      "registry_activation_condition": "Move to the LangSmith registry if a renderer gains an LLM-backed surface."
     }
   ]
 }
