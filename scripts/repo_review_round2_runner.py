@@ -42,14 +42,17 @@ import argparse
 import concurrent.futures
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 try:
     from scripts.repo_review_round2_schema import (
@@ -95,6 +98,36 @@ DEFAULT_MAX_TURNS = 3
 DEFAULT_TURN_TIMEOUT_SECONDS = 1800  # 30 min
 DEFAULT_RETRIES = 2
 META_PATTERN_OVERLAP_FLOOR = 0.5  # ≥ half the supporting refs in common
+DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS = 6 * 60 * 60
+PROVIDER_CAPACITY_WAIT_GRACE_SECONDS = 90
+_CLAUDE_CAPACITY_MARKERS = (
+    "you've hit your session limit",
+    "you've hit your weekly limit",
+    "you've hit your usage limit",
+    "you have hit your session limit",
+    "you have hit your weekly limit",
+    "you have hit your usage limit",
+    "usage limit reached",
+)
+_CLAUDE_RESET_RE = re.compile(
+    r"""
+    resets?\s+
+    (?:(?P<day_hint>today|tomorrow)|
+       (?P<date_hint>
+          (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|
+             mon|tue|wed|thu|fri|sat|sun)\b|
+          (?:january|february|march|april|may|june|july|august|september|
+             october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)
+          \s+\d{1,2}(?:,?\s+\d{4})?|
+          \d{4}-\d{2}-\d{2}
+       )
+    )?
+    \s*,?\s*(?:at\s+)?
+    (?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s*(?P<meridiem>am|pm)
+    (?:\s*\((?P<timezone>[^)]+)\))?
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -487,6 +520,221 @@ def _build_claude_env() -> dict[str, str]:
     return env
 
 
+def provider_capacity_wait_max_seconds() -> int:
+    """Return the bounded provider-capacity deferral budget.
+
+    A provider reset is availability, not a bad review attempt.  The limit is
+    deliberately environment-configurable so a scheduled run can wait for a
+    normal session-window reset without waiting indefinitely for a weekly or
+    account-level outage.
+    """
+    raw = os.environ.get("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "").strip()
+    if not raw:
+        return DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    return max(0, value)
+
+
+def claude_capacity_reset_at(
+    log_file: Path,
+    *,
+    now: datetime | None = None,
+) -> datetime | None:
+    """Parse a stated Claude session-limit reset from the invocation log.
+
+    Returns an aware UTC datetime only for a recognized capacity message with
+    a concrete reset time.  Authentication, malformed-output, and ordinary
+    nonzero exits remain normal failures and consume the existing retry budget.
+    """
+    try:
+        text = log_file.read_text(encoding="utf-8", errors="replace")[-16_000:]
+    except OSError:
+        return None
+    lowered = text.lower()
+    if not any(marker in lowered for marker in _CLAUDE_CAPACITY_MARKERS):
+        return None
+    match = _CLAUDE_RESET_RE.search(text)
+    if match is None:
+        return None
+
+    day_hint = match.group("day_hint")
+    date_hint = match.group("date_hint")
+    hour_text = match.group("hour")
+    minute_text = match.group("minute")
+    meridiem = match.group("meridiem")
+    timezone_name = match.group("timezone")
+    hour = int(hour_text) % 12
+    if meridiem.lower() == "pm":
+        hour += 12
+    minute = int(minute_text or "0")
+    if hour > 23 or minute > 59:
+        return None
+
+    current_utc = now or datetime.now(UTC)
+    if current_utc.tzinfo is None:
+        current_utc = current_utc.replace(tzinfo=UTC)
+    try:
+        zone = ZoneInfo(timezone_name) if timezone_name else current_utc.astimezone().tzinfo
+    except ZoneInfoNotFoundError:
+        return None
+    if zone is None:
+        zone = UTC
+    local_now = current_utc.astimezone(zone)
+    reset_local = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    normalized_day = (day_hint or "").lower()
+    if normalized_day == "tomorrow":
+        reset_local += timedelta(days=1)
+    elif date_hint:
+        normalized_date = date_hint.strip()
+        weekday_names = {
+            "mon": 0,
+            "tue": 1,
+            "wed": 2,
+            "thu": 3,
+            "fri": 4,
+            "sat": 5,
+            "sun": 6,
+        }
+        weekday = weekday_names.get(normalized_date[:3].lower())
+        if weekday is not None:
+            days_ahead = (weekday - local_now.weekday()) % 7
+            reset_local += timedelta(days=days_ahead)
+            if reset_local < local_now - timedelta(minutes=5):
+                reset_local += timedelta(days=7)
+        else:
+            parsed_date: datetime | None = None
+            has_year = bool(re.search(r"\b\d{4}\b", normalized_date))
+            formats = (
+                ("%Y-%m-%d", normalized_date),
+                ("%b %d, %Y", normalized_date),
+                ("%B %d, %Y", normalized_date),
+                ("%b %d %Y", normalized_date),
+                ("%B %d %Y", normalized_date),
+                ("%b %d %Y", f"{normalized_date} 2000"),
+                ("%B %d %Y", f"{normalized_date} 2000"),
+            )
+            for date_format, date_text in formats:
+                try:
+                    parsed_date = datetime.strptime(date_text, date_format)
+                    break
+                except ValueError:
+                    continue
+            if parsed_date is None:
+                return None
+            if has_year:
+                try:
+                    reset_local = local_now.replace(
+                        year=parsed_date.year,
+                        month=parsed_date.month,
+                        day=parsed_date.day,
+                        hour=hour,
+                        minute=minute,
+                        second=0,
+                        microsecond=0,
+                    )
+                except ValueError:
+                    return None
+                if reset_local < local_now - timedelta(minutes=5):
+                    return None
+            else:
+                next_reset: datetime | None = None
+                for candidate_year in range(local_now.year, local_now.year + 9):
+                    try:
+                        candidate = local_now.replace(
+                            year=candidate_year,
+                            month=parsed_date.month,
+                            day=parsed_date.day,
+                            hour=hour,
+                            minute=minute,
+                            second=0,
+                            microsecond=0,
+                        )
+                    except ValueError:
+                        continue
+                    if candidate >= local_now - timedelta(minutes=5):
+                        next_reset = candidate
+                        break
+                if next_reset is None:
+                    return None
+                reset_local = next_reset
+    elif reset_local < local_now - timedelta(minutes=5):
+        reset_local += timedelta(days=1)
+    if reset_local < local_now:
+        reset_local = local_now
+    return reset_local.astimezone(UTC)
+
+
+def capacity_wait_path(log_file: Path) -> Path:
+    return log_file.with_name(log_file.name + ".capacity-wait.json")
+
+
+def defer_for_claude_capacity(
+    log_file: Path,
+    reset_at: datetime,
+    *,
+    now: datetime | None = None,
+) -> tuple[bool, str]:
+    """Preserve capacity evidence and wait for the stated reset when bounded."""
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=UTC)
+    wait_seconds = max(0, int((reset_at - current.astimezone(UTC)).total_seconds()))
+    wait_seconds += PROVIDER_CAPACITY_WAIT_GRACE_SECONDS
+    max_wait = provider_capacity_wait_max_seconds()
+    timestamp = current.astimezone(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    preserved_log = log_file.with_name(f"{log_file.name}.capacity-{timestamp}")
+    try:
+        shutil.copy2(log_file, preserved_log)
+    except OSError as exc:
+        return False, f"cannot preserve Claude capacity evidence: {exc}"
+
+    wait_file = capacity_wait_path(log_file)
+    payload: dict[str, Any] = {
+        "schema_version": "v1",
+        "provider": "claude",
+        "detected_at": current.astimezone(UTC).isoformat(),
+        "reset_at": reset_at.astimezone(UTC).isoformat(),
+        "wait_seconds": wait_seconds,
+        "max_wait_seconds": max_wait,
+        "preserved_log": str(preserved_log),
+    }
+    if wait_seconds > max_wait:
+        note = (
+            f"claude capacity resets at {reset_at.isoformat()}, requiring {wait_seconds}s "
+            f"which exceeds the configured {max_wait}s deferral budget"
+        )
+        payload["state"] = "rejected"
+        payload["reason"] = note
+        try:
+            wait_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        except OSError as exc:
+            return False, f"cannot record rejected Claude capacity deferral: {exc}"
+        return False, note
+
+    payload["state"] = "waiting"
+    try:
+        wait_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        return False, f"cannot record Claude capacity deferral: {exc}"
+
+    print(
+        f"[provider-capacity] claude unavailable until {reset_at.isoformat()}; "
+        f"waiting {wait_seconds}s without consuming an agent retry "
+        f"(evidence: {preserved_log})",
+        file=sys.stderr,
+        flush=True,
+    )
+    time.sleep(wait_seconds)
+    payload["state"] = "resuming"
+    payload["resumed_at"] = datetime.now(UTC).isoformat()
+    with suppress(OSError):
+        wait_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return True, f"deferred until {reset_at.isoformat()}"
+
+
 def invoke_claude(
     prompt: str,
     *,
@@ -512,18 +760,29 @@ def invoke_claude(
     for extra in additional_dirs:
         cmd.extend(["--add-dir", str(extra)])
     env = _build_claude_env()
-    result = run_with_heartbeat(
-        cmd,
-        prompt=prompt,
-        cwd=cwd,
-        env=env,
-        log_file=log_file,
-        timeout=timeout,
-        heartbeat_interval=_HEARTBEAT_INTERVAL,
-        stall_threshold=_STALL_THRESHOLD,
-        label="claude",
-        progress_files=progress_files,
-    )
+    capacity_deferred = False
+    while True:
+        result = run_with_heartbeat(
+            cmd,
+            prompt=prompt,
+            cwd=cwd,
+            env=env,
+            log_file=log_file,
+            timeout=timeout,
+            heartbeat_interval=_HEARTBEAT_INTERVAL,
+            stall_threshold=_STALL_THRESHOLD,
+            label="claude",
+            progress_files=progress_files,
+        )
+        if result.succeeded or capacity_deferred:
+            break
+        reset_at = claude_capacity_reset_at(log_file)
+        if reset_at is None:
+            break
+        deferred, note = defer_for_claude_capacity(log_file, reset_at)
+        if not deferred:
+            return False, note
+        capacity_deferred = True
     if result.succeeded:
         return True, str(log_file)
     if result.stuck:
