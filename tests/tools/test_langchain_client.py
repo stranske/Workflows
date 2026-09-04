@@ -47,6 +47,19 @@ def _install_fake_langchain_anthropic(monkeypatch: pytest.MonkeyPatch):
     return FakeChatAnthropic
 
 
+def _clear_client_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    for env_name in (
+        "GITHUB_TOKEN",
+        "OPENAI_API_KEY",
+        langchain_client.ENV_ANTHROPIC_KEY,
+        langchain_client.ENV_PROVIDER,
+        langchain_client.ENV_MODEL,
+        langchain_client.ENV_SLOT_CONFIG,
+        langchain_client.ENV_MODEL_REGISTRY_CONFIG,
+    ):
+        monkeypatch.delenv(env_name, raising=False)
+
+
 def test_build_chat_client_prefers_openai_slot(monkeypatch: pytest.MonkeyPatch) -> None:
     """Slot 1 (OpenAI) should be preferred when both tokens are set."""
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
@@ -573,6 +586,45 @@ def test_build_chat_clients_env_provider_override(monkeypatch: pytest.MonkeyPatc
     assert all(isinstance(client.client, FakeChatOpenAI) for client in clients)
 
 
+@pytest.mark.parametrize(
+    ("provider", "token_env", "reviewed_model", "constructed_model"),
+    [
+        ("openai", "OPENAI_API_KEY", "gpt-reviewed", "gpt-reviewed"),
+        (
+            "anthropic",
+            langchain_client.ENV_ANTHROPIC_KEY,
+            "claude-reviewed",
+            "claude-reviewed",
+        ),
+        ("github-models", "GITHUB_TOKEN", "gpt-reviewed", "openai/gpt-reviewed"),
+    ],
+)
+def test_build_chat_clients_explicit_provider_uses_reviewed_model_when_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    token_env: str,
+    reviewed_model: str,
+    constructed_model: str,
+) -> None:
+    """An explicit provider without models must use its reviewed selection."""
+    _install_fake_langchain_openai(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv(token_env, "provider-token")
+    monkeypatch.setattr(
+        langchain_client,
+        "configured_model_for_provider",
+        lambda selected_provider, **_kwargs: (
+            reviewed_model if selected_provider == provider else ""
+        ),
+    )
+
+    clients = langchain_client.build_chat_clients(provider=provider)
+
+    assert [(client.provider, client.model) for client in clients] == [(provider, reviewed_model)]
+    assert clients[0].client.kwargs["model"] == constructed_model
+
+
 def test_build_chat_clients_env_provider_override_github(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -737,6 +789,160 @@ def test_build_chat_clients_anthropic_without_openai_package(
     assert len(clients) == 1
     assert clients[0].provider == langchain_client.PROVIDER_ANTHROPIC
     assert isinstance(clients[0].client, FakeChatAnthropic)
+
+
+def test_openai_clients_do_not_require_anthropic_package(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An absent optional Anthropic package must not disable OpenAI clients."""
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.setitem(sys.modules, "langchain_anthropic", None)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+
+    client = langchain_client.build_chat_client(model="gpt-explicit", provider="openai")
+    clients = langchain_client.build_chat_clients(model1="gpt-explicit", provider="openai")
+
+    assert client is not None
+    assert isinstance(client.client, FakeChatOpenAI)
+    assert [(item.provider, item.model) for item in clients] == [
+        (langchain_client.PROVIDER_OPENAI, "gpt-explicit")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("provider", "other_token_env"),
+    [
+        ("openai", "GITHUB_TOKEN"),
+        ("anthropic", "OPENAI_API_KEY"),
+        ("github-models", "OPENAI_API_KEY"),
+    ],
+)
+def test_explicit_provider_never_falls_back_when_its_credential_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    other_token_env: str,
+) -> None:
+    """A credentialed alternative must not override an explicit unavailable provider."""
+    _install_fake_langchain_openai(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv(other_token_env, "other-provider-token")
+
+    assert langchain_client.build_chat_client(model="requested-model", provider=provider) is None
+    assert langchain_client.build_chat_clients(model1="requested-model", provider=provider) == []
+
+
+@pytest.mark.parametrize(
+    ("provider", "token_env"),
+    [
+        ("openai", "OPENAI_API_KEY"),
+        ("anthropic", langchain_client.ENV_ANTHROPIC_KEY),
+        ("github-models", "GITHUB_TOKEN"),
+    ],
+)
+def test_explicit_provider_initialization_failure_is_contained(
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    token_env: str,
+) -> None:
+    """Client construction errors must degrade without switching providers."""
+    calls: list[str] = []
+
+    class FailingClient:
+        def __init__(self, **kwargs):
+            calls.append(kwargs["model"])
+            raise RuntimeError("constructor failed")
+
+    openai_module = types.ModuleType("langchain_openai")
+    openai_module.ChatOpenAI = FailingClient
+    anthropic_module = types.ModuleType("langchain_anthropic")
+    anthropic_module.ChatAnthropic = FailingClient
+    monkeypatch.setitem(sys.modules, "langchain_openai", openai_module)
+    monkeypatch.setitem(sys.modules, "langchain_anthropic", anthropic_module)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv(token_env, "provider-token")
+
+    assert langchain_client.build_chat_client(model="requested-model", provider=provider) is None
+    assert langchain_client.build_chat_clients(model1="requested-model", provider=provider) == []
+    assert len(calls) == 2
+
+
+def test_explicit_invalid_provider_never_auto_selects(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An invalid provider argument is an error, not permission to choose another."""
+    _install_fake_langchain_openai(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+
+    assert langchain_client.build_chat_client(model="gpt-explicit", provider="invalid") is None
+    assert langchain_client.build_chat_clients(model1="gpt-explicit", provider="invalid") == []
+
+
+def test_explicit_provider_without_reviewed_model_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing reviewed selection must never become an empty model request."""
+    _install_fake_langchain_openai(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.setattr(
+        langchain_client,
+        "configured_model_for_provider",
+        lambda _provider, **_kwargs: "",
+    )
+
+    assert langchain_client.build_chat_client(provider="openai") is None
+    assert langchain_client.build_chat_clients(provider="openai") == []
+
+
+def test_explicit_provider_refuses_any_blocked_requested_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A blocked primary or comparison model invalidates the explicit request."""
+    _install_fake_langchain_openai(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.setattr(
+        langchain_client,
+        "_is_model_blocked",
+        lambda _provider, model, **_kwargs: model == "blocked-model",
+    )
+
+    assert langchain_client.build_chat_client(model="blocked-model", provider="openai") is None
+    assert (
+        langchain_client.build_chat_clients(
+            model1="allowed-model",
+            model2="blocked-model",
+            provider="openai",
+        )
+        == []
+    )
+
+
+def test_explicit_anthropic_provider_builds_both_requested_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The explicit Anthropic comparison path preserves both model requests."""
+    _install_fake_langchain_openai(monkeypatch)
+    FakeChatAnthropic = _install_fake_langchain_anthropic(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
+
+    clients = langchain_client.build_chat_clients(
+        model1="claude-first",
+        model2="claude-second",
+        provider="anthropic",
+        timeout=17,
+        max_retries=4,
+    )
+
+    assert [item.model for item in clients] == ["claude-first", "claude-second"]
+    assert all(isinstance(item.client, FakeChatAnthropic) for item in clients)
+    assert [item.client.kwargs["timeout"] for item in clients] == [17, 17]
+    assert [item.client.kwargs["max_retries"] for item in clients] == [4, 4]
 
 
 # --- Reasoning model temperature handling ---
