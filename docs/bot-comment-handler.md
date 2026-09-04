@@ -44,6 +44,8 @@ The workflow reads the PR's labels to determine which agent to use:
 
 By default, the workflow processes comments from:
 - `copilot[bot]` - GitHub Copilot code review
+- `copilot-pull-request-reviewer` - GitHub Copilot pull-request review
+- `copilot-pull-request-reviewer[bot]` - GitHub Copilot reviewer bot variant
 - `github-actions[bot]` - GitHub Actions (lint, type check suggestions)
 - `coderabbitai[bot]` - CodeRabbit AI review
 - `chatgpt-codex-connector` - Codex connector review

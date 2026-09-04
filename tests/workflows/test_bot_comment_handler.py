@@ -19,7 +19,17 @@ def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     assert ".agents/" in ignored_paths.split(",")
 
     bot_authors = inputs.get("bot_authors", {}).get("default", "")
+    assert "copilot-pull-request-reviewer" in bot_authors
+    assert "copilot-pull-request-reviewer[bot]" in bot_authors
     assert "chatgpt-codex-connector[bot]" in bot_authors
+
+
+def test_canonical_bot_comment_handler_keeps_source_templates_in_scope() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
+    ignored_paths = workflow["jobs"]["handle"]["with"]["ignored_paths"].split(",")
+
+    assert ".agents/" in ignored_paths
+    assert "templates/" not in ignored_paths
 
 
 def test_reusable_bot_comment_handler_revalidates_active_threads_before_dispatch() -> None:
