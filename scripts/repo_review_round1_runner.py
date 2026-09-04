@@ -34,6 +34,7 @@ import argparse
 import contextlib
 import json
 import shutil
+import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -103,6 +104,54 @@ class AgentResult:
 def round1_findings_path(output_dir: Path, agent: str, repo: str) -> Path:
     safe = repo.replace("/", "__")
     return output_dir / "round1" / agent / safe / "findings.json"
+
+
+def findings_provenance_path(findings_path: Path) -> Path:
+    return findings_path.with_name("findings.provenance.json")
+
+
+def validate_findings_provenance(
+    findings_path: Path, *, repo: str, agent: str, source_commit: str
+) -> list[str]:
+    path = findings_provenance_path(findings_path)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"cannot validate findings provenance: {exc}"]
+    if not isinstance(data, dict):
+        return ["findings provenance must be an object"]
+    errors: list[str] = []
+    for key, expected in (("repo", repo), ("agent", agent), ("source_commit", source_commit)):
+        if data.get(key) != expected:
+            errors.append(f"provenance {key}={data.get(key)!r}, expected {expected!r}")
+    return errors
+
+
+def write_findings_provenance(
+    findings_path: Path, *, repo: str, agent: str, source_commit: str
+) -> None:
+    path = findings_provenance_path(findings_path)
+    path.write_text(
+        json.dumps(
+            {
+                "schema": "repo-review-round1-provenance/v1",
+                "repo": repo,
+                "agent": agent,
+                "source_commit": source_commit,
+                "recorded_at": datetime.now(UTC).isoformat(),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def preserve_stale_findings(findings_path: Path) -> None:
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    for path in (findings_path, findings_provenance_path(findings_path)):
+        if path.is_file():
+            path.replace(path.with_name(f"{path.stem}.stale-{timestamp}{path.suffix}"))
 
 
 def review_inputs_path(output_dir: Path, repo: str) -> Path:
@@ -440,6 +489,7 @@ def invoke_round1_agent(
     timeout: int,
     retries: int,
     workflows_steward_root: Path,
+    source_commit: str,
 ) -> AgentResult:
     findings_path = round1_findings_path(output_dir, agent, repo)
     findings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -452,6 +502,10 @@ def invoke_round1_agent(
         review_inputs=review_inputs,
         findings_out=findings_path,
         template_path=template_path,
+    )
+    prompt = (
+        f"Runner-attested review source commit: `{source_commit}`. Base every citation and "
+        "conclusion on this checkout.\n\n" + prompt
     )
 
     additional_dirs = sorted(
@@ -468,7 +522,15 @@ def invoke_round1_agent(
             # Maybe a prior attempt completed (or this is a re-run). Validate
             # before reusing — a stale or malformed findings.json should not
             # be silently accepted.
-            errors = _validate_findings_file(findings_path, expected_repo=repo)
+            errors = [
+                *_validate_findings_file(findings_path, expected_repo=repo),
+                *validate_findings_provenance(
+                    findings_path,
+                    repo=repo,
+                    agent=agent,
+                    source_commit=source_commit,
+                ),
+            ]
             if not errors:
                 return AgentResult(
                     agent=agent,
@@ -478,7 +540,17 @@ def invoke_round1_agent(
                     spawned=False,
                 )
             # Otherwise fall through to spawn (overwrite invalid file).
-            last_error = "existing findings.json failed schema validation: " + "; ".join(errors[:3])
+            last_error = "existing findings.json is not reusable: " + "; ".join(errors[:3])
+            try:
+                preserve_stale_findings(findings_path)
+            except OSError as exc:
+                return AgentResult(
+                    agent=agent,
+                    findings_path=findings_path,
+                    log_path=log_path,
+                    succeeded=False,
+                    error=f"cannot preserve stale findings: {exc}",
+                )
 
         ok, message = invoke_agent(
             agent,
@@ -508,6 +580,17 @@ def invoke_round1_agent(
             # Overwrite invalid file so retry is fresh.
             with contextlib.suppress(OSError):
                 findings_path.unlink()
+            continue
+
+        try:
+            write_findings_provenance(
+                findings_path,
+                repo=repo,
+                agent=agent,
+                source_commit=source_commit,
+            )
+        except OSError as exc:
+            last_error = f"attempt {attempt + 1}: cannot write findings provenance: {exc}"
             continue
 
         return AgentResult(
@@ -634,6 +717,35 @@ def run(args: argparse.Namespace) -> int:
             f"(embeddings={embeddings}, indexed={(gn_map.get('indexed_commit') or '')[:12]})"
         )
 
+    try:
+        head_result = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        head_result = None
+        head_error = str(exc)
+    else:
+        head_error = (head_result.stderr or head_result.stdout).strip()[:200]
+    source_commit = (
+        head_result.stdout.strip() if head_result and head_result.returncode == 0 else ""
+    )
+    if not source_commit:
+        transition(
+            state,
+            status="round1-failed",
+            note=f"cannot resolve review source commit: {head_error}",
+        )
+        save_state(output_dir, state)
+        print(
+            f"[round1] {args.repo}: cannot resolve review source commit: {head_error}",
+            file=sys.stderr,
+        )
+        return 1
+
     # 2. Fan out: Codex + Claude in parallel.
     template_path = round1_prompt_template_path()
     if not template_path.is_file():
@@ -667,6 +779,7 @@ def run(args: argparse.Namespace) -> int:
                 timeout=args.turn_timeout,
                 retries=args.retries,
                 workflows_steward_root=workflows_steward_root,
+                source_commit=source_commit,
             )
             for agent in agents
         }

@@ -27,33 +27,101 @@ class TestRound1FindingsPath:
 
         assert result == output_dir / "round1" / agent / "stranske__Example" / "findings.json"
 
-    def test_handles_repo_names_with_multiple_slashes(self, tmp_path: Path) -> None:
-        output_dir = tmp_path / "output"
-        repo = "org/suborg/project"
-        agent = "claude"
 
-        result = runner.round1_findings_path(output_dir, agent, repo)
+def test_invoke_round1_reuses_findings_only_for_exact_source_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "stranske/Example")
+    findings.parent.mkdir(parents=True)
+    findings.write_text("{}\n", encoding="utf-8")
+    runner.write_findings_provenance(
+        findings,
+        repo="stranske/Example",
+        agent="codex",
+        source_commit="abc123",
+    )
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_args, **_kwargs: [])
 
-        assert result == output_dir / "round1" / agent / "org__suborg__project" / "findings.json"
+    def unexpected_invoke(*_args, **_kwargs):
+        raise AssertionError("exact-head findings should be reused")
 
-    def test_handles_empty_agent_name(self, tmp_path: Path) -> None:
-        output_dir = tmp_path / "output"
-        repo = "stranske/Test"
-        agent = ""
+    monkeypatch.setattr(runner, "invoke_agent", unexpected_invoke)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc123",
+    )
 
-        result = runner.round1_findings_path(output_dir, agent, repo)
+    assert result.succeeded is True
+    assert result.spawned is False
 
-        assert result == output_dir / "round1" / "" / "stranske__Test" / "findings.json"
 
-    def test_preserves_existing_path_content(self, tmp_path: Path) -> None:
-        output_dir = tmp_path / "existing" / "output"
-        output_dir.mkdir(parents=True)
-        repo = "stranske/Example"
-        agent = "codex"
+def test_invoke_round1_preserves_and_replaces_stale_commit_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "claude", "stranske/Example")
+    findings.parent.mkdir(parents=True)
+    findings.write_text('{"old": true}\n', encoding="utf-8")
+    runner.write_findings_provenance(
+        findings,
+        repo="stranske/Example",
+        agent="claude",
+        source_commit="old123",
+    )
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_args, **_kwargs: [])
 
-        result = runner.round1_findings_path(output_dir, agent, repo)
+    def fake_invoke(*_args, **_kwargs):
+        findings.write_text('{"new": true}\n', encoding="utf-8")
+        return True, "ok"
 
-        assert result == output_dir / "round1" / agent / "stranske__Example" / "findings.json"
+    monkeypatch.setattr(runner, "invoke_agent", fake_invoke)
+    result = runner.invoke_round1_agent(
+        agent="claude",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="new456",
+    )
+
+    assert result.succeeded is True
+    assert result.spawned is True
+    provenance = json.loads(runner.findings_provenance_path(findings).read_text(encoding="utf-8"))
+    assert provenance["source_commit"] == "new456"
+    assert list(findings.parent.glob("findings.stale-*.json"))
+    assert list(findings.parent.glob("findings.provenance.stale-*.json"))
+
+
+def test_findings_path_handles_repo_names_with_multiple_slashes(tmp_path: Path) -> None:
+    output_dir = tmp_path / "output"
+    result = runner.round1_findings_path(output_dir, "claude", "org/suborg/project")
+    assert result == output_dir / "round1" / "claude" / "org__suborg__project" / "findings.json"
+
+
+def test_findings_path_handles_empty_agent_name(tmp_path: Path) -> None:
+    output_dir = tmp_path / "output"
+    result = runner.round1_findings_path(output_dir, "", "stranske/Test")
+    assert result == output_dir / "round1" / "" / "stranske__Test" / "findings.json"
+
+
+def test_findings_path_preserves_existing_path_content(tmp_path: Path) -> None:
+    output_dir = tmp_path / "existing" / "output"
+    output_dir.mkdir(parents=True)
+    result = runner.round1_findings_path(output_dir, "codex", "stranske/Example")
+    assert result == output_dir / "round1" / "codex" / "stranske__Example" / "findings.json"
 
 
 class TestReviewInputsPath:
